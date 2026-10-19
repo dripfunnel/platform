@@ -11,7 +11,7 @@ import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
 import { EditTextDialog } from './EditTextDialog'
 import { StudioChat, type ChatRequest } from './StudioChat'
-import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishProgress, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
+import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishProgress, failedWords, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 import { usePublishRun } from './usePublishRun'
 import './studio.css'
@@ -179,6 +179,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     setPublishing(null)
     if (locked) return
     setError(null)
+    setPublished(null)
     try {
       onRun(before ? await api.publishBefore(before) : await api.publishDesign())
     } catch (e) {
@@ -243,6 +244,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     }
     // A change after a refused or rolled-back publish moves the draft on, so that publish's notice and offer go.
     if (run) onRun(null)
+    setPublished(null)
     await after()
     setBusy(false)
     return true
@@ -275,6 +277,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const hasDraft = canDiscard || overview.status === 'not_published'
   const next = (overview.live?.number ?? 0) + 1
   const ended = published && published.id === run ? published : null
+  const suggestions = published?.step === 'live' ? failedWords(published) : []
   const culprit = ended?.bisectMessageId ? chat.find((m) => m.id === ended.bisectMessageId) : undefined
   const closeMenu = () => {
     setPreviewMenu(false)
@@ -335,6 +338,18 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             {words.publish.before}
           </button>
         )}
+      </div>
+    </li>
+  ) : published?.step === 'live' && suggestions.length > 0 ? (
+    <li>
+      <div className="df-studio-suggestions" role="status">
+        <strong>{fill(words.publish.liveWithSuggestions, { number: String(published.version ?? next - 1) })}</strong>
+        <span>{words.publish.suggestionsLede}</span>
+        <ul>
+          {suggestions.map((text) => (
+            <li key={text}>{text}</li>
+          ))}
+        </ul>
       </div>
     </li>
   ) : ended?.step === 'rolled_back' ? (

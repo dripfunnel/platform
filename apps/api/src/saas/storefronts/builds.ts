@@ -120,6 +120,12 @@ export const withBuild = async <T>(deps: Pick<BuildDeps, 'sql' | 'keys' | 'audie
 
 const expiresAt = (now: Date) => new Date(now.getTime() + handoutSeconds * 1000).toISOString()
 
+/** A publish that mustn't change the look: a patch or minor upgrade, or a security fix on the store's own theme (ARCHITECTURE §7). */
+const keepsLook = (build: Pick<BuildRow, 'kind' | 'check_only' | 'baseline'>) => (build.kind === 'upgrade' && !build.check_only) || (build.kind === 'security' && !build.baseline)
+// Core's advisoryChecks, copied: the API imports nothing of core's (docs/code/ARCHITECTURE.md §3). Checked by build-uploads.test.ts.
+export const advisoryChecks: readonly string[] = ['budgets', 'no-js', 'crawl', 'visual-diff']
+/** The verdict is the API's own (#806): a failing check refuses unless advisory; a look that must stay refuses too. */
+const blocks = (name: string, strictLook: boolean) => !advisoryChecks.includes(name) || (name === 'visual-diff' && strictLook)
 export interface StartAnswer {
   source: string
   /** The commit in the source bundle to build, and the core version whose build image builds it. */
@@ -149,7 +155,7 @@ export const startBuild = (deps: BuildDeps, token: string, buildId: string): Pro
       source: await link(deps.buckets.drafts, sourceBundle(build.store_id, build.id)),
       commit: build.commit,
       core: build.core_version,
-      strictLook: (build.kind === 'upgrade' && !build.check_only) || (build.kind === 'security' && !build.baseline),
+      strictLook: keepsLook(build),
       snapshot: await link(deps.buckets.drafts, snapshotFile(build.store_id, build.id)),
       live,
       expiresAt: expiresAt(now),
@@ -176,7 +182,6 @@ export const gateReport = z
     digest: z.string().regex(/^[0-9a-f]{64}$/),
     checks: z.array(z.strictObject({ name: z.string().regex(checkName), passed: z.boolean(), detail: z.string().max(500).optional() })).min(1).max(100),
   })
-  .refine((r) => r.passed === r.checks.every((c) => c.passed), 'passed must agree with the checks')
 export type GateReport = z.infer<typeof gateReport>
 
 // jsonb keeps no key order, so a stored report is compared field by field.
@@ -189,16 +194,17 @@ const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>
  */
 export const reportBuild = async (deps: BuildDeps, token: string, report: GateReport): Promise<{ passed: boolean; upload: boolean }> => {
   const answer = await withBuild(deps, token, report.build, async (tx, build) => {
-    const gate = { passed: report.passed, checks: report.checks }
+    const passed = report.checks.every((c) => c.passed || !blocks(c.name, keepsLook(build)))
+    const gate = { passed, checks: report.checks }
     if (build.gate !== null) {
-      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, report.passed), wake: build.attempt_of ?? build.id }
+      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, passed), wake: build.attempt_of ?? build.id }
       throw new BuildRefused('wrong_state')
     }
     if (build.state !== 'building' && build.state !== 'checking') throw new BuildRefused('wrong_state')
-    await recordGate(tx, { buildId: build.id, gate, digest: report.digest, passed: report.passed, at: deps.now() })
+    await recordGate(tx, { buildId: build.id, gate, digest: report.digest, passed, at: deps.now() })
     const failed = report.checks.filter((c) => !c.passed).map((c) => c.name)
-    await record(tx, build, build.runId, report.passed ? 'storefront.build_passed' : 'storefront.build_failed', report.passed ? 'success' : 'failed', failed.length > 0 ? failed.join(', ') : null)
-    return { answer: answerTo(build, report.passed), wake: build.attempt_of ?? build.id }
+    await record(tx, build, build.runId, passed ? 'storefront.build_passed' : 'storefront.build_failed', passed ? 'success' : 'failed', failed.length > 0 ? failed.join(', ') : null)
+    return { answer: answerTo(build, passed), wake: build.attempt_of ?? build.id }
   })
   await deps.wake(answer.wake, 'reported').catch(() => {
     throw new BuildUnavailable('workflow_unavailable')
