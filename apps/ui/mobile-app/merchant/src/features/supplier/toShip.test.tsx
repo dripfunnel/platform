@@ -10,7 +10,10 @@ jest.setTimeout(120_000)
 const mockPush = jest.fn()
 const readOnlyState = { readOnly: true, status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: null }
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: jest.fn(), back: jest.fn() }) }))
+jest.mock('expo-router', () => {
+  const { useEffect } = jest.requireActual<typeof import('react')>('react')
+  return { useRouter: () => ({ push: mockPush, navigate: jest.fn(), back: jest.fn() }), useFocusEffect: (effect: () => void) => useEffect(effect, [effect]) }
+})
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('@react-native-community/netinfo', () => ({ __esModule: true, default: { addEventListener: () => () => undefined } }))
 jest.mock('../../session', () => ({ sessionClient: () => mockSession.client, session: () => ({ leaveStore: jest.fn(), end: jest.fn() }) }))
@@ -172,7 +175,7 @@ describe('A supplier’s order', () => {
 
     await click(renderer, 'Send items to the store')
     expect(hasText(renderer, 'Send 3 items to the store')).toBe(true)
-    expect(hasText(renderer, 'Send these to Juniper & Co.. The store delivers them to the shopper.')).toBe(true)
+    expect(hasText(renderer, 'Send these to Juniper & Co.; it delivers them to the shopper.')).toBe(true)
     await clickLast(renderer, 'Mark as sent')
 
     expect(asked(calls, 'shipItems')[0]?.variables).toEqual({ o: 'o-1', w: 'w-nw', l: [{ lineId: 'l1', quantity: 1 }, { lineId: 'l2', quantity: 2 }], c: null, t: null, u: null })

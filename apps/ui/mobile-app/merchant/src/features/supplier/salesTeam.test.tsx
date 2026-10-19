@@ -57,7 +57,7 @@ describe('Your sales', () => {
     )
 
     expect(texts(renderer)).toEqual(
-      expect.arrayContaining(['Your sales', 'Lines with Northwind Textiles’s products in Juniper & Co.. Dates are in UTC.', 'KT-1049', 'Mara Linen Shirt · M', '₹2,699.00', 'Sold', 'Linen Tote', '₹3,499.00', '1 of 2 refunded', 'Refunded', 'Cancelled']),
+      expect.arrayContaining(['Your sales', 'Lines with Northwind Textiles’s products in Juniper & Co. · dates in UTC', 'KT-1049', 'Mara Linen Shirt · M', '₹2,699.00', 'Sold', 'Linen Tote', '₹3,499.00', '1 of 2 refunded', 'Refunded', 'Cancelled']),
     )
     expect(texts(renderer).filter((text) => text.includes('₹'))).toHaveLength(4)
     expect(hasText(renderer, 'so there are no payouts here')).toBe(true)
@@ -141,7 +141,7 @@ describe('Your team', () => {
     const { renderer } = await showTeam(teamHandlers([nadia, leo, mira]))
 
     expect(texts(renderer)).toEqual(
-      expect.arrayContaining(['Your team', 'The people from Northwind Textiles who work in Juniper & Co..', 'Nadia Tran', 'Active · you', 'Leo Park', 'leo@northwind.example', 'Active', 'mira@northwind.example', 'Invited · not accepted yet', 'Supplier admin', 'Supplier member']),
+      expect.arrayContaining(['Your team', 'The people from Northwind Textiles who work in Juniper & Co.', 'Nadia Tran', 'Active · you', 'Leo Park', 'leo@northwind.example', 'Active', 'mira@northwind.example', 'Invited · not accepted yet', 'Supplier admin', 'Supplier member']),
     )
     expect(hasText(renderer, 'Invite someone')).toBe(true)
   })

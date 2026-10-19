@@ -3249,7 +3249,7 @@
           "one": "Send {count} item to the store",
           "other": "Send {count} items to the store"
         },
-        "noteToStore": "Send these to {store}. The store delivers them to the shopper.",
+        "noteToStore": "Send these to {store}; it delivers them to the shopper.",
         "noteToShopper": "Shipping part of an order is normal — the rest stays “to ship”. The shopper gets an email, with tracking if you add it.",
         "confirmToStore": "Mark as sent",
         "doneToStore": {
@@ -3261,7 +3261,7 @@
     },
     "sales": {
       "label": "your sales",
-      "sub": "Lines with {supplier}’s products in {store}. Dates are in UTC.",
+      "sub": "Lines with {supplier}’s products in {store} · dates in UTC",
       "note": "Only the lines with your products, at the price the store charged. The store settles with you outside this portal, so there are no payouts here.",
       "export": "Export CSV",
       "empty": {
@@ -3277,7 +3277,7 @@
     },
     "team": {
       "label": "your team",
-      "sub": "The people from {supplier} who work in {store}.",
+      "sub": "The people from {supplier} who work in {store}",
       "invite": "Invite someone",
       "inviteTitle": "Invite someone from {supplier}",
       "inviteBody": "They get an email with a link that works for 7 days. They’ll see only {supplier}’s products and orders.",
@@ -3325,7 +3325,7 @@
       "lastAdmin": "This is the last admin, so the role can’t change and they can’t be removed. Make someone else an admin first.",
       "ok": "OK",
       "alone": "It’s just you so far. Invite someone from {supplier} to share the work.",
-      "foot": "Admins invite and remove people and change roles; members work on products and stock. There’s always at least one admin. Everyone here sees only {supplier}’s products and orders in {store}.",
+      "foot": "Admins invite and remove people and change roles; members work on products and stock. There’s always at least one admin. In {store}, everyone here sees only {supplier}’s products and orders.",
       "readOnly": "Your team can’t change while this store is read-only."
     }
   }

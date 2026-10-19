@@ -8,6 +8,7 @@ import { sessionClient } from '../../session'
 import { useTheme } from '../../theme'
 import { Button } from '../common/Button'
 import { useLoad } from '../common/useLoad'
+import { useReloadOnFocus } from '../collections/useReloadOnFocus'
 import { ListMessage } from '../orders/ListMessage'
 import { loadStateOf } from '../orders/loadState'
 import { OrderFilters } from '../orders/OrderFilters'
@@ -34,6 +35,9 @@ export function ToShipScreen({ initialFilter = 'ALL' }: Props) {
   const permissions = useLoad(() => loadAccess(client), [client])
   const access = permissions.state.status === 'ready' ? supplierAccessOf(permissions.state.data, state?.readOnly === true) : null
   const list = useOrderList(client, access?.canRead === true, { filter: initialFilter })
+
+  // An order marked sent or shipped on its own screen shows its new status here when the person comes back.
+  useReloadOnFocus(list.reload)
 
   const failure = permissions.state.status === 'error' ? permissions.state.error : list.status === 'error' ? list.error : null
   const retry = () => {
