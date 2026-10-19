@@ -404,6 +404,16 @@
       "ALREADY_INSTALLED": "This app is already installed.",
       "SUPPORT_READ_ONLY": "Support can’t change apps.",
       "BLOCKED_FOR_SUPPORT": "Support can’t install apps."
+    },
+    "settingsSupport": {
+      "FORBIDDEN": "Only the store owner can change this.",
+      "SUPPORT_READ_ONLY": "Support can’t change this.",
+      "BLOCKED_FOR_SUPPORT": "Support can’t change this."
+    },
+    "support": {
+      "FORBIDDEN": "Only the store owner or a manager can answer this.",
+      "NOT_PENDING": "That request is no longer open.",
+      "NOT_FOUND": "That support session is no longer open."
     }
   },
   "auth": {
@@ -631,7 +641,20 @@
     },
     "support": {
       "title": "{partner} support ({name}) is viewing your store.",
-      "body": "Read-only. Ends in {time}."
+      "body": "Read-only. Ends in {time}.",
+      "bodyWrite": "Changes allowed. Ends in {time}.",
+      "asks": "{agent} from {partner} support is asking to make changes for this session.",
+      "asksNote": "{agent} from {partner} support is asking to make changes for this session: “{note}”",
+      "allowLabel": "Allow",
+      "denyLabel": "Deny",
+      "allowTitle": "Let {agent} make changes?",
+      "allowBody": "{agent} from {partner} support will be able to change things in your store for this one session only, until the time on the banner runs out. They still can’t change passwords, payment details, payouts or who works here. Everything they do is in your Activity log under their name, and the store’s owners are emailed.",
+      "allowGo": "Allow changes",
+      "denyTitle": "Deny {agent}’s request?",
+      "denyBody": "{agent} stays read-only for the rest of this session, and can ask again.",
+      "denyGo": "Deny",
+      "allowed": "{name} can make changes until this session ends.",
+      "denied": "{name} stays read-only."
     },
     "offline": {
       "title": "You’re offline.",
@@ -1991,7 +2014,8 @@
       "shipping": "Shipping",
       "accounts": "Customer accounts",
       "developers": "Developers",
-      "apps": "Apps"
+      "apps": "Apps",
+      "support": "Support access"
     },
     "tabSubs": {
       "store": "Name, contact, address, currencies and languages",
@@ -2005,7 +2029,8 @@
       "shipping": "What delivery costs, when it’s free, couriers and where you deliver",
       "accounts": "How shoppers sign in to your storefront",
       "developers": "API keys for software that works with your store",
-      "apps": "Programs that work with your store, each with only the access you gave it"
+      "apps": "Programs that work with your store, each with only the access you gave it",
+      "support": "Whether your platform’s support team can open your store to help you"
     },
     "store": {
       "title": "Your store",
@@ -2669,6 +2694,54 @@
       "never": {
         "change": "Change anything in your store",
         "secrets": "See your payment details or passwords"
+      }
+    },
+    "support": {
+      "title": "Support access",
+      "sub": "Whether {partner}’s support team can open your store to help you.",
+      "switch": "Allow {partner} support to view my store",
+      "on": "On. Support can open a read-only session when you ask for help.",
+      "off": "Off. Support can only ask you to switch this on.",
+      "offTitle": "Turn off support access?",
+      "offBody": "Any support session open now ends straight away. {partner} support can then only ask you to switch this back on.",
+      "offGo": "Turn off",
+      "turnedOn": "Support access is on",
+      "turnedOff": "Support access is off",
+      "howTitle": "How a support session works",
+      "staff": "Separately, the platform’s own staff can sign in as a user to fix a problem. That’s rare, and logged too.",
+      "logTitle": "Support access log",
+      "logRange": "Last 90 days",
+      "logEmpty": "No support sessions yet. When {partner} support opens one, it’s listed here.",
+      "org": "{partner} support · as {name}",
+      "orgSupplier": "{partner} support · as {name}, {supplier}",
+      "ticket": "Ticket {ticket}: {reason}",
+      "openNow": "Open now · ends {time}",
+      "lasted": "{duration}",
+      "endedBy": {
+        "expired": "{duration} · timed out",
+        "store": "{duration} · ended when support access was turned off",
+        "targetGone": "{duration} · ended when that person left",
+        "storeClosed": "{duration} · ended when the store closed"
+      },
+      "readOnly": "Read-only",
+      "allowed": "Allowed by {name}",
+      "allowedNoName": "Allowed to make changes",
+      "denied": "Asked to make changes · denied",
+      "asking": "Asking to make changes",
+      "more": "Show older",
+      "moreFailed": "Older sessions didn’t load. Try again.",
+      "onShort": "On",
+      "offShort": "Off",
+      "ended": {
+        "one": "Support access is off. 1 open session ended.",
+        "other": "Support access is off. {total} open sessions ended."
+      },
+      "how": {
+        "one": "Support opens one only with a reason or a ticket number, and only while this is on.",
+        "two": "It’s read-only and ends after 30 minutes. Everyone signed in sees a banner while it’s open.",
+        "three": "You’re emailed when one starts. You or a manager can let them make changes for that one session.",
+        "four": "Even then they can’t change passwords, payment details, payouts or who works here.",
+        "five": "Every page they open and everything they change is in your Activity log, under their name."
       }
     }
   },

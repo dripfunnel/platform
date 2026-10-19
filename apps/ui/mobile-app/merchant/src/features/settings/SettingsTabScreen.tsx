@@ -12,6 +12,7 @@ import { AppsTab } from './privateApps/AppsTab'
 import { ShippingTab } from './shipping/ShippingTab'
 import { StoreInfoTab } from './store/StoreInfoTab'
 import { SuppliersTab } from './suppliers/SuppliersTab'
+import { SupportAccessTab } from './support/SupportAccessTab'
 import { TaxTab } from './tax/TaxTab'
 import { WarehouseTab } from './warehouse/WarehouseTab'
 import { isSettingsTab } from './tabs'
@@ -47,5 +48,7 @@ export function SettingsTabScreen({ tab }: { tab: string }) {
       return <DevelopersTab />
     case 'apps':
       return <AppsTab />
+    case 'support':
+      return <SupportAccessTab />
   }
 }

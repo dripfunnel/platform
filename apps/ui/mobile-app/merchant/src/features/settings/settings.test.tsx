@@ -93,10 +93,10 @@ const locale = {
 
 
 describe('Settings is the Owner’s', () => {
-  it('lists the tabs as rows that each open on their own screen, Payment setup, Shipping, Customer accounts, Developers and Apps among them', async () => {
+  it('lists the tabs as rows that each open on their own screen, Payment setup, Shipping, Customer accounts, Developers, Apps and Support access among them', async () => {
     const { renderer } = await show(<SettingsScreen />, {})
 
-    expect(texts(renderer)).toEqual(expect.arrayContaining(['Store info', 'Name, contact, address, currencies and languages', 'Payment setup', 'Shipping', 'Customer accounts', 'Developers', 'Apps']))
+    expect(texts(renderer)).toEqual(expect.arrayContaining(['Store info', 'Name, contact, address, currencies and languages', 'Payment setup', 'Shipping', 'Customer accounts', 'Developers', 'Apps', 'Support access']))
     expect(hasText(renderer, 'Billing')).toBe(false)
     await press(pressableNamed(renderer, 'Store info'))
     expect(mockPush).toHaveBeenCalledWith('/more/settings/store')
@@ -108,6 +108,8 @@ describe('Settings is the Owner’s', () => {
     expect(mockPush).toHaveBeenCalledWith('/more/settings/developers')
     await press(pressableNamed(renderer, 'Apps'))
     expect(mockPush).toHaveBeenCalledWith('/more/settings/apps')
+    await press(pressableNamed(renderer, 'Support access'))
+    expect(mockPush).toHaveBeenCalledWith('/more/settings/support')
   })
 
   it('tells a Manager the list is the owner’s, without reading anything', async () => {
@@ -118,7 +120,7 @@ describe('Settings is the Owner’s', () => {
     expect(calls).toHaveLength(0)
   })
 
-  it.each(['store', 'payments', 'shipping', 'accounts', 'developers', 'apps'])('opening %s by a deep link as a Manager is access denied, and reads and writes nothing', async (tab) => {
+  it.each(['store', 'payments', 'shipping', 'accounts', 'developers', 'apps', 'support'])('opening %s by a deep link as a Manager is access denied, and reads and writes nothing', async (tab) => {
     const { renderer, calls } = await show(<SettingsTabScreen tab={tab} />, {}, { acting: actingAs('manager') })
 
     expect(hasText(renderer, 'You don’t have access to Settings')).toBe(true)
