@@ -20,6 +20,8 @@ describe('formatMoney', () => {
   it('takes the digits from the currency, so yen has none and dinars have three', () => {
     expect(formatMoney({ amount: 100, currency: 'JPY' }, 'en')).toBe('¥100')
     expect(formatMoney({ amount: 100, currency: 'USD' }, 'en')).toBe('$1.00')
+    expect(formatMoney({ amount: '50000', currency: 'INR' }, 'en', { trimWhole: true })).toBe('₹500')
+    expect(formatMoney({ amount: '1250', currency: 'USD' }, 'en', { trimWhole: true })).toBe('$12.50')
     expect(formatMoney({ amount: 1000, currency: 'KWD' }, 'en')).toBe(`KWD${NBSP}1.000`)
   })
 

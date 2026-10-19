@@ -148,7 +148,7 @@ These follow decisions in `docs/`, so the prototype needs redrawing here:
   partner's help centre (white label).
 - **Products** (#500). The prototype's **Change with a reason** holds the change until Save; the API applies it at once (`adjustStock`), as the web portal does,
   so the sheet says it is saved right away. The prototype's "much higher than usual" price check needs the store's other prices, which the app doesn't
-  read, so only "Selling for free?" is asked. A download, a service or a gift card opens read-only until MA 14 (#507). Quick edit and bulk actions are not
+  read, so only "Selling for free?" is asked. Quick edit and bulk actions are not
   on the phone (`designs/INCOMPLETE-FEATURES.md`).
 - **Collections** (#501). The prototype's parts (Collections, Filters, Menus, Size charts) are a scrolling tab bar under the Catalogue segment. A menu item is changed from the sheet its row opens (move, nest, remove), not by four small buttons, and its desktop and phone previews stack. Changing a filter between shoppers and internal, and removing a menu item, ask in a sheet first, which the prototype does not. A size chart is a grid that scrolls sideways, and the size-chart limit and plan messages show with no "See plans" action, since plans are not in the app (§5). A supplier's own size charts are not in the app. A collection opens on its own screen with the shell's Back, not beside the list. Hand-picked products show what is picked above the search, and the live preview sits under the
   rules. Deleting asks in a sheet first, which says whether the collection is in the menu. A collection's image, SEO and sort order are not in the app.

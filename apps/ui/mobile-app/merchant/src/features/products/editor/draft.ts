@@ -1,6 +1,8 @@
 import type { EditorProduct, EditorVersion, ProductInput } from '../../../api/products'
+import type { ProductKindView } from '../../../api/productKinds'
 import type { StockLevel } from '../../../api/inventory'
 import { minorOf, moneyText } from '../../../format'
+import { blankDetails, detailsOf, kindOf, type KindDetails, type ProductKind } from './kindDetails'
 
 // A product as the phone's form edits it (FIRST-RELEASE.md §11): text as typed, so a half-typed price is kept, and the versions
 // as combinations of the choices. Whatever the phone doesn't edit travels in `carried` and goes back as it came, because a save
@@ -48,12 +50,15 @@ export type DraftPhoto = {
   code: string | null
 }
 
-type ProductCarry = Pick<EditorProduct, 'productType' | 'category' | 'warrantyText' | 'returnsText' | 'seoTitle' | 'seoDescription' | 'slug'>
+type ProductCarry = Pick<EditorProduct, 'category' | 'warrantyText' | 'returnsText' | 'seoTitle' | 'seoDescription' | 'slug'>
 
 export type Draft = {
   name: string
   description: string
   visible: boolean
+  /** What is sold; its details are saved with `saveProductKind` after the product (FIRST-RELEASE (store) §11). */
+  kind: ProductKind
+  details: KindDetails
   options: DraftOption[]
   versions: DraftVersion[]
   photos: DraftPhoto[]
@@ -88,17 +93,19 @@ export const blankDraft = (): Draft => ({
   name: '',
   description: '',
   visible: true,
+  kind: 'physical',
+  details: blankDetails(),
   options: [],
   versions: [blankVersion([])],
   photos: [],
   stock: {},
   sizeChart: { id: null, loaded: null },
-  carry: { productType: 'physical', category: null, warrantyText: null, returnsText: null, seoTitle: null, seoDescription: null, slug: '' },
+  carry: { category: null, warrantyText: null, returnsText: null, seoTitle: null, seoDescription: null, slug: '' },
 })
 
 const textOf = (amount: string | null | undefined, currency: string) => (amount ? moneyText({ amount, currency }) : '')
 
-export const draftOf = (product: EditorProduct, currency: string, levels: ReadonlyMap<string, readonly StockLevel[]> = new Map()): Draft => {
+export const draftOf = (product: EditorProduct, currency: string, levels: ReadonlyMap<string, readonly StockLevel[]> = new Map(), kind: ProductKindView | null = null): Draft => {
   const versions = product.versions.map((version): DraftVersion => {
     const own = version.prices.find((price) => price.currency === currency)
     return {
@@ -131,6 +138,8 @@ export const draftOf = (product: EditorProduct, currency: string, levels: Readon
     name: product.name,
     description: product.description,
     visible: product.visible,
+    kind: kindOf(product.productType),
+    details: detailsOf(kind),
     options: product.options.map((option) => ({ id: option.id, name: option.name, values: option.values.map((value) => ({ id: value.id, name: value.name })) })),
     versions: versions.length > 0 ? versions : [blankVersion([])],
     photos: product.photos.map((photo) => ({
@@ -145,7 +154,7 @@ export const draftOf = (product: EditorProduct, currency: string, levels: Readon
     })),
     stock: Object.fromEntries(product.versions.map((version) => [keyOf(version.choices), Object.fromEntries((levels.get(version.id) ?? []).map((level) => [level.warehouseId, String(level.onHand)]))])),
     sizeChart: { id: product.sizeChartId, loaded: product.sizeChartId },
-    carry: { productType: product.productType, category: product.category, warrantyText: product.warrantyText, returnsText: product.returnsText, seoTitle: product.seoTitle, seoDescription: product.seoDescription, slug: product.slug },
+    carry: { category: product.category, warrantyText: product.warrantyText, returnsText: product.returnsText, seoTitle: product.seoTitle, seoDescription: product.seoDescription, slug: product.slug },
   }
 }
 
@@ -220,7 +229,7 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   if (draft.options.length > maxOptions || names.some((name) => name === '') || new Set(names).size !== names.length || draft.options.some((option) => option.values.length === 0)) problems.push('options')
   if (live.length > 0 && (live.some((version) => version.choices.length !== draft.options.length) || newVersionCount(draft) > 0)) problems.push('versions')
   if (versionCountOf(draft.options) > maxVersions) problems.push('tooMany')
-  if (live.some((version) => Object.values(draft.stock[keyOf(version.choices)] ?? {}).some((text) => quantityOf(text) === 'invalid'))) problems.push('stock')
+  if (draft.kind === 'physical' && live.some((version) => Object.values(draft.stock[keyOf(version.choices)] ?? {}).some((text) => quantityOf(text) === 'invalid'))) problems.push('stock')
   if (draft.photos.some((photo) => photo.status === 'uploading')) problems.push('photosBusy')
   return problems
 }
@@ -253,7 +262,7 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
   return {
     name: draft.name.trim(),
     description: draft.description.trim(),
-    productType: draft.carry.productType,
+    productType: draft.kind,
     ...(side === 'merchant' ? { visible: draft.visible } : {}),
     ...(isNew ? {} : { slug: draft.carry.slug }),
     category: draft.carry.category,
@@ -362,6 +371,40 @@ export const removeKind = (draft: Draft, at: number): Draft => {
     }),
   )
   return { ...draft, options: without(draft.options, at), versions: merged.length > 0 ? merged : [blankVersion([])], stock }
+}
+
+/** The draft with a change to one kind's details. */
+export const withDetails = <K extends keyof KindDetails>(draft: Draft, kind: K, change: Partial<KindDetails[K]>): Draft => ({ ...draft, details: { ...draft.details, [kind]: { ...draft.details[kind], ...change } } })
+
+const byAmount = (a: string, b: string): number => (BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0)
+
+/** A gift card's amounts (its versions' prices, minor units as digit strings), lowest first. */
+export const amountsOf = (draft: Draft, currency: string): string[] => {
+  const amounts = liveVersions(draft).flatMap((version) => {
+    const minor = minorOf(version.price, currency)
+    return typeof minor === 'string' && minor !== '0' ? [minor] : []
+  })
+  return [...new Set(amounts)].sort(byAmount)
+}
+
+/**
+ * A gift card's versions made from its amounts: one kind of choice named `optionName` with a value per amount, a version kept
+ * where its price matches; none at all for a single amount.
+ */
+export const withAmounts = (draft: Draft, amounts: readonly string[], currency: string, optionName: string, label: (amount: string) => string): Draft => {
+  const sorted = [...new Set(amounts)].sort(byAmount)
+  const live = liveVersions(draft)
+  const kept = (amount: string) => live.find((version) => minorOf(version.price, currency) === amount)
+  const made = (choices: string[], price: string, from: DraftVersion | undefined): DraftVersion => ({ ...blankVersion(choices, from), id: from?.id ?? null, sku: from?.sku ?? '', price, compareAt: '' })
+  if (sorted.length <= 1) {
+    const amount = sorted[0]
+    const from = amount === undefined ? live[0] : (kept(amount) ?? live[0])
+    return { ...draft, options: [], versions: [made([], amount === undefined ? '' : moneyText({ amount, currency }), from)] }
+  }
+  const option = draft.options.length === 1 ? draft.options[0] : undefined
+  const values = sorted.map((amount) => ({ id: option?.values.find((value) => value.name === label(amount))?.id ?? null, name: label(amount) }))
+  const versions = sorted.map((amount) => made([label(amount)], moneyText({ amount, currency }), kept(amount)))
+  return { ...draft, options: [{ id: option?.id ?? null, name: option?.name || optionName, values }], versions }
 }
 
 /** Whether versions have been made from the choices (rather than a single version with none). */

@@ -7,7 +7,7 @@ import type { Draft, DraftProblem } from './draft'
 
 type Props = { draft: Draft; update: (change: (draft: Draft) => Draft) => void; currency: string; disabled: boolean; problems: readonly DraftProblem[] }
 
-const exampleOf = (currency: string): string => (moneyDigits(currency) === 0 ? '499' : `499.${'0'.repeat(moneyDigits(currency))}`)
+export const exampleOf = (currency: string): string => (moneyDigits(currency) === 0 ? '499' : `499.${'0'.repeat(moneyDigits(currency))}`)
 
 // The price of a product without choices (CATALOG-DESIGN.md C4): what the shopper pays, a compare-at price, and what it costs the
 // seller. Typed in major units of the store's currency; the amounts that go to the API are minor units (draft.ts).

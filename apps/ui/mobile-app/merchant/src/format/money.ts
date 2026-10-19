@@ -14,10 +14,12 @@ export const moneyDigits = (currency: string): number => {
 
 /**
  * Integer minor units and their currency as a price. A fraction of a minor unit is a bug upstream, so it throws. A digit string is
- * formatted from its decimal text, so an amount past what a number holds is never rounded by this code.
+ * formatted from its decimal text, so an amount past what a number holds is never rounded by this code. `trimWhole` drops the
+ * decimals of a whole amount ("₹500"), as a name the shopper reads.
  */
-export const formatMoney = ({ amount, currency }: Money, locale: string): string => {
-  const formatter = new Intl.NumberFormat(locale, { style: 'currency', currency })
+export const formatMoney = ({ amount, currency }: Money, locale: string, { trimWhole = false }: { trimWhole?: boolean } = {}): string => {
+  const whole = String(amount).endsWith('0'.repeat(moneyDigits(currency)))
+  const formatter = new Intl.NumberFormat(locale, { style: 'currency', currency, ...(trimWhole && whole ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}) })
   if (typeof amount === 'number') {
     if (!Number.isSafeInteger(amount)) throw new RangeError(`Money is integer minor units, not ${amount}.`)
     return formatter.format(amount / 10 ** moneyDigits(currency))

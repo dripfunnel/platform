@@ -14,8 +14,8 @@ export type SheetSpec = {
   tag?: string
   body?: string
   choices?: readonly SheetChoice[]
-  /** `initial` starts the field with a value (a rename); `single` makes it one line, for a name, rather than a few. */
-  input?: { label: string; placeholder?: string; error?: string; initial?: string; single?: boolean }
+  /** `initial` starts the field with a value (a rename); `single` makes it one line, for a name, rather than a few; `validate` answers the words for a value that won't do. */
+  input?: { label: string; placeholder?: string; error?: string; initial?: string; single?: boolean; validate?: (text: string) => string | null }
   confirm: string
   /** Absent means "Cancel"; `null` means no cancel button. */
   cancel?: string | null
@@ -55,6 +55,11 @@ export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () =>
   const confirm = async () => {
     if (spec.input?.error && text.trim() === '') {
       setError(spec.input.error)
+      return
+    }
+    const refused = spec.input?.validate?.(text.trim()) ?? null
+    if (refused) {
+      setError(refused)
       return
     }
     setBusy(true)

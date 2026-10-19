@@ -11,6 +11,7 @@ jest.setTimeout(120_000)
 const mockReplace = jest.fn()
 const mockPush = jest.fn()
 const mockPick = jest.fn()
+const mockDocument = jest.fn()
 const mockSession: { client: ApiClient | null } = { client: null }
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace, navigate: jest.fn(), back: jest.fn() }), useNavigation: () => ({ dispatch: jest.fn() }) }))
@@ -21,6 +22,7 @@ jest.mock('expo-image-picker', () => ({
   launchCameraAsync: (...args: unknown[]) => mockPick('camera', ...args),
   requestCameraPermissionsAsync: async () => ({ granted: true }),
 }))
+jest.mock('expo-document-picker', () => ({ getDocumentAsync: (...args: unknown[]) => mockDocument(...args) }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('@react-native-community/netinfo', () => ({ __esModule: true, default: { addEventListener: () => () => undefined } }))
 jest.mock('../files', () => ({ fileDeps: () => ({ domain: 'shop.test', headers: () => ({ authorization: 'Bearer token' }) }) }))
@@ -438,12 +440,6 @@ describe('who sees what', () => {
     expect(hasText(renderer, 'Details like fibre content and care are added on the web for now.')).toBe(true)
   })
 
-  it('opens a download, a service or a gift card for looking only, since product kinds come with their own card', async () => {
-    const { renderer } = await open('p-1', base({ product: apiProduct({ productType: 'digital' }) }))
-
-    expect(hasText(renderer, 'This kind of product is edited on the web for now.')).toBe(true)
-    expect((input(renderer, 'Product name').props as { editable: boolean }).editable).toBe(false)
-  })
 })
 
 describe('the states', () => {
@@ -642,5 +638,248 @@ describe('never losing typed counts', () => {
     await settle()
     expect(calledWith(calls, 'mutation Save').at(-1)?.variables).toMatchObject({ revision: 5 })
     expect(calledWith(calls, 'mutation SetStock')[0]?.variables).toEqual({ e: [{ versionId: 'ver-1', warehouseId: 'w-1', quantity: 20 }] })
+  })
+})
+
+describe('product kinds', () => {
+  const mib18 = 18 * 1024 * 1024
+  const pdf = { id: 'asset-9', mime: 'application/pdf', bytes: mib18 }
+  const kindView = (over: Record<string, unknown> = {}) => ({ productId: 'p-new', productType: 'digital', revision: 2, download: { mode: 'file', file: pdf, limit: 5, days: 30 }, service: null, giftCard: null, ...over })
+  const savedAs = (id: string, revision: number) => ({ saveProduct: { id, revision, approval: null, reviewed: [] } })
+
+  const upload = (answer: unknown) => {
+    const fetchMock = jest.fn(async (url: string) => (url.startsWith('file:') ? { blob: async () => ({ type: 'application/pdf', size: mib18 }) } : { json: async () => answer }))
+    global.fetch = fetchMock as unknown as typeof fetch
+    return fetchMock
+  }
+  const pickFile = (over: Record<string, unknown> = {}) => mockDocument.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///cache/guide.pdf', name: 'guide.pdf', size: mib18, mimeType: 'application/pdf', ...over }] })
+  const kindOption = (renderer: ReactTestRenderer, label: string) => {
+    const rows = renderer.root.findAll((node) => node.props.accessibilityRole === 'radio' && typeof node.props.onPress === 'function')
+    const found = rows.find((node) => node.findAll((child) => (child.type as unknown) === 'Text').some((text) => text.children.join('') === label))
+    if (!found) throw new Error(`no kind named "${label}"`)
+    return found
+  }
+  const asInput = (call: Call | undefined) => (call?.variables ?? {}) as { id: string; revision: number; input: Record<string, unknown> }
+
+  it('creates a download with its file: picked, uploaded privately, and saved after the product', async () => {
+    const fetchMock = upload({ ok: true, asset: { id: 'asset-9', kind: 'file', mime: 'application/pdf', bytes: mib18 } })
+    pickFile()
+    const { renderer, calls } = await open(null, { ...base({ product: null }), 'mutation SaveProductKind': () => ({ saveProductKind: kindView() }), 'mutation Save': () => savedAs('p-new', 1) })
+
+    await press(kindOption(renderer, 'A download'))
+    expect(hasText(renderer, 'What the shopper gets')).toBe(true)
+    await type(renderer, 'Product name', 'Darning guide')
+    await type(renderer, 'Price', '299')
+    await press(pressableNamed(renderer, 'Upload the file'))
+    await settle()
+
+    const post = fetchMock.mock.calls.find(([url]) => url === 'https://shop.test/api/assets?kind=download') as unknown as [string, { method: string; headers: Record<string, string> }]
+    expect(post[1]).toMatchObject({ method: 'POST', headers: expect.objectContaining({ authorization: 'Bearer token', 'content-type': 'application/pdf' }) })
+    expect(hasText(renderer, 'PDF file · 18 MB')).toBe(true)
+
+    await press(pressableNamed(renderer, 'Downloads per order: 10'))
+    await press(pressableNamed(renderer, 'Link works for: 1 year'))
+    await press(pressableNamed(renderer, 'Save product'))
+    await settle()
+
+    expect(calledWith(calls, 'saveProduct(')[0]?.variables).toMatchObject({ input: { name: 'Darning guide', productType: 'digital' } })
+    expect(asInput(calledWith(calls, 'saveProductKind(')[0])).toMatchObject({ id: 'p-new', revision: 1, input: { download: { mode: 'file', fileId: 'asset-9', limit: 10, days: 365 } } })
+    expect(mockReplace).toHaveBeenCalledWith('/catalogue/p-new')
+  })
+
+  it('says a refused file by the API’s code, and won’t save a download with no file', async () => {
+    upload({ ok: false, code: 'UNSUPPORTED_TYPE' })
+    pickFile()
+    const { renderer, calls } = await open(null, { ...base({ product: null }), 'mutation Save': () => savedAs('p-new', 1) })
+
+    await press(kindOption(renderer, 'A download'))
+    await type(renderer, 'Product name', 'Darning guide')
+    await type(renderer, 'Price', '299')
+    await press(pressableNamed(renderer, 'Upload the file'))
+    await settle()
+    expect(hasText(renderer, 'Use a PDF, ZIP, MP3, MP4, WebM or an image.')).toBe(true)
+
+    await press(pressableNamed(renderer, 'Save product'))
+    expect(calledWith(calls, 'saveProduct(')).toHaveLength(0)
+    expect(hasText(renderer, 'Upload the file the shopper gets.')).toBe(true)
+  })
+
+  it('refuses a file over 30 MB before reading any of it', async () => {
+    const fetchMock = upload({ ok: true, asset: pdf })
+    pickFile({ size: 31 * 1024 * 1024 })
+    const { renderer } = await open(null, base({ product: null }))
+
+    await press(kindOption(renderer, 'A download'))
+    await press(pressableNamed(renderer, 'Upload the file'))
+    await settle()
+
+    expect(hasText(renderer, 'That file is too big. Use one under 30 MB.')).toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('won’t save while the file is still uploading', async () => {
+    upload(new Promise(() => undefined))
+    pickFile()
+    const { renderer, calls } = await open(null, { ...base({ product: null }), 'mutation Save': () => savedAs('p-new', 1) })
+
+    await press(kindOption(renderer, 'A download'))
+    await type(renderer, 'Product name', 'Darning guide')
+    await type(renderer, 'Price', '299')
+    await press(pressableNamed(renderer, 'Upload the file'))
+    await settle()
+    await press(pressableNamed(renderer, 'Save product'))
+
+    expect(calledWith(calls, 'saveProduct(')).toHaveLength(0)
+    expect(hasText(renderer, 'The file is still uploading. Save again once it’s in.')).toBe(true)
+  })
+
+  it('creates a service with its length and place', async () => {
+    const { renderer, calls } = await open(null, { ...base({ product: null }), 'mutation SaveProductKind': () => ({ saveProductKind: kindView({ productType: 'service', download: null, service: { duration: '2 hours', location: 'Our studio' } }) }), 'mutation Save': () => savedAs('p-new', 1) })
+
+    await press(kindOption(renderer, 'A service'))
+    await type(renderer, 'Product name', 'Darning lesson')
+    await type(renderer, 'Price', '800')
+    await type(renderer, 'How long it takes (Optional)', ' 2 hours ')
+    await type(renderer, 'Where (Optional)', 'Our studio')
+    await press(pressableNamed(renderer, 'Save product'))
+    await settle()
+
+    expect(calledWith(calls, 'saveProduct(')[0]?.variables).toMatchObject({ input: { productType: 'service' } })
+    expect(asInput(calledWith(calls, 'saveProductKind(')[0])).toMatchObject({ revision: 1, input: { service: { duration: '2 hours', location: 'Our studio' } } })
+  })
+
+  it('creates a gift card from amounts typed in rupees, sent as minor units, with its expiry', async () => {
+    const { renderer, calls } = await open(null, { ...base({ product: null }), 'mutation SaveProductKind': () => ({ saveProductKind: kindView({ productType: 'gift_card', download: null, giftCard: { expiryMonths: 12, shortestMonths: 12 } }) }), 'mutation Save': () => savedAs('p-new', 1) })
+
+    await press(kindOption(renderer, 'A gift card'))
+    expect(hasText(renderer, 'Gift card amounts')).toBe(true)
+    for (const amount of ['1000', '500']) {
+      await press(pressableNamed(renderer, '+ Add an amount'))
+      await type(renderer, 'Amount in INR', amount)
+      await press(pressableNamed(renderer, 'Add'))
+    }
+    expect(hasText(renderer, '₹500')).toBe(true)
+    expect(hasText(renderer, '₹1,000')).toBe(true)
+    await press(pressableNamed(renderer, '1 year'))
+    await type(renderer, 'Product name', 'Gift card')
+    await press(pressableNamed(renderer, 'Save product'))
+    await settle()
+
+    const sent = calledWith(calls, 'saveProduct(')[0]?.variables.input as { productType: string; options: unknown[]; versions: { prices: unknown[] }[] }
+    expect(sent.productType).toBe('gift_card')
+    expect(sent.options).toEqual([{ name: 'Amount', values: [{ name: '₹500' }, { name: '₹1,000' }] }])
+    expect(sent.versions.map((version) => version.prices)).toEqual([[{ currency: 'INR', amount: '50000' }], [{ currency: 'INR', amount: '100000' }]])
+    expect(asInput(calledWith(calls, 'saveProductKind(')[0])).toMatchObject({ id: 'p-new', input: { giftCard: { expiryMonths: 12 } } })
+  })
+
+  it('asks for an amount above zero that isn’t already there, and keeps at least one', async () => {
+    const { renderer } = await open(null, base({ product: null }))
+
+    await press(kindOption(renderer, 'A gift card'))
+    await press(pressableNamed(renderer, '+ Add an amount'))
+    await type(renderer, 'Amount in INR', '0')
+    await press(pressableNamed(renderer, 'Add'))
+    expect(hasText(renderer, 'Enter an amount above zero, like 499.00.')).toBe(true)
+    await type(renderer, 'Amount in INR', '500')
+    await press(pressableNamed(renderer, 'Add'))
+
+    await press(pressableNamed(renderer, '+ Add an amount'))
+    await type(renderer, 'Amount in INR', '500')
+    await press(pressableNamed(renderer, 'Add'))
+    expect(hasText(renderer, 'That amount is already there.')).toBe(true)
+    await press(pressableNamed(renderer, 'Cancel'))
+
+    await press(pressableNamed(renderer, 'Remove ₹500'))
+    expect(hasText(renderer, 'Keep at least one amount')).toBe(true)
+  })
+
+  it('shows a too-short expiry by its code, keeps what was typed, and sends the card again on the next save', async () => {
+    let refused = true
+    const product = apiProduct({ id: 'p-new', productType: 'gift_card', options: [], versions: [{ ...version('x'), id: 'ver-9', choices: [], prices: [{ amount: '50000', compareAtAmount: null, currency: 'INR' }] }] })
+    const { renderer, calls } = await open(null, {
+      ...base({ product: null }),
+      'mutation SaveProductKind': () => {
+        if (refused) throw new ApiError('EXPIRY_TOO_SHORT', 'API words that are never shown')
+        return { saveProductKind: kindView({ productType: 'gift_card', download: null, giftCard: { expiryMonths: 60, shortestMonths: 12 } }) }
+      },
+      'mutation Save': () => savedAs('p-new', 3),
+      'product(id': () => ({ product }),
+    })
+
+    await press(kindOption(renderer, 'A gift card'))
+    await press(pressableNamed(renderer, '+ Add an amount'))
+    await type(renderer, 'Amount in INR', '500')
+    await press(pressableNamed(renderer, 'Add'))
+    await press(pressableNamed(renderer, '1 year'))
+    await type(renderer, 'Product name', 'Gift card')
+    await press(pressableNamed(renderer, 'Save product'))
+    await settle()
+
+    expect(hasText(renderer, 'The product saved, but what the shopper gets didn’t: Gift cards must last at least 5 years in the US and 1 year elsewhere.')).toBe(true)
+    expect(mockReplace).not.toHaveBeenCalled()
+
+    refused = false
+    await press(pressableNamed(renderer, '5 years'))
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+
+    expect(calledWith(calls, 'saveProductKind(')).toHaveLength(2)
+    expect(asInput(calledWith(calls, 'saveProductKind(')[1])).toMatchObject({ id: 'p-new', input: { giftCard: { expiryMonths: 60 } } })
+    expect(hasText(renderer, 'The product saved, but')).toBe(false)
+  })
+
+  it('opens a saved download with its file and saves a change to it at the revision the product’s save answered', async () => {
+    const { renderer, calls } = await open('p-1', {
+      ...base({ product: apiProduct({ productType: 'digital' }) }),
+      'productKind(productId': () => ({ productKind: kindView({ productId: 'p-1' }) }),
+      'mutation SaveProductKind': () => ({ saveProductKind: kindView({ productId: 'p-1', revision: 6 }) }),
+      'mutation Save': () => savedAs('p-1', 5),
+    })
+
+    expect(hasText(renderer, 'PDF file · 18 MB')).toBe(true)
+    expect((pressableNamed(renderer, 'Downloads per order: 5').props as { selected: boolean }).selected).toBe(true)
+    await press(pressableNamed(renderer, 'Downloads per order: 3'))
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+
+    expect(asInput(calledWith(calls, 'saveProductKind(')[0])).toMatchObject({ id: 'p-1', revision: 5, input: { download: { mode: 'file', fileId: 'asset-9', limit: 3, days: 30 } } })
+  })
+
+  it('saves nothing for the kind when only the product’s own fields changed', async () => {
+    const { renderer, calls } = await open('p-1', {
+      ...base({ product: apiProduct({ productType: 'service' }) }),
+      'productKind(productId': () => ({ productKind: kindView({ productId: 'p-1', productType: 'service', download: null, service: { duration: null, location: null } }) }),
+      'mutation Save': () => savedAs('p-1', 5),
+    })
+
+    await type(renderer, 'Price', '2599')
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+
+    expect(calledWith(calls, 'saveProduct(')).toHaveLength(1)
+    expect(calledWith(calls, 'saveProductKind(')).toHaveLength(0)
+  })
+
+  it('leaves a stored pool of licence keys to the web portal', async () => {
+    const { renderer } = await open('p-1', { ...base({ product: apiProduct({ productType: 'digital' }) }), 'productKind(productId': () => ({ productKind: kindView({ productId: 'p-1', download: { mode: 'keys', file: null, limit: 5, days: 30 } }) }) })
+
+    expect(hasText(renderer, 'This download hands out licence keys. Add and count the keys on the web portal.')).toBe(true)
+    expect(pressablesNamed(renderer, 'Upload the file')).toHaveLength(0)
+  })
+
+  it('shows the kind’s card to Staff with nothing to change', async () => {
+    const { renderer } = await open('p-1', { ...base({ product: apiProduct({ productType: 'digital' }), permissions: ['catalog.read'] }), 'productKind(productId': () => ({ productKind: kindView({ productId: 'p-1' }) }) }, { acting: actingAs('staff') })
+
+    expect(hasText(renderer, 'PDF file · 18 MB')).toBe(true)
+    expect(pressablesNamed(renderer, 'Replace')).toHaveLength(0)
+    expect((pressableNamed(renderer, 'Downloads per order: 3').props as { disabled: boolean }).disabled).toBe(true)
+    expect((kindOption(renderer, 'A service').props as { disabled: boolean }).disabled).toBe(true)
+  })
+
+  it('offers a supplier no kinds, since it sells physical items only', async () => {
+    const { renderer, calls } = await open('p-1', base({ permissions: ['catalog.read', 'catalog.write'], seller: { id: 's-1' }, product: apiProduct({ supplier: { id: 's-1', name: 'Northwind Textiles' }, readiness: null }) }), { acting: actingAs('supplier-member', 'vendor-catalogue'), supplier: 's-1' })
+
+    expect(hasText(renderer, 'What are you selling?')).toBe(false)
+    expect(calledWith(calls, 'productKind(')).toHaveLength(0)
   })
 })

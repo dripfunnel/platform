@@ -328,6 +328,26 @@
       "PLAN_LIMIT": "Your plan doesn’t include importing from a spreadsheet.",
       "PLAN_LIMIT_REACHED": "Your plan doesn’t include importing from a spreadsheet.",
       "READ_ONLY": "Your store is read-only until the bill is paid — nothing can be imported."
+    },
+    "productFile": {
+      "TOO_LARGE": "That file is too big. Use one under 30 MB.",
+      "UNSUPPORTED_TYPE": "Use a PDF, ZIP, MP3, MP4, WebM or an image.",
+      "EMPTY": "That file is empty.",
+      "FORBIDDEN": "You can’t add files here.",
+      "READ_ONLY": "Nothing can change in this store right now.",
+      "NOT_CONNECTED": "The file didn’t upload. Try again later.",
+      "NO_RESPONSE": "The file didn’t upload. Check your connection and try again.",
+      "UNKNOWN": "The file didn’t upload. Try again."
+    },
+    "productKind": {
+      "WRONG_KIND": "That isn’t this kind of product any more. Reload to see it.",
+      "FILE_REFUSED": "That file isn’t here any more. Upload it again.",
+      "EXPIRY_TOO_SHORT": "Gift cards must last at least 5 years in the US and 1 year elsewhere.",
+      "INVALID_INPUT": "Something in what the shopper gets isn’t valid. Check it and save again.",
+      "STALE_REVISION": "Someone else saved this product. Reload to see their changes.",
+      "READ_ONLY": "Nothing can change in this store right now.",
+      "NOT_FOUND": "This product isn’t here any more.",
+      "FORBIDDEN": "You can’t change this product."
     }
   },
   "auth": {
@@ -1066,8 +1086,6 @@
       "readOnlyBody": "You can look, but nothing can be changed.",
       "approval": "Your store owner approves this before it goes live.",
       "approvalBody": "You’ll hear back either way.",
-      "kind": "This kind of product is edited on the web for now.",
-      "kindBody": "Downloads, services and gift cards aren’t in the app yet. You can still look at it here.",
       "failed": "Couldn’t save — your changes are still here.",
       "stale": "Someone else saved this product.",
       "staleBody": "Reload to see their changes; yours are still on this page until you do.",
@@ -1090,7 +1108,10 @@
       "versions": "Press “Create versions” or “Update versions” so each combination has its own version.",
       "tooMany": "That makes more than 100 versions. Remove a few choices.",
       "stock": "A count has to be a whole number, 0 or more.",
-      "photosBusy": "A photo is still uploading. Save again once it’s in."
+      "photosBusy": "A photo is still uploading. Save again once it’s in.",
+      "file": "Upload the file the shopper gets.",
+      "fileBusy": "The file is still uploading. Save again once it’s in.",
+      "giftPrice": "Add at least one amount."
     },
     "noResults": {
       "search": "No products match “{search}”",
@@ -1151,6 +1172,87 @@
       "body": "That’s fine for a gift or a freebie — just checking it isn’t a typo.",
       "confirm": "Yes, it’s free",
       "fix": "Let me fix it"
+    },
+    "kind": {
+      "title": "What are you selling?",
+      "physical": "A physical item",
+      "physicalSub": "You pack and ship it",
+      "digital": "A download",
+      "digitalSub": "A file the shopper downloads",
+      "service": "A service",
+      "serviceSub": "Arranged after the order",
+      "gift_card": "A gift card",
+      "gift_cardSub": "Sent by email",
+      "gone": "No weight, box, shipping or stock for this kind — those boxes are gone"
+    },
+    "kinds": {
+      "partial": "The product saved, but what the shopper gets didn’t: {reason}",
+      "download": {
+        "title": "What the shopper gets",
+        "upload": "Upload the file",
+        "uploadHint": "PDF, ZIP, MP3, MP4, WebM or an image · up to 30 MB · stored privately, never on your storefront",
+        "uploading": "Uploading…",
+        "replace": "Replace",
+        "fileMeta": "{type} file · {size}",
+        "sizeMb": "{value} MB",
+        "sizeKb": "{value} KB",
+        "types": {
+          "pdf": "PDF",
+          "zip": "ZIP",
+          "mp3": "MP3",
+          "mp4": "MP4",
+          "webm": "WebM",
+          "image": "Image",
+          "other": "A"
+        },
+        "missing": "Upload the file the shopper gets",
+        "limit": "Downloads per order",
+        "days": "Link works for",
+        "dayOptions": {
+          "d7": "7 days",
+          "d30": "30 days",
+          "d365": "1 year"
+        },
+        "rule": "The shopper gets the link as soon as the payment goes through — never before, so a bank transfer waits until you mark it paid.",
+        "keys": "This download hands out licence keys. Add and count the keys on the web portal."
+      },
+      "service": {
+        "title": "About the service",
+        "duration": "How long it takes",
+        "location": "Where",
+        "optional": "Optional",
+        "durationPlaceholder": "e.g. 2 hours",
+        "locationPlaceholder": "e.g. Our studio, 12 MI Road",
+        "note": "No booking calendar. After an order, you arrange a time with the shopper. They’re told: “We’ll email you within a working day to arrange a time.” No shipping, weight or stock."
+      },
+      "giftCard": {
+        "title": "Gift card amounts",
+        "option": "Amount",
+        "add": "+ Add an amount",
+        "remove": "Remove {amount}",
+        "keepOne": "Keep at least one amount",
+        "missing": "Add at least one amount",
+        "addTitle": "Add an amount",
+        "addLabel": "Amount in {currency}",
+        "addInvalid": "Enter an amount above zero, like {example}.",
+        "addTaken": "That amount is already there.",
+        "addConfirm": "Add",
+        "expiry": "Cards expire after",
+        "never": "Never",
+        "shortest": "shortest allowed",
+        "months": {
+          "m12": "1 year",
+          "m24": "2 years",
+          "m36": "3 years",
+          "m60": "5 years",
+          "m84": "7 years",
+          "m120": "10 years"
+        },
+        "rule": "At least {period} from the day a card is sent.",
+        "ruleUnknown": "At least 5 years from the day a card is sent in the US, 1 year elsewhere.",
+        "tax": "No tax when a card is bought; tax is charged on what it’s spent on. Sent by email on the date the shopper picks.",
+        "monthsOther": "{count} months"
+      }
     },
     "photos": {
       "title": "Photos",
