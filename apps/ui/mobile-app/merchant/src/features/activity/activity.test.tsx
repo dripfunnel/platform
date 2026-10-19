@@ -162,6 +162,57 @@ describe('Store activity (the Manager’s)', () => {
     expect(asked(calls, 'query Activity(').at(-1)?.variables).toEqual({ f: { what: 'orders', search: 'priya' }, after: null })
   })
 
+  it('drops a slow answer to an earlier filter, so the log never shows entries for a filter that is no longer chosen', async () => {
+    let release = () => {}
+    const slow = new Promise<void>((resolve) => (release = resolve))
+    const { renderer } = await show(
+      <ActivityScreen />,
+      log(manager, [], {
+        'query Activity(': async (variables) => {
+          if ((variables.f as Record<string, unknown>).what === undefined) {
+            await slow
+            return { activityLog: page([entry({ id: 'old', action: 'product.created', target: { type: 'product', id: 'p9', label: 'Slow Dress' } })]) }
+          }
+          return { activityLog: page([entry({ id: 'new' })]) }
+        },
+      }),
+    )
+
+    await click(renderer, 'Orders and refunds')
+    expect(hasText(renderer, 'Priya Shah refunded order KT-1031')).toBe(true)
+    release()
+    await settle()
+
+    expect(hasText(renderer, 'Slow Dress')).toBe(false)
+    expect(hasText(renderer, 'Priya Shah refunded order KT-1031')).toBe(true)
+  })
+
+  it('drops older entries that arrive after the filter changed, rather than adding them to the new log', async () => {
+    let release = () => {}
+    const slow = new Promise<void>((resolve) => (release = resolve))
+    const { renderer } = await show(
+      <ActivityScreen />,
+      log(manager, [], {
+        'query Activity(': async (variables) => {
+          if (variables.after === 'c1') {
+            await slow
+            return { activityLog: page([entry({ id: 'late', action: 'product.created', target: { type: 'product', id: 'p9', label: 'Late Dress' } })]) }
+          }
+          return (variables.f as Record<string, unknown>).what === undefined ? { activityLog: page([entry()], 'c1') } : { activityLog: page([entry({ id: 'fresh', action: 'product.created', target: { type: 'product', id: 'p8', label: 'Fresh Tee' } })]) }
+        },
+      }),
+    )
+
+    await click(renderer, 'Show older')
+    await click(renderer, 'Orders and refunds')
+    expect(hasText(renderer, 'Priya Shah added Fresh Tee')).toBe(true)
+    release()
+    await settle()
+
+    expect(hasText(renderer, 'Late Dress')).toBe(false)
+    expect(hasText(renderer, 'Priya Shah added Fresh Tee')).toBe(true)
+  })
+
   it('shows 50 at a time, with older entries below', async () => {
     const { renderer, calls } = await show(
       <ActivityScreen />,
