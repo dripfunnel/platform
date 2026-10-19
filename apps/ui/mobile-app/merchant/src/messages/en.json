@@ -392,6 +392,18 @@
       "TOO_MANY_KEYS": "Your store has as many keys as it can hold. Revoke one first.",
       "SUPPORT_READ_ONLY": "Support can’t change API keys.",
       "BLOCKED_FOR_SUPPORT": "Support can’t change API keys."
+    },
+    "settingsApps": {
+      "FORBIDDEN": "Only the store owner can change apps.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "INVALID_INPUT": "That link doesn’t name an app. Ask the developer for its install link.",
+      "INVALID_SCOPES": "Those aren’t things an app can be given.",
+      "UNAVAILABLE": "Apps can’t be installed just now. Try again later.",
+      "NOT_FOUND": "That app isn’t available.",
+      "SCOPES_CHANGED": "This app now asks for different access. Look again before installing.",
+      "ALREADY_INSTALLED": "This app is already installed.",
+      "SUPPORT_READ_ONLY": "Support can’t change apps.",
+      "BLOCKED_FOR_SUPPORT": "Support can’t install apps."
     }
   },
   "auth": {
@@ -1978,7 +1990,8 @@
       "payments": "Payment setup",
       "shipping": "Shipping",
       "accounts": "Customer accounts",
-      "developers": "Developers"
+      "developers": "Developers",
+      "apps": "Apps"
     },
     "tabSubs": {
       "store": "Name, contact, address, currencies and languages",
@@ -1991,7 +2004,8 @@
       "payments": "How shoppers pay you: cards, cash on delivery, bank transfer",
       "shipping": "What delivery costs, when it’s free, couriers and where you deliver",
       "accounts": "How shoppers sign in to your storefront",
-      "developers": "API keys for software that works with your store"
+      "developers": "API keys for software that works with your store",
+      "apps": "Programs that work with your store, each with only the access you gave it"
     },
     "store": {
       "title": "Your store",
@@ -2605,6 +2619,56 @@
           }
         },
         "suppliersFailed": "Your suppliers didn’t load, so a key can’t be made just now. Leave Developers and open it again to try once more."
+      }
+    },
+    "apps": {
+      "title": "Apps",
+      "sub": "Programs that work with your store, each with only the access you gave it.",
+      "add": "Add an app",
+      "about": "An app is a program you or your developer runs on its own website. It reaches your store with only the access you approve, and you open it from here. There’s no app store yet.",
+      "empty": "No apps yet. When a developer gives you an install link, add it here.",
+      "addBody": "Paste the install link the developer gave you.",
+      "link": "Install link",
+      "linkPlaceholder": "https://ledgersync.app/install/…",
+      "notHttps": "Paste a link that starts with https://",
+      "next": "Continue",
+      "installTitle": "Install {name}?",
+      "by": "By {developer}",
+      "can": "It will be able to",
+      "cannot": "It won’t be able to",
+      "wholeStore": "It works for the whole store. You can remove it any time.",
+      "install": "Install",
+      "installed": "{name} installed. Open it to finish setting it up.",
+      "meta": "By {developer} · installed {time} by {name}",
+      "metaNoName": "By {developer} · installed {time}",
+      "access": "Can: {scopes}",
+      "lastUsed": "Last used {time}",
+      "suspended": "Paused by your platform: it can’t reach your store until it’s allowed again.",
+      "waiting": "Still handing it its access. Open it in a few minutes.",
+      "failed": "It never received its access. Remove it and install it again.",
+      "open": "Open app",
+      "remove": "Remove",
+      "removeTitle": "Remove {name}?",
+      "removeBody": "Its access ends now. Anything it already copied stays with it — ask the developer to delete it.",
+      "removeGo": "Remove app",
+      "removed": "{name} removed",
+      "scopes": {
+        "catalog": {
+          "read": "See your products and prices"
+        },
+        "stock": {
+          "read": "See your stock"
+        },
+        "orders": {
+          "read": "See your orders, refunds and invoices"
+        },
+        "customers": {
+          "read": "See your customers"
+        }
+      },
+      "never": {
+        "change": "Change anything in your store",
+        "secrets": "See your payment details or passwords"
       }
     }
   },

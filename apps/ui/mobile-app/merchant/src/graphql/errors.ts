@@ -166,6 +166,10 @@ export const knownErrorCodes = [
   // Developers (apps/api src/apis/store/developers.ts).
   'INVALID_SCOPES',
   'TOO_MANY_KEYS',
+  // Apps (apps/api src/apis/store/apps.ts).
+  'UNAVAILABLE',
+  'SCOPES_CHANGED',
+  'ALREADY_INSTALLED',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

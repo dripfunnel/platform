@@ -8,6 +8,7 @@ import { DevelopersTab } from './developers/DevelopersTab'
 import { MarketsTab } from './markets/MarketsTab'
 import { PaymentsTab } from './payments/PaymentsTab'
 import { PeopleTab } from './people/PeopleTab'
+import { AppsTab } from './privateApps/AppsTab'
 import { ShippingTab } from './shipping/ShippingTab'
 import { StoreInfoTab } from './store/StoreInfoTab'
 import { SuppliersTab } from './suppliers/SuppliersTab'
@@ -44,5 +45,7 @@ export function SettingsTabScreen({ tab }: { tab: string }) {
       return <AccountsTab />
     case 'developers':
       return <DevelopersTab />
+    case 'apps':
+      return <AppsTab />
   }
 }
