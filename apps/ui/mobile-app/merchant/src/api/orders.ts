@@ -3,7 +3,7 @@ import { pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
 import { exportJobFields, exportJobSchema, readExportJob, type ExportJob } from './exportJob'
 
 // The Orders list on the Store API (FIRST-RELEASE.md §6, PortalOrders; apps/api src/apis/store/orders.ts): rows, the chips' counts and the
-// export. Amounts arrive as digit strings of minor units. A supplier's To ship is MA 13 (#506), so only the merchant side is read here.
+// export. Amounts arrive as digit strings of minor units. A supplier's To ship (#506) has its own query, in api/supplier.ts.
 
 export const orderFilters = ['ALL', 'TO_SHIP', 'PARTLY_SHIPPED', 'SHIPPED', 'CANCELLED_REFUNDED', 'PAYMENT_PENDING'] as const
 export type OrderFilter = (typeof orderFilters)[number]

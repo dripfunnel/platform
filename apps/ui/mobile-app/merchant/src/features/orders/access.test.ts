@@ -22,7 +22,7 @@ describe('what a seat may do with orders', () => {
     expect(ordersAccessOf({ permissions: owner, supplier: false }, true)).toMatchObject({ canRead: true, canExport: true, canShip: false, canBook: false, canMarkPaid: false, canCancel: false, canRefund: false, readOnly: true })
   })
 
-  it('reads nothing for a supplier’s seat, whose To ship is MA 13', () => {
+  it('reads nothing for a supplier’s seat, whose To ship has its own screens (features/supplier)', () => {
     expect(ordersAccessOf({ permissions: ['orders.read', 'orders.fulfil', 'orders.refund', 'exports.orders'], supplier: true }, false).canRead).toBe(false)
   })
 

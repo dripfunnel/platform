@@ -1,5 +1,5 @@
 // Who may do what with orders (ACCESS.md §5.1; FIRST-RELEASE.md §6). Built from the permissions the API lists for the seat; a control a seat
-// lacks is absent, not disabled (DESIGN.md §2), and the server decides every write again. A supplier's To ship is MA 13 (#506), so its seat reads none here.
+// lacks is absent, not disabled (DESIGN.md §2), and the server decides every write again. A supplier's To ship is features/supplier (#506), so its seat reads none here.
 
 export type OrdersAccess = {
   canRead: boolean
