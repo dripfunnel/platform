@@ -5,7 +5,10 @@ import type { Seat } from '../../nav'
 import type { BannerScenario } from '../states/scenario'
 
 export type BannerTone = 'info' | 'warning' | 'danger' | 'success' | 'offline'
-export type BannerSpec = { key: string; tone: BannerTone; title: string; body: string }
+/** Support asking to make changes for this one session; an Owner or a Manager answers Allow or Deny (ACCESS.md §8). */
+export type SupportAsk = { sessionId: string; agent: string; partner: string; note: string | null }
+
+export type BannerSpec = { key: string; tone: BannerTone; title: string; body: string; ask?: SupportAsk }
 
 const day = 24 * 60 * 60 * 1000
 
@@ -61,8 +64,12 @@ export const bannersFor = ({ seat, state, support, online, scenario, now }: Inpu
   }
   if (state?.status === 'cancelled') banners.push(said('cancelled', 'warning', t('banners.cancelled.title'), t('banners.cancelled.body')))
   if (state?.support) {
-    const seconds = Math.max(0, Math.round((new Date(state.support.endsAt).getTime() - now.getTime()) / 1000))
-    banners.push(said('support', 'warning', t('banners.support.title', { partner: state.support.partnerName, name: state.support.agentFirstName }), t('banners.support.body', { time: formatDuration(seconds, locale) })))
+    const { partnerName, agentFirstName, endsAt, sessionId, access, writeRequest } = state.support
+    const seconds = Math.max(0, Math.round((new Date(endsAt).getTime() - now.getTime()) / 1000))
+    const time = formatDuration(seconds, locale)
+    const asking = writeRequest?.state === 'pending' && sessionId !== null
+    const spec = said('support', 'warning', t('banners.support.title', { partner: partnerName, name: agentFirstName }), t(access === 'write' ? 'banners.support.bodyWrite' : 'banners.support.body', { time }))
+    banners.push(asking ? { ...spec, ask: { sessionId, agent: agentFirstName, partner: partnerName, note: writeRequest.note } } : spec)
   }
   if (!online) banners.push(offline())
   return banners

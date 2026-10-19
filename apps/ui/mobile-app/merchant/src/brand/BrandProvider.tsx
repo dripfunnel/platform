@@ -1,20 +1,17 @@
 import * as SplashScreen from 'expo-splash-screen'
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { fetchBrand, type Brand } from '../api/brand'
+import { useEffect, useState, type ReactNode } from 'react'
+import { fetchBrand } from '../api/brand'
 import { createApiClient, partnerDomain } from '../graphql'
 import { buildTheme, ThemeProvider, useMode } from '../theme'
+import { BrandContext, type BrandState } from './BrandContext'
 import { themeFor } from './brandTheme'
-import { loadBrand, type BrandSource } from './loadBrand'
+import { loadBrand } from './loadBrand'
 import { readSavedBrand, saveBrand } from './storage'
 
-export type BrandState = { brand: Brand | null; source: BrandSource; domain: string }
+export { useBrand, type BrandState } from './BrandContext'
 
 // Short, so a phone with no signal reaches the saved look in seconds, not after the client's own timeout.
 export const brandTimeoutMs = 5_000
-
-const BrandContext = createContext<BrandState>({ brand: null, source: 'defaults', domain: '' })
-
-export const useBrand = (): BrandState => useContext(BrandContext)
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined)
 

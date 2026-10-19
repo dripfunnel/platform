@@ -18,8 +18,8 @@ type Props = {
   danger?: boolean
   context: ErrorContext
   onClose: () => void
-  /** The write; resolves with what to say in the toast. A refusal stays in the sheet, in words by its code, with what was typed. */
-  onSubmit: () => Promise<string>
+  /** The write; resolves with what to say in the toast, or null for a step that leaves the sheet as it is. A refusal stays in the sheet, in words by its code, with what was typed. */
+  onSubmit: () => Promise<string | null>
   /** False while there is nothing to send yet (nothing changed). */
   ready?: boolean
   /** What is wrong with what was typed, said before anything is sent; null when it can go. */
@@ -45,6 +45,10 @@ export function FormSheet({ title, body, confirm, cancel, danger = false, contex
     setFailure(null)
     try {
       const message = await onSubmit()
+      if (message === null) {
+        setBusy(false)
+        return
+      }
       feedback.toast({ message })
       onClose()
     } catch (error) {

@@ -93,17 +93,25 @@ const locale = {
 
 
 describe('Settings is the Owner’s', () => {
-  it('lists the tabs as rows that each open on their own screen, Payment setup, Shipping and Customer accounts among them', async () => {
+  it('lists the tabs as rows that each open on their own screen, Payment setup, Shipping, Customer accounts, Developers, Apps, Support access and the Activity log among them', async () => {
     const { renderer } = await show(<SettingsScreen />, {})
 
-    expect(texts(renderer)).toEqual(expect.arrayContaining(['Store info', 'Name, contact, address, currencies and languages', 'Payment setup', 'Shipping', 'Customer accounts']))
-    expect(hasText(renderer, 'Developers')).toBe(false)
+    expect(texts(renderer)).toEqual(expect.arrayContaining(['Store info', 'Name, contact, address, currencies and languages', 'Payment setup', 'Shipping', 'Customer accounts', 'Developers', 'Apps', 'Support access', 'Activity log']))
+    expect(hasText(renderer, 'Billing')).toBe(false)
     await press(pressableNamed(renderer, 'Store info'))
     expect(mockPush).toHaveBeenCalledWith('/more/settings/store')
     await press(pressableNamed(renderer, 'Payment setup'))
     expect(mockPush).toHaveBeenCalledWith('/more/settings/payments')
     await press(pressableNamed(renderer, 'Customer accounts'))
     expect(mockPush).toHaveBeenCalledWith('/more/settings/accounts')
+    await press(pressableNamed(renderer, 'Developers'))
+    expect(mockPush).toHaveBeenCalledWith('/more/settings/developers')
+    await press(pressableNamed(renderer, 'Apps'))
+    expect(mockPush).toHaveBeenCalledWith('/more/settings/apps')
+    await press(pressableNamed(renderer, 'Support access'))
+    expect(mockPush).toHaveBeenCalledWith('/more/settings/support')
+    await press(pressableNamed(renderer, 'Activity log'))
+    expect(mockPush).toHaveBeenCalledWith('/more/settings/activity')
   })
 
   it('tells a Manager the list is the owner’s, without reading anything', async () => {
@@ -114,7 +122,7 @@ describe('Settings is the Owner’s', () => {
     expect(calls).toHaveLength(0)
   })
 
-  it.each(['store', 'payments', 'shipping', 'accounts'])('opening %s by a deep link as a Manager is access denied, and reads and writes nothing', async (tab) => {
+  it.each(['store', 'payments', 'shipping', 'accounts', 'developers', 'apps', 'support', 'activity'])('opening %s by a deep link as a Manager is access denied, and reads and writes nothing', async (tab) => {
     const { renderer, calls } = await show(<SettingsTabScreen tab={tab} />, {}, { acting: actingAs('manager') })
 
     expect(hasText(renderer, 'You don’t have access to Settings')).toBe(true)
@@ -128,10 +136,10 @@ describe('Settings is the Owner’s', () => {
     const supplier = await show(<SettingsTabScreen tab="store" />, {}, { acting: actingAs('supplier-admin', 'vendor-catalogue') })
     expect(hasText(supplier.renderer, 'You don’t have access to Settings')).toBe(true)
     expect(supplier.calls).toHaveLength(0)
-    const missing = await show(<SettingsTabScreen tab="developers" />, {})
+    const missing = await show(<SettingsTabScreen tab="billing" />, {})
     expect(hasText(missing.renderer, 'This page isn’t here any more')).toBe(true)
     expect(missing.calls).toHaveLength(0)
-    const hidden = await show(<SettingsTabScreen tab="developers" />, {}, { acting: actingAs('manager') })
+    const hidden = await show(<SettingsTabScreen tab="billing" />, {}, { acting: actingAs('manager') })
     expect(hasText(hidden.renderer, 'You don’t have access to Settings')).toBe(true)
     expect(hidden.calls).toHaveLength(0)
   })

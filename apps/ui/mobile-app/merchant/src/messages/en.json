@@ -382,6 +382,38 @@
       "NOT_CONNECTED": "We couldn’t reach the store service. Try again.",
       "PLAN_LIMIT": "That’s on a bigger plan than this store has.",
       "PLAN_LIMIT_REACHED": "That’s on a bigger plan than this store has."
+    },
+    "settingsDevelopers": {
+      "FORBIDDEN": "Only the store owner can change API keys.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "INVALID_INPUT": "Check the name and when it expires.",
+      "INVALID_SCOPES": "Tick at least one thing it can do, within what that supplier may do.",
+      "NOT_FOUND": "That key or supplier is no longer here.",
+      "TOO_MANY_KEYS": "Your store has as many keys as it can hold. Revoke one first.",
+      "SUPPORT_READ_ONLY": "Support can’t change API keys.",
+      "BLOCKED_FOR_SUPPORT": "Support can’t change API keys."
+    },
+    "settingsApps": {
+      "FORBIDDEN": "Only the store owner can change apps.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "INVALID_INPUT": "That link doesn’t name an app. Ask the developer for its install link.",
+      "INVALID_SCOPES": "Those aren’t things an app can be given.",
+      "UNAVAILABLE": "Apps can’t be installed just now. Try again later.",
+      "NOT_FOUND": "That app isn’t available.",
+      "SCOPES_CHANGED": "This app now asks for different access. Look again before installing.",
+      "ALREADY_INSTALLED": "This app is already installed.",
+      "SUPPORT_READ_ONLY": "Support can’t change apps.",
+      "BLOCKED_FOR_SUPPORT": "Support can’t install apps."
+    },
+    "settingsSupport": {
+      "FORBIDDEN": "Only the store owner can change this.",
+      "SUPPORT_READ_ONLY": "Support can’t change this.",
+      "BLOCKED_FOR_SUPPORT": "Support can’t change this."
+    },
+    "support": {
+      "FORBIDDEN": "Only the store owner or a manager can answer this.",
+      "NOT_PENDING": "That request is no longer open.",
+      "NOT_FOUND": "That support session is no longer open."
     }
   },
   "auth": {
@@ -609,7 +641,20 @@
     },
     "support": {
       "title": "{partner} support ({name}) is viewing your store.",
-      "body": "Read-only. Ends in {time}."
+      "body": "Read-only. Ends in {time}.",
+      "bodyWrite": "Changes allowed. Ends in {time}.",
+      "asks": "{agent} from {partner} support is asking to make changes for this session.",
+      "asksNote": "{agent} from {partner} support is asking to make changes for this session: “{note}”",
+      "allowLabel": "Allow",
+      "denyLabel": "Deny",
+      "allowTitle": "Let {agent} make changes?",
+      "allowBody": "{agent} from {partner} support will be able to change things in your store for this one session only, until the time on the banner runs out. They still can’t change passwords, payment details, payouts or who works here. Everything they do is in your Activity log under their name, and the store’s owners are emailed.",
+      "allowGo": "Allow changes",
+      "denyTitle": "Deny {agent}’s request?",
+      "denyBody": "{agent} stays read-only for the rest of this session, and can ask again.",
+      "denyGo": "Deny",
+      "allowed": "{name} can make changes until this session ends.",
+      "denied": "{name} stays read-only."
     },
     "offline": {
       "title": "You’re offline.",
@@ -1967,7 +2012,11 @@
       "catalogue": "Catalogue",
       "payments": "Payment setup",
       "shipping": "Shipping",
-      "accounts": "Customer accounts"
+      "accounts": "Customer accounts",
+      "developers": "Developers",
+      "apps": "Apps",
+      "support": "Support access",
+      "activity": "Activity log"
     },
     "tabSubs": {
       "store": "Name, contact, address, currencies and languages",
@@ -1979,7 +2028,11 @@
       "catalogue": "Product page sections and badges",
       "payments": "How shoppers pay you: cards, cash on delivery, bank transfer",
       "shipping": "What delivery costs, when it’s free, couriers and where you deliver",
-      "accounts": "How shoppers sign in to your storefront"
+      "accounts": "How shoppers sign in to your storefront",
+      "developers": "API keys for software that works with your store",
+      "apps": "Programs that work with your store, each with only the access you gave it",
+      "support": "Whether your platform’s support team can open your store to help you",
+      "activity": "Everything done in the store, and by whom"
     },
     "store": {
       "title": "Your store",
@@ -2521,6 +2574,177 @@
       "deleteBadgeTitle": "Delete “{name}”?",
       "deleteBadgeBody": "It comes off every product straight away.",
       "badgeDeleted": "Badge deleted"
+    },
+    "developers": {
+      "title": "Developers",
+      "sub": "Keys for software that works with your store.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "The phone wouldn’t copy it. Press and hold the key to select it, then copy.",
+      "stored": "I’ve stored it",
+      "keys": {
+        "title": "API keys",
+        "sub": "For your own programs on a server — never in a website or an app on a phone.",
+        "limits": "Your plan: {minute} requests a minute, {month} a month.",
+        "create": "Create API key",
+        "empty": "No API keys. Create one when a developer asks for access.",
+        "newTitle": "New API key",
+        "name": "Name",
+        "namePlaceholder": "e.g. Warehouse stock sync",
+        "can": "What it can do",
+        "worksFor": "Works for",
+        "wholeStore": "The whole store",
+        "onlySupplier": "Only supplier {name}",
+        "wholeHelp": "It sees the whole store, within what you tick above.",
+        "supplierHelp": "It only sees that supplier’s products, stock and orders.",
+        "expires": "Expires",
+        "never": "Never",
+        "createKey": "Create key",
+        "nameMissing": "Give it a name you’ll recognise later.",
+        "scopesMissing": "Tick at least one thing it can do.",
+        "secretTitle": "Copy your key now",
+        "secretWarn": "This is the only time we show it. Store it somewhere safe, like your server’s secret settings. If you lose it, create a new one.",
+        "created": "{name} created",
+        "whole": "Whole store",
+        "lastUsed": "Last used {time}",
+        "neverUsed": "Never used",
+        "by": "Created by {name}",
+        "byGone": "Created by {name} — no longer here",
+        "byUnknown": "Created by someone no longer here",
+        "expiresOn": "Expires {time}",
+        "expired": "Expired {time}",
+        "noExpiry": "Never expires",
+        "oldWorks": "The old key works until {time}",
+        "rotate": "Rotate",
+        "rotateTitle": "Rotate {name}?",
+        "rotateBody": "We make a new key and show it once. The old one keeps working for 24 hours so you can swap it without downtime.",
+        "rotateGo": "Rotate key",
+        "rotated": "{name} rotated. Copy the new key now.",
+        "revoke": "Revoke",
+        "revokeTitle": "Revoke {name}?",
+        "revokeBody": "It stops working straight away. Anything using it gets an error until it has a new key.",
+        "revokeGo": "Revoke key",
+        "revoked": "{name} revoked",
+        "storeFirst": "Store the key below before making or rotating another.",
+        "manage": "Manage {name}",
+        "inDays": {
+          "one": "In {total} day",
+          "other": "In {total} days"
+        },
+        "scopes": {
+          "catalog": {
+            "read": "See products"
+          },
+          "stock": {
+            "read": "See stock"
+          },
+          "orders": {
+            "read": "See orders"
+          },
+          "customers": {
+            "read": "See customers"
+          }
+        },
+        "suppliersFailed": "Your suppliers didn’t load, so a key can’t be made just now. Leave Developers and open it again to try once more."
+      }
+    },
+    "apps": {
+      "title": "Apps",
+      "sub": "Programs that work with your store, each with only the access you gave it.",
+      "add": "Add an app",
+      "about": "An app is a program you or your developer runs on its own website. It reaches your store with only the access you approve, and you open it from here. There’s no app store yet.",
+      "empty": "No apps yet. When a developer gives you an install link, add it here.",
+      "addBody": "Paste the install link the developer gave you.",
+      "link": "Install link",
+      "linkPlaceholder": "https://ledgersync.app/install/…",
+      "notHttps": "Paste a link that starts with https://",
+      "next": "Continue",
+      "installTitle": "Install {name}?",
+      "by": "By {developer}",
+      "can": "It will be able to",
+      "cannot": "It won’t be able to",
+      "wholeStore": "It works for the whole store. You can remove it any time.",
+      "install": "Install",
+      "installed": "{name} installed. Open it to finish setting it up.",
+      "meta": "By {developer} · installed {time} by {name}",
+      "metaNoName": "By {developer} · installed {time}",
+      "access": "Can: {scopes}",
+      "lastUsed": "Last used {time}",
+      "suspended": "Paused by your platform: it can’t reach your store until it’s allowed again.",
+      "waiting": "Still handing it its access. Open it in a few minutes.",
+      "failed": "It never received its access. Remove it and install it again.",
+      "open": "Open app",
+      "remove": "Remove",
+      "removeTitle": "Remove {name}?",
+      "removeBody": "Its access ends now. Anything it already copied stays with it — ask the developer to delete it.",
+      "removeGo": "Remove app",
+      "removed": "{name} removed",
+      "scopes": {
+        "catalog": {
+          "read": "See your products and prices"
+        },
+        "stock": {
+          "read": "See your stock"
+        },
+        "orders": {
+          "read": "See your orders, refunds and invoices"
+        },
+        "customers": {
+          "read": "See your customers"
+        }
+      },
+      "never": {
+        "change": "Change anything in your store",
+        "secrets": "See your payment details or passwords"
+      }
+    },
+    "support": {
+      "title": "Support access",
+      "sub": "Whether {partner}’s support team can open your store to help you.",
+      "switch": "Allow {partner} support to view my store",
+      "on": "On. Support can open a read-only session when you ask for help.",
+      "off": "Off. Support can only ask you to switch this on.",
+      "offTitle": "Turn off support access?",
+      "offBody": "Any support session open now ends straight away. {partner} support can then only ask you to switch this back on.",
+      "offGo": "Turn off",
+      "turnedOn": "Support access is on",
+      "turnedOff": "Support access is off",
+      "howTitle": "How a support session works",
+      "staff": "Separately, the platform’s own staff can sign in as a user to fix a problem. That’s rare, and logged too.",
+      "logTitle": "Support access log",
+      "logRange": "Last 90 days",
+      "logEmpty": "No support sessions yet. When {partner} support opens one, it’s listed here.",
+      "org": "{partner} support · as {name}",
+      "orgSupplier": "{partner} support · as {name}, {supplier}",
+      "ticket": "Ticket {ticket}: {reason}",
+      "openNow": "Open now · ends {time}",
+      "lasted": "{duration}",
+      "endedBy": {
+        "expired": "{duration} · timed out",
+        "store": "{duration} · ended when support access was turned off",
+        "targetGone": "{duration} · ended when that person left",
+        "storeClosed": "{duration} · ended when the store closed"
+      },
+      "readOnly": "Read-only",
+      "allowed": "Allowed by {name}",
+      "allowedNoName": "Allowed to make changes",
+      "denied": "Asked to make changes · denied",
+      "asking": "Asking to make changes",
+      "more": "Show older",
+      "moreFailed": "Older sessions didn’t load. Try again.",
+      "onShort": "On",
+      "offShort": "Off",
+      "ended": {
+        "one": "Support access is off. 1 open session ended.",
+        "other": "Support access is off. {total} open sessions ended."
+      },
+      "how": {
+        "one": "Support opens one only with a reason or a ticket number, and only while this is on.",
+        "two": "It’s read-only and ends after 30 minutes. Everyone signed in sees a banner while it’s open.",
+        "three": "You’re emailed when one starts. You or a manager can let them make changes for that one session.",
+        "four": "Even then they can’t change passwords, payment details, payouts or who works here.",
+        "five": "Every page they open and everything they change is in your Activity log, under their name."
+      }
     }
   },
   "more": {
@@ -2540,7 +2764,8 @@
     "signOut": "Sign out",
     "viewOnly": "View only",
     "viewOnlyLabel": "{item}, view only",
-    "help": "Help"
+    "help": "Help",
+    "activity": "Store activity"
   },
   "states": {
     "loading": "Loading",
@@ -4636,5 +4861,207 @@
       "shareFailed": "The file couldn’t be shared. Try again."
     },
     "readOnly": "Your store is view-only until the bill is paid. Reports and their exports still work."
+  },
+  "activity": {
+    "title": "Activity log",
+    "managerTitle": "Store activity",
+    "sub": "Everything done in this store, by your team, suppliers, API keys, apps, support and shoppers. Newest first.",
+    "person": "Person",
+    "everyone": "Everyone",
+    "what": "What",
+    "whats": {
+      "all": "Everything",
+      "catalogue": "Products and stock",
+      "orders": "Orders and refunds",
+      "team": "People and suppliers",
+      "settings": "Settings, keys and apps",
+      "support": "Support sessions",
+      "shoppers": "Shopper accounts",
+      "signins": "Sign-ins"
+    },
+    "search": "Search",
+    "searchPlaceholder": "A name, order 1042, a product",
+    "showing": "Showing everything by {name} in this store.",
+    "clearPerson": "Everyone",
+    "none": "Nothing matches.",
+    "noneBody": "Try another person, another kind of change or a shorter search.",
+    "empty": "Nothing has happened in this store yet.",
+    "emptyBody": "What your team, suppliers, apps, support and shoppers do here shows up as it happens.",
+    "denied": {
+      "title": "Store activity is for the store’s owner and managers",
+      "body": "Ask your store owner if you need to know who changed something."
+    },
+    "readOnly": "Your store is read-only until the bill is paid. The log still works.",
+    "more": "Show older",
+    "moreFailed": "Older entries didn’t load. Try again.",
+    "foot": "Searchable for 13 months.",
+    "results": {
+      "success": "Done",
+      "denied": "Refused",
+      "failed": "Failed"
+    },
+    "kinds": {
+      "person": "Team member",
+      "customer": "Shopper",
+      "partner_user": "{partner} team",
+      "api_key": "API key",
+      "app_grant": "App",
+      "support_session": "{partner} support",
+      "job": "Automatic",
+      "provider": "Outside service",
+      "staff": "Platform staff"
+    },
+    "system": "The system",
+    "someone": "someone",
+    "through": {
+      "support_session": "During a {partner} support session",
+      "impersonation": "Signed in by support as this person"
+    },
+    "onBehalf": "By {name}",
+    "reason": "Reason: {reason}",
+    "change": "{field}: {before} → {after}",
+    "byPerson": "Everything by {name}",
+    "bySession": "Everything in this support session",
+    "open": "Open {target}",
+    "details": "Details of: {text}",
+    "other": "{action}",
+    "blank": "—",
+    "thisPerson": "this person",
+    "sessionOf": "{name}’s support session",
+    "unnamed": "Someone without a name",
+    "label": "Store activity",
+    "loading": "Loading the activity log",
+    "error": {
+      "title": "The activity log didn’t load",
+      "body": "Check your connection and try again."
+    },
+    "actions": {
+      "person": {
+        "signed_in": "signed in",
+        "signed_out": "signed out",
+        "sign_in_refused": "couldn’t sign in",
+        "switched_store": "opened this store",
+        "profile_updated": "updated their details",
+        "password_changed": "changed their password"
+      },
+      "member": {
+        "invited": "invited {target}",
+        "removed": "removed {target}",
+        "role_changed": "changed {target}’s role",
+        "invitation_resent": "sent {target}’s invitation again",
+        "invitation_revoked": "withdrew {target}’s invitation"
+      },
+      "supplier": {
+        "invited": "invited supplier {target}",
+        "access_changed": "changed what {target} can do",
+        "shipping_mode_changed": "changed how {target} ships",
+        "suspended": "suspended {target}",
+        "resumed": "reactivated {target}",
+        "removed": "removed {target}",
+        "person_added": "added a person to {target}"
+      },
+      "product": {
+        "created": "added {target}",
+        "updated": "changed {target}",
+        "deleted": "deleted {target}",
+        "duplicated": "copied {target}",
+        "hidden": "hid {target}",
+        "shown": "showed {target}",
+        "proposed": "added {target} for approval",
+        "approved": "approved {target}",
+        "sent_back": "sent {target} back"
+      },
+      "stock": {
+        "adjusted": "changed the stock of {target}",
+        "changed": "changed the stock of {target}"
+      },
+      "collection": {
+        "saved": "saved collection {target}",
+        "deleted": "deleted collection {target}"
+      },
+      "catalog": {
+        "imported": "imported products",
+        "exported": "exported products"
+      },
+      "order": {
+        "placed": "placed order {target}",
+        "paid": "paid for order {target}",
+        "marked_paid": "marked order {target} paid",
+        "cancelled": "cancelled order {target}",
+        "shipped": "shipped order {target}",
+        "delivered": "marked order {target} delivered",
+        "refunded": "refunded order {target}",
+        "note_added": "added a note to order {target}"
+      },
+      "refund": {
+        "issued": "refunded {target}"
+      },
+      "orders": {
+        "exported": "exported orders"
+      },
+      "customer": {
+        "added": "added customer {target}",
+        "updated": "changed customer {target}",
+        "signed_in": "signed in",
+        "signed_out": "signed out",
+        "exported": "exported customers"
+      },
+      "store": {
+        "info_saved": "saved the store’s details",
+        "currencies_saved": "saved the currencies",
+        "languages_saved": "saved the languages",
+        "customer_accounts_saved": "changed how shoppers sign in",
+        "plan_changed": "changed the plan",
+        "data_exported": "exported the store’s data"
+      },
+      "shipping": {
+        "saved": "saved the shipping settings"
+      },
+      "tax": {
+        "inclusive_changed": "changed whether prices include tax"
+      },
+      "tax_class": {
+        "saved": "saved tax category {target}"
+      },
+      "market": {
+        "saved": "saved market {target}",
+        "deleted": "deleted market {target}"
+      },
+      "payment_method": {
+        "connected": "connected {target}",
+        "disconnected": "disconnected {target}",
+        "turned_on": "turned on {target}",
+        "turned_off": "turned off {target}"
+      },
+      "api_key": {
+        "created": "created API key {target}",
+        "rotated": "rotated API key {target}",
+        "revoked": "revoked API key {target}"
+      },
+      "webhook": {
+        "saved": "saved webhook {target}",
+        "removed": "removed webhook {target}",
+        "turned_on": "turned webhook {target} back on",
+        "delivery_replayed": "sent a webhook event again"
+      },
+      "app": {
+        "installed": "installed {target}",
+        "uninstalled": "removed {target}"
+      },
+      "support_access": {
+        "changed": "switched support access"
+      },
+      "support_session": {
+        "started": "opened a support session",
+        "ended": "ended a support session",
+        "viewed": "looked at {target}",
+        "write_requested": "asked to make changes",
+        "write_allowed": "let support make changes for this session",
+        "write_denied": "didn’t let support make changes"
+      },
+      "activity": {
+        "exported": "exported the activity log"
+      }
+    }
   }
 }
