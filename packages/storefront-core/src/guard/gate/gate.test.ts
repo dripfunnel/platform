@@ -19,7 +19,7 @@ const read = (path: string, route: CoreRoute | 'custom'): PageRead => ({ path, r
 const pages: PageRead[] = [...coreRoutes.map((r) => read(pathOf(r), r)), read('/our-story/', 'custom')]
 const visit = (p: PageRead, width: number): PageVisit => ({ path: p.path, route: p.route, width, errors: [], sealed: [], axe: [], mainSeen: true, overflow: false, diff: null })
 const visits = pages.flatMap((p) => gateWidths.map((w) => visit(p, w)))
-const weight = (p: PageRead): PageWeight => ({ path: p.path, route: p.route, jsGzip: 40_000, runtimeJsGzip: 0, cssGzip: 4_000, bytes: 120_000, lcpMs: [900, 3000, 950], cls: [0, 0.2, 0.01], tbtMs: [20, 400, 30], cpuSlowdown: 3 })
+const weight = (p: PageRead): PageWeight => ({ path: p.path, route: p.route, jsGzip: 40_000, runtimeJsGzip: 0, cssGzip: 4_000, bytes: 120_000, lcpMs: [900, 3000, 950], cls: [0, 0.2, 0.01], tbtMs: [20, 400, 30] })
 const indexed = pages.filter((p) => ['home', 'custom', 'product', 'collection', 'policy'].includes(p.route) && !p.path.startsWith('/_fallback/'))
 
 const good: GateInput = {
@@ -89,6 +89,7 @@ describe('the full gate', () => {
   it('says what a blocking-time refusal measured, the three runs and the CPU slowdown, whole across several pages (#794)', () => {
     const slow = (w: PageWeight): PageWeight => ({ ...w, tbtMs: [212, 233, 205], cpuSlowdown: 3.94 })
     expect(detail({ ...good, weights: onPage(good.weights, '/', slow) }, 'budgets')).toBe('Home page blocks for 212 ms while loading, over 150 ms (runs 212, 233, 205 ms; CPU slowed 3.9×).')
+    expect(detail({ ...good, weights: onPage(good.weights, '/', (w) => ({ ...w, tbtMs: [212, 233, 205] })) }, 'budgets')).toBe('Home page blocks for 212 ms while loading, over 150 ms (runs 212, 233, 205 ms).')
     const slowRoutes = new Set<string>(['home', 'collection', 'product'])
     const several = detail({ ...good, weights: good.weights.map((w) => (slowRoutes.has(w.route) ? slow(w) : w)) }, 'budgets')
     expect(several.match(/\(runs 212, 233, 205 ms; CPU slowed 3\.9×\)/g)).toHaveLength(3)

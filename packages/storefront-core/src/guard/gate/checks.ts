@@ -41,7 +41,7 @@ export type PageVisit = {
 }
 
 /** A page's first-load weight and timings at phone width, three times each: `jsGzip` the theme's own, `runtimeJsGzip` core's (ARCHITECTURE §9). `cpuSlowdown` is the throttle the timings were taken at. */
-export type PageWeight = { path: string; route: PageRoute; jsGzip: number; runtimeJsGzip: number; cssGzip: number; bytes: number; lcpMs: number[]; cls: number[]; tbtMs: number[]; cpuSlowdown: number }
+export type PageWeight = { path: string; route: PageRoute; jsGzip: number; runtimeJsGzip: number; cssGzip: number; bytes: number; lcpMs: number[]; cls: number[]; tbtMs: number[]; cpuSlowdown?: number }
 
 export type GateInput = {
   validator: readonly Problem[]
@@ -179,7 +179,7 @@ export const checkBudgets = (input: Pick<GateInput, 'pages' | 'weights' | 'site'
     if (w.bytes > b.pageBytes) found.push(`${name} weighs ${kb(w.bytes)} on a phone, over the ${kb(b.pageBytes)} budget.`)
     if (median(w.lcpMs) > b.lcpMs) found.push(`${name} shows its largest content after ${Math.round(median(w.lcpMs))} ms, over ${b.lcpMs} ms.`)
     if (median(w.cls) > b.cls) found.push(`${name} shifts its layout by ${median(w.cls).toFixed(3)}, over ${b.cls}.`)
-    if (median(w.tbtMs) > b.tbtMs) found.push(`${name} blocks for ${Math.round(median(w.tbtMs))} ms while loading, over ${b.tbtMs} ms (runs ${w.tbtMs.map(Math.round).join(', ')} ms; CPU slowed ${w.cpuSlowdown.toFixed(1)}×).`)
+    if (median(w.tbtMs) > b.tbtMs) found.push(`${name} blocks for ${Math.round(median(w.tbtMs))} ms while loading, over ${b.tbtMs} ms (runs ${w.tbtMs.map(Math.round).join(', ')} ms${w.cpuSlowdown === undefined ? '' : `; CPU slowed ${w.cpuSlowdown.toFixed(1)}×`}).`)
     return found
   })]
   const runtime = Math.max(0, ...weights.map((w) => w.runtimeJsGzip))
