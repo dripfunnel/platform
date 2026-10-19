@@ -228,7 +228,7 @@ const phoneRate = async (browser: Browser): Promise<number> => {
 
 /** ARCHITECTURE §9 on a mid-range phone: the first load's bytes, and its timings three times. */
 const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage, rate: number, metrics: (page: Page) => Promise<LoadMetrics>): Promise<PageWeight> => {
-  const w: PageWeight = { path: p.path, route: p.route, jsGzip: 0, runtimeJsGzip: 0, cssGzip: 0, bytes: 0, lcpMs: [], cls: [], tbtMs: [] }
+  const w: PageWeight = { path: p.path, route: p.route, jsGzip: 0, runtimeJsGzip: 0, cssGzip: 0, bytes: 0, lcpMs: [], cls: [], tbtMs: [], cpuSlowdown: rate }
   for (let run = 0; run < 3; run += 1) {
     const context = await browser.newContext({ viewport: { width: gateWidths[0], height }, isMobile: true, hasTouch: true })
     await context.addInitScript(() => {
