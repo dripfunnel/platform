@@ -163,6 +163,17 @@ export const knownErrorCodes = [
   'CODES_EXHAUSTED',
   // Abandoned carts (apps/api src/apis/store/cartReminders.ts).
   'CANT_REMIND',
+  // Developers and Apps (apps/api src/apis/store/developers.ts, webhooks.ts, apps.ts).
+  'INVALID_SCOPES',
+  'TOO_MANY_KEYS',
+  'BAD_URL',
+  'PRIVATE_ADDRESS',
+  'TOO_MANY_ENDPOINTS',
+  'UNAVAILABLE',
+  'ENDPOINT_OFF',
+  'TOO_OLD',
+  'SCOPES_CHANGED',
+  'ALREADY_INSTALLED',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

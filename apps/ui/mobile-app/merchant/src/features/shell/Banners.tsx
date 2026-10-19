@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '../../theme'
 import type { BannerSpec } from './bannerSpecs'
+import { SupportAskBar } from './SupportAskBar'
 
-// Banners sit between the header and the screen, a bold title with the explanation after it. They carry no button:
-// plans and billing aren't in the app (FIRST-RELEASE.md §1).
+// Banners sit between the header and the screen, a bold title with the explanation after it. They carry no button
+// (plans and billing aren't in the app, FIRST-RELEASE.md §1) except support's Allow and Deny.
 export function Banners({ banners }: { banners: readonly BannerSpec[] }) {
   const { colors } = useTheme()
   return (
@@ -21,6 +22,7 @@ export function Banners({ banners }: { banners: readonly BannerSpec[] }) {
             <Text style={[styles.text, { color: palette.fg }]}>
               <Text style={styles.title}>{banner.title}</Text> {banner.body}
             </Text>
+            {banner.ask ? <SupportAskBar ask={banner.ask} color={palette.fg} /> : null}
           </View>
         )
       })}
