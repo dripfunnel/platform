@@ -1,5 +1,5 @@
 import { act, type ReactTestRenderer } from 'react-test-renderer'
-import type { ApiClient } from '../../graphql'
+import { ApiError, type ApiClient } from '../../graphql'
 import { fakeApi } from '../../testing/fakeApi'
 import { actingAs, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'
@@ -10,6 +10,7 @@ jest.setTimeout(120_000)
 
 const mockPush = jest.fn()
 const mockSession: { client: ApiClient | null } = { client: null }
+const mockNet: { listener: ((state: { isConnected: boolean; isInternetReachable: boolean }) => void) | null } = { listener: null }
 
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual<typeof import('react')>('react')
@@ -19,7 +20,15 @@ jest.mock('expo-router', () => {
   }
 })
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
-jest.mock('@react-native-community/netinfo', () => ({ __esModule: true, default: { addEventListener: () => () => undefined } }))
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: {
+    addEventListener: (listener: (state: { isConnected: boolean; isInternetReachable: boolean }) => void) => {
+      mockNet.listener = listener
+      return () => undefined
+    },
+  },
+}))
 jest.mock('../../session', () => ({ sessionClient: () => mockSession.client, session: () => ({ leaveStore: jest.fn(), end: jest.fn() }) }))
 
 const settle = async () => {
@@ -108,7 +117,15 @@ describe('Home picks homeApp or PortalHome from the API’s answer', () => {
     await press(pressableNamed(renderer, 'See all'))
     await press(pressableNamed(renderer, 'Add a product'))
 
-    expect(mockPush.mock.calls.map(([href]) => href)).toEqual(['/orders?filter=TO_SHIP', '/catalogue?filter=pending', '/catalogue?filter=low_stock', '/orders/2', '/orders', '/catalogue/new'])
+    // Each Needs you press is a new visit, so a list open on its tab starts on the chip again.
+    expect(mockPush.mock.calls.map(([href]) => href)).toEqual([
+      expect.stringMatching(/^\/orders\?filter=TO_SHIP&visit=\d+$/),
+      expect.stringMatching(/^\/catalogue\?filter=pending&visit=\d+$/),
+      expect.stringMatching(/^\/catalogue\?filter=low_stock&visit=\d+$/),
+      '/orders/2',
+      '/orders',
+      '/catalogue/new',
+    ])
   })
 
   it('draws PortalHome for a new store: the greeting and the checklist, not the sales', async () => {
@@ -153,6 +170,49 @@ describe('Home picks homeApp or PortalHome from the API’s answer', () => {
     release()
     await settle()
     expect(hasText(renderer, 'Needs you')).toBe(true)
+  })
+})
+
+describe('Home’s designed states', () => {
+  it('says it could not load, quotes no reference of its own, and tries again', async () => {
+    let failing = true
+    const renderer = await show({
+      '{ home {': () => {
+        if (failing) throw new ApiError('NO_RESPONSE', 'down')
+        return { home: homeOf() }
+      },
+    })
+
+    expect(hasText(renderer, 'We couldn’t load Home')).toBe(true)
+    expect(hasText(renderer, 'Ref ')).toBe(false)
+    failing = false
+    await press(pressableNamed(renderer, 'Try again'))
+    await settle()
+    expect(hasText(renderer, 'Needs you')).toBe(true)
+  })
+
+  it('says the page isn’t here when the API answers no home', async () => {
+    const renderer = await show(asHome(null))
+
+    expect(hasText(renderer, 'This page isn’t here any more')).toBe(true)
+    expect(hasText(renderer, 'Needs you')).toBe(false)
+  })
+
+  it('says it is offline, not that it could not load, when there is no answer and no connection', async () => {
+    const renderer = await show({
+      '{ home {': () => {
+        throw new ApiError('NO_RESPONSE', 'down')
+      },
+    })
+    expect(hasText(renderer, 'We couldn’t load Home')).toBe(true)
+
+    await act(async () => mockNet.listener?.({ isConnected: false, isInternetReachable: false }))
+    try {
+      expect(hasText(renderer, 'Check your connection')).toBe(true)
+      expect(hasText(renderer, 'We couldn’t load Home')).toBe(false)
+    } finally {
+      await act(async () => mockNet.listener?.({ isConnected: true, isInternetReachable: true }))
+    }
   })
 })
 

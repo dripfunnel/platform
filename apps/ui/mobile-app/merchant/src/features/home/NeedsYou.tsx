@@ -5,6 +5,7 @@ import { useTheme } from '../../theme'
 import { Eyebrow } from '../common/Eyebrow'
 import { Icon } from '../shell/Icon'
 import type { Need } from './homeView'
+import { visit } from './routes'
 
 // "Needs you": what waits, each with its count, opening the list that holds it (DESIGN.md §3). The caller says what to draw when nothing waits.
 export function NeedsYou({ needs, onOpen }: { needs: readonly Need[]; onOpen: (href: string) => void }) {
@@ -18,7 +19,7 @@ export function NeedsYou({ needs, onOpen }: { needs: readonly Need[]; onOpen: (h
             key={need.key}
             accessibilityRole="button"
             accessibilityLabel={t('home.need.open', { label: need.label, count: formatNumber(need.count, locale) })}
-            onPress={() => onOpen(need.href)}
+            onPress={() => onOpen(visit(need.href))}
             style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}
           >
             <View style={[styles.count, { backgroundColor: colors.warningSurface }]}>

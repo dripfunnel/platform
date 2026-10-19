@@ -3,3 +3,6 @@ export const ordersHref = '/orders'
 export const ordersToShipHref = '/orders?filter=TO_SHIP'
 export const catalogueHref = '/catalogue'
 export const productsFilterHref = (filter: 'pending' | 'low_stock'): string => `/catalogue?filter=${filter}`
+
+/** Each press is a new visit: a tab stays mounted, so a list already open on it starts on the chip again only when the link differs. */
+export const visit = (href: string): string => `${href}${href.includes('?') ? '&' : '?'}visit=${Date.now()}`

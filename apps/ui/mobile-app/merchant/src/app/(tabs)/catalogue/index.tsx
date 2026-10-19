@@ -10,14 +10,14 @@ import { t } from '../../../messages'
 type Segment = 'products' | 'collections'
 
 // Products | Collections under one tab (DESIGN.md §2); Collections holds its own filters, menus and size charts (FIRST-RELEASE.md §12).
-// `?filter=low_stock` opens Products on a chip, as Home's "Needs you" does.
+// `?filter=low_stock` opens Products on a chip, as Home's "Needs you" does; `visit` is new on each press, so it applies again on a tab that stayed mounted.
 export default function Catalogue() {
   const [segment, setSegment] = useState<Segment>('products')
-  const { filter } = useLocalSearchParams<{ filter?: string }>()
+  const { filter, visit } = useLocalSearchParams<{ filter?: string; visit?: string }>()
   const initial: ProductFilter = productFilters.find((known) => known === filter) ?? 'all'
   useEffect(() => {
     if (filter) setSegment('products')
-  }, [filter])
+  }, [filter, visit])
   return (
     <View style={{ flex: 1 }}>
       <SegmentedControl
@@ -28,7 +28,7 @@ export default function Catalogue() {
         value={segment}
         onChange={setSegment}
       />
-      {segment === 'products' ? <ProductsScreen key={initial} initialFilter={initial} /> : <CollectionsArea />}
+      {segment === 'products' ? <ProductsScreen key={`${initial}:${visit ?? ''}`} initialFilter={initial} /> : <CollectionsArea />}
     </View>
   )
 }
