@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -43,7 +43,7 @@ infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the
 | **Two render modes from one codebase.** **Preview** is a client-rendered build on the store's preview host, `{slug}-preview.my-store.one` ([PREVIEW.md](PREVIEW.md)), with no SSR or SSG. **Live** is a static site (SSG) on the customer's domain. | One mode for both | The preview builds in seconds and shows catalogue changes at once; the live site must be fast, cheap to host, crawlable and immune to API load spikes. §4 covers both. |
 | **The engine computes; the storefront displays.** Every price, tax, discount, shipping cost, stock level and total comes from the Shop API. | Any client-side commerce calculation | This is what lets the AI change the storefront freely: nothing a theme does can assert a price or skip a rule (PLATFORM-PROMPT §5.5). |
 | **Fast and findable by construction**: core owns the `<head>`, structured data, sitemap, redirects, images, fonts and script loading; theme components are server-only unless they are interactive islands; budgets are gates (§8, §9) | Asking the AI to be careful | Speed and SEO are the storefront's job; a slow or unindexable design is refused like a broken one. |
-| **Hosted on Cloudflare**: each build's files in R2, served for every store by one edge Worker; built by a locked GitHub Actions workflow in each store's public repo, inside the public build image for its core version (decided 2026-10-09 with Gaurav, [LIVE-SHOP.md](LIVE-SHOP.md) §1) | A Pages project per store (decided 2026-10-05 on #284, replaced: 100 projects per account); builds in Cloudflare Containers (2026-10-08, replaced); S3 + CloudFront (the reference's deploy) | No per-store hosting limit, going back is a pointer move, and builds cost nothing on public repos. Custom domains through Cloudflare for SaaS. |
+| **Hosted on Cloudflare**: each build's files in R2, served for every store by one edge Worker; built by a locked GitHub Actions workflow in each store's public repo, inside the build image for its core version, a private ghcr package the runner logs in to pull (#790) (decided 2026-10-09 with Gaurav, [LIVE-SHOP.md](LIVE-SHOP.md) §1) | A Pages project per store (decided 2026-10-05 on #284, replaced: 100 projects per account); builds in Cloudflare Containers (2026-10-08, replaced); S3 + CloudFront (the reference's deploy) | No per-store hosting limit, going back is a pointer move, and builds cost nothing on public repos. Custom domains through Cloudflare for SaaS. |
 
 ---
 
@@ -72,8 +72,8 @@ infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the
 
 AI changes run in the platform's sandbox image (`apps/sandbox`, [AI-STUDIO.md](AI-STUDIO.md)),
 which has core and the allowed libraries preinstalled for each core version. Builds run in the
-store repo's one locked workflow, inside the same image published publicly on `ghcr.io`
-([LIVE-SHOP.md](LIVE-SHOP.md) §4). The store repo holds no secret and needs no package access.
+store repo's one locked workflow, inside the same image published on `ghcr.io`
+([LIVE-SHOP.md](LIVE-SHOP.md) §4). The store repo holds no secret of its own and needs no package access: the build's `pull` step logs in with the org's `GHCR_PULL_TOKEN` (#790).
 
 ### 2.1 `@dripfunnel/storefront-core`
 
@@ -939,7 +939,7 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
 ## 7. Core upgrades across the fleet
 
 - Core follows **semver**. The release workflow publishes it and *(planned, #482)* builds the
-  **sandbox image** for that version, published publicly on `ghcr.io` for builds and pushed to
+  **sandbox image** for that version, published on `ghcr.io` for builds (pulled with `GHCR_PULL_TOKEN`, #790) and pushed to
   Cloudflare's registry for studios (decided 2026-10-09; LIVE-SHOP §1).
 - **The upgrade bot** (SAAS §10) takes a release to every store, **canary stores first**, then
   in waves: it builds each store's current published commit with the new core, applies
@@ -1131,7 +1131,7 @@ fits (suggested on #483).
 - ~~Does the AI edit the theme's code, and how does a design start?~~ It writes the theme's code inside the walls of §3, from a template after a brand step (decided 2026-10-08 on #470, reversing that day's site-data design; §1, §6).
 - ~~Which content pages and sections may the theme add without new core support (blog, lookbook,
   store locator)?~~ FAQ, lookbook, the merchant's own pages **and a blog** (SAPI 24); any custom page the AI writes (§3.1); no store locator (decided 2026-10-05 on #337).
-- ~~How store repos authenticate to GitHub Packages in CI.~~ They don't: builds run in the sandbox image, which has core preinstalled (decided 2026-10-08 on #470, following the choice of Cloudflare Containers; it replaces #303's org secret). Since builds moved to Actions, the image is public on `ghcr.io` and pulled with no token (decided 2026-10-09).
+- ~~How store repos authenticate to GitHub Packages in CI.~~ They don't: builds run in the sandbox image, which has core preinstalled (decided 2026-10-08 on #470, following the choice of Cloudflare Containers; it replaces #303's org secret). Since builds moved to Actions, the image is on `ghcr.io` and the runner logs in with the org's `GHCR_PULL_TOKEN` to pull it (decided 2026-10-09 as public with no token; changed on #790).
 - ~~Where AI changes and builds run.~~ Cloudflare Containers, one per store with a studio open and a pool for publish builds (decided 2026-10-08 on #470); builds then moved to each store repo's GitHub Actions (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md)).
 - ~~What a store whose theme can't take a security fix gets.~~ The baseline theme until repaired (decided 2026-10-08 on #470).
 - ~~How the preview build reaches `{store}.preview.{partner-domain}`: a branch deployment of the store's Pages project, or its own project.~~ Neither: R2, served by the edge Worker on the store's preview host (decided 2026-10-09, [PREVIEW.md](PREVIEW.md)).

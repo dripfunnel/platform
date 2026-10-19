@@ -3,7 +3,7 @@ import type postgres from 'postgres'
 import { parseConfig } from '#core/config'
 import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
-import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
+import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
 import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
@@ -98,7 +98,7 @@ export const studioSessionClass = (connect: Connect) =>
     private async hostFor(core: string, db: <T>(work: (sql: postgres.Sql) => Promise<T>) => Promise<T>, localUrl: string | undefined): Promise<SandboxHost> {
       if (localUrl) return localSandboxHost(localUrl)
       const container = this.ctx.container
-      const image = await db((sql) => withSystemScope(sql, (tx) => selectSandboxImage(tx, core)))
+      const image = await sandboxImageFor(container, core, (version) => db((sql) => withSystemScope(sql, (tx) => selectSandboxImage(tx, version))))
       if (!container || !image) throw new StudioUnavailable(`studio: no sandbox for core ${core}`)
       return containerHost(container, image)
     }
