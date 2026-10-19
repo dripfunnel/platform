@@ -5,6 +5,10 @@ export const gateChecks = ['validator', 'contracts', 'sealed', 'checkout', 'axe'
 
 export type GateCheckName = (typeof gateChecks)[number]
 
+/** Checks whose failure is a suggestion, not a refusal (#806); the rest are the safety walls (ARCHITECTURE §4.2 step 3). */
+export const advisoryChecks: readonly GateCheckName[] = ['budgets', 'no-js', 'crawl', 'visual-diff']
+/** Whether this check failing refuses the publish; a look that must stay the same (strictLook) always does. */
+export const blocksPublish = (name: GateCheckName, strictLook: boolean): boolean => !advisoryChecks.includes(name) || (name === 'visual-diff' && strictLook)
 export type GateCheck = { name: GateCheckName; passed: boolean; detail?: string }
 
 export type GateReport = { passed: boolean; checks: GateCheck[] }
@@ -23,7 +27,7 @@ export const gateCheck = (name: GateCheckName, problems: readonly string[], pass
 }
 
 /** Every check in its order; one that never ran fails, so a step stopped part-way never reads as a pass. */
-export const gateReport = (checks: readonly GateCheck[]): GateReport => {
+export const gateReport = (checks: readonly GateCheck[], strictLook = false): GateReport => {
   const ordered = gateChecks.map((name) => checks.find((c) => c.name === name) ?? { name, passed: false, detail: 'This check did not run.' })
-  return { passed: ordered.every((c) => c.passed), checks: ordered }
+  return { passed: ordered.every((c) => c.passed || !blocksPublish(c.name, strictLook)), checks: ordered }
 }

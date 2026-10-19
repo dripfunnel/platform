@@ -8,7 +8,7 @@ import worker from '../src/index'
 import { actionsIssuer, actionsKeys } from '#integrations/github/oidc'
 import { storefrontR2 } from '#integrations/cloudflare/r2'
 import { localActions } from '#integrations/local/builds'
-import { BuildRefused, BuildUnavailable, buildLifetimeMs, digestOf, issueCredentials, reportBuild, reportUploaded, runPublish, startBuild, UploadRefused, verifyUpload, type BuildDeps, type GateReport } from '#saas/storefronts/index'
+import { advisoryChecks, BuildRefused, BuildUnavailable, buildLifetimeMs, digestOf, issueCredentials, reportBuild, reportUploaded, runPublish, startBuild, UploadRefused, verifyUpload, type BuildDeps, type GateReport } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { testProbe } from './support/edgeProbe'
@@ -230,6 +230,39 @@ describe('the report', () => {
   })
 })
 
+describe('the verdict (#806)', () => {
+  it('names the same advisory checks as storefront-core', () => {
+    const core = readFileSync(new URL('../../../packages/storefront-core/src/guard/gate/report.ts', import.meta.url), 'utf8')
+    const listed = /advisoryChecks: readonly GateCheckName\[\] = \[([^\]]*)\]/.exec(core)?.[1] ?? ''
+    expect([...advisoryChecks]).toEqual(listed.split(',').map((n) => n.trim().replace(/'/g, '')))
+  })
+  const sent = (build: string, passed: boolean, checks: GateReport['checks']): GateReport => ({ build, passed, digest: 'd'.repeat(64), checks })
+  it('follows the check names, not the runner’s passed: budgets, no-js, crawl and a free look only suggest', async () => {
+    const id = await newBuild(t.storeA1)
+    const auth = await token(claimsFor(repos.a1, '5601'))
+    // An older image sends passed: false for a budget miss; the build still goes on to upload.
+    expect(await reportBuild(deps, auth, sent(id, false, [{ name: 'axe', passed: true }, { name: 'budgets', passed: false, detail: 'Home page blocks for 290 ms while loading, over 150 ms.' }, { name: 'visual-diff', passed: false, detail: '1 page looks different from the live site.' }]))).toEqual({ passed: true, upload: true })
+    expect(await run(id)).toMatchObject({ state: 'deploying', gate: { passed: true, checks: [{ name: 'axe' }, { name: 'budgets', passed: false }, { name: 'visual-diff', passed: false }] } })
+    const [entry] = await db.sql<{ action: string; reason: string }[]>`select action, reason from activity_log where target_id = ${id} and action like 'storefront.build_%ed'`
+    expect(entry).toEqual({ action: 'storefront.build_passed', reason: 'budgets, visual-diff' })
+    // The same report again is answered as the first was.
+    expect(await reportBuild(deps, auth, sent(id, false, [{ name: 'axe', passed: true }, { name: 'budgets', passed: false, detail: 'Home page blocks for 290 ms while loading, over 150 ms.' }, { name: 'visual-diff', passed: false, detail: '1 page looks different from the live site.' }]))).toEqual({ passed: true, upload: true })
+  })
+  it('still refuses a failing safety check, even when the runner says passed, and a check it has never heard of', async () => {
+    for (const [n, failing] of [['axe', 'axe'], ['content', 'content'], ['sealed', 'sealed'], ['mystery', 'something-new']] as const) {
+      const id = await newBuild(t.storeA1)
+      const auth = await token(claimsFor(repos.a1, `57${n.length}${failing.length}`))
+      expect(await reportBuild(deps, auth, sent(id, true, [{ name: failing, passed: false, detail: 'Broken.' }, { name: 'budgets', passed: true }]))).toEqual({ passed: false, upload: false })
+      expect(await run(id)).toMatchObject({ state: 'checking', gate: { passed: false } })
+    }
+  })
+  it('refuses a look that changed when the publish must keep it (a core upgrade), and only suggests otherwise', async () => {
+    const id = await newBuild(t.storeA1)
+    await db.sql`update publish_run set kind = 'upgrade' where id = ${id}`
+    const auth = await token(claimsFor(repos.a1, '5801'))
+    expect(await reportBuild(deps, auth, sent(id, true, [{ name: 'visual-diff', passed: false, detail: 'The home page looks different from the live site (20.0% of it changed).' }]))).toEqual({ passed: false, upload: false })
+  })
+})
 describe('the upload credential', () => {
   it('is refused before any report, after a failing one, and to another run', async () => {
     const id = await newBuild(t.storeA1)

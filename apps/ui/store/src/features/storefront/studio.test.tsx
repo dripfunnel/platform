@@ -445,6 +445,22 @@ describe('publishing from the studio', () => {
     expect(onOverview).toHaveBeenCalled()
   })
 
+  it('says a version is live with suggestions when only advisory checks failed, listing each one’s words (#806)', async () => {
+    const checks = [
+      { name: 'axe', passed: true, words: null },
+      { name: 'budgets', passed: false, words: 'Home page blocks for 290 ms while loading, over 150 ms.' },
+      { name: 'crawl', passed: false, words: 'A link goes nowhere.' },
+    ]
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('live', { checks })) }, 'r1')
+    const card = within(screen.getByText(fill(p.liveWithSuggestions, { number: '13' })).closest('li') as HTMLElement)
+    expect(card.getByText(fill(p.liveWithSuggestions, { number: '13' }))).toBeTruthy()
+    expect(card.getByText('Home page blocks for 290 ms while loading, over 150 ms.')).toBeTruthy()
+    expect(card.getByText('A link goes nowhere.')).toBeTruthy()
+  })
+  it('shows no suggestions card when every check passed', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('live', { checks: [{ name: 'axe', passed: true, words: null }] })) }, 'r1')
+    expect(screen.queryByText(fill(p.liveWithSuggestions, { number: '13' }))).toBeNull()
+  })
   it('says what failed in a refused publish, and offers to publish everything before the change to blame', async () => {
     const checks = [{ name: 'price', passed: false, words: 'On phones the buy bar covers the price.' }, { name: 'a11y', passed: true, words: null }]
     const { onRun } = await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { checks, repairAttempts: 3, bisectMessageId: 'm2' })) }, 'r1')

@@ -287,4 +287,4 @@ export const runGate = (input: GateInput): GateReport =>
     checkClaims(input.pages, input.data),
     checkVisualDiff(input.visits, input.strictLook),
     checkEdgeCases(input),
-  ])
+  ], input.strictLook)

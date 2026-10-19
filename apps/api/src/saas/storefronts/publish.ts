@@ -19,6 +19,7 @@ import {
   rollBackRun,
   selectBisectedRun,
   selectDraftCommits,
+  selectFailedCheckNames,
   selectFailingChecks,
   selectGateVerdict,
   selectQueuedRun,
@@ -307,7 +308,11 @@ const confirmStep = async (deps: PublishDeps, p: PublishParams, buildId: string)
     if (buildId !== p.runId) await finishRepaired(tx, p.storeId, p.runId, at)
     const version = await versionOfBuild(tx, run.id)
     await queueSideEffect(tx, { kind: storefrontIndexNowKind, idempotencyKey: `indexnow:${run.id}`, payload: { storeId: run.store_id, buildId: run.id, previousBuildId: run.previous_build_id }, partnerId: run.partner_id, storeId: run.store_id })
-    await activityLog.record(tx, systemEntry(run, 'storefront.published', 'success', [{ field: 'version', before: null, after: version === null ? null : String(version) }]))
+    const suggested = await selectFailedCheckNames(tx, run.id)
+    await activityLog.record(tx, systemEntry(run, 'storefront.published', 'success', [
+      { field: 'version', before: null, after: version === null ? null : String(version) },
+      ...(suggested.length > 0 ? [{ field: 'suggestions', before: null, after: suggested.join(', ') }] : []),
+    ]))
     await queueNext(tx, run.store_id, run.partner_id)
     return true
   })

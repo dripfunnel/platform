@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sealedProblemWords } from '../../testing/index'
 import { routeAddresses, type ThemeRoutes } from '../../contracts/routes'
 import { coreRoutes, requiredParts, type CoreRoute } from '../../contracts/theme'
-import { catalogueSnapshotSchema, edgeCases, fallbackPath, gateChecks, gateReport, gateWidths, maxDetail, pageBudgets, runGate, type CatalogueSnapshot, type GateCheckName, type GateInput, type PageRead, type PageVisit, type PageWeight } from '../index'
+import { advisoryChecks, blocksPublish, catalogueSnapshotSchema, edgeCases, fallbackPath, gateChecks, gateReport, gateWidths, maxDetail, pageBudgets, runGate, type CatalogueSnapshot, type GateCheckName, type GateInput, type PageRead, type PageVisit, type PageWeight } from '../index'
 
 const origin = 'https://shop.example.com'
 const routes: ThemeRoutes = { routes: Object.fromEntries(coreRoutes.map((r) => [r, 'HomePage'])), custom: { '/our-story': 'AboutPage' } }
@@ -65,6 +65,27 @@ describe('the full gate', () => {
     for (const [name, input] of cases) expect([name, failing(input)]).toEqual([name, [name]])
   })
 
+  it('lets only the safety checks refuse: budgets, no-js, crawl and a look that may change fail without refusing (#806)', () => {
+    expect([...advisoryChecks]).toEqual(['budgets', 'no-js', 'crawl', 'visual-diff'])
+    const slow = { ...good, weights: onPage(good.weights, '/', (w) => ({ ...w, tbtMs: [400, 400, 400] })) }
+    const report = runGate(slow)
+    expect(report.checks.find((c) => c.name === 'budgets')?.passed).toBe(false)
+    expect(report.passed).toBe(true)
+    const noHeading = runGate({ ...good, pages: onPage(pages, '/', (p) => ({ ...p, h1s: [''] })) })
+    expect(failing({ ...good, pages: onPage(pages, '/', (p) => ({ ...p, h1s: [''] })) })).toEqual(['no-js'])
+    expect(noHeading.passed).toBe(true)
+    const everySafetyCheck: [GateCheckName, GateInput][] = [
+      ['axe', { ...good, visits: onPage(visits, '/cart/', (v) => ({ ...v, axe: ['color-contrast'] })) }],
+      ['content', { ...good, pages: onPage(pages, '/', (p) => ({ ...p, text: 'Hurry, only 2 left in stock!' })) }],
+      ['contracts', { ...good, pages: pages.filter((p) => p.route !== 'search') }],
+    ]
+    for (const [name, input] of everySafetyCheck) expect([name, runGate(input).passed]).toEqual([name, false])
+    // A look that must stay the same still refuses; one that may change only suggests.
+    expect(runGate({ ...good, strictLook: true, visits: onPage(visits, '/', (v) => ({ ...v, diff: 0.2 })) }).passed).toBe(false)
+    expect(blocksPublish('visual-diff', true)).toBe(true)
+    expect(blocksPublish('visual-diff', false)).toBe(false)
+    expect(gateChecks.filter((n) => blocksPublish(n, false))).toEqual(['validator', 'contracts', 'sealed', 'checkout', 'axe', 'content', 'edge-cases'])
+  })
   it('refuses a hidden tax label, a checkout broken on phones, JavaScript over budget and an empty h1, each by name', () => {
     const tax = { ...good, visits: onPage(visits, '/cart/', (v) => ({ ...v, sealed: ['The "price" component on the cart page isn’t seen: it is hidden.'] })) }
     expect(failing(tax)).toEqual(['sealed', 'checkout'])

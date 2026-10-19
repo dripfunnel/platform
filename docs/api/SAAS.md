@@ -692,6 +692,7 @@ Specified in [../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §4.
 pipeline: freeze, build, full gate, repair or bisect, deploy, post-deploy checks, rollback); the
 SaaS layer owns the state and the rules:
 
+- **Verdict**: the API derives a build's verdict from the gate report's check names (#806): only the safety checks refuse; budgets, no-JS, crawl and a free-to-change visual diff are suggestions kept on the run and shown in the studio.
 - **Change detection**: engine events (product, version, collection, filter, menu, content,
   storefront-visible settings) mark the store's `storefront` **"has unpublished changes"**,
   with what changed and since when. This is an engine table, not in-memory state (the old

@@ -445,6 +445,14 @@ export const selectBisectedRun = async (tx: ScopedSql, storeId: string, commit: 
       order by r.created_at desc limit 1`
   )[0] ?? null
 
+/** The names of the checks that failed in a build's report, and so of its suggestions once it went live (#806). */
+export const selectFailedCheckNames = async (tx: ScopedSql, runId: string): Promise<string[]> =>
+  (
+    await tx<{ name: string }[]>`
+      select c->>'name' as name from publish_run r, jsonb_array_elements(coalesce(r.gate->'checks', '[]'::jsonb)) c
+      where r.id = ${runId} and (c->>'passed')::boolean is false`
+  ).map((r) => r.name)
+
 /** The failing checks' words of a build's report, for the repair (never code: LIVE-SHOP §4 step 7). */
 export const selectFailingChecks = async (tx: ScopedSql, storeId: string, runId: string): Promise<string[]> =>
   (

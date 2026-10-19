@@ -7082,6 +7082,8 @@
           "going_live": "Checking it went live…"
         },
         "live": "Version {number} is live — we checked your site and it changed",
+        "liveWithSuggestions": "Version {number} is live, with suggestions",
+        "suggestionsLede": "It passed every safety check. These would make it better:",
         "refusedTitle": "Version {number} wasn’t published",
         "refusedFallback": "Something on your site didn’t pass our checks.",
         "tried": "We tried to fix it and couldn’t.",

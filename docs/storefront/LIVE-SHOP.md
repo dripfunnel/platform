@@ -209,6 +209,8 @@ checking, deploying, live, failed, rolled back).
    - the edge-case catalogue render;
    - a visual diff against the live build's files from step 3.
 
+   Since #806 the API decides the verdict from the check names, whatever `passed` the runner sends: the budgets, no-JS, crawl and visual-diff checks are advisory (a failing one is kept on the build and the version still goes live), unless the publish must keep the look, when the visual diff refuses too. `build.yml` is unchanged.
+
    The checkout smoke test runs against core's offline Shop API fixture (decided on #483); the real
    checkout is the post-deploy check (step 10). Its test purchase (`smokeTest`, storefront ARCHITECTURE §4.2's
    `checkout`) is built on #313 and gates a publish once INF 4 adds it to the check step. The container writes each check's pass or fail
@@ -348,7 +350,7 @@ checking, deploying, live, failed, rolled back).
 | Step | Allowed when | Answers |
 |---|---|---|
 | `start` (step 5) | The build is `building` and has no report | 15-minute links: `source`, `snapshot`, and `live` (each file of the live build by path, or null before the first publish); since #483 also `commit` (what to check out of the source), `core` (the build image's version) and `strictLook` (a core upgrade, whose look mustn't change) |
-| `report` (step 7) | No report yet; the body adds `passed`, `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …, "upload": …}`. Kept on `publish_run.gate` once with `build_minutes` (since the dispatch, rounded up): a pass moves the build to `deploying`, a failure to `checking` for its publish run to decide (#483); each answer wakes that run; the same report again gets the same answer. `upload` says whether the workflow uploads |
+| `report` (step 7) | No report yet; the body adds `passed` (ignored since #806: the API derives it from the check names), `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …, "upload": …}`. Kept on `publish_run.gate` once with `build_minutes` (since the dispatch, rounded up): a pass moves the build to `deploying`, a failure to `checking` for its publish run to decide (#483); each answer wakes that run; the same report again gets the same answer. `upload` says whether the workflow uploads |
 | `credentials` (step 8) | After a passing report and before "uploaded" | `endpoint`, `bucket`, `prefix` (the staging folder) and the 15-minute `accessKeyId`, `secretAccessKey`, `sessionToken` |
 | `uploaded` (step 9) | After a passing report; the same call again gets the same answer | `{"uploaded": true}`, or the refusal when the staged manifest is missing or its digest isn't the report's. Either way the upload is over, and the build's publish run is woken to verify it or fail it |
 

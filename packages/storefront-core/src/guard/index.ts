@@ -28,7 +28,7 @@ export const validateChange = (files: readonly ThemeFile[], context: GuardContex
 export { budgetedRoutes, checkAxe, checkBudgets, checkCheckout, checkClaims, checkContracts, checkCrawl, checkEdgeCases, checkNoJs, checkSealed, checkValidator, checkVisualDiff, fallbackPath, gateWidths, indexable, lookTolerance, pageBudgets, pageName, runGate, type GateInput, type PageRead, type PageRoute, type PageVisit, type PageWeight } from './gate/checks.js'
 export { smokeProblems, smokeProductSlug, smokeShop, smokeShopper, type SmokeRun } from './gate/smoke.js'
 export { edgeCases, type EdgeCase } from './gate/edgeCases.js'
-export { gateCheck, gateChecks, gateReport, maxDetail, type GateCheck, type GateCheckName, type GateReport } from './gate/report.js'
+export { advisoryChecks, blocksPublish, gateCheck, gateChecks, gateReport, maxDetail, type GateCheck, type GateCheckName, type GateReport } from './gate/report.js'
 export { catalogueSnapshotSchema, snapshotStoreSchema, type CatalogueSnapshot } from './gate/snapshot.js'
 export { applyCodemods, baselineWithOwn, changesBetween, pinCore, type FileChange, type ThemeFiles } from './upgrade/apply.js'
 export { codemodSchema, compareVersions, coreUpgradeNotes, notesBetween, upgradeNoteSchema, type Codemod, type UpgradeNote } from './upgrade/notes.js'

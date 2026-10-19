@@ -191,6 +191,16 @@ describe('the post-deploy checks', () => {
     expect(store?.build_state).toBe('failed')
   })
 
+  it('go live when only advisory checks failed, and the activity entry names those checks and none of their words (#806)', async () => {
+    const runId = await staged(t.storeA2, 1)
+    await db.sql`update publish_run set gate = ${db.sql.json({ passed: true, checks: [{ name: 'axe', passed: true }, { name: 'budgets', passed: false, detail: 'Home page blocks for 290 ms while loading, over 150 ms.' }, { name: 'crawl', passed: false, detail: 'A link goes nowhere.' }] })} where id = ${runId}`
+    expect(await runPublish(deps(), { runId, storeId: t.storeA2 }, steps)).toBe('live')
+    const [entry] = await db.sql<{ changes: unknown }[]>`select changes from activity_log where store_id = ${t.storeA2} and action = 'storefront.published'`
+    expect(entry?.changes).toEqual([
+      { field: 'version', before: null, after: '1', redacted: false },
+      { field: 'suggestions', before: null, after: 'budgets, crawl', redacted: false },
+    ])
+  })
   it('skip a store with no address yet, which goes live: where no shop domain is set and it has no domain of its own', async () => {
     const runId = await staged(t.storeB1, 9)
     expect(await runPublish({ ...deps(), shopDomain: null }, { runId, storeId: t.storeB1 }, steps)).toBe('live')

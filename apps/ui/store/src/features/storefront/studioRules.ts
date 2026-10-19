@@ -115,7 +115,7 @@ const progress: Record<'queued' | 'checking' | 'going_live', number> = { queued:
 export const publishProgress = (step: PublishStep): { text: string; percent: number } | null =>
   step === 'queued' || step === 'checking' || step === 'going_live' ? { text: words.publish.steps[step], percent: progress[step] } : null
 
-const failedWords = (run: PublishRun): string[] => run.checks.filter((c) => !c.passed && c.words).map((c) => c.words ?? '')
+export const failedWords = (run: PublishRun): string[] => run.checks.filter((c) => !c.passed && c.words).map((c) => c.words ?? '')
 
 /** A refused publish in plain words: what failed, whether a repair was tried, and that the live site is unchanged. */
 export const refusedText = (run: PublishRun): string => {

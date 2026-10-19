@@ -7,7 +7,7 @@ export { dispatchBuild, freezeBuild, FreezeRefused, freezeRefusals, guardContext
 export { createStorefrontParams, retryStorefront, startStorefront, storefrontCreateKind, storefrontUndoKind, undoStorefrontParams, type CreateStorefrontParams, type StartResult, type UndoStorefrontParams } from './start'
 export { edgeCacheTags, lookupLiveHost, lookupRedirects, maxEdgeRedirects, type EdgeState, type LiveHost } from './edge'
 export { goBack, publishBefore, publishParams, requestPageRender, rollBackLive, rollBackLiveBuild, runPublish, startPublish, startUpgradePublish, failUnswitchedRun, type UpgradeStart, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type GoBackActor, type GoBackResult, type PublishBeforeResult, type PublishDeps, type PublishParams, type PublishRepair, type PublishSteps, type RenderResult } from './publish'
-export { BuildRefused, BuildUnavailable, buildLifetimeMs, gateReport, handoutSeconds, issueCredentials, reportBuild, reportUploaded, startBuild, type BuildDeps, type BuildRefusal, type GateReport } from './builds'
+export { advisoryChecks, BuildRefused, BuildUnavailable, buildLifetimeMs, gateReport, handoutSeconds, issueCredentials, reportBuild, reportUploaded, startBuild, type BuildDeps, type BuildRefusal, type GateReport } from './builds'
 export { digestOf, manifestSchema, maxBuildFiles, maxFileBytes, type Manifest } from './manifest'
 export { isPublicAsset, UploadRefused, uploadRefusals, verifyUpload, type UploadRefusal, type VerifyDeps } from './verify'
 export { cleanStorefronts, keptBuilds, type StorefrontBuckets } from './cleanup'
