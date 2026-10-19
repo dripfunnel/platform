@@ -375,6 +375,13 @@
       "PLAN_LIMIT_REACHED": "Your plan doesn’t include this: it sends one reminder per cart, without a code.",
       "STALE_REVISION": "Someone else saved your reminders. Reload to see their changes.",
       "RATE_LIMITED": "Too many tests. Wait a minute and try again."
+    },
+    "reports": {
+      "FORBIDDEN": "This session can look at reports but not take their data away.",
+      "INVALID_INPUT": "That report can’t be made for these dates.",
+      "NOT_CONNECTED": "We couldn’t reach the store service. Try again.",
+      "PLAN_LIMIT": "That’s on a bigger plan than this store has.",
+      "PLAN_LIMIT_REACHED": "That’s on a bigger plan than this store has."
     }
   },
   "auth": {
@@ -4415,5 +4422,219 @@
       "subjectFor": "Subject line, reminder {n}",
       "messageFor": "Message, reminder {n}"
     }
+  },
+  "home": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "named": "{greeting}, {name}"
+    },
+    "dateLine": "{date} · {store}",
+    "sales": {
+      "yesterday": "Sales yesterday",
+      "none": "No sales yet",
+      "today": "Orders today"
+    },
+    "orders": {
+      "today": {
+        "one": "{count} order today",
+        "other": "{count} orders today"
+      },
+      "yesterday": "{count} yesterday"
+    },
+    "needsYou": "Needs you",
+    "need": {
+      "open": "{label}: {count}",
+      "toShip": {
+        "label": "Orders to ship",
+        "oldest": "Oldest from {date}",
+        "partly": "{partly} partly shipped · oldest from {date}"
+      },
+      "approval": {
+        "label": "Products to approve",
+        "sub": "Sent by your suppliers"
+      },
+      "lowStock": {
+        "label": "Low on stock",
+        "more": "{names} and more"
+      }
+    },
+    "allClear": {
+      "title": "All caught up.",
+      "body": "Nothing to ship or approve right now."
+    },
+    "addProduct": "Add a product",
+    "latest": {
+      "title": "Latest orders",
+      "all": "See all"
+    },
+    "setup": {
+      "title": "Get your shop ready for its first order",
+      "progress": "{done} of {total}",
+      "done": "Done",
+      "footer": "This list disappears once your first order arrives.",
+      "locale": {
+        "label": "Confirm your country, currency and language",
+        "note": "{country} · {currency} · {language}",
+        "cta": "Change"
+      },
+      "products": {
+        "label": "Add your first product",
+        "cta": "Add"
+      },
+      "collections": {
+        "label": "Group products into a collection",
+        "cta": "Create"
+      },
+      "payments": {
+        "label": "Choose how shoppers pay",
+        "cta": "Set up"
+      },
+      "shipping": {
+        "label": "Choose how you ship",
+        "cta": "Set up"
+      },
+      "open": "{label}: {state}"
+    },
+    "ownerNote": "Payments, shipping and your country settings are set by the store owner — they’re not on your list.",
+    "staffWait": {
+      "title": "No orders yet",
+      "body": "The shop is still being set up. When the first order comes in it appears here, and in Orders, ready to pack."
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "rangeLine": "Last {days} days, compared with the {days} days before · {orders}",
+    "orders": {
+      "one": "{count} order",
+      "other": "{count} orders"
+    },
+    "range": {
+      "days": "{days} days"
+    },
+    "currency": {
+      "label": "Currency"
+    },
+    "exportAll": "Export all",
+    "exportPanel": "Export",
+    "exportPanelLabel": "Export {panel}",
+    "thin": {
+      "title": "Not much to show yet.",
+      "some": "Reports get useful after a week or two of orders.",
+      "none": "Your first orders will show up here."
+    },
+    "none": "No sales in the last {days} days — try a longer range.",
+    "noneLongest": "No sales in the last {days} days.",
+    "nothingToExport": "Nothing to export — no orders in the last {days} days.",
+    "takings": {
+      "title": "How much you took",
+      "up": "▲ {pct}% vs the previous {days} days",
+      "down": "▼ {pct}% vs the previous {days} days",
+      "nothingBefore": "Nothing to compare with yet",
+      "sales": "Sales",
+      "refunds": "Refunds",
+      "refunded": "−{amount}",
+      "net": "Takings (matches your bank)",
+      "note": "Net of refunds, so it matches what reaches your bank."
+    },
+    "sold": {
+      "title": "What sold",
+      "row": "{name} · {units} sold",
+      "note": "By money taken, in this date range."
+    },
+    "markets": {
+      "title": "Where it came from",
+      "outside": "Outside your markets",
+      "note": "By the market each shopper bought in. Visitor sources need analytics — not shown."
+    },
+    "tax": {
+      "titleState": "Sales tax collected",
+      "titleGst": "GST you owe",
+      "titleRate": "Tax you owe",
+      "byState": "By state",
+      "stateNote": "Calculated at checkout per state — see the export",
+      "forShoppers": "For shoppers in {country}",
+      "delivery": "On delivery",
+      "noState": "No state given",
+      "note": "We work it out — your accountant files it."
+    },
+    "suppliers": {
+      "title": "Suppliers",
+      "own": "Your own products",
+      "units": {
+        "one": "{count} unit",
+        "other": "{count} units"
+      },
+      "note": "Units sold per supplier. Suppliers never see your totals.",
+      "locked": "Export and the supplier report are on {plan}."
+    },
+    "offers": {
+      "title": "Top offers",
+      "row": "{name} · {orders}",
+      "off": "{discount} off",
+      "none": "No offer was used in the last {days} days.",
+      "note": "Sales with each offer, after the discount it gave."
+    },
+    "custom": {
+      "title": "Custom reports",
+      "row": "Build your own from any field",
+      "open": "Open",
+      "note": "Pick the rows and the columns.",
+      "lockedNote": "On {plan}.",
+      "rowsTitle": "What should each row be?",
+      "rowsTag": "Custom report · 1 of 2",
+      "rowsBody": "Uses the dates picked above. You get a CSV you can open in any spreadsheet.",
+      "next": "Next",
+      "columnsTitle": "Which columns?",
+      "columnsTag": "Custom report · 2 of 2",
+      "columnsBody": "Uses the last {days} days, in {currency}. The file is made in a moment and opens in the share sheet.",
+      "make": "Make report",
+      "started": "Making your report…",
+      "rows": {
+        "orders": "An order",
+        "products": "A product",
+        "customers": "A customer"
+      },
+      "columns": {
+        "orders": {
+          "basic": "Order, date, customer, total",
+          "tax": "… plus tax and refunds",
+          "lines": "One row per item sold"
+        },
+        "products": {
+          "basic": "Product, units, takings",
+          "stock": "… plus stock left and supplier"
+        },
+        "customers": {
+          "basic": "Name, email, orders, spent",
+          "groups": "… plus groups and tags"
+        }
+      }
+    },
+    "locked": {
+      "rangeLine": "Takings, what sold, markets and tax — on {plan} and up",
+      "body": "Reports are on {plan}. Your Home page still shows the latest numbers.",
+      "title": "Unlock reports",
+      "note": "Everything you’ve sold so far is already counted — it appears the moment the store’s plan includes it.",
+      "askOwner": "Ask your store owner about the plan.",
+      "somePlan": "a bigger plan"
+    },
+    "planLimit": "That’s on {plan}.",
+    "export": {
+      "title": "Reports export",
+      "preparing": "Preparing your report…",
+      "ready": {
+        "one": "{count} row is ready.",
+        "other": "{count} rows are ready."
+      },
+      "truncated": "Only the first {count} rows are in it; pick a shorter range to see the rest.",
+      "share": "Share the file",
+      "expired": "That report has expired. Export again.",
+      "tooLarge": "That report is too large. Pick a shorter range and try again.",
+      "failed": "The report couldn’t be made. Try again.",
+      "shareFailed": "The file couldn’t be shared. Try again."
+    },
+    "readOnly": "Your store is view-only until the bill is paid. Reports and their exports still work."
   }
 }

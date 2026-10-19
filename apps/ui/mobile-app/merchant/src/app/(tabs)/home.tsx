@@ -1,11 +1,3 @@
-import { BrandMark } from '../../brand/BrandMark'
-import { PlaceholderScreen } from '../../features/placeholder/PlaceholderScreen'
-import { t } from '../../messages'
+import { HomeScreen } from '../../features/home/HomeScreen'
 
-export default function Home() {
-  return (
-    <PlaceholderScreen title={t('tabs.home')}>
-      <BrandMark />
-    </PlaceholderScreen>
-  )
-}
+export default HomeScreen
