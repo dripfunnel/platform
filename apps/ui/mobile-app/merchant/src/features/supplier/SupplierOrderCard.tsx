@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import type { OrderRow } from '../../api/orders'
+import type { SupplierOrderRow } from '../../api/supplier'
 import { formatDateTime } from '../../format'
 import { locale, t } from '../../messages'
 import { tCount } from '../../messages/plural'
@@ -8,7 +8,7 @@ import { StatusChip } from '../products/StatusChip'
 import { Icon } from '../shell/Icon'
 import { partStatusTone, rowStatus, whereText } from './supplierView'
 
-type Props = { row: OrderRow; store: string; onOpen: () => void }
+type Props = { row: SupplierOrderRow; store: string; onOpen: () => void }
 
 // A part of an order as a stacked card (PortalOrders' supplier rows at phone width): the number and when, who it is for and where it goes, the items and the
 // part's status. No total and no payment: a supplier reads neither. Times are UTC, which a supplier's seat reads no store settings to change.

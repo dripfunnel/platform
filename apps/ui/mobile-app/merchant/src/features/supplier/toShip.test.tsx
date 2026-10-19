@@ -69,6 +69,14 @@ describe('To ship', () => {
     expect(hasText(renderer, 'Oct 10, 2026, 09:30 UTC')).toBe(true)
   })
 
+  it('asks the API for no money, payment, test flag or contact, in the list or in its counts', async () => {
+    const { calls } = await showList(listHandlers([row('o-1', 'KT-1042')]))
+    const sent = [...asked(calls, 'orders(filter'), ...asked(calls, 'orderCounts')].map((call) => call.query).join(' ')
+    expect(sent).toContain('partState')
+    for (const field of ['total', 'paymentState', 'paymentMethod', 'fulfilmentState', 'email', 'phone']) expect(sent).not.toContain(field)
+    expect(sent.split(/\W+/)).not.toContain('test')
+  })
+
   it('opens an order on its own screen under the tab', async () => {
     const { renderer } = await showList(listHandlers([row('o-1', 'KT-1042')]))
     await press(pressableNamed(renderer, 'Open order KT-1042'))

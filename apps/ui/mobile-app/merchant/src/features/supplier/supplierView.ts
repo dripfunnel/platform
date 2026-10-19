@@ -1,5 +1,4 @@
-import type { Sale, SupplierLine, SupplierOrder, SupplierPart } from '../../api/supplier'
-import type { OrderRow } from '../../api/orders'
+import type { Sale, SupplierLine, SupplierOrder, SupplierOrderRow, SupplierPart } from '../../api/supplier'
 import { t } from '../../messages'
 import type { Tone } from '../products/productView'
 
@@ -14,7 +13,7 @@ export const partStatusTone: Record<PartStatus, Tone> = { toShip: 'warning', par
 export const partStatus = (state: string | null | undefined, orderState: string): PartStatus =>
   orderState === 'cancelled' || state === 'cancelled' ? 'cancelled' : state === 'partly_shipped' ? 'partly' : state === 'sent_to_store' || state === 'shipped' || state === 'delivered' ? 'shipped' : 'toShip'
 
-export const rowStatus = (row: Pick<OrderRow, 'state' | 'partState'>): PartStatus => partStatus(row.partState, row.state)
+export const rowStatus = (row: Pick<SupplierOrderRow, 'state' | 'partState'>): PartStatus => partStatus(row.partState, row.state)
 
 /** What the supplier can send of a line: all of it to the shopper, or to the store until it has handed it over. */
 export const leftToSend = (line: SupplierLine, part: SupplierPart): number => (part.shippingMode === 'to-store' ? line.quantity - line.sentToStoreQuantity : line.quantity - line.fulfilledQuantity)
@@ -29,7 +28,7 @@ export const allLeft = (order: SupplierOrder): Record<string, number> =>
   Object.fromEntries(order.parts.flatMap((part) => part.lines.map((line) => [line.id, leftToSend(line, part)] as const).filter(([, left]) => left > 0)))
 
 /** Where the row's items go, by the mode the order was placed under: a to-store part says nothing of the shopper (ACCESS.md §7.3). */
-export const whereText = (row: Pick<OrderRow, 'shippingMode' | 'city'>): string => (row.shippingMode === 'to-shopper' ? (row.city || t('supplier.toShip.toShopper')) : t('supplier.toShip.toStore'))
+export const whereText = (row: Pick<SupplierOrderRow, 'shippingMode' | 'city'>): string => (row.shippingMode === 'to-shopper' ? (row.city || t('supplier.toShip.toShopper')) : t('supplier.toShip.toStore'))
 
 export type SaleStatus = 'sold' | 'partlyRefunded' | 'refunded' | 'cancelled'
 

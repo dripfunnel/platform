@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import type { OrderFilter } from '../../api/orders'
 import { loadAccess } from '../../api/products'
+import { loadSupplierOrders } from '../../api/supplier'
 import { formatNumber } from '../../format'
 import { locale, t } from '../../messages'
 import { sessionClient } from '../../session'
@@ -34,7 +35,7 @@ export function ToShipScreen({ initialFilter = 'ALL' }: Props) {
   const client = sessionClient()
   const permissions = useLoad(() => loadAccess(client), [client])
   const access = permissions.state.status === 'ready' ? supplierAccessOf(permissions.state.data, state?.readOnly === true) : null
-  const list = useOrderList(client, access?.canRead === true, { filter: initialFilter })
+  const list = useOrderList(client, access?.canRead === true, { filter: initialFilter }, loadSupplierOrders)
 
   // An order marked sent or shipped on its own screen shows its new status here when the person comes back.
   useReloadOnFocus(list.reload)

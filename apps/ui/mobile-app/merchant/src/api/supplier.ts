@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
 import { addressSchema, shipmentSchema } from './order'
-import { moneySchema } from './orders'
+import { moneySchema, type OrderQuery } from './orders'
 
 // A supplier's own screens on the Store API as it is (FIRST-RELEASE (store) §17, ACCESS.md §7; apps/api src/apis/store/orders.ts, supplierTeam.ts): its part of
 // an order, its sold lines and its team. The query for a part asks for no money, no payment and no contact, and shows what comes back.
@@ -46,6 +46,38 @@ const orderFields = `id number state placedAt customerName
 /** The supplier's part of the order, or null when it isn't there or isn't this supplier's: the two look the same (ACCESS.md §11). */
 export const loadSupplierOrder = async (client: ApiClient, id: string): Promise<SupplierOrder | null> =>
   (await typedQuery(client)(`query SupplierOrder($id: ID!) { order(id: $id) { ${orderFields} } }`, z.object({ order: orderSchema.nullable() }), { id })).order
+
+const orderRowSchema = z.object({
+  id: z.string(),
+  number: z.string(),
+  placedAt: z.string(),
+  state: z.string(),
+  // Only on a to-shopper part (ACCESS.md §7.3); the API answers null for a to-store one.
+  customerName: z.string().nullable(),
+  city: z.string().nullable(),
+  items: z.number().int(),
+  // The supplier's part of the order and the mode it was placed under: to-store or to-shopper.
+  partState: z.string().nullable(),
+  shippingMode: z.string().nullable(),
+})
+export type SupplierOrderRow = z.infer<typeof orderRowSchema>
+
+const orderPageSize = 25
+
+/** One page of the supplier's parts, as the API filters and searches them; `after` pages on. Asks for no money, payment or contact. */
+export const loadSupplierOrders = async (client: ApiClient, { filter, search }: OrderQuery, after: string | null = null): Promise<{ rows: SupplierOrderRow[]; next: string | null }> => {
+  const { orders } = await typedQuery(client)(
+    `query SupplierOrders($filter: OrderFilter, $search: String, $first: Int, $after: String) {
+      orders(filter: $filter, search: $search, first: $first, after: $after) {
+        nodes { id number placedAt state customerName city items partState shippingMode }
+        pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
+      }
+    }`,
+    z.object({ orders: z.object({ nodes: z.array(orderRowSchema), pageInfo: pageInfoSchema }) }),
+    { filter, search: search.trim() || null, first: orderPageSize, after },
+  )
+  return { rows: orders.nodes, next: orders.pageInfo.hasNextPage ? orders.pageInfo.endCursor : null }
+}
 
 const placeSchema = z.object({ id: z.string(), name: z.string(), isDefault: z.boolean() })
 export type SupplierPlace = z.infer<typeof placeSchema>
