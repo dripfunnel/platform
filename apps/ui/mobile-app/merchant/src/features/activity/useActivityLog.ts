@@ -12,7 +12,7 @@ export type ActivityLog = {
   /** What the field shows; the log asks for it a moment after typing stops. */
   search: string
   setSearch: (search: string) => void
-  /** The filter the rows on screen answer, which the export asks for as shown. */
+  /** The filter the rows on screen answer. */
   filter: ActivityFilter
   status: 'loading' | 'error' | 'ready'
   error: unknown

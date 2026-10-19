@@ -5,8 +5,7 @@ import { activityAccessOf } from '../../activity/access'
 import { ActivityView } from '../../activity/ActivityView'
 import { TabFrame } from '../TabFrame'
 
-// Settings › Activity log (StoreActivity; FIRST-RELEASE (store) §15): the Owner's view of the log, with the export that only the Owner has.
-// A store past due still reads and exports, which TabFrame's "read-only" line does not say, so the export button follows the permission alone.
+// Settings › Activity log (StoreActivity; FIRST-RELEASE (store) §15): the Owner's view of the log. A store past due still reads, which TabFrame's "read-only" line does not say.
 export function ActivityTab() {
   return (
     <TabFrame
@@ -16,7 +15,7 @@ export function ActivityTab() {
         return { access: activityAccessOf(acting), timeZone: timeZone ?? 'UTC' }
       }}
     >
-      {({ data, client }) => <ActivityView title={t('activity.title')} client={client} timeZone={data.timeZone} canExport={data.access.canExport} />}
+      {({ data, client }) => <ActivityView title={t('activity.title')} client={client} timeZone={data.timeZone} />}
     </TabFrame>
   )
 }

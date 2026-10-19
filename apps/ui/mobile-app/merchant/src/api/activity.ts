@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { typedQuery, type ApiClient } from '../graphql'
-import { exportJobFields, exportJobSchema, readExportJob, type ExportJob } from './exportJob'
 
 // The store's Activity log (StoreActivity; FIRST-RELEASE (store) §15; LOGGING.md §6–7; apps/api src/apis/store/activity.ts).
 
@@ -46,14 +45,4 @@ export const loadActivity = async (client: ApiClient, filter: ActivityFilter, af
   )
   if (!activityLog) throw new Error('activity log missing')
   return { entries: activityLog.items, next: activityLog.pageInfo.hasNextPage ? activityLog.pageInfo.endCursor : null }
-}
-
-export const loadActivityExport = async (client: ApiClient, id: string): Promise<ExportJob | null> =>
-  readExportJob((await typedQuery(client)(`query ActivityExport($id: ID!) { activityExport(id: $id) { ${exportJobFields} } }`, z.object({ activityExport: exportJobSchema.nullable() }), { id })).activityExport)
-
-/** The log as it is filtered, as a job; answers its id. `activity.export` is the Owner's alone. */
-export const requestActivityExport = async (client: ApiClient, filter: ActivityFilter): Promise<string> => {
-  const { exportActivity } = await typedQuery(client)('mutation ExportActivity($f: StoreActivityFilter) { exportActivity(filter: $f) }', z.object({ exportActivity: z.string().nullable() }), { f: filterOf(filter) })
-  if (!exportActivity) throw new Error('no export was started')
-  return exportActivity
 }

@@ -414,9 +414,6 @@
       "FORBIDDEN": "Only the store owner or a manager can answer this.",
       "NOT_PENDING": "That request is no longer open.",
       "NOT_FOUND": "That support session is no longer open."
-    },
-    "activity": {
-      "FORBIDDEN": "Only the store owner can export the activity log."
     }
   },
   "auth": {
@@ -2035,7 +2032,7 @@
       "developers": "API keys for software that works with your store",
       "apps": "Programs that work with your store, each with only the access you gave it",
       "support": "Whether your platform’s support team can open your store to help you",
-      "activity": "Everything done in the store, by whom, with an export"
+      "activity": "Everything done in the store, and by whom"
     },
     "store": {
       "title": "Your store",
@@ -4894,7 +4891,7 @@
       "title": "Store activity is for the store’s owner and managers",
       "body": "Ask your store owner if you need to know who changed something."
     },
-    "readOnly": "Your store is read-only until the bill is paid. The log and its export still work.",
+    "readOnly": "Your store is read-only until the bill is paid. The log still works.",
     "more": "Show older",
     "moreFailed": "Older entries didn’t load. Try again.",
     "foot": "Searchable for 13 months.",
@@ -4933,8 +4930,6 @@
     "sessionOf": "{name}’s support session",
     "unnamed": "Someone without a name",
     "label": "Store activity",
-    "exportCsv": "Export CSV",
-    "exportOwner": "Only the store owner can export",
     "loading": "Loading the activity log",
     "error": {
       "title": "The activity log didn’t load",
@@ -5067,20 +5062,6 @@
       "activity": {
         "exported": "exported the activity log"
       }
-    },
-    "export": {
-      "title": "Activity log",
-      "shareFailed": "The phone wouldn’t open the share sheet. Try again.",
-      "preparing": "Preparing your CSV…",
-      "ready": {
-        "one": "{total} entry is ready.",
-        "other": "{total} entries are ready."
-      },
-      "truncated": "Only the first {count} entries are in it; narrow the filter to see the rest.",
-      "share": "Share the CSV",
-      "expired": "That export’s link has expired. Export again.",
-      "tooLarge": "That export is too large. Narrow the filter and try again.",
-      "failed": "The export couldn’t be made. Try again."
     }
   }
 }

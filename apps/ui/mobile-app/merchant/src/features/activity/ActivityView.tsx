@@ -5,7 +5,6 @@ import { activityWhats } from '../../api/activity'
 import { useBrand } from '../../brand/BrandContext'
 import { isApiError, type ApiClient } from '../../graphql'
 import { t } from '../../messages'
-import { errorMessage } from '../../messages/errorMessage'
 import { useTheme } from '../../theme'
 import { Button } from '../common/Button'
 import { Chip } from '../common/Chip'
@@ -17,8 +16,6 @@ import { PickerField } from '../settings/PickerField'
 import { useShell } from '../shell/ShellData'
 import { kindOf, personOf, targetHref, whoseOf } from './activityText'
 import { ActivityEntryCard } from './ActivityEntryCard'
-import { ActivityExportStatus } from './ActivityExportStatus'
-import { useActivityExport } from './useActivityExport'
 import { useActivityLog } from './useActivityLog'
 
 type Props = {
@@ -26,8 +23,6 @@ type Props = {
   title: string
   client: ApiClient
   timeZone: string
-  /** `activity.export`, the Owner's alone: anyone else sees the button disabled with the reason. */
-  canExport: boolean
 }
 
 const everyone = ''
@@ -35,17 +30,15 @@ const keyOf = (person: { kind: string; id: string }): string => `${person.kind}:
 
 // The store's activity log (StoreActivity at phone width; FIRST-RELEASE (store) §15, LOGGING.md §6–7): filter by person, what and words, newest first, 50 a page.
 // The Owner's Settings tab and the Manager's Store activity are this one view.
-export function ActivityView({ title, client, timeZone, canExport }: Props) {
+export function ActivityView({ title, client, timeZone }: Props) {
   const { colors } = useTheme()
   const router = useRouter()
   const { brand } = useBrand()
   const { seat } = useShell()
   const partner = brand?.productName ?? t('brand.defaultName')
   const log = useActivityLog(client)
-  const exported = useActivityExport(client)
   const [open, setOpen] = useState<string | null>(null)
   const [picked, setPicked] = useState<{ key: string; name: string } | null>(null)
-  const [exportFailure, setExportFailure] = useState<string | null>(null)
 
   // The person list offers who appears in what is loaded, and whoever is picked: no API lists the log's people, and a name never rides in a filter.
   const people = useMemo(() => {
@@ -64,11 +57,6 @@ export function ActivityView({ title, client, timeZone, canExport }: Props) {
     setPicked(person ? { key: keyOf(person), name } : null)
     log.setPerson(person)
     setOpen(null)
-  }
-
-  const startExport = () => {
-    setExportFailure(null)
-    exported.begin(log.filter).catch((error: unknown) => setExportFailure(errorMessage(error, 'activity')))
   }
 
   const filtered = log.person !== null || log.what !== null || log.filter.search !== ''
@@ -115,17 +103,6 @@ export function ActivityView({ title, client, timeZone, canExport }: Props) {
         </Text>
         <Text style={[styles.sub, { color: colors.muted }]}>{t('activity.sub')}</Text>
       </View>
-      {canExport ? (
-        <Button kind="secondary" saves busy={exported.busy} label={t('activity.exportCsv')} onPress={startExport} />
-      ) : (
-        <>
-          <Button kind="secondary" disabled label={t('activity.exportCsv')} onPress={() => undefined} />
-          <Text style={[styles.sub, { color: colors.muted }]}>{t('activity.exportOwner')}</Text>
-        </>
-      )}
-      {exportFailure ? <Notice kind="error" text={exportFailure} /> : null}
-      {exported.job ? <ActivityExportStatus job={exported.job} onShare={() => void exported.share(exported.job as NonNullable<typeof exported.job>)} /> : null}
-
       <PickerField
         label={t('activity.person')}
         value={personKey}

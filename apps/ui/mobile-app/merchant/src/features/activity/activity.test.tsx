@@ -3,7 +3,6 @@ import { act, type ReactTestRenderer } from 'react-test-renderer'
 import { ApiError, type ApiClient } from '../../graphql'
 import { fakeApi, type Call } from '../../testing/fakeApi'
 import { actingAs, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell } from '../../testing/harness'
-import { shareCsv } from '../common/shareCsv'
 import { SettingsTabScreen } from '../settings/SettingsTabScreen'
 import { resetScenario } from '../states/scenario'
 import { ActivityScreen } from './ActivityScreen'
@@ -26,7 +25,6 @@ jest.mock('expo-router/react-navigation', () => ({ usePreventRemove: jest.fn() }
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('@react-native-community/netinfo', () => ({ __esModule: true, default: { addEventListener: () => () => undefined } }))
 jest.mock('../../session', () => ({ sessionClient: () => mockSession.client, session: () => ({ leaveStore: jest.fn(), end: jest.fn() }) }))
-jest.mock('../common/shareCsv', () => ({ shareCsv: jest.fn(async () => true) }))
 
 const settle = async () => {
   for (let i = 0; i < 4; i += 1) await act(async () => void (await Promise.all(Array.from({ length: 12 }, () => Promise.resolve()))))
@@ -78,7 +76,7 @@ const entry = (over: Record<string, unknown> = {}) => ({
 })
 
 const manager = ['activity.read']
-const owner = ['activity.read', 'activity.export']
+const owner = ['activity.read']
 const log = (permissions: string[], entries: unknown[] = [entry()], over: Handlers = {}): Handlers => ({
   'acting { permissions': () => ({ me: { acting: { permissions, seller: null } } }),
   '{ storeInfo { timeZone } }': () => ({ storeInfo: { timeZone: 'Asia/Kolkata' } }),
@@ -105,16 +103,6 @@ describe('Store activity (the Manager’s)', () => {
     expect(hasText(renderer, 'priya@kesarithreads.in')).toBe(false)
     expect(hasText(renderer, 'ananya@example.com')).toBe(false)
     expect(hasText(renderer, 'Someone without a name gizmo.turned')).toBe(true)
-  })
-
-  it('reads the same log as the Owner but has no export: the button is off, and says why', async () => {
-    const { renderer, calls } = await show(<ActivityScreen />, log(manager))
-
-    expect(pressableNamed(renderer, 'Export CSV').props.disabled).toBe(true)
-    expect(hasText(renderer, 'Only the store owner can export')).toBe(true)
-    await press(pressableNamed(renderer, 'Export CSV'))
-    await settle()
-    expect(asked(calls, 'ExportActivity')).toHaveLength(0)
   })
 
   it('opens an entry to show its changes, reason and the support session it came through', async () => {
@@ -267,65 +255,24 @@ describe('Store activity (the Manager’s)', () => {
   it('says the store is read-only and still shows the log', async () => {
     const { renderer } = await show(<ActivityScreen />, log(manager), { client: fakeClient({ state: readOnlyState }) })
 
-    expect(hasText(renderer, 'The log and its export still work.')).toBe(true)
+    expect(hasText(renderer, 'The log still works.')).toBe(true)
     expect(hasText(renderer, 'Priya Shah refunded order KT-1031')).toBe(true)
   })
 })
 
 describe('Activity log (the Owner’s Settings tab)', () => {
-  const csv = 'when,who,what\n2026-10-10,Priya Shah,refunded'
-
-  it('has the export the Manager lacks, for the log as it is filtered, and hands the CSV to the share sheet', async () => {
-    const { renderer, calls } = await show(
-      <SettingsTabScreen tab="activity" />,
-      log(owner, [entry()], {
-        'mutation ExportActivity': () => ({ exportActivity: 'x1' }),
-        'query ActivityExport': () => ({ activityExport: { id: 'x1', state: 'done', rows: 1, truncated: false, csv, expiresAt: '2026-10-10T12:00:00Z' } }),
-      }),
-    )
+  it('shows the Owner the same log in Settings, under Activity log', async () => {
+    const { renderer, calls } = await show(<SettingsTabScreen tab="activity" />, log(owner))
 
     expect(hasText(renderer, 'Activity log')).toBe(true)
-    expect(hasText(renderer, 'Only the store owner can export')).toBe(false)
-    await click(renderer, 'Orders and refunds')
-    await click(renderer, 'Export CSV')
-
-    expect(asked(calls, 'mutation ExportActivity')[0]?.variables).toEqual({ f: { what: 'orders' } })
-    expect(shareCsv).toHaveBeenCalledWith('Activity log', csv)
-    expect(hasText(renderer, '1 entry is ready.')).toBe(true)
+    expect(hasText(renderer, 'Priya Shah refunded order KT-1031')).toBe(true)
+    expect(asked(calls, 'query Activity(')).toHaveLength(1)
   })
 
-  it('says when the export is cut, too large or failed', async () => {
-    const run = async (job: Record<string, unknown>) => {
-      const { renderer } = await show(
-        <SettingsTabScreen tab="activity" />,
-        log(owner, [entry()], { 'mutation ExportActivity': () => ({ exportActivity: 'x1' }), 'query ActivityExport': () => ({ activityExport: { id: 'x1', rows: null, truncated: null, csv: null, expiresAt: null, ...job } }) }),
-      )
-      await click(renderer, 'Export CSV')
-      return renderer
-    }
-
-    expect(hasText(await run({ state: 'done', rows: 10000, truncated: true, csv }), 'Only the first 10,000 entries are in it')).toBe(true)
-    expect(hasText(await run({ state: 'too_large' }), 'That export is too large.')).toBe(true)
-    expect(hasText(await run({ state: 'failed' }), 'The export couldn’t be made.')).toBe(true)
-  })
-
-  it('shows a refusal of the export by its code', async () => {
-    const { renderer } = await show(<SettingsTabScreen tab="activity" />, log(owner, [entry()], { 'mutation ExportActivity': () => { throw new ApiError('FORBIDDEN', 'x') } }))
-
-    await click(renderer, 'Export CSV')
-
-    expect(hasText(renderer, 'Only the store owner can export the activity log.')).toBe(true)
-    expect(shareCsv).not.toHaveBeenCalled()
-  })
-
-  it('still reads and exports in a store that is read-only', async () => {
-    const { renderer, calls } = await show(<SettingsTabScreen tab="activity" />, log(owner, [entry()], { 'mutation ExportActivity': () => ({ exportActivity: 'x1' }), 'query ActivityExport': () => ({ activityExport: { id: 'x1', state: 'done', rows: 1, truncated: false, csv: 'when,who', expiresAt: null } }) }), {
-      client: fakeClient({ state: readOnlyState }),
-    })
+  it('still reads in a store that is read-only', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="activity" />, log(owner), { client: fakeClient({ state: readOnlyState }) })
 
     expect(hasText(renderer, 'Priya Shah refunded order KT-1031')).toBe(true)
-    await click(renderer, 'Export CSV')
-    expect(asked(calls, 'mutation ExportActivity')).toHaveLength(1)
   })
 
   it('is for the Owner alone: a Manager who opens the tab is told it has no access, and nothing is read', async () => {
