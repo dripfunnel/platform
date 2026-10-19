@@ -92,14 +92,10 @@ const keyOf = (over: Record<string, unknown> = {}) => ({
   previousWorksUntil: null,
   ...over,
 })
-const hookOf = (over: Record<string, unknown> = {}) => ({ id: 'h1', url: 'https://api.kesarithreads.in/dripfunnel', events: ['order.placed', 'order.paid'], status: 'active', failingSince: null, disabledAt: null, createdAt: '2026-10-01T10:00:00Z', ...over })
-const deliveryOf = (over: Record<string, unknown> = {}) => ({ id: 'd1', event: 'order.placed', status: 'delivered', attempts: 1, responseCode: 200, error: null, durationMs: 182, createdAt: '2026-10-10T10:44:00Z', ...over })
 
 const developers = (over: Handlers = {}): Handlers => ({
   'query ApiKeys': () => ({ apiKeys: page([keyOf()]) }),
   '{ apiKeyChoices': () => ({ apiKeyChoices: { scopes: ['catalog.read', 'stock.read', 'orders.read', 'customers.read'], expiresInDays: [30, 90, 365], requestsPerMinute: 600, requestsPerMonth: 5000000 } }),
-  'query Webhooks': () => ({ webhooks: page([hookOf()]) }),
-  '{ webhookEvents }': () => ({ webhookEvents: ['order.placed', 'order.paid', 'order.shipped'] }),
   'query Suppliers': () => ({ suppliers: page([{ id: 's1', name: 'Northwind Textiles', accessLevel: 'vendor-orders-fulfil', shippingMode: 'to-shopper', labelAccount: 'own', status: 'active', users: 2, products: 14 }]) }),
   '{ storeInfo { timeZone } }': () => ({ storeInfo: { timeZone: 'Asia/Kolkata' } }),
   ...over,
@@ -112,7 +108,7 @@ const createKey = async (renderer: ReactTestRenderer) => {
   await clickLast(renderer, 'Create key')
 }
 
-describe('Developers › API keys', () => {
+describe('Developers', () => {
   it('lists each key by its prefix with what it can do, when it was used and who made it, and never a secret', async () => {
     const { renderer } = await show(<SettingsTabScreen tab="developers" />, developers())
 
@@ -135,10 +131,9 @@ describe('Developers › API keys', () => {
   })
 
   it('shows the empty state', async () => {
-    const { renderer } = await show(<SettingsTabScreen tab="developers" />, developers({ 'query ApiKeys': () => ({ apiKeys: page([]) }), 'query Webhooks': () => ({ webhooks: page([]) }) }))
+    const { renderer } = await show(<SettingsTabScreen tab="developers" />, developers({ 'query ApiKeys': () => ({ apiKeys: page([]) }) }))
 
     expect(hasText(renderer, 'No API keys. Create one when a developer asks for access.')).toBe(true)
-    expect(hasText(renderer, 'No endpoints. Add one when a developer gives you an address.')).toBe(true)
   })
 
   it('asks for a name and something it can do before it sends anything', async () => {
@@ -278,7 +273,6 @@ describe('Developers › API keys', () => {
 
     expect(hasText(renderer, 'Warehouse stock sync')).toBe(true)
     expect(pressablesNamed(renderer, 'Create API key')).toHaveLength(0)
-    expect(pressablesNamed(renderer, 'Add endpoint')).toHaveLength(0)
     expect(pressablesNamed(renderer, 'Manage Warehouse stock sync')).toHaveLength(0)
   })
 
@@ -298,94 +292,6 @@ describe('Developers › API keys', () => {
     fails = false
     await click(renderer, 'Try again')
     expect(hasText(renderer, 'Warehouse stock sync')).toBe(true)
-  })
-})
-
-describe('Developers › Webhooks', () => {
-  it('shows each endpoint with its events and whether it is working', async () => {
-    const { renderer } = await show(<SettingsTabScreen tab="developers" />, developers())
-
-    expect(hasText(renderer, 'https://api.kesarithreads.in/dripfunnel')).toBe(true)
-    expect(hasText(renderer, 'order.placed · order.paid')).toBe(true)
-    expect(hasText(renderer, 'Working')).toBe(true)
-  })
-
-  it('says since when an endpoint is failing, and that a turned-off one lost nothing, with a way to turn it back on', async () => {
-    const hooks = [hookOf({ id: 'h1', status: 'failing', failingSince: '2026-10-08T09:00:00Z' }), hookOf({ id: 'h2', url: 'https://old.example.com/hook', status: 'disabled', disabledAt: '2026-10-03T09:12:00Z' })]
-    const { renderer, calls } = await show(<SettingsTabScreen tab="developers" />, developers({ 'query Webhooks': () => ({ webhooks: page(hooks) }), 'mutation TurnOnWebhook': () => ({ turnOnWebhook: 3 }) }))
-
-    expect(hasText(renderer, 'Failing since Oct 8, 2026, 14:30 GMT+5:30')).toBe(true)
-    expect(hasText(renderer, 'Nothing was lost: events wait for 7 days.')).toBe(true)
-    await click(renderer, 'Turn back on')
-
-    expect(asked(calls, 'mutation TurnOnWebhook')[0]?.variables).toEqual({ id: 'h2' })
-    expect(hasText(renderer, 'Turned back on. 3 waiting events are being sent.')).toBe(true)
-  })
-
-  it('adds an endpoint for an https address and some events, and shows its signing secret once', async () => {
-    const { renderer, calls } = await show(<SettingsTabScreen tab="developers" />, developers({ 'mutation AddWebhook': () => ({ saveWebhook: { id: 'h2', secret: 'whsec_abc123' } }) }))
-
-    await click(renderer, 'Add endpoint')
-    await type(renderer, 'Endpoint URL', 'http://insecure.example.com')
-    await clickLast(renderer, 'Add endpoint')
-    expect(hasText(renderer, 'Use an address that starts with https://')).toBe(true)
-    await type(renderer, 'Endpoint URL', 'https://api.example.com/df')
-    await clickLast(renderer, 'Add endpoint')
-    expect(hasText(renderer, 'Pick at least one event.')).toBe(true)
-    await click(renderer, 'order.shipped')
-    await clickLast(renderer, 'Add endpoint')
-
-    expect(asked(calls, 'mutation AddWebhook')[0]?.variables).toEqual({ u: 'https://api.example.com/df', e: ['order.shipped'] })
-    expect(hasText(renderer, 'Copy the signing secret now')).toBe(true)
-    expect(hasText(renderer, 'whsec_abc123')).toBe(true)
-  })
-
-  it('keeps the form and says so when the address points inside a private network', async () => {
-    const { renderer } = await show(<SettingsTabScreen tab="developers" />, developers({ 'mutation AddWebhook': () => { throw new ApiError('PRIVATE_ADDRESS', 'x') } }))
-
-    await click(renderer, 'Add endpoint')
-    await type(renderer, 'Endpoint URL', 'https://intranet.example.com/df')
-    await click(renderer, 'order.placed')
-    await clickLast(renderer, 'Add endpoint')
-
-    expect(hasText(renderer, 'That address points inside a private network.')).toBe(true)
-    expect(input(renderer, 'Endpoint URL').props.value).toBe('https://intranet.example.com/df')
-  })
-
-  it('opens the latest deliveries with the server’s code and how long each took, and sends one again', async () => {
-    const rows = [deliveryOf(), deliveryOf({ id: 'd2', event: 'order.paid', status: 'failed', responseCode: null, error: 'timeout', durationMs: 10000 })]
-    const { renderer, calls } = await show(
-      <SettingsTabScreen tab="developers" />,
-      developers({ 'query Deliveries': () => ({ webhookDeliveries: page(rows) }), 'mutation ReplayDelivery': () => ({ replayDelivery: 'd3' }) }),
-    )
-
-    await click(renderer, 'Recent deliveries')
-    expect(asked(calls, 'query Deliveries')[0]?.variables).toEqual({ id: 'h1', n: 10 })
-    expect(hasText(renderer, '200 · 182 ms')).toBe(true)
-    expect(hasText(renderer, 'Timed out · 10 s')).toBe(true)
-
-    await click(renderer, 'Send order.paid again')
-    expect(asked(calls, 'mutation ReplayDelivery')[0]?.variables).toEqual({ id: 'd2' })
-    expect(hasText(renderer, 'Sent again: order.paid')).toBe(true)
-  })
-
-  it('says when there is nothing sent yet, and when the deliveries did not load', async () => {
-    const empty = await show(<SettingsTabScreen tab="developers" />, developers({ 'query Deliveries': () => ({ webhookDeliveries: page([]) }) }))
-    await click(empty.renderer, 'Recent deliveries')
-    expect(hasText(empty.renderer, 'Nothing sent yet.')).toBe(true)
-
-    const failed = await show(<SettingsTabScreen tab="developers" />, developers({ 'query Deliveries': () => { throw new ApiError('NO_RESPONSE', 'x') } }))
-    await click(failed.renderer, 'Recent deliveries')
-    expect(hasText(failed.renderer, 'The deliveries didn’t load. Try again.')).toBe(true)
-  })
-
-  it('shows a refusal to send again on the endpoint’s card', async () => {
-    const { renderer } = await show(<SettingsTabScreen tab="developers" />, developers({ 'query Deliveries': () => ({ webhookDeliveries: page([deliveryOf()]) }), 'mutation ReplayDelivery': () => { throw new ApiError('TOO_OLD', 'x') } }))
-
-    await click(renderer, 'Recent deliveries')
-    await click(renderer, 'Send order.placed again')
-
-    expect(hasText(renderer, 'Events can be sent again for 7 days.')).toBe(true)
   })
 })
 
