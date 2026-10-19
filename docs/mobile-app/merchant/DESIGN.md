@@ -67,7 +67,7 @@ refuses it every order query (ACCESS.md §5.2). The tabs and the More items are 
 - **Your shop:** every menu item the role has that isn't a tab, such as Customers, Abandoned
   carts, Reports and Storefront; for a supplier, Your sales (the orders tiers) and Your team
   (a Supplier admin).
-- **Account:** My profile, Settings (Owner only), Store activity (Manager only: the Owner reads the log in Settings), Switch store, Sign out. Billing is not in the
+- **Account:** My profile, Settings (Owner only), Switch store, Sign out. Billing is not in the
   app (FIRST-RELEASE.md §1).
 
 In a development build a **Scenario** button opens a menu that picks which state, banner, role

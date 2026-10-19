@@ -3,17 +3,14 @@ import { useShell } from '../shell/ShellData'
 import { ShellScreen } from '../states/ShellScreen'
 import { isOwner } from './access'
 import { AccountsTab } from './accounts/AccountsTab'
-import { ActivityTab } from './activity/ActivityTab'
 import { CatalogueTab } from './catalogue/CatalogueTab'
 import { DevelopersTab } from './developers/DevelopersTab'
 import { MarketsTab } from './markets/MarketsTab'
 import { PaymentsTab } from './payments/PaymentsTab'
 import { PeopleTab } from './people/PeopleTab'
-import { AppsTab } from './privateApps/AppsTab'
 import { ShippingTab } from './shipping/ShippingTab'
 import { StoreInfoTab } from './store/StoreInfoTab'
 import { SuppliersTab } from './suppliers/SuppliersTab'
-import { SupportAccessTab } from './support/SupportAccessTab'
 import { TaxTab } from './tax/TaxTab'
 import { WarehouseTab } from './warehouse/WarehouseTab'
 import { isSettingsTab } from './tabs'
@@ -47,11 +44,5 @@ export function SettingsTabScreen({ tab }: { tab: string }) {
       return <AccountsTab />
     case 'developers':
       return <DevelopersTab />
-    case 'apps':
-      return <AppsTab />
-    case 'support':
-      return <SupportAccessTab />
-    case 'activity':
-      return <ActivityTab />
   }
 }

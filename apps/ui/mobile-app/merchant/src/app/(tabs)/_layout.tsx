@@ -20,20 +20,15 @@ const routes = ['home', 'orders', 'catalogue', 'offers', 'products', 'to-ship', 
 // header's colour, whatever the partner's primary is, because the header always carries white text.
 export default function TabsLayout() {
   const { colors } = useTheme()
-  const { seat, state, online, refresh } = useShell()
+  const { seat, state, online } = useShell()
   const { brand } = useBrand()
   const scenario = useScenario()
   const deep = useSegments().length > 2
   const [now, setNow] = useState(() => new Date())
-  // While a support session is open its request to make changes can arrive, so the store's state is read again each minute.
-  const supportOpen = state?.support != null
   useEffect(() => {
-    const tick = setInterval(() => {
-      setNow(new Date())
-      if (supportOpen) refresh()
-    }, 60_000)
+    const tick = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(tick)
-  }, [supportOpen, refresh])
+  }, [])
 
   const tabs = tabsFor(seat)
   const banners = bannersFor({ seat, state, support: brand?.supportEmail ?? brand?.supportUrl ?? null, online, scenario: scenario.banner, now })

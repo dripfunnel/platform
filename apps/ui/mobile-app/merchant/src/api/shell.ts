@@ -27,16 +27,7 @@ const stateSchema = z.object({
       trialEndsAt: z.string().nullable(),
       pastDueSince: z.string().nullable(),
       provisioning: z.object({ state: z.string(), step: z.string() }).nullable(),
-      support: z
-        .object({
-          partnerName: z.string(),
-          agentFirstName: z.string(),
-          endsAt: z.string(),
-          sessionId: z.string().nullable(),
-          access: z.string().nullable(),
-          writeRequest: z.object({ state: z.string(), note: z.string().nullable() }).nullable(),
-        })
-        .nullable(),
+      support: z.object({ partnerName: z.string(), agentFirstName: z.string(), endsAt: z.string() }).nullable(),
     })
     .nullable(),
 })
@@ -44,7 +35,7 @@ const stateSchema = z.object({
 export type StoreState = NonNullable<z.infer<typeof stateSchema>['storeState']>
 
 export const loadStoreState = async (client: ApiClient): Promise<StoreState | null> =>
-  (await typedQuery(client)('{ storeState { readOnly status trialEndsAt pastDueSince provisioning { state step } support { partnerName agentFirstName endsAt sessionId access writeRequest { state note } } } }', stateSchema)).storeState
+  (await typedQuery(client)('{ storeState { readOnly status trialEndsAt pastDueSince provisioning { state step } support { partnerName agentFirstName endsAt } } }', stateSchema)).storeState
 
 /** The person's saved choice of light or dark (My profile, `PortalProfile`); anything else is light. */
 export const loadTheme = async (client: ApiClient): Promise<'light' | 'dark'> => {
