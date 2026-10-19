@@ -86,6 +86,16 @@ describe('the full gate', () => {
     expect(failing({ ...good, weights: onPage(good.weights, '/', (w) => ({ ...w, lcpMs: [2100, 2200, 100] })) })).toEqual(['budgets'])
   })
 
+  it('says what a blocking-time refusal measured, the three runs and the CPU slowdown, whole across several pages (#794)', () => {
+    const slow = (w: PageWeight): PageWeight => ({ ...w, tbtMs: [212, 233, 205], cpuSlowdown: 3.94 })
+    expect(detail({ ...good, weights: onPage(good.weights, '/', slow) }, 'budgets')).toBe('Home page blocks for 212 ms while loading, over 150 ms (runs 212, 233, 205 ms; CPU slowed 3.9×).')
+    const slowRoutes = new Set<string>(['home', 'collection', 'product'])
+    const several = detail({ ...good, weights: good.weights.map((w) => (slowRoutes.has(w.route) ? slow(w) : w)) }, 'budgets')
+    expect(several.match(/\(runs 212, 233, 205 ms; CPU slowed 3\.9×\)/g)).toHaveLength(3)
+    expect(several.length).toBeLessThanOrEqual(maxDetail)
+    expect(several).not.toContain('…')
+  })
+
   it('requires the sealed price on product, cart and checkout unless the check step says core gave the page no price', () => {
     const noPrice = onPage(pages, '/cart/', (p) => ({ ...p, html: p.html.replace('data-df-sealed="price"', '') }))
     expect(detail({ ...good, pages: noPrice }, 'contracts')).toBe('The cart page doesn\'t place the required "price" component.')
