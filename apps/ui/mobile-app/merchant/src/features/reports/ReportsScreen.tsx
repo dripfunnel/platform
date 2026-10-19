@@ -50,7 +50,8 @@ export function ReportsScreen() {
   const permissions = useLoad(() => loadAccess(client), [client])
   const access = permissions.state.status === 'ready' ? reportsAccessOf(permissions.state.data, state?.readOnly === true) : null
   const canRead = access?.canRead === true
-  const report = useLoad(() => (canRead ? loadReport(client, days, currency) : Promise.resolve(null)), [client, canRead, days, currency])
+  // Until the seat is known nothing is asked, and that is no answer: only the API's own null is "not found".
+  const report = useLoad(() => (canRead ? loadReport(client, days, currency) : Promise.resolve(undefined)), [client, canRead, days, currency])
   const suppliers = useLoad<SuppliersView>(
     () =>
       canRead
@@ -88,16 +89,24 @@ export function ReportsScreen() {
       </ShellScreen>
     )
   }
+  if (access === null) {
+    return (
+      <ShellScreen label={t('more.reports')}>
+        <Skeleton />
+      </ShellScreen>
+    )
+  }
   if (report.state.status === 'error') {
     return (
       <ShellScreen label={t('more.reports')}>
-        <LockedReports plan={planOf(report.state.error) ?? null} canAsk={access?.canAskPlan === true} />
+        <LockedReports plan={planOf(report.state.error) ?? null} canAsk={access.canAskPlan} />
       </ShellScreen>
     )
   }
 
-  const data = report.state.status === 'ready' ? report.state.data : null
-  if (report.state.status === 'ready' && data === null) {
+  const answer = report.state.status === 'ready' ? report.state.data : undefined
+  const data = answer ?? null
+  if (answer === null) {
     return (
       <ShellScreen label={t('more.reports')} state="notFound">
         {null}

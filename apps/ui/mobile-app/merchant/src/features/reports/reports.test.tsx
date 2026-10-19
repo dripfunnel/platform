@@ -113,6 +113,30 @@ describe('Reports', () => {
     expect(asked(calls, 'query Report(').at(-1)?.variables).toMatchObject({ days: 7, currency: 'USD' })
   })
 
+  it('draws a skeleton, never "not found", while the seat’s permissions are still loading', async () => {
+    let release: () => void = () => undefined
+    const pending = new Promise<unknown>((resolve) => (release = () => resolve(access(ownerPermissions))))
+    const { renderer, calls } = await show(<ReportsScreen />, reports({ 'acting { permissions': () => pending }))
+
+    expect(renderer.root.findAll((node) => node.props.accessibilityRole === 'progressbar').length).toBeGreaterThan(0)
+    expect(hasText(renderer, 'This page isn’t here any more')).toBe(false)
+    expect(hasText(renderer, 'How much you took')).toBe(false)
+    expect(asked(calls, 'query Report(')).toHaveLength(0)
+
+    release()
+    await act(async () => void (await Promise.resolve()))
+    expect(hasText(renderer, 'This page isn’t here any more')).toBe(false)
+    await settle()
+    expect(hasText(renderer, 'How much you took')).toBe(true)
+    expect(hasText(renderer, 'This page isn’t here any more')).toBe(false)
+  })
+
+  it('still says "not found" when the API itself answers no report', async () => {
+    const { renderer } = await show(<ReportsScreen />, reports({ 'query Report(': () => ({ report: null, storeInfo: { country: 'IN' } }) }))
+
+    expect(hasText(renderer, 'This page isn’t here any more')).toBe(true)
+  })
+
   it('tells Staff, who hold no `reports.read`, they have no access, and reads nothing', async () => {
     const { renderer, calls } = await show(<ReportsScreen />, reports({}, ['orders.read']), 'staff')
 
