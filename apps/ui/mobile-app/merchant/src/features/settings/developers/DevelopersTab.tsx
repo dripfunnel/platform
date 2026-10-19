@@ -10,7 +10,9 @@ import { TabFrame } from '../TabFrame'
 import { ApiKeysCard } from './ApiKeysCard'
 import { SecretCard, type Secret } from './SecretCard'
 
-type Reads = { keys: ApiKey[]; choices: ApiKeyChoices | null; suppliers: Supplier[]; timeZone: string }
+// `suppliers` is null when they could not be read: a key could then only be made for the whole store, so none is made (ApiKeysCard).
+
+type Reads = { keys: ApiKey[]; choices: ApiKeyChoices | null; suppliers: Supplier[] | null; timeZone: string }
 
 // Settings › Developers (SetDev "developers"; FIRST-RELEASE (store) §15): API keys. The prototype's storefront key and "Websites allowed to
 // use it" are not drawn: the Store API neither reads nor changes them (§15, Part 1). Webhooks are their own card.
@@ -19,7 +21,7 @@ export function DevelopersTab() {
     <TabFrame
       label={t('settings.tabs.developers')}
       load={async (client): Promise<Reads> => {
-        const [keys, choices, suppliers, timeZone] = await Promise.all([loadApiKeys(client), loadApiKeyChoices(client), loadSuppliers(client).catch(() => []), loadStoreTimeZone(client).catch(() => null)])
+        const [keys, choices, suppliers, timeZone] = await Promise.all([loadApiKeys(client), loadApiKeyChoices(client), loadSuppliers(client).catch(() => null), loadStoreTimeZone(client).catch(() => null)])
         return { keys, choices, suppliers, timeZone: timeZone ?? 'UTC' }
       }}
     >

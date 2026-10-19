@@ -9,6 +9,7 @@ import { tCount } from '../../../messages/plural'
 import { useTheme } from '../../../theme'
 import { Button } from '../../common/Button'
 import { Chip } from '../../common/Chip'
+import { Notice } from '../../common/Notice'
 import { TextField } from '../../common/TextField'
 import { useFeedback } from '../../shell/Feedback'
 import { ChoiceRows } from '../ChoiceRows'
@@ -20,7 +21,8 @@ import type { Secret } from './SecretCard'
 type Props = {
   keys: readonly ApiKey[]
   choices: ApiKeyChoices | null
-  suppliers: readonly Supplier[]
+  /** Null when they could not be read. */
+  suppliers: readonly Supplier[] | null
   timeZone: string
   client: ApiClient
   canEdit: boolean
@@ -53,7 +55,8 @@ export function ApiKeysCard({ keys, choices, suppliers, timeZone, client, canEdi
             {t('settings.developers.keys.limits', { minute: formatNumber(choices.requestsPerMinute, locale), month: formatNumber(choices.requestsPerMonth, locale) })}
           </Text>
         ) : null}
-        {canEdit && choices ? <Button saves label={t('settings.developers.keys.create')} onPress={() => ask({ kind: 'create' })} /> : null}
+        {canEdit && choices && suppliers ? <Button saves label={t('settings.developers.keys.create')} onPress={() => ask({ kind: 'create' })} /> : null}
+        {canEdit && suppliers === null ? <Notice text={t('settings.developers.keys.suppliersFailed')} /> : null}
       </View>
       {keys.length === 0 ? <Text style={[styles.sub, { color: colors.muted }]}>{t('settings.developers.keys.empty')}</Text> : null}
       {keys.map((key) => (
@@ -78,7 +81,7 @@ export function ApiKeysCard({ keys, choices, suppliers, timeZone, client, canEdi
         />
       ))}
 
-      {sheet?.kind === 'create' && choices ? <CreateKeySheet choices={choices} suppliers={suppliers} client={client} onClose={() => setSheet(null)} onSecret={onSecret} reload={reload} /> : null}
+      {sheet?.kind === 'create' && choices && suppliers ? <CreateKeySheet choices={choices} suppliers={suppliers} client={client} onClose={() => setSheet(null)} onSecret={onSecret} reload={reload} /> : null}
       {sheet?.kind === 'rotate' ? (
         <FormSheet
           title={t('settings.developers.keys.rotateTitle', { name: sheet.key.name })}

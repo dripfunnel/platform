@@ -2603,7 +2603,8 @@
           "customers": {
             "read": "See customers"
           }
-        }
+        },
+        "suppliersFailed": "Your suppliers didn’t load, so a key can’t be made just now. Leave Developers and open it again to try once more."
       }
     }
   },

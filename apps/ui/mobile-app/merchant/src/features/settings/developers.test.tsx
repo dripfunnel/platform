@@ -276,6 +276,22 @@ describe('Developers', () => {
     expect(pressablesNamed(renderer, 'Manage Warehouse stock sync')).toHaveLength(0)
   })
 
+  it('makes no key when the suppliers could not be read, so a key meant for one supplier never goes out for the whole store', async () => {
+    const { renderer, calls } = await show(<SettingsTabScreen tab="developers" />, developers({ 'query Suppliers': () => { throw new ApiError('NO_RESPONSE', 'x') } }))
+
+    expect(hasText(renderer, 'Warehouse stock sync')).toBe(true)
+    expect(hasText(renderer, 'Your suppliers didn’t load, so a key can’t be made just now.')).toBe(true)
+    expect(pressablesNamed(renderer, 'Create API key')).toHaveLength(0)
+    expect(asked(calls, 'mutation CreateApiKey')).toHaveLength(0)
+  })
+
+  it('shows times in UTC, naming it, when the store’s time zone could not be read', async () => {
+    const gone = keyOf({ createdByHere: false, expiresAt: '2020-01-01T00:00:00Z' })
+    const { renderer } = await show(<SettingsTabScreen tab="developers" />, developers({ 'query ApiKeys': () => ({ apiKeys: page([gone]) }), '{ storeInfo { timeZone } }': () => { throw new ApiError('NO_RESPONSE', 'x') } }))
+
+    expect(hasText(renderer, 'Expired Jan 1, 2020, 00:00 UTC')).toBe(true)
+  })
+
   it('says it could not load and tries again', async () => {
     let fails = true
     const { renderer } = await show(
