@@ -67,7 +67,7 @@ refuses it every order query (ACCESS.md §5.2). The tabs and the More items are 
 - **Your shop:** every menu item the role has that isn't a tab, such as Customers, Abandoned
   carts, Reports and Storefront; for a supplier, Your sales (the orders tiers) and Your team
   (a Supplier admin).
-- **Account:** My profile, Settings (Owner only), Switch store, Sign out. Billing is not in the
+- **Account:** My profile, Settings (Owner only), Store activity (Manager only: the Owner reads the log in Settings), Switch store, Sign out. Billing is not in the
   app (FIRST-RELEASE.md §1).
 
 In a development build a **Scenario** button opens a menu that picks which state, banner, role
@@ -161,6 +161,7 @@ These follow decisions in `docs/`, so the prototype needs redrawing here:
 - **Developers** (#510). The prototype's `SetDev` is one page; the phone's API keys are a list of stacked cards whose actions (Rotate, Revoke) are behind a menu, and Create is a sheet. **Not drawn:** the storefront key and "Websites allowed to use it", which the Store API neither reads nor changes. **The secret is shown once** in a card above the list with **Copy**, which puts it on the clipboard (`expo-clipboard`) where Offers' code and the exports use the share sheet, because the share sheet would offer a live secret to every app; the text is selectable too, and leaving the screen drops it without a prompt. The tab sits under Settings like the others, not in a folder of its own.
 - **Apps** (#800). The prototype's `SetDev` apps page is a list of cards with Open app and Remove; the phone draws the same cards. "Add an app" takes the install link in a sheet and the consent screen is a second sheet (a write that answers `null` keeps the sheet open for the step). The app is named by its id, the first UUID in an https link (decided on the web portal's #333). "Open app" is a link to the app's own site, only when it is https; nothing of the app runs on the phone.
 - **Support access and the banner** (#801). The prototype's `SetAccess` support page is a switch, a list of how a session works and a log table; the phone draws the switch as a row, the log as stacked cards (who, why, when, and whether they could change things) with "Show older", and turning support off asks first. The prototype's banner has no Allow or Deny; the phone adds them under the banner's text for an Owner or a Manager when support asks to make changes, each behind a sheet that says what it does, and the banner reads "Changes allowed" once allowed.
+- **Activity log** (#802). The prototype's `StoreActivity` rows are stacked cards on the phone, each opening in place for its changes, reason and links; the Person filter is a field that opens a sheet, "What" is chips, and Search is a field. "Show older" replaces scroll-to-load. Export CSV is the Owner's and opens the share sheet with the CSV as text; a Manager sees it off with the reason, as the prototype does. The Manager reaches the log from More › Account as **Store activity**, since Settings is the Owner's.
 - **"Email me a link"** (decided 2026-10-08). The prototype's Best on the web sheet offers to
   email a link to the web portal. The app instead **opens the web portal in the phone's
   browser**, on the partner's portal host. "Open here anyway" stays. Emailing

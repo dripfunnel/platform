@@ -49,7 +49,7 @@ export const tabsFor = (seat: Seat | null): readonly Tab[] => {
 }
 
 /** Every screen under More that some role has; one a role lacks is access denied, one nobody has is a 404. */
-export const moreRouteKeys = ['customers', 'carts', 'reports', 'storefront', 'settings', 'sales', 'team'] as const
+export const moreRouteKeys = ['customers', 'carts', 'reports', 'storefront', 'settings', 'activity', 'sales', 'team'] as const
 
 const route = (key: string, note: 'viewOnly' | null = null): MoreItem => ({ key, kind: 'route', href: `/more/${key}`, note })
 
@@ -62,10 +62,12 @@ const shopItems = (seat: Seat | null): readonly MoreItem[] => {
   return [...(hasOrders(seat) ? [route('sales')] : []), ...(seat.admin ? [route('team')] : [])]
 }
 
-// My profile is for everyone; Settings only for the Owner. Billing is not in the app (FIRST-RELEASE.md §1).
+// My profile is for everyone; Settings only for the Owner, whose Activity log is a Settings tab, so the Manager's Store activity is an item of its own
+// (FIRST-RELEASE.md §15). Billing is not in the app (FIRST-RELEASE.md §1).
 const accountItems = (seat: Seat | null): readonly MoreItem[] => [
   { key: 'profile', kind: 'route', href: '/profile', note: null },
   ...(seat?.side === 'merchant' && seat.role === 'owner' ? [route('settings')] : []),
+  ...(seat?.side === 'merchant' && seat.role === 'manager' ? [route('activity')] : []),
   { key: 'switchStore', kind: 'action', action: 'switchStore' },
   { key: 'signOut', kind: 'action', action: 'signOut' },
 ]

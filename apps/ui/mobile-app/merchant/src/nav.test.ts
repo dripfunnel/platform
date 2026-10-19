@@ -50,11 +50,11 @@ describe('the More items per role and supplier tier', () => {
     expect(accountKeys(seat('owner'))).toEqual(['profile', 'settings', 'switchStore', 'signOut'])
   })
 
-  it('shows a Manager the same, with Storefront view only, and no Settings', () => {
+  it('shows a Manager the same, with Storefront view only, Store activity and no Settings', () => {
     expect(shopKeys(seat('manager'))).toEqual(['customers', 'carts', 'reports', 'storefront'])
     const storefront = moreFor(seat('manager'))[0]?.items.find((item) => item.key === 'storefront')
     expect(storefront).toMatchObject({ note: 'viewOnly' })
-    expect(accountKeys(seat('manager'))).toEqual(['profile', 'switchStore', 'signOut'])
+    expect(accountKeys(seat('manager'))).toEqual(['profile', 'activity', 'switchStore', 'signOut'])
   })
 
   it('shows Staff Customers and Abandoned carts (view only), and no Reports or Storefront', () => {
@@ -67,6 +67,12 @@ describe('the More items per role and supplier tier', () => {
     const roles = ['owner', 'manager', 'staff', 'supplier-admin', 'supplier-member']
     const withSettings = roles.filter((role) => accountKeys(seatOf({ role, tier: role.startsWith('supplier') ? 'vendor-orders-fulfil' : null })).includes('settings'))
     expect(withSettings).toEqual(['owner'])
+  })
+
+  it('offers Store activity to the Manager alone: the Owner reads the log in Settings, and Staff and suppliers have none', () => {
+    const roles = ['owner', 'manager', 'staff', 'supplier-admin', 'supplier-member']
+    const withActivity = roles.filter((role) => accountKeys(seatOf({ role, tier: role.startsWith('supplier') ? 'vendor-orders-fulfil' : null })).includes('activity'))
+    expect(withActivity).toEqual(['manager'])
   })
 
   it('has no Billing anywhere (FIRST-RELEASE.md §1)', () => {

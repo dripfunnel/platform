@@ -414,6 +414,9 @@
       "FORBIDDEN": "Only the store owner or a manager can answer this.",
       "NOT_PENDING": "That request is no longer open.",
       "NOT_FOUND": "That support session is no longer open."
+    },
+    "activity": {
+      "FORBIDDEN": "Only the store owner can export the activity log."
     }
   },
   "auth": {
@@ -2015,7 +2018,8 @@
       "accounts": "Customer accounts",
       "developers": "Developers",
       "apps": "Apps",
-      "support": "Support access"
+      "support": "Support access",
+      "activity": "Activity log"
     },
     "tabSubs": {
       "store": "Name, contact, address, currencies and languages",
@@ -2030,7 +2034,8 @@
       "accounts": "How shoppers sign in to your storefront",
       "developers": "API keys for software that works with your store",
       "apps": "Programs that work with your store, each with only the access you gave it",
-      "support": "Whether your platform’s support team can open your store to help you"
+      "support": "Whether your platform’s support team can open your store to help you",
+      "activity": "Everything done in the store, by whom, with an export"
     },
     "store": {
       "title": "Your store",
@@ -2762,7 +2767,8 @@
     "signOut": "Sign out",
     "viewOnly": "View only",
     "viewOnlyLabel": "{item}, view only",
-    "help": "Help"
+    "help": "Help",
+    "activity": "Store activity"
   },
   "states": {
     "loading": "Loading",
@@ -4858,5 +4864,223 @@
       "shareFailed": "The file couldn’t be shared. Try again."
     },
     "readOnly": "Your store is view-only until the bill is paid. Reports and their exports still work."
+  },
+  "activity": {
+    "title": "Activity log",
+    "managerTitle": "Store activity",
+    "sub": "Everything done in this store, by your team, suppliers, API keys, apps, support and shoppers. Newest first.",
+    "person": "Person",
+    "everyone": "Everyone",
+    "what": "What",
+    "whats": {
+      "all": "Everything",
+      "catalogue": "Products and stock",
+      "orders": "Orders and refunds",
+      "team": "People and suppliers",
+      "settings": "Settings, keys and apps",
+      "support": "Support sessions",
+      "shoppers": "Shopper accounts",
+      "signins": "Sign-ins"
+    },
+    "search": "Search",
+    "searchPlaceholder": "A name, order 1042, a product",
+    "showing": "Showing everything by {name} in this store.",
+    "clearPerson": "Everyone",
+    "none": "Nothing matches.",
+    "noneBody": "Try another person, another kind of change or a shorter search.",
+    "empty": "Nothing has happened in this store yet.",
+    "emptyBody": "What your team, suppliers, apps, support and shoppers do here shows up as it happens.",
+    "denied": {
+      "title": "Store activity is for the store’s owner and managers",
+      "body": "Ask your store owner if you need to know who changed something."
+    },
+    "readOnly": "Your store is read-only until the bill is paid. The log and its export still work.",
+    "more": "Show older",
+    "moreFailed": "Older entries didn’t load. Try again.",
+    "foot": "Searchable for 13 months.",
+    "results": {
+      "success": "Done",
+      "denied": "Refused",
+      "failed": "Failed"
+    },
+    "kinds": {
+      "person": "Team member",
+      "customer": "Shopper",
+      "partner_user": "{partner} team",
+      "api_key": "API key",
+      "app_grant": "App",
+      "support_session": "{partner} support",
+      "job": "Automatic",
+      "provider": "Outside service",
+      "staff": "Platform staff"
+    },
+    "system": "The system",
+    "someone": "someone",
+    "through": {
+      "support_session": "During a {partner} support session",
+      "impersonation": "Signed in by support as this person"
+    },
+    "onBehalf": "By {name}",
+    "reason": "Reason: {reason}",
+    "change": "{field}: {before} → {after}",
+    "byPerson": "Everything by {name}",
+    "bySession": "Everything in this support session",
+    "open": "Open {target}",
+    "details": "Details of: {text}",
+    "other": "{action}",
+    "blank": "—",
+    "thisPerson": "this person",
+    "sessionOf": "{name}’s support session",
+    "unnamed": "Someone without a name",
+    "label": "Store activity",
+    "exportCsv": "Export CSV",
+    "exportOwner": "Only the store owner can export",
+    "loading": "Loading the activity log",
+    "error": {
+      "title": "The activity log didn’t load",
+      "body": "Check your connection and try again."
+    },
+    "actions": {
+      "person": {
+        "signed_in": "signed in",
+        "signed_out": "signed out",
+        "sign_in_refused": "couldn’t sign in",
+        "switched_store": "opened this store",
+        "profile_updated": "updated their details",
+        "password_changed": "changed their password"
+      },
+      "member": {
+        "invited": "invited {target}",
+        "removed": "removed {target}",
+        "role_changed": "changed {target}’s role",
+        "invitation_resent": "sent {target}’s invitation again",
+        "invitation_revoked": "withdrew {target}’s invitation"
+      },
+      "supplier": {
+        "invited": "invited supplier {target}",
+        "access_changed": "changed what {target} can do",
+        "shipping_mode_changed": "changed how {target} ships",
+        "suspended": "suspended {target}",
+        "resumed": "reactivated {target}",
+        "removed": "removed {target}",
+        "person_added": "added a person to {target}"
+      },
+      "product": {
+        "created": "added {target}",
+        "updated": "changed {target}",
+        "deleted": "deleted {target}",
+        "duplicated": "copied {target}",
+        "hidden": "hid {target}",
+        "shown": "showed {target}",
+        "proposed": "added {target} for approval",
+        "approved": "approved {target}",
+        "sent_back": "sent {target} back"
+      },
+      "stock": {
+        "adjusted": "changed the stock of {target}",
+        "changed": "changed the stock of {target}"
+      },
+      "collection": {
+        "saved": "saved collection {target}",
+        "deleted": "deleted collection {target}"
+      },
+      "catalog": {
+        "imported": "imported products",
+        "exported": "exported products"
+      },
+      "order": {
+        "placed": "placed order {target}",
+        "paid": "paid for order {target}",
+        "marked_paid": "marked order {target} paid",
+        "cancelled": "cancelled order {target}",
+        "shipped": "shipped order {target}",
+        "delivered": "marked order {target} delivered",
+        "refunded": "refunded order {target}",
+        "note_added": "added a note to order {target}"
+      },
+      "refund": {
+        "issued": "refunded {target}"
+      },
+      "orders": {
+        "exported": "exported orders"
+      },
+      "customer": {
+        "added": "added customer {target}",
+        "updated": "changed customer {target}",
+        "signed_in": "signed in",
+        "signed_out": "signed out",
+        "exported": "exported customers"
+      },
+      "store": {
+        "info_saved": "saved the store’s details",
+        "currencies_saved": "saved the currencies",
+        "languages_saved": "saved the languages",
+        "customer_accounts_saved": "changed how shoppers sign in",
+        "plan_changed": "changed the plan",
+        "data_exported": "exported the store’s data"
+      },
+      "shipping": {
+        "saved": "saved the shipping settings"
+      },
+      "tax": {
+        "inclusive_changed": "changed whether prices include tax"
+      },
+      "tax_class": {
+        "saved": "saved tax category {target}"
+      },
+      "market": {
+        "saved": "saved market {target}",
+        "deleted": "deleted market {target}"
+      },
+      "payment_method": {
+        "connected": "connected {target}",
+        "disconnected": "disconnected {target}",
+        "turned_on": "turned on {target}",
+        "turned_off": "turned off {target}"
+      },
+      "api_key": {
+        "created": "created API key {target}",
+        "rotated": "rotated API key {target}",
+        "revoked": "revoked API key {target}"
+      },
+      "webhook": {
+        "saved": "saved webhook {target}",
+        "removed": "removed webhook {target}",
+        "turned_on": "turned webhook {target} back on",
+        "delivery_replayed": "sent a webhook event again"
+      },
+      "app": {
+        "installed": "installed {target}",
+        "uninstalled": "removed {target}"
+      },
+      "support_access": {
+        "changed": "switched support access"
+      },
+      "support_session": {
+        "started": "opened a support session",
+        "ended": "ended a support session",
+        "viewed": "looked at {target}",
+        "write_requested": "asked to make changes",
+        "write_allowed": "let support make changes for this session",
+        "write_denied": "didn’t let support make changes"
+      },
+      "activity": {
+        "exported": "exported the activity log"
+      }
+    },
+    "export": {
+      "title": "Activity log",
+      "shareFailed": "The phone wouldn’t open the share sheet. Try again.",
+      "preparing": "Preparing your CSV…",
+      "ready": {
+        "one": "{total} entry is ready.",
+        "other": "{total} entries are ready."
+      },
+      "truncated": "Only the first {count} entries are in it; narrow the filter to see the rest.",
+      "share": "Share the CSV",
+      "expired": "That export’s link has expired. Export again.",
+      "tooLarge": "That export is too large. Narrow the filter and try again.",
+      "failed": "The export couldn’t be made. Try again."
+    }
   }
 }

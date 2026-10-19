@@ -3,6 +3,7 @@ import { useShell } from '../shell/ShellData'
 import { ShellScreen } from '../states/ShellScreen'
 import { isOwner } from './access'
 import { AccountsTab } from './accounts/AccountsTab'
+import { ActivityTab } from './activity/ActivityTab'
 import { CatalogueTab } from './catalogue/CatalogueTab'
 import { DevelopersTab } from './developers/DevelopersTab'
 import { MarketsTab } from './markets/MarketsTab'
@@ -50,5 +51,7 @@ export function SettingsTabScreen({ tab }: { tab: string }) {
       return <AppsTab />
     case 'support':
       return <SupportAccessTab />
+    case 'activity':
+      return <ActivityTab />
   }
 }
