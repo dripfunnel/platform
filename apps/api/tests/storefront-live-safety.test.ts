@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
-import { allowanceUsed } from '#db/scoped/publishing'
+import { allowanceUsed, selectFailedCheckNames, selectPublishRun } from '#db/scoped/publishing'
 import { digestOf, lookupLiveHost, lookupRedirects, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
 import { buildFolder, stagingFolder } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -73,6 +73,28 @@ const publishLive = async (storeId: string, n: number) => {
   return runId
 }
 
+describe('the suggestions (#806)', () => {
+  const gateOf = (checks: { name: string; passed: boolean }[]) => db.sql.json({ passed: true, checks })
+  it('are read only for the run’s own store', async () => {
+    const runId = await staged(t.storeA1, 11)
+    await db.sql`update publish_run set gate = ${gateOf([{ name: 'budgets', passed: false }])} where id = ${runId}`
+    const names = (storeId: string) => withSystemScope(db.sql, (tx) => selectFailedCheckNames(tx, storeId, runId))
+    expect(await names(t.storeA1)).toEqual(['budgets'])
+    expect(await names(t.storeB1)).toEqual([])
+    await db.sql`delete from publish_run where id = ${runId}`
+  })
+  it('come from the build that went live when a repair did, not the refused first one', async () => {
+    const root = await staged(t.storeA1, 12)
+    await db.sql`update publish_run set state = 'live', gate = ${gateOf([{ name: 'axe', passed: false }])} where id = ${root}`
+    await db.sql`
+      insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind, attempt, attempt_of, gate, gate_digest)
+      values (${t.storeA1}, 'design', 'live', ${'b'.repeat(40)}, 'linen', '1.0.0', 'system', 'repair', ${root}, ${gateOf([{ name: 'axe', passed: true }, { name: 'budgets', passed: false }])}, ${'d'.repeat(64)})`
+    const view = await withSystemScope(db.sql, (tx) => selectPublishRun(tx, t.storeA1, root))
+    expect(view?.gate?.checks?.filter((c) => !c.passed).map((c) => c.name)).toEqual(['budgets'])
+    await db.sql`delete from publish_run where attempt_of = ${root}`
+    await db.sql`delete from publish_run where id = ${root}`
+  })
+})
 describe('the post-deploy checks', () => {
   it('pass on the edge’s answers from the new build and leave the run live with what they checked', async () => {
     const runId = await publishLive(t.storeA1, 1)

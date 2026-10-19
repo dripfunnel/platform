@@ -446,11 +446,11 @@ export const selectBisectedRun = async (tx: ScopedSql, storeId: string, commit: 
   )[0] ?? null
 
 /** The names of the checks that failed in a build's report, and so of its suggestions once it went live (#806). */
-export const selectFailedCheckNames = async (tx: ScopedSql, runId: string): Promise<string[]> =>
+export const selectFailedCheckNames = async (tx: ScopedSql, storeId: string, runId: string): Promise<string[]> =>
   (
     await tx<{ name: string }[]>`
       select c->>'name' as name from publish_run r, jsonb_array_elements(coalesce(r.gate->'checks', '[]'::jsonb)) c
-      where r.id = ${runId} and (c->>'passed')::boolean is false`
+      where r.id = ${runId} and r.store_id = ${storeId} and (c->>'passed')::boolean is false`
   ).map((r) => r.name)
 
 /** The failing checks' words of a build's report, for the repair (never code: LIVE-SHOP §4 step 7). */
@@ -496,7 +496,9 @@ export interface PublishRunView {
 export const selectPublishRun = async (tx: ScopedSql, storeId: string, id: string): Promise<PublishRunView | null> =>
   (
     await tx<PublishRunView[]>`
-      select r.id, r.kind, r.state, r.error, r.repair_attempts, r.build_minutes, r.created_at, r.finished_at, r.gate, r.checks,
+      select r.id, r.kind, r.state, r.error, r.repair_attempts, r.build_minutes, r.created_at, r.finished_at,
+        -- A repaired publish went live as its attempt, so that build's gate is the one that counts.
+        coalesce((select a.gate from publish_run a where a.attempt_of = r.id and a.state = 'live' limit 1), r.gate) as gate, r.checks,
         (select m.id from design_message m where m.store_id = r.store_id and m.role = 'ai' and m.commit = r.bisect_commit order by m.created_at desc limit 1) as bisect_message_id,
         (select v.number from design_version v where v.store_id = r.store_id and v.build_id in (r.id, (select a.id from publish_run a where a.attempt_of = r.id and a.state = 'live' limit 1)) order by v.number desc limit 1) as version
       from publish_run r where r.store_id = ${storeId} and r.id = ${id} and r.attempt_of is null`
