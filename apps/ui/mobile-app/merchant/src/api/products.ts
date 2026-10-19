@@ -219,21 +219,15 @@ export const assetSource = (deps: Pick<PhotoDeps, 'domain' | 'headers'>, path: s
   return own ? { uri: path, headers: deps.headers() } : { uri: path }
 }
 
-const uploadSchema = z.union([
-  z.object({ ok: z.literal(true), asset: z.object({ id: z.string(), kind: z.string(), mime: z.string(), bytes: z.number().int() }) }),
-  z.object({ ok: z.literal(false), code: z.string() }),
-])
+const uploadSchema = z.union([z.object({ ok: z.literal(true), asset: z.object({ id: z.string(), kind: z.string() }) }), z.object({ ok: z.literal(false), code: z.string() })])
 
-export type UploadedAsset = { id: string; kind: string; mime: string; bytes: number }
-
-/** The raw file to `/api/assets` (FIRST-RELEASE.md §19 `uploadAsset`): the asset the API kept, or an ApiError with its code (`TOO_LARGE`, `UNSUPPORTED_TYPE`…). */
-export const postAsset = async ({ domain, headers, fetchImpl = fetch }: PhotoDeps, file: { uri: string; mimeType: string | null }, { search = '', maxBytes }: { search?: string; maxBytes?: number } = {}): Promise<UploadedAsset> => {
+/** The raw file to `/api/assets` (FIRST-RELEASE.md §19 `uploadAsset`): its asset id, or an ApiError with the API's code (`TOO_LARGE`, `UNSUPPORTED_TYPE`…). */
+export const uploadPhoto = async ({ domain, headers, fetchImpl = fetch }: PhotoDeps, file: { uri: string; mimeType: string | null }): Promise<string> => {
   const abort = new AbortController()
   const timer = setTimeout(() => abort.abort(), defaultTimeoutMs * 4)
   try {
     const blob = await (await fetchImpl(file.uri)).blob()
-    if (maxBytes !== undefined && blob.size > maxBytes) throw new ApiError('TOO_LARGE', 'The file is over the size the API takes.')
-    const response = await fetchImpl(`https://${domain}/api/assets${search}`, {
+    const response = await fetchImpl(`https://${domain}/api/assets`, {
       method: 'POST',
       headers: { ...headers(), 'content-type': file.mimeType ?? (blob.type || 'application/octet-stream') },
       body: blob,
@@ -243,17 +237,11 @@ export const postAsset = async ({ domain, headers, fetchImpl = fetch }: PhotoDep
     const answer = uploadSchema.safeParse(await response.json())
     if (!answer.success) throw new ApiError('NO_RESPONSE', 'The upload was not answered with the API’s JSON.')
     if (!answer.data.ok) throw new ApiError(answer.data.code, 'The API refused the upload.')
-    return answer.data.asset
+    if (answer.data.asset.kind !== 'image') throw new ApiError('UNSUPPORTED_TYPE', 'The API kept the file as something other than an image.')
+    return answer.data.asset.id
   } catch (error) {
     throw error instanceof ApiError ? error : new ApiError('NO_RESPONSE', 'The upload did not finish.')
   } finally {
     clearTimeout(timer)
   }
-}
-
-/** A photo to the API: its asset id. */
-export const uploadPhoto = async (deps: PhotoDeps, file: { uri: string; mimeType: string | null }): Promise<string> => {
-  const asset = await postAsset(deps, file)
-  if (asset.kind !== 'image') throw new ApiError('UNSUPPORTED_TYPE', 'The API kept the file as something other than an image.')
-  return asset.id
 }

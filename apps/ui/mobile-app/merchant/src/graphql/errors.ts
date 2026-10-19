@@ -61,9 +61,6 @@ export const knownErrorCodes = [
   'TOO_LARGE',
   'UNSUPPORTED_TYPE',
   'EMPTY',
-  // A product's kind (apps/api src/apis/store/productKinds.ts).
-  'WRONG_KIND',
-  'EXPIRY_TOO_SHORT',
   // Collections, filters, the menu and size charts (apps/api src/apis/store/structure.ts, listing.ts).
   'DUPLICATE_NAME',
   'FEATURE_UNAVAILABLE',
