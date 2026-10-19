@@ -6,7 +6,7 @@ import type { BannerScenario } from '../states/scenario'
 
 export type BannerTone = 'info' | 'warning' | 'danger' | 'success' | 'offline'
 /** Support asking to make changes for this one session; an Owner or a Manager answers Allow or Deny (ACCESS.md §8). */
-export type SupportAsk = { sessionId: string; agent: string; partner: string; note: string | null; endsAt: string }
+export type SupportAsk = { sessionId: string; agent: string; partner: string; note: string | null }
 
 export type BannerSpec = { key: string; tone: BannerTone; title: string; body: string; ask?: SupportAsk }
 
@@ -69,7 +69,7 @@ export const bannersFor = ({ seat, state, support, online, scenario, now }: Inpu
     const time = formatDuration(seconds, locale)
     const asking = writeRequest?.state === 'pending' && sessionId !== null
     const spec = said('support', 'warning', t('banners.support.title', { partner: partnerName, name: agentFirstName }), t(access === 'write' ? 'banners.support.bodyWrite' : 'banners.support.body', { time }))
-    banners.push(asking ? { ...spec, ask: { sessionId, agent: agentFirstName, partner: partnerName, note: writeRequest.note, endsAt } } : spec)
+    banners.push(asking ? { ...spec, ask: { sessionId, agent: agentFirstName, partner: partnerName, note: writeRequest.note } } : spec)
   }
   if (!online) banners.push(offline())
   return banners

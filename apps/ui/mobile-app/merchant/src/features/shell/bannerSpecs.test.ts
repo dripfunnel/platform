@@ -55,7 +55,7 @@ describe('the shell banners (FIRST-RELEASE.md §3.3)', () => {
 
   it('carries the request to make changes, with its note, only while it is waiting for an answer', () => {
     const asking = support({ writeRequest: { state: 'pending', note: 'Ticket #4821' } })
-    expect(run({ state: state({ support: asking }) })[0]?.ask).toEqual({ sessionId: 'session-1', agent: 'Asha', partner: 'Northstar', note: 'Ticket #4821', endsAt: '2026-10-13T09:25:00Z' })
+    expect(run({ state: state({ support: asking }) })[0]?.ask).toEqual({ sessionId: 'session-1', agent: 'Asha', partner: 'Northstar', note: 'Ticket #4821' })
     for (const answered of ['allowed', 'denied']) {
       expect(run({ state: state({ support: support({ writeRequest: { state: answered, note: null } }) }) })[0]?.ask).toBeUndefined()
     }
