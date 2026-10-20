@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
