@@ -413,7 +413,7 @@ const swelled = (key: string, size: number) => {
   return () => bodyReads
 }
 
-const verifyDeps = () => ({ sql: db.sql, sites, assets, now: () => now, probe: testProbe(db.sql, { sites, assets }), assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
+const verifyDeps = () => ({ sql: db.sql, sites, assets, now: () => now, probe: testProbe(db.sql, { sites, assets }), assetHost: 'sf-assets.my-store.one', wait: async () => undefined })
 const uploadOf = (id: string) => db.sql<{ uploaded_at: Date | null; upload_manifest: unknown; verified_at: Date | null; state: string; error: string | null }[]>`
   select uploaded_at, upload_manifest, verified_at, state, error from publish_run where id = ${id}`.then((r) => r[0])
 const verifyRefusal = (work: Promise<unknown>) =>
@@ -509,7 +509,7 @@ describe('the copy into the build’s folders', () => {
 
 describe('a build from its report to live', () => {
   const steps = { do: (_: string, work: () => Promise<string>) => work(), waitFor: async () => undefined }
-  const publishDeps = () => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: null, dispatch: async () => true, now: () => now, probe: testProbe(db.sql, { sites, assets }), assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
+  const publishDeps = () => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: null, dispatch: async () => true, now: () => now, probe: testProbe(db.sql, { sites, assets }), assetHost: 'sf-assets.my-store.one', wait: async () => undefined })
 
   it('goes live only after its upload is verified, through #317’s switch', async () => {
     const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7601')

@@ -14,7 +14,7 @@ export interface TestProbe extends EdgeProbe {
 export const testProbe = (sql: postgres.Sql, buckets: { sites: SitesBucket; assets: SitesBucket }): TestProbe => {
   const local = localEdgeProbe({
     ...buckets,
-    assetHost: 'sf-assets.dripfunnel.com',
+    assetHost: 'sf-assets.my-store.one',
     liveBuild: async (host) => {
       const found = await lookupLiveHost(sql, host, { localhost: false, shopDomain: 'shop.example' })
       return found.kind === 'store' && found.buildId ? { storeId: found.storeId, buildId: found.buildId } : null

@@ -34,7 +34,7 @@ const deps = (repair?: PublishRepair): PublishDeps => ({
   },
   now: () => new Date(),
   probe: testProbe(db.sql, { sites, assets }),
-  assetHost: 'sf-assets.dripfunnel.com',
+  assetHost: 'sf-assets.my-store.one',
   wait: async () => undefined,
   ...(repair ? { repair } : {}),
 })

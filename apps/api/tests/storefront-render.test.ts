@@ -23,7 +23,7 @@ let probe: TestProbe
 const host = 'store-a1.shop.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 const steps: PublishSteps = { do: (_, work) => work(), waitFor: async () => undefined }
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.my-store.one', wait: async () => undefined })
 const signal = new AbortController().signal
 const effect = (kind: string, payload: unknown): Effect => ({ id: 'e', kind, idempotencyKey: 'k', payload, partnerId: null, storeId: null, attempt: 1 })
 
@@ -278,10 +278,10 @@ describe('a page run’s frozen input', () => {
     const runId = started.ok ? started.runId : ''
     const drafts = fakeSites()
     await putText(drafts, sourceBundle(t.storeA1, liveA), 'bundle')
-    const frozen = { sql: db.sql, drafts, assetOrigin: 'https://sf-assets.dripfunnel.com', shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date() }
+    const frozen = { sql: db.sql, drafts, assetOrigin: 'https://sf-assets.my-store.one', shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date() }
     expect(await freezeBuild(frozen, t.storeA1, runId)).toBe('frozen')
     const snapshot = JSON.parse((await (await drafts.get(snapshotFile(t.storeA1, runId)))?.text()) ?? '{}') as { assetBase: string }
-    expect(snapshot.assetBase).toBe(`https://sf-assets.dripfunnel.com/stores/${t.storeA1}/builds/${assetsOf?.id ?? ''}/assets/`)
+    expect(snapshot.assetBase).toBe(`https://sf-assets.my-store.one/stores/${t.storeA1}/builds/${assetsOf?.id ?? ''}/assets/`)
     await db.sql`delete from outbox where payload->>'runId' = ${runId}`
     await db.sql`delete from publish_run where id = ${runId}`
   })

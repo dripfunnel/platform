@@ -150,9 +150,9 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 
 1. **Cloudflare, buckets** (dev account): create `storefront-sites-dev` (private), `storefront-assets-dev` and
    `storefront-drafts-dev` (private) (names decided on #317). Make `storefront-assets-dev` public only through its custom
-   domain `sf-assets.dripfunnel.ai` (R2 › the bucket › Settings › Custom Domains; keep the r2.dev address off), give it a CORS
+   domain `sf-assets.my-shop.dev` (R2 › the bucket › Settings › Custom Domains; keep the r2.dev address off), give it a CORS
    rule allowing `GET` from any origin (the storefront's module scripts load cross-origin), and add a Worker route
-   `sf-assets.dripfunnel.ai/*` with **no Worker** (Workers Routes › Add route › Worker: None), so the store proxy's `*/*`
+   `sf-assets.my-shop.dev/*` with **no Worker** (Workers Routes › Add route › Worker: None), so the store proxy's `*/*`
    route never runs for it (LIVE-SHOP §5 step 7). They are bound in `apps/api/wrangler.jsonc`'s `env.dev`
    (`STOREFRONT_SITES`, `STOREFRONT_ASSETS`, `STOREFRONT_DRAFTS`) with the four Workflows and the studio's `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Objects as in `env.local` (#730; the deploy
    token needs *Workflows: Edit*). Create the buckets first: a binding to a missing bucket fails the deploy. Until the release uploads the templates (ARCHITECTURE §2.3), the `templates` workflow fills the sites bucket on a push to `dev` that touches `templates/storefront/**` and after each `release` run, naming the newest `-dev.N` core in the registry (set `R2_STOREFRONT_ACCESS_KEY_ID` and `R2_STOREFRONT_SECRET_ACCESS_KEY` as secrets and `STOREFRONT_SITES_BUCKET` as a variable on the `dev` environment; the account id is its `CLOUDFLARE_ACCOUNT_ID` variable). By hand: `pnpm --filter ./apps/api exec tsx --env-file=.env.local scripts/local/seed-templates.ts --remote --core <version>` (reads `R2_STOREFRONT_*` and `STOREFRONT_SITES_BUCKET` from `.env.local`; `--core` defaults to `packages/storefront-core`'s version, which dev never publishes; its previews are a stand-in page). Create the R2 storefront

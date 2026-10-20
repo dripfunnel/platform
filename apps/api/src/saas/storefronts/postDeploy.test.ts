@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { EdgeProbe, ProbeAnswer } from '#integrations/http/edgeProbe'
 import { failedCheck, runPostDeployChecks, type CheckTarget } from './postDeploy'
 
-const target: CheckTarget = { host: 'shop.example', assetHost: 'sf-assets.dripfunnel.com', buildId: 'b2', files: ['index.html', 'products/_fallback/index.html', 'products/blue-mug/index.html', 'checkout/index.html', 'hi-in/checkout/index.html', 'assets/app.js'] }
+const target: CheckTarget = { host: 'shop.example', assetHost: 'sf-assets.my-store.one', buildId: 'b2', files: ['index.html', 'products/_fallback/index.html', 'products/blue-mug/index.html', 'checkout/index.html', 'hi-in/checkout/index.html', 'assets/app.js'] }
 const html = (body = ''): ProbeAnswer => ({ status: 200, contentType: 'text/html; charset=utf-8', build: 'b2', body })
 
 const probeWith = (pages: Record<string, ProbeAnswer>, shop: Record<string, unknown> = {}): EdgeProbe & { asked: string[] } => {
@@ -24,9 +24,9 @@ const timing = () => {
   return { now: () => now, wait: async (ms: number) => void (now += ms) }
 }
 const healthy = {
-  'https://shop.example/': html('<script src="/assets/app.js"></script><link rel="stylesheet" href="https://sf-assets.dripfunnel.com/s/a.css"><script src="https://internal.example/x.js"></script>'),
+  'https://shop.example/': html('<script src="/assets/app.js"></script><link rel="stylesheet" href="https://sf-assets.my-store.one/s/a.css"><script src="https://internal.example/x.js"></script>'),
   'https://shop.example/assets/app.js': { status: 200, contentType: 'text/javascript', build: 'b2', body: '' },
-  'https://sf-assets.dripfunnel.com/s/a.css': { status: 200, contentType: 'text/css', build: null, body: '' },
+  'https://sf-assets.my-store.one/s/a.css': { status: 200, contentType: 'text/css', build: null, body: '' },
   'https://shop.example/products/blue-mug': html(),
   'https://shop.example/checkout': html(),
 }
@@ -43,7 +43,7 @@ describe('the post-deploy checks', () => {
       ['checkout', 'passed'],
       ['payment', 'passed'],
     ])
-    expect(probe.asked).toContain('https://sf-assets.dripfunnel.com/s/a.css')
+    expect(probe.asked).toContain('https://sf-assets.my-store.one/s/a.css')
     // A theme loads nothing from other hosts, so the platform never fetches one a page names.
     expect(probe.asked).not.toContain('https://internal.example/x.js')
     expect(failedCheck(results)).toBeNull()

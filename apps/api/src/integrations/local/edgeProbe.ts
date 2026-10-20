@@ -10,7 +10,7 @@ interface Readable {
 export interface LocalEdge {
   sites: Readable
   assets: Readable
-  /** `sf-assets.<EDGE_ZONE>`: its paths are keys in the assets bucket (LIVE-SHOP §2). */
+  /** `sf-assets.<SHOP_DOMAIN>`: its paths are keys in the assets bucket (LIVE-SHOP §2). */
   assetHost: string
   /** The store and live build a host serves, as the edge Worker's lookup answers it. */
   liveBuild: (host: string) => Promise<{ storeId: string; buildId: string } | null>

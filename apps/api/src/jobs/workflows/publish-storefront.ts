@@ -29,7 +29,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
   const { STOREFRONT_SITES: sites, STOREFRONT_ASSETS: assets, STOREFRONT_DRAFTS: drafts } = env
   const github = await githubFor(config)
   // The deliverer starts a run only where all of these exist, so this is a deploy that lost one since.
-  if (!config.HYPERDRIVE || !sites || !assets || !drafts || !github) throw new Error('publish-storefront: unconfigured')
+  if (!config.HYPERDRIVE || !sites || !assets || !drafts || !github || !config.SHOP_DOMAIN) throw new Error('publish-storefront: unconfigured')
   const repos = storeRepos(github.session(), config.GITHUB_STORE_ORG)
   const api = `https://${config.HOOKS_HOST}`
   const sql = connect(config.HYPERDRIVE)
@@ -42,7 +42,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       ? localEdgeProbe({
           sites,
           assets,
-          assetHost: `sf-assets.${config.EDGE_ZONE}`,
+          assetHost: `sf-assets.${config.SHOP_DOMAIN}`,
           liveBuild: async (host) => {
             const found = await lookupLiveHost(sql, host, { localhost: true, shopDomain: config.SHOP_DOMAIN ?? null })
             return found.kind === 'store' && found.buildId ? { storeId: found.storeId, buildId: found.buildId } : null
@@ -56,13 +56,13 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       sites,
       assets,
       drafts,
-      // The asset host on the edge zone (LIVE-SHOP §2, decided on #317).
-      assetOrigin: `https://sf-assets.${config.EDGE_ZONE}`,
+      // The asset host on the shop domain (LIVE-SHOP §2).
+      assetOrigin: `https://sf-assets.${config.SHOP_DOMAIN}`,
       shopDomain: config.SHOP_DOMAIN ?? null,
       dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api }),
       now: () => new Date(),
       probe,
-      assetHost: `sf-assets.${config.EDGE_ZONE}`,
+      assetHost: `sf-assets.${config.SHOP_DOMAIN}`,
       wait,
       push: (input: { storeId: string; buildId: string; version: number; files: RepoFile[] }) =>
         pushToRepo({ sql, repos, now: () => new Date() }, { storeId: input.storeId, key: `publish:${input.buildId}`, reason: { kind: 'publish', version: input.version, buildId: input.buildId }, files: input.files }),

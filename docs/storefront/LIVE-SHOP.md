@@ -69,7 +69,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 | **Store repo** | The published theme code, the generated files and the locked workflow (ARCHITECTURE §2.2) | The public, free place to build. It holds only what is already live. |
 | **API Worker** | Starts builds, checks OIDC tokens, mints R2 credentials, records `publish_run`, moves the live pointer | Every credential and every decision stays on the platform, never in a repo or a runner. |
 | **`storefront-sites` bucket** (decided on #317: `storefront-sites` on prod, `-dev` and `-local` elsewhere) | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Never public. The edge Worker reads build and preview folders; the API reads staging folders and writes build folders (§4 step 9); the studio's Durable Object writes preview folders (PREVIEW §4); an upload credential writes one staging folder only. |
-| **`storefront-assets` bucket** (decided on #317, named as above; served at `sf-assets.<EDGE_ZONE>`) | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
+| **`storefront-assets` bucket** (decided on #317, named as above; served at `sf-assets.<SHOP_DOMAIN>`) | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
 | **`storefront-drafts` bucket** (decided on #317, named as above), private | `drafts/{store}.bundle`, unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3); `sources/{store}/{build id}.bundle`, each build's source (§4 step 3); the snapshots | Source code that isn't public yet must never share a bucket with files that are served. Only the platform touches it: the studio's Durable Object reads and writes `drafts/` and reads `sources/`; the API writes `sources/` and the snapshots and hands a run 15-minute read links to its own build's files; nothing else reads it. |
 | **Edge Worker** | Answers every storefront request | One code path for every store; nothing per store to deploy. |
 | **Postgres** | `storefront`, `publish_run`, `design_version`: which build is live, and the history (DATA-MODEL §7) | The live pointer is state the consoles show, not a file. |
@@ -152,7 +152,7 @@ checking, deploying, live, failed, rolled back).
    `commit` out of it. The snapshot is core's `catalogueSnapshotSchema`: the store as the Shop API's `store` reads it,
    the live address (the store's primary host, `{slug}.<SHOP_DOMAIN>` until a domain is connected, §6: none is `no_address`), the partner's
    "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
-   `sf-assets.<EDGE_ZONE>`, and *since #324* the store's published, due posts, newest first, at most 500 (none while
+   `sf-assets.<SHOP_DOMAIN>`, and *since #324* the store's published, due posts, newest first, at most 500 (none while
    the plan has no blog): each one's address, title, search title and description, author, date and cover, so the
    build writes its page with its head and Article data (storefront ARCHITECTURE §8). *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
    it stays as private as the draft it copies.
@@ -593,7 +593,7 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
 - ~~How many builds a store keeps~~ 20, beyond any a kept version names (decided on #317, §4 step 11); ~~the bucket names~~ `storefront-sites`, `storefront-assets`
   and `storefront-drafts`, with `-dev` and `-local` on dev and locally (decided on #317: the environments are separate
   Cloudflare accounts, and prod's names match `ASSETS`' unsuffixed `dripfunnel-assets`); the asset host is
-  `sf-assets.<EDGE_ZONE>`, an R2 custom domain on `storefront-assets` (decided on #317: on the zone that already has the
-  certificate, with the catch-all route excluded for it); ~~the repo names~~ `sf-` and ten letters or digits (decided on #316).
+  `sf-assets.<SHOP_DOMAIN>`, an R2 custom domain on `storefront-assets` (decided on #317, moved from `EDGE_ZONE` to the shop domain's zone;
+  the catch-all route is excluded for it); ~~the repo names~~ `sf-` and ten letters or digits (decided on #316).
 - Rendering pages on request instead of building them all (Workers for Platforms, a Worker per
   store) is a later option for very large catalogues. It isn't planned.
