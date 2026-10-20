@@ -32,14 +32,14 @@ const deps = (): PublishDeps => ({
   sites,
   assets,
   drafts,
-  assetOrigin: 'https://sf-assets.dripfunnel.com', shopDomain: 'shop.example',
+  assetOrigin: 'https://sf-assets.my-store.one', shopDomain: 'shop.example',
   dispatch: async (repo, buildId) => {
     dispatched.push({ repo, buildId })
     return true
   },
   now: () => new Date(),
   probe: testProbe(db.sql, { sites, assets }),
-  assetHost: 'sf-assets.dripfunnel.com',
+  assetHost: 'sf-assets.my-store.one',
   wait: async () => undefined,
 })
 
@@ -98,8 +98,8 @@ describe('a publish’s build', () => {
       version: 1,
       origin: `https://${store?.code ?? ''}.shop.example`,
       store: { name: store?.name, mainLanguage: store?.main_language, language: store?.main_language },
-      csp: { assetOrigin: 'https://sf-assets.dripfunnel.com', mediaOrigins: [], analytics: [], payments: [] },
-      assetBase: `https://sf-assets.dripfunnel.com/stores/${t.storeA1}/builds/${runId}/assets/`,
+      csp: { assetOrigin: 'https://sf-assets.my-store.one', mediaOrigins: [], analytics: [], payments: [] },
+      assetBase: `https://sf-assets.my-store.one/stores/${t.storeA1}/builds/${runId}/assets/`,
       guard: { usedPaths: [], brand: { name: store?.name } },
     })
     // No report within the build id's 2 hours: the publish fails and the live site is as it was.

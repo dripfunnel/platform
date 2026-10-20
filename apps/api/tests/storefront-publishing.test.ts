@@ -107,7 +107,7 @@ const deps = (repair?: PublishRepair): PublishDeps => ({
   },
   now: () => new Date(),
   probe: testProbe(db.sql, { sites, assets }),
-  assetHost: 'sf-assets.dripfunnel.com',
+  assetHost: 'sf-assets.my-store.one',
   wait: async () => undefined,
   push: (input) => pushToRepo({ sql: db.sql, repos, now: () => new Date() }, { storeId: input.storeId, key: `publish:${input.buildId}`, reason: { kind: 'publish', version: input.version, buildId: input.buildId }, files: input.files }),
   ...(repair ? { repair } : {}),

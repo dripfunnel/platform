@@ -22,7 +22,7 @@ const hostA1 = 'store-a1.shop.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 const steps: PublishSteps = { do: (_, work) => work(), waitFor: async () => undefined }
 // The checks' waits move this clock instead of sleeping.
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(clock), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async (ms) => void (clock += ms) })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(clock), probe, assetHost: 'sf-assets.my-store.one', wait: async (ms) => void (clock += ms) })
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -44,7 +44,7 @@ beforeEach(() => {
 
 const page = (runId: string, extra = '') => `<!doctype html><title>${runId}</title>${extra}`
 const fullSite = (runId: string): Record<string, string> => ({
-  'index.html': page(runId, `<script src="https://sf-assets.dripfunnel.com/stores/x/builds/${runId}/assets/app.js"></script>`),
+  'index.html': page(runId, `<script src="https://sf-assets.my-store.one/stores/x/builds/${runId}/assets/app.js"></script>`),
   'products/blue-mug/index.html': page(runId),
   'checkout/index.html': page(runId),
 })
@@ -108,7 +108,7 @@ describe('the post-deploy checks', () => {
       ['checkout', 'passed'],
       ['payment', 'skipped'],
     ])
-    expect(probe.gets).toContain(`https://sf-assets.dripfunnel.com/stores/x/builds/${runId}/assets/app.js`)
+    expect(probe.gets).toContain(`https://sf-assets.my-store.one/stores/x/builds/${runId}/assets/app.js`)
     const [entry] = await db.sql<{ changes: unknown }[]>`select changes from activity_log where store_id = ${t.storeA1} and action = 'storefront.published'`
     expect(entry?.changes).toEqual([{ field: 'version', before: null, after: '1', redacted: false }])
   })

@@ -156,7 +156,7 @@ export interface PublishDeps extends FreezeDeps {
   assets: SitesBucket
   /** The edge as a shopper reaches it, for the post-deploy checks (LIVE-SHOP §4 step 10). */
   probe: EdgeProbe
-  /** `sf-assets.<EDGE_ZONE>` (LIVE-SHOP §2): with the store's own host, the only one whose scripts the checks load. */
+  /** `sf-assets.<SHOP_DOMAIN>` (LIVE-SHOP §2): with the store's own host, the only one whose scripts the checks load. */
   assetHost: string
   wait: (ms: number) => Promise<void>
   /** The push API (`push.ts`) through the GitHub App; absent where GitHub isn't configured, and then nothing is pushed. */
