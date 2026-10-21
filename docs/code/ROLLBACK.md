@@ -5,7 +5,7 @@
 `prod.yml` only uploads a Worker version (`wrangler versions upload`); it does not put it live
 and does not deploy the SPAs. The run summary prints the version ID. To go live, run the
 **promote** workflow (`workflow_dispatch` on `promote.yml`) with that `version_id`, the
-store-proxy's `proxy_version_id` and the commit's `commit_sha` (and, optionally, the run summary's `studio_digest`). It promotes both Workers to 100%, health-checks the live prod host, and —
+store-proxy's `proxy_version_id`, the commit's `commit_sha` and the run summary's `studio_digest`. It promotes both Workers to 100%, health-checks the live prod host, and —
 only if that succeeds — builds and deploys all three SPAs from that same commit. If you'd rather
 promote by hand instead (from `apps/api`, with `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` for
 the prod account):

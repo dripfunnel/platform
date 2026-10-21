@@ -16,9 +16,8 @@ on:
         description: Commit the version was built from (checked out to build the SPAs)
         required: true
       studio_digest:
-        description: Studio image digest the version was uploaded with (prod.yml's run summary); empty takes the newest stable tag
-        required: false
-        default: ''
+        description: Studio image digest the version was uploaded with (prod.yml's run summary)
+        required: true
 
 permissions:
   contents: read
@@ -69,6 +68,7 @@ jobs:
 
       # wrangler parses the config on every command, and the committed one holds a placeholder for the studio image (#816).
       - name: Studio image
+        id: studio
         uses: ./.github/actions/studio-image
         with:
           channel: stable
@@ -113,14 +113,12 @@ jobs:
       - uses: ./.github/actions/setup
 
       # wrangler parses the config on every command, and the committed one holds a placeholder for the studio image (#816).
+      # The action above is main's; this checkout may predate it, so only the placeholder is swapped (checkout discarded the first edit).
       - name: Studio image
-        uses: ./.github/actions/studio-image
-        with:
-          channel: stable
-          digest: ${{ inputs.studio_digest }}
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DIGEST: ${{ steps.studio.outputs.digest }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: sed -i "s|PROD_STUDIO_IMAGE|registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build@$DIGEST|" wrangler.jsonc
 
       - name: Promote Worker to 100%
         id: promote
