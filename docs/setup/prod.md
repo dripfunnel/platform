@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -87,7 +87,7 @@ email or a file in the repo.
    `/api/health` red.
 3. Create the buckets: `wrangler r2 bucket create` for `dripfunnel-assets-prod`, `storefront-sites-prod`, `storefront-assets-prod` and `storefront-drafts-prod` (the assets host and CORS: §4, `CF_CACHE_PURGE_TOKEN`).
 4. `wrangler queues create dripfunnel-outbox-wake-prod`. Without it the every-minute cron delivers email and texts.
-5. Turn on Containers and Durable Objects on the production account. Run `release.yml` once so the registry holds a stable `storefront-build:<x.y.z>` tag: `prod.yml`'s *Studio image* step takes the newest and writes its digest into the runner's copy of `wrangler.jsonc`; with none it fails and says so. Nothing is committed.
+5. Turn on Containers and Durable Objects on the production account. Run `release.yml` once so the registry holds a stable `storefront-build:<x.y.z>` tag: `prod.yml`'s *Studio image* step (the `studio-image` action) takes the newest and writes its digest into the runner's copy of `wrangler.jsonc`, and prints it in the run summary; with none it fails and says so. `promote.yml` runs the same step, with the optional `studio_digest` input to reuse the digest of the run it promotes. Nothing is committed.
 6. The Workflows (`dripfunnel-{create-storefront,publish-storefront,render-page,core-upgrade}-prod`) are created by the first upload; the deploy token needs Workflows: Edit (§3.2).
 ### 3.5 Routes and console hostnames — **Not done yet**
 1. `env.prod` routes `admin.dripfunnel.com/api/*` and `platform.dripfunnel.com/api/*` on the zone, and `hooks.dripfunnel.com` as a custom domain. There is no `store.` route: merchant portal hosts come with Cloudflare for SaaS (SAAS.md §8).
