@@ -173,6 +173,19 @@ export const knownErrorCodes = [
   // Close my store (apps/api src/saas/storeBilling).
   'NO_SUBSCRIPTION',
   'CANCELLED',
+  // The Storefront's design, publish and go-back refusals (apps/api src/saas/ai-designer/service.ts).
+  'BRAND_NOT_READY',
+  'STUDIO_QUEUED',
+  'STUDIO_UNAVAILABLE',
+  'AI_BUDGET_REACHED',
+  'AI_NOT_CONNECTED',
+  'NOT_LATEST',
+  'NOTHING_TO_DISCARD',
+  'NOTHING_TO_PUBLISH',
+  'PUBLISH_RUNNING',
+  'ALREADY_LIVE',
+  'BUILD_GONE',
+  'SECURITY_RELEASE',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

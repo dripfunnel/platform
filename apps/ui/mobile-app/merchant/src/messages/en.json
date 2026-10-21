@@ -423,6 +423,26 @@
       "FORBIDDEN": "Only the store owner or a manager can answer this.",
       "NOT_PENDING": "That request is no longer open.",
       "NOT_FOUND": "That support session is no longer open."
+    },
+    "storefront": {
+      "FORBIDDEN": "Only the store owner can change the storefront.",
+      "READ_ONLY": "Your store is view-only until the payment goes through.",
+      "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+      "BLOCKED_FOR_SUPPORT": "Support can’t change the storefront.",
+      "BRAND_NOT_READY": "Add your shop name and logo first, on the web portal.",
+      "STUDIO_QUEUED": "The studio is waiting for room. Try again in a moment.",
+      "STUDIO_UNAVAILABLE": "The studio couldn’t start. Try again in a minute.",
+      "AI_BUDGET_REACHED": "You’ve used this month’s AI requests.",
+      "AI_NOT_CONNECTED": "Add your AI key on the web portal to design with AI.",
+      "INVALID_INPUT": "That request can’t be used. Say it a different way.",
+      "NO_RESPONSE": "We didn’t hear back. If the draft was made, it shows here in a minute.",
+      "NOT_FOUND": "That version isn’t kept any more.",
+      "NOTHING_TO_DISCARD": "There are no unpublished changes to discard.",
+      "NOTHING_TO_PUBLISH": "There are no changes to publish.",
+      "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
+      "ALREADY_LIVE": "That version is already live.",
+      "BUILD_GONE": "That version can’t be restored any more.",
+      "SECURITY_RELEASE": "That version predates a security fix to your storefront, so it can’t be restored."
     }
   },
   "auth": {
@@ -4915,6 +4935,100 @@
       "shareFailed": "The file couldn’t be shared. Try again."
     },
     "readOnly": "Your store is view-only until the bill is paid. Reports and their exports still work."
+  },
+  "storefront": {
+    "title": "Storefront",
+    "view": "View",
+    "live": "Live",
+    "notPublished": "Not published yet",
+    "lastChange": "Last change: {label}",
+    "yourShop": "your shop",
+    "openFailed": "The phone couldn’t open the browser. Try again.",
+    "viewOnly": "You can look but not change the shop. Ask the store owner if something needs updating.",
+    "readOnly": "Your store is view-only until the payment goes through. Your site stays live.",
+    "noSite": {
+      "title": "Your shop’s site isn’t set up yet",
+      "body": "Choosing a template and adding your brand is easier on a computer. Open the web portal in your browser to start."
+    },
+    "creating": "Your site is being made. This takes a few minutes. This screen updates when you come back to it.",
+    "createFailed": "We couldn’t make your site. Open the web portal in your browser to try again.",
+    "change": {
+      "eyebrow": "Change something",
+      "label": "What would you like to change?",
+      "placeholder": "Tell us what to change, in your own words",
+      "ideas": {
+        "sale": "Add a sale banner",
+        "colour": "Change the main colour",
+        "arrivals": "Show new arrivals first"
+      },
+      "make": "Make a draft",
+      "making": "Making your draft…",
+      "makingBody": "This can take a minute. Keep this screen open.",
+      "note": "Nothing changes on your shop until you publish.",
+      "empty": "Say what you’d like to change",
+      "tooLong": "Keep it under {max} characters",
+      "ready": "Draft ready — check it, then publish",
+      "unchanged": "Nothing was changed. {reply}",
+      "unchangedBare": "Nothing was changed. Try saying it a different way.",
+      "failed": "I couldn’t make that change — nothing on your shop changed. Try again, or say it a different way."
+    },
+    "draft": {
+      "eyebrow": "Draft ready",
+      "fallback": "Changes to your shop",
+      "preview": "Preview the draft",
+      "previewWaiting": "The preview is still being made. Try again in a moment.",
+      "discard": "Discard",
+      "discardTitle": "Discard this draft?",
+      "discardBody": "The draft is thrown away. Your shop stays as it is now.",
+      "discardConfirm": "Discard draft",
+      "discarded": "Draft thrown away",
+      "publish": "Publish",
+      "lastFailed": "Your last publish didn’t go live. Your live site hasn’t changed.",
+      "lastRolledBack": "Your last publish was put back after it went live, because it didn’t pass our checks."
+    },
+    "publish": {
+      "title": "Publish version {number}?",
+      "body": "We check your whole site first, then it goes live on {host} in a few minutes and uses a few build minutes.",
+      "back": "You can go back to version {number} any time, for free.",
+      "confirm": "Publish",
+      "started": "Publishing — we check your whole site first",
+      "live": "Published — shoppers see it now",
+      "steps": {
+        "queued": "Building your site…",
+        "checking": "Checking your site…",
+        "going_live": "Checking it went live…"
+      },
+      "refusedTitle": "Version {number} wasn’t published",
+      "refusedFallback": "Something on your site didn’t pass our checks.",
+      "unchanged": "Your live site hasn’t changed.",
+      "rolledBack": "We put version {number} back: your new version didn’t pass our checks once it was live. We’re fixing it.",
+      "rolledBackNoVersion": "We put your previous version back: your new version didn’t pass our checks once it was live. We’re fixing it.",
+      "lost": "We couldn’t read how your publish is going. Check again in a moment.",
+      "checkAgain": "Check again"
+    },
+    "versions": {
+      "eyebrow": "Recent versions",
+      "meta": "v{number} · {date}",
+      "template": "{template} template",
+      "fallback": "Version {number}",
+      "live": "Live",
+      "restore": "Restore",
+      "restoreLabel": "Restore version {number}",
+      "restoreTitle": "Go back to “{label}”?",
+      "restoreBody": "Your shop switches to this version straight away. Newer versions stay in the list. No build minutes are used.",
+      "restoreConfirm": "Restore it",
+      "restored": "Restored — shoppers see it now",
+      "undone": "Undone — your shop is back on version {number}"
+    },
+    "web": {
+      "label": "Templates and the full designer",
+      "sub": "Best on the web",
+      "tag": "Best on a bigger screen",
+      "body": "Picking a template, editing page by page and your domain settings are easier on a computer. Open the web portal in your browser and sign in there.",
+      "open": "Open the web portal",
+      "here": "Open here anyway",
+      "hereLater": "The full designer in the app comes later. Use the web portal for now."
+    }
   },
   "activity": {
     "title": "Activity log",

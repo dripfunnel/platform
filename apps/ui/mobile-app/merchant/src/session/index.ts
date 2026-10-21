@@ -14,6 +14,11 @@ export const session = (): SessionStore => (store ??= createSessionStore(secureS
 /** Every call a signed-in person makes goes through this: it adds the session and ends it on UNAUTHENTICATED. */
 export const sessionClient = (): ApiClient => (client ??= createSessionClient(session(), { domain: partnerDomain() }))
 
+// One AI change is checked and repaired before it answers, which outlasts the 15 s every other call gets (AI-STUDIO.md §4).
+const designTimeoutMs = 120_000
+let slowClient: ApiClient | undefined
+export const designClient = (): ApiClient => (slowClient ??= createSessionClient(session(), { domain: partnerDomain(), timeoutMs: designTimeoutMs }))
+
 export const restOptions = (): RestOptions => ({ domain: partnerDomain() })
 
 export const useSession = (): SessionState => {
