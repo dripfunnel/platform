@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;">
+
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+      <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">{{ title }}</div><div style="font-size:14px;color:#5A6472;">{{ summary }}</div></div>
+      <sc-if value="{{ canExport }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.export }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Export</button></sc-if>
+    </div>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:40px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:19px;">{{ emptyTitle }}</span><span style="font-size:14px;color:#5A6472;max-width:46ch;">{{ emptyBody }}</span><sc-if value="{{ emptyCta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.emptyCta }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;margin-top:6px;">{{ emptyCta }}</button></sc-if></div></sc-if>
+    <sc-if value="{{ notEmpty }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <input value="{{ search }}" onChange="{{ on.search }}" placeholder="{{ searchPh }}" style="width:100%;max-width:520px;height:44px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;outline:none;background:#FFFFFF;">
+        <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;"><sc-for list="{{ chips }}" as="f" hint-placeholder-count="5"><button onClick="{{ f.onClick }}" style="flex:none;white-space:nowrap;height:34px;padding:0 12px;border-radius:17px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">{{ f.label }} <span style="font-weight:400;opacity:0.75;">{{ f.count }}</span></button></sc-for></div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+        <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}"><sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+          <div style="border-bottom:1px solid #EDEAE5;background:{{ r.rowBg }};">
+            <button onClick="{{ r.toggle }}" aria-expanded="{{ r.exp }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border:0;background:transparent;text-align:left;cursor:pointer;color:#14181F;">
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+                <span style="display:flex;align-items:center;gap:8px;"><strong style="font-family:'IBM Plex Mono',monospace;font-size:14px;">{{ r.id }}</strong><span style="display:inline-flex;height:22px;padding:0 9px;border-radius:11px;align-items:center;font-family:Manrope,sans-serif;font-weight:600;font-size:12px;white-space:nowrap;background:{{ r.stBg }};color:{{ r.stFg }};">{{ r.status }}</span></span>
+                <span style="font-size:13px;color:#5A6472;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.who }} · {{ r.date }}</span>
+              </span>
+              <sc-if value="{{ showMoney }}" hint-placeholder-val="{{ true }}"><span style="display:flex;flex-direction:column;align-items:flex-end;flex:none;"><span style="font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;">{{ r.total }}</span><span style="font-size:11px;color:{{ r.payFg }};">{{ r.pay }}</span></span></sc-if>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#9AA1AB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;transform:rotate({{ r.rot }});transition:transform .15s;"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <sc-if value="{{ r.exp }}" hint-placeholder-val="{{ false }}"><div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:12px;">
+              <div onClick="{{ r.onClick }}" role="link" style="display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:12px;background:#FDFAF7;border:1px solid #EFEAE4;cursor:pointer;">
+                <sc-for list="{{ r.lines }}" as="l" hint-placeholder-count="2"><div style="display:flex;gap:10px;font-size:13px;"><span style="flex:1;min-width:0;">{{ l.name }}</span><span style="color:#5A6472;">×{{ l.qty }}</span><span style="min-width:64px;text-align:right;font-variant-numeric:tabular-nums;">{{ l.amt }}</span></div></sc-for>
+              </div>
+              <button onClick="{{ r.onClick }}" style="height:46px;border:1px solid #D7D3CD;border-radius:12px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ r.openLabel }}</button>
+            </div></sc-if>
+          </div>
+        </sc-for></sc-if>
+        <sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+          <button onClick="{{ r.onClick }}" style="width:100%;display:grid;grid-template-columns:{{ cols }};gap:10px;padding:12px 16px;border:0;border-bottom:1px solid #EDEAE5;background:#FFFFFF;text-align:left;cursor:pointer;align-items:center;font-size:13px;" style-hover="background:#FAF9F7;">
+            <span style="display:flex;flex-direction:column;"><strong style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#14181F;">{{ r.id }}</strong><span style="color:#5A6472;font-size:12px;">{{ r.date }}</span></span>
+            <span style="display:flex;flex-direction:column;min-width:0;"><span style="color:#14181F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.who }}</span><span style="color:#5A6472;font-size:12px;">{{ r.where }}</span></span>
+            <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}"><span style="color:#434A55;">{{ r.items }}</span></sc-if>
+            <span><span style="display:inline-flex;height:22px;padding:0 9px;border-radius:11px;align-items:center;background:{{ r.stBg }};color:{{ r.stFg }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;white-space:nowrap;">{{ r.status }}</span></span>
+            <sc-if value="{{ showMoney }}" hint-placeholder-val="{{ true }}"><span style="display:flex;flex-direction:column;align-items:flex-end;"><span style="color:#14181F;font-variant-numeric:tabular-nums;">{{ r.total }}</span><span style="font-size:11px;color:{{ r.payFg }};">{{ r.pay }}</span></span></sc-if>
+          </button>
+        </sc-for></sc-if>
+        <sc-if value="{{ pg.show }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-top:1px solid #EDEAE5;background:#FFFFFF;"><span style="font-size:13px;color:#5A6472;font-variant-numeric:tabular-nums;white-space:nowrap;">{{ pg.label }}</span><div style="display:flex;align-items:center;gap:4px;"><button onClick="{{ pg.prev }}" aria-label="Previous page" style="width:36px;height:36px;flex:none;border-radius:50%;border:1px solid #E0DAD3;background:#FFFFFF;color:#14181F;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;opacity:{{ pg.prevOp }};"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button><sc-for list="{{ pg.nums }}" as="n" hint-placeholder-count="1"><button onClick="{{ n.onClick }}" style="min-width:36px;height:36px;padding:0 6px;border-radius:18px;border:0;background:{{ n.bg }};color:{{ n.fg }};font-family:Manrope,sans-serif;font-weight:{{ n.fw }};font-size:14px;cursor:pointer;">{{ n.n }}</button></sc-for><button onClick="{{ pg.next }}" aria-label="Next page" style="width:36px;height:36px;flex:none;border-radius:50%;border:1px solid #E0DAD3;background:#FFFFFF;color:#14181F;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;opacity:{{ pg.nextOp }};"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></button></div></div></sc-if>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:flex-start;gap:10px;">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:22px;color:#0A2A4A;">{{ o.id }}</span><span style="display:flex;gap:6px;flex-wrap:wrap;"><span style="display:inline-flex;height:24px;padding:0 10px;border-radius:12px;align-items:center;white-space:nowrap;font-family:Manrope,sans-serif;font-weight:600;font-size:12px;background:{{ o.stBg }};color:{{ o.stFg }};">{{ o.status }}</span><sc-if value="{{ showMoney }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;height:24px;padding:0 10px;border-radius:12px;align-items:center;white-space:nowrap;font-family:Manrope,sans-serif;font-weight:600;font-size:12px;background:{{ o.payBg }};color:{{ o.payFg }};">{{ o.pay }}</span></sc-if></span></div>
+      <sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}"><button onClick="{{ moreActs }}" aria-label="More actions" aria-haspopup="menu" style="flex:none;width:44px;height:44px;border:1px solid #D7D3CD;border-radius:12px;background:#FFFFFF;color:#14181F;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 8px;">…</button></sc-if>
+    </div></sc-if>
+    <sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button onClick="{{ a.back }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">← {{ backLabel }}</button>
+      <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;font-family:'IBM Plex Mono',monospace;">{{ o.id }}</span>
+      <span style="display:inline-flex;height:24px;padding:0 10px;border-radius:12px;align-items:center;background:{{ o.stBg }};color:{{ o.stFg }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;">{{ o.status }}</span>
+      <sc-if value="{{ showMoney }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;height:24px;padding:0 10px;border-radius:12px;align-items:center;background:{{ o.payBg }};color:{{ o.payFg }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;">{{ o.pay }}</span></sc-if>
+      <span style="flex:1;"></span>
+      <sc-for list="{{ actions }}" as="b" hint-placeholder-count="3"><button onClick="{{ b.onClick }}" style="height:36px;padding:0 12px;border:1px solid {{ b.bd }};border-radius:8px;background:{{ b.bg }};color:{{ b.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">{{ b.label }}</button></sc-for>
+    </div></sc-if>
+    <sc-if value="{{ vendorNote }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 14px;border-radius:10px;background:#F4F8FB;border:1px solid #C9DAEC;color:#00325F;font-size:13px;">You see only your items in this order. Totals, shipping and tax cover other sellers too, so they aren’t shown.</div></sc-if>
+    <div style="display:grid;grid-template-columns:{{ detailCols }};gap:16px;align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+            <div style="padding:10px 16px;background:#FDFAF7;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;font-size:13px;"><strong style="font-family:Manrope,sans-serif;">{{ g.title }}</strong><span style="color:{{ g.fg }};">{{ g.state }}</span></div>
+            <sc-for list="{{ g.lines }}" as="l" hint-placeholder-count="2">
+              <div style="display:grid;grid-template-columns:{{ lineCols }};gap:10px;padding:12px 16px;border-bottom:1px solid #F1EEEA;align-items:center;font-size:13px;">
+                <span style="display:flex;align-items:center;gap:10px;min-width:0;"><span style="width:40px;height:40px;border-radius:6px;background:{{ l.thumb }};flex:none;"></span><span style="min-width:0;"><span style="color:#14181F;">{{ l.name }}</span><br><span style="color:#5A6472;font-size:12px;">{{ l.shippedText }}</span></span></span>
+                <span style="color:#434A55;">× {{ l.qty }}</span>
+                <sc-if value="{{ showMoney }}" hint-placeholder-val="{{ true }}"><span style="text-align:right;">{{ l.total }}</span></sc-if>
+              </div>
+              <sc-if value="{{ shipping }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px 12px 66px;border-bottom:1px solid #F1EEEA;font-size:13px;"><span style="color:#5A6472;">Ship now</span><span style="display:flex;align-items:center;gap:4px;"><button onClick="{{ l.minus }}" style="width:30px;height:30px;border:1px solid #D7D3CD;border-radius:6px;background:#FFFFFF;cursor:pointer;">−</button><span style="min-width:44px;text-align:center;font-weight:600;">{{ l.pick }} / {{ l.left }}</span><button onClick="{{ l.plus }}" style="width:30px;height:30px;border:1px solid #D7D3CD;border-radius:6px;background:#FFFFFF;cursor:pointer;">+</button></span></div></sc-if>
+            </sc-for>
+          </div>
+        </sc-for>
+        <sc-if value="{{ shipping }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFFFF;border:2px solid #00519F;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Ship {{ pickCount }} item{{ pickPlural }}</span>
+            <div style="display:grid;grid-template-columns:{{ twoCols }};gap:10px;">
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Courier<select value="{{ courier }}" onChange="{{ on.courier }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 10px;font-size:14px;"><sc-for list="{{ courierOpts }}" as="co" hint-placeholder-count="2"><option value="{{ co }}">{{ co }}</option></sc-for></select></label>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Tracking number<input value="{{ tracking }}" onChange="{{ on.tracking }}" placeholder="Filled in when the courier books it" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;outline:none;"></label>
+            </div>
+            <span style="font-size:12px;color:#5A6472;">Shipping part of an order is normal — the rest stays “to ship”. The shopper gets an email with tracking.</span>
+            <div style="display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.cancelShip }}" style="height:38px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Cancel</button><button onClick="{{ a.confirmShip }}" style="height:38px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Mark as shipped</button></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ refunding }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFFFF;border:2px solid #B8541F;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Refund</span>
+            <div style="display:grid;grid-template-columns:{{ twoCols }};gap:10px;">
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Amount · up to {{ refundMax }}<input value="{{ refundAmt }}" onChange="{{ on.refundAmt }}" inputMode="decimal" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;outline:none;"></label>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Reason<select value="{{ refundWhy }}" onChange="{{ on.refundWhy }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 10px;font-size:14px;"><option>Returned by shopper</option><option>Damaged in transit</option><option>Wrong item sent</option><option>Goodwill</option></select></label>
+            </div>
+            <button onClick="{{ a.toggleRestock }}" style="display:flex;align-items:center;gap:8px;border:0;background:none;padding:0;font-size:13px;cursor:pointer;color:#14181F;"><span style="width:18px;height:18px;border-radius:4px;border:1.5px solid {{ restock.bd }};background:{{ restock.bg }};color:#FFFFFF;font-size:11px;display:flex;align-items:center;justify-content:center;">{{ restock.mark }}</span>Put returned items back in stock</button>
+            <span style="font-size:12px;color:#5A6472;">Money goes back through {{ o.method }}. Takings in Reports drop by the same amount.</span>
+            <div style="display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.cancelRefund }}" style="height:38px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Cancel</button><button onClick="{{ a.confirmRefund }}" style="height:38px;padding:0 16px;border:0;border-radius:8px;background:#B8541F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Refund {{ refundShow }}</button></div>
+          </div>
+        </sc-if>
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;">
+          <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">History</span>
+          <sc-for list="{{ events }}" as="ev" hint-placeholder-count="2"><div style="display:flex;gap:10px;font-size:13px;"><span style="color:#5A6472;min-width:120px;">{{ ev.t }}</span><span>{{ ev.what }}</span></div></sc-for>
+          <sc-if value="{{ canNote }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.note }}" style="align-self:flex-start;border:0;background:none;color:#00519F;font-size:13px;cursor:pointer;padding:0;">+ Add a note (only your team sees it)</button></sc-if>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <sc-if value="{{ showMoney }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;font-size:13px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">Payment</span>
+            <sc-for list="{{ totals }}" as="t" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;color:{{ t.fg }};font-weight:{{ t.w }};"><span>{{ t.k }}</span><span style="font-variant-numeric:tabular-nums;">{{ t.v }}</span></div></sc-for>
+          </div>
+        </sc-if>
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;font-size:13px;">
+          <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">Customer</span>
+          <sc-if value="{{ canOpenCustomer }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.openCustomer }}" style="border:0;background:none;padding:0;text-align:left;color:#00519F;font-size:14px;cursor:pointer;">{{ o.who }}</button></sc-if>
+          <sc-if value="{{ noOpenCustomer }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;">{{ o.who }}</span></sc-if>
+          <sc-if value="{{ showContact }}" hint-placeholder-val="{{ true }}"><span style="color:#434A55;">{{ o.email }}<br>{{ o.phone }}</span></sc-if>
+          <span style="color:#434A55;padding-top:4px;"><strong>Deliver to</strong><br>{{ o.address }}</span>
+          <span style="color:#5A6472;">Market: {{ o.market }}</span>
+        </div>
+      </div>
+    </div>
+    <sc-if value="{{ hasPAct }}" hint-placeholder-val="{{ false }}"><div style="position:sticky;bottom:12px;z-index:8;display:flex;gap:8px;padding:8px;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:16px;box-shadow:0 12px 28px -10px rgba(10,20,30,0.3);"><button onClick="{{ pAct.onClick }}" style="flex:1;height:50px;border:0;border-radius:12px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;cursor:pointer;">{{ pAct.label }}</button></div></sc-if>
+  </sc-if>
+
+  <sc-if value="{{ isCustomers }}" hint-placeholder-val="{{ false }}">
+    <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">Customers</div><div style="font-size:14px;color:#5A6472;">Everyone who has bought from you. Suppliers never see this list.</div></div>
+    <sc-if value="{{ noCustomers }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:40px;text-align:center;font-size:14px;color:#5A6472;">Your customers appear here after their first order.</div></sc-if>
+    <sc-if value="{{ hasCustomers }}" hint-placeholder-val="{{ true }}">
+      <input value="{{ search }}" onChange="{{ on.search }}" placeholder="Search by name or email" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;outline:none;background:#FFFFFF;max-width:420px;">
+      <div style="display:grid;grid-template-columns:{{ custCols }};gap:16px;align-items:start;">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+          <sc-for list="{{ customers }}" as="c" hint-placeholder-count="4">
+            <button onClick="{{ c.onClick }}" style="width:100%;display:flex;justify-content:space-between;gap:10px;padding:12px 16px;border:0;border-bottom:1px solid #EDEAE5;border-left:3px solid {{ c.bl }};background:{{ c.bg }};text-align:left;cursor:pointer;font-size:13px;">
+              <span style="display:flex;flex-direction:column;"><strong style="color:#14181F;font-family:Manrope,sans-serif;">{{ c.name }}</strong><span style="color:#5A6472;">{{ c.city }}</span></span>
+              <span style="display:flex;flex-direction:column;align-items:flex-end;"><span style="color:#14181F;">{{ c.spent }}</span><span style="color:#5A6472;">{{ c.count }}</span></span>
+            </button>
+          </sc-for><sc-if value="{{ pg.show }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-top:1px solid #EDEAE5;background:#FFFFFF;"><span style="font-size:13px;color:#5A6472;font-variant-numeric:tabular-nums;white-space:nowrap;">{{ pg.label }}</span><div style="display:flex;align-items:center;gap:4px;"><button onClick="{{ pg.prev }}" aria-label="Previous page" style="width:36px;height:36px;flex:none;border-radius:50%;border:1px solid #E0DAD3;background:#FFFFFF;color:#14181F;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;opacity:{{ pg.prevOp }};"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button><sc-for list="{{ pg.nums }}" as="n" hint-placeholder-count="1"><button onClick="{{ n.onClick }}" style="min-width:36px;height:36px;padding:0 6px;border-radius:18px;border:0;background:{{ n.bg }};color:{{ n.fg }};font-family:Manrope,sans-serif;font-weight:{{ n.fw }};font-size:14px;cursor:pointer;">{{ n.n }}</button></sc-for><button onClick="{{ pg.next }}" aria-label="Next page" style="width:36px;height:36px;flex:none;border-radius:50%;border:1px solid #E0DAD3;background:#FFFFFF;color:#14181F;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;opacity:{{ pg.nextOp }};"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></button></div></div></sc-if>
+        </div>
+        <sc-if value="{{ hasCust }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;">{{ cust.name }}</span>
+            <span style="font-size:13px;color:#434A55;">{{ cust.email }} · {{ cust.phone }}<br>{{ cust.address }}</span>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;"><span style="padding:8px 12px;border-radius:8px;background:#F4F8FB;font-size:13px;color:#00325F;">{{ cust.count }}</span><sc-if value="{{ showMoney }}" hint-placeholder-val="{{ true }}"><span style="padding:8px 12px;border-radius:8px;background:#EEF7F2;font-size:13px;color:#1D6B47;">{{ cust.spent }} spent</span></sc-if></div>
+            <sc-for list="{{ cust.orders }}" as="co" hint-placeholder-count="2"><button onClick="{{ co.onClick }}" style="display:flex;justify-content:space-between;padding:8px 0;border:0;border-top:1px solid #F1EEEA;background:none;font-size:13px;cursor:pointer;text-align:left;"><span style="font-family:'IBM Plex Mono',monospace;color:#00519F;">{{ co.id }}</span><span style="color:#5A6472;">{{ co.date }} · {{ co.status }}</span></button></sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  pg(len, page, per, set) { const pages = Math.max(1, Math.ceil(len / per)); const p = Math.max(0, Math.min(page || 0, pages - 1)); const st = Math.max(0, Math.min(p - 2, pages - 5)); const nums = []; for (let i = st; i < Math.min(pages, st + 5); i++) nums.push({ n: String(i + 1), onClick: () => set(i), bg: i === p ? '#0A2A4A' : 'transparent', fg: i === p ? '#FFFFFF' : '#434A55', fw: i === p ? 800 : 600 }); return { show: len > 0, p, per, label: len ? (p * per + 1) + '–' + Math.min(len, p * per + per) + ' of ' + len : '', prev: () => { if (p > 0) set(p - 1); }, next: () => { if (p < pages - 1) set(p + 1); }, prevOp: p > 0 ? 1 : 0.35, nextOp: p < pages - 1 ? 1 : 0.35, nums }; }
+  constructor(props) { super(props); this.state = { filter: (props.app && props.app.orderFilter) || 'all', search: '', ship: null, courier: '', tracking: '', refund: null, custEmail: null }; }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { caps: c, fmt, R, phone } = app;
+    const s = this.state; const screen = app.st.screen;
+    const vendor = c.isVendor; const mine = l => !vendor || l.supplier === app.vendorName;
+    const all = app.orders.filter(o => !vendor || o.lines.some(l => l.supplier === app.vendorName));
+    const money = !vendor && !c.isStaff;
+    const dfmt = t => new Date(t).toLocaleDateString(R.locale, { day: 'numeric', month: 'short' }) + ', ' + new Date(t).toLocaleTimeString(R.locale, { hour: 'numeric', minute: '2-digit' });
+    const vStatus = o => { const ls = o.lines.filter(mine); const left = ls.reduce((a, l) => a + l.qty - l.shipped, 0); const done = ls.reduce((a, l) => a + l.shipped, 0); return o.status === 'cancelled' ? 'cancelled' : !left ? 'fulfilled' : done ? 'partial' : 'unfulfilled'; };
+    const ST = { unfulfilled: ['To ship', '#FDF0E8', '#8F4017'], partial: ['Partly shipped', '#FFF6E5', '#7A4B00'], fulfilled: ['Shipped', '#EEF7F2', '#1D6B47'], refunded: ['Refunded', '#F2F0EC', '#434A55'], cancelled: ['Cancelled', '#F2F0EC', '#434A55'] };
+    const stOf = o => vendor ? vStatus(o) : o.status;
+    const thumb = pid => { const p = app.allProducts.find(x => x.id === pid); return p && p.photos.length ? `linear-gradient(135deg,hsl(${p.photos[0].hue},35%,80%),hsl(${p.photos[0].hue},30%,62%))` : '#F2F0EC'; };
+    const setO = (id, fn) => app.set('orders', os => os.map(o => o.id === id ? fn(o) : o));
+    const addEv = (o, what) => ({ ...o, events: [...o.events, { t: Date.now(), what }] });
+    const base = { pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', wide: !phone, showMoney: money, twoCols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))', search: s.search, on: { search: e => this.setState({ search: e.target.value }), courier: e => this.setState({ courier: e.target.value }), tracking: e => this.setState({ tracking: e.target.value }), refundAmt: e => this.setState({ refund: { ...s.refund, amt: e.target.value } }), refundWhy: e => this.setState({ refund: { ...s.refund, why: e.target.value } }) } };
+
+    if (screen === 'customers') {
+      const map = {};
+      app.orders.forEach(o => { const k = o.customer.email; (map[k] = map[k] || { ...o.customer, orders: [] }).orders.push(o); });
+      const q = s.search.toLowerCase();
+      const list = Object.values(map).filter(x => !q || x.name.toLowerCase().includes(q) || x.email.includes(q));
+      const sel = list.find(x => x.email === s.custEmail) || list[0];
+      const spent = x => x.orders.reduce((a, o) => a + (o.status === 'cancelled' ? 0 : o.total - (o.refunded || 0)), 0);
+      const PC = this.pg(list.length, s.cPage, phone ? 5 : 10, i => this.setState({ cPage: i }));
+      return { ...base, pg: PC, isList: false, isDetail: false, isCustomers: true, noCustomers: !list.length && !q, hasCustomers: list.length > 0 || !!q, custCols: phone ? '1fr' : 'minmax(0,1fr) minmax(0,1.2fr)',
+        customers: list.slice(PC.p * PC.per, PC.p * PC.per + PC.per).map(x => ({ name: x.name, city: x.city, spent: money ? fmt(spent(x)) : '', count: x.orders.length + ' order' + (x.orders.length > 1 ? 's' : ''), bl: sel && x.email === sel.email ? '#00519F' : 'transparent', bg: sel && x.email === sel.email ? '#F4F8FB' : '#FFFFFF', onClick: () => this.setState({ custEmail: x.email }) })),
+        hasCust: !!sel, cust: sel ? { name: sel.name, email: sel.email, phone: sel.phone, address: sel.address, count: sel.orders.length + ' order' + (sel.orders.length > 1 ? 's' : ''), spent: fmt(spent(sel)), orders: sel.orders.map(o => ({ id: o.id, date: dfmt(o.date), status: ST[o.status][0], onClick: () => app.openOrder(o.id) })) } : { orders: [] } };
+    }
+
+    if (screen === 'order') {
+      const o = app.orders.find(x => x.id === app.orderId);
+      if (!o || (vendor && !o.lines.some(mine))) return { ...base, isList: true, isDetail: false, isCustomers: false, title: 'Orders', summary: '', empty: true, notEmpty: false, emptyTitle: 'We can’t find that order.', emptyBody: 'It may not exist, or it isn’t one you can see.', emptyCta: 'Back to orders', a: { emptyCta: () => app.go('orders') }, chips: [], rows: [] };
+      const st = stOf(o); const stA = ST[st];
+      const ship = s.ship; const lines = o.lines.filter(mine);
+      const bySup = {}; lines.forEach(l => { const k = l.supplier === 'You' ? 'You pack these' : l.supplier + ' packs these'; (bySup[k] = bySup[k] || []).push(l); });
+      const groups = Object.entries(bySup).map(([title, ls]) => { const left = ls.reduce((a, l) => a + l.qty - l.shipped, 0); return { title, state: o.status === 'cancelled' ? 'Cancelled' : left ? `${left} to ship` : 'All shipped', fg: left && o.status !== 'cancelled' ? '#8F4017' : '#1D6B47',
+        lines: ls.map(l => { const leftL = l.qty - l.shipped; const pick = ship ? (ship[l.id] || 0) : 0; return { name: l.name, qty: String(l.qty), total: fmt(l.price * l.qty), thumb: thumb(l.pid), shippedText: l.shipped ? `${l.shipped} of ${l.qty} shipped` : 'Not shipped yet', left: String(leftL), pick: String(pick),
+          minus: () => this.setState({ ship: { ...ship, [l.id]: Math.max(0, pick - 1) } }), plus: () => this.setState({ ship: { ...ship, [l.id]: Math.min(leftL, pick + 1) } }) }; }) }; });
+      const couriers = ((app.data('shipping') || {}).couriers || []).filter(x => ['pricing', 'standby'].includes(x.status)).map(x => x.name);
+      const courierOpts = [...couriers, 'I’ll ship it myself'];
+      const canShip = o.status !== 'cancelled' && o.status !== 'refunded' && lines.some(l => l.shipped < l.qty) && !c.readOnly && !c.isVendorStock;
+      const canRefund = money && (c.isOwner || c.isManager) && !['cancelled', 'refunded'].includes(o.status) && o.payment === 'paid' && !c.readOnly;
+      const canCancel = money && (c.isOwner || c.isManager) && o.status === 'unfulfilled' && !o.lines.some(l => l.shipped) && !c.readOnly;
+      const pickCount = ship ? Object.values(ship).reduce((a, v) => a + v, 0) : 0;
+      const sub = o.lines.reduce((a, l) => a + l.price * l.qty, 0);
+      const taxPart = R.incl && R.rate ? sub - sub / (1 + R.rate) : 0;
+      const refundMax = o.total - (o.refunded || 0);
+      const actions = [];
+      if (canShip) actions.push({ label: ship ? 'Choosing items…' : 'Ship items', bd: '#EC844F', bg: '#EC844F', fg: '#FFFFFF', onClick: () => { const pre = {}; lines.forEach(l => { pre[l.id] = l.qty - l.shipped; }); this.setState({ ship: pre, refund: null, courier: courierOpts[0], tracking: '' }); } });
+      if (o.payment === 'pending' && money && !c.readOnly) actions.push({ label: 'Mark as paid', bd: '#D9B872', bg: '#FFFFFF', fg: '#7A4B00', onClick: () => app.modal({ title: `Mark ${o.id} as paid?`, body: `Only once the ${fmt(o.total)} has actually reached you (${o.method}).`, confirm: 'Mark as paid', onConfirm: () => { setO(o.id, x => addEv({ ...x, payment: 'paid' }, 'Marked as paid')); app.toast(o.id + ' marked as paid'); } }) });
+      if (canRefund) actions.push({ label: 'Refund', bd: '#F0D4BF', bg: '#FFFFFF', fg: '#B8541F', onClick: () => this.setState({ refund: { amt: String(Math.round(refundMax * 100) / 100), why: 'Returned by shopper', restock: true }, ship: null }) });
+      if (canCancel) actions.push({ label: 'Cancel order', bd: '#D7D3CD', bg: '#FFFFFF', fg: '#434A55', onClick: () => app.modal({ danger: true, title: `Cancel ${o.id}?`, body: `${o.customer.name} gets a full refund of ${fmt(o.total)} and an email. The items go back in stock.`, choices: [{ label: 'Out of stock', value: 'Out of stock' }, { label: 'Shopper asked', value: 'Shopper asked' }, { label: 'Looks like fraud', value: 'Suspected fraud' }], confirm: 'Cancel order', cancel: 'Keep order', onConfirm: why => { setO(o.id, x => addEv({ ...x, status: 'cancelled', refunded: x.payment === 'paid' ? x.total : 0 }, 'Cancelled · ' + why)); app.toast(o.id + ' cancelled and refunded'); } }) });
+      actions.push({ label: 'Print', bd: '#D7D3CD', bg: '#FFFFFF', fg: '#434A55', onClick: () => app.modal({ title: 'Print', choices: [{ label: 'Packing slip', sub: 'No prices — goes in the box', value: 'slip' }, ...(money ? [{ label: 'Invoice', sub: 'With ' + (R.key === 'US' ? 'tax' : R.taxName) + ' and your ' + R.taxIdLabel, value: 'inv' }] : [])], confirm: 'Print', onConfirm: v => app.toast(v === 'slip' ? 'Packing slip sent to the printer' : 'Invoice PDF ready') }) });
+      const confirmShip = () => {
+        if (!pickCount) { app.toast('Pick at least one item to ship'); return; }
+        const trk = s.tracking || (s.courier === 'I’ll ship it myself' ? '' : s.courier.slice(0, 3).toUpperCase() + Math.floor(1e8 + Math.random() * 9e8));
+        setO(o.id, x => { const ls = x.lines.map(l => ({ ...l, shipped: l.shipped + (ship[l.id] || 0) })); const left = ls.reduce((a, l) => a + l.qty - l.shipped, 0); return addEv({ ...x, lines: ls, status: left ? 'partial' : 'fulfilled' }, `${pickCount} item${pickCount > 1 ? 's' : ''} shipped · ${s.courier}${trk ? ' · ' + trk : ''}${vendor ? ' · by ' + app.vendorName : ''}`); });
+        this.setState({ ship: null });
+        app.toast(`${pickCount} item${pickCount > 1 ? 's' : ''} shipped — ${o.customer.name.split(' ')[0]} got an email${trk ? ' with tracking' : ''}`);
+      };
+      const confirmRefund = () => {
+        const amt = Number(String(s.refund.amt).replace(',', '.'));
+        if (!(amt > 0) || amt > refundMax + 0.001) { app.toast(`Refund between ${fmt(0.01)} and ${fmt(refundMax)}`); return; }
+        setO(o.id, x => addEv({ ...x, refunded: (x.refunded || 0) + amt, status: amt >= refundMax - 0.001 ? 'refunded' : x.status }, `Refunded ${fmt(amt)} · ${s.refund.why}${s.refund.restock ? ' · items restocked' : ''}`));
+        this.setState({ refund: null });
+        app.toast(`${fmt(amt)} refunded to ${o.customer.name}`);
+      };
+      return { ...base, isList: false, isDetail: true, isCustomers: false, backLabel: vendor ? 'To ship' : 'Orders', vendorNote: vendor,
+        o: { id: o.id, status: stA[0], stBg: stA[1], stFg: stA[2], pay: o.payment === 'paid' ? (o.refunded ? 'Refunded ' + fmt(o.refunded) : 'Paid') : 'Payment pending', payBg: o.payment === 'paid' ? '#EEF7F2' : '#FFF6E5', payFg: o.payment === 'paid' ? '#1D6B47' : '#7A4B00', who: o.customer.name, email: o.customer.email, phone: o.customer.phone, address: o.customer.address, market: o.market === R.cc ? R.country : o.market + ' (abroad)', method: o.method },
+        actions, isPhone: phone, notPhone: !phone, ...(() => { const pi = actions.findIndex(b => b.bg === '#EC844F' || b.label === 'Mark as paid'); const pA = pi >= 0 ? actions[pi] : null; const sec = actions.filter((b, i) => i !== pi); return { pAct: pA || {}, hasPAct: phone && !!pA, hasMore: phone && sec.length > 0, moreActs: () => app.modal({ title: o.id, choices: sec.map((b, i) => ({ label: b.label, sub: '', value: 'a' + i })), confirm: 'Continue', onConfirm: v => setTimeout(() => { const b = sec[Number(String(v).slice(1))]; if (b) b.onClick(); }, 30) }) }; })(), groups, detailCols: phone ? '1fr' : 'minmax(0,1.6fr) minmax(0,1fr)', lineCols: 'minmax(0,1fr) 50px' + (money ? ' 90px' : ''),
+        shipping: !!ship, pickCount: String(pickCount), pickPlural: pickCount === 1 ? '' : 's', courier: s.courier, tracking: s.tracking, courierOpts,
+        refunding: !!s.refund, refundAmt: s.refund ? s.refund.amt : '', refundWhy: s.refund ? s.refund.why : '', refundMax: fmt(refundMax), refundShow: s.refund ? fmt(Number(String(s.refund.amt).replace(',', '.')) || 0) : '',
+        restock: { mark: s.refund && s.refund.restock ? '✓' : '', bd: s.refund && s.refund.restock ? '#00519F' : '#B9BEC6', bg: s.refund && s.refund.restock ? '#00519F' : '#FFFFFF' },
+        totals: [{ k: 'Items', v: fmt(sub) }, { k: 'Delivery', v: o.shipping ? fmt(o.shipping) : 'Free' }, ...(taxPart ? [{ k: `Includes ${R.taxName}`, v: fmt(taxPart) }] : [{ k: R.key === 'US' ? 'Sales tax' : R.taxName, v: 'at checkout' }]), { k: 'Total', v: fmt(o.total), w: 700 }, ...(o.refunded ? [{ k: 'Refunded', v: '−' + fmt(o.refunded), fg: '#B8541F' }] : []), { k: 'Paid with', v: o.method }].map(t => ({ fg: '#14181F', w: 400, ...t })),
+        canOpenCustomer: money, noOpenCustomer: !money, showContact: !vendor,
+        events: o.events.slice().reverse().map(e => ({ t: dfmt(e.t), what: e.what })), canNote: !vendor && !c.readOnly,
+        a: { back: () => app.go('orders'), cancelShip: () => this.setState({ ship: null }), confirmShip, cancelRefund: () => this.setState({ refund: null }), confirmRefund, toggleRestock: () => this.setState({ refund: { ...s.refund, restock: !s.refund.restock } }), openCustomer: () => app.go('customers'),
+          note: () => app.modal({ title: 'Add a note', input: { label: 'Only your team sees this', placeholder: 'e.g. Gift wrap — shopper called', required: true }, confirm: 'Add note', onConfirm: v => setO(o.id, x => addEv(x, 'Note: ' + v)) }) } };
+    }
+
+    const q = s.search.trim().toLowerCase();
+    const tests = { all: () => true, open: o => ['unfulfilled', 'partial'].includes(stOf(o)), partial: o => stOf(o) === 'partial', done: o => stOf(o) === 'fulfilled', closed: o => ['cancelled', 'refunded'].includes(o.status), pending: o => o.payment === 'pending' && o.status !== 'cancelled' };
+    const defs = [['all', 'All'], ['open', 'To ship'], ['partial', 'Partly shipped'], ['done', 'Shipped'], ...(vendor ? [] : [['closed', 'Cancelled & refunded'], ['pending', 'Payment pending']])];
+    const list = all.filter(tests[s.filter] || tests.all).filter(o => !q || o.id.toLowerCase().includes(q) || o.customer.name.toLowerCase().includes(q));
+    const P0 = this.pg(list.length, s.oPage, phone ? 5 : 10, i => this.setState({ oPage: i }));
+    return { ...base, isList: true, isDetail: false, isCustomers: false, title: vendor ? 'To ship' : 'Orders', summary: vendor ? 'Orders with your items in them. You see only your lines.' : `${all.length} orders · ${all.filter(tests.open).length} to ship`, canExport: money && !phone,
+      empty: !all.length, notEmpty: all.length > 0, emptyTitle: vendor ? 'Nothing to ship yet' : 'No orders yet', emptyBody: vendor ? 'When a shopper buys one of your products, it appears here for you to pack.' : 'Your first order will appear here. Share your store link to get it.', emptyCta: vendor ? '' : 'Copy your store link',
+      pg: P0, isPhone: phone, notPhone: !phone, searchPh: 'Search by order number or name', cols: phone ? '90px minmax(0,1fr) 100px' + (money ? ' 90px' : '') : '110px minmax(0,1.4fr) minmax(0,1.2fr) 130px' + (money ? ' 120px' : ''),
+      chips: defs.map(([k, l]) => ({ label: l, count: String(all.filter(tests[k]).length), bd: s.filter === k ? '#00519F' : '#D7D3CD', bg: s.filter === k ? '#EAF1F8' : '#FFFFFF', fg: s.filter === k ? '#00325F' : '#434A55', onClick: () => this.setState({ filter: k }) })),
+      rows: list.slice(P0.p * P0.per, P0.p * P0.per + P0.per).map(o => { const st = ST[stOf(o)]; const ls = o.lines.filter(mine); return { id: o.id, date: dfmt(o.date), who: o.customer.name, where: o.customer.city, items: ls.map(l => l.qty + '× ' + l.name.split(' · ')[0]).join(', '), status: st[0], stBg: st[1], stFg: st[2], total: fmt(o.total), pay: o.payment === 'paid' ? (o.refunded ? 'refunded ' + fmt(o.refunded) : 'paid') : 'payment pending', payFg: o.payment === 'paid' ? '#5A6472' : '#7A4B00', onClick: () => app.openOrder(o.id),
+        exp: s.openRow === o.id, rot: s.openRow === o.id ? '180deg' : '0deg', rowBg: s.openRow === o.id ? '#FFFFFF' : '#FFFFFF', toggle: () => this.setState({ openRow: s.openRow === o.id ? null : o.id }),
+        lines: ls.map(l => ({ name: l.name, qty: String(l.qty), amt: money ? fmt(l.price * l.qty) : '' })), method: money ? (o.method || '') : '', sub: fmt(ls.reduce((x, l) => x + l.price * l.qty, 0)), shipLabel: R.key === 'US' ? 'Shipping' : 'Delivery', ship: o.shipping ? fmt(o.shipping) : 'Free', refunded: o.refunded ? fmt(o.refunded) : '', contact: !vendor, email: o.customer.email, phone: o.customer.phone, address: o.customer.address, hasTrack: !!o.tracking, track: o.tracking ? (o.courier || '') + ' ' + o.tracking : '', openLabel: ['unfulfilled', 'partial'].includes(o.status) && !c.readOnly ? 'Open to ship' : 'Open order' }; }),
+      a: { export: () => app.toast(`Export of ${list.length} orders is ready`, 'Download', () => app.toast('Downloading orders.csv')), emptyCta: () => app.toast('Copied ' + R.domain) } };
+  }
+}
+</script>
+</body>
+</html>

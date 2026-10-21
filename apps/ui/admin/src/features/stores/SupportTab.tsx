@@ -1,6 +1,6 @@
+import { StatusPill } from '@dripfunnel/shared/ui'
 import type { Store } from '../../api/stores'
 import { messages } from '../../messages'
-import { StatusPill } from '../common/StatusPill'
 
 const words = messages.store.support
 

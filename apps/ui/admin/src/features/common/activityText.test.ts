@@ -48,6 +48,16 @@ describe('action codes', () => {
   })
 })
 
+describe('a code the console has no words for', () => {
+  it('still shows the entry, as its actor and code, with the target where there is one', () => {
+    const [first] = seed
+    if (!first) throw new Error('the sample has entries')
+    const unknown = { ...first, action: 'partner.something_new', onBehalfOf: null, actor: { kind: 'staff' as const, id: 's1', label: 'Arjun Menon' } }
+    expect(actionText({ ...unknown, target: null })).toBe('Arjun Menon: partner.something_new')
+    expect(actionText({ ...unknown, target: { type: 'partner', id: 'p1', label: 'Northstar' } })).toBe('Arjun Menon: partner.something_new on Northstar')
+  })
+})
+
 describe('activity sentences', () => {
   it('names an impersonating agent with the account, and a support session by its agent', () => {
     expect(whoOf(entry({ actor: { kind: 'person', id: 'pe-s1', label: 'Priya Mehta' }, onBehalfOf: { id: 'st-neha', label: 'Neha Rao' } }))).toBe('Neha Rao as Priya Mehta')

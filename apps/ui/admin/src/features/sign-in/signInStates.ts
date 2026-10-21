@@ -1,6 +1,7 @@
 // The states the admin prototype designs for staff sign-in with Microsoft Entra ID; `start`
-// is the default and is not a ?state= value.
+// is the default, and `?state=start` opens the walkthrough at its first step.
 export const signInStates = [
+  'start',
   'signing',
   'approve',
   'code',
@@ -12,7 +13,10 @@ export const signInStates = [
   'expired',
 ] as const
 
-export type SignInState = 'start' | (typeof signInStates)[number]
+export type SignInState = (typeof signInStates)[number]
+
+/** The prototype's steps play only on an address with ?state=; otherwise the button goes to Microsoft. */
+export const walksThrough = (forced: SignInState | null): boolean => forced !== null
 
 /**
  * What the Worker's callback reports (apis/admin/auth.ts). Read in production, unlike the

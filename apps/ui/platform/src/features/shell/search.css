@@ -1,0 +1,127 @@
+/* The header's search palette (FIRST-RELEASE.md §2.2), drawn by this console alone. */
+
+.df-search-dialog {
+  width: min(600px, calc(100% - 32px));
+  margin: 70px auto 0;
+  padding: 0;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-dialog);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  box-shadow: 0 20px 50px var(--df-color-backdrop);
+}
+
+.df-search-dialog::backdrop {
+  background: var(--df-color-backdrop);
+}
+
+.df-search-form {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-3);
+  padding: var(--df-space-3) var(--df-space-4);
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-search-form input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.df-search-form input:focus-visible {
+  outline: none;
+}
+
+.df-search-form:has(input:focus-visible) {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: -2px;
+}
+
+.df-search-form kbd {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-search-hint {
+  margin: 0;
+  padding: var(--df-space-4);
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-search-results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-search-result,
+.df-search-all {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-3);
+  min-height: 48px;
+  padding: var(--df-space-2) var(--df-space-4);
+  border-top: 1px solid var(--df-color-border);
+  color: var(--df-color-text);
+  text-decoration: none;
+}
+
+.df-search-result:hover,
+.df-search-all:hover {
+  background: var(--df-color-hover);
+}
+
+.df-search-result:focus-visible,
+.df-search-all:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: -2px;
+}
+
+.df-search-initials {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-neutral);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.df-search-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.df-search-text strong {
+  color: var(--df-color-heading);
+}
+
+.df-search-text .df-muted {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-search-all {
+  justify-content: center;
+  color: var(--df-color-link);
+  font-size: 13px;
+  font-weight: 700;
+}

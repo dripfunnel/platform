@@ -4,9 +4,8 @@
 // sample's own records and stands in for the server until #37, and goes with it.
 import type { StaffRole } from '../features/shell/staffRoles'
 import { jobPermissionsFor, redacted, stateOf } from './jobSample'
-import type { PageRequest } from './pageInfo'
+import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import { provisioningRoles, type JobFilter, type JobPage, type JobProgress, type JobState, type ProvisioningJob } from './provisioning'
-import { samplePage } from './samplePage'
 import { storesServer, type SampleStore } from './storesSample'
 
 // How long each simulated step takes. The harness picks it (?pace=), so whoever checks the screen needn't
@@ -25,7 +24,7 @@ const jobOf = (store: SampleStore, caller: StaffRole): ProvisioningJob => {
     id: setup.jobId ?? store.id,
     store: { id: store.id, name: store.name, code: store.code },
     partner: store.partner,
-    owner: store.owner,
+    owner: { name: store.owner.name ?? '', email: store.owner.email ?? '' },
     state,
     steps: setup.steps,
     step: setup.step,
@@ -64,7 +63,7 @@ export const createProvisioningServer = (signups: Signups, wait: (ms: number, th
       .map((store) => jobOf(store, caller))
       .filter((job) => matches(job, filter))
       .sort(newestFirst)
-    const { items, pageInfo } = samplePage(all, page, size)
+    const { items, pageInfo } = pageByCursor(all, page, size)
     const partners = [...new Map(inFlight().map((store) => [store.partner.id, store.partner])).values()]
     return { items, pageInfo, partners }
   }

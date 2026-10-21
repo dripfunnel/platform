@@ -1,8 +1,9 @@
+import { StatusPill } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import type { Customer } from '../../api/customers'
 import { fill, formatCount, formatDate, formatTime, messages, plural } from '../../messages'
-import { StatusPill } from '../common/StatusPill'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
+import '@dripfunnel/shared/ui/detail.css'
 import './customers.css'
 
 const words = messages.customer

@@ -5,9 +5,9 @@ import { navFor, navRows, type NavRow } from './nav'
 const everyone = ['dashboard', 'partners', 'stores', 'customers']
 
 const menusOf: Record<StaffRole, readonly string[]> = {
-  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'activity', 'staff'],
+  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'impersonate', 'activity', 'staff'],
   'staff-partner-manager': [...everyone, 'approvals', 'activity'],
-  'staff-support': [...everyone, 'provisioning', 'activity'],
+  'staff-support': [...everyone, 'provisioning', 'impersonate', 'activity'],
   'staff-finance': [...everyone, 'activity'],
   'staff-engineer': [...everyone, 'provisioning', 'activity'],
   'staff-read-only': [...everyone, 'activity'],
@@ -35,6 +35,13 @@ describe('navFor', () => {
     expect(badged('staff-super-admin')).toBe('approvals')
     expect(badged('staff-partner-manager')).toBe('approvals')
     for (const role of ['staff-support', 'staff-finance', 'staff-engineer', 'staff-read-only'] as const) expect(badged(role)).toBe('partners')
+  })
+
+  it('counts open sessions on Impersonate, for the two roles who have it', () => {
+    for (const role of staffRoles) {
+      const badged = navFor(role).find((row) => row.badge === 'openSessions')?.key
+      expect(badged).toBe(role === 'staff-super-admin' || role === 'staff-support' ? 'impersonate' : undefined)
+    }
   })
 
   it('points every row at its own screen', () => {

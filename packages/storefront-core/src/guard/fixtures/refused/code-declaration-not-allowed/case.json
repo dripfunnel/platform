@@ -1,0 +1,5 @@
+{
+  "rule": "code/declaration-not-allowed",
+  "file": "src/theme/components/Bad.tsx",
+  "line": 1
+}

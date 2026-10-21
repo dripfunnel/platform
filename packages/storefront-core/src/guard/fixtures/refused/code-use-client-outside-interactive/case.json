@@ -1,0 +1,5 @@
+{
+  "rule": "code/use-client-outside-interactive",
+  "file": "src/theme/components/Bad.tsx",
+  "line": 1
+}

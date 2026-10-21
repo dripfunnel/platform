@@ -13,8 +13,8 @@ import type {
   PersonMatch,
 } from './activity'
 import { activityActions, type ActionCode } from './activityActions'
-import type { PageRequest } from './pageInfo'
-import { samplePage } from './samplePage'
+import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
+import { csvLink } from '@dripfunnel/shared/format'
 import { sampleCustomers } from './customersSample'
 import { sampleStores } from './storesSample'
 
@@ -52,7 +52,7 @@ const partnerUsers = [
 ]
 
 const storePeople = [
-  ...sampleStores.map((store) => person(`pe-${store.id}`, store.owner.name, store.owner.email, 'person', [[`${store.name} · ${store.partner.name}`, 'Owner']])),
+  ...sampleStores.map((store) => person(`pe-${store.id}`, store.owner.name ?? '', store.owner.email ?? '', 'person', [[`${store.name} · ${store.partner.name}`, 'Owner']])),
   person('pe-hannah', 'Hannah Cole', 'hannah@northwindwool.co.uk', 'person', [['Loom & Thread · Loom & Thread', 'Vendor (Northwind Wool)']]),
 ]
 
@@ -80,7 +80,7 @@ const random = (seed: number) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296
 }
 
-type Draft = Omit<ActivityEntry, 'id' | 'occurredAt' | 'level' | 'requestId' | 'ip' | 'userAgent'>
+type Draft = Omit<ActivityEntry, 'id' | 'occurredAt' | 'level' | 'requestId' | 'ip' | 'userAgent' | 'action'> & { action: ActionCode }
 
 const agents = ['Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) Chrome/129.0', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Firefox/131.0', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Safari/604.1']
 
@@ -310,14 +310,11 @@ export interface ActivityServerOptions {
 
 const prepareMs = 3000
 
-const blobLink = (csv: string) =>
-  typeof URL.createObjectURL === 'function' ? URL.createObjectURL(new Blob([csv], { type: 'text/csv' })) : `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`
-
 export const createActivityServer = (seed: readonly ActivityEntry[], options: ActivityServerOptions = {}) => {
   const now = options.now ?? Date.now
   const wait = options.wait ?? ((ms, then) => void setTimeout(then, ms))
   const cap = options.cap ?? 100_000
-  const link = options.link ?? blobLink
+  const link = options.link ?? csvLink
   let entries = [...seed]
   const exports = new Map<string, SampleExport>()
 
@@ -327,7 +324,7 @@ export const createActivityServer = (seed: readonly ActivityEntry[], options: Ac
   }
 
   const list = (filter: ActivityFilter, page: PageRequest, size: number, caller: StaffRole): ActivityPage => {
-    const { items, pageInfo } = samplePage(matching(filter), page, size)
+    const { items, pageInfo } = pageByCursor(matching(filter), page, size)
     return {
       items,
       pageInfo,

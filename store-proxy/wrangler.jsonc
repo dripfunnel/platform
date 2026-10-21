@@ -1,0 +1,51 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dripfunnel-store-proxy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  // Its own request lines only, which leave out preview tokens and studio sessions (LOGGING §9); no automatic invocation logs.
+  "observability": { "enabled": false },
+  "logpush": false,
+  "env": {
+    // `wrangler dev --env local` (docs/setup/local.md §6.3): preview and shop hosts, behind Caddy, on the API Worker's local bucket.
+    "local": {
+      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "localhost", "SHOP_DOMAIN": "my-store.localhost" },
+      "services": [
+        { "binding": "API", "service": "dripfunnel-api-local", "entrypoint": "PortalProxy" },
+        { "binding": "EDGE", "service": "dripfunnel-api-local", "entrypoint": "StorefrontEdge" }
+      ],
+      "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-local" }]
+    },
+    // Partner portal hosts arrive here through Cloudflare for SaaS (SAAS.md §8); `*/*` catches
+    // them, and the Worker passes every host of our own zone straight through.
+    "dev": {
+      "name": "dripfunnel-store-proxy-dev",
+      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "SHOP_DOMAIN": "my-shop.dev" },
+      // The API serves a partner's own host only on PortalProxy (SAAS.md §8, #426); shop and preview hosts use StorefrontEdge (LIVE-SHOP §5, PREVIEW §5).
+      "services": [
+        { "binding": "API", "service": "dripfunnel-api-dev", "entrypoint": "PortalProxy" },
+        { "binding": "EDGE", "service": "dripfunnel-api-dev", "entrypoint": "StorefrontEdge" }
+      ],
+      "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-dev" }],
+      "routes": [
+        { "pattern": "*/*", "zone_name": "dripfunnel.ai" },
+        { "pattern": "*.my-shop.dev/*", "zone_name": "my-shop.dev" }
+      ]
+    },
+    // Uploaded by prod.yml after the API's and promoted with it by promote.yml (#816); never deployed straight from a push.
+    "prod": {
+      "name": "dripfunnel-store-proxy-prod",
+      "vars": { "OWN_ZONE": "dripfunnel.com", "PAGES_HOST": "dripfunnel-store.pages.dev", "SHOP_DOMAIN": "my-store.one" },
+      "services": [
+        { "binding": "API", "service": "dripfunnel-api", "entrypoint": "PortalProxy" },
+        { "binding": "EDGE", "service": "dripfunnel-api", "entrypoint": "StorefrontEdge" }
+      ],
+      "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-prod" }],
+      "routes": [
+        { "pattern": "*/*", "zone_name": "dripfunnel.com" },
+        { "pattern": "*.my-store.one/*", "zone_name": "my-store.one" }
+      ]
+    }
+  }
+}

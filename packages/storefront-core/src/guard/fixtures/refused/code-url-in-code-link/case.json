@@ -1,0 +1,5 @@
+{
+  "rule": "code/url-in-code",
+  "file": "src/theme/components/Bad.tsx",
+  "line": 5
+}

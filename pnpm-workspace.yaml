@@ -1,7 +1,9 @@
 packages:
   - apps/*
   - apps/ui/*
+  - apps/ui/mobile-app/*
   - packages/*
+  - store-proxy
   - templates/*
 
 allowBuilds:

@@ -3,16 +3,14 @@
 import { Link } from '@tanstack/react-router'
 import type { DashboardData } from '../../api/dashboard'
 import { fill, formatTime, messages } from '../../messages'
-import { EmptyState } from '../common/EmptyState'
-import { PermissionDenied } from '../common/PermissionDenied'
-import { StaleNotice } from '../common/StaleNotice'
+import { EmptyState, PermissionDenied, StaleNotice, dashboardNotice } from '@dripfunnel/shared/ui'
 import { AttentionCard } from './AttentionCard'
 import { AwaitingCard } from './AwaitingCard'
 import './dashboard.css'
 import { DashboardError } from './DashboardError'
 import { DashboardHeader } from './DashboardHeader'
 import { DashboardLoading } from './DashboardLoading'
-import type { DashboardState } from './dashboardStates'
+import type { DashboardState } from '@dripfunnel/shared/ui'
 import { PartnerFilter } from './PartnerFilter'
 import { PartnersCard } from './PartnersCard'
 import { SignupsCard } from './SignupsCard'
@@ -27,14 +25,6 @@ export interface DashboardProps {
   canCreatePartner: boolean
   onPartnerChange: (partnerId: string | undefined) => void
   onReload: () => void
-}
-
-const noticeFor = (data: DashboardData, forced: DashboardState | null) => {
-  if (forced === 'offline') return words.offline
-  if (forced === 'stale' || data.staleSince !== null) {
-    return { title: fill(words.stale.title, { time: formatTime(data.staleSince ?? data.asOf) }), body: words.stale.body }
-  }
-  return null
 }
 
 export const Dashboard = ({ data, forced, canCreatePartner, onPartnerChange, onReload }: DashboardProps) => {
@@ -79,7 +69,8 @@ export const Dashboard = ({ data, forced, canCreatePartner, onPartnerChange, onR
     )
   }
 
-  const notice = noticeFor(data, forced)
+  // The API marks nothing stale yet (decided on #35); the harness still shows the notice.
+  const notice = dashboardNotice({ asOf: data.asOf, staleSince: null }, forced, words, fill, formatTime)
   const scope = data.partnerId ? { partner: data.partnerId } : {}
 
   return (

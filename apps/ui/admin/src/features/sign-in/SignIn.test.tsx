@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
 import { SignIn } from './SignIn'
-import { problemStates, signInOutcomes, signInStates } from './signInStates'
+import { problemStates, signInOutcomes, signInStates, walksThrough } from './signInStates'
 
 const words = messages.signIn
 
@@ -81,3 +81,12 @@ describe('SignIn', () => {
   )
 })
 
+describe('walksThrough', () => {
+  it('goes to Microsoft on a plain address, even under vite dev', () => {
+    expect(walksThrough(null)).toBe(false)
+  })
+
+  it.each(signInStates)('plays the prototype from ?state=%s', (state) => {
+    expect(walksThrough(state)).toBe(true)
+  })
+})

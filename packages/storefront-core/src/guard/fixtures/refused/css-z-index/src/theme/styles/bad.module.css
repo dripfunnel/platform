@@ -1,0 +1,7 @@
+.card {
+  padding: 16px;
+}
+
+.overlay {
+  z-index: 2147483647;
+}

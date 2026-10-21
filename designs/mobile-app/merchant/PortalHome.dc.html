@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:18px;max-width:1100px;">
+  <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">{{ greeting }}</div><div style="font-size:14px;color:#5A6472;">{{ dateLine }}</div></div>
+
+  <sc-if value="{{ hasTasks }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#8F4017;">Needs you</span>
+      <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="3">
+        <button onClick="{{ t.onClick }}" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#FFFFFF;border:1px solid #E8E2DC;border-left:4px solid {{ t.accent }};border-radius:10px;text-align:left;cursor:pointer;width:100%;" style-hover="background:#FAF9F7;">
+          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;min-width:36px;color:#14181F;">{{ t.n }}</span>
+          <span style="flex:1;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:15px;color:#14181F;">{{ t.title }}</strong><span style="font-size:13px;color:#5A6472;">{{ t.body }}</span></span>
+          <span style="font-size:13px;color:#B8541F;font-family:Manrope,sans-serif;font-weight:700;">{{ t.cta }} →</span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ allClear }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px;background:#EEF7F2;border:1px solid #C3E0D2;border-radius:10px;font-size:14px;color:#1D6B47;"><strong>Nothing is waiting for you.</strong> Orders are packed, approvals are done.</div></sc-if>
+
+  <sc-if value="{{ showSetup }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;">Get your shop ready for its first order</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A6472;">{{ setupDone }} of {{ setupTotal }}</span></div>
+      <div style="height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ setupPct }};height:100%;background:#EC844F;"></div></div>
+      <sc-for list="{{ setup }}" as="c" hint-placeholder-count="5">
+        <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border:0;border-top:1px solid #F1EEEA;background:none;text-align:left;cursor:pointer;width:100%;">
+          <span style="width:22px;height:22px;border-radius:50%;border:1.5px solid {{ c.ring }};background:{{ c.fill }};color:#FFFFFF;font-size:12px;display:flex;align-items:center;justify-content:center;">{{ c.mark }}</span>
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;color:#14181F;text-decoration:{{ c.td }};">{{ c.label }}</span><sc-if value="{{ c.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">{{ c.note }}</span></sc-if></span><span style="font-size:13px;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;">{{ c.cta }}</span>
+        </button>
+        <sc-if value="{{ c.panel }}" hint-placeholder-val="{{ false }}">
+          <div style="margin:0 0 8px 34px;padding:18px;background:#FDFAF7;border:1px solid #E8E2DC;border-radius:12px;display:flex;flex-direction:column;gap:16px;">
+            <sc-for list="{{ localeFields }}" as="f" hint-placeholder-count="3">
+              <label style="display:flex;flex-direction:column;gap:6px;">
+                <span style="font-family:Manrope,sans-serif;font-weight:600;font-size:14px;color:#14181F;">{{ f.label }}</span>
+                <select value="{{ f.value }}" onChange="{{ f.on }}" style="height:46px;max-width:420px;border:1px solid #D7D3CD;border-radius:10px;padding:0 12px;font-size:15px;background:#FFFFFF;"><sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+                <span style="font-size:13px;color:#5A6472;">{{ f.help }}</span>
+              </label>
+            </sc-for>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button onClick="{{ saveLocale }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">Confirm</button>
+              <button onClick="{{ closeLocale }}" style="height:42px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#434A55;font-size:14px;cursor:pointer;">Later</button>
+            </div>
+          </div>
+        </sc-if>
+      </sc-for>
+      <sc-if value="{{ ownerNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#434A55;">Payments, shipping and your country settings are set by Farhan, the owner — they’re not on your list.</span></sc-if>
+      <span style="font-size:12px;color:#5A6472;">This list disappears once your first order arrives.</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ staffWait }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;display:flex;flex-direction:column;gap:4px;"><strong style="font-family:Manrope,sans-serif;font-size:16px;">No orders yet</strong><span style="font-size:14px;color:#5A6472;">The shop is still being set up. When the first order comes in it appears here, and in Orders, ready to pack.</span></div></sc-if>
+  <sc-if value="{{ showNumbers }}" hint-placeholder-val="{{ true }}">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;padding-top:6px;">{{ numbersTitle }}</span>
+    <div style="display:grid;grid-template-columns:{{ numCols }};gap:12px;">
+      <sc-for list="{{ numbers }}" as="n" hint-placeholder-count="4">
+        <button onClick="{{ n.onClick }}" style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;" style-hover="border-color:#9FB8D1;">
+          <span style="font-size:13px;color:#5A6472;">{{ n.label }}</span>
+          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;color:#14181F;font-variant-numeric:tabular-nums;">{{ n.value }}</span>
+          <span style="font-size:12px;color:{{ n.fg }};">{{ n.delta }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">Latest orders</span><button onClick="{{ a.allOrders }}" style="border:0;background:none;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">All orders →</button></div>
+      <sc-for list="{{ latest }}" as="o" hint-placeholder-count="4">
+        <button onClick="{{ o.onClick }}" style="width:100%;display:grid;grid-template-columns:{{ latestCols }};gap:10px;padding:10px 16px;border:0;border-bottom:1px solid #F1EEEA;background:#FFFFFF;text-align:left;cursor:pointer;font-size:13px;align-items:center;" style-hover="background:#FAF9F7;">
+          <span style="font-family:'IBM Plex Mono',monospace;color:#14181F;">{{ o.id }}</span><span style="color:#14181F;">{{ o.who }}</span><span style="color:{{ o.stFg }};">{{ o.status }}</span><span style="text-align:right;color:#14181F;">{{ o.total }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { localeOpen: false, region: null, cur: null, lang: null };
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { caps: c, fmt, R, phone } = app;
+    const orders = app.orders; const products = app.allProducts;
+    const DAY = 864e5; const today = new Date(2026, 8, 27).getTime();
+    const on = (o, d) => o.date >= today - d * DAY && o.date < today - (d - 1) * DAY;
+    const net = o => o.status === 'cancelled' ? 0 : o.total - (o.refunded || 0);
+    const open = orders.filter(o => ['unfulfilled', 'partial'].includes(o.status));
+    const pending = orders.filter(o => o.payment === 'pending' && o.status !== 'cancelled');
+    const waiting = products.filter(p => p.status === 'waiting');
+    const low = products.filter(p => { const t = p.variants && p.variants.length ? p.variants.filter(v => !v.removed).reduce((a, v) => a + Number(v.stock || 0), 0) : Number(p.stock || 0); return p.track !== false && t <= 5; });
+    const notReady = products.filter(p => app.marketStatus(p).some(m => !m.ok));
+    const failedCourier = (app.data('shipping') || { couriers: [] }).couriers.filter(x => x.status === 'failed');
+    const tasks = [];
+    if (open.length) tasks.push({ n: open.length, title: open.length === 1 ? 'order to pack and ship' : 'orders to pack and ship', body: `${open.filter(o => o.status === 'partial').length} partly shipped · oldest from ${new Date(Math.min(...open.map(o => o.date))).toLocaleDateString(R.locale, { day: 'numeric', month: 'short' })}`, cta: 'Ship', accent: '#EC844F', onClick: () => app.go('orders', { orderFilter: 'open' }) });
+    if (pending.length && !c.isStaff) tasks.push({ n: pending.length, title: 'payment to collect', body: 'Cash on delivery or bank transfer — mark it paid when the money arrives.', cta: 'Review', accent: '#D9A43A', onClick: () => app.openOrder(pending[0].id) });
+    if (waiting.length && c.approvalOn && !c.isStaff) tasks.push({ n: waiting.length, title: 'supplier products waiting for approval', body: 'They go live once you approve them.', cta: 'Review', accent: '#D9A43A', onClick: () => app.go('products', { productFilter: 'waiting' }) });
+    if (low.length) tasks.push({ n: low.length, title: 'products low on stock', body: low.slice(0, 3).map(p => p.name).join(', ') + (low.length > 3 ? '…' : ''), cta: 'Restock', accent: '#D9A43A', onClick: () => app.go('products') });
+    if (notReady.length && R.markets.length > 1 && !c.isStaff) tasks.push({ n: notReady.length, title: 'products missing details for some countries', body: 'They sell everywhere else already.', cta: 'Fix', accent: '#9FB8D1', onClick: () => app.go('products') });
+    if (failedCourier.length && c.isOwner) tasks.push({ n: failedCourier.length, title: `${failedCourier[0].name} stopped working`, body: 'Its login was rejected. Orders fall back to your next courier.', cta: 'Fix', accent: '#B8541F', onClick: () => app.go('settings', { settingsTab: 'shipping' }) });
+    const y = orders.filter(o => on(o, 1)); const y2 = orders.filter(o => on(o, 2)); const t0 = orders.filter(o => on(o, 0));
+    const sum = l => l.reduce((a, o) => a + net(o), 0);
+    const pct = (a, b) => b ? Math.round((a - b) / b * 100) : 0;
+    const money = !c.isStaff;
+    const numbers = [
+      ...(money ? [{ label: 'Sales yesterday', value: fmt(sum(y)), delta: `${pct(sum(y), sum(y2)) >= 0 ? '▲' : '▼'} ${Math.abs(pct(sum(y), sum(y2)))}% vs the day before`, fg: pct(sum(y), sum(y2)) >= 0 ? '#1D6B47' : '#B8541F', onClick: () => app.go('reports') }] : []),
+      { label: 'Orders today', value: String(t0.length), delta: `${y.length} yesterday`, fg: '#5A6472', onClick: () => app.go('orders') },
+      ...(money ? [{ label: 'Average order', value: fmt(orders.length ? sum(orders) / Math.max(1, orders.filter(o => o.status !== 'cancelled').length) : 0), delta: 'last 7 days', fg: '#5A6472', onClick: () => app.go('reports') }] : []),
+      { label: 'Returning customers', value: String(new Set(orders.map(o => o.customer.email)).size < orders.length ? orders.length - new Set(orders.map(o => o.customer.email)).size : 0), delta: 'bought more than once', fg: '#5A6472', onClick: () => app.go('customers') }
+    ];
+    const hasProducts = products.filter(p => !p.sample).length;
+    const gw = (app.data('gateways') || []).some(g => g.status === 'live');
+    const s = this.state;
+    const DEF = { US: ['USD', 'en'], DE: ['EUR', 'de'], IN: ['INR', 'en'] };
+    const CURS = [['USD', 'US dollar ($)'], ['EUR', 'Euro (€)'], ['INR', 'Indian rupee (₹)'], ['GBP', 'British pound (£)'], ['CAD', 'Canadian dollar (CA$)'], ['AUD', 'Australian dollar (A$)'], ['AED', 'UAE dirham (AED)']];
+    const LANGS = [['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español'], ['hi', 'हिन्दी (Hindi)'], ['ar', 'العربية (Arabic)']];
+    const REG = [['US', 'United States'], ['DE', 'Germany'], ['IN', 'India']];
+    const curMain = ((app.data('currencies') || []).find(x => x.main) || {}).code; const langMain = ((app.data('languages') || []).find(x => x.main) || {}).code;
+    const region = s.region || app.st.region;
+    const cur = s.cur || (s.region && s.region !== app.st.region ? DEF[region][0] : curMain || DEF[region][0]);
+    const lang = s.lang || (s.region && s.region !== app.st.region ? DEF[region][1] : langMain || DEF[region][1]);
+    const localeOk = app.st.localeOk === true || (app.st.localeOk === undefined && app.st.dataset !== 'empty');
+    const opt = l => l.map(([v, t]) => ({ v, l: t }));
+    const localeFields = [
+      { label: 'Where is your business?', value: region, on: e => this.setState({ region: e.target.value, cur: null, lang: null }), options: opt(REG), help: 'Sets your tax, units and payment options.' },
+      { label: 'Main currency', value: cur, on: e => this.setState({ cur: e.target.value }), options: opt(CURS), help: cur === DEF[region][0] ? 'Your prices, reports and payouts use this. You can add more currencies later.' : 'Payouts still arrive in ' + DEF[region][0] + ' — we convert at the daily rate.' },
+      { label: 'Main language', value: lang, on: e => this.setState({ lang: e.target.value }), options: opt(LANGS), help: 'Your storefront, emails and receipts start in this language. Add more later for shoppers abroad.' }
+    ];
+    const regionName = (REG.find(x => x[0] === app.st.region) || [])[1];
+    const setupAll = [
+      { label: 'Confirm your country, currency and language', note: localeOk ? '' : `We guessed ${regionName} · ${curMain || DEF[app.st.region][0]} · ${(LANGS.find(x => x[0] === (langMain || 'en')) || [])[1]}`, ok: localeOk, cta: s.localeOpen ? 'Close' : (localeOk ? 'Change' : 'Confirm'), panel: s.localeOpen, onClick: () => this.setState({ localeOpen: !s.localeOpen, region: null, cur: null, lang: null }) },
+      { label: 'Add your first product', ok: hasProducts > 0, cta: 'Add', onClick: () => app.newProduct() },
+      { label: 'Group products into a collection', ok: app.collections.length > 0, cta: 'Create', onClick: () => app.go('collections') },
+      { label: 'Choose how shoppers pay', ok: gw, cta: 'Set up', onClick: () => app.go('settings', { settingsTab: 'payments' }) },
+      { label: 'Choose how you ship', ok: false, cta: 'Set up', onClick: () => app.go('settings', { settingsTab: 'shipping' }) },
+      { label: 'Make your storefront yours', ok: false, cta: 'Open', onClick: () => app.go('storefront') }
+    ].map((x, i) => ({ ...x, ownerOnly: [0, 3, 4].includes(i) })).map(x => ({ ...x, mark: x.ok ? '✓' : '', fill: x.ok ? '#1D6B47' : '#FFFFFF', ring: x.ok ? '#1D6B47' : '#B9BEC6', td: x.ok ? 'line-through' : 'none', cta: x.ok && !x.panel && x.cta !== 'Change' ? 'Done' : x.cta, note: x.note || '', panel: !!x.panel }));
+    const setup = c.isOwner ? setupAll : setupAll.filter(x => !x.ownerOnly);
+    const ST = { unfulfilled: ['To ship', '#8F4017'], partial: ['Partly shipped', '#7A4B00'], fulfilled: ['Shipped', '#1D6B47'], refunded: ['Refunded', '#5A6472'], cancelled: ['Cancelled', '#5A6472'] };
+    const hr = new Date().getHours();
+    return {
+      pad: phone ? '14px' : '24px 28px', h1: phone ? '22px' : '28px', numCols: phone ? 'repeat(2,minmax(0,1fr))' : `repeat(${numbers.length},minmax(0,1fr))`, latestCols: phone ? '80px minmax(0,1fr) 90px' : '90px minmax(0,1fr) 140px 110px',
+      greeting: (hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening') + ', ' + ({ owner: 'Farhan', manager: 'Priya', staff: 'Tom' }[c.role] || ''),
+      dateLine: new Date(2026, 8, 27).toLocaleDateString(R.locale, { weekday: 'long', day: 'numeric', month: 'long' }) + ' · ' + app.storeName,
+      tasks: tasks.map(t => ({ ...t, n: String(t.n) })), hasTasks: tasks.length > 0, allClear: !tasks.length && orders.length > 0,
+      localeFields, saveLocale: () => { app.setLocale({ region, currency: cur, language: lang, languageName: (LANGS.find(x => x[0] === lang) || [])[1] }); this.setState({ localeOpen: false, region: null, cur: null, lang: null }); app.toast(`Set: ${(REG.find(x => x[0] === region) || [])[1]} · ${cur} · ${(LANGS.find(x => x[0] === lang) || [])[1]}`); },
+      closeLocale: () => this.setState({ localeOpen: false }),
+      showSetup: orders.length === 0 && !c.isStaff, staffWait: orders.length === 0 && c.isStaff, ownerNote: !c.isOwner && orders.length === 0 && !c.isStaff, setup, setupDone: String(setup.filter(x => x.ok).length), setupTotal: String(setup.length), setupPct: (setup.filter(x => x.ok).length / setup.length * 100) + '%',
+      showNumbers: orders.length > 0, numbersTitle: money ? 'How the shop is doing' : 'Today', numbers,
+      latest: orders.slice(0, 5).map(o => ({ id: o.id, who: o.customer.name, status: (ST[o.status] || ST.fulfilled)[0], stFg: (ST[o.status] || ST.fulfilled)[1], total: money ? fmt(o.total) : o.lines.reduce((a, l) => a + l.qty, 0) + ' items', onClick: () => app.openOrder(o.id) })),
+      a: { allOrders: () => app.go('orders') }
+    };
+  }
+}
+</script>
+</body>
+</html>

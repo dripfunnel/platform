@@ -1,10 +1,11 @@
 import { getRouteApi, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { StoreFilter } from '../../api/stores'
-import { Toast } from '../common/Toast'
-import { useScreenState } from '../common/useScreenState'
+import { useScreenState, Toast } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
+import { RouteError } from '../common/RouteError'
 import { storesStates } from './storeHarness'
-import { Stores, StoresError } from './Stores'
+import { Stores, StoresError, StoresLoading } from './Stores'
 
 const storesRoute = getRouteApi('/_app/stores')
 const shellRoute = getRouteApi('/_app')
@@ -13,7 +14,7 @@ export const StoresScreen = () => {
   const page = storesRoute.useLoaderData()
   const { partner, status, storefront, setup, created, q } = storesRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
-  const forced = useScreenState(storesStates)
+  const forced = useScreenState(storesStates, harnessEnabled)
   const navigate = storesRoute.useNavigate()
   const router = useRouter()
   const arrived = useRouterState({ select: (state) => state.location.state.toast })
@@ -36,6 +37,8 @@ export const StoresScreen = () => {
     ...(created ? { created } : {}),
     ...(q ? { q } : {}),
   }
+  // Loaded on a phone, until the shell reloads it for a wider screen.
+  if (!page) return <StoresLoading />
   return (
     <>
       <Stores
@@ -51,8 +54,8 @@ export const StoresScreen = () => {
   )
 }
 
-// The route's error view: it never shows the thrown error, whose message can carry internals.
-export const StoresRouteError = () => {
+// The route's error view, by the error's code; never its message, which can carry internals.
+export const StoresRouteError = ({ error }: { error: unknown }) => {
   const router = useRouter()
-  return <StoresError onRetry={() => void router.invalidate()} />
+  return <RouteError error={error} view={(details) => <StoresError onRetry={() => void router.invalidate()} details={details} />} />
 }

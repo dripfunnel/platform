@@ -1,11 +1,15 @@
-name: Deploy API Worker
+name: Deploy a Worker
 description: wrangler deploy, against a config file and/or a named environment
 
 inputs:
   config:
     required: false
     default: wrangler.jsonc
-    description: Path to the wrangler config, relative to apps/api
+    description: Path to the wrangler config, relative to the Worker folder
+  directory:
+    required: false
+    default: apps/api
+    description: The Worker's folder, relative to the repo root
   env-name:
     required: false
     default: ''
@@ -21,7 +25,7 @@ runs:
         if [ -n "$INPUT_ENV_NAME" ]; then args+=(--env "$INPUT_ENV_NAME"); fi
         pnpm exec wrangler deploy "${args[@]}"
       shell: bash
-      working-directory: apps/api
+      working-directory: ${{ inputs.directory }}
       env:
         INPUT_CONFIG: ${{ inputs.config }}
         INPUT_MESSAGE: ${{ inputs.message }}

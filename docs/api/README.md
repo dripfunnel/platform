@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -46,6 +46,7 @@ doesn't belong to, and a test proves it (`src/router.test.ts`, `src/index.test.t
 | **Store API** (`src/apis/store`) | `/api` on each partner's portal host | `schema/store.graphql` | `apps/ui/store`, integrations (API keys), installed apps | Merchants, their staff, vendors; API keys; apps; support sessions (read-only) | **The acting store**, and for vendors their own `seller_id` |
 | **Shop API** (`src/apis/shop`) | `/shop-api` on each storefront host | `schema/shop.graphql` | `@dripfunnel/storefront-core`, merchants' own storefronts | Shoppers (public store key + optional customer session) | One store, public data only |
 | Webhooks (`src/hooks`) | `hooks.dripfunnel.com` | none | Stripe, Razorpay, Shiprocket, SES, GitHub | Providers (signature verified) | Per provider event |
+| Build calls (`src/apis/builds.ts`) | `hooks.dripfunnel.com/builds/*` | none (JSON) | A store repo's locked workflow | A GitHub Actions run (its OIDC token, storefront/LIVE-SHOP.md §9) | The one build its token and build id name (#517) |
 
 ### 2.1 What belongs in which API
 
@@ -116,6 +117,9 @@ apps/api/
       payments/             stripe/, razorpay/, cashfree/
       couriers/             shiprocket/
       storage-r2/  search-postgres/  email-ses/  cloudflare/  github/
+      sandbox/              the Durable Objects that hold Cloudflare Containers (StudioSession,
+                            StorefrontBuild): the only code that talks to apps/sandbox
+                            (storefront ARCHITECTURE §6.1)
     saas/                   partners, merchants' accounts, plans and entitlements ("Publish now"
                             allowances, publish schedule), billing, provisioning, domains,
                             storefront publishing, support access, activity/ (the activity log), ai-designer/
@@ -126,10 +130,11 @@ apps/api/
       platform/             Platform API, for partners
       store/                Store API: schema and resolvers per engine module
       shop/                 Shop API: catalog, cart, checkout, account, content
-    hooks/                  one file per provider: stripe.ts, razorpay.ts, shiprocket.ts, ses.ts, github.ts
+    hooks/                  one file per provider: stripe.ts, razorpay.ts, shiprocket.ts, ses.ts
     jobs/
       queues/               outbox-relay.ts, email.ts, search-index.ts, cache-purge.ts, import.ts
-      workflows/            provision-store.ts, publish-storefront.ts, core-upgrade.ts
+      workflows/            provision-store.ts, create-storefront.ts, publish-storefront.ts,
+                            render-page.ts, core-upgrade.ts
       cron.ts               automatic publish, cleanups
   schema/                   generated and committed: admin, platform, store, shop .graphql
   migrations/               the single migration history: 0001_init.sql, ...
@@ -207,7 +212,29 @@ request ─▶ router.ts (host, path) ─▶ apis/<api> Yoga server
 ```
 
 Side effects (emails, webhooks, search indexing, cache purges, builds) are never done in the
-request. They are outbox rows, delivered by `jobs/queues/outbox-relay.ts` after commit.
+request. They are outbox rows, delivered by `jobs/queues/outbox-relay.ts` after commit: a mutating request that succeeds (2xx) sends one wake message to the `OUTBOX_WAKE` queue, and a batch of wakes runs one sweep. Rows written after the response (in `waitUntil`) and sweeps that fail are picked up by the every-minute cron, which stays as the backstop (no binding, no wake). Every successful write costs one Queues operation, whether or not it queued a row. A kind
+with no deliverer registered (email without SES values, texts until #275 reads partners' SMS accounts) waits unclaimed. A
+deliverer that will never deliver a row throws `GiveUp` with a reason, and the row is given up, not delivered. One whose row can't go yet for a reason outside it (a partner with no live portal host) throws `NotYet`: the row is tried again later and the attempt isn't counted.
+
+### 5.1 Schedules
+
+Cron is the clock (../ARCHITECTURE.md §4). `wrangler.jsonc` lists four crons, one per cadence (#477). For the
+expression that fired, `scheduled()` runs that expression's group in `cronGroups` (`src/index.ts`); one with no group
+logs `cron_unknown` and runs nothing. Each job catches and logs its own failure, so one that fails never stops the
+rest of its group. Cloudflare gives a cron 30 s of CPU when it runs more often than hourly, and 15 minutes when it
+runs hourly or less often.
+
+| Cron | Jobs |
+|---|---|
+| `* * * * *` | expired SMS, then the outbox relay (the backstop for any wake that never arrived) |
+| `*/5 * * * *` | due domain checks, stuck exports and imports failed, unpaid orders released, ended trials, overdue stores suspended, abandoned carts marked, due cart reminders queued |
+| `0 * * * *` | exchange-rate refresh, expired exports and imports deleted with stale and abandoned Shopify connections, shopper sign-in codes and sessions purged, unfinished sign-ups purged |
+| `0 3 * * *` (UTC) | expired carts purged, webhook delivery log past a month purged, the storefront buckets cleaned (old builds, preview folders a publish made old, stores closed 90 days; storefront LIVE-SHOP.md §4 step 11, #317), the real-user vitals regression rule (storefront ARCHITECTURE §9, #484) |
+
+A purge that deletes a batch of 500 at a time repeats its batch until one comes back short, up to 60 times an hour
+or 1440 times a day, so it can delete as much as it did when it ran every minute. Rows a job queues in the outbox
+go out with the next every-minute relay. Locally, `pnpm dev` fires each cron in the minute it is due
+(`apps/api/scripts/local/dev.ts`, ../setup/local.md §6).
 
 ---
 
@@ -237,19 +264,23 @@ and retries with backoff. A fake of it goes in `tests/support/`.
 
 **A job**: single-step work is a Queue consumer in `jobs/queues/`; multi-step work with
 compensation is a Workflow in `jobs/workflows/`, recording each step in the `job` table so
-the consoles can show progress; schedules go in `jobs/cron.ts`. Every handler is idempotent.
+the consoles can show progress; a scheduled job joins the `cronGroups` group whose cadence fits it (§5.1). Every
+handler is idempotent.
 
 **A webhook**: one file per provider in `hooks/`: verify the signature, record the event id
 for idempotency, write outbox rows or engine calls, return fast.
 
-**A config value or binding**: add it to `core/config.ts` (zod) and `wrangler.jsonc`;
-secrets through `wrangler secret`, never in the repo. Pass it into `createEngine`, never
+**A config value**: add it to `core/config.ts` (zod) and to `apps/api/.env.example` with a dummy
+value; set the real one in each Worker's dashboard (Settings › Variables and Secrets) and in your
+`.env.local`, never in `wrangler.jsonc` or the repo (#272; THIRD-PARTY-ACCESS §8). **A binding**
+(Hyperdrive, R2, a queue, a rate limiter) goes in `wrangler.jsonc`, which holds bindings only. Pass it into `createEngine`, never
 read it from a global.
 
 **A migration**: add a numbered file to `migrations/` (`0002_...sql`, next number after the
-last one committed), reviewed SQL only, backward-compatible with the running release. Run
-`pnpm --filter ./apps/api migrate` (needs `DATABASE_URL` in the environment, e.g. `set -a;
-source .dev.vars; set +a`) to apply every pending file in order against your local database;
+last one committed, or the next in a block of ten reserved for a card built alongside others,
+such as 0220–0229 for #519, so parallel branches never take the same number; the runner applies
+every file not yet applied, in name order), reviewed SQL only, backward-compatible with the running release. Run
+`pnpm --filter ./apps/api migrate` (it reads `DATABASE_URL` from `apps/api/.env.local`) to apply every pending file in order against your local database;
 it refuses to run against anything but `localhost`/`127.0.0.1`/`::1` (AGENTS.md "Working
 with the user" rule 3). Each file runs inside its own transaction, so statements that
 cannot run in one (`create index concurrently`, `alter type ... add value`) must be their
@@ -267,55 +298,68 @@ test branch (`REQUIRED_POSTGRES_MAJOR` — confirmed 2026-09-30, [FEATURE-ENVIRO
 deploy. If Neon's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
 together. Install it natively — no Docker required.
 
-**macOS (Homebrew):**
+**Installing it, creating the database, `apps/api/.env.local`, `pnpm setup:local`, `pnpm dev`
+and what its local check stops on are in [setup/local.md](../setup/local.md).** This section
+keeps how the Worker and the scripts use that database.
 
-```
-brew install postgresql@18
-brew services start postgresql@18
-createuser -s dripfunnel_dev
-createdb -O dripfunnel_dev dripfunnel
-psql -d dripfunnel -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
-```
+`.env.local` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (the same
+connection string as `DATABASE_URL`, **with a password in the URL**, even a dummy one a trust-auth
+Postgres ignores): `wrangler dev --env local` uses it to make the `HYPERDRIVE` binding proxy to
+local Postgres instead of a real Hyperdrive resource, and refuses a passwordless URL.
 
-**Debian/Ubuntu:**
+The runner applies migrations as the owner of the schema's tables (DATA-MODEL.md §5.3): when
+the connecting role is another member of that owner it runs each migration under
+`set local role <owner>`, so what the migration creates stays the owner's; when it is neither
+the owner nor a member it stops before the first statement and names both roles and the grant
+that fixes it, rather than failing on Postgres's bare "must be owner".
 
-```
-sudo apt install postgresql-18
-sudo -u postgres createuser -s dripfunnel_dev
-sudo -u postgres createdb -O dripfunnel_dev dripfunnel
-sudo -u postgres psql -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
-```
+**Which role a request runs as** (DATA-MODEL.md §5.3, built on #205). `withScope`
+(`src/db/scoped/index.ts`) issues `set local role` with what `roleFor`
+(`src/db/rls/settings.ts`) returns for the caller kind: staff on the Admin API run as
+`app_platform`; partner users and staff setup sessions run as `app_partner` (#155);
+merchant-side people and support sessions run as `app_request`; supplier users as `app_supplier`
+(#295); shoppers as `app_shop` (#306), which `request_scope` holds to `shop` scope on the tables it reads;
+jobs run as `app_system` through `withSystemScope`. After the role, `withScope` sets every
+`app.*` setting of `settingsFor` in one statement, the names and values passed as two `pgArray`
+parameters to `unnest`, never spliced into the SQL (#478). A scoped transaction therefore sends
+four statements besides its work (`begin`, the role, the settings, `commit`), as `withSystemScope`
+does; `tests/scoped-settings.test.ts` holds both the count and every caller kind's values. Every policy names the roles that may use
+it, and on every tenant table four restrictive policies (`request_scope`, `partner_scope`,
+`platform_scope`, `system_scope`) hold each role to its own values of `app.scope`, so a role never passes another
+role's branch. A card that adds a role adds, in one migration, the role, its grants, the
+policies `TO` it and its pin on every tenant table (taking its scope out of `request_scope`), plus one case in `roleFor`. The
+structural tests in `tests/isolation.test.ts` fail when a policy is `TO PUBLIC` or a table
+lacks a pin; the role's grants and its `roleFor` case are proved by that card's own isolation
+tests, which run its caller through `withScope`. **Expand, then contract**: a migration
+must work with the release still live (AGENTS.md "Data"), and that release runs its callers
+under the old role, so a new role is added *beside* the old one first (the policies name
+both, the old role's pin keeps the scope), and a later card removes the old role once the
+new Worker is promoted (#210 does this for `app_platform`). Two deploy facts follow. The role that
+runs migrations creates these roles, so it needs `CREATEROLE` and, because `app_definer` is the
+one role with `BYPASSRLS`, `BYPASSRLS` itself; 0010 then makes it a member of `app_definer` to
+hand over the membership trigger. The Worker's login must be a member of every request role:
+0010 grants `app_platform` to whatever is already a member of `app_request`, and a card adding a
+role does the same.
 
-**Windows:** install Postgres 18 with the postgresql.org installer, then run the equivalent
-`createuser`/`createdb` commands from a shell (or pgAdmin) with the same names.
+Wrangler refuses that connection string without a password, so give the local role one even
+where Postgres trusts loopback connections. The Worker's client runs with `fetch_types: false`
+(`src/db/client.ts`), under which postgres.js neither sends a JavaScript array as a parameter
+nor parses an array column: pass lists through `pgArray` with an explicit cast
+(`src/db/scoped/index.ts`) and read `text[]` columns through `to_jsonb`. The test client runs
+with the same option, so a query the Worker cannot run fails the integration tests too.
 
-If port 5432 is already in use by another local Postgres, run the 18 instance on a different
-port (e.g. `5434`) and change the port in the URLs below to match.
-
-Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`; the default `DATABASE_URL` matches
-the role, password, port and database name above. `wrangler dev` reads `.dev.vars` for worker
-bindings; Node scripts and tests don't, so export it first:
-
-```
-cd apps/api
-set -a; source .dev.vars; set +a
-pnpm migrate
-```
-
-`.dev.vars` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (same
-connection string as `DATABASE_URL`) — `wrangler dev --env local` uses it to make the `HYPERDRIVE`
-binding proxy to local Postgres instead of a real Hyperdrive resource. Wrangler reads that
-specific variable from the shell environment, not from `.dev.vars` directly, so `pnpm dev`
-sources `.dev.vars` into the shell before starting wrangler; if you run `wrangler dev` by hand
-instead of `pnpm dev`, export `.dev.vars` the same way first or it'll error asking for the
-variable.
+Sign-in needs the Entra registration (THIRD-PARTY-ACCESS.md §2.5) and `pnpm dev:https` ([setup/local.md](../setup/local.md) §7.2). Without them,
+`pnpm --filter ./apps/api session <staff email>` creates a staff session for a seeded member
+and prints the cookie to set in the console; it refuses any host but loopback.
 
 There's no equivalent step in production: `apps/api/wrangler.jsonc` has no top-level
 `hyperdrive` binding yet. To provision one, run
 `wrangler hyperdrive create <name> --connection-string="postgres://..."` and add the returned
 id as `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }` under `hyperdrive` in
-`wrangler.jsonc`. Until that's done, `/health` reports `{ ok: true, db: "unconfigured" }`
-rather than failing.
+`wrangler.jsonc`, **with `"HYPERDRIVE_REQUIRED": "1"` in that environment's vars**. Until
+that's done, `/health` reports `{ ok: true, db: "unconfigured" }` rather than failing. Where
+`HYPERDRIVE_REQUIRED` is set (dev, local and every feature environment today, built on #30), a
+missing binding answers 503 with `db: "missing"`, so a lost or renamed binding goes red.
 
 Migrations may declare `create extension if not exists "..."`; the runner checks every
 required extension is installed on the server before applying anything
@@ -323,19 +367,24 @@ required extension is installed on the server before applying anything
 install it (`postgresql-contrib` / `postgresql-contrib-18`) rather than partially applying.
 
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
-`.dev.vars.example` or `wrangler.jsonc` ever points at
-`dbpg01.softobotics.org`. The only exception is the `dev` deploy workflow
-(`.github/workflows/dev.yml`), which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply
-migrations to the persistent Neon `dev` branch; the guard
+`.env.example` or `wrangler.jsonc` ever points at
+`dbpg01.softobotics.org`. The exceptions are the deploy workflows, each of
+which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply migrations to its own Neon
+branch: `dev.yml` (the persistent `dev` branch), `prod.yml` (production) and
+`feature-env.yml` (the feature environment's branch). The guard
 (`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
 by GitHub Actions) so the override can't be tripped by an env var left in a
 shell profile or `.env` on a developer machine, and requires the connection
-string's host to exactly match the `ALLOWED_MIGRATION_HOST` GitHub Actions
-variable (set to the `dev` branch's literal Neon hostname), so a
-misconfigured `DATABASE_URL` can't silently migrate a different Neon project
-(production included).
+string's host to exactly match `ALLOWED_MIGRATION_HOST`, so a misconfigured
+`DATABASE_URL` can't silently migrate a different Neon project (production
+included). In `dev.yml` and `prod.yml` that is the `ALLOWED_MIGRATION_HOST`
+variable of the job's GitHub environment (`dev` or `prod`), set to that
+branch's literal Neon hostname. In `feature-env.yml` it is the host the run's
+own *Database branch* step just created (`steps.neon.outputs.host`), since a
+feature branch's host is new per branch and no fixed variable could name it
+([FEATURE-ENVIRONMENTS.md §3](../code/FEATURE-ENVIRONMENTS.md)).
 
-The same workflow's Gates step (`build typecheck lint test`) is a second,
+The `dev` and `prod` workflows' Gates step (`build typecheck lint test`) is a second,
 separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,
 disposable Neon branch kept only for CI test runs, not the persistent `dev`
 branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same
@@ -349,7 +398,7 @@ A **local** host is always allowed, whether or not the override is set, so a
 CI step can turn the override on for a whole test run without the local
 database being refused by the host match.
 
-`pnpm test` needs this same database up and `.dev.vars` exported (see above):
+`pnpm test` needs this same database up, and reads `DATABASE_URL` from `.env.local` (see above):
 `scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
 `scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
 default above when unset), the way CI's `postgres:18` service does
@@ -364,7 +413,20 @@ Cloudflare; a request without it (only possible off Cloudflare, e.g. `wrangler d
 `/health` also returns the Worker's `version` (a Cloudflare-assigned version UUID, from
 `CF_VERSION_METADATA`), unauthenticated, so that `promote.yml`'s post-promotion health check
 can confirm prod is serving the version it just promoted. This is intentional: the UUID
-identifies a build, not a secret, and knowing it grants no access.
+identifies a build, not a secret, and knowing it grants no access. On dev and local hosts it also returns
+`integrations` (which of Entra, Stripe, SES and assets are `configured` or `missing`, never a value); a production
+host leaves it out, since which integration is missing would tell a caller where a check is off.
+When `db` is `"ok"` it also returns `dbLatencyMs`, how long that database check took, on every host:
+a timing grants no access, and prod is where it's worth watching (#639). Any other `db` leaves it
+out, since nothing answered.
+
+### Local, the same as dev
+
+1. `cp apps/api/.env.example apps/api/.env.local` and put the dev test values in it (THIRD-PARTY-ACCESS §8).
+2. `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"`, and set the `whsec_…` it prints as `STRIPE_WEBHOOK_SECRET`.
+3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
+   `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
+   presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
 
 ---
 
@@ -415,4 +477,5 @@ Carried from PLATFORM-PROMPT §10 where they decide API shape:
 - Is the Platform API GraphQL like the others? *(Today all four are GraphQL; confirm.)*
 - How a support session opened from the partner console reaches the merchant's portal host
   (§2.1). Staff never open one (ACCESS §8); they impersonate.
-- Which of API keys, webhooks and apps ship first; API rate limits and quotas per plan.
+- ~~Which of API keys, webhooks and apps ship first; API rate limits and quotas per plan.~~ All three in the first
+  release, limits per plan and per store (decided on #337); keys are built on #330 (ACCESS §5.6).

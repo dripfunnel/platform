@@ -8,13 +8,14 @@ export type SellerScope = { kind: 'all' } | { kind: 'seller'; sellerId: string }
 
 export type StoreCaller =
   | { kind: 'person'; userId: string; sessionId: string }
-  | { kind: 'shopper'; customerId: string | null }
+  | { kind: 'shopper'; customerId: string | null; orderTokenHash?: string | null }
   | { kind: 'api-key'; keyId: string; createdByUserId: string }
   | { kind: 'app'; grantId: string; appId: string }
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }
   | { kind: 'support'; supportSessionId: string; partnerUserId: string; access: 'read' | 'write' }
 
-export type Subscription = 'trialing' | 'active' | 'past_due' | 'canceled' | 'suspended'
+// store_subscription.status's spellings (DATA-MODEL.md §7.9), plus the store's own suspension.
+export type Subscription = 'trial' | 'active' | 'past_due' | 'cancelled' | 'suspended'
 
 export interface TenantContext {
   caller: StoreCaller
@@ -26,9 +27,12 @@ export interface TenantContext {
   subscription: Subscription
 }
 
-/** A partner user or a staff setup session on the Platform API: no store, no seller scope. */
+/** A partner user, a staff member impersonating one, or a staff setup session on the Platform API: no store, no seller scope. */
 export interface PartnerContext {
-  caller: { kind: 'partner-user'; partnerUserId: string } | { kind: 'staff-setup'; staffId: string; setupSessionId: string }
+  caller:
+    | { kind: 'partner-user'; partnerUserId: string }
+    | { kind: 'impersonation'; partnerUserId: string; staffId: string; impersonationId: string }
+    | { kind: 'staff-setup'; staffId: string; setupSessionId: string }
   partnerId: string
 }
 

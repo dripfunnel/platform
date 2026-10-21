@@ -25,6 +25,8 @@ export const featureConfig = (base: Base, names: Names, zone: string, hyperdrive
     ADMIN_HOST: names.host('admin'),
     PLATFORM_HOST: names.host('platform'),
     HOOKS_HOST: names.host('hooks'),
+    // A feature environment always has its database (#30).
+    HYPERDRIVE_REQUIRED: '1',
   },
   routes: [
     ...(['admin', 'platform', 'store'] as const).map((spa) => ({ pattern: `${names.host(spa)}/api/*`, zone_name: zone })),

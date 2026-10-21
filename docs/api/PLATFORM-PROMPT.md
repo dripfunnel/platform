@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -164,25 +164,30 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
     [CONSOLE-DESIGN]
 
 **Storefront and AI**
-11. **A repo per store** from a shared template, AI-editable theme vs locked commerce.
+11. **A repo per store** from a shared template, an AI-written theme vs locked commerce.
     [SAAS-PLAN §1–2] **Now decided and specified in `../storefront/`**:
     commerce ships as a versioned package, `@dripfunnel/storefront-core`, which the AI
-    can't edit; the AI owns `src/theme/**`, and changes **look, not logic**; the template is
-    internal and fully automated, so merchants never see code.
-12. **A sync bot** keeps the core package version current across the fleet, with canaries,
-    and upgrade notes for majors. [SAAS-PLAN §5, docs/storefront/ARCHITECTURE.md §7]
+    can't edit; the AI writes the store's **theme code** inside a file allowlist, a code
+    validator, sealed components and gates (decided 2026-10-08 on #470, "Plan A"), and changes
+    **look and front-end behaviour, not commerce**; the template is internal and fully
+    automated, so merchants never see code.
+12. **A sync bot** (the upgrade bot) keeps the core package version current across the
+    fleet, with canaries, codemods, a migration agent per store, and upgrade notes for majors. [SAAS-PLAN §5, docs/storefront/ARCHITECTURE.md §7]
 13. **Two links per store** (docs/storefront/ARCHITECTURE.md §4): a **preview** SPA on
     the brand's preview subdomain with live data and no SSR or SSG, and a **live** static
     (SSG) site on the customer's domain. The live site stays current through a
-    client-rendered fallback for new pages, catalogue publishing (a "Publish now" button
+    single-page render for each new or renamed product (decided 2026-10-08 on #470), a
+    client-rendered fallback until it lands, catalogue publishing (a "Publish now" button
     limited to a monthly number of builds per plan, plus automatic periodic publishing of
     every store with changes), and edge
     rules for removed products. This replaces SAAS-PLAN §6's "catalogue changes never
     rebuild" for the live site only.
-14. **AI never publishes straight to production**: describe → build and test in a sandbox →
-    preview → approve → commit → publish, with undo as `git revert`. Guardrails: path
-    allowlist, build and typecheck, smoke test, dependency allowlist, per-plan budgets.
-    [SAAS-PLAN §7]
+14. **AI never publishes straight to production**: describe → check in the store's sandbox
+    (Cloudflare Containers) → commit → preview → approve → publish through the full gate, with
+    undo as `git revert` and automatic rollback after deploy. Guardrails: file allowlist, the
+    validator, build and typecheck, budgets, the checkout smoke test, sealed components, CSP,
+    per-plan budgets ([`../storefront/ARCHITECTURE.md`](../storefront/ARCHITECTURE.md) §3,
+    §4.2, §6). [SAAS-PLAN §7]
 
 **Engineering**
 15. **Stack**: React, Drizzle, Postgres (Neon via Hyperdrive), zod, Vitest, Playwright;
@@ -195,7 +200,8 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
 16. **The browser holds no privileged token.** Portal and DF Admin sessions are server-side,
     behind an `httpOnly` cookie; idle 2 h, absolute 12 h. [ARCHITECTURE §7] API keys belong to
     servers, never to browsers; the Shop API's public store key is the only credential a
-    browser may hold.
+    browser may hold. The merchant mobile app is not a browser: it carries the same server-side
+    session as a bearer token in the phone's secure storage (ACCESS.md §4, decided on #490).
 17. **Every endpoint declares its scope, structurally.** The first platform's design did it with tRPC
     procedure bases and a test walking the router tree [ARCHITECTURE §4.2]. In GraphQL the
     same rule applies to resolvers: each one declares its API (Shop, Store, Platform or Admin), its
@@ -252,7 +258,7 @@ The old framework provided these, and the new engine must replace each one. The 
 | **Promotions** | Automatic and code offers, conditions, actions, dates, limits | OFFERS prompt |
 | **Cart and checkout** | Guest and signed-in carts, addresses, shipping selection, tax and discounts, payment, order placement | new |
 | **Orders** | Order lifecycle, payments, fulfilment, cancellations, per-vendor views | DESIGN-BRIEF §F |
-| **Payments** | Stripe and Razorpay per merchant (merchant's own keys), webhooks, refunds | §5.4 Payments |
+| **Payments** | Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery and bank transfer per merchant (merchant's own keys), webhooks, refunds | §5.4 Payments |
 | **Shipping** | Methods, zones, charge strategy (free, fixed, pass-through, free over a threshold), Shiprocket and other couriers | §5.4 Shipping |
 | **Customers** | Shopper accounts, addresses, customer groups | OFFERS §3 fact 12 |
 | **Search** | Storefront search and filters, portal search | SAAS-PLAN §12 |
@@ -275,8 +281,10 @@ Decide for each whether it is in the first release (§8):
 - Offers: collections as targets, exclusions, combination rules, bulk unique codes, first
   order only, specific customers, per-currency fixed amounts, tiered discounts and caps, an
   internal name separate from the shopper-facing one.
-- Stores: a real time zone, home country and selling markets, unit system, and tax
-  registrations per country.
+- Stores: home country and selling markets, and tax registrations per country. **Decided
+  2026-10-02 (first release, designed in Settings › Store info)**: a real **time zone** (offer
+  schedules, reports and order times use it), a **unit system** (metric or imperial) and an
+  **order-number format** (an upper-case prefix of up to six characters plus the next number).
 - Plans and entitlements as a first-class, server-enforced model.
 
 ---
@@ -329,14 +337,15 @@ leaks structurally hard:
   collection contents, exports, reports, notifications.
 - **Isolation tests**: two stores and two vendors per test; every endpoint asserts nothing
   crosses. The archived `e2e:settings` two-store check is the model.
-- Unique constraints are per store (SKU, web address, coupon code), never global.
+- Unique constraints are per store (web address, coupon code), per owner for a SKU (#293), never global.
 
 ### 5.2 Identity, sessions, roles
 
 - Our own users table: one account per person per partner (email unique within a partner,
   ACCESS.md §2), password hashes
   (argon2id), Google sign-in, email and phone verification codes stored hashed with attempt
-  counters, optional 2-factor *(ask: Owners only, or everyone)*.
+  counters, 2-factor **required for Owners and optional for everyone else** (authenticator app
+  or SMS, backup codes; decided 2026-10-02, ACCESS.md §2 and §4).
 - `membership(user_id, store_id, seller_id, role_key)`: role keys map to **permission sets in
   code**. Nothing is cloned; changing a role takes effect on the next request.
 - Invitations: token hashed, expiring, resendable, revocable, with the identical response
@@ -384,25 +393,50 @@ Design each module's responsibilities, tables, public API, events and invariants
   CATALOG parts P–T behind entitlements.
 - **Inventory**: stock per (version, warehouse), on hand and reserved, stock movements with
   reasons (a ledger, so history exists), default warehouse per owner, low-stock thresholds.
+  **Decided 2026-10-02**: every change is a movement with a reason, who, where and the
+  resulting quantity; a typed number is recorded as "Typed a new number"; orders, returns,
+  imports and suppliers write movements too; the portal shows the history per product and per
+  version. **Reserved** is "sold, not shipped yet": units in paid orders not yet fulfilled.
 - **Tax**: tax classes; zones; rates per store, class and zone; inclusive or exclusive pricing;
-  exemptions. Decide whether US sales tax uses a tax service *(ask)*.
+  exemptions. **US sales tax uses Stripe Tax** (decided 2026-10-04 on #184), on the merchant's own Stripe
+  account through Connect (decided 2026-10-05 on #284); India's GST uses the
+  store's own rates.
 - **Promotions**: the OFFERS prompt's full model. Conditions with AND/OR, actions on products,
   collections, order and shipping, combination rules, deterministic application order,
   per-currency amounts, bulk codes, usage counting that survives concurrency.
 - **Cart and checkout**: pricing is computed server-side, always. Carts expire; prices and
-  offers are re-evaluated on change; stock is reserved at a defined point *(decide)*.
+  offers are re-evaluated on change; **stock is reserved when the order is paid** ("reserved" is
+  sold and not yet shipped, Inventory above) and checkout re-checks availability at payment
+  (decided 2026-10-04 on #184). **Orders paid later** (cash on delivery, bank transfer; decided
+  2026-10-05 on #284): the order is accepted when placed, so it reserves then, after the same
+  re-check; cancelling it releases the stock, and so does a bank transfer left unpaid for **3
+  days**, a system cancellation logged with the system as actor (LOGGING §3); "Mark as paid"
+  (Owner and Manager, ACCESS §5.1) doesn't re-check stock the order already holds.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
-  warehouse, cancellations and refunds (the archived plan left multi-vendor refunds
-  undesigned; design them now or scope them out explicitly).
-- **Payments**: provider adapters (Stripe, Razorpay first) using each merchant's own
-  credentials, encrypted at rest; webhooks idempotent; refunds. Decide whether a marketplace
-  model (Stripe Connect, Razorpay Route) is needed for vendor payouts *(ask)*.
+  warehouse, cancellations and refunds. **Returns and refunds across vendors were decided
+  2026-10-02**: per-line returns and refunds, each supplier refunding its own lines, the store
+  able to override into a supplier ledger, fulfilment by the shipping mode stored on the
+  order part. ACCESS.md §7.3 owns the rules; DATA-MODEL.md owns the tables.
+- **Payments**: provider adapters (the first release's seven: Stripe, PayPal, Razorpay, Cashfree,
+  PhonePe, cash on delivery, bank transfer, §8) using each merchant's own
+  credentials, encrypted at rest; webhooks idempotent; refunds. **Vendor payouts, decided
+  2026-10-02**: not in the platform for now; a per-store supplier ledger, settled outside
+  (ACCESS.md §7.3 owns the rule, DATA-MODEL.md §2.2 names the table); a marketplace model is later.
 - **Shipping**: methods, zones, the charge strategies (free, fixed, the courier's rate passed
-  through, free over a threshold), courier
-  adapters (Shiprocket first, the archived `courier_partner` model), tracking status sync.
-- **Customers**: accounts, addresses, groups, consent; what a vendor may see of a customer
-  (name and address to ship, not email or phone, AUTH-PLAN §8.5) applied in the serializer.
+  through, free over a threshold), courier adapters (Shiprocket first, the archived
+  `courier_partner` model), tracking status sync. **Designed 2026-10-02** (`SetOps`,
+  `PortalOrders`): booking a label through the courier or entering tracking by hand, pickup
+  schedule (every working day or on request), label size, tracking emails on or off,
+  collection hours for pickup in person, a postcode list for where the store delivers, and
+  per-supplier shipping mode (ACCESS.md §5.2).
+- **Customers**: accounts, addresses, **groups** (named, with members; used by offers),
+  **tags**, a **note** only the team sees, **marketing consent** (opted in at checkout or by
+  email, asked to stop, declined by not ticking the box, never asked; recorded with when and
+  where; only the shopper opts in,
+  the store may record a stop), customers added by hand (order emails only), export. What a
+  vendor sees of a customer is decided by the supplier's shipping mode and applied in the
+  serializer (ACCESS.md §7.3): nothing, or name and delivery address.
 - **Search**: Postgres full-text first, Typesense later if needed, behind one interface;
   vendor-scoped in the portal, visibility-scoped in the storefront.
 - **Import/export**: CSV and Shopify, validate before any write, partial-failure reports,
@@ -425,9 +459,9 @@ engine. Each has its own schema, its own auth and its own rate limits.
   and totals. A storefront can display them but never assert them. This is what makes the
   AI-designed storefront safe to change freely, and a merchant's own storefront safe to
   allow at all.
-- Catalogue queries are **edge-cacheable**: persisted queries, cache keys per store,
-  language and currency, and cache tags per product and collection, purged by events
-  (§5.6). Cart, checkout and account queries are uncached and rate-limited per shopper and
+- Catalogue queries are **edge-cacheable**, keyed by store, its catalogue version, host,
+  language, currency and market, and the query itself (a POST body hashed); a change a
+  storefront shows moves the version, which is the purge (built on #306; FIRST-RELEASE §19). Cart, checkout and account queries are uncached and rate-limited per shopper and
   per store.
 - **Stable across the fleet**: a thousand AI storefronts and every merchant's own frontend
   depend on it. Additive changes only; deprecation with a published timeline; schema diffs
@@ -467,8 +501,9 @@ or admin console (ACCESS.md §8), integrations and apps:
 - **The storefront itself is specified in `../storefront/`** (ARCHITECTURE.md and
   DESIGN.md): the core package, the theme contract, the preview and live modes, the AI loop and
   fleet upgrades. This section covers only the hosting side.
-- **Unchanged**: repo per store, AI-editable theme vs locked core, CI path guard, dependency
-  allowlist, sync bot, AI loop with preview before publish, `git revert` undo.
+- **Unchanged**: repo per store, AI-written theme vs locked core, the file allowlist (the old
+  CI path guard), dependency allowlist, upgrade bot, AI loop with preview before publish,
+  `git revert` undo.
 - **Two deployments per store**: the preview SPA and the live static site, each with its own
   hostname and cache rules.
 - **Changed**: builds deploy to **Cloudflare** instead of S3 + CloudFront. Evaluate and
@@ -480,16 +515,24 @@ or admin console (ACCESS.md §8), integrations and apps:
 
   Compare account limits at 1,000+ stores, deploy API, preview URLs, rollback, cost, and how
   run-time catalogue fetches and caching work. **Verify every limit against Cloudflare's
-  current documentation**; don't rely on memory.
+  current documentation**; don't rely on memory. **Decided 2026-10-05 on #284: a Cloudflare Pages
+  project per store**; INF 0 checks and raises the per-account project limit. The comparison
+  above stays as the reasoning. **Replaced 2026-10-09 with Gaurav**: Pages allows 100 projects
+  per account, not routinely raised, so each build's files go to R2 and one edge Worker serves
+  every store; builds run in each store's public repo on GitHub Actions
+  ([`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §1).
 - **Custom domains** through **Cloudflare for SaaS** (custom hostnames with automatic
   certificates), replacing the first platform's AWS ACM + CloudFront work (`provision-domain`). Keep
-  the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), and cover brand
-  storefront wildcards (`*.shops.partner.com`).
-- **Builds** still run in GitHub Actions through the GitHub App, and deploy with the
-  Cloudflare API using a scoped token held by the platform, never in a tenant repo *(or
-  recommend a build service)*.
-- **Cache purge** on catalogue change by tag or URL (check what the plan allows).
-- **Assets** on R2 with image resizing *(ask: Cloudflare Images vs our own variants)*.
+  the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), a store's free
+  address is `{slug}.my-store.one`, on our own zone (USERS-AND-DOMAINS §2).
+- **Builds** run in the store repo's locked workflow inside the build image (private on `ghcr.io`, pulled with the org's `GHCR_PULL_TOKEN`, #790)
+  (`apps/sandbox`) from the store's commit and a catalogue snapshot, offline, and upload to R2
+  through a 15-minute credential limited to a private staging folder, minted after a GitHub OIDC
+  check and a passing report; the API copies the verified files into the build's write-once
+  folder, so no upload token ever sits in a repo (decided 2026-10-09;
+  [`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §4).
+- **Cache purge** on catalogue change: the Shop API's own answers by the catalogue version in their key (§5.5); the static storefront files by build id in the cache key, so a publish needs no purge of them ([`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §5).
+- **Assets** on R2, served through **Cloudflare image resizing** (decided 2026-10-05 on #337).
 - Degraded storefront for past-due or suspended stores, served at the edge.
 - **A store may have no AI storefront at all.** A merchant using their own frontend gets a
   public store key, allowed origins (CORS), checkout and account URLs they control, and no
@@ -508,8 +551,9 @@ or admin console (ACCESS.md §8), integrations and apps:
   record DF Admin reads (`../ARCHITECTURE.md` §5).
 - Provisioning becomes: store and membership rows, defaults, repo from template, secrets and
   variables, Cloudflare project or worker, first build, domain. Each step has a compensation.
-- AI runs: where the agent executes (sandbox), budgets per plan, `ai_run` metering (archived
-  ARCHITECTURE §14 left this open; answer it).
+- AI runs: the model is called by the Worker and its changes run in the store's container
+  (Cloudflare Containers, decided 2026-10-08 on #470, replacing GitHub Actions), budgets per
+  plan, `ai_run` metering with container time and repairs (the platform's cost).
 - Billing: Stripe Billing for subscriptions, webhooks with idempotency, `past_due` gating
   cached on the session with invalidation. Plus the two-level white-label money model from
   CONSOLE-DESIGN §3 fact 20 *(ask which comes first)*.
@@ -521,7 +565,8 @@ or admin console (ACCESS.md §8), integrations and apps:
   (`../ARCHITECTURE.md` §4, §6).
 - Every log line carries store, seller and brand ids. Tracing across API, worker and edge.
 - The §14 metrics from the first store: build minutes, AI cost, provisioning success, time to
-  first store, failed builds after AI edits, template drift.
+  first store, failed builds after AI edits, repairs, refused and rolled-back publishes, core
+  drift and pinned stores.
 
 ### 5.9 Testing
 
@@ -600,7 +645,8 @@ designed, don't restart:
     replay, failing-endpoint alerts);
   - **Apps**: browse, install with scope consent, configure, uninstall, and what an app can
     see;
-  - a vendor's own API key for their stock or catalogue integration, if allowed *(ask)*;
+  - a vendor-bound API key, created by the Owner for a supplier's stock or catalogue
+    integration (ACCESS §5.6) (decided 2026-10-05 on #337); a supplier creating its own stays later (DESIGN-BRIEF 78);
   - in DF Admin: app registrations and review, API usage and abuse limits per store.
   Write these for a non-technical merchant who needs to hand details to a developer, not for
   the developer.
@@ -639,13 +685,37 @@ app actually running and exercised, and nothing regressed. A suggested skeleton 
    Cloudflare hosting, provisioning of the storefront, custom domains.
 7. Cart, checkout, payments, shipping, orders, vendor sub-orders, emails.
 8. Offers.
-9. AI designer loop, sync bot.
+9. AI designer loop (the sandbox, the validator, the gates), upgrade bot.
 10. Headless for merchants: public store keys and allowed origins, own-storefront stores,
     API keys, webhooks; then store custom fields; then apps.
 11. Billing and plans; DF Admin; white-label brands.
 12. Search, import/export, reporting, scale hardening.
 
 State what the smallest sellable first release is, and what is explicitly deferred.
+
+**The first release (decided 2026-10-04 on #184; ui/store/FIRST-RELEASE.md is the screen-by-screen
+scope and §20 there the card list).** Gaurav took the larger answer to every scope question: the
+release is everything the Store prototype draws plus the designed-but-undrawn parts.
+- **Commerce modules**: catalogue with versions, photos, collections, filters, menus, size
+  charts, A+ content and the listing sections; inventory with the movement ledger; money;
+  tax; **all four product kinds** (physical, digital, services, gift cards; the last three
+  designed first); markets, currencies and languages; suppliers and approval; offers; cart
+  and checkout; orders with supplier parts, returns and refunds; customers with groups and
+  consent; abandoned carts; import and export (CSV and Shopify); reports with a custom
+  builder; the AI storefront and the merchant's own; API keys, webhooks and apps.
+- **Stock reservation**: at payment; cash on delivery and bank transfer at placement (a transfer
+  unpaid after 3 days is cancelled; decided 2026-10-05)
+  (§5.4 Cart and checkout).
+- **Regions**: **India and the US**.
+- **Payment providers**: Stripe, PayPal (US); Razorpay, Cashfree, PhonePe, cash on delivery
+  (India); bank transfer (both). **US sales tax**: Stripe Tax, on the merchant's own Stripe account
+  through Connect (decided 2026-10-05 on #284).
+- **Couriers**: Shiprocket (India); USPS, UPS and FedEx through one aggregator, **EasyPost**
+  (decided 2026-10-05 on #337).
+- **Email**: Amazon SES for shopper and portal email, abandoned-cart reminders included.
+- **WhatsApp reminders** ship with email in India, through MSG91 (decided 2026-10-05 on #337).
+- **Deferred**: other regions (the prototype's DE pack
+  stays a demo control), in-platform supplier payouts (§5.4 Payments), Typesense (§5.4 Search).
 
 ---
 
@@ -666,42 +736,49 @@ State what the smallest sellable first release is, and what is explicitly deferr
 ## 10. Open questions: ask, don't assume
 
 **The change itself**
-- Is there **live data on the first platform** (the existing DripFunnel store, any tenant
-  stores) that must be migrated, and is there a cut-over date?
-- Existing tenant storefront repos: rewrite their `core/` against the new API, or recreate
-  them?
+- ~~Is there **live data on the first platform** (the existing DripFunnel store, any tenant
+  stores) that must be migrated, and is there a cut-over date?~~ **No: a fresh start** (decided
+  2026-10-05 on #284).
+- ~~Existing tenant storefront repos: rewrite their `core/` against the new API, or recreate
+  them?~~ None: a fresh start (#284).
 - ~~Does anything else still depend on the first platform's backend?~~ **Settled
   2026-09-29**: its projects are removed from the workspace; nothing depends on them.
 
 **Architecture**
 - Does tRPC survive for portal-only screens, or does the portal use the Store API alone?
-- Is the Platform API GraphQL too, or internal only?
+- ~~Is the Platform API GraphQL too, or internal only?~~ Decided 2026-10-03 on #155: GraphQL, like the Admin API.
 - ~~Postgres RLS as defence in depth?~~ Decided: yes, the backstop (DATA-MODEL.md §5).
 - One database for all brands and stores, or a shard or database per brand later?
-- Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?
-- Cloudflare Images or our own image variants?
-- Where does the AI agent execute, and where do builds run?
+- ~~Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?~~
+  **A Pages project per store** (decided 2026-10-05 on #284); replaced by R2 and one edge
+  Worker for every store (decided 2026-10-09, `../storefront/LIVE-SHOP.md`).
+- ~~Cloudflare Images or our own image variants?~~ **Cloudflare image resizing** (decided 2026-10-05 on #337).
+- ~~Where does the AI agent execute, and where do builds run?~~ ~~**Both in GitHub Actions**
+  (decided 2026-10-05 on #284).~~ **Both in Cloudflare Containers** (decided 2026-10-08 on #470).
 
 **Headless**
-- Which of **API keys, webhooks and apps** ship in the first release? (The answer given so
-  far was "all three, and nothing yet": design all three, and confirm which are exposed
-  first.)
-- Own storefronts: our hosted checkout, their own checkout on the Shop API, or both?
-- Can a store switch between an AI storefront and its own, and do plans differ?
+- ~~Which of **API keys, webhooks and apps** ship in the first release?~~ **All three**, with the
+  merchant's own storefront (decided 2026-10-04 on #184, §8).
+- ~~Own storefronts: our hosted checkout, their own checkout on the Shop API, or both?~~ **Both**: our hosted, partner-branded checkout by default, their own on the Shop API if they choose (decided 2026-10-05 on #337).
+- ~~Can a store switch between an AI storefront and its own, and do plans differ?~~ **Switch any time**; the partner decides per plan whether 'own' is included (decided 2026-10-05 on #337).
 - ~~Can vendors have their own API keys?~~ Later (ACCESS.md §5.6).
-- Apps: public marketplace or private per-store apps first? Embedded UI in the portal?
-- Developer docs and the SDK: branded per white-label brand, or always DripFunnel?
-- API rate limits and quotas per plan?
+- ~~Apps: public marketplace or private per-store apps first? Embedded UI in the portal?~~ **Private apps first**, shown as links to their own site, no embedded pages, no marketplace (decided 2026-10-05 on #337).
+- ~~Developer docs and the SDK: branded per white-label brand, or always DripFunnel?~~ **Always DripFunnel** for now (decided 2026-10-05 on #337).
+- ~~API rate limits and quotas per plan?~~ **Per plan from day one**, as entitlements (SAPI 19) enforced on API keys and the Shop API (SAPI 20) (decided 2026-10-05 on #337).
 
 **Commerce scope for the first release**
-- Which regions at launch (India, US, EU, UK, Gulf…)? Which payment providers and couriers?
-- US sales tax: own rates or a tax service (Stripe Tax, Avalara, TaxJar)?
-- Vendor payouts: does DripFunnel or the merchant pay vendors (Stripe Connect, Razorpay
-  Route), or is it outside the platform?
-- Refunds, returns and cancellations across vendors: first release or later?
-- Digital products, services, gift cards: first release or later?
-- Which "needs backend" items from the catalogue and offers prompts are first release?
-- When is stock reserved: added to cart, checkout started, or payment?
+- ~~Which regions at launch? Which payment providers and couriers?~~ ~~US sales tax?~~ **Decided
+  2026-10-04 on #184** (§8): India and the US, the providers and couriers listed there, Stripe Tax.
+- ~~Vendor payouts: does DripFunnel or the merchant pay vendors (Stripe Connect, Razorpay
+  Route), or is it outside the platform?~~ **Settled 2026-10-02**: outside, from a per-store
+  supplier ledger (§5.4 Payments); in-platform payouts later.
+- ~~Refunds, returns and cancellations across vendors: first release or later?~~ **Designed
+  2026-10-02** (§5.4 Orders, ACCESS.md §7.3); the release is ui/store/FIRST-RELEASE.md's (written on #184: all of it ships, §1).
+- ~~Digital products, services, gift cards: first release or later?~~ ~~Which "needs backend" items
+  from the catalogue and offers prompts are first release?~~ **All of them** (decided 2026-10-04
+  on #184, §8; ui/store/FIRST-RELEASE.md §1).
+- ~~When is stock reserved: added to cart, checkout started, or payment?~~ **At payment** (decided
+  2026-10-04 on #184, §5.4 and §8).
 
 **Brand and billing**
 - White label's money model (partner billed, merchants billed on the partner's behalf, or
@@ -714,8 +791,11 @@ State what the smallest sellable first release is, and what is explicitly deferr
   See SAAS.md §6, §9.)
 
 **Carried from the first platform, still open**
-- Does editing an approved vendor product send it back for approval?
-- What happens to a removed or suspended vendor's products?
-- 2-factor for Owners only, or everyone?
+- ~~Does editing an approved vendor product send it back for approval?~~ **Settled 2026-10-02**:
+  only for name, price or photo changes, hidden until approved (ACCESS.md §7.2).
+- ~~What happens to a removed or suspended vendor's products?~~ **Settled 2026-10-02**: removed →
+  hidden and kept; suspended → the Owner chooses hide or keep selling (ACCESS.md §7.5).
+- ~~2-factor for Owners only, or everyone?~~ **Settled 2026-10-02**: required for Owners,
+  optional for everyone else (ACCESS.md §2).
 - What happens to a past-due store's vendors? (Past due never blocks sign-in: §2 item 7.)
-- Retention and export on cancellation (SAAS-PLAN §15).
+- ~~Retention and export on cancellation (SAAS-PLAN §15).~~ The storefront stays live to the end of the paid period; data, assets and repo kept **90 days** with export offered, then deleted; orders and invoices as the law requires (decided 2026-10-05 on #337).

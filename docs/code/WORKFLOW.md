@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-17 (`templates.yml`, §2.2). Before: 2026-10-09 (#522: `@claude` in issues and pull request comments, §7).
 
 ---
 
@@ -19,7 +19,7 @@ Last updated: 2026-09-29.
 | **Claude reviews every pull request, and the check fails** (§7) — reversed 2026-09-30 (#70); it was advisory until then | Advisory only, which is what we had | Advisory meant two things went unnoticed: a review that found something, and a review that never ran at all, because `continue-on-error` made a broken token look exactly like a clean bill of health. **The cost is accepted knowingly**: a non-deterministic judgement can now turn a check red, and the temptation will be to re-run until it passes. That is not the way past it — fix the finding or reply saying why not (§7). If it goes red for bad reasons often, fix the prompt, don't loosen the check. |
 | **Only new feature development gets a feature environment** (`feature/…`). Tasks and bugs run the gates only | An environment for every branch or pull request | Environments cost money and Hyperdrive slots (at most about 25 at once, [FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md) §5). Only a new feature needs clicking through before it merges |
 | **Small pull requests: about 400 changed lines at most**, not counting generated files and the lockfile | Large pull requests that ship a whole area | A reviewer can read every line properly, so mistakes in tenancy, layers and reuse get caught |
-| **`main` and `dev` are protected**: pull requests only, the `gates` and `naming` checks must pass, no force-push, no direct push or commit by anyone, AI agents included | Direct pushes | Pushing `main` is a production action ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6) |
+| **`main` and `dev` are protected**: pull requests only, the `review`, `gates` and `naming` checks must pass, no force-push, no direct push or commit by anyone, AI agents included | Direct pushes | Pushing `main` is a production action ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6) |
 | **Reviews follow experience**: the senior developer reviews junior work; the lead reviews senior work, with `/code-review` as a second pass | Self-merge; review by whoever is free | Every change is read by someone who knows the architecture at least as well as its author |
 | **Squash and merge** *(proposed)* | Merge commits; rebase merges | `main` gets one commit per work item, easy to read and to revert |
 
@@ -67,8 +67,19 @@ that also closes another issue names that one.
 | Where | What it refuses | Can it be skipped? |
 |---|---|---|
 | **Git hooks** in `.githooks/`, turned on once per clone with **`pnpm git-hooks`** | Committing on `main` or `dev`; committing on a branch not named `#<issue>/<kind>/<short-name>`; a commit message without `#<issue>`; pushing to `main` or `dev`; pushing a misnamed branch | Yes, with `--no-verify`, so the next two exist |
-| **`naming` check** on every pull request ([`.github/workflows/naming.yml`](../../.github/workflows/naming.yml)) | A misnamed branch; a commit or title without `#<issue>`; a title whose number isn't the branch's; a number that isn't an issue in this repo; a branch whose issue is closed | No, once it is a required check (below) |
+| **`naming` check** on every pull request, last in the chain below, and again by [`naming.yml`](../../.github/workflows/naming.yml) when a title is edited | A misnamed branch; a commit or title without `#<issue>`; a title whose number isn't the branch's; a number that isn't an issue in this repo; a branch whose issue is closed | No, once it is a required check (below) |
 | **GitHub rulesets** on `main` and `dev` (below) | Any push or merge that isn't a reviewed pull request with passing checks; force-push; deletion | Only by the people on the bypass list; keep it empty |
+
+**A pull request's checks run one after another**, in
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml): `review` (§7), then `gates`
+(`build typecheck lint test`), then `naming` and, beside it, `changesets` (a change to
+`packages/storefront-core` must add a changeset naming it, ARCHITECTURE.md §5; added on #303).
+Each starts only if the one before passed, so a red review leaves the others *skipped* until
+the next push (decided 2026-10-04). `gates` runs only on a pull request into `dev` or `main`; a
+stacked one skips it and runs `naming` and `changesets` after the review. A stacked pull request
+moved onto `dev` gets its gates on its next push or a re-run; until then `gates` shows *skipped*,
+and `dev.yml`'s own gates still stop a broken deploy. A push to `main` runs `gates`, and `release.yml`
+(storefront-core's release, ARCHITECTURE.md §5); a push to `dev` also runs `release.yml`, for the dev channel. A push to `dev` touching `templates/storefront/**`, and each successful `release.yml` run on `dev`, runs `templates.yml`, which uploads the templates to the dev sites bucket (docs/setup/dev.md §2.8).
 
 The rules live in one place, [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs), with
 tests beside it. The hooks, the pull-request check and the feature-environment names
@@ -83,7 +94,9 @@ owner or repo admin):
    - Block force pushes.
    - Require a pull request before merging: 1 approval; dismiss stale approvals on new
      commits; allowed merge method *Squash* (§1, *(proposed)*).
-   - Require status checks to pass: `gates` and `naming`; branches must be up to date.
+   - Require status checks to pass: `review`, `gates`, `naming` and `changesets`; branches must
+     be up to date. All four, because GitHub counts a skipped check as passed, and a red review
+     skips the others (it is itself required, so it still blocks).
 2. **`branch-names`**, target *all branches*, excluding `main`, `dev` and the patterns
    `#*/feature/*`, `#*/task/*` and `#*/bug/*`, enforcement *Active*:
    - Restrict creations.
@@ -99,15 +112,19 @@ on all branches. The `naming` check already covers it.
 ## 3. The work item card
 
 Every item starts as a card with these fields. A card that can't fill them in isn't ready
-to start.
+to start. How a card is written (the questions asked first, the templates, the draft approved
+before it is created) is [HOW-TO-WRITE-A-CARD.md](HOW-TO-WRITE-A-CARD.md).
 
 | Field | Says |
 |---|---|
 | **Kind and branch** | Feature, task or bug, and the branch name `#<issue>/<kind>/<short-name>` |
 | **Folders** | The only folders the change may touch. Two cards in progress at once never share a folder |
 | **Read first** | The doc sections that decide the design, e.g. "DATA-MODEL §5" |
+| *(bug)* **Environment, Steps to reproduce, Expected, Actual** | Where it happens, numbered steps from a known state, and what should and does happen |
+| **Decided** | The answers to the questions asked before the card was written, dated and attributed |
 | **Do** | The steps, numbered |
-| **Done when** | Checks anyone can verify: tests that pass, behaviour on the environment, docs updated |
+| **Prompt for Claude** | The whole brief in one pasteable block: what to read, where to work, what to build and test, the gates to run |
+| **Done when** | The acceptance criteria, as checkboxes anyone can verify: tests that pass, behaviour on the environment, docs updated. Required on every card |
 | **Not in this item** | What looks related but belongs to a later card |
 | **Needs** | Cards that must be merged first. Don't start on top of an unmerged branch |
 
@@ -178,7 +195,7 @@ to start.
 | AI agent | Whoever asked for the work |
 
 **Claude reviews every pull request too**, through
-[`.github/workflows/claude-review.yml`](../../.github/workflows/claude-review.yml): it reads
+the `review` job of [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), the first in its chain (§2.2): it reads
 AGENTS.md and this section's checklist, then comments inline and once at the top.
 
 **The check fails** (reversed 2026-09-30, §1) in two cases:
@@ -186,8 +203,8 @@ AGENTS.md and this section's checklist, then comments inline and once at the top
 - **Claude asked for a change.** It records a verdict of `changes` whenever it posts a
   finding, on the same bar it uses to decide whether to post one at all: would it ask the
   author to change this?
-- **The review didn't finish** — a missing or expired token, the Claude GitHub App removed,
-  an API error, or no verdict written. It fails closed, because a review that didn't happen
+- **The review didn't finish** — a missing or expired token, an API error, or no verdict
+  written. It fails closed, because a review that didn't happen
   is not a review that passed.
 
 **When it goes red, treat it exactly as a reviewer's comment** (the loop at the end of this
@@ -195,15 +212,36 @@ section): fix each point, or reply saying why not, and push. The push re-runs th
 **Re-running the job without changing anything is not the way past it** — that is the habit
 §1 accepted the risk of, and the one thing that would make this check worthless.
 
-It still doesn't replace the reviewer above; a human approves. It needs **both** the
-[Claude GitHub App](https://github.com/apps/claude) installed on the repository and the
-repository secret `CLAUDE_CODE_OAUTH_TOKEN` — without the app the job cannot get a token to
-comment with, and fails with "Claude Code is not installed on this repository". It is
-skipped on pull requests from forks, where secrets are not available.
+It still doesn't replace the reviewer above; a human approves. It needs the repository
+secret `CLAUDE_CODE_OAUTH_TOKEN` (THIRD-PARTY-ACCESS.md §2.6) and nothing else: the job runs
+the Claude Code CLI itself and posts its comments through `gh` with the workflow's own token,
+so they appear from `github-actions`. The review reads text an author controls (the
+description, the diff, the files), so it may write only through two helpers that refuse a
+token-shaped body, and it cannot read the places a token lives. On a pull request from a
+fork, where secrets are not available, it fails at its first step, and the chain stops there.
+
+**Every pull request is reviewed, stacked ones included** (decided 2026-10-02, #167,
+reversing the same day's decision to skip them). `anthropics/claude-code-action` validates a
+pull request's **base** branch and refuses one starting with `#`
+([anthropics/claude-code-action#751](https://github.com/anthropics/claude-code-action/issues/751)),
+with no input or event that avoids the check, so the workflow does not use the action. Branch
+names are checked by the `naming` job alone; the review has no opinion on them.
+
+**`@claude`** runs Claude ([`claude.yml`](../../.github/workflows/claude.yml)) with the review's
+token, for people with write access. Comment events run from the default branch's copy (`dev`).
+
+- **In an issue**, through `anthropics/claude-code-action`, pinned to a release. It can reply and,
+  when asked, open a branch and push. Settings, hooks and MCP servers from a checked-out branch are
+  ignored (`--setting-sources user`, `--strict-mcp-config`) and reads keep out of token locations.
+- **On a pull request**, through the CLI as in the review, because the action refuses a branch name
+  starting with `#`, head or base. It checks out the pull request's head, drops its Claude
+  configuration, reads the diff, description and conversation, and posts one reply through a helper
+  that refuses token-shaped text. It never edits, commits or pushes, and never runs on a pull
+  request from a fork, whose code nobody here could push.
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
-Making it a required check is a deliberate later step.
+When the ruleset is set it is required with the other two (§2.2): the gates run behind it.
 
 Anything that becomes a core type or a shared component (`core/`, `db/scoped`,
 `apps/ui/shared/`) gets a careful line-by-line review, whoever wrote it.
@@ -242,7 +280,7 @@ each one. The reviewer approves only when every point is closed.
 
 ## 8. Merge and after
 
-1. Squash and merge once the `gates` and `naming` checks pass and the reviewer approves. Only
+1. Squash and merge once the `review`, `gates` and `naming` checks pass and the reviewer approves. Only
    after that.
 2. **Delete the branch.** For a feature, this also removes its environment.
 3. Move the card to done. Cards that needed this one can start now.

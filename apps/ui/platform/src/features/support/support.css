@@ -1,0 +1,190 @@
+/* Support (designs/DF Platform Prototype.dc.html → Support, Users and Sessions, and its start dialog). */
+
+.df-support-rules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-support-rules li {
+  display: grid;
+  gap: 2px;
+}
+
+.df-support-rules strong {
+  color: var(--df-color-heading);
+  font-size: 14px;
+}
+
+.df-support-rules span {
+  color: var(--df-color-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.df-support-users {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.df-support-users th {
+  padding: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.df-support-users td {
+  padding: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+  vertical-align: middle;
+}
+
+.df-support-sub {
+  display: block;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.df-support-action {
+  display: grid;
+  justify-items: start;
+  gap: var(--df-space-1);
+}
+
+.df-support-action .df-button {
+  white-space: nowrap;
+}
+
+.df-support-why {
+  max-width: 18rem;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-support-sessions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-support-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--df-space-2) var(--df-space-5);
+  padding: var(--df-space-3) 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-support-session-who,
+.df-support-session-why {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 200px;
+}
+
+.df-support-session-when {
+  display: grid;
+  gap: 2px;
+  min-width: 170px;
+}
+
+.df-support-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+}
+
+.df-support-ticket {
+  overflow-wrap: anywhere;
+}
+
+.df-support-start .df-eyebrow {
+  margin: 0 0 var(--df-space-1);
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-support-step {
+  margin: 0 0 var(--df-space-2);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-support-body {
+  display: grid;
+  gap: var(--df-space-4);
+}
+
+.df-support-body p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.df-support-body .df-field {
+  margin-bottom: 0;
+}
+
+.df-support-summary {
+  display: grid;
+  gap: var(--df-space-1);
+  margin: 0;
+}
+
+.df-support-summary > div {
+  display: flex;
+  gap: var(--df-space-2);
+}
+
+.df-support-summary dt {
+  color: var(--df-color-muted);
+}
+
+.df-support-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .df-support-users thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .df-support-users tr {
+    display: grid;
+    gap: var(--df-space-1);
+    padding: var(--df-space-2) 0;
+    border-bottom: 1px solid var(--df-color-border);
+  }
+
+  .df-support-users td {
+    display: grid;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+  }
+
+  .df-support-users td::before {
+    content: attr(data-label);
+    color: var(--df-color-muted);
+    font-size: 11px;
+  }
+}

@@ -7,7 +7,7 @@ prompt should be updated.
 
 Paste everything below the line.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-15 (#745: no shop wildcard on a partner's Domains). Before: 2026-10-11 (#518: no preview link on a store's Storefront tab). Before: 2026-10-09 (previews off the partner domain).
 
 ---
 
@@ -71,7 +71,8 @@ Staff roles (show the signed-in role in the header; design the permission-denied
 ## 4. The shell
 
 - **Header**, always visible:
-  - an **environment marker**: a red "Production" badge (and a grey "Staging" variant);
+  - an **environment marker** naming the environment: a red "Production" badge, and grey
+    "Dev", "Feature" or "Local" (decided on #65);
   - a **search box** with a keyboard shortcut (⌘K), searching partners and stores by name,
     domain, code or owner email, with results grouped by type and each result showing its
     partner;
@@ -131,7 +132,7 @@ Tabs:
 | Overview | Partner details and contacts, state history (timeline), setup checklist with each item's status |
 | Stores | This partner's stores (the Stores list, pre-filtered) |
 | Branding | **Read-only** preview of the partner's look: logo, colours, product name, a thumbnail of their sign-in page, "Powered by DripFunnel" on or off |
-| Domains | Portal host, preview and shop wildcards (`*.preview.northstar.com`, `*.shops.northstar.com`), email sender domain: each with the DNS records expected, what was found, a status, and "Re-check now" |
+| Domains | Portal host and email sender domain (every store is on DripFunnel's `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, since 2026-10-15): each with the DNS records expected, what was found, a status, and "Re-check now" |
 | Plans | **Read-only** list of the partner's plans, prices and limits (edited in the partner console, by the partner or by staff through "Set up for partner"; say so) |
 | Team | The partner's users and their roles, last sign-in, with an **Impersonate** button on each |
 | Activity | Everything done about this partner (see 5.8) |
@@ -168,7 +169,7 @@ often confused: make them look clearly different.
 | Tab | Contents |
 |---|---|
 | Overview | Name, code, partner, owner, country, created; plan and status with history; counts of people by role, suppliers, products, orders |
-| Storefront | AI or own storefront, last build and publish, live and preview links, version |
+| Storefront | AI or own storefront, last build and publish, the live link (no preview address), version |
 | Domains | Custom domain, expected vs found DNS records, "Re-check now" |
 | Setup | The signup steps and their result (account, store, defaults, hostnames, repo, first build, done), with Retry on a failed step |
 | Users | Everyone in the store: the merchant's Owner, Managers and Staff, and each supplier's users (grouped by supplier), with role, last sign-in, status and an **Impersonate** button |
@@ -193,7 +194,7 @@ impersonating one of its users. Say so on the Overview tab.
 ### 5.5 Approvals
 
 Partners awaiting approval, oldest first: partner, submitted, go-live checks (portal host
-live, email domain verified, at least one priced plan, legal pages set, test signup done)
+live, email domain verified, at least one priced plan, legal pages set)
 with pass/fail for each, reviewer. Opens the partner with Approve and Send back.
 
 ### 5.6 Provisioning

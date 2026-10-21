@@ -1,0 +1,7 @@
+.card {
+  padding: 16px;
+}
+
+.hero {
+  content: attr(data-x);
+}

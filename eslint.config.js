@@ -30,7 +30,7 @@ const noApiImports = (depth) => ({
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/.next/**', '**/.wrangler/**', '**/.turbo/**', '**/*.gen.ts', '**/next-env.d.ts', 'templates/**'],
+    ignores: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/.next/**', '**/.wrangler/**', '**/.turbo/**', '**/*.gen.ts', '**/next-env.d.ts', 'templates/**', 'packages/storefront-core/src/guard/fixtures/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.strict,
@@ -41,7 +41,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.config.{js,ts,mjs}', 'apps/api/src/index.ts'],
+    files: ['**/*.config.{js,ts,mjs}', 'apps/api/src/index.ts', 'store-proxy/src/index.ts'],
     rules: { 'no-restricted-syntax': 'off' },
   },
   {
@@ -75,6 +75,26 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': ['error', { patterns: [{ group: ['**/apps/**', ...['api', ...uiApps].flatMap((app) => [`@dripfunnel/${app}`, `**/${app}`, `**/${app}/**`])], message: 'shared/ never imports from the apps.' }] }],
     },
+  },
+  {
+    // Expo Router reads each route file's default export (docs/mobile-app/merchant/ARCHITECTURE.md §3).
+    files: ['apps/ui/mobile-app/merchant/src/app/**/*.tsx'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
+  {
+    files: ['apps/ui/mobile-app/merchant/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [{ group: ['@dripfunnel/*', '**/apps/**', '**/shared/**'], message: 'The mobile app shares no code with the SPAs or the API (docs/mobile-app/merchant/REACT-NATIVE.md §2).' }] }],
+    },
+  },
+  {
+    files: ['apps/sandbox/**/*.ts'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    // The frame's boot module runs in the store's preview origin, never in Node (storefront AI-STUDIO §3 step 6).
+    files: ['apps/sandbox/src/runtime/boot.tsx'],
+    languageOptions: { globals: { ...globals.browser } },
   },
   {
     files: ['packages/storefront-core/**/*.{ts,tsx}'],

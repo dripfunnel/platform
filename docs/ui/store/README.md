@@ -9,9 +9,11 @@ Shoppers never see it; they see the store's storefront (docs/storefront/). DripF
 and partner users never sign in to it; they reach a store only through an audited, read-only
 support session (§6).
 
-**Status: skeleton** (sign-in and home routes). The first platform's portal built sign-up, sign-in,
-store choice, invitations, profile and the eight Settings tabs; those screens are the visual
-baseline (PLATFORM-PROMPT §6).
+**Status: skeleton** (sign-in and home routes). **What the first release contains is
+[FIRST-RELEASE.md](FIRST-RELEASE.md)** (decided on #184): every screen the prototype draws plus
+the parts it doesn't draw yet, and what the Store and Shop APIs need. The first platform's portal
+built sign-up, sign-in, store choice, invitations, profile and the eight Settings tabs; those
+screens are the visual baseline (PLATFORM-PROMPT §6).
 
 **The prototype is `designs/DF Store Prototype.dc.html`** — open it in a browser and click
 through the screen you are building before you build it; its Role, Plan, Region and Scenario
@@ -19,11 +21,12 @@ controls reach the states. `designs/DF Store Pricing.dc.html` says what each pla
 which is what the portal's plan gates and upgrade prompts follow. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-05.
 
 | Document | Covers |
 |---|---|
 | This guide | Purpose, users, roles and permissions, navigation, areas, code specifics, rules |
+| [FIRST-RELEASE.md](FIRST-RELEASE.md) | What the first release contains, screen by screen, what the Store and Shop APIs need, and the cards that build it |
 | [DESIGN-BRIEF.md](DESIGN-BRIEF.md) | The design prompt for the portal: the facts that shape it, users, and every flow (1–69 and the new ones) |
 | [CATALOG-DESIGN.md](CATALOG-DESIGN.md) | The catalogue in depth: products, versions, stock, collections, filters, menus, import/export, vendors and approval, languages, currencies, plans, regions |
 | [OFFERS-DESIGN.md](OFFERS-DESIGN.md) | Offers in depth: automatic discounts, coupon codes, conditions, scheduling, limits, combining, results |
@@ -79,31 +82,41 @@ authoritative; this table must match it).
 
 | Area | Owner | Manager | Staff | Vendor · Stock only | Vendor · Products and stock | Vendor · + their orders |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| Home | ✓ | ✓ | ✓ | own | own | own |
-| Orders | all | all | all | | | |
-| Customers | all | all | all | | | |
-| Reports | ✓ | ✓ | | | | |
+| Home | ✓ | ✓ | ✓ | | | |
+| Orders | all | all | all | | | own lines; the shopper's name and address only when the supplier **ships to the shopper**, nothing when it **ships to your warehouse** (ACCESS.md §7.3) |
+| Refunds and returns | ✓ | ✓ | | | | own lines, up to their value; the store can override |
+| Mark an order paid (cash on delivery, bank transfer) | ✓ | ✓ | | | | |
+| Customers | all, add and edit | all, add and edit | all, add and edit | | | |
+| Customers export | ✓ | ✓ | ✓ | | | |
+| Reports and their export | ✓ | ✓ | | | | |
+| Abandoned carts | ✓ | ✓ | read-only | | | |
 | Products | all, edit | all, edit | all, **read-only** | own, **quantity only** | own, create and edit | own, create and edit |
 | Collections, filters, menus | edit | edit | read-only | | | |
-| Import / export | ✓ | ✓ | export? *(ask)* | | own? *(ask)* | own? *(ask)* |
-| To approve (when approval is on) | ✓ | | | | | |
-| Offers | ✓ | ✓ (no plan prompts) | *(ask: read-only list)* | **never** | **never** | **never** |
+| Import / export | ✓ | ✓ | export | own export | own | own |
+| Approve products (the "Waiting for approval" chip in Products, when approval is on; FIRST-RELEASE §3.1) | ✓ | | | | | |
+| Offers | ✓ | ✓ (no plan prompts) | read-only list | **never** | **never** | **never** |
+| Offer codes export | ✓ | ✓ | | | | |
 | Storefront (AI designer, publish) | ✓ | read-only | | | | |
 | Suppliers | ✓ | | | | | |
 | Settings (all tabs) | ✓ | | | | | |
 | Billing, plan prompts | ✓ | | | | | |
+| Stock in the merchant's warehouses | edit | edit | read-only | | | |
+| The merchant's warehouses (Settings › Warehouse) | ✓ | | | | | |
 | Own warehouses and stock | | | | ✓ | ✓ | ✓ |
 | Own supplier team (Supplier admin only) | | | | ✓ | ✓ | ✓ |
-| Activity log: whole store, shoppers included (Settings) | ✓ | *(confirm)* | | | | |
+| Activity log: whole store, shoppers included (Settings; Store activity for a Manager) | ✓ | ✓ | | | | |
 | Activity on a customer's page | ✓ | ✓ | | | | |
-| Own activity (profile) | ✓ | ✓ | ✓ | ✓ *(proposed)* | ✓ *(proposed)* | ✓ *(proposed)* |
+| Own activity (profile) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Your sales (own lines, **no totals**) | | | | | | ✓ |
-| To ship (fulfil own lines) | | | | | | ✓ |
+| To ship (own lines: to the shopper, or marked as sent to the store's warehouse, by the supplier's shipping mode) | | | | | | ✓ |
+| My profile (details, password, 2-factor, appearance, signed-in devices) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 Keys: `owner`, `manager`, `staff`; supplier access levels `vendor-stock`, `vendor-catalogue`,
-`vendor-orders-fulfil`, set by the merchant **per supplier**. Inside a supplier, its own
-team roles: **Supplier admin** (manages the supplier's team) and **Supplier member**
-*(proposed, DATA-MODEL.md §4.2)*.
+`vendor-orders-fulfil`, set by the merchant **per supplier**, as is the supplier's **shipping
+mode**, `to-store` or `to-shopper` (ACCESS.md §5.2, decided 2026-10-02). Inside a supplier,
+its own team roles: **Supplier admin** (manages the supplier's team) and **Supplier member**
+(DATA-MODEL.md §4.2, decided 2026-10-02). **2-factor is required for Owners and optional for
+everyone else** (ACCESS.md §2).
 A fourth vendor tier, `vendor-orders-read` (own sales, no fulfilment), is defined but not
 offered on the Suppliers screen (ACCESS.md §5).
 
@@ -114,32 +127,30 @@ publish the storefront, billing, settings.
 
 ## 4. Navigation
 
-Rows per role, from the first platform's portal's navigation (kept as the design baseline). Items a
-role can't use are **absent**.
+Rows per role, as the prototype draws them and FIRST-RELEASE.md §3.1 decides (#184; this replaces
+the first platform's baseline, whose separate "To approve" and "Suppliers" rows are now
+Products' approval chip and a Settings tab). Items a role can't use are **absent**.
 
 | Role | Rows |
 |---|---|
-| **Owner** (11) | Home · Orders · Customers · Reports · **Catalogue:** Products, Collections, To approve¹ · **Your shop:** Storefront, Suppliers² · **Admin:** Settings, Billing |
-| **Manager** (7) | Home · Orders · Customers · Reports · **Catalogue:** Products, Collections · **Your shop:** Storefront (read-only) |
-| **Staff** (4) | Home · Orders · Customers · **Catalogue:** Products (read-only) |
-| **Vendor · Stock only / Products and stock** (1) | Your products |
-| **Vendor · + read-only orders** (2) | Your products · Your sales |
-| **Vendor · + their orders** (3) | To ship · Your products · Your sales |
+| **Owner** | Home · Orders · Customers · Offers · Abandoned carts · Reports · **Catalogue:** Products, Collections · **Your shop:** Storefront · **Admin:** Settings, Billing |
+| **Manager** | Home · Orders · Customers · Offers · Abandoned carts · Reports · **Catalogue:** Products, Collections · **Your shop:** Storefront (view only) |
+| **Staff** | Home · Orders · Customers · Offers (view only) · Abandoned carts (view only) · **Catalogue:** Products (view only), Collections (view only) |
+| **Vendor · Stock only / Products and stock** | Your products |
+| **Vendor · + read-only orders** | Your products · To ship (view only) · Your sales |
+| **Vendor · + their orders** | Your products · To ship · Your sales |
 | + **Supplier admin**, any level | + Your team |
 
-¹ Only when the store requires approval; badge = products waiting.
-² Hidden on plans without vendors; shown with zero vendors, because the empty state is how
-the feature is found.
-
-- **Offers** needs a row for Owner and Manager (OFFERS-DESIGN §1 decides it; the archived
-  navigation predates it). Placement *(decide)*.
-- **People is a Settings tab**, not a row. Suppliers, warehouses and the approval queue live
-  in Settings too.
+- **People is a Settings tab**, not a row. Suppliers and warehouses live in Settings too; the
+  approval queue is Products' "Waiting for approval" chip.
 - **Collections, Filters and Menus** are three tabs of one destination.
-- Settings tabs, in order: Store info, People, Supplier, Payment setup, Shipping,
-  Warehouse, Tax setup, Custom domain, then Customer accounts (email, mobile or both for
-  shopper sign-in, ACCESS.md §2.1), Developers, Support access and Activity log (new).
-- Where vendors manage their own warehouses *(decide)*; the merchant sees them in the
+- Settings tabs, in order: Store info (now with time zone, units and order numbers), People,
+  Supplier, Payment setup, Shipping, Warehouse, Tax setup (the custom domain is in Store info), **Catalogue**
+  (rich-listing features and badges, CATALOG-DESIGN P1) and **Markets** (CATALOG-DESIGN part
+  T), then Customer accounts (email, mobile or both for shopper sign-in, ACCESS.md §2.1),
+  Developers, Apps, Support access and Activity log (new; FIRST-RELEASE.md §15). **My profile** is in the user menu, not
+  Settings (`PortalProfile`).
+- Vendors manage their own warehouses in a **Warehouses tab inside "Your products"** (decided 2026-10-05 on #337); the merchant sees them in the
   Warehouse tab in a labelled group but can't rename or remove them.
 
 ---
@@ -173,8 +184,20 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
   including sign-in, sign-up, reset and invitation screens. No DripFunnel branding unless
   the partner's "Powered by" setting shows it.
 - **Acting store**: a store switcher in the shell; the chosen store id travels with every
-  Store API request and the server checks it against the session. It is remembered in
-  `localStorage` as a convenience only.
+  Store API request as `X-Store` (and `X-Supplier` for a supplier seat), read by the shared
+  client's `headers` option, and the server checks it against the session. It is remembered in
+  `localStorage` (`df-store-acting`) as a convenience only. Built on #291: the shell reads `me`,
+  `myStores` and `storeState` once before any screen; no acting store, or one no longer held,
+  opens the chooser at `/stores`, which refuses none, opens one and lists several.
+- **Partner look, built on #291**: the primary colour paints the header and side bar
+  (`--df-color-side`, white text) and the accent is the brand colour (`--df-color-brand`, dark
+  text), the pair the brand's publish checks (SAAS §3.3). The font and corners become
+  `--df-font*` and `--df-radius*` (Soft 3–8 px, Square 0, Rounded keeps the defaults; the sign-in screen's own radii follow the same corner through `--df-auth-radius*`, and keep their own look when no corner is set), and the
+  sign-in background paints the brand panel (Sand stripes in the accent, Photo a gradient of
+  the primary, Plain the primary). The dark-background logo sits in the header and on the
+  sign-in panel, the light one on the phone sign-in; with no logo the mark, then the initial
+  and product name, stand in. Files come from `/api/brand/*` on the portal host, raster ones
+  served as WebP at most 512 px wide through the Worker's `IMAGES` binding (SVG untouched).
 - **Role-shaped screens**: one screen, different views per role (a product list shows
   supplier attribution to the merchant and only own products to a vendor). The role comes
   from the session context the API returns, never from local state.
@@ -228,12 +251,16 @@ From DESIGN-BRIEF §1, CATALOG-DESIGN §8 and OFFERS-DESIGN §8:
 Carried from DESIGN-BRIEF §4, CATALOG-DESIGN §9, OFFERS-DESIGN §9 and ACCESS.md, where
 they change this portal:
 
-- What a vendor may see of a customer (name and address to ship; email and phone?).
-- Whether editing an approved product sends it back for approval.
-- What happens to a removed or suspended vendor's products.
-- Refunds and returns across vendors.
-- Staff: export, and a read-only offers list?
-- Vendors: import/export, translations, other-currency prices, collections?
-- 2-factor for Owners only, or everyone.
+- ~~What a vendor may see of a customer.~~ **Settled 2026-10-02**: by the supplier's shipping
+  mode (ACCESS.md §7.3).
+- ~~Whether editing an approved product sends it back for approval.~~ **Settled 2026-10-02**:
+  only name, price or photo changes, hidden until approved (ACCESS.md §7.2).
+- ~~What happens to a removed or suspended vendor's products.~~ **Settled 2026-10-02**: removed → hidden and kept; suspended → the Owner chooses (ACCESS.md §7.5).
+- ~~Refunds and returns across vendors.~~ **Designed 2026-10-02** (ACCESS.md §7.3); the release
+  is FIRST-RELEASE.md's (written on #184: all of it ships, §1).
+- ~~Staff: export, and a read-only offers list?~~ **Decided 2026-10-04 on #184**: both yes.
+- Vendors: ~~import/export~~ (own only, #184), translations, other-currency prices, collections?
+- ~~2-factor for Owners only, or everyone.~~ **Settled 2026-10-02**: Owners required, others
+  optional (ACCESS.md §2).
 - Whether past due blocks sign-in, and what happens to the store's vendors.
 - Shopper sign-in options may be limited by the partner's plans? (ACCESS.md §2.1)

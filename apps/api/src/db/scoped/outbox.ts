@@ -1,0 +1,163 @@
+import type { NewOutboxRow, OutboxRow } from '../schema/outbox'
+import { pgArray, type ScopedSql } from './index'
+
+/**
+ * The new row's id, or null when the idempotency key has already queued this effect. The id
+ * is chosen here rather than returned: a request may insert into the outbox but never read
+ * it (migrations/0006), and RETURNING would need a read.
+ */
+export const insertOutbox = async (tx: ScopedSql, row: NewOutboxRow): Promise<string | null> => {
+  const id = crypto.randomUUID()
+  // Keys are per kind and per scope (DATA-MODEL.md §2: unique constraints are never global).
+  const key = `${row.kind}:${row.partnerId ?? 'platform'}:${row.storeId ?? ''}:${row.idempotencyKey}`
+  try {
+    // A savepoint, not ON CONFLICT: the conflict check would need a read the role has not got.
+    await tx.savepoint(
+      (sp) => sp`
+        insert into outbox (id, kind, idempotency_key, payload, partner_id, store_id, next_attempt_at)
+        values (${id}, ${row.kind}, ${key}, ${JSON.stringify(row.payload)}::text::jsonb, ${row.partnerId}, ${row.storeId}, coalesce(${row.notBefore ?? null}::timestamptz, now()))
+      `,
+    )
+    return id
+  } catch (error) {
+    if (isUniqueViolation(error)) return null
+    throw error
+  }
+}
+
+/**
+ * Many effects in one statement per chunk, as `insertOutbox` would queue them one by one. A key
+ * already queued sends the chunk back through `insertOutbox`, which skips just that row.
+ */
+export const insertOutboxMany = async (tx: ScopedSql, rows: readonly NewOutboxRow[]): Promise<void> => {
+  for (let i = 0; i < rows.length; i += outboxChunk) {
+    const chunk = rows.slice(i, i + outboxChunk)
+    const values = chunk.map((row) => ({
+      id: crypto.randomUUID(),
+      kind: row.kind,
+      idempotency_key: `${row.kind}:${row.partnerId ?? 'platform'}:${row.storeId ?? ''}:${row.idempotencyKey}`,
+      payload: JSON.stringify(row.payload),
+      partner_id: row.partnerId,
+      store_id: row.storeId,
+    }))
+    try {
+      await tx.savepoint(
+        (sp) => sp`
+          insert into outbox (id, kind, idempotency_key, payload, partner_id, store_id)
+          select id, kind, idempotency_key, payload::jsonb, partner_id, store_id
+          from json_to_recordset(${JSON.stringify(values)}::text::json) as r(id uuid, kind text, idempotency_key text, payload text, partner_id uuid, store_id uuid)
+        `,
+      )
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error
+      for (const row of chunk) await insertOutbox(tx, row)
+    }
+  }
+}
+
+const outboxChunk = 500
+
+const isUniqueViolation = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
+
+/**
+ * Takes a lease on due rows of the kinds that can be delivered; a kind nobody delivers yet is
+ * left untouched. The attempt is counted here, so a relay that dies mid-delivery still moves
+ * the row towards its limit. `skip locked` lets two sweeps run at once without sharing a row.
+ */
+export const claimDue = async (tx: ScopedSql, kinds: readonly string[], now: Date, limit: number, leaseMs: number): Promise<OutboxRow[]> => {
+  const leaseExpired = new Date(now.getTime() - leaseMs)
+  return tx<OutboxRow[]>`
+    update outbox set attempts = attempts + 1, claimed_at = ${now}
+    where id in (
+      select id from outbox
+      where delivered_at is null and failed_at is null
+        and kind = any(${pgArray(kinds)}::text[])
+        and next_attempt_at <= ${now}
+        and (claimed_at is null or claimed_at < ${leaseExpired})
+      order by next_attempt_at
+      limit ${limit}
+      for update skip locked
+    )
+    returning *
+  `
+}
+
+/** True when this call delivered it; false when another already had. */
+export const markDelivered = async (tx: ScopedSql, id: string, now: Date): Promise<boolean> => {
+  const rows = await tx<{ id: string }[]>`
+    update outbox set delivered_at = ${now}, claimed_at = null, last_error = null
+    where id = ${id} and delivered_at is null
+    returning id
+  `
+  return rows.length > 0
+}
+
+export const markAttemptFailed = async (
+  tx: ScopedSql,
+  id: string,
+  outcome: { error: string; nextAttemptAt: Date; dead: boolean; now: Date },
+): Promise<void> => {
+  await tx`
+    update outbox set
+      last_error = ${outcome.error},
+      next_attempt_at = ${outcome.nextAttemptAt},
+      claimed_at = null,
+      failed_at = ${outcome.dead ? outcome.now : null}
+    where id = ${id} and delivered_at is null
+  `
+}
+
+/** A row that can't go yet: back in the queue at `nextAttemptAt`, this claim not counted as an attempt. */
+export const markPostponed = async (tx: ScopedSql, id: string, outcome: { error: string; nextAttemptAt: Date }): Promise<void> => {
+  await tx`
+    update outbox set attempts = greatest(attempts - 1, 0), last_error = ${outcome.error}, next_attempt_at = ${outcome.nextAttemptAt}, claimed_at = null
+    where id = ${id} and delivered_at is null
+  `
+}
+
+/** Replaces a finished row's payload with what its deliverer keeps (outbox-relay.ts `redact`). */
+export const redactOutboxPayload = async (tx: ScopedSql, id: string, kept: Record<string, unknown>): Promise<void> => {
+  await tx`update outbox set payload = ${JSON.stringify(kept)}::text::jsonb where id = ${id}`
+}
+
+export interface UnsentExpiry {
+  kind: string
+  /** The payload's ISO timestamp after which the row is useless; rows without one use `fallbackMs` from creation. */
+  expiresAtKey: string
+  fallbackMs: number
+  /** The payload keys that survive, beside `redacted: true`. */
+  keep: readonly string[]
+  leaseMs: number
+  limit: number
+}
+
+/** Gives up at most `limit` unsent rows of a kind past their expiry, redacted; a row the relay holds is left to it. */
+export const expireUnsent = async (tx: ScopedSql, e: UnsentExpiry, now: Date): Promise<number> =>
+  (await tx`
+    update outbox set
+      payload = (select coalesce(jsonb_object_agg(k, payload->k), '{}'::jsonb) from unnest(${pgArray(e.keep)}::text[]) k) || '{"redacted": true}'::jsonb,
+      failed_at = ${now}, last_error = 'expired', claimed_at = null
+    where id in (
+      select id from outbox
+      where kind = ${e.kind} and delivered_at is null and failed_at is null
+        and (claimed_at is null or claimed_at < ${new Date(now.getTime() - e.leaseMs)})
+        and coalesce((payload->>${e.expiresAtKey})::timestamptz, created_at + ${`${e.fallbackMs} milliseconds`}::interval) <= ${now}
+      order by created_at
+      limit ${e.limit}
+      for update skip locked
+    )
+  `).count
+
+/**
+ * Whether a newer row of `kind` for the store is due by `now`, so this one can leave the work to it.
+ * One still backing off isn't, so a failed newer run never holds up the older ones.
+ */
+export const newerDueEffect = async (tx: ScopedSql, effect: { id: string; kind: string; storeId: string }, now: Date): Promise<boolean> =>
+  (
+    await tx`
+      select 1 from outbox o where o.kind = ${effect.kind} and o.store_id = ${effect.storeId} and o.id <> ${effect.id}
+        and o.delivered_at is null and o.failed_at is null and o.next_attempt_at <= ${now}
+        and o.created_at > (select created_at from outbox where id = ${effect.id}) limit 1
+    `
+  ).length > 0

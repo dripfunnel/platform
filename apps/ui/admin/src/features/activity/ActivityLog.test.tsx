@@ -93,16 +93,17 @@ describe('Activity log', () => {
 })
 
 describe('an expanded entry', () => {
-  it('shows the impersonation session as plain text, with a link to all its entries', async () => {
+  it('links the impersonation session to its page and to all its entries', async () => {
     const html = await openRow(curated('product.updated', 'impersonation'))
-    expect(textOf(html)).toContain('Session imp-7Q2')
-    expect(html).not.toMatch(/<a[^>]*>Session imp-7Q2/)
+    expect(html).toMatch(/<a[^>]*href="\/impersonate\/sessions\/imp-7Q2"[^>]*>Session imp-7Q2<\/a>/)
     expect(html).toContain('href="/activity?imp=imp-7Q2"')
     expect(textOf(html)).toContain(`${words.facts.agent}Neha Rao`)
   })
 
-  it('links a setup session to all its entries', async () => {
-    expect(await openRow(curated('plan.created', 'setupSession'))).toContain('href="/activity?su=su-4K9"')
+  it('links a setup session to its page and to all its entries', async () => {
+    const html = await openRow(curated('plan.created', 'setupSession'))
+    expect(html).toContain('href="/impersonate/sessions/su-4K9"')
+    expect(html).toContain('href="/activity?su=su-4K9"')
   })
 
   it('shows the full IP and user agent on a sign-in, and the request id', async () => {

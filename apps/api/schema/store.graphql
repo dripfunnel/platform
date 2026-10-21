@@ -1,3 +1,3437 @@
+type AbandonedCart {
+  abandonedAt: String
+  customerId: ID
+  email: String
+  firstItem: String
+  id: ID
+  lastSentAt: String
+  lineCount: Int
+  name: String
+  phone: String
+  recoveredOrderId: ID
+  recoveredOrderNumber: String
+  recoveredWithCode: Boolean
+  remindersSent: Int
+  skipReason: String
+  status: String
+  step: String
+  stoppedAt: String
+  stoppedBy: String
+  stoppedNote: String
+  value: Money
+}
+
+type AbandonedCartCounts {
+  lost: Int
+  open: Int
+  recovered: Int
+}
+
+type AbandonedCartDetail {
+  cart: AbandonedCart
+  lines: [AbandonedCartLine!]
+  reminders: [CartReminder!]
+}
+
+type AbandonedCartLine {
+  available: Int
+  lineTotal: Money
+  name: String
+  outOfStock: Boolean
+  quantity: Int
+  versionId: ID
+  versionName: String
+}
+
+type AbandonedCartPage {
+  nodes: [AbandonedCart!]
+  pageInfo: PageInfo
+}
+
+type ActingStore {
+  permissions: [String!]
+  plan: Named
+  role: String
+  seller: Named
+  store: Named
+  tier: String
+}
+
+type AddedCustomer {
+  existed: Boolean
+  id: ID
+}
+
+type ApiKey {
+  createdAt: String
+  createdByHere: Boolean
+  createdByName: String
+  expiresAt: String
+  id: ID
+  lastUsedAt: String
+  name: String
+  prefix: String
+  previousWorksUntil: String
+  scopes: [String!]
+  supplier: ApiKeySupplier
+}
+
+type ApiKeyChoices {
+  expiresInDays: [Int!]
+  maxKeys: Int
+  requestsPerMinute: Int
+  requestsPerMonth: Int
+  scopes: [String!]
+}
+
+type ApiKeyPage {
+  nodes: [ApiKey!]
+  pageInfo: PageInfo
+}
+
+type ApiKeySupplier {
+  id: ID
+  name: String
+}
+
+type Badge {
+  id: ID
+  label: String
+  position: Int
+  rule: String
+  tone: String
+}
+
+input BadgeInput {
+  label: String!
+  position: Int
+  rule: String!
+  tone: String!
+}
+
+type BillingAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postal: String
+  region: String
+}
+
+input BillingAddressInput {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  postal: String!
+  region: String
+}
+
+type BillingCard {
+  brand: String
+  expires: String
+  last4: String
+}
+
+type BillingDetails {
+  address: BillingAddress
+  email: String
+  legalName: String
+  taxId: String
+  taxIdKind: String
+}
+
+input BillingDetailsInput {
+  address: BillingAddressInput!
+  email: String!
+  legalName: String!
+  taxId: String
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
+type BillingPlan {
+  current: Boolean
+  description: String
+  id: ID
+  monthly: Money
+  name: String
+  values: [BillingPlanValue!]
+  yearly: Money
+}
+
+type BillingPlanName {
+  id: ID
+  name: String
+}
+
+type BillingPlanValue {
+  amount: Int
+  enabled: Boolean
+  key: String
+  kind: String
+  unlimited: Boolean
+}
+
+type BillingSubscription {
+  asOf: String
+  cancelAt: String
+  card: BillingCard
+  collectedBy: String
+  interval: BillingInterval
+  partnerName: String
+  periodEnd: String
+  periodStart: String
+  plan: BillingPlanName
+  price: Money
+  scheduled: ScheduledPlanChange
+  status: String
+  trialEndsAt: String
+}
+
+type BillingUsage {
+  key: String
+  limit: Int
+  monthly: Boolean
+  unlimited: Boolean
+  used: Int
+}
+
+input BlogPostInput {
+  author: String
+  body: [ContentBlockInput!]!
+  coverAssetId: ID
+  publish: Boolean!
+  publishAt: String
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  tags: [String!]
+  title: String!
+}
+
+type Brand {
+  accentColor: String
+  background: String
+  corner: String
+  files: BrandFiles
+  font: String
+  helpUrl: String
+  poweredBy: Boolean
+  primaryColor: String
+  privacyUrl: String
+  productName: String
+  supportEmail: String
+  supportUrl: String
+  termsUrl: String
+}
+
+type BrandFiles {
+  favicon: String
+  logoDark: String
+  logoLight: String
+  mark: String
+}
+
+type CartReminder {
+  channel: String
+  clickedAt: String
+  code: String
+  id: ID
+  position: Int
+  queuedAt: String
+  sentAt: String
+  sentBy: String
+  skipReason: String
+  state: String
+}
+
+type CartSummary {
+  abandoned: Int
+  days: Int
+  leftBehind: [Money!]
+  reachable: Int
+  recovered: Int
+  recoveredSales: [Money!]
+  recoveredWithCode: Int
+  remindersSent: Int
+}
+
+type CatalogExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  kind: String
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+input CatalogExportFilterInput {
+  filter: String
+  search: String
+  supplier: String
+}
+
+enum CatalogExportKind {
+  products
+  stock
+}
+
+type CatalogImport {
+  created: Int
+  done: Int
+  failed: Int
+  finishedAt: String
+  id: ID
+  matched: Int
+  photosPending: Int
+  problemCount: Int
+  problems: [CatalogImportProblem!]
+  problemsCsv: String
+  products: Int
+  ready: Int
+  requestedAt: String
+  skipped: Int
+  source: String
+  state: String
+  updated: Int
+}
+
+enum CatalogImportMatching {
+  skip
+  update
+}
+
+type CatalogImportProblem {
+  code: String
+  column: String
+  line: Int
+  message: String
+}
+
+type CatalogueFeature {
+  enabled: Boolean
+  inPlan: Boolean
+  key: String
+}
+
+input CatalogueFeatureInput {
+  enabled: Boolean!
+  key: String!
+}
+
+type CatalogueSettings {
+  badges: [Badge!]
+  features: [CatalogueFeature!]
+  mainLanguage: String
+  pricingCurrency: String
+  translationLanguages: [String!]
+  unitSystem: String
+}
+
+type Collection {
+  computedAt: String
+  description: String
+  id: ID
+  imageAssetId: ID
+  inheritParent: Boolean
+  kind: String
+  match: String
+  name: String
+  parentId: ID
+  revision: Int
+  ruleMatches: Int
+  rules: [CollectionRule!]
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  sort: String
+  truncated: Boolean
+  visible: Boolean
+}
+
+input CollectionInput {
+  description: String
+  imageAssetId: String
+  inheritParent: Boolean
+  kind: String!
+  match: String
+  name: String!
+  parentId: String
+  productIds: [String!]
+  rules: [CollectionRuleInput!]
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  sort: String
+  visible: Boolean
+}
+
+type CollectionMember {
+  id: ID
+  name: String
+  source: String
+}
+
+type CollectionMemberPage {
+  nodes: [CollectionMember!]
+  pageInfo: PageInfo
+}
+
+type CollectionPage {
+  nodes: [CollectionSummary!]
+  pageInfo: PageInfo
+}
+
+type CollectionPreview {
+  count: Int
+  products: [CollectionPreviewProduct!]
+}
+
+type CollectionPreviewProduct {
+  id: ID
+  name: String
+}
+
+type CollectionRule {
+  currency: String
+  kind: String
+  max: String
+  min: String
+  productId: ID
+  text: String
+  valueId: ID
+  versionId: ID
+}
+
+input CollectionRuleInput {
+  currency: String
+  kind: String!
+  max: String
+  min: String
+  productId: String
+  text: String
+  valueId: String
+  versionId: String
+}
+
+type CollectionSummary {
+  computedAt: String
+  id: ID
+  inheritParent: Boolean
+  kind: String
+  match: String
+  name: String
+  parentId: ID
+  products: Int
+  rules: [CollectionRule!]
+  slug: String
+  visible: Boolean
+}
+
+type ContentBlock {
+  alt: String
+  assetId: ID
+  items: [ContentQuestion!]
+  kind: String
+  productIds: [ID!]
+  text: String
+}
+
+input ContentBlockInput {
+  alt: String
+  assetId: ID
+  items: [ContentQuestionInput!]
+  kind: String!
+  productIds: [ID!]
+  text: String
+}
+
+type ContentEntry {
+  author: String
+  body: [ContentBlock!]
+  coverAssetId: ID
+  id: ID
+  inMenu: Boolean
+  kind: String
+  path: String
+  publishAt: String
+  revision: Int
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  status: String
+  tags: [String!]
+  title: String
+  updatedAt: String
+  waitingForPublish: Boolean
+}
+
+type ContentEntryPage {
+  nodes: [ContentEntry!]
+  pageInfo: PageInfo
+}
+
+input ContentPageInput {
+  body: [ContentBlockInput!]!
+  inMenu: Boolean
+  publish: Boolean!
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  title: String!
+}
+
+type ContentQuestion {
+  answer: String
+  question: String
+}
+
+input ContentQuestionInput {
+  answer: String!
+  question: String!
+}
+
+type ContentTranslation {
+  body: [ContentBlock!]
+  changed: Boolean
+  language: String
+  seoDescription: String
+  seoTitle: String
+  title: String
+}
+
+input ContentTranslationInput {
+  body: [ContentBlockInput!]!
+  seoDescription: String
+  seoTitle: String
+  title: String!
+}
+
+type ConversionExample {
+  currency: String
+  ends99: ConvertedAmount
+  from: ConvertedAmount
+  nearest: ConvertedAmount
+  none: ConvertedAmount
+  publishedOn: String
+}
+
+type ConvertedAmount {
+  amount: String
+  currency: String
+}
+
+input CourierOptionsInput {
+  labelSize: String!
+  pickupMode: String!
+  trackingEmails: Boolean!
+}
+
+type CourierTestResult {
+  ms: Int
+  provider: String
+  result: String
+}
+
+type CurrencyPrice {
+  amount: String
+  compareAtAmount: String
+  currency: String
+  source: String
+}
+
+input CustomReportInput {
+  columns: String!
+  rows: String!
+}
+
+type Customer {
+  addresses: [CustomerAddress!]
+  city: String
+  consent: MarketingConsent
+  createdAt: String
+  email: String
+  emailVerified: Boolean
+  groupIds: [ID!]
+  hasAccount: Boolean
+  id: ID
+  name: String
+  note: String
+  orders: [CustomerOrder!]
+  ordersCount: Int
+  phone: String
+  phoneVerified: Boolean
+  spent: [Money!]
+  tags: [String!]
+}
+
+type CustomerAccounts {
+  customers: Int
+  mode: String
+  phoneOnly: Int
+  withEmail: Int
+  withPhone: Int
+}
+
+type CustomerAddress {
+  city: String
+  country: String
+  id: ID
+  isDefault: Boolean
+  line1: String
+  line2: String
+  name: String
+  phone: String
+  postalCode: String
+  region: String
+}
+
+input CustomerAddressInput {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  name: String!
+  phone: String
+  postalCode: String
+  region: String
+}
+
+type CustomerExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type CustomerGroup {
+  description: String
+  id: ID
+  members: Int
+  name: String
+}
+
+type CustomerOrder {
+  fulfilmentState: String
+  id: ID
+  number: String
+  paymentState: String
+  placedAt: String
+  state: String
+  total: Money
+}
+
+type CustomerPage {
+  nodes: [CustomerSummary!]
+  pageInfo: PageInfo
+}
+
+type CustomerSummary {
+  city: String
+  createdAt: String
+  email: String
+  hasAccount: Boolean
+  id: ID
+  name: String
+  orders: Int
+  phone: String
+  spent: [Money!]
+  tags: [String!]
+}
+
+type DesignAnswer {
+  message: DesignMessage
+  outcome: String
+}
+
+type DesignChat {
+  messages: [DesignMessage!]
+  next: String
+}
+
+type DesignMessage {
+  canUndo: Boolean
+  changed: [String!]
+  createdAt: String
+  id: ID
+  imageAssetId: ID
+  page: String
+  role: String
+  sampleUrl: String
+  text: String
+  undone: Boolean
+}
+
+type DesignText {
+  key: String
+  text: String
+}
+
+type DownloadDetails {
+  days: Int
+  file: DownloadFile
+  keysLeft: Int
+  keysSold: Int
+  limit: Int
+  mode: String
+}
+
+input DownloadDetailsInput {
+  days: Int!
+  fileId: ID
+  limit: Int!
+  mode: String!
+}
+
+type DownloadFile {
+  bytes: Int
+  id: ID
+  mime: String
+  url: String
+}
+
+type Facet {
+  id: ID
+  name: String
+  position: Int
+  revision: Int
+  shopperVisible: Boolean
+  values: [FacetValue!]
+}
+
+input FacetInput {
+  id: String
+  name: String!
+  position: Int
+  revision: Int
+  shopperVisible: Boolean
+  values: [FacetValueInput!]!
+}
+
+type FacetPage {
+  nodes: [Facet!]
+  pageInfo: PageInfo
+}
+
+type FacetValue {
+  id: ID
+  name: String
+  products: Int
+}
+
+input FacetValueInput {
+  id: String
+  name: String!
+}
+
+type GiftCardDetails {
+  expiryMonths: Int
+  shortestMonths: Int
+}
+
+input GiftCardDetailsInput {
+  expiryMonths: Int
+}
+
+type HomeLowStock {
+  count: Int
+  names: [String!]
+}
+
+type HomeOrder {
+  customerName: String
+  fulfilmentState: String
+  id: ID
+  items: Int
+  number: String
+  paymentState: String
+  placedAt: String
+  state: String
+  test: Boolean
+  total: Money
+}
+
+type HomePaymentsToCollect {
+  count: Int
+  firstOrderId: ID
+}
+
+type HomeSales {
+  averageWeek: Money
+  dayBefore: Money
+  yesterday: Money
+}
+
+type HomeSetup {
+  collections: Boolean
+  payments: Boolean
+  paymentsSkipped: Boolean
+  products: Boolean
+  shipping: Boolean
+  shippingSkipped: Boolean
+}
+
+type InstallableApp {
+  developer: String
+  id: ID
+  name: String
+  scopes: [String!]
+  siteUrl: String
+}
+
+type InstalledApp {
+  appId: ID
+  connection: String
+  developer: String
+  id: ID
+  installedAt: String
+  installedByName: String
+  lastUsedAt: String
+  name: String
+  scopes: [String!]
+  siteUrl: String
+  suspended: Boolean
+}
+
+type InstalledAppPage {
+  nodes: [InstalledApp!]
+  pageInfo: PageInfo
+}
+
+input InviteSupplierInput {
+  accessLevel: String!
+  email: String!
+  labelAccount: String
+  name: String!
+  shippingMode: String
+}
+
+type InvoiceLine {
+  amount: Money
+  kind: String
+  label: String
+  periodEnd: String
+  periodStart: String
+}
+
+type InvoiceSettings {
+  emailWithDispatch: Boolean
+  footer: String
+  legalName: String
+  taxPerLine: Boolean
+}
+
+input InvoiceSettingsInput {
+  emailWithDispatch: Boolean!
+  footer: String
+  taxPerLine: Boolean!
+}
+
+type IssuedApiKey {
+  id: ID
+  prefix: String
+  secret: String
+}
+
+type IssuedGiftCard {
+  amount: Money
+  balance: Money
+  createdAt: String
+  expiresAt: String
+  id: ID
+  last4: String
+  recipientEmail: String
+  recipientName: String
+  sendOn: String
+  sentAt: String
+  source: String
+  status: String
+}
+
+type IssuedGiftCardPage {
+  nodes: [IssuedGiftCard!]
+  pageInfo: PageInfo
+}
+
+type Market {
+  active: Boolean
+  countries: [String!]
+  currency: String
+  deliveryAmount: String
+  duties: MarketDuties
+  everywhereElse: Boolean
+  excludedProductIds: [ID!]
+  excludedProducts: [MarketExcludedProduct!]
+  id: ID
+  language: String
+  name: String
+  parentId: ID
+  pathPrefix: String
+  priceAdjustmentBps: Int
+  primary: Boolean
+  products: String
+  revision: Int
+  webMode: String
+}
+
+type MarketDuties {
+  mode: String
+  rateBps: Int
+  thresholdAmount: String
+}
+
+type MarketExcludedProduct {
+  id: ID
+  name: String
+}
+
+input MarketInput {
+  active: Boolean
+  countries: [String!]!
+  currency: String!
+  deliveryAmount: String
+  dutiesMode: String
+  dutiesRateBps: Int
+  dutiesThresholdAmount: String
+  excludedProductIds: [ID!]
+  language: String!
+  name: String!
+  parentId: ID
+  pathPrefix: String
+  priceAdjustmentBps: Int
+  products: String
+  webMode: String
+}
+
+type MarketPage {
+  nodes: [Market!]
+  pageInfo: PageInfo
+}
+
+type MarketReadiness {
+  marketId: ID
+  marketName: String
+  missing: [String!]
+  ready: Boolean
+}
+
+type MarketingConsent {
+  at: String
+  channels: [String!]
+  source: String
+  state: String
+}
+
+type Me {
+  acting: ActingStore
+  email: String
+  id: ID
+  name: String
+}
+
+type Menu {
+  items: [MenuItem!]
+  name: String
+  revision: Int
+}
+
+input MenuChildInput {
+  collectionId: String
+  kind: String!
+  label: String!
+  url: String
+}
+
+type MenuItem {
+  collectionId: ID
+  id: ID
+  kind: String
+  label: String
+  parentId: ID
+  url: String
+}
+
+input MenuItemInput {
+  children: [MenuChildInput!]
+  collectionId: String
+  kind: String!
+  label: String!
+  url: String
+}
+
+type Money {
+  amount: String
+  currency: String
+}
+
+input MoneyInput {
+  amount: String!
+  currency: String!
+}
+
+type Mutation {
+  addCustomer(email: String!, name: String!, phone: String): AddedCustomer
+  addLicenceKeys(keys: [String!]!, productId: ID!): ProductKind
+  addOrderNote(note: String!, orderId: ID!): Boolean
+  addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
+  addSupplierPerson(email: String!, id: ID!, role: String): ID
+  addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
+  addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
+  adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
+  allowSupportWrite(sessionId: ID!): Boolean
+  approveProduct(id: ID!): Boolean
+  askDesign(device: String!, imageAssetId: ID, page: String!, sampleUrl: String, text: String!): DesignAnswer
+  bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
+  cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
+  cancelReturn(returnId: ID!): Boolean
+  cancelStore: BillingSubscription
+  changeEmail(email: String!, password: String!): Boolean
+  changePassword(current: String!, next: String!): Boolean
+  changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription
+  changeRole(membershipId: ID!, role: String!): Boolean
+  changeSupplierRole(membershipId: ID!, role: String!): Boolean
+  checkDomain(id: ID!): Boolean
+  chooseTemplate(keepWords: Boolean!, key: String!): String
+  confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
+  connectCourier(provider: String!): String
+  connectDomain(host: String!): StorefrontDomain
+  connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
+  connectShopify(shop: String!): String
+  connectStripe: String
+  copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
+  createApiKey(expiresInDays: Int, name: String!, scopes: [String!]!, supplierId: ID): IssuedApiKey
+  createGroup(description: String, name: String!): ID
+  deleteBadge(id: ID!): Boolean
+  deleteBlogPost(id: ID!): Boolean
+  deleteCollection(id: ID!): Boolean
+  deleteContentPage(id: ID!): Boolean
+  deleteFacet(id: ID!): Boolean
+  deleteGroup(id: ID!): Boolean
+  deleteMarket(id: ID!): Boolean
+  deleteOffer(id: ID!): Boolean
+  deleteProducts(ids: [ID!]!): Int
+  deleteSizeChart(id: ID!): Int
+  deleteStoryBlock(id: ID!): Boolean
+  deleteTaxClass(id: ID!): Boolean
+  deleteTaxZone(id: ID!): Boolean
+  deleteWarehouse(id: ID!): Boolean
+  denySupportWrite(sessionId: ID!): Boolean
+  discardDraft: Boolean
+  disconnectCourier(provider: String!): String
+  disconnectGateway(provider: String!): Boolean
+  disconnectShopify: Boolean
+  duplicateOffer(id: ID!): ID
+  duplicateProduct(id: ID!): SavedProduct
+  endOffer(id: ID!): Boolean
+  endPreviewLinks: Boolean
+  exportActivity(filter: StoreActivityFilter): ID
+  exportCustomers(groupId: ID, search: String): ID
+  exportOfferCodes(batchId: ID!): ID
+  exportOrders(filter: OrderFilter, search: String): ID
+  exportReport(currency: String, custom: CustomReportInput, days: Int!, panel: ReportPanel!): ID
+  exportStoreData: ID
+  finishShopifyConnect(key: String!): String
+  finishStripeConnect(key: String!): Boolean
+  generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
+  goBackToVersion(number: Int!): Boolean
+  installApp(appId: ID!, scopes: [String!]!): ID
+  inviteMember(email: String!, role: String!): Boolean
+  inviteSupplier(input: InviteSupplierInput!): ID
+  inviteSupplierUser(email: String!, role: String!): ID
+  issueGiftCard(issueKey: ID!, productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
+  keepProducts(ids: [ID!]!): PlanKeep
+  makeDomainPrimary(id: ID): Boolean
+  markOrderPaid(orderId: ID!): Boolean
+  mergeFacetValues(from: [ID!]!, into: ID!): Int
+  pauseOffer(id: ID!): Boolean
+  previewLink: String
+  proposeProduct(input: ProductInput!): SavedProduct
+  publishBefore(messageId: ID!): ID
+  publishDesign: ID
+  publishNow: ID
+  publishProductStory(productId: ID!, revision: Int!): ProductStory
+  receiveReturn(returnId: ID!): Boolean
+  recordMarketingStop(id: ID!): Boolean
+  refund(extra: String, lines: [RefundLineInput!]!, note: String, orderId: ID!, override: Boolean, reason: RefundReason!, restock: Boolean, returnId: ID): [ID!]
+  regenerateBackupCodes: [String!]
+  remindNow(cartId: ID!, discountPercent: Int): ID
+  removeDomain(id: ID!): Boolean
+  removeMember(membershipId: ID!): Boolean
+  removeSupplier(id: ID!): Int
+  removeSupplierUser(membershipId: ID!): Boolean
+  removeWebhook(id: ID!): Boolean
+  renewStudioSession(session: String!): String
+  replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
+  replayDelivery(id: ID!): ID
+  requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
+  requestPickup(shipmentId: ID!): Boolean
+  requestSupportWrite(note: String!): Boolean
+  resendInvitation(invitationId: ID!): Boolean
+  resendSupplierInvitation(invitationId: ID!): ID
+  resumeCartReminders(cartId: ID!): Boolean
+  resumeOffer(id: ID!): Boolean
+  resumeSupplier(id: ID!): Int
+  revokeApiKey(id: ID!): Boolean
+  revokeInvitation(invitationId: ID!): Boolean
+  revokeSupplierInvitation(invitationId: ID!): Boolean
+  rotateApiKey(id: ID!): IssuedApiKey
+  saveBadge(id: ID, input: BadgeInput!): ID
+  saveBillingDetails(input: BillingDetailsInput!): BillingDetails
+  saveBlogPost(id: ID, input: BlogPostInput!, revision: Int): ContentEntry
+  saveBlogPostTranslation(id: ID!, input: ContentTranslationInput, language: String!): ContentTranslation
+  saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
+  saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
+  saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
+  saveContentPage(id: ID, input: ContentPageInput!, revision: Int): ContentEntry
+  saveContentPageTranslation(id: ID!, input: ContentTranslationInput, language: String!): ContentTranslation
+  saveCourierOptions(input: CourierOptionsInput!, provider: String!): Boolean
+  saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
+  saveCustomerAccounts(mode: String!): CustomerAccounts
+  saveDesignText(key: String!, locale: String!, text: String!): Boolean
+  saveFacet(input: FacetInput!): ID
+  saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
+  saveLanguages(languages: [String!]!, main: String!): Boolean
+  saveMarket(id: ID, input: MarketInput!, revision: Int): Market
+  saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
+  saveOffer(id: ID, input: OfferInput!, revision: Int): SavedOffer
+  saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
+  saveProductKind(input: ProductKindInput!, productId: ID!, revision: Int!): ProductKind
+  saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
+  saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
+  saveReminderSettings(input: ReminderSettingsInput!, revision: Int): Int
+  saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
+  saveShipping(input: ShippingInput!, revision: Int!): Int
+  saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
+  saveStoreInfo(input: StoreInfoInput!): Boolean
+  saveStorefrontBrand(input: StorefrontBrandInput!): StorefrontBrand
+  saveStorefrontSeo(input: StorefrontSeoInput!): StorefrontSeo
+  saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
+  saveTaxClass(id: ID, input: TaxClassInput!): ID
+  saveTaxZone(id: ID, input: TaxZoneInput!): ID
+  saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
+  saveWebhook(events: [String!]!, id: ID, url: String!): SavedWebhook
+  sendBackProduct(id: ID!, reason: String!): Boolean
+  sendTestReminder(position: Int!): Boolean
+  setApproval(on: Boolean!): Boolean
+  setCustomerGroups(groupIds: [ID!]!, id: ID!): [ID!]
+  setCustomerNote(id: ID!, note: String): Boolean
+  setCustomerTags(id: ID!, tags: [String!]!): [String!]
+  setDefaultWarehouse(id: ID!): Boolean
+  setEverywhereElse(marketId: ID): Boolean
+  setHomeTaxRate(homeZoneName: String!, rateBps: Int!, taxClassId: ID!): Boolean
+  setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
+  setPaymentMethod(token: String!): BillingSubscription
+  setPricesIncludeTax(included: Boolean!): Boolean
+  setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
+  setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
+  setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
+  setSupplierAccess(accessLevel: String!, id: ID!): Boolean
+  setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
+  setSupportAccess(allowed: Boolean!): SupportAccessSet
+  setTheme(theme: String!): Profile
+  shipItems(courierName: String, lines: [ShipLineInput!]!, orderId: ID!, trackingNumber: String, trackingUrl: String, warehouseId: ID!): [ID!]
+  signOutOtherSessions: Int
+  skipSetupStep(skipped: Boolean!, step: SetupStep!): Boolean
+  startCatalogImport(file: String!): ID
+  startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
+  startShopifyImport(all: Boolean, productIds: [ID!]): ID
+  stopCartReminders(cartId: ID!, note: String): Boolean
+  suspendSupplier(hideProducts: Boolean!, id: ID!): Int
+  switchStore(storeId: ID!, supplierId: ID): StoreChoice
+  testCouriers: [CourierTestResult!]
+  turnOnWebhook(id: ID!): Int
+  undoDesignChange(messageId: ID!): DesignMessage
+  uninstallApp(id: ID!): Boolean
+  updateCustomer(address: CustomerAddressInput, id: ID!, name: String, phone: String): Boolean
+  updateGroup(description: String, id: ID!, name: String!): Boolean
+  updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
+  updateProfile(name: String!, phone: String): Profile
+  useCourierForPricing(provider: String!): Boolean
+}
+
+type MyActivity {
+  nodes: [MyActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type MyActivityEntry {
+  action: String
+  id: ID
+  occurredAt: String
+  result: String
+  storeId: String
+  target: MyActivityTarget
+}
+
+type MyActivityTarget {
+  label: String
+  type: String
+}
+
+type Named {
+  id: ID
+  name: String
+}
+
+type Offer {
+  action: OfferAction
+  code: String
+  combines: OfferCombines
+  conditions: [OfferCondition!]
+  createdAt: String
+  description: String
+  enabled: Boolean
+  endsAt: String
+  id: ID
+  internalName: String
+  name: String
+  perCustomerLimit: Int
+  revision: Int
+  startsAt: String
+  status: String
+  totalUsesLimit: Int
+  trigger: String
+  updatedAt: String
+  usesCount: Int
+}
+
+type OfferAction {
+  amounts: [Money!]
+  buy: OfferBuyGet
+  cap: [Money!]
+  exclude: OfferExclusions
+  get: OfferBuyGet
+  kind: String
+  oncePerOrder: Boolean
+  operation: String
+  percent: Int
+  targets: OfferTargets
+  tiers: [OfferTier!]
+}
+
+input OfferActionInput {
+  amounts: [MoneyInput!]
+  buy: OfferBuyGetInput
+  cap: [MoneyInput!]
+  exclude: OfferExclusionsInput
+  get: OfferBuyGetInput
+  kind: String
+  oncePerOrder: Boolean
+  operation: String!
+  percent: Int
+  targets: OfferTargetsInput
+  tiers: [OfferTierInput!]
+}
+
+type OfferBuyGet {
+  quantity: Int
+  targets: OfferTargets
+}
+
+input OfferBuyGetInput {
+  quantity: Int!
+  targets: OfferTargetsInput
+}
+
+type OfferCodeBatch {
+  count: Int
+  createdAt: String
+  id: ID
+  length: Int
+  prefix: String
+  used: Int
+}
+
+type OfferCodeBatchPage {
+  nodes: [OfferCodeBatch!]
+  pageInfo: PageInfo
+}
+
+type OfferCodeCheck {
+  answer: String
+  code: String
+  deleted: Boolean
+  expiresAt: String
+  offer: Offer
+  singleUse: Boolean
+  usedAt: String
+}
+
+type OfferCodesExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+}
+
+type OfferCombines {
+  order: Boolean
+  product: Boolean
+  shipping: Boolean
+}
+
+input OfferCombinesInput {
+  order: Boolean!
+  product: Boolean!
+  shipping: Boolean!
+}
+
+type OfferCondition {
+  amounts: [Money!]
+  collectionIds: [ID!]
+  conditions: [OfferCondition!]
+  countries: [String!]
+  customerIds: [ID!]
+  days: [Int!]
+  filterValueIds: [ID!]
+  from: String
+  groupIds: [ID!]
+  minimum: Int
+  operation: String
+  productIds: [ID!]
+  to: String
+}
+
+input OfferConditionInput {
+  amounts: [MoneyInput!]
+  collectionIds: [ID!]
+  conditions: [OfferConditionInput!]
+  countries: [String!]
+  customerIds: [ID!]
+  days: [Int!]
+  filterValueIds: [ID!]
+  from: String
+  groupIds: [ID!]
+  minimum: Int
+  operation: String!
+  productIds: [ID!]
+  to: String
+}
+
+type OfferCounts {
+  ended: Int
+  live: Int
+  off: Int
+  scheduled: Int
+}
+
+type OfferDay {
+  day: String
+  uses: Int
+}
+
+type OfferExclusions {
+  giftCards: Boolean
+  onSale: Boolean
+}
+
+input OfferExclusionsInput {
+  giftCards: Boolean
+  onSale: Boolean
+}
+
+input OfferInput {
+  action: OfferActionInput!
+  code: String
+  combines: OfferCombinesInput!
+  conditions: [OfferConditionInput!]!
+  description: String
+  enabled: Boolean!
+  endsAt: String
+  internalName: String
+  name: String!
+  perCustomerLimit: Int
+  startsAt: String
+  totalUsesLimit: Int
+  trigger: String!
+}
+
+type OfferPage {
+  nodes: [Offer!]
+  pageInfo: PageInfo
+}
+
+type OfferResults {
+  averageOrder: [Money!]
+  byDay: [OfferDay!]
+  discountGiven: [Money!]
+  salesWithOffer: [Money!]
+  uses: Int
+}
+
+type OfferTargets {
+  collectionIds: [ID!]
+  filterValueIds: [ID!]
+  productIds: [ID!]
+}
+
+input OfferTargetsInput {
+  collectionIds: [ID!]
+  filterValueIds: [ID!]
+  productIds: [ID!]
+}
+
+type OfferTier {
+  amounts: [Money!]
+  minimum: [Money!]
+  percent: Int
+}
+
+input OfferTierInput {
+  amounts: [MoneyInput!]
+  minimum: [MoneyInput!]!
+  percent: Int
+}
+
+type Order {
+  adjustments: [OrderAdjustment!]
+  billingAddress: OrderAddress
+  cancelReason: String
+  cancelledAt: String
+  customerId: ID
+  customerName: String
+  discount: Money
+  duties: Money
+  email: String
+  fulfilmentState: String
+  history: [OrderEvent!]
+  id: ID
+  marketId: ID
+  marketName: String
+  number: String
+  paidAt: String
+  parts: [OrderPart!]
+  paymentDueBy: String
+  paymentMethod: String
+  paymentState: String
+  payments: [OrderPayment!]
+  phone: String
+  placedAt: String
+  refunded: Money
+  refunds: [OrderRefund!]
+  returns: [OrderReturn!]
+  shipments: [OrderShipment!]
+  shipping: Money
+  shippingAddress: OrderAddress
+  shippingMethodLabel: String
+  shippingOption: String
+  shopperNote: String
+  state: String
+  subtotal: Money
+  tax: Money
+  taxInclusive: Boolean
+  test: Boolean
+  total: Money
+}
+
+type OrderAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  name: String
+  phone: String
+  postalCode: String
+  region: String
+}
+
+type OrderAdjustment {
+  amount: Money
+  kind: String
+  label: String
+}
+
+enum OrderCancelReason {
+  out_of_stock
+  shopper
+  store
+}
+
+type OrderCounts {
+  all: Int
+  cancelledRefunded: Int
+  partlyShipped: Int
+  paymentPending: Int
+  shipped: Int
+  toShip: Int
+}
+
+type OrderEvent {
+  action: String
+  actorKind: String
+  actorName: String
+  at: String
+  id: ID
+  note: String
+}
+
+type OrderExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+enum OrderFilter {
+  ALL
+  CANCELLED_REFUNDED
+  PARTLY_SHIPPED
+  PAYMENT_PENDING
+  SHIPPED
+  TO_SHIP
+}
+
+type OrderLine {
+  amount: Money
+  discount: Money
+  fulfilledQuantity: Int
+  id: ID
+  name: String
+  productId: ID
+  quantity: Int
+  refundedQuantity: Int
+  returnedQuantity: Int
+  sentToStoreQuantity: Int
+  sku: String
+  tax: Money
+  total: Money
+  unitPrice: Money
+  versionId: ID
+  versionName: String
+}
+
+type OrderPage {
+  nodes: [OrderSummary!]
+  pageInfo: PageInfo
+}
+
+type OrderPart {
+  id: ID
+  lines: [OrderLine!]
+  shippingMode: String
+  state: String
+  supplierId: ID
+  supplierName: String
+}
+
+type OrderPayment {
+  amount: Money
+  capturedAt: String
+  id: ID
+  kind: String
+  mode: String
+  provider: String
+  state: String
+}
+
+type OrderRefund {
+  amount: Money
+  at: String
+  id: ID
+  lines: [OrderRefundLine!]
+  note: String
+  override: Boolean
+  paymentState: String
+  reason: String
+  restock: Boolean
+  returnId: ID
+  supplierId: ID
+}
+
+type OrderRefundLine {
+  amount: Money
+  lineId: ID
+  quantity: Int
+}
+
+type OrderReturn {
+  cancelledAt: String
+  id: ID
+  lines: [OrderReturnLine!]
+  note: String
+  number: String
+  reason: String
+  receivedAt: String
+  startedAt: String
+  state: String
+}
+
+type OrderReturnLine {
+  lineId: ID
+  quantity: Int
+  warehouseId: ID
+}
+
+type OrderShipment {
+  courier: String
+  courierName: String
+  deliveredAt: String
+  id: ID
+  kind: String
+  labelDocumentId: ID
+  lines: [OrderShipmentLine!]
+  pickupDate: String
+  pickupReference: String
+  pickupRequestedAt: String
+  shippedAt: String
+  supplierId: ID
+  trackingNumber: String
+  trackingStatus: String
+  trackingUrl: String
+  warehouseId: ID
+  warehouseName: String
+}
+
+type OrderShipmentLine {
+  lineId: ID
+  quantity: Int
+}
+
+type OrderSummary {
+  city: String
+  customerName: String
+  fulfilmentState: String
+  id: ID
+  items: Int
+  number: String
+  partState: String
+  paymentMethod: String
+  paymentState: String
+  placedAt: String
+  shippingMode: String
+  state: String
+  test: Boolean
+  total: Money
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type PaymentGateway {
+  bankDetails: String
+  connectable: Boolean
+  connections: [PaymentGatewayConnection!]
+  kind: String
+  label: String
+  live: Boolean
+  provider: String
+}
+
+type PaymentGatewayConnection {
+  live: Boolean
+  mode: String
+  webhookUrl: String
+}
+
+input PaymentGatewayKeysInput {
+  appId: String
+  clientId: String
+  clientSecret: String
+  clientVersion: String
+  keyId: String
+  keySecret: String
+  secretKey: String
+  webhookId: String
+  webhookPassword: String
+  webhookSecret: String
+  webhookUsername: String
+}
+
+enum PaymentMode {
+  LIVE
+  TEST
+}
+
+type PlanChangeQuote {
+  charge: Money
+  credit: Money
+  from: String
+  nextPrice: Money
+  offered: [PlanChangeWhen!]
+  today: Money
+}
+
+enum PlanChangeWhen {
+  NOW
+  PERIOD_END
+}
+
+type PlanKeep {
+  from: String
+  kept: [ID!]
+  limit: Int
+  paused: Int
+  plan: BillingPlanName
+  products: Int
+  waiting: [ID!]
+}
+
+type PricingPlan {
+  description: String
+  name: String
+  prices: [PricingPrice!]
+  settings: [BillingPlanValue!]
+  trialDays: Int
+}
+
+type PricingPrice {
+  currency: String
+  monthly: Money
+  yearly: Money
+}
+
+type Product {
+  approval: String
+  category: String
+  createdAt: String
+  description: String
+  filterValues: [ProductFilterValue!]
+  id: ID
+  listing: ProductListing
+  name: String
+  options: [ProductOption!]
+  photos: [ProductPhoto!]
+  pricing(marketId: ID): [VersionPricing!]
+  pricingCurrency: String
+  productType: String
+  readiness: [MarketReadiness!]
+  returnsText: String
+  revision: Int
+  sentBackReason: String
+  seoDescription: String
+  seoTitle: String
+  shared: Boolean
+  sizeChartId: ID
+  slug: String
+  supplier: ProductSupplier
+  updatedAt: String
+  versions: [ProductVersion!]
+  video: ProductVideo
+  visible: Boolean
+  warrantyText: String
+}
+
+type ProductCollection {
+  id: ID
+  kind: String
+  name: String
+}
+
+type ProductCompliance {
+  field: String
+  region: String
+  value: String
+}
+
+input ProductComplianceInput {
+  field: String!
+  region: String!
+  value: String!
+}
+
+type ProductCounts {
+  all: Int
+  fromSuppliers: Int
+  hidden: Int
+  lowStock: Int
+  missingInfo: Int
+  outOfStock: Int
+  pending: Int
+  sentBack: Int
+  visible: Int
+}
+
+type ProductFaq {
+  answer: String
+  question: String
+}
+
+input ProductFaqInput {
+  answer: String!
+  question: String!
+}
+
+type ProductFilterValue {
+  valueId: ID
+  versionId: ID
+}
+
+input ProductFilterValueInput {
+  valueId: String!
+  version: Int
+}
+
+input ProductInput {
+  category: String
+  description: String
+  filterValues: [ProductFilterValueInput!]
+  listing: ProductListingInput
+  name: String!
+  options: [ProductOptionInput!]!
+  photos: [ProductPhotoInput!]
+  productType: String
+  returnsText: String
+  seoDescription: String
+  seoTitle: String
+  sizeChartId: String
+  slug: String
+  versions: [ProductVersionInput!]!
+  video: ProductVideoInput
+  visible: Boolean
+  warrantyText: String
+}
+
+type ProductKind {
+  download: DownloadDetails
+  giftCard: GiftCardDetails
+  productId: ID
+  productType: String
+  revision: Int
+  service: ServiceDetails
+}
+
+input ProductKindInput {
+  download: DownloadDetailsInput
+  giftCard: GiftCardDetailsInput
+  service: ServiceDetailsInput
+}
+
+type ProductListing {
+  ageRestricted: Boolean
+  badgeIds: [String!]
+  compliance: [ProductCompliance!]
+  faqs: [ProductFaq!]
+  hazardous: Boolean
+  highlights: [String!]
+  marketRule: ProductMarketRule
+  related: [RelatedProduct!]
+  relatedIds: [String!]
+  specs: [ProductSpec!]
+}
+
+input ProductListingInput {
+  ageRestricted: Boolean
+  badgeIds: [String!]
+  compliance: [ProductComplianceInput!]
+  faqs: [ProductFaqInput!]
+  hazardous: Boolean
+  highlights: [String!]
+  marketRule: ProductMarketRuleInput
+  relatedIds: [String!]
+  specs: [ProductSpecInput!]
+}
+
+type ProductMarketRule {
+  countries: [String!]
+  mode: String
+}
+
+input ProductMarketRuleInput {
+  countries: [String!]!
+  mode: String!
+}
+
+type ProductOption {
+  id: ID
+  name: String
+  values: [ProductOptionValue!]
+}
+
+input ProductOptionInput {
+  id: ID
+  name: String!
+  values: [ProductOptionValueInput!]!
+}
+
+type ProductOptionValue {
+  id: ID
+  name: String
+}
+
+input ProductOptionValueInput {
+  id: ID
+  name: String!
+}
+
+type ProductPage {
+  nodes: [ProductSummary!]
+  pageInfo: PageInfo
+}
+
+type ProductPhoto {
+  alt: String
+  assetId: ID
+  height: Int
+  id: ID
+  url: String
+  versionId: ID
+  width: Int
+}
+
+input ProductPhotoInput {
+  alt: String
+  assetId: String!
+  version: Int
+}
+
+type ProductSpec {
+  filterValueId: ID
+  name: String
+  value: String
+  versionId: ID
+}
+
+input ProductSpecInput {
+  filterValueId: String
+  name: String!
+  value: String!
+  version: Int
+}
+
+type ProductStory {
+  modules: [StoryModule!]
+  productId: ID
+  products: [StoryProduct!]
+  publishedAt: String
+  revision: Int
+  status: String
+  template: String
+}
+
+input ProductStoryInput {
+  modules: [StoryModuleInput!]!
+  template: String
+}
+
+type ProductSummary {
+  approval: String
+  buyable: Boolean
+  createdAt: String
+  id: ID
+  lowStock: Boolean
+  maxPrice: Money
+  minPrice: Money
+  name: String
+  photoUrl: String
+  productType: String
+  readiness: [MarketReadiness!]
+  slug: String
+  stock: Int
+  supplier: ProductSupplier
+  supplierRemoved: Boolean
+  updatedAt: String
+  versionCount: Int
+  visible: Boolean
+}
+
+type ProductSupplier {
+  id: ID
+  name: String
+}
+
+input ProductTranslationInput {
+  description: String
+  name: String
+  names: [SharedNameTranslationInput!]
+  slug: String
+  versions: [VersionNameTranslationInput!]
+}
+
+type ProductVersion {
+  barcode: String
+  choices: [String!]
+  continueSelling: Boolean
+  cost: Money
+  customsDescription: String
+  heightMm: Int
+  hsCode: String
+  id: ID
+  lengthMm: Int
+  name: String
+  prices: [VersionPrice!]
+  sku: String
+  taxClassId: ID
+  trackStock: Boolean
+  visible: Boolean
+  weightGrams: Int
+  widthMm: Int
+}
+
+input ProductVersionInput {
+  barcode: String
+  choices: [String!]!
+  continueSelling: Boolean
+  cost: MoneyInput
+  customsDescription: String
+  heightMm: Int
+  hsCode: String
+  id: ID
+  lengthMm: Int
+  name: String
+  prices: [VersionPriceInput!]!
+  sku: String
+  taxClassId: ID
+  trackStock: Boolean
+  visible: Boolean
+  weightGrams: Int
+  widthMm: Int
+}
+
+type ProductVideo {
+  assetId: ID
+  uploaded: Boolean
+  url: String
+}
+
+input ProductVideoInput {
+  assetId: String
+  url: String
+}
+
+input ProductsPatch {
+  visible: Boolean!
+}
+
+type Profile {
+  email: String
+  name: String
+  passwordChangedAt: String
+  pendingEmail: String
+  phone: String
+  theme: String
+  twoFactor: TwoFactor
+}
+
+type Provisioning {
+  state: String
+  step: String
+}
+
+type PublishCheck {
+  name: String
+  passed: Boolean
+  words: String
+}
+
+type PublishRun {
+  bisectMessageId: ID
+  buildMinutes: Int
+  checks: [PublishCheck!]
+  createdAt: String
+  error: String
+  finishedAt: String
+  id: ID
+  kind: String
+  repairAttempts: Int
+  state: String
+  step: String
+  version: Int
+}
+
 type Query {
+  abandonedCart(id: ID!): AbandonedCartDetail
+  abandonedCartCounts: AbandonedCartCounts
+  abandonedCarts(after: String, before: String, first: Int, search: String, tab: String!): AbandonedCartPage
+  activityExport(id: ID!): StoreActivityExport
+  activityLog(after: String, before: String, filter: StoreActivityFilter, first: Int): StoreActivityPage
+  apiKeyChoices: ApiKeyChoices
+  apiKeys(after: String, before: String, first: Int): ApiKeyPage
+  apps(after: String, before: String, first: Int): InstalledAppPage
+  billingDetails: BillingDetails
+  blogPosts(after: String, before: String, first: Int): ContentEntryPage
+  brand: Brand
+  cartSummary(days: Int): CartSummary
+  catalogExport(id: ID!): CatalogExport
+  catalogExports: [CatalogExport!]
+  catalogImport(id: ID!): CatalogImport
+  catalogImportTemplate: String
+  catalogImports: [CatalogImport!]
+  catalogueSettings: CatalogueSettings
+  catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
+  checkCode(code: String!): OfferCodeCheck
+  collection(id: ID!): Collection
+  collectionPreview(inheritParent: Boolean, match: String, parentId: ID, rules: [CollectionRuleInput!]!): CollectionPreview
+  collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
+  collections(after: String, before: String, first: Int): CollectionPage
+  contentEntry(id: ID!): ContentEntry
+  contentPages(after: String, before: String, first: Int): ContentEntryPage
+  contentTranslation(id: ID!, language: String!): ContentTranslation
+  customPagePaths: [String!]
+  customer(id: ID!): Customer
+  customerAccounts: CustomerAccounts
+  customerCount: Int
+  customerExport(id: ID!): CustomerExport
+  customerExports: [CustomerExport!]
+  customerGroups: [CustomerGroup!]
+  customers(after: String, before: String, first: Int, groupId: ID, search: String): CustomerPage
+  designChat(after: String): DesignChat
+  designText(locale: String!, page: String!): [DesignText!]
+  downloadInvoice(id: ID!): String
+  facets(after: String, before: String, first: Int): FacetPage
+  gateways: [PaymentGateway!]
+  giftCards(after: String, before: String, first: Int, productId: ID!): IssuedGiftCardPage
   health: String
+  home: StoreHome
+  installableApp(id: ID!): InstallableApp
+  invoiceSettings: InvoiceSettings
+  invoices(after: String, before: String, first: Int): StoreInvoicePage
+  market(id: ID!): Market
+  markets(after: String, before: String, first: Int): MarketPage
+  me: Me
+  menu: Menu
+  myActivity(after: String, before: String, first: Int): MyActivity
+  mySales(after: String, before: String, first: Int): SupplierSalePage
+  mySessions: [SignedInSession!]
+  myStores(after: String, before: String, first: Int): StoreChoices
+  mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
+  navBadges: StoreNavBadges
+  offer(id: ID!): Offer
+  offerCodeBatches(after: String, before: String, first: Int, offerId: ID!): OfferCodeBatchPage
+  offerCodesExport(id: ID!): OfferCodesExport
+  offerCounts: OfferCounts
+  offerResults(id: ID!): OfferResults
+  offers(after: String, before: String, first: Int, kind: String, search: String, status: String, trigger: String): OfferPage
+  order(id: ID!): Order
+  orderCounts: OrderCounts
+  orderExport(id: ID!): OrderExport
+  orderExports: [OrderExport!]
+  orders(after: String, before: String, filter: OrderFilter, first: Int, search: String): OrderPage
+  people(after: String, before: String, filter: String, first: Int): StorePeople
+  peopleCounts: StorePeopleCounts
+  planCatalogue: [BillingPlan!]
+  planChangeQuote(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): PlanChangeQuote
+  planKeep: PlanKeep
+  pricing(currency: String): [PricingPlan!]
+  product(id: ID!): Product
+  productCollections(productId: ID!): [ProductCollection!]
+  productCounts: ProductCounts
+  productKind(productId: ID!): ProductKind
+  productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
+  productStory(productId: ID!): ProductStory
+  productTranslation(language: String!, productId: ID!): [Translation!]
+  products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
+  profile: Profile
+  publishRun(id: ID!): PublishRun
+  reminderSettings: ReminderSettings
+  report(currency: String, days: Int!): StoreReport
+  reportExport(id: ID!): ReportExport
+  reportExports: [ReportExport!]
+  sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
+  shippingSettings: ShippingSettings
+  shopifyConnection: ShopifyConnection
+  shopifyProducts(after: String, search: String): ShopifyProductPage
+  sizeChart(id: ID!): SizeChart
+  sizeCharts(after: String, before: String, first: Int): SizeChartPage
+  stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeDataExport(id: ID!): [StoreDataPart!]
+  storeInfo: StoreInfo
+  storeLocale: StoreLocale
+  storeState: StoreState
+  storefront: Storefront
+  storefrontBrand: StorefrontBrand
+  storefrontDomains: StorefrontDomains
+  storefrontSeo: StorefrontSeo
+  storefrontTemplates: [StorefrontTemplate!]
+  storyBlock(id: ID!): StoryBlock
+  storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  studioSession(session: String): StudioSession
+  subscription: BillingSubscription
+  supplier(id: ID!): Supplier
+  supplierApprovalRequired: Boolean
+  supplierCounts: SupplierCounts
+  supplierLedger(after: String, before: String, first: Int, supplierId: ID): SupplierLedger
+  suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
+  supportAccess(after: String, before: String, first: Int): SupportAccess
+  taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
+  taxSetup: TaxSetup
+  translationProgress(language: String!): TranslationProgress
+  usage: [BillingUsage!]
+  warehouses(after: String, before: String, first: Int): WarehousePage
+  webhookDeliveries(after: String, before: String, endpointId: ID!, first: Int): WebhookDeliveryPage
+  webhookEvents: [String!]
+  webhooks(after: String, before: String, first: Int): WebhookEndpointPage
+}
+
+type ReferenceRate {
+  currency: String
+  fetchedAt: String
+  perEuro: String
+  publishedOn: String
+}
+
+input RefundLineInput {
+  amount: String
+  lineId: ID!
+  quantity: Int!
+}
+
+enum RefundReason {
+  goodwill
+  other
+  returned
+}
+
+type RelatedProduct {
+  id: ID
+  name: String
+}
+
+type ReminderSettings {
+  enabled: Boolean
+  level: String
+  minimum: Money
+  quietHours: Boolean
+  revision: Int
+  skipOutOfStock: Boolean
+  steps: [ReminderStep!]
+  weeklyCap: Boolean
+}
+
+input ReminderSettingsInput {
+  enabled: Boolean!
+  minimum: MoneyInput
+  quietHours: Boolean!
+  skipOutOfStock: Boolean!
+  steps: [ReminderStepInput!]!
+  weeklyCap: Boolean!
+}
+
+type ReminderStep {
+  body: String
+  channel: String
+  delayMinutes: Int
+  discountPercent: Int
+  enabled: Boolean
+  position: Int
+  subject: String
+}
+
+input ReminderStepInput {
+  body: String!
+  channel: String!
+  delayMinutes: Int!
+  discountPercent: Int
+  enabled: Boolean!
+  position: Int!
+  subject: String!
+}
+
+type ReportExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type ReportMarket {
+  amount: Money
+  marketId: ID
+  name: String
+  orders: Int
+}
+
+type ReportOffer {
+  amount: Money
+  discount: Money
+  name: String
+  orders: Int
+}
+
+enum ReportPanel {
+  custom
+  markets
+  offers
+  sold
+  suppliers
+  takings
+  tax
+}
+
+type ReportProduct {
+  amount: Money
+  name: String
+  productId: ID
+  units: Int
+}
+
+type ReportSupplier {
+  name: String
+  supplierId: ID
+  units: Int
+}
+
+type ReportTakings {
+  net: Money
+  orders: Int
+  previousNet: Money
+  previousOrders: Int
+  refunds: Money
+  sales: Money
+}
+
+type ReportTax {
+  by: String
+  rows: [ReportTaxLine!]
+  total: Money
+}
+
+type ReportTaxLine {
+  amount: Money
+  key: String
+  orders: Int
+}
+
+enum ReturnReason {
+  changed_mind
+  damaged
+  doesnt_fit
+  not_as_described
+  wrong_item
+}
+
+type SavedCollection {
+  id: ID
+  revision: Int
+  slug: String
+}
+
+type SavedOffer {
+  id: ID
+  revision: Int
+}
+
+type SavedProduct {
+  approval: String
+  id: ID
+  reviewed: [String!]
+  revision: Int
+  slug: String
+}
+
+type SavedSizeChart {
+  id: ID
+  revision: Int
+}
+
+type SavedStoryBlock {
+  id: ID
+  revision: Int
+}
+
+type SavedWebhook {
+  id: ID
+  secret: String
+}
+
+type ScheduledPlanChange {
+  at: String
+  interval: BillingInterval
+  plan: BillingPlanName
+}
+
+type SecondFactorStep {
+  backupCodes: [String!]
+  done: Boolean
+  hint: String
+  secret: String
+  uri: String
+}
+
+type ServiceDetails {
+  duration: String
+  location: String
+}
+
+input ServiceDetailsInput {
+  duration: String
+  location: String
+}
+
+enum SetupStep {
+  payments
+  shipping
+}
+
+type SharedName {
+  kind: String
+  main: String
+  source: String
+  text: String
+  uses: Int
+}
+
+type SharedNamePage {
+  nodes: [SharedName!]
+  pageInfo: PageInfo
+}
+
+input SharedNameTranslationInput {
+  kind: String!
+  source: String!
+  text: String
+}
+
+input ShipLineInput {
+  lineId: ID!
+  quantity: Int!
+}
+
+type ShippingCourier {
+  labelSize: String
+  lastTestResult: String
+  lastTestedAt: String
+  offered: Boolean
+  pickupMode: String
+  provider: String
+  status: String
+  trackingEmails: Boolean
+}
+
+input ShippingInput {
+  areaMode: String!
+  courierRate: Boolean!
+  flatAmount: String
+  flatRate: Boolean!
+  freeMode: String!
+  freeThresholdAmount: String
+  pickup: Boolean!
+  pickupHours: String
+}
+
+type ShippingSettings {
+  areaCount: Int
+  areaFileName: String
+  areaMode: String
+  areaSample: [String!]
+  courierRate: Boolean
+  couriers: [ShippingCourier!]
+  currency: String
+  flatAmount: String
+  flatRate: Boolean
+  freeMode: String
+  freeThresholdAmount: String
+  labelSizes: [String!]
+  pickup: Boolean
+  pickupAddress: String
+  pickupHours: String
+  revision: Int
+  savedAt: String
+}
+
+type ShopifyConnection {
+  available: Boolean
+  shop: String
+  status: String
+}
+
+type ShopifyProduct {
+  id: ID
+  imageUrl: String
+  status: String
+  title: String
+  versions: Int
+}
+
+type ShopifyProductPage {
+  next: String
+  nodes: [ShopifyProduct!]
+}
+
+type SignedInSession {
+  createdAt: String
+  current: Boolean
+  device: String
+  lastUsedAt: String
+}
+
+type SizeChart {
+  fitNotes: String
+  howToMeasure: [SizeChartMeasureNote!]
+  id: ID
+  measurements: [String!]
+  modelInfo: String
+  name: String
+  products: Int
+  revision: Int
+  rows: [SizeChartRow!]
+  supplierId: ID
+  systems: [String!]
+  unit: String
+  updatedAt: String
+}
+
+input SizeChartInput {
+  fitNotes: String
+  howToMeasure: [SizeChartMeasureNoteInput!]
+  measurements: [String!]!
+  modelInfo: String
+  name: String!
+  rows: [SizeChartRowInput!]!
+  systems: [String!]
+  unit: String!
+}
+
+type SizeChartMeasureNote {
+  measurement: String
+  text: String
+}
+
+input SizeChartMeasureNoteInput {
+  measurement: String!
+  text: String!
+}
+
+type SizeChartPage {
+  limit: Int
+  nodes: [SizeChartSummary!]
+  pageInfo: PageInfo
+}
+
+type SizeChartRow {
+  size: String
+  values: [String!]
+}
+
+input SizeChartRowInput {
+  size: String!
+  values: [String!]!
+}
+
+type SizeChartSummary {
+  id: ID
+  name: String
+  products: Int
+  supplierId: ID
+  unit: String
+  updatedAt: String
+}
+
+type StockLevel {
+  isDefault: Boolean
+  lowStockThreshold: Int
+  onHand: Int
+  reserved: Int
+  warehouseId: ID
+  warehouseName: String
+}
+
+type StockMovement {
+  actorKind: String
+  actorName: String
+  delta: Int
+  id: ID
+  occurredAt: String
+  reason: String
+  resultingQuantity: Int
+  versionId: ID
+  warehouseId: ID
+  warehouseName: String
+}
+
+type StockMovementPage {
+  nodes: [StockMovement!]
+  pageInfo: PageInfo
+}
+
+type StockQuantity {
+  quantity: Int
+  versionId: ID
+  warehouseId: ID
+}
+
+input StockQuantityInput {
+  quantity: Int!
+  versionId: ID!
+  warehouseId: ID!
+}
+
+type StockVersion {
+  levels: [StockLevel!]
+  versionId: ID
+}
+
+type StockVersionPage {
+  nodes: [StockVersion!]
+  pageInfo: PageInfo
+}
+
+type StoreActivityActor {
+  id: String
+  kind: String
+  label: String
+}
+
+type StoreActivityAgent {
+  id: String
+  kind: String
+  label: String
+}
+
+type StoreActivityChange {
+  after: String
+  before: String
+  field: String
+}
+
+type StoreActivityEntry {
+  action: String
+  actor: StoreActivityActor
+  at: String
+  category: String
+  changes: [StoreActivityChange!]
+  customerId: String
+  id: ID
+  onBehalfOf: StoreActivityAgent
+  reason: String
+  result: String
+  sellerId: String
+  target: StoreActivityTarget
+  through: StoreActivityThrough
+}
+
+type StoreActivityExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+input StoreActivityFilter {
+  from: String
+  personId: String
+  personKind: String
+  result: String
+  search: String
+  to: String
+  what: String
+}
+
+type StoreActivityPage {
+  items: [StoreActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type StoreActivityTarget {
+  id: String
+  label: String
+  type: String
+}
+
+type StoreActivityThrough {
+  id: String
+  kind: String
+}
+
+type StoreAddress {
+  city: String
+  postal: String
+  region: String
+  street: String
+}
+
+input StoreAddressInput {
+  city: String
+  postal: String
+  region: String
+  street: String
+}
+
+type StoreChoice {
+  membershipId: ID
+  role: String
+  seller: Named
+  store: Named
+  tier: String
+}
+
+type StoreChoices {
+  nodes: [StoreChoice!]
+  pageInfo: PageInfo
+}
+
+type StoreCurrency {
+  code: String
+  mode: String
+  rounding: String
+  status: String
+}
+
+input StoreCurrencyInput {
+  code: String!
+  mode: String!
+  rounding: String
+}
+
+type StoreDataPart {
+  csv: String
+  expiresAt: String
+  id: ID
+  kind: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type StoreHome {
+  awaitingApproval: Int
+  hasOrders: Boolean
+  latestOrders: [HomeOrder!]
+  lowStock: HomeLowStock
+  oldestToShipAt: String
+  ordersToday: Int
+  ordersYesterday: Int
+  partlyShipped: Int
+  paymentsToCollect: HomePaymentsToCollect
+  rejectedCouriers: [String!]
+  returningCustomers: Int
+  sales: [HomeSales!]
+  setup: HomeSetup
+  timeZone: String
+  toShip: Int
+}
+
+type StoreInfo {
+  address: StoreAddress
+  contactEmail: String
+  contactPhone: String
+  country: String
+  description: String
+  legalName: String
+  logoAssetId: ID
+  name: String
+  nextOrderNumber: String
+  orderPrefix: String
+  taxId: String
+  timeZone: String
+  unitSystem: String
+}
+
+input StoreInfoInput {
+  address: StoreAddressInput
+  contactEmail: String
+  contactPhone: String
+  description: String
+  legalName: String
+  logoAssetId: ID
+  name: String!
+  nextOrderNumber: Int!
+  orderPrefix: String
+  taxId: String
+  timeZone: String!
+  unitSystem: String!
+}
+
+type StoreInvoice {
+  amount: Money
+  id: ID
+  issuedAt: String
+  kind: String
+  lines: [InvoiceLine!]
+  number: String
+  paidAt: String
+  status: String
+  tax: Money
+}
+
+type StoreInvoicePage {
+  nodes: [StoreInvoice!]
+  pageInfo: PageInfo
+}
+
+type StoreLanguage {
+  code: String
+  status: String
+}
+
+type StoreLocale {
+  currencies: [StoreCurrency!]
+  examples: [ConversionExample!]
+  languages: [StoreLanguage!]
+  mainLanguage: String
+  offeredLanguages: [String!]
+  pricingCurrency: String
+  rates: [ReferenceRate!]
+}
+
+type StoreNavBadges {
+  products: Int
+  toShip: Int
+}
+
+type StorePeople {
+  nodes: [StorePerson!]
+  pageInfo: PageInfo
+}
+
+type StorePeopleCounts {
+  staff: Int
+  waiting: Int
+}
+
+type StorePerson {
+  email: String
+  expired: Boolean
+  expiresAt: String
+  id: ID
+  kind: String
+  name: String
+  role: String
+  since: String
+  you: Boolean
+}
+
+type StoreReport {
+  currencies: [String!]
+  currency: String
+  days: Int
+  from: String
+  markets(first: Int): [ReportMarket!]
+  offers(first: Int): [ReportOffer!]
+  previousFrom: String
+  sold(first: Int): [ReportProduct!]
+  suppliers(first: Int): [ReportSupplier!]
+  takings: ReportTakings
+  tax(first: Int): ReportTax
+  timeZone: String
+  to: String
+}
+
+type StoreState {
+  pastDueSince: String
+  provisioning: Provisioning
+  readOnly: Boolean
+  status: String
+  support: SupportBanner
+  trialEndsAt: String
+}
+
+type StoreSupportSession {
+  access: String
+  actingAs: SupportActingAs
+  agentName: String
+  allowedBy: String
+  endedAt: String
+  endedBy: String
+  endedByName: String
+  expiresAt: String
+  id: ID
+  partnerName: String
+  reason: String
+  startedAt: String
+  ticket: String
+  writeRequest: SupportSessionWriteRequest
+}
+
+type StoreSupportSessions {
+  nodes: [StoreSupportSession!]
+  pageInfo: PageInfo
+}
+
+type Storefront {
+  catalogue: StorefrontCatalogue
+  draft: StorefrontDraft
+  history(before: Int): [StorefrontVersion!]
+  lastPublish: StorefrontLastPublish
+  live: StorefrontLiveVersion
+  status: String
+  template: String
+  usage: StorefrontUsage
+}
+
+type StorefrontBrand {
+  brandReady: Boolean
+  contactAddress: StoreAddress
+  contactEmail: String
+  contactPhone: String
+  description: String
+  faviconAssetId: ID
+  logoAssetId: ID
+  primaryColour: String
+  secondaryColour: String
+  shopName: String
+  social: StorefrontSocialLinks
+  tagline: String
+  voice: String
+}
+
+input StorefrontBrandInput {
+  contactAddress: StoreAddressInput
+  contactEmail: String
+  contactPhone: String
+  description: String
+  faviconAssetId: ID
+  logoAssetId: ID!
+  primaryColour: String
+  secondaryColour: String
+  shopName: String
+  social: StorefrontSocialInput
+  tagline: String
+  voice: String
+}
+
+type StorefrontCatalogue {
+  changedKinds: [String!]
+  changedProducts: Int
+  nextAutomaticPublishAt: String
+  pressesAllowed: Int
+  pressesLeft: Int
+  since: String
+  waiting: Boolean
+}
+
+type StorefrontDnsRecord {
+  found: String
+  name: String
+  type: String
+  value: String
+}
+
+type StorefrontDomain {
+  checkedAt: String
+  host: String
+  id: ID
+  kind: String
+  primary: Boolean
+  records: [StorefrontDnsRecord!]
+  status: String
+}
+
+type StorefrontDomains {
+  customDomainAllowed: Boolean
+  domains: [StorefrontDomain!]
+}
+
+type StorefrontDraft {
+  changedAt: String
+  previewReady: Boolean
+  template: String
+}
+
+type StorefrontLastPublish {
+  error: String
+  finishedAt: String
+  state: String
+  version: Int
+}
+
+type StorefrontLiveVersion {
+  number: Int
+  portalOrigin: String
+  publishedAt: String
+  template: String
+}
+
+type StorefrontRequest {
+  createdAt: String
+  id: ID
+  outcome: String
+  text: String
+  tokens: Int
+}
+
+type StorefrontSeo {
+  description: String
+  shareImageAssetId: ID
+  title: String
+}
+
+input StorefrontSeoInput {
+  description: String
+  shareImageAssetId: ID
+  title: String
+}
+
+input StorefrontSocialInput {
+  facebook: String
+  instagram: String
+  tiktok: String
+  whatsapp: String
+  x: String
+  youtube: String
+}
+
+type StorefrontSocialLinks {
+  facebook: String
+  instagram: String
+  tiktok: String
+  whatsapp: String
+  x: String
+  youtube: String
+}
+
+type StorefrontTemplate {
+  current: Boolean
+  demoUrl: String
+  description: String
+  key: String
+  name: String
+  tag: String
+}
+
+type StorefrontUsage {
+  aiPromptsAllowed: Int
+  aiPromptsUsed: Int
+  aiRequests: Int
+  aiTokens: Int
+  buildMinutes: Int
+  ownKey: Boolean
+  publishesLast30Days: Int
+  recent: [StorefrontRequest!]
+}
+
+type StorefrontVersion {
+  coreVersion: String
+  id: ID
+  label: String
+  live: Boolean
+  number: Int
+  publishedAt: String
+  template: String
+}
+
+type StoryBlock {
+  body: String
+  id: ID
+  name: String
+  photo: StoryPhoto
+  products: Int
+  revision: Int
+  title: String
+  updatedAt: String
+}
+
+input StoryBlockInput {
+  body: String!
+  name: String!
+  photo: StoryPhotoInput
+  title: String!
+}
+
+type StoryBlockPage {
+  nodes: [StoryBlockSummary!]
+  pageInfo: PageInfo
+}
+
+type StoryBlockSummary {
+  id: ID
+  name: String
+  products: Int
+  updatedAt: String
+}
+
+type StoryItem {
+  photo: StoryPhoto
+  text: String
+  title: String
+}
+
+input StoryItemInput {
+  photo: StoryPhotoInput
+  text: String
+  title: String
+}
+
+type StoryModule {
+  blockId: ID
+  body: String
+  id: String
+  items: [StoryItem!]
+  kind: String
+  photo: StoryPhoto
+  photos: [StoryPhoto!]
+  productIds: [ID!]
+  side: String
+  title: String
+  video: StoryVideo
+}
+
+input StoryModuleInput {
+  blockId: ID
+  body: String
+  id: String!
+  items: [StoryItemInput!]
+  kind: String!
+  photo: StoryPhotoInput
+  photos: [StoryPhotoInput!]
+  productIds: [ID!]
+  side: String
+  title: String
+  video: StoryVideoInput
+}
+
+type StoryPhoto {
+  alt: String
+  assetId: ID
+}
+
+input StoryPhotoInput {
+  alt: String
+  assetId: ID
+}
+
+type StoryProduct {
+  id: ID
+  name: String
+}
+
+type StoryVideo {
+  assetId: ID
+  url: String
+}
+
+input StoryVideoInput {
+  assetId: ID
+  url: String
+}
+
+type StudioSession {
+  access: String
+  expiresAt: String
+  frameUrl: String
+  place: Int
+  session: String
+  state: String
+}
+
+type Supplier {
+  accessLevel: String
+  createdAt: String
+  hideProductsWhileSuspended: Boolean
+  id: ID
+  labelAccount: String
+  name: String
+  products: Int
+  shippingMode: String
+  status: String
+  suspendedAt: String
+  users: Int
+}
+
+type SupplierCounts {
+  active: Int
+  all: Int
+  suspended: Int
+}
+
+type SupplierLedger {
+  balance: [Money!]
+  entries: [SupplierLedgerEntry!]
+  pageInfo: PageInfo
+}
+
+type SupplierLedgerEntry {
+  amount: Money
+  at: String
+  id: ID
+  kind: String
+  orderNumber: String
+  refundId: ID
+  supplierId: ID
+  supplierName: String
+}
+
+type SupplierPage {
+  nodes: [Supplier!]
+  pageInfo: PageInfo
+}
+
+type SupplierSale {
+  amount: Money
+  lineId: ID
+  name: String
+  orderNumber: String
+  orderState: String
+  placedAt: String
+  quantity: Int
+  refundedQuantity: Int
+  sku: String
+  versionName: String
+}
+
+type SupplierSalePage {
+  nodes: [SupplierSale!]
+  pageInfo: PageInfo
+}
+
+type SupplierTeam {
+  nodes: [SupplierTeamPerson!]
+  pageInfo: PageInfo
+}
+
+type SupplierTeamPerson {
+  email: String
+  expired: Boolean
+  expiresAt: String
+  id: ID
+  kind: String
+  lastAdmin: Boolean
+  name: String
+  role: String
+  since: String
+  you: Boolean
+}
+
+type SupportAccess {
+  allowed: Boolean
+  sessions: StoreSupportSessions
+}
+
+type SupportAccessSet {
+  allowed: Boolean
+  ended: Int
+}
+
+type SupportActingAs {
+  name: String
+  role: String
+  supplier: String
+}
+
+type SupportBanner {
+  access: String
+  agentFirstName: String
+  allowedBy: String
+  endsAt: String
+  partnerName: String
+  sessionId: ID
+  writeRequest: SupportWriteRequest
+}
+
+type SupportSessionWriteRequest {
+  note: String
+  requestedAt: String
+  state: String
+}
+
+type SupportWriteRequest {
+  note: String
+  requestedAt: String
+  state: String
+}
+
+type TaxClass {
+  id: ID
+  isDefault: Boolean
+  name: String
+  taxCode: String
+  versions: Int
+}
+
+input TaxClassInput {
+  isDefault: Boolean
+  name: String!
+  taxCode: String
+}
+
+type TaxComponent {
+  amount: String
+  name: String
+  rateBps: Int
+}
+
+type TaxQuote {
+  currency: String
+  lines: [TaxQuoteLine!]
+  pricesIncludeTax: Boolean
+  source: String
+  total: String
+}
+
+type TaxQuoteLine {
+  components: [TaxComponent!]
+  lineAmount: String
+  quantity: Int
+  rateBps: Int
+  tax: String
+  versionId: ID
+}
+
+input TaxQuoteLineInput {
+  quantity: Int!
+  versionId: ID!
+}
+
+type TaxRate {
+  rateBps: Int
+  taxClassId: ID
+}
+
+input TaxRateInput {
+  rateBps: Int!
+  taxClassId: ID!
+}
+
+type TaxSetup {
+  classes: [TaxClass!]
+  pricesIncludeTax: Boolean
+  zones: [TaxZone!]
+}
+
+input TaxShipToInput {
+  country: String!
+  postal: String
+  region: String
+}
+
+type TaxZone {
+  countries: [String!]
+  id: ID
+  name: String
+  rates: [TaxRate!]
+  regions: [String!]
+}
+
+input TaxZoneInput {
+  countries: [String!]!
+  name: String!
+  rates: [TaxRateInput!]!
+  regions: [String!]
+}
+
+type Translation {
+  entity: String
+  entityId: String
+  field: String
+  main: String
+  status: String
+  text: String
+}
+
+type TranslationProgress {
+  products: Int
+  untranslated: Int
+}
+
+input TranslationTextInput {
+  description: String
+  name: String
+  slug: String
+}
+
+type TwoFactor {
+  backupCodesLeft: Int
+  method: String
+  required: Boolean
+}
+
+input VersionNameTranslationInput {
+  id: ID!
+  name: String
+}
+
+type VersionPrice {
+  amount: String
+  compareAtAmount: String
+  currency: String
+}
+
+input VersionPriceInput {
+  amount: String!
+  compareAtAmount: String
+  currency: String!
+}
+
+type VersionPricing {
+  inMarket: CurrencyPrice
+  prices: [CurrencyPrice!]
+  versionId: ID
+}
+
+type Warehouse {
+  address: WarehouseAddress
+  id: ID
+  isDefault: Boolean
+  name: String
+  revision: Int
+  supplierId: ID
+  supplierName: String
+  units: Int
+}
+
+type WarehouseAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+input WarehouseAddressInput {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+input WarehouseInput {
+  address: WarehouseAddressInput
+  name: String!
+}
+
+type WarehousePage {
+  nodes: [Warehouse!]
+  pageInfo: PageInfo
+}
+
+type WebhookDelivery {
+  attempts: Int
+  createdAt: String
+  deliveredAt: String
+  durationMs: Int
+  error: String
+  event: String
+  eventId: ID
+  id: ID
+  lastAttemptAt: String
+  replayOf: ID
+  responseCode: Int
+  status: String
+}
+
+type WebhookDeliveryPage {
+  nodes: [WebhookDelivery!]
+  pageInfo: PageInfo
+}
+
+type WebhookEndpoint {
+  createdAt: String
+  disabledAt: String
+  events: [String!]
+  failingSince: String
+  id: ID
+  status: String
+  url: String
+}
+
+type WebhookEndpointPage {
+  nodes: [WebhookEndpoint!]
+  pageInfo: PageInfo
 }

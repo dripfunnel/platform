@@ -4,8 +4,8 @@
 
 `prod.yml` only uploads a Worker version (`wrangler versions upload`); it does not put it live
 and does not deploy the SPAs. The run summary prints the version ID. To go live, run the
-**promote** workflow (`workflow_dispatch` on `promote.yml`) with that `version_id` and the
-commit's `commit_sha`. It promotes the Worker to 100%, health-checks the live prod host, and —
+**promote** workflow (`workflow_dispatch` on `promote.yml`) with that `version_id`, the
+store-proxy's `proxy_version_id` and the commit's `commit_sha`. It promotes both Workers to 100%, health-checks the live prod host, and —
 only if that succeeds — builds and deploys all three SPAs from that same commit. If you'd rather
 promote by hand instead (from `apps/api`, with `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` for
 the prod account):
@@ -35,6 +35,8 @@ pnpm exec wrangler versions deploy <previous-version-id>@100 --env prod -y
 This is safe because migrations are required to be backward-compatible with the previously
 running version (ARCHITECTURE.md §6) — the old Worker code keeps working against the current
 schema.
+
+The store-proxy rolls back the same way, from `store-proxy/` (`--env prod`), when its own version is the bad one.
 
 ## SPA (Pages)
 

@@ -1,51 +1,80 @@
 import { getRouteApi, Link, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
-import { partnerActions, recheckDomain, runPartnerAction, type Partner, type PartnerAction, type PartnerDomain } from '../../api/partners'
+import { partnerActions, recheckDomain, runPartnerAction, setPartnerContract, type Partner, type PartnerAction, type PartnerContract, type PartnerDomain } from '../../api/partners'
 import { fill, messages } from '../../messages'
 import { actionCodes } from '../../api/activityActions'
 import { ActivityTab } from '../common/ActivityTab'
-import { ConfirmDialog } from '../common/ConfirmDialog'
+import { EmptyState, ConfirmDialog, useScreenState, Toast } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
+import { failureText } from '../common/failure'
 import { callerFor } from '../common/harnessCaller'
-import { useScreenState } from '../common/useScreenState'
-import { actionDialog, actionToast } from './actionDialog'
-import { partnerStates } from './partnerHarness'
+import { RouteError } from '../common/RouteError'
+import { actionDialog, actionToast, type ConfirmedAction } from './actionDialog'
+import { ContractDialog } from './ContractDialog'
+import { deniedPartner, partnerStates } from './partnerHarness'
 import { PartnerDetail, PartnerError } from './PartnerDetail'
-import { Toast } from '../common/Toast'
+import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 
 const partnerRoute = getRouteApi('/_app/partners_/$partnerId')
 const shellRoute = getRouteApi('/_app')
 
 // ?state=confirm opens the first action this partner offers, so its dialog can be checked.
-const firstAllowed = (partner: Partner | null): PartnerAction | null =>
-  partnerActions.find((action) => partner?.actions[action]?.allowed) ?? null
+const firstAllowed = (partner: Partner | null): ConfirmedAction | null =>
+  partnerActions.filter((action): action is ConfirmedAction => action !== 'setupSession').find((action) => partner?.actions[action]?.allowed) ?? null
 
 export const PartnerDetailScreen = () => {
-  const partner = partnerRoute.useLoaderData()
+  const loaded = partnerRoute.useLoaderData()
   const { tab = 'overview', after, before, ...activityFilter } = partnerRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const navigate = partnerRoute.useNavigate()
-  const forced = useScreenState(partnerStates)
+  const forced = useScreenState(partnerStates, harnessEnabled)
+  const partner = loaded && forced === 'denied' ? deniedPartner(loaded) : loaded
   const router = useRouter()
-  const [pending, setPending] = useState<PartnerAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
+  const [pending, setPending] = useState<ConfirmedAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
   const [toast, setToast] = useState<string | null>(null)
+  const [editingContract, setEditingContract] = useState(false)
+  const [contractError, setContractError] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
 
-  const onConfirm = (action: PartnerAction, target: Partner, reason: string | null) => {
+  // The activity tab and the session flows still read the sample as this caller (#39, #40).
+  const caller = callerFor(me.role, searchStr)
+  const sessions = useImpersonateFrom(caller, me.name)
+  // A setup session asks its own questions and signs in again (ACCESS.md §8.2), so it has its own flow.
+  const onAction = (action: PartnerAction) =>
+    action === 'setupSession' ? partner && sessions.start({ kind: 'setup', partner: { id: partner.id, name: partner.name } }) : setPending(action)
+
+  const onConfirm = (action: ConfirmedAction, target: Partner, reason: string | null) => {
     setPending(null)
     runPartnerAction(target.id, action, reason)
       .then(() => {
         setToast(actionToast(action, target))
         return router.invalidate()
       })
-      .catch(() => setToast(messages.partner.toasts.failed))
+      .catch((error: unknown) => setToast(failureText(error, messages.partner.toasts.failed)))
+  }
+
+  // A refused save keeps the dialog open with the edit and the reason, and says why.
+  const onSaveContract = (target: Partner, contract: PartnerContract, reason: string) => {
+    setContractError(null)
+    setPartnerContract(target.id, contract, reason)
+      .then(() => {
+        setEditingContract(false)
+        setToast(fill(messages.partner.contract.saved, { name: target.name }))
+        return router.invalidate()
+      })
+      .catch((error: unknown) => setContractError(failureText(error, messages.partner.toasts.failed)))
+  }
+  const closeContract = () => {
+    setEditingContract(false)
+    setContractError(null)
   }
 
   const onRecheck = (domain: PartnerDomain) =>
     partner
       ? recheckDomain(partner.id, domain.kind)
-          .then((status) => setToast(fill(messages.partner.domains.rechecked[status], { host: domain.host })))
-          .catch(() => setToast(messages.partner.toasts.failed))
+          .then(() => setToast(fill(messages.partner.domains.recheckQueued, { host: domain.host })))
+          .catch((error: unknown) => setToast(failureText(error, messages.partner.toasts.failed)))
       : Promise.resolve()
 
   const dialog = partner && pending ? actionDialog(pending, partner) : null
@@ -57,8 +86,10 @@ export const PartnerDetailScreen = () => {
         tab={tab}
         forced={forced}
         readOnly={me.role === 'staff-read-only' || forced === 'readonly'}
-        onAction={setPending}
+        onAction={onAction}
         onRecheck={onRecheck}
+        onSetContract={() => setEditingContract(true)}
+        onImpersonate={(id) => partner && sessions.impersonate(id, { email: partner.team.find((person) => person.id === id)?.email ?? '', partner: partner.id })}
         onReload={() => void router.invalidate()}
         activity={
           partner && (
@@ -66,7 +97,7 @@ export const PartnerDetailScreen = () => {
               scope={{ partner: partner.id }}
               filter={activityFilter}
               page={{ after, before }}
-              caller={callerFor(me.role, searchStr)}
+              caller={caller}
               actions={actionCodes}
               onFilterChange={(filter) => void navigate({ search: { tab: 'activity', ...filter }, replace: true })}
               pageLink={(cursor, label) => (
@@ -93,12 +124,32 @@ export const PartnerDetailScreen = () => {
           onCancel={() => setPending(null)}
         />
       )}
+      <ContractDialog partner={editingContract ? partner : null} error={contractError} onSave={onSaveContract} onCancel={closeContract} />
       <Toast message={toast} onDone={clearToast} />
+      {sessions.element}
     </>
   )
 }
 
-export const PartnerRouteError = () => {
+// A partner outside a Partner manager's assignment is refused by the API (ACCESS.md §5.4).
+const PartnerDenied = () => {
+  const words = messages.partners.denied
+  return (
+    <div className="df-page df-list">
+      <EmptyState
+        title={words.title}
+        body={words.body}
+        action={
+          <Link to="/partners" className="df-button">
+            {words.back}
+          </Link>
+        }
+      />
+    </div>
+  )
+}
+
+export const PartnerRouteError = ({ error }: { error: unknown }) => {
   const router = useRouter()
-  return <PartnerError onRetry={() => void router.invalidate()} />
+  return <RouteError error={error} view={(details) => <PartnerError onRetry={() => void router.invalidate()} details={details} />} denied={<PartnerDenied />} />
 }

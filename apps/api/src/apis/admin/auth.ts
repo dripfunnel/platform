@@ -1,13 +1,15 @@
 import type postgres from 'postgres'
 import type { ActivityLog } from '#auth/activity'
-import { factsOf, reauthenticated, signedIn, signedOut, signInRefused } from '#auth/activity'
+import { factsOf, invitationAccepted, reauthenticated, signedIn, signedOut, signInRefused } from '#auth/activity'
 import { clearCookie, originAllowed, readCookie, setCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import type { SignInRefusal } from '#auth/oidc'
 import { identityClaims, refusalForProviderError, SignInFailed, signInStateFor } from '#auth/oidc'
-import { createSession, endSession, markReauthenticated } from '#auth/session'
-import { staffForClaims } from '#auth/staff'
+import { createSession, endSession, hashSessionId, markReauthenticated } from '#auth/session'
+import { acceptInvitation, invitationOpen, staffForClaims } from '#auth/staff'
+import { failureCode, logEvent } from '#core/log'
 import { withSystemScope } from '#db/scoped/index'
+import { markStaffSignedIn, selectStaffInvitationByToken } from '#db/scoped/staffMembers'
 
 export interface AuthDeps {
   sql: postgres.Sql
@@ -24,6 +26,8 @@ const paths = {
   reauth: '/api/auth/reauth',
   callback: '/api/auth/callback',
   signOut: '/api/auth/sign-out',
+  // The link in a staff invitation's email (ui/admin/FIRST-RELEASE.md §10, #39).
+  acceptInvitation: '/api/auth/accept-invitation',
 }
 
 /** The SPA route #17 built, not an API path. */
@@ -45,15 +49,17 @@ const refusedResponse = (refusal: SignInRefusal) =>
 
 const handshakeCookie = '__Host-df_admin_oidc'
 
-type Purpose = 'signin' | 'reauth'
+type Purpose = 'signin' | 'reauth' | 'invite'
 
 // The purpose is in the cookie, not the query: a callback must not be able to turn a sign-in
-// handshake into a re-authentication, or the reverse.
-const readHandshake = (header: string | null): { state: string; nonce: string; purpose: Purpose } | null => {
+// handshake into a re-authentication, or the reverse. An invitation's handshake carries the
+// hash of its token, never the token.
+const readHandshake = (header: string | null): { state: string; nonce: string; purpose: Purpose; tokenHash: string | null } | null => {
   const raw = (header?.match(new RegExp(`${handshakeCookie}=([^;]+)`)) ?? [])[1]
-  const [state, nonce, purpose] = raw?.split('.') ?? []
+  const [state, nonce, purpose, tokenHash] = raw?.split('.') ?? []
   if (!state || !nonce) return null
-  return purpose === 'reauth' || purpose === 'signin' ? { state, nonce, purpose } : null
+  if (purpose === 'invite') return tokenHash ? { state, nonce, purpose, tokenHash } : null
+  return purpose === 'reauth' || purpose === 'signin' ? { state, nonce, purpose, tokenHash: null } : null
 }
 
 const clearHandshake = () => `${handshakeCookie}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`
@@ -62,8 +68,21 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
   const url = new URL(request.url)
   if (!originAllowed(request, deps.adminHost)) return new Response('Bad origin', { status: 403 })
 
-  if (url.pathname === paths.signIn || url.pathname === paths.reauth) {
-    const purpose: Purpose = url.pathname === paths.reauth ? 'reauth' : 'signin'
+  if (url.pathname === paths.signIn || url.pathname === paths.reauth || url.pathname === paths.acceptInvitation) {
+    const purpose: Purpose = url.pathname === paths.reauth ? 'reauth' : url.pathname === paths.acceptInvitation ? 'invite' : 'signin'
+    let tokenHash = ''
+    if (purpose === 'invite') {
+      // It reads the database for an anonymous caller, so it is rate-limited like the callback.
+      if (!(await deps.allowAttempt(request))) return new Response('Too many attempts', { status: 429 })
+      // A link that no longer works says nothing more than any refused sign-in (ACCESS.md §4).
+      const token = url.searchParams.get('token') ?? ''
+      tokenHash = token ? await hashSessionId(token) : ''
+      const open = tokenHash ? await withSystemScope(deps.sql, async (tx) => invitationOpen(await selectStaffInvitationByToken(tx, tokenHash), deps.now())) : false
+      if (!open) {
+        await withSystemScope(deps.sql, (tx) => deps.activity.record(tx, signInRefused(factsOf(request), 'invitation_invalid')))
+        return refusedResponse('invitation_invalid')
+      }
+    }
     const state = crypto.randomUUID()
     const nonce = crypto.randomUUID()
     return new Response(null, {
@@ -75,7 +94,7 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
           nonce,
           ...(purpose === 'reauth' ? { prompt: 'login' as const } : {}),
         }),
-        'set-cookie': `${handshakeCookie}=${state}.${nonce}.${purpose}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=600`,
+        'set-cookie': `${handshakeCookie}=${state}.${nonce}.${purpose}${tokenHash ? `.${tokenHash}` : ''}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=600`,
       },
     })
   }
@@ -136,8 +155,11 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
       }
 
       const id = await withSystemScope(deps.sql, async (tx) => {
-        const staff = await staffForClaims(tx, claims)
-        const sessionId = await createSession(tx, staff.id, deps.now())
+        const now = deps.now()
+        const staff = handshake.purpose === 'invite' && handshake.tokenHash ? await acceptInvitation(tx, handshake.tokenHash, claims, now) : await staffForClaims(tx, claims)
+        if (handshake.purpose === 'invite') await deps.activity.record(tx, invitationAccepted(staff, facts))
+        await markStaffSignedIn(tx, staff.id, now, claims.twoFactor)
+        const sessionId = await createSession(tx, staff.id, now)
         await deps.activity.record(tx, signedIn(staff, facts))
         return sessionId
       })
@@ -150,10 +172,12 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
         ],
       })
     } catch (error) {
-      // Only a refusal answers 401. Anything else is an outage mid-sign-in, and filing a
-      // false `sign_in_refused` for a staff member who was not refused would be worse.
-      if (!(error instanceof SignInFailed)) throw error
-      return refuse(error.refusal)
+      if (error instanceof SignInFailed) return refuse(error.refusal)
+      // An outage mid-sign-in, not a refusal: no `sign_in_refused` for a staff member who was
+      // not refused, a technical line by code (LOGGING.md §9), and the screen's own state. On
+      // re-authentication the session cookie is left as it is, so the person stays signed in.
+      logEvent({ event: 'sign_in_unavailable', api: 'admin', requestId: facts.requestId, code: failureCode(error) })
+      return new Response(null, { status: 302, headers: [['location', `${signInPath}?outcome=unavailable`], ['set-cookie', clearHandshake()]] })
     }
   }
 

@@ -1,29 +1,44 @@
-import type { Partner, PartnerAction } from '../../api/partners'
+import { StatusPill, ActionControl } from '@dripfunnel/shared/ui'
+import type { SessionPermission } from '../../api/impersonation'
+import type { Partner, PartnerAction, PartnerUser } from '../../api/partners'
 import { fill, formatDate, formatTime, messages } from '../../messages'
-import { PermissionDenied } from '../common/PermissionDenied'
-import { StatusPill } from '../common/StatusPill'
-import { ActionControl } from '../common/ActionControl'
+import { refusalText as sessionRefusal } from '../impersonate/sessionText'
 import { refusalText } from './refusal'
 import { InvitationPill } from './partnerLook'
 import './partners.css'
+import '../common/records.css'
 
 const words = messages.partner
+
+const personLook = {
+  active: { tone: 'success', icon: 'ok' },
+  invited: { tone: 'info', icon: 'hour' },
+  suspended: { tone: 'neutral', icon: 'ban' },
+} as const
 
 export interface TeamTabProps {
   partner: Partner
   onAction: (action: PartnerAction) => void
+  onImpersonate: (userId: string) => void
 }
 
 const invitationDetail = (partner: Partner) => {
   const { owner } = partner
-  if (owner.invitation === 'active') return fill(words.team.invitationDetail.active, { name: owner.name ?? owner.email })
+  const email = owner.email ?? ''
+  if (owner.invitation === 'active') return fill(words.team.invitationDetail.active, { name: owner.name ?? email })
   if (owner.invitation === 'sent') {
-    return fill(words.team.invitationDetail.sent, { date: owner.invitationSentAt ? formatDate(owner.invitationSentAt) : '', email: owner.email })
+    return fill(words.team.invitationDetail.sent, { date: owner.invitationSentAt ? formatDate(owner.invitationSentAt) : '', email })
   }
   return fill(words.team.invitationDetail.held, { org: partner.name })
 }
 
-export const TeamTab = ({ partner, onAction }: TeamTabProps) => {
+// The API's answer for this person; none means it sent none, so nothing is offered.
+const ImpersonateControl = ({ permission, person, onRun }: { permission: SessionPermission | undefined; person: PartnerUser; onRun: () => void }) =>
+  permission ? (
+    <ActionControl label={words.team.impersonate} refusal={permission.allowed ? null : sessionRefusal(permission.reason, person)} onRun={onRun} />
+  ) : null
+
+export const TeamTab = ({ partner, onAction, onImpersonate }: TeamTabProps) => {
   const inviteAction = partner.actions.sendInvite ? 'sendInvite' : partner.actions.resendInvite ? 'resendInvite' : null
   const invitePermission = inviteAction ? partner.actions[inviteAction] : undefined
   return (
@@ -34,9 +49,9 @@ export const TeamTab = ({ partner, onAction }: TeamTabProps) => {
         <div className="df-invitation">
           <div className="df-stack">
             <span>{partner.owner.name ?? messages.partners.notJoined}</span>
-            <span className="df-muted">{partner.owner.email}</span>
+            <span className="df-muted">{partner.owner.email ?? words.team.noOwner}</span>
           </div>
-          <InvitationPill status={partner.owner.invitation} />
+          {partner.owner.invitation && <InvitationPill status={partner.owner.invitation} />}
         </div>
         <p>{invitationDetail(partner)}</p>
         {inviteAction && invitePermission && (
@@ -66,12 +81,8 @@ export const TeamTab = ({ partner, onAction }: TeamTabProps) => {
                     {person.lastSignInAt ? fill(words.team.lastSignIn, { time: formatTime(person.lastSignInAt) }) : words.team.neverSignedIn}
                   </span>
                 </div>
-                <StatusPill
-                  tone={person.status === 'active' ? 'success' : 'info'}
-                  icon={person.status === 'active' ? 'ok' : 'hour'}
-                  label={words.team.statuses[person.status]}
-                />
-                <PermissionDenied actionLabel={words.team.impersonate} reason={words.team.impersonateUnavailable} />
+                <StatusPill {...personLook[person.status]} label={words.team.statuses[person.status]} />
+                <ImpersonateControl permission={partner.impersonate[person.id]} person={person} onRun={() => onImpersonate(person.id)} />
               </li>
             ))}
           </ul>

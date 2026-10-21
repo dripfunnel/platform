@@ -1,8 +1,10 @@
 import { getRouteApi, useRouter } from '@tanstack/react-router'
-import { useScreenState } from '../common/useScreenState'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import type { StaffRole } from '../shell/staffRoles'
 import { Dashboard } from './Dashboard'
-import { dashboardStates } from './dashboardStates'
+import { DashboardLoading } from './DashboardLoading'
+import { dashboardStates } from '@dripfunnel/shared/ui'
 
 const dashboardRoute = getRouteApi('/_app/dashboard')
 const shellRoute = getRouteApi('/_app')
@@ -13,9 +15,11 @@ const partnerCreators: readonly StaffRole[] = ['staff-super-admin', 'staff-partn
 export const DashboardScreen = () => {
   const data = dashboardRoute.useLoaderData()
   const { me } = shellRoute.useLoaderData()
-  const forced = useScreenState(dashboardStates)
+  const forced = useScreenState(dashboardStates, harnessEnabled)
   const navigate = dashboardRoute.useNavigate()
   const router = useRouter()
+  // Loaded on a phone, until the shell reloads it for a wider screen.
+  if (!data) return <DashboardLoading />
   return (
     <Dashboard
       data={data}

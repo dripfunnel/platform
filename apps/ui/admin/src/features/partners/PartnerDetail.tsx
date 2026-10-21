@@ -4,10 +4,7 @@ import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import type { Partner, PartnerAction, PartnerDomain } from '../../api/partners'
 import { fill, messages } from '../../messages'
-import { EmptyState } from '../common/EmptyState'
-import { ErrorState } from '../common/ErrorState'
-import { LoadingState } from '../common/LoadingState'
-import { ReadOnlyNotice } from '../common/ReadOnlyNotice'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { BrandingTab } from './BrandingTab'
 import { DomainsTab } from './DomainsTab'
 import { OverviewTab } from './OverviewTab'
@@ -16,7 +13,8 @@ import { PartnerHeader } from './PartnerHeader'
 import { PartnerTabs, type PartnerTab } from './PartnerTabs'
 import { PlansTab } from './PlansTab'
 import { TeamTab } from './TeamTab'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
+import '@dripfunnel/shared/ui/detail.css'
 import './partners.css'
 
 const words = messages.partner
@@ -28,6 +26,8 @@ export interface PartnerDetailProps {
   readOnly: boolean
   onAction: (action: PartnerAction) => void
   onRecheck: (domain: PartnerDomain) => Promise<void>
+  onSetContract: () => void
+  onImpersonate: (userId: string) => void
   onReload: () => void
   // The Activity tab, built by the screen with its filters in the page's URL.
   activity: ReactNode
@@ -39,18 +39,18 @@ export const PartnerLoading = () => (
   </div>
 )
 
-export const PartnerError = ({ onRetry }: { onRetry: () => void }) => (
+export const PartnerError = ({ onRetry, details }: { onRetry: () => void; details?: ErrorDetails }) => (
   <div className="df-page df-list">
-    <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry }} />
+    <ErrorState title={words.error.title} body={words.error.body} {...(details ? { details } : {})} retry={{ label: words.error.retry, onRetry }} />
   </div>
 )
 
 const Placeholder = ({ children }: { children: ReactNode }) => <div className="df-panel df-panel--wide">{children}</div>
 
-const TabContent = ({ partner, tab, onAction, onRecheck, activity }: Pick<PartnerDetailProps, 'tab' | 'onAction' | 'onRecheck' | 'activity'> & { partner: Partner }) => {
+const TabContent = ({ partner, tab, onAction, onRecheck, onSetContract, onImpersonate, activity }: Pick<PartnerDetailProps, 'tab' | 'onAction' | 'onRecheck' | 'onSetContract' | 'onImpersonate' | 'activity'> & { partner: Partner }) => {
   switch (tab) {
     case 'overview':
-      return <OverviewTab partner={partner} />
+      return <OverviewTab partner={partner} onSetContract={onSetContract} />
     case 'stores':
       return (
         <Placeholder>
@@ -67,13 +67,13 @@ const TabContent = ({ partner, tab, onAction, onRecheck, activity }: Pick<Partne
     case 'plans':
       return <PlansTab partner={partner} />
     case 'team':
-      return <TeamTab partner={partner} onAction={onAction} />
+      return <TeamTab partner={partner} onAction={onAction} onImpersonate={onImpersonate} />
     case 'activity':
       return activity
   }
 }
 
-export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRecheck, onReload, activity }: PartnerDetailProps) => {
+export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRecheck, onSetContract, onImpersonate, onReload, activity }: PartnerDetailProps) => {
   if (forced === 'loading') return <PartnerLoading />
   if (forced === 'error') return <PartnerError onRetry={onReload} />
   if (!partner) {
@@ -96,7 +96,7 @@ export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRech
       {readOnly && <ReadOnlyNotice title={messages.partners.readOnly.title} body={messages.partners.readOnly.body} />}
       <PartnerHeader partner={partner} onAction={onAction} />
       <PartnerTabs partnerId={partner.id} current={tab} />
-      <TabContent partner={partner} tab={tab} onAction={onAction} onRecheck={onRecheck} activity={activity} />
+      <TabContent partner={partner} tab={tab} onAction={onAction} onRecheck={onRecheck} onSetContract={onSetContract} onImpersonate={onImpersonate} activity={activity} />
     </div>
   )
 }

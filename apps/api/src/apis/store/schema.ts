@@ -1,3 +1,100 @@
-import { createBuilder } from '../graphql/builder'
+import { secureSchema } from '../graphql/scope'
+import { storePolicy } from './access'
+import { createStoreBuilder } from './builder'
+import { registerListing } from './listing'
+import { registerPeople } from './people'
+import { registerProducts } from './products'
+import { registerProductKinds } from './productKinds'
+import { registerGiftCards } from './giftCards'
+import { registerProfile } from './profile'
+import { registerShell } from './shell'
+import { registerStructure } from './structure'
+import { registerStory } from './story'
+import { registerInventory } from './inventory'
+import { registerSuppliers } from './suppliers'
+import { registerSupplierTeam } from './supplierTeam'
+import { registerApproval } from './approval'
+import { registerMarkets } from './markets'
+import { registerTranslations } from './translations'
+import { registerStoreInfo } from './storeInfo'
+import { registerTax } from './tax'
+import { registerShipping } from './shipping'
+import { registerCustomerAccounts } from './customerAccounts'
+import { registerPayments } from './payments'
+import { registerOrders } from './orders'
+import { registerCustomers } from './customers'
+import { registerHome } from './home'
+import { registerReports } from './reports'
+import { registerReportExports } from './reportExports'
+import { registerOffers } from './offers'
+import { registerCartReminders } from './cartReminders'
+import { registerCatalogExports } from './catalogExports'
+import { registerCatalogImports } from './catalogImports'
+import { registerShopify } from './shopify'
+import { registerSupport } from './support'
+import { registerActivity } from './activity'
+import { registerDevelopers } from './developers'
+import { registerWebhooks } from './webhooks'
+import { registerApps } from './apps'
+import { registerBilling } from './billing'
+import { registerPricing } from './planPricing'
+import { registerPreview } from './preview'
+import { registerContent } from './content'
+import { registerStorefrontSettings } from './storefrontSettings'
+import { registerStorefront } from './storefront'
+import { registerStudio } from './studio'
+import { registerPublishing } from './publishing'
 
-export const storeSchema = createBuilder().toSchema()
+export type { StoreContext } from './access'
+
+const builder = createStoreBuilder()
+builder.mutationType({})
+
+builder.queryFields((t) => ({
+  health: t.string({ extensions: { access: { api: 'store', scope: 'public', permission: null } }, resolve: () => 'ok' }),
+}))
+registerShell(builder)
+registerPricing(builder)
+registerProfile(builder)
+registerPeople(builder)
+registerProducts(builder)
+registerProductKinds(builder)
+registerGiftCards(builder)
+registerStructure(builder)
+registerStory(builder)
+registerInventory(builder)
+registerSuppliers(builder)
+registerSupplierTeam(builder)
+registerApproval(builder)
+registerMarkets(builder)
+registerTranslations(builder)
+const storeAddress = registerStoreInfo(builder)
+registerCatalogExports(builder)
+registerCatalogImports(builder)
+registerShopify(builder)
+registerTax(builder)
+registerShipping(builder)
+registerCustomerAccounts(builder)
+registerPayments(builder)
+registerOrders(builder)
+registerCustomers(builder)
+registerOffers(builder)
+registerCartReminders(builder)
+registerHome(builder)
+registerReports(builder)
+registerReportExports(builder)
+registerListing(builder)
+registerSupport(builder)
+registerActivity(builder)
+registerDevelopers(builder)
+registerWebhooks(builder)
+registerApps(builder)
+registerBilling(builder)
+registerPreview(builder)
+registerContent(builder)
+registerStorefrontSettings(builder, storeAddress)
+const storefront = registerStorefront(builder)
+registerStudio(builder)
+registerPublishing(builder, storefront)
+
+export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

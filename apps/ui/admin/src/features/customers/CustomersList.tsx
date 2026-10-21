@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { CustomerFilter, CustomerPage } from '../../api/customers'
-import type { PageRequest } from '../../api/pageInfo'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 import type { PagerProps } from '../common/Pager'
 import type { CustomersState } from './customerHarness'
 import { CustomersView } from './CustomersView'

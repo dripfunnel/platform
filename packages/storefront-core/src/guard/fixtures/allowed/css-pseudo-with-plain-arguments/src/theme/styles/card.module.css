@@ -1,0 +1,19 @@
+.card:not(:disabled) {
+  opacity: 1;
+}
+
+.nav:is(h1, h2) {
+  margin: 0;
+}
+
+.panel:not([hidden]) {
+  padding: 8px;
+}
+
+.media:has(img) {
+  gap: 4px;
+}
+
+.list:where(p, .item) {
+  margin: 0;
+}

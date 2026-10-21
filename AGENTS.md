@@ -31,7 +31,11 @@ document disagrees. Then open only the part your task touches:
 | Admin console (`apps/ui/admin`) | [docs/ui/admin/](docs/ui/admin/README.md), its FIRST-RELEASE (what to build now) and CONSOLE-DESIGN |
 | `apps/ui/shared` | [docs/ui/shared/](docs/ui/shared/README.md) |
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
+| Creating a card (task, bug or feature) on the DF Platform board | [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md) |
+| Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
+| Merchant mobile app (`apps/ui/mobile-app/merchant`) | [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md): start with REACT-NATIVE, then DESIGN and ARCHITECTURE |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
+| Storefront builds, hosting, preview, the studio's sandbox | [docs/storefront/LIVE-SHOP.md](docs/storefront/LIVE-SHOP.md), [PREVIEW.md](docs/storefront/PREVIEW.md), [AI-STUDIO.md](docs/storefront/AI-STUDIO.md) |
 
 The first platform's documents are ported into `docs/` and its repositories are gone;
 `docs/` is the only specification (docs/README.md §7).
@@ -40,13 +44,21 @@ The first platform's documents are ported into `docs/` and its repositories are 
 
 ```bash
 pnpm install
+pnpm setup:local                                 # once: install, check, migrate and seed locally
 pnpm turbo run build typecheck lint test         # every gate, only what changed
-pnpm dev                                         # the four apps: the Worker and the three SPAs
+pnpm dev                                         # the four apps: the Worker and the three SPAs,
+                                                 # after checking the local setup
+pnpm dev:https                                   # the same behind https://admin.localhost and
+                                                 # https://platform.localhost (needs Caddy)
 pnpm dev:all                                     # those plus the storefront template and
                                                  # storefront-core rebuilding on change
+pnpm dev:https:all                               # dev:all plus the studio's sandbox, behind Caddy:
+                                                 # everything but the mobile app in one terminal
 pnpm dev:<api|store|platform|admin>              # one of the four on its own
+pnpm dev:mobile                                  # the merchant mobile app's Expo dev server (not part of pnpm dev)
 pnpm dev:storefront                              # the storefront template (builds core first)
 pnpm dev:storefront-core                         # storefront-core rebuilding on change
+pnpm dev:proxy                                   # store-proxy: preview and store hosts (docs/setup/local.md §6.3)
 pnpm --filter ./apps/api schema                  # regenerate apps/api/schema/*.graphql
 pnpm changeset                                   # required when storefront-core changes
 ```
@@ -67,13 +79,21 @@ Run the gates before reporting a change as done.
   never in advance; something one app uses stays in that app.
 - **`packages/storefront-core`** is the only published package. It imports nothing from
   the rest of the repo.
-- **`templates/storefront/`** is copied into each new store repo by provisioning. Commerce
-  logic belongs in `storefront-core`, never in the template.
+- **`templates/storefront/`** is copied into each new store repo when its merchant picks a
+  template. Commerce logic belongs in `storefront-core`, never in the template or a theme.
+  `themes/{key}/` holds the starting themes (#486), each gated by `apps/sandbox/src/themes.test.ts`.
+- **`apps/sandbox`** is the container image that runs AI changes in Cloudflare Containers
+  (docs/storefront/AI-STUDIO.md; #482) and, published on `ghcr.io`, every store repo's build on
+  GitHub Actions (docs/storefront/LIVE-SHOP.md). It is Node, holds no secret and reaches no
+  network (it refuses to start with a credential in its environment, and blocks sockets
+  itself); the API Worker makes every outside call for it. Its tests run its Node code
+  directly, never a container.
 - **`docs/`** is the specification, laid out like the code (docs/README.md §3). Update the
   relevant document in the same change as the code it describes, following docs/README.md §6.
 - **`designs/`** holds one clickable prototype per portal (`DF Store Prototype` →
   `apps/ui/store`, `DF Platform Prototype` → `apps/ui/platform`, `DF Admin Prototype` →
-  `apps/ui/admin`), the public pricing page with what each plan includes, and the style
+  `apps/ui/admin`), the shoppers' storefront (`DF Storefront Prototype` → the baseline theme
+  in `templates/storefront`), the public pricing page with what each plan includes, and the style
   guide the `--df-*` tokens come from. `designs/design.md` maps every screen to its file.
   `docs/` decides scope and rules; the prototype decides behaviour — layout, states,
   interactions, wording, the order of steps in a flow.
@@ -108,13 +128,16 @@ Run the gates before reporting a change as done.
 - Never display a secret, full card number, password or token.
 
 **Storefronts (`templates/storefront`, `packages/storefront-core`)**
-- In generated store repos the AI designer may change **only `src/theme/**`**: look, not
-  logic. No network calls, third-party scripts or unlisted dependencies in themes.
+- The AI designer writes **only a store's theme** (`src/theme/**`, `content/**`, `routes.json`),
+  behind the walls of docs/storefront/ARCHITECTURE.md §3: look and front-end behaviour, never
+  commerce. A wall is never loosened to let a change through: the validator, the gates, the
+  sealed components and CSP change only in core, in this repo, by a person. No network calls,
+  third-party scripts or unlisted dependencies in themes.
 - No invented data: no hard-coded products, prices, stock, discounts, ratings, reviews,
   badges or scarcity claims.
-- Required components (price with tax label, payment element, legal and compliance
-  notices, consent banner, preview banner, the brand's "Powered by" line) are styled, never
-  removed.
+- Sealed components (price with tax label, payment element, legal and compliance
+  notices, consent banner, preview banner, the brand's "Powered by" line, breadcrumbs, the order
+  summary at review) are placed and styled, never removed, covered or reworded.
 - `storefront-core` is the only published package. Every change has a changeset with the
   right bump; changing or removing an export is a major, and majors ship upgrade notes (docs/storefront/ARCHITECTURE.md §7).
 - Publishing happens only in the release workflow. Never publish locally; never commit a
@@ -148,11 +171,35 @@ Run the gates before reporting a change as done.
    committed on or pushed to `main` or `dev`. Without an issue number, ask for one.
 3. **Local databases only.** Nothing in development points at `dbpg01.softobotics.org`
    (dev or prod) until the user says otherwise.
+   Exception: the merchant mobile app's `dev` profile targets `dev-store.dripfunnel.ai` (mobile-app/merchant/CONFIGURATION.md §2).
 4. **Report what is true.** Say which commands you ran and what they returned. Compiling is
    not verification. If a check fails, say so; never weaken, skip or delete a test to make
    it pass.
 5. **The docs are the specification.** Follow what they decide. When they are wrong, fix
    the document in the same change and say so.
+6. **Build exactly what was asked; fix a bug with the smallest change.** Scope creep costs the
+   reviewer and the user more than it saves (#421: a one-line rule bug grew a table, a flow and a
+   screen, and was cut back to dropping the rule).
+   - **A bug card fixes the bug, nothing else.** No new tables, migrations, endpoints, jobs,
+     settings, screens or flows unless the bug cannot be fixed without them. Removing or
+     correcting the broken rule is a fix; building a feature that would make the rule work is not.
+   - **Before writing code, find the smallest fix** and say what it is. When the only fixes
+     change behaviour, contradict a document, or need any of the additions above, ask first
+     (rule 1), with the smallest option first and recommended, and each larger option naming
+     what it adds (the tables, endpoints, screens, migrations), so the size is visible.
+   - **Build what was chosen, as chosen.** Don't add extras on the way ("while I was there"),
+     even small ones. Something else found along the way (a related bug, a display issue, a
+     refactor, a better design) goes on its own card, reported in your reply, never into this
+     card's PR.
+   - **The same holds for tasks and features:** the card's Do list and Done-when are the scope.
+     A step that grows past them (a new table, an API the card didn't name, a second screen) is
+     a question for the user before it is code.
+   - **When the user narrows the scope,** take out everything beyond it, including work already
+     pushed, and say what was removed.
+7. **Creating a card follows [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md).**
+   Ask every open question first, then show the whole draft and create it only after a yes. Every
+   card has a complete "Prompt for Claude" and checkbox acceptance criteria. A bug card also has
+   numbered steps to reproduce, with the expected and actual results.
 
 ### Code
 
@@ -160,6 +207,7 @@ Run the gates before reporting a change as done.
    `apps/ui/shared/`. Logic needed by more than one app belongs in `shared/`, never copied between
    apps. Extract a shared function or component once the same logic appears a second time,
    not in anticipation of it.
+   Exception: the merchant mobile app shares no code with the SPAs (mobile-app/merchant/REACT-NATIVE.md §2).
 2. **No unnecessary comments.** Names and types say what the code does. Comment only *why*,
    when it isn't obvious: a constraint, an invariant, a workaround (with a link to the issue
    or doc). No comments that restate the code, no commented-out code, no change-history

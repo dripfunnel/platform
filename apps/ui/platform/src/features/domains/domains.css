@@ -1,0 +1,334 @@
+/* Domains (designs/DF Platform Prototype.dc.html → Domains, Add domain). */
+
+.df-domains {
+  gap: var(--df-space-4);
+}
+
+.df-address-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-address-kind {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-address-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-address-title h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.df-address-check {
+  display: grid;
+  justify-items: end;
+  gap: var(--df-space-1);
+  font-size: 12px;
+}
+
+.df-address-fallback {
+  margin: 0;
+  padding: var(--df-space-2) var(--df-space-3);
+  border-radius: var(--df-radius);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 13px;
+}
+
+.df-dns {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.df-dns th {
+  padding: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.df-dns td {
+  padding: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+  vertical-align: top;
+}
+
+.df-dns tr:last-child td {
+  border-bottom: 0;
+}
+
+.df-dns code {
+  font-family: var(--df-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.df-dns-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-dns-plain {
+  display: block;
+  margin-top: var(--df-space-1);
+  font-size: 12px;
+}
+
+.df-dns-found {
+  display: grid;
+  gap: var(--df-space-1);
+}
+
+.df-dns-mismatch {
+  color: var(--df-color-danger);
+  font-weight: 700;
+}
+
+.df-merchant-domains {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-merchant-domain {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1.4fr) auto minmax(6rem, auto);
+  align-items: center;
+  gap: var(--df-space-3);
+  min-height: 44px;
+  padding: var(--df-space-2) 0;
+  border-bottom: 1px solid var(--df-color-border);
+  color: inherit;
+  text-decoration: none;
+}
+
+.df-merchant-domain:hover .df-merchant-host {
+  text-decoration: underline;
+}
+
+.df-merchant-host {
+  font-family: var(--df-font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* A phone stacks each record and each merchant's domain, label beside value. */
+@media (max-width: 639px) {
+  .df-dns thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .df-dns tr {
+    display: grid;
+    gap: var(--df-space-1);
+    padding: var(--df-space-2) 0;
+    border-bottom: 1px solid var(--df-color-border);
+  }
+
+  .df-dns td {
+    display: grid;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+  }
+
+  .df-dns td::before {
+    content: attr(data-label);
+    color: var(--df-color-muted);
+    font-family: var(--df-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .df-merchant-domain {
+    grid-template-columns: 1fr auto;
+  }
+
+  .df-address-check {
+    justify-items: start;
+  }
+}
+
+.df-add-domain {
+  max-width: 48rem;
+}
+
+.df-add-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-add-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  min-height: 36px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: 999px;
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.df-add-steps li[aria-current='step'] {
+  border-color: var(--df-color-brand);
+  background: var(--df-color-hover);
+  color: var(--df-color-heading);
+}
+
+.df-add-steps .df-add-step--done {
+  color: var(--df-color-heading);
+}
+
+.df-add-step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--df-color-neutral-surface);
+  font-size: 11px;
+}
+
+[aria-current='step'] > .df-add-step-n {
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+}
+
+.df-add-step--done > .df-add-step-n {
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-add {
+  gap: var(--df-space-4);
+}
+
+.df-add h2,
+.df-add p {
+  margin: 0;
+}
+
+.df-add-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.df-add-kinds legend {
+  margin-bottom: var(--df-space-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.df-add-kind {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--df-space-2);
+  min-height: 44px;
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  cursor: pointer;
+}
+
+.df-add-kind:has(input:checked) {
+  border-color: var(--df-color-brand);
+  background: var(--df-color-hover);
+}
+
+.df-add-kind:has(input:disabled) {
+  background: var(--df-color-neutral-surface);
+  cursor: not-allowed;
+}
+
+.df-add-added {
+  margin-left: var(--df-space-2);
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-add-host {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-1);
+  font-family: var(--df-font-mono);
+}
+
+.df-add-host input {
+  flex: 1;
+  min-width: 0;
+}
+
+.df-add .df-field {
+  margin-bottom: 0;
+}
+
+.df-field-error {
+  color: var(--df-color-danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-add-warning {
+  padding: var(--df-space-2) var(--df-space-3);
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  font-size: 13px;
+}
+
+.df-add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-add-actions--start {
+  justify-content: flex-start;
+}
+
+.df-add-actions a:not(.df-button) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+}

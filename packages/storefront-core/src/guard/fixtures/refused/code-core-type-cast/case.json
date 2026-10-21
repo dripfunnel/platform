@@ -1,0 +1,5 @@
+{
+  "rule": "code/core-type-cast",
+  "file": "src/theme/components/Bad.tsx",
+  "line": 5
+}

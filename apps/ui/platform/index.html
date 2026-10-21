@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DripFunnel Platform</title>
     <!-- Set before the first paint so a dark-mode machine never flashes the light default.
-         No theme control here yet, so it follows the OS and stores nothing. -->
+         The key is the one the user menu's Appearance choice writes. -->
     <script>
       try {
-        if (matchMedia('(prefers-color-scheme: dark)').matches)
+        var c = localStorage.getItem('df-platform-theme')
+        if (c === 'dark' || (c !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches))
           document.documentElement.dataset.theme = 'dark'
       } catch (e) {}
     </script>

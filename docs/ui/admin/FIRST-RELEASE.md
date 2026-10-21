@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -28,7 +28,8 @@ and store states).
 - **Every action states its consequence, asks for a reason where it changes someone's
   business, and is audited.** Nothing is deleted in this release.
 - **Designed states on every screen**: empty, loading, error, permission denied (disabled
-  with the reason), and the environment marker (Production in red, Staging).
+  with the reason), and the environment marker (Production in red; Dev, Feature or Local in grey, by hostname,
+  decided on #65).
 
 ---
 
@@ -104,10 +105,10 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 
 | Tab | Contents |
 |---|---|
-| **Overview** | Partner details and contacts, state history, setup checklist with each item's status |
+| **Overview** | Partner details and contacts, the contract (fee currency, other currencies, "Powered by" term, or "No contract yet"), state history, setup checklist with each item's status |
 | **Stores** | This partner's stores (the Stores list, pre-filtered) |
 | **Branding** | Read-only preview of its look, words and "Powered by" setting |
-| **Domains** | Portal host, preview and shop wildcards, email sender domain: each with the expected DNS records and status, and "Re-check now" |
+| **Domains** | Portal host and email sender domain (no shop wildcard: stores are at `{slug}.my-store.one`, #745): each with the expected DNS records and status, and "Re-check now" |
 | **Plans** | Read-only list of its plans, prices and entitlements (the partner edits them in its console) |
 | **Team** | Its partner users and roles, last sign-in, with **Impersonate** on each (§8) |
 | **Activity** | Audit entries about this partner |
@@ -116,10 +117,11 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 
 | Action | Who | Needs | Consequence stated before confirming |
 |---|---|---|---|
-| **Create partner** | Super admin, Partner manager | Name, Owner email, country; **staff choose** whether to send the Owner invitation now or hold it until setup is done (decided 2026-09-30) | Creates a Draft partner and invites its Owner to the partner console, or holds the invitation for **Send Owner invitation** later |
+| **Create partner** | Super admin, Partner manager | Name, Owner email, country, the contract (as **Set contract**; the fee currency starts as the country's); **staff choose** whether to send the Owner invitation now or hold it until setup is done (decided 2026-09-30) | Creates a Draft partner and invites its Owner to the partner console, or holds the invitation for **Send Owner invitation** later. A name another partner that isn't closed already has, ignoring case, is refused with `NAME_TAKEN`, also for a Partner manager not assigned that partner: names are unique across DripFunnel, and only staff learn one is taken (decided on #61). A country DripFunnel doesn't sell in is refused with `INVALID_INPUT` |
+| **Set contract** | Super admin, Partner manager | Fee currency, the other currencies plans may be priced in, the "Powered by" term (always shown · shown in the first contract year · a plan may remove it), a reason; in any state but closed (decided 2026-10-06) | "The partner's plan editor offers a price in each of these currencies." Currencies are those of the countries DripFunnel sells in, with no conversion rate set here (a rate already stated is kept, unless the fee currency changes: a rate is per unit of the fee currency, so a new one clears them all, and the entry records each rate cleared). A new fee currency while fees or charges are stated in the old one is refused with `FEE_CURRENCY_IN_USE`. Taking off a currency a draft or Live plan still has prices in is refused with `CURRENCY_IN_USE`. Recorded as `partner.contract_set`, visible to the partner |
 | **Set up for partner** | Super admin, Partner manager | Reason or ticket; re-authentication | "Opens Northstar's partner console for you for 2 hours. You can do its whole setup and submit it for approval. Its payment and payout details stay with Northstar." (ACCESS §8.2) |
 | **Send Owner invitation** | Super admin, Partner manager | A held invitation | Sends it; the Owner sees whatever setup is already done |
-| **Approve** | Super admin, Partner manager | Go-live checks pass; note on contract and KYC; **a second approver unless a Super admin ran the setup** (below) | "Merchants can sign up at store.northstar.com from now on." |
+| **Approve** | Super admin, Partner manager | Go-live checks pass; note on contract and KYC; **a second approver unless a Super admin ran the setup** (below). The first of two approvals is recorded and the partner stays awaiting, showing "1 of 2 approvals"; the same staff member cannot approve twice (built on #33) | "Merchants can sign up at store.northstar.com from now on." |
 | **Send back** | Super admin, Partner manager | Reason (shown to the partner) | Back to Draft with the reason |
 | **Pause** | Super admin | Reason | "No new merchant signups; its 86 stores keep running." |
 | **Resume** | Super admin | Reason (decided on #19) | Sign-ups open again |
@@ -170,7 +172,7 @@ Header: name, partner, status, live link, and the actions (§5.3). Tabs:
 | Tab | Contents |
 |---|---|
 | **Overview** | Identity (name, code, partner, owner, country, created), plan and status with history, counts: people by role, vendors, products, orders |
-| **Storefront** | Kind (AI or own), last build and publish, live and preview links, core version |
+| **Storefront** | Kind (AI or own), last build and publish, the live link (no preview address: a preview opens only through the merchant's signed link), core version |
 | **Domains** | Custom domain and its status, expected vs found DNS records, "Re-check now" |
 | **Provisioning** | Signup steps and their results; retry from here (§6) |
 | **Users** | Everyone in the store: merchant side (Owner, Manager, Staff) and each supplier's users, with role, last sign-in, status and **Impersonate** |
@@ -283,13 +285,13 @@ changing the user's password, 2-factor or sign-in methods, payment or payout det
 | Name and email | |
 | Type | Partner user, or Store user (merchant side or supplier) |
 | Partner | Which partner they belong to |
-| Store and role | For store users: each store (and supplier) they're in, with the role, e.g. "Mehta Textiles · Owner"; for partner users: their partner role |
+| Where and role | Each place they can be acted as, e.g. "Mehta Textiles · Owner" or "Loom & Thread · Partner console · Admin"; the first shows, the rest open under "+N more" |
 | Last sign-in | Date |
 | Status | Active, invited, suspended |
 | Action | **Impersonate** |
 
-Filters: type, partner, store, role, status. Search: name or email. Never lists staff or
-shoppers.
+Filters: type, partner, store, role, status. Search: name or email, never in the URL. Pages
+by cursor, both ways. Never lists staff or shoppers.
 
 **Starting one**: pick the user; for a store user in several stores (or suppliers), pick
 which one; give a reason or ticket; re-authenticate. Confirmation: "You'll be signed in as
@@ -297,10 +299,20 @@ Priya Mehta (Owner, Mehta Textiles) with her full access for 30 minutes. Everyon
 to Mehta Textiles sees a banner. Everything you do is logged as you, acting as Priya." Then
 the target's console or portal opens in a new tab with an unremovable bar and "End now".
 
-**Sessions**: open now (user, where, staff member, reason, time left, **End**) and history,
-filterable by staff member, partner, store and date. Each links to its activity-log entries.
-A session can be **extended once, by 30 minutes** (decided 2026-09-30); past that a staff
-member starts a new one, which carries a new reason.
+**Sessions**: both kinds, impersonations and setup sessions (decided 2026-10-01, #46): open
+now (who, where, reason, time left, **Return to session**, **Extend**, **End**) and history,
+filterable by kind, staff member, partner, store and date. Each has its own page
+(`/impersonate/sessions/<id>`), which the session id in an activity entry links to, and links
+to its activity-log entries. An impersonation can be **extended once, by 30 minutes**
+(decided 2026-09-30), by whoever started it; past that a staff member starts a new one, which
+carries a new reason. Who may end or extend is ACCESS.md §8.1; the codes are §8.3.
+
+**On every page**, a strip lists the caller's own open sessions of either kind, with
+**Return to session** and **End**.
+
+**A Partner manager** has no Impersonate menu, Users list or Sessions list, and opens the
+page of any setup session (decided 2026-10-01, #46); an impersonation's page tells them it
+isn't open to their role.
 
 The same **Impersonate** button is on each partner's Team tab (§4.2) and each store's Users
 tab (§5.2).
@@ -316,7 +328,8 @@ started from a partner's page (§4.3), not from this menu: staff act **as themse
 partner's setup powers for 2 hours, not as a user. They need a reason and re-authentication
 like impersonation, they cannot be extended, and they cannot touch the partner's payment
 method, payout details or ownership. **Super admin and Partner manager** may start one — not
-Support, whose role excludes the plans and prices a setup session can change.
+Support, whose role excludes the plans and prices a setup session can change. For every
+other role the entry is absent, not disabled (decided 2026-10-01, #46).
 
 ---
 
@@ -397,16 +410,16 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 
 | Menu | Queries | Mutations |
 |---|---|---|
-| Dashboard | `dashboard(partnerId)` | |
-| Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason)`, `endPartnerSetupSession(id)`, `recheckDomain` |
-| Stores | `stores(filter, after, before)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
-| Provisioning | `provisioningJobs(filter, after, before)`, `provisioningJob(id)` (a started job's progress, whatever the list is filtered to) | `retryJob`, `undoJob` (the store's Provisioning tab calls the same two) |
-| Customers | `customers(filter, after, before)`, `customer(id)` (logs the view) | |
-| Impersonate | `impersonationTargets(filter, after, before)`, `impersonations(filter, after, before)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
-| Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` (up to 8 matches), `activityExport(id)` (the job's state and link) | `exportActivity(filter)` |
-| Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite` |
-| Header | `search(query)`, `me` | |
-| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups | |
+| Dashboard | `dashboard(partnerId)` (the five §3 cards, every number finished; an unknown or unassigned partner means all; built on #35) | |
+| Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner` (records the first of two approvals and keeps the partner awaiting until the second, §4.3), `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason, ticket)` (re-authentication is read from the staff session, #13's `/api/auth/reauth`, so no `proof` argument; built on #33; `handoff` is the partner console's `/impersonate/enter?token=` link, as for an impersonation, since #68), `endStaffSession(id)` (setup sessions on #33, impersonations on #40), `recheckDomain(partnerId, kind)` (queues the check; the row updates after commit), `assignPartnerManager(partnerId, staffId, reason)` and `unassignPartnerManager` (Super admin, #60; `partner(id).managers` lists them) |
+| Stores | `stores(filter, after, before)`, `store(id)` (with the §5.3 permission block, the signup job's `retry`/`undo` permissions, and each user's `impersonate` permission) | `suspendStore(id, reason)`, `restoreStore(id, reason)`, `extendTrial(id, trialEndsAt)`, `resendStoreOwnerInvite(id)`, `addStoreNote(id, text)`, `recheckStoreDomain(id)` (the store's one custom domain; queues the check, the row updates after commit). Built on #34 |
+| Provisioning | `provisioningJobs(filter, after, before)`, `provisioningJob(id)` (a started job's progress, whatever the list is filtered to). Built on #37: each store's latest running, stuck, failed or cleaning job with its own step list, stuck by the per-step limits in `saas/provisioning/stuck.ts`, `error` and `details` passed through `core/secretText.ts` (here and on the store's tab) | `retryJob(id)`, `undoJob(id, reason)` (the store's Provisioning tab calls the same two). Built on #37 with every check: `JOB_RUNNING`, `NOT_FAILED` for an undo, `REASON_REQUIRED`, `NOT_FOUND`. **Run on #730** for a failed `create-storefront` job: each queues an outbox effect and answers `{ ok: true }` (a Retry asked twice starts one job); any other job answers **`NO_EXECUTOR`** (a `provision-store` job runs in one transaction and leaves nothing half-done, and a stuck job's Workflow is still alive); nothing runs a step inside a request |
+| Customers | `customers(filter, search, after, before)`, `customer(id)` (logs the view as `customer.viewed`, staff-only, labelled with the store and never the shopper's name, LOGGING.md §4.1). Built on #36: the list masks email and phone for every role; the detail unmasks them for `customers.contact.read` and says `contactsMasked` otherwise; a deleted account carries no personal field and no search finds it; `search` is a variable (name, exact email, or a phone's digits with or without its calling code, indexed), and an exact search answers `match` (accounts and the phones' calling codes as `phoneRegion`s) over every page; a Partner manager reads its assigned partners only; `orders` is null until the order table exists; the customer's Activity tab is `activityLog(filter: { customer })` | none |
+| Impersonate | `impersonationTargets(filter, search, after, before)`, `impersonationTarget(membershipId)`, `staffSessions(filter, after, before)` (both kinds, open and history), `staffSession(id)`, `myStaffSessions` (the strip) | `startImpersonation(targetId, membershipId, reason, ticket)`, `returnToSession(id)` (a fresh handoff link, either kind), `endStaffSession(id)` (either kind), `extendImpersonation(id)`; refusals are ACCESS.md §8.3. **Built on #40**: re-authentication is the staff session's own stamp (#13's `/api/auth/reauth`, as #33 decided), so there is no `reauthenticate` mutation and no `proof` argument; a supplier user is `SUPPLIER_NOT_SUPPORTED` until the Store strand adds the supplier's database role; the API has no lookup by membership, so the console finds a person picked on a Team or Users tab by their email within that place, then by the membership (`loadTarget`, #68). The portal half (the exchange, the caller kinds, the blocked lists) is #243 |
+| Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` (up to 8 matches), `activityPerson(ref)` (memberships and the same-email count), `activityExport(id)` (the job's state and file). Built on #38: §9's filters including `imp`, `su`, `ip`, `customer` and `level` (an API's entries, or every security or system one), each indexed (0028); every entry names its partner and store; the timeline follows a person's own entries and those done in their name, across every store and partner; the finder never shows a shopper's email, matching a shopper by name or exact email only | `exportActivity(filter)`. Built on #38: Super admin and Engineer on call (`EXPORTERS_ONLY` otherwise), an `export_job` of kind `staff_activity` built after commit through the shared query, LOGGING §6's columns with no address, `tooLarge` past 100,000 entries, logged as `activity.exported` with its filter. The file is inline until an R2 bucket is bound (THIRD-PARTY-ACCESS §2.1), readable for an hour |
+| Staff | `staff(after, before)`. Built on #39: Super admin only (`staff.manage`); each member's role, last sign-in, `twoFactor` (on, off, notSignedIn), an open invitation's dates, and the actions with §10's refusals; `soleSuperAdmin` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite`. Built on #39: throttled like partner invitations (`RATE_LIMITED`), each logged with what changed; accepting is the link's SSO sign-in (ACCESS §6.3) |
+| Header | `search(query)` (partners and stores by name, domain, code or owner email, at most ten of each, within the caller's assignment; two characters or more; built on #35), `me` | |
+| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions (setup sessions on #35, impersonations on #40) | |
 
 Approvals has no query of its own: it is `partners` with `{state: awaiting}`, oldest submitted
 first, and each row carries when it was submitted, its go-live checks, who set it up and which

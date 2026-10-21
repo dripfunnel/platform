@@ -1,0 +1,34 @@
+{
+  "hero": {
+    "title": "Find the right gear",
+    "lead": "Browse, compare and pick what fits.",
+    "shop": "Shop all"
+  },
+  "features": {
+    "title": "Shopping here",
+    "one": {
+      "title": "Search the range",
+      "body": "Find a product by its name or type."
+    },
+    "two": {
+      "title": "Track your orders",
+      "body": "Every order is in your account."
+    },
+    "three": {
+      "title": "Get in touch",
+      "body": "Questions come straight to us."
+    }
+  },
+  "join": {
+    "title": "Your account",
+    "body": "Create an account to follow your orders and check out faster.",
+    "action": "Create an account"
+  },
+  "collections": {
+    "title": "Shop by collection"
+  },
+  "newest": {
+    "title": "New in",
+    "all": "See all"
+  }
+}

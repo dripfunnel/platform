@@ -1,0 +1,58 @@
+import type postgres from 'postgres'
+import type { ActivityLog, RequestFacts } from '#auth/activity'
+import type { PartnerCaller } from '#auth/partnerCaller'
+import type { SecretBox } from '#auth/secretBox'
+import type { StripeApi } from '#integrations/stripe/index'
+import { createPartnerBillingService } from '#saas/billing/index'
+import { createPartnerActivityService } from '#saas/partnerActivity/index'
+import { createPartnerBrandingService } from '#saas/partnerBranding/index'
+import { createPartnerConsoleService } from '#saas/partnerConsole/index'
+import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
+import { createPartnerDomainsService } from '#saas/partnerDomains/index'
+import { createPartnerPlansService } from '#saas/partnerPlans/index'
+import { createPartnerReportsService } from '#saas/partnerReports/index'
+import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
+import { createPartnerTeamService } from '#saas/partnerTeam/index'
+import { createPartnerSupportService } from '#saas/support/index'
+import type { PlatformContext } from './access'
+
+export interface PlatformContextDeps {
+  sql: postgres.Sql
+  facts: RequestFacts
+  activity: ActivityLog
+  secrets: SecretBox | null
+  // DripFunnel's Stripe account; null until its keys are Worker secrets (THIRD-PARTY-ACCESS §2.7).
+  stripe: StripeApi | null
+  // The `pk_` the console's Stripe.js acts with (#278); absent while it is unset.
+  stripePublishableKey?: string | null
+  edgeZone: string
+  /** The domain of every store's free address (SHOP_DOMAIN); null where none is set. */
+  shopDomain: string | null
+  /** `*.localhost` partner domains, where the local DNS stand-in answers them (DNS_LOCAL). */
+  localHosts?: boolean
+  now: () => Date
+}
+
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null, billing: null }
+
+/** Every Platform API service for the caller, whichever kind it is (#243). */
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, ...base }: PlatformContextDeps): PlatformContext => {
+  if (!caller) return signedOutContext
+  const deps = { ...base, caller }
+  return {
+    caller,
+    console: createPartnerConsoleService(deps),
+    plans: createPartnerPlansService(deps),
+    branding: createPartnerBrandingService(deps),
+    stores: createPartnerStoresService(deps),
+    storeActions: createPartnerStoreActions(deps),
+    dashboard: createPartnerDashboardService(deps),
+    domains: createPartnerDomainsService({ ...deps, localHosts }),
+    activity: createPartnerActivityService(deps),
+    team: createPartnerTeamService(deps),
+    reports: createPartnerReportsService(deps),
+    // A partner user's own; no staff session reaches it (apis/platform/support.ts).
+    support: caller.user && !caller.staff ? createPartnerSupportService({ ...deps, user: caller.user, secrets }) : null,
+    billing: createPartnerBillingService({ ...deps, stripe, publishableKey: stripePublishableKey }),
+  }
+}

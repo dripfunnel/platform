@@ -1,0 +1,192 @@
+/* Orders (designs/PortalOrders.dc.html): the list's header, toolbar and rows, and the pager. */
+.df-orders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-orders-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-orders-head .df-page-title {
+  font-size: 26px;
+  letter-spacing: -0.025em;
+}
+
+.df-orders-head .df-page-lede {
+  margin-top: var(--df-space-1);
+  font-size: 14px;
+}
+
+.df-orders-zone {
+  margin-left: var(--df-space-3);
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-orders-export {
+  margin: 0;
+  font-size: 13px;
+  color: var(--df-color-muted);
+}
+
+.df-orders-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-orders-toolbar .df-list-search-field {
+  flex: 1 1 240px;
+}
+
+.df-orders-rows {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  list-style: none;
+}
+
+.df-orders-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1.4fr) minmax(0, 1.2fr) 130px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-text);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.df-orders-row[data-money] {
+  grid-template-columns: 110px minmax(0, 1.4fr) minmax(0, 1.2fr) 130px 120px;
+}
+
+.df-orders-rows li:last-child .df-orders-row {
+  border-bottom: 0;
+}
+
+.df-orders-row:hover {
+  background: var(--df-color-hover);
+}
+
+.df-orders-row:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: -2px;
+}
+
+.df-orders-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-orders-number {
+  font-family: var(--df-font-mono);
+  font-size: 13px;
+  color: var(--df-color-text-strong);
+}
+
+.df-orders-sub {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-orders-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.df-orders-items {
+  color: var(--df-color-muted);
+}
+
+.df-orders-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.df-orders-status .df-pill {
+  white-space: nowrap;
+}
+
+.df-orders-test {
+  color: var(--df-color-muted);
+  font-size: 11px;
+}
+
+.df-orders-money {
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-orders-pay {
+  color: var(--df-color-muted);
+  font-size: 11px;
+}
+
+.df-orders-pay--pending {
+  color: var(--df-color-warning);
+}
+
+.df-orders-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-orders-pager > span:last-child {
+  display: flex;
+  gap: var(--df-space-2);
+}
+
+@media (max-width: 720px) {
+  .df-orders-head .df-page-title {
+    font-size: 22px;
+  }
+
+  /* Two lines a row on a phone: the number and status, then the shopper and the money. */
+  .df-orders-row,
+  .df-orders-row[data-money] {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .df-orders-row > :first-child {
+    grid-area: 1 / 1;
+  }
+
+  .df-orders-who {
+    grid-area: 2 / 1;
+  }
+
+  .df-orders-status {
+    grid-area: 1 / 2;
+    justify-content: flex-end;
+  }
+
+  .df-orders-money {
+    grid-area: 2 / 2;
+  }
+
+  .df-orders-items {
+    display: none;
+  }
+}

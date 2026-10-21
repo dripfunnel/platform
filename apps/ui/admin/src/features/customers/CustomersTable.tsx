@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import type { CustomerRow } from '../../api/customers'
 import { formatCount, formatCountry, formatDate, messages } from '../../messages'
-import { ClickableRow } from '../common/ClickableRow'
+import { ClickableRow } from '@dripfunnel/shared/ui'
 import { CustomerStatusPill } from './customerLook'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './customers.css'
 
 const words = messages.customers

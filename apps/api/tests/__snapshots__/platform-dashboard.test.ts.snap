@@ -1,0 +1,391 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the cards > fixes every range’s numbers and words > last 1`] = `
+{
+  "attention": [
+    [
+      "Birch Supply",
+      "pastDue",
+      "past due 10 days",
+      "billing",
+    ],
+    [
+      "Fable Goods",
+      "pastDue",
+      "past due 6 days",
+      "billing",
+    ],
+    [
+      "Juniper Supply",
+      "pastDue",
+      "past due 6 days",
+      "billing",
+    ],
+    [
+      "Nimbus Goods",
+      "pastDue",
+      "past due 2 days",
+      "billing",
+    ],
+    [
+      "Ridge Supply",
+      "pastDue",
+      "past due 2 days",
+      "billing",
+    ],
+    [
+      "Harbor Coffee Co.",
+      "trialEnding",
+      "trial ends tomorrow",
+      "overview",
+    ],
+    [
+      "Cobalt Kitchen",
+      "trialEnding",
+      "trial ends in 2 days",
+      "overview",
+    ],
+  ],
+  "signups": {
+    "comparison": "",
+    "completed": 4,
+    "conversion": null,
+    "started": 4,
+  },
+  "stores": {
+    "byStatus": {
+      "active": 27,
+      "pastdue": 5,
+      "suspended": 1,
+      "trial": 8,
+    },
+    "newThisMonth": 5,
+    "total": 46,
+  },
+  "top": [
+    [
+      "Juniper & Co.",
+      "Pro",
+      1842000,
+      "USD",
+    ],
+    [
+      "Cobalt Kitchen",
+      "Growth",
+      1211000,
+      "USD",
+    ],
+    [
+      "Maple & Pine Home",
+      "Growth",
+      988000,
+      "CAD",
+    ],
+    [
+      "Amber Goods",
+      "Starter",
+      641000,
+      "USD",
+    ],
+    [
+      "Harbor Coffee Co.",
+      "Growth",
+      530000,
+      "USD",
+    ],
+  ],
+  "usage": {
+    "nearCount": 4,
+    "stores": [
+      [
+        "Cedar Goods",
+        490,
+        500,
+        "ai",
+        98,
+      ],
+      [
+        "Birch Goods",
+        192,
+        200,
+        "ai",
+        96,
+      ],
+      [
+        "Amber Supply",
+        470,
+        500,
+        "ai",
+        94,
+      ],
+      [
+        "Amber Goods",
+        46,
+        50,
+        "ai",
+        92,
+      ],
+    ],
+  },
+}
+`;
+
+exports[`the cards > fixes every range’s numbers and words > month 1`] = `
+{
+  "attention": [
+    [
+      "Birch Supply",
+      "pastDue",
+      "past due 10 days",
+      "billing",
+    ],
+    [
+      "Fable Goods",
+      "pastDue",
+      "past due 6 days",
+      "billing",
+    ],
+    [
+      "Juniper Supply",
+      "pastDue",
+      "past due 6 days",
+      "billing",
+    ],
+    [
+      "Nimbus Goods",
+      "pastDue",
+      "past due 2 days",
+      "billing",
+    ],
+    [
+      "Ridge Supply",
+      "pastDue",
+      "past due 2 days",
+      "billing",
+    ],
+    [
+      "Harbor Coffee Co.",
+      "trialEnding",
+      "trial ends tomorrow",
+      "overview",
+    ],
+    [
+      "Cobalt Kitchen",
+      "trialEnding",
+      "trial ends in 2 days",
+      "overview",
+    ],
+  ],
+  "signups": {
+    "comparison": "",
+    "completed": 4,
+    "conversion": null,
+    "started": 5,
+  },
+  "stores": {
+    "byStatus": {
+      "active": 27,
+      "pastdue": 5,
+      "suspended": 1,
+      "trial": 8,
+    },
+    "newThisMonth": 5,
+    "total": 46,
+  },
+  "top": [
+    [
+      "Juniper & Co.",
+      "Pro",
+      1842000,
+      "USD",
+    ],
+    [
+      "Cobalt Kitchen",
+      "Growth",
+      1211000,
+      "USD",
+    ],
+    [
+      "Maple & Pine Home",
+      "Growth",
+      988000,
+      "CAD",
+    ],
+    [
+      "Amber Goods",
+      "Starter",
+      641000,
+      "USD",
+    ],
+    [
+      "Harbor Coffee Co.",
+      "Growth",
+      530000,
+      "USD",
+    ],
+  ],
+  "usage": {
+    "nearCount": 4,
+    "stores": [
+      [
+        "Cedar Goods",
+        490,
+        500,
+        "ai",
+        98,
+      ],
+      [
+        "Birch Goods",
+        192,
+        200,
+        "ai",
+        96,
+      ],
+      [
+        "Amber Supply",
+        470,
+        500,
+        "ai",
+        94,
+      ],
+      [
+        "Amber Goods",
+        46,
+        50,
+        "ai",
+        92,
+      ],
+    ],
+  },
+}
+`;
+
+exports[`the cards > fixes every range’s numbers and words > q 1`] = `
+{
+  "attention": [
+    [
+      "Birch Supply",
+      "pastDue",
+      "past due 10 days",
+      "billing",
+    ],
+    [
+      "Fable Goods",
+      "pastDue",
+      "past due 6 days",
+      "billing",
+    ],
+    [
+      "Juniper Supply",
+      "pastDue",
+      "past due 6 days",
+      "billing",
+    ],
+    [
+      "Nimbus Goods",
+      "pastDue",
+      "past due 2 days",
+      "billing",
+    ],
+    [
+      "Ridge Supply",
+      "pastDue",
+      "past due 2 days",
+      "billing",
+    ],
+    [
+      "Harbor Coffee Co.",
+      "trialEnding",
+      "trial ends tomorrow",
+      "overview",
+    ],
+    [
+      "Cobalt Kitchen",
+      "trialEnding",
+      "trial ends in 2 days",
+      "overview",
+    ],
+  ],
+  "signups": {
+    "comparison": "",
+    "completed": 13,
+    "conversion": null,
+    "started": 14,
+  },
+  "stores": {
+    "byStatus": {
+      "active": 27,
+      "pastdue": 5,
+      "suspended": 1,
+      "trial": 8,
+    },
+    "newThisMonth": 5,
+    "total": 46,
+  },
+  "top": [
+    [
+      "Juniper & Co.",
+      "Pro",
+      1842000,
+      "USD",
+    ],
+    [
+      "Cobalt Kitchen",
+      "Growth",
+      1211000,
+      "USD",
+    ],
+    [
+      "Maple & Pine Home",
+      "Growth",
+      988000,
+      "CAD",
+    ],
+    [
+      "Amber Goods",
+      "Starter",
+      641000,
+      "USD",
+    ],
+    [
+      "Harbor Coffee Co.",
+      "Growth",
+      530000,
+      "USD",
+    ],
+  ],
+  "usage": {
+    "nearCount": 4,
+    "stores": [
+      [
+        "Cedar Goods",
+        490,
+        500,
+        "ai",
+        98,
+      ],
+      [
+        "Birch Goods",
+        192,
+        200,
+        "ai",
+        96,
+      ],
+      [
+        "Amber Supply",
+        470,
+        500,
+        "ai",
+        94,
+      ],
+      [
+        "Amber Goods",
+        46,
+        50,
+        "ai",
+        92,
+      ],
+    ],
+  },
+}
+`;

@@ -1,7 +1,6 @@
 import { partnerStates, setupFilters, type PartnerFilter } from '../../api/partners'
 import { messages } from '../../messages'
-import { FilterSelect } from '../common/FilterSelect'
-import { SearchField } from '../common/SearchField'
+import { FilterSelect, SearchField } from '@dripfunnel/shared/ui'
 import { isFiltered } from './isFiltered'
 
 const words = messages.partners

@@ -11,6 +11,10 @@ declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router
   }
+  // The person a timeline follows, by name: chosen on the Activity log, never typed into the URL (§13).
+  interface HistoryState {
+    personName?: string
+  }
 }
 
 const root = document.getElementById('root')

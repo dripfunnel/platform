@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:1100px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;"><div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">Billing</div><div style="font-size:14px;color:#5A6472;">What you pay DripFunnel. We never take a fee on your orders.</div></div>
+    <span style="display:flex;align-items:center;gap:4px;padding:4px;border:1px solid #E8E2DC;border-radius:10px;background:#FFFFFF;"><sc-for list="{{ periods }}" as="p" hint-placeholder-count="2"><button onClick="{{ p.onClick }}" style="height:34px;padding:0 12px;border:0;border-radius:8px;background:{{ p.bg }};color:{{ p.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ p.label }}</button></sc-for></span></div>
+  <sc-for list="{{ banners }}" as="b" hint-placeholder-count="0"><div style="padding:14px 16px;border-radius:10px;background:{{ b.bg }};border:1px solid {{ b.bd }};color:{{ b.fg }};font-size:14px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;"><span style="flex:1;min-width:220px;"><strong>{{ b.title }}</strong> {{ b.body }}</span><sc-if value="{{ b.cta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ b.on }}" style="height:38px;padding:0 16px;border:0;border-radius:8px;background:{{ b.fg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ b.cta }}</button></sc-if></div></sc-for>
+
+  <div style="display:grid;grid-template-columns:{{ planCols }};gap:10px;">
+    <sc-for list="{{ plans }}" as="p" hint-placeholder-count="5">
+      <div style="background:#FFFFFF;border:{{ p.bd }};border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:17px;">{{ p.name }}</span><span style="font-size:11px;color:{{ p.tagFg }};font-weight:700;">{{ p.tag }}</span></div>
+        <span style="display:flex;align-items:baseline;gap:4px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">{{ p.price }}</span><span style="font-size:12px;color:#5A6472;">{{ p.per }}</span></span>
+        <span style="font-size:12px;color:#5A6472;min-height:32px;">{{ p.note }}</span>
+        <sc-for list="{{ p.points }}" as="pt" hint-placeholder-count="4"><span style="font-size:12px;color:#434A55;">✓ {{ pt }}</span></sc-for>
+        <sc-if value="{{ p.canPick }}" hint-placeholder-val="{{ true }}"><button onClick="{{ p.pick }}" style="margin-top:6px;height:38px;border:{{ p.btnBd }};border-radius:8px;background:{{ p.btnBg }};color:{{ p.btnFg }};font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ p.btn }}</button></sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display:grid;grid-template-columns:{{ twoCols }};gap:12px;">
+    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;">
+      <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">This month’s usage</span>
+      <sc-for list="{{ meters }}" as="m" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:4px;"><div style="display:flex;justify-content:space-between;font-size:13px;gap:8px;"><span>{{ m.label }}</span><span style="color:{{ m.fg }};font-weight:600;">{{ m.val }}</span></div><div style="height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ m.pct }};height:100%;background:{{ m.bar }};"></div></div><span style="font-size:11px;color:#5A6472;">{{ m.note }}</span></div></sc-for>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-if value="{{ canBuyBw }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.buyBw }}" style="height:36px;padding:0 12px;border:1px solid #B8541F;border-radius:8px;background:#FFFFFF;color:#B8541F;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Buy extra bandwidth</button></sc-if><button onClick="{{ a.simTraffic }}" style="height:36px;padding:0 12px;border:1px dashed #D7D3CD;border-radius:8px;background:#FFFFFF;color:#5A6472;font-size:12px;cursor:pointer;">Demo: add 1 GB of traffic</button></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;">
+        <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">AI for your storefront and products</span>
+        <span style="font-size:13px;color:#434A55;">{{ aiText }}</span>
+        <sc-if value="{{ aiKeyMode }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.aiKey }}" style="align-self:flex-start;height:36px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">{{ aiKeyBtn }}</button></sc-if>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;">
+        <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Storefront setup by our team <span style="font-weight:400;color:#5A6472;font-size:13px;">· optional</span></span>
+        <span style="font-size:13px;color:#434A55;">{{ setupText }}</span>
+        <sc-if value="{{ canSetup }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.setup }}" style="align-self:flex-start;height:36px;padding:0 14px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Add setup · {{ setupPrice }}</button></sc-if>
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:{{ twoCols }};gap:12px;">
+    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Card that pays for DripFunnel</span><span style="font-size:14px;">{{ card }}</span><span style="font-size:12px;color:#5A6472;">Never used for your shoppers’ payments. Not needed during the trial.</span><button onClick="{{ a.card }}" style="align-self:flex-start;height:36px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">{{ cardBtn }}</button></div>
+    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;"><div style="padding:12px 16px;border-bottom:1px solid #E8E2DC;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Invoices</div><sc-if value="{{ noInvoices }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;font-size:13px;color:#5A6472;">No invoices yet — the trial is free.</div></sc-if><sc-for list="{{ invoices }}" as="i" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #F1ECE6;font-size:13px;"><span style="flex:1;font-family:'IBM Plex Mono',monospace;">{{ i.id }}</span><span style="color:#5A6472;">{{ i.label }}</span><span style="color:{{ i.fg }};">{{ i.status }}</span><button onClick="{{ i.dl }}" style="border:0;background:none;color:#B8541F;font-size:13px;cursor:pointer;">PDF</button></div></sc-for></div>
+  </div>
+  <sc-if value="{{ canCancel }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.cancel }}" style="align-self:flex-start;border:0;background:none;color:#B8541F;font-size:13px;cursor:pointer;text-decoration:underline;padding:0;">Close my store…</button></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { closing: false, pendingDown: null };
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { caps: c, phone } = app; const s = this.state; const st = app.st; const PL = app.PLANS;
+    const inr = v => '₹' + Math.round(v).toLocaleString('en-IN'); const yearly = st.billing === 'year';
+    const cur = c.P; const inTrial = c.trial; const ended = c.trialEnded;
+    const curKey = ended ? 'free' : st.plan === 'pastdue' ? 'starter' : inTrial ? null : cur.key;
+    const priceOf = p => p.yearly ? (yearly ? p.yearly / 12 : p.yearly * 2 / 12) : 0;
+    const choose = p => {
+      if (p.key === 'enterprise') { app.modal({ title: 'Talk to us about Enterprise', body: 'Many stores under one account, SSO, API and an uptime guarantee. We’ll call you within a working day.', input: { label: 'Best number or email', placeholder: 'you@company.com', required: true }, confirm: 'Request a call', onConfirm: () => app.toast('Thanks — our team will be in touch today') }); return; }
+      const down = curKey && p.rank < PL[curKey].rank;
+      if (down) { app.modal({ title: `Move to ${p.name} at the end of this period?`, body: `Until then nothing changes. After that, anything over ${p.name}’s limits is paused — never deleted — and you choose what stays.\n• ${p.products === Infinity ? 'Unlimited' : p.products} products · ${p.staff} staff · ${p.markets} market${p.markets > 1 ? 's' : ''}\n• ${p.suppliers ? '' : 'Suppliers can’t sign in · '}${p.aplusProducts ? '' : 'A+ content hidden · '}${p.bandwidth} GB bandwidth`, confirm: 'Move at period end', onConfirm: () => { this.setState({ pendingDown: p.key }); app.toast(`You’ll move to ${p.name} on 27 Oct`); } }); return; }
+      const needCard = !app.data('card') || app.data('card') === 'No card yet';
+      app.modal({ title: `Switch to ${p.name}`, body: `${inr(priceOf(p))} a month, ${yearly ? 'billed ' + inr(p.yearly) + ' yearly' : 'billed monthly'}, plus GST.${inTrial ? ' Your trial features you don’t need on ' + p.name + ' will pause when you switch.' : ' Starts now — you pay the difference for this period.'}${needCard ? '\nWe’ll ask for a card next.' : ''}`, choices: [{ label: 'Just the plan', value: 'plan' }, { label: `Plan + storefront setup by our team (${inr(p.setup)} one-time)`, sub: 'Optional — we design and set up your storefront', value: 'setup' }], confirm: 'Switch to ' + p.name,
+        onConfirm: v => { if (needCard) app.set('card', 'Visa ending 4242'); app.setPlan(p.key); app.set('kept', null); if (v === 'setup') app.set('setupBought', true); app.set('invoices', l => [{ id: 'INV-' + Date.now().toString().slice(-6), date: Date.now(), label: p.name + (v === 'setup' ? ' + setup' : ''), status: 'Paid' }, ...l]); app.toast(`You’re on ${p.name}${v === 'setup' ? ' — our team will email you about your storefront setup today' : ''}. Everything paused is back.`); } });
+    };
+    const keys = ['free', 'starter', 'growth', 'business', 'enterprise'];
+    const plans = keys.map(k => { const p = PL[k]; const isCur = k === curKey; const up = !curKey || p.rank > PL[curKey].rank;
+      return { name: p.name, tag: isCur ? 'Your plan' : s.pendingDown === k ? 'From 27 Oct' : (inTrial && k === 'business' ? 'Trial = Business' : ''), tagFg: isCur ? '#1D6B47' : '#00519F', bd: isCur ? '2px solid #1D6B47' : k === 'growth' ? '2px solid #EC844F' : '1px solid #E8E2DC',
+        price: k === 'free' ? 'Free' : k === 'enterprise' ? 'Custom' : inr(priceOf(p)), per: p.yearly ? '/month' : '', note: k === 'free' ? 'Forever' : k === 'enterprise' ? 'Many stores, SSO, API' : (yearly ? inr(p.yearly) + ' billed yearly' : 'Billed monthly'),
+        points: [`${p.products === Infinity ? 'Unlimited' : p.products.toLocaleString('en-IN')} products`, `${p.staff === Infinity ? 'Unlimited' : p.staff || 'Owner only'} staff`, `${p.markets === Infinity ? 'Unlimited' : p.markets} market${p.markets === 1 ? '' : 's'}`, `${p.bandwidth === Infinity ? 'Custom' : p.bandwidth + ' GB'} bandwidth`],
+        canPick: c.isOwner && !isCur && k !== 'free', btn: k === 'enterprise' ? 'Talk to us' : up ? (inTrial ? 'Choose ' + p.name : 'Upgrade') : 'Switch at period end', btnBg: up ? '#EC844F' : '#FFFFFF', btnFg: up ? '#FFFFFF' : '#14181F', btnBd: up ? '0' : '1px solid #D7D3CD', pick: () => choose(p) }; });
+    const banners = [];
+    if (inTrial) banners.push({ title: st.plan === 'trial9' ? 'Your trial ends tomorrow.' : 'Free trial · 7 days left.', body: 'You have everything in Business. Choose a plan to keep it, or pick what to keep on Free.', bg: '#EAF1F8', bd: '#C9DAEC', fg: '#00325F', cta: 'Choose what to keep', on: () => app.go('keep') });
+    if (ended) banners.push({ title: 'You’re on Free.', body: `${app.paused.products.size} products and ${app.paused.staff.size} people are paused — nothing is deleted.`, bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: 'Change what’s kept', on: () => app.go('keep') });
+    if (st.plan === 'pastdue') banners.push({ title: 'Your last payment didn’t go through.', body: 'Your shop is still selling. Editing is paused until you pay — nothing is deleted.', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: 'Pay now', on: () => app.modal({ title: 'Pay the overdue invoice', body: `We’ll charge ${app.data('card')}.`, confirm: 'Pay now', onConfirm: () => { app.setPlan('starter'); app.toast('Paid — editing is back on'); } }) });
+    if (s.closing) banners.push({ title: 'Your store closes on 27 Oct 2026.', body: 'Everything works until then. After 30 days, products and orders are deleted.', bg: '#FDF0E8', bd: '#F0D4BF', fg: '#B8541F', cta: 'Keep my store', on: () => { this.setState({ closing: false }); app.toast('Your store stays open'); } });
+    const bwLim = cur.bandwidth + (st.bwExtra || 0); const n = app.allProducts.length; const staffN = (app.data('people') || []).filter(p => p.id !== 'u1' && p.role !== 'Supplier user').length;
+    const meter = (label, used, lim, unit, note) => { const inf = lim === Infinity; const r = inf ? 0 : used / Math.max(1, lim); return { label, val: inf ? `${used}${unit} · no limit` : `${used}${unit} of ${lim}${unit}`, pct: Math.min(100, r * 100) + '%', bar: r >= 1 ? '#B8541F' : r >= 0.8 ? '#D9A43A' : '#1D6B47', fg: r >= 0.8 ? '#7A4B00' : '#5A6472', note: note || (r >= 1 ? 'At your limit — your shop stays online' : r >= 0.8 ? 'Nearly full' : '') }; };
+    const aiQ = cur.aiQuota;
+    return {
+      pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', planCols: phone ? '1fr' : 'repeat(5,minmax(0,1fr))', twoCols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))',
+      periods: [['month', 'Monthly'], ['year', 'Yearly · save 50%']].map(([k, l]) => ({ label: l, bg: st.billing === k ? '#0A2A4A' : 'transparent', fg: st.billing === k ? '#FFFFFF' : '#434A55', onClick: () => app.set('billing', k) })),
+      banners, plans,
+      meters: [meter('Bandwidth', Math.round(st.bwUsed * 10) / 10, bwLim, ' GB', '1 GB is about 1,000–5,000 page views' + (st.bwExtra ? ` · includes ${st.bwExtra} GB extra` : '')), meter('Products', n, cur.products, ''), meter('Staff accounts', staffN, cur.staff, ''), ...(cur.ai === 'included' ? [meter('AI tokens (storefront, descriptions, translations)', st.aiUsed, aiQ, '', 'Resets 1 Oct')] : [])],
+      canBuyBw: cur.extraBw && c.isOwner,
+      aiKeyMode: cur.ai === 'key', aiText: cur.ai === 'key' ? (st.aiKey ? `Connected: ${st.aiKey.slice(0, 7)}…  You pay your AI provider directly for what you use.` : 'On ' + cur.name + ' you connect your own AI account (OpenAI or Anthropic). Until you do, the AI buttons ask for a key.') : `Included — ${aiQ === Infinity ? 'custom' : aiQ.toLocaleString('en-IN')} tokens a month. No key needed.`, aiKeyBtn: st.aiKey ? 'Change key' : 'Connect your AI key',
+      canSetup: !st.setupBought && cur.setup && c.isOwner && !inTrial, setupPrice: cur.setup ? inr(cur.setup) : '', setupText: st.setupBought ? 'Booked — our team is designing your storefront. We’ll email you a preview to approve.' : cur.setup ? `We design and set up your storefront for you — ${inr(cur.setup)}, paid once. Or do it yourself for free.` : inTrial ? 'Available once you choose a paid plan.' : 'Available on Starter, Growth and Business.',
+      card: app.data('card') || 'No card yet', cardBtn: app.data('card') && app.data('card') !== 'No card yet' ? 'Change card' : 'Add a card',
+      invoices: (inTrial ? [] : app.data('invoices') || []).map(i => ({ id: i.id, label: i.label || 'Plan', status: i.status, fg: i.status === 'Paid' ? '#1D6B47' : '#B8541F', dl: () => app.toast('Downloading ' + i.id + '.pdf') })), noInvoices: inTrial,
+      canCancel: c.isOwner && !s.closing,
+      a: {
+        buyBw: () => app.modal({ title: 'Buy extra bandwidth', body: 'Added to this month straight away. Billed per extra GB on your next invoice. Your shop never slows down.', choices: [{ label: '+10 GB', value: '10' }, { label: '+50 GB', value: '50' }, { label: '+100 GB', value: '100' }], confirm: 'Add bandwidth', onConfirm: v => { app.set('bwExtra', x => (x || 0) + Number(v)); app.toast(`+${v} GB added for this month`); } }),
+        simTraffic: () => { app.set('bwUsed', x => Math.round((x + 1) * 10) / 10); if (st.bwUsed + 1 >= bwLim) app.toast(cur.extraBw ? 'Over your bandwidth — your shop stays online. Buy extra to avoid overage.' : 'Over your bandwidth — your shop stays online. We’ve emailed you.'); },
+        aiKey: () => app.modal({ title: 'Connect your AI key', body: 'Paste an API key from OpenAI or Anthropic. It’s stored encrypted and only used for your store.', input: { label: 'API key', placeholder: 'sk-…', required: true, error: 'Paste your key' }, confirm: 'Connect', onConfirm: v => { if (!/^sk-/.test(v.trim())) { app.toast('That doesn’t look like an API key — it usually starts with “sk-”'); return; } app.set('aiKey', v.trim()); app.toast('AI key connected — the AI buttons work now'); } }),
+        setup: () => app.modal({ title: 'Add storefront setup', body: `${inr(cur.setup)} one-time, plus GST. Our team designs your theme, homepage and menus, and adds your first products.`, confirm: 'Add setup', onConfirm: () => { app.set('setupBought', true); app.toast('Booked — we’ll email you today'); } }),
+        card: () => app.modal({ title: 'Card for DripFunnel', input: { label: 'Card number', placeholder: '4242 4242 4242 4242', required: true, error: 'Type a card number' }, confirm: 'Save card', onConfirm: v => { app.set('card', 'Card ending ' + v.replace(/\D/g, '').slice(-4)); app.toast('Card saved'); } }),
+        cancel: () => app.modal({ danger: true, title: 'Close your store?', body: '• Your shop stays open until 27 Oct 2026\n• Then it goes offline; your domain is kept for 30 days\n• After 30 days, products, orders and customers are deleted\n• Or move to Free instead and keep selling 10 products', choices: [{ label: 'Download my data first', value: 'export' }, { label: 'Move to Free instead', value: 'free' }, { label: 'Close my store', value: 'close' }], confirm: 'Continue', onConfirm: v => { if (v === 'free') { app.setPlan('trialEnded'); app.go('keep'); return; } if (v === 'export') app.toast('Export ready', 'Download', () => app.toast('Downloading store-export.zip')); this.setState({ closing: true }); } })
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

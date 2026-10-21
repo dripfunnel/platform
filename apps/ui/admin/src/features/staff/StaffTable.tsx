@@ -1,9 +1,9 @@
+import { StatusPill } from '@dripfunnel/shared/ui'
 import { useId } from 'react'
 import type { StaffAction, StaffMember } from '../../api/staff'
 import { fill, formatDate, formatTime, messages } from '../../messages'
-import { StatusPill } from '../common/StatusPill'
 import { labelOf, refusalText } from './staffDialog'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './staff.css'
 
 const words = messages.staff

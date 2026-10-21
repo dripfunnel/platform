@@ -1,0 +1,51 @@
+import { useRouter } from 'expo-router'
+import type { ReactNode } from 'react'
+import { ScrollView, StyleSheet } from 'react-native'
+import { tabsFor } from '../../nav'
+import { session } from '../../session'
+import { useTheme } from '../../theme'
+import { useShell } from '../shell/ShellData'
+import { sampleReference, setScenario, useScenario } from './scenario'
+import { StateView, type StateKind } from './StateView'
+
+// What a screen draws in place of its content while the Scenario menu has a state on (DESIGN.md §4); a real failure
+// draws the same views. `label` names the screen in "We couldn’t load {label}"; `state` is a real one the screen knows, and
+// `onRetry` is what "Try again" runs for a screen that loads its own data (the shell's own reads otherwise).
+export function ShellScreen({ label, state, onRetry, children }: { label: string; state?: StateKind; onRetry?: () => void; children: ReactNode }) {
+  const { colors } = useTheme()
+  const router = useRouter()
+  const scenario = useScenario()
+  const screen = scenario.screen === 'normal' ? (state ?? 'normal') : scenario.screen
+  const { acting, seat, refresh } = useShell()
+  const retry = onRetry ?? refresh
+
+  return (
+    <ScrollView keyboardShouldPersistTaps="handled" style={{ backgroundColor: colors.page }} contentContainerStyle={styles.content}>
+      {screen === 'normal' ? (
+        children
+      ) : (
+        <StateView
+          kind={screen}
+          label={label}
+          store={acting.storeName}
+          supplier={seat?.side === 'supplier'}
+          reference={scenario.screen === 'normal' ? null : sampleReference}
+          onRetry={() => {
+            setScenario({ screen: 'normal' })
+            retry()
+          }}
+          onHome={() => {
+            setScenario({ screen: 'normal' })
+            router.navigate(`/${tabsFor(seat)[0]?.route ?? 'more'}` as never)
+          }}
+          onSignIn={() => void session().end('expired')}
+          onSwitchStore={() => session().leaveStore()}
+        />
+      )}
+    </ScrollView>
+  )
+}
+
+const styles = StyleSheet.create({
+  content: { flexGrow: 1 },
+})

@@ -1,0 +1,5 @@
+{
+  "rule": "jsx/element-not-allowed",
+  "file": "src/theme/components/interactive/Bad.tsx",
+  "line": 9
+}

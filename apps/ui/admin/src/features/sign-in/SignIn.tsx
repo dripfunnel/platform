@@ -5,10 +5,12 @@ import { useEffect, useId, useRef, useState } from 'react'
 import logoOnDark from '../../assets/dripfunnel-logo-inverse.svg'
 import logo from '../../assets/dripfunnel-logo.svg'
 import { messages } from '../../messages'
-import { harnessEnabled, useScreenState } from '../common/useScreenState'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
+import '@dripfunnel/shared/ui/auth.css'
 import './signIn.css'
 import { SignInStep } from './SignInStep'
-import { signInStates, type SignInState } from './signInStates'
+import { signInStates, walksThrough, type SignInState } from './signInStates'
 import { useSignInOutcome } from './useSignInOutcome'
 
 const words = messages.signIn
@@ -16,8 +18,8 @@ const words = messages.signIn
 // How long the prototype waits for "Microsoft" before showing the Authenticator request.
 const microsoftAnswerMs = 1100
 
-// Walking through the prototype's flow locally is a review aid, so the simulated steps run
-// only where the ?state= harness does. Everywhere else the button leaves for the Worker.
+// Walking through the prototype's flow is a review aid, so the simulated steps run only on an
+// address with ?state=; `vite dev` always has the harness on, and real sign-in must still work there.
 const signInRoute = '/api/auth/sign-in'
 
 const leaveForMicrosoft = () => window.location.assign(signInRoute)
@@ -25,10 +27,11 @@ const leaveForMicrosoft = () => window.location.assign(signInRoute)
 const ignore = () => undefined
 
 export const SignIn = () => {
-  const forced = useScreenState(signInStates)
+  const forced = useScreenState(signInStates, harnessEnabled)
   const outcome = useSignInOutcome()
   const [state, setState] = useState<SignInState>(forced ?? outcome ?? 'start')
   const navigate = useNavigate()
+  const simulated = walksThrough(forced)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const headingId = useId()
   const shownState = useRef(state)
@@ -70,8 +73,8 @@ export const SignIn = () => {
         <p>{words.states[state].body}</p>
         <SignInStep
           state={state}
-          onChange={harnessEnabled ? setState : leaveForMicrosoft}
-          onSignedIn={harnessEnabled ? () => void navigate({ to: '/dashboard' }) : ignore}
+          onChange={simulated ? setState : leaveForMicrosoft}
+          onSignedIn={simulated ? () => void navigate({ to: '/dashboard' }) : ignore}
         />
       </main>
       <p className="df-sign-in-footer">{words.footer}</p>

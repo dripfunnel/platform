@@ -1,0 +1,20 @@
+/* A supplier's "Your products" tabs: Products and Warehouses (#337). */
+.df-supplier-tabs {
+  display: flex;
+  gap: var(--df-space-4);
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-supplier-tabs a {
+  padding: 8px 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--df-color-muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.df-supplier-tabs a[aria-current='page'] {
+  border-bottom-color: var(--df-color-focus);
+  color: var(--df-color-heading);
+}

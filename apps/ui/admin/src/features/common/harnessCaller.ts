@@ -1,6 +1,6 @@
 import type { StaffRole } from '../shell/staffRoles'
-import { parseScreenState } from './screenState'
-import { harnessEnabled } from './useScreenState'
+import { parseScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 
 // ?state=readonly and ?state=denied ask the sample for a caller without the permissions,
 // because what is allowed is the API's answer, never the screen's (decided on #19). Support

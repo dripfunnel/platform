@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-09 (#520: storefront LIVE-SHOP, PREVIEW and AI-STUDIO added; #493: the mobile app's first release has no Billing or in-app purchase).
 
 ---
 
@@ -25,9 +25,9 @@ its clients; everything runs on Cloudflare, with Postgres on Neon.
 | Portal | App | Host | Users and roles | API | Guide |
 |---|---|---|---|---|---|
 | **Admin console** | `apps/ui/admin` | `admin.dripfunnel.com` | DripFunnel staff: Super admin, Partner manager, Support, Finance, Engineer on call, Read-only | Admin API | [ui/admin/](ui/admin/README.md) |
-| **Partner console** | `apps/ui/platform` | `platform.dripfunnel.com` | Partner users: Owner, Admin, Support, Finance, Read-only *(proposed)* | Platform API | [ui/platform/](ui/platform/README.md) |
+| **Partner console** | `apps/ui/platform` | `platform.dripfunnel.com` | Partner users: Owner, Admin, Support, Finance, Read-only | Platform API | [ui/platform/](ui/platform/README.md) |
 | **Merchant portal** | `apps/ui/store` | each partner's portal host, e.g. `store.<partnerdomain>` | Merchant Owner, Manager, Staff; vendors: Stock only, Products and stock, Products, stock and their orders | Store API | [ui/store/](ui/store/README.md) |
-| **Storefront** | one repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{shop}.preview.<partnerdomain>`, `{shop}.shops.<partnerdomain>`, the merchant's domain | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
+| **Storefront** | one public repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{slug}.my-store.one`, the merchant's domain; preview on `{slug}-preview.my-store.one` | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
 
 All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
 
@@ -36,8 +36,11 @@ All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
 ## 3. The map
 
 The folders mirror the code: `docs/api` ↔ `apps/api`, `docs/ui/<app>` ↔ `apps/ui/<app>`,
-`docs/storefront` ↔ `templates/storefront` and `packages/storefront-core`. `docs/code` holds
-what applies across the whole repo.
+`docs/mobile-app/<app>` ↔ `apps/ui/mobile-app/<app>`,
+`docs/storefront` ↔ `templates/storefront`, `packages/storefront-core` and `apps/sandbox`. `docs/code` holds
+what applies across the whole repo. `docs/setup` is the one folder that follows environments
+instead of code: a step-by-step runbook per environment, linking to the documents that hold the
+facts (decided 2026-10-04).
 
 ```
 docs/
@@ -48,7 +51,7 @@ docs/
     README.md               guide: the four APIs and callers, apps/api layout, layers, how to add code, testing
     PLATFORM-PROMPT.md      spec: the engine (tenancy, identity, commerce modules, public APIs, jobs), open questions
     ACCESS.md               spec: identity, sessions, roles and permissions for every portal, invitations, vendors, support access, authorization checks
-    DATA-MODEL.md           spec: tenancy tree, table scopes, users and roles in every pool, supplier teams, row-level security
+    DATA-MODEL.md           spec: tenancy tree, table scopes, users and roles in every pool, supplier teams, row-level security, the commerce tables (§7)
     LOGGING.md              spec: the activity (audit) log at every level, who sees what, search by person, retention
     SAAS.md                 spec: partners, merchant accounts, provisioning, plans, billing, domains, publishing, fleet, metrics
   ui/
@@ -59,24 +62,44 @@ docs/
     admin/CLAUDE-DESIGN-PROMPT.md   design prompt for a Claude Design session: the first release's screens
                             (with -CUSTOMERS.md and -IMPERSONATION.md for those two features)
     platform/README.md      guide: the partner console: purpose, partner roles, navigation, code, rules
+    platform/FIRST-RELEASE.md  what the partner console's first release contains: every screen the prototype draws, and what the Platform API needs for them
     platform/CLAUDE-DESIGN-PROMPT.md  design prompt for a Claude Design session: the partner console
     store/README.md         guide: the merchant portal: purpose, roles and permissions, navigation, code, rules
+    store/FIRST-RELEASE.md  what the merchant portal's first release contains, what the Store and Shop APIs need, and the cards that build it
     store/DESIGN-BRIEF.md   design prompt: the portal's facts, users and every flow
     store/CATALOG-DESIGN.md design prompt: the catalogue in depth
     store/OFFERS-DESIGN.md  design prompt: offers in depth
     shared/README.md        guide: @dripfunnel/shared, what belongs in it
+  mobile-app/
+    merchant/               the merchant mobile app (apps/ui/mobile-app/merchant, set up with placeholder screens):
+      REACT-NATIVE.md         React Native with Expo, native sign-in, Intl on Hermes, the SDK policy
+      BUILDS-AND-STORE-ACCOUNTS.md  one build and one developer account per partner, and the store rules behind it
+      FIRST-RELEASE.md        what the first release contains; no Billing or in-app purchase in the app
+      DESIGN.md               which prototype decides what; the shell and mobile patterns
+      ARCHITECTURE.md         code layout, startup, talking to the API; no API change without permission
+      CONFIGURATION.md        the per-partner env file and per-partner secrets
+      BUILD-CHECKLIST.md      the files to change for a partner's branding, and the checks before every build
   code/
     ARCHITECTURE.md         repo-wide: workspace decisions, storefront-core package and releases, tooling
     DESIGN.md               repo-wide: how modules, config, errors, tenancy data and UI components are written
-    THIRD-PARTY-ACCESS.md   every third-party account, token and key: owner, scope, where kept, when needed, lead times
+    THIRD-PARTY-ACCESS.md   every third-party account, token and key: owner, scope, where kept, when needed, lead times; §8 lists every variable by name and where it lives (each app's .env.example and .env.local, the Worker's settings)
     FEATURE-ENVIRONMENTS.md a complete, separate environment per `feature` branch: design, lifecycle, one-time setup, limits
     GITHUB-MCP.md           connect Claude Code to GitHub (issues, project cards, pull requests) with a personal token
     HOW-TO-WORK-A-CARD.md   the loop a developer repeats for every card: read it, branch, work with Claude, gates, pull request, review
+    HOW-TO-WRITE-A-CARD.md  turning a request into a card: what to read, the questions to ask, the task/feature/bug templates, the prompt and acceptance criteria
     WORKFLOW.md             how work is planned, named (#<issue>/<kind>/<name>, #<issue> commits), enforced, reviewed, merged
     ROLLBACK.md             rolling back a bad prod deploy: API Worker, SPAs, a bad migration
+  setup/
+    local.md                runbook: your machine: tools, local Postgres, .env.local, setup:local, dev, dev:https, signing in
+    dev.md                  runbook: the dev environment on dripfunnel.ai: one-time setup, the Worker's values, deploying, checklist
+    prod.md                 runbook: production on dripfunnel.com: what is missing, one-time setup, values, releasing, checklist
   storefront/
-    ARCHITECTURE.md         the storefront template, storefront-core, render modes, AI loop, fleet upgrades
+    ARCHITECTURE.md         the storefront template, storefront-core, the walls around AI-written themes,
+                            render modes, the publish pipeline, the studio sandbox, fleet upgrades
     DESIGN.md               what the AI may design and the rules every design keeps
+    LIVE-SHOP.md            infra: the store repo, the build on GitHub Actions, R2, the edge Worker, domains
+    PREVIEW.md              infra: the preview link on my-store.one, its files in R2, access
+    AI-STUDIO.md            infra: the studio's container and Durable Object, the private draft, the live frame
 ```
 
 **Outside `docs/`, at the repo root, is [`designs/`](../designs/design.md)**: one clickable
@@ -115,23 +138,25 @@ prototype. If the prototype and a doc disagree about *behaviour*, ask — don't 
 **New to the repo (person or AI agent)**: this page, `ARCHITECTURE.md`,
 `USERS-AND-DOMAINS.md`, then `../AGENTS.md` (the rules for working here),
 `code/WORKFLOW.md` (branches, pull requests, review) and
-`code/HOW-TO-WORK-A-CARD.md` (the loop for one card), then the guide for the part you'll
-touch.
+`code/HOW-TO-WORK-A-CARD.md` (the loop for one card), then [setup/local.md](setup/local.md) to
+run it, then the guide for the part you'll touch.
 
 | Task touches | Read |
 |---|---|
 | Any server code | [api/README.md](api/README.md), [code/DESIGN.md](code/DESIGN.md) |
 | Engine, commerce modules, public APIs | [api/PLATFORM-PROMPT.md](api/PLATFORM-PROMPT.md) |
 | Sign-in, sessions, roles, permissions, invitations, vendors, support access | [api/ACCESS.md](api/ACCESS.md) |
-| Tables, tenancy, where users and roles are stored, row-level security | [api/DATA-MODEL.md](api/DATA-MODEL.md) |
+| Tables, tenancy, where users and roles are stored, row-level security, the commerce tables | [api/DATA-MODEL.md](api/DATA-MODEL.md) |
 | Partners, plans, billing, provisioning, domains, publishing, fleet | [api/SAAS.md](api/SAAS.md), and `designs/DF Store Pricing.dc.html` for what each plan includes |
 | Activity log, who did what, technical logs | [api/LOGGING.md](api/LOGGING.md) |
 | Any SPA code | [ui/README.md](ui/README.md), then the app's guide, then the screen in its prototype ([../designs/design.md](../designs/design.md)) |
-| Merchant portal screens | [ui/store/](ui/store/README.md), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md), and `designs/DF Store Prototype.dc.html` |
-| Partner console screens | [ui/platform/](ui/platform/README.md), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines, and `designs/DF Platform Prototype.dc.html` |
+| Merchant portal screens | [ui/store/](ui/store/README.md), [FIRST-RELEASE](ui/store/FIRST-RELEASE.md) (build this first), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md), and `designs/DF Store Prototype.dc.html` |
+| Partner console screens | [ui/platform/](ui/platform/README.md), [FIRST-RELEASE](ui/platform/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines, and `designs/DF Platform Prototype.dc.html` |
 | Admin console screens | [ui/admin/](ui/admin/README.md), [FIRST-RELEASE](ui/admin/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md), and `designs/DF Admin Prototype.dc.html` |
 | Shared UI, tokens, formatting | [ui/shared/](ui/shared/README.md), and `designs/DripFunnel Style Guide.dc.html` for the tokens themselves |
+| Running locally, setting up or deploying dev or production | [setup/local.md](setup/local.md), [setup/dev.md](setup/dev.md), [setup/prod.md](setup/prod.md) |
 | Storefront template, `storefront-core`, AI design | [storefront/ARCHITECTURE.md](storefront/ARCHITECTURE.md), [storefront/DESIGN.md](storefront/DESIGN.md), [code/ARCHITECTURE.md](code/ARCHITECTURE.md) §5 |
+| Storefront builds, hosting, preview, the studio's sandbox | [storefront/LIVE-SHOP.md](storefront/LIVE-SHOP.md), [storefront/PREVIEW.md](storefront/PREVIEW.md), [storefront/AI-STUDIO.md](storefront/AI-STUDIO.md) |
 
 ---
 

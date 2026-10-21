@@ -65,7 +65,8 @@ export const createTestDatabase = async (): Promise<TestDatabase> => {
   const url = urlForDatabase(name)
   await migrate(url, migrationsDir)
 
-  const sql = postgres(url, { max: 4 })
+  // `fetch_types: false` as in db/client.ts, so a parameter the Worker cannot send fails here too.
+  const sql = postgres(url, { max: 4, fetch_types: false })
   return {
     sql,
     url,

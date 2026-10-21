@@ -1,0 +1,8 @@
+{
+  "rule": "routes/missing",
+  "file": "routes.json",
+  "line": null,
+  "remove": [
+    "routes.json"
+  ]
+}

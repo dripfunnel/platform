@@ -1,0 +1,410 @@
+.header {
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--line);
+  color: var(--header-ink);
+}
+
+.bar {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 1240px);
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+
+.secure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.lock {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.6;
+}
+
+.back,
+.inline {
+  color: var(--ink);
+  text-underline-offset: 3px;
+}
+
+.back {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.footer {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 1240px);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 40px auto 0;
+  padding: 20px 16px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.page {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 1240px);
+  flex-direction: column;
+  gap: 16px;
+  margin-inline: auto;
+  padding: 20px 16px 8px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--heading-font);
+  font-size: 26px;
+  font-weight: var(--heading-weight);
+  line-height: 1.2;
+}
+
+.error {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--soft);
+  color: var(--danger);
+}
+
+.layout {
+  display: grid;
+  gap: 20px;
+  align-items: start;
+}
+
+.steps {
+  counter-reset: step;
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  counter-increment: step;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.open {
+  border-color: var(--ink-soft);
+}
+
+.stepHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.number,
+.numberDone {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.number::before,
+.numberDone::before {
+  content: counter(step);
+}
+
+.open .number {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.numberDone {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.stepTitle {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.change {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.doneLine {
+  margin: 6px 0 0 36px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.body {
+  margin-top: 14px;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.form > button {
+  justify-self: start;
+  min-width: 160px;
+}
+
+.fields {
+  display: grid;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.field small[role='alert'] {
+  color: var(--danger);
+}
+
+.field input,
+.field select {
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.choices {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choices legend {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+}
+
+.choice,
+.chosen {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.chosen {
+  border: 2px solid var(--ink);
+}
+
+.choice input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.choiceText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.choiceTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.choiceName {
+  font-weight: 600;
+}
+
+.choicePrice {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.choiceNote {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.review {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.review div {
+  display: grid;
+  grid-template-columns: minmax(90px, 30%) 1fr;
+  gap: 12px;
+}
+
+.review dt {
+  color: var(--muted);
+}
+
+.review dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.payment {
+  --df-sealed-size: 15px;
+}
+
+.pay {
+  align-self: stretch;
+}
+
+.pay:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.giftCard {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.giftCard label {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.giftCard input {
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.giftCard button {
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--ink);
+  border-radius: var(--button-radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.giftCard p {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 14px;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.sideTitle {
+  margin: 0;
+  font-family: var(--heading-font);
+  font-size: 22px;
+  font-weight: var(--heading-weight);
+}
+
+.summary {
+  --df-sealed-size: 15px;
+  --df-sealed-saving: var(--accent);
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: 32px;
+  }
+
+  .side {
+    position: sticky;
+    top: 24px;
+  }
+}

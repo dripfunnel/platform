@@ -1,0 +1,139 @@
+name: release
+
+# storefront-core's releases, and only from here (AGENTS.md, docs/code/ARCHITECTURE.md §5).
+# Every push to main or dev that touches core, its changesets, the sandbox or the release scripts runs core's gates; if core's version isn't published yet (and isn't 0.0.0),
+# it packs core once, attests that tarball, publishes the same file, then makes sure it's tagged.
+# A push to dev publishes `<version>-dev.<run>` under the `dev` dist-tag instead: no git tag, and a build image on ghcr.io only.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'packages/storefront-core/**'
+      - '.changeset/**'
+      - 'apps/sandbox/**'
+      - 'scripts/release/**'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.pack.outputs.release == 'true' && steps.pack.outputs.version || '' }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      # Writes an .npmrc for the runner only, reading the token from NODE_AUTH_TOKEN.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: '@dripfunnel'
+      # Core's own gates first: main has no required checks yet (WORKFLOW.md §2.2).
+      - run: pnpm turbo run build typecheck lint test --filter=@dripfunnel/storefront-core
+      - id: pack
+        run: node scripts/release/publish.mjs pack
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEV_RUN: ${{ github.ref_name == 'dev' && github.run_number || '' }}
+      - if: steps.pack.outputs.release == 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.pack.outputs.tarball }}
+      - if: steps.pack.outputs.release == 'true'
+        run: node scripts/release/publish.mjs publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          VERSION: ${{ steps.pack.outputs.version }}
+          DEV_RUN: ${{ github.ref_name == 'dev' && github.run_number || '' }}
+      - if: github.ref_name == 'main'
+        run: node scripts/release/publish.mjs tag
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The sandbox image for the version just published (storefront AI-STUDIO §1): public on ghcr.io for the store repos'
+  # builds (LIVE-SHOP §4 step 5), in Cloudflare's registry for the studio's containers, then recorded in core_release.
+  sandbox-image:
+    needs: release
+    if: needs.release.outputs.version != '' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+      GHCR_IMAGE: ghcr.io/dripfunnel/storefront-build:${{ needs.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: docker build --file apps/sandbox/Dockerfile --tag "$GHCR_IMAGE" .
+      - run: docker push "$GHCR_IMAGE"
+      # Cloudflare's registry takes a local tag; the Durable Object starts the image by its digest (AI-STUDIO §9).
+      - id: cloudflare
+        run: |
+          docker tag "$GHCR_IMAGE" "storefront-build:$VERSION"
+          pnpm --filter ./apps/api exec wrangler containers push "storefront-build:$VERSION"
+          ref="registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build:$VERSION"
+          digest=$(docker image inspect --format '{{join .RepoDigests "\n"}}' "$ref" | grep '^registry.cloudflare.com/' | head -n 1)
+          test -n "$digest"
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      - run: pnpm --filter ./apps/api release:record
+        env:
+          SANDBOX_IMAGE: ${{ steps.cloudflare.outputs.image }}
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+
+  # A dev prerelease's build image, on ghcr.io for a dev store's build (LIVE-SHOP §4 step 5) and in dev's Cloudflare registry
+  # for the studio (dev.yml names the newest tag's digest, #790). No core_release row: the fleet uses main's releases.
+  sandbox-image-dev:
+    needs: release
+    if: needs.release.outputs.version != '' && github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+      GHCR_IMAGE: ghcr.io/dripfunnel/storefront-build:${{ needs.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: docker build --file apps/sandbox/Dockerfile --tag "$GHCR_IMAGE" .
+      - run: docker push "$GHCR_IMAGE"
+      - run: |
+          docker tag "$GHCR_IMAGE" "storefront-build:$VERSION"
+          pnpm --filter ./apps/api exec wrangler containers push "storefront-build:$VERSION"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

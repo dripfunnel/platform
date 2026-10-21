@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadActivity, type ActivityFilter, type ActivityPage } from '../../api/activity'
-import type { PageRequest } from '../../api/pageInfo'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 import type { StaffRole } from '../shell/staffRoles'
 
 export type ActivityPageResult = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: ActivityPage }
@@ -15,7 +15,7 @@ export const useActivityPage = (filter: ActivityFilter, page: PageRequest, calle
   useEffect(() => {
     let current = true
     setResult({ kind: 'loading' })
-    loadActivity(filter, page, caller)
+    loadActivity(filter, page)
       .then((loaded) => current && setResult({ kind: 'ready', page: loaded }))
       .catch(() => current && setResult({ kind: 'error' }))
     return () => {

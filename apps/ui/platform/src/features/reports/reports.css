@@ -1,0 +1,174 @@
+/* Reports (designs/DF Platform Prototype.dc.html → Reports, every tab). */
+
+.df-reports {
+  gap: var(--df-space-4);
+}
+
+.df-report {
+  gap: var(--df-space-4);
+}
+
+.df-report h2 {
+  margin: 0;
+}
+
+.df-report-summary {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.df-report-export {
+  display: grid;
+  justify-items: end;
+  gap: var(--df-space-1);
+}
+
+.df-report-export-status {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 12px;
+  text-align: right;
+}
+
+.df-report-chart {
+  display: grid;
+  gap: var(--df-space-2);
+  margin: 0;
+}
+
+.df-report-chart figcaption {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-report-bars {
+  display: grid;
+  grid-auto-columns: minmax(3.5rem, 1fr);
+  overflow-x: auto;
+  grid-auto-flow: column;
+  align-items: end;
+  gap: var(--df-space-2);
+  height: 180px;
+}
+
+.df-report-bar {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: end;
+  justify-items: center;
+  gap: var(--df-space-1);
+  height: 100%;
+  min-width: 0;
+}
+
+.df-report-bar-value,
+.df-report-bar-label {
+  max-width: 100%;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.df-report-bar-label {
+  color: var(--df-color-muted);
+}
+
+/* The style guide's chart colour, navy (§5). */
+.df-report-bar-fill {
+  align-self: end;
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: var(--df-color-heading);
+}
+
+.df-report-table-wrap {
+  overflow-x: auto;
+}
+
+.df-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.df-report-table th {
+  padding: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.df-report-table td {
+  padding: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+  white-space: nowrap;
+}
+
+.df-report-down {
+  color: var(--df-color-danger);
+}
+
+.df-report-list,
+.df-report-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-report-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+  padding: var(--df-space-2) 0;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-report-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-4);
+  min-height: 44px;
+  padding: var(--df-space-2) 0;
+  border-bottom: 1px solid var(--df-color-border);
+  color: inherit;
+  text-decoration: none;
+}
+
+.df-report-row:hover strong {
+  text-decoration: underline;
+}
+
+.df-report-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--df-space-3);
+}
+
+.df-report-stats > div {
+  display: grid;
+  gap: 2px;
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-report-stats strong {
+  font-size: 20px;
+}
+
+@media (max-width: 639px) {
+  .df-report-export {
+    justify-items: start;
+  }
+
+  .df-report-export-status {
+    text-align: left;
+  }
+}

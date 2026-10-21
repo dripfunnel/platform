@@ -1,10 +1,9 @@
-import { formatMoney } from '@dripfunnel/shared/format'
 import { Link } from '@tanstack/react-router'
 import type { StoreRow } from '../../api/stores'
-import { fill, formatDate, locale, messages } from '../../messages'
-import { ClickableRow } from '../common/ClickableRow'
+import { formatDate, messages } from '../../messages'
+import { ClickableRow } from '@dripfunnel/shared/ui'
 import { DomainNote, LiveLink, StatusSub, StorefrontPill, StoreStatusPill } from './storeLook'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './stores.css'
 
 const words = messages.stores
@@ -28,15 +27,12 @@ const Row = ({ store }: { store: StoreRow }) => (
     </td>
     <td>
       <div className="df-stack">
-        <span>{store.owner.name}</span>
+        <span>{store.owner.name ?? words.noOwner}</span>
         <span className="df-muted">{store.owner.email}</span>
       </div>
     </td>
     <td>
-      <div className="df-stack">
-        <strong>{store.plan.name}</strong>
-        <span className="df-muted df-nowrap">{fill(words.perMonth, { price: formatMoney(store.plan.price, locale) })}</span>
-      </div>
+      <strong>{store.plan.name ?? words.noPlan}</strong>
     </td>
     <td>
       <div className="df-stack">

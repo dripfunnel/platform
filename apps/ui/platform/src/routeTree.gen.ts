@@ -12,7 +12,25 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppActivityRouteImport } from './routes/_app/activity'
+import { Route as AppBillingRouteImport } from './routes/_app/billing'
+import { Route as AppBrandingRouteImport } from './routes/_app/branding'
+import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppDomainsRouteImport } from './routes/_app/domains'
+import { Route as AppPlansRouteImport } from './routes/_app/plans'
+import { Route as AppReportsRouteImport } from './routes/_app/reports'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppStatesRouteImport } from './routes/_app/states'
+import { Route as AppStoresRouteImport } from './routes/_app/stores'
+import { Route as AppSupportRouteImport } from './routes/_app/support'
+import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
+import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppDomainsNewRouteImport } from './routes/_app/domains_.new'
+import { Route as AppPlansPlanIdRouteImport } from './routes/_app/plans_.$planId'
+import { Route as AppStoresStoreIdRouteImport } from './routes/_app/stores_.$storeId'
+import { Route as AppStoresNewRouteImport } from './routes/_app/stores_.new'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -27,38 +45,246 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBrandingRoute = AppBrandingRouteImport.update({
+  id: '/branding',
+  path: '/branding',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDomainsRoute = AppDomainsRouteImport.update({
+  id: '/domains',
+  path: '/domains',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlansRoute = AppPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStatesRoute = AppStatesRouteImport.update({
+  id: '/states',
+  path: '/states',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStoresRoute = AppStoresRouteImport.update({
+  id: '/stores',
+  path: '/stores',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSupportRoute = AppSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AppRoute,
+} as any)
+const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
+  id: '/accept-invite',
+  path: '/accept-invite',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
   getParentRoute: () => AuthRoute,
 } as any)
+const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
+  id: '/impersonate/enter',
+  path: '/impersonate/enter',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppDomainsNewRoute = AppDomainsNewRouteImport.update({
+  id: '/domains_/new',
+  path: '/domains/new',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlansPlanIdRoute = AppPlansPlanIdRouteImport.update({
+  id: '/plans_/$planId',
+  path: '/plans/$planId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
+  id: '/stores_/$storeId',
+  path: '/stores/$storeId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStoresNewRoute = AppStoresNewRouteImport.update({
+  id: '/stores_/new',
+  path: '/stores/new',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/activity': typeof AppActivityRoute
+  '/billing': typeof AppBillingRoute
+  '/branding': typeof AppBrandingRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/domains': typeof AppDomainsRoute
+  '/plans': typeof AppPlansRoute
+  '/reports': typeof AppReportsRoute
+  '/settings': typeof AppSettingsRoute
+  '/states': typeof AppStatesRoute
+  '/stores': typeof AppStoresRoute
+  '/support': typeof AppSupportRoute
+  '/accept-invite': typeof AuthAcceptInviteRoute
+  '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
+  '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/domains/new': typeof AppDomainsNewRoute
+  '/plans/$planId': typeof AppPlansPlanIdRoute
+  '/stores/$storeId': typeof AppStoresStoreIdRoute
+  '/stores/new': typeof AppStoresNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/activity': typeof AppActivityRoute
+  '/billing': typeof AppBillingRoute
+  '/branding': typeof AppBrandingRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/domains': typeof AppDomainsRoute
+  '/plans': typeof AppPlansRoute
+  '/reports': typeof AppReportsRoute
+  '/settings': typeof AppSettingsRoute
+  '/states': typeof AppStatesRoute
+  '/stores': typeof AppStoresRoute
+  '/support': typeof AppSupportRoute
+  '/accept-invite': typeof AuthAcceptInviteRoute
+  '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
+  '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/domains/new': typeof AppDomainsNewRoute
+  '/plans/$planId': typeof AppPlansPlanIdRoute
+  '/stores/$storeId': typeof AppStoresStoreIdRoute
+  '/stores/new': typeof AppStoresNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/activity': typeof AppActivityRoute
+  '/_app/billing': typeof AppBillingRoute
+  '/_app/branding': typeof AppBrandingRoute
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/domains': typeof AppDomainsRoute
+  '/_app/plans': typeof AppPlansRoute
+  '/_app/reports': typeof AppReportsRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/states': typeof AppStatesRoute
+  '/_app/stores': typeof AppStoresRoute
+  '/_app/support': typeof AppSupportRoute
+  '/_auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/sign-in': typeof AuthSignInRoute
+  '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/domains_/new': typeof AppDomainsNewRoute
+  '/_app/plans_/$planId': typeof AppPlansPlanIdRoute
+  '/_app/stores_/$storeId': typeof AppStoresStoreIdRoute
+  '/_app/stores_/new': typeof AppStoresNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in'
+  fullPaths:
+    | '/'
+    | '/activity'
+    | '/billing'
+    | '/branding'
+    | '/dashboard'
+    | '/domains'
+    | '/plans'
+    | '/reports'
+    | '/settings'
+    | '/states'
+    | '/stores'
+    | '/support'
+    | '/accept-invite'
+    | '/reset-password'
+    | '/sign-in'
+    | '/impersonate/enter'
+    | '/domains/new'
+    | '/plans/$planId'
+    | '/stores/$storeId'
+    | '/stores/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in'
-  id: '__root__' | '/_app' | '/_auth' | '/_auth/sign-in' | '/_app/'
+  to:
+    | '/'
+    | '/activity'
+    | '/billing'
+    | '/branding'
+    | '/dashboard'
+    | '/domains'
+    | '/plans'
+    | '/reports'
+    | '/settings'
+    | '/states'
+    | '/stores'
+    | '/support'
+    | '/accept-invite'
+    | '/reset-password'
+    | '/sign-in'
+    | '/impersonate/enter'
+    | '/domains/new'
+    | '/plans/$planId'
+    | '/stores/$storeId'
+    | '/stores/new'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_auth'
+    | '/_app/activity'
+    | '/_app/billing'
+    | '/_app/branding'
+    | '/_app/dashboard'
+    | '/_app/domains'
+    | '/_app/plans'
+    | '/_app/reports'
+    | '/_app/settings'
+    | '/_app/states'
+    | '/_app/stores'
+    | '/_app/support'
+    | '/_auth/accept-invite'
+    | '/_auth/reset-password'
+    | '/_auth/sign-in'
+    | '/impersonate/enter'
+    | '/_app/'
+    | '/_app/domains_/new'
+    | '/_app/plans_/$planId'
+    | '/_app/stores_/$storeId'
+    | '/_app/stores_/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ImpersonateEnterRoute: typeof ImpersonateEnterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -84,6 +310,97 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/activity': {
+      id: '/_app/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/billing': {
+      id: '/_app/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/branding': {
+      id: '/_app/branding'
+      path: '/branding'
+      fullPath: '/branding'
+      preLoaderRoute: typeof AppBrandingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/domains': {
+      id: '/_app/domains'
+      path: '/domains'
+      fullPath: '/domains'
+      preLoaderRoute: typeof AppDomainsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/plans': {
+      id: '/_app/plans'
+      path: '/plans'
+      fullPath: '/plans'
+      preLoaderRoute: typeof AppPlansRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/states': {
+      id: '/_app/states'
+      path: '/states'
+      fullPath: '/states'
+      preLoaderRoute: typeof AppStatesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/stores': {
+      id: '/_app/stores'
+      path: '/stores'
+      fullPath: '/stores'
+      preLoaderRoute: typeof AppStoresRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/support': {
+      id: '/_app/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof AppSupportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_auth/accept-invite': {
+      id: '/_auth/accept-invite'
+      path: '/accept-invite'
+      fullPath: '/accept-invite'
+      preLoaderRoute: typeof AuthAcceptInviteRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/reset-password': {
+      id: '/_auth/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
       path: '/sign-in'
@@ -91,24 +408,93 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/impersonate/enter': {
+      id: '/impersonate/enter'
+      path: '/impersonate/enter'
+      fullPath: '/impersonate/enter'
+      preLoaderRoute: typeof ImpersonateEnterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/domains_/new': {
+      id: '/_app/domains_/new'
+      path: '/domains/new'
+      fullPath: '/domains/new'
+      preLoaderRoute: typeof AppDomainsNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/plans_/$planId': {
+      id: '/_app/plans_/$planId'
+      path: '/plans/$planId'
+      fullPath: '/plans/$planId'
+      preLoaderRoute: typeof AppPlansPlanIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/stores_/$storeId': {
+      id: '/_app/stores_/$storeId'
+      path: '/stores/$storeId'
+      fullPath: '/stores/$storeId'
+      preLoaderRoute: typeof AppStoresStoreIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/stores_/new': {
+      id: '/_app/stores_/new'
+      path: '/stores/new'
+      fullPath: '/stores/new'
+      preLoaderRoute: typeof AppStoresNewRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppActivityRoute: typeof AppActivityRoute
+  AppBillingRoute: typeof AppBillingRoute
+  AppBrandingRoute: typeof AppBrandingRoute
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppDomainsRoute: typeof AppDomainsRoute
+  AppPlansRoute: typeof AppPlansRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppStatesRoute: typeof AppStatesRoute
+  AppStoresRoute: typeof AppStoresRoute
+  AppSupportRoute: typeof AppSupportRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppDomainsNewRoute: typeof AppDomainsNewRoute
+  AppPlansPlanIdRoute: typeof AppPlansPlanIdRoute
+  AppStoresStoreIdRoute: typeof AppStoresStoreIdRoute
+  AppStoresNewRoute: typeof AppStoresNewRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppActivityRoute: AppActivityRoute,
+  AppBillingRoute: AppBillingRoute,
+  AppBrandingRoute: AppBrandingRoute,
+  AppDashboardRoute: AppDashboardRoute,
+  AppDomainsRoute: AppDomainsRoute,
+  AppPlansRoute: AppPlansRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppStatesRoute: AppStatesRoute,
+  AppStoresRoute: AppStoresRoute,
+  AppSupportRoute: AppSupportRoute,
   AppIndexRoute: AppIndexRoute,
+  AppDomainsNewRoute: AppDomainsNewRoute,
+  AppPlansPlanIdRoute: AppPlansPlanIdRoute,
+  AppStoresStoreIdRoute: AppStoresStoreIdRoute,
+  AppStoresNewRoute: AppStoresNewRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface AuthRouteChildren {
+  AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignInRoute: typeof AuthSignInRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthAcceptInviteRoute: AuthAcceptInviteRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignInRoute: AuthSignInRoute,
 }
 
@@ -117,6 +503,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ImpersonateEnterRoute: ImpersonateEnterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

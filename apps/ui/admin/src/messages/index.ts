@@ -1,4 +1,4 @@
-import { formatDateTime, formatDuration, formatNumber } from '@dripfunnel/shared/format'
+import { formatDateTime, formatDuration, formatNumber, pluralForm } from '@dripfunnel/shared/format'
 import en from './en.json'
 
 export const messages = en
@@ -13,11 +13,7 @@ export const fill = (template: string, values: Record<string, string>): string =
 
 export const formatCount = (count: number): string => formatNumber(count, locale)
 
-const pluralRules = new Intl.PluralRules(locale)
-
-// Picks the form the locale's plural rules give for this count; `other` is always present.
-export const plural = (forms: { other: string } & Partial<Record<Intl.LDMLPluralRule, string>>, count: number): string =>
-  forms[pluralRules.select(count)] ?? forms.other
+export const plural = (forms: { other: string } & Partial<Record<Intl.LDMLPluralRule, string>>, count: number): string => pluralForm(locale, forms, count)
 
 export const formatTime = (iso: string): string => formatDateTime(iso, locale, timeZone)
 

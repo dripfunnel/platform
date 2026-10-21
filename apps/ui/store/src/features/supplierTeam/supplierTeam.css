@@ -1,0 +1,41 @@
+/* Your team (designs/VendorViews.dc.html "team"): the header and the note under the list; rows are teamRow.css. */
+.df-steam {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1000px;
+}
+
+.df-steam-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-steam .df-page-title {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.df-steam-head .df-page-lede {
+  margin-top: var(--df-space-1);
+  font-size: 13px;
+}
+
+.df-steam-foot {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .df-steam .df-page-title {
+    font-size: 22px;
+  }
+
+  .df-steam-head .df-button {
+    min-height: 44px;
+  }
+}

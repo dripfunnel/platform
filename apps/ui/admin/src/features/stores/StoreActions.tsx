@@ -1,8 +1,7 @@
 import type { JobAction } from '../../api/provisioning'
 import type { Store } from '../../api/stores'
 import { fill, messages } from '../../messages'
-import { ActionControl } from '../common/ActionControl'
-import { MoreActions } from '../common/MoreActions'
+import { ActionControl, MoreActions } from '@dripfunnel/shared/ui'
 import { JobActionButton } from '../provisioning/JobActionButton'
 import { refusalText } from './refusal'
 import type { DialogAction } from './storeDialog'
@@ -49,7 +48,7 @@ export const StoreActions = ({ store, onAction, onJob }: StoreActionsProps) => {
     <div className="df-detail-actions" role="group" aria-label={fill(words.actionsLabel, { name: store.name })}>
       {blocked && store.job && <JobActionButton actions={store.job.actions} action="retry" label={words.retrySetup} onRun={onJob} />}
       {inMenu.length > 0 && (
-        <MoreActions>
+        <MoreActions label={messages.common.moreActions}>
           {(close) => inMenu.map((action) => <StoreActionButton key={action} store={store} action={action} onAction={onAction} close={close} />)}
         </MoreActions>
       )}

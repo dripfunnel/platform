@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import worker from './index'
+import worker, { cronGroups, guarded, PortalProxy, wakeOutbox } from './index'
 
 const env = {
   ADMIN_HOST: 'admin.dripfunnel.com',
@@ -9,6 +10,7 @@ const env = {
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   CF_VERSION_METADATA: { id: 'test-version', tag: '' },
   SIGN_IN_RATE_LIMITER: { limit: async () => ({ success: true }) },
+  STAFF_SESSION_RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 const call = (href: string, init?: RequestInit) =>
@@ -35,12 +37,79 @@ describe('worker', () => {
     expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down', version: 'test-version' })
   })
 
+  it('reports how long the database took to answer when it is up', async () => {
+    // eslint-disable-next-line no-restricted-globals -- test-only Node process, this file never runs in the Worker
+    const connectionString = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HYPERDRIVE: { connectionString } }, ctx)
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { dbLatencyMs: number }
+    expect(body).toEqual({ ok: true, area: 'platform', db: 'ok', dbLatencyMs: expect.any(Number), version: 'test-version' })
+    expect(Number.isInteger(body.dbLatencyMs) && body.dbLatencyMs >= 0).toBe(true)
+  })
+
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
     const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured', version: 'test-version' })
+  })
+
+  it('names which integrations are configured, never a value', async () => {
+    const configured = {
+      ...env,
+      HOOKS_HOST: 'dev-hooks.dripfunnel.ai',
+      ASSETS: {} as R2Bucket,
+      ENTRA_TENANT_ID: 't',
+      ENTRA_CLIENT_ID: 'c',
+      ENTRA_CLIENT_SECRET: 'secret-entra',
+      STRIPE_SECRET_KEY: 'rk_test_abc',
+      STRIPE_WEBHOOK_SECRET: 'whsec_abc',
+    }
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], configured, ctx)).text()
+    expect(JSON.parse(text).integrations).toEqual({ entra: 'configured', stripe: 'configured', ses: 'missing', assets: 'configured' })
+    expect(text).not.toMatch(/secret-entra|rk_test|whsec_/)
+  })
+
+  it('leaves integrations out of the public answer on a production host', async () => {
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const body = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, ASSETS: {} as R2Bucket }, ctx)).json()
+    expect(body).not.toHaveProperty('integrations')
+  })
+
+  it('shows integrations on a localhost host too', async () => {
+    const request = new Request('https://platform.localhost/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const body = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, ADMIN_HOST: 'admin.localhost', PLATFORM_HOST: 'platform.localhost', HOOKS_HOST: 'hooks.localhost' }, ctx)).json()
+    expect(body).toHaveProperty('integrations')
+  })
+
+  it('needs all five SES values, and shows none of them', async () => {
+    const ses = {
+      SES_REGION: 'eu-west-1',
+      SES_ACCESS_KEY_ID: 'AKIAsecretkeyid',
+      SES_SECRET_ACCESS_KEY: 'secret-ses-access-key',
+      SES_SENDER_DOMAIN: 'mail.example.com',
+      EMAIL_SUPPRESSION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    }
+    const ask = async (extra: Record<string, string | undefined>) => {
+      const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+      const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HOOKS_HOST: 'dev-hooks.dripfunnel.ai', ...extra }, ctx)).text()
+      return { text, ses: JSON.parse(text).integrations.ses }
+    }
+    const all = await ask(ses)
+    expect(all.ses).toBe('configured')
+    expect(all.text).not.toMatch(/AKIAsecretkeyid|secret-ses-access-key|mail\.example\.com|AAAAAAAA/)
+    expect((await ask({ ...ses, EMAIL_SUPPRESSION_KEY: undefined })).ses).toBe('missing')
+  })
+
+  it('reports 503 when the environment requires a database and the binding is gone (#30)', async () => {
+    const lost = { ...env, HYPERDRIVE: undefined, HYPERDRIVE_REQUIRED: '1' }
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], lost, ctx)
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'missing', version: 'test-version' })
   })
 
   it('rate-limits /health', async () => {
@@ -56,10 +125,68 @@ describe('worker', () => {
   })
 
   it('answers GraphQL on each API', async () => {
-    for (const href of ['https://admin.dripfunnel.com/api', 'https://platform.dripfunnel.com/api', 'https://store.partner.com/api', 'https://acme.shops.partner.com/shop-api']) {
+    for (const href of ['https://admin.dripfunnel.com/api', 'https://platform.dripfunnel.com/api']) {
       const response = await query(href)
       expect(await response.json()).toEqual({ data: { health: 'ok' } })
     }
+  })
+
+  // The Shop API knows a storefront host only from the database (docs/ARCHITECTURE.md §2; #306).
+  it('answers the Shop API’s health on a storefront host without a database, and its catalogue as unavailable', async () => {
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    const ask = async (source: string) => {
+      const request = new Request('https://acme.shops.partner.com/shop-api', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: source }) })
+      return (await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)).json()
+    }
+    expect(await ask('{ health }')).toEqual({ data: { health: 'ok' } })
+    expect(await ask('{ store { name } }')).toMatchObject({ data: { store: null }, errors: [{ extensions: { code: 'STORE_UNAVAILABLE' } }] })
+  })
+
+  it('rate-limits the Shop API per host and address, refuses a call with no address, and serves nothing without either limiter', async () => {
+    const carts = { limit: async () => ({ success: true }) }
+    const limited = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: false }) }, CART_RATE_LIMITER: carts }
+    const asked = (headers: Record<string, string>) => new Request('https://acme.shops.partner.com/shop-api', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ query: '{ health }' }) })
+    expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], limited, ctx)).status).toBe(429)
+    // The vitals intake sits behind the same limiter (#484).
+    const beacon = new Request('https://acme.shops.partner.com/shop-api/vitals', { method: 'POST', headers: { 'cf-connecting-ip': '203.0.113.1' }, body: '{}' })
+    expect((await worker.fetch(beacon as Parameters<typeof worker.fetch>[0], limited, ctx)).status).toBe(429)
+    const open = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: true }) }, CART_RATE_LIMITER: carts }
+    expect((await worker.fetch(asked({}) as Parameters<typeof worker.fetch>[0], open, ctx)).status).toBe(429)
+    expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], env, ctx)).status).toBe(500)
+    // Without the new-cart limiter, nothing is served rather than unlimited carts.
+    expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], { ...open, CART_RATE_LIMITER: undefined }, ctx)).status).toBe(500)
+  })
+
+  it('answers GraphQL on /api/ with the trailing slash the SPA client sends (client.ts)', async () => {
+    for (const href of ['https://admin.dripfunnel.com/api/', 'https://platform.dripfunnel.com/api/']) {
+      const response = await query(href)
+      expect(await response.json()).toEqual({ data: { health: 'ok' } })
+    }
+  })
+
+  // The Store API knows a portal host only from the database (docs/ARCHITECTURE.md §2; #288).
+  it('answers the Store API on a portal host of our own zone without a database, signed out', async () => {
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    for (const href of ['https://store.dripfunnel.com/api', 'https://store.dripfunnel.com/api/']) {
+      const request = new Request(href, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://store.dripfunnel.com' }, body: JSON.stringify({ query: '{ health }' }) })
+      const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
+      expect(await response.json()).toEqual({ data: { health: 'ok' } })
+    }
+  })
+
+  it('fails a Store API request rather than answering it when the database is down', async () => {
+    const response = await query('https://store.dripfunnel.com/api/')
+    expect(response.status).toBeGreaterThanOrEqual(500)
+  })
+
+  it('refuses a Store API mutation posted from another origin', async () => {
+    const response = await call('https://store.dripfunnel.com/api/', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://evil.example' }, body: JSON.stringify({ query: '{ health }' }) })
+    expect(response.status).toBe(403)
+  })
+
+  it('answers a partner’s own host nothing on the public fetch, health included (SAAS.md §8)', async () => {
+    expect((await query('https://store.partner.com/api/')).status).toBe(404)
+    expect((await call('https://store.partner.com/api/health')).status).toBe(404)
   })
 
   it('returns 500 without a payload when required config is missing', async () => {
@@ -130,7 +257,204 @@ describe('worker', () => {
   it('returns 404 outside the known routes', async () => {
     expect((await call('https://admin.dripfunnel.com/shop-api')).status).toBe(404)
     expect((await call('https://platform.dripfunnel.com/shop-api')).status).toBe(404)
-    expect((await call('https://store.partner.com/')).status).toBe(404)
+    expect((await call('https://store.dripfunnel.com/')).status).toBe(404)
     expect((await call('https://hooks.dripfunnel.com/stripe')).status).toBe(404)
+  })
+})
+
+describe('the PortalProxy entrypoint', () => {
+  const viaProxy = (href: string, e: Record<string, unknown> = env) =>
+    new PortalProxy(ctx, e as never).fetch(
+      new Request(href, { method: 'POST', headers: { 'content-type': 'application/json', origin: new URL(href).origin, 'cf-connecting-ip': '203.0.113.1' }, body: JSON.stringify({ query: '{ health }' }) }),
+    )
+
+  it('answers nothing on our own hosts, whatever the path', async () => {
+    for (const href of ['https://admin.dripfunnel.com/api/', 'https://platform.dripfunnel.com/api/', 'https://hooks.dripfunnel.com/stripe']) {
+      expect((await viaProxy(href)).status).toBe(404)
+    }
+  })
+
+  it('answers nothing but /api on a partner’s host', async () => {
+    expect((await viaProxy('https://store.partner.com/')).status).toBe(404)
+    expect((await viaProxy('https://acme.shops.partner.com/shop-api')).status).toBe(404)
+  })
+
+  it('answers 404 without a database, since no host can be found, health included', async () => {
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    expect((await viaProxy('https://store.partner.com/api/', withoutHyperdrive)).status).toBe(404)
+    expect((await viaProxy('https://store.partner.com/api/health', withoutHyperdrive)).status).toBe(404)
+  })
+
+  it('fails rather than answers when the database is down', async () => {
+    expect((await viaProxy('https://store.partner.com/api/')).status).toBeGreaterThanOrEqual(500)
+  })
+})
+
+describe('guarded', () => {
+  it('turns an error nothing caught into a bodyless 500 and one log line by code, never the message', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    let result: Awaited<ReturnType<typeof guarded>>
+    try {
+      result = await guarded(new Request('https://admin.dripfunnel.com/api/', { headers: { 'cf-ray': 'ray-500' } }), () =>
+        Promise.reject(Object.assign(new Error('permission denied to set role "app_system" for user app_login'), { name: 'PostgresError', code: '42501' })),
+      )
+    } finally {
+      console.log = log
+    }
+    expect(result.response.status).toBe(500)
+    expect(await result.response.text()).toBe('')
+    expect(result.area).toBeNull()
+    expect(lines.map((l) => JSON.parse(l) as Record<string, unknown>)).toEqual([{ event: 'request_failed', requestId: 'ray-500', host: 'admin.dripfunnel.com', status: 500, code: 'PostgresError:42501' }])
+    expect(lines.join('\n')).not.toContain('app_login')
+  })
+
+  it('passes a response through untouched', async () => {
+    const result = await guarded(new Request('https://admin.dripfunnel.com/api/'), async () => ({ response: new Response('ok', { status: 200 }), area: 'admin' as const }))
+    expect(result.response.status).toBe(200)
+    expect(result.area).toBe('admin')
+  })
+})
+
+describe('the outbox wake', () => {
+  const asked = (method: string, status: number, send: () => Promise<void> = async () => undefined, bound = true) => {
+    const sent: unknown[] = []
+    const waiting: Promise<unknown>[] = []
+    const queue = { send: async (message: unknown) => (sent.push(message), send()) }
+    wakeOutbox(
+      new Request('https://store.example.com/api', { method }),
+      new Response(null, { status }),
+      (bound ? { ...env, OUTBOX_WAKE: queue } : env) as never,
+      { waitUntil: (promise: Promise<unknown>) => void waiting.push(promise) } as unknown as ExecutionContext,
+    )
+    return Promise.all(waiting).then(() => sent)
+  }
+  const logged = async (work: () => Promise<unknown>): Promise<string[]> => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      await work()
+    } finally {
+      console.log = log
+    }
+    return lines
+  }
+
+  it('sends one wake after a write that succeeded', async () => {
+    for (const status of [200, 201, 204]) expect(await asked('POST', status)).toHaveLength(1)
+  })
+
+  it('sends none after GET, HEAD or OPTIONS, or after a request that was refused or failed', async () => {
+    for (const method of ['GET', 'HEAD', 'OPTIONS']) expect(await asked(method, 200)).toHaveLength(0)
+    for (const status of [302, 400, 401, 403, 404, 429, 500]) expect(await asked('POST', status)).toHaveLength(0)
+  })
+
+  it('sends nothing, and breaks nothing, with no queue bound', async () => {
+    expect(await asked('POST', 200, undefined, false)).toHaveLength(0)
+  })
+
+  it('logs a failed send by code only, and the response is not involved', async () => {
+    const lines = await logged(() => asked('POST', 200, () => Promise.reject(Object.assign(new Error('queue down at https://secret.example'), { name: 'QueueError' }))))
+    expect(lines.some((l) => l.includes('"event":"outbox_wake_failed"') && l.includes('QueueError'))).toBe(true)
+    expect(lines.join('\n')).not.toContain('secret.example')
+  })
+})
+
+// Every query fails here, so each job that runs logs its own failure event: the events name the jobs that ran.
+const unreachable = { ...env, HYPERDRIVE: { connectionString: 'postgres://u:p@127.0.0.1:1/none?connect_timeout=1' } }
+
+describe('the outbox wake consumer', () => {
+  const batchOf = (n: number) => {
+    const acked: string[] = []
+    const batch = { messages: Array.from({ length: n }, (_, i) => ({ id: `m${i}`, body: { at: i } })), ackAll: () => void acked.push('all'), retryAll: () => void acked.push('retry') }
+    return { batch, acked }
+  }
+  const sweeps = (lines: string[]) => lines.filter((l) => l.includes('"event":"relay_skipped"'))
+
+  it('runs one outbox sweep for a batch of many wakes, and acks the batch', async () => {
+    const { batch, acked } = batchOf(5)
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      await worker.queue(batch as never, { ...env, HOOKS_HOST: undefined } as never)
+    } finally {
+      console.log = log
+    }
+    expect(sweeps(lines)).toHaveLength(1)
+    expect(acked).toEqual(['all'])
+  })
+
+  it('does not run the cleanups a cron run does', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      await expect(worker.queue(batchOf(1).batch as never, unreachable as never)).rejects.toThrow()
+    } finally {
+      console.log = log
+    }
+    expect(lines.filter((l) => l.includes('_failed"'))).toEqual([])
+  })
+
+  it('leaves the batch unacked when the sweep throws, so the queue redelivers it and cron is the backstop', async () => {
+    const { batch, acked } = batchOf(2)
+    await expect(worker.queue(batch as never, unreachable as never)).rejects.toThrow()
+    expect(acked).toEqual([])
+  })
+})
+
+describe('the cron', () => {
+  const failures = async (cron: string, bound: Record<string, unknown> = {}) => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    let threw = false
+    try {
+      await worker.scheduled({ cron } as never, { ...unreachable, ...bound } as never)
+    } catch {
+      threw = true
+    } finally {
+      console.log = log
+    }
+    return { events: lines.map((l) => (JSON.parse(l) as { event: string }).event), threw }
+  }
+
+  it('has a group for each of the crons in wrangler.jsonc, and no other', () => {
+    const crons = /"crons":\s*\[([^\]]*)\]/.exec(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'))?.[1] ?? ''
+    expect(JSON.parse(`[${crons}]`)).toEqual(Object.keys(cronGroups))
+  })
+
+  it('puts each job in exactly one group', () => {
+    const jobs = Object.values(cronGroups).flat()
+    expect(new Set(jobs).size).toBe(jobs.length)
+  })
+
+  it('runs the expired texts and the core rollouts before the outbox relay every minute', async () => {
+    expect(await failures('* * * * *')).toEqual({ events: ['sms_expiry_failed', 'core_rollout_failed'], threw: true })
+  })
+
+  it('runs every job of a group although each one fails', async () => {
+    expect(await failures('*/5 * * * *')).toEqual({
+      events: ['domain_checks_failed', 'exports_purge_failed', 'unpaid_orders_failed', 'trial_end_failed', 'dunning_failed', 'abandoned_carts_failed', 'cart_reminders_failed', 'storefront_auto_publish_failed'],
+      threw: false,
+    })
+    expect(await failures('0 * * * *')).toEqual({ events: ['rates_refresh_queue_failed', 'exports_purge_failed', 'shopper_identity_purge_failed', 'signup_purge_failed'], threw: false })
+    expect(await failures('0 3 * * *')).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_vitals_failed', 'core_images_failed'], threw: false })
+  })
+
+  it('cleans the storefront buckets daily only where all three are bound', async () => {
+    const bucket = {}
+    expect(await failures('0 3 * * *', { STOREFRONT_SITES: bucket, STOREFRONT_ASSETS: bucket, STOREFRONT_DRAFTS: bucket })).toEqual({
+      events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_cleanup_failed', 'storefront_vitals_failed', 'core_images_failed'],
+      threw: false,
+    })
+    expect(await failures('0 3 * * *', { STOREFRONT_SITES: bucket, STOREFRONT_ASSETS: bucket })).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_vitals_failed', 'core_images_failed'], threw: false })
+  })
+
+  it('logs one event and runs nothing for an expression it has no group for', async () => {
+    expect(await failures('*/7 * * * *')).toEqual({ events: ['cron_unknown'], threw: false })
   })
 })

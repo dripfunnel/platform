@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:820px;">
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    <h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.02em;color:var(--head,#0A2A4A);">My profile</h1>
+    <span style="font-size:14px;color:var(--muted,#5A6472);">One account for every store you belong to. Changes here apply everywhere you sign in.</span>
+  </div>
+
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;">
+    <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Your details</span>
+    <div style="display:grid;grid-template-columns:{{ twoCols }};gap:12px;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Name<input value="{{ d.name }}" onChange="{{ on.name }}" style="height:42px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;font-weight:400;outline:none;background:var(--card,#FFFFFF);color:var(--text,#14181F);" style-focus="border-color:var(--focus,#00519F);box-shadow:0 0 0 3px #EAF1F8;"></label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Email<input value="{{ d.email }}" onChange="{{ on.email }}" type="email" style="height:42px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;font-weight:400;outline:none;background:var(--card,#FFFFFF);color:var(--text,#14181F);" style-focus="border-color:var(--focus,#00519F);box-shadow:0 0 0 3px #EAF1F8;"><span style="font-weight:400;font-size:12px;color:var(--muted,#5A6472);">{{ emailHelp }}</span></label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Mobile number<input value="{{ d.phone }}" onChange="{{ on.phone }}" type="tel" placeholder="Used only for sign-in codes" style="height:42px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;font-weight:400;outline:none;background:var(--card,#FFFFFF);color:var(--text,#14181F);" style-focus="border-color:var(--focus,#00519F);box-shadow:0 0 0 3px #EAF1F8;"></label>
+    </div>
+    <sc-if value="{{ detailErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:13px;color:var(--bfg,#A1261B);">{{ detailErr }}</span></sc-if>
+    <div style="display:flex;justify-content:flex-end;"><button onClick="{{ a.saveDetails }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ detailBtn }};color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save details</button></div>
+  </div>
+
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Password</span><span style="font-size:13px;color:var(--muted,#5A6472);">{{ me.pwDate }}</span></div><sc-if value="{{ pwClosed }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.openPw }}" style="height:36px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;font-weight:600;cursor:pointer;">Change password</button></sc-if></div>
+    <sc-if value="{{ pwOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:{{ threeCols }};gap:12px;">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Current password<input type="password" value="{{ pw.cur }}" onChange="{{ on.pwCur }}" style="height:42px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;outline:none;background:var(--card,#FFFFFF);color:var(--text,#14181F);"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">New password<input type="password" value="{{ pw.next }}" onChange="{{ on.pwNext }}" style="height:42px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;outline:none;background:var(--card,#FFFFFF);color:var(--text,#14181F);"><span style="font-weight:400;font-size:12px;color:{{ pwHintFg }};">{{ pwHint }}</span></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Type it again<input type="password" value="{{ pw.again }}" onChange="{{ on.pwAgain }}" style="height:42px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;outline:none;background:var(--card,#FFFFFF);color:var(--text,#14181F);"></label>
+      </div>
+      <sc-if value="{{ pwErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:13px;color:var(--bfg,#A1261B);">{{ pwErr }}</span></sc-if>
+      <div style="display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.closePw }}" style="height:40px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:14px;cursor:pointer;">Cancel</button><button onClick="{{ a.savePw }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Change password</button></div>
+      <span style="font-size:12px;color:var(--muted,#5A6472);">Changing it signs you out on every other device.</span>
+    </sc-if>
+  </div>
+
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:2px;max-width:56ch;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Two-step sign-in</span><span style="font-size:13px;color:var(--muted,#5A6472);">{{ tfa.why }}</span></div>
+      <span style="height:24px;padding:0 10px;border-radius:12px;background:{{ tfa.pillBg }};color:{{ tfa.pillFg }};border:1px solid {{ tfa.pillBd }};font-size:12px;font-weight:600;display:flex;align-items:center;">{{ tfa.pill }}</span>
+    </div>
+    <sc-if value="{{ tfa.isOn }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;border:1px solid var(--border,#E8E2DC);border-radius:10px;">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border,#F1EEEA);flex-wrap:wrap;"><span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-size:14px;">{{ tfa.method }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ tfa.methodSub }}</span></span><button onClick="{{ a.switchMethod }}" style="height:34px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;cursor:pointer;">{{ tfa.switchLabel }}</button></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;flex-wrap:wrap;"><span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-size:14px;">Backup codes</strong><span style="font-size:12px;color:{{ tfa.backupFg }};">{{ tfa.backup }}</span></span><button onClick="{{ a.newCodes }}" style="height:34px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;cursor:pointer;">Make new codes</button></div>
+      </div>
+      <sc-if value="{{ tfa.canOff }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.tfaOff }}" style="align-self:flex-start;border:0;background:none;padding:0;color:var(--link,#B8541F);font-size:13px;cursor:pointer;">Turn off two-step sign-in</button></sc-if>
+    </sc-if>
+    <sc-if value="{{ tfa.isOff }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ notSetting }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.startSetup }}" style="align-self:flex-start;height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Turn on two-step sign-in</button></sc-if></sc-if>
+
+    <sc-if value="{{ setting }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border:2px solid var(--focus,#00519F);border-radius:10px;">
+        <sc-if value="{{ su.pick }}" hint-placeholder-val="{{ true }}">
+          <span style="font-size:14px;font-weight:600;">How do you want to get your codes?</span>
+          <sc-for list="{{ su.methods }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.onClick }}" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border:{{ m.bd }};border-radius:10px;background:{{ m.bg }};text-align:left;cursor:pointer;color:var(--text,#14181F);"><span style="width:18px;height:18px;border-radius:50%;border:{{ m.dot }};flex:none;"></span><span style="display:flex;flex-direction:column;"><strong style="font-size:14px;">{{ m.l }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ m.sub }}</span></span></button></sc-for>
+          <div style="display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.cancelSetup }}" style="height:40px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:14px;cursor:pointer;">Cancel</button><button onClick="{{ a.toVerify }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Next</button></div>
+        </sc-if>
+        <sc-if value="{{ su.verify }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size:14px;font-weight:600;">{{ su.verifyTitle }}</span>
+          <sc-if value="{{ su.isApp }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:8px;background:var(--paper,#FDFAF7);border:1px solid var(--border,#E8E2DC);"><span style="font-size:12px;color:var(--muted,#5A6472);">Setup key — type it into Google Authenticator, 1Password, Authy or similar</span><span style="font-family:'IBM Plex Mono',monospace;font-size:15px;letter-spacing:0.08em;">JBSW Y3DP EHPK 3PXP</span></div></sc-if>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;max-width:260px;">6-digit code<input value="{{ su.code }}" onChange="{{ on.code }}" inputMode="numeric" maxLength="6" placeholder="123456" style="height:44px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:18px;letter-spacing:0.3em;font-family:'IBM Plex Mono',monospace;outline:none;background:var(--card,#FFFFFF);color:var(--text,#14181F);"></label>
+          <sc-if value="{{ su.err }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:13px;color:var(--bfg,#A1261B);">{{ su.err }}</span></sc-if>
+          <span style="font-size:12px;color:var(--muted,#5A6472);">Demo: any 6 digits work.</span>
+          <div style="display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.cancelSetup }}" style="height:40px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:14px;cursor:pointer;">Cancel</button><button onClick="{{ a.verify }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Verify</button></div>
+        </sc-if>
+        <sc-if value="{{ su.codes }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size:14px;font-weight:600;">Save your backup codes</span>
+          <span style="font-size:13px;color:var(--text2,#434A55);">If you lose your phone, each code signs you in once. We won’t show them again.</span>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px;padding:12px 14px;border-radius:8px;background:var(--paper,#FDFAF7);border:1px solid var(--border,#E8E2DC);"><sc-for list="{{ su.list }}" as="x" hint-placeholder-count="10"><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;">{{ x }}</span></sc-for></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.dlCodes }}" style="height:40px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:14px;cursor:pointer;">Download codes</button><button onClick="{{ a.finish }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">I’ve saved them</button></div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Appearance</span><span style="font-size:13px;color:var(--muted,#5A6472);">Only changes how the portal looks to you. Your shop doesn’t change.</span></div>
+    <div role="radiogroup" aria-label="Theme" style="display:flex;border:1px solid var(--field,#D7D3CD);border-radius:8px;overflow:hidden;align-self:flex-start;"><sc-for list="{{ themes }}" as="t" hint-placeholder-count="2"><button role="radio" aria-checked="{{ t.on }}" onClick="{{ t.onClick }}" style="height:38px;padding:0 16px;border:0;background:{{ t.bg }};color:{{ t.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">{{ t.l }}</button></sc-for></div>
+  </div>
+
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:4px;">
+    <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;padding-bottom:6px;">Where you’re signed in</span>
+    <sc-for list="{{ sessions }}" as="x" hint-placeholder-count="2"><div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border,#F1EEEA);flex-wrap:wrap;"><span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-size:14px;">{{ x.device }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ x.sub }}</span></span><span style="font-size:12px;color:{{ x.fg }};">{{ x.state }}</span></div></sc-for>
+    <sc-if value="{{ hasOthers }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.signOutOthers }}" style="align-self:flex-start;margin-top:6px;height:36px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;cursor:pointer;">Sign out everywhere else</button></sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); const me = (props.app && props.app.me) || {}; this.state = { d: { name: me.name || '', email: me.email || '', phone: me.phone || '' }, pwOpen: false, pw: { cur: '', next: '', again: '' }, pwErr: '', detailErr: '', setup: null, others: true }; }
+  codes() { const r = () => Math.random().toString(36).slice(2, 6).toUpperCase(); return Array.from({ length: 10 }, () => r() + '-' + r()); }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { caps: c, phone } = app; const s = this.state; const me = app.me || {};
+    const owner = c.isOwner; const on = me.tfa && me.tfa !== 'off';
+    const dirty = s.d.name !== me.name || s.d.email !== me.email || (s.d.phone || '') !== (me.phone || '');
+    const strong = s.pw.next.length >= 10;
+    const su = s.setup || {};
+    const ph = (me.phone || s.d.phone || '').replace(/\s/g, '');
+    const tfa = {
+      isOn: on && !s.setup, isOff: !on, canOff: on && !owner,
+      why: owner ? 'Required for store owners — it protects your payouts and customer data. You can change how you get codes, but not turn it off.' : 'Optional for your role, and strongly recommended. Each sign-in asks for a code as well as your password.',
+      pill: on ? 'On' : owner ? 'Needs setting up' : 'Off', pillBg: on ? 'var(--okbg,#EEF7F2)' : owner ? 'var(--wbg,#FFF6E5)' : 'var(--sunk,#F1EEEA)', pillFg: on ? 'var(--okfg,#1D6B47)' : owner ? 'var(--wfg,#7A4B00)' : 'var(--muted,#4A5360)', pillBd: on ? 'var(--okbd,#CBE6D6)' : owner ? 'var(--wbd,#F2D9A6)' : 'var(--border,#E0DAD3)',
+      method: me.tfa === 'app' ? 'Authenticator app' : 'Text message', methodSub: me.tfa === 'app' ? 'Codes come from the app on your phone. Works without signal.' : 'Codes are texted to the number ending ' + ph.slice(-4) + '.', switchLabel: me.tfa === 'app' ? 'Use text messages' : 'Use an authenticator app',
+      backup: (me.backup || 0) + ' of 10 backup codes left' + ((me.backup || 0) <= 3 ? ' — make new ones soon' : ''), backupFg: (me.backup || 0) <= 3 ? 'var(--bfg,#A1261B)' : 'var(--muted,#5A6472)'
+    };
+    const methods = [['app', 'Authenticator app', 'Recommended. Works without signal.'], ['sms', 'Text message', ph ? 'To the number ending ' + ph.slice(-4) : 'Add a mobile number in Your details first']].map(([k, l, sub]) => { const sel = su.method === k; return { l, sub, bd: sel ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: sel ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', dot: sel ? '5px solid var(--focus,#00519F)' : '1.5px solid var(--faint,#9AA1AB)', onClick: () => this.setState({ setup: { ...su, method: k } }) }; });
+    const setD = (k, v) => this.setState({ d: { ...s.d, [k]: v }, detailErr: '' });
+    const setPw = (k, v) => this.setState({ pw: { ...s.pw, [k]: v }, pwErr: '' });
+    const th = app.theme === 'dark' ? 'dark' : 'light';
+    return {
+      pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', twoCols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))', threeCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))',
+      me, d: s.d, detailErr: s.detailErr, detailBtn: dirty ? '#EC844F' : '#E0DAD3', emailHelp: s.d.email !== me.email ? 'We’ll send a link to the new address. It changes once you click it.' : 'Sign-in and notices go here',
+      pwOpen: s.pwOpen, pwClosed: !s.pwOpen, pw: s.pw, pwErr: s.pwErr, pwHint: s.pw.next ? (strong ? 'Strong enough' : (10 - s.pw.next.length) + ' more characters') : 'At least 10 characters. A short sentence works well.', pwHintFg: s.pw.next && strong ? 'var(--okfg,#1D6B47)' : 'var(--muted,#5A6472)',
+      tfa, setting: !!s.setup, notSetting: !s.setup,
+      su: { pick: su.step === 'pick', verify: su.step === 'verify', codes: su.step === 'codes', isApp: su.method === 'app', methods, code: su.code || '', err: su.err || '', list: su.list || [], verifyTitle: su.method === 'app' ? 'Add DripFunnel to your authenticator app, then type the code it shows' : 'We texted a code to the number ending ' + ph.slice(-4) },
+      themes: [['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => ({ l, on: th === k ? 'true' : 'false', bg: th === k ? 'var(--navy,#0A2A4A)' : 'var(--card,#FFFFFF)', fg: th === k ? '#FFFFFF' : 'var(--text2,#434A55)', onClick: () => app.setTheme(k) })),
+      sessions: [{ device: 'This browser', sub: (phone ? 'Phone' : 'Desktop') + ' · ' + app.R.city, state: 'Active now', fg: 'var(--okfg,#1D6B47)' }, ...(s.others ? [{ device: 'iPhone · DripFunnel app', sub: app.R.city + ' · last used yesterday', state: '', fg: 'var(--muted,#5A6472)' }, { device: 'Chrome on Windows', sub: 'Last used 6 days ago', state: '', fg: 'var(--muted,#5A6472)' }] : [])], hasOthers: s.others,
+      on: { name: e => setD('name', e.target.value), email: e => setD('email', e.target.value), phone: e => setD('phone', e.target.value), pwCur: e => setPw('cur', e.target.value), pwNext: e => setPw('next', e.target.value), pwAgain: e => setPw('again', e.target.value), code: e => this.setState({ setup: { ...su, code: e.target.value.replace(/\D/g, '').slice(0, 6), err: '' } }) },
+      a: {
+        saveDetails: () => { if (!dirty) return; if (!s.d.name.trim()) { this.setState({ detailErr: 'Your name can’t be empty — your team sees it on everything you change.' }); return; } if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.d.email.trim())) { this.setState({ detailErr: 'That email doesn’t look right. Check for a typo.' }); return; } const emailChanged = s.d.email !== me.email; app.setMe({ name: s.d.name.trim(), phone: s.d.phone, ...(emailChanged ? {} : {}) }); if (emailChanged) { this.setState({ d: { ...s.d, email: me.email } }); app.toast('We sent a link to ' + s.d.email.trim() + ' — your email changes once you click it'); } else app.toast('Details saved'); },
+        openPw: () => this.setState({ pwOpen: true }), closePw: () => this.setState({ pwOpen: false, pw: { cur: '', next: '', again: '' }, pwErr: '' }),
+        savePw: () => { if (!s.pw.cur) { this.setState({ pwErr: 'Type your current password.' }); return; } if (!strong) { this.setState({ pwErr: 'The new password needs at least 10 characters.' }); return; } if (s.pw.next !== s.pw.again) { this.setState({ pwErr: 'The two new passwords don’t match.' }); return; } app.setMe({ pwDate: 'Changed just now' }); this.setState({ pwOpen: false, pw: { cur: '', next: '', again: '' }, others: false }); app.toast('Password changed — you’re signed out everywhere else'); },
+        startSetup: () => this.setState({ setup: { step: 'pick', method: 'app' } }), cancelSetup: () => this.setState({ setup: null }),
+        switchMethod: () => this.setState({ setup: { step: 'verify', method: me.tfa === 'app' ? 'sms' : 'app', switching: true } }),
+        toVerify: () => { if (su.method === 'sms' && !ph) { app.toast('Add your mobile number in Your details first'); return; } this.setState({ setup: { ...su, step: 'verify' } }); },
+        verify: () => { if ((su.code || '').length !== 6) { this.setState({ setup: { ...su, err: 'Type all 6 digits.' } }); return; } if (su.switching) { app.setMe({ tfa: su.method }); this.setState({ setup: null }); app.toast('Codes now come by ' + (su.method === 'app' ? 'your authenticator app' : 'text message')); return; } this.setState({ setup: { ...su, step: 'codes', list: this.codes() } }); },
+        dlCodes: () => app.download('dripfunnel-backup-codes.csv', ['Backup code', 'Account'], (su.list || []).map(x => [x, me.email])),
+        finish: () => { app.setMe({ tfa: su.method, backup: 10 }); this.setState({ setup: null }); app.toast('Two-step sign-in is on'); },
+        newCodes: () => app.modal({ title: 'Make new backup codes?', body: 'Your old codes stop working straight away.', confirm: 'Make new codes', onConfirm: () => this.setState({ setup: { step: 'codes', method: me.tfa, list: this.codes() } }) }),
+        tfaOff: () => app.modal({ danger: true, title: 'Turn off two-step sign-in?', body: 'Anyone with your password could then sign in as you.', confirm: 'Turn it off', onConfirm: () => { app.setMe({ tfa: 'off', backup: 0 }); app.toast('Two-step sign-in is off'); } }),
+        signOutOthers: () => { this.setState({ others: false }); app.toast('Signed out on 2 other devices'); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+/* A strip under the header: a fact about the account and its one action (both apps' shells). */
+.df-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-1) var(--df-space-3);
+  align-items: center;
+  padding: var(--df-space-2) var(--df-space-4);
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 13px;
+}
+
+.df-strip p {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+}
+
+.df-strip a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.df-strip a:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-strip--info {
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-strip--warning {
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-strip--danger {
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}
+
+/* The prototype's offline bar: grey with white text, whatever the theme. */
+.df-strip--offline {
+  background: var(--df-color-muted);
+  color: var(--df-color-surface);
+}
+
+/* The one action as a quiet button at the strip's end (the prototype's banners). */
+.df-strip .df-strip-button {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.df-strip .df-strip-button:hover {
+  background: var(--df-color-hover);
+}

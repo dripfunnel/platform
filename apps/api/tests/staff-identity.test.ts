@@ -2,7 +2,6 @@ import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleAuth } from '#apis/admin/auth'
 import type { ActivityEntry } from '#auth/activity'
-import { interimActivityLog } from '#auth/activity'
 import { resolveStaff } from '#auth/caller'
 import { SignInFailed } from '#auth/oidc'
 import {
@@ -18,6 +17,7 @@ import {
 import { staffForClaims } from '#auth/staff'
 import type { ScopedSql } from '#db/scoped/index'
 import { withSystemScope } from '#db/scoped/index'
+import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
 let db: TestDatabase
@@ -131,7 +131,7 @@ describe('who the request resolves to', () => {
 
   it('is the staff member while the session is live', async () => {
     const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
-    expect(await resolveStaff(db.sql, withSession(id), start)).toMatchObject({ id: active })
+    expect(await resolveStaff(db.sql, withSession(id), start)).toMatchObject({ staff: { id: active }, reauthFresh: true })
   })
 
   it('is nobody once the session has expired', async () => {
@@ -157,7 +157,7 @@ describe('who the request resolves to', () => {
 describe('row-level security on the staff tables', () => {
   const asPlatform = <T>(work: (tx: postgres.TransactionSql) => Promise<T>) =>
     db.sql.begin(async (tx) => {
-      await tx`set local role app_request`
+      await tx`set local role app_platform`
       await tx`select set_config('app.scope', 'platform', true)`
       return work(tx)
     })
@@ -186,10 +186,32 @@ describe('row-level security on the staff tables', () => {
     ).rejects.toThrow(/permission denied/i)
   })
 
-  it('lets no request scope write the staff directory it can read', async () => {
-    await expect(asPlatform((tx) => tx`update staff_user set role_key = 'staff-super-admin'`)).rejects.toThrow(
-      /permission denied/i,
-    )
+  // #39: the Staff menu changes a role or a status, and the service holds that to Super admins;
+  // who a member is (their SSO account, email and name) is sign-in's alone.
+  it('lets a staff request change only a role or a status, never who a member is', async () => {
+    for (const set of ["sso_subject = 'stolen'", "email = 'x@example.com'", "name = 'x'", 'last_sign_in_at = now()']) {
+      await expect(asPlatform((tx) => tx.unsafe(`update staff_user set ${set} where id = '${active}'`)), set).rejects.toThrow(/permission denied/i)
+    }
+    await expect(asPlatform((tx) => tx`insert into staff_user (sso_subject, email, name, role_key, status) values ('s', 'e@x.com', 'n', 'staff-super-admin', 'active')`)).rejects.toThrow(/permission denied/i)
+    await expect(asPlatform((tx) => tx`insert into staff_user (email, name, role_key, status) values ('e@x.com', '', 'staff-super-admin', 'active')`)).rejects.toThrow(/row-level security/i)
+  })
+
+  it('lets a staff request only remove a member, never activate or suspend one', async () => {
+    const [invited] = await db.sql<{ id: string }[]>`
+      insert into staff_user (email, name, role_key, status) values ('invited@softobotics.com', '', 'staff-super-admin', 'invited') returning id`
+    if (!invited) throw new Error('fixture missing invited member')
+    for (const status of ['active', 'suspended']) {
+      await expect(asPlatform((tx) => tx`update staff_user set status = ${status} where id = ${invited.id}`), status).rejects.toThrow(/may only remove/i)
+    }
+    await expect(asPlatform((tx) => tx`update staff_user set status = 'active' where id = ${suspended}`)).rejects.toThrow(/may only remove/i)
+    await asPlatform((tx) => tx`update staff_user set status = 'removed' where id = ${invited.id}`)
+    await expect(asPlatform((tx) => tx`update staff_user set status = 'invited' where id = ${invited.id}`)).rejects.toThrow(/may only remove/i)
+    expect((await db.sql`select status from staff_user where id = ${invited.id}`)[0]?.status).toBe('removed')
+  })
+
+  it('never lets a staff request read the hash of an invitation link', async () => {
+    await expect(asPlatform((tx) => tx`select token_hash from staff_invitation`)).rejects.toThrow(/permission denied/i)
+    await expect(asPlatform((tx) => tx`select id from staff_invitation`)).resolves.toBeDefined()
   })
 })
 
@@ -207,7 +229,7 @@ describe('the sign-in routes', () => {
   const deps = (overrides: Partial<Parameters<typeof handleAuth>[1]> = {}) => ({
     sql: db.sql,
     provider,
-    activity: interimActivityLog,
+    activity: activityLog,
     adminHost: 'admin.dripfunnel.com',
     now: () => start,
     allowAttempt: async () => true,
@@ -250,24 +272,69 @@ describe('the sign-in routes', () => {
     }
   })
 
+  it('answers an outage mid-sign-in with the screen’s unavailable state, logged by code, and files no refusal', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    let res: Response
+    try {
+      const outage = { ...provider, exchange: async () => Promise.reject(Object.assign(new Error('connect ECONNREFUSED 10.0.0.9:5432'), { code: 'ECONNREFUSED' })) }
+      res = await handleAuth(callback('good', { 'cf-ray': 'ray-outage' }), deps({ provider: outage }))
+    } finally {
+      console.log = log
+    }
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/sign-in?outcome=unavailable')
+    expect(res.headers.get('set-cookie')).toContain('__Host-df_admin_oidc=;')
+    expect(lines.map((l) => JSON.parse(l) as Record<string, unknown>)).toEqual([{ event: 'sign_in_unavailable', api: 'admin', requestId: 'ray-outage', code: 'Error:ECONNREFUSED' }])
+    expect(lines.join('\n')).not.toContain('10.0.0.9')
+    expect(await db.sql`select 1 from activity_log where action = 'staff.sign_in_refused' and request_id = 'ray-outage'`).toHaveLength(0)
+  })
+
+  it('rolls the sign-in back when the database fails inside it: no session, no entry, the unavailable state', async () => {
+    const before = (await db.sql<{ n: number }[]>`select count(*)::int as n from staff_session where staff_user_id = ${active}`)[0]?.n ?? 0
+    const failing = {
+      recordAll: async () => undefined,
+      record: async () => {
+        throw Object.assign(new Error('could not write activity_log at 10.0.0.9'), { name: 'PostgresError', code: 'XX000' })
+      },
+    }
+    const log = console.log
+    console.log = () => undefined
+    let res: Response
+    try {
+      res = await handleAuth(callback('good', { 'cf-ray': 'ray-db-outage' }), deps({ activity: failing as unknown as typeof activityLog }))
+    } finally {
+      console.log = log
+    }
+    expect(res.headers.get('location')).toBe('/sign-in?outcome=unavailable')
+    expect(res.headers.get('set-cookie')).not.toContain(`${cookieName}=`)
+    expect((await db.sql<{ n: number }[]>`select count(*)::int as n from staff_session where staff_user_id = ${active}`)[0]?.n).toBe(before)
+    expect(await db.sql`select 1 from activity_log where request_id = 'ray-db-outage'`).toHaveLength(0)
+  })
+
   it('rate-limits the callback', async () => {
     const res = await handleAuth(callback('good'), deps({ allowAttempt: async () => false }))
     expect(res.status).toBe(429)
   })
 
-  it('records sign-in without putting a name, email or address in the log line', async () => {
+  it('records the sign-in as an activity entry and prints nothing', async () => {
+    // LOGGING.md §4: the entry carries the label and address, which is why it lives in the
+    // table and not in a log line.
     const lines: string[] = []
     const log = console.log
     console.log = (line: string) => void lines.push(line)
     try {
-      await handleAuth(callback('good'), deps())
+      await handleAuth(callback('good', { 'cf-connecting-ip': '203.0.113.1' }), deps())
     } finally {
       console.log = log
     }
-    expect(lines.join('\n')).toContain('staff.signed_in')
-    for (const secret of ['priya@softobotics.com', 'Priya', '203.0.113.1']) {
-      expect(lines.join('\n')).not.toContain(secret)
-    }
+    expect(lines).toEqual([])
+    const [row] = await db.sql<{ actor_id: string; actor_label: string; ip: string; visibility: string }[]>`
+      select actor_id, actor_label, ip, visibility from activity_log
+      where action = 'staff.signed_in' order by occurred_at desc limit 1
+    `
+    expect(row).toEqual({ actor_id: active, actor_label: 'Priya <priya@softobotics.com>', ip: '203.0.113.1', visibility: 'staff' })
   })
 
   it('refuses claims the provider returns in a shape we cannot use', async () => {
@@ -286,7 +353,7 @@ describe('the sign-in routes', () => {
 
   it('records why each refusal happened while telling the caller nothing', async () => {
     const seen: (string | null)[] = []
-    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason) }
+    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason), recordAll: async () => undefined }
     const cases = [
       [callback('good', { state: 'not-ours' }), 'state_mismatch'],
       [callback('good', { cookie: 'nothing=here' }), 'missing_handshake'],
@@ -309,6 +376,7 @@ describe('the sign-in routes', () => {
   it('refuses identically when recording the refusal fails', async () => {
     // Otherwise a caller who can push the database over can tell which refusals reach it.
     const failing = {
+      recordAll: async () => undefined,
       record: async () => {
         throw new Error('the database is down')
       },
@@ -353,6 +421,25 @@ describe('the sign-in routes', () => {
       expect(seen).toEqual(['none', 'login'])
     })
 
+    it('keeps the signed-in session when re-authentication meets an outage, and shows the unavailable state', async () => {
+      const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
+      const outage = { ...provider, exchange: async () => Promise.reject(Object.assign(new Error('upstream 503'), { code: 'EAI_AGAIN' })) }
+      const log = console.log
+      console.log = () => undefined
+      let res: Response
+      try {
+        res = await handleAuth(reauthCallback(id), deps({ provider: outage }))
+      } finally {
+        console.log = log
+      }
+      expect(res.headers.get('location')).toBe('/sign-in?outcome=unavailable')
+      // Only the handshake is cleared; the session cookie and the session itself stay.
+      expect(res.headers.get('set-cookie')).toContain('__Host-df_admin_oidc=;')
+      expect(res.headers.get('set-cookie')).not.toContain(`${cookieName}=`)
+      const stillSignedIn = new Request('https://admin.dripfunnel.com/api/', { headers: { cookie: `${cookieName}=${id}` } })
+      expect(await resolveStaff(db.sql, stillSignedIn, start)).toMatchObject({ staff: { id: active } })
+    })
+
     it('stamps the live session rather than starting a second one', async () => {
       const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
       await db.sql`update staff_session set reauth_at = ${at(-60 * 60 * 1000)} where id_hash = ${await hashSessionId(id)}`
@@ -393,7 +480,7 @@ describe('the sign-in routes', () => {
     // Otherwise any page could send a staff member's browser here and pick both the screen
     // they see and the reason written to the activity log.
     const seen: (string | null)[] = []
-    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason) }
+    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason), recordAll: async () => undefined }
     const forged = new Request(
       'https://admin.dripfunnel.com/api/auth/callback?error=invalid_grant&error_description=AADSTS53003',
     )

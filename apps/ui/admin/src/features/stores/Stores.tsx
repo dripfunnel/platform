@@ -3,17 +3,13 @@
 import { Link } from '@tanstack/react-router'
 import type { StoreFilter, StorePage } from '../../api/stores'
 import { messages } from '../../messages'
-import { EmptyState } from '../common/EmptyState'
-import { ErrorState } from '../common/ErrorState'
-import { ListHeader } from '../common/ListHeader'
-import { LoadingState } from '../common/LoadingState'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, ListHeader, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { Pager } from '../common/Pager'
-import { ReadOnlyNotice } from '../common/ReadOnlyNotice'
 import { isFiltered } from './isFiltered'
 import type { StoresState } from './storeHarness'
 import { StoreFilters } from './StoreFilters'
 import { StoresTable } from './StoresTable'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.stores
 
@@ -35,10 +31,10 @@ export const StoresLoading = () => (
   </div>
 )
 
-export const StoresError = ({ onRetry }: { onRetry: () => void }) => (
+export const StoresError = ({ onRetry, details }: { onRetry: () => void; details?: ErrorDetails }) => (
   <div className="df-page df-list">
     <StoresHeader />
-    <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry }} />
+    <ErrorState title={words.error.title} body={words.error.body} {...(details ? { details } : {})} retry={{ label: words.error.retry, onRetry }} />
   </div>
 )
 

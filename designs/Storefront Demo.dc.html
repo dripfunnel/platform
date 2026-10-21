@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Template demo · DripFunnel</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&amp;family=Inter:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script src="./storefront-lib.js"></script>
+<style>
+*{box-sizing:border-box;}
+body{margin:0;background:#E8E2DC;}
+a{color:#EC844F;}
+a:hover{color:#F09A6D;}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;font-family:Inter,sans-serif;">
+  <div style="position:sticky;top:0;z-index:10;background:#14181F;color:#D6DEE7;padding:8px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;">
+    <sc-if value="{{ back }}" hint-placeholder-val="{{ false }}"><button onClick="{{ goBack }}" style="height:32px;padding:0 12px;border:1px solid #3A424E;border-radius:6px;background:transparent;color:#FFFFFF;font-size:13px;cursor:pointer;">← Back to DF Store</button></sc-if>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#EC844F;">Template demo</span>
+    <select value="{{ tpl }}" onChange="{{ onTpl }}" aria-label="Template" style="height:32px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:13px;padding:0 8px;">
+      <sc-for list="{{ tplOpts }}" as="o" hint-placeholder-count="6"><option value="{{ o.k }}">{{ o.label }}</option></sc-for>
+    </select>
+    <span style="color:#B8C7D6;">{{ note }}</span>
+    <span style="flex:1;"></span>
+    <div style="display:flex;border:1px solid #3A424E;border-radius:6px;overflow:hidden;"><sc-for list="{{ devs }}" as="d" hint-placeholder-count="3"><button onClick="{{ d.onClick }}" style="height:30px;padding:0 12px;border:0;background:{{ d.bg }};color:{{ d.fg }};font-size:12px;font-weight:600;cursor:pointer;">{{ d.label }}</button></sc-for></div>
+  </div>
+  <div style="flex:1;display:flex;justify-content:center;padding:{{ pad }};">
+    <div style="width:{{ w }};max-width:100%;border:{{ bd }};border-radius:{{ r }};overflow:hidden;background:#FFFFFF;align-self:flex-start;">
+      <sc-if value="{{ ready }}" hint-placeholder-val="{{ false }}"><dc-import name="SitePreview" key="{{ key }}" site="{{ site }}" products="{{ products }}" store="{{ store }}" device="{{ device }}" currency="{{ currency }}" locale="{{ locale }}" checkout-note="Checkout is turned off in this demo — nothing is charged." hint-size="100%,900px"></dc-import></sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { lib: !!window.DFSite, tpl: (location.search.match(/[?&]t=([a-z]+)/) || [])[1] || 'minimal', device: 'desktop' };
+  componentDidMount() { if (!window.DFSite) this._t = setInterval(() => { if (window.DFSite) { clearInterval(this._t); this.setState({ lib: true }); } }, 60); }
+  componentWillUnmount() { clearInterval(this._t); }
+  renderVals() {
+    const L = window.DFSite; const s = this.state;
+    let d = {}; try { d = JSON.parse(localStorage.getItem('df-sf-demo') || '{}'); } catch (e) {}
+    const store = d.store || 'Juniper & Co.';
+    const ctx = d.ctx || { store, city: 'Columbus', email: 'hello@juniperco.com' };
+    const back = /[?&]back=1/.test(location.search);
+    const ph = s.device === 'phone', tb = s.device === 'tablet';
+    const base = {
+      back, goBack: () => history.back(), tpl: s.tpl, device: s.device, store, products: d.products || null, currency: d.currency || 'USD', locale: d.locale || 'en-US',
+      note: 'Sample layout with ' + store + '’s products. Click around — menu, products, cart.',
+      devs: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, bg: s.device === k ? '#EC844F' : 'transparent', fg: s.device === k ? '#14181F' : '#D6DEE7', onClick: () => this.setState({ device: k }) })),
+      w: ph ? '390px' : tb ? '768px' : '100%', bd: ph || tb ? '10px solid #14181F' : '0', r: ph ? '38px' : tb ? '26px' : '0', pad: ph || tb ? '24px' : '0',
+      onTpl: e => { const k = e.target.value; this.setState({ tpl: k }); try { history.replaceState(null, '', location.pathname + '?t=' + k + (back ? '&back=1' : '')); } catch (er) {} }
+    };
+    if (!L || !s.lib) return { ...base, ready: false, tplOpts: [] };
+    const k = L.TEMPLATES[s.tpl] && s.tpl !== 'blank' ? s.tpl : 'minimal';
+    return { ...base, ready: true, key: k, site: L.build(k, ctx), tplOpts: L.ORDER.map(x => ({ k: x, label: L.TEMPLATES[x].name + ' · ' + L.TEMPLATES[x].tag })) };
+  }
+}
+</script>
+</body>
+</html>

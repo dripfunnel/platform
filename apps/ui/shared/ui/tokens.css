@@ -9,6 +9,8 @@
   --df-color-brand: #ec844f;
   --df-color-brand-hover: #d96c33;
   --df-color-brand-contrast: #4a1b0c;
+  /* Dark text on a light brand colour, the same in both themes: a partner's accent carries it (SAAS §3.3). */
+  --df-color-ink: #14181f;
   --df-color-page: #fdfaf7;
   --df-color-surface: #ffffff;
   --df-color-heading: #0a2a4a;
@@ -54,8 +56,16 @@
   --df-color-side-control-border: rgb(255 255 255 / 0.14);
   --df-color-side-divider: rgb(255 255 255 / 0.2);
   --df-color-env-production: #b42318;
-  --df-color-env-staging: #4a5360;
+  --df-color-env-test: #4a5360;
   --df-color-env-text: #ffffff;
+  /* The staff-session bar (designs/ImpBanner.dc.html). The same in dark, so it never recedes. */
+  --df-color-session: #ffc53d;
+  --df-color-session-ink: #2a1a00;
+  --df-color-session-edge: #b7791f;
+  --df-color-session-stripe: rgb(0 0 0 / 0.06);
+  /* A QR code to scan (2-factor setup): dark on light in both themes, since readers can't decode it inverted. */
+  --df-color-qr: #14181f;
+  --df-color-qr-ground: #ffffff;
   --df-shadow-floating: 0 18px 44px -20px rgb(10 42 74 / 0.5);
   --df-radius-small: 6px;
   --df-radius: 8px;

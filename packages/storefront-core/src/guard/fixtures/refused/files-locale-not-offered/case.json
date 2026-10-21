@@ -1,0 +1,5 @@
+{
+  "rule": "files/locale-not-offered",
+  "file": "content/fr/pages.json",
+  "line": null
+}

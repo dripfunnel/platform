@@ -1,0 +1,5 @@
+{
+  "rule": "code/dynamic-import",
+  "file": "src/theme/components/Bad.tsx",
+  "line": 5
+}

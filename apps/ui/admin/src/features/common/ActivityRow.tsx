@@ -1,20 +1,13 @@
+import { ActivityFact as Fact, activityResultLook as resultLook, Icon, StatusPill } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
-import type { ActivityEntry, ActivityResult, PersonKind } from '../../api/activity'
+import type { ActivityEntry, PersonKind } from '../../api/activity'
 import { fill, formatTime, messages } from '../../messages'
-import { Icon, type StatusIconName } from '../shell/Icon'
 import { changeText, entryParts, whoOf } from './activityText'
-import { StatusPill, type StatusTone } from './StatusPill'
 import './activity.css'
 
 const words = messages.activity
 const personKinds: readonly string[] = ['staff', 'partner_user', 'person', 'customer'] satisfies PersonKind[]
-
-const resultLook: Record<ActivityResult, { tone: StatusTone; icon: StatusIconName }> = {
-  success: { tone: 'success', icon: 'ok' },
-  denied: { tone: 'warning', icon: 'ban' },
-  failed: { tone: 'danger', icon: 'alert' },
-}
 
 const PersonLink = ({ id, children }: { id: string; children: ReactNode }) => (
   <Link to="/activity" search={{ person: id }} className="df-row-link">
@@ -35,20 +28,19 @@ const TargetLink = ({ target }: { target: NonNullable<ActivityEntry['target']> }
   }
 }
 
-const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="df-activity-fact">
-    <dt>{label}</dt>
-    <dd>{children}</dd>
-  </div>
-)
-
 const sessionLabel = { impersonation: words.facts.impersonation, setupSession: words.facts.setupSession, supportSession: words.facts.supportSession }
 
-// The session id stays plain text until #46 gives sessions a page (decided on #44).
+// Staff sessions have a page (#46); a partner's support session is the merchant's to show.
 const SessionFact = ({ access }: { access: NonNullable<ActivityEntry['access']> }) => (
   <Fact label={sessionLabel[access.kind]}>
     <span className="df-activity-session">
-      <span>{fill(words.facts.session, { id: access.id })}</span>
+      {access.kind === 'supportSession' ? (
+        <span>{fill(words.facts.session, { id: access.id })}</span>
+      ) : (
+        <Link to="/impersonate/sessions/$sessionId" params={{ sessionId: access.id }} className="df-row-link">
+          {fill(words.facts.session, { id: access.id })}
+        </Link>
+      )}
       {access.kind === 'impersonation' && (
         <Link to="/activity" search={{ imp: access.id }} className="df-row-link">{words.facts.allEntries}</Link>
       )}

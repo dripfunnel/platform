@@ -1,0 +1,26 @@
+{
+  "routes": {
+    "home": "HomePage",
+    "collection": "CollectionPage",
+    "product": "ProductDetailPage",
+    "search": "SearchPage",
+    "cart": "CartPage",
+    "checkout": "CheckoutPage",
+    "orderConfirmation": "OrderConfirmationPage",
+    "signIn": "account/AccessPage",
+    "register": "account/AccessPage",
+    "verify": "account/AccessPage",
+    "forgotPassword": "account/AccessPage",
+    "resetPassword": "account/AccessPage",
+    "account": "account/AccountPage",
+    "accountAddresses": "account/AccountPage",
+    "accountOrders": "account/AccountPage",
+    "accountOrder": "account/AccountPage",
+    "policy": "PolicyPage",
+    "notFound": "NotFoundPage",
+    "degraded": "DegradedPage"
+  },
+  "custom": {
+    "/our-story": "AboutPage"
+  }
+}

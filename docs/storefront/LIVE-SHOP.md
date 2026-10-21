@@ -1,0 +1,599 @@
+# LIVE-SHOP.md: how a store's live site is built, stored and served
+
+How a store's live storefront gets from its code to a shopper's browser: the store's repo, the
+build, where the built files are kept, and the one Worker that serves every store. Each step
+says why it works that way.
+
+This document owns the **infrastructure**. [ARCHITECTURE.md](ARCHITECTURE.md) owns what is
+built and checked: the theme contract, the walls around AI-written code (§3) and the gate
+suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview link, and
+[AI-STUDIO.md](AI-STUDIO.md) covers where the draft lives before it is published.
+`../api/SAAS.md` owns the state and rules: provisioning (§5), domains (§8) and publishing
+(§9.1).
+
+**Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9). On #317:
+the bucket layout (§2), the publish-storefront Workflow's queued → deploying → live | failed, the switch, go back and
+clean-up (§4 steps 1, 9 item 3 and 11), and the edge Worker's live path (§5, `store-proxy/src/live.ts`) with the host
+lookup, its `/shop-api` door and the cache purge. On #517: the OIDC check (§9), the build calls (§4, "The build calls"),
+the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2). On
+#483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
+(§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). The rest is specification.
+
+Last updated: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+built files in R2, one edge Worker for every store, the publish checks inside the workflow).
+
+---
+
+## 1. Decisions
+
+Decided 2026-10-09 with Gaurav unless the row says otherwise.
+
+| Decision | Rejected | Why |
+|---|---|---|
+| **One public GitHub repo per store**, created when the merchant first picks a template | Private repos built in Cloudflare Containers (decided 2026-10-08 on #470, replaced); one repo holding every store | Builds on GitHub-hosted runners cost nothing in public repos. A repo per store keeps its own push limit (GitHub allows 6 pushes a minute per repo), its own history, and makes deleting or exporting a merchant one repo operation. One shared repo would share those 6 pushes between every store, pass GitHub's recommended 3,000 entries per folder and 10 GB, and turn a merchant's deletion request into a rewrite of everyone's history. |
+| **The code reaches GitHub only once its publish is live** (decided 2026-10-09; first "at Publish", moved after the switch on #520) | A commit to the repo for each accepted AI change (decided 2026-10-08 on #470, replaced); pushing at Publish, before the checks | The repos are public. A commit per change would show unreleased products, sale banners and half-finished designs before the merchant publishes them, and a busy studio would push several times a minute. The draft lives in private storage until then ([AI-STUDIO.md](AI-STUDIO.md) §1), and a publish that fails its checks never makes it public. |
+| **A locked workflow in each repo builds the site, started only by the platform** (`workflow_dispatch`) | A build on every push; a pool of build containers | The platform decides when a build runs and keeps one build at a time per store (SAAS §9.1). A push alone builds nothing, so nothing outside the platform can start a deploy. |
+| **The build runs inside the build image for the store's core version, with networking off** | `npm install` on the runner | It is the same image the studio uses ([AI-STUDIO.md](AI-STUDIO.md) §1), so a theme that passed the studio's fast gate builds the same way. GitHub's npm registry needs a token even for public packages. The image's package on `ghcr.io` is private (decided on #790, 2026-10-18), so the runner logs in to pull it with the one organisation secret `GHCR_PULL_TOKEN` (§3 step 3). With no network, the AI's code can't call out during the build, and the same inputs always give the same files. |
+| **No secret in any repo but the image pull token: GitHub OIDC, and the API mints 15-minute R2 credentials limited to that build's staging folder** | A Cloudflare token in each repo's secrets, or in one organisation secret | An R2 token can be limited to a bucket, never to a folder, so a token in every repo could overwrite every store's site and its old versions. A GitHub OIDC token lasts minutes and names the repo and the workflow that asked. The credential the API mints can write only the new build's staging folder: not any build folder, not older builds, and not the live pointer. The API copies verified files into the build's folder itself (§4 step 9). |
+| **Built files in R2, a folder per store and per build** | A Cloudflare Pages project per store (decided 2026-10-05 on #284, replaced); a Worker per store | Cloudflare allows 100 Pages projects per account and doesn't routinely raise the limit; normal Workers stop at 500 per account. R2 has no such limit. Keeping every build as its own folder makes going back to an earlier version a pointer move, with no rebuild. |
+| **One edge Worker serves every store**, choosing the store by hostname | Workers for Platforms with a Worker per store; rendering pages on each request | Every store runs the same serving code, so nothing is deployed per store. The cost is one Worker request per page, $0.30 per million. Rendering on request remains possible later (§11). |
+| **Hashed JS, CSS and images come from a shared asset host with no Worker in front** | Every file through the edge Worker | Cloudflare bills a Worker request even when the answer comes from cache. A page loads several files, so serving them past the Worker is the largest saving there is (§10). |
+| **Merchant domains stay Cloudflare for SaaS custom hostnames on the zone's catch-all route** (SAAS §8) | A Worker route per hostname | A zone's catch-all route names exactly one Worker, which already sits in front of partner portal hosts. The same Worker tells portal hosts and storefront hosts apart. |
+
+---
+
+## 2. The pieces
+
+```
+ GitHub (dripfunnel org)                    Cloudflare
+ ┌─────────────────────────────┐           ┌──────────────────────────────────────────────────┐
+ │ store repo (public, one per │  OIDC     │ API Worker (apps/api)                            │
+ │ store): published code only │ ────────► │   GitHub App · OIDC check · R2 credentials       │
+ │ .github/workflows/build.yml │ ◄──────── │   publish-storefront Workflow · Postgres         │
+ │ (locked)                    │ dispatch  └──────────────┬───────────────────────────────────┘
+ └──────────────┬──────────────┘                          │ live pointer, cache purge
+                │ upload (15-min credentials)             ▼
+                ▼                            ┌──────────────────────────────────────────────┐
+ ┌─────────────────────────────┐             │ edge Worker (store-proxy, extended)          │
+ │ R2 storefront-sites         │ ◄────────── │   hostname → store → live build → file       │
+ │   stores/{id}/builds/{b}/   │   reads     │   /shop-api/* → API Worker                   │
+ │ R2 storefront-assets        │             └──────────────▲───────────────────────────────┘
+ │   stores/{id}/builds/{b}/   │ ◄─ asset host (no Worker)  │
+ │   core/{v}/                 │                            │
+ └─────────────────────────────┘                            │ Cloudflare for SaaS
+                                                   shopper on www.merchantbrand.com
+```
+
+| Piece | What it holds or does | Why it is separate |
+|---|---|---|
+| **Store repo** | The published theme code, the generated files and the locked workflow (ARCHITECTURE §2.2) | The public, free place to build. It holds only what is already live. |
+| **API Worker** | Starts builds, checks OIDC tokens, mints R2 credentials, records `publish_run`, moves the live pointer | Every credential and every decision stays on the platform, never in a repo or a runner. |
+| **`storefront-sites` bucket** (decided on #317: `storefront-sites` on prod, `-dev` and `-local` elsewhere) | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Never public. The edge Worker reads build and preview folders; the API reads staging folders and writes build folders (§4 step 9); the studio's Durable Object writes preview folders (PREVIEW §4); an upload credential writes one staging folder only. |
+| **`storefront-assets` bucket** (decided on #317, named as above; served at `sf-assets.<SHOP_DOMAIN>`) | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
+| **`storefront-drafts` bucket** (decided on #317, named as above), private | `drafts/{store}.bundle`, unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3); `sources/{store}/{build id}.bundle`, each build's source (§4 step 3); the snapshots | Source code that isn't public yet must never share a bucket with files that are served. Only the platform touches it: the studio's Durable Object reads and writes `drafts/` and reads `sources/`; the API writes `sources/` and the snapshots and hands a run 15-minute read links to its own build's files; nothing else reads it. |
+| **Edge Worker** | Answers every storefront request | One code path for every store; nothing per store to deploy. |
+| **Postgres** | `storefront`, `publish_run`, `design_version`: which build is live, and the history (DATA-MODEL §7) | The live pointer is state the consoles show, not a file. |
+
+**The keys** (built on #317, `apps/api/src/saas/storefronts/layout.ts`): in `storefront-sites`,
+`stores/{store}/builds/{build}/`, `stores/{store}/uploads/{build}/` (staging) and `stores/{store}/preview/{change}/`; in
+`storefront-assets`, `stores/{store}/builds/{build}/assets/` and `core/{version}/`; in `storefront-drafts`,
+`drafts/{store}.bundle`, `sources/{store}/{build}.bundle`, `snapshots/{store}/{build}.json` and the upgrade bot's
+`upgrades/{store}/{commit}.bundle` and `.json` (§8, #485). The build id is the
+`publish_run` id. A build folder holds `_manifest.json`, the manifest of §4 step 8.
+
+---
+
+## 3. Creating a store's repo (once per store)
+
+Part of the `create-storefront` Workflow (SAAS §5 steps 4–8), when the merchant first picks a
+template.
+
+1. **The GitHub App creates a public repo with an opaque name**, for example
+   `dripfunnel/sf-k7f3q9f2xa`: `sf-` and ten letters or digits (decided on #316).
+   *Why:* the org's list of public repos would otherwise list every merchant by name.
+2. **It copies `templates/storefront/`** with the chosen template's theme, the generated
+   `store.config.ts` and route shims, `package.json` pinning the current core version, and
+   the **locked workflow** `.github/workflows/build.yml`.
+   *Why:* the store starts as a complete, buildable site. The workflow comes from the template,
+   so every store builds the same way.
+3. **No secrets and no variables are added.** The one secret a store's run reads is the organisation's `GHCR_PULL_TOKEN`
+   (a classic personal access token with `read:packages`, shared with every repo, decided on #790): the workflow's own
+   `pull` step, which holds it alone, logs in to `ghcr.io`, pulls the image and logs out, and no container sees it. The repo accepts no
+   outside contributions, and the workflow runs only on `workflow_dispatch`.
+   The App sets the repo's Actions to GitHub's own actions only, a read-only default workflow
+   token, and approval before any outside contributor's run (built on #316). The build needs no action at all: its
+   runner steps use only the runner's own `curl`, `jq`, `python3` and `aws` (#517).
+   *Why:* nothing in the repo can be stolen but a read-only pull token, which only the locked workflow reads, and nothing but the platform can start a run. The token belongs to one person's account: if that account loses access to the org, every store's build fails until a new token replaces it.
+4. **The AI can never change the workflow.** `.github/**` is outside the file allowlist
+   (ARCHITECTURE §3.4), and the GitHub App is the only writer.
+   *Why:* a workflow the AI could edit could leak or skip anything.
+5. **The first preview** comes from the template's ready-made preview bundle ([PREVIEW.md](PREVIEW.md)
+   §4). The first live build is the merchant's first Publish (SAAS §5).
+
+---
+
+## 4. Publishing: from code to live
+
+The same steps run for every kind of publish (SAAS §9.1: design, catalogue, automatic, staff,
+core upgrade, security). `publish_run` records each step's real state (queued, building,
+checking, deploying, live, failed, rolled back).
+
+1. **A publish starts** and the `publish-storefront` Workflow creates the store's
+   `publish_run`, one at a time per store.
+   *Why:* two builds racing for one store could put the older one live.
+   **Built on #317** (`saas/storefronts/publish.ts`): `startPublish` creates the run in its caller's transaction and, when
+   none is running, queues `storefront.publish`, whose deliverer starts `jobs/workflows/publish-storefront.ts` under the
+   run's id. A press while one runs waits as the one queued run (a second press is that run); the run that finishes
+   queues it. Partial unique indexes allow one running and one queued run per store. The Workflow claims the run
+   (building), freezes its input (step 3) and dispatches the build (step 4), both once, then waits for its report:
+   a pass moves the run to deploying, a failure to checking, where the run decides (built on #483: it fails as
+   `gate_failed`), and no report within the build id's 2 hours fails it as `report_timed_out`. A passing build then
+   waits for its "uploaded" for the same 2 hours at most (`upload_timed_out`), is verified and copied (step 9, built on
+   #517), and only a verified build is switched; any failure leaves the run failed with a code and the live build as
+   it was.
+2. **Nothing reaches GitHub yet.** A design publish builds the draft's head commit from the
+   store's private draft (AI-STUDIO §6); other publishes build the **live commit**, read from the
+   live build's kept source bundle (step 3), never from GitHub. The repo's `main` gets the draft
+   only once this publish is live (step 9).
+   *Why:* the repo is public. A publish that fails its checks, or is refused or bisected, must
+   never make an unreleased design public (decided 2026-10-09 with Gaurav, #520).
+3. **The platform freezes the input**, as private files for this build behind 15-minute links:
+   - the catalogue snapshot, read once from the Shop API (ARCHITECTURE §5);
+   - the source to build, as a git bundle of that commit, **kept privately with the build** for as
+     long as the build is kept (`sources/{store}/{build id}.bundle` in the private drafts bucket).
+     The live build's bundle is the platform's own record of the live code: the studio, Discard,
+     the next publish and the upgrade bot read the live commit from it, never from GitHub;
+   - the live build's files, for the visual diff.
+
+   *Why:* the run reads only these, so it needs no network and no repo checkout, and two builds
+   of the same commit and snapshot give the same files.
+   **Built on #483** (`saas/storefronts/freeze.ts`): the source is a byte copy of the store's draft bundle for a design
+   publish, or of the live build's own source bundle otherwise (none: `no_source`), and the build checks the run's
+   `commit` out of it. The snapshot is core's `catalogueSnapshotSchema`: the store as the Shop API's `store` reads it,
+   the live address (the store's primary host, `{slug}.<SHOP_DOMAIN>` until a domain is connected, §6: none is `no_address`), the partner's
+   "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
+   `sf-assets.<SHOP_DOMAIN>`, and *since #324* the store's published, due posts, newest first, at most 500 (none while
+   the plan has no blog): each one's address, title, search title and description, author, date and cover, so the
+   build writes its page with its head and Article data (storefront ARCHITECTURE §8). *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
+   it stays as private as the draft it copies.
+4. **The platform starts the workflow** with `workflow_dispatch`, passing a **single-use build
+   id**, through the GitHub App.
+   *Why:* the build id ties the run to this `publish_run`, so a run can't upload into another
+   build, and an old id is refused.
+   **Built on #483**: `POST /repos/{org}/{repo}/actions/workflows/build.yml/dispatches` on `main` with the inputs
+   `build_id` and `api` (`https://<hooks host>`), at most once: `publish_run.dispatched_at` is set before GitHub is
+   asked, the request is sent once (again only after a 401), and the claim is cleared only on a definite refusal (a
+   4xx, 401 or 429); a 5xx or no answer may hide a started run, so it stands. The report and the upload share one
+   deadline, the build id's 2 hours from its claim. A repo GitHub doesn't
+   know fails the publish as `no_repo`. The runner sends only the check container's report as a verdict: the build
+   container ran the theme, so its own report can only refuse (its failing checks), and no report is "stopped".
+5. **The workflow is one job**, so the built site never leaves the runner as an artifact. Its
+   permissions are `id-token: write` and nothing else.
+   - **Networking off:** the AI-written code (the static build, and the theme in the headless
+     browser) runs only inside a `docker run --network none` container of
+     `ghcr.io/dripfunnel/storefront-build:<core version>`, with an allowlisted environment: no
+     `GITHUB_TOKEN`, no `ACTIONS_*` variables and no OIDC request URL. Inputs are mounted
+     read-only, and one output folder is writable.
+   - The runner steps around the container are the locked workflow's own code. They alone use
+     the network and OIDC.
+   - The job's logs say only which step ran and whether the publish passed; the details go to
+     the API.
+
+   **Step `fetch`:** the runner gets its OIDC token and sends it, with the build id, to the API.
+   The API checks the token (§9) and answers with the three links of step 3, then the runner
+   downloads them.
+   *Why:* everything private stays off GitHub (no artifact, nothing readable in public logs),
+   and the AI's code can reach neither the network nor a token.
+6. **Step `build`:** the container runs the validator over the whole theme (ARCHITECTURE §3.4),
+   then the static build (SSG), into its output folder.
+
+   **The image's `build` step, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build`):
+   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`, `INPUT_*`) in
+   its environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
+   bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
+   sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
+   `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
+   failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
+   same tree. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
+   and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
+7. **Step `check`:** the gate suite of ARCHITECTURE §4.2 step 3 runs **inside the workflow**
+   (decided 2026-10-09 with Gaurav), in a fresh container of the same image with the browser and
+   gate tools preinstalled. The built files are mounted read-only, and the container serves them
+   to its own headless browser and checks them:
+   - contract tests per route;
+   - sealed-component visibility at 3 widths;
+   - axe accessibility checks;
+   - the budgets (ARCHITECTURE §9);
+   - the no-JS render check and the crawl;
+   - the content scan;
+   - the edge-case catalogue render;
+   - a visual diff against the live build's files from step 3.
+
+   Since #806 the API decides the verdict from the check names, whatever `passed` the runner sends: the budgets, no-JS, crawl and visual-diff checks are advisory (a failing one is kept on the build and the version still goes live), unless the publish must keep the look, when the visual diff refuses too. `build.yml` is unchanged.
+
+   The checkout smoke test runs against core's offline Shop API fixture (decided on #483); the real
+   checkout is the post-deploy check (step 10). Its test purchase (`smokeTest`, storefront ARCHITECTURE §4.2's
+   `checkout`) is built on #313 and gates a publish once INF 4 adds it to the check step. The container writes each check's pass or fail
+   to its output folder. A runner step then:
+   - computes the **digest of the files it handed to the container**: SHA-256 over the sorted
+     list of each file's path and SHA-256, computed outside the container. Its form (decided on
+     #517): one line `<sha256 hex><two spaces><path>\n` per file, as `sha256sum` prints it, with
+     paths relative to the site's folder, sorted in byte order (`LC_ALL=C sort`);
+   - sends the **report** (the results and the digest) **straight to the API** by OIDC.
+
+   *Why:* the checks cost nothing on public repos and need no browser service of ours. The AI's
+   code can't reach the runner, the report or the API, and the digest ties the report to exact
+   bytes (step 9). A theme that behaves differently under checks is what the validator's ban on
+   environment sniffing (ARCHITECTURE §3.4) and the post-deploy checks from the edge (step 10)
+   are there to catch.
+
+   **The image's `check` step, built on #483** (`node /opt/sandbox/dist/publish.js check`), in a fresh container with
+   the same refusals and its own checkout of the commit: it serves the built site on 127.0.0.1 with each page's CSP
+   and core's offline Shop API, drives the image's Chromium, and writes the gate's report and each HTML file's
+   headers. Any request leaving the machine is refused and fails its page, whether the routing or the page's own CSP
+   stops it; the page's error text stays out of the report.
+8. **Step `upload`:**
+   - **After a passing report**, the API mints **an R2 temporary credential for the private
+     `storefront-sites` bucket only, limited to a staging folder `stores/{id}/uploads/{build id}/`
+     and to 15 minutes**. Nothing is ever staged in the public `storefront-assets` bucket. The
+     step uploads the HTML and data files, the hashed JS and CSS, and a **manifest** listing every
+     file with its SHA-256 and each HTML file's headers (its CSP, from core's `pageHeaders`:
+     ARCHITECTURE §3.5), then tells the API "uploaded".
+   - **On a failure** nothing is uploaded. The API records the report, and the repair, bisect or
+     refuse steps of ARCHITECTURE §4.2 step 4 start from it. A repair runs in the studio's
+     sandbox (AI-STUDIO), then a new build. The live site stays as it was, and nothing became
+     public.
+
+   **Built on #517**: the step lists every file of the site folder with its SHA-256 and size (sorted, so its digest is
+   the check step's), and stops if the folder holds a link or anything but files and folders, which would otherwise
+   carry a runner file into a public site. It uploads the folder and then `_manifest.json` with `aws s3 cp
+   --no-follow-symlinks` and the 15-minute credential, and calls `uploaded`. The platform's hooks host comes as the
+   dispatch's `api` input, beside `build_id`. Headers in the manifest are optional until core's build writes
+   `pageHeaders` for each page (#483); only `content-security-policy`, and only on HTML, is accepted.
+
+   *Why:* the credential can't touch a build folder, another store or anything already live.
+9. **Verify, copy, switch, then push.** The API:
+   1. checks that the report came through an OIDC-verified call (§9) and passed, and that the
+      manifest's digest equals the report's;
+   2. reads each staged object **once**, through its R2 binding, streaming the same bytes into
+      both a SHA-256 hash and a write to the build's folder in the private bucket
+      (`stores/{id}/builds/{build id}/` in `storefront-sites`). It keeps that object only if the
+      hash matches the manifest (R2's upload checksums aren't relied on), so a file can't be swapped
+      between the check and the copy. From "uploaded" on, the API ignores the staging folder:
+      anything written there later is never read, and the folder is deleted in item 3 below. Only then
+      are the verified JS and CSS copied from that private build folder, which no credential can
+      write, into `stores/{id}/builds/{build id}/assets/` in the public `storefront-assets`. A file
+      the manifest marks unchanged since the live build *(proposed, §10)* is copied server-side
+      from the live build's folder instead, after the same check, so **every build folder is
+      complete on its own**: the Worker never follows a reference, and clean-up can delete any old
+      build. **Built on #517** (`saas/storefronts/verify.ts`, the publish run's `verify` step): at "uploaded" the staged
+      `_manifest.json` is read once and kept on `publish_run.upload_manifest` only when its digest is the report's
+      (otherwise the publish fails `manifest_refused`); no credential is issued after it. Each file it lists is then read
+      once into memory, hashed, and those same bytes written to the build folder with R2's own SHA-256 check on the write;
+      one missing or not matching fails the publish (`file_missing`, `file_mismatch`) and nothing goes live. Every `.js`
+      and `.css` file then goes to `storefront-assets` at `stores/{id}/builds/{b}/assets/<its path>`, read back from the
+      private folder, and the manifest is written last, so a build folder with one is whole. `verified_at` is set, and the
+      switch refuses a build without it;
+   3. deletes the staging folder, moves the live pointer, records the new build as live
+      (`publish_run` with the report as its `gate`, `design_version`) and refreshes the edge
+      Worker's lookup (§5 step 1). **Built on #317**: one transaction moves `storefront.live_build_id`, marks the run
+      live with the build it replaced (`previous_build_id`), numbers the new `design_version` (the old live one becomes
+      kept), updates the store's mirror, queues `cache.purge` and records `storefront.published`; the staging folder
+      goes after it. **Go back** (`goBack`, which #318's Store API calls) is the same pointer move to a kept version's
+      build in one transaction, with no run of its own: refused while a publish runs or once clean-up removed the build,
+      and the draft is reset to that version's commit;
+   4. for a design publish, pushes the published tree to the repo's `main` as **one squashed
+      commit with a platform-written message** ("Publish version N" and the build id), through
+      the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6). The merchant's requests, the per-change
+      commits and undone versions stay private. If GitHub is down, the push
+      retries through the outbox; the live site doesn't wait for it. The push is made from the
+      live build's source bundle, so one that lagged catches up with a commit for each version
+      published since `main`, fast-forward.
+
+   *Why:* **build folders are write-once by construction**, because no credential ever names
+   them, so a kept build stays exactly as it was for going back. The build that goes live is
+   provably the build that passed: the same bytes, checked by a run of the locked workflow the
+   API started. A switch is atomic in each data centre and everywhere within the lookup's
+   60-second limit (§5 step 1). The repo gets the code only once it is live; `main` follows the
+   live code, usually within seconds, but the platform never reads it back: the live build's
+   source bundle is the record (step 3). Each core version's shared runtime (`core/{version}/`) is written only
+   by the release workflow. The post-deploy checks (step 10) are the platform's own backstop.
+10. **Post-deploy checks and automatic rollback**, from the edge, run by the platform, follow
+    ARCHITECTURE §4.2 steps 5–6. A rollback is the same pointer move back to the previous build:
+    no rebuild, live everywhere within a minute (§5 step 1).
+    **Built on #484** (`saas/storefronts/postDeploy.ts`, the run's `checks`, `rollback` and `confirm` steps): the switch
+    moves the pointer and numbers the version, and the run stays `deploying`, so a press waits and go back is refused,
+    until the checks end. They run on the store's own address (its oldest live custom domain, else its free address, §6),
+    through `integrations/http/edgeProbe.ts`: every call has a 10-second timeout and up to three tries with growing
+    waits. Every answer of the edge Worker names the build it came from (`x-df-build`), and the checks wait, 10 seconds
+    at a time, until it is the new one, for two minutes at most. Then, decided here as plain HTTP from the API Worker:
+    - **home**, **product** (the first `products/{slug}/index.html` of the build's manifest) and **checkout** (its
+      `checkout/index.html`) open: 200, HTML, and each of their scripts and stylesheets on the store's own host or the
+      asset host answers 200 (a theme loads nothing from elsewhere, so no other host a page names is fetched). A build with no
+      checkout page fails; one with no product page skips the product and cart checks;
+    - **cart**: the Shop API, through the store's own `/shop-api`, answers that product with a version to add. No cart
+      is created on a merchant's live store;
+    - **payment**: the Shop API's `paymentOptions` answer, and every card provider among them has the public key its
+      payment element needs. A store that takes no payment yet skips it.
+
+    store-proxy marks every answer on a store's host with `x-df-build` (`none` before a first publish). An address that
+    doesn't answer at all (DNS, TLS, timeouts), or whose answer the edge Worker didn't give (a parked domain, a proxy in
+    front), skips every check rather than failing the build, which can't cause that. A failure is tried once more 10 seconds later before it counts. No call starts after five minutes: what is left is
+    skipped, never failed, so a slow store isn't rolled back for slowness; the step has its own 10-minute limit. Then the run is live (`storefront.published`), or the
+    pointer moves back to `previous_build_id` in one transaction: the run reads `rolled_back` with the failed check as
+    its error (`check_home`, `check_product`, `check_cart`, `check_checkout`, `check_payment`), its version is
+    withdrawn and the one before is live again, the lookup is purged and `storefront.rolled_back` is recorded. A store's
+    first publish rolls back to no build. When a repair's build (#483) went live in the publish's place, it is that build
+    that is checked and rolled back, and the publish fails with the check's code. Anything that breaks after the switch rolls back the same way, and a replayed
+    rollback changes nothing. Its build folder stays as it was, for the repair loop (#483). Checking the theme's own
+    behaviour in a browser (pressing Add to cart, the payment element drawn) needs a headless browser; *proposed* as a
+    follow-up with Cloudflare Browser Rendering.
+11. **Clean-up:** a store keeps its last **20** builds (decided on #317, as proposed) and every build a kept
+    version in the history refers to (SAAS §9.2). Older build folders are deleted, along with
+    each build's snapshot and its source bundle (`sources/{store}/{build id}.bundle`). Staging
+    folders are deleted at the switch or when a run fails. **Deleting a store** (or a deletion
+    request) deletes all its folders in both buckets and everything of its in the drafts bucket:
+    the draft, every source bundle and every snapshot (SAAS §5).
+    **Built on #317** (`saas/storefronts/cleanup.ts`, the daily `0 3 * * *` cron, 50 of each a day, oldest first; one item
+    that fails is logged and retried the next day, never stopping the rest): a build past the
+    newest 20 that went live, named by no version, not live and whose assets no kept page run loads (#484), every failed
+    run's build and every bisect probe that passed (`checked`, never uploaded) lose their build and staging folders,
+    their assets folder, source bundle and snapshot, marked `files_deleted_at`. *Decided on #317:* deleting a
+    store is SAAS §4.2's "closed, then deleted after 90 days", so a store closed for 90 days loses all its files in the
+    three buckets once (`storefront.files_deleted_at`); a deletion request reaches the same function when that flow is
+    built.
+
+**The build calls** (built on #517, `apps/api/src/apis/builds.ts`). The workflow's runner steps call
+`POST https://<hooks host>/builds/<step>` with a fresh OIDC token for the audience `https://<hooks host>` in
+`Authorization: Bearer`, and `{"build": "<build id>"}` in the body:
+
+| Step | Allowed when | Answers |
+|---|---|---|
+| `start` (step 5) | The build is `building` and has no report | 15-minute links: `source`, `snapshot`, and `live` (each file of the live build by path, or null before the first publish); since #483 also `commit` (what to check out of the source), `core` (the build image's version) and `strictLook` (a core upgrade, whose look mustn't change) |
+| `report` (step 7) | No report yet; the body adds `passed` (ignored since #806: the API derives it from the check names), `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …, "upload": …}`. Kept on `publish_run.gate` once with `build_minutes` (since the dispatch, rounded up): a pass moves the build to `deploying`, a failure to `checking` for its publish run to decide (#483); each answer wakes that run; the same report again gets the same answer. `upload` says whether the workflow uploads |
+| `credentials` (step 8) | After a passing report and before "uploaded" | `endpoint`, `bucket`, `prefix` (the staging folder) and the 15-minute `accessKeyId`, `secretAccessKey`, `sessionToken` |
+| `uploaded` (step 9) | After a passing report; the same call again gets the same answer | `{"uploaded": true}`, or the refusal when the staged manifest is missing or its digest isn't the report's. Either way the upload is over, and the build's publish run is woken to verify it or fail it |
+
+Every refusal is the same `403 {"error":"refused"}`, whatever its cause; the cause goes to the technical log
+(LOGGING §9) and, for a run that proved itself and named a real build, to that store's activity log for staff. GitHub's
+keys or Cloudflare not answering is `503`, and more than 60 calls a minute from one address is `429`. A build id is
+good for **2 hours from its dispatch** (`publish_run.started_at`; decided on #517: the job's 30 minutes and a wait for a
+runner), and only for the first run that uses it.
+
+---
+
+## 5. Serving a page
+
+What the edge Worker does on each request to a storefront host.
+
+1. **Hostname → store, live build and state**, cached in each data centre through the Cache
+   API for **at most 60 seconds**. On a miss, the Worker asks the API Worker (service binding,
+   Postgres through Hyperdrive). A publish, a domain change or a state change also sends a purge
+   by the store's cache tag, which makes the change show sooner where it reaches. Nothing depends
+   on that purge: the Cache API is per data centre, and Cloudflare doesn't promise every purge
+   reaches its entries. *Checked 2026-10-11 on #317:* Cloudflare's "How the cache works" says a
+   Worker's cache tags can purge Cache API entries selectively, and also that "not all cache purge
+   endpoints function for purging assets stored by the Cache API"; `cache.delete` reaches only the
+   data centre it runs in. So the purge stays a speed-up. A switch, a rollback or a suspension is atomic
+   in each data centre and reaches every data centre **within 60 seconds**.
+   **Built on #317:** on a miss the edge Worker calls the API's `StorefrontEdge` entrypoint
+   (`liveHost`, through a service binding: the store, its partner, `storefront.live_build_id` and
+   how it is served) and stores the answer under the tags `df-store-{store}`, `df-host-{host}` and
+   `df-partner-{partner}`. The `cache.purge` rows that publishing, domains (#468) and a store's or
+   partner's state queue are delivered by `jobs/queues/deliverers/cachePurge.ts`, purging those tags on
+   `CF_SAAS_ZONE_ID` with `CF_CACHE_PURGE_TOKEN`; without the token they wait in the outbox, and the
+   60 seconds do the work. A lookup that can't reach the database is an error, never "unknown", so
+   nothing wrong is cached.
+   *Why:* the store comes **only from the hostname**, never from the path or the client. A KV
+   read on every request would cost more than the requests themselves; a cache lookup costs
+   nothing extra. A miss happens at most once a minute per store per data centre, roughly once
+   per visit at 1,000 visits a day, which the API and Postgres take easily. A strongly consistent
+   lookup on every request (a Durable Object) would cost a call per page for a minute's gain.
+   **Built on #471:** the lookup also answers the store's primary address (SAAS §8), and a page request on any other
+   address of the store gets a 301 to it, keeping the path and query; `/shop-api/*` and the IndexNow key are answered
+   on every address. A lookup without the field (an older API) redirects nothing.
+2. **A suspended store** gets its degraded page from the Worker, with no rebuild
+   (ARCHITECTURE §4.2, DESIGN-BRIEF fact 9). *Decided on #317:* a past-due store keeps selling as
+   normal, as SAAS §4.2 decided on #284 (core's `useStorefront()` has the state for a notice); a
+   cancelled store past its paid period, or a closed one, is offline and gets a 404.
+3. **`/shop-api/*` goes to the API Worker** through a service binding, keeping the shopper's
+   own hostname ([../ARCHITECTURE.md](../ARCHITECTURE.md) §2).
+   *Why:* same origin, so the shopper's cookies stay first-party and there is no CORS.
+4. **Any other path → the file** `stores/{id}/builds/{live build}/{path}` from the edge cache,
+   or from R2 on a miss. **The cache key is the store id, the build id and the path**, and build
+   ids are random and unique across the platform (the `publish_run` id), so no store's cached page
+   can answer for another's (AGENTS.md: cache keys always include the tenant).
+   *Why:* when the pointer moves, old cached pages simply stop matching, so a switch is atomic.
+5. **The file is passed through untouched**, with headers set from the build: the CSP (built
+   from fixed hashes, never a fresh nonce), the cache rules, and the redirects the build
+   recorded (renamed products' 301s, ARCHITECTURE §8).
+   *Why:* reading or rewriting every page would multiply the Worker's CPU time. Passing the file
+   through keeps it at about 1–2 ms a request.
+6. **Unknown or removed product addresses** get a client-rendered fallback, a 404 or a
+   redirect (ARCHITECTURE §4.2, "Staying current").
+   **Built on #317**, with the build folder's contract decided there (#517 and #483 write it): every object carries the
+   headers it is served with in its R2 metadata (`contentType`, `cacheControl`, and the CSP as the custom field `csp`),
+   copied from the manifest when the API copies it in (§4 step 9), so the Worker parses nothing per request; and
+   `_edge.json` lists the build's redirects (`from`, `to`: 301; every path in it is plain ASCII names on the store's own
+   host with no query or fragment, the same rule as every path the Worker serves, so a rule like `//host`, `/\host` or
+   `/new/?ref=old` is ignored rather than followed), its client-rendered fallbacks (`prefix`, `page`: a path
+   under the prefix with no file gets that page) and its 404 page (`notFound`), read only when a path has no file. A page
+   path is `{path}/index.html`; anything that isn't plain names (`..`, an encoded slash or backslash, a control character)
+   is a 404 before R2 is asked. **Built on #484:** a path with no file and no `_edge.json` redirect is looked up in the store's
+   renamed addresses (`storefront_redirect`, DATA-MODEL §7.8, without the trailing slash; one recorded for every language
+   also answers under another language's prefix, keeping it). The edge reads them as one list, the newest 5,000, from
+   the API's `StorefrontEdge.redirects` and caches it like the lookup, at most 60 seconds under the store's tag, so a
+   rename's 301 needs no rebuild and no shopper's path is ever a database read; a list naming anything but plain paths on
+   the store's own host is refused. Every answer from a build names it in `x-df-build` (§4 step 10). A suspended store's degraded page (503) shows only its name; a cancelled store past its
+   period, a closed one or one never published gets a 404. Each file is cached under the host, the store, the build and
+   the path, kept immutably (a build never changes) and sent with the build's own cache rules.
+7. **JS, CSS and images** load from the shared asset host (`storefront-assets` through its own
+   domain, outside the catch-all route; it holds only verified build folders and `core/`) and from Cloudflare image resizing, never through this
+   Worker.
+
+---
+
+## 6. Domains
+
+- **Every store's free address is `{slug}.my-store.one`** (decided 2026-10-15 with Gaurav,
+  [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2), for every partner, and it keeps working
+  after the merchant connects a domain (it redirects to the primary one, SAAS §8). The domain is
+  set up once with the previews' ([PREVIEW.md](PREVIEW.md) §2): one wildcard record, added by hand, Cloudflare's
+  free certificate and one Worker route, so nothing is registered or paid per store. The edge
+  Worker finds the store by its `slug`; a closed store's slug answers as no store does.
+  *Why:* a wildcard custom hostname under each partner's domain would need Enterprise, and
+  registering each store's name costs $0.10 a month past the first 100.
+  *Replaced* `{shop}.shops.<partnerdomain>` (#519, taken out on #745: the per-store registration,
+  `store_host.sync` and the partner's `shops` domain kind are gone, and old `{code}.shops.` hosts answer 404).
+- **A merchant's own domain** is another custom hostname on the same zone (SAAS §8). It reaches
+  the same edge Worker, which maps it to the same store.
+- Each merchant domain costs about $0.10 a month after the first 100, on every plan below
+  Enterprise (checked 2026-10-09).
+
+---
+
+## 7. Updates between publishes
+
+- **A new or renamed product** gets its page at once with a **single-page render** (decided
+  2026-10-08 on #470: page, sitemap, redirect, IndexNow, no allowance). **Where it runs: the store's workflow with a
+  one-page input** (decided on #484): about a minute, free, and through the same checks as every publish (§4 steps 5–10),
+  rather than a container render in seconds that is billed and would need its own gate path.
+- **Saving the home page's search and sharing** re-renders the home page the same way (SAAS
+  §9.2).
+- Either way, the new files go into a **new build folder**, the API copies the live build's
+  other files into it server-side (§4 step 9), and the pointer moves. Every build folder stays
+  complete on its own.
+  *Why:* a live build is never changed in place, so it can always be gone back to.
+- **Built on #484** (`saas/storefronts/render.ts`, `jobs/workflows/render-page.ts`):
+  - **Asked for** through the outbox (`storefront.render`: the store, the addresses to render and those to leave out),
+    by triggers when a product becomes visible or a visible one's address changes in any language (migration 0287), and by
+    #471's home page save with `/`. A store with no live build waits for its first publish.
+  - **A page run** (`publish_run.kind = 'page'`, `render`, no allowance) of the live build's commit, one at a time like
+    every run. A waiting page run takes later addresses (the later request wins where two disagree), up to 100, past
+    which it becomes an automatic full publish; a press behind it widens it into that publish.
+  - **The build**: the frozen snapshot's `assetBase` is the live build's asset folder, since the same commit builds the
+    same JS and CSS byte for byte. *Until the build image takes a page list* (`renderInputs` gives it, with a `pages`
+    input on the locked workflow: a follow-up of #483's build), a page run builds every page of the live commit from a
+    fresh snapshot, so its folder is the same, only slower. The upload is verified as any (§4 step 9); then the API
+    copies every other file of the live build's folder into the new one, 500 a Workflow step, leaving out the moved
+    addresses' folders, and writes the whole manifest last. The run records `assets_build_id`, and clean-up keeps a
+    build while a kept one loads its assets.
+  - **The switch** makes the new folder the live version's build (no new version), then the post-deploy checks; a
+    rollback gives the version its build back. Once it stays live, `storefront.indexnow` tells IndexNow the pages that
+    changed or went.
+
+---
+
+## 8. Core upgrades and security fixes
+
+- **The upgrade bot** (ARCHITECTURE §7, SAAS §10) makes the new core version's pin and its
+  codemods a commit on top of the live commit, kept privately like a draft. It runs §4 with the
+  new build image, and the commit reaches the repo's `main` only once that build is live.
+  *Why:* the same pipeline, so an upgrade is checked exactly like a merchant's publish.
+  **Built on #485**: the commit and the files it changed are kept in the drafts bucket as
+  `upgrades/{store}/{commit}.bundle` and `.json`; freezing an `upgrade` or `security` run copies that bundle as the
+  build's source (§4 step 3), and `start` answers `strictLook` for a patch or minor and for a security fix on the store's
+  own theme, never for a major's check-only build or the baseline. Once the build is live, `storefront.upgrade_push`
+  sends the files through the push API (`upgrade` reason) and deletes the private copy; a commit that won't go live is
+  deleted at once; deleting a store deletes its `upgrades/` too (§4 step 11). SAAS §10 has the rest.
+- **Waves are limited by Actions concurrency** (§10). A security fix is queued ahead of
+  automatic publishes. **Built on #485** (SAAS §10): upgrades running at once stay under `GITHUB_ACTIONS_JOBS`,
+  half of it for an upgrade and all of it for a security fix.
+- **The baseline-theme fallback** for a store whose theme can't take a security fix
+  (ARCHITECTURE §7) is a build of the baseline theme with the store's words and colours. It is
+  stored and switched like any other build. **Built on #485** (SAAS §10): a `security` run with `baseline`, never
+  pushed to the repo.
+
+---
+
+## 9. Isolation and security
+
+- **The OIDC check.** The API accepts a token only when every one of these holds:
+  - the issuer is GitHub's (`token.actions.githubusercontent.com`), the signature one of GitHub's published keys
+    (RS256 only; the key set cached and fetched again for a key id it doesn't hold), it hasn't expired, and the
+    audience is ours (`https://<hooks host>`, so a token for one environment is worthless in another);
+  - `repository_id` is that store's repo (`storefront.repo_id`, the id GitHub gave the repo, never its name);
+  - `job_workflow_ref` is the locked workflow on `main`, and `ref` is `main`;
+  - the event is `workflow_dispatch`;
+  - the build id is unexpired, belongs to that store, and is bound to the first `run_id` that
+    uses it.
+
+  *Why:* a token from any other repo, workflow, branch or run is worthless.
+- **The AI's code holds nothing and reaches nothing.** The static build and the checks run
+  inside `--network none` containers with an allowlisted environment (§4 step 5): no secrets,
+  no tokens, no network. Only the locked workflow's own runner steps use OIDC, and the upload
+  credential exists only after a passing report, for a staging folder, for 15 minutes. Every
+  third-party action in the workflow is pinned by commit hash.
+  *Why:* the AI-written code and any token or credential are never within reach of each other.
+- **The workflow's permissions:** `id-token: write` and nothing else (no `contents: write`).
+  There is one job, so there are no artifacts to forge or to read.
+- **The report is bound to the bytes**: the check step's digest must equal the manifest's, and
+  every staged object must hash to its manifest entry before the API copies it into the build's
+  folder and moves the pointer (§4 step 9).
+- **The repo is public by design, so nothing private ever reaches it:**
+  - no secrets;
+  - no catalogue snapshot or built site (the run fetches them through 15-minute links and keeps
+    them on the runner; there are no artifacts);
+  - no draft until its publish is live (§4 step 2), and then only one squashed commit per
+    published version, with a platform-written message: never the merchant's requests, the
+    per-change commits or undone versions (§4 step 9);
+  - nothing in the logs but which step ran and whether it passed.
+- **Who touches each bucket** (§2 table): the edge Worker only reads `storefront-sites`, building
+  every key from the hostname's store, so no request can name another store's folder. The API
+  reads staging folders and writes build folders; the studio's Durable Object writes preview
+  folders; an upload credential writes one staging folder for 15 minutes. The drafts bucket is
+  the platform's alone (§2).
+- **The GitHub App is the only writer** to store repos (THIRD-PARTY-ACCESS §2.3), and merchants
+  never get repo access (SAAS §10).
+
+---
+
+## 10. Limits and cost
+
+Checked against the providers' pages on 2026-10-09. The estimates are ours, not measurements.
+
+- **GitHub Actions concurrency is shared by every repo in the org**: 20 jobs at once on Free, 60
+  on Team, 500 on Enterprise; a job may run 6 hours. One build a day for 5,000 stores is about
+  20,000 build-minutes a day, roughly 14 at once on average. The org's plan follows from that
+  *(decide on #287)*.
+- **GitHub's Actions terms** forbid "excessive use" and serverless use. Thousands of repos
+  building on a schedule should be raised with GitHub before it reaches that size, and a
+  fallback should exist: the same build image run in Cloudflare Containers *(decide)*.
+- **Cloudflare list prices:**
+  - Workers: $0.30 per million requests, cache hits included, plus $0.02 per million CPU ms.
+  - R2: $0.015 per GB-month; $4.50 per million writes; $0.36 per million reads.
+  - Cloudflare for SaaS: $0.10 per hostname per month after 100.
+- **What keeps the bill small:**
+  - assets off the Worker path (§5 step 7);
+  - the hostname lookup in the cache, not KV (§5 step 1);
+  - no per-request HTML rewriting (§5 step 5);
+  - uploading only the files that changed since the live build: the manifest marks the rest
+    unchanged, and the API copies them server-side from the live build's folder into the new one
+    (§4 step 9), so every build folder stays complete *(proposed)*.
+- **For scale:** our estimate for 5,000 stores with 1,000 visits a day each and one build a day
+  each is about **$3,500–5,000 a month all-in**, studio included. About $250 of that is the edge
+  Worker.
+
+---
+
+## 11. Open questions
+
+- ~~Where the publish checks run and what switches a store to its new build.~~ Inside the build
+  workflow; the API switches on an OIDC-verified passing report (decided 2026-10-09, §4 steps
+  7–9).
+- ~~Whether the checkout smoke test can run offline against core's Shop API fixture~~ It does, leaving the real
+  checkout to the post-deploy check (decided on #483, ARCHITECTURE §4.2).
+- The GitHub org's plan for Actions concurrency *(decide on #287)*.
+- A fallback build runner if GitHub limits Actions on the org *(decide)*.
+- ~~Where single-page renders run~~: the store's workflow with a one-page input (decided on #484, §7).
+- **Image resizing cost** *(ask)*. Cloudflare image resizing (decided 2026-10-05 on #337) bills
+  each unique transformation again every calendar month. For 5,000 stores with 1,000 images in 4
+  sizes, that is about 20 million transformations, roughly $10,000 a month at list price.
+  Resizing once at upload and storing the sizes in R2 would cost a small fraction of that.
+- ~~How many builds a store keeps~~ 20, beyond any a kept version names (decided on #317, §4 step 11); ~~the bucket names~~ `storefront-sites`, `storefront-assets`
+  and `storefront-drafts`, with `-dev` and `-local` on dev and locally (decided on #317: the environments are separate
+  Cloudflare accounts, and prod's names match `ASSETS`' unsuffixed `dripfunnel-assets`); the asset host is
+  `sf-assets.<SHOP_DOMAIN>`, an R2 custom domain on `storefront-assets` (decided on #317, moved from `EDGE_ZONE` to the shop domain's zone;
+  the catch-all route is excluded for it); ~~the repo names~~ `sf-` and ten letters or digits (decided on #316).
+- Rendering pages on request instead of building them all (Workers for Platforms, a Worker per
+  store) is a later option for very large catalogues. It isn't planned.

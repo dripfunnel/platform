@@ -1,3 +1,1368 @@
+type ActionPermission {
+  allowed: Boolean
+  reason: String
+}
+
+type ActivityActor {
+  id: String
+  kind: String
+  label: String
+}
+
+type ActivityChange {
+  after: String
+  before: String
+  field: String
+}
+
+type ActivityExportJob {
+  csv: String
+  expiresAt: String
+  id: ID
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type ActivityExportResult {
+  jobId: String
+  ok: Boolean
+  reason: String
+}
+
+type ActivityPerson {
+  detail: String
+  kind: String
+  name: String
+  ref: String
+}
+
+type ActivityTarget {
+  id: String
+  label: String
+  type: String
+}
+
+type BillingClientConfig {
+  publishableKey: String
+}
+
+type BillingPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type BillingResult {
+  ok: Boolean
+  reason: String
+}
+
+type BillingSettings {
+  asOf: String
+  mode: String
+  payoutAccount: PayoutAccount
+  staleSince: String
+}
+
+type BrandFiles {
+  appIcon: String
+  appIconForeground: String
+  favicon: String
+  logoDark: String
+  logoLight: String
+  mark: String
+  splash: String
+}
+
+input BrandFilesInput {
+  appIcon: String! = ""
+  appIconForeground: String! = ""
+  favicon: String!
+  logoDark: String!
+  logoLight: String!
+  mark: String!
+  splash: String! = ""
+}
+
+type BrandLook {
+  accent: String
+  background: String
+  corner: String
+  files: BrandFiles
+  font: String
+  primary: String
+  productName: String
+}
+
+input BrandLookInput {
+  accent: String!
+  background: String!
+  corner: String!
+  files: BrandFilesInput!
+  font: String!
+  primary: String!
+  productName: String!
+}
+
+type BrandWords {
+  dpaUrl: String
+  helpUrl: String
+  impressum: String
+  poweredBy: Boolean
+  privacyUrl: String
+  supportEmail: String
+  supportUrl: String
+  termsUrl: String
+}
+
+input BrandWordsInput {
+  dpaUrl: String!
+  helpUrl: String!
+  impressum: String!
+  poweredBy: Boolean!
+  privacyUrl: String!
+  supportEmail: String!
+  supportUrl: String!
+  termsUrl: String!
+}
+
+type Branding {
+  affects: Int
+  contrast: ContrastReport
+  dpaRequired: Boolean
+  impressumRequired: Boolean
+  look: BrandLook
+  permission: BrandingPermission
+  poweredByRule: String
+  published: Boolean
+  words: BrandWords
+}
+
+input BrandingInput {
+  look: BrandLookInput!
+  words: BrandWordsInput!
+}
+
+type BrandingPermission {
+  allowed: Boolean
+  reason: String
+}
+
+type ChangePlanOption {
+  amount: Int
+  currency: String
+  id: ID
+  name: String
+  proration: StoreProration
+}
+
+type ChangePlanOptions {
+  nextBillingAt: String
+  ok: Boolean
+  plans: [ChangePlanOption!]
+  reason: String
+}
+
+type ContrastPair {
+  key: String
+  passes: Boolean
+  ratio: String
+}
+
+type ContrastReport {
+  fix: String
+  pairs: [ContrastPair!]
+  passes: Boolean
+}
+
+type CreateStoreForm {
+  billingMode: String
+  countries: [StoreCountry!]
+  permission: StoreCreatePermission
+  plans: [StoreCreatePlan!]
+  trials: [Int!]
+}
+
+input CreateStoreInput {
+  country: String!
+  name: String!
+  ownerEmail: String!
+  ownerName: String!
+  planId: ID!
+  trialDays: Int!
+}
+
+type CreateStoreResult {
+  field: String
+  ok: Boolean
+  reason: String
+  storeId: String
+}
+
+type DashboardAttention {
+  action: DashboardAttentionAction
+  detail: String
+  kind: String
+  storeId: ID
+  storeName: String
+  tab: String
+}
+
+type DashboardAttentionAction {
+  allowed: Boolean
+  code: String
+}
+
+type DashboardNearLimit {
+  limit: Int
+  limitKey: String
+  percent: Int
+  storeId: ID
+  storeName: String
+  used: Int
+}
+
+type DashboardRevenue {
+  collected: Money
+  comparison: String
+  fee: Money
+  nextPayoutAt: String
+  payout: Money
+}
+
+type DashboardSignups {
+  comparison: String
+  completed: Int
+  conversion: String
+  started: Int
+}
+
+type DashboardStores {
+  byStatus: DashboardStoresByStatus
+  newThisMonth: Int
+  total: Int
+}
+
+type DashboardStoresByStatus {
+  active: Int
+  pastdue: Int
+  suspended: Int
+  trial: Int
+}
+
+type DashboardTopStore {
+  plan: String
+  sales: Money
+  storeId: ID
+  storeName: String
+}
+
+type DashboardUsage {
+  nearCount: Int
+  stores: [DashboardNearLimit!]
+}
+
+type GoLiveChecks {
+  emailDomain: Boolean
+  legalPages: Boolean
+  portalHost: Boolean
+  pricedPlan: Boolean
+}
+
+type GrowthReport {
+  bars: [ReportCountBar!]
+  fresh: Boolean
+  rows: [GrowthRow!]
+  summary: String
+}
+
+type GrowthRow {
+  churned: Int
+  month: String
+  netStores: Int
+  newStores: Int
+  signups: Int
+  trialToPaidBps: Int
+}
+
+type InvoiceLink {
+  ok: Boolean
+  reason: String
+  url: String
+}
+
+type Me {
+  email: String
+  id: ID
+  name: String
+  partner: Partner
+  role: String
+}
+
+type MerchantDomain {
+  host: String
+  since: String
+  status: String
+  storeId: ID
+  storeName: String
+}
+
+type MerchantDomainPage {
+  items: [MerchantDomain!]
+  pageInfo: MerchantDomainPageInfo
+}
+
+type MerchantDomainPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type MerchantPayment {
+  amount: Money
+  at: String
+  cardLast4: String
+  id: ID
+  kind: String
+  note: String
+  status: String
+  storeId: ID
+  storeName: String
+}
+
+type MerchantPaymentsPage {
+  failed: [RetryingPayment!]
+  failedMore: Boolean
+  items: [MerchantPayment!]
+  pageInfo: BillingPageInfo
+}
+
+scalar MinorUnits
+
+type Money {
+  amount: MinorUnits
+  currency: String
+}
+
+input MoneyInput {
+  amount: Int!
+  currency: String!
+}
+
+type MrrRow {
+  amount: Money
+  approximate: Boolean
+  plan: String
+}
+
+type Mutation {
+  addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
+  addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
+  changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
+  changeTeamRole(id: ID!, role: String!): TeamResult
+  createPlan(input: PlanInput!): PlanResult
+  createStore(input: CreateStoreInput!): CreateStoreResult
+  endSupportSession(id: ID!): SupportSessionResult
+  exportActivity(filter: PartnerActivityFilterInput): ActivityExportResult
+  exportReport(filter: ReportFilterInput, tab: String!): ReportExportResult
+  exportStores(filter: StoreFilterInput): StoresExportResult
+  extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
+  inviteTeamMember(email: String!, name: String!, role: String!): TeamResult
+  makePlanLive(id: ID!): PlanResult
+  publishBranding(input: BrandingInput!): PublishBrandingResult
+  reauthenticate(code: String!): ReauthResult
+  recheckMerchantDomain(storeId: ID!): PartnerDomainResult
+  recheckPartnerDomain(kind: String!): PartnerDomainResult
+  removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
+  removePartnerDomain(kind: String!): PartnerDomainResult
+  removeTeamMember(id: ID!): TeamResult
+  resendStoreOwnerInvite(id: ID!): StoreActionResult
+  resendTeamInvite(id: ID!): TeamResult
+  restoreStore(id: ID!, reason: String!): StoreActionResult
+  retirePlan(id: ID!, input: RetirePlanInput!): PlanResult
+  retryProvisioningStep(id: ID!): StoreActionResult
+  returnToSupportSession(id: ID!): SupportSessionLink
+  revokeTeamInvite(id: ID!): TeamResult
+  setBillingMode(mode: String!): BillingResult
+  setPaymentMethod(token: String!): BillingResult
+  setPayoutAccount(token: String!): BillingResult
+  setSecondFactorPolicy(required: Boolean!): TeamResult
+  setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
+  startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
+  submitForApproval: SubmitForApprovalResult
+  suspendStore(id: ID!, reason: String!): StoreActionResult
+  transferOwnership(toUserId: ID!): TeamResult
+  updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
+}
+
+type NavBadges {
+  billingFailedPayments: Int
+  brandingSetupLeft: Int
+  domainsWaiting: Int
+  storesAttention: Int
+  supportOpenSessions: Int
+}
+
+type NextPayout {
+  date: String
+  soFar: Money
+  state: String
+  toLast4: String
+}
+
+type Onboarding {
+  canSubmit: ActionPermission
+  checks: GoLiveChecks
+  fallbackSenderAccepted: Boolean
+  fixes: [OnboardingFix!]
+  items: [OnboardingItem!]
+  sentBackReason: String
+  submittedAt: String
+  submittedBy: String
+}
+
+type OnboardingFix {
+  item: String
+  to: String
+}
+
+type OnboardingItem {
+  detail: String
+  doneBy: String
+  key: String
+  status: String
+  to: String
+}
+
+type Partner {
+  host: String
+  id: ID
+  name: String
+  product: String
+  state: String
+}
+
+type PartnerActivityEntry {
+  action: String
+  actor: ActivityActor
+  at: String
+  category: String
+  changes: [ActivityChange!]
+  id: ID
+  onBehalfOf: String
+  reason: String
+  result: String
+  storeId: String
+  storeName: String
+  target: ActivityTarget
+  through: String
+}
+
+input PartnerActivityFilterInput {
+  action: String
+  date: String
+  result: String
+  storeId: ID
+  who: String
+}
+
+type PartnerActivityPage {
+  items: [PartnerActivityEntry!]
+  pageInfo: PartnerActivityPageInfo
+}
+
+type PartnerActivityPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type PartnerAddress {
+  added: Boolean
+  checkedAt: String
+  host: String
+  kind: String
+  records: [PartnerDomainRecord!]
+  since: String
+  status: String
+  zone: String
+}
+
+type PartnerCompany {
+  billingContact: PartnerContact
+  contract: PartnerContractTerms
+  country: String
+  kind: String
+  mainContact: PartnerContact
+  name: String
+  region: String
+  secondFactorRequired: Boolean
+}
+
+type PartnerContact {
+  email: String
+  name: String
+}
+
+type PartnerContractTerms {
+  feeCurrency: String
+  fees: [PartnerPlanFee!]
+  moreFees: Boolean
+  poweredByNote: String
+  poweredByRemovable: Boolean
+}
+
+type PartnerDashboard {
+  asOf: String
+  attention: [DashboardAttention!]
+  fresh: Boolean
+  range: String
+  revenue: DashboardRevenue
+  signups: DashboardSignups
+  staleSince: String
+  stores: DashboardStores
+  top: [DashboardTopStore!]
+  usage: DashboardUsage
+}
+
+type PartnerDomainAddPermission {
+  allowed: Boolean
+}
+
+type PartnerDomainRecord {
+  found: String
+  matches: Boolean
+  name: String
+  purpose: String
+  type: String
+  value: String
+}
+
+type PartnerDomainResult {
+  apex: Boolean
+  id: String
+  ok: Boolean
+  reason: String
+}
+
+type PartnerDomains {
+  add: PartnerDomainAddPermission
+  addresses: [PartnerAddress!]
+  fallbackAddress: String
+  fallbackSender: String
+}
+
+type PartnerInvoice {
+  amount: Money
+  at: String
+  id: ID
+  number: String
+  status: String
+  what: String
+}
+
+type PartnerInvoicesPage {
+  items: [PartnerInvoice!]
+  pageInfo: BillingPageInfo
+}
+
+type PartnerPayout {
+  adjustment: PayoutAdjustment
+  collected: Money
+  fee: Money
+  id: ID
+  month: String
+  paidOn: String
+  payout: Money
+  status: String
+  toLast4: String
+}
+
+type PartnerPayoutsPage {
+  items: [PartnerPayout!]
+  pageInfo: BillingPageInfo
+}
+
+type PartnerPlanFee {
+  fee: Money
+  plan: String
+}
+
+type PartnerState {
+  billingMode: String
+  brokenHosts: [String!]
+  pauseReason: String
+  pausedAt: String
+  sentBackReason: String
+  setupSession: SetupSessionNotice
+  state: String
+  storeCount: Int
+}
+
+type PartnerStore {
+  actions: StoreActions
+  activity: [StoreActivityEntry!]
+  billing: StoreBilling
+  contacts: [StoreContact!]
+  country: String
+  more: StoreDetailMore
+  overrides: [StoreOverride!]
+  people: StorePeopleCount
+  price: Money
+  records: [StoreDnsRecord!]
+  row: PartnerStoreRow
+  setup: StoreSetup
+  site: StoreSite
+  support: StoreSupport
+  trialExtensions: [StoreTrialExtension!]
+  trialOffers: [StoreTrialExtension!]
+  usage: [StoreUsage!]
+}
+
+type PartnerStoreRow {
+  billingStatus: String
+  code: String
+  createdAt: String
+  domain: StoreDomain
+  id: ID
+  name: String
+  near: StoreNearLimit
+  owner: StoreOwner
+  plan: StorePlanRef
+  state: StoreState
+  storefront: String
+}
+
+type PaymentMethod {
+  brand: String
+  expires: String
+  last4: String
+  status: String
+}
+
+type PaymentOutcomes {
+  failed: Int
+  recovered: Int
+}
+
+type PayoutAccount {
+  bank: String
+  failure: String
+  last4: String
+  status: String
+}
+
+type PayoutAdjustment {
+  amount: Money
+  note: String
+}
+
+type Plan {
+  entitlements: [PlanEntitlement!]
+  row: PlanRow
+}
+
+type PlanCeiling {
+  amount: Int
+  key: String
+}
+
+type PlanChangeRow {
+  from: String
+  stores: Int
+  to: String
+}
+
+type PlanEditor {
+  ceilings: [PlanCeiling!]
+  chargedBy: String
+  currencies: [String!]
+  edit: PlanPermission
+  plan: Plan
+  powered: PoweredByRule
+  price: PlanPermission
+  retireDates: [String!]
+  retireTargets: [RetireTarget!]
+  trials: [Int!]
+}
+
+type PlanEntitlement {
+  amount: Int
+  enabled: Boolean
+  key: String
+}
+
+input PlanEntitlementInput {
+  amount: Int
+  enabled: Boolean
+  key: String!
+}
+
+input PlanInput {
+  description: String!
+  entitlements: [PlanEntitlementInput!]!
+  name: String!
+  prices: [PlanPriceInput!]!
+  trialDays: Int!
+}
+
+type PlanMargin {
+  amount: Money
+  kind: String
+  of: Money
+}
+
+type PlanPermission {
+  allowed: Boolean
+  reason: String
+}
+
+type PlanPrice {
+  converted: Boolean
+  currency: String
+  fee: Money
+  margin: PlanMargin
+  monthly: Money
+  yearly: Money
+}
+
+input PlanPriceInput {
+  currency: String!
+  monthly: MoneyInput
+  yearly: MoneyInput
+}
+
+type PlanResult {
+  currency: String
+  id: String
+  ok: Boolean
+  reason: String
+  row: String
+}
+
+type PlanRow {
+  description: String
+  id: ID
+  name: String
+  prices: [PlanPrice!]
+  status: String
+  stores: Int
+  trialDays: Int
+}
+
+type PlanStoresRow {
+  plan: String
+  stores: Int
+}
+
+type PlansPage {
+  chargedBy: String
+  create: PlanPermission
+  items: [PlanRow!]
+  pageInfo: PlansPageInfo
+}
+
+type PlansPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+}
+
+type PlansReport {
+  bars: [ReportCountBar!]
+  changes: [PlanChangeRow!]
+  fresh: Boolean
+  rows: [PlanStoresRow!]
+  summary: String
+}
+
+type PoweredByRule {
+  allowed: Boolean
+  note: String
+}
+
+type ProvisioningProgress {
+  done: Boolean
+  elapsedSeconds: Int
+  steps: [ProvisioningStep!]
+}
+
+type ProvisioningStep {
+  key: String
+  state: String
+}
+
+type PublishBrandingResult {
+  field: String
+  fix: String
+  ok: Boolean
+  publishedAt: String
+  reason: String
+}
+
 type Query {
+  activityExport(id: ID!): ActivityExportJob
+  activityLog(after: String, before: String, filter: PartnerActivityFilterInput, first: Int): PartnerActivityPage
+  activityPeople(query: String!): [ActivityPerson!]
+  billingClientConfig: BillingClientConfig
+  billingSettings: BillingSettings
+  branding: Branding
+  changePlanOptions(storeId: ID!): ChangePlanOptions
+  checkContrast(accent: String!, primary: String!): ContrastReport
+  createStoreForm: CreateStoreForm
+  dashboard(range: String!): PartnerDashboard
+  downloadInvoice(id: ID!): InvoiceLink
   health: String
+  me: Me
+  merchantDomains(after: String, before: String, first: Int): MerchantDomainPage
+  merchantPayments(after: String, before: String, first: Int): MerchantPaymentsPage
+  mySupportSession: SupportSession
+  navBadges: NavBadges
+  nextPayout: NextPayout
+  onboarding: Onboarding
+  partnerCompany: PartnerCompany
+  partnerDomains: PartnerDomains
+  partnerInvoices(after: String, before: String, first: Int): PartnerInvoicesPage
+  partnerState: PartnerState
+  paymentMethod: PaymentMethod
+  payoutAccount: PayoutAccount
+  payouts(after: String, before: String, first: Int): PartnerPayoutsPage
+  personTimeline(after: String, before: String, filter: PartnerActivityFilterInput, first: Int, person: String!): PartnerActivityPage
+  planEditor(id: ID): PlanEditor
+  plans(after: String, first: Int): PlansPage
+  provisioning(storeId: ID!): ProvisioningProgress
+  quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
+  reportExport(id: ID!): ReportExportJob
+  reportFilters: ReportFilters
+  reportGrowth(filter: ReportFilterInput): GrowthReport
+  reportPlans(filter: ReportFilterInput): PlansReport
+  reportRevenue(filter: ReportFilterInput): RevenueReport
+  reportSetupHealth(filter: ReportFilterInput): SetupHealthReport
+  reportStorePerformance(filter: ReportFilterInput): StorePerformanceReport
+  reportUsage(filter: ReportFilterInput): UsageReport
+  search(query: String!): [StoreSearchMatch!]
+  staffSessionNotice: StaffSessionNotice
+  store(id: ID!): PartnerStore
+  stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
+  storesExport(id: ID!): StoresExportJob
+  supportSessions(after: String, before: String, first: Int, open: Boolean!): SupportSessionPage
+  supportTargets(after: String, before: String, first: Int, search: String): SupportTargetPage
+  team(after: String, before: String, first: Int): TeamPage
+}
+
+type ReauthResult {
+  expiresAt: String
+  lockedMinutes: Int
+  ok: Boolean
+  proof: String
+  reason: String
+  triesLeft: Int
+}
+
+type ReportCountBar {
+  count: Int
+  label: String
+}
+
+type ReportExportJob {
+  csv: String
+  expiresAt: String
+  id: ID
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type ReportExportResult {
+  jobId: String
+  ok: Boolean
+  reason: String
+}
+
+input ReportFilterInput {
+  country: String
+  plan: ID
+  range: String
+}
+
+type ReportFilters {
+  countries: [String!]
+  plans: [ReportPlanOption!]
+}
+
+type ReportMoneyBar {
+  amount: Money
+  label: String
+}
+
+type ReportPlanOption {
+  id: ID
+  name: String
+}
+
+input RetirePlanInput {
+  keep: Boolean!
+  moveTo: ID
+  on: String
+}
+
+type RetireTarget {
+  id: ID
+  name: String
+}
+
+type RetryingPayment {
+  amount: Money
+  attempt: Int
+  attempts: Int
+  cardLast4: String
+  id: ID
+  retryAt: String
+  storeId: ID
+  storeName: String
+  why: String
+}
+
+type RevenueReport {
+  bars: [ReportMoneyBar!]
+  currency: String
+  currencyNote: String
+  fresh: Boolean
+  mrr: [MrrRow!]
+  payments: PaymentOutcomes
+  rows: [RevenueRow!]
+  summary: String
+}
+
+type RevenueRow {
+  collected: Money
+  fee: Money
+  month: String
+  payout: Money
+}
+
+type SetupHealthReport {
+  domainsStuck: Int
+  failed: Int
+  fresh: Boolean
+  medianSeconds: Int
+  rows: [SetupProblemRow!]
+  summary: String
+  truncated: Boolean
+}
+
+type SetupProblemRow {
+  detail: String
+  kind: String
+  since: String
+  store: String
+  storeId: ID
+}
+
+type SetupSessionNotice {
+  endsAt: String
+  staffName: String
+}
+
+type StaffSessionNotice {
+  actingAs: String
+  endsAt: String
+  kind: String
+  staffName: String
+}
+
+type StoreActionPermission {
+  allowed: Boolean
+  reason: String
+}
+
+type StoreActionResult {
+  ok: Boolean
+  overrideId: String
+  proration: StoreProration
+  reason: String
+  trialEndsAt: String
+}
+
+type StoreActions {
+  addOverride: StoreActionPermission
+  changePlan: StoreActionPermission
+  extendTrial: StoreActionPermission
+  resendInvite: StoreActionPermission
+  restore: StoreActionPermission
+  retryStep: StoreActionPermission
+  suspend: StoreActionPermission
+}
+
+type StoreActivityEntry {
+  action: String
+  at: String
+  id: ID
+  result: String
+  who: String
+}
+
+type StoreBilling {
+  cardLast4: String
+  interval: String
+  mode: String
+  nextChargeAt: String
+  partnerName: String
+}
+
+type StoreBillingStatusResult {
+  ok: Boolean
+  reason: String
+}
+
+type StoreContact {
+  email: String
+  name: String
+  role: String
+}
+
+type StoreCountry {
+  code: String
+  currency: String
+  name: String
+}
+
+type StoreCreatePermission {
+  allowed: Boolean
+  reason: String
+}
+
+type StoreCreatePlan {
+  id: ID
+  name: String
+  prices: [Money!]
+  trialDays: Int
+}
+
+type StoreDetailMore {
+  activity: Boolean
+  overrides: Boolean
+  people: Boolean
+  trialExtensions: Boolean
+}
+
+type StoreDnsRecord {
+  found: String
+  host: String
+  since: String
+  status: String
+  type: String
+  value: String
+}
+
+type StoreDomain {
+  custom: Boolean
+  host: String
+  status: String
+}
+
+input StoreFilterInput {
+  created: String
+  near: String
+  plan: ID
+  q: String
+  status: String
+  storefront: String
+}
+
+type StoreNearLimit {
+  limit: String
+  percent: Int
+}
+
+type StoreOverride {
+  amount: Int
+  at: String
+  by: String
+  duration: String
+  id: ID
+  limit: String
+  reason: String
+}
+
+type StoreOwner {
+  email: String
+  name: String
+}
+
+type StorePage {
+  billingMode: String
+  billingStatusPermission: StoreActionPermission
+  createPermission: StoreCreatePermission
+  exportPermission: StoreActionPermission
+  items: [PartnerStoreRow!]
+  pageInfo: StorePageInfo
+  plans: [StorePlanRef!]
+}
+
+type StorePageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type StorePeopleCount {
+  count: Int
+  suppliers: Int
+}
+
+type StorePerformanceReport {
+  declining: [StoreSalesRow!]
+  decliningTruncated: Boolean
+  fresh: Boolean
+  note: String
+  rows: [StoreSalesRow!]
+  summary: String
+  truncated: Boolean
+}
+
+type StorePerson {
+  email: String
+  id: ID
+  lastSignInAt: String
+  name: String
+  role: String
+  status: String
+  supplier: String
+}
+
+type StorePlanRef {
+  id: ID
+  name: String
+}
+
+type StoreProration {
+  amount: Int
+  currency: String
+  kind: String
+}
+
+type StoreSalesRow {
+  changeBps: Float
+  declining: Boolean
+  orders: Int
+  plan: String
+  sales: Money
+  store: String
+  storeId: ID
+}
+
+type StoreSearchMatch {
+  code: String
+  domain: String
+  id: ID
+  name: String
+  ownerEmail: String
+  status: String
+}
+
+type StoreSetup {
+  error: String
+  state: String
+  step: String
+  steps: [String!]
+}
+
+type StoreSite {
+  lastPublishAt: String
+  liveHost: String
+}
+
+type StoreState {
+  daysLeft: Int
+  daysPastDue: Int
+  kind: String
+  reason: String
+  since: String
+  trialEndsAt: String
+}
+
+type StoreSupport {
+  allowed: Boolean
+  people: [StorePerson!]
+}
+
+type StoreTrialExtension {
+  days: Int
+  endsAt: String
+}
+
+type StoreUsage {
+  cap: Int
+  limit: String
+  monthly: Boolean
+  percent: Int
+  used: Int
+}
+
+type StoresExportJob {
+  csv: String
+  expiresAt: String
+  id: ID
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type StoresExportResult {
+  jobId: String
+  ok: Boolean
+  reason: String
+}
+
+type SubmitForApprovalResult {
+  check: String
+  code: String
+  ok: Boolean
+  submittedAt: String
+}
+
+type SupportColleague {
+  minutesLeft: Int
+  name: String
+}
+
+type SupportNamed {
+  id: ID
+  name: String
+}
+
+type SupportPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type SupportSession {
+  agent: SupportNamed
+  end: SupportVerdict
+  endedAt: String
+  endedBy: String
+  endedByName: String
+  expiresAt: String
+  id: ID
+  reason: String
+  return: SupportVerdict
+  startedAt: String
+  store: SupportNamed
+  ticket: String
+  user: SupportSessionUser
+  you: Boolean
+}
+
+type SupportSessionLink {
+  expiresAt: String
+  link: String
+  ok: Boolean
+  reason: String
+  sessionId: String
+}
+
+type SupportSessionPage {
+  items: [SupportSession!]
+  pageInfo: SupportPageInfo
+}
+
+type SupportSessionResult {
+  ok: Boolean
+  reason: String
+}
+
+type SupportSessionUser {
+  name: String
+  role: String
+  supplier: String
+}
+
+type SupportTarget {
+  colleague: SupportColleague
+  email: String
+  lastSignInAt: String
+  membershipId: ID
+  mySessionId: ID
+  name: String
+  role: String
+  start: SupportVerdict
+  status: String
+  store: SupportNamed
+  storeOwner: String
+  supplier: String
+  type: String
+  userId: ID
+}
+
+type SupportTargetPage {
+  items: [SupportTarget!]
+  pageInfo: SupportPageInfo
+}
+
+type SupportVerdict {
+  allowed: Boolean
+  reason: String
+}
+
+type TeamInvitationState {
+  expired: Boolean
+  sentAt: String
+}
+
+type TeamMember {
+  email: String
+  id: ID
+  invitation: TeamInvitationState
+  lastSignInAt: String
+  name: String
+  role: String
+  secondFactor: Boolean
+  status: String
+  you: Boolean
+}
+
+type TeamPage {
+  items: [TeamMember!]
+  pageInfo: TeamPageInfo
+}
+
+type TeamPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type TeamResult {
+  ok: Boolean
+  reason: String
+}
+
+type UsageMeters {
+  aiPrompts: Int
+  publishNow: Int
+}
+
+type UsageReport {
+  fresh: Boolean
+  meters: UsageMeters
+  rows: [UsageReportRow!]
+  summary: String
+  truncated: Boolean
+}
+
+type UsageReportRow {
+  cap: Int
+  limit: String
+  percentBps: Int
+  store: String
+  storeId: ID
+  used: Int
 }

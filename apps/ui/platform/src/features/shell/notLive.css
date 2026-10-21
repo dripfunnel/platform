@@ -1,0 +1,21 @@
+.df-not-live {
+  display: grid;
+  gap: var(--df-space-3);
+  justify-items: start;
+  max-width: 40rem;
+  padding: var(--df-space-8) var(--df-space-6);
+  border: 1px dashed var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+}
+
+.df-not-live p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.df-not-live a {
+  color: var(--df-color-link);
+  font-weight: 700;
+}

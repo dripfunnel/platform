@@ -1,7 +1,6 @@
 import { createdWindows, storefrontStates, storeStatuses, type StoreFilter } from '../../api/stores'
 import { messages } from '../../messages'
-import { FilterSelect } from '../common/FilterSelect'
-import { SearchField } from '../common/SearchField'
+import { FilterSelect, SearchField } from '@dripfunnel/shared/ui'
 import { isFiltered } from './isFiltered'
 
 const words = messages.stores

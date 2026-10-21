@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;max-width:1040px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+    <div><div style="font-family:Manrope,sans-serif;font-weight:{{ hw }};font-size:{{ hs }};">{{ title }}</div><div style="font-size:13px;color:var(--muted,#5A6472);">Everything done in this store, by your team, suppliers, API keys, apps, support and shoppers. Newest first.</div></div>
+    <span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;"><button onClick="{{ a.export }}" disabled="{{ noExport }}" style="height:36px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;font-weight:600;cursor:{{ exportCursor }};opacity:{{ exportOp }};">Export CSV</button><sc-if value="{{ noExport }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:var(--muted,#5A6472);">Only the store owner can export</span></sc-if></span>
+  </div>
+  <div style="display:grid;grid-template-columns:{{ filterCols }};gap:8px;">
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted,#5A6472);">Person<select value="{{ who }}" onChange="{{ a.who }}" style="height:38px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;background:var(--card,#FFFFFF);font-size:13px;color:var(--text,#14181F);"><sc-for list="{{ people }}" as="p" hint-placeholder-count="5"><option value="{{ p.v }}">{{ p.l }}</option></sc-for></select></label>
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted,#5A6472);">What<select value="{{ cat }}" onChange="{{ a.cat }}" style="height:38px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;background:var(--card,#FFFFFF);font-size:13px;color:var(--text,#14181F);"><option value="all">Everything</option><option value="catalogue">Products and stock</option><option value="orders">Orders and refunds</option><option value="team">People and suppliers</option><option value="settings">Settings, keys and apps</option><option value="support">Support sessions</option><option value="shoppers">Shopper accounts</option><option value="security">Sign-ins</option></select></label>
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted,#5A6472);">Search<input value="{{ q }}" onChange="{{ a.q }}" placeholder="A name, order 1042, a product" style="height:38px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;background:var(--card,#FFFFFF);font-size:13px;"></label>
+  </div>
+  <sc-if value="{{ personLine }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--ibg,#F4F8FB);border:1px solid var(--ibd,#C9DAEC);font-size:13px;color:var(--ifg,#00325F);"><span>{{ personLine }}</span><button onClick="{{ a.clearWho }}" style="border:0;background:none;color:var(--link,#B8541F);font-weight:600;cursor:pointer;font-size:13px;">Everyone</button></div></sc-if>
+  <sc-if value="{{ none }}" hint-placeholder-val="{{ false }}"><div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:28px;text-align:center;font-size:14px;color:var(--muted,#5A6472);">Nothing matches. Try another person or a shorter search.</div></sc-if>
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+      <div style="border-bottom:1px solid var(--border,#EDEAE5);">
+        <button onClick="{{ r.toggle }}" aria-expanded="{{ r.open }}" style="width:100%;display:grid;grid-template-columns:{{ rowCols }};gap:4px 12px;padding:12px 16px;border:0;background:none;text-align:left;cursor:pointer;align-items:center;color:var(--text,#14181F);font-size:13px;">
+          <span style="width:30px;height:30px;border-radius:{{ r.radius }};background:{{ r.avBg }};color:{{ r.avFg }};display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:700;font-size:12px;">{{ r.init }}</span>
+          <span style="display:flex;flex-direction:column;min-width:0;"><span><strong>{{ r.actor }}</strong> {{ r.text }}</span><span style="font-size:12px;color:var(--muted,#5A6472);">{{ r.kind }}</span></span>
+          <span style="justify-self:start;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;background:{{ r.resBg }};color:{{ r.resFg }};">{{ r.result }}</span>
+          <span style="font-size:12px;color:var(--muted,#5A6472);white-space:nowrap;">{{ r.when }}</span>
+        </button>
+        <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}"><div style="padding:0 16px 14px 58px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--text2,#434A55);">
+          <sc-for list="{{ r.changes }}" as="ch" hint-placeholder-count="2"><span><strong>{{ ch.f }}</strong>: <span style="text-decoration:line-through;color:var(--muted,#5A6472);">{{ ch.from }}</span> → {{ ch.to }}</span></sc-for>
+          <sc-if value="{{ r.reason }}" hint-placeholder-val="{{ false }}"><span>Reason: {{ r.reason }}</span></sc-if>
+          <span style="color:var(--muted,#5A6472);">{{ r.via }}</span>
+          <span style="display:flex;gap:14px;flex-wrap:wrap;"><button onClick="{{ r.byPerson }}" style="border:0;background:none;padding:0;color:var(--link,#B8541F);font-weight:600;cursor:pointer;font-size:13px;">Everything by {{ r.actorShort }}</button><sc-if value="{{ r.target }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.openTarget }}" style="border:0;background:none;padding:0;color:var(--link,#B8541F);font-weight:600;cursor:pointer;font-size:13px;">Open {{ r.target }}</button></sc-if></span>
+        </div></sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <span style="font-size:12px;color:var(--muted,#5A6472);text-align:center;">{{ foot }}</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { who: '', cat: 'all', q: '', open: null };
+  renderVals() {
+    const app = this.props.app; if (!app) return { a: {} };
+    const s = this.state; const c = app.caps; const phone = app.phone; const R = app.R;
+    const partner = (app.st.brand && app.st.brand.name) || 'Partner';
+    const fmtN = n => app.fmt(R.mult ? R.mult(n) : n);
+    const E = [
+      ['ravi', 'Ravi Kumar', 'support', 'opened Products and 3 product pages', 'support', 'Read-only support session', 'success', 'Today 10:51', null, 'Ticket #4821: product photos look blurry', partner + ' support session · started 10:42, allowed to make changes by Farhan at 10:47', 'products'],
+      ['ravi', 'Ravi Kumar', 'support', 'replaced the main photo of Organic Cotton Tee', 'catalogue', 'Change made during a support session', 'success', 'Today 10:49', [['Main photo', 'tee-sand-1.jpg', 'tee-sand-2.jpg']], 'Ticket #4821', partner + ' support session · changes allowed by Farhan', 'Organic Cotton Tee'],
+      ['farhan', 'Farhan Ali', 'person', 'let support make changes for this session', 'support', 'Owner', 'success', 'Today 10:47', null, '', 'Signed in on Chrome, Mac · Jaipur', ''],
+      ['shopper', 'Ananya Rao', 'shopper', 'placed order ' + (R.key === 'IN' ? 'KT-1051' : 'JC-1051') + ' for ' + fmtN(77), 'orders', 'Shopper', 'success', 'Today 10:14', null, '', 'Storefront · ' + R.domain, 'order 1051'],
+      ['key', 'Warehouse stock sync', 'key', 'changed stock of 14 versions', 'catalogue', 'API key · created by Farhan', 'success', 'Today 09:30', [['Mara Linen Shirt / M', '0', '6']], '', 'API key wsk_live_…7Hq2', 'stock history'],
+      ['priya', 'Priya Shah', 'person', 'refunded ' + fmtN(30) + ' on order ' + (R.key === 'IN' ? 'KT-1031' : 'JC-1031'), 'orders', 'Manager', 'success', 'Yesterday 17:20', [['Refunded', fmtN(0), fmtN(30)]], 'Arrived damaged', 'Signed in on Safari, iPhone', 'order 1031'],
+      ['northwind', 'Nadia Tran', 'vendor', 'added Linen Midi Dress for approval', 'catalogue', 'Supplier · Northwind Textiles', 'success', 'Yesterday 15:02', null, '', 'Supplier admin', 'Linen Midi Dress'],
+      ['app', 'Ledger Sync', 'app', 'read 42 orders', 'settings', 'App · installed by Farhan', 'success', 'Yesterday 02:00', null, '', 'App grant · orders, products (read)', ''],
+      ['tom', 'Tom Okafor', 'person', 'tried to open Settings', 'security', 'Staff', 'denied', '2 Oct 12:11', null, '', 'Staff can’t open Settings', ''],
+      ['shopper2', 'Rohan Mehta', 'shopper', 'signed in with a mobile code', 'shoppers', 'Shopper', 'success', '2 Oct 09:40', null, '', 'Storefront · new device', ''],
+      ['farhan', 'Farhan Ali', 'person', 'created API key Warehouse stock sync', 'settings', 'Owner', 'success', '1 Oct 18:05', [['Can', '—', 'see products, change stock']], '', 'Signed in on Chrome, Mac', ''],
+      ['farhan', 'Farhan Ali', 'person', 'invited Priya Shah as Manager', 'team', 'Owner', 'success', '28 Sep 11:00', null, '', 'Signed in on Chrome, Mac', 'Priya Shah']
+    ];
+    const kindStyle = { person: ['#E8EEF5', '#0A2A4A', '50%'], support: ['#FFF0D9', '#7A4B00', '50%'], shopper: ['#EEF7F2', '#1D6B47', '50%'], key: ['#F1EEEA', '#4A5360', '6px'], app: ['#0A2A4A', '#FFFFFF', '6px'], vendor: ['#FDF0E8', '#8F4017', '50%'] };
+    const people = [['', 'Everyone'], ['farhan', 'Farhan Ali · Owner'], ['priya', 'Priya Shah · Manager'], ['tom', 'Tom Okafor · Staff'], ['northwind', 'Nadia Tran · Northwind Textiles'], ['ravi', 'Ravi Kumar · ' + partner + ' support'], ['key', 'API key · Warehouse stock sync'], ['app', 'App · Ledger Sync'], ['shopper', 'Ananya Rao · shopper'], ['shopper2', 'Rohan Mehta · shopper']];
+    const q = s.q.trim().toLowerCase();
+    const rows = E.map((e, i) => ({ e, i })).filter(({ e }) => (!s.who || e[0] === s.who) && (s.cat === 'all' || e[4] === s.cat) && (!q || (e[1] + ' ' + e[3]).toLowerCase().includes(q)));
+    const owner = c.isOwner;
+    const setWho = w => this.setState({ who: w, open: null });
+    return { pad: phone ? '14px' : '22px 28px', title: owner ? 'Activity log' : 'Store activity', hw: owner ? 700 : 800, hs: owner ? '18px' : (phone ? '22px' : '26px'), noExport: !owner, exportCursor: owner ? 'pointer' : 'not-allowed', exportOp: owner ? 1 : 0.55,
+      filterCols: phone ? '1fr' : '1.3fr 1fr 1.4fr', who: s.who, cat: s.cat, q: s.q, people: people.map(([v, l]) => ({ v, l })),
+      personLine: s.who ? 'Showing everything by ' + (people.find(p => p[0] === s.who) || ['', ''])[1] + ' in this store.' : '', none: !rows.length,
+      rowCols: phone ? '30px 1fr' : '30px 1fr auto 110px',
+      rows: rows.map(({ e, i }) => { const [id, actor, kind, text, , kindLabel, res, when, changes, reason, via, target] = e; const st = kindStyle[kind]; const open = s.open === i; return { init: actor.split(' ').map(w => w[0]).join('').slice(0, 2), actor, actorShort: actor.split(' ')[0], text, kind: kindLabel, result: res === 'denied' ? 'Refused' : 'Done', resBg: res === 'denied' ? 'var(--bbg,#FDECEC)' : 'var(--okbg,#EEF7F2)', resFg: res === 'denied' ? 'var(--bfg,#A1261B)' : 'var(--okfg,#1D6B47)', when, avBg: st[0], avFg: st[1], radius: st[2], open, changes: (changes || []).map(([f, from, to]) => ({ f, from, to })), reason, via, target, toggle: () => this.setState({ open: open ? null : i }), byPerson: () => setWho(id), openTarget: () => app.toast('Opens ' + target + ' (prototype)') }; }),
+      foot: rows.length ? 'Showing the latest ' + rows.length + ' · older entries load as you scroll · searchable for 13 months' : '',
+      a: { who: e => setWho(e.target.value), cat: e => this.setState({ cat: e.target.value, open: null }), q: e => this.setState({ q: e.target.value, open: null }), clearWho: () => setWho(''), export: () => { if (!owner) return; app.toast('Preparing your CSV of these ' + rows.length + ' entries. We’ll email a link that works for 1 hour.'); } } };
+  }
+}
+</script>
+</body>
+</html>

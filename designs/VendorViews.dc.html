@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;max-width:1000px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+    <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.02em;">{{ title }}</div><div style="font-size:13px;color:var(--muted,#5A6472);">{{ sub }}</div></div>
+    <sc-if value="{{ isTeam }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.invite }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Invite someone</button></sc-if>
+    <sc-if value="{{ isSales }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.export }}" style="height:36px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;font-weight:600;cursor:pointer;">Export CSV</button></sc-if>
+  </div>
+
+  <sc-if value="{{ isSales }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;"><sc-for list="{{ chips }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.onClick }}" style="height:32px;padding:0 12px;border-radius:16px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }};font-size:13px;cursor:pointer;">{{ f.label }}</button></sc-for></div>
+    <div style="padding:10px 12px;border-radius:10px;background:var(--ibg,#F4F8FB);border:1px solid var(--ibd,#C9DAEC);font-size:13px;color:var(--ifg,#00325F);">Only the lines with your products, at the price the store charged. The store settles with you outside this portal, so there are no payouts here.</div>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:28px;text-align:center;font-size:14px;color:var(--muted,#5A6472);">No sales here yet. When a shopper buys one of your products, the line shows up here.</div></sc-if>
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+      <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:{{ cols }};gap:12px;padding:10px 16px;border-bottom:1px solid var(--border,#EDEAE5);font-size:12px;font-weight:600;color:var(--muted,#5A6472);"><span>Order</span><span>Product</span><span>Qty</span><span>Line</span><span>Status</span></div></sc-if>
+      <sc-for list="{{ lines }}" as="l" hint-placeholder-count="5">
+        <div style="display:grid;grid-template-columns:{{ cols }};gap:4px 12px;padding:12px 16px;border-bottom:1px solid var(--border,#EDEAE5);font-size:13px;align-items:center;">
+          <span style="display:flex;flex-direction:column;"><strong>{{ l.order }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ l.date }}</span></span>
+          <span style="display:flex;flex-direction:column;"><span>{{ l.product }}</span><span style="font-size:12px;color:var(--muted,#5A6472);">{{ l.version }}</span></span>
+          <span>{{ l.qty }}</span>
+          <span>{{ l.total }}</span>
+          <span style="justify-self:start;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;background:{{ l.bg }};color:{{ l.fg }};">{{ l.status }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isTeam }}" hint-placeholder-val="{{ false }}">
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+      <sc-for list="{{ team }}" as="m" hint-placeholder-count="3">
+        <div style="display:grid;grid-template-columns:{{ teamCols }};gap:4px 12px;padding:12px 16px;border-bottom:1px solid var(--border,#EDEAE5);font-size:13px;align-items:center;">
+          <span style="display:flex;align-items:center;gap:10px;min-width:0;"><span style="width:34px;height:34px;border-radius:50%;background:#FDF0E8;color:#8F4017;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:700;font-size:12px;flex:none;">{{ m.init }}</span><span style="display:flex;flex-direction:column;min-width:0;"><strong>{{ m.name }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);overflow:hidden;text-overflow:ellipsis;">{{ m.email }}</span></span></span>
+          <span style="color:var(--text2,#434A55);">{{ m.role }}</span>
+          <span style="color:{{ m.stFg }};">{{ m.status }}</span>
+          <button onClick="{{ m.menu }}" aria-label="{{ m.aria }}" style="width:32px;height:32px;border:1px solid var(--border,#E8E2DC);border-radius:6px;background:var(--card,#FFFFFF);cursor:pointer;justify-self:end;">⋯</button>
+        </div>
+      </sc-for>
+    </div>
+    <span style="font-size:12px;color:var(--muted,#5A6472);">Admins invite and remove people and change roles; members work on products and stock. There’s always at least one admin. Everyone here sees only Northwind’s products and orders in {{ store }}.</span>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { filter: 'all' };
+  renderVals() {
+    const app = this.props.app; if (!app) return { a: {} };
+    const mode = this.props.mode || 'sales'; const phone = app.phone; const s = this.state; const vendor = app.vendorName || 'Northwind Textiles';
+    const base = { pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', isSales: mode === 'sales', isTeam: mode === 'team', store: app.storeName, wide: !phone };
+    if (mode === 'team') {
+      const team = app.st.vendorTeam || [];
+      const admins = team.filter(m => m.role === 'admin' && m.status !== 'invited').length;
+      return { ...base, title: 'Your team', sub: 'The people from ' + vendor + ' who work in ' + app.storeName + '.', teamCols: phone ? '1fr auto' : '1.8fr 0.9fr 1fr 40px',
+        team: team.map(m => { const lastAdmin = m.role === 'admin' && admins <= 1 && m.status !== 'invited'; return { ...m, init: m.name.split(' ').map(w => w[0]).join('').slice(0, 2), role: m.role === 'admin' ? 'Supplier admin' : 'Supplier member', status: m.status === 'invited' ? 'Invited · not accepted yet' : m.you ? 'Active · you' : 'Active', stFg: m.status === 'invited' ? 'var(--wfg,#7A4B00)' : 'var(--muted,#5A6472)', aria: 'Options for ' + m.name,
+          menu: () => app.modal({ title: m.name, body: lastAdmin ? 'This is the last admin, so the role can’t change and they can’t be removed. Make someone else an admin first.' : m.email, choices: m.status === 'invited' ? [{ label: 'Resend invitation', value: 'resend' }, { label: 'Cancel invitation', value: 'remove' }] : lastAdmin ? [{ label: 'Close', value: 'close' }] : [{ label: m.role === 'admin' ? 'Make member' : 'Make admin', value: 'role' }, { label: 'Remove from ' + vendor, sub: 'They lose access to this store straight away', value: 'remove' }], confirm: lastAdmin ? 'OK' : 'Go',
+            onConfirm: v => { if (v === 'resend') app.toast('Invitation sent again to ' + m.email); if (v === 'role') { app.set('vendorTeam', x => x.map(y => y.email === m.email ? { ...y, role: y.role === 'admin' ? 'member' : 'admin' } : y)); app.toast(m.name + ' is now a ' + (m.role === 'admin' ? 'member' : 'admin')); } if (v === 'remove') { app.set('vendorTeam', x => x.filter(y => y.email !== m.email)); app.toast(m.name + ' removed'); } } }) }; }),
+        a: { invite: () => app.modal({ title: 'Invite someone from ' + vendor, body: 'They get an email with a link that works for 7 days. They’ll see only ' + vendor + '’s products and orders.', input: { label: 'Their email', placeholder: 'name@northwind.com', required: true }, choices: [{ label: 'Supplier member', sub: 'Products and stock', value: 'member' }, { label: 'Supplier admin', sub: 'Also invites and removes people', value: 'admin' }], confirm: 'Send invitation', validate: v => /.+@.+\..+/.test(v || '') ? '' : 'Enter an email like name@example.com.', onConfirm: (v, ch) => { app.set('vendorTeam', x => [...x, { name: v.split('@')[0], email: v, role: ch || 'member', status: 'invited' }]); app.toast('Invitation sent to ' + v); } }) } };
+    }
+    const R = app.R; const P = n => app.fmt(R.mult ? R.mult(n) : n); const ord = n => (R.key === 'IN' ? 'KT-' : R.key === 'DE' ? 'LL-' : 'JC-') + n;
+    const all = [[ord(1049), '4 Oct', 'Mara Linen Shirt', 'M', 1, 49, 'To ship'], [ord(1046), '3 Oct', 'Linen Tote', '', 2, 32, 'Shipped'], [ord(1041), '1 Oct', 'Mara Linen Shirt', 'S', 1, 49, 'Delivered'], [ord(1037), '28 Sep', 'Linen Tote', '', 1, 32, 'Delivered'], [ord(1033), '25 Sep', 'Mara Linen Shirt', 'L', 1, 49, 'Returned']];
+    const stMap = { 'To ship': ['var(--wbg,#FFF6E5)', 'var(--wfg,#7A4B00)'], Shipped: ['var(--ibg,#F4F8FB)', 'var(--ifg,#00325F)'], Delivered: ['var(--okbg,#EEF7F2)', 'var(--okfg,#1D6B47)'], Returned: ['var(--sunk,#F2F0EC)', 'var(--muted,#5A6472)'] };
+    const shown = all.filter(l => s.filter === 'all' || (s.filter === 'open' ? ['To ship', 'Shipped'].includes(l[6]) : l[6] === 'Returned'));
+    return { ...base, title: 'Your sales', sub: 'Lines with ' + vendor + '’s products in ' + app.storeName + '.', cols: phone ? '1fr 1fr' : '1fr 1.6fr 0.5fr 0.8fr 0.9fr', empty: !shown.length,
+      chips: [['all', 'All'], ['open', 'Not delivered yet'], ['returned', 'Returned']].map(([k, l]) => ({ label: l, bd: s.filter === k ? '#14181F' : 'var(--field,#D7D3CD)', bg: s.filter === k ? '#14181F' : 'var(--card,#FFFFFF)', fg: s.filter === k ? '#FFFFFF' : 'var(--text,#14181F)', onClick: () => this.setState({ filter: k }) })),
+      lines: shown.map(([order, date, product, version, qty, price, status]) => ({ order, date, product, version, qty: '× ' + qty, total: P(price * qty), status, bg: stMap[status][0], fg: stMap[status][1] })),
+      a: { export: () => app.toast('Preparing a CSV of your lines. We’ll email a link that works for 1 hour.') } };
+  }
+}
+</script>
+</body>
+</html>

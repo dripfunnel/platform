@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { storeNoteMaxLength, type Store } from '../../api/stores'
 import { fill, formatTime, messages } from '../../messages'
-import { ActionControl } from '../common/ActionControl'
+import { ActionControl } from '@dripfunnel/shared/ui'
 import { refusalText } from './refusal'
+import '../common/records.css'
 
 const words = messages.store.notes
 

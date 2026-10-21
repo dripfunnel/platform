@@ -1,0 +1,45 @@
+/* The product search (common/ProductSearch.tsx): related products, comparisons, A+ to copy. */
+.df-product-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.df-product-search input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-product-search-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.df-product-search-pick {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 15px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-product-search-note {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-product-search-problem {
+  color: var(--df-color-danger);
+  font-size: 12px;
+}

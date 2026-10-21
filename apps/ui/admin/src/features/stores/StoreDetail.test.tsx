@@ -34,6 +34,7 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
         onJob={noop}
         onAddNote={saved}
         onRecheck={resolved}
+        onImpersonate={noop}
         customers={{ filter: {}, page: {}, onFilterChange: noop }}
         onReload={noop}
         activity={null}
@@ -47,6 +48,12 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
 }
 
 describe('Store detail', () => {
+  it('shows the live address on the Storefront tab, and no preview address (#518)', async () => {
+    const text = await render({ tab: 'storefront' })
+    expect(text).toContain(words.storefront.live)
+    expect(text).not.toMatch(/preview/i)
+  })
+
   it('has the tabs decided on #20, with the Customers tab #42 adds after Users', async () => {
     const text = await render()
     for (const label of Object.values(words.tabs)) expect(text).toContain(label)
@@ -74,8 +81,12 @@ describe('Store detail', () => {
     expect(text).toContain('Only a Super admin or the Engineer on call can undo a failed signup.')
   })
 
-  it('keeps Impersonate turned off with its reason, and Support read-only', async () => {
-    expect(await render({ store: storeOf('s1'), tab: 'users' })).toContain(words.users.impersonateUnavailable)
+  it('offers Impersonate on the Users tab as the API allows it, and keeps Support read-only', async () => {
+    const users = await render({ store: storeOf('s1'), tab: 'users' })
+    expect(users).toContain('Impersonate')
+    expect(users).toContain('Aisha hasn’t accepted the invitation yet.')
+    expect(users).not.toContain(messages.impersonate.refusals.STAFF_ROLE_NOT_ALLOWED)
+    expect(await render({ store: storeOf('s1', 'staff-engineer'), tab: 'users' })).toContain(messages.impersonate.refusals.STAFF_ROLE_NOT_ALLOWED)
     const support = await render({ store: storeOf('s7'), tab: 'support' })
     expect(support).toContain(words.support.off)
     expect(support).toContain(words.support.sub)
@@ -91,17 +102,19 @@ describe('Store detail', () => {
     15_000,
   )
 
-  it('writes each history entry in the prototype words', async () => {
+  it('writes each history entry in the prototype words, by the activity code', async () => {
     const text = await render({ store: storeOf('s3') })
     expect(text).toContain('Past due after 3 failed payments')
-    expect(text).toContain('Active on Growth UAE')
+    expect(text).toContain('Trial started')
     expect(await render({ store: storeOf('s4') })).toContain('Suspended by Arjun Menon: chargeback')
+    const odd: Store = { ...storeOf('s3'), history: [{ at: '2026-09-27T00:00:00Z', action: 'store.renamed', by: 'Arjun Menon', note: null }] }
+    expect(await render({ store: odd })).toContain('store.renamed by Arjun Menon')
   })
 
   it('caps the note field at the length the API accepts', async () => {
     const rootRoute = createRootRoute({
       component: () => (
-        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onJob={noop} onAddNote={saved} onRecheck={resolved}
+        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onJob={noop} onAddNote={saved} onRecheck={resolved} onImpersonate={noop}
           customers={{ filter: {}, page: {}, onFilterChange: noop }}
           onReload={noop}
           activity={null}

@@ -1,7 +1,7 @@
 import type { JobAction } from '../../api/provisioning'
 import type { ProvisioningStep } from '../../api/provisioningSteps'
 import { fill, messages } from '../../messages'
-import type { ConfirmDialogProps } from '../common/ConfirmDialog'
+import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
 
 const words = messages.provisioning
 

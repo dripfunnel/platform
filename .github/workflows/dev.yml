@@ -47,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           everything() {
-            for app in store platform admin api; do echo "$app=true" >> "$GITHUB_OUTPUT"; done
+            for app in store platform admin api proxy; do echo "$app=true" >> "$GITHUB_OUTPUT"; done
           }
 
           if [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
@@ -97,6 +97,11 @@ jobs:
             echo "api=true" >> "$GITHUB_OUTPUT"
           else
             echo "api=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$files" | grep -q '^store-proxy/'; then
+            echo "proxy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proxy=false" >> "$GITHUB_OUTPUT"
           fi
 
       # Gates and Migrations reuse the same host-guard code path with two different allowed
@@ -163,9 +168,35 @@ jobs:
           branch: main
           commit-hash: ${{ github.sha }}
 
+      # A Durable Object starts only an image its config names, so the newest dev tag's digest goes into this checkout's
+      # copy of the config (#790); nothing is committed. The release's image job has long finished: the gates above take longer.
+      - name: Studio image
+        if: steps.changed.outputs.api == 'true'
+        run: |
+          set -euo pipefail
+          tag=$(pnpm exec wrangler containers images list --json | jq -r '[.[] | select(.name == "storefront-build") | .tags[] | select(test("^0\\.0\\.0-dev\\.[0-9]+$"))] | sort_by(split(".")[-1] | tonumber) | last // empty')
+          [ -n "$tag" ] || { echo "No storefront-build dev tag in the dev registry: run the release workflow on dev first." >&2; exit 1; }
+          password=$(pnpm exec wrangler containers registries credentials registry.cloudflare.com --pull --expiration-minutes 5 | tail -n 1)
+          echo "::add-mask::$password"
+          digest=$(curl -sSfI -u "v1:$password" -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+            "https://registry.cloudflare.com/v2/$CLOUDFLARE_ACCOUNT_ID/storefront-build/manifests/$tag" | tr -d '\r' | awk 'tolower($1) == "docker-content-digest:" { print $2 }')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "The registry gave no digest for storefront-build:$tag." >&2; exit 1; }
+          sed -i "s|DEV_STUDIO_IMAGE|registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build@$digest|" wrangler.jsonc
+          echo "Studio image: storefront-build:$tag @ $digest"
+
       - name: API Worker
         if: steps.changed.outputs.api == 'true'
         uses: ./.github/actions/worker-deploy
         with:
+          env-name: dev
+          message: ${{ github.sha }}
+
+      # After the API Worker: the proxy's service binding needs `dripfunnel-api-dev` to exist.
+      # It holds the zone's `*/*` route for partner portal hosts (SAAS.md §8).
+      - name: Store proxy Worker
+        if: steps.changed.outputs.proxy == 'true'
+        uses: ./.github/actions/worker-deploy
+        with:
+          directory: store-proxy
           env-name: dev
           message: ${{ github.sha }}

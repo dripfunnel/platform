@@ -1,0 +1,214 @@
+/* The setup checklist and the partner-state cards (designs/design.md §8 "Guided setup"). */
+
+.df-onboarding {
+  gap: var(--df-space-4);
+}
+
+.df-onb-card {
+  display: grid;
+  gap: var(--df-space-3);
+  padding: var(--df-space-5);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-onb-card h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.df-onb-card p {
+  margin: 0;
+}
+
+.df-onb-card--info,
+.df-onb-card--success {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.df-onb-card--info {
+  border-color: var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-onb-card--success {
+  border-color: var(--df-color-success-border);
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-onb-card--danger {
+  border-color: var(--df-color-danger-border);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}
+
+.df-onb-card--info > div,
+.df-onb-card--success > div {
+  display: grid;
+  gap: var(--df-space-1);
+}
+
+.df-onb-fixes {
+  margin: 0;
+  padding-left: var(--df-space-5);
+}
+
+.df-onb-fixes a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.df-onb-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+  color: var(--df-color-muted);
+}
+
+.df-onb-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--df-color-skeleton);
+}
+
+.df-onb-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--df-color-success);
+}
+
+.df-checklist {
+  display: grid;
+  gap: var(--df-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-checklist-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: var(--df-space-3);
+  align-items: start;
+  padding: var(--df-space-3) var(--df-space-2);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-checklist-row--yours {
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+}
+
+.df-checklist-row--submit {
+  margin-top: var(--df-space-2);
+  padding-top: var(--df-space-4);
+  border-top: 2px solid var(--df-color-border);
+}
+
+.df-checklist-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--df-color-page);
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-checklist-body {
+  display: grid;
+  gap: 2px;
+}
+
+.df-checklist-body a {
+  color: var(--df-color-link);
+  font-weight: 600;
+}
+
+.df-checklist-body a:hover {
+  color: var(--df-color-link-hover);
+}
+
+.df-checklist-body a:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-checklist-detail,
+.df-checklist-by {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-checklist-by--staff {
+  color: var(--df-color-info);
+}
+
+.df-checklist-action {
+  display: grid;
+  justify-items: start;
+  gap: var(--df-space-1);
+  margin-top: var(--df-space-2);
+}
+
+.df-checklist-why {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-onb-next {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-onb-next li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--df-space-3);
+  align-items: start;
+}
+
+.df-onb-next li > div {
+  display: grid;
+  gap: 2px;
+}
+
+.df-onb-next li > div > span {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-onb-note {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 639px) {
+  .df-checklist-row {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .df-checklist-row > .df-pill {
+    grid-column: 2;
+  }
+
+  .df-onb-card--info,
+  .df-onb-card--success {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

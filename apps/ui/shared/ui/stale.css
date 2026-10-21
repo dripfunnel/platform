@@ -1,0 +1,36 @@
+.df-stale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+  padding: var(--df-space-2) var(--df-space-3);
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-family: var(--df-font);
+}
+
+.df-stale p {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+}
+
+.df-stale-refresh {
+  min-height: 30px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: transparent;
+  color: var(--df-color-warning);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-stale-refresh:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}

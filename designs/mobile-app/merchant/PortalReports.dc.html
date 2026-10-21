@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+    <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">Reports</div><div style="font-size:14px;color:#5A6472;">{{ rangeLine }}</div></div>
+    <span style="display:flex;gap:8px;flex-wrap:wrap;"><span style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ ranges }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.onClick }}" style="height:36px;padding:0 12px;border:0;background:{{ r.bg }};color:{{ r.fg }};font-size:13px;cursor:pointer;">{{ r.label }}</button></sc-for></span><button onClick="{{ a.exportAll }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Export all</button></span>
+  </div>
+  <sc-if value="{{ thin }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px;border-radius:10px;background:#F4F8FB;border:1px solid #C9DAEC;color:#00325F;font-size:14px;"><strong>Not much to show yet.</strong> {{ thinBody }}</div></sc-if>
+  <div style="display:grid;grid-template-columns:{{ cols }};gap:14px;">
+    <sc-for list="{{ panels }}" as="p" hint-placeholder-count="4">
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">{{ p.title }}</span><button onClick="{{ p.export }}" style="border:0;background:none;color:#B8541F;font-size:12px;cursor:pointer;">Export</button></div>
+        <sc-if value="{{ p.big }}" hint-placeholder-val="{{ false }}"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:28px;font-variant-numeric:tabular-nums;">{{ p.big }}</span><span style="font-size:12px;color:{{ p.deltaFg }};">{{ p.delta }}</span></sc-if>
+        <sc-for list="{{ p.rows }}" as="r" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:4px;padding:6px 0;border-top:1px solid #F1EEEA;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;gap:10px;"><span style="color:#14181F;">{{ r.k }}</span><span style="font-variant-numeric:tabular-nums;color:{{ r.fg }};">{{ r.v }}</span></div>
+            <sc-if value="{{ r.bar }}" hint-placeholder-val="{{ false }}"><div style="height:5px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ r.bar }};height:100%;background:#00519F;"></div></div></sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ p.none }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#5A6472;padding:10px 0;border-top:1px solid #F1EEEA;">{{ p.none }}</span></sc-if>
+        <span style="font-size:12px;color:#5A6472;">{{ p.note }}</span>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { range: 30 };
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { fmt, R, phone } = app; const s = this.state;
+    const DAY = 864e5; const end = new Date(2026, 8, 28).getTime();
+    const inR = (o, from, to) => o.date >= end - from * DAY && o.date < end - to * DAY;
+    const cur = app.orders.filter(o => inR(o, s.range, 0)); const prev = app.orders.filter(o => inR(o, s.range * 2, s.range));
+    const gross = l => l.filter(o => o.status !== 'cancelled').reduce((a, o) => a + o.total, 0);
+    const refunds = l => l.reduce((a, o) => a + (o.refunded || 0), 0);
+    const net = l => gross(l) - refunds(l);
+    const dp = net(prev) ? Math.round((net(cur) - net(prev)) / net(prev) * 100) : null;
+    const units = {}; const bySup = {}; const byMk = {};
+    cur.filter(o => o.status !== 'cancelled').forEach(o => { o.lines.forEach(l => { const k = l.name.split(' · ')[0]; units[k] = units[k] || { u: 0, m: 0 }; units[k].u += l.qty; units[k].m += l.price * l.qty; bySup[l.supplier] = (bySup[l.supplier] || 0) + l.qty; }); byMk[o.market] = (byMk[o.market] || 0) + o.total - (o.refunded || 0); });
+    const top = Object.entries(units).sort((a, b) => b[1].m - a[1].m).slice(0, 5); const topMax = top.length ? top[0][1].m : 1;
+    const mk = Object.entries(byMk).sort((a, b) => b[1] - a[1]); const mkMax = mk.length ? mk[0][1] : 1;
+    const taxTotal = R.incl && R.rate ? net(cur) - net(cur) / (1 + R.rate) : 0;
+    const exp = n => () => !cur.length && n !== 'Tax' ? app.toast('Nothing to export — no orders in the last ' + s.range + ' days') : app.allow('export', 'Exporting reports') && app.toast(`${n} exported for ${s.range} days`, 'Download', () => app.toast('Downloading ' + n.toLowerCase().replace(/ /g, '-') + '.csv'));
+    const names = { [R.cc]: R.country, CA: 'Canada', FR: 'France', AE: 'UAE' };
+    const panels = [
+      { title: 'How much you took', big: fmt(net(cur)), delta: dp === null ? 'Nothing to compare with yet' : `${dp >= 0 ? '▲' : '▼'} ${Math.abs(dp)}% vs the previous ${s.range} days`, deltaFg: dp === null ? '#5A6472' : dp >= 0 ? '#1D6B47' : '#B8541F', rows: [{ k: 'Sales', v: fmt(gross(cur)) }, { k: 'Refunds', v: '−' + fmt(refunds(cur)), fg: '#B8541F' }, { k: 'Takings (matches your bank)', v: fmt(net(cur)) }], note: 'Net of refunds, so it matches what reaches your bank.', export: exp('Takings') },
+      { title: 'What sold', big: '', rows: top.map(([k, v]) => ({ k: `${k} · ${v.u} sold`, v: fmt(v.m), bar: Math.round(v.m / topMax * 100) + '%' })), note: 'By money taken, in this date range.', export: exp('Products sold') },
+      { title: 'Where it came from', big: '', rows: mk.map(([k, v]) => ({ k: names[k] || k, v: fmt(v), bar: Math.round(v / mkMax * 100) + '%' })), note: 'By the market each shopper bought in. Visitor sources need analytics — not shown.', export: exp('Sales by market') },
+      { title: R.key === 'US' ? 'Sales tax collected' : `${R.taxName} you owe`, big: R.key === 'US' ? 'By state' : fmt(taxTotal), delta: R.key === 'US' ? 'Calculated at checkout per state — see the export' : 'For shoppers in ' + R.home, deltaFg: '#5A6472', rows: (app.data('taxRates') || []).map(t => ({ k: t.name, v: t.rate })), note: 'We work it out — your accountant files it.', export: exp('Tax') },
+      { title: 'Suppliers', big: '', rows: Object.entries(bySup).map(([k, v]) => ({ k: k === 'You' ? 'Your own products' : k, v: v + ' units' })), note: 'Units sold per supplier. Suppliers never see your totals.', export: exp('Supplier sales') }
+    ].filter(x => x.title !== 'Suppliers' || app.caps.suppliersOn).map(x => ({ ...x, none: !x.big && !x.rows.length ? 'No sales in the last ' + s.range + ' days' + (s.range < 90 ? ' — try a longer range.' : '.') : '' }));
+    if (!app.caps.P.reports) return { pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', cols: '1fr', rangeLine: 'Takings, what sold, markets and tax — on Growth and up', ranges: [], thin: true, thinBody: 'Reports are on Growth. Your Home page still shows today’s numbers.', panels: [{ title: 'Unlock reports', big: 'Growth', delta: 'See prices in Billing', deltaFg: '#5A6472', none: '', rows: [], note: 'Everything you’ve sold so far is already counted — it appears the moment you upgrade.', export: () => app.upgrade('Reports', 'starter') }], a: { exportAll: () => app.upgrade('Reports', 'starter') } };
+    panels.push({ title: 'Custom reports', big: '', rows: [{ k: 'Build your own from any field', v: app.caps.P.custom ? 'Open' : 'Business' }], note: app.caps.P.custom ? 'Pick columns, filters and a schedule.' : 'On Business.', export: () => app.allow('custom', 'Custom reports') && app.toast('Custom report builder opens (demo)') });
+    return {
+      pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', cols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))',
+      rangeLine: `Last ${s.range} days, compared with the ${s.range} days before · ${cur.length} orders`,
+      ranges: [7, 30, 90].map(r => ({ label: r + ' days', bg: s.range === r ? '#0A2A4A' : '#FFFFFF', fg: s.range === r ? '#FFFFFF' : '#434A55', onClick: () => this.setState({ range: r }) })),
+      thin: cur.length < 3, thinBody: cur.length ? 'Reports get useful after a week or two of orders.' : 'Your first orders will show up here.', panels,
+      a: { exportAll: exp('All reports') }
+    };
+  }
+}
+</script>
+</body>
+</html>

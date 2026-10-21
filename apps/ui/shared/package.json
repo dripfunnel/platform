@@ -6,8 +6,16 @@
     "./ui": "./ui/index.ts",
     "./ui/tokens.css": "./ui/tokens.css",
     "./graphql": "./graphql/index.ts",
+    "./auth": "./auth/index.ts",
+    "./search": "./search/index.ts",
     "./format": "./format/index.ts",
-    "./ui/fonts.css": "./ui/fonts.css"
+    "./ui/fonts.css": "./ui/fonts.css",
+    "./ui/states.css": "./ui/states.css",
+    "./ui/shell.css": "./ui/shell.css",
+    "./ui/auth.css": "./ui/auth.css",
+    "./ui/cards.css": "./ui/cards.css",
+    "./ui/list.css": "./ui/list.css",
+    "./ui/detail.css": "./ui/detail.css"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -20,10 +28,18 @@
     "@fontsource/ibm-plex-mono": "^5.3.0"
   },
   "peerDependencies": {
-    "react": "^19.3.0"
+    "react": "^19.3.0",
+    "@tanstack/react-router": "^1.170.39",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@tanstack/react-router": "^1.170.39",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
-    "react": "^19.3.0"
+    "@types/react-dom": "^19.3.0",
+    "happy-dom": "^20.14.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
   }
 }

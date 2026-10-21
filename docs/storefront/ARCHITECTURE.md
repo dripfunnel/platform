@@ -1,18 +1,30 @@
 # ARCHITECTURE.md: storefront template
 
 How DripFunnel's storefronts are built. The template's source lives in the `platform` repo at
-`templates/storefront/`; every store gets its own storefront repo created from it. The AI designs that repo's look; a locked, versioned **core package**
-supplies all commerce behaviour through the **Shop API**.
+`templates/storefront/`; every store gets its own public storefront repo created from it when
+its merchant first picks a template. **The AI writes the store's theme code**: React pages and
+components, CSS Modules, the shopper-facing words per language and the store's own pages,
+inside `src/theme/**`, `content/**` and `routes.json` of that repo, and nothing else. A locked,
+versioned **core package** supplies all commerce behaviour through the **Shop API**, and a chain
+of independent walls (§3) keeps the AI's code from reaching money, data, the network or the
+parts every store must show.
 
 Companion documents: [DESIGN.md](DESIGN.md) covers what the AI may design and the rules every
-design keeps. `../api/PLATFORM-PROMPT.md` covers the platform and the engine behind the
-Shop API. **"The reference"** below means the first platform's storefront template (a
-Next.js commerce starter as customised by us, now removed from the workspace); §11 records
-what was taken from it.
+design keeps. How it is built, stored and served is in [LIVE-SHOP.md](LIVE-SHOP.md) (the live
+site), [PREVIEW.md](PREVIEW.md) (the preview link) and [AI-STUDIO.md](AI-STUDIO.md) (the studio
+session and the draft). `../api/PLATFORM-PROMPT.md` covers the platform and the engine behind the
+Shop API; `../api/SAAS.md` §9 owns publishing state, the studio's API and metering. **"The
+reference"** below means the first platform's storefront template (a Next.js commerce starter
+as customised by us, now removed from the workspace); §11 records what was taken from it.
 
-**Status: specification only.** No code exists yet.
+**Status: specification only.** `storefront-core` has its Shop API client, store settings,
+i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
+components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
 ---
 
@@ -20,36 +32,48 @@ Last updated: 2026-09-29.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **Internal, fully automated.** Merchants never see this template, its repos or any code. | A public starter merchants' developers fork (as open-source commerce starters are) | The merchant is non-technical. The split between core and theme exists so the AI can produce a completely different design for every store without being able to break commerce. Merchants who want their own frontend use the Shop API and SDK directly (PLATFORM-PROMPT §5.5), not this template. |
-| **Commerce behaviour ships as a versioned package, `@dripfunnel/storefront-core`.** | A `core/` folder inside each repo, guarded by a CI path check (SAAS-PLAN §2) | The AI physically cannot edit a dependency. A fleet upgrade is a version bump rather than a merge into 1,000 diverged folders. The CI path guard stays as a second line of defence for the few locked files in the repo (§3). |
-| **The AI changes look, not logic.** It may restyle and rearrange every page, checkout included, using core's hooks and components. It can't change flow order, pricing, payments, validation or data. | Checkout fully locked; or the AI adding its own features | Checkout is where design differences matter to a merchant. Checkout *behaviour* is where mistakes cost money, so behaviour stays in core. New features arrive through core releases, not per-store code. |
-| **Two render modes from one codebase.** **Preview** is a client-rendered SPA on the brand's preview subdomain, with no SSR or SSG. **Live** is a static site (SSG) on the customer's domain. | One mode for both | The preview must show every AI edit and every catalogue change immediately, with builds that take seconds. The live site must be fast, cheap to host, crawlable, and immune to API load spikes. §4 covers both, and how the live site stays current. |
+| **Internal, fully automated.** Merchants never see this template, its repos or any code. | A public starter merchants' developers fork (as open-source commerce starters are) | The merchant is non-technical. The split between core and theme exists so the AI can produce a completely different design for every store without being able to break commerce. Merchants who want their own frontend use the Shop API directly (PLATFORM-PROMPT §5.5), not this template. |
+| **Commerce behaviour ships as a versioned package, `@dripfunnel/storefront-core`.** | A `core/` folder inside each repo, guarded by a CI path check (SAAS-PLAN §2) | The AI physically cannot edit a dependency. A fleet upgrade is a version bump rather than a merge into 1,000 diverged folders. The file allowlist (§3.4) stays as a second line for the few locked files in the repo. |
+| **The AI writes theme code: full freedom over look and front-end behaviour, none over commerce** (decided 2026-10-08 with Gaurav on #470, "Plan A"). It may write any page, component, layout, style, animation or interaction (a pasted image matched, a page featuring one product, a card anywhere, zoom, infinite scroll, a quiz), on every page **checkout included**, using core's hooks and sealed components (§2.1). | The AI editing a fixed site-data schema (`site.json`: theme tokens and 12 sections of 8 types; decided earlier the same day, reversed); a design tree; sandboxed or inline HTML blocks (plans B, B+) | Merchants want what they see in tools like Lovable: anything they can describe or show. Every schema caps that. What breaks a store is logic, never layout, so logic stays in core and the engine, and the AI's code is fenced by walls that don't depend on the AI behaving (§3). |
+| **Safety by walls, not by trust**: a file allowlist, a type-aware code validator with allowlisted imports and APIs, sealed components in a closed Shadow DOM, CSP and Trusted Types in the browser, and the engine computing every amount (§3.3–§3.5) | Lint rules on AI code as the only guard; reviewing AI output | Each danger meets three independent walls: the code can't express it, a gate rejects it, the browser or engine contains it. A bad outcome needs all three to fail, and money is safe even then. |
+| **Every AI change runs in its store's own sandbox** (decided 2026-10-08 on #470): **Cloudflare Containers**, one container per store with a studio open, held by one Durable Object per store that runs one change at a time (§6.1, [AI-STUDIO.md](AI-STUDIO.md)) | GitHub Actions (decided 2026-10-05 on #284; 30–90 s per change); a third-party sandbox | Seconds per change, no new vendor, next to R2 and the Worker. Merchants never share a machine, and the store's Durable Object makes two tabs safe. |
+| **Every accepted change is a commit; undo is a revert.** The commits stay in the store's private draft; once a publish is live, its tree reaches the public repo as one squashed commit with a platform-written message (decided 2026-10-09 with Gaurav, [AI-STUDIO.md](AI-STUDIO.md) §1) | Draft rows of site data; a commit to the repo per change (2026-10-08, replaced) | The repo is the history; "Undo this change" and bisecting a broken publish both work on commits. The repos are public, so drafts must not be pushed before the merchant publishes. |
+| **Nothing reaches live that hasn't passed its safety checks** (§4.2; budgets, no-JS, crawl and a look that may change are suggestions only, decided on #806): a deterministic build in a frozen image, a full gate, then an atomic deploy, post-deploy checks and automatic rollback; repairs and bisecting before refusing | Building on publish and hoping | The exact files tested are the files deployed. A failure leaves the live site as it was; most failures repair themselves. |
+| **A store starts from a template** (decided 2026-10-08): six (Linen, Concrete, Bloom, Circuit, Market, Atelier) and "Start from scratch", each a complete starting theme in this repo, after a required brand step | The AI proposing three directions (decided 2026-10-05, replaced) | The merchant sees finished looks with their own products before typing a word. |
+| **Two render modes from one codebase.** **Preview** is a client-rendered build on the store's preview host, `{slug}-preview.my-store.one` ([PREVIEW.md](PREVIEW.md)), with no SSR or SSG. **Live** is a static site (SSG) on the customer's domain. | One mode for both | The preview builds in seconds and shows catalogue changes at once; the live site must be fast, cheap to host, crawlable and immune to API load spikes. §4 covers both. |
 | **The engine computes; the storefront displays.** Every price, tax, discount, shipping cost, stock level and total comes from the Shop API. | Any client-side commerce calculation | This is what lets the AI change the storefront freely: nothing a theme does can assert a price or skip a rule (PLATFORM-PROMPT §5.5). |
-| **Hosted on Cloudflare** as static assets, both modes. | S3 + CloudFront (the reference's deploy) | Platform decision (PLATFORM-PROMPT §5.6). Custom domains through Cloudflare for SaaS. |
+| **Fast and findable by construction**: core owns the `<head>`, structured data, sitemap, redirects, images, fonts and script loading; theme components are server-only unless they are interactive islands; budgets are gates (§8, §9) that refuse only on the safety checks: a missed budget, an empty heading without JavaScript or a broken link is shown as a suggestion and the version still goes live (#806) | Asking the AI to be careful | Speed and SEO are the storefront's job; a slow or unindexable design is reported to the merchant, a broken one is refused. |
+| **Hosted on Cloudflare**: each build's files in R2, served for every store by one edge Worker; built by a locked GitHub Actions workflow in each store's public repo, inside the build image for its core version, a private ghcr package the runner logs in to pull (#790) (decided 2026-10-09 with Gaurav, [LIVE-SHOP.md](LIVE-SHOP.md) §1) | A Pages project per store (decided 2026-10-05 on #284, replaced: 100 projects per account); builds in Cloudflare Containers (2026-10-08, replaced); S3 + CloudFront (the reference's deploy) | No per-store hosting limit, going back is a pointer move, and builds cost nothing on public repos. Custom domains through Cloudflare for SaaS. |
 
 ---
 
 ## 2. The pieces
 
 ```
-┌────────────────────── store repo (one per store, generated) ──────────────────────┐
-│  src/theme/**         AI-editable: tokens, layouts, pages, sections, components,  │
-│                       copy, assets                                                │
-│  src/app/**           LOCKED, generated route shims: core route → theme page      │
-│  store.config.ts      LOCKED, generated at provisioning (store key, API, locales) │
-│  package.json         LOCKED: core version pinned by the sync bot, dependency     │
-│                       allowlist                                                   │
-│  tests/**, .github/** LOCKED: contract tests, smoke tests, deploy                 │
-└──────────────────────────────────┬────────────────────────────────────────────────┘
+┌──────────────────────── store repo (one per store, generated) ─────────────────────────┐
+│  src/theme/**          AI-WRITTEN: pages, components, layouts, CSS Modules             │
+│  content/{locale}/*.json  AI-WRITTEN (the merchant may edit): every word shoppers see  │
+│  routes.json           AI-WRITTEN: which theme page skins each core route; custom pages│
+│  src/app/**            LOCKED: the skeleton's; route shims generated at build          │
+│  store.config.ts       LOCKED, generated with the repo (store key, Shop API path)      │
+│  package.json          LOCKED: core pinned exactly; the dependency allowlist           │
+└──────────────────────────────────┬─────────────────────────────────────────────────────┘
                                    │ depends on (exact version)
                     ┌──────────────▼───────────────┐
-                    │  @dripfunnel/storefront-core │  GitHub Packages, semver
+                    │  @dripfunnel/storefront-core │  GitHub Packages, semver; hooks,
+                    │  incl. ./guard (the validator│  sealed components, contracts, the
+                    │  and gates) and ./testing    │  validator and the gate suites
                     └──────────────┬───────────────┘
                                    │ GraphQL, public store key
                     ┌──────────────▼───────────────┐
                     │  Shop API (DF engine)        │
                     └──────────────────────────────┘
 ```
+
+AI changes run in the platform's sandbox image (`apps/sandbox`, [AI-STUDIO.md](AI-STUDIO.md)),
+which has core and the allowed libraries preinstalled for each core version. Builds run in the
+store repo's one locked workflow, inside the same image published on `ghcr.io`
+([LIVE-SHOP.md](LIVE-SHOP.md) §4). The store repo holds no secret of its own and needs no package access: the build's `pull` step logs in with the org's `GHCR_PULL_TOKEN` (#790).
 
 ### 2.1 `@dripfunnel/storefront-core`
 
@@ -59,58 +83,292 @@ is (`account`, `authentication`, `cart`, `checkout`, `collections`, `currency`, 
 
 | Module | Provides |
 |---|---|
-| `platform/api` | The Shop API client (PLATFORM-PROMPT §5.5): typed operations (gql.tada against our schema), the store key header, the shopper session token, locale and currency headers, retries, error mapping. No other module performs network calls. |
-| `platform/store` | Store resolution from `store.config.ts`, store settings from the Shop API (name, locales, currencies, policies, legal and compliance info, brand "Powered by" rule), and the store's state (live, past due, suspended) for degraded mode. |
+| `platform/api` | The Shop API client (PLATFORM-PROMPT §5.5): operations whose answers are decoded with zod schemas written from `apps/api/schema/shop.graphql`, as the SPAs do (decided on #304, in place of gql.tada), the store key header, the shopper session and cart tokens, language, currency and market headers, error mapping. No other module performs network calls. |
+| `platform/store` | Store resolution from `store.config.ts`, store settings from the Shop API (name, locales, currencies, policies, legal and compliance info, brand "Powered by" rule), **the brand and the home page's search and sharing** (logo, tagline, social links, public contact, title, description, share image: SAAS §9.2), and the store's state (live, past due, suspended) for degraded mode. A theme reads all of it through `useStorefront()` and never copies it into its own files (decided 2026-10-08 on #470). |
 | `platform/render` | The render-mode adapter (§4): one interface for data loading that resolves at build time in live mode and at run time in preview mode. |
-| `platform/i18n` | Locale routing, message catalogues for core strings, `Intl` formatting, RTL direction. Themes add their own messages; core messages can be restyled, never removed. |
-| `platform/seo` | Metadata, canonical URLs, hreflang, Open Graph, structured data (Product, Offer, BreadcrumbList, Organization), sitemap and robots, noindex in preview. |
-| `platform/analytics` | Commerce events (view item, add to cart, begin checkout, purchase), consent-aware, provider adapters *(ask which)*. |
-| `platform/consent` | Cookie and tracking consent by region (EU/UK required). |
-| `cart` | The active order as the only cart state (the reference's rule), add, remove, adjust, apply and remove codes, optimistic UI with server reconciliation. |
-| `checkout` | The checkout state machine: contact → shipping address → delivery → payment → review, with the engine deciding what each step needs. Payment adapters (Stripe, Razorpay, Cashfree first), each loading its own provider SDK; asynchronous settlement with a "payment processing" state (the reference's `PaymentProcessingBanner` pattern). Checkout may also hand off to the engine's hosted checkout *(ask, PLATFORM-PROMPT §5.6)*. |
-| `products`, `collections`, `search` | Loaders and hooks for product detail (versions, options, selection rules, live price and stock), collection listings, search with filters (OR within a filter, AND across filters), sorting and pagination as URL state. |
+| `platform/i18n` | Locale routing, message catalogues for core strings, `t()` over the theme's `content/{locale}/*.json`, `Intl` formatting, RTL direction. Core messages can be restyled, never removed. |
+| `platform/seo` | The whole `<head>` (§8): title, description, canonical URLs, hreflang, Open Graph, structured data (Product, Offer, BreadcrumbList, ItemList, Organization, WebSite, Article), sitemap and robots, noindex in preview. |
+| `platform/analytics` | Commerce events (view item, add to cart, begin checkout, purchase), consent-aware, provider adapters: **GA4, Meta Pixel and Google Tag Manager**, loaded only after consent and after the page loads (decided 2026-10-05 on #337); Google Tag Manager needs both analytics and marketing consent, because a container may hold any tag (decided on #304); a withdrawal reaches each provider's own script (Google Consent Mode, Meta's consent call); and **real-user Core Web Vitals**, also only after consent (decided 2026-10-08 on #470, §9). |
+| `platform/consent` | Cookie and tracking consent (asked everywhere until the shopper chooses), and a **Cookie settings** button that reopens it with the saved choice, so consent is as easy to withdraw as to give; providers stop receiving events the moment it is withdrawn. |
+| `platform/media` | `<Image>` (Cloudflare image resizing, AVIF/WebP, `srcset` and `sizes`, width and height always set, lazy unless core chose it as the page's main image), `<Video>` (poster required, `preload="none"` on phones, paused off-screen and under reduced motion, a size cap) and the font loader (allowlisted, self-hosted, subset `woff2`, metric-matched fallbacks). |
+| `platform/browser` | The only browser access a theme gets: `useInView`, `useScrollProgress`, `usePointer`, `useMediaQuery`, `useReducedMotion`, `navigate()`, `<Link>` (internal routes and the store's listed external links; prefetch by Speculation Rules). |
+| `cart` | The active order as the only cart state (the reference's rule), add, remove, adjust, apply and remove codes, buy now, optimistic UI with server reconciliation. |
+| `checkout` | The checkout controller: contact → shipping address → delivery → payment → review, with the engine deciding what each step needs, and express wallets where the provider offers them. Payment adapters (Stripe, Razorpay, Cashfree first), each loading its own provider SDK; asynchronous settlement with a "payment processing" state (the reference's `PaymentProcessingBanner` pattern). The theme skins its slots; an error in the theme's checkout switches that shopper to the baseline checkout. AI storefronts check out in the theme; own storefronts hand off to the engine's hosted checkout by default (decided 2026-10-05 on #337). |
+| `products`, `collections`, `search` | Hooks for product detail (versions, options, selection rules, live price and stock), collection listings with `fetchMore`, search with filters (OR within a filter, AND across filters), sorting and pagination as URL state. |
 | `account`, `authentication`, `orders` | Sign-up, verification, sign-in, password reset, profile, addresses, order history, order detail and tracking. |
-| `pricing` | The price display component: currency always explicit (the reference's silent `USD` default is banned), tax label per region ("incl. VAT", "+ tax"), compare-at price only as the engine returns it. |
-| `ui/headless` | Unstyled, accessible behaviour components the theme skins: variant picker, quantity stepper, cart drawer state, address form (country-aware fields), payment element host, facet filter, pagination, locale and currency pickers, consent banner, search overlay. |
-| `contracts` | The TypeScript interfaces and route manifest the theme must satisfy (§3), and the contract test suite. |
+| `pricing` | `Money`, `Stock`, `Rating` and `Badge` as **opaque branded types** only core's hooks return; the price display: currency always explicit (the reference's silent `USD` default is banned), tax label per region ("incl. VAT", "+ tax"), compare-at price only as the engine returns it. |
+| `ui/headless` | Unstyled, accessible behaviour components the theme skins: variant picker, quantity stepper, cart drawer state, address form (country-aware fields), payment element host, facet filter, pagination, locale and currency pickers, search overlay. |
+| `sealed` | The **sealed components** (§3.5): the price with its tax label, the payment element, legal and compliance notices, the consent banner, the preview banner, the brand's "Powered by" line, breadcrumbs and the order summary at review. |
+| `contracts` | The TypeScript interfaces and route manifest the theme must satisfy (§3), and `routes.json`'s schema. |
+| `guard` | The **validator** (§3.4) and the **gate suites** (§4.2) the sandbox runs, exported as `./guard`. |
+| `testing` | The contract checks, exported as `./testing`. |
+
+**Cancelling and returns on the storefront** (*proposed* on #285, awaiting Gaurav's approval; §12): a shopper may cancel an order
+until it ships, and may ask for a return until the **store's returns window** closes, counted from
+delivery. The window is the store's own policy, read by `platform/store` with the other policies,
+never the theme's; a product's own rule overrides it (CATALOG-DESIGN S8), and neither may go below
+a market's legal floor. Downloads keep the store's limits the same way (times and days per
+order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in the India sample,
+30 in the US one); the events are logged as LOGGING §2 lists.
 
 **Core exposes behaviour through three shapes, and the theme owns every pixel:**
-1. **Hooks** (`useCart()`, `useProduct()`, `useCheckout()`, …) return data, state and
-   actions.
+1. **Hooks** (`useCart()`, `useProduct()`, `useCheckout()`, `useStorefront()`, …) return data,
+   state and actions.
 2. **Headless components** with render props or slots render nothing visual of their own.
-3. **Required components** render something that must exist but can be styled: the payment
-   element host, legal and compliance notices, the price with its tax label, the consent
-   banner, the preview banner. The theme can style them through tokens and class slots, but
-   can't omit, replace or alter their content.
+3. **Sealed components** render something that must exist and be seen: the theme places and
+   styles them through tokens and `::part`, and can't omit, cover, replace or reword them.
+
+*The browse behaviour as built on #307* *(decided there)*:
+- **The browse hooks** in `./theme`: `useProduct`, `useCollection`, `useCollections`, `useSearch`, `useProducts` and
+  `useListing` (`products`, `collections`, `search`), and `useMenu`, the merchant's menu (Catalogue › Menu).
+- **The browser side** in `./theme`: `useLocation`, `navigate`, `useMediaQuery`, `useReducedMotion`, `useInView`,
+  `useScrollProgress` and `usePointer` (`platform/browser`); `<Image>` and `<Video>` (`platform/media`); `useHead`
+  (`platform/seo`); and the headless `Checkbox`, `Select` and `SearchField` (`ui/headless`).
+- **Loading, in both render modes**: a hook renders its loading state in the static build and in the browser's first
+  render alike, so hydration matches, then asks the Shop API (`platform/render`'s `useShopData`). A question is asked once
+  per page however many components ask it, and only the latest question's answer is kept. The static build doesn't
+  prerender catalogue pages yet, since the snapshot carries only the store (§4.2): products and collections reach a live
+  page in the browser.
+- **The address is the state**: `filter` (each chosen facet value's id, repeated), `sort` (`featured`, `newest`,
+  `price-low`, `price-high`, `name`), `after` or `before` (the page's cursor) and `q` (search words, at most 200
+  characters). A new filter or sort goes back to the first page; the canonical link keeps only the cursor. 24 products a
+  page, and `fetchMore` appends the next in place. Search, a missing collection and a missing product are `noindex`.
+- **A version's address** is `/products/{slug}/{version id}/`, canonical to the product's. A partial choice (a colour
+  before a size) stays in the page; a complete one replaces the history entry, so Back leaves the product. A product's
+  first photo is the page's main picture.
+- **`/collections/all/`** lists every product, unless the store has a collection of its own at that address.
+- **Legal details**: a product's compliance fields for the shopper's market (its countries, over `ALL`) reach the sealed
+  `LegalNotices` with core's titles (fibre, origin, care). The "Powered by" rule and a store's own legal notices per
+  market still have no Shop API field, so core keeps taking them as props (`poweredBy`, `notices`).
+- **`navigate()`** changes the query in place, in history; another path loads whole, since each live page is its own
+  file, unless the caller says the same page shows it (`inPlace`).
+- **`<Image>`** takes only a picture core decoded (`Photo`), with the width over height (`ratio`) that sets its width and
+  height; on the live site it is resized through Cloudflare's `/cdn-cgi/image/` (320 to 1920 px), and a preview shows the
+  original. Only the picture core marks as the page's main one loads eagerly. **`<Video>`** needs a poster, never
+  preloads, plays muted only while on screen and never under reduced motion; the size cap is the media library's, not
+  the browser's.
+- **The head**: core keeps the title, description, canonical, Open Graph and robots in step in the browser, the page's
+  over the store's, and `noindex` holds in the preview and the studio. The home page's title, description and share
+  image are the store's search and sharing (SAAS §9.2), in the static HTML and in the browser (`storeHead`). JSON-LD is
+  only ever in the static HTML: Trusted Types forbid writing a script's text at run time.
+- **A closed preview**: on `PREVIEW_CLOSED` from `/shop-api`, core's runtime replaces the page with "This preview has
+  closed. Open it again from your link or from the portal." and no store data (PREVIEW §5 step 3).
+
+*The cart as built on #313 (part 1)* *(decided there)*:
+- **`useCart()`** in `./theme`: the Shop API's `cart` with its lines (the product's name, address, version, photo, unit
+  price, line total, the offers' discount and what stops a line being bought), codes, offers, delivery, tax and totals, and
+  `add`, `setQuantity`, `remove`, `applyCode`, `removeCode` and `buyNow`. One cart per page however many components show
+  it (the header's count, the cart page), read once in the browser and never in a static build. *Since #324:* a gift card
+  is added with its recipient (`add` and `buyNow` take `gift`: name, email, an optional message and send-on date), each
+  line carries its `gift`, and `applyGiftCard(number)` and `removeGiftCard()` let a gift card pay part of the cart: the
+  cart's `giftCard` says what it takes off, what is left on it and its last four digits, and `amountDue` what is left to
+  pay, both as the engine answers them.
+- **A change shows at once**: a line's new quantity and the count change before the engine answers, the line and the cart
+  marked `pending`, their money the last answer's; the answer replaces them, and a refusal takes the change back and keeps
+  its code in `error`. Changes go one at a time, in order. No amount is ever worked out in the browser.
+- **The tokens**: core keeps the cart token the first add hands out in the browser's storage (a cart lives 30 days) and sends
+  it as `X-Shop-Cart`; without a token there is no cart to ask for. An expired cart (`NO_CART`) is forgotten, and an add
+  then makes a new one.
+- **Buy now** adds the version to the active cart and opens checkout, since the active order is the only cart.
+- **`<OrderSummary>`** is sealed (part `summary`, at least 160×48 px): subtotal, each offer, delivery ("Chosen at
+  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too, and given
+  a placed `order` (the order's page) its lines and what was charged. While a
+  change waits for its answer it says "Updating the totals…", since its amounts are still the last answer's.
+- **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer
+  (`refused` announces a refusal as an error). Reads of the cart and changes to it go one at a time, in order, so a read
+  never lands over a newer change's answer.
+- **`<AddToCart>` and `<BuyNow>`** (part 2): the buttons a theme words and styles, `useCart`'s `add` and `buyNow` behind them,
+  marked `data-df-action` so the checkout smoke test finds them in any theme (§3.2's "add-to-cart that uses `useCart`").
+  *Since #324:* `gift` passes a gift card's recipient, and `describedBy` names the words saying why a button is disabled.
+- **A product's kind** (#324): `useProduct`'s `kind` is a gift card (its expiry in months), a download (how many downloads
+  within how many days), a service (its duration and place) or physical, from the Shop API's `productType`. The sealed
+  `OrderSummary` shows a gift card's part, and for a cart "After the gift card" from the engine's `amountDue` (a placed
+  order shows the gift card's part only: the Shop API gives no amount due for it, and none is worked out in the browser). `useOrder` gives an order's
+  `giftCard`, `downloads` (its link, uses left and until when) and `licenceKeys`, and each line's gift recipient.
+
+*The checkout as built on #313 (part 3)* *(decided there)*:
+- **`useCheckout()`** in `./theme`: the steps contact → delivery address → delivery → payment → review, each `done`, `open`
+  or `later` by what the engine's cart holds (an email, an address, a delivery option, a way to pay it checked), without the
+  address and delivery when nothing is sent (`needsShipping`); `edit` opens a finished step again. `saveContact`,
+  `saveAddress` (core's checks per country first: what `address.ts` requires and the PIN, ZIP or postcode's form),
+  `chooseDelivery`, `choosePayment`, `review` (the Shop API's `checkout`) and `place`. The cart is `useCart`'s, so a change
+  anywhere shows everywhere.
+- **Placing**: `placeOrder` with the chosen way to pay. Cash on delivery and a bank transfer go straight to the order's page;
+  a card provider's payment is then taken by its **adapter** (`checkout/payments.ts`), which loads its own SDK only then:
+  Stripe's Payment Element (Stripe.js through `@stripe/stripe-js`, as #278's console uses it) in the sealed element with
+  core's Pay; Razorpay's window; Cashfree's and PhonePe's pages, which send the shopper back; PayPal's buttons in the sealed
+  element. A field to correct (Stripe's `validation_error`) keeps the element open with its words; a provider that can't
+  take the shopper away fails the attempt. Paid, core asks `confirmPayment` and opens the order's page; declined or closed,
+  the payment phase says so and
+  `PlaceOrder` asks `payOrder` for another attempt. One order per cart: `place` does nothing while an order is being placed
+  or paid, or once it failed with its order, which only `payOrder` goes on with.
+- **Where a provider sends the shopper back**, and where Pay leads, is the order's own page, `/order/{id}/` (core's
+  `orderConfirmation` route; the Shop API gives Cashfree and PhonePe that address). **`useOrder`** reads it through
+  `confirmPayment`, so a card payment still pending is asked about on arrival and again on "Check again": a guest reads
+  it with the cart it was placed from, a customer with their session. It says how the order stands (paid, a card still
+  confirming, cash on delivery or a bank transfer awaited with the store's details and its pay-by date in the store's
+  time zone, refunded, cancelled), and the sealed `<OrderSummary order>` lists its lines and what was charged. A card
+  payment that hasn't gone through (declined, or left at the provider) gets **"Try paying again"** (`payAgain`, core's
+  `useRepay`): `payOrder` starts a new attempt through the same adapters in the sealed payment element the page places,
+  and the order is read again once it is paid, or was meanwhile (`ALREADY_PAID`).
+- **Express wallets** are Stripe's Apple Pay and Google Pay inside its Payment Element, asked for (`'auto'`) only on a live
+  shop and `'never'` in the preview and the studio frame (PREVIEW §5 step 6).
+- **The sealed `<PaymentElement>`** (part `payment`, at least 200×24 px): the preview's test-mode note (Stripe's test card
+  with it), a bank transfer's instructions, the provider's own field or buttons, core's Pay, and "Placing your order…",
+  "Your payment is being confirmed", or what went wrong in its own words: a closed window, a declined payment, or an
+  order the engine didn't place ("Your order wasn't placed and nothing was charged"). In the studio frame it shows only "Checkout works in Open preview",
+  no provider loads and nothing is placed. On checkout the payment element and the order summary are required parts
+  wherever core gave the page a price.
+- **`<PlaceOrder>`**: the theme words and styles it; core places the order, or asks for another attempt after a failed
+  payment; marked `data-df-action` for the smoke test.
+- **Headless form controls** (`ui/headless/form.tsx`): `Form` and `SubmitButton`, `TextField` (its label, hint and error
+  tied to it), `Choices` (radio buttons, each option's content the theme's) and `AddressFields` (the country's fields with
+  core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK).
+- **The baseline checkout** (`checkout/baseline.tsx`, #313 part 7): core's own `BaselineCheckout`, in core's words and
+  look (a stylesheet core adopts, so no theme CSS is needed), with the preview banner, every step, the sealed summary and
+  payment element and Place order. The runtime renders the checkout route inside `CheckoutBoundary` with it as the
+  baseline; a live checkout page renders afresh in the browser rather than hydrating, since the server's HTML is the
+  theme's checkout for a visit without JavaScript.
+- **A preview checks out as a guest**: core's runtime sends no session token on the preview host or in the studio frame
+  (`guestShopState`), only the cart's.
+- **Signing in** (`account/account.ts`, #313 part 6): **`useSignIn`** signs a shopper in by email and password (`signIn`) or
+  by a code (`requestSignInCode`, then `verifySignInCode`) by email or text, as the shop's `signInOptions` allow; the same
+  code with a name and a password creates an account, and with a password alone sets a new one. Core checks the email,
+  number, 6-digit code and a password of at least 10 characters first, keeps the session token (for the visit only
+  without "Keep me signed in") and goes on to `?next=` when it is a page of this shop, else `/account/`. On a preview or
+  in the studio frame it asks nothing and answers `NOT_IN_PREVIEW`.
+- **The account**: **`useAccount`** reads the signed-in shopper's details, addresses and the store's countries;
+  `rename`, `saveAddress` (core's address checks first; also "make default"), `removeAddress`, each reading the account
+  again, and `signOut`, which ends the session on the server and here. Without a session, or on a preview, it is
+  `signedOut` and asks nothing. An order in the account (`/account/orders/{id}/`) is `useOrder`'s. **`useOrders`** (#813)
+  is the account's list: the Shop API's `orderHistory` (at most 50 a page, ui/store/FIRST-RELEASE), the signed-in
+  customer's own (never a guest's), newest first, asked 20 at a time with `loadMore`, each `OrderRow` its number, day, item count, payment and total; `empty` with none, and `signedOut`
+  without a session (or on a preview, asking nothing), the session forgotten when the Shop API answers `SIGNED_OUT`.
 
 ### 2.2 The store repo
 
-Created by provisioning: an empty repo in the `dripfunnel` org, into which
-Provisioning (`apps/api/src/integrations/github`) copies `templates/storefront/` through the GitHub API, then writes
-the generated files (`store.config.ts`, route shims) and pins the published
-`@dripfunnel/storefront-core` version (PLATFORM-PROMPT §5.7, `../ARCHITECTURE.md` §1). Only `src/theme/` is
-editable, by the AI alone.
+Created **when the merchant first picks a template** in Storefront, not at provisioning
+(decided 2026-10-08 on #470): an empty **public** repo with an opaque name in the `dripfunnel`
+org (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md) §3), into which
+`apps/api/src/integrations/github` copies `templates/storefront/` with the chosen template's
+theme (§2.3) through the GitHub App, then writes the generated `store.config.ts` and pins the
+published `@dripfunnel/storefront-core` version (PLATFORM-PROMPT §5.7, `../ARCHITECTURE.md` §1;
+built on #316, SAAS §5 steps 4–8). Nothing in the repo is edited by hand: each change the AI makes becomes a commit in the
+store's private draft once it passes the fast gate (§6.2), and **the platform pushes the published
+tree to the repo as one squashed commit once its publish is live** through the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6); the
+sandbox itself holds no credential (§6.1).
 
 ```
 src/
-  app/                  LOCKED, generated. One thin file per core route, re-exporting
-                        the page the theme's manifest names (the reference's
-                        "app files are re-export shims" test, kept).
-  theme/
-    manifest.ts         which theme page implements each core route (§3.1)
-    tokens.css          design tokens (Tailwind v4 @theme; light and dark)
-    layouts/            shells: header, footer, navigation, page frames
-    pages/              one per core route, plus content pages
-    sections/           composable blocks (hero, product grid, editorial, …)
-    components/         the theme's own UI primitives (starting from shadcn)
-    messages/           theme copy per locale
-    assets/             theme images, fonts, icons
-store.config.ts         LOCKED, generated: store key, Shop API URL, preview and live
-                        hostnames, locales, currencies, core feature flags
-package.json            LOCKED: core pinned exactly; dependencies from an allowlist only
-tests/                  LOCKED: contract, smoke, accessibility, performance budgets
-.github/workflows/      LOCKED: build and deploy both modes
+  app/                  LOCKED: the skeleton's files. The route shims, one thin file per core
+                        route and custom page re-exporting the page routes.json names (the
+                        reference's "app files are re-export shims" test, kept), are generated
+                        from routes.json at build, never kept in the repo (decided on #316).
+  theme/                AI-WRITTEN
+    pages/              a page per core route (§3.1) and the store's custom pages
+    components/         server components; components/interactive/ for client islands
+    styles/             *.module.css only
+content/{locale}/       AI-WRITTEN: every shopper-facing word, one file per page or area
+routes.json             AI-WRITTEN: core route → theme page; custom page path → theme page
+store.config.ts         LOCKED, generated: the public store key and the Shop API's path
+package.json            LOCKED: core pinned exactly; dependencies from the allowlist only
+.github/workflows/build.yml  LOCKED, from the template: the only workflow (LIVE-SHOP §4)
 ```
+
+Choosing another template later replaces `src/theme/**` and `routes.json` with that
+template's, after asking whether to **keep the merchant's words** (`content/**` kept) or take
+the template's.
+
+Decided on #316:
+- **The shims are generated at build, by core, from `routes.json`** (in the build image and the
+  studio's fast gate). A publish may push only §3.4's paths (AI-STUDIO §6), so a custom page the AI
+  adds could never bring its shim to the repo; and core owns the route map the shims follow.
+- **`store.config.ts` holds only what never changes**: the public store key and the Shop API's
+  path (`/shop-api`, same origin, LIVE-SHOP §5 step 3). Hostnames, languages and currencies
+  change in Settings and reach the build from the Shop API, so a settings change never needs a
+  commit.
+
+### 2.3 Templates
+
+The six templates and "Start from scratch" live in this repo as complete starting themes,
+`templates/storefront/themes/{key}/` (`src/theme/**`, `content/**`, `routes.json`, a
+`template.json` with the name, description and demo store) *(path confirmed on #486)*.
+
+*As built on #486* *(decided there)*:
+- The keys are `baseline` ("Start from scratch", the D1 look) and `linen`, `concrete`, `bloom`, `circuit`,
+  `market` and `atelier`. `template.json` is `{ key, name, tag, description, demoStore, coreMinVersion }`, and the
+  `storefront_template` rows (DATA-MODEL §7.8) mirror it.
+- Words are in English only, the one language the seed stores offer: the validator refuses words in a language the
+  store doesn't offer (`files/locale-not-offered`) as firmly as missing ones, so a store in other languages gets
+  them written in the studio.
+- Each theme draws its look with what core gives a theme today: the store's own name, description and contact details
+  through `useStorefront()`, `<Link>` to core's routes and two custom pages (`/about`, `/contact`), and the sealed
+  consent banner, Cookie settings, "Powered by" and preview banner. The product grids, collection tiles and cart lines
+  the prototype draws joined the six themes on #765, copied from baseline with each theme's own tokens (home, collection,
+  search, product and cart pages); checkout, account, order and blog pages still show their frame and words. Pictures are the template's own CSS surfaces, never a product's.
+- *Baseline's browse pages as built on #307* *(decided there)*: home (hero, the story and sign-up sections, then the store's collections and its newest products, which fill in late and sit last so they move nothing; the prototype was changed to match on #770, after the publish gate's layout-shift check failed with them above the story),
+  collection and search (filters as a sidebar on wide screens and a panel on narrow ones, sort, chips, "Load more"), the
+  product page (gallery with video, options as buttons with sold-out values struck through, the stock line, legal
+  details, accordions, related products), the policies, About, Contact and 404, each with its loading, empty, missing and
+  failed states. The header draws the merchant's menu, and the footer the store's tagline, contact and social links.
+  Contact shows the store's public contact details and no message form, since the Shop API has no operation for one; a
+  policy page names the policy and points to Contact, since the Shop API serves no policy text yet.
+- *Baseline's cart as built on #313 (part 2)*: the cart page (lines with their quantity steppers and Remove, the sealed
+  summary, the discount code, Checkout; loading, empty and failed states), Add to cart and Buy now on the product page, and
+  the count on the header's cart.
+- *Baseline's checkout as built on #313 (part 4)*: checkout in its own frame (the shop's name, "Secure
+  checkout", Back to cart; no menu), the steps as cards numbered by CSS, each open with its form, done with its line and
+  Change, or still to come, beside the sealed summary, which stays shown on phones under the steps (D1 collapses it there;
+  a sealed part may not be hidden); the review lists contact, address and way to pay above the sealed payment element and
+  Place order.
+- *Baseline's order page as built on #313 (part 5)*, from D1's order confirmation: a pill for where it stands, "Thank
+  you" and the order's number, what to do next (a bank transfer's reference, pay-by date and details; cash to the
+  courier; a card still confirming with Check again, Try paying again and the sealed payment element), its delivery and way to pay, and the sealed summary beside them
+  under "Order {number}"; loading, failed (Try again), not found and cancelled states. D1's "Thank you, {name}", receipt
+  email and "Create account" card wait for the Shop API's order to carry the contact (it doesn't yet).
+- *Baseline's sign-in and account as built on #313 (part 6)*, from D1's Sign in and Account: sign in by email and
+  password or by a mobile code (tabs when the shop allows both), Keep me signed in, Forgot password; Create an account
+  and Forgot password each by an emailed code, then the name and password or the new password; on a preview each says
+  signing in works on the live shop. The account: "Hello, {name}", Sign out, Your details (the name to edit, the email
+  and number with Verified) and Addresses (Default, Make this my default, Remove, Add an address); an order at
+  `/account/orders/{id}/` is the order page headed by its number. *Orders, as built on #813*: D1's rows at
+  `/account/orders/` (number, day · items, the order page's status pill, total), each opening its order, Load more for the
+  next 20, and loading, failed (Try again), "No orders yet" and signed-out (to sign in with `?next=`) states; the pill is
+  payment's until the Shop API gives an order's delivery. D1's Messages, Gift cards, Downloads and Your data wait for the
+  Shop API (and #324 for gift cards and downloads).
+- *Baseline's product kinds as built on #324 (part 1)*, from D1's "Product · gift card", "· download" and "· service": a
+  gift card's page asks for the recipient's name and email, an optional message (up to 200 characters) and a send-on date
+  with the card's expiry, and has one button, "Add gift card to cart", disabled with its reason until a name and a real
+  email are in; a download says how many downloads within how many days, a service its duration and place. A cart line
+  says who a gift card is for. Checkout's payment step takes a gift card's number (refused in words, then "Your gift card
+  ending …" and Remove). The order page lists the downloads (a link each, uses left and until when), the licence keys and
+  when each gift card is emailed.
+- *Baseline's content pages and blog as built on #324 (part 2)*, from D1's FAQ, Journal and Journal post: a content page is
+  its title and blocks (a heading, paragraphs, an image, questions that open to their answers, product cards, and for the contact form block
+  the store's email and phone to write to); the Journal
+  lists posts as cards (cover, date, title, excerpt) with "Older posts", `?tag=` narrowing it; a post has "← Journal", its date
+  and author, title, cover, blocks and tag links. Loading, failed (Try again), not found and empty states.
+- The sample words state no fact about a store, since any store may start from any theme: no product, material,
+  origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
+  testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the
+  store's own description when it has one, and the About pages are prompts the merchant replaces.
+- `apps/sandbox/src/themes.test.ts` gates every theme on each change: the validator, the preview bundle within the
+  byte budgets with every route rendered from it in preview mode, and the whole publish gate (§4.2) against the
+  edge-case catalogue.
+
+**Where the Worker reads them** (decided on #316): not from this repo, which the App can't and
+mustn't read, but from the `storefront-sites` bucket, where the release workflow puts each core
+version's files as it builds the templates' preview bundles (PREVIEW §4):
+`templates/{core}/skeleton.json` (every file of `templates/storefront/` but `themes/` and the theme's §3.4
+paths, the locked workflow and `package.json` included), `templates/{core}/themes/{key}/source.json` (the
+theme's files), `templates/{core}/themes/{key}/preview/manifest.json` (each preview file's path
+and SHA-256) with the files under `preview/files/`, and last `templates/current.json`
+(`{"core": "x.y.z"}`), which names the core new stores pin. The `create-storefront` Workflow
+refuses a skeleton without its workflow and `package.json` or carrying theme files, and a theme
+writing outside §3.4. "Start from scratch" is the baseline theme drawn in
+`designs/DF Storefront Prototype` (D1, #285). Every template passes every gate of §4.2 with
+every core release before it ships (§10). A template keeps its own colours; the brand's
+colours are a hint the AI uses when asked, never applied automatically.
 
 ---
 
@@ -122,12 +380,45 @@ Core owns the **route map**; the theme owns what each route looks like. Required
 home, collection, product (plus a version URL), search, cart, checkout, order confirmation,
 sign-in, register, verify, forgot and reset password, account (profile, addresses, orders,
 order detail), policies (terms, privacy, shipping, returns, legal notice), 404, and the
-degraded-store page. The theme may add **content pages** (about, lookbook, FAQ) and sections
-that use only core's public hooks. It may not add routes that perform commerce (no custom
-cart, checkout, or pricing pages).
+degraded-store page, plus **content pages** (FAQ, lookbook, the merchant's own) and the blog
+from SAPI 24.
 
-`theme/manifest.ts` must map every required route to a page. A missing mapping fails the
-build.
+**Custom pages**: the AI may add pages of its own in `routes.json` (an About page, a page
+featuring one product, a lookbook of its own design). **All of a store's paths are one
+namespace** (decided 2026-10-08 on #470): core's routes are reserved; a custom page's path that
+a content page or blog post already uses is refused by the validator, and SAPI 24 refuses a
+content page or post slug a custom page uses. The platform holds both lists: each accepted
+change records the theme's custom paths in `storefront.custom_paths` (from `routes.json`), and
+the Worker passes the store's content and post paths into the validator's context, so the
+sandbox needs no network to check them. A custom page may show catalogue data through
+core's hooks and may hold core's commerce components (add to cart, buy now), but never
+performs commerce of its own: no cart, checkout or pricing pages.
+
+*As built on #338:* a content page lives at `/{slug}` and a post at `/blog/{slug}`, one lower-case
+hyphenated segment each, the same address in every language. Every page and post holds its path
+while it exists, drafts included. A page's slug is refused when it is one of core's reserved segments,
+a language code the store offers (`hi`, `en-in`), a market's path prefix or a custom path; a post's
+when its path is a custom path; either when another of its kind has it. The refusal is `PATH_TAKEN`
+with the `path` and what holds it (`heldBy`: `core`, `language`, `market`, `custom_page`,
+`content_page` or `blog_post`). `storeContentPaths` (the engine's `content` module) answers the
+validator's `usedPaths`: the studio reads it for each change, and INF 4 freezes it into a build's input.
+
+`routes.json` must map every required route to a page. A missing mapping fails the gate.
+
+*As built on #324 (part 2):* the content routes are `contentPage`, `blog` (`/blog/`) and `blogPost` (`/blog/{slug}/`),
+which a theme **may** map (`contentRoutes`, `contentAddresses`): the baseline maps them, the other starting themes gain them
+in ST 0, and until then those addresses get the theme's 404. The validator checks the page of each one mapped; the gate wants
+the blog's page and the posts' fallback built once they are. The build writes a page for each of the store's content paths
+(the snapshot's `usedPaths`) in every language, and the posts share one client-rendered page as products do. In the preview,
+one lower-case segment that is no core segment nor a custom page is a content page, and the page says so when the store has
+none there. Core's hooks: `useContentPage`, `useBlog` (twelve at a time, newest first, `?tag=`, `loadMore`) and
+`useBlogPost`, the blocks decoded to `heading`, `text`, `image`, `faq`, `products` and `form` (a block of another kind is
+dropped), and `useProductCards(slugs)` for a products block (one request for up to 24). The contact form block has nowhere to
+send yet (the Shop API takes no message), so the baseline shows "Write to us" with the store's contact email and phone. `seoFor` describes a post as an Article (headline,
+date, author, cover). The build's snapshot carries the store's published posts (LIVE-SHOP §4 step 3), so the build writes
+each one's page in the main language, whose words it holds, with its title, description, `og:type` article and Article
+JSON-LD in the static HTML; another language's post, and a post past the newest 500, is served by the posts'
+client-rendered page, which reads the shopper's language.
 
 ### 3.2 What the theme receives and must render
 
@@ -135,26 +426,246 @@ Each page receives typed props from core (for example `ProductPageProps`: produc
 version, price, availability, breadcrumbs, related products, SEO data) and may call core
 hooks. Contract tests assert, per route, that the rendered page:
 
-- renders every **required component** for that route (price with tax label, add-to-cart
-  that uses `useCart`, payment element on checkout, legal and compliance notices where the
-  store's markets require them, consent banner, preview banner in preview);
+- renders every **sealed component** for that route (price with tax label, add-to-cart that
+  uses `useCart`, payment element on checkout, legal and compliance notices where the store's
+  markets require them, consent banner, preview banner in preview, "Powered by" where the
+  brand's rule shows it), **visible**;
 - shows only data that came from core. **No hard-coded products, prices, stock, discounts,
-  ratings, reviews, badges or scarcity claims** (the reference's rule, now enforced by a
-  lint rule and a test that scans theme source for literals in those positions);
-- keeps accessibility floors (§8) and the performance budget (§9).
+  ratings, reviews, badges or scarcity claims** (the reference's rule, now enforced by the
+  validator, §3.4, and a scan of the content files);
+- keeps the accessibility floors (§8), the SEO rules (§8) and the performance budget (§9).
 
 ### 3.3 What is enforced, and where
 
-| Rule | Enforced by |
-|---|---|
-| AI edits only `src/theme/**` | The AI tool's own path allowlist, and a CI path check |
-| Core can't be edited | It's a dependency; the lockfile pins the exact version and CI verifies its integrity hash |
-| Dependencies from an allowlist | CI check on `package.json` and the lockfile |
-| Themes call the network only through core | Lint (no `fetch`, no GraphQL client, no provider SDKs in `theme/`) and a bundle check |
-| Route map complete, required components present | Contract tests |
-| No fabricated commerce data | Lint and contract tests |
-| Accessibility and performance floors | axe checks and Lighthouse budgets in CI |
-| Checkout works | Smoke test: home → product → add to cart → checkout loads → payment element renders in test mode |
+| Danger | Wall 1: can't be written (§3.4) | Wall 2: the gate rejects it (§4.2, §6.2) | Wall 3: the runtime contains it (§3.5) |
+|---|---|---|---|
+| **A wrong price or total** | `Money` is an opaque type only core's hooks return; `<Price>` takes nothing else | A scan for currency and number patterns in content and rendered text | The engine computes and charges every amount; checkout's review step is a sealed core summary |
+| **Broken checkout** | Core owns the route and the controller; the theme only skins its slots | The checkout smoke test at three widths (product → cart → checkout → test payment) | An error in the theme's checkout switches that shopper to the baseline checkout |
+| **A required part hidden** | Sealed components in a closed Shadow DOM; theme CSS can't name them or core's classes | A headless browser checks each sealed component is present, visible, uncovered, on screen and at least its minimum size, on every route at three widths | Each sealed component checks its own visibility at run time and reports a violation; the consent and preview banners sit in the browser's top layer |
+| **Invented data** ("only 2 left", stars, badges) | No text in code; stock, ratings and badges only from core | A scan of `content/**` for scarcity, urgency, rating and price patterns | n/a |
+| **Network calls, trackers, leaks** | No `fetch`, sockets, `eval`, dynamic import, storage, cookies, `<script>`, `<iframe>`; imports from the allowlist only | A bundle scan | **CSP** (§3.5: the Shop API, payment providers and the store's own analytics hosts only) and **Trusted Types** block what the checks missed |
+| **A build that breaks** | Dependencies fixed and preinstalled; the theme compiles against core's public types only | Typecheck, validator and bundle before a change becomes the draft; the repair loop | The live site keeps the last version that passed; every published version is kept |
+| **A page that crashes** | n/a | Contract tests on every route, with the edge-case catalogue (§10) | Each section has core's error boundary and falls back to the baseline section |
+| **A slow or unfindable site** | Server-only components unless interactive; core owns images, fonts, scripts and `<head>` | Byte and timing budgets, the no-JS render check, the crawl (§8, §9) | Speculation rules, edge caching, reduced motion enforced by core |
+| **Instructions hidden in a sample site or image** (prompt injection) | The AI's only output is a file diff; it holds no tool, secret or network | Every gate above, the same for every change | The sandbox has no network and no credential (§6.1) |
+
+**The engine is the last authority on money**: if every wall in front of it failed, a theme
+could at worst *display* something wrong, never *charge* it.
+
+### 3.4 The validator (`./guard`)
+
+Run on every change, before the change becomes the draft (§6.2), and again on the whole theme
+at publish. It is an **allowlist**: what isn't listed is refused. `validateChange(files, context)`
+takes the whole theme as it would be after the change, plus any other path the change writes, and
+the store's languages, content and post paths and brand fields from the platform, so it needs no
+network. Each problem names the file, the line, a rule id and a plain-words message for the repair
+loop (#480).
+
+**Files.** The AI may write only `src/theme/pages/**/*.tsx`, `src/theme/components/**/*.tsx`,
+`src/theme/styles/**/*.module.css`, `content/{locale}/*.json` and `routes.json`. Any other
+path, file type, symlink, or a file over its size cap refuses the **whole change**, never a
+trimmed one. Caps on file count, file size and total theme size: 200 files, 100 KB a file and
+2 MB in all *(proposed on #480; change them on review)*. Names are plain ASCII, so no `..`, case
+fold or look-alike letter reaches another file, and two paths a case-insensitive disk would fold
+together are refused.
+
+**Code** (type-aware, using the TypeScript checker):
+- **Imports** only from `react`, `@dripfunnel/storefront-core/theme` (core's public theme
+  API), relative paths inside `src/theme`, and the library allowlist: `motion` (only inside
+  `components/interactive/`, loaded lazily) and `clsx` (decided 2026-10-08 on #470; each
+  addition goes into the sandbox image). No dynamic `import()` or `require`, no `import.meta`, no
+  `document.currentScript` and no other way to learn a script's own URL: core's chunk loader is
+  the only code that handles chunk URLs, which inside the studio frame carry the session id.
+- **No browser globals**: no `window`, `document`, `globalThis`, `fetch`, XHR, WebSocket,
+  `EventSource`, `sendBeacon`, storage, cookies, `eval`, `Function`, string timers,
+  `postMessage`, workers, and no reading or assigning `location` (the address comes from
+  `platform/browser`'s router, which never exposes the studio-session id: AI-STUDIO §8).
+  Browser behaviour comes from `platform/browser`.
+- **No walking the DOM**: on a value typed as a DOM node, no `parentElement`, `closest`,
+  `querySelector*`, `getRootNode`, `shadowRoot`, `innerHTML`, `outerHTML`, `insertAdjacent*`
+  or computed `[expr]` access. A ref may style its own element and nothing else.
+- **JSX**: no `dangerouslySetInnerHTML`, `<script>`, `<iframe>`, `<object>`, `<embed>`,
+  `<form>`, `<input>`, `<meta>`, `<link>`, `<base>` or `<style>`; links only through core's
+  `<Link>`, images and video only through core's `<Image>` and `<Video>`, forms and inputs only
+  from core components. No `loading="eager"` or priority hints: core picks the main image.
+- **No text in code**: every word a shopper sees comes from `content/*.json` through `t()`;
+  JSX text literals, and string literals rendered as text, are refused. A brand field
+  (shop name, tagline, contact) appears only through `useStorefront()`, never as a literal.
+- `'use client'` only in `src/theme/components/interactive/`.
+
+As built on #480 *(decided there, the stricter reading where the list above is silent)*:
+- **Imports**: only named imports from `react`'s hooks, `Fragment`, `Suspense`, `memo`,
+  `forwardRef` and `createContext`, so not `createElement`, `lazy` or a namespace or default import,
+  and not `react/jsx-runtime`. From `motion`, only its components and hooks that act on their own
+  element: not `animate`, `useAnimate` or `useScroll`. No import attributes, side-effect imports or
+  `import defer`. `./theme` is core's theme entry: `useStorefront`, the sealed components and the commerce
+  types today, with the hooks of §2.1 joining it as they are built.
+- **Globals**: only the language's own `Array`, `Boolean`, `Error`, `Map`, `Number`, `Promise`,
+  `Set`, `String`, `JSON` (`parse`, `stringify`), `Object` (`entries`, `freeze`, `fromEntries`,
+  `hasOwn`, `keys`, `values`), `Math` (every member but `random`) and the timers
+  given a function. `Date`, `Intl` and `Math.random` are refused, so a theme can't sniff its
+  environment or build differently twice (LIVE-SHOP §4 step 3). The browser's names are refused
+  however they're reached: `e.view.document`, an `export { window }`, or any value typed as the
+  window, the document, `location`, `navigator` or storage.
+- **The DOM**: on an element, only `style`, `classList`, focus, measuring, scrolling and event
+  listeners. On its `style`, only `transform`, `opacity`, `filter`, the `translate`, `scale` and
+  `rotate` shorthands, and custom properties (a written `'--name'`) through `setProperty` and
+  `removeProperty`. Theme code never writes `any` or `unknown` and types every parameter, since an
+  element typed `any` would escape these checks. An element (an event's target included) is never cast or handed to a type that
+  isn't an element, the walking names are refused on any value, and a computed key must be written
+  out or typed as a list of names.
+- **JSX**: elements from an allowlist of layout, text, table and SVG shape elements, and attributes
+  from an allowlist on each. No `style` attribute (motion's own `style` only with transform and
+  opacity), no spread on an element, no `popover` or `<dialog>` (the top layer belongs to core's
+  banners), buttons only `type="button"`, and no `df-` class or id or `data-df-*` attribute. motion's
+  `animate`, `initial`, `exit`, `while*`, `variants` and `style` may name only transform, opacity
+  and filter.
+- **Commerce types**: a value is never cast to `Money`, `Stock`, `Rating` or `Badge` (#481): they
+  come only from core's hooks.
+- **Text**: JSX text with a letter, digit or symbol; literals reaching a rendered place through
+  variables, lists, lookups and the theme's own functions; numbers rendered as written; values
+  given to `t()`; a text attribute (`alt`, `title`, `aria-label` and the rest) written out; and a
+  string prop of the theme's own components that isn't declared as a choice (`'warm' | 'cool'`).
+  Words in any string anywhere in the code, any address (`https:`, `//`, `javascript:`, `url(`)
+  and any copied brand field are refused too.
+- **`t()`**: `t('file.key')` reads `content/{language}/file.json`. Its key is written out, `t`
+  isn't passed on as another type, and every key exists in every language the store offers.
+- No `declare`, `namespace`, `import =`, `export =` or `/// <reference>`.
+
+**CSS**: CSS Modules only; every selector starts with a module class, and a `+` or `~` leads only to another
+module class; no `*`, `html` or `body` anywhere (inside `:is()` and `:not()` too); no `:global`, no
+`@import`, no `@font-face`; `url()` only for the store's media ids; no selector naming a core
+class or a `df-` element; `z-index` below core's layer; animation only of `transform`,
+`opacity` and `filter`. As built on #480 *(decided there)*: `url()` names a media id from the
+store's `mediaIds`, exactly; the z-index cap is 99 (`maxThemeZIndex`, *proposed*); only `@media`,
+`@supports`, `@container` and `@keyframes`; pseudo-classes and pseudo-elements from an allowlist
+(`::part` among them, for sealed components), and functions from an allowlist (no `attr()`,
+`image()` or `src()`); names are read with their escapes decoded, so `:\67lobal` is `:global`;
+nested rules are refused, so every selector is written out and checked; a transition names its
+properties in the same rule (a bare `transition: 0.3s`, or `initial`, `unset` and the other CSS-wide keywords, animate everything; a `transition-duration` is judged with the rule it sits in, not the cascade, so it needs its `transition-property` beside it); `content` and the other text
+properties hold no words and no `var()` that could carry them; `composes` names only the module's own classes.
+
+**Content**: every key the theme's `t()` calls exists in **every language the store offers**
+(the AI writes them all, decided 2026-10-08 on #470; the merchant can correct any); no pattern
+of a price, a scarcity or urgency claim, a rating or a countdown. Each file is strict JSON: an
+object of words grouped at most four deep, no key written twice and none of `__proto__`,
+`constructor` or `prototype`; a file or key one language has, every language has, and none is
+empty. The scan reads text as a shopper would (look-alike letters, accents and invisible
+characters folded away) in English and Hindi, with digits in any script, and also refuses words
+that copy a brand field (a one-word shop name under six letters excepted, so a shop called "Home"
+can still say "Home") *(decided on #480)*.
+
+**Routes**: §3.1's rules. `routes.json` is core's `themeRoutesSchema` (#480): `routes` names
+the page under `src/theme/pages` for each core route, and `custom` names one for each of the theme's own paths, at most 50, in lower-case
+words joined by hyphens and at most three levels deep. A custom path may not start with a segment
+core uses (`reservedPathSegments`: `products`, `cart`, `account`, `blog`, …) or one of the store's
+language codes, and no word of it may be cart, checkout, pay or price, nor its page the cart's,
+checkout's or confirmation's *(decided on #480)*.
+
+### 3.5 Sealed components and the runtime walls
+
+*Built on #481*: everything below, as each bullet's "as built" says. Wiring it into the template's
+route shims (the boundaries, `installTrustedTypes`) and the edge Worker sending the headers are
+their own cards.
+
+- **Sealed components** render in a **closed Shadow DOM**, styled only through the custom
+  properties and `::part` names core documents; theme CSS can't reach inside. Each checks its
+  own visibility after layout (on screen, not covered at its centre, not transparent, not
+  below its minimum size) and reports a violation to the platform.
+- **The consent and preview banners** use the browser's **top layer** (`<dialog>` or
+  `popover`), which no `z-index` can cover.
+- **As built on #481** *(decided there)*:
+  - Each is a `<df-sealed>` host whose closed root only core holds. The theme gives the host its
+    `className`; inside, core locks with `!important` what keeps a part seen (an `!important` in a
+    shadow root beats the page's own): display, visibility, opacity, filter, clipping and masks,
+    the parts' position, transform and margins, overflow, and text no smaller than 12 px. Text is
+    sized through `--df-price-size` and `--df-sealed-size`; colour and type through
+    `--df-sealed-font`, `--df-sealed-color`, `--df-sealed-muted`, `--df-sealed-surface`,
+    `--df-sealed-radius`, `--df-preview-surface`, `--df-preview-color` and `--df-sealed-saving` (an offer's line in the
+    order summary, #313); anything else through
+    `::part`. The page's HTML carries each component's words, for crawlers and the no-JavaScript
+    check, until core renders it in its root.
+  - Parts: the price `amount`, `was`, `tax`; the preview banner `banner`; "Powered by" `line`;
+    legal notices `section`, `title`, `body`; the consent banner `banner`, `title`, `body`,
+    `choice`, `button`; Cookie settings `button`; breadcrumbs `list`, `item`, `link`, `current`;
+    the order summary `panel`, `lines`, `line`, `photo`, `name`, `version`, `rows`, `row`, `saving`, `total`, `note`;
+    the payment element `panel`, `test`, `instructions`, `field`, `button`, `status` (#313).
+  - The banners are `popover="manual"`, so they take no focus; the preview banner's height is held
+    in the page.
+  - The self-check runs after layout and whenever the component scrolls into view. A failure is
+    checked again a second later, so an entrance animation can finish, and only then reported.
+    Minimum sizes (`minimumSize`): price 24×12 px, preview banner 200×24, "Powered by" 40×12,
+    legal notices 120×24, consent banner 240×80, Cookie settings 24×24, breadcrumbs 40×12, order summary 160×48, payment element 200×24; below
+    50% opacity, of the component or its text, counts as transparent. "Covered" is a hit test at
+    its centre, so an overlay a theme makes ignore the pointer (`pointer-events: none`) isn't seen
+    by it; the publish gate's visual checks (§4.2) are the wall there.
+  - Reports go once per page to the Shop API's `reportStorefrontProblem(kind, subject, detail)`
+    (`SEALED`, the component, why), with names only, never the page's address (a studio address
+    holds its session, AI-STUDIO §8).
+  - `./testing` checks presence in a page's HTML (`pageProblems`) and visibility in a rendered
+    page (`visibilityProblems`, without the layout checks where nothing is laid out, as in jsdom).
+- **CSP**: scripts only from the store's own build, the hosts of the analytics providers
+  **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
+  consent, and its payment providers' SDKs (§2.1 `checkout`, *added on #481*); `connect-src` only the Shop API, the store's payment providers and those analytics
+  hosts; images from the store's media, the payment providers and those analytics hosts (Meta
+  Pixel sends by image request); fonts from the store's build; `form-action` only the store and
+  the payment providers; `frame-src` only the payment providers. **Trusted Types** required,
+  with the policies `df-core` (core's own script URLs for those analytics hosts), `default`
+  (core's narrow fallback, accepting a script URL only on those hosts, for providers that set a
+  plain string such as `fbevents.js`, or on the build's own origins, which `script-src` allows
+  anyway, for a bundler's chunk loader; *the build's origins decided on #481*) and `goog#html` (gtag.js and GTM's own); nothing else. A
+  GTM container's tags run only from the hosts `script-src` lists, so a merchant's extra tags
+  need their host added to the store's analytics settings.
+- **As built on #481** *(decided there)*: `storeCsp(store, hashes)` and `studioCsp(studio, hashes)`
+  build the headers from a page's `inlineHashes` (SHA-256 of each inline script and style, never a
+  nonce, so the same build gives the same header); `pageHeaders` gives each HTML file of a build
+  its own header, which the build writes into its manifest for the edge Worker to send unchanged
+  (LIVE-SHOP §4 step 8, §5 step 5). A store's header is `default-src 'none'`, then the sources
+  above, with `frame-ancestors` (next item), `base-uri 'none'` and `object-src 'none'`; an origin
+  is https with no path. `goog#html` is listed only when the store uses GA4 or GTM. Each provider's
+  hosts are in `platform/csp`; #313's adapters load each payment SDK from its listed script host
+  (`js.stripe.com`, `checkout.razorpay.com`, `sdk.cashfree.com`, `www.paypal.com`; PhonePe loads none), and the other
+  payment hosts stay *proposed* until a live payment is tried. `installTrustedTypes({ analyticsHosts, paymentHosts,
+  buildOrigins })` creates `df-core` and `default` once, before any script loads; core's analytics and payment adapters set
+  their scripts through `df-core`, and Stripe.js's own loader meets `default` (#313).
+- **Framed only by the store's portal** (decided 2026-10-12, #680): live pages and the preview
+  link's pages (both `storeCsp`) list the store's partner portal origin in `frame-ancestors`, so
+  the Overview can show the live site ([FIRST-RELEASE §14](../ui/store/FIRST-RELEASE.md)); every
+  other site stays refused.
+  *As built on #680:* `storeCsp` takes an optional `portalOrigin`, keeping `'none'` without one;
+  the publish's snapshot (`csp.portalOrigin`, LIVE-SHOP §4 step 3) carries
+  `https://{the partner's live portal host}`, the host the studio's frame allows, and none while
+  the partner has no live portal host. The preview link's header comes with the edge Worker
+  sending one (above). A store gets it from its next build of any kind; the
+  Store API's `storefront.live.portalOrigin` reads it from the live home page's header in the
+  build's manifest (a page run's own, else the build it renders beside), null for a build from
+  before.
+- **The studio frame's CSP is stricter** (decided 2026-10-09, #520; AI-STUDIO §8):
+  - **`default-src 'none'`**, so every directive not listed below is closed;
+  - `script-src`, `connect-src`, `font-src` and `style-src` are `'self'` only: the frame's own
+    origin, which means `/__studio/{session}/`, its `/shop-api` and its WebSocket, with the
+    build's style hashes (so the studio's page has no inline script);
+  - `img-src` and `media-src` are `'self'` and the platform's own media host (product photos and
+    core's `<Video>`), never another party's;
+  - `form-action`, `frame-src`, `object-src`, `base-uri`, `manifest-src` and `worker-src` are
+    `'none'`;
+  - no analytics and no payment provider: the studio loads neither, and checkout there shows a
+    placeholder (a test checkout is the preview link's, PREVIEW §5 step 6). Links to other hosts
+    open a new tab outside the frame, carrying nothing from it (`noreferrer`): core's `<Link>`
+    does this for any `http(s)` address when the render mode is `studio` (the store's own links
+    are paths), and renders no link at all for an address that isn't a path or `http(s)` or that
+    holds a backslash, a space or a control character;
+  - `frame-ancestors` only the store's portal host.
+
+  So nothing in the frame can send a request to another host.
+- **Error boundaries**: core wraps every section; a section that throws falls back to the
+  baseline section and is reported. Checkout falls back to the baseline checkout.
+  As built on #481 *(decided there)*: a section is what a route shim renders, the theme's page for
+  the route and its layout's header and footer, each in `SectionBoundary(name, baseline)` with the
+  baseline theme's same part. `CheckoutBoundary(baseline)` switches a shopper whose theme checkout
+  throws to the baseline checkout for the rest of the visit (remembered in `sessionStorage`, read
+  before either checkout renders, so the server's HTML holds neither). Both
+  report through `reportStorefrontProblem` (`SECTION` with the section's name, `CHECKOUT`).
 
 ---
 
@@ -165,67 +676,154 @@ the theme, so a page is written once.
 
 ### 4.1 Preview (staging)
 
-- **Where**: the brand's preview subdomain, e.g. `{store}.preview.dripfunnel.com` or
-  `{store}.preview.{partner-domain}` for a white-label brand *(confirm the pattern with DF
-  Admin's brand settings)*.
-- **How**: a client-rendered SPA with no SSR and no SSG. One `index.html` with client-side
-  routing; every page loads its data from the Shop API at run time.
-- **Why**: builds contain no catalogue, so they take seconds and never go stale. A merchant
-  sees AI edits and catalogue changes as soon as they happen.
-- Every AI change deploys a preview. Previews are `noindex`, carry a visible "Preview" banner,
-  and are gated to the merchant *(ask: a signed link from the portal, or open)*. Checkout in
-  preview uses the payment providers' test mode *(ask: or is checkout disabled in preview)*.
-- Preview is also where the AI's gates run (§6) and where screenshots and visual diffs for the
-  merchant's approval come from.
+- **Where**: **`{slug}-preview.my-store.one`**, on one domain we own for every store (decided
+  2026-10-15 with Gaurav, built on #744, replacing `{key}.webpreview.store` and before it #337's `{store}.preview.{partner-domain}`), served from R2
+  by the edge Worker ([PREVIEW.md](PREVIEW.md)).
+- **How**: a client-rendered build with no SSR and no SSG. Every page loads its data from the
+  Shop API at run time, so the build holds no catalogue and takes seconds.
+- **When**: **the bundle of each change that passes the fast gate becomes the preview**
+  (decided 2026-10-08 on #470; [PREVIEW.md](PREVIEW.md) §4), so "Open preview" always shows the
+  current draft, on any device, after the studio closes. The studio's frame shows the same
+  bundle, hot-reloaded (decided 2026-10-09, [AI-STUDIO.md](AI-STUDIO.md) §4).
+- Previews are `noindex`, carry a visible "Preview" banner, and open only through a **signed
+  link from the portal** (decided 2026-10-05 on #284). Checkout in preview uses the payment
+  providers' **test mode** (decided the same day).
 
 ### 4.2 Live (production)
 
-- **Where**: the customer's custom domain via Cloudflare for SaaS. Until one is connected,
-  the brand's default live subdomain *(ask)*.
+- **Where**: the customer's custom domain via Cloudflare for SaaS. Until one is connected, and
+  alongside it, `{slug}.my-store.one` ([LIVE-SHOP.md](LIVE-SHOP.md) §6).
 - **How**: a **static build (SSG)**. Catalogue pages (home, collections, products and their
-  version URLs, content and policy pages, per locale) are prerendered at build time from the
-  Shop API, with SEO data baked in.
+  version URLs, content and policy pages, custom pages, per locale) are prerendered from a
+  catalogue snapshot, with SEO data baked in.
 - **Live data after load**: price, stock, cart, account and checkout always come from the
   Shop API in the browser. The prerendered price is the build-time value for the default
   currency and is superseded by the live fetch, skipped when nothing differs (the
-  reference's 2026-09-03 decisions, kept).
-- **Staying current without full rebuilds on every edit** *(the platform's rule that
-  catalogue changes don't rebuild, adapted to SSG)*:
-  1. **Pages the build doesn't know yet** (a new product, a renamed web address) are served
-     by a **client-rendered fallback**: the edge serves the SPA shell for unknown catalogue
-     URLs, and the page renders from the Shop API. It works immediately, but without
-     prerendered SEO until the next build.
-  2. **Catalogue publishing** works as the first platform's deployment tracker did, rebuilt
-     properly on the engine:
-     - **Change detection**: engine events (product, version, collection, filter, menu,
-       content, store settings that appear on the storefront) mark the store's live site
-       **"has unpublished changes"**, with what changed and when (the old
-       `channel_catalog_state` / `needsPublish`, as an engine table rather than an
-       in-memory debounce).
-     - **"Publish now"**: the merchant presses it in the portal and a live catalogue build
-       runs. Each press uses one **catalogue build from the plan's monthly allowance**
-       (an entitlement, e.g. "30 catalogue publishes a month"). **The allowance is set per
-       plan by the partner** in the partner console (or by DripFunnel staff on its behalf),
-       within the platform ceiling DripFunnel sets (../api/SAAS.md §6.1, CONSOLE-DESIGN G2). The button shows what is
-       waiting ("12 products changed since 10:40"), how many publishes are left this month,
-       and when the next automatic publish is due. At zero it explains itself and points to
-       the automatic publish and the upgrade (Owner only).
-     - **Automatic publishing**: every store with unpublished changes is published on a
-       **schedule configured in the admin console** (CONSOLE-DESIGN R5): a platform default
-       interval, which DripFunnel staff can set differently per plan. It runs whether or not
-       anyone presses the button. Automatic publishes do **not** use the monthly allowance.
-       Stores with no changes aren't rebuilt.
-     - **One build at a time per store**: a press while a build runs queues the next one
-       rather than starting a second; changes made during a build are picked up by the next.
-     - **Status is real, not estimated**: queued, building, deploying, live, failed, from the
-       job and the Cloudflare deploy, never from polling GitHub with a cache (the old
-       tracker's gap). A failed build keeps the previous live site and tells
-       the merchant plainly. **A failed build never uses up an allowance** (decided).
-     - Build minutes per store per month stay a platform metric (SAAS-PLAN §14), shown in DF
-       Admin.
-  3. **Removed or hidden products** return a proper 404 or redirect immediately via an
-     edge rule, without waiting for the rebuild.
-  4. **Design changes** build live only when the merchant approves them in the portal.
+  reference's 2026-09-03 decisions, kept), holding its space so nothing shifts.
+
+**The publish pipeline** (every publish of any kind: design, catalogue, automatic, staff,
+core upgrade):
+
+```
+1. freeze the input: the commit to publish, and a snapshot of the catalogue from the Shop API
+2. build it in the store repo's locked workflow, inside the frozen build image for its core
+   version, offline (no network but the snapshot): the same inputs give the same files
+   (LIVE-SHOP §4 steps 3–6)
+3. full gate on the built files, inside the build workflow (LIVE-SHOP §4 step 7, decided
+   2026-10-09):
+     the validator over the whole theme (§3.4); contract tests per route; sealed-component
+     visibility at 3 widths; the checkout smoke test (test mode); axe; the budgets (§9);
+     the no-JS render check and the crawl (§8); the content scan; a visual diff against the
+     live version; and the theme rendered against the edge-case catalogue (§10)
+   Only the safety checks refuse (validator, contracts, sealed, checkout, axe, content, edge cases).
+   Budgets, no-JS, crawl and the visual diff are advisory (#806): a failure is kept in the report and
+   shown in the studio as a suggestion, and the version goes live. A visual diff on a publish that
+   must keep the look (a core upgrade, a security fix) still refuses.
+4. fail → REPAIR (a design publish only: the AI fixes its own code from the report, ≤3 tries,
+   each re-running the full gate) → still failing → BISECT the draft's commits to the first
+   one that breaks, and offer "publish everything before this change" → else refuse
+5. pass → upload, and the API switches the store's live pointer on the OIDC-verified report
+   (atomic; LIVE-SHOP §4 steps 8–9), purges the store's cache, then POST-DEPLOY CHECKS from the edge within about two minutes (home, a product,
+   add to cart, checkout opens, the payment element renders)
+6. post-deploy failure → AUTOMATIC ROLLBACK to the previous build (a pointer move, live
+   everywhere within a minute: LIVE-SHOP §5 step 1),
+   then the repair loop on the candidate
+```
+
+**Step 4 as built on #483** (`saas/storefronts/publish.ts`): a failing report leaves the publish in `checking`. A
+catalogue, staff or upgrade publish is then refused (`gate_failed`). A design publish is first repaired: the studio's change
+loop is asked to fix the last build's failing checks' words, keyed by the publish and the try so a retried step
+never makes a second change, at most three times, each fix a build of its own (`publish_run.attempt`
+`repair`, `attempt_of` the publish), and the first that passes is uploaded, verified and switched in the publish's
+place. Then bisect: the draft's accepted changes up to the publish's commit (`design_draft.commits`, the live version's
+commit standing as good) are halved to the first that fails, each probe a build that is only checked (`checked`), never
+uploaded. The publish then fails as `bisected` with that change on `bisect_commit`, and `publishBefore` (SAPI 17 passes
+the change's commit) starts a design publish of the change before it, with no allowance; a draft's first change leaves
+nothing before it, and the publish is refused (`gate_failed`). *Decided on #483:* the repair is a seam (`PublishDeps.repair`)
+until the designer's model reaches the Workflow with #318, so until then a failing design publish goes straight to
+bisect; and `publishBefore` takes the change's commit, since `design_message` comes with SAPI 17.
+
+A refused or rolled-back publish leaves the live site as it was, says so in plain words, and
+**never uses an allowance** (SAAS §6.2). Repair attempts and gate runs are the platform's cost,
+never the merchant's meters (decided 2026-10-08 on #470). What can't be repaired goes to the
+ops queue in the admin console (CONSOLE-DESIGN L3), with the live site untouched.
+
+**The gate's suites as built on #483** (`./guard`'s `runGate`, run by the build image's check step: LIVE-SHOP §4
+step 7). Each check reports pass or fail in plain words, at most 500 characters, never code; one that didn't run fails:
+- `validator`: §3.4 over the whole theme (the build step runs it first and stops there; the check runs it again);
+- `contracts`: every route of `routes.json` has its page (`routeAddresses`: a page core prerenders, or the
+  client-rendered page an item prefix such as `/products/` falls back to), each page places its required sealed parts,
+  has exactly one `h1`, a `main` and its language, and no page throws or reaches outside the store while it loads;
+- `sealed`: what each sealed component's own visibility check reported to the offline Shop API, on every page at 390,
+  768 and 1440 px, as a shopper who answered consent, and the consent banner itself on a first visit;
+- `checkout`: the checkout smoke test against core's offline Shop API fixture *(decided on #483, as proposed: the
+  real checkout is the post-deploy check)*: the checkout and cart pages open at the three widths with no error, their
+  main heading is what a tap reaches, and no sealed part is hidden. **The test purchase** (#313 part 7) is built:
+  `smokeShop` (`@dripfunnel/storefront-core/guard`) is the offline Shop API with one test product, a cart and checkout
+  that move as the engine's do, and cash on delivery in test mode; the build image's `smokeTest` (`apps/sandbox`,
+  `publish/smoke.ts`) buys it at 390, 768 and 1440 px from its page through Add to cart, the cart's link to checkout,
+  each step (filling core's fields by their `autocomplete` token, choosing the first option, pressing Continue) and
+  Place order to the order's page, and `smokeProblems` words what stopped it. Adding it to this check, so that every
+  publish must pass it, is INF 4's;
+- `axe`: WCAG 2.0–2.2 A and AA rules on every page at each width;
+- `budgets`: §9 on a phone (390 px) for home, collection, product, custom pages and cart, one page at a time. *Decided on
+  #483:* the CPU is slowed to a mid-range phone's speed calibrated against the runner's own, as Lighthouse does, instead
+  of a fixed 4×, since a fixed rate on a busy or fast runner measures a different phone each time;
+- `no-js`, `crawl`: §8, with every internal link leading to a page or an item prefix, and `sitemap.xml` and
+  `robots.txt` naming the pages search engines should see: every built home and custom page, and any product, collection
+  or policy address, in each of the store's languages; never a cart, checkout or account page;
+- `content`: the words a shopper reads, outside sealed parts and the store's own data, through the validator's claim scan;
+- `visual-diff`: each page's first screen at each width against the live build's; it reports, and fails only a publish
+  that mustn't change the look (`strictLook`, a core patch or minor: §7) when more than 0.5% of a page changed, or when
+  no live page could be compared;
+- `edge-cases`: the theme rendered against the edge-case catalogue (§10) at phone width: whole, no wider than the
+  screen, its required parts seen, its heading and words there without JavaScript.
+
+*Decided on #483:* until the snapshot carries the catalogue (core's product hooks exist since #307, and load in the browser), the static build prerenders the routes core can
+fill today (home, search, cart, checkout, the account and sign-in pages, 404, the degraded page and the custom pages),
+and each item route's client-rendered page. `runGate` requires the sealed price on the routes core gave a price to show
+(`priced`; product, cart and checkout when the input leaves it out), and the check step names none until core's
+product and cart hooks put a price on a built page: a static cart has no lines. Legal notices are required the same way when the
+input says the store's markets need them (`legal`). A page or width the check step skipped, an unweighed budgeted page
+or an edge case it didn't render fails the check that needed it, and an address with `..`, an encoded character, a
+query or an empty segment never passes for a page or an item.
+
+**Staying current without full rebuilds on every edit** *(the platform's rule that catalogue
+changes don't rebuild, adapted to SSG)*:
+
+1. **A new or renamed product gets its page at once** (decided 2026-10-08 on #470): a
+   **single-page render** builds that product's page (and its version URLs) with the store's
+   live theme, adds it to the sitemap, redirects the old address (§8), stores it as a new build
+   into which the API copies the live build's other files (LIVE-SHOP §7) and notifies IndexNow. It takes seconds and uses no allowance. Until it lands,
+   and for any other unknown catalogue URL, the edge serves a client-rendered fallback. *Built on #484* in the store's
+   workflow, about a minute rather than seconds (decided there: LIVE-SHOP §7).
+2. **Catalogue publishing**:
+   - **Change detection**: engine events (product, version, collection, filter, menu,
+     content, store settings that appear on the storefront) mark the store's live site
+     **"has unpublished changes"**, with what changed and when, in an engine table.
+   - **"Publish now"**: the merchant presses it in the portal and a live catalogue build
+     runs. Each press uses one **catalogue build from the plan's monthly allowance**. **The
+     allowance is set per plan by the partner** in the partner console (or by DripFunnel staff
+     on its behalf), within the platform ceiling DripFunnel sets (../api/SAAS.md §6.1,
+     CONSOLE-DESIGN G2). The button shows what is waiting ("12 products changed since 10:40"),
+     how many publishes are left this month, and when the next automatic publish is due. At
+     zero it explains itself and points to the automatic publish and the upgrade (Owner only).
+   - **Automatic publishing**: every store with unpublished changes is published on a
+     **schedule configured in the admin console** (CONSOLE-DESIGN R5). It never uses the
+     allowance. Stores with no changes aren't rebuilt.
+   - **One build at a time per store**: a press while a build runs queues the next one; changes
+     made during a build are picked up by the next. Publish builds run on GitHub Actions, apart
+     from studio containers, so a burst of publishes never slows a studio (LIVE-SHOP §10).
+   - **Status is real, not estimated**: queued, building, checking, deploying, live, failed,
+     rolled back, from the job and the deploy, never from polling with a cache (the old
+     tracker's gap).
+   - Build minutes per store per month stay a platform metric (SAAS §12), shown in the admin
+     console.
+3. **Removed or hidden products** return a proper 404 or redirect immediately via an edge
+   rule, without waiting for the rebuild.
+4. **Design changes** go live only when the merchant publishes them in the studio (SAAS
+   §9.2). Brand changes go out with the next publish of any kind; saving the home page's search
+   and sharing re-renders the home page at once, like a new product's single-page render.
 - **Degraded store** (past due, suspended): an edge rule serves the degraded page or a
   read-only notice without a rebuild (DESIGN-BRIEF fact 9).
 
@@ -238,10 +836,10 @@ From the reference's recorded decisions:
   one invisible component and pass values down.
 - A version selector that only changes client state never appears in static HTML. Give each
   version its own URL and page, canonicalised to the product.
-- Next.js static-export link prefetch requests files that don't exist. Default prefetch off
-  in the two link wrappers until the upstream bug is fixed.
-- The image optimiser needs a server. Use Cloudflare image resizing (or the engine's image
-  variants) through a core image component instead of `unoptimized` originals *(ask)*.
+- Next.js static-export link prefetch requests files that don't exist. Core's `<Link>`
+  turns it off and prefetches with Speculation Rules instead.
+- The image optimiser needs a server. Use **Cloudflare image resizing** through core's
+  `<Image>` instead of `unoptimized` originals (decided 2026-10-05 on #337).
 - Trailing-slash URLs for static hosting, and a root redirect to the default locale.
 - Codegen schema pointer and runtime API URL are separate; generated types drift silently if
   they differ. The core package owns both.
@@ -261,7 +859,8 @@ Verify each against the Next.js version actually used; the reference notes that 
   ever in a build or a bundle.
 - The shopper session travels as a header token stored by core, as in the reference. Decide
   cookie versus storage per mode *(recommend)*.
-- Build-time reads (live mode) use the same public Shop API, with a build-only rate limit.
+- Build-time reads (live mode) use the same public Shop API, with a build-only rate limit; the
+  publish pipeline reads them once, into the catalogue snapshot.
 - The Shop API version is pinned by the core version; a core release declares which Shop API
   versions it supports.
 - Cart operations must not need the reference's `ORDER_MODIFICATION_ERROR` retry workaround:
@@ -272,40 +871,124 @@ Verify each against the Next.js version actually used; the reference notes that 
 
 ## 6. The AI loop, storefront side
 
-As SAAS-PLAN §7, with the storefront specifics:
+Decided 2026-10-08 with Gaurav on #470 (SAAS §9.2 owns the platform side: the API, the
+`design_*` rows, metering):
 
 ```
-merchant describes a change in the portal
-  → AI edits src/theme/** in a sandbox checkout of the store repo
-  → gates: typecheck, lint (theme rules), contract tests, a11y, performance budget,
-    smoke test, visual diff
-  → preview deploy (§4.1) with screenshots for the merchant
-  → merchant approves (or asks for changes, or undoes)
-  → commit to main → live SSG build (§4.2) → publish → cache purge
+the merchant fills in "Your brand" (first time only)
+  → picks a template, or "Start from scratch"     (the repo is created, §2.2)
+  → describes a change in the studio: words, a pasted image, a sample site's address
+  → the Worker asks the model; the model answers with a file diff
+  → the store's sandbox applies it and runs the fast gate        (§6.2)
+      fail → repair from the exact errors (≤3) → else "I couldn't make that change",
+             nothing changes
+  → pass → a commit in the private draft; the studio frame shows it; the preview gets it
+           (AI-STUDIO §4)
+  → "Undo this change" reverts the latest commit
+  → Publish → the pipeline of §4.2 builds the draft from private storage
+           → once live, the draft is pushed to the repo
 ```
 
-- **The AI's working context**: this repo's `DESIGN.md`, the core package's typed contracts
-  and hook docs, the store's catalogue shape (collections, product counts, imagery), store
-  settings (locales, currencies, markets), the brand rules, and the theme's own history.
-- **Undo** is `git revert` of the approved commit and a rebuild.
-- **Failures never reach live**: a change that fails a gate is reported to the merchant in
-  plain words, with the preview kept at the last good version.
+### 6.1 Studio sessions: one sandbox per store
+
+[AI-STUDIO.md](AI-STUDIO.md) owns the studio's infrastructure; in short:
+
+```
+Merchant A's studio ─┐                          ┌─ Durable Object "studio:A" ─► container A
+Merchant B's studio ─┼─► API Worker ────────────┼─ Durable Object "studio:B" ─► container B
+Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studio:C" ─► container C
+                                                 Publish builds: the store repo's workflow
+                                                 (LIVE-SHOP.md)
+```
+
+- **One Durable Object per store** runs **one change at a time**; a second tab waits and both
+  see the same draft (AI-STUDIO §4).
+- **One container per store with a studio open**, from `apps/sandbox`'s image for the store's
+  core version; it applies diffs and runs the fast gate. Stores never share a container, a file
+  system or a queue for changes.
+- **No credential and no network in the container.** The Worker makes the model call; the
+  Durable Object loads the draft into the container and saves each accepted change to the
+  store's private draft (AI-STUDIO §3–§4).
+- **The studio's frame runs on the store's preview origin**, never on the portal host, so
+  AI-written code never shares an origin with the merchant's session (decided 2026-10-09,
+  AI-STUDIO §1). Every change still goes through the Store API, which builds the `TenantContext`
+  from the session (ACCESS §3), checks the `publish` capability and forwards to the Durable Object
+  named by **the context's store**, never by a store id from the client (isolation test on
+  #482).
+- Idle stop, crashes, capacity and cost: AI-STUDIO §7.
+
+### 6.2 One change
+
+- **The model's working context**: the store's theme files (or the parts the change touches),
+  core's theme API and the rules of §3.4, the page and screen size the merchant is looking at,
+  their last four requests, the store's name and city, a sample of about 12 products (names
+  and prices; never photos), the brand (tagline, description, voice; colours only as a
+  hint), and, when given, the merchant's image or a screenshot of the sample site.
+- **A sample site** is fetched as a screenshot by the platform (public addresses only, the
+  rules of `../ARCHITECTURE.md` §7), never by the container. The AI takes its layout, spacing,
+  colour and mood, **never its logo, photos or words**.
+- **The fast gate** (seconds): the file allowlist, the validator, the typecheck, the bundle,
+  the byte budgets (§9) and the content checks. On failure the model gets the exact errors
+  and tries again, **at most three times**; repairs are the platform's cost.
+- **What it refuses**: prices, stock, products, shipping and checkout behaviour; it says these
+  are changed in Products or Settings, and the draft stays as it was. A request that would
+  break a budget is answered in words with an alternative ("a 4K video would make the page
+  slow on phones; I can use a short compressed loop").
+- **Undo** reverts the latest change's commit. **Go back to this** makes an earlier published
+  version live again by moving the live pointer back to its kept build (no build, free;
+  LIVE-SHOP §4), then resets the
+  draft to that version's commit, so the next change starts from what is live (decided
+  2026-10-08 on #470). **Except across a security fix**: when a security release of core is
+  newer than that version's core, the version is rebuilt on the fixed core and gated instead
+  (still free), so going back never brings a vulnerable core back; if that version's theme
+  fails the gate on the fixed core, the merchant is told and the live site stays as it is.
 
 ---
 
 ## 7. Core upgrades across the fleet
 
-- Core follows **semver**. The sync bot (SAAS-PLAN §5) opens a version bump on every store
-  repo, **canary stores first**, then in waves.
-- **Patch and minor** releases can't change the theme contract. Gates pass → auto-merge →
-  rebuild both modes.
-- **Major** releases may change the contract. Each ships **upgrade notes** in the reference's
-  structured format (`.upgrades/changes/*.md`: intent, affected areas, invariants,
-  integration guidance, verification). An AI agent reconciles each store's theme against the notes, runs the
-  gates, and produces a preview and visual diff. Unchanged visuals auto-merge; changed ones
-  go to the merchant or to DripFunnel staff *(ask who approves)*.
-- DF Admin shows fleet core-version drift and rollout state (CONSOLE-DESIGN part L).
-- Security fixes can be pushed to every store as a forced patch.
+- Core follows **semver**. The release workflow publishes it and *(planned, #482)* builds the
+  **sandbox image** for that version, published on `ghcr.io` for builds (pulled with `GHCR_PULL_TOKEN`, #790) and pushed to
+  Cloudflare's registry for studios (decided 2026-10-09; LIVE-SHOP §1).
+- **The upgrade bot** (SAAS §10) takes a release to every store, **canary stores first**, then
+  in waves: it builds each store's current published commit with the new core, applies
+  core's **codemods**, and runs the full gate of §4.2 plus a visual diff against what is live.
+- **Patch and minor** releases can't change the look or the theme contract. A store that
+  passes goes live on the new core; a store that fails gets the **migration agent** (the AI,
+  with the build errors and the release's upgrade notes, under the same walls and gates); a
+  store still failing **stays on its old core version**, with an alert in the admin console.
+- **Major** releases ship **upgrade notes** in the reference's structured format
+  (`.upgrades/changes/*.md`) and codemods. The new look reaches a store only when its merchant
+  next publishes (or approves the upgrade in the studio), keeping the #337 rule that **the
+  merchant approves** visual changes.
+- **Security fixes** reach every store: a store whose theme can't build on the fixed core,
+  even after the migration agent, is served the **baseline theme** with its own colours, fonts
+  and words until the repair succeeds or the merchant republishes, and its merchant is told
+  plainly (decided 2026-10-08 on #470).
+- The admin console shows core-version drift, pinned stores and rollout state (CONSOLE-DESIGN
+  part L).
+
+### 7.1 Upgrade notes and codemods
+
+**Built on #485** (`./guard`'s `upgrade/`): core's release notes are structured data, `coreUpgradeNotes`, one entry per
+release that changes anything for themes, added by its release card beside the changelog:
+
+- `version`, `kind` (`major`, `minor`, `patch`) and `security` (a fix forced on every store, above);
+- `notes`: what a theme has to change, in plain words, which the migration agent is given with the build's failing checks;
+- `codemods`, applied in order, each a pure edit of theme files only (§3.4's paths; the schema refuses any other):
+  - `replace`: every literal occurrence of `find` becomes `replace` in the files the `paths` globs match (`*` within a
+    segment, `**` across segments);
+  - `rename`: a theme file moves; nothing happens when the file is missing or the new path is taken.
+
+*Decided on #485:* codemods are data, not scripts: the same release makes the same edit in every store, runs nothing a
+person didn't write into core, and needs no network. A change no data edit can make is the migration agent's, from the
+notes. The upgrade bot's commit (`POST /slots/{slot}/upgrade` in the sandbox of the new version) is the live commit with
+core pinned exactly to the new version in `package.json` and the codemods of every release after the store's version up
+to the new one applied, in version order; no gate runs there, since the publish's full gate judges the commit. The same
+operation with the baseline theme's files writes the security fallback instead: the baseline's code, styles and routes,
+each CSS custom property the store's own styles also declare set to the store's value (its colours and fonts), and the
+baseline's words in each of the store's languages with the store's own text wherever its content has the same key
+(`baselineWithOwn`).
 
 ---
 
@@ -313,42 +996,119 @@ merchant describes a change in the portal
 
 - **Languages and currencies** follow store settings: locale routing, translated catalogue
   content from the Shop API, core messages per locale (the reference ships en, de, hi, tel),
-  currency picker only when there's more than one, RTL layouts where the store offers
-  right-to-left languages.
+  the theme's words in `content/{locale}/` for every language the store offers, currency
+  picker only when there's more than one, RTL layouts where the store offers right-to-left
+  languages.
 - **Regions**: tax labels, address formats, required legal and compliance notices, and unit
   display all come from store settings via core (CATALOG-DESIGN-PROMPT §3 facts 36–48).
 - **Accessibility**: WCAG 2.2 AA as the floor (the EU Accessibility Act and ADA make this
-  legal, not optional). Headless components carry the semantics; contract tests run axe per
-  route.
-- **SEO**: owned by core, fed by the engine's per-language search fields. The theme can't
-  remove structured data, canonical or hreflang.
-- **Privacy**: consent before non-essential tracking where required; no third-party scripts
-  outside the allowlist.
-- **White label**: the brand's "Powered by" rule is a required component driven by store
+  legal, not optional). Headless components carry the semantics; the gate runs axe per route.
+- **SEO**, owned by core and fed by the engine's per-language search fields:
+  - **The whole `<head>`** (title, description, canonical, hreflang, Open Graph and Twitter
+    cards, robots); the AI and the merchant supply only words, through validated content fields.
+  - **Structured data from real data only**: Product with its Offer (the real price, currency
+    and availability), BreadcrumbList, ItemList on collections, Organization and WebSite with
+    SearchAction, Article for the blog.
+  - **Crawling**: `sitemap.xml` per locale with `lastmod` and images, `robots.txt`; filter and
+    sort URLs canonicalised so they make no crawl traps; correct pagination canonicals;
+    previews `noindex`.
+  - **Addresses**: a renamed product, collection or page gets an automatic **301** from its
+    old address at the edge (products built on #484: `storefront_redirect`, LIVE-SHOP §5 step 6); removed products answer 404 or redirect; trailing slashes
+    consistent; the root redirects to the default locale.
+  - **Breadcrumbs** are sealed on product and collection pages.
+  - **Telling search engines**: IndexNow on every publish and single-page render (Bing,
+    Yandex; built on #484: the pages whose bytes changed or went since the build before, once the build passed its
+    post-deploy checks, with the store's own key served by the edge at `/{key}.txt`); Google through the sitemap named in `robots.txt`. A Search Console verification
+    tag can be set in Site settings.
+  - **What the theme must do**: one `<h1>` per page and headings in order; the main content
+    in the HTML without JavaScript (the gate renders every page with JavaScript off and checks
+    the `<h1>`, the main text, and a product's name and price are there); alt text on every
+    image (product photos from the catalogue); landmarks (`header`, `nav`, `main`, `footer`);
+    descriptive link text; each custom page has a slug, a title (≤60) and a description (≤160),
+    unique in the store.
+- **Privacy**: consent before non-essential tracking where required, real-user speed data
+  included (§9); no third-party scripts outside the allowlist.
+- **White label**: the brand's "Powered by" rule is a sealed component driven by store
   settings (CONSOLE-DESIGN §3 fact 18).
 
 ---
 
 ## 9. Performance budgets
 
-Set per route in CI *(numbers to confirm)*: Largest Contentful Paint, total JavaScript,
-Cumulative Layout Shift and Interaction to Next Paint measured on a mid-range phone profile.
-Core keeps its own bundle small and splits payment SDKs by provider so a theme never pays
-for providers the store doesn't use.
+Gates on every publish, per page type (home, collection, product, custom pages, cart), on a
+mid-range phone profile *(proposed 2026-10-08 on #470 as the starting gates; real-user data
+decides whether to tighten them)*:
+
+| Measure | Budget | For reference |
+|---|---|---|
+| Largest Contentful Paint (lab) | ≤ 2.0 s | Google's "good" is 2.5 s at p75 in the field |
+| Cumulative Layout Shift (lab) | ≤ 0.05 | Google's "good" is 0.1 |
+| Total Blocking Time (lab); Interaction to Next Paint (field) | ≤ 150 ms; ≤ 200 ms | 200 ms is Google's "good" INP |
+| JavaScript on first load, gzipped | ≤ 90 KB (checkout excluded) | |
+| CSS, gzipped | ≤ 50 KB | |
+| The main image at phone width | ≤ 200 KB | |
+| Page weight on phones | ≤ 1 MB (video capped separately) | |
+
+**Byte budgets are exact and repeatable, so they are hard gates in the fast gate and at
+publish.** Timing budgets vary run to run: they are measured three times at publish and the
+median counts.
+
+*Decided on #483:* the publish gate's JavaScript budget counts the theme's own chunks, as the fast gate does, and
+reports core's runtime beside it (about 170 KB gzipped today, so counting it would refuse every store, the baseline
+theme included); the CSS, page-weight and timing budgets count the whole page. Core's runtime joins the count once it
+fits (suggested on #483).
+
+- **How core keeps them**: theme components are server-only unless they are interactive
+  islands; payment SDKs load only on checkout and only the store's provider; images, video,
+  fonts and third-party scripts go through core (§2.1); third-party tags load after consent and
+  after the page.
+- **Real-user Core Web Vitals** are recorded by core **only after the shopper consents**
+  (decided 2026-10-08 on #470), anonymously and first-party, and Google's CrUX data per domain
+  is read too. A p75 regression after a deploy starts a repair and is flagged in the admin
+  console; a severe one (LCP or INP doubled, CLS above 0.25) also rolls back automatically.
+  Without consent the field data is thinner, so the lab gates carry most of the weight.
+  **Built on #484:** core's `reportVitals` measures LCP, CLS (the largest session window) and INP (the slowest
+  interaction, one in fifty set aside) on every page and, when the page is left, sends one beacon to the store's own
+  `/shop-api/vitals` only if the shopper has agreed to analytics by then: the page kind, phone or desktop, and the
+  three measures (INP null for a visit with no interaction), nothing else; the intake refuses any other field and a
+  body over 1 KB before reading it, and sits behind the Shop API's per-address limiter. The Shop API keeps them as each
+  day's histograms (`storefront_vitals_day`), never for a preview host. *Decided on #484:* the rule runs daily at 03:00 UTC and reads a build once, after its first two whole days live
+  and within a week: the days after its switch day against the seven days before it, per page kind and device, each
+  side with at least 50 samples (INP with at least 50 visits that had an interaction). **Severe** rolls back (the pointer move of LIVE-SHOP §4 step 10, `vitals_regressed`;
+  held while a publish runs and read again the next day, refused once the build before is gone) only when each of the
+  two days is severe on its own: LCP or INP p75 doubled and now above Google's "good" (2.5 s, 200 ms), or CLS p75 above
+  0.25 from under it.
+  **Regressed** is a p75 a fifth worse; either needs a move of at least two histogram buckets, the data's resolution.
+  It is kept on `publish_run.vitals` for the admin console and the repair loop (#483). The beacons are unauthenticated,
+  so the rule asks for two days in a row, and a day with more than three times the week before's daily samples (at
+  least 50) is a flood that can only flag, never roll back. No day's samples are capped, so a sender can't crowd genuine ones out.
+  Faking a rollback then means replacing over a quarter of a store's genuine traffic, at its usual volume, for two days;
+  what it buys is a pointer move back to the build before, recorded and undone by the next publish. The other way round,
+  a sender can dilute a real regression with fast samples, or flood a day so it only flags: a regression then waits for
+  the merchant, the admin console's flag and the next publish's lab gates, which carry most of the weight anyway. Both
+  are accepted (raised on #484's review). Reading Google's
+  CrUX data is a follow-up.
 
 ---
 
 ## 10. Testing
 
 - **Core**: unit and integration tests against a real engine (the platform's test stack),
-  contract tests published with the package, and payment adapters tested in provider test
-  modes.
-- **Template**: a reference theme ("baseline") that passes every contract test and is the
-  AI's fallback starting point.
-- **Per store** (in CI, both modes): typecheck, lint, contract tests, smoke test, a11y, budgets,
-  and the architecture tests carried from the reference (`tests/architecture/boundaries.test.mjs`:
-  app files are only re-exports; feature internals aren't imported from outside).
-- **Fleet**: a core release is tested against a sample of real store themes before canary.
+  the contract and gate suites published with the package, the validator tested against a
+  corpus of forbidden code (every rule of §3.4 has a case that must be refused), and payment
+  adapters tested in provider test modes.
+- **Templates**: every template passes every gate of §4.2 with each core release, before the
+  release ships.
+- **The edge-case catalogue**: a store of fixture data every theme is rendered against at
+  publish: very long names, no photos, 100 versions, everything out of stock, no products,
+  every language the store offers, a right-to-left language, the largest prices.
+  *As built on #483* (`edgeCases`): the store's own snapshot with a 200-character name and long description, no logo
+  or contact details and a long "Powered by" brand; each other language it offers; and its main language laid out
+  right to left. The product cases join it with core's product hooks.
+- **Per store**: the full gate of §4.2 on every publish (inside the build workflow: LIVE-SHOP §4 step 7), plus the
+  architecture tests carried from the reference (`tests/architecture/boundaries.test.mjs`: app
+  files are only re-exports; feature internals aren't imported from outside).
+- **Fleet**: a core release is gated against a sample of real store themes before canary.
 
 ---
 
@@ -356,26 +1116,35 @@ for providers the store doesn't use.
 
 | Take (adapt) | Change | Drop |
 |---|---|---|
-| Feature-module layout and the boundary rules (thin `app/`, features imported only through top-level files, colocated operations and messages) | Features move **into the core package**; the store repo keeps only theme and shims | Everything developer-owned-by-default: here the theme is AI-owned and core is locked |
-| The architecture tests, i18n message composition and its duplicate-namespace test | The reference's transport (its channel token headers) → our SDK and store key | Framework-specific workarounds (`withCartModificationRetry`, `ORDER_MODIFICATION_ERROR`, the hard-coded root `parentId: "1"`) |
+| Feature-module layout and the boundary rules (thin `app/`, features imported only through top-level files, colocated operations and messages) | Features move **into the core package**; the store repo keeps only the AI's theme and the shims | Everything developer-owned-by-default: here the theme is the AI's, inside the walls of §3, and core is locked |
+| The architecture tests, i18n message composition and its duplicate-namespace test | The reference's transport (its channel token headers) → our client and store key | Framework-specific workarounds (`withCartModificationRetry`, `ORDER_MODIFICATION_ERROR`, the hard-coded root `parentId: "1"`) |
 | The protected-commerce list in its `CLAUDE.md` and `docs/commerce.md` (active order as the only cart, checkout order, async payment settlement, facet OR/AND, validated currency) as core invariants | Server Actions and `'use cache'` notes (already stale there) → the render-mode adapter (§4) | The S3 + CloudFront workflows and committed `.env.*` build config |
 | Static-export lessons (§4.3), the live-price supersede pattern, per-version pages | Payment clients (Stripe, Razorpay, Cashfree) → core payment adapters against our engine | The `USD` default in the price component |
-| The upgrade-note protocol for core majors (§7) | Upgrade reconciliation done by our agent per store, not by a merchant's developer | `upgrade:init` provenance for human forks (the sync bot owns provenance) |
-| Its shadcn primitive set and Tailwind v4 token approach as the **baseline theme**'s starting kit | Tokens become per-store and fully AI-owned (DESIGN.md) | The neutral slate-only look as a default for stores |
+| The upgrade-note protocol for core majors (§7) | Upgrade reconciliation done by our migration agent per store, not by a merchant's developer | `upgrade:init` provenance for human forks (the upgrade bot owns provenance) |
+| Its shadcn primitive set and Tailwind v4 token approach as a starting kit for the **templates** | Each template carries its own tokens (DESIGN.md) | The neutral slate-only look as a default for stores |
 
 ---
 
 ## 12. Open questions
 
-- The preview hostname pattern per brand, and whether previews are gated (signed link) or
-  open but `noindex`.
-- Can shoppers check out on the preview (test mode), or is checkout disabled there?
-- Before a custom domain is connected, where is the live site?
-- Hosted checkout (engine-served) vs in-theme checkout for AI storefronts: both, or one?
-- Image resizing: Cloudflare image resizing, or engine-generated variants?
-- Analytics providers to support in core (GA4, Meta Pixel, others), and per-brand defaults.
-- Who approves visual changes from a core major upgrade: the merchant, or DripFunnel staff?
-- Which content pages and sections may the theme add without new core support (blog, lookbook,
-  store locator)?
-- How store repos authenticate to GitHub Packages in CI (decided registry; see
-  `../code/ARCHITECTURE.md` §5 for the options).
+- ~~The preview hostname pattern per brand.~~ `{store}.preview.{partner-domain}` (decided 2026-10-05 on #337); replaced by `{key}.webpreview.store` (decided 2026-10-09), then by `{slug}-preview.my-store.one` (decided 2026-10-15, [PREVIEW.md](PREVIEW.md)).
+- ~~Whether previews are gated (signed link) or open but `noindex`.~~ Gated by a signed link
+  (decided 2026-10-05 on #284).
+- ~~Can shoppers check out on the preview (test mode), or is checkout disabled there?~~ Test-mode
+  checkout (decided 2026-10-05 on #284).
+- ~~Before a custom domain is connected, where is the live site?~~ `{slug}.my-store.one` (decided 2026-10-15, [LIVE-SHOP.md](LIVE-SHOP.md) §6; before it `{shop}.shops.<partnerdomain>`).
+- ~~Hosted checkout (engine-served) vs in-theme checkout for AI storefronts: both, or one?~~ AI storefronts check out in the theme; own storefronts use the hosted checkout by default and may build their own (decided 2026-10-05 on #337).
+- ~~Image resizing: Cloudflare image resizing, or engine-generated variants?~~ Cloudflare image resizing (decided 2026-10-05 on #337).
+- ~~Analytics providers to support in core (GA4, Meta Pixel, others), and per-brand defaults.~~ GA4, Meta Pixel, Google Tag Manager, after consent (decided 2026-10-05 on #337).
+- ~~Who approves visual changes from a core major upgrade: the merchant, or DripFunnel staff?~~ The merchant (decided 2026-10-05 on #337).
+- ~~Does the AI edit the theme's code, and how does a design start?~~ It writes the theme's code inside the walls of §3, from a template after a brand step (decided 2026-10-08 on #470, reversing that day's site-data design; §1, §6).
+- ~~Which content pages and sections may the theme add without new core support (blog, lookbook,
+  store locator)?~~ FAQ, lookbook, the merchant's own pages **and a blog** (SAPI 24); any custom page the AI writes (§3.1); no store locator (decided 2026-10-05 on #337).
+- ~~How store repos authenticate to GitHub Packages in CI.~~ They don't: builds run in the sandbox image, which has core preinstalled (decided 2026-10-08 on #470, following the choice of Cloudflare Containers; it replaces #303's org secret). Since builds moved to Actions, the image is on `ghcr.io` and the runner logs in with the org's `GHCR_PULL_TOKEN` to pull it (decided 2026-10-09 as public with no token; changed on #790).
+- ~~Where AI changes and builds run.~~ Cloudflare Containers, one per store with a studio open and a pool for publish builds (decided 2026-10-08 on #470); builds then moved to each store repo's GitHub Actions (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md)).
+- ~~What a store whose theme can't take a security fix gets.~~ The baseline theme until repaired (decided 2026-10-08 on #470).
+- ~~How the preview build reaches `{store}.preview.{partner-domain}`: a branch deployment of the store's Pages project, or its own project.~~ Neither: R2, served by the edge Worker on the store's preview host (decided 2026-10-09, [PREVIEW.md](PREVIEW.md)).
+- The containers' size, the idle timeout (10 minutes proposed) and whether a plan caps simultaneous studio sessions *(decide, INF 0 and the sandbox card; [AI-STUDIO.md](AI-STUDIO.md) §9)*.
+- ~~Whether the studio's live preview is the Next.js dev server in the container, or a lighter client build of the same theme.~~ The fast gate's client bundle, hot-reloaded (decided 2026-10-09, [AI-STUDIO.md](AI-STUDIO.md) §1).
+- Shopper cancelling and returns (§2.1, proposed on #285): cancel until the order ships; a return until the store's window closes, counted from delivery; a product's rule over the store's, never below a market's legal floor. The prototype draws this; it stands until approved or changed on #285.
+- ~~Sample words in a template (raised on #470): a template's sample testimonial quote and author is invented content.~~ No starting theme carries a quote or any fact about a store (decided 2026-10-12 on #486, §2.3). The AI still never writes a quote attributed to a person (DESIGN.md §9).

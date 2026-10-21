@@ -1,6 +1,7 @@
 import { messages } from '../../messages'
 import { CodeForm } from './CodeForm'
 import { MicrosoftButton } from './MicrosoftButton'
+import '@dripfunnel/shared/ui/auth.css'
 import './signIn.css'
 import { isProblemState, type SignInState } from './signInStates'
 

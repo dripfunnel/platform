@@ -1,19 +1,16 @@
 // States (?state=): loading, empty, error, denied, confirm. Without one the screen shows the
 // API's page of signups whose setup is running, stuck or failed, newest first; see
-// provisioningHarness.ts for what denied, readonly and ?pace= ask the sample for.
+// provisioningHarness.ts for what denied and readonly ask for.
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { JobAction, JobFilter, JobPage, ProvisioningJob } from '../../api/provisioning'
 import { messages } from '../../messages'
-import { EmptyState } from '../common/EmptyState'
-import { ErrorState } from '../common/ErrorState'
-import { ListHeader } from '../common/ListHeader'
-import { LoadingState } from '../common/LoadingState'
+import { EmptyState, ErrorState, LoadingState, ListHeader } from '@dripfunnel/shared/ui'
 import { Pager } from '../common/Pager'
 import { JobCard } from './JobCard'
 import { JobFilters } from './JobFilters'
 import type { ProvisioningScreenState } from './provisioningHarness'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './provisioning.css'
 
 const words = messages.provisioning
@@ -113,7 +110,7 @@ export const Provisioning = ({ page, filter, forced, onFilterChange, onJob, onRe
             label={words.pagerLabel}
             pageInfo={page.pageInfo}
             link={(cursor, label) => (
-              <Link to="/provisioning" search={(current) => ({ ...filter, ...cursor, pace: current.pace })} className="df-button">
+              <Link to="/provisioning" search={{ ...filter, ...cursor }} className="df-button">
                 {label}
               </Link>
             )}

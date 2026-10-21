@@ -1,4 +1,5 @@
 import microsoftLogo from '../../assets/microsoft-logo.svg'
+import '@dripfunnel/shared/ui/auth.css'
 import './signIn.css'
 
 export const MicrosoftButton = ({ label, onClick }: { label: string; onClick: () => void }) => (

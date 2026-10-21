@@ -1,0 +1,16 @@
+{
+  "name": "@dripfunnel/store-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env local --port 8788 --local-protocol https --persist-to ../apps/api/.wrangler/state",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260926.1",
+    "wrangler": "^4.141.0"
+  }
+}

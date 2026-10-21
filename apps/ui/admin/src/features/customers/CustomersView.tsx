@@ -1,16 +1,13 @@
 import type { ReactNode } from 'react'
 import type { CustomerFilter, CustomerMatch, CustomerPage } from '../../api/customers'
 import { fill, formatCount, formatCountry, locale, messages, plural } from '../../messages'
-import { EmptyState } from '../common/EmptyState'
-import { ErrorState } from '../common/ErrorState'
-import { InfoNote } from '../common/InfoNote'
-import { LoadingState } from '../common/LoadingState'
+import { EmptyState, ErrorState, LoadingState, InfoNote } from '@dripfunnel/shared/ui'
 import { Pager, type PagerProps } from '../common/Pager'
 import type { CustomersState } from './customerHarness'
 import { CustomerFilters } from './CustomerFilters'
 import { CustomersTable } from './CustomersTable'
 import type { CustomerPageResult } from './useCustomerPage'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.customers
 const countryList = new Intl.ListFormat(locale, { type: 'conjunction' })

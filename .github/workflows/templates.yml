@@ -1,0 +1,56 @@
+name: templates
+
+# Uploads the storefront templates to the dev sites bucket (docs/setup/dev.md §2.8), and only when
+# a template file or the upload script changes. The dev deploy does not touch the bucket.
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'templates/storefront/**'
+      - 'apps/api/scripts/local/seed-templates.ts'
+      - '.github/workflows/templates.yml'
+  # A new core version changes `current.json`; wait for the release so it never names an unpublished core.
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: templates
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    environment: dev
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    env:
+      R2_STOREFRONT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      R2_STOREFRONT_ACCESS_KEY_ID: ${{ secrets.R2_STOREFRONT_ACCESS_KEY_ID }}
+      R2_STOREFRONT_SECRET_ACCESS_KEY: ${{ secrets.R2_STOREFRONT_SECRET_ACCESS_KEY }}
+      STOREFRONT_SITES_BUCKET: ${{ vars.STOREFRONT_SITES_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tip, not the release's commit: a newer push must never be overwritten by older templates.
+          ref: dev
+      - uses: ./.github/actions/setup
+      # The dev release publishes only `<version>-dev.<run>` (release.yml), so name the highest of those. A push can
+      # land while a newer release still runs; the `workflow_run` trigger then corrects it.
+      - id: core
+        run: |
+          set -euo pipefail
+          version=$(gh api --paginate "/orgs/${{ github.repository_owner }}/packages/npm/storefront-core/versions" --jq '.[].name | select(test("-dev\\.[0-9]+$"))' | sort -V | tail -n 1)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --core "$CORE_VERSION"
+        env:
+          CORE_VERSION: ${{ steps.core.outputs.version }}

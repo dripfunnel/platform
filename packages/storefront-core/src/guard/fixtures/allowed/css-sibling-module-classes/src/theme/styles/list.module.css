@@ -1,0 +1,11 @@
+.item + .item {
+  margin-top: 8px;
+}
+
+.tab ~ .panel {
+  opacity: 0.5;
+}
+
+.card > p {
+  margin: 0;
+}

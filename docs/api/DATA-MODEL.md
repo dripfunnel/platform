@@ -1,15 +1,19 @@
 # DATA-MODEL.md: tenancy, identity and roles
 
 How the database stores the tenancy tree (DripFunnel → partners → stores → suppliers and
-customers), every kind of user and their roles, and how Postgres row-level security backs
-up the application's scoping. Commerce tables (catalogue, stock, orders, offers…) are
-added here module by module as the engine is designed; each follows §2.
+customers), every kind of user and their roles, how Postgres row-level security backs
+up the application's scoping, and (§7) the merchant-side tables: settings, catalogue, stock,
+customers, orders, offers, storefront, billing and integrations, each following §2.
 
 Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissions),
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
-Table and column names are *(proposed)* until the first migration; the structure is decided.
+Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
+dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
+marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
+preview key, build ids).
 
 ---
 
@@ -41,72 +45,442 @@ platform            no row: DripFunnel itself; staff act here
 
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
-| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `platform_setting`, `entitlement_ceiling`, `feature_flag` |
-| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_domain`, `plan`, `plan_entitlement` |
-| **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `storefront`, `support_access_setting` |
-| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `membership`, `order`, `collection`, `offer`, `api_key`, `webhook`, `seller` (a supplier reads only its own row — ACCESS.md §5.5) |
+| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `plan_ceiling` (§2.3; read by partners too), `feature_flag`, `store_note`, `app` (§7.10) |
+| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `partner_branding` (§2.5), `partner_domain_record` (§2.1), `export_job` (§2.6), `signup` (§7.10) |
+| **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (§2.4), `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
+| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
-| **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product`, `warehouse`, `stock_level`, `order_part` (per-supplier part of an order) |
-| **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6 | `activity_log` |
+| **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product` and its children, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`, `fulfilment`, `return_line`, `refund`, `refund_line`, `supplier_ledger_entry`, `catalog_import`, `catalog_export`: the full list is §7.11's first class (a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
+| **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6; `outbox` is insert-only for requests and read by the relay alone; `billing_event` is written by the SaaS layer alone | `activity_log`, `outbox`, `billing_event` (§7.9), `email_suppression` (`address_hash`, `reason` bounce | complaint, `suppressed_at`; system only, no tenant; an HMAC of the address under `EMAIL_SUPPRESSION_KEY`, pseudonymous personal data kept to honour the person's own bounce or complaint) |
 
-- **Unique constraints are per scope**: SKU, web address and coupon code per store; customer
+- **Unique constraints are per scope**: web address and coupon code per store; a SKU per owner
+  in the store (the merchant's and each supplier's, #293), so anything that finds a version by SKU
+  (imports, stock, orders) names the owner too; customer
   email and phone per store; user email per partner. Never global.
 - **"Inside the store" vs "account level"** is what keeps partners and staff out of a
   merchant's catalogue, orders and customers (USERS-AND-DOMAINS §4): the RLS policy on
   those tables has no partner or platform branch at all.
 
+### 2.1 Partners and stores as built (#32)
+
+Migration `0007` gives `partner` and `store` their business columns and adds the account-level
+tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_setup_item`,
+`plan`, `custom_domain`, `user`, `membership`, `invitation`, `job`, `store_note`).
+
+- **Partner**: `name` (unique among partners that aren't closed, ignoring case and outer
+  spaces, `0031`, #61), `is_house` (one row, by a partial unique index), `kind`, `region`,
+  `country`, `state` (SAAS.md §3.1) with the facts of each state (`submitted_at/by`,
+  `sent_back_reason`, `approved_at`, `paused_at`, `pause_reason`), the published look the admin
+  console shows (`product_name`, colours, `powered_by`) and `fallback_sender_accepted`. PAPI 3
+  adds the versioned branding and prices.
+- **Partner team** (`0022`, #199): `partner_user.status` gains `removed` (signed out, never signed
+  in again, still named in the log); a partner reads `two_factor_enrolled_at` and sets
+  `partner.second_factor_required`; `end_partner_user_sessions(user)` (owned by `app_definer`)
+  ends its own users' sessions, since a partner role never touches `partner_session`.
+- **Partner addresses' records** (`0020`, #197): `partner_domain_record` (domain, partner,
+  position, `purpose` pointer | ownership | spf | dkim | dmarc, `record_type` CNAME | TXT | A,
+  the name to resolve, `expected`, `found`, `checked_at`). The portal has one pointer record (an A record for a root portal domain); the email sender has SPF, DKIM and DMARC
+  (SAAS §3.6); every address added from #197 on also has an ownership TXT
+  (`_dripfunnel.{host}` = `dripfunnel-verify={token}`, a token per address). An address is live
+  once every record matches, SPF by including ours and DMARC by being one. Since a claim proves
+  nothing until its token is found, `partner_domain_host_key` holds a host only for addresses
+  past waiting and failed; a second claim that verifies later fails. `partner_domain.record_type`/`expected` stay
+  the first record's. A partner inserts its own address (waiting and unchecked only, by a
+  restrictive policy) and records but holds no `update` on
+  `partner_domain`, so only the check (`app_system`) and staff write a status. A trigger keeps
+  a record on its address's partner. `partner_domain` is (id, partner, `kind` portal |
+  email, `host`, `status`, `record_type`, `expected`, `found`, `checked_at`), one per
+  partner and kind; a partner may delete its own address and records (`0061`, #429). **The
+  `preview` kind is gone** (#518, migration 0232: its rows and records deleted, the check
+  narrowed): previews moved to `{key}.webpreview.store`, keyed by `storefront.preview_key` (§7.8),
+  and then to `{slug}-preview.<SHOP_DOMAIN>` (#744, storefront PREVIEW.md §2). **The `shops` kind
+  is gone** (#745, migration 0355: it queued `domain.remove` for each registered host, deleted its rows,
+  records and the setup checklist's `wildcards` items, and narrowed the check to portal and email): every
+  store's live address is `{slug}.<SHOP_DOMAIN>` (USERS-AND-DOMAINS §2).
+- **Store**: `name`, `code` (unique per partner), `slug` (#744, migration 0354:
+  unique across the platform on `lower(slug)`, not null, never changed; its hosts are `{slug}.<SHOP_DOMAIN>` and
+  `{slug}-preview.<SHOP_DOMAIN>`, USERS-AND-DOMAINS §2, rules in SAAS §4.1; a `signup` row's `subdomain`
+  becomes the slug). **The migration's backfill:** a store's `code` is copied when it
+  meets SAAS §4.1 and is free across the platform. Otherwise, being permanent, it is fixed the way signup would:
+  made to fit the format as the web-address field does (accents removed, lowercase, any other character to `-`,
+  cut to 40), then the first free of signup's suggestions for it (`-co`, `-shop`, `-store`, `-online`, the base
+  shortened to fit), then `-2`, `-3`…; a reserved name or a `-preview` ending never fits as it is. #744's migration
+  test covers a reserved code, a `-preview` ending, one over 40 characters, one with other characters and a clash.
+  The store's other fields: `country`, `status`
+  (SAAS.md §4.2 plus `closed`) with its facts (`trial_ends_at`, `past_due_since`, the
+  suspension's time, reason, who and **the status it had before**, so Restore returns to it),
+  `plan_id`, `storefront_kind` (`ai` or `own`), `build_state`, `core_version`, last build and
+  publish, and `support_access_allowed` (the merchant's standing consent, USERS-AND-DOMAINS §4.1,
+  a column; there is no support-access table).
+- **Setup checklist**: the items of ui/platform/FIRST-RELEASE.md §4 (built as eight: company,
+  branding, portalHost, emailSender, plan, legal, paymentMethod, payoutDetails,
+  testSignup; status done | progress | missing), one row each with
+  status, detail and who did it (a partner user, or staff in a setup session). The admin console's
+  "Owner accepted" is read from `partner_user.status`, not an item.
+- **Signup job**: SAAS.md §5's steps as the run's own list (three for a store with its own
+  frontend), the current step and when it started, attempts and the error in plain words. The
+  raw detail and the compensation log are `job_detail`, a table staff alone read (FIRST-RELEASE
+  §7). Stuck is derived from a limit per step (`saas/provisioning/stuck.ts`), never stored.
+  Built (0007) as `job` (id, store, `kind` provision-store, `state` running | failed | cleaning |
+  done | undone, `steps`, `step`, `step_started_at`, `attempts`, `started_at`, `finished_at`,
+  `last_error`) and `job_detail` (job, `details`, `compensation_log`).
+- **Staff notes on a store**: `store_note` (id, store, `staff_user_id`, `text` up to 2,000,
+  `created_at`), read and written only in the platform scope (0007).
+- **Credentials are granted column by column**: `password_hash`, `two_factor_secret_enc`,
+  `user_backup_code.code_hash` (§3.3) and the `token_hash` of both invitation tables are
+  readable by `app_system` (sign-in, acceptance, the second factor) and never by
+  `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted
+  the same way, with one exception decided 2026-10-02: **a person may read and change their
+  own number** (My profile; SMS 2-factor is sent to it). **Not built yet; the design is**: a
+  column grant cannot be limited to one row, so the exception is a pair of `security definer`
+  functions owned by the migration role, `own_phone()` and `set_own_phone(text)`, that act
+  only on the row whose `id` equals the session's `app.user_id` (§5.1, a setting the
+  `RlsSettings` in `db/rls/settings.ts` gains with it). Because `"user"` is `FORCE ROW LEVEL
+  SECURITY` and its update policy admits only the platform and system scopes, the definer
+  needs an own-row policy too: `user_update_own` for store scope on `id = app.user_id`.
+  Written the way such functions must be: a pinned `search_path` (`pg_catalog, public`, as
+  0007's `membership_check_parents()` pins its own), `revoke execute … from public` then
+  `grant execute` to the two roles a signed-in person of the people pool runs as,
+  `app_request` and `app_supplier` (§5.3), `set_own_phone` validating E.164 and refusing
+  anything else, and an empty `app.user_id` matching no row (no session, no phone).
+  `app_request` keeps no `select` or `update` on the column. The isolation matrix has the
+  rows: user A, holding user B's id, can neither read nor write B's phone; and a call with an
+  empty `app.user_id` returns nothing and changes nothing. No other screen shows a merchant
+  user's phone.
+- **State history is the activity log** (LOGGING.md): `partner.*` and `store.*` entries with
+  the partner or store as target, visibility `partner`. No history table.
+- **Transitions** are enforced in `saas/partners/states.ts` and `saas/stores/states.ts`, which
+  write the facts with the state; the house partner is never paused, offboarded or closed.
+- **Seed**: `pnpm --filter ./apps/api seed` replaces everything it owns on a local database with
+  the prototype's partners and stores in every state (`apps/api/scripts/seed/`), every address
+  under a reserved `.example` domain. It runs against a loopback host only, with none of the CI
+  opt-in `migrate` has, since it truncates.
+
+### 2.2 Entities named by the 2026-10-02 design decisions (#182)
+
+Folded into §7 on #187, so each table has one home: the supplier shipping mode (§3.3) and the
+custom-domain states (§7.2), badges, per-market prices and the approval snapshot (§7.3),
+stock movements (§7.4), customer groups, tags, notes and consent (§7.5), returns, refunds
+and the supplier ledger (§7.6), access requests (§7.10); the 2-factor, backup-code and
+session columns are in §3.3.
+
+### 2.3 The plan catalogue (built on #157)
+
+Migration `0013`, from SAAS §6.1 and §6.3 and the prototype's Plans screens:
+
+```
+plan                 (id, partner_id, name, description NULL, status ('draft'|'live'|'retired'),
+                      trial_days (0..90, default 14), max_products NULL, max_staff NULL, version,
+                      retire_at NULL, retire_move_to_plan_id NULL, created_at)
+                     UNIQUE (partner_id, name)
+plan_version         (plan_id, partner_id, version, trial_days, created_at, created_by_kind,
+                      created_by_label)          PK (plan_id, version); plan.version is current
+plan_price           (plan_id, partner_id, version, currency, monthly_amount NULL,
+                      yearly_amount NULL)        -- minor units; null is "Not priced"; built as
+                     -- integer (0013), as are plan_fee.amount and store_subscription's amounts:
+                     -- §7.1's bigint rule applies to new money columns, these fit integer
+plan_entitlement     (plan_id, partner_id, version, key, enabled NULL, amount NULL)
+                     -- a switch key holds enabled; a limit, allowance or choice holds amount
+plan_key             (key PK, kind 'switch'|'amount'|'choice')   -- every plan setting (0070);
+                     -- plan_entitlement, plan_ceiling, store_limit_override and store_usage
+                     -- reference it, so a new setting is one insert
+plan_fee             (plan_id PK, partner_id, amount, currency)   -- DripFunnel's wholesale fee
+                     -- per store per month; (partner_id, currency) references the contract's
+                     -- fee currency, which cannot change while fees are stated in it; no
+                     -- store policy at all
+plan_ceiling         (key PK, amount)                   -- DripFunnel's maximum per limit
+partner_contract     (partner_id PK, fee_currency, powered_by_removable, powered_by_note
+                      ('contract'|'firstYear'))
+partner_contract_rate (partner_id, currency, per_fee_unit numeric NULL)   -- a rate, not money;
+                      -- null: the partner prices in it, with no fee converted (0062)
+```
+
+- **Keys**: 51 rows of `plan_key`, mirrored by `src/db/scoped/planKeys.ts` (a test compares
+  them). The original 13 are the switches `custom_domain`, `offers`, `suppliers_enabled`,
+  `powered_by_removal`, `aplus`, `size_charts`, the limits `products`, `staff`, `suppliers`,
+  `languages`, `currencies` and the monthly allowances `publish_now`, `ai_prompts`; 37 more
+  follow the pricing page's comparison (SAAS §6.1), and `live_offers` (0076) the pricing page's "3 live". Build minutes and AI cost are meters
+  with no plan value yet. `0070` gave every existing plan version a row for each new key.
+- **An edit is a version** (`db/scoped/plans.ts` `insertPlanVersion`): prices, trial and
+  entitlements are written under `plan.version + 1`, taken under the plan's row lock, and
+  `plan.version` moves to it. Versions are **insert-only**: no role holds `update` on the three
+  version tables, so a subscription keeps exactly the version it bought (§7.9's
+  `store_subscription.plan_version`). `plan.version` always names an existing version (a
+  deferred foreign key): a trigger owned by `app_definer` writes version 1 for every plan
+  inserted, by whatever role, so the release still live keeps working, and `0013` gave every
+  plan already built a version 1 with its trial and no prices. Name, description and status
+  stay on `plan`; `retire_move_to_plan_id` can only name a plan of the same partner.
+- **Ceilings are enforced in the database**: a trigger refuses any `plan_entitlement` amount
+  above `plan_ceiling` for its key, whoever writes it (SAAS §6.1), and `powered_by_removal`
+  switched on unless the partner's contract allows it (no contract: not allowed). Another
+  refuses any request role moving `plan.version` other than forward by one, or changing
+  `plan.trial_days` without a new version. A merchant reads `plan_version` by column, never
+  `created_by_*`. A check holds each key to
+  its kind: a switch has `enabled` and no `amount`, a limit or allowance the reverse.
+- **The entitlements are authoritative.** `plan.max_products` and `max_staff` (#32) are what
+  the admin console's plan list still reads; they stop being written once #161 serves the
+  catalogue, and a later migration drops them.
+- `plan.trial_days` is `0..90` (was `0, 7, 14, 30`), so the house plans' 10 days fit.
+- **Who reads what**: the partner reads and writes its own versions, and reads its own fee,
+  contract and rates and every ceiling; the fee, the ceilings and the contract are written by
+  staff only. A merchant reads its own store's plan versions in store scope only (SAAS §13
+  "read own plan"; never a storefront, never a supplier) and never the fee. Every child carries `partner_id`, held to the plan's by composite keys, and
+  the four role pins (§5.3).
+- The paused-by-plan state of SAAS §6.2 is on the paused rows themselves (§7.1), so the
+  catalogue holds only values; `saas/entitlements` counts paused items outside the limit.
+
+### 2.4 Store account fields (built on #212)
+
+Migration `0014`, for what the partner console's Stores list and store detail read beyond #32:
+
+- **`store_subscription`** exactly as §7.9 designs it, pointing at the plan **version** (§2.3),
+  with `next_plan_id`, `next_plan_version` and `change_at` for a scheduled change. It carries
+  `partner_id` so its composite keys hold the store and both plan versions to one partner
+  (foreign keys skip RLS). Billing (`app_system`) and staff write it; a partner writes only the
+  schedule (`next_plan_id`, `next_plan_version`, `change_at`, migration `0015`, #161), when
+  a plan change applies at renewal or a retired plan moves its stores, and since migration
+  `0018` (#160) a trial's end. A plan change "now" goes through `partner_move_subscription`
+  (owned by `app_definer`): its own store, a Live plan of its own, that plan's current version
+  at that version's price, never an amount the caller names. It adds what the move prorates,
+  which it holds to the price difference's sign and size and to zero on trial,
+  to `proration_amount` (minor units of the subscription's currency, above zero charged,
+  below zero credited, with `proration_at`) for billing (#201) to collect. A partner reads it by
+  column (status, amounts, periods, the scheduled change, the card's last four); the merchant
+  also reads the card's brand and expiry; neither reads the Stripe ids or the payment-method
+  label. A store built before #212 has no row until billing (#201) creates one. `core/tenancy.ts`'s
+  `Subscription` now uses §7.9's spellings (`trial`, `cancelled`).
+- **`store_limit_override`** (key, amount, `month` or `always` with the month it applies to,
+  reason, who, when, `removed_at`) and **`store_trial_extension`** (days, the new end,
+  reason, who, when): SAAS §6.1's per-store overrides, added by the partner for its own
+  stores or by staff, and never rewritten. A trigger pins `created_by_kind` to the writing
+  role (a partner writes `partner_user`, staff `staff`) and lets an override be removed once,
+  with who removed it, and not changed after. The merchant reads both by column (key,
+  amount, duration, month, days, dates), never the partner's reason or who wrote it.
+  `selectOverrides` and `selectTrialExtensions` (`db/scoped/storeAccount.ts`) are the partner's
+  and staff's reads, with why and who, paged newest first by keyset; the merchant's own read
+  arrives with the Store API card that serves it.
+- **`store_usage`** (store, key, used, `period_start` for a meter): the stored counter behind
+  "4,210 of 5,000 products", written where the work happens (by `app_system`), never a
+  count across tenants. Paused items (§7.1) are not counted.
+- **`partner.billing_mode`** (`dripfunnel` | `own`, SAAS §7.1) and **`store.billing_status`**
+  (`active` | `past_due` | `suspended`). A trigger refuses any change to the status unless
+  the store's partner bills its own merchants, whoever the writer is.
+- Account level (§2): the store's merchant side reads its own rows in store scope; a supplier
+  or a storefront reads none; the partner its own stores' (through the store policy); staff
+  and jobs everything. The four role pins are on each table.
+- The store actions (`0018`, #160, ui/platform/FIRST-RELEASE.md §6.4): a partner may also insert
+  an owner invitation on its own store and revoke one (never a team member's or a supplier's,
+  never the token), and restart its own store's latest setup job when it is failed or running
+  (state, step start, attempts, error), back to running only.
+- Indexes for FIRST-RELEASE §6.1: `(partner_id, status)`, `(partner_id, plan_id, created_at)`,
+  `(partner_id, created_at)`, `(partner_id, storefront_kind, build_state)`, `store_usage (key,
+  store_id)`, and the trigram indexes on store name and code, owner email and domain host.
+
+### 2.5 The partner's look and words (built on #211)
+
+Migration `0016`, from SAAS §3.3–§3.4 and the prototype's Branding screens; `0075` adds the mobile app's images (#495):
+
+```
+partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), product_name, primary_color,
+                   accent_color, font, corner, background, logo_light_key, logo_dark_key,
+                   mark_key, favicon_key, app_icon_key, app_icon_foreground_key, splash_key,
+                   support_email, support_url, help_url, terms_url,
+                   privacy_url, dpa_url, impressum, powered_by, created_by_kind,
+                   created_by_label, created_at, published_at, published_by_label)
+```
+
+- **At most one draft per partner** (a partial unique index). The **live** version is the newest
+  published one whose `published_at` has passed; one published with a later time is
+  scheduled (F8). Every published version is kept, which is the history FIRST-RELEASE §8.4
+  reads; a rollback publishes a copy.
+- **What changes** is held by a trigger, for the partner, staff and jobs alike. A version
+  starts as a draft. A draft is edited or published no earlier than now, so history is never
+  back-dated. A scheduled version (published, not live yet) may only be **cancelled**, nothing
+  else about it changing. A live or past version is never changed. Anything not a draft carries
+  who published it and when (a check constraint).
+- The files are R2 object keys, never a URL a browser was given. The three mobile app images
+  (the app icon, the Android icon foreground and the splash, BUILD-CHECKLIST §2) are versioned and
+  published with the rest of the version, and are null until uploaded. Colours are `#RRGGBB`; the font,
+  corner and background come from the prototype's lists.
+- The partner reads and writes its own, inserting under its own kind (`partner_user`); staff and
+  jobs reach every partner's; no merchant role has a grant (the portal's look is resolved by
+  hostname, SAAS §3.3, on the Store API card that serves it). The four role pins are on the
+  table.
+- `partner.product_name`, `primary_color`, `accent_color` and `powered_by` (#32) stay what the
+  admin console's lists read; a publish (#162) keeps them equal to the live version, the
+  partner role holding `update (powered_by)` for it (`0017`). A trigger holds that write to the
+  contract: a partner never sets or leaves `house`, and turns it `off` only when
+  `partner_contract.powered_by_removable` allows it. A second trigger holds `partner_branding`
+  the same way: a partner may draft without the line, but publishes it off only when allowed.
+
 ---
+
+### 2.6 Export jobs (built on #198)
+
+`export_job` (migration `0021`; `report` added by `0023`, #200; `stores` by `0026`, #221;
+`staff_activity` by `0028`, #38): the partner (null only for a staff export, a check holds it),
+`kind` (`activity`, `report`, `stores`, `staff_activity`), the filter as asked, `state` (queued,
+done, failed, or `too_large` for a staff export past its cap), the row count and whether it was
+cut, the CSV, the `cursor` a chunked export resumes from, who asked, and when it was created,
+finished and expires.
+
+- **A partner's export** (`activity`, `report`, `stores`): the partner inserts and reads its own,
+  and its `export.*` job runs in that partner's scope and writes the result in one delivery
+  (`stores` cuts at 10,000 rows and says so).
+- **A staff export** (`staff_activity`): no partner; asked for, and read back by its id, by staff
+  holding `activity.export` (Super admin and Engineer on call, who see every partner). Its job
+  reads the log as the staff member who asked, a chunk per delivery, keeping the file so
+  far and the `cursor` on the row between chunks; past LOGGING §6's 100,000 entries it ends
+  `too_large`, never as a partial file. Every chunk first checks that the requester is still
+  active and still holds `activity.export`, and fails the job if not.
+
+Any export ends `failed` after the outbox's last attempt (the cron also fails a queued job whose
+`export.*` outbox row the relay gave up on, a timeout included); the per-minute cron deletes an
+export an hour after it finishes (failed included), and one never finished after a day. The CSV
+lives on the row because no R2 bucket is bound yet; a file key replaces it when one is. The four
+role pins are on the table.
 
 ## 3. Identity pools
 
 ### 3.1 DripFunnel staff (platform)
 
 ```
-staff_user     (id, sso_subject UNIQUE, email, name, role_key, status, created_at)
+staff_user     (id, sso_subject NULL UNIQUE, email, name, role_key, status, last_sign_in_at NULL,
+                two_factor NULL, created_at)
+                 -- status: active | invited | suspended | removed. An invited member has no
+                 -- sso_subject until they accept; a removed one keeps the row the log names (#39).
+                 -- A staff request may set status only to removed; activation is sign-in's
+staff_invitation (id, staff_user_id, token_hash NULL UNIQUE, sent_at, expires_at, accepted_at NULL,
+                  revoked_at NULL, invited_by_staff_id, created_at)
+                 -- 7 days, single use, a resend revokes the open one (#39); the email's
+                 -- deliverer writes the hash, never readable by a staff request
 staff_session  (id_hash, staff_user_id, created_at, last_seen_at, expires_at, reauth_at)
+staff_partner_assignment (id, staff_user_id, partner_id, created_at, assigned_by_staff_id,
+                          removed_at NULL, removed_by_staff_id NULL)
+                 -- Partner managers only; one live row per pair (partial unique where
+                 -- removed_at is null); never deleted (#60)
 ```
 
 `role_key` ∈ `staff-super-admin`, `staff-partner-manager`, `staff-support`, `staff-finance`,
 `staff-engineer`, `staff-read-only` (ACCESS.md §5.4). Company SSO only; no password column.
+`staff_partner_assignment` lists the partners a Partner manager acts on (ACCESS.md §5.4, #14); read in
+`platform` and `system` scope, written in `platform` scope by Super admins only (#60).
 
 ### 3.2 Partner users (partner)
 
 ```
 partner_user     (id, partner_id, email, password_hash NULL, name, role_key, status,
                   two_factor_secret_enc NULL, created_at)
-                 UNIQUE (partner_id, email)
+                 UNIQUE (partner_id, lower(email))
+                 -- built with last_sign_in_at, two_factor_enrolled_at, last_code_step,
+                 -- failed_code_count and locked_until (as "user"); status invited | active |
+                 -- suspended | removed; role_key one of the five partner roles
 partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
-                  absolute_expires_at, remember)   -- same session model as user_session
+                  absolute_expires_at)   -- same session model as user_session; no "Remember me"
 ```
 
 `role_key` ∈ `partner-owner`, `partner-admin`, `partner-support`, `partner-finance`,
-`partner-read-only` (ACCESS.md §5.3, proposed). A partner's first user is its Owner.
+`partner-read-only` (ACCESS.md §5.3, decided on #109). A partner's first user is its Owner.
+**Built on #32**: `partner_user` (with `status`, `last_sign_in_at`) and `partner_invitation`
+(token hash, expiry, `sent_at` null while held, who invited, accepted, revoked); PAPI 2 fills
+the password and 2-factor columns (**built on #156**, with `two_factor_enrolled_at`,
+`failed_code_count`, `locked_until`, `last_code_step` beside them, granted to no request role,
+`partner.second_factor_required` for the Owner's switch, and `partner_session.stage` and
+`pending_secret_enc` for the step between password and code). **Built on #155**: `partner_session` as above, its hash
+read and written by `app_system` alone (no request role has a grant). A partner adds team
+members and invitations by column only: never a password hash, a 2-factor secret, a lock
+column or an invitation token, which only sign-in and the deliverer write (as `app_system`).
+`partner_session` has no `remember` column: the partner sign-in screen offers no "Remember
+me" (ui/platform/FIRST-RELEASE.md §3). An email may belong to at most three partners' teams,
+refused by a trigger at the fourth (ACCESS.md §2) with a refusal that names no other partner,
+counted under a per-email lock; `lower(email)` is indexed for it and for sign-in.
+**Built on #208**: `partner_password_reset(id, request_id, partner_id, partner_user_id,
+token_hash NULL UNIQUE, expires_at NULL, used_at NULL, created_at)`, `app_system` alone, unique
+on `(request_id, partner_user_id)`: one row per account a reset request finds, written by the
+relay from the request's outbox row (`request_id`) so a redelivery adds none; the email's deliverer sets the token hash and the 30-minute expiry when it
+sends, and a reset spends every open row of that user.
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
 
 ```
 user        (id, partner_id, email, email_verified_at, password_hash NULL, name, phone NULL,
-             two_factor_secret_enc NULL, status, created_at)
-            UNIQUE (partner_id, email)
+             two_factor_secret_enc NULL, two_factor_method NULL, two_factor_enrolled_at NULL,
+             theme NULL, locale NULL, time_zone NULL, status, created_at)
+            UNIQUE (partner_id, lower(email))
+            -- locale and time_zone are not built yet; status invited | active | suspended |
+            -- deleted
+            -- two_factor_method: 'app' | 'sms'; required for an Owner, optional otherwise
+            -- (ACCESS.md §2, decided 2026-10-02); theme: the person's light/dark choice;
+            -- locale and time_zone: the portal UI follows the person (CATALOG fact 40)
+user_backup_code (id, user_id, partner_id, code_hash, used_at NULL)
+            -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4).
+            -- code_hash: PBKDF2 at the password's cost, salted by user_id (auth/storeCodes.ts).
+            -- Policy: own rows only, in store scope, on user_id = app.user_id, plus system;
+            -- NO partner branch (a partner user never reads a merchant's 2-factor state);
+            -- code_hash readable by app_system alone (§2.1)
 user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
-             absolute_expires_at, remember)
+             absolute_expires_at, remember, device_label, user_agent)
             -- idle 2 h from last_seen_at, absolute 12 h (ACCESS.md §4); "remember me"
-            -- extends the absolute bound, never removes it
+            -- extends the absolute bound, never removes it; device_label and user_agent
+            -- are what "Where you're signed in" lists. Policy as user_backup_code: own
+            -- rows on user_id = app.user_id in store scope, plus system; no partner branch.
+            -- Built on #288 (0035): the hash readable by app_system alone, and a session
+            -- read only on its own partner's portal host. #290 (0036) adds stage,
+            -- pending_secret_enc and pending_phone for the step between password and code;
+            -- "user" gains two_factor_method, two_factor_enrolled_at, last_code_step,
+            -- failed_code_count and locked_until; user_backup_code and verification_code
+            -- (purposes sign_in, enrol_phone) are built, app_system alone reading a hash
+user_password_reset(id, request_id, partner_id, user_id, token_hash NULL UNIQUE,
+             expires_at NULL, used_at NULL, created_at)
+            -- built on #290 (0037), as partner_password_reset (§3.2) for a person on the
+            -- host's partner: one row per request at most, app_system alone; a reset spends
+            -- every open row of that person and deletes all their user_session rows
+user_email_change(id, partner_id, user_id, new_email, token_hash NULL UNIQUE, expires_at,
+             used_at NULL, created_at)
+            -- built on #290 (0038): a new address proven by a link sent there, 24 hours, the
+            -- newest request only (a new one spends the old), app_system alone. 0038 also adds
+            -- user.theme ('light' | 'dark') and user.password_changed_at
+signup(id, partner_id, token_hash UNIQUE, stage, name, email, password_hash, email_code_hash,
+       email_code_expires_at, email_code_attempts, store_name, subdomain, country, phone,
+       phone_code_hash, phone_code_expires_at, phone_code_attempts, store_id NULL, expires_at,
+       created_at)
+            -- built on #290 (0039): a sign-up between its steps (SAAS.md §4.1), app_system
+            -- alone; stage email | store | phone | provisioning; deleted once the store exists
+            -- or after its day; codes hashed with the row, five tries each
+signup_text(id, partner_id, signup_id NULL, phone, sent_at)
+            -- every sign-up text, kept a day: three per sign-up in ten minutes, three per number
+            -- a day, 200 per partner an hour, so texts can't be pumped to other people's numbers
 
-seller      (id, store_id, name, access_level, status, created_at)
+seller      (id, store_id, name, access_level, shipping_mode, label_account, status, suspended_at NULL,
+             hide_products_while_suspended boolean NULL, removed_at NULL, created_at)
+            UNIQUE (store_id, lower(name)) WHERE status <> 'removed'
+            -- status: invited | active | suspended | removed (checked since 0048); invited until
+            -- its first user joins; the row survives removal so products stay marked
+            -- as the removed supplier's (ACCESS.md §7.5); hide_products_while_suspended is
+            -- the Owner's choice at suspension (decided 2026-10-02 on #186's review, recorded on #182)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
+            -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
+            -- decided 2026-10-02); copied onto order_part.shipping_mode at placement, and
+            -- an order follows the mode it was placed under, never the live seller row;
+            -- label_account: store | own, whose courier account books a to-shopper supplier's labels
 
-membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by, created_at)
+membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by_user_id NULL, created_at)
             UNIQUE (user_id, store_id) WHERE seller_id IS NULL     -- one merchant-side role per store
             UNIQUE (user_id, seller_id) WHERE seller_id IS NOT NULL -- one role per supplier
+            -- status: invited | active | suspended | removed (removed added on #290, 0040: a
+            -- removal keeps the row the activity log names)
             -- and no merchant-side and supplier-side membership for the same (user, store): trigger
             CHECK (seller_id IS NULL     AND role_key IN ('owner','manager','staff'))
                OR (seller_id IS NOT NULL AND role_key IN ('supplier-admin','supplier-member'))
             -- and membership.store.partner_id = user.partner_id (trigger or composite FK)
 
-invitation  (id, store_id, seller_id NULL, email, role_key, token_hash, expires_at,
-             invited_by_user_id, accepted_at NULL, revoked_at NULL)
+invitation  (id, store_id, seller_id NULL, email, role_key, token_hash NULL UNIQUE, expires_at,
+             invited_by_user_id NULL, invited_by_label, accepted_at NULL, revoked_at NULL,
+             created_at)
+            -- built on #290 (0040) without sent_at: a resend makes a new invitation that
+            -- replaces the old (ACCESS §6.3), so created_at is when it was last sent;
+            -- invited_by_label keeps the name the activity log shows
 ```
 
 - A **merchant-side** membership (`seller_id` null) holds Owner, Manager or Staff.
@@ -125,41 +499,91 @@ invitation  (id, store_id, seller_id NULL, email, role_key, token_hash, expires_
 
 ```
 customer          (id, store_id, email NULL, email_verified_at, phone NULL, phone_verified_at,
-                   password_hash NULL, name, status, created_at)
+                   password_hash NULL, name NULL, status ('active'|'unverified'|'deleted'),
+                   created_at)
                   UNIQUE (store_id, email), UNIQUE (store_id, phone)
                   CHECK (email IS NOT NULL OR phone IS NOT NULL)
-customer_session  (id_hash, customer_id, created_at, last_seen_at, expires_at)
+customer_session  (id_hash, store_id, customer_id, created_at, last_seen_at, expires_at, ended_at NULL)
+customer_code     (id, store_id, channel ('email'|'phone'), target, code_hash NULL, attempts,
+                   expires_at, used_at NULL, created_at)
 store_customer_auth (store_id PK, email_enabled, phone_enabled)   -- Settings › Customer accounts
+                    -- Built on #308 (migration 0067), every store with a row (India starts with both), with
+                    -- customer_session (the token hashed, 30 days from last use) and customer_code (a 6-digit
+                    -- code for an email or a number, hashed, 5 tries, 10 minutes; 3 per address in 10 minutes,
+                    -- 10 a minute per requester by the limiter, 50 texts a store in 10 minutes), both system scope only
 ```
 
 The same email or phone may exist in any number of stores, as unrelated rows (ACCESS.md
-§2.1). Phone numbers in E.164.
+§2.1). Phone numbers in E.164. **Built on #36**: `last_sign_in_at` (the Shop API's sign-in will write it), and three
+stored forms a search compares, each indexed: `phone_digits`, `phone_country_code` (the E.164
+calling code, by `calling_code_of()`) and `phone_national`, so a phone matches on its digits with
+or without the calling code, never on a part of it (decided on #42).
 
 ### 3.5 Machine callers and session records
 
 ```
 api_key    (id, store_id, seller_id NULL, name, prefix, secret_hash, scopes, created_by_user_id,
             expires_at NULL, last_used_at, revoked_at NULL)
+           -- built on #330 (migration 0150): also created_at, revoked_by_user_id, rotated_from_id (unique: one successor)
+           -- and superseded_at (a rotated key's old secret, its expiry brought forward a day); prefix is `dfk_` and 8
+           -- characters; the merchant side reads every column but secret_hash, app_system resolves and stamps last_used_at
+api_usage  (store_id PK, minute_start, minute_used, month_start, month_used)
+           -- #330: the store's key calls this minute and month, one row a store, counted by app_system as each resolves
 app_grant  (id, store_id, app_id, scopes, installed_by_user_id, revoked_at NULL)
-support_session (id, store_id, partner_user_id, reason, access, started_at, expires_at,
-                 elevated_at NULL, elevation_approved_by NULL, ended_at NULL)
-                 -- partner support into a store (ACCESS.md §8). Partner users only:
-                 -- staff never open one, they impersonate (§8.1), so there is no agent kind
+support_session (id, partner_id, store_id, membership_id, partner_user_id, reason, ticket NULL,
+                 started_at, expires_at, ended_at NULL, ended_by_partner_user_id NULL,
+                 handoff_hash NULL UNIQUE, handoff_expires_at NULL, handoff_used_at NULL,
+                 access 'read' | 'write', write_requested_at NULL, write_request_note NULL,
+                 write_decided_at NULL, write_decided_by_user_id NULL, portal_session_hash NULL UNIQUE,
+                 end_reason NULL, ended_by_user_id NULL)
+                 -- partner support into a store as one of its users (ACCESS.md §8). Partner
+                 -- users only: staff never open one, they impersonate (§8.1). Built on #202:
+                 -- one open per partner user and one per membership (partial unique indexes),
+                 -- 30 minutes; the partner inserts only its own, on a store allowing support
+                 -- (policy). The handoff as on partner_setup_session. Built on #331 (0160): the
+                 -- exchange keeps the support cookie's hash in portal_session_hash (system scope
+                 -- only); `access` is 'write' only once a merchant Owner or Manager allowed the
+                 -- agent's one open request (write_requested_at, its note; write_decided_* the
+                 -- answer, a Deny leaving `access` read); end_reason (support_off, target_gone,
+                 -- store_closed) and ended_by_user_id are the store side's ends. No request role
+                 -- reads the table: the merchant side goes through the definer functions
+                 -- set_store_support_access(), decide_support_write() and store_support_sessions()
+partner_user.reauth_proof_hash, reauth_proof_expires_at
+                 -- the single-use proof `reauthenticate` issues (#202), spent by the
+                 -- app_definer function spend_partner_reauth(); no request role reads them
 
-impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, reason,
-                 started_at, expires_at, extended_at NULL, ended_at NULL, ended_by NULL)
+impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, partner_id,
+                 store_id NULL, reason, ticket NULL, started_at, expires_at, extended_at NULL,
+                 ended_at NULL, ended_by NULL, end_reason NULL, handoff_hash NULL UNIQUE,
+                 handoff_expires_at NULL, handoff_used_at NULL, portal_session_hash NULL UNIQUE)
+                 -- built on #40: one open per staff member (partial unique index on
+                 -- staff_user_id where ended_at is null); a staff member inserts only their
+                 -- own (`app.staff_id`); end_reason: staff | expired | portal | target_gone | partner_closed
                  -- staff signed in as a partner user or store user (ACCESS.md §8.1);
                  -- extended_at records the single permitted 30-minute extension, so
                  -- "once" is enforced by the row, not by counting log entries;
-                 -- platform scope: written and listed by the Admin API only
+                 -- platform scope: written and listed by the Admin API only;
+                 -- portal_session_hash (#243): the partner console's staff cookie, set when
+                 -- the handoff is spent and replaced by a return's; app_system reads it alone
 
 partner_setup_session
-                (id, staff_user_id, partner_id, reason, started_at, expires_at,
-                 ended_at NULL, ended_by NULL)
+                (id, staff_user_id, partner_id, reason, ticket NULL, started_at, expires_at,
+                 ended_at NULL, ended_by_staff_id NULL, end_reason NULL,
+                 handoff_hash NULL UNIQUE, handoff_expires_at NULL, handoff_used_at NULL,
+                 portal_session_hash NULL UNIQUE)
                  -- staff doing a partner's onboarding as themselves (ACCESS.md §8.2),
                  -- 2 hours and not extendable, so no extended_at; one open per staff
                  -- member, enforced by a partial unique index on (staff_user_id)
-                 -- where ended_at is null
+                 -- where ended_at is null. The handoff (ACCESS.md §8.3) is hashed here,
+                 -- spent on exchange and cleared when the session ends. Built on #33.
+                 -- end_reason (#243): staff | expired | portal | partner_closed, as on impersonation;
+                 -- null on rows ended before it, read as staff or expired by ended_by_staff_id.
+                 -- portal_session_hash as on impersonation
+
+partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
+                 -- PK all of the first three: one approval per staff member per submission
+                 -- (ui/admin/FIRST-RELEASE.md §4.3); sending back and resubmitting starts
+                 -- the count again. Built on #33.
 ```
 
 ---
@@ -188,7 +612,7 @@ A test checks every set against the matrices in ACCESS.md §5.
 **The merchant decides what the supplier may do** (`seller.access_level`, ACCESS.md §5.2).
 **The supplier decides who on its team may do it:**
 
-| Team role *(proposed)* | Gets |
+| Team role (decided 2026-10-02 on #182) | Gets |
 |---|---|
 | **Supplier admin** `supplier-admin` | Everything the supplier's access level allows, **plus** managing the supplier's team: invite, change team role, remove, resend invitations; see the supplier's own activity log |
 | **Supplier member** `supplier-member` | Everything the supplier's access level allows; no team management |
@@ -230,7 +654,8 @@ A test checks every set against the matrices in ACCESS.md §5.
 ### 5.1 Per-transaction settings
 
 Every transaction opens with `SET LOCAL`, set by `db/` from the caller's context, never from
-request input:
+request input, with one exception: the guest cart or order token, hashed before it reaches
+`db/`, which admits only rows already holding that hash (§7.11):
 
 | Setting | Values |
 |---|---|
@@ -241,9 +666,17 @@ request input:
 | `app.customer_id` | The signed-in customer (shop scope), or empty |
 | `app.support` | `read` or `write` during a support session, else empty |
 | `app.impersonation_id` | The impersonation id while staff act as a user, else empty (for the activity log; grants nothing) |
+| `app.user_id` | The signed-in person's `user.id` (store scope) or `partner_user.id` (partner scope), else empty; the own-row functions and policies of §2.1 and §3.3 read it and nothing else does |
+| `app.staff_id` | The signed-in staff member (platform scope), else empty; read by the policy that lets a staff member start an impersonation only as themselves (#40) |
+| `app.order_token_hash` | The hash of the guest cart or order token presented on this request (shop scope), else empty; read only by `current_order_token_hash()`, which the order's shop policies compare with the row's `access_token_hash` (§7.11; built on #308). `StoreCaller.shopper` (`core/tenancy.ts`) and `RlsSettings` gain it with the first Shop API card |
+| `app.request_token_hash` | The hash of the token on a guest's data-request link, or of the token just minted for a new request (shop scope), else empty; read only by `request_token_matches()` and `current_request_token_hash()` (§7.11) |
 
 `SET LOCAL` lives only for the transaction, so it is safe with Hyperdrive's pooled
-connections; every request's work runs inside a transaction for this reason.
+connections; every request's work runs inside a transaction for this reason. Every policy
+and function reads a setting as `nullif(current_setting('app.<name>', true), '')`, cast
+after the `nullif`, so an empty setting (a guest's `app.customer_id`, a merchant's
+`app.seller_id`) compares as null and never raises a cast error; the §5.2 templates are
+written short for reading and mean this.
 
 ### 5.2 Policies by table scope
 
@@ -254,10 +687,11 @@ USING (current_setting('app.scope') IN ('store','shop')
        AND <table rule for suppliers and shoppers>)
 
 -- Store and seller (e.g. product, warehouse, stock_level, order_part)
-USING (current_setting('app.scope') IN ('store','shop')
-       AND store_id = current_setting('app.store_id')::uuid
-       AND (current_setting('app.seller_id') = ''          -- merchant side sees all
-            OR seller_id = current_setting('app.seller_id')::uuid))
+USING (current_setting('app.scope') = 'store'              -- never 'shop' here: in shop scope
+       AND store_id = current_setting('app.store_id')::uuid -- app.seller_id is '' and would
+       AND (current_setting('app.seller_id') = ''          -- admit a shopper to every owner's
+            OR seller_id = current_setting('app.seller_id')::uuid))   -- rows (§7.11 adds the
+                                                          -- shop policies table by table)
 
 -- Account level (e.g. store, store_subscription, custom_domain)
 USING ( (current_setting('app.scope') = 'store'    AND id/store_id = current_setting('app.store_id')::uuid)
@@ -269,8 +703,13 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
      OR  current_setting('app.scope') = 'platform')
 ```
 
+- **Every policy names its role** (`CREATE POLICY … TO app_request`, `TO app_supplier`, `TO
+  app_shop`, `TO app_partner`, `TO app_platform`, `TO app_system`): a shop branch is a policy
+  `TO app_shop` and nothing else can use it, a supplier branch a policy `TO app_supplier`, and
+  the templates above are the merchant-side (`app_request`) ones. The structural test (§5.4)
+  checks that no policy is `TO PUBLIC`.
 - **Suppliers**: tables a supplier must never read (offers, customers, the store's people
-  outside its own team, settings) add `AND current_setting('app.seller_id') = ''`.
+  outside its own team, settings) have no `TO app_supplier` policy at all.
 - **Shoppers** (`shop` scope): read policies return only what the Shop API may show
   (visible products, the customer's own orders and addresses via `app.customer_id`).
 - **Support sessions** run in `store` scope for the one store; `app.support = 'read'` makes
@@ -288,28 +727,1658 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 
 ### 5.3 Database roles
 
+**One role per caller kind** (decided 2026-10-02 on #188's review, replacing the single request role).
+Row policies cannot tell a supplier from the merchant or a shopper from either (all three were
+`app_request` with different settings), and column grants are per role, so every "this column
+never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
+(`db/scoped/index.ts`) issues `set local role <role>` from the caller kind. **Built on #205**: staff requests
+run as `app_platform`, partner users and staff setup sessions as `app_partner` (#155; it updates its own `partner`
+row by column only, and a trigger lets it change `state` only from Draft to Awaiting approval,
+#214), every
+other request as `app_request`, and `app_definer` exists (owning
+only 0007's membership trigger, which checks parents the caller may not see); the first
+shopper card adds `app_shop` the same way (api/README.md §7). **Built on #295**: supplier users run as `app_supplier` (migration 0047). It holds `app_request`'s grants on its catalogue and stock tables, the activity log and outbox, and `select` only on the settings it reads (filters, store features, badges) and on its own seller; on its team's `invitation` and `membership` rows it writes by column, held by 0049's policies to its own seller and the two supplier roles, and a trigger lets it only invite and remove (accepting an invitation makes a membership active); those tables' policies name it, and every other table refuses it by grant before any policy runs. The table row below is the target, met as each card adds its tables. Two column grants serve policies and checks, not reads: `store(id, partner_id)` and `story_block(id, asset_ids)`, of which it holds no rows. `tests/isolation.test.ts` freezes the list.
+Every tenant table carries a restrictive pin per role holding it to its own `app.scope`
+values (`request_scope`: `store`, `shop`; `partner_scope`; `platform_scope`; `system_scope`), so a policy shared by two roles never lets one use the other's branch.
+**Until #210** `app_request` also keeps every platform branch and `platform` in its pin: the
+Worker live when 0010 runs serves staff as `app_request` (api/README.md §7, expand then
+contract).
+
 | Role | Used by | Can |
 |---|---|---|
-| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` |
+| `app_request` | Merchant-side people (Owner, Manager, Staff) in store scope, and partner support sessions into a store (ACCESS §8) | DML under RLS; no `BYPASSRLS`; `select` and `insert` on `activity_log` (as 0006 grants; never update or delete) and `insert` on `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; `"order".access_token_hash`; §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc`, `token_enc` and `key_enc` on courier, payment, webhook, connection and AI-account rows) nor on `user.phone`, reached only through `own_phone()` and `set_own_phone()` (§2.1) |
+| `app_supplier` | Supplier users (store scope with `app.seller_id` set) | **Writes only what a supplier does** (ACCESS §5.2, §7.3), under the store-and-seller policies: DML on its own catalogue rows and their children (§7.3), `asset`, `warehouse`, `stock_level`, `stock_movement`, `size_chart`, `product_story`, `translation`, `catalog_import`, `catalog_export`; `select` on its own `fulfilment` and `fulfilment_line` rows, which the engine writes in system scope after holding every line and location to the supplier (decided on #310: stock leaving a location is a system write, `stock_level.reserved`, so the shipment goes with it in one transaction; 0071), and `insert` on `order_document` for its own labels; **its refunds through the engine**, which holds every line to the caller and writes `refund` and `refund_line` in system scope with the provider's refund (decided on #310: the money goes back in the same transaction, which no definer function can call out for); `app_supplier` has no `insert` on either, and the ceiling stays a mechanism: `refund_line_ceiling()`, a constraint trigger, refuses any row taking a line past its quantity or what was paid for it, whoever writes it (0072); **`select` only, no write**, on `order_part`, `return_line`, `supplier_ledger_entry`, the refunds and documents the store wrote (its own refunds and labels it inserts, as above, and never updates), and on `order_line` **by column without any `*_amount`, tax rate or zone** (id, order and part ids, owner, version, product, name, version name, SKU, classification code, quantity, weight, the three fulfilled/returned/refunded quantities: what fulfilling needs); the money of its own lines it reads through `order_line_for_supplier` (§7.11), which carries the currency. The order's snapshot and a return's state are never a supplier's to change. **No `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
+| `app_shop` | Shoppers and guests (shop scope) | **Built on #306 (migration 0064) and #308 (0066).** **Reads**: the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; the shop-readable settings §7.11 lists, by column (including `storefront_brand` and `storefront_seo`'s public columns, never the brand colours or voice; `store` and `market` public columns, languages, currencies, `store_policy`, `badge`, the shipping settings, the tax classes, zones and rates, and of `payment_provider_account` only `provider`, `mode`, `public_key`, `status`, `position`, `paused_by_plan` and, for a bank transfer, `bank_details` (built on #309, 0068: checkout shows a transfer's bank details, never a credential)), each under its shop policy; its own `customer` row; its own `"order"` rows and their `cart_line`s under the guest rule (§7.11: by its account, or a guest's by the hash of the cart token it presented), and on `"order"` never `notes` or `access_token_hash` (`cancel_reason`, a code, is shown on the order's status page: built on #309, 0068); of `payment` its own order's `provider`, `kind`, `state` and amount (0068); of `activity_log` only its own entries' what-and-when columns. **A cart holds no price**: the engine prices it on every read, so there are no cart functions. **Writes**: on `"order"` only its own **carts'** choice columns (`email`, `phone`, `language`, `currency`, `market_id`, the two addresses, `shipping_option`, `shopper_note`, `checkout_step`, `cart_expires_at`, `promotion_codes` (#320, 0078), and `customer_id` only to its own; on insert also `store_id` and `access_token_hash`), with `state = 'cart'` in both `USING` and `WITH CHECK` and the currency and market only of the store's offer; `cart_line` (a version and a quantity) through the cart's policy; since #308 part 2 (0067) its own `customer` name and its own `customer_address` rows, and `activity_log` entries only about itself (`customer_id`, `actor_kind = 'customer'`, `actor_id` its own). Never a state, an amount, an order line or another shopper's row: placement, payment and every priced figure are written by the engine in system scope (#309), so a shopper can never set a price, a total or a state (PLATFORM-PROMPT §5.5 "the engine computes everything that matters") |
+| `app_partner` | Every partner-user request (partner scope): its own partner's tables and the account-level store tables | DML under RLS on the partner tables (§2); `select` on the account-level store tables (§2, §7.11) with the column rule of §7.11: never `design_version.label`, `publish_run.gate`, `core_rollout_store.gate`, `design_draft`, `design_message`, `storefront_brand`, `storefront_seo` or `ai_run.prompt` (a partner sees a run's state, never which check failed in a merchant's theme); writes only what ACCESS §5.3 allows a partner (creating a store, built on #221: an invited `user`, an invited Owner `membership`, the store's first `job`, and a `store_subscription` at its plan's own price, each granted by column and held by a policy); the same credential exclusions as `app_request` |
+| `app_platform` | Every staff request (platform scope; the Admin API) | DML under RLS on the platform and partner tables and the account-level store tables; the read-only `platform` branch on `customer` (§2); **the same column rule as `app_partner` on the AI prompt columns** (staff see a merchant's content only by impersonating, ACCESS §8.1, which runs as the target's role); the same credential exclusions |
+| `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `order_line_for_supplier`, `return_for_supplier`, the AI metering view), the token functions `request_token_matches()`, `current_order_token_hash()` (built on #308; a cart needs no other function, as it holds no price), `current_request_token_hash()`, and `supplier_refund()` | `BYPASSRLS`, no login. Every view and function filters on the settings of the scope it serves and is `security barrier`, so none is wider than the policy it replaces: the two supplier views on `app.store_id` and `app.seller_id`; **the AI metering view by scope**: `store` → `store_id = app.store_id`, `partner` → `store.partner_id = app.partner_id` (joined through `store`), `platform` → every store, anything else → nothing; the token functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting; the cart functions are executable by `app_shop` alone and write only the shopper's own cart (§7.11); `supplier_refund()` by `app_supplier` alone, enforcing the refund ceiling (§7.6; not built: decided on #310, the engine refunds in system scope and `refund_line_ceiling()` holds the ceiling); `current_order_token_hash()` returns the hash a guest's own insert must carry, and **null when the setting is empty**, so a tokenless insert fails the `WITH CHECK` comparison, which is never true against null (§7.11). **The catalogue and stock** (#293, #294): `store_product_count()` and `store_pricing_currency()` answer a number or a code for `app.store_id` in `store` scope only; `version_price_history()` (a trigger) writes the history of the price row being changed; `stock_change()` refuses anything but `store` scope outside read-only support, reaches only the caller's own locations (the merchant side's, or `app.seller_id`'s with its own versions) and writes the movement with the session's actor (§7.4); `store_default_warehouse()` (a trigger on `store`) inserts that new store's own default location and nothing else. **Approval** (#295, 0050): `store_vendor_approval()` answers the acting store's `vendor_products_require_approval` in `store` scope only, for a supplier too; `set_store_vendor_approval()` writes that one column for the acting store, merchant side only and never in a read-only support session. **Markets** (#296, 0051): `set_store_main_language()` writes `store.main_language` the same way, to one of the store's active languages; `store_default_market()` (a trigger on `store`) inserts that new store's main language and its primary Home market; `store_markets_follow_currency()` (a trigger on `store`) moves that store's markets selling in the old pricing currency to the new one; `acting_store_main_language()` answers the acting store's main language in `store` scope only, for a supplier too (0053); `save_store_info()` writes Store info's store columns for the acting store, merchant side only, its logo one of the store's own images, and `set_store_tax_inclusive()` the same for prices including tax (0054), `set_setup_step_skipped()` the same for the Home checklist's skipped steps (0351, #719); `save_store_name()` writes only `store.name` the same way, for the brand step's shop name (#471, 0290); `merchant_host_taken()` answers only whether a host is another store's domain or a partner's address or a name under one, to the merchant side's connect (#471, 0291); `store_default_tax()` (a trigger on `store`) inserts that new store's tax classes, zone and rates (0055). **The product editor** (#298, 0056): `store_unit_system()` answers the acting store's metric or imperial in `store` scope only, for a supplier too, so a product's weight and box are typed in the store's units. **Shipping** (#305, 0063): `store_delivers_to(code)` answers whether the acting store's postcode list holds a code, in `store` or `shop` scope on the merchant side only, so a shopper's quote never reads the list. **Support access** (#331, 0160): `set_store_support_access()` writes the acting store's `support_access_allowed` and, on Off, ends its open support sessions; `decide_support_write()` answers an open session's pending request for writes; both only for a person on the merchant side, never a support session (`app.support` empty); `store_support_sessions()` lists the acting store's sessions with the agent's and partner's names, merchant side only and never to a support session. **Orders** (#310, 0070, 0072): `order_for_supplier`, `order_line_for_supplier` and `return_for_supplier` are built, selectable by `app_supplier` alone, `app_definer` holding `select` on only the columns they read. **Webhooks** (#330, 0151): `store_webhook_partner(store, event)` answers the store's partner when an endpoint of it takes the event, for the acting store or in `system` scope only, so a supplier's write queues its store's event without reading an endpoint or the store row. The identity, partner, billing and provisioning helpers of migrations 0007–0040 keep the filters their migrations state. The structural test (§5.4, `tests/isolation.test.ts`) names every function the role owns and checks each `security definer` one pins its `search_path` | **The Shop API** (#306, 0064): `storefront_for_store()` (a trigger on `store`) inserts that new store's storefront row and public key; `storefront_catalog_touched()` and `storefront_store_touched()` (statement and row triggers on the catalogue tables and `store`) move only `storefront.catalog_version` of the stores the statement touched; `current_order_token_hash()` (#308, 0066) answers the hash of the cart token this request presented, null when none; `shop_stock()` (0065) answers, in `shop` scope only and to `app_shop` alone, each visible version of the acting store's available count and whether it is low, never a location or an owner; a key-pool download's count is its keys left, low under 5 (#323, 0110). **Admin Retry** (#730, 0352): `staff_start_row()` and `staff_begin_repo()` serve `app_platform` alone, in `platform` scope, for one failed `create-storefront` job: the first reads that job's store's repo state (locked) and the template its `storefront.create` outbox row carried, the second sets that store's repo to a new name and `creating` unless its site is ready; neither reads or writes anything else of `storefront` or `outbox`. **Storefront redirects** (#484, 0286): `storefront_redirect_product_slug()`, `storefront_redirect_product_added()` and `storefront_redirect_translated_slug()` (triggers on `product` and `translation`) write only `storefront_redirect` rows of the store whose product's address changed or was taken by a new product (§7.8). `storefront_render_product()` and `storefront_render_translated_slug()` (0287) only add that store's `storefront.render` outbox row, once it has a live build. The identity, partner, billing and provisioning helpers of migrations 0007–0040 keep the filters their migrations state. The structural test (§5.4, `tests/isolation.test.ts`) names every function the role owns and checks each `security definer` one pins its `search_path` |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
-| `app_migrate` | Migrations only | DDL; never used by the Worker at run time |
+| `app_migrate` | Migrations only | DDL; owns the tables and the functions of §2.1; never used by the Worker at run time |
 
 The table owner isn't used by the application, so RLS always applies (`FORCE ROW LEVEL
-SECURITY` on every tenant table).
+SECURITY` on every tenant table). A view owned by `app_definer` is the one place RLS is
+bypassed, which is why each view carries its own scope filter and a structural test (§5.4)
+lists every view and checks the filter is there.
 
 ### 5.4 Tests
 
 - With `db/scoped` bypassed, a raw query in each scope returns nothing outside its scope
   (ACCESS.md §11).
 - Every tenant table has RLS enabled and forced, and a policy for each scope that may reach
-  it; a test lists tables without one and fails.
+  it; a test lists tables without one and fails. Every table in §7 is in a §7.11 class, and
+  a table in none fails the same test.
 - `SET LOCAL` values come only from the context: a structural test forbids setting them
-  anywhere but `db/`.
+  anywhere but `db/`. Every `app_definer` view filters on the settings.
 - Performance: every policy's columns are the leading columns of an index.
 
 ---
 
 ## 6. Open questions
 
-- Confirm the names of the two supplier team roles, Supplier admin and Supplier member (§4.2).
-  (No read-only team role: decided 2026-09-28.)
+- ~~Confirm the names of the two supplier team roles, Supplier admin and Supplier member (§4.2).~~
+  **Settled 2026-10-02**: those names. (No read-only team role: decided 2026-09-28.)
+- ~~From §7 (2026-10-02, #187)~~ **Settled 2026-10-05** (#284, #337): stock is reserved at
+  payment, cash on delivery and bank transfer at placement (§7.4); a fixed product discount
+  applies **per unit**, and codes match **case-insensitively** (§7.7); a `to-shopper` supplier
+  books labels through the store's courier account **or its own, the merchant choosing per
+  supplier** (§7.6); **3 options and 100 versions** per product (§7.3); A+ reusable blocks
+  (`story_block`) **ship**; `menu_item` **may** point at pages and URLs; **several** shipping
+  methods at once; **one domain per store**, never per market; store custom fields and product
+  video **ship**; offer targets resolve at pricing time, a once-per-customer or first-order
+  offer counts a signed-in shopper by account only, never a typed email or number (#337, narrowed on #320), a cancellation before fulfilment gives an offer use back (#337). Still open: whether
+  report schedules are designed at all (#183).
+
+---
+
+## 7. Commerce, settings, storefront and billing tables
+
+The merchant-side model, designed on #187 (2026-10-02, revised the same day after three reviews on #188) from
+PLATFORM-PROMPT §3.3 and §5.4–5.7, CATALOG-DESIGN §3, OFFERS-DESIGN §3, DESIGN-BRIEF §3, SAAS
+§4–9, ACCESS §5 and §7, and the Store prototype. **The structure is decided; names and columns
+are *(proposed)* until each module's migration**, as §3 was before #32. Which module ships
+first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the release, §1, built in
+§20's order); a `(release: decide)` mark here is now settled on the module's own card. The model's own open points are in §6.
+
+### 7.1 Conventions every table below follows
+
+- **Scope first** (§2): every table names its scope; store tables carry `store_id`, supplier-
+  readable tables carry `seller_id` (null = the merchant's own), and §7.11 puts every table in
+  one policy class. Each store-and-seller table is a row of the isolation matrix (ACCESS
+  §11.1, "rows added with §7").
+- **Supplier ownership reaches every child row.** Every table in §7.11's first class carries
+  `seller_id`; on a child it is the parent's, copied by a trigger from the row it points at
+  (`product` → options, values, versions, prices, photos, compliance, specs, FAQs, highlights,
+  filter assignments, badges, the approval snapshot; `product_version` → prices, option
+  values, stock levels; `warehouse` → stock levels, where the version's owner must be the
+  warehouse's or the merchant's; `order_part` → return lines and refund lines; `fulfilment`
+  → its lines; `product_photo` → its `asset`), never from input. **`fulfilment` is the one
+  exception**: its `seller_id` is the **actor's** owner, set by the engine from the caller
+  that creates it (a supplier's `sent_to_store` hand-off carries its id; the store's onward
+  shipment of the same part carries null), so a to-store supplier never reads the shopper's
+  tracking (§7.6, §7.11). `translation` carries the
+  owner of the entity it translates (null for a store-owned entity). `catalog_import`,
+  `catalog_export`, `size_chart`, `product_story` and `supplier_ledger_entry` carry the owner
+  directly.
+- **Keys**: `id uuid` primary keys; `created_at`; `updated_at` and a `revision integer` on
+  anything two people may edit at once, so a save can refuse a stale revision (CATALOG E4,
+  OFFERS N6). **The blocks below omit `id`, `created_at`, `updated_at` and `revision` where
+  this rule implies them.** Unique constraints are per store (web address, coupon code, group
+  name), per owner for a SKU (#293), per language for web addresses, never global.
+- **Money**: every column named `amount` or `*_amount` is `bigint` in minor units with a
+  `currency char(3)` on the same row, every time, whatever table it is in, subscriptions,
+  invoices and every line included; the one allowed inheritance is the order's two children,
+  `order_line` and `order_adjustment`, whose amounts are in `"order".currency`, because an
+  order has exactly one currency and a presentment currency, if one ever exists, is a column
+  on the order, not on its lines (PLATFORM-PROMPT §5.4 Money; AGENTS.md "Data").
+  Percentages are basis points (`_bps integer`). Meters that count money (`store_usage`) do
+  not exist: cost is summed from the rows that carry it.
+- **Time**: every timestamp column, whatever its name (`*_at`, `*_since`, `*_until`,
+  `period_start`, `period_end`, `changes_since`), is `timestamptz` in UTC; `date` is used
+  only where the business fact is a calendar date (`valid_from` on tax rows,
+  `payment_method_expires`). Display converts and names the zone (api/README.md; the store's
+  `time_zone` is for display and scheduling only).
+- **Soft delete** (`deleted_at`) where history points at the row: products, versions,
+  collections, promotions, warehouses, size charts. `customer` uses its built `status =
+  'deleted'` (0002) instead. Orders are never deleted. A soft-deleted entity's `translation`
+  rows for `slug` are deleted with it, so a dead row never blocks a web address (fact 15).
+- **Translations** live in one table, `translation` (§7.3), for every translatable field:
+  CATALOG fact 18's list (product, option, option value, version, collection, filter and
+  filter value names and texts) plus, from Q10, R11, S9, fact 21, fact 47, OFFERS fact 13 and
+  S2: story module text, size-chart labels and notes, specification names and values, FAQs,
+  highlights, warranty and returns text, badge labels, `seo_title` and `seo_description`,
+  policies, compliance fields, and a promotion's shopper-facing name and description. The
+  main-language text stays on the row itself and is required; other languages fall back to
+  it (facts 19–20). A content page's or post's other languages are the exception, in
+  `storefront_content_translation` (§7.8), since its body is a document of blocks. Compliance fields may be translated into a language the store does not
+  offer (fact 47).
+- **Snapshots, not references, on orders**: a line records the name, SKU, price, tax class,
+  tax rate and zone, and classification code as sold; a discount records the promotion's
+  shopper-facing name (OFFERS fact 13). Catalogue rows may change or be soft-deleted
+  afterwards.
+- **History is the activity log** (LOGGING.md), as §2.1 decided: no per-table history, apart
+  from the ledgers the business needs (stock movements, price history, the supplier ledger).
+- **Search**: the portal searches products, customers and orders through a generated,
+  store-scoped `tsvector` on each table in the store's main language (PLATFORM-PROMPT §5.4
+  Search); the storefront's per-language index is `product_search` (§7.3), rebuilt from the
+  outbox (CATALOG facts 14, 19).
+- **Indexes** lead with the scope columns (`store_id`, then `seller_id` where present), then
+  the list screen's filter.
+- **Plan-paused state** (decided 2026-10-02 on #186's review, SAAS §6.2): what a smaller plan can no longer
+  hold is paused, never deleted, and the Owner chooses what stays. The pause is a state on the
+  row it pauses: `product.hidden_by = 'plan'`, `membership.status = 'paused_by_plan'`,
+  `payment_provider_account.paused_by_plan`, `courier_account.paused_by_plan`,
+  `market.status = 'paused_by_plan'`. An upgrade clears them. Built so far:
+  `product.hidden_by = 'plan'` and `payment_provider_account.paused_by_plan`; membership,
+  market and `store_courier` have no paused state yet (the downgrade card adds them).
+
+### 7.2 Store settings
+
+Store-scoped, Owner-written (`settings`, ACCESS §5.1), read by every catalogue and order
+screen (CATALOG fact 36). `store` keeps what #32 built (§2.1); the rest is split by concern so
+no row becomes a wall of columns. `store_customer_auth` is §3.4's; `seller.shipping_mode` and
+the supplier's status columns are §3.3's.
+
+```
+store (+ columns)   description, logo_asset_id NULL, address jsonb, contact_email, contact_phone,
+                    customer_care jsonb, home_country, tax_inclusive boolean, time_zone,
+                    unit_system ('metric'|'imperial'), order_prefix, next_order_number,
+                    pricing_currency, main_language, fallback_market_id NULL,
+                    vendor_products_require_approval boolean, track_stock_default boolean,
+                    continue_selling_default boolean, low_stock_threshold_default integer,
+                    pickup_enabled boolean, pickup_hours text,
+                    locale_confirmed_at NULL, shipping_saved_at NULL,
+                    setup_skipped text[] NOT NULL DEFAULT '{}' CHECK (setup_skipped <@ ARRAY['payments','shipping'])
+                    -- Store info (SetStore): description is "used in search results and link
+                    -- previews"; the legal name and tax number for shopper invoices are
+                    -- invoice_settings and tax_registration, the payer identity for
+                    -- DripFunnel's invoices is store_billing_details (§7.9); one home each.
+                    -- pricing_currency is locked once the first order exists (CATALOG
+                    -- §Currencies). The two *_at columns drive the Home checklist's two
+                    -- non-derived items (PortalHome). plan_id, trial_ends_at and the
+                    -- storefront columns built on #32 are read-only mirrors of
+                    -- store_subscription and storefront (§7.8, §7.9), written by the same
+                    -- transaction that writes the owner row.
+                    -- Built on #719 (migration 0351): setup_skipped holds the Home checklist steps the Owner
+                    -- skipped, `payments` and/or `shipping`; written by set_setup_step_skipped() only, the
+                    -- merchant side of a store, never a supplier or a read-only support session.
+                    -- Not built here (#305): pickup_enabled, pickup_hours and shipping_saved_at live on
+                    -- store_shipping as pickup_enabled, pickup_hours and saved_at (the Home checklist reads it).
+                    -- Built on #296 (migration 0054): description, logo_asset_id, address,
+                    -- contact_email, contact_phone, time_zone, unit_system, order_prefix,
+                    -- next_order_number and tax_inclusive (country is home_country), written by
+                    -- the merchant side through save_store_info() and set_store_tax_inclusive()
+                    -- only; customer_care, pickup and the stock defaults come with their cards.
+                    -- logo_asset_id references the store's own asset (id, store_id); time_zone
+                    -- holds the IANA name in its canonical form, never an offset
+
+store_language      (store_id, language, status, position)   UNIQUE (store_id, language)
+                    -- offered on the storefront; main_language is one of them; status active |
+                    -- removed (kept, hidden; CATALOG N13); BCP 47 tags, en-IN, en-US and hi-IN at
+                    -- launch (#337); built on #296
+store_currency      (store_id, currency, mode ('manual'|'convert'), rounding ('none'|'nearest'|'ends-99'),
+                     rate_source, rate_updated_at)            UNIQUE (store_id, currency)
+                    -- CATALOG facts 25–26; converted prices (release: decide); built on #296 with
+                    -- status active | removed (prices kept, unused; O9) and position, the pricing
+                    -- currency not among the rows; the rate columns aren't per store: converted
+                    -- prices are computed when read from exchange_rate, never stored (#296)
+exchange_rate       (currency PK, per_euro numeric, source ('ecb'), published_on date, fetched_at)
+                    -- platform data, no tenant's (migration 0052): the ECB's daily euro reference
+                    -- rates, refreshed by the `rates.refresh` job every six hours, a day older than
+                    -- the one held ignored; every store reads it, only app_system writes it
+
+custom_domain (+ columns) is_primary, checks_until             -- is_primary built on #471 (0291); checks_until not yet
+                    -- as built on #32 (migration 0007): host, status ∈ waiting | verifying |
+                    -- issuing | live | failed | expiring | broken, expected and found CNAME,
+                    -- ownership token, checked_at. The portal's four steps map onto the
+                    -- states (SAAS §8): "Add the record" = waiting, "We check it" =
+                    -- verifying, "Security certificate" = issuing, "Live" = live; failed
+                    -- shows the record looked for and checked_at. checks_until = first
+                    -- check + 3 days (every 15 minutes); one row per store: one domain per
+                    -- store, never per market (§6). Built: host unique on lower(host); one row
+                    -- per store is enforced by the service, not yet by an index
+                    -- #471 (0291): is_primary, the address the others redirect to (SAAS §8),
+                    -- backfilled true for the domains already live, which were the main address;
+                    -- the merchant side's connect holds a per-store lock and refuses a second row;
+                    -- removal deletes the row (the activity log keeps it), so no removed_at
+
+market              (id, store_id, parent_id NULL, name, is_primary boolean, countries jsonb,
+                     currency, language, price_adjustment_bps, web_mode ('main'|'path'|'domain'),
+                     path_prefix NULL, custom_domain_id NULL, products ('all'|'some'),
+                     tax_registration_id NULL, duties_mode ('none'|'by_code'|'flat'),
+                     duties_rate_bps, duties_threshold_amount, status ('active'|'inactive'|'paused_by_plan'))
+                    -- SetMarkets: a market sells one currency into its countries, in one
+                    -- language, at the main address, a path or its own domain (§6 ask);
+                    -- sub-markets share their parent's countries, so "a country is in at
+                    -- most one market" is a trigger over top-level markets only; duties per
+                    -- CATALOG part T (duties_threshold_amount in the market's currency);
+                    -- store.fallback_market_id is "Everywhere else"
+                    -- Built on #296 (migration 0051) without the domain columns (one domain per
+                    -- store, #337) or tax_registration_id (SAPI 7): "Everywhere else" is
+                    -- market.is_fallback instead of store.fallback_market_id, so the merchant
+                    -- side writes no store column; every store has one primary "Home" market
+                    -- (made with the store) that can't be switched off or deleted; markets are
+                    -- soft-deleted, their sub-markets lifted to the top level
+market_excluded_product (market_id, product_id, store_id)    -- products = 'some'
+market_payment_provider (market_id, payment_provider_account_id, store_id)   -- not built yet
+
+tax_registration    (id, store_id, country, kind ('vat'|'oss'|'gst'|'sales_tax_permit'|'ein'|'abn'|…),
+                     number, valid_from date)                  -- CATALOG fact 36
+                    -- built on #296 with gst | ein | sales_tax_permit | vat, one per country and
+                    -- kind; Store info's tax id is the home country's
+tax_class           (id, store_id, name, tax_code NULL, is_default, position, created_at,
+                     deleted_at NULL)                          -- Standard, Reduced, Zero, Exempt… (fact 37)
+tax_zone            (id, store_id, name, countries jsonb, regions jsonb, created_at)
+tax_rate            (id, store_id, tax_class_id, tax_zone_id, rate_bps, valid_from date)
+                    UNIQUE (tax_class_id, tax_zone_id, valid_from)
+                    -- class × zone (fact 37); US sales tax is Stripe Tax (decided on #184),
+                    -- which adds tax_code on product_version and bypasses tax_rate for US zones
+                    -- Built on #297 (migration 0055): tax_code (Stripe's product tax code) is on
+                    -- tax_class, which a version names (product_version.tax_class_id, null for
+                    -- the store's default), so a category is picked once per version rather than
+                    -- a code; tax_class has is_default (one) and soft deletes, never while a
+                    -- version is on it; tax_zone's countries and regions are jsonb (regions a US
+                    -- state's code or an Indian state's name, none the whole country); each store
+                    -- starts with its country's classes (India's GST slabs and an India zone; the
+                    -- US's two Stripe codes; elsewhere Standard and Exempt) by store_default_tax()
+
+compliance_default  (store_id, region, field, value)           -- manufacturer, importer,
+                    UNIQUE (store_id, region, field)            -- responsible person… (fact 34)
+store_policy        (store_id, kind ('refund'|'privacy'|'terms'|'shipping'|'imprint'), body)
+                    UNIQUE (store_id, kind)
+                    -- the policies the Shop API serves (PLATFORM-PROMPT §5.5; storefront
+                    -- ARCHITECTURE §2.1, §3.2); body per language in translation
+
+store_feature       (store_id, key, enabled boolean, updated_at) -- Settings › Catalogue switches
+                    UNIQUE (store_id, key)                      -- (CATALOG P1); built keys: sizeCharts,
+                                                                -- specs, highlights, faqs, badges,
+                                                                -- related, aplus, video
+badge               (id, store_id, label, tone ('ok'|'peach'|'neutral'),
+                     rule ('new_30_days'|'top_5_this_month'|'below_compare_price'|'few_left'|'manual'),
+                     position, created_at)
+                    -- CATALOG S5; label ≤ 18 chars; tone is the prototype's colour set
+
+shipping_zone       (id, store_id, name, countries text[], regions text[])
+shipping_method     (id, store_id, zone_id, name, kind ('free'|'fixed'|'free_over'|'courier_rate'),
+                     amount, currency, threshold_amount, position, status)
+                    -- DESIGN-BRIEF flows 54–55; several methods may be active at once (§6)
+delivery_area       (store_id PK, mode ('everywhere'|'list'), postal_codes text[],
+                     source_file_asset_id NULL)                 -- SetOps "Where you deliver"
+                    -- Built on #305 (migration 0063) as SetOps draws it, with no zones: store_shipping
+                    -- (store_id PK) holds which of courier_enabled, flat_enabled (flat_amount) and
+                    -- pickup_enabled (pickup_hours) are on, any of them at once (#337), free_mode
+                    -- never | always | over (free_threshold_amount), area_mode everywhere | list
+                    -- with area_file_name (the uploaded list's file name, instead of an asset),
+                    -- the amounts' currency, saved_at (the Home checklist's item) and revision;
+                    -- delivery_postal_code (store_id, code) is the list; a market's own flat charge
+                    -- is market.delivery_amount in its currency, dropped when its currency moves
+courier_account     (id, store_id, provider ('shiprocket'|'usps'|'ups'|'fedex'|'dhl'|'dpd'|'hermes'|…),
+                     credentials_enc, role ('pricing'|'standby'|'off'), paused_by_plan boolean,
+                     pickup_mode ('scheduled'|'on_request'), pickup_window text,
+                     label_size ('a6'|'a4'|'4x6'|'letter'), tracking_emails boolean,
+                     status ('connected'|'login_rejected'|'not_connected'),
+                     last_tested_at, last_test_result jsonb)
+                    -- SetOps Delivery partners; one 'pricing' row per store (partial unique);
+                    -- paused_by_plan per §7.1 (PortalKeep)
+                    -- Built on #305 as store_courier (store_id, provider), credentials_enc gone: the
+                    -- accounts are the partner's (THIRD-PARTY-ACCESS §4, #275), so a store's row is
+                    -- only its role, pickups, label size, tracking emails and last test result
+                    -- (ok | rejected | unavailable | unserved); providers shiprocket, usps, ups, fedex;
+                    -- with position and updated_at, and no pickup_window or paused_by_plan yet
+payment_provider_account
+                    (id, store_id, provider ('stripe'|'paypal'|'razorpay'|'cashfree'|'phonepe'|'cod'
+                     |'bank_transfer'), mode ('test'|'live'), credentials_enc, webhook_secret_enc,
+                     public_key, external_account_id, bank_details text, status, paused_by_plan boolean,
+                     position, connected_at, updated_at)   -- Klarna and Adyen not built
+                    -- the merchant's own providers (flow 56; THIRD-PARTY-ACCESS §3.1); never
+                    -- the subscription's payment method (§7.9)
+                    -- Built on #309 (0068): one row per store and provider, external_account_id for a
+                    -- Stripe Connect account, bank_details as the text shoppers are shown, status live | off;
+                    -- the merchant writes only cash on delivery and bank transfer, others connect in system scope.
+                    -- #309 part 2 (0069): one row per store, provider and mode (a store's test keys for its
+                    -- preview storefront beside its live ones); Stripe's one live row serves both modes.
+                    -- Disconnect sets status off and clears the keys and the connected account, keeping the row
+                    -- for the payments that name it. #309 part 3: pasted keys are one sealed JSON value in
+                    -- credentials_enc, the webhook's secret inside it (webhook_secret_enc stays null);
+                    -- public_key holds Razorpay's key id or PayPal's client id
+payment_connect     (id, store_id, provider ('stripe'), status ('pending'|'approved'), state_hash,
+                     finish_hash, return_host, started_by, external_account_id, expires_at)
+                    -- Built on #309 (0069): Connect Stripe between leaving for Stripe and finishing in the
+                    -- starter's own session, as external_connection for Shopify; hashes only, system scope
+                    -- only, deleted when finished or expired
+invoice_settings    (store_id PK, legal_name, tax_per_line boolean, email_with_dispatch boolean,
+                     footer text, updated_at)
+                    -- built without address and tax_id: the address is the store row's and the
+                    -- tax number is tax_registration's (one home each)
+                    -- SetOps "Save invoice settings" and the "from" block of a shopper's
+                    -- invoice; issued invoices never change (§7.6 order_document); built on #296
+                    -- (Store info writes legal_name), the address being the store row's
+store_ai_account    (store_id PK, provider ('openai'|'anthropic'), key_enc, key_prefix,
+                     connected_by, connected_at)
+                    -- "connect your own AI account" on plans without AI included (Pricing,
+                    -- PortalBilling); key_enc readable by app_system only (§5.3)
+
+cart_reminder_flow  (store_id PK, enabled boolean, min_amount NULL, currency, skip_out_of_stock boolean,
+                     quiet_hours jsonb, weekly_cap integer)
+cart_reminder_step  (id, store_id, position, enabled boolean, delay_minutes integer,
+                     channel ('email'|'whatsapp'), subject, body, discount_bps NULL)
+                    -- the abandoned-cart sequence (Carts); up to three steps; the sent
+                    -- reminders are §7.6 cart_reminder; WhatsApp needs the consent channel
+                    -- and the provider of THIRD-PARTY-ACCESS §2.8
+                    -- Built on #321 (0120) with quiet_hours and weekly_cap as booleans (the
+                    -- prototype's fixed 9 pm–8 am in the store's time zone, and one cart a week),
+                    -- updated_at and revision; steps are saved in place by position (1–3), so a
+                    -- sent reminder keeps naming its step; discount_bps is 500, 1000, 1500 or
+                    -- 2000. The merchant side writes both under its store's policy, never a
+                    -- supplier or a read-only support session; the engine reads them in system scope
+```
+
+### 7.3 Catalogue
+
+Store-and-seller scoped: a supplier's rows carry its `seller_id` and it reads nothing else,
+counts and search included (ACCESS §7.1, §7.4). Everything is one shared record between the
+merchant and the supplier that owns it (DESIGN-BRIEF fact 4).
+
+```
+asset               (id, store_id, seller_id NULL, r2_key, kind ('image'|'video'|'file'|'document'),
+                     mime, bytes, width, height, checksum, created_by)
+                    -- every upload; photos, A+ images, labels, invoices, export files.
+                    -- seller_id is the owner of the row that references it, set when
+                    -- linked (a photo the merchant adds to a supplier's product is the
+                    -- supplier's to read, ACCESS §7.1); unlinked uploads are the uploader's
+
+product             (id, store_id, seller_id NULL, name, slug, description, product_type
+                     ('physical'|'digital'|'service'|'gift_card'), category, visibility ('visible'|'hidden'),
+                     approval_status ('approved'|'pending'|'sent_back') NULL, sent_back_reason,
+                     hidden_by ('seller_suspended'|'seller_removed'|'plan') NULL, status_before_hide,
+                     publish_at NULL, size_chart_id NULL, related_mode ('manual'|'auto_collection'),
+                     warranty_text NULL, returns_text NULL, is_sample boolean,
+                     seo_title, seo_description, search tsvector, deleted_at,
+                     download_mode ('file'|'keys') NULL, download_asset_id NULL, download_limit (3|5|10),
+                     download_days (7|30|365), service_duration NULL, service_location NULL,
+                     gift_card_expiry_months NULL)
+                    UNIQUE (store_id, slug) WHERE deleted_at IS NULL     -- fact 15; per language in translation
+                    -- the kind's own fields (CATALOG T14; built on #323, 0110): a download's file
+                    -- (an asset of kind 'file', which no shop policy reaches) or key pool and how
+                    -- often and how long its link works; a service's length and place; a gift
+                    -- card's expiry, null never (FIRST-RELEASE §1). product_supplier_physical: a
+                    -- supplier's product is physical (ACCESS §7.1)
+licence_key         (id, store_id, product_id, key, order_line_id NULL, assigned_at NULL, created_by)
+                    UNIQUE (product_id, key)
+                    -- a download's key pool (built on #323, 0110): the merchant side inserts and
+                    -- counts, never selects `key`; a paid unit takes one (system scope); the
+                    -- unassigned count is the version's stock in shop_stock()
+                    -- approval_status is null when the store does not require approval
+                    -- (ACCESS §7.2); re-approval compares name, prices and photos with
+                    -- product_approved_snapshot; hidden_by = 'plan' is the pause of §7.1;
+                    -- is_sample marks the provisioning sample (SAAS §5 step 2), hidden and
+                    -- outside the plan count; product_type, publish_at, warranty and
+                    -- returns text (CATALOG S8) are (release: decide)
+product_approved_snapshot
+                    (product_id PK, store_id, seller_id NULL, name, prices jsonb, photo_ids uuid[],
+                     approved_at, approved_by)
+                    -- prices is [{version_id, currency, amount, compare_at_amount}], one entry
+                    -- per version_price row at approval, every amount with its currency (§7.1)
+                    -- what the last approval accepted, so a save knows whether it must go
+                    -- back to pending (ACCESS §7.2, decided 2026-10-02)
+product_option      (id, product_id, store_id, seller_id NULL, name, position)   -- "Size", "Colour" (fact 3)
+product_option_value(id, option_id, store_id, seller_id NULL, name, position)
+product_version     (id, product_id, store_id, seller_id NULL, sku, barcode, name, visibility,
+                     tax_class_id, hs_code, customs_description, weight_grams, length_mm, width_mm,
+                     height_mm, net_quantity NULL, net_quantity_unit NULL, unit_price_reference NULL,
+                     cost_amount, cost_currency, track_stock boolean NULL, continue_selling boolean NULL,
+                     position, deleted_at)
+                    UNIQUE NULLS NOT DISTINCT (store_id, seller_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL
+                    -- per owner (#293): a store-wide index would tell a supplier which codes others use
+                    -- every product has at least one (fact 1); price, stock, SKU, code, tax
+                    -- class and weight live here (fact 2); cost_amount and cost_currency are
+                    -- never granted to app_shop (§5.3); nulls inherit the store default
+                    -- (fact 10); barcode check digit validated (fact 44, release: decide);
+                    -- net quantity and reference unit give the EU unit price (T7);
+                    -- customs_description for cross-border labels (C9, T5). Built (0045, 0055)
+                    -- with name NULL, created_at and updated_at; net_quantity, net_quantity_unit
+                    -- and unit_price_reference are not built yet (the EU unit price card)
+product_version_option_value
+                    (version_id, option_id, value_id, store_id, seller_id NULL)
+                    UNIQUE (version_id, option_id)
+                    -- one value per option per version, enforceable, so adding an option
+                    -- can demand a value for every existing version (fact 3, D8–D9)
+version_price       (version_id, store_id, seller_id NULL, currency, amount, compare_at_amount NULL,
+                     source ('manual'|'converted'))
+                    PRIMARY KEY (version_id, currency)                    -- fact 25
+price_history       (id, version_id, store_id, seller_id NULL, currency, amount, compare_at_amount,
+                     from_at, to_at)
+                    -- the EU 30-day reference price (fact 41, release: decide); written on
+                    -- every version_price change
+version_market_price(version_id, market_id, store_id, seller_id NULL, amount, currency)
+                    PRIMARY KEY (version_id, market_id)
+                    -- a fixed price per market (an entitlement, SAAS §6.1; CatEditor "Price
+                    -- per market"); per version because price lives on the version (fact 2);
+                    -- absent = main price + the market's adjustment
+product_photo       (id, product_id, version_id NULL, store_id, seller_id NULL, asset_id, position, alt)
+                    -- alt per language in translation (fact 23, release: decide)
+product_video       (product_id, store_id, seller_id NULL, asset_id NULL, url NULL)
+                    -- CATALOG F9 (supported, §6) and S7 (hosted or linked)
+product_market_rule (product_id, store_id, seller_id NULL, mode ('only'|'except'), countries jsonb)
+                    -- "Where you sell" per product (fact 42, release: decide)
+product_flag        (product_id, store_id, seller_id NULL, age_restricted boolean, hazardous boolean)  -- fact 43
+product_compliance  (product_id, store_id, seller_id NULL, region, field, value)
+                    UNIQUE (product_id, region, field)                     -- facts 34, 45–46
+product_spec        (id, product_id, version_id NULL, store_id, seller_id NULL, name, value,
+                     filter_value_id NULL, position)
+                    -- a row marked "shoppers can filter by this" points at the filter_value
+                    -- it mirrors (fact 30); version_id for per-version values (S1)
+product_highlight   (id, product_id, store_id, seller_id NULL, text, position)         -- S2
+product_faq         (id, product_id, store_id, seller_id NULL, question, answer, position)
+product_related     (product_id, related_product_id, store_id, seller_id NULL, position)
+                    -- manual picks only; product.related_mode = 'auto_collection' ignores them
+product_badge       (product_id, badge_id, store_id, seller_id NULL)             -- manual badges only (S5)
+
+collection          (id, store_id, name, slug, description, kind ('manual'|'automatic'),
+                     match ('all'|'any'), parent_id NULL, inherit_parent boolean,
+                     visibility, image_asset_id, sort ('manual'|'newest'|'price_asc'|'price_desc'
+                     |'best_selling'), seo_title, seo_description, computed_at NULL,
+                     rule_matches NULL, created_at, updated_at, revision, deleted_at)
+                    UNIQUE (store_id, slug) WHERE deleted_at IS NULL
+                    -- H6 inherit_parent and H12 price rules are (release: decide)
+collection_rule     (id, collection_id, store_id, kind ('filter_value'|'name_contains'|'product'
+                     |'version'|'price_range'), args jsonb, position)
+collection_product  (collection_id, product_id, store_id, position, source ('manual'|'rule'),
+                     computed_at)                                  PRIMARY KEY (collection_id, product_id)
+                    -- hand-picked rows and the recomputed result of rules, one table, so the
+                    -- storefront reads one list; recomputed from the outbox (fact 11, 14)
+
+filter              (id, store_id, name, position, shopper_visible boolean,   -- I1; internal tags
+                     created_at, updated_at, revision)
+filter_value        (id, filter_id, store_id, name, position)                   -- are shopper_visible = false
+product_filter_value(product_id, version_id NULL, filter_value_id, store_id, seller_id NULL)
+                    UNIQUE NULLS NOT DISTINCT (product_id, version_id, filter_value_id)
+                    -- product-level or version-level (fact 13)
+
+menu                (id, store_id, key ('main'), name)
+menu_item           (id, menu_id, store_id, parent_id NULL, label, kind ('collection'|'page'|'url'),
+                     collection_id NULL, url NULL, position)      -- J4 pages and URLs (§6)
+
+product_story       (product_id PK, store_id, seller_id NULL, template NULL, draft jsonb,
+                     live jsonb NULL, published_at NULL, asset_ids, product_ids, block_ids, revision)
+                    -- A+ content (CATALOG Q): ordered modules as a document, draft separate
+                    -- from live (Q9); its status is derived: no live is a draft, a live equal to
+                    -- the draft is live, else changed; module kinds limited to what the store's
+                    -- core version renders (fact 28); text per language in translation, keyed
+                    -- by the module id inside the document (Q10)
+story_block         (id, store_id, kind ('brand_story'), name, content jsonb, asset_ids, updated_at, revision)
+                    -- a reusable block shared by many products (Q5)
+
+size_chart          (id, store_id, seller_id NULL, name, unit ('cm'|'in'), systems jsonb,
+                     rows jsonb, measurements jsonb, how_to_measure jsonb, fit_notes, model_info,
+                     created_at, updated_at, revision, deleted_at)  -- CATALOG R
+size_chart_rule     (id, size_chart_id, store_id, seller_id NULL, kind ('collection'|'filter_value'|'category'),
+                     target_id NULL, value NULL)                    -- R6 (release: decide)
+
+custom_field_definition (id, store_id, entity, key, type, translatable boolean, filterable boolean, position)
+custom_field_value  (store_id, entity, entity_id, definition_id, value jsonb)
+                    PRIMARY KEY (entity, entity_id, definition_id)
+                    -- PLATFORM-PROMPT §5.10 "store custom fields … filterable"; (release:
+                    -- decide, §6); indexed per definition when filterable
+
+translation         (store_id, seller_id NULL, entity ('product'|'version'|'collection'|'filter'
+                     |'filter_value'|'option_name'|'choice_name'), entity_id, field ('name'|'slug'
+                     |'description'), language, text, source_hash, updated_at)
+                    -- source_hash (md5 of the main-language text) marks a translation out of date
+                    PRIMARY KEY (store_id, entity, entity_id, field, language)
+                    UNIQUE (store_id, entity, language, text) WHERE field = 'slug'
+                    -- §7.1: seller_id is the translated entity's owner, denormalised; the
+                    -- partial unique index is what makes a web address unique per language
+                    -- (CATALOG fact 22); slug rows go when their entity is soft-deleted
+                    -- Built on #296 (migration 0053): entity ∈ product | version | collection |
+                    -- filter | filter_value | option_name | choice_name; entity_id is text, the
+                    -- id, or for option and choice names (shared by text across the catalogue,
+                    -- CATALOG N6) the main-language name lowercased; source_hash is md5 of the main
+                    -- text it translated, so "changed since translated" (N5) is a comparison;
+                    -- seller_id is set by a trigger from the entity; language references
+                    -- store_language, whose rows a supplier reads (it translates its own products)
+product_search      (product_id, store_id, language, document tsvector)
+                    PRIMARY KEY (product_id, language)
+                    -- the storefront's per-language index with main-language fallback
+                    -- (facts 14, 19), written by the outbox consumer; visibility-scoped
+                    -- reads only (§7.11)
+```
+
+**Built on #293, part 1** (migration 0041): `product`, its options and values, `product_version`, their
+option values, `version_price` and `price_history`, with `store.pricing_currency` and `main_language` from
+§7.2. A child's `seller_id` is copied from its parent by a trigger that runs as the caller, so a parent
+the caller can't read refuses the write. `product_supplier_guard` stops a supplier setting visibility,
+approval or a hide, and `version_price_history` (an `app_definer` trigger) writes the history. Two
+`app_definer` functions give a supplier only a number or a code it needs: `store_product_count()` for
+the plan limit and `store_pricing_currency()`. Not yet: `tax_class_id` (with Tax), and the `shop` branches, which come with the Shop API;
+`size_chart_id` came with size charts (part 4).
+Web addresses stay unique per store, as the storefront needs, but a supplier's always ends in six random
+characters, so a clash with a product it can't see looks like no clash (ACCESS §7.1). An update keeps the
+stored address unless a new one is asked for, so a rename never breaks a live link (CATALOG fact 15).
+**Part 2** (migration 0042): `asset`, `product_photo` and `product_video`. An upload is its uploader's
+(a trigger refuses a supplier uploading as anyone else); linking it to a product makes it the product
+owner's, unless another owner's product already uses it, which is refused so their photo stays readable.
+A link names only a file the caller can read, because a foreign key alone would take another owner's id.
+**Part 3** (migration 0043): `filter`, `filter_value`, `product_filter_value`, `collection`, `collection_rule`,
+`collection_product`, `menu` and `menu_item`, in §7.11's classes. An automatic collection's
+`collection_product` rows are written by the `collections.recompute` outbox deliverer as `app_system`,
+parents first, after every change that can move them (a product saved or deleted, a collection, a filter, a
+merge). `collection.computed_at` is when that last landed, and `rule_matches` how many matched: an
+automatic collection holds the newest 1,000, and the portal says when it holds fewer than matched.
+An edit clears both until its recompute lands. A burst of changes queues a run each, and only the newest
+still queued does the work. A store holds at most 500 collections and 200 filters, and a filter value that
+goes takes the rules naming it. A menu nests one level, and a collection
+can't be its own ancestor, both enforced by triggers. The H6 "only products also in the parent" switch
+is `inherit_parent`.
+
+**Part 4** (migration 0044): `store_feature` and `badge` (§7.2, supplier read-only), `size_chart`, and a
+product's `product_spec`, `product_highlight`, `product_faq`, `product_related`, `product_badge`,
+`product_flag`, `product_compliance` and `product_market_rule`, plus `product.size_chart_id`. A store with no
+`store_feature` rows has the prototype's starting set (CatSettings). A product's chart is its own owner's,
+so a supplier never holds a chart it can't read. Each owner holds up to 200 charts, counted per owner so a
+supplier's count says nothing of others'. Only a manual badge is picked on a product, and a related
+product is one the caller can read. Lists are jsonb, not arrays (docs/api/README.md §7).
+
+**Part 5** (migration 0045): `product_story` (store-and-seller) and `story_block` (inside the store, the
+merchant side's only). A trigger keeps the `*_ids` columns from both documents, for "used on" counts and
+file ownership; nothing reads them back as arrays. Every id a story names must be one the caller reads in
+the store: files of the right kind, which move to the product's owner unless another owner already shows
+them (as photos do, §7.3 `asset`); a compared product the save adds is not trashed and, when the product is a
+supplier's, has its owner, whoever saves; brand stories only on the merchant's products. Up to 10 modules a story and 50
+brand stories a store; a brand story in use isn't deleted. Not yet: `size_chart_rule` (R6), custom fields,
+`translation`, readiness per market, which needs markets (SAPI 6), and the shop read branches, which come
+with the Shop API (SAPI 8).
+
+Rules the tables encode: visibility is on the product **and** on each version, and a visible
+product with no visible version is reported as "not buyable" (fact 8); a version with no price
+in a manual currency is not buyable in it (fact 26); the version count per product and the
+option count are limited by the engine (fact 4: 3 options, 100 versions, §6); `collection_product` and
+`product_search` are rebuilt from outbox events, never in the request (fact 14).
+
+### 7.4 Inventory
+
+Store-and-seller scoped; a supplier never sees another owner's quantities, movements or
+totals (DESIGN-BRIEF fact 10, flow 73).
+
+```
+warehouse           (id, store_id, seller_id NULL, name, address jsonb, is_default boolean, created_at,
+                     updated_at, revision, deleted_at)
+                    -- one default per owner: a partial unique index on
+                    -- (store_id, coalesce(seller_id, '00000000-0000-0000-0000-000000000000'))
+                    -- where is_default, so the merchant's null owner counts once too;
+                    -- deleting needs on_hand = 0 everywhere (SetOps)
+stock_level         (version_id, warehouse_id, store_id, seller_id NULL, on_hand integer,
+                     reserved integer, low_stock_threshold integer NULL)
+                    PRIMARY KEY (version_id, warehouse_id)
+                    -- seller_id is the warehouse's; the trigger refuses a version whose
+                    -- owner is neither the warehouse's nor the merchant (a Stock-only
+                    -- supplier may hold the merchant's versions, ACCESS §7.1); reserved =
+                    -- sold, not yet fulfilled (PLATFORM-PROMPT §5.4, decided); reserved at
+                    -- payment, at placement for cash on delivery and bank transfer (§6)
+stock_movement      (id, store_id, seller_id NULL, product_id, version_id, warehouse_id, delta integer,
+                     resulting_quantity integer, reason ('received'|'returned'|'damaged'|'counted'
+                     |'typed'|'order'|'import'|'starting'|'transfer'), source_kind ('order'|'return'
+                     |'import') NULL, source_id NULL, actor_kind ('person'|'impersonation'|'system'),
+                     actor_id NULL, occurred_at)
+                    -- the ledger (flow 73): every change, by hand, by orders, by suppliers and
+                    -- by imports; seller_id is the warehouse's; 'transfer' only if flow 35
+                    -- ships (release: decide)
+```
+
+**Built** (migration 0046, #294): quantities change only through `stock_change()`, an `app_definer` function
+that checks the caller's scope (the merchant side counts its own locations, a supplier its own, of its own
+versions), refuses stock below zero, and writes the movement with the actor from the session, so
+`app_request` has no write on `on_hand`, `reserved` or `stock_movement` and history can't be forged. A
+location's first count of a version is `starting`. Every store gets the merchant's default location ("Main
+location") when it is created; an owner's first location is its default, a default or a location holding
+stock isn't deleted, and an owner holds up to 20. The merchant side reads a supplier's locations and never
+changes them. A version is low on stock when it is tracked and what it can still sell across the caller's
+locations is at most its threshold (the lowest a location sets, else 5). `reserved` is written by orders in
+system scope (SAPI 9, SAPI 11).
+
+### 7.5 Customers
+
+Store-scoped customer accounts (§2: the Admin API's Customers menu reads them through a
+read-only platform branch, as `app_platform`, masked by the Admin API's serializer). Never
+readable by a supplier; a `to-shopper` supplier sees a name and address only through its own
+order parts (ACCESS §7.3). A shopper (`app_shop`) reads and writes its own row and children.
+
+```
+customer (+ columns) tags text[] (up to 20), note text, consent_state ('opted_in'|'stopped'|'declined'|'not_asked'),
+                     consent_at, consent_source ('checkout'|'email'|'added_by_hand'|'recorded_by_store'),
+                     consent_channels text[] ('email'|'sms'|'whatsapp'), added_by_user_id NULL
+                    -- built on #312 (0074); the default address is customer_address.is_default_shipping,
+                    -- and the list searches name, email, number and tags directly (0027's indexes), so
+                    -- neither default_address_id nor a search tsvector was needed. A live guest order
+                    -- adds an 'unverified' row from its email (or number), never linked to the order;
+                    -- the team's 'Add a customer' does the same; proving that email or number at
+                    -- sign-in makes it the shopper's account (#308's proveShopper)
+                    -- §3.4 has the identity columns and status ('active'|'unverified'|'deleted',
+                    -- built in 0002), which is the deletion marker; "Record that they asked
+                    -- to stop" writes consent_state = 'stopped' with the recording user
+                    -- (LOGGING §3); consent_channels feeds the cart reminders (§7.2)
+customer_address    -- built on #308 (0067) as below, the shopper's own through app_shop, up to 20; one default;
+                    -- the merchant side also writes the default one ("Edit" › Address, #312, 0074)
+                    (id, customer_id, store_id, name, line1, line2, city, region, postal_code,
+                     country, phone, is_default_shipping, created_at, deleted_at)   -- no billing default
+customer_group      (id, store_id, name, description, deleted_at)   UNIQUE (store_id, lower(name)) among live groups
+customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY (group_id, customer_id)
+                    -- both built on #312 (0074): the merchant side's only (app_request, store scope,
+                    -- no seller), no grant to app_supplier or app_shop; each member's group and
+                    -- customer are in its own store (composite foreign keys)
+                    -- OFFERS fact 12; a group in use by a promotion warns before deletion (flow 72)
+customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subject_phone NULL,
+                     subject_verified_at, expires_at, access_token_hash NULL, kind ('export'|'delete'),
+                     requested_by ('customer'|'store'), state ('requested'|'ready'|'done'|'refused') DEFAULT 'requested',
+                     file_asset_id NULL, done_at)
+                    -- access_token_hash: a guest reaches its own request only through the
+                    -- token in the link it was sent (§7.11); never selected by a request role.
+                    -- Shop writes are bounded (§7.11): app_shop inserts with customer_id =
+                    -- app.customer_id (a signed-in shopper) or, for a guest, customer_id null
+                    -- and a subject_email or subject_phone; it never writes
+                    -- subject_verified_at, state or file_asset_id. The engine (app_system)
+                    -- sends the code to the subject, sets subject_verified_at on a correct
+                    -- code, and builds the export only for a verified request; the file is
+                    -- reachable only by that customer or that token. A shopper can therefore
+                    -- file a request naming someone else's email, and nothing follows
+                    -- GDPR / DPDP (AGENTS.md "Data"). Filed by the store, or by the shopper
+                    -- from the storefront (app_shop may insert, and reads its own request by
+                    -- customer_id or by the request's own token, §7.11). A guest has no
+                    -- account, though a live guest order makes an unverified customer row
+                    -- for the store's list (#312), never linked to the order: the request
+                    -- names the email or phone the orders were placed with, proved by a code
+                    -- sent to it (subject_verified_at), and covers that row too.
+                    -- Export gathers the customer row (if any), customer_address, every
+                    -- order placed under the customer id or, for a guest, under the
+                    -- verified email or phone, with their email, phone and address
+                    -- snapshots, promotion_usage rows, cart reminders and consent history.
+                    -- Deletion keeps orders and usage rows (money history) and applies one
+                    -- rule: EVERY column on these tables that can hold personal data is
+                    -- blanked or replaced by a placeholder, every search tsvector built from
+                    -- one is rebuilt, and every file that carries the person is deleted from
+                    -- R2. Named so the migration and its test cover them: customer name,
+                    -- email, phone, note, tags, consent_source, added_by_user_id and search;
+                    -- customer_address rows; "order" email, phone, shipping_address,
+                    -- billing_address, notes, cancel_reason, access_token_hash and search;
+                    -- promotion_usage.customer_email; refund.note and "return".note;
+                    -- fulfilment.tracking_number and tracking_url (a tracking page can
+                    -- identify the person); cart_reminder rows' sent subjects; every
+                    -- order_document asset of those orders (invoices, packing slips, labels
+                    -- and return labels all carry the name and address), the rows keeping
+                    -- kind, number and date; any export_job or customer_data_request file
+                    -- not yet expired that contains the person, and the export_job.filter
+                    -- that named them blanked; outbox rows not yet delivered that name the
+                    -- person (LOGGING §9); the shopper's activity entries' personal fields
+                    -- (LOGGING §8). The request row itself is blanked once done:
+                    -- subject_email, subject_phone, subject_verified_at and customer_id go,
+                    -- so it keeps only kind, dates and state. Every other free-text column
+                    -- on these tables is checked against this rule when its migration is
+                    -- written. A supplier never saw any of it.
+```
+
+### 7.6 Carts, orders, fulfilment, returns, refunds and the supplier ledger
+
+An order is store-scoped and the store's; its **parts** and **lines** carry the owning
+`seller_id`, which is the only way a supplier reads any of it (ACCESS §7.3). A cart is an
+order in state `cart` (PLATFORM-PROMPT §5.5 "cart, an active order"). Payment and fulfilment
+are two states, because a cash-on-delivery or bank-transfer order ships before it is paid
+(SetOps "Unpaid until you mark it paid"); PLATFORM-PROMPT §5.4's single list is the derived
+view of the two.
+
+```
+"order"             (id, store_id, number NULL, state ('cart'|'placed'|'cancelled'),
+                     payment_state ('pending'|'authorised'|'paid'|'partly_refunded'|'refunded'),
+                     fulfilment_state ('unfulfilled'|'partly_fulfilled'|'fulfilled'),
+                     customer_id NULL, email, phone, language, currency, market_id NULL,
+                     tax_inclusive boolean, shipping_address jsonb, billing_address jsonb,
+                     subtotal_amount, discount_amount, shipping_amount, tax_amount, duties_amount,
+                     total_amount, refunded_amount,
+                     shipping_method_id NULL, shipping_method_label, pickup boolean,
+                     checkout_step ('contact'|'ship'|'pay') NULL, abandoned_at NULL, device NULL,
+                     reminders_stopped_at NULL, reminders_stopped_by_user_id NULL, reminders_stopped_note NULL,
+                     recovered_by_order_id NULL, recovered_by_reminder_id NULL,
+                     placed_at, paid_at, cancelled_at, cancel_reason, cart_expires_at,
+                     shopper_note NULL, notes NULL, access_token_hash NULL, search tsvector)
+                    UNIQUE (store_id, number) WHERE number IS NOT NULL
+                    -- shipping_address and billing_address carry {name, line1, …}: the
+                    -- shopper's name lives there, not in a column of its own. shopper_note is
+                    -- the shopper's own message at checkout (read and written by app_shop on
+                    -- its cart); notes is the merchant's internal note, never a shopper's.
+                    -- Decided on #310: the team's notes are lines in the order's history
+                    -- (PortalOrders "Add a note"), activity entries order.note_added with the
+                    -- text as their reason and seller_id null, so notes isn't built.
+                    -- access_token_hash: a guest's cart or order (customer_id null) is
+                    -- reachable in the shop scope only with the hashed token the Shop API
+                    -- handed the browser (a cookie or the order-status link); compared in
+                    -- the policy (§7.11), never selected by any request role (§5.3).
+                    -- checkout_step, abandoned_at, device and the reminders_* and
+                    -- recovered_* columns are the abandoned-cart facts (Carts); a cart that
+                    -- becomes an order clears abandoned_at and the recovered order points
+                    -- back at it. number = store.order_prefix + next_order_number, assigned
+                    -- at placement in one transaction; totals are the engine's, stored at
+                    -- placement and recomputed only by refunds (immutable snapshot,
+                    -- PLATFORM-PROMPT §5.4); which promotions applied is order_adjustment
+                    -- and promotion_usage, nothing here
+                    -- Built on #320 (0078): promotion_codes text[] (at most 5), the codes a
+                    -- cart holds as the shopper typed them after normalising, never a price
+                    -- or a discount; app_shop selects and updates it on its own cart under the
+                    -- cart's policy, app_request selects it; the engine prices each on read
+                    -- Built on #308 (migration 0066) with the cart's columns (id, store, the three
+                    -- states, customer, email, phone, language, currency, market, both addresses,
+                    -- shipping_option (courier | flat | pickup, SAPI 23's quote), shopper_note,
+                    -- checkout_step, cart_expires_at, access_token_hash, revision); the money,
+                    -- number and placement columns come with placement (SAPI 10, SAPI 11).
+                    -- Decided on #308: a cart stores no price at all. Its lines are cart_line
+                    -- (order_id, store_id, version_id, quantity 1..999, added_at; PRIMARY KEY
+                    -- (order_id, version_id)) and the engine prices them on every read,
+                    -- so a shopper's write can never be a price; order_line is written at
+                    -- placement only. The guest policies compare access_token_hash with
+                    -- current_order_token_hash() directly (a lookup function couldn't see a row
+                    -- the same statement inserts), so order_token_matches() isn't built.
+                    -- Built on #321 (0120): abandoned_at (the cart's own last change, to the
+                    -- microsecond, set by the cron 20 minutes after it; a change since makes it
+                    -- abandoned again later), abandoned_amount (what its lines came to then, in its
+                    -- currency: the list's value and the minimum's test), the reminders_stopped_*
+                    -- and recovered_* columns. Decided on #321: placing a live order KEEPS
+                    -- abandoned_at and sets recovered_by_order_id, on itself and on the shopper's
+                    -- other carts left in the last 7 days (their account's, or with the order's
+                    -- email), so the Carts tab still lists a recovered cart and its reminders stop.
+                    -- Not built yet (checked against migration 0120): shipping_method_id and pickup
+                    -- (shipping_option instead), device and search. cancel_reason is one of
+                    -- unpaid_transfer | unpaid | shopper | store | out_of_stock (0068, 0069)
+order_line          (id, order_id, store_id, seller_id NULL, version_id, product_id,
+                     name, version_name, sku, hs_code, tax_class_key, tax_rate_bps, tax_zone_id NULL,
+                     quantity, unit_amount, discount_amount, tax_amount, line_total_amount,
+                     weight_grams, fulfilled_quantity, returned_quantity, refunded_quantity)
+                    -- the snapshot (§7.1), tax rate and zone included so reports and GST
+                    -- copies split tax by jurisdiction (CATALOG fact 37); seller_id is the
+                    -- product's owner at placement. Built (0068) with tax_class_id (the class's
+                    -- id, not a key), position and reserved_warehouse_id, and without
+                    -- tax_zone_id yet
+order_adjustment    (id, order_id, order_line_id NULL, store_id, kind ('discount'|'shipping'
+                     |'tax'|'duties'|'rounding'), promotion_id NULL, promotion_code_id NULL,
+                     label, amount, tax_rate_bps NULL, tax_zone_id NULL)
+                    -- discounts as adjustments carrying the shopper-facing name (OFFERS fact 13);
+                    -- order-level discounts spread across lines by the engine (fact 11);
+                    -- amount in "order".currency (§7.1). Built (0068) with label NULL and without
+                    -- promotion_id, promotion_code_id and tax_zone_id; #320 (0078) added the
+                    -- first two, set only on a discount line, one line per offer taken; the
+                    -- shopper reads the label and amount, never the ids
+order_part          (id, order_id, store_id, seller_id NULL, shipping_mode ('store'|'to-store'
+                     |'to-shopper'), state ('to_ship'|'sent_to_store'|'partly_shipped'|'shipped'
+                     |'delivered'|'cancelled'))
+                    UNIQUE NULLS NOT DISTINCT (order_id, seller_id)
+                    -- one part per owner, the merchant's null owner included (DESIGN-BRIEF
+                    -- fact 6, flow 70); shipping_mode is the supplier's seller.shipping_mode
+                    -- at placement and the order follows it, never the live seller row
+                    -- (ACCESS §7.3); 'store' for the merchant's own; the warehouse is per
+                    -- fulfilment, since a part may ship from several
+fulfilment          (id, order_part_id, order_id, store_id, seller_id NULL, kind ('booked'|'manual'
+                     |'sent_to_store'|'pickup'), warehouse_id, courier_account_id NULL,
+                     courier_name NULL, tracking_number NULL, tracking_url NULL,
+                     booked_at, shipped_at, delivered_at, created_by)
+                    -- seller_id is the ACTOR's owner, not the part's: a to-store supplier's
+                    -- 'sent_to_store' hand-off carries its seller_id, and the store's onward
+                    -- shipment of those lines to the shopper carries null, so the supplier
+                    -- never reads the shopper's tracking (ACCESS §7.3; a matrix row).
+                    -- courier_name is the carrier's name as shown ("Shiprocket"); the printed
+                    -- label is an order_document row (kind 'label', fulfilment_id), never a
+                    -- column here, so erasure has one list to follow; 'booked' through the
+                    -- store's courier account (whether a to-shopper supplier may use its own
+                    -- is §6); 'manual' with or without a tracking number (PortalOrders "Label
+                    -- and tracking"); shipped lines come out of warehouse_id as
+                    -- stock_movement 'order'
+fulfilment_line     (fulfilment_id, order_line_id, store_id, seller_id NULL, quantity)
+                    -- seller_id as the fulfilment's
+                    -- Built on #310 (migration 0071); #311 (0130) added 'booked' with courier_provider (the
+                    -- store_courier it went through, in place of courier_account_id), provider_ref (the
+                    -- courier's own id, unique per courier), booked_at and the pickup (pickup_requested_at,
+                    -- pickup_ref, pickup_date). A booked label's tracking is the courier's, so addTracking
+                    -- refuses it. 0131 added tracking_status and tracking_status_at (the courier's time,
+                    -- which a later hook must pass) and sets delivered_at on the first 'delivered'. The
+                    -- engine writes both tables in system
+                    -- scope; the merchant side reads every row, a supplier its own. A part is shipped once
+                    -- every line has gone, partly_shipped once some has, sent_to_store once a to-store part
+                    -- has handed all of it over and none has gone on; the order's fulfilment_state follows
+                    -- the lines the same way. Only the store shipping clears a transfer's payment_due_by.
+                    -- What a to-store supplier handed over is the sum of its 'sent_to_store' lines, so
+                    -- the store ships on at most that, and a cancellation releases only what hasn't left
+
+order_download      (id, order_id, order_line_id UNIQUE, store_id, asset_id, uses_left, expires_at)
+                    -- a paid download's grant (built on #323, 0171): its uses and days from the
+                    -- product at payment; the link is the grant's id signed under CREDENTIALS_KEK
+                    -- (auth/signedLink.ts), never stored, and the Worker streams the file from R2.
+                    -- Merchant side reads; a shopper through its order; written in system scope only
+gift_card           (id, store_id, product_id, code_hash NULL, code_last4 NULL, currency, initial_amount,
+                     balance_amount, expiry_months NULL, expires_at NULL, recipient_name, recipient_email,
+                     message, send_on, sent_at, order_line_id NULL UNIQUE, issued_by NULL, status
+                     ('active'|'disabled'), issue_key NULL)  UNIQUE (store_id, issue_key)
+gift_card_movement  (id, gift_card_id, store_id, kind ('issued'|'redeemed'|'restored'), amount, currency,
+                     order_id NULL)  UNIQUE (gift_card_id, kind, order_id) for issued and redeemed
+                    -- built on #323 (0171): a paid gift card line issues one card, worth the line's
+                    -- price before offers; its code is minted as its email is composed, on the
+                    -- morning of send_on in the store's time zone, kept only as a hash salted with
+                    -- the store, and its expiry counts from sending. Inside the store: every write in
+                    -- system scope; the merchant side reads every column but code_hash (#323, 0172).
+                    -- Redemption (0172): "order".gift_card_id (put on a cart by the engine once its
+                    -- code opens a card of the store in the cart's currency) and gift_card_amount
+                    -- (what placement took, under the card's row lock; the payment is for the rest,
+                    -- payment_method 'gift_card' when it covers all). An unpaid cancellation gives it
+                    -- back whole; a refund goes to the payment first, the rest onto the card, never
+                    -- above initial_amount, its movement the amount put back. issue_key (0172) is
+                    -- "Issue a card"'s request key: a replay answers the card it made, once
+                    -- cart_line and order_line hold the recipient (gift_recipient_name, _email,
+                    -- gift_message, gift_send_on); a gift card line is one card (#323)
+payment             (id, order_id, store_id, provider, provider_account_id, provider_ref, kind
+                     ('card'|'wallet'|'upi'|'cod'|'bank_transfer'|'other'), state ('pending'|'authorised'
+                     |'captured'|'failed'|'refunded'|'mismatch'), amount, currency, captured_at)
+                    -- webhooks idempotent through provider_ref (PLATFORM-PROMPT §5.4 Payments)
+                    -- Built on #309 (migration 0068) with mode (test | live) and the order's placement
+                    -- columns on "order" (number, placed_at, paid_at, cancelled_at, cancel_reason, the
+                    -- amounts, shipping_method_label, payment_method, payment_due_by for a transfer,
+                    -- stock_reserved); order_line, order_adjustment and order_part as above, order_line
+                    -- also holding reserved_warehouse_id (the one location its held stock sits at, so a
+                    -- cancellation gives back exactly that). Placement and payment write in system scope
+                    -- after the cart is read as its shopper; suppliers reach orders with SAPI 11. No English is
+                    -- snapshotted: order_adjustment.label is null where its kind says it all (shipping, tax) and
+                    -- shipping_method_label holds only a courier's own service name; clients word the rest by
+                    -- shipping_option and kind in the shopper's language (AGENTS "Product")
+                    -- #309 part 2 (0069): a card payment's row is written at placement with the id its
+                    -- provider was given and its provider_ref; it is settled by reading the provider back
+                    -- (webhook, the shopper's return, the sweep), idempotent by its state; payment_due_by is a
+                    -- day for a card order, and cancel_reason gains 'unpaid'. A live card order holds its stock
+                    -- when paid, even past what is free (logged as order.oversold); test-mode orders never hold
+                    -- stock. A payment of a different amount becomes state `mismatch` (0069), logged once and out of
+                    -- the sweep for the merchant
+payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state ('pending'|'done'|'failed'),
+                     amount, currency)
+
+"return"            (id, store_id, order_id, number, state ('requested'|'received'|'refunded'
+                     |'cancelled'), reason ('doesnt_fit'|'changed_mind'|'damaged'|'wrong_item'
+                     |'not_as_described'), note NULL, label_sent_at, received_at, cancelled_at,
+                     created_by)
+                    UNIQUE (store_id, number)
+                    -- the return label is an order_document row (kind 'return_label', return_id);
+                    -- store-scoped; a supplier reaches a return only through
+                    -- return_for_supplier (§7.11), which never carries note, the store's free
+                    -- text (ACCESS §7.3); number = 'R' + order number + '-' + n
+return_line         (return_id, order_line_id, store_id, seller_id NULL, quantity,
+                     destination_warehouse_id)
+                    PRIMARY KEY (return_id, order_line_id)
+                    -- destination follows the line owner's shipping mode (ACCESS §7.3)
+refund              (id, store_id, seller_id NULL, order_id, return_id NULL, amount, currency,
+                     reason ('returned'|'goodwill'|'cancelled'|'other'), note NULL, restock boolean,
+                     override_of_seller_id NULL, by_user_id)
+                    -- one refund per owner: a refund covering several owners' lines is split
+                    -- at creation into one row per owner, so seller_id is never ambiguous;
+                    -- every refund_line.seller_id equals its refund's (check), and
+                    -- refund.amount equals the sum of its lines plus any goodwill amount the
+                    -- store adds to its own row (trigger); seller_id null = the merchant's own;
+                    -- override_of_seller_id set when the store refunded a supplier's lines;
+                    -- a supplier reads its own, overrides included, never another's; it
+                    -- creates one only through supplier_refund() (§5.3), which enforces the
+                    -- line ownership, the refundable quantity and the value ceiling; and
+                    -- app_supplier has no select on by_user_id ("the store") or note, the
+                    -- store's free text, which may name the shopper (§5.3, ACCESS §7.3);
+                    -- reason is coded. The isolation matrix tests both omissions
+refund_line         (refund_id, order_line_id, store_id, seller_id NULL, quantity, amount, currency)
+                    -- Built on #310 (migration 0072): a line's refunds are capped by the
+                    -- refund_line_ceiling() trigger at its quantity and line_total_amount; the
+                    -- engine refunds only shipped units (quantity 0 is money only) and puts the
+                    -- store's extra (delivery, goodwill) on its own row; payment_refund is one row
+                    -- a refund, done at once for cash and transfers. supplier_refund() isn't built
+                    -- (§5.3); "return".label_sent_at waits for return labels (#311)
+supplier_ledger_entry (id, store_id, seller_id, amount, currency, kind ('refund_override'
+                     |'adjustment'), refund_id NULL, note NULL (≤ 1000), created_by, created_at)
+                    -- what a supplier owes or is owed, settled outside the platform
+                    -- (PLATFORM-PROMPT §5.4 Payments, decided 2026-10-02); a supplier reads
+                    -- only its own entries and balance, and app_supplier has no select on
+                    -- note (§5.3)
+
+order_document      (id, order_id, store_id, seller_id NULL, kind ('invoice'|'packing_slip'
+                     |'label'|'return_label'|'gst_copy'), number NULL, asset_id, issued_at,
+                     return_id NULL, fulfilment_id NULL)
+                    -- every printable rendered from the order and invoice_settings, stored as
+                    -- an asset so an issued invoice never changes; the link a deletion job
+                    -- follows to purge them (§7.5). Store-and-seller class (§7.11): seller_id
+                    -- is set only on a label or return_label a supplier printed for its own
+                    -- part, so a supplier reads exactly those; invoices, packing slips and the
+                    -- GST copy have seller_id null and are the merchant's alone
+                    -- Built on #311 (0130) for kind 'label' only, without number and return_id, which
+                    -- come with their kinds; its asset is kind 'document' with the same owner; written
+                    -- by the engine in system scope, read at GET /api/documents/{id} (orders.read)
+
+cart_reminder       (id, store_id, order_id, step_id NULL, channel ('email'|'whatsapp'), sent_at,
+                     sent_by_user_id NULL, promotion_code_id NULL, opened_at NULL, clicked_at NULL)
+                    -- the sent reminders of the Carts screen, automatic (step_id) or by hand
+                    -- (sent_by_user_id); attribution of a recovered order is the last
+                    -- reminder clicked or the code used ("order".recovered_by_reminder_id);
+                    -- the reminder's code is a promotion_code bound to the cart and
+                    -- expiring 48 h after sent_at (§7.7)
+                    -- Built on #321 (0120) with state ('queued'|'sent'|'skipped'), skip_reason,
+                    -- queued_at and link_token_hash (the return and unsubscribe link's token,
+                    -- hashed, set as it is sent; no request role selects it), and without opened_at
+                    -- (no open tracking yet). Each step at most once a cart (a unique index), so two
+                    -- sweeps queue it once; the engine writes it in system scope, the merchant side
+                    -- reads it. An expired cart reminded in the last 30 days is kept until 30 days
+                    -- after, so its unsubscribe link keeps working
+                    -- Part 2 (0121): discount_bps, the percentage chosen for one sent by hand (a
+                    -- step's own is on the step); channel 'whatsapp' goes to the signed-in
+                    -- shopper's own customer.phone, never the cart's typed one
+```
+
+Order events (placed, paid, shipped, return started, refunded, "sent to warehouse by
+Northwind") are activity-log entries with the order as target (LOGGING §3), which both the
+order's timeline and the shopper's own order history read (LOGGING §6); there is no
+`order_event` table.
+
+### 7.7 Promotions (offers)
+
+Store-scoped and the merchant's alone: no supplier branch in the policy, no supplier screen
+(OFFERS fact 15). Status is derived, never stored (fact 9). The engine's application order is
+fixed and documented (fact 7); nothing here reorders promotions.
+
+```
+promotion           (id, store_id, name, internal_name NULL, description, enabled boolean,
+                     disabled_reason ('past_due') NULL, starts_at NULL, ends_at NULL,
+                     total_uses_limit NULL, per_customer_limit NULL, uses_count integer,
+                     combines_with jsonb, show_on_product_page boolean, deleted_at)
+                    -- OFFERS fact 1; uses_count maintained atomically with promotion_usage
+                    -- (fact 8); combines_with per fact 7 holds the Shopify-style flags, and
+                    -- the M3 "best only" and M4 "one code per order" choices, each (release:
+                    -- decide); disabled_reason lets "Turn back on" be offered after past due
+                    -- (Offers); show_on_product_page is fact 17 / O4 (release: decide);
+                    -- internal_name (release: decide); soft delete keeps past orders'
+                    -- adjustments (fact 14, settled 2026-10-02 on #188's review: soft)
+promotion_condition (id, promotion_id, store_id, operation, args jsonb, position)
+                    -- operation ∈ OFFERS fact 3's keys: minimum_order_amount (amount per
+                    -- currency in args), contains_products, at_least_n_with_filter_values,
+                    -- customer_group, buy_x_get_y, contains_collection, first_order,
+                    -- specific_customers, shipping_country…; recurrence (OfferEditor
+                    -- "repeat") is a condition too
+promotion_action    (id, promotion_id, store_id, operation, args jsonb, position)
+                    -- fact 4's keys; per-currency amounts in args (fact 10); targets resolve
+                    -- at pricing time (fact 5, decided 2026-10-05 on #337)
+promotion_code_batch(id, promotion_id, store_id, prefix, length integer, count integer)
+                    -- a bulk run of single-use codes (fact 6, H4), so the list shows the
+                    -- batch and its used/unused counts
+promotion_code      (id, promotion_id, store_id, batch_id NULL, code, single_use boolean,
+                     expires_at NULL, customer_id NULL, order_id NULL, used_at NULL,
+                     used_by_customer_id NULL)
+                    UNIQUE INDEX ON promotion_code (store_id, lower(code))
+                    -- one row for a shared code, many for bulk single-use codes (fact 6);
+                    -- unique per store including spent and deleted ones (H2), so a receipt's
+                    -- code never names another offer later; customer_id and order_id bind a
+                    -- cart-reminder code to one shopper and cart, expires_at ends it (§7.6);
+                    -- matching is case-insensitive (§6)
+promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_id,
+                     customer_id NULL, customer_email, discount_amount, currency)
+                    UNIQUE (promotion_id, order_id)
+                    -- a placed order's row; cancelling before fulfilment deletes it and lowers
+                    -- uses_count in one transaction (fact 8, #337); matched per customer_id
+                    -- only (narrowed on #320: customer_email is whatever the placer typed,
+                    -- kept for results, never counted); results (part P) aggregate this table
+```
+
+**Built on #320 (SAPI 14), migration 0076**, with these differences from the sketch above: `promotion` gains
+`trigger` (`automatic` | `code`: a code offer applies only through a code, even before its single-use codes are made),
+`created_by_user_id`, `created_at`, `updated_at` and `revision`; `disabled_reason` and `show_on_product_page` are not built
+(whether offers run while past due and product-page prices are still open, OFFERS §9). `combines_with` holds `product`,
+`order` and `shipping` only. `promotion_code` gains `customer_id` and `order_id` on #321 (0120): a cart reminder's code
+works on that one cart only (any other cart reads it as `INVALID`), needs no batch, and goes with its cart; its offer is
+the store's hidden `promotion.cart_reminder` one at that percentage, which Offers never lists, counts or changes. It has
+no `used_by_customer_id` (the usage row names the shopper); it gains `replaced_at`, set when a live
+offer's shared code is changed: the old code stops working and stays reserved to the offer. Codes are stored uppercase and
+checked against `^[A-Z0-9][A-Z0-9_-]{2,31}$`; a single-use code always belongs to a batch. A usage row's offer, code, customer and order are each held to its store by composite keys. Request roles never write
+`uses_count`, `used_at` or `promotion_usage`, and never delete an offer (soft only): placement counts uses in system
+scope. The operation keys are the migration's check lists (OFFERS-DESIGN §3.1 has the arguments).
+
+### 7.8 Storefront, publishing, design history and AI runs
+
+Store-scoped (account level: the partner and staff read the publishing state, never the
+content). Specified in SAAS §9 and storefront/ARCHITECTURE §4.2. **One home per fact with
+`store`**: `store.storefront_kind`, `core_version`, `build_state`, `last_build_at` and
+`last_publish_at` (built on #32, §2.1) are the account-level mirror the consoles list; this
+table owns the rest and every write to it updates the mirror in the same transaction.
+
+```
+storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, preview_key, preview_epoch, live_url, public_store_key,
+                     allowed_origins text[], checkout_url NULL, account_url NULL,
+                     has_unpublished_changes boolean, changes_since NULL, changed_kinds text[],
+                     changed_count integer, next_auto_publish_at, template NULL,
+                     repo_state ('none'|'creating'|'ready'|'failed'), repo_head NULL,
+                     custom_paths text[], theme_mode ('own'|'baseline'), baseline_reason NULL,
+                     core_pinned_reason NULL, baseline_from_build_id NULL, core_upgrade_version NULL,
+                     core_upgrade_commit NULL,
+                     setup_service_state ('booked'|'done') NULL)
+                    -- change detection as a table, not memory (SAAS §9.1); public_store_key
+                    -- is the one credential safe in a browser (PLATFORM-PROMPT §5.5);
+                    -- checkout_url and account_url are a store with its own frontend
+                    -- (PLATFORM-PROMPT §5.6); setup_service_state records the one-time
+                    -- "storefront setup by our team" (Pricing, PortalBilling); theme_mode
+                    -- 'baseline' while a security fix serves the baseline theme, and
+                    -- core_pinned_reason while an upgrade failed (SAAS §10, decided on #470); built on #485
+                    -- (0330) with baseline_from_build_id, the store's own build the baseline replaced, and
+                    -- core_upgrade_version and _commit, a major's passed upgrade its next publish takes;
+                    -- custom_paths are the draft theme's own pages (routes.json), which
+                    -- SAPI 24 checks a new slug against (storefront ARCHITECTURE §3.1); written by
+                    -- the studio on each accepted change (built on #482, migration 0251).
+                    -- live_build_id is the live pointer: the publish_run whose files in R2 the
+                    -- edge Worker serves (storefront LIVE-SHOP §4 step 9, §5), and whose kept
+                    -- source bundle (sources/{store}/{build id}.bundle, private) is the record of
+                    -- the live code, never GitHub's main (§4 step 3); it replaces
+                    -- hosting_target, a Pages project (2026-10-09). preview_key is the opaque,
+                    -- platform-unique label of the old {key}.webpreview.store, replaced by store.slug
+                    -- (PREVIEW §2) and read by store-proxy until #746 drops it; preview_epoch
+                    -- (integer, proposed) ends every preview link when moved (PREVIEW §5 step 4); no
+                    -- preview_url: the host is derived from store.slug and SHOP_DOMAIN, and a
+                    -- preview opens only through a signed link (PREVIEW §8). live_build_id (the publish_run
+                    -- id, null until the first publish) and preview_epoch (integer, 0) built on #317, migration 0233;
+                    -- files_deleted_at (0234) is when clean-up erased a store closed 90 days from the three buckets;
+                    -- previews_tidied_at (0235) the publish its old preview folders were last deleted against (PREVIEW §3);
+                    -- indexnow_key (0287, #484) the store's IndexNow key, 32 hex, served by the edge at /{key}.txt;
+                    -- repo_id is the repo's numeric GitHub id, which a build's OIDC token names as
+                    -- repository_id (LIVE-SHOP §9; built on #517, migration 0240, written with the repo);
+                    -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
+                    -- repo_head the commit its main is at, which a push must find there (built on
+                    -- #316, migration 0230; storefront AI-STUDIO §6); template is written when the
+                    -- repo is ready (SAAS §5 step 8, migration 0231). Steps 4–8 run as a job of kind
+                    -- 'create-storefront', after the signup's 'provision-store' (#316)
+                    -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
+                    -- #318 (migration 0334): changes_since, changed_kinds (products, collections, menus, content,
+                    -- settings), changed_count (product rows touched) and change_seq, moved by statement
+                    -- triggers on the catalogue version's tables, the content pages and the store; a full
+                    -- publish freezes change_seq at its claim (publish_run.change_seq) and, live, clears the marks
+                    -- only if it still matches; next_auto_publish_at is set when an automatic publish starts
+                    -- and catalog_version (moved by triggers on every change a storefront shows; the
+                    -- Shop API's edge cache keys on it); preview_key built on #518 (0232): 10 lowercase
+                    -- base32 characters, unique, not null, drawn by storefront_for_store() with the store
+                    -- and drawn again on a clash; the rest comes with publishing (SAPI 17)
+storefront_push     (store_id, key, parent_sha, commit_sha NULL, state ('pending'|'done'), created_at,
+                     finished_at NULL)  PRIMARY KEY (store_id, key)
+                    -- each push the platform makes to a store repo's main, by the caller's key, so a
+                    -- retried push never pushes twice: created_at is the commit's date, so a retry
+                    -- rebuilds the same commit and finds it on main (built on #316). System scope only
+publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'page'|'upgrade'
+                     |'security'|'rollback'), state ('queued'|'building'|'checking'|'deploying'
+                     |'live'|'failed'|'rolled_back'), commit, core_version, uses_allowance boolean,
+                     started_by_kind, started_by_id, started_at, finished_at, deploy_ref,
+                     previous_deploy_ref NULL, gate jsonb NULL, repair_attempts integer,
+                     bisect_commit NULL, error, build_minutes, github_run_id NULL)
+                    -- one running per store (partial unique); a failed or rolled-back run never
+                    -- uses the allowance (decided); uses_allowance only for 'manual'; 'page' is
+                    -- a single-page render (#470); gate is the full gate's report: each check,
+                    -- pass or fail, and what failed (storefront ARCHITECTURE §4.2), never code.
+                    -- Since 2026-10-09 (proposed, #317, #483 and #517): the run's id is the single-use
+                    -- build id the workflow is dispatched with; github_run_id is the Actions run
+                    -- it was bound to on first use (LIVE-SHOP §9); deploy_ref is the build's
+                    -- folder in R2 (stores/{id}/builds/{deploy_ref}/); gate is the report the
+                    -- workflow's check job sent (LIVE-SHOP §4 step 7)
+                    -- Built on #317 (migration 0233) with id, store_id, kind, state, commit, template,
+                    -- core_version, uses_allowance, started_by_*, created_at, started_at, finished_at, error (a
+                    -- code) and two of its own: previous_build_id (the build live when this one switched, which
+                    -- INF 5's rollback moves back to) and files_deleted_at (clean-up done, LIVE-SHOP §4 step 11).
+                    -- Decided there: deploy_ref and previous_deploy_ref are not columns, since the run's id is
+                    -- the build's folder; template is, so the switch writes the version without another read.
+                    -- repair_attempts, bisect_commit and build_minutes come with #483, which writes them. One
+                    -- running and one queued per store (partial unique indexes). Built on #517 (migration 0240):
+                    -- github_run_id; gate (the check step's report: passed, and each check's name, pass or fail
+                    -- and plain words) with gate_digest (the digest of the files it checked, LIVE-SHOP §4 step 7);
+                    -- uploaded_at ("uploaded": no credential after it), upload_manifest (the manifest as read
+                    -- once then, null when refused) and verified_at (every staged object hashed to its manifest
+                    -- entry and was copied, §4 step 9). Built on #483 (migration 0280): dispatched_at (the workflow was
+                    -- started, once) and build_minutes (dispatch to report, rounded up); building is claimed and
+                    -- dispatched, checking is a failing report the publish run decides on. Migration 0281: attempt_of and
+                    -- attempt ('repair'|'bisect') for the builds a failing design publish makes, beside it and one at a
+                    -- time (the one-running index counts publishes only), repair_attempts, bisect_commit, and the state
+                    -- checked (a bisect's build that passed, never uploaded); design_draft.commits lists the draft's
+                    -- accepted changes since the live version, which bisect halves. Built on #484 (migration 0285): switched_at (the pointer moved
+                    -- to it; the run stays deploying until its post-deploy checks end), checks (each check's name,
+                    -- passed, failed or skipped, and plain words) and rolled_back_at (the pointer moved back to
+                    -- previous_build_id; error names the failed check, LIVE-SHOP §4 step 10); migration 0287: render (a
+                    -- page run's addresses and those it leaves out, only on kind 'page') and assets_build_id (the build
+                    -- whose JS and CSS its pages load: the live build's for a page run, LIVE-SHOP §7); migration 0288:
+                    -- vitals (the regression rule's verdict: severe, regressed or ok, and the p75s it compared);
+                    -- migration 0330 (#485): check_only (a major's upgrade, built and gated, ending checked and never
+                    -- uploaded) and baseline (a security fix's baseline-theme build, whose look may change)
+design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
+                     changed_at, changed_by, preview_deploy_ref NULL)
+                    -- the one unpublished design per store: the draft's head (decided
+                    -- 2026-10-08 on #470, "Plan A"); every accepted AI change moves head_commit;
+                    -- the commits live in the private draft bundle until a publish of them goes
+                    -- live, which pushes them to
+                    -- the public repo (decided 2026-10-09, storefront AI-STUDIO §4, §6);
+                    -- preview_deploy_ref is the preview's folder (PREVIEW §3);
+                    -- discard resets it to the live version's commit; deleted on publish.
+                    -- #318: deleted when a design publish of its head goes live, and when going back to a version
+                    -- Built on #316 (migration 0231) without base_version_id, which comes with
+                    -- design_version: the create-storefront Workflow writes the first, its head
+                    -- the repo's main and its preview the template's bundle (SAAS §5 step 7)
+                    -- #318: a row the studio inserts lists its first commit in commits; Discard deletes the row,
+                    -- and the studio loads the draft bundle only while a row exists (AI-STUDIO §3 step 4)
+design_version      (id, store_id, number, commit, template, core_version, label NULL, build_id,
+                     published_by NULL, published_at, state ('live'|'kept'))
+                    -- PortalStorefront history: "Go back to version N" makes deploy_ref (the
+                    -- build's folder in R2) live again, no build (SAAS §9.2, LIVE-SHOP §4), then resets design_draft to commit; one 'live' per
+                    -- store; rows older than the plan's history days are deleted except the live
+                    -- one; label is the merchant's last request before publishing (§5.3
+                    -- app_partner: never label). Built on #317 (migration 0233): build_id is the publish_run
+                    -- that built it, which is the build's folder (replacing deploy_ref and publish_run_id);
+                    -- clean-up never deletes a build a version names, so it is never null.
+                    -- design_draft.base_version_id is built with it
+design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, changed text[],
+                     image_asset_id NULL, sample_url NULL, page NULL, commit NULL, before_commit NULL,
+                     undone boolean, ai_run_id NULL, created_by NULL, created_at)
+                    -- the studio's chat (PortalStorefront); changed is the plain-words list
+                    -- of what changed; commit is the change's commit and before_commit what
+                    -- "Undo this change" restores; image_asset_id a pasted image (the store's
+                    -- own asset), sample_url a site the merchant gave; the merchant's, like
+                    -- ai_run.prompt (§5.3)
+                    -- Built on #318 (migrations 0332, the notes, and 0333) with page (the page the reply shows); a note's or
+                    -- an error's text is a code the portal words, never stored words (`template:{key}`);
+                    -- the studio writes it in system scope, the merchant side reads its own
+storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_colour NULL,
+                     secondary_colour NULL, tagline NULL, description NULL, social jsonb,
+                     contact_email NULL, contact_phone NULL, contact_address NULL, voice NULL,
+                     updated_at)
+                    -- "Your brand" and Site settings › Brand (decided 2026-10-08 on #470);
+                    -- the assets are the store's own; colours are only a hint to the AI;
+                    -- the contact fields default from Store info; the Shop API reads logo,
+                    -- favicon, tagline, description, social and contact, never the colours or
+                    -- voice (the theme reads them through core, storefront ARCHITECTURE §2.1)
+                    -- Built on #471 (migration 0290): a row exists once the brand is saved with its logo, so
+                    -- brandReady is a name on store plus a row here; contact_address is store.address's shape;
+                    -- social holds each network's https profile address (a handle is saved as its address);
+                    -- tagline ≤100, description ≤300, voice ≤60 (any words: the list is the portal's suggestions);
+                    -- the brand step's shop name is store.name, written through save_store_name(). The Shop
+                    -- API's store answers the brand's logo, description and contact over Store info's once a row
+                    -- exists, plus favicon, tagline and social; app_shop holds no grant on the colours or voice
+storefront_seo      (store_id PK, title (≤60), description (≤155), share_asset_id NULL,
+                     updated_at)
+                    -- the home page's search and sharing; the share image is one of the
+                    -- store's product photos; read by the Shop API for core's <head>; saving
+                    -- re-renders the home page at once (SAAS §9.2), the rest at the next publish
+                    -- Built on #471 (migration 0290): title and description null until written; the share image
+                    -- is any product photo of the store; a save that changes them queues storefront.render for the
+                    -- home page in every offered language (/ and /{language}/), only once a build is live
+ai_run              (id, store_id, kind ('design'|'repair'|'migration'|'description'
+                     |'translation'), requested_by, prompt, model, tokens_in, tokens_out,
+                     cost_amount, cost_currency, billed_to ('plan'|'own_key'|'platform'),
+                     sandbox_ms integer NULL, repair_attempts integer, parent_run_id NULL,
+                     outcome ('changed'|'unchanged'|'refused'|'failed'))
+                    -- SAAS §9.2 metering; CATALOG C2 and N9 for text. A merchant's request is
+                    -- billed to its plan or own key; its repairs, a publish's repairs and the
+                    -- upgrade bot's migrations are 'platform' (decided 2026-10-08 on #470) and
+                    -- never count on the store's meter; build minutes are publish_run's; prompt
+                    -- is the merchant's (§5.3). Built on #482 (migration 0251) with created_at, a check
+                    -- that a repair is billed to platform under its parent, and only the merchant's
+                    -- read so far: the partner's and staff's metering view comes with its first reader
+studio_session      (id_hash PK, store_id, user_id, user_session_hash, can_change, created_at,
+                     expires_at)
+                    -- the studio frame's bearer id (storefront AI-STUDIO §8), kept only as its SHA-256;
+                    -- user_session_hash references user_session on delete cascade, so signing out
+                    -- ends it; live 5 minutes, renewed with an access re-check; system scope only
+                    -- (built on #482, migration 0251)
+storefront_redirect (id, store_id, from_path, to_path, language NULL, reason ('renamed'
+                     |'removed'|'merged'), created_at)
+                    -- the 301s of storefront ARCHITECTURE §8: written by the engine when a
+                    -- product, collection, content page or custom page changes address; the
+                    -- edge reads them per store; unique (store_id, from_path, language)
+                    -- Built on #338 (migration 0270), nulls not distinct, so a null language (every
+                    -- language) is one row; a rename points older redirects to the old path at the new
+                    -- one and deletes any starting at the new path, which a page holds again
+                    -- #484 (migration 0286): triggers on product.slug and on a product's translated slug (so an import,
+                    -- a supplier's save or a translation all leave one) write, with that language, storefront_product_path():
+                    -- /products/{slug} in the main language, /{language lowercased}/products/{slug} in another (core's
+                    -- languagePrefix, #483), no trailing slash, under the same no-chain rule; a new product
+                    -- deletes any redirect starting at its own addresses
+storefront_content  (id, store_id, kind ('page'|'post'), slug, title (≤200), body jsonb, seo_title NULL (≤60),
+                     seo_description NULL (≤160), status ('draft'|'scheduled'|'published'),
+                     publish_at NULL, published_at NULL, in_menu boolean, author NULL, tags text[],
+                     cover_asset_id NULL, asset_ids uuid[], product_ids uuid[], changed_at,
+                     deleted_at NULL)
+                    -- SAPI 24's content pages (FAQ, lookbook, the merchant's own) at /{slug} and blog
+                    -- posts at /blog/{slug} (storefront ARCHITECTURE §3.1), in the main language; built
+                    -- on #338 (migration 0270). UNIQUE (store_id, kind, slug) WHERE deleted_at IS NULL:
+                    -- every row's path is taken, drafts included. body is the StorefrontContent blocks
+                    -- (heading, text, image, faq, products, and a page's contact form), plain text only;
+                    -- asset_ids and product_ids are what it names. publish_at is a post's date (when a
+                    -- scheduled one goes live) and null on a page; published_at is when it first went
+                    -- live, so renaming one never live leaves no redirect; changed_at newer than the live
+                    -- build's publish_run.created_at means it waits for the next publish (SAAS §9.1).
+                    -- Part 2 (0271): app_shop reads it by column while published, or scheduled and due;
+                    -- a cron job marks a due scheduled post published (FIRST-RELEASE §14)
+storefront_content_translation (content_id, store_id, language, title, body jsonb, seo_title NULL,
+                     seo_description NULL, asset_ids uuid[], product_ids uuid[], source_hash, updated_at)
+                    PRIMARY KEY (content_id, language)
+                    -- a page's or post's other languages (built on #338, migration 0271): its body is
+                    -- a document of blocks, so it doesn't fit §7.1's `translation` text rows; source_hash is
+                    -- the md5 of the main words it translated, as `translation`'s; the slug is the page's own
+storefront_vitals_day (store_id, day, page_kind, device ('phone'|'desktop'), samples,
+                     lcp_p75_ms, inp_p75_ms, cls_p75)
+                    -- real-user Core Web Vitals, recorded only after the shopper's consent
+                    -- (decided 2026-10-08 on #470), aggregated per day; no visitor id, address
+                    -- or URL beyond the page kind; PRIMARY KEY (store_id, day, page_kind, device)
+                    -- Built on #484 (migration 0288) with histograms instead of the p75 columns (decided there: a p75
+                    -- can't be summed over days): lcp_hist (250 ms buckets), inp_hist (25 ms) and cls_hist (0.01), the
+                    -- last bucket taking everything above (db/scoped/vitals.ts); page_kind is home, collection,
+                    -- product, custom, cart, checkout or other. System scope writes it (the Shop API's intake, the
+                    -- store from the host); the merchant side reads its own; partners and staff have no grant until
+                    -- a console reads it. publish_run.vitals (0288) is the regression rule's verdict on a live build
+store_usage         (store_id, key, used, period_start NULL, updated_at)
+                    PRIMARY KEY (store_id, key)                 -- built on #212 (§2.4)
+                    -- one row per limit and per monthly allowance (the plan keys of §2.3);
+                    -- an allowance's period_start says which period it counts, reset per
+                    -- billing period (SAAS §6.2). The meters with no plan value
+                    -- (ai_tokens, build_minutes, bandwidth_bytes) and a history per period
+                    -- #318 counts `ai_prompts`: a merchant request on the plan takes its unit in one statement
+                    -- before the model is asked (given back when the sandbox never took it), never a repair;
+                    -- period_start is the UTC month, compared as a date
+                    -- are added by the card that first writes them. AI cost is not a meter
+                    -- but the sum of ai_run.cost_amount for the period (§7.1 Money)
+store_limit_override (id, store_id, key, amount, duration ('month'|'always'), month NULL,
+                     reason, created_by_*, created_at, removed_at, removed_by_label)
+                    -- built on #212 (§2.4); SAAS §6.1 per-store overrides; purchased extra
+                    -- bandwidth will be a 'month' override
+```
+
+**Platform scope, for the fleet** (Admin API only; SAAS §10):
+
+```
+core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), security boolean,
+                     sandbox_image, shop_api_versions text[], notes_url, retired_at NULL, image_deleted_at NULL)
+                    -- every published storefront-core version and its sandbox image digest:
+                    -- sandbox_image is Cloudflare's registry reference pinned by @sha256, which the
+                    -- studio's Durable Object starts; written by release.yml's sandbox-image job
+                    -- (built on #482, migration 0250); staff read it, system scope writes it; retired_at and
+                    -- image_deleted_at (#485, 0350): no store needs the version's studio image any more, and the
+                    -- scheduled workflow deleted it from Cloudflare's registry (AI-STUDIO §9)
+storefront_template (key PK, name, tag, description, demo_store_id NULL, core_min_version,
+                     state ('offered'|'retired'))
+                    -- the template gallery (storefront ARCHITECTURE §2.3); the code itself is
+                    -- in templates/storefront/themes/{key}, whose template.json each row
+                    -- mirrors (built on #486, migration 0331; `tag` is the gallery's short
+                    -- label, "Minimal fashion"); staff read it, system scope writes it; a
+                    -- partner offers a subset (G4)
+                    -- #318: the Store API reads the offered rows in system scope (`storefrontTemplates`,
+                    -- `chooseTemplate`)
+core_rollout        (id, version, security, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
+                     paused_state NULL, percent, started_by NULL, reason, started_at, enrolled_at NULL,
+                     finished_at NULL)
+core_rollout_store  (id, rollout_id, store_id, position, from_version, state ('pending'|'running'
+                     |'passed'|'migrated'|'pinned'|'baseline'|'live'|'reverted'), commit NULL,
+                     publish_run_id NULL, gate jsonb NULL, error NULL, started_at NULL, finished_at NULL)
+                    -- per-store result of an upgrade (CONSOLE-DESIGN L2); account level
+                    -- (§7.11): a partner reads its stores' state, never gate or commit (granted by
+                    -- column). Built on #485 (migration 0330): one rollout at a time (a partial unique
+                    -- index); `position` 0 is a canary, 1–100 the share of the fleet the waves' percent
+                    -- reaches; `running` while the store's core-upgrade Workflow works, `reverted` once a
+                    -- rolled-back rollout put the store back; staff read both tables and write
+                    -- core_rollout, the tick and the Workflow write in system scope (SAAS §10)
+```
+
+### 7.9 Merchant billing
+
+Store-scoped at account level (the partner reads status and amounts; staff read everything
+but `store_billing_details`, which stays store-only). The money model is SAAS §7: Stripe
+Billing on DripFunnel's account, the partner's or DripFunnel's own plans. Distinct from the
+store's own `payment_provider_account` rows (flow 61). `store.plan_id` and `trial_ends_at`
+(built on #32) are mirrors of this table, written by the same transaction. **`store_subscription`
+is built on #212** (§2.4); `billing_event` is built on #201, and `store_billing_details`,
+`invoice` and `invoice_line`, which only the merchant's Billing screen reads and writes, move to
+the Store strand's billing card (ui/store/FIRST-RELEASE.md §20, SAPI 19).
+
+**Built on #163** (migration `0019`), what the partner Dashboard, Billing and Reports read, filled
+by Stripe Connect's sync later (THIRD-PARTY-ACCESS §2.7) and by the seed until then. Each is
+partner-scoped: a partner reads its own rows, staff and jobs every row, `app_system` writes, and
+no merchant branch exists yet. The four role pins are on each table. Money columns are `bigint`
+minor units, and every payout currency is the contract's `fee_currency` by foreign key, so a
+sum never mixes or drops currencies.
+
+```
+merchant_charge     (id, partner_id, store_id, kind ('subscription'|'proration'|'refund'),
+                     status ('paid'|'failed'|'refunded'|'recovered'), amount, currency,
+                     payout_currency, payout_gross, fee_amount, partner_amount
+                     (= payout_gross - fee_amount), card_last4, failure_reason, invoice_id,
+                     charged_at)          -- (store_id, partner_id) keyed to the store's partner;
+                    -- a refund's amounts are positive and subtracted when summed
+partner_payout      (id, partner_id, period_start, period_end, currency, gross, fee,
+                     adjustments, amount (= gross - fee + adjustments), stores,
+                     status ('scheduled'|'paid'|'held'), scheduled_for, paid_at, held_reason,
+                     adjustment_note)     -- one per partner and period
+store_sales_month   (store_id, partner_id, month, currency, amount, payout_currency,
+                     payout_amount, orders)  -- payout_amount ranks stores across currencies
+                    -- the engine's monthly totals: all a partner sees of a merchant's orders
+partner_billing_feed (partner_id PK, synced_at, stale_since)
+                    -- the sync job's last run; the Dashboard's asOf and staleSince
+```
+
+```
+store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active'|'past_due'
+                     |'cancelled'), interval ('month'|'year'), currency, amount,
+                     period_start, period_end, trial_ends_at, cancel_at NULL,
+                     next_plan_id NULL, next_plan_version NULL, change_at NULL,
+                     stripe_customer_id, stripe_subscription_id, payment_method_label,
+                     payment_method_brand, payment_method_last4, payment_method_expires date,
+                     proration_amount NULL, proration_at NULL)
+                    -- status uses store.status's spellings (0007: trial, active, past_due,
+                    -- cancelled), which core/tenancy.ts's Subscription type and ACCESS §3
+                    -- use since #212. currency is the store's when USD, EUR or INR, else
+                    -- USD (SAAS §6.1); the card is Stripe's: brand, last 4 and expiry only;
+                    -- next_plan_* and change_at are a scheduled downgrade (SAAS §6.3,
+                    -- PortalBilling "You'll move to Growth on 27 Oct"), and the Owner's
+                    -- Choose-what-to-keep picks are stored as the §7.1 pause states before
+                    -- change_at
+store_billing_details (store_id PK, legal_name, address jsonb, tax_id NULL, tax_id_kind
+                     ('gstin'|'vat'|NULL), email)                -- SAAS §7.2, Owner-only
+invoice             (id, store_id, number, kind ('subscription'|'proration'|'setup'|'usage'
+                     |'credit'), status ('paid'|'open'|'void'|'refunded'), amount, tax_amount,
+                     currency, tax_label, reverse_charge boolean, billing_details jsonb,
+                     issued_at, paid_at, pdf_asset_id NULL, stripe_invoice_id)
+                    -- billing_details is a snapshot; issued invoices never change
+invoice_line        (id, invoice_id, store_id, label, amount, currency, period_start NULL, period_end NULL,
+                     kind ('plan'|'proration_charge'|'proration_credit'|'setup'|'usage'))
+                    -- a plan change is one invoice with a charge and a credit line (SAAS §7.2)
+billing_event       (id PK = Stripe event id, store_id NULL, partner_id NULL, type, received_at,
+                     handled_at)                                   -- SAAS §7.2 idempotency
+```
+
+**Built on #201** (migration `0033`), the partner's side, partner-scoped like #163's tables:
+
+```
+partner_billing_account (partner_id PK, stripe_account_id NULL (Connect), stripe_customer_id NULL,
+                     payout_bank NULL, payout_last4 NULL, payout_status ('missing'|'verifying'
+                     |'verified'|'failed'), payout_failure NULL, card_brand NULL, card_last4 NULL,
+                     card_expires NULL, card_status ('missing'|'on_file'|'declined'), updated_at)
+                    -- Stripe's last 4 only, never a number; the partner writes it from a token's
+                    -- answer, the webhook moves the statuses on
+partner_invoice     (id, partner_id, stripe_invoice_id unique, number NULL, what, amount, currency,
+                     status ('open'|'paid'|'void'), issued_at, due_at NULL, paid_at NULL)
+                    -- DripFunnel's invoices to the partner (FIRST-RELEASE §11.3)
+merchant_charge     + stripe_ref unique ('in_…' a subscription invoice, 're_…' a refund),
+                     retry_at NULL, attempt NULL     -- Billing's retry state on a failed one
+partner_payout      + stripe_payout_id unique, to_last4, failure_reason; status gains 'failed';
+                     one per partner and period only for rows without a Stripe id: a retry or a
+                     manual payout is a second Stripe payout in the month
+```
+
+**Built on #329** (migration `0140`), the store's side: `store_billing_details`, `invoice` and
+`invoice_line` as designed above, store-scoped for the merchant side (never a supplier, a partner
+or a storefront; staff read the invoices, never the details) with the four role pins. Built
+differently: `invoice` has no `pdf_asset_id`, `tax_label` or `reverse_charge` (the PDF and its tax
+are Stripe's), and carries `stripe_invoice_id` unique and `paid_at`; `invoice_line` carries
+`position`, its amount signed (a credit below zero). `store_subscription` gains `next_interval`
+(a scheduled change of period), `billing_claim`, `billing_claim_until` (one change at a time) and
+`billing_revision` (what Stripe's idempotency keys carry, SAAS §7.2). Part 2 (migration `0170`):
+`store_subscription.keep_products` (the Owner's picks of Choose what to keep, at most 10,000,
+cleared once applied; SAAS §6.2), `catalog_export.bundle` (the three parts of `exportStoreData`,
+read back together) and `trial_end_failed_at` with a partial index on trials for the cron that ends them
+(a trial that failed to end goes behind the rest).
+
+**Reconciled on #157**: `plan.trial_days` is `0..90` (migration `0013`; it was `(0, 7, 14,
+30)`), so the house partner's 10-day trial fits (SAAS §6.1), and the seed's house plans carry
+it.
+
+### 7.10 Integrations, jobs and requests
+
+```
+api_key, app_grant  §3.5 (store-scoped, optional seller binding); api_key gains
+                    rotated_from_id NULL, so a rotation keeps the old key's audit trail (ACCESS §5.6)
+app                 (id, name, developer, site_url, webhook_url, scopes text[], secret_sealed, status
+                     ('live'|'suspended'), created_by_staff_id, created_at, updated_at)
+                    -- platform-scoped registry the grants point at (PLATFORM-PROMPT §5.5,
+                    -- DESIGN-BRIEF flow 77); Admin API only. Built on #330 (migration 0152): staff
+                    -- with apps.manage register, the secret shown once; a store reads a live app's
+                    -- name, developer, site and scopes, and one it holds a live grant of while it's
+                    -- suspended (0153), so it can see it paused and remove it; app_system reads the rest
+app_grant           built on #330 (0152): also token_hash (unique), installed_at, last_used_at,
+                    revoked_by_user_id; one live grant per store and app; the token goes once to the
+                    app's webhook_url through `app.notice`, sealed in the outbox row until sent;
+                    token_sent_at, or token_failed_at once the relay gives up (0154), so the Owner
+                    sees an install that never reached its app and installs it again
+webhook_endpoint    (id, store_id, url, events text[], secret_sealed, status ('active'|'disabled'
+                     |'failing'), failing_since NULL, disabled_at NULL, created_by_user_id, created_at,
+                     updated_at, deleted_at NULL)
+webhook_delivery    (id, endpoint_id, store_id, event, event_id, body, status ('pending'|'delivered'
+                     |'failed'|'held'), attempts, response_code, error (a code) NULL, duration_ms,
+                     created_at, last_attempt_at, delivered_at, replay_of NULL)
+                    -- PLATFORM-PROMPT §5.5: delivered from the outbox, replayable, endpoint
+                    -- disabled after repeated failure. Built on #330 (migration 0151): one first
+                    -- delivery per endpoint and event (unique), the body ids only; `held` waits for a
+                    -- turned-off endpoint; the relay's backoff and limit do the retrying; a month kept
+external_connection (id, store_id, seller_id NULL, provider ('shopify'), shop_domain, status
+                     ('pending'|'approved'|'connected'|'expired'), token_sealed NULL, state_hash NULL,
+                     finish_hash NULL,
+                     return_host NULL, connected_by, created_at, connected_at, expires_at)
+                    -- CATALOG K7, built on #301 (migration 0060): one an owner (the store, or a
+                    -- supplier its own); pending for ten minutes under the hash of the OAuth state,
+                    -- approved by hooks/shopify with a one-time finish key, connected only when the
+                    -- person who started it finishes in their own session; the token sealed with the credential key and
+                    -- deleted once an import has read the shop, or after a day unused
+catalog_import      (id, store_id, seller_id NULL, source ('csv'|'shopify'), state ('checking'
+                     |'ready'|'running'|'done'|'failed'), file text NULL, plan jsonb NULL,
+                     match_mode ('update'|'skip') NULL, warehouse_id NULL, products, ready,
+                     matched, problems jsonb, done, created, updated, skipped, failed,
+                     photos_pending, problems_csv NULL, requested_by_id, requested_by_label,
+                     created_at, started_at, finished_at, expires_at)
+                    -- built on #301 (migration 0059), CATALOG K: the file is checked into a plan
+                    -- (problems by line and column) and nothing is written until confirmed; the run
+                    -- goes a chunk at a time through the outbox in the importer's scope, matching by
+                    -- SKU among the importer's own products only (update or skip, K4); photos are
+                    -- fetched one by one from public addresses; every imported count writes
+                    -- stock_movement 'import'. The file and plan go when the run ends, the error file
+                    -- a day later. A connected import (K7) has connection_id, selection (the picked
+                    -- products, null for all) and cursor, and is read into the file before its check
+catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'orders'|'customers'|'offer_codes'|'report'|'activity'), filter jsonb,
+                     state ('queued'|'done'|'failed'), rows, truncated, csv text NULL,
+                     requested_by_id, requested_by_label, created_at, finished_at, expires_at)
+                    -- built on #301 (migration 0058): the store's CSV exports, named apart from
+                    -- the partner's export_job (§2.6); built through the outbox in the asker's
+                    -- scope, so a supplier's holds its own rows only; the file is on the row for
+                    -- an hour, then purged (LOGGING §6). Orders, customers and the other CSVs the
+                    -- prototype downloads add their kinds when their cards build them; 'orders' came
+                    -- with #310 (0073), its filter a chip and a search, a supplier's file its own lines;
+                    -- 'report' with #322 (0101), its filter the panel or custom report and the range fixed when asked
+                    -- 'activity' with #331 (0161): the store's Activity log, its filter the screen's, built in the Owner's scope
+                    -- bundle (#329, 0170): the products, orders and customers parts of one exportStoreData
+signup              §3.3 (built on #290)
+access_request      (id, store_id, by_user_id, kind ('feature'|'area'), what,
+                     resolved_at NULL, resolution ('acted'|'dismissed') NULL, resolved_by NULL)
+                    -- "Send request" from a Manager or Staff, shown on the Owner's Home
+```
+
+`job` and `job_detail` (§2.1) stay the SaaS layer's: provisioning and fleet. Import and export
+have their own tables because the merchant reads them, a supplier may own one, and their
+columns are nothing like a provisioning run's.
+
+### 7.11 Row-level security, roles and indexes for §7
+
+The policy classes, named per table so the isolation tests (ACCESS §11.1) are written against
+this list and nothing else. Row policies decide which rows a scope reaches; **the roles of §5.3
+decide which columns and which tables each caller kind may select at all**. `app.scope` and
+`app.seller_id` keep working as before; the role is set beside them.
+
+- **Store-and-seller** (§5.2 template, for `store` scope: a supplier reads and writes
+  `seller_id = app.seller_id` only, the merchant everything; **no `shop` branch** except where
+  the next paragraph says): `product` and every child in §7.3 that carries `seller_id`
+  (options and values, versions and their option values, prices and price history, per-market
+  prices, photos, video, market rules, flags, compliance, specs, highlights, FAQs, related,
+  badges, filter assignments, the approval snapshot), `product_story`, `size_chart`,
+  `size_chart_rule`, `translation`, `asset`, `warehouse`, `stock_level`, `stock_movement`,
+  `order_line`, `order_part`, `fulfilment`, `fulfilment_line`, `return_line`, `refund`,
+  `refund_line`, `supplier_ledger_entry`, `custom_field_value` (the owner of the entity it
+  values), `order_document` (a supplier reads only the labels
+  it printed for its own parts; invoices and packing slips carry a null owner and never reach
+  it), `catalog_import`, `catalog_export`. **No partner or platform branch** on any of them: a partner
+  never reads a supplier's import problems or a store's catalogue. `app_supplier` has no
+  `select` on `refund.by_user_id`, `refund.note` or `supplier_ledger_entry.note` (§5.3).
+  **Shop branches, explicit**: `product`, its children, `collection`, `collection_product`,
+  `product_filter_value`, `product_story` (live only), `story_block` (when a live story
+  embeds it), `size_chart` and `custom_field_value` (of a visible entity) get a `shop` read
+  policy on
+  visibility (`visibility = 'visible'`, `deleted_at IS NULL`, the product not hidden, the
+  version priced in the shopper's currency); **`asset`** has no such columns, so its `shop`
+  branch is `EXISTS` a `product_photo`, `product_story`, `collection.image_asset_id`,
+  `story_block` or `store.logo_asset_id` reference whose owner row passes that visibility
+  rule, and **never** an asset referenced by `order_document`, `invoice.pdf_asset_id`,
+  `customer_data_request`, `catalog_import` or `delivery_area` (the matrix row: a shopper selecting
+  an invoice asset by id gets nothing; a catalogue export keeps its file on its `catalog_export`
+  row, never as an asset); `order_line`, `order_part`
+  and `fulfilment` get a `shop` read policy of `EXISTS (SELECT 1 FROM "order" o WHERE o.id =
+  order_id)`, which carries the guest rule below through the order's own policy (and
+  `order_adjustment`, an inside-the-store table, gets the same one: see the next class).
+  Built so far (0068): the shop branch on `order_line` and `order_adjustment`; `order_part` and
+  `fulfilment` get theirs with the shopper's order tracking (ST 1b, #313).
+  **By column, for `app_shop`** (§5.3): on `order_line` never `seller_id`, `tax_rate_bps`,
+  `tax_zone_id` or `hs_code` (supplier attribution reaches the storefront only where the
+  merchant shows it, through the Shop API, never as a column); on `order_part` only `state`
+  and `shipping_mode`, never `seller_id`; on `fulfilment` only `courier_name`,
+  `tracking_number`, `tracking_url`, `shipped_at` and `delivered_at`, and only rows of kind
+  `booked`, `manual` or `pickup` (a supplier's `sent_to_store` hand-off is the store's
+  internal step and has no shop branch). **`translation`** and **`product_search`** have no
+  visibility columns of their own: their `shop` branch is `EXISTS` on the translated or
+  indexed row passing its own shop rule (a visible, unhidden, undeleted product or
+  collection; a shopper-visible filter; an option or choice name a visible product's option
+  carries; a live story; a policy; any other entity, nothing), so a hidden product's slug
+  or translated name never reaches a shopper, and the matrix has that row. Every other table
+  in this class has **no `shop` branch**, and `app_shop` has no `select` on it either.
+- **Catalogue structure: inside the store, merchant-written, shop-readable**: `collection`,
+  `collection_rule`, `collection_product`, `filter`, `filter_value`, `menu`, `menu_item`,
+  `custom_field_definition`, `badge` definitions, `product_search` (written by the outbox
+  consumer as `app_system`; its shop branch is the indexed product's rule, above). No
+  supplier branch except the read-only
+  ones listed below (`filter`, `filter_value`, `badge`); a `shop` read branch on visibility
+  (`collection.visibility = 'visible'`, `deleted_at IS NULL`, `filter.shopper_visible`, every
+  menu item, every definition and badge), `collection_rule` excepted, which the shop never
+  reads (the result is `collection_product`); `app_shop` has `select` on these and no write.
+- **Inside the store, no supplier branch** (and no shop branch unless this bullet names
+  one): `"order"` and `"return"` (base
+  tables: `app_supplier` has no `select`; it reads `order_for_supplier`,
+  `order_line_for_supplier` and `return_for_supplier`, three `security barrier` views owned by `app_definer` that filter on
+  `app.store_id` and `EXISTS` a part or line with `seller_id = app.seller_id`, indexed on
+  `order_part (order_id, seller_id)` and `return_line (return_id, seller_id)`, and whose
+  columns are, for every mode: id, number, state, placed_at, currency, the part's id, state and
+  shipping mode (built on #310, migration 0070, which also shows a supplier only an order that went through on the live
+  storefront: paid, or cash on delivery or transfer, and never a preview's test order); and, **only where the part's stored mode is `to-shopper`**, the shopper's
+  name and `shipping_address`; never email, phone, `billing_address`, any order `*_amount`,
+  `notes`, `cancel_reason`, `search`, `access_token_hash`, `"return".note` or any
+  `order_adjustment`. **`order_line_for_supplier`** is the one place a supplier sees money:
+  for its own lines only, `quantity`, `unit_amount`, `line_amount = unit_amount × quantity`
+  and the order's `currency`, so "Your sales" and the refund ceiling have a figure with its
+  currency (DESIGN-BRIEF fact 6; the price before the merchant's discount, since who pays a
+  discount is open, OFFERS fact 18); never `discount_amount`, `tax_amount`,
+  `line_total_amount` or a tax rate or zone, which carry the shopper's order-level discount
+  and tax spread across lines), **`order_adjustment`** itself (the shopper's whole-order discounts,
+  shipping, tax and duties: `app_supplier` has no `select`; **it has the shop read branch**
+  `EXISTS` on its own order, so a shopper's order page shows its discount, shipping and tax
+  lines, and `app_shop` has `select` on it), `payment`, `payment_refund`,
+  `promotion` and its children,
+  `customer_group`, `customer_group_member`, `story_block` (inside the store for writes; its
+  shop read branch is above), `access_request`, `webhook_endpoint`, `webhook_delivery`,
+  `external_connection`, `api_key`, `app_grant`, `invitation` (§3.3), `cart_reminder`,
+  `cart_reminder_flow`, `cart_reminder_step`, `store_ai_account`, `store_billing_details`,
+  `licence_key` (merchant side only: `insert` and a count, never `select` on `key`; its **shop
+  branch** is the keys its own order took, through `order_line`'s; #323), `order_download` (shop
+  branch through its order), `gift_card` (the merchant side reads it, never `code_hash`), `gift_card_movement`
+  (system scope only; #323),
+  and every settings table in §7.2 not named in the next class. `"order"` alone also has
+  the **shop branch** (built on #308, migration 0066) `customer_id = app.customer_id OR (customer_id IS NULL AND
+  access_token_hash = current_order_token_hash())`, where `current_order_token_hash()` is an `app_definer` function
+  returning the hash of the token this request presented (`app.order_token_hash`), or null when none was; the policy
+  compares the stored hash itself, so no request role selects the hash column (§5.3), a guest holds exactly the carts
+  and orders whose token it presents, and a row this statement inserts is checked the same way. **Its shop write
+  policy** (`INSERT` and `UPDATE` for `app_shop`, on the columns §5.3 grants): `state = 'cart'` in both `USING` and
+  `WITH CHECK`, so a placed order is never writable by a shopper and a cart cannot be placed by a direct write;
+  `store_id = app.store_id`; the same owner test; and the currency and market only of the store's offer. A cart holds
+  no price, so nothing a shopper writes is priced: the engine prices the cart on every read, and placement writes in
+  system scope (#309), so the inheritance of §7.1 holds.
+  `customer_data_request` gets the same shape for a guest's own request: its `access_token_hash` and `request_token_matches(uuid)` against
+  `app.request_token_hash` (§5.1), with the matrix row guest A vs guest B.
+  **Read-only supplier branches, listed in the matrix**: a supplier editing its own products
+  reads `filter` and `filter_value` (it assigns values; CATALOG L9: no collections, decided
+  2026-10-05 on #337), `tax_class` (to pick one), `store_language` and `store_currency` (to
+  translate and price), `store_feature` and `badge` (to know which sections and manual badges
+  exist), and `market` without its duties, domain and payment columns (to see which currencies
+  a price is needed in); `app_supplier` has `select` on nothing else here.
+- **Shop-readable settings** (a `shop` read branch on `store_id = app.store_id`, with
+  `app_shop` granted the public columns only, §5.3): `store` (name, description, logo,
+  address and contact for pickup and receipts, `time_zone`, `pricing_currency`,
+  `main_language`, `tax_inclusive`, the pickup fields; never the order counter or the
+  defaults), `store_language`, `store_currency` (currency and rounding), `market` (name,
+  countries, currency, language, web mode, path and status; never duties rates or payment
+  links), `store_policy`, `badge` (label and tone), `shipping_zone`, `shipping_method` (built as
+  `store_shipping` and `store_courier`'s `provider`, `role` and `position`, #305),
+  `payment_provider_account` (`provider`, `mode`, `public_key`, `status`, `position`,
+  `paused_by_plan` and `bank_details`, never a credential: the storefront mounts the provider's
+  element with them and shows a bank transfer's details; built on #309, 0068), `storefront_brand` (`logo_asset_id`, `favicon_asset_id`,
+  `tagline`, `description`, `social`, `contact_email`, `contact_phone`, `contact_address`; never
+  `primary_colour`, `secondary_colour` or `voice`, which only the AI reads) and `storefront_seo`
+  (`title`, `description`, `share_asset_id`). Duties, tax and delivery-area checks are the engine's
+  (PLATFORM-PROMPT §5.5): the shop reads none of `delivery_area`, `compliance_default`
+  or `store_feature`. **Amended on #308**: `tax_class`, `tax_zone`, `tax_rate` and `product_version.tax_class_id` are
+  shop-readable (rates are printed on every invoice), so the engine prices a cart's tax as the shopper; it still
+  computes it, and a storefront is never told a rate it could assert. The matrix row: a shopper selecting `payment_provider_account` gets those
+  columns and never `credentials_enc`, `webhook_secret_enc` or `external_account_id`, and no row of
+  any other settings table.
+- **Customer accounts**: `customer`, `customer_address`, `customer_data_request`: inside the
+  store, plus the read-only `platform` branch of §2 on `customer`, plus a **shop branch** on
+  `customer_id = app.customer_id` (`customer_data_request` also by its own token for a guest),
+  and `insert` for `app_shop` on all three; a guest's own `customer_data_request` through
+  `request_token_matches(id)`. The `customer_data_request` insert `WITH CHECK` has the
+  cart's shape: `store_id = app.store_id`, `customer_id = app.customer_id OR (customer_id IS
+  NULL AND (subject_email IS NOT NULL OR subject_phone IS NOT NULL) AND access_token_hash =
+  current_request_token_hash())`, the function returning the hash of the token the Shop API
+  minted for this request (null when none), so an anonymous filing is bound to the store and
+  to a token only its filer holds; `app_shop` has no write on `subject_verified_at`, `state`,
+  `expires_at` or `file_asset_id`, so verification, the expiry and the export are the
+  engine's alone (§7.5); and the
+  Shop API rate-limits filings per subject and per client (ACCESS §4). **No uniqueness on
+  the subject**: a unique index would let an anonymous filer block the person's own request
+  and would reveal, through the refusal, that a request exists for an email (ACCESS §2
+  "never reveal whether an account exists"). Instead every filing is accepted with the same
+  response, an unverified request expires after 24 hours (`expires_at` has `DEFAULT now() +
+  interval '24 hours'`, `app_shop` has no write on it, and the `WITH CHECK` requires
+  `subject_verified_at IS NULL AND state = 'requested'`, so a filer sets neither the expiry
+  nor the state). **Verification is bound to one request, not to the subject**: the code the
+  engine sends names the request's own token in its link, and verifying requires that token
+  and the code together, so a code fulfils only the request the person holds the link for;
+  another filer's request for the same email can never be fulfilled by the victim's code, and
+  lapses at its `expires_at`. **The filing token dies at verification**: the filer knows it,
+  and the verification link carrying it went to the subject, so on a correct code the engine
+  replaces `access_token_hash` with the hash of a new token it sends only to the verified
+  subject (in the "your export is ready" message, or for a deletion the confirmation), and
+  the file is reachable with that token alone, or by the signed-in customer; the filer's
+  token opens nothing after that. The `WITH CHECK` also pins `requested_by = 'customer'` and `kind
+  IN ('export', 'delete')`, and `state` has `DEFAULT 'requested'`. After verification the
+  engine sets `expires_at` again, to the file's retention (7 days for an export, cleared for
+  a deletion once done), so the column always means "when this row stops mattering". No
+  supplier branch.
+- **Storefront design, inside the store, merchant side only** (no supplier branch, and
+  `app_supplier` has no grant on any of them): `design_draft`, `design_message` (the merchant's
+  prompts and pasted images), `storefront_brand`, `storefront_seo`, `storefront_content`, `storefront_content_translation` and `storefront_redirect`.
+  Written through `app_request` under the `publish` capability (ACCESS §5: the Owner; the
+  Manager reads; read-only in a support session); `storefront_redirect` is written by the
+  engine and read at the edge in `system` scope; `storefront_brand` and `storefront_seo` also
+  have the shop read branch, by column, above, and so do `storefront_content` (live rows only) and its
+  translations (#338).
+- **Account level** (the partner and platform branches §2 gives account-level tables, for
+  state only, never content): `storefront`, `publish_run`, `design_version`, `core_rollout_store`, `storefront_vitals_day` and `ai_run`
+  (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
+  prompt, label, chat or gate detail beyond pass and fail; a merchant's design prompts are store content,
+  USERS-AND-DOMAINS §4), `store_usage`, `store_limit_override`, `store_subscription`, `invoice` and
+  `invoice_line` (status and amounts for the partner that bills), `custom_domain`, and
+  `billing_event`, which is cross-scope and append-only like `activity_log` (§2; a Stripe
+  event names a store or a partner, and only the SaaS layer writes it).
+- **Partner and platform scope**: `signup` (partner); `app`, `core_release`, `storefront_template` and `core_rollout` (platform; `core_rollout_store` carries `store_id` and is account level, above). Nothing else in §7:
+  a table in none of these classes is a gap the structural test (§5.4) reports.
+- **Column rules**, all by role (§5.3): `product_version.cost_amount` and `cost_currency`
+  never to `app_shop`; `access_token_hash` and every `*_enc` and `key_enc` to no request
+  role; the AI prompt columns never to `app_partner` or `app_platform`; the refund, return and ledger free
+  text never to `app_supplier`. The Shop API schema has no field for a cost, and the matrix
+  has the row that proves a shopper query cannot return one.
+- Every policy's columns lead an index; list screens get a composite on
+  `(store_id, <filter>, created_at desc, id desc)` for keyset paging with the maximum page
+  size `db/scoped` already applies to every list (`maxPageSize`, ui/admin/FIRST-RELEASE §12:
+  no page numbers, no totals; the Shop API's catalogue lists use the same bound); the views' `EXISTS` on orders and returns is backed by `order_part
+  (order_id, seller_id)` and `return_line (return_id, seller_id)`, and
+  `order_line_for_supplier` by `order_line (order_id, seller_id)`; the structural test (§5.4)
+  lists all three views, the metering view and every `app_definer` function with its filter.

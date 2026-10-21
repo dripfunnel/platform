@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -34,7 +34,8 @@ It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §3 D (flows 20–29) and the cata
 > the first platform's portal's screens (sign-in, store settings, people, suppliers, warehouses) are
 > the visual baseline, and their look and words carry over unless the engine changes what they
 > can say. The left bar has **Products**, **Collections** (with three tabs: Collections,
-> Filters and Menus) and, when approval is on, **To approve**.
+> Filters and Menus) and, when approval is on, **To approve** (in the first release a "Waiting for
+> approval" chip in Products instead, ui/store/FIRST-RELEASE.md §3.1).
 >
 > **Who this is for.** Picture a first-time seller **anywhere in the world**: a boutique in
 > Ohio, a ceramicist in Lisbon, a spice shop in Manchester, a kurta brand in Jaipur, a skincare
@@ -123,7 +124,7 @@ indicative until the engine's data model is written.
 | **Product classification code**, named by region: HSN (India), HTS (US), CN / TARIC (EU), commodity code (UK), HS code (elsewhere) | Catalogue: nullable, neutral `hsCode` on the version (§3 fact 7) | "The international code for this kind of product, used for tax invoices, shipping and customs." Offer search by plain words. |
 | **Barcode** (GTIN / UPC / EAN / ISBN) | Catalogue: barcode on the version `(release: decide)` (§3 fact 44) | "The number under the barcode on the packaging. Needed to sell on Google Shopping and marketplaces." |
 | **Weight / size of the package** | Catalogue: weight and dimensions `(release: decide)` (§3 fact 12) | Shown in the store's units (kg · cm, or lb · in). §3 fact 39. |
-| **Product code (SKU)** | Catalogue: version SKU, unique per store | "Your own code to tell versions apart. We can make one for you." Auto-generate by default. |
+| **Product code (SKU)** | Catalogue: version SKU, unique per owner, the merchant's and each supplier's (decided on #293: a store-wide rule would tell a supplier which codes others use) | "Your own code to tell versions apart. We can make one for you." Auto-generate by default. |
 | **In stock / quantity** | Inventory: on hand per (version, warehouse) | One number for most sellers (§3 fact 9). |
 | **Reserved for orders** | Inventory: reserved per (version, warehouse) | "Sold but not shipped yet." |
 | **Warehouse** | Inventory: warehouse (per merchant and per vendor) | Already named this in Settings › Warehouse. |
@@ -313,7 +314,8 @@ main language and offered languages, and translations per language with fallback
     - Accented Latin characters are simplified ("crème brûlée" → `creme-brulee`).
     - For non-Latin scripts (Arabic, Cyrillic, Devanagari, CJK), offer transliteration
       ("кроссовки" → `krossovki`) rather than an unreadable encoded URL *(ask which the
-      storefront wants)*.
+      storefront wants)*. **Until that's decided** (#296): a name with no Latin letters keeps
+      the main language's address, and the merchant may type one.
 23. **Photo alt text per language** is an engine requirement `(release: decide)`: alt text
     belongs to the photo's use on a product, with a translation per language. Until it ships,
     alt text is one text in the main language, and the UI does not offer to translate it.
@@ -389,14 +391,15 @@ must store all of it per store, and enforce the pricing-currency lock.
     `(release: decide)`.
 31. **Category decides what's relevant.** A size chart means nothing for a phone, and a battery
     spec means nothing for a T-shirt. Relevance comes from the store's configuration (which
-    features are on) and, optionally, a product category or template *(ask;
-    `(release: decide)`)*. The product type (§3 fact 12) is related but separate. Don't show
+    features are on) and the store-type preset chosen at sign-up, editable in Settings ›
+    Catalogue (P2) (decided 2026-10-05 on #337). The product type (§3 fact 12) is related but separate. Don't show
     every section on every product.
 32. **Downgrading must not destroy content.** When a plan loses a feature or limit, existing
-    content is **kept**. Ask what the storefront does with it (keep showing it, or hide it
-    until upgrade). Adding more is blocked with a clear explanation. Over-limit catalogues
-    (e.g. 600 products on a 500-product plan) keep working; only adding is blocked. The engine
-    enforces the same rule.
+    content is **kept**. Decided 2026-10-02 on #186's review (SAAS §6.2, the prototype's *Choose what to
+    keep*): what is over the new limit is **paused**, hidden from shoppers and kept intact,
+    and the Owner chooses which items stay within the limit before the change takes effect;
+    an upgrade brings the rest back. Adding more is blocked with a clear explanation. The
+    engine enforces the same rule (DATA-MODEL §2.2 `product.hidden_by = 'plan'`).
 33. **Past due is read-only** (DESIGN-BRIEF fact 9, PLATFORM-PROMPT §2 item 7): writes are
     blocked, the merchant is never locked out. Plan gating is different: a merchant in good
     standing on a smaller plan can edit everything they have. Don't confuse the two banners.
@@ -414,8 +417,8 @@ must store all of it per store, and enforce the pricing-currency lock.
       The lists below are a design starting point, **not legal advice**.
 35. **Vendor content follows the same approval path.** A+ content, size charts and specs a
     vendor adds are part of the product. When approval is on, they wait for approval like
-    everything else (L2). Whether vendors may use A+ at all depends on the merchant's plan and
-    settings *(ask)*.
+    everything else (L2). Vendors may use A+ when the plan includes it **and** the merchant
+    allows it (decided 2026-10-05 on #337).
 
 ### Regions, tax and compliance
 
@@ -445,8 +448,9 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
       (the One-Stop Shop scheme).
     - **US**: sales tax differs by state, county and city. Product taxability differs too
       (clothing is exempt in some states, groceries in many). It is normally calculated by a
-      tax service (Stripe Tax, Avalara, TaxJar) using **product tax codes**. Whether the engine
-      uses one is open (PLATFORM-PROMPT §10) `(release: decide)`; if it does, the product form
+      tax service (Stripe Tax, Avalara, TaxJar) using **product tax codes**. The engine uses
+      **Stripe Tax** (decided 2026-10-04 on #184, PLATFORM-PROMPT §5.4; on the merchant's own Stripe
+      account through Connect, decided 2026-10-05), so the product form
       picks a tax code from a searchable plain-language list ("Clothing", "Prepared food",
       "Digital book").
     - **Canada**: GST, HST or PST by province. **Australia**: GST 10%. **UK**: VAT 20% / 5% /
@@ -525,7 +529,7 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
       (Consumer Protection (E-Commerce) Rules, Legal Metrology).
     - **Canada**: bilingual (English/French) information for many consumer goods.
       **Australia**: country-of-origin labels for food. **Gulf states**: Arabic labelling for
-      many categories. *(Ask which regions are in scope at launch.)*
+      many categories. India and the US are in scope at launch (decided 2026-10-04 on #184).
 46. **Category drives the rest.** The product's category (§3 fact 31) switches on the relevant
     sections:
     - **apparel**: fibre, care, size chart;
@@ -536,8 +540,9 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     - **jewellery**: metal and purity, hallmark;
     - **supplements**: dosage and warnings.
 
-    Categories the platform does not support (e.g. prescription medicine, weapons) should be
-    refused clearly, by the engine as well as the UI *(ask for the list)*.
+    Categories the platform does not support are refused clearly, by the engine as well as
+    the UI: **weapons, prescription medicine, illegal drugs, tobacco and vapes, adult content
+    and counterfeits**; alcohol is allowed with an age check (decided 2026-10-05 on #337).
 47. **Compliance text must be in the shopper's language in many markets.** EU safety
     information must be in the language of the country sold into. A store selling into France
     needs French warnings even if it doesn't offer a French storefront. This ties part T to part
@@ -547,9 +552,9 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
 48. **Not every product is physical.** Digital downloads, gift cards, services, bookings and
     subscriptions have no weight, often no stock (or a licence-key pool), no shipping, and
     different tax rules (EU and UK digital VAT is charged where the shopper lives). The engine's
-    product type (PLATFORM-PROMPT §3.3) is `(release: decide)`, and digital products, services
-    and gift cards are an open scope question (PLATFORM-PROMPT §10). Design the "What are you
-    selling?" choice (Physical · Digital · Service), and *ask which types are in scope*.
+    product type (PLATFORM-PROMPT §3.3) covers physical, digital, services and gift cards, all in
+    the first release (FIRST-RELEASE §1). Design the "What are you selling?" choice
+    (Physical · Digital · Service · Gift card).
 
 ---
 
@@ -563,9 +568,9 @@ per supplier.
 |---|---|---|---|
 | **Owner** (`owner`) | Everything, with supplier attribution. Create, edit, hide, delete. | Full | Full |
 | **Manager** (`manager`) | Same as Owner | Full | Full |
-| **Staff** (`staff`) | **Read-only**: a view page rather than a form with greyed-out fields, and no "Add product" button | Read-only | Export only? *(ask)* |
-| **Stock only** (`vendor-stock`) | Only their own. **Only the quantity is editable**, and the screen says why ("Your store owner manages everything else"). | Not shown | Not shown |
-| **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), and the defined-but-not-offered read-only orders tier (`vendor-orders-read`) | Only their own. Create and edit, with no visibility control when approval is on. | Not shown *(ask whether they may pick a collection)* | Their own products only *(ask)* |
+| **Staff** (`staff`) | **Read-only**: a view page rather than a form with greyed-out fields, and no "Add product" button | Read-only | Export (decided on #184) |
+| **Stock only** (`vendor-stock`) | Only their own. **Only the quantity is editable**, and the screen says why ("Your store owner manages everything else"). | Not shown | Export their own only (decided on #184) |
+| **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), and the defined-but-not-offered read-only orders tier (`vendor-orders-read`) | Only their own. Create and edit, with no visibility control when approval is on. | Not shown: no collections; they set filter values on their own products (decided 2026-10-05 on #337) | Their own products only (decided on #184) |
 
 The navigation differs per role (the first platform's `nav.ts` model carries over, PLATFORM-PROMPT §7).
 Vendors see "Your products".
@@ -656,7 +661,8 @@ depend on an engine capability whose release is not yet chosen.
 
 - C1. Required: name, and price (and a photo is strongly encouraged). Everything else defaults.
 - C2. Description: a friendly rich-text editor (bold, lists, links, no raw HTML), with an
-  optional "Write it for me" AI suggestion if we offer AI here *(ask)*.
+  optional "Write it for me" AI suggestion using the partner's or merchant's AI key, metered
+  (decided 2026-10-05 on #337).
 - C3. Photos: see part F.
 - C4. Price in the store's currency, including or excluding tax per store setting, with the
   live breakdown (§3 fact 6). The **compare-at price**, labelled per region as "was", RRP,
@@ -703,7 +709,7 @@ depend on an engine capability whose release is not yet chosen.
   Size suggestions follow the store's region and category: US 2–16 / S–XL, UK 6–20, EU 34–48,
   shoes US / UK / EU / JP / CM, jeans W×L, and ring sizes US / UK / EU.
 - D3. The version count is previewed before generating ("This makes 12 versions"). Up to 3
-  options *(confirm limit)*, and a clear message at the version limit.
+  options and 100 versions (decided 2026-10-05 on #337), and a clear message at the version limit.
 - D4. A generated versions table showing each combination's price, stock, SKU, photo and
   visibility, with "Apply to all" for price and stock, and per-choice apply ("All XL:
   $34.99").
@@ -735,20 +741,22 @@ depend on an engine capability whose release is not yet chosen.
 - E1. Editing a supplier's product: a banner says "This is Northwind Textiles' product. They will
   see your changes."
 - E2. A vendor editing their own product sees "Your store owner can also edit this product."
-- E3. A vendor edits an already-approved product. Does it go back to waiting for approval?
-  *(open, §9)*. Design both answers.
+- E3. A vendor edits an already-approved product. Settled 2026-10-02 (ACCESS.md §7.2): it goes
+  back to waiting for approval, and off the storefront, **only when the name, a price or the
+  photos changed**; every other edit goes live. The save says which: "Your price, title or
+  photo change needs approval" or "Saved — live now".
 - E4. Two people edit the same product. The second save sees "Someone else changed this product
   2 minutes ago", with a choice to review or overwrite. The engine must detect the conflict (a
   version number or updated-at check on save).
 - E5. Changing the web address of a live product: warn that old links will break.
-- E6. Duplicate a product: "Copy of …", hidden by default, stock not copied *(confirm)*.
+- E6. Duplicate a product: "Copy of …", hidden by default, stock not copied (decided 2026-10-05 on #337).
 - E7. Hide vs delete. Hiding is the recommended action. Delete confirms, lists what happens to
   collections and past orders, and offers undo where possible.
 - E8. Bulk delete of many products, with progress and partial failure ("48 deleted, 2 could
   not be: …").
 - E9. Change history ("Edited by Priya, 2 hours ago"). Every privileged write is audited with
-  the real actor (PLATFORM-PROMPT §2 item 20); whether the portal shows that history on the
-  product is *(ask)*.
+  the real actor (PLATFORM-PROMPT §2 item 20); the portal **shows** that history on the
+  product page (decided 2026-10-05 on #337).
 - E10. Price per store: if one product can be listed in more than one of a merchant's stores
   *(open, §9)*, the form shows "Price in this store". Other stores are never shown.
 
@@ -762,16 +770,18 @@ depend on an engine capability whose release is not yet chosen.
 - F6. Too large, wrong format (HEIC from iPhones: convert or explain), duplicate upload.
 - F7. Basic crop and square framing guidance ("Square photos look best").
 - F8. A product with no photo: a placeholder in lists, and a nudge in the "No photo" filter.
-- F9. Video *(ask: supported or not)*.
+- F9. Video: **supported** (decided 2026-10-05 on #337).
 
 ### G. Stock on the product (the catalogue half of §E)
 
 - G1. One warehouse: a single quantity field.
 - G2. Several warehouses: expand to per-warehouse quantities, default warehouse first.
 - G3. Show "12 in stock · 3 reserved for orders", and explain "reserved".
-- G4. Adjust with a reason ("Received new stock +20", "Damaged −2") vs overwrite *(ask)*. The
-  engine keeps a stock-movement ledger with reasons either way (PLATFORM-PROMPT §5.4
-  Inventory), so an overwrite is recorded as a movement; the question is what the form offers.
+- G4. Adjust with a reason, settled 2026-10-02: the form offers "Change stock with a reason"
+  (Received new stock, Returned by a shopper, Damaged or lost, Counted again) and a typed
+  number is recorded as "Typed a new number". The engine keeps the stock-movement ledger
+  either way (PLATFORM-PROMPT §5.4 Inventory), and the product shows its **Stock history**:
+  every change, by hand, by orders, by suppliers and by imports, per product and per version.
 - G5. Low-stock threshold and low-stock badges.
 - G6. A stock-only vendor sees exactly this and nothing else.
 - G7. A vendor never sees merchant or other-vendor quantities, including totals.
@@ -822,7 +832,7 @@ depend on an engine capability whose release is not yet chosen.
 - J1. Build the store's navigation from collections: drag to order and nest.
 - J2. Preview of the menu on desktop and phone.
 - J3. What happens to a menu item when its collection is hidden or deleted.
-- J4. Whether menus can link to pages other than collections *(ask)*.
+- J4. Menus **can** link to content pages and URLs, not only collections (decided 2026-10-05 on #337).
 
 ### K. Import and export
 
@@ -835,7 +845,7 @@ with validation before any write, partial-failure reports, and translation and c
 - K2. Upload, then a validation summary: "120 products ready · 8 have problems".
 - K3. Problems listed by row and column in plain words, with a download of the file with an
   errors column. The seller can fix and re-upload, or import only the valid rows.
-- K4. Existing products matched by SKU: choose "update them" or "skip them" *(confirm)*.
+- K4. Existing products matched by SKU: the merchant chooses "update them" or "skip them" (decided 2026-10-05 on #337).
 - K5. A warehouse for imported stock, defaulting to the default warehouse.
 - K6. Long-running import: a progress bar, and permission to leave the page, with a
   notification when done and partial-failure reporting (e.g. image URLs that 404).
@@ -843,9 +853,9 @@ with validation before any write, partial-failure reports, and translation and c
   select-all, then import. Also handle a connection that failed or expired.
 - K8. Export all or the current filtered selection: long-running, with a download link and a
   "recent exports" list.
-- K9. Vendor import/export restricted to their own products *(ask whether allowed at all)*.
+- K9. Vendor import/export: allowed, their own products only (decided on #184).
 - K10. Multi-language: import and export translations as extra columns (`name:hi`,
-  `description:hi`), or as a separate "translations file" *(ask which format)*.
+  `description:hi`) (decided 2026-10-05 on #337).
 - K11. Multi-currency: import and export manual-currency prices as extra columns
   (`price:USD`). Automatic currencies are never imported.
 
@@ -854,16 +864,21 @@ with validation before any write, partial-failure reports, and translation and c
 - L1. Approval off: a vendor's product goes live immediately. The vendor is told so.
 - L2. Approval on: the vendor's save becomes "Submit for approval". The status reads "Waiting
   for approval", and there is no visibility control.
-- L3. Merchant review (the To approve screen): see the product as the shopper would, approve,
+- L3. Merchant review (the To approve screen; in the first release the review panel opened from
+  Products' "Waiting for approval" chip, FIRST-RELEASE §3.1): see the product as the shopper would, approve,
   or "Send back" with a required reason.
 - L4. The vendor sees "Sent back: [reason]", edits and resubmits.
 - L5. Merchant edits a pending vendor product before approving.
 - L6. A vendor-supplied product in the merchant list is marked with the supplier's name, and
   can be filtered by supplier.
-- L7. A suspended supplier's products: still in the catalogue. Show what the merchant sees and
-  what the merchant can do (hide all, keep selling) *(open: ACCESS.md, PLATFORM-PROMPT §10)*.
+- L7. Suspending a supplier asks the Owner whether to **hide its products or keep selling
+  them** from the stock in hand (settled 2026-10-02 on #186's review with the prototype's suspend modal,
+  ACCESS.md §7.5); hidden ones return on resume. A removed supplier's products are hidden and
+  kept, still marked as theirs, for the merchant to publish or delete (settled 2026-10-02).
+  Show the count and the hidden list.
 - L8. A vendor at the Stock only tier (§4).
-- L9. Vendor filters and collections: whether a vendor can see or assign them *(ask)*.
+- L9. Vendor filters and collections: no collections; a vendor sets filter values on its own
+  products (decided 2026-10-05 on #337).
 
 ### M. Help and learning
 
@@ -872,8 +887,7 @@ with validation before any write, partial-failure reports, and translation and c
 - M2. A small glossary drawer built from §2's right-hand column.
 - M3. Contextual tips that disappear once used ("Tip: add Size as an option so shoppers can pick
   one").
-- M4. The **portal's own** language (the seller's interface): which languages at launch
-  (English, Spanish, French, German, Portuguese, Arabic, Hindi…) *(ask)*. This is separate
+- M4. The **portal's own** language (the seller's interface): **English only** at launch (decided 2026-10-05 on #337). This is separate
   from the store's product languages in part N. Every string, format and example in the
   portal must be localisable, with no concatenated sentences and plurals handled per language.
 
@@ -890,11 +904,11 @@ with validation before any write, partial-failure reports, and translation and c
   many products. On a phone it stacks.
 - N5. Product status per language: "Translated", "Not translated (shoppers see [main
   language])",
-  "Changed since translated" when the main text was edited after the translation (the engine
-  must track when each translation was last aligned with the main text, `(release: decide)`;
-  ask).
+  "Changed since translated" when the main text was edited after the translation. **Decided on
+  #296**: each translation keeps the md5 of the main text it translated, so the status is a
+  comparison, per field.
 - N6. Translate options and choices once per product. Show where "Red" is used across the
-  catalogue *(ask: shared translations or per product)*.
+  catalogue: translations are **shared** across the catalogue (decided 2026-10-05 on #337).
 - N7. Collections, filters, filter choices and menus are translatable too, on the same
   pattern. The menu preview (J2) can be viewed in each language.
 - N8. Web address per language (§3 fact 22), and the search listing per language (§3 fact 21,
@@ -907,19 +921,19 @@ with validation before any write, partial-failure reports, and translation and c
   is missing, labelled as such.
 - N12. A language added in Settings later: every product starts "not translated". Show a
   gentle banner in Products with a count, and nothing that looks like an error.
-- N13. A language removed in Settings: translations are kept but not shown *(confirm)*. Say so
+- N13. A language removed in Settings: translations are kept but not shown (decided 2026-10-05 on #337). Say so
   in Settings and on affected products.
-- N14. Main language changed in Settings *(ask whether allowed after products exist)*: what
-  happens to products that have no text in the new main language.
-- N15. Vendors: can they translate their own products? *(ask)*. If yes, only their own, and
+- N14. Main language changed in Settings: **allowed** after products exist, with a warning;
+  products with no text in the new main language fall back until translated (decided 2026-10-05 on #337).
+- N15. Vendors may translate their own products only (decided 2026-10-05 on #337), and
   the merchant can edit translations too (same shared-record rule as E1/E2).
-- N16. Approval and translations: does a vendor's new translation need approval? *(ask)*.
+- N16. A vendor's new translation needs approval while approval is on (decided 2026-10-05 on #337).
 - N17. Right-to-left languages (Arabic, Hebrew, Urdu, Persian): fields flip direction only while
   that language is being edited, and previews render RTL. Needed for Gulf and Middle East
-  stores *(ask whether in scope at launch)*.
+  stores; **not at launch** (decided 2026-10-05 on #337).
 - N18. Regional variants of one language: en-US vs en-GB ("color" / "colour"), pt-BR vs pt-PT,
   es-ES vs es-MX, fr-FR vs fr-CA. The engine's language codes must be able to express these
-  (BCP 47 tags) *(decide which are offered)*. Show them as separate languages only when the
+  (BCP 47 tags); **en-IN, en-US and hi-IN** are offered at launch (decided 2026-10-05 on #337). Show them as separate languages only when the
   store offers both.
 - N19. Compliance text in a market's language (§3 fact 47): required translations for safety
   information show as a checklist item, even when the store doesn't offer that language on the
@@ -931,26 +945,33 @@ with validation before any write, partial-failure reports, and translation and c
   codes or switchers appear anywhere.
 - O2. On the price field, other currencies show beneath the main price:
   - **Set automatically**: "USD $15.99 · set automatically". The value is read-only, with
-    "Set this one yourself" to override it for this version (§3 fact 26, `(release: decide)`).
+    "Set this one yourself" to override it for this version (§3 fact 26; built on #296: a typed
+    price is that override, and always wins over the converted one).
   - **Set by you**: an editable field per currency ("USD $ ____"). Empty is allowed but
     flagged: "Not for sale in USD until you add a price."
 - O3. Versions table (D4): a column per manual currency, with "Apply to all" per currency and
   a toggle to hide the extra columns when not needed.
-- O4. Rounding shown as it will apply ("$15.47 → $15.99"), with a link to Settings.
+- O4. Rounding shown as it will apply ("$15.47 → $15.99"), with a link to Settings. **Built on
+  #296**: `nearest` is the nearest whole unit (a no-op for a currency with no minor unit, such as
+  JPY); `ends-99` rounds up to the nearest price ending in 99 of the minor unit, never below the
+  computed one ($15.00 → $15.99, $15.99 stays), or, with no minor unit, of the hundred (¥1,547 →
+  ¥1,599).
 - O5. Rates freshness: "Rates updated 2 hours ago", and what shoppers see if rates are stale or
-  unavailable `(release: decide)`.
+  unavailable. **Decided on #296**: the ECB's daily euro reference rates, checked every six hours; a
+  converted price uses the latest rate held, however old (the portal shows its date), and a
+  currency with no rate at all isn't for sale until one arrives.
 - O6. Product list: price column in the pricing currency, and a filter "Missing a USD price".
   Bulk "Set USD price" for selected.
 - O7. Quick edit (B6) includes manual currencies.
 - O8. A currency added in Settings:
   - Automatic: nothing to do, and the product form says so.
   - Manual: a banner in Products says "214 products have no USD price yet", with bulk tools.
-- O9. A currency removed in Settings: its prices are kept but unused *(confirm)*.
-- O10. A currency switched from manual to automatic, or back: what happens to typed prices
-  *(ask: kept as overrides, or discarded with a warning)*.
-- O11. The compare-at price (C4, `(release: decide)`) also exists per currency, or is converted
-  by the same rule *(ask)*.
-- O12. Tax display for non-pricing currencies (§3 fact 26) *(ask)*. A EUR price that includes
+- O9. A currency removed in Settings: its prices are kept but unused (decided 2026-10-05 on #337).
+- O10. A currency switched from manual to automatic, or back: typed prices are **kept as
+  overrides** (decided 2026-10-05 on #337).
+- O11. The compare-at price (C4, `(release: decide)`) also exists per currency, converted by the
+  same rule unless typed (decided 2026-10-05 on #337).
+- O12. Tax display for non-pricing currencies (§3 fact 26): labels follow each market ("incl. GST" in India, "+ tax" in the US) (decided 2026-10-05 on #337). A EUR price that includes
   VAT and a USD price to which sales tax is added must each be labelled correctly. Show
   "incl. VAT" and "+ tax" per currency.
 - O12a. Psychological price endings differ by market: .99 (US/UK), ,90 or whole euros (parts of
@@ -958,21 +979,21 @@ with validation before any write, partial-failure reports, and translation and c
   whether per currency)*.
 - O13. Price per store (E10) combines with currency: price is per store **and** per currency.
   Show only this store's currencies.
-- O14. Vendors: can they set prices in other currencies, or are those the merchant's call?
-  *(ask)*. A Stock only vendor sees none of it.
+- O14. Prices in other currencies are the merchant's call; vendors can't set them (decided 2026-10-05 on #337). A Stock only vendor sees none of it.
 - O15. Storefront preview in each currency, showing the shopper's price after rounding.
 
 ### P. Catalogue features: configuration and plan
 
-- P1. **Settings › Catalogue** (a new Settings tab; the store settings behind it are an engine
-  requirement, `(release: decide)`): the Owner switches rich-listing features on or off for the
-  store:
+- P1. **Settings › Catalogue** (a Settings tab, designed in the prototype's `CatSettings` on
+  2026-10-02 with the badge definitions of S5; the store settings behind it are an engine
+  requirement, `(release: decide)` in FIRST-RELEASE.md): the Owner switches rich-listing
+  features on or off for the store:
   - size charts, A+ content, specifications, highlights, FAQs, badges, related products and
     video;
   - the legal information defaults (§3 fact 34).
 
   Each row shows whether the plan includes it.
-- P2. Store-type presets at signup or in this tab *(ask)*: "Clothing" turns on size charts;
+- P2. Store-type presets are offered at sign-up and editable in this tab (decided 2026-10-05 on #337): "Clothing" turns on size charts;
   "Electronics" turns on specifications and warranty; "Food" turns on net quantity and best
   before. Presets are only starting points.
 - P3. **Included and on**: the section appears on the product form in its place (part C's
@@ -988,7 +1009,8 @@ with validation before any write, partial-failure reports, and translation and c
   itself instead of vanishing.
 - P7. **Metered features** (AI descriptions, AI translations, background removal if offered):
   remaining allowance shown before running, not after.
-- P8. **Trial**: everything included, labelled "Included in your trial until 12 Oct".
+- P8. **Trial**: everything included, labelled "Included in your trial · 7 days left" (the
+  house partner's trial is 10 days, SAAS.md §6.1).
   Before the trial ends, show what will be locked and what happens to content already made.
 - P9. **Downgrade** (§3 fact 32): a summary before confirming ("A+ content on 34 products will
   be hidden from your store; you keep it"), and afterwards an "over limit" state that never
@@ -1028,7 +1050,7 @@ with validation before any write, partial-failure reports, and translation and c
   suggestion.
 - Q8. Live preview on desktop and phone, exactly as the storefront renders it.
 - Q9. Draft vs live: A+ content can be saved unfinished without affecting the live page, and
-  published with the product *(ask whether separately)*.
+  published **separately** from the product (decided 2026-10-05 on #337).
 - Q10. Per language (part N): text is translated per module and photos are shared by default,
   with "Use a different photo for French" `(release: decide)`.
 - Q11. Vendor A+ content goes through approval with the product (§3 fact 35). The merchant
@@ -1036,12 +1058,12 @@ with validation before any write, partial-failure reports, and translation and c
 - Q12. Empty, not-in-plan (P5) and turned-off (P4) states. On downgrade, existing A+ content is
   kept and shown as "Hidden from your store — upgrade to show it" *(or as decided, §3 fact
   32)*.
-- Q13. Import/export: A+ content is not in the CSV *(confirm)*. Copying between products (Q6)
+- Q13. Import/export: A+ content is not in the CSV (decided 2026-10-05 on #337). Copying between products (Q6)
   is the bulk tool instead.
 
 ### R. Size charts
 
-- R1. **Size charts list** (Collections area, or under Settings › Catalogue *(ask)*): name,
+- R1. **Size charts list** (in the Collections area, as in the prototype (decided 2026-10-05 on #337)): name,
   how many products use it, units, last edited.
 - R2. Create from a **template**, suggested by the store's region, with other regions one click
   away:
@@ -1083,7 +1105,7 @@ with validation before any write, partial-failure reports, and translation and c
   while numbers are shared.
 - R12. Storefront preview: the "Size chart" link beside the size picker, and the popup on phone
   and desktop.
-- R13. Vendors: may they create their own charts, or only use the merchant's? *(ask)*. Their
+- R13. Vendors may create their own charts (decided 2026-10-05 on #337). Their
   charts are visible only to them and the merchant.
 - R14. Plan states: not in plan (P5), and limit on number of charts (P6). Existing charts are
   kept on downgrade.
@@ -1113,8 +1135,11 @@ information (S4)**, which is configuration only.
     Not yet in EU: add the EU responsible person"), with an explanation of why. They don't
     block other markets.
   - Never plan-gated.
-- S5. **Badges**: "New", "Bestseller", "Handmade", "Sale", either set by hand or automatic
-  (New = added in the last 30 days, `(release: decide)`). Show a preview on the product card.
+- S5. **Badges**: defined in Settings › Catalogue (P1) with a label of up to 18 characters and
+  one rule, designed 2026-10-02: added in the last 30 days, your 5 best sellers this month,
+  lower than its compare price, only a few left (3 or fewer), or **manual** ("you choose the
+  products"). Automatic badges come and go by themselves; only manual ones are picked on the
+  product. Show a preview on the product card. Release `(release: decide)` in FIRST-RELEASE.md.
 - S6. **Related products / Frequently bought together**: pick by hand, or "Automatic (same
   collection)". Vendors can pick only their own products.
 - S7. **Video**: upload or paste a YouTube link, with a poster image *(plan-gated; ask whether
@@ -1137,7 +1162,13 @@ information (S4)**, which is configuration only.
   countries, and an Indian store selling domestically and to the UAE.
 - T2. **Compliance checklist per product**: "Ready to sell in: US ✓ · DE: 2 missing ·
   FR: French warnings needed". Clicking an item jumps to the field. It appears in the
-  product list as a filter and a column ("Not ready in EU: 34").
+  product list as a filter and a column ("Not ready in EU: 34"). **Built on #298** as the
+  prototype's `marketStatus` reckons it, per live top-level market: a price the market can
+  charge (gift cards aside), and for a physical product what its countries require, the US
+  fibre content, country of origin and care instructions, India the country of origin and an
+  MRP (compare-at price); a detail counts when filed for the country or for every country
+  (`product_compliance` keys `fibre`, `origin`, `care`). Other countries add theirs as they
+  launch.
 - T3. **Tax class** (§3 fact 37): a plain-language picker, "depends on location" messaging,
   exempt and reduced classes, and the US tax-code search via a tax service
   `(release: decide)`. Changing the class in bulk (B5).
@@ -1159,17 +1190,44 @@ information (S4)**, which is configuration only.
 - T10. **Category-driven sections** (§3 fact 46): picking a category ("Food & drink") reveals
   its sections. Changing category asks before hiding filled-in fields, and never deletes them.
 - T11. **Responsible person / importer** (EU, UK): set once in Settings, overridable per
-  product or per supplier. A vendor's products may carry the vendor's details instead *(ask)*.
+  product or per supplier. **Deferred**: the EU and UK aren't launch regions (decided 2026-10-05 on #337).
 - T12. **Barcodes** (§3 fact 44): per version, check-digit validation, "no barcode" for own-brand
   items, and bulk entry by pasting or scanning with a phone camera.
 - T13. **Units** (§3 fact 39): entry in either system, a canonical stored value, and display in
   the store's system with the other in brackets where helpful.
 - T14. **Digital, service and gift-card products** (§3 fact 48): a different, shorter form with
-  no weight, stock or shipping. File upload or a licence-key pool for downloads, and duration
-  and location for services *(ask which are in scope)*.
+  no weight, stock or shipping. File upload or a licence-key pool for downloads; an optional
+  duration and location for services, with no booking (decided 2026-10-05 on #337).
+  **Built on #323 (SAPI 22), part 1** (`productKind`, `saveProductKind`, `addLicenceKeys`;
+  `POST /api/assets?kind=download`): a download is a private file (PDF, ZIP, MP3, MP4, WebM or
+  an image, up to 30 MB while uploads go through the Worker's memory, as video does) or a key
+  pool, its link working 3, 5 or 10 times over 7, 30 or 365 days; keys are counted and never
+  shown again once saved, and a pool's keys left are the product's stock on the storefront,
+  sold out at none. A service keeps an optional length (60 characters) and place (200). A gift
+  card's amounts are its versions, priced as any product; it expires after 12–120 months or
+  never, no sooner than its country allows (FIRST-RELEASE §1). None of the three is counted in
+  stock, a cart holding only them asks no address or delivery, and a gift card carries no tax.
+  Decided here: these kinds are the merchant's own, never a supplier's (ACCESS §7.1).
+  **Part 2, delivery** (`deliverOrder`, run as a payment settles or is marked paid, never before;
+  nothing for a preview's test order): a download's grant, served at `/shop-api/downloads/{grant}.{signature}`
+  from R2 as an attachment, rate-limited per host and address (`DOWNLOAD_RATE_LIMITER`, 30 a minute), with one refusal (`LINK_CLOSED`) for
+  a link unknown, another shop's, expired, used up or of a refunded order; a key per unit from the
+  pool, an order the pool ran dry for logged and given the next keys added; a gift card issued per
+  gift card line (one card a line, for the recipient chosen last), emailed with its code at 08:00
+  in the store's time zone on the day chosen. The order page and an email list the links and keys.
+  **Part 3, gift cards** (`giftCards`, `issueGiftCard`; Shop API `giftCardBalance`, `applyGiftCard`,
+  `removeGiftCard`, `ShopCart.amountDue`, `placeOrder(provider: "gift_card")`): a number checked in the
+  shop's own store only, rate-limited per store and address with the offer codes' limiter, one
+  refusal (`GIFT_CARD_INVALID`) for a wrong, unsent, expired or used-up card or another store's; a
+  card is spent only in its own currency and never on a preview; placement takes what it applies
+  under the card's lock, so a second order priced against the same balance is told
+  `CART_CHANGED`, as is one whose card was spent or lapsed since it was shown. "Issue a card" (Owner
+  and Manager) gives one of the product's amounts by email; its `issueKey`, a UUID made once per
+  request, makes a double click or a retry answer the same card (`KEY_REUSED` for a key that made
+  another). **The editor's side is built on #328** (SUI 16; FIRST-RELEASE §11).
 - T15. **Vendors across borders**: a vendor may be in a different country from the merchant
   (e.g. a UK merchant with a Chinese supplier). Country of origin, importer and customs
-  details default from the vendor, not the merchant *(ask)*.
+  details default from the vendor, not the merchant (decided 2026-10-05 on #337).
 - T16. **Import/export** (part K) carries the region fields as columns (tax class, barcode,
   country of origin, classification code, weight with unit) and validates them per market.
   Shopify CSVs already carry some of these (barcode, weight, HS code, country of origin): map
@@ -1251,10 +1309,14 @@ Design once, apply everywhere:
 
 ## 9. Open questions: ask, don't assume
 
-- Does editing an approved vendor product send it back for approval? (E3, PLATFORM-PROMPT §10)
-- What happens to a removed or suspended supplier's products? (L7, PLATFORM-PROMPT §10)
-- Can vendors see or assign collections and filters? Can they import or export? (L9, K9)
-- Can Staff export? (§4)
+- ~~Does editing an approved vendor product send it back for approval? (E3)~~ **Settled
+  2026-10-02** (E3, ACCESS.md §7.2).
+- ~~What happens to a removed or suspended supplier's products? (L7)~~ **Settled 2026-10-02**
+  (L7, ACCESS.md §7.5).
+- ~~Can vendors see or assign collections and filters? (L9)~~ No collections; filter values on
+  their own products (decided 2026-10-05 on #337). ~~Can they import or export? (K9)~~
+  **Settled 2026-10-04 on #184**: their own rows only (ACCESS.md §5.2).
+- ~~Can Staff export? (§4)~~ **Settled 2026-10-04 on #184**: yes (ACCESS.md §5.1).
 - Exact copy for publishing, and whether price and stock read live on the live static site.
   (§3 fact 17)
 - Can one product be listed in more than one of a merchant's stores, or does every product
@@ -1265,54 +1327,57 @@ Design once, apply everywhere:
   type? Price-range collections? (§3 fact 12, H12, PLATFORM-PROMPT §10)
 - Does the engine keep "child collection limited to its parent's products"? (§3 fact 11)
 - Does changing a web address keep a redirect from the old one? (§3 fact 15)
-- Maximum options and versions per product. (D3)
-- Stock adjustments with reasons, or plain overwrite? (G4)
-- Video on products? (F9)
-- AI help for descriptions and photos in the catalogue, and is it metered against the plan?
-  (C2)
-- Is change history shown on the product? (E9)
-- Which portal UI languages at launch? (M4)
-- Duplicate: copy stock or not? (E6)
-- Import: update or skip products matched by SKU? (K4)
-- Languages: may vendors translate, and do their translations need approval? (N15, N16)
-- Can the main language change after products exist? What happens to removed languages'
-  translations? (N13, N14)
-- Are option and choice translations shared across products, or per product? (N6)
+~~- Maximum options and versions per product. (D3)~~ 3 and 100 (decided 2026-10-05 on #337).
+- ~~Stock adjustments with reasons, or plain overwrite? (G4)~~ **Settled 2026-10-02**: with
+  reasons, and a stock history (G4).
+- ~~Video on products? (F9)~~ Yes (decided 2026-10-05 on #337).
+~~- AI help for descriptions and photos in the catalogue, and is it metered against the plan?
+  (C2)~~ Descriptions, with the partner's or merchant's key, metered (decided 2026-10-05 on #337).
+~~- Is change history shown on the product? (E9)~~ Yes (decided 2026-10-05 on #337).
+~~- Which portal UI languages at launch? (M4)~~ English only (decided 2026-10-05 on #337).
+~~- Duplicate: copy stock or not? (E6)~~ Not copied (decided 2026-10-05 on #337).
+~~- Import: update or skip products matched by SKU? (K4)~~ The merchant chooses (decided 2026-10-05 on #337).
+~~- Languages: may vendors translate, and do their translations need approval? (N15, N16)~~ Their own only; approval while approval is on (decided 2026-10-05 on #337).
+~~- Can the main language change after products exist? What happens to removed languages'
+  translations? (N13, N14)~~ Yes, with a warning; kept but hidden (decided 2026-10-05 on #337).
+~~- Are option and choice translations shared across products, or per product? (N6)~~ Shared (decided 2026-10-05 on #337).
 - Web addresses in non-Latin scripts: transliterate, or use the script? (§3 fact 22)
-- Right-to-left languages in scope? (N17)
-- Which regional language variants are offered? (N18)
+~~- Right-to-left languages in scope? (N17)~~ Not at launch (decided 2026-10-05 on #337).
+~~- Which regional language variants are offered? (N18)~~ en-IN, en-US, hi-IN (decided 2026-10-05 on #337).
 - AI translation: in scope, and metered? (§3 fact 24, N9)
 - Automatic currency conversion: prices written ahead of time, or computed at checkout? Which
   rate provider? (§3 fact 26)
-- Manual ↔ automatic switch: keep or discard typed prices? (O10)
-- Compare-at price and tax display in other currencies. (O11, O12)
-- May vendors set prices in other currencies? (O14)
-- Translation and currency column format in import/export files. (K10, K11)
+~~- Manual ↔ automatic switch: keep or discard typed prices? (O10)~~ Kept as overrides (decided 2026-10-05 on #337).
+~~- Compare-at price and tax display in other currencies. (O11, O12)~~ Converted unless typed; labels per market (decided 2026-10-05 on #337).
+~~- May vendors set prices in other currencies? (O14)~~ No (decided 2026-10-05 on #337).
+~~- Translation and currency column format in import/export files. (K10, K11)~~ Extra columns (decided 2026-10-05 on #337).
 - **Plans**: which features and limits each plan includes (A+, size charts, specifications,
   FAQs, video, badges, related products, languages, currencies, products, photos, AI
   allowances). Plan names are set by each partner. (§3 fact 27, P6)
 - After a downgrade, does the storefront keep showing existing A+ content and size charts, or
   hide them? (§3 fact 32)
-- Store-type presets and product categories: in scope? (P2, §3 fact 31)
+~~- Store-type presets and product categories: in scope? (P2, §3 fact 31)~~ Yes: at sign-up, editable in Settings › Catalogue (decided 2026-10-05 on #337).
 - Which A+ modules can the storefront core render in its first version? (Q2)
-- Is A+ content published with the product or separately? (Q9)
-- Where do size charts live in the nav? Can vendors create them? (R1, R13)
+~~- Is A+ content published with the product or separately? (Q9)~~ Separately (decided 2026-10-05 on #337).
+~~- Where do size charts live in the nav? Can vendors create them? (R1, R13)~~ Collections area; yes, visible to them and the merchant (decided 2026-10-05 on #337).
 - Shared FAQs and reusable A+ blocks across products? (S3, Q5)
 - Video: hosted by us or linked only? (S7)
 - The exact legally required fields per region, confirmed by whoever owns compliance. (§3 facts
   34, 45)
 - **Regions**: which countries and regions are in scope at launch (US, Canada, UK, EU, India,
   Gulf, Australia, Southeast Asia…)? (§3 fact 36, T1, PLATFORM-PROMPT §10)
-- Global store settings: home country, selling markets, tax registrations, unit system, time
-  zone, and any-format postal codes and regions. Which release ships them? (§3 fact 36)
+- Global store settings: home country, selling markets, tax registrations, and any-format
+  postal codes and regions. Which release ships them? (§3 fact 36) ~~Unit system, time zone~~
+  **Settled 2026-10-02**: first release, in Settings › Store info with the order-number format
+  (PLATFORM-PROMPT §3.3).
 - Classification code: which markets make it required, and does the engine offer a
   plain-words code lookup? (§3 fact 7)
-- US sales tax: the engine's own zones and rates, or a tax service (Stripe Tax, Avalara,
-  TaxJar) with product tax codes? EU OSS support? (§3 fact 37, PLATFORM-PROMPT §10)
+- ~~US sales tax: the engine's own zones and rates, or a tax service?~~ **Stripe Tax** (decided
+  2026-10-04 on #184), on the merchant's own Stripe account through Connect (decided 2026-10-05). EU OSS support? (§3 fact 37; the EU is not a launch region)
 - EU Omnibus: price history for compare-at prices in the first release? (§3 fact 41)
 - Per-product "where you sell", age restrictions, hazardous goods: in scope? (§3 facts 42–43)
-- The prohibited-categories list. (§3 fact 46)
-- Digital products, services and gift cards: in scope? (§3 fact 48, PLATFORM-PROMPT §10)
-- Vendors in other countries: do origin, importer and responsible-person details come from the
-  vendor? (T11, T15)
+~~- The prohibited-categories list. (§3 fact 46)~~ Set in §3 fact 46 (decided 2026-10-05 on #337).
+~~- Digital products, services and gift cards: in scope? (§3 fact 48, PLATFORM-PROMPT §10)~~ Yes (T14) (decided 2026-10-05 on #337).
+~~- Vendors in other countries: do origin, importer and responsible-person details come from the
+  vendor? (T11, T15)~~ Origin and customs from the vendor; responsible person deferred (decided 2026-10-05 on #337).
 - Price endings and rounding per currency and market? (O12a)

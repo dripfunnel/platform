@@ -1,0 +1,64 @@
+/* A form's fields, grid and buttons (PortalOrders' ship, return, refund and customer forms). */
+.df-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.df-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-form-field small {
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.df-form-field :is(input, select) {
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.df-form-field :is(input, select):focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 1px;
+}
+
+.df-form-mono {
+  font-family: var(--df-font-mono);
+}
+
+.df-form-problem {
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--df-space-2);
+}
+
+.df-form-actions .df-button {
+  min-height: 38px;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .df-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-10-01.
+Last updated: 2026-10-15 (#744: previews and live shops on `SHOP_DOMAIN`, both zones' Logpush, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
 
 ---
 
@@ -43,15 +43,43 @@ the categories; each API's resolvers declare their own action codes (§5).
 
 | Level | Who acts | Recorded |
 |---|---|---|
-| **Admin console** (Admin API) | DripFunnel staff | Sign-in, sign-out, failed sign-in, re-authentication; every write: partner created, approved, sent back, paused; store suspended, restored, trial extended; job retried or undone; staff invited, role changed, removed, invitation resent or revoked; impersonation started, **extended** and ended (and every action inside it, as the user with the staff member on behalf); setup session started and ended; exports |
-| **Partner console** (Platform API) | Partner users | Sign-in, sign-out, failed sign-in; every write: branding, domains, email sender, plans and prices, merchant created, plan changed, trial extended, suspended, restored; team changes; support sessions; submission for approval |
+| **Admin console** (Admin API) | DripFunnel staff | Sign-in, sign-out, failed sign-in, re-authentication; every write: partner created, approved, sent back, paused, contract set; store suspended, restored, trial extended; job retried or undone; staff invited, role changed, removed, invitation resent or revoked; impersonation started, **extended** and ended (and every action inside it, as the user with the staff member on behalf); setup session started and ended; exports |
+| **Partner console** (Platform API) | Partner users | Sign-in, sign-out, failed sign-in; every write: branding, domains, email sender, plans and prices, merchant created, plan changed, trial extended, limit override added or removed, suspended, restored, owner invitation resent, setup step retried, billing status set; team changes; support sessions; submission for approval |
 | **Merchant portal** (Store API) | Owner, Manager, Staff, vendors, API keys, apps, support sessions | Sign-in, sign-out, failed sign-in, store switched; every write in every area: products, stock, collections, orders, fulfilments, refunds, customers edited by staff, offers, storefront changes and publishes, settings, people, vendors, approvals, API keys, webhooks, app installs, support access setting |
 | **Storefront** (Shop API) | Shoppers | Account created, email verified, sign-in, sign-out, failed sign-in, password reset, password or email changed, address added, changed or removed, order placed, order cancelled or return requested by the shopper, account deleted. **Not** page views, searches or carts |
 | **System** | Jobs, webhooks, schedules | Provisioning steps, billing status changes from Stripe, automatic publishes, dunning, retention jobs, with the job or provider as the actor |
 | **Security** (any level) | Anyone, or unknown | Failed sign-ins for unknown accounts, rate-limit hits, attempted tenant crossings (ACCESS.md §4), denied authorizations. Visibility: staff only |
 
+**Merchant-portal action codes added 2026-10-02 (#182)**, for what the Store prototype now
+designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
+`return.received`, `return.cancelled`, `refund.issued` (with the owner of the lines),
+`refund.overridden` (the store refunding a supplier's lines; the ledger entry is its change),
+`supplier.invited` (the access level as its reason; #295), `supplier.access_changed` (the level's before and after), `supplier.shipping_mode_changed`, `supplier.suspended`, `supplier.resumed`,
+`supplier.removed` (with the products it hid), `supplier.person_added` (the Owner's "Add a person", the role as its reason), `supplier_team.invited` (the role as its reason), `supplier_team.invitation_resent`, `supplier_team.invitation_revoked`, `supplier_team.role_changed` (the role's before and after), `supplier_team.removed` (a Supplier admin's own team, the supplier's seller on each; #295), `two_factor.enabled`, `two_factor.disabled`,
+`two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
+detail, never the code), `person.signed_in`, `person.signed_out`, `person.sign_in_refused`, `person.second_factor_refused` (the reason code, never the code typed), `person.locked`, `person.switched_store`, `person.invitation_accepted` (the store's own log, the role as its reason), `person.password_reset_requested`, `person.password_reset` (never the token or the password), `person.profile_updated`, `person.password_changed`, `person.email_change_requested`, `person.email_changed` (neither address in the entry), `member.invited` (the role as its reason), `member.invitation_resent`, `member.invitation_revoked`, `member.role_changed` (the role's before and after), `member.removed` (#290), `api_key.created` (its scopes, supplier and expiry, never the secret), `api_key.rotated` (the old and new prefix), `api_key.revoked`, `webhook.saved` (the events and the host, never the path or the secret), `webhook.removed`, `webhook.turned_on` (the status it was in), `webhook.delivery_replayed` (the event), `app.installed` (the scopes), `app.uninstalled`, and on the Admin API `app.registered` and `app.status_changed` (staff only) (#330), `core_rollout.started`, `core_rollout.paused`, `core_rollout.resumed` and `core_rollout.rolled_back` (staff only: the state before and after, the reason given; `core_rollout.paused` also by the rollout's own job with `canary_failed`, and `core_rollout.started` by the image retirement job with `retire_images`; #485), `core_release.retired` (by the image retirement job, the version as its target, staff only) and `core_release.image_deleted` (by `retire-images.yml` once Cloudflare's registry deleted the version's image, which can't be undone; staff only), each with `retire_images`, `product.created`, `product.updated`, `product.duplicated`, `product.deleted`, `product.shown`, `product.hidden` (one entry per product, the supplier's seller on its own; #293; `product.updated` with reason `kind` for a download's, service's or gift card's own details, #323), `product.licence_keys_added` (the count added, never a key; #323), `asset.uploaded` (the file's type, never its bytes; #293), `collection.saved`, `collection.deleted`, `filter.saved`, `filter.deleted`, `filter.values_merged` (the count merged), `menu.saved`, `catalogue.settings_saved` (the switches as key:on/off), `badge.saved`, `badge.deleted`, `size_chart.saved`, `size_chart.deleted` (#293), `product_story.saved`, `product_story.published`, `product_story.copied` (one entry per product it reached, labelled with the source product's name), `story_block.saved`, `story_block.deleted` (#293), `stock.threshold_set` (the threshold, or default), `warehouse.saved` (including made the default), `warehouse.deleted` (#294), `sessions.others_ended`, `customer.consent_recorded`,
+`customer.exported`, `customer.added`, `customer.edited` (the names of the fields that changed, never their values), `customer.tags_changed` (how many, never the tags), `customer.note_changed` (never the note), `customer.consent_recorded` (the state before and after), `customer.groups_changed` (how many), `customer_group.created`, `customer_group.updated` (the name before and after), `customer_group.deleted` (#312), `offer.created`, `offer.updated` (the names of the fields that changed), `offer.paused`, `offer.resumed`, `offer.ended`, `offer.duplicated` (the offer copied), `offer.deleted`, `offer.codes_generated` (how many), `offer.codes_exported` (the run, never a code) (#320), `cart_reminders.saved` (the switches' before and after; #321), `cart.reminder_sent` ("Send reminder now", the code's percentage as its reason), `cart.reminders_stopped`, `cart.reminders_resumed` (never the team's note, which stays on the cart), `cart.test_reminder_sent` (the step), `customer.consent_recorded` from the Shop API too, when a shopper presses a cart reminder's unsubscribe link (actor `anonymous`, the customer as target and subject; #321), `storefront.template_chosen` (the template's key; whether the words were kept), `storefront.created` (system actor: the repo's name, the template and the core version) and `storefront.create_failed` (system actor: everything undone; #316), a store build's calls by GitHub Actions as provider, staff only (#517): `storefront.build_started`, `storefront.build_passed`, `storefront.build_failed` (the failing checks' names, or `manifest` when "uploaded" refused the manifest), `storefront.build_credentials_issued` (never the credential), `storefront.build_uploaded` (how many files) and, as `security`, `storefront.build_refused` (the refusal's code, for a run that proved itself and named a real build), `storefront.design_requested` (that a request was made and its outcome, never the text), `storefront.publish_started` (who pressed Publish, Publish everything before or Publish now, with the kind; #318), `storefront.published` (system actor: the version, and since #806 the names of the advisory checks that failed, never their words), `storefront.publish_failed` (system actor: the error code, since #517 also `upload_timed_out`, `manifest_refused`, `file_missing` or `file_mismatch`, and since #483 `gate_failed`, `bisected`, `report_timed_out`, `no_source`, `no_address` or `no_repo`; the live build stays; #317), `storefront.reverted` (the version gone back to), `storefront.discarded`, `storefront.preview_opened` (who opened a preview link, never the link or its token; #317), `storefront.preview_links_ended` (who ended them, never a link or token), `storefront.change_undone`, `storefront.text_edited` (the language and the key, never the words), `storefront.publish_refused` (the version and the failing check), `storefront.rolled_back` (system actor: the version withdrawn and the one put back, with the failed check's code, or `vitals_regressed`, as its reason; #484), `storefront.baseline_served` and `storefront.core_pinned` (system actor: the core version; #470; built on #485, the baseline's with the code its own theme failed with, the pin's with the code that left the store pinned, `gate_failed`, `rolled_back`'s check, `studio_busy`, `store_busy` or `build_timed_out`, as the reason), `storefront.brand_changed` (the names of the fields that changed, never their values), `storefront.seo_changed` (the same, `title`, `description` or `share_image`; #471), `content_page.saved`, `blog_post.saved` (the state it was saved in, `draft`, `scheduled` or `published`, as the reason), `content_page.deleted`, `blog_post.deleted`, `content.translated` (the language, or `{language} removed`), `blog_post.published` (actor `job`, a scheduled post whose time came) (#338), `custom_domain.connected`, `custom_domain.made_primary`, `custom_domain.removed` (the host; #470), `custom_domain.check_requested` (the host, only when a check was queued; #471), `store.created` (by the partner, or by the new Owner with the reason `signup`, #290), `stores.exported`, `branding.file_uploaded` (the key and the kind),
+`impersonation.started`, `impersonation.extended`, `impersonation.ended`,
+`staff_session.link_reissued` (never the link), `support_session.started`, `support_session.link_reissued`,
+`support_session.ended`, `support_session.entered` (the store's exchange), `support_session.viewed` (each query a session ran, by field and the id it named; #331), `support_session.write_requested`, `support_session.write_allowed`, `support_session.write_denied`, `support_access.changed` (the switch's before and after), `partner_user.reauthenticated` (never the proof),
+`partner_user.invitation_accepted`, `partner_user.password_reset_requested`,
+`partner_user.password_reset` (never the token or the password), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
+the reason), `catalog.import_started`, `catalog.imported` (the products and the matching chosen), `shopify.connect_started`, `shopify.connected`, `shopify.disconnected`, `shopify.approved` and `shopify.callback_rejected` (Shopify's own answer at the callback, logged as the `provider`, with `signature` or `exchange_failed`), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
+it: `name`, `price`, `photos`, or `resubmitted` and `A+ content`; #295), `product.proposed` (a Stock-only supplier's new product), `product.approved`, `product.sent_back` (the reason
+the supplier sees), `catalogue.approval_changed` (on or off), `store.languages_saved` (the list), `store.main_language_changed` (before and after), `store.currencies_saved` (each with its mode), `market.saved`, `market.deleted`, `market.fallback_changed`, `product.translated`, `catalogue.translated` (a collection's or filter's; each with the language), `catalogue.names_translated` (the shared option and choice names, with the language and how many), `store.info_saved` (the names of the fields that changed, legal name, address, contact and tax id among them, never their values) (#296), `store.setup_step_skipped` (Home's checklist: the step, `payments` or `shipping`, and `skipped` or `undone` as the reason; #719), `tax.inclusive_changed` (included or added), `tax_class.saved` (default when made so), `tax_class.deleted`, `tax_zone.saved`, `tax_zone.deleted`, `invoice_settings.saved` (#297), `tax_rate.set` (one category's rate in one zone; #300's review), `product.tax_class_changed` (one entry per product; #298), `product.collections_set` (the hand-picked collections the editor put it in, as a count; #298), `shipping.saved` (the methods on, the free rule and the area), `shipping.area_replaced` (the file's name, how many codes), `courier.connected` (pricing or standby), `courier.disconnected` (which courier prices orders now), `courier.pricing_changed`, `courier.options_saved`, `courier.tested` (each courier's result) (#305), `customer.code_requested` (the channel, never the address), `customer.signed_up`, `customer.signed_in`, `customer.sign_in_failed`, `customer.signed_out`, `customer.password_changed`, `customer.updated`, `customer.address_saved`, `customer.address_removed`, `store.customer_accounts_saved` (the mode) (#308), `order.placed` (by the shopper or a guest), `order.marked_paid` (the way it was paid), `order.cancelled` (`unpaid_transfer` by the system after 3 days), `payment_method.turned_on` (a card provider's keys with the mode as reason, part 3), `payment_method.turned_off` (#309), `payment_method.connect_started`, `payment_method.connect_approved` and `payment_method.connect_failed` (Stripe's answer on the hooks host, by Stripe as provider), `payment_method.connected`, `payment_method.disconnected` (Stripe ending the platform's access, by Stripe), `order.payment_retried` (a new card attempt), `order.paid`, `order.oversold`, `order.licence_keys_short` (by the system: how many keys a paid order still waits for, which the merchant's next keys go to; #323), `gift_card.issued` (the amount, never the recipient or the code; #323), `order.paid_after_cancel`, `order.paid_twice` (an earlier attempt paid too, for a refund) and `payment.amount_mismatch` (once, as the order leaves the sweep for the merchant) (each by the provider that answered), `order.cancelled` with `unpaid` (a card payment not completed in a day, by the system) (#309 part 2), `order.note_added` (a team note on an order, its text as the reason, the store's alone: never a supplier's entry; #310), `order.shipped` (`manual`, `pickup` or `booked` as the reason; `booked` for a label bought through the store's courier, #311), `order.sent_to_store` (a to-store supplier's hand-off) and `order.tracking_added`, `order.pickup_requested`, `order.delivered` (#311; by the courier's tracking, actor `job`) (each the store's full entry and, on a supplier's part, its thin one; #310 part 2), `order.cancelled` by the store (`shopper`, `store` or `out_of_stock` as its reason) and `orders.exported` (the chip, and only whether there was a search; #310 part 4), `billing.plan_changed`, `billing.change_scheduled` and `billing.change_cancelled` (the plan, period and when, before and after), `billing.payment_method_set` (the card's last 4 only), `billing.details_saved` (the names of the fields that changed, never their values), and, by Stripe as provider, `store.past_due`, `store.paid`, `store.restored` and `store.cancelled`, and by the dunning job `store.suspended` with `unpaid` (#329); `billing.products_kept` (how many picks), `store.cancelled` by the Owner (when the storefront stops), `store.data_exported` (the parts) and, by the `Billing` job, `store.trial_ended` with `free_plan` or `no_free_plan` (#329 part 2). The two-factor and backup-code entries carry no secret, code or phone number. **The
+entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on
+its parts, filed under its `seller_id`) **carry no free text and no shopper field**: the store's
+full entry, with the reason, the note and the customer, is written with `seller_id` null and
+store visibility, and a second thin entry for the supplier names only the action, the order
+number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §2.2).
+
 **Reads are not logged**, with one exception: every support session logs what it opened,
-because the merchant has a right to know what support looked at (ACCESS.md §8). A second
+because the merchant has a right to know what support looked at (ACCESS.md §8). Built on #331: each query field
+a support session runs is a `support_session.viewed` entry, store visibility, naming the field and
+any id it was given, never its other arguments, and so is each file it opens through `/api/assets` or
+`/api/documents`, by the file's id; the shell's 15-second `storeState` poll is not one.
+A session's lifecycle (entered, write requested, allowed or denied, ended) has partner visibility,
+so the partner reads it as the store does. A second
 exception: **staff opening a customer's detail page** in the admin console is logged
 (`customer.viewed`, staff-only visibility). Staff
 impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the staff member
@@ -88,8 +116,11 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 - Whole request payloads. Only the changed fields, and only as §4 allows.
 - Shopper personal data beyond `customer_id` and `actor_label` (for example, an address
   change records "address changed", not the address).
+- The free text of a search. An export's entry records its filter with the search text
+  replaced by `searched`, since it is often a person's name or email.
 
-The redaction list lives in code beside the resolver scope declarations, and a test fails
+The redaction list lives in `apps/api/src/core/redaction.ts` (in `core/`, so the writer in
+`saas/` can use it; built on #15), matched on whole words of the field name, and a test fails
 if a field on it appears in any entry.
 
 ### 4.2 Why a staff sign-in was refused
@@ -126,13 +157,35 @@ They are literals, never interpolated, so an entry cannot carry a subject or an 
 - **Jobs and webhooks** write with `actor_kind = job` or `provider`.
 - **Append-only**: the application's database role may insert, never update or delete
   (except the retention job, §8). A test proves it.
-- Code lives in `apps/api/src/saas/activity/` (writing and querying) and
-  `apps/api/src/db/schema/activity.ts` (the table); the scope declaration in
-  `apis/graphql/scope.ts` calls it.
-- **Until #15 builds the table**, `apps/api/src/auth/activity.ts` holds the entry shape and
-  writes each one to the Worker's logs instead (§9), carrying no label, IP or user agent. A
-  failed staff sign-in therefore leaves a trace but not a searchable record, and #15 replaces
-  the writer without changing the shape.
+- Code lives in `apps/api/src/saas/activity/` (writing and querying),
+  `apps/api/src/db/schema/activity.ts` (the row) and `apps/api/src/db/scoped/activity.ts`
+  (the SQL, behind the scoped layer like every tenant table). `apps/api/src/auth/activity.ts`
+  holds the entry shape and the sign-in entries; the writer is passed in from the
+  composition root, since `auth/` sits below `saas/` (api/README.md §4).
+- **Built on #15, decided on #33.** A mutation's declaration carries `audit: '<action>'` and
+  the schema refuses to build without it, or `unlogged: '<rule>'` naming one of the writes §3 leaves out (`cart`: a shopper's cart, built on #308;
+  `payment_return`: a shopper back from paying, whose read-back writes only the settlement, which the provider's
+  `order.paid` records, #309; `studio_renewal`: a studio session's renewal every two minutes, which only re-checks the seat
+  and moves the session's expiry, #318); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
+  to this section. The entry is written **by the service, inside the
+  transaction that makes the change**, because only the service holds that transaction; the
+  declaration names the action the mutation records when it does what it is named for, and a
+  structural test checks every declared action is one the service writes
+  (`saas/partners/service.ts` `partnerAudit`). A mutation records one entry per fact it
+  changes: creating a partner and sending its Owner invitation in one call is two entries,
+  and the first of two approvals is `partner.approval_recorded`, not `partner.approved`.
+- **The table is partitioned by month** (§1). The migration creates the partitions to the end
+  of 2027 plus a default one; the retention job (§8) creates later months and drops old ones.
+  Nothing is granted on a partition, so rows are reachable only through the parent and its
+  policies.
+- **Side effects** go in `outbox` in the same transaction (api/README.md §5), through
+  `saas/outbox`, with an idempotency key the scoped layer prefixes with the kind and the
+  scope. `jobs/queues/outbox-relay.ts` delivers them after commit from a one-minute schedule
+  that claims what is due **and has a registered deliverer**; a kind nobody delivers yet waits
+  untouched. Each attempt takes a lease, times out, and backs off exponentially to a limit,
+  after which the row is marked failed and kept; `delivered_at` makes a replay a no-op. A
+  request may insert into the outbox and nothing else. A per-row path fed by a Queue message
+  is added by the first effect that needs lower latency than the sweep.
 
 ---
 
@@ -146,10 +199,10 @@ every other tenant read.
 | **DripFunnel staff** (every staff role) | Admin console › Activity log; Activity tabs on partner and store pages | Everything, including `security` entries, IPs and user agents. Can follow **one person across every store and partner** |
 | **Partner user** | Partner console › Settings › Activity log; Activity tab on each merchant | Its own users' actions; staff actions on its partner account and merchants' accounts; support sessions its users opened; account-level events on its merchants (plan, trial, suspension, provisioning). **Never** anything inside a store, or any shopper |
 | **Merchant Owner** | Merchant portal › Settings › Activity log | Everything in the store: people, vendors, API keys, apps, support sessions (and what they opened), shoppers' account events and orders |
-| **Merchant Manager** | Customer page › Activity; own activity | Shopper activity on the customer page; their own actions *(confirm whether Managers also see the whole store log)* |
+| **Merchant Manager** | Merchant portal › Store activity (user menu, since Settings is the Owner's); customer page › Activity; own activity | Everything the Owner sees, to read; the export stays the Owner's (below; decided on #184); their own actions |
 | **Merchant Staff** | Own activity | Their own actions |
-| **Vendor** | Own activity | Their own actions only *(proposed; ACCESS.md §10 left this open)* |
-| **Shopper** | Storefront account › Sign-in activity | Their own sign-ins *(release: decide)* |
+| **Vendor** | Own activity | Their own actions only (decided on #184) |
+| **Shopper** | Storefront account › Sign-in activity and order history | Their own sign-ins *(release: decide)*, and the events of their own orders (placed, paid, shipped, return, refund), which is how the storefront's order history is read (DATA-MODEL.md §2.2) |
 
 - **"Own activity"** is a profile screen in every portal: the signed-in person's own
   entries in that scope, so anyone can check what was done under their name.
@@ -160,7 +213,24 @@ every other tenant read.
   call only** (decided on #44); every other staff role sees the control disabled with the
   reason. Partner Owner and Admin, merchant Owner in their portals. Every export is itself
   logged. An admin export has no IP column, caps at 100,000 entries, and its download link
-  expires after 1 hour.
+  expires after 1 hour (built on #38: an `export_job` of kind `staff_activity`, ending as too
+  large rather than as a partial file past the cap). **A partner export (built on #198)** is an `export_job` row
+  (DATA-MODEL §2.6): queued through the outbox and built in the partner's own scope, so this
+  section's policy decides what it holds. It caps at 10,000 entries (saying when it was cut),
+  has no IP or user-agent column, and its CSV is readable for 1 hour after it's built, then deleted
+  (the request itself stays in the log as `activity.exported`).
+  A **report** export (built on #200) holds no log entries, only account-level totals, so every
+  partner role may ask for one (ACCESS §5.3 `exports`); it is logged as `report.exported`.
+  A store's **product or stock export** (built on #301) is a `catalog_export` row (DATA-MODEL
+  §7.10) built the same way in the asker's scope, so a supplier's holds its own rows; it caps at
+  10,000 rows, its CSV is readable by the asker for 1 hour, and the request is logged as
+  `catalog.exported` with any search text replaced by `searched`.
+  **A store's Activity log** (built on #331) is read by the Owner and the Manager (`activity.read`),
+  through the log's own policy, and exported by the Owner alone (`activity.export`, never a support
+  session) as a `catalog_export` of kind `activity`: built in the Owner's scope, capped at 10,000
+  entries (its last line says when it was cut), with the partner export's columns and no IP or user
+  agent, readable by the asker for 1 hour, and logged as `activity.exported` with the search text
+  replaced by `searched`.
 
 ---
 
@@ -181,15 +251,23 @@ The same log screen in all three portals, fed by each app's API. The component l
   its page (with its own Activity tab).
 - **An entry expanded** shows the changes (before and after), the reason, the session or
   support agent, and for staff the request id.
-- **Plain words**: each action code has a message per locale ("Priya suspended Mehta
+- **Plain words** (the Platform API returns the code and its facts, and the partner console
+  words them, built on #198): each action code has a message per locale ("Priya suspended Mehta
   Textiles: chargeback"), never the raw code. The codes so far are listed in
   `apps/ui/admin/src/api/activityActions.ts`, the draft contract offered to #38.
 
-**Indexes** (per monthly partition): `(actor_kind, actor_id, occurred_at desc)`,
-`(store_id, occurred_at desc)`, `(partner_id, occurred_at desc)`,
-`(customer_id, occurred_at desc)`, `(target_type, target_id, occurred_at desc)`,
-`(action, occurred_at desc)`; trigram indexes on `actor_label` and `target_label` for the
-search box *(decide)*. Row-level security on `store_id` as for every tenant table.
+**Indexes** (declared on the parent, so per monthly partition; built on #15): each of
+`(actor_kind, actor_id)`, `(store_id)`, `(partner_id)`, `(customer_id)`,
+`(target_type, target_id)` and `(action)` followed by `(occurred_at desc, id desc)`, plus
+`(occurred_at desc, id desc)` alone for the unfiltered page. The keyset cursor is the pair
+`(occurred_at, id)`, opaque to the client, and every page also bounds `occurred_at` so the
+planner prunes partitions. The search box (built on #331, for the store's log) is a plain `ilike` over
+`actor_label`, `on_behalf_of_label` and `target_label` within the store's own rows, and the store's
+"What" filters by an action's family (`product` of `product.updated`). Trigram indexes on `actor_label` and `target_label` for the search
+box *(decide)*. Row-level security per §6, not only on `store_id`: a partner reads entries with
+`visibility = partner` in its partner; a store reads `store` and `self` entries in its store and
+the `partner` ones that name it (account-level events: plan, trial, suspension, provisioning);
+a supplier only those under its `seller_id`; a shopper only their own `customer_id`.
 
 ---
 
@@ -205,6 +283,10 @@ search box *(decide)*. Row-level security on `store_id` as for every tenant tabl
   hold ids and codes only, never labels, so they need no rewriting *(confirm)*.
 - A closed store's entries follow the store's retention window (SAAS.md §4.2), then the same
   archive rules.
+- **The outbox** (decided on #15): its payload is what a deliverer needs and may hold an
+  address, so the same retention job deletes delivered rows after 30 days and failed ones after
+  90, and an erasure request clears the payload of any row that names the person. Nothing is
+  archived from it.
 
 ---
 
@@ -214,6 +296,29 @@ search box *(decide)*. Row-level security on `store_id` as for every tenant tabl
   status, duration, error code. **No personal data, no payloads.**
 - Workers Logs for recent search; Logpush for long-term storage *(destination open)*.
 - The activity entry's `request_id` links a user's action to its technical trace.
+- An error names what failed as a class and a SQLSTATE or system code (`PostgresError:28P01`),
+  never its message. `sign_in_unavailable` is an outage during the staff sign-in (the browser
+  lands on the sign-in screen's unavailable state, and no refusal is recorded);
+  `request_failed` is an error nothing caught, answered as a plain 500; `db_ping_failed` and
+  `db_health_check_failed` are the health check's probe and its connection. Email (#274):
+  `email_sent`, `email_skipped` (`link_closed`, `no_recipient`, `suppressed`, `held`, and `tenant_mismatch` when the payload's store or partner isn't the outbox row's),
+  `email_refused` with SES's error type, and `ses_event` for the bounce hook. Never an address.
+  A store build's calls (#517): `build_call` with `<step>:<outcome>` (`start:accepted`, `credentials:refused:wrong_state`,
+  `report:unavailable:keys_unavailable`), never the token, the credential or a link.
+  Couriers (#311): `label_not_kept` and `pickup_not_kept` when a label or pickup was bought at the courier but couldn't be
+  kept here, with `<courier>:<the courier's id>` as the code, so support can cancel or refund it there.
+- **Credentials in a URL, in its path or its query, are never logged:**
+  - the studio frame's session id (storefront AI-STUDIO §8) is written as `/__studio/:session/…`;
+  - the preview link's token (storefront PREVIEW §5 step 2) is written as `/__open?t=:token`;
+  - the edge Worker's automatic invocation logs are off;
+  - the API Worker's automatic invocation logs and traces are off on dev and prod (#733): they record the request and outbound fetch URLs, and some routes carry a token in the query (`?token=` on the support and impersonation handoffs, a link token); only the app's own redacted lines are kept;
+  - the shop zones' request logs (`my-store.one` in prod, `my-shop.dev` on dev) leave out the request path and query
+    (`ClientRequestURI`, `ClientRequestPath`, `ClientRequestQuery` are not among each zone's Logpush
+    fields; set by hand in the Cloudflare dashboard, setup/dev.md and setup/prod.md).
+
+  A logging test fails if either value appears in a log line. **Built on #317**: store-proxy writes one line per
+  request with the host, the path redacted as above and never a query, the status and the time
+  (`store-proxy/src/index.ts` `loggedPath`); its `observability` and `logpush` are off in `wrangler.jsonc`.
 
 ---
 
@@ -232,8 +337,10 @@ search box *(decide)*. Row-level security on `store_id` as for every tenant tabl
 
 ## 11. Open questions
 
-- May Managers see the whole store log, or only customers' activity and their own?
-- Do vendors see their own actions (proposed), or nothing?
+- ~~May Managers see the whole store log, or only customers' activity and their own?~~ **Settled
+  2026-10-04** on #184 (§6): the whole store log.
+- ~~Do vendors see their own actions (proposed), or nothing?~~ **Settled 2026-10-04** on #184 (§6):
+  their own.
 - Do shoppers get a "Sign-in activity" screen in their storefront account, and in which
   release?
 - IP addresses: kept for 13 months for `auth` and `security` entries, staff-only (proposed),

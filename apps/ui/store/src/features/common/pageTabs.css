@@ -1,0 +1,52 @@
+/* A page's own tab bar (CatCollections, PortalSettings): white and edge to edge under the shell's padding. */
+.df-page-tabs {
+  --df-page-bleed-top: var(--df-space-5);
+  --df-page-bleed-side: var(--df-space-7);
+
+  margin: calc(-1 * var(--df-page-bleed-top)) calc(-1 * var(--df-page-bleed-side)) 22px;
+  padding: 0 var(--df-page-bleed-side);
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-surface);
+}
+
+.df-page-tabs .df-tabs ul {
+  display: flex;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.df-page-tabs a.df-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 2px;
+  border-bottom: 3px solid transparent;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.df-page-tabs a.df-tab[aria-current='page'] {
+  border-bottom-color: var(--df-color-brand);
+  color: var(--df-color-heading);
+  font-weight: 700;
+}
+
+@media (max-width: 1024px) {
+  .df-page-tabs {
+    --df-page-bleed-top: var(--df-space-4);
+    --df-page-bleed-side: var(--df-space-5);
+  }
+}
+
+@media (max-width: 639px) {
+  .df-page-tabs {
+    --df-page-bleed-side: var(--df-space-4);
+  }
+}

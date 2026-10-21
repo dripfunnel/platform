@@ -1,0 +1,192 @@
+/* designs/ImpBanner.dc.html: the yellow striped bar and the session-over card. */
+.df-session-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  padding: 9px var(--df-space-4);
+  border-bottom: 3px solid var(--df-color-session-edge);
+  background-color: var(--df-color-session);
+  background-image: repeating-linear-gradient(135deg, var(--df-color-session-stripe) 0 10px, transparent 10px 20px);
+  color: var(--df-color-session-ink);
+  font-family: var(--df-font);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.df-session-icon {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.df-session-text {
+  flex: 1;
+  min-width: min(240px, 100%);
+}
+
+.df-session-host {
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-session-time {
+  white-space: nowrap;
+}
+
+.df-session-error {
+  flex-basis: 100%;
+  font-weight: 700;
+}
+
+.df-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+  align-items: center;
+}
+
+.df-session-back {
+  padding: 0 var(--df-space-3);
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.df-session-end {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 2px solid currentColor;
+  border-radius: var(--df-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.df-session-back:focus-visible,
+.df-session-end:focus-visible,
+.df-session-card-action:focus-visible {
+  outline: 2px solid var(--df-color-session-ink);
+  outline-offset: 2px;
+}
+
+.df-session-over {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--df-space-6);
+  background: var(--df-color-backdrop);
+  font-family: var(--df-font);
+}
+
+.df-session-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+  align-items: flex-start;
+  width: 100%;
+  max-width: 440px;
+  padding: var(--df-space-7);
+  border-radius: var(--df-radius-dialog);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+}
+
+.df-session-card svg {
+  fill: none;
+  stroke: var(--df-color-muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.df-session-card h1 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 22px;
+  font-weight: 800;
+  text-wrap: balance;
+}
+
+.df-session-card p {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.df-session-card-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--df-space-4);
+  border-radius: var(--df-radius);
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.df-session-pending {
+  padding: var(--df-space-6);
+  color: var(--df-color-muted);
+  font-family: var(--df-font);
+}
+
+.df-session-controls {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--df-font);
+}
+
+.df-session-controls li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2) var(--df-space-3);
+  align-items: center;
+}
+
+.df-session-control {
+  min-height: 36px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-session-control:disabled {
+  color: var(--df-color-muted);
+  cursor: not-allowed;
+}
+
+.df-session-control:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-session-reason {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}

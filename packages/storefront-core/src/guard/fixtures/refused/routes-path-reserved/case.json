@@ -1,0 +1,5 @@
+{
+  "rule": "routes/path-reserved",
+  "file": "routes.json",
+  "line": 24
+}

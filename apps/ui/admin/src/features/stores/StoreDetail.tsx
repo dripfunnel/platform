@@ -5,10 +5,7 @@ import type { ReactNode } from 'react'
 import type { JobAction } from '../../api/provisioning'
 import type { Store, StoreDnsRecord } from '../../api/stores'
 import { messages } from '../../messages'
-import { EmptyState } from '../common/EmptyState'
-import { ErrorState } from '../common/ErrorState'
-import { LoadingState } from '../common/LoadingState'
-import { ReadOnlyNotice } from '../common/ReadOnlyNotice'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { CustomersTab, type StoreCustomers } from './CustomersTab'
 import { DomainsTab } from './DomainsTab'
 import { NotesTab } from './NotesTab'
@@ -21,7 +18,7 @@ import { StoreHeader } from './StoreHeader'
 import { StoreTabs, type StoreTab } from './StoreTabs'
 import { SupportTab } from './SupportTab'
 import { UsersTab } from './UsersTab'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.store
 
@@ -34,6 +31,7 @@ export interface StoreDetailProps {
   onJob: (action: JobAction) => void
   onAddNote: (text: string) => Promise<boolean>
   onRecheck: (record: StoreDnsRecord) => Promise<void>
+  onImpersonate: (userId: string) => void
   customers: StoreCustomers
   onReload: () => void
   // The Activity tab, built by the screen with its filters in the page's URL.
@@ -46,15 +44,15 @@ export const StoreLoading = () => (
   </div>
 )
 
-export const StoreError = ({ onRetry }: { onRetry: () => void }) => (
+export const StoreError = ({ onRetry, details }: { onRetry: () => void; details?: ErrorDetails }) => (
   <div className="df-page df-list">
-    <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry }} />
+    <ErrorState title={words.error.title} body={words.error.body} {...(details ? { details } : {})} retry={{ label: words.error.retry, onRetry }} />
   </div>
 )
 
-type TabProps = Pick<StoreDetailProps, 'tab' | 'onJob' | 'onAddNote' | 'onRecheck' | 'customers' | 'activity'> & { store: Store }
+type TabProps = Pick<StoreDetailProps, 'tab' | 'onJob' | 'onAddNote' | 'onRecheck' | 'onImpersonate' | 'customers' | 'activity'> & { store: Store }
 
-const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, customers, activity }: TabProps) => {
+const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, onImpersonate, customers, activity }: TabProps) => {
   switch (tab) {
     case 'overview':
       return <OverviewTab store={store} />
@@ -65,7 +63,7 @@ const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, customers, activi
     case 'provisioning':
       return <ProvisioningTab store={store} onJob={onJob} />
     case 'users':
-      return <UsersTab store={store} />
+      return <UsersTab store={store} onImpersonate={onImpersonate} />
     case 'customers':
       return <CustomersTab store={store} customers={customers} />
     case 'support':
@@ -77,7 +75,7 @@ const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, customers, activi
   }
 }
 
-export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onAddNote, onRecheck, customers, onReload, activity }: StoreDetailProps) => {
+export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onAddNote, onRecheck, onImpersonate, customers, onReload, activity }: StoreDetailProps) => {
   if (forced === 'loading') return <StoreLoading />
   if (forced === 'error') return <StoreError onRetry={onReload} />
   if (!store) {
@@ -100,7 +98,7 @@ export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onA
       {readOnly && <ReadOnlyNotice title={messages.stores.readOnly.title} body={messages.stores.readOnly.body} />}
       <StoreHeader store={store} onAction={onAction} onJob={onJob} />
       <StoreTabs storeId={store.id} current={tab} />
-      <TabContent store={store} tab={tab} onJob={onJob} onAddNote={onAddNote} onRecheck={onRecheck} customers={customers} activity={activity} />
+      <TabContent store={store} tab={tab} onJob={onJob} onAddNote={onAddNote} onRecheck={onRecheck} onImpersonate={onImpersonate} customers={customers} activity={activity} />
     </div>
   )
 }

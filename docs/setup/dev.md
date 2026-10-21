@@ -1,0 +1,310 @@
+# Dev environment setup
+
+The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
+redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
+
+Last updated: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+
+Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
+each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
+Feature environments (one per `feature` branch) are a separate setup:
+[FEATURE-ENVIRONMENTS.md](../code/FEATURE-ENVIRONMENTS.md).
+
+---
+
+## 1. What dev is
+
+| Part | Dev |
+|---|---|
+| Cloudflare account | "DripFunnel Dev", the same account as feature environments |
+| Zone | `dripfunnel.ai` |
+| API Worker | `dripfunnel-api-dev` (`wrangler.jsonc` › `env.dev`) |
+| Hosts | `dev-admin.dripfunnel.ai`, `dev-platform.dripfunnel.ai`, `dev-store.dripfunnel.ai` (each `/api/*` routes to the Worker), `dev-hooks.dripfunnel.ai` (the Worker's own custom domain) |
+| Consoles | Pages projects `dripfunnel-admin-dev`, `dripfunnel-platform-dev`, `dripfunnel-store-dev` |
+| Database | Neon project `dripfunnel-dev`, its persistent `dev` branch, through Hyperdrive |
+| Gate | Cloudflare Access: `*.dripfunnel.ai` allows `@softobotics.com`; `*-hooks.dripfunnel.ai` is bypassed so providers' test webhooks arrive |
+| Merchant mobile app | Its `dev` profile points at `dev-store.dripfunnel.ai` ([mobile-app/merchant/CONFIGURATION.md §2](../mobile-app/merchant/CONFIGURATION.md), #493); the Access gate above refuses the app's API calls until its own card solves that |
+| Deploys | `.github/workflows/dev.yml`, on every push to `dev`, or by hand |
+| Third parties | Test mode everywhere: Stripe test keys, the SES sandbox or a test identity, the Entra registration's dev redirect |
+
+What one run of `dev.yml` does, in order:
+
+1. **What changed:** works out which of the API and the three consoles changed since the last
+   successful run.
+2. **Guard rails:** stops unless `ALLOWED_TEST_HOST` and `ALLOWED_MIGRATION_HOST` are both set,
+   and different.
+3. **Gates:** `build typecheck lint test`, against the disposable **test** branch
+   (`TEST_DATABASE_URL`), never the dev database.
+4. **Migrations:** against the persistent dev branch (`DEV_DATABASE_URL`), over Neon's direct
+   connection.
+5. **Consoles:** deploys each console that changed to its Pages project. A missing project is
+   created on the first deploy.
+6. **API Worker:** `wrangler deploy --env dev`, if the API changed.
+
+---
+
+## 2. One-time setup
+
+Done once, by whoever holds the Cloudflare, Neon and GitHub admin rights. Each step can be
+checked off.
+
+### 2.1 Cloudflare account, zone and Access
+
+1. Create the dev account, add `dripfunnel.ai`, set SSL to Full (strict), and create the two
+   Access applications: [FEATURE-ENVIRONMENTS.md §4](../code/FEATURE-ENVIRONMENTS.md) steps 1
+   and 3. Dev and feature environments share all of this.
+2. Check that the Access applications cover `dev-admin`, `dev-platform` and `dev-store`, and
+   that `dev-hooks` falls under the hooks Bypass. Dashboard state that doesn't match yet is
+   tracked on #106.
+
+### 2.2 Cloudflare API token for deploys
+
+1. Cloudflare › My Profile › API Tokens › *Create token* › custom token, on the **dev account
+   only**.
+2. Permissions: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit,
+   Workers R2 Storage Edit and Queues Edit; *Zone
+   `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit.
+3. Copy it once. It goes into the GitHub `dev` environment (§2.5).
+
+### 2.3 Neon
+
+1. In the project `dripfunnel-dev` (Postgres **18**), create a branch named `dev`. It is the
+   persistent dev database.
+2. Create a second branch for CI tests, e.g. `ci-test`. It is disposable: the gates migrate
+   and write to it freely.
+3. Roles on the `dev` branch:
+   - **migration role** (e.g. `migrator`): owns the schema and runs migrations. It needs
+     `CREATEROLE` and `BYPASSRLS`, because migrations create the request roles
+     ([api/README.md §7](../api/README.md));
+   - **app role**: what the Worker connects as, **without** `BYPASSRLS`, a member of the
+     request roles ([DATA-MODEL.md §5.3](../api/DATA-MODEL.md)).
+4. Note three connection strings from Neon › the branch › *Connection details*:
+   - the migration role, **direct** (not pooled), on `dev` → `DEV_DATABASE_URL`;
+   - the test branch's string → `TEST_DATABASE_URL`;
+   - the app role, **pooled**, on `dev` → for Hyperdrive (§2.4).
+5. Note the two hostnames, from `DEV_DATABASE_URL` and `TEST_DATABASE_URL`. They become
+   `ALLOWED_MIGRATION_HOST` and `ALLOWED_TEST_HOST`.
+
+### 2.4 Hyperdrive, R2 and the outbox queue
+
+1. **Hyperdrive** already exists: its id is in `wrangler.jsonc` › `env.dev` › `hyperdrive`. To
+   make it again:
+   ```bash
+   wrangler hyperdrive create dripfunnel-dev --connection-string="<app role pooled string>"
+   ```
+   Then put the new id in `env.dev`, in a pull request.
+2. **R2**: `wrangler r2 bucket create dripfunnel-assets-dev`, then add
+   `"r2_buckets": [{ "binding": "ASSETS", "bucket_name": "dripfunnel-assets-dev" }]` to
+   `env.dev`. **Done** (2026-10-07): bucket created and bound. Raster brand files are served as
+   WebP at most 512 px wide through the `IMAGES` binding (Cloudflare Images, top level of
+   `wrangler.jsonc`; its free tier is 5,000 unique transformations a month).
+   Create the bucket before adding the binding, or the deploy fails.
+
+3. **Outbox queue** (#479): `wrangler queues create dripfunnel-outbox-wake-dev` on the dev account (the deploy token needs *Queues: Edit*, §2.2), then deploy. `env.dev` binds it as `OUTBOX_WAKE` and consumes it. Create the queue first: a binding to a missing queue fails the deploy. Once deployed, if a send fails the every-minute cron delivers.
+
+### 2.5 GitHub environment `dev`
+
+Repository › Settings › Environments › *New environment* › `dev`:
+
+1. **Deployment branches:** `dev` only.
+2. **Secrets:**
+
+   | Name | Value |
+   |---|---|
+   | `CLOUDFLARE_API_TOKEN` | the token from §2.2 |
+   | `DEV_DATABASE_URL` | the migration role's direct string (§2.3) |
+   | `TEST_DATABASE_URL` | the test branch's string (§2.3) |
+
+3. **Variables:**
+
+   | Name | Value |
+   |---|---|
+   | `CLOUDFLARE_ACCOUNT_ID` | the dev account's id (dashboard › account overview) |
+   | `ALLOWED_MIGRATION_HOST` | the hostname in `DEV_DATABASE_URL` |
+   | `ALLOWED_TEST_HOST` | the hostname in `TEST_DATABASE_URL`; it must differ from the one above |
+
+### 2.6 First deploy
+
+1. Actions › **dev** › *Run workflow* on `dev` (or push to `dev`). This creates the Worker
+   `dripfunnel-api-dev` and the three Pages projects.
+2. The Worker refuses requests until its values are set (§3). That's expected at this point.
+
+### 2.7 Put the consoles on their hostnames
+
+Once the three Pages projects exist, attach `dev-store`, `dev-platform` and `dev-admin` to
+them and create their DNS records:
+
+```bash
+CLOUDFLARE_API_TOKEN=<token from §2.2> CLOUDFLARE_ACCOUNT_ID=<dev account id> \
+DEV_ZONE_ID=<dripfunnel.ai zone id> DEV_DOMAIN=dripfunnel.ai \
+pnpm --filter ./apps/api dev-env:attach
+```
+
+Running it again is safe. The Worker's `/api/*` routes on those hosts come from `wrangler.jsonc`.
+
+### 2.8 Store and storefront accounts (INF 0, #287)
+
+The Store strand needs these before its cards can run against real services. Each is created
+by a person (the account's owner signs the terms); the cards build against local adapters until
+then. Where each value is kept is THIRD-PARTY-ACCESS §8.
+
+1. **Cloudflare, buckets** (dev account): create `storefront-sites-dev` (private), `storefront-assets-dev` and
+   `storefront-drafts-dev` (private) (names decided on #317). Make `storefront-assets-dev` public only through its custom
+   domain `sf-assets.my-shop.dev` (R2 › the bucket › Settings › Custom Domains; keep the r2.dev address off), give it a CORS
+   rule allowing `GET` from any origin (the storefront's module scripts load cross-origin), and add a Worker route
+   `sf-assets.my-shop.dev/*` with **no Worker** (Workers Routes › Add route › Worker: None), so the store proxy's `*/*`
+   route never runs for it (LIVE-SHOP §5 step 7). They are bound in `apps/api/wrangler.jsonc`'s `env.dev`
+   (`STOREFRONT_SITES`, `STOREFRONT_ASSETS`, `STOREFRONT_DRAFTS`) with the four Workflows and the studio's `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Objects as in `env.local` (#730; the deploy
+   token needs *Workflows: Edit*). Create the buckets first: a binding to a missing bucket fails the deploy. Until the release uploads the templates (ARCHITECTURE §2.3), the `templates` workflow fills the sites bucket on a push to `dev` that touches `templates/storefront/**` and after each `release` run, naming the newest `-dev.N` core in the registry (set `R2_STOREFRONT_ACCESS_KEY_ID` and `R2_STOREFRONT_SECRET_ACCESS_KEY` as secrets and `STOREFRONT_SITES_BUCKET` as a variable on the `dev` environment; the account id is its `CLOUDFLARE_ACCOUNT_ID` variable). By hand: `pnpm --filter ./apps/api exec tsx --env-file=.env.local scripts/local/seed-templates.ts --remote --core <version>` (reads `R2_STOREFRONT_*` and `STOREFRONT_SITES_BUCKET` from `.env.local`; `--core` defaults to `packages/storefront-core`'s version, which dev never publishes; its previews are a stand-in page). Create the R2 storefront
+   upload credential (*Object Read & Write* on those three buckets only, able to create temporary
+   credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
+   `R2_STOREFRONT_SECRET_ACCESS_KEY` and the token's value → `R2_STOREFRONT_API_TOKEN`, with the bucket names
+   `STOREFRONT_SITES_BUCKET` and `STOREFRONT_DRAFTS_BUCKET` (all six or none, #517), and a cache purge token → `CF_CACHE_PURGE_TOKEN`
+   (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
+2. **Shop domain**: add `my-shop.dev` (prod's is `my-store.one`) as its own zone on the DripFunnel-Dev Cloudflare account (Free plan), add the proxied wildcard record
+   `*.my-shop.dev`, and confirm Universal SSL covers it. Every store's free addresses are `{slug}.my-shop.dev` and `{slug}-preview.my-shop.dev`. In Logpush leave out `ClientRequestURI`,
+   `ClientRequestPath` and `ClientRequestQuery` (`../api/LOGGING.md` §9, `../storefront/PREVIEW.md` §2). The Worker route is #517's.
+3. **Cloudflare Containers and Durable Objects**: enable both on the Cloudflare account you use for dev. Measure the cold
+   start of a 1.5–2 GB image at `basic` and `standard-1`, and record it with the date in
+   THIRD-PARTY-ACCESS §2.1. Ask for a raise only if the limits are below the studio load (AI-STUDIO §7).
+   Then give `env.dev` in `apps/api/wrangler.jsonc` what `env.local` has for the studio (#482): the
+   `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Object bindings, their `studio-v1` migration, and a
+   `containers` entry `{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { … } }`
+   naming the image. A Durable Object starts only an image its config names, so on dev the entry's image is a placeholder that
+   dev.yml's *Studio image* step swaps for the newest `storefront-build:0.0.0-dev.<n>` tag's digest in dev's Cloudflare registry
+   (pushed by release.yml's `sandbox-image-dev` job) before it deploys: commit no digest (#790). The deploy token needs
+   *Containers: Edit*. `STUDIO_MAX_RUNNING` (a Worker variable, default 5000) caps studios running at once.
+4. **GitHub**: store builds pull the private `storefront-build` image with the organisation secret `GHCR_PULL_TOKEN`: a *classic*
+   personal access token with `read:packages` (fine-grained tokens can't read Packages), repository access *All repositories*,
+   created by an org owner (#790). The token belongs to that person's account, so builds fail if they leave the org. The org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,
+   500 Enterprise; main's protection needs Team, ARCHITECTURE §6). Create
+   the *DripFunnel Provisioning* App with *Administration*, *Contents*, *Workflows* and *Actions*
+   write and *Metadata* read, **no webhook**; install it on the org → `GITHUB_APP_ID`,
+   `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`. Store repos need no package access.
+5. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
+   redirect `https://dev-hooks.dripfunnel.ai/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
+   row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
+6. **SMS**: test accounts for the house partner. These are partner credentials, entered in the
+   partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
+   - **Twilio** (US, no wait): sign up and verify, keep the trial account's Account SID, Auth Token
+     and phone number. A trial texts only verified numbers: verify the team's.
+   - **MSG91** (India): sign up and verify the account. Delivery to Indian numbers waits for DLT.
+   - **India DLT** (start now, takes days): on an operator's DLT portal (Jio, Airtel or Vi; one
+     registration covers all) register DripFunnel as the **entity** (company documents, PAN,
+     authorised signatory letter), then a **sender ID**, then the **templates** (sign-in codes,
+     order updates). MSG91 asks for the entity and template ids once approved. Check the
+     portal for its current documents.
+7. **Sandboxes** for merchant testing: PayPal, Razorpay, Cashfree, PhonePe, Shiprocket and
+   EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (THIRD-PARTY-ACCESS §3).
+8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY` (the API Worker), and another → `PREVIEW_SESSION_KEY` (the store proxy,
+   `wrangler secret put PREVIEW_SESSION_KEY --env dev` in `store-proxy`). Then give `store-proxy/wrangler.jsonc`'s `env.dev`
+   the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.my-shop.dev/*` and the
+   variable `SHOP_DOMAIN=my-shop.dev`, as its comment lists (#317, #744).
+
+---
+
+## 3. The Worker's values
+
+Every value the Worker reads lives on the Worker itself, never in a file: Cloudflare dashboard
+› Workers & Pages › **`dripfunnel-api-dev`** › Settings › **Variables and Secrets** › *Add*. A
+deploy keeps them (`keep_vars`), and saving one deploys it at once. From a terminal,
+`wrangler secret put <NAME> --env dev` (in `apps/api`) writes to the same place.
+
+Never reuse a value from local or production.
+
+| Name | Type | Dev value | How to get it |
+|---|---|---|---|
+| `ADMIN_HOST` | Text | `dev-admin.dripfunnel.ai` | fixed |
+| `EDGE_ZONE` | Text | `dripfunnel.ai` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>` and `shops.edge.<zone>`, SAAS.md §8); the CNAME targets partners and merchants are shown. Both are proxied records in the zone pointing at the zone's one fallback origin (#428); check with `dig +short shops.edge.dripfunnel.ai` |
+| `CF_SAAS_ZONE_ID` | Text | the id of the `dripfunnel.ai` zone | Cloudflare for SaaS custom hostnames (SAAS.md §8). Without it and the token no hostname is registered, and a portal address goes live on DNS alone |
+| `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
+| `PLATFORM_HOST` | Text | `dev-platform.dripfunnel.ai` | fixed |
+| `HOOKS_HOST` | Text | `dev-hooks.dripfunnel.ai` | fixed |
+| `CODE_CHECK` | Text | `0` | Any email or text code is accepted (expiry, tries and lockout still apply), so sign-in 2-factor, phone enrolment and sign-ups work before an SMS provider exists (#275). Prod leaves it unset; the Worker refuses `0` anywhere but dev and localhost |
+| `HYPERDRIVE_REQUIRED` | Text | `1` | fixed: the dev Worker has its binding |
+| `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Keep a copy in the team's password manager: losing it makes every stored 2-factor secret and credential on dev unreadable |
+| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://dev-admin.dripfunnel.ai/api/auth/callback` |
+| `STRIPE_SECRET_KEY` | Secret | **test-mode** restricted key `rk_test_…` | Stripe › Developers › API keys › *Create restricted key*, with the permissions in §8 |
+| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (test mode) › Developers › Webhooks › *Add endpoint* `https://dev-hooks.dripfunnel.ai/stripe`, with the events in §8 and *Listen to events on Connected accounts* › *Reveal signing secret* Since #309 the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1) |
+| `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Secret | the sending IAM user, SES sandbox | THIRD-PARTY-ACCESS.md §2.4. In the sandbox only verified recipients receive mail: verify the team's addresses |
+| `SES_SENDER_DOMAIN` | Text | a domain verified in that SES account | SES › Identities › *Create identity* › Domain, then its DKIM records in DNS |
+| `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
+| `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
+| ~~`CF_PAGES_POOL`~~ | — | — | Not needed since 2026-10-09: no Pages project per store; the R2 storefront upload credential replaces it (THIRD-PARTY-ACCESS §2.1, names on #317) |
+| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 5. Read since #309 |
+| `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout, and Settings › Payout and payment in the partner console says the provider isn't switched on |
+| `R2_STOREFRONT_ACCOUNT_ID` | Text | the Cloudflare account id | §2.8 item 1 |
+| `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's key pair | Shown once when the R2 token is created (§2.8 item 1) |
+| `R2_STOREFRONT_API_TOKEN` | Secret | the same R2 token's value | Shown once with the key pair (§2.8 item 1). Read since #517 with the five values beside it: without all six a store build's calls don't exist |
+| `STOREFRONT_SITES_BUCKET`, `STOREFRONT_DRAFTS_BUCKET` | Text | `storefront-sites-dev`, `storefront-drafts-dev` | The buckets of §2.8 item 1, by name: the build's credential and links name them (#517) |
+| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.ai` zone | Profile › API Tokens (§2.8 item 1). Read since #317 with `CF_SAAS_ZONE_ID`: purges the store proxy's cached host lookups after a publish, a domain or a state change; without it they expire within 60 seconds |
+| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
+| `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
+| `SHOP_DOMAIN` | Text | `my-shop.dev` (§2.8 item 2) | Validated at boot; `my-store.localhost` locally. Replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Read since #317: seals "Open preview" links; without it, or without `SHOP_DOMAIN`, Open preview answers "not set up" |
+
+Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
+"not connected" instead of failing. Leaving out part of a group does the same, so set each
+group whole.
+
+The consoles' two build flags (`VITE_STATE_HARNESS=1` and `VITE_ADMIN_URL=https://dev-admin.dripfunnel.ai`)
+are meant to be set in the dev build (THIRD-PARTY-ACCESS.md §8), but **`dev.yml` doesn't set
+them yet**. Until it does, dev bundles have no `?state=` harness, and the portals' staff-session
+links point at production's admin console.
+
+---
+
+## 4. Deploying and checking
+
+1. Merge a pull request into `dev`. To redeploy without a change, use Actions › **dev** › *Run
+   workflow*.
+2. Watch the run. A failure at **Guard rails** means the `ALLOWED_*` variables are wrong; at
+   **Gates**, a test failed; at **Migrations**, a migration failed (see
+   [ROLLBACK.md](../code/ROLLBACK.md) before trying again).
+3. Check the API. Access gates the hosts, so open this in a browser where you're signed in to
+   Access:
+   `https://dev-platform.dripfunnel.ai/api/health` → `{"ok":true,"area":"platform","db":"ok","dbLatencyMs":…,…}`.
+   `db: "missing"` means the Hyperdrive binding was lost; a 500 usually means a required value
+   (§3) is missing.
+4. Watch the Worker's logs: `pnpm --filter ./apps/api exec wrangler tail --env dev`.
+   Workers Logs are on for dev and prod, but **invocation logs and traces are off on purpose** (LOGGING §9): they record
+   request URLs, and some carry a token. Don't switch them on in the dashboard; the next deploy would turn them off again.
+
+---
+
+## 5. Data on dev
+
+- Migrations run on every deploy. They must work with the version already running
+  (AGENTS.md "Data").
+- **Sample data:** ARCHITECTURE.md §6 says dev is seeded once and re-seeded only by a manual
+  workflow. **Neither exists yet:** `pnpm seed` refuses any database that isn't on your machine,
+  and there is no seed workflow. *(decide)*
+- **The first staff member:** staff sign in only once their Microsoft account is linked to a
+  `staff_user` row, which accepting an invitation does. Invitation emails aren't sent until
+  #274, and nothing yet creates the first super admin on an empty database. *(decide)*
+
+---
+
+## 6. Checklist
+
+- [ ] Cloudflare dev account, `dripfunnel.ai`, SSL Full (strict), Access applications (§2.1)
+- [ ] Deploy token (§2.2)
+- [ ] Neon `dev` and test branches, migration and app roles, three connection strings (§2.3)
+- [ ] Hyperdrive id in `env.dev` (§2.4)
+- [x] R2 bucket `dripfunnel-assets-dev` and binding (§2.4)
+- [x] Queue `dripfunnel-outbox-wake-dev`, created 2026-10-08, and *Queues: Edit* on the deploy token (§2.4, §2.2); the first deploy shows whether the token has it
+- [ ] `CODE_CHECK` = `0` on the Worker (§3)
+- [ ] GitHub environment `dev`: three secrets, three variables (§2.5)
+- [ ] First deploy (§2.6)
+- [ ] `dev-env:attach` (§2.7)
+- [ ] Every Worker value in §3
+- [ ] `/api/health` shows `db: "ok"` (§4)
+- [ ] Store and storefront accounts (§2.8), once the Store strand needs them
+
+---
+
+## 7. Open questions
+
+1. How dev gets its sample data, and the re-seed workflow ARCHITECTURE.md §6 describes (§5). *(decide)*
+2. How the first super admin is created on an empty dev database (§5). *(decide)*
+3. Setting the two build flags in `dev.yml` (§3). *(decide)*

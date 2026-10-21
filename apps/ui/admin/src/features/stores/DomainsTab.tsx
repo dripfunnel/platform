@@ -3,6 +3,7 @@ import type { Store, StoreDnsRecord } from '../../api/stores'
 import { fill, messages } from '../../messages'
 import { DomainPill } from './storeLook'
 import './stores.css'
+import '../common/records.css'
 
 const words = messages.store.domains
 

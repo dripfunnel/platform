@@ -7,11 +7,11 @@ own guide says what that app is for, who uses it and what it may do.
 **Status: skeleton.** Each app has a sign-in route and a home route; `shared/` has a button,
 design tokens, the GraphQL client and money formatting.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-11.
 
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
-| `apps/ui/store` | [store/](store/README.md) | each partner's portal host, e.g. `store.<partnerdomain>` | Merchants (Owner, Manager, Staff) and vendors | Store API | **The partner's** (white label) |
+| `apps/ui/store` | [store/](store/README.md), [FIRST-RELEASE](store/FIRST-RELEASE.md) | each partner's portal host, e.g. `store.<partnerdomain>` | Merchants (Owner, Manager, Staff) and vendors | Store API | **The partner's** (white label) |
 | `apps/ui/platform` | [platform/](platform/README.md) | `platform.dripfunnel.com` | Partner users | Platform API | DripFunnel |
 | `apps/ui/admin` | [admin/](admin/README.md) | `admin.dripfunnel.com` | DripFunnel staff | Admin API | DripFunnel |
 | `apps/ui/shared` | [shared/](shared/README.md) | (library) | every SPA | none of its own | tokens every app themes |
@@ -73,16 +73,22 @@ apps/ui/<app>/
 - One client per app (`createApiClient()` from `@dripfunnel/shared/graphql`): same-origin
   cookie, a timeout on every call, errors surfaced as `ApiError` with the API's stable code.
 - **Handle errors by code, never by message** (`PLAN_LIMIT_REACHED`, `NOT_FOUND`,
-  `FORBIDDEN`…). Each code maps to a designed state or a message from `messages/`.
+  `UNAUTHENTICATED`, `FORBIDDEN`…; the access codes are in api/ACCESS.md §3.1). Each code maps to a designed state or a message from `messages/`.
 - **The API decides; the UI displays.** Prices, totals, tax, stock, permissions and plan
   limits come from the API. The UI never computes a price or decides whether an action is
   allowed; it hides or disables controls only as a courtesy, the API enforces.
+- **Plan pricing lives in the API.** No app or site hard-codes a plan's price, trial or contents:
+  the partner's live plans come from the Store API's public `pricing(currency)` on its portal host
+  (api/SAAS.md §6.1, #459). No SPA shows a pricing page yet; the partner's own site reads it
+  server-side.
 - **The session is an `httpOnly` cookie** the app never reads. The browser holds no token.
   In the merchant portal the acting store travels with each request and the server checks
   it against the session's memberships (docs/api/ACCESS.md §4); the app may remember the
   last store as a convenience only.
 - Never display a secret, a full card number, a password or a token, even if an API
-  returned one by mistake.
+  returned one by mistake. The one exception (decided 2026-10-02): **2-factor set-up shows
+  the authenticator secret and the ten backup codes once, at creation**, and nothing ever
+  shows them again (docs/api/ACCESS.md §4).
 
 ---
 
@@ -104,10 +110,12 @@ apps/ui/<app>/
   - Each `index.html` carries a **small inline script** that sets the attribute before the
     first paint. It is deliberately duplicated rather than imported, because a module runs
     after the first paint and the page would flash the wrong theme.
-  - **Only the admin console lets anyone choose**, and it stores the choice as
-    `df-admin-theme`, the key the prototype uses (design.md §10). `shared/ui/theme.ts` holds
-    the resolution the app uses after load. `store` and `platform` have no control, so their
-    script follows the OS and reads no key; give them one when they get a control.
+  - **Each app stores its own choice**: `df-admin-theme` and `df-store-theme` are the keys
+    the Admin and Store prototypes use (the Store's since its dark mode of 2026-10-02; the
+    merchant portal stores it from its user menu's Appearance since #291, and from My profile's since #292); the Platform prototype has no key, and the console uses
+    `df-platform-theme`. `shared/ui/theme.ts` holds the resolution the app uses after load. In
+    the merchant portal the choice is the person's, saved on their account too (DATA-MODEL.md
+    §3.3 `user.theme`), and never changes the shop.
 - **Fonts**: Inter for text, Manrope for headings, IBM Plex Mono for the side bar's group
   headings. **Self-hosted**, through `@fontsource` packages imported once by
   `@dripfunnel/shared/ui/fonts.css` (revised 2026-09-29; they were loaded from Google Fonts

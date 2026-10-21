@@ -9,8 +9,9 @@ Cloudflare Access guards the whole host in front of the app's own sign-in.
 Older documents call it "DF Admin". It replaces the framework dashboard of the archived
 platform; there is no other operations console.
 
-**Status: the shell** (header, side bar, environment banner; #17), the Dashboard (#18) and
-Partners, list and detail (#19), all on fixtures, with a placeholder screen for Stores. The design is
+**Status: the shell** (header, side bar, environment banner, header search; #17, #41), the
+Dashboard (#18), Partners (#19) and Stores (#20), list and detail, read the Admin API (#41);
+the other menus are built on samples until their API cards land (#36–#40). The design is
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md).
 
 **The prototype is `designs/DF Admin Prototype.dc.html`** — open it in a browser and click
@@ -19,7 +20,7 @@ Customers, Approvals, Provisioning, Impersonate, Activity log and Staff; the fir
 ships only what [FIRST-RELEASE.md](FIRST-RELEASE.md) §2 lists. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-02 (#115, #116: list and detail pieces moved to shared).
 
 | Document | Covers |
 |---|---|
@@ -76,16 +77,16 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Area | Super admin | Partner manager | Support | Finance | Engineer on call | Read-only |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Home, search | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Partners: create, configure, approve, plans and prices | ✓ | ✓ (their partners) | view | view | view | view |
+| Partners: create, configure, approve, plans and prices | ✓ | ✓ (the partners a Super admin assigned to them, ACCESS.md §5.4; the others are invisible to them) | view | view | view | view |
 | Partners: pause, offboard, close | ✓ | | | | | |
-| Stores: detail | ✓ | ✓ (their partners) | ✓ | ✓ | ✓ | ✓ |
+| Stores: detail | ✓ | ✓ (their assigned partners' stores) | ✓ | ✓ | ✓ | ✓ |
 | Stores: suspend, restore | ✓ | | | | emergency only | |
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
 | Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Customers: full email and phone | ✓ | | ✓ | | | |
 | Impersonate partner and store users (full access, 30 min, extendable once) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
-| Billing: invoices, credits, refunds, dunning | ✓ | view (their partners) | | ✓ | | view |
+| Billing: invoices, credits, refunds, dunning | ✓ | view (their assigned partners) | | ✓ | | view |
 | Fleet, builds, domains, integration health | ✓ | view | view | | ✓ | view |
 | Platform settings, flags, ceilings | ✓ | | | | | |
 | Staff and roles | ✓ | | | | | |
@@ -125,7 +126,7 @@ navigation below, from the parts of CONSOLE-DESIGN §6, is the target:
 | Settings | O, R, S | Staff and roles, integrations, flags, ceilings, publish schedule, data and compliance |
 | Activity log | P | Every write and sign-in at every level; search by person (LOGGING.md §7) |
 
-Always visible: the **environment marker** (Production in red, Staging), the signed-in
+Always visible: the **environment marker** (Production in red; Dev, Feature or Local in grey, #65), the signed-in
 staff member's name and role, and the **current partner filter**, which is never silently
 kept when opening a store under another partner.
 
@@ -144,7 +145,10 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
 - **Money previews**: every billing action shows its effect before confirming ("Refund
   ₹4,999.00 to card ending 4242").
 - **Desktop first**; on a phone an on-call engineer must still find a store and see its
-  status.
+  status. Below 640px the console shows only three states, chosen by viewport on the same
+  URLs (#62): **Find a store** for the Dashboard and Stores, a **short store view** with its
+  one action (Suspend, or Restore, through the same confirmation as on a laptop), and "needs
+  a laptop" for every other page.
 - **No `brand/` folder**: the branding studio previews partner looks by rendering portal
   screens with the partner's tokens.
 
@@ -153,7 +157,7 @@ apps/ui/admin/src/
   features/
     shell/                  the app shell: header, side bar, nav drawer, environment banner
     sign-in/                the signed-out screens
-    common/                 what two areas of this app share: screen states, ConfirmDialog
+    common/                 what two areas of this app share: the activity tab and its filters, the gallery
     dashboard/              #18
     partners/               #19
     stores/                 placeholder until #20

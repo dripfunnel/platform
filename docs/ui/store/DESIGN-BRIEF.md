@@ -9,7 +9,7 @@ new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-05.
 
 Paste §1 to start a design session, then name a flow from §3.
 
@@ -63,7 +63,10 @@ Paste §1 to start a design session, then name a flow from §3.
 >    **Stock only** (they update quantities, nothing else), **Products and stock**, or
 >    **Products, stock and their orders** (fulfilling their own order lines). A fourth,
 >    read-only orders tier is defined but not offered. The navigation itself differs
->    between them.
+>    between them. **The merchant also chooses how each supplier ships** (decided
+>    2026-10-02): **to your warehouse**, so the supplier sees nothing of the shopper and the
+>    store delivers, or **to the shopper**, so the supplier ships its own lines and sees the
+>    name and delivery address only (ACCESS.md §7.3).
 > 4. **The merchant can edit a vendor's product, and the vendor sees that edit**:
 >    it is one shared record, not a copy. The interface has to say so on both
 >    sides, or it reads as a bug.
@@ -128,9 +131,9 @@ Paste §1 to start a design session, then name a flow from §3.
 | **Staff** (merchant) | `staff` | Handles orders and customers. Read-only on catalogue. | Merchant portal |
 | **Supplier · Stock only** | `vendor-stock` | Updates quantities in their own warehouses. Reads the catalogue only to find their own versions. Never sees orders. | Merchant portal |
 | **Supplier · Products and stock** | `vendor-catalogue` | Supplies products and their stock. Never sees orders. | Merchant portal |
-| **Supplier · Products, stock and their orders** | `vendor-orders-fulfil` | As above, plus sees and fulfils their own order lines. | Merchant portal |
+| **Supplier · Products, stock and their orders** | `vendor-orders-fulfil` | As above, plus sees and fulfils their own order lines: ships them to the shopper, or marks them as sent to the store's warehouse, by the shipping mode the merchant set (fact 3). Refunds their own lines. | Merchant portal |
 | **Supplier · Read-only orders** (defined, not offered) | `vendor-orders-read` | As Products and stock, plus sees which of their products sold, without fulfilling. Not offered in the Supplier tab today. | Merchant portal |
-| **Supplier admin / Supplier member** (team roles, *proposed*) | `supplier-admin`, `supplier-member` | Inside one supplier, at whatever access level the merchant set: the admin also manages the supplier's own team; the member doesn't. The merchant's first invited supplier user is its admin. | Merchant portal |
+| **Supplier admin / Supplier member** (team roles, decided 2026-10-02) | `supplier-admin`, `supplier-member` | Inside one supplier, at whatever access level the merchant set: the admin also manages the supplier's own team; the member doesn't. The merchant's first invited supplier user is its admin. | Merchant portal |
 | **DripFunnel staff and partner users** | Admin: Super admin, Partner manager, Support, Finance, Engineer on call, Read-only. Partner: Owner, Admin, Support, Finance, Read-only (proposed) | Staff run the platform from the **admin console** (`admin.dripfunnel.com`); partner users manage their merchants at account level from the **partner console** (`platform.dripfunnel.com`). Neither signs in to the merchant portal. They reach a store only through audited, read-only support access that the Owner controls ([USERS-AND-DOMAINS](../../USERS-AND-DOMAINS.md) §4.1; flow 79). | Admin console / partner console, **not** this portal |
 
 Roles are fixed templates, permission sets in code. There is no role editor, and nothing is
@@ -192,7 +195,11 @@ line says who it is for and the thing most likely to be missed.
 11. **Change someone's role**: Owner. Includes refusing to demote the last Owner.
 12. **Remove someone**: Owner. Removing from *this* store, not deleting the
     person, who may belong to others.
-13. **My profile**: everyone. Name, email, password.
+13. **My profile**: everyone (`PortalProfile`, designed 2026-10-02). Name, email (changed
+    through a link to the new address), mobile number, password (changing it signs out every
+    other device), **two-step sign-in** (required for Owners, optional for everyone else;
+    authenticator app or SMS; ten backup codes shown once), appearance (light or dark) and
+    **where you're signed in** with "Sign out everywhere else" (ACCESS.md §2, §4).
 
 ### C. Vendors
 
@@ -204,8 +211,11 @@ line says who it is for and the thing most likely to be missed.
     as well as their first user.
 16. **Change a vendor's access level**: Owner. Takes effect on the vendor's next request
     (PLATFORM-PROMPT §5.2); say so, and say what the vendor loses or gains.
-17. **Suspend or remove a vendor**: Owner. Their products remain in the
-    catalogue; the interface must make clear what happens to them.
+17. **Suspend or remove a vendor**: Owner. Decided 2026-10-02 (ACCESS.md
+    §7.5): suspending asks whether to **hide** their products or keep selling them from stock
+    in hand, and hidden ones return on resume; removing hides them and keeps them, still
+    marked as theirs, for the merchant to publish or delete. The screen states the count and
+    offers the hidden list.
 18. **Approval setting**: Owner. The per-store switch that decides whether
     vendor products go live immediately.
 19. **Approval queue**: Owner, only when that setting is on. Review, approve,
@@ -262,15 +272,20 @@ line says who it is for and the thing most likely to be missed.
     products.
 37. **Order detail**: merchant sees the whole order. **The vendor sees only their
     own lines and no order total.**
-38. **Fulfil an order**: merchant fulfils anything; a vendor on the top tier fulfils only
-    their own lines. Partial fulfilment is normal, and the stock comes out of a
-    specific warehouse, which the screen should make visible. See flow 70 for sub-orders.
-39. **What a vendor may see of a customer**: they need a delivery address to ship;
-    they should not have email or phone (settled, see §4). Design 37 with that rule.
-40. **Customer list and detail**: merchant only.
-41. **Refunds, cancellations and returns**: undesigned in the first platform, deliberately,
-    because they span several vendors and need a decision before any screen exists. The
-    engine must design them or scope them out explicitly (PLATFORM-PROMPT §5.4); see flow 71.
+38. **Fulfil an order**: merchant fulfils anything, booking a courier label or entering
+    tracking; a vendor on the top tier fulfils only their own lines, **shipping them to the
+    shopper or marking them as sent to the store's warehouse, by the shipping mode the
+    merchant set** (fact 3, decided 2026-10-02). Partial fulfilment is normal, and the stock
+    comes out of a specific warehouse, which the screen should make visible. See flow 70.
+39. **What a vendor may see of a customer** (settled 2026-10-02, ACCESS.md §7.3): a vendor
+    shipping to the store's warehouse sees **nothing**, not even a name; a vendor shipping to
+    the shopper sees the name and delivery address, never email or phone. Design 37 with both.
+40. **Customer list and detail**: merchant only. Designed 2026-10-02: add and edit, groups,
+    tags, a team-only note, marketing consent, export.
+41. **Refunds, cancellations and returns**: designed 2026-10-02 (`PortalOrders`; ACCESS.md
+    §7.3): a return per line with a reason and a label, states on its way back → received →
+    refunded; refunds per line grouped by owner, each supplier refunding its own, the store
+    able to override into the supplier ledger; restock really restocks. See flow 71.
 
 ### G. Marketing and offers
 
@@ -313,12 +328,13 @@ Shipping, Warehouse, Tax setup, and custom domain (58). The new platform adds Se
 Developers (flow 76) and Settings › Support access (flow 78).
 
 54. **Shipping methods**: Owner. The archive allowed only one active method at a time, a
-    rule enforced by the old backend; confirm whether it survives now that the engine has
-    shipping zones *(ask)*. Whatever the rule, the interface has to make it visible rather
-    than surprising.
+    rule enforced by the old backend. It does **not** survive: a store may offer **several
+    shipping methods at once** (decided 2026-10-05 on #337). The interface makes which methods a shopper
+    will see visible rather than surprising.
 55. **Shipping charges**: Owner. Free, charged, or free above a threshold.
-56. **Payment methods**: Owner. The merchant's own provider credentials (Stripe and
-    Razorpay first), offered according to the store's region.
+56. **Payment methods**: Owner. The merchant's own provider credentials (the first release's
+    seven: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer;
+    PLATFORM-PROMPT §8), offered according to the store's region.
 57. **Taxes and tax registrations**: Owner. Home country and selling markets, tax
     registrations per country (VAT number, EU OSS, US sales-tax permits, GSTIN…), tax
     classes and their rates by zone, and tax-inclusive or tax-exclusive pricing
@@ -364,10 +380,14 @@ non-technical merchant who needs to hand details to a developer, not for the dev
     one sub-order per vendor with its own lines, status and fulfilment; the merchant needs
     to see the whole order and each part's progress at once, and the vendor sees only their
     part, still with no order total.
-71. **Refunds and returns**: merchant (Owner and Manager; vendors *(ask)*). A refund or
-    return can touch several vendors' lines and a shared shipping charge or discount; show
-    exactly which lines, amounts and stock return, and don't design until the multi-vendor
-    decision is made (§4).
+71. **Refunds and returns**: merchant (Owner and Manager) starts returns and refunds its own
+    lines; a top-tier vendor refunds its own lines, up to their value (decided 2026-10-02,
+    ACCESS.md §7.3). A refund or return can touch several vendors' lines and a shared
+    shipping charge or discount; show exactly which lines, amounts and stock return, group
+    lines by who refunds them, and warn before the store overrides a supplier: the amount is
+    recorded on the supplier ledger for the merchant and supplier to settle outside
+    DripFunnel, and the supplier is told. (The prototype's "comes off their next payout" is
+    the wording #183 replaces; nothing pays out.)
 72. **Customer groups**: merchant only. Groups used by offers and pricing (OFFERS-DESIGN §3
     fact 12); the thing most missed is showing where a group is used before it is edited or
     deleted. A vendor never sees groups.
@@ -387,8 +407,8 @@ non-technical merchant who needs to hand details to a developer, not for the dev
     and never again, and the store key is the only credential safe to put in a browser.
 77. **Apps**: Owner. Browse, install with scope consent, configure, uninstall, and what an
     app can see; the consent screen must say in plain words what the app can read and
-    change, and uninstall must say what stops working *(ask: embedded pages or links
-    only, and where Apps sits in the nav)*.
+    change, and uninstall must say what stops working. Private apps only, shown as **links**
+    to their own site, under Settings › Apps (decided 2026-10-05 on #337).
 78. **Vendor's own API key** (*later*, decided 2026-09-28): Supplier admin. A key for their stock or
     catalogue integration, bound to their own `seller_id` and never more than their tier
     allows; the merchant must be able to see and revoke it.
@@ -399,7 +419,8 @@ non-technical merchant who needs to hand details to a developer, not for the dev
     write access (USERS-AND-DOMAINS §4.1). Easy to miss: the setting covers the partner's
     support only; the screen must say that DripFunnel staff can still sign in as a user
     for support, and show the banner the store sees when they do (USERS-AND-DOMAINS §4.2).
-80. **Catalogue "Publish now" and publishing status**: Owner (and Manager *(ask)*), for a
+80. **Catalogue "Publish now" and publishing status**: Owner (decided on #184: a Manager sees the
+    Storefront read-only), for a
     store with an AI storefront. What is waiting ("12 products changed since 10:40"),
     publishes left this month, when the next automatic publish is due, and a real status
     (queued, building, deploying, live, failed); a failed build keeps the old live site and
@@ -420,22 +441,29 @@ non-technical merchant who needs to hand details to a developer, not for the dev
 These are unresolved in the specification unless marked settled. Designing the relevant flow
 will probably settle them; flag them when you hit one rather than assuming:
 
-- ~~What a vendor may see of a customer (flow 39).~~ **Settled:** name and delivery address
-  to ship, not email or phone, applied in the engine's serializer rather than the UI
-  (PLATFORM-PROMPT §5.4, from the first platform's AUTH-PLAN §8.5).
-- Whether editing an approved product sends it back for re-approval, which would
-  let a vendor pull a live product off the storefront by editing it (flow 23).
-- What happens to a removed or suspended vendor's products (flow 17).
-- Whether refunds spanning vendors are the merchant's problem alone, and whether refunds,
-  returns and cancellations across vendors are in the first release (flows 41, 71;
-  PLATFORM-PROMPT §10).
+- ~~What a vendor may see of a customer (flow 39).~~ **Settled 2026-10-02:** it depends on the
+  supplier's shipping mode, set by the merchant: nothing when the supplier ships to the
+  store's warehouse; name and delivery address, not email or phone, when it ships to the
+  shopper; applied in the engine's serializer rather than the UI (ACCESS.md §7.3). This
+  replaces the 2026-09-28 answer, which assumed every supplier ships to the shopper.
+- ~~Whether editing an approved product sends it back for re-approval (flow 23).~~ **Settled
+  2026-10-02:** only for name, price or photo changes, and the product is hidden until
+  approved; a vendor can take its own product off sale that way, accepted (ACCESS.md §7.2).
+- ~~What happens to a removed or suspended vendor's products (flow 17).~~ **Settled
+  2026-10-02:** removed → hidden and kept; suspended → the Owner chooses hide
+  or keep selling, hidden ones restored on resume (ACCESS.md §7.5).
+- ~~Whether refunds spanning vendors are the merchant's problem alone (flows 41, 71).~~
+  **Settled 2026-10-02:** each supplier refunds its own lines, the store can override into a
+  supplier ledger settled outside the platform (ACCESS.md §7.3). Whether returns are in the
+  first release is FIRST-RELEASE.md's (written on #184: all of it ships, §1).
 - ~~Whether the portal remembers the last store or asks every time (flow 3).~~ **Settled by
   the first platform's build:** the portal remembers the last store and offers it as one button with
   the full list underneath, an offer rather than a choice made for the person; one membership
   skips the screen. The remembered id is a client-side convenience only; the server checks
   the acting store against the session's memberships on every request (the first platform's AUTH-PLAN
   §3.2 and its settled questions, now [ACCESS.md](../../api/ACCESS.md)).
-- Whether two-factor authentication applies to Owners only or everyone (flow 13).
+- ~~Whether two-factor authentication applies to Owners only or everyone (flow 13).~~
+  **Settled 2026-10-02:** required for Owners, optional for everyone else (ACCESS.md §2).
 - ~~Whether a vendor may create their own warehouses, or the merchant creates them on
   the vendor's behalf (flow 31).~~ **Settled by the first platform's Settings design and build:** a
   supplier's locations are the supplier's. The merchant sees them in the Warehouse tab, in
@@ -443,7 +471,7 @@ will probably settle them; flag them when you hit one rather than assuming:
   rename or remove one, and supplier locations are never offered as the default for new
   products, because a supplier product is stocked by its supplier.
 - Whether stock can move between warehouses at all (flows 35, 73).
-- Whether the first platform's one-active-shipping-method rule survives (flow 54).
+- ~~Whether the first platform's one-active-shipping-method rule survives (flow 54).~~ No: several at once (decided 2026-10-05 on #337).
 - How the portal offers the AI-or-own storefront choice, and whether plans differ (flow 75;
   PLATFORM-PROMPT §5.6, §10).
 - ~~Whether vendors can have their own API keys~~: later (flow 78; ACCESS.md §5.6).

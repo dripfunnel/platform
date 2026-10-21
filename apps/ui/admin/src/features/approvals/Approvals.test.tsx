@@ -27,7 +27,7 @@ describe('Approvals', () => {
 
   it('counts the go-live checks and shows each one', async () => {
     const text = textOf(await render())
-    expect(text).toContain('4 of 5 checks pass')
+    expect(text).toContain('3 of 4 checks pass')
     for (const check of Object.values(messages.partners.checks)) expect(text).toContain(check)
     expect(text).toContain(words.check.fail)
   })

@@ -5,15 +5,18 @@ import { recheckStoreDomain, runStoreAction, type Store, type StoreDnsRecord } f
 import { fill, messages } from '../../messages'
 import { actionCodes } from '../../api/activityActions'
 import { ActivityTab } from '../common/ActivityTab'
-import { ConfirmDialog } from '../common/ConfirmDialog'
+import { EmptyState, ConfirmDialog, usePhone, useScreenState, Toast } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
+import { failureText } from '../common/failure'
 import { callerFor } from '../common/harnessCaller'
-import { Toast } from '../common/Toast'
-import { useScreenState } from '../common/useScreenState'
+import { RouteError } from '../common/RouteError'
+import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
-import { useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
+import { jobFailureWords, useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
-import { storeStates } from './storeHarness'
+import { phoneAction, PhoneStore } from './PhoneStore'
+import { deniedStore, phoneStore, phoneStoreStates, storeStates } from './storeHarness'
 
 const storeRoute = getRouteApi('/_app/stores_/$storeId')
 const shellRoute = getRouteApi('/_app')
@@ -23,29 +26,44 @@ type Pending = { kind: 'store'; action: DialogAction } | { kind: 'job'; action: 
 const dialogActions: readonly DialogAction[] = ['suspend', 'restore', 'extendTrial', 'resendInvite']
 
 // ?state=confirm opens the first action this store offers, its signup job's first, so its
-// dialog can be checked.
-const firstAllowed = (store: Store | null): Pending | null => {
+// dialog can be checked; on a phone, the one action the short view offers.
+export const confirmOpening = (store: Store | null, phone: boolean): Pending | null => {
+  if (phone) {
+    const action = store && phoneAction(store)
+    return action && store.actions[action]?.allowed ? { kind: 'store', action } : null
+  }
   const job = jobActions.find((action) => store?.job?.actions[action]?.allowed)
   if (job) return { kind: 'job', action: job }
   const action = dialogActions.find((candidate) => store?.actions[candidate]?.allowed)
   return action ? { kind: 'store', action } : null
 }
 
-const targetOf = (store: Store): JobTarget => ({ name: store.name, code: store.code, owner: store.owner, step: store.setup.step, attempts: store.setup.attempts })
+// Only asked for while the store has a signup job, which the decoder guarantees is at a step.
+const targetOf = (store: Store): JobTarget => {
+  if (store.setup.step === null) throw new Error(`store ${store.id} has a signup job but no step`)
+  return { name: store.name, code: store.code, owner: { name: store.owner.name ?? '' }, step: store.setup.step, attempts: store.setup.attempts }
+}
 
 export const StoreDetailScreen = () => {
-  const store = storeRoute.useLoaderData()
+  const loaded = storeRoute.useLoaderData()
   const { tab = 'overview', after, before, action, result, date, from, to, ...customerFilter } = storeRoute.useSearch()
   const activityFilter = { action, result, date, from, to }
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
-  const forced = useScreenState(storeStates)
+  const forced = useScreenState(storeStates, harnessEnabled)
+  const phoneForced = useScreenState(phoneStoreStates, harnessEnabled)
+  // The harness's loading and error states are the laptop's; a phone has no others of its own.
+  const phone = usePhone() && forced !== 'loading' && forced !== 'error'
+  const denied = loaded && forced === 'denied' ? deniedStore(loaded) : loaded
+  const store = denied && phone && phoneForced ? phoneStore(denied, phoneForced) : denied
   const router = useRouter()
   const navigate = useNavigate()
-  const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? firstAllowed(store) : null))
+  const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? confirmOpening(store, phone) : null))
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
-  const failed = () => setToast(messages.store.toasts.failed)
+  const failed = (error: unknown) => setToast(failureText(error, messages.store.toasts.failed))
+  // The activity tab and the session flows still read the sample as this caller (#39, #40).
+  const sessions = useImpersonateFrom(callerFor(me.role, searchStr), me.name)
 
   const jobs = useMemo(() => (store?.job ? [{ id: store.job.id, state: store.setup.state }] : []), [store])
   // A cleaned-up signup has no page left to show (decided on #20), so its message goes with it
@@ -63,7 +81,7 @@ export const StoreDetailScreen = () => {
     setPending(null)
     if (next.kind === 'job') {
       if (!target.job) return
-      run(next.action, target.job.id, targetOf(target), reason).then(setToast).catch(failed)
+      run(next.action, target.job.id, targetOf(target), reason).then(setToast).catch((error: unknown) => setToast(jobFailureWords(error)))
       return
     }
     runStoreAction(target.id, next.action, reason, value)
@@ -83,16 +101,16 @@ export const StoreDetailScreen = () => {
             await router.invalidate()
             return true
           })
-          .catch(() => {
-            failed()
+          .catch((error: unknown) => {
+            failed(error)
             return false
           })
       : Promise.resolve(false)
 
   const onRecheck = (record: StoreDnsRecord) =>
     store
-      ? recheckStoreDomain(store.id, record.host)
-          .then((status) => setToast(fill(messages.store.domains.rechecked[status], { host: record.host })))
+      ? recheckStoreDomain(store.id)
+          .then(() => setToast(fill(messages.store.domains.recheckQueued, { host: record.host })))
           .catch(failed)
       : Promise.resolve()
 
@@ -100,6 +118,9 @@ export const StoreDetailScreen = () => {
 
   return (
     <>
+      {phone && store ? (
+        <PhoneStore store={store} onAction={(action) => setPending({ kind: 'store', action })} />
+      ) : (
       <StoreDetail
         store={store}
         tab={tab}
@@ -109,6 +130,7 @@ export const StoreDetailScreen = () => {
         onJob={(action) => setPending({ kind: 'job', action })}
         onAddNote={onAddNote}
         onRecheck={onRecheck}
+        onImpersonate={(id) => store && sessions.impersonate(id, { email: store.users.find((user) => user.id === id)?.email ?? '', store: store.id })}
         customers={{
           filter: customerFilter,
           page: { after, before },
@@ -133,6 +155,7 @@ export const StoreDetailScreen = () => {
           )
         }
       />
+      )}
       {store && (
         <ConfirmDialog
           open={dialog !== null}
@@ -155,7 +178,25 @@ export const StoreDetailScreen = () => {
   )
 }
 
-export const StoreRouteError = () => {
+// A store of a partner outside a Partner manager's assignment is refused by the API (ACCESS.md §5.4).
+const StoreDenied = () => {
+  const words = messages.stores.denied
+  return (
+    <div className="df-page df-list">
+      <EmptyState
+        title={words.title}
+        body={words.body}
+        action={
+          <Link to="/stores" className="df-button">
+            {words.back}
+          </Link>
+        }
+      />
+    </div>
+  )
+}
+
+export const StoreRouteError = ({ error }: { error: unknown }) => {
   const router = useRouter()
-  return <StoreError onRetry={() => void router.invalidate()} />
+  return <RouteError error={error} view={(details) => <StoreError onRetry={() => void router.invalidate()} details={details} />} denied={<StoreDenied />} />
 }

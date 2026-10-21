@@ -4,37 +4,80 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
-  "vars": {
-    "ADMIN_HOST": "admin.dripfunnel.com",
-    "PLATFORM_HOST": "platform.dripfunnel.com",
-    "HOOKS_HOST": "hooks.dripfunnel.com"
-  },
+  // Values live on each Worker (dashboard › Settings › Variables and Secrets) and locally in
+  // apps/api/.env.local, never here (#272): this file holds bindings only, and a deploy keeps
+  // the dashboard's values instead of deleting them. The Worker refuses to start without them.
+  "keep_vars": true,
   "ratelimits": [
     { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
-    { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+    { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+    { "name": "SHOP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 600, "period": 60 } },
+    { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } },
+    { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
+    { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
+    { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
+    { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
   ],
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
-  // No top-level `hyperdrive` binding yet: production has no Hyperdrive resource
-  // provisioned (`wrangler hyperdrive create`, then add `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }`
-  // here). Until then, `wrangler deploy` ships without HYPERDRIVE; /health reports
-  // `{ ok: true, db: "unconfigured" }` (200), not a failure, so no monitor alarms (§7).
+  "images": { "binding": "IMAGES" },
+  // One per cadence, each running its group of src/index.ts's cronGroups (api/README.md §5.1). Inherited by every env.
+  "triggers": { "crons": ["* * * * *", "*/5 * * * *", "0 * * * *", "0 3 * * *"] },
+  // No top-level bindings: each env below declares its own, and env.prod's Hyperdrive,
+  // buckets and queue must exist before it deploys (docs/setup/prod.md §3.4).
   "env": {
     // `wrangler dev --env local` only: no Hyperdrive resource is provisioned yet
     // (`wrangler hyperdrive create`), so this placeholder id stays out of the config
     // `wrangler deploy` (production) reads. Local dev uses `localConnectionString`
-    // (set via the CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var, not committed here).
+    // (CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE in apps/api/.env.local).
     "local": {
-      "vars": {
-        "ADMIN_HOST": "admin.localhost",
-        "PLATFORM_HOST": "platform.localhost",
-        "HOOKS_HOST": "hooks.localhost"
-      },
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
-        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+        { "name": "SHOP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 600, "period": 60 } },
+        { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } },
+        { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
+        { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
+        { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
+        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
-      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }]
+      "images": { "binding": "IMAGES" },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }],
+      // Wrangler's local R2. dev has its own bucket and binding; prod gains one once its bucket exists
+      // (THIRD-PARTY-ACCESS.md §2.1): a binding to a missing bucket fails the deploy.
+      "r2_buckets": [
+        { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-local" },
+        // The three storefront buckets (storefront LIVE-SHOP.md §2, §11): storefront-{sites,assets,drafts}-dev on dev and
+        // with `-prod` on prod, bound there with the Workflow below once #287 creates them (docs/setup/dev.md §2.8).
+        { "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-local" },
+        { "binding": "STOREFRONT_ASSETS", "bucket_name": "storefront-assets-local" },
+        { "binding": "STOREFRONT_DRAFTS", "bucket_name": "storefront-drafts-local" }
+      ],
+      "queues": {
+        "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-local" }],
+        "consumers": [{ "queue": "dripfunnel-outbox-wake-local", "max_batch_size": 100, "max_batch_timeout": 1 }]
+      },
+      // SAAS §5 steps 4–8 (jobs/workflows/create-storefront.ts).
+      "workflows": [
+        { "name": "dripfunnel-create-storefront-local", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" },
+        // SAAS §9.1 (jobs/workflows/publish-storefront.ts); dev and prod gain it with the buckets (docs/setup/dev.md §2.8).
+        { "name": "dripfunnel-publish-storefront-local", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" },
+        // Storefront LIVE-SHOP §7 (jobs/workflows/render-page.ts): a page run, woken by its build's "uploaded" like a publish.
+        { "name": "dripfunnel-render-page-local", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
+        // SAAS §10 (jobs/workflows/core-upgrade.ts): one store's upgrade in a rollout, through its studio's sandbox.
+        { "name": "dripfunnel-core-upgrade-local", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
+      ],
+      // The studio (storefront AI-STUDIO.md §2, jobs/durable/studio.ts). Locally its sandbox is apps/sandbox on this machine
+      // (SANDBOX_LOCAL_URL), never a container; dev gains these with a `containers` entry once Containers is on (docs/setup/dev.md).
+      "durable_objects": {
+        "bindings": [
+          { "name": "STUDIO_SESSION", "class_name": "StudioSession" },
+          { "name": "STUDIO_CAPACITY", "class_name": "StudioCapacity" }
+        ]
+      },
+      "migrations": [{ "tag": "studio-v1", "new_sqlite_classes": ["StudioSession", "StudioCapacity"] }]
     },
     // `wrangler deploy --env dev`, from .github/workflows/dev.yml, on every push to `dev`
     // (ARCHITECTURE.md §6). Same dev Cloudflare account as feature environments (selected
@@ -42,35 +85,114 @@
     // is a placeholder until that account's config exists.
     "dev": {
       "name": "dripfunnel-api-dev",
-      "vars": {
-        "ADMIN_HOST": "dev-admin.dripfunnel.com",
-        "PLATFORM_HOST": "dev-platform.dripfunnel.com",
-        "HOOKS_HOST": "dev-hooks.dripfunnel.com"
-      },
+      "routes": [
+        { "pattern": "dev-admin.dripfunnel.ai/api/*", "zone_name": "dripfunnel.ai" },
+        { "pattern": "dev-platform.dripfunnel.ai/api/*", "zone_name": "dripfunnel.ai" },
+        { "pattern": "dev-store.dripfunnel.ai/api/*", "zone_name": "dripfunnel.ai" },
+        { "pattern": "dev-hooks.dripfunnel.ai", "custom_domain": true }
+      ],
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
-        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+        { "name": "SHOP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 600, "period": 60 } },
+        { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } },
+        { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
+        { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
+        { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
+        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
-      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }]
+      // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
+      "observability": {
+        "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
+        "traces": { "enabled": false }
+      },
+      "images": { "binding": "IMAGES" },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }],
+      "r2_buckets": [
+        { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-dev" },
+        // The buckets must exist first: a binding to a missing bucket fails the deploy (docs/setup/dev.md §2.8 item 1).
+        { "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-dev" },
+        { "binding": "STOREFRONT_ASSETS", "bucket_name": "storefront-assets-dev" },
+        { "binding": "STOREFRONT_DRAFTS", "bucket_name": "storefront-drafts-dev" }
+      ],
+      // The same four Workflows as env.local; the deploy token needs Workflows: Edit.
+      "workflows": [
+        { "name": "dripfunnel-create-storefront-dev", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" },
+        { "name": "dripfunnel-publish-storefront-dev", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" },
+        { "name": "dripfunnel-render-page-dev", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
+        { "name": "dripfunnel-core-upgrade-dev", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
+      ],
+      // The studio's Durable Objects. A Durable Object starts only an image named here, so dev.yml swaps the image below for
+      // the newest dev tag's digest on the runner before deploying (docs/setup/dev.md §2.8 item 3, #790); never commit one.
+      "containers": [{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { "studio": { "image": "DEV_STUDIO_IMAGE" } } }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "STUDIO_SESSION", "class_name": "StudioSession" },
+          { "name": "STUDIO_CAPACITY", "class_name": "StudioCapacity" }
+        ]
+      },
+      "migrations": [{ "tag": "studio-v1", "new_sqlite_classes": ["StudioSession", "StudioCapacity"] }],
+      "queues": {
+        "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-dev" }],
+        "consumers": [{ "queue": "dripfunnel-outbox-wake-dev", "max_batch_size": 100, "max_batch_timeout": 1 }]
+      }
     },
-    // `wrangler deploy --env prod`, uploaded by .github/workflows/prod.yml on every push to
-    // `main` and promoted to 100% by .github/workflows/promote.yml (§6). Same values as the
-    // top-level config (kept as the implicit default for now); explicit so the workflows can
-    // name the env instead of relying on that default.
-    // No `hyperdrive` binding yet: see the top-level comment above.
+    // `wrangler versions upload --env prod`, from .github/workflows/prod.yml on every push to `main`,
+    // promoted to 100% by .github/workflows/promote.yml (§6). Every resource below must exist first
+    // (docs/setup/prod.md §3.4): a binding to a missing bucket, queue or Hyperdrive fails the deploy.
     "prod": {
       "name": "dripfunnel-api",
-      "vars": {
-        "ADMIN_HOST": "admin.dripfunnel.com",
-        "PLATFORM_HOST": "platform.dripfunnel.com",
-        "HOOKS_HOST": "hooks.dripfunnel.com"
-      },
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
-        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+        { "name": "SHOP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 600, "period": 60 } },
+        { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } },
+        { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
+        { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
+        { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
+        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
       ],
-      "version_metadata": { "binding": "CF_VERSION_METADATA" }
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
+      "observability": {
+        "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
+        "traces": { "enabled": false }
+      },
+      "images": { "binding": "IMAGES" },
+      "routes": [
+        { "pattern": "admin.dripfunnel.com/api/*", "zone_name": "dripfunnel.com" },
+        { "pattern": "platform.dripfunnel.com/api/*", "zone_name": "dripfunnel.com" },
+        { "pattern": "hooks.dripfunnel.com", "custom_domain": true }
+      ],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "3f5dde455e2a43e1b61f0aa1c08460a4" }],
+      "r2_buckets": [
+        { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-prod" },
+        { "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-prod" },
+        { "binding": "STOREFRONT_ASSETS", "bucket_name": "storefront-assets-prod" },
+        { "binding": "STOREFRONT_DRAFTS", "bucket_name": "storefront-drafts-prod" }
+      ],
+      "workflows": [
+        { "name": "dripfunnel-create-storefront-prod", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" },
+        { "name": "dripfunnel-publish-storefront-prod", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" },
+        { "name": "dripfunnel-render-page-prod", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
+        { "name": "dripfunnel-core-upgrade-prod", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
+      ],
+      // prod.yml swaps the image below for the newest stable tag's digest on the runner before uploading (#816); never commit one.
+      "containers": [{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { "studio": { "image": "PROD_STUDIO_IMAGE" } } }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "STUDIO_SESSION", "class_name": "StudioSession" },
+          { "name": "STUDIO_CAPACITY", "class_name": "StudioCapacity" }
+        ]
+      },
+      "migrations": [{ "tag": "studio-v1", "new_sqlite_classes": ["StudioSession", "StudioCapacity"] }],
+      "queues": {
+        "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-prod" }],
+        "consumers": [{ "queue": "dripfunnel-outbox-wake-prod", "max_batch_size": 100, "max_batch_timeout": 1 }]
+      }
     }
   }
 }

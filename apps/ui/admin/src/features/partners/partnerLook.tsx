@@ -1,7 +1,7 @@
+import { StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
+import type { StatusIconName } from '@dripfunnel/shared/ui'
 import type { HostStatus, InvitationStatus, PartnerState } from '../../api/partners'
 import { messages } from '../../messages'
-import { StatusPill, type StatusTone } from '../common/StatusPill'
-import type { StatusIconName } from '../shell/Icon'
 import './partners.css'
 
 const words = messages.partners
@@ -21,10 +21,16 @@ const stateLook: Record<PartnerState, Look> = {
   closed: { tone: 'neutral', icon: 'ban' },
 }
 
+// SAAS.md §3.5: waiting, verifying and issuing are on the way; failed, expiring and broken need
+// the partner's attention.
 const hostLook: Record<HostStatus, Look> = {
   live: { tone: 'success', icon: 'ok' },
   waiting: { tone: 'warning', icon: 'clock' },
+  verifying: { tone: 'info', icon: 'hour' },
+  issuing: { tone: 'info', icon: 'hour' },
   failed: { tone: 'danger', icon: 'alert' },
+  expiring: { tone: 'warning', icon: 'clock' },
+  broken: { tone: 'danger', icon: 'alert' },
   notSet: { tone: 'neutral', icon: 'pen' },
 }
 

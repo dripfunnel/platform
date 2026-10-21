@@ -3,10 +3,11 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Partner } from '../../api/partners'
 import { createSampleServer, samplePartners } from '../../api/partnersSample'
-import type { StaffRole } from '../shell/staffRoles'
+import { staffRoles, type StaffRole } from '../shell/staffRoles'
 import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
 import { actionDialog } from './actionDialog'
+import { startingContract } from './ContractDialog'
 import { PartnerDetail, type PartnerDetailProps } from './PartnerDetail'
 import { partnerTabs } from './PartnerTabs'
 
@@ -30,6 +31,8 @@ const render = async (props: Partial<PartnerDetailProps> = {}) => {
         readOnly={false}
         onAction={noop}
         onRecheck={() => Promise.resolve()}
+        onSetContract={noop}
+        onImpersonate={noop}
         onReload={noop}
         activity={null}
         {...props}
@@ -62,6 +65,25 @@ describe('Partner detail', () => {
     expect(textOf(await render({ partner: partner('df') }))).toContain('DripFunnel is the house partner and can’t be paused.')
   })
 
+  it('shows the contract on Overview, or that there is none with Set contract, and the refusal to a role that may not set it', async () => {
+    const contract = words.contract
+    const kaufladen = textOf(await render())
+    expect(kaufladen).toContain('EUR · Euro')
+    expect(kaufladen).toContain(contract.poweredByTerms.firstYear)
+    expect(kaufladen).toContain(contract.change)
+
+    const bazaar = await render({ partner: partner('bz') })
+    expect(textOf(bazaar)).toContain(contract.none)
+    expect(bazaar).toMatch(/<button type="button" class="df-button df-button--primary">Set contract<\/button>/)
+    expect(textOf(await render({ partner: partner('bz', 'staff-support') }))).toContain('Only a Super admin or Partner manager can set contracts.')
+  })
+
+  it('starts a partner with no contract from its country’s currency, at the strictest terms', () => {
+    expect(startingContract({ contract: null, country: 'IN' })).toEqual({ feeCurrency: 'INR', currencies: [], poweredBy: 'required' })
+    expect(startingContract({ contract: null, country: null })).toEqual({ feeCurrency: 'USD', currencies: [], poweredBy: 'required' })
+    expect(startingContract(partner('ns'))).toEqual({ feeCurrency: 'USD', currencies: ['CAD'], poweredBy: 'removable' })
+  })
+
   it('asks for a reason on all four state actions, Resume included, and never for the name typed', () => {
     const paused: Partner = { ...partner('ns'), state: 'paused' }
     for (const [action, target] of [
@@ -74,7 +96,6 @@ describe('Partner detail', () => {
       expect(dialog.reason, action).toBeDefined()
       expect(dialog).not.toHaveProperty('typeToConfirm')
     }
-    expect(actionDialog('setupSession', partner('ts')).reason?.label).toBe(words.dialogs.setupSession.reason)
     expect(actionDialog('pause', partner('ns')).consequence).toBe('No new merchant signups. Its 86 stores keep running.')
   })
 
@@ -86,27 +107,50 @@ describe('Partner detail', () => {
     }
   })
 
-  it('lists the setup checklist with who did each item', async () => {
+  it('lists the portal host and email sender domain, and no preview or shop address (#518, #745)', async () => {
+    const text = textOf(await render({ tab: 'domains' }))
+    for (const kind of ['portal', 'email'] as const) expect(text).toContain(words.domains.kinds[kind])
+    expect(text).not.toMatch(/preview/i)
+  })
+
+  it('lists the setup checklist with who did each item and the API line for it', async () => {
     const text = textOf(await render())
     expect(text).toContain('Done by Priya (DripFunnel)')
-    expect(text).toContain('Kaufladen Digital enters this itself')
+    expect(text).toContain('shop.kaufladen.de is live')
+    expect(text).toContain('Add the bank account DripFunnel pays you into')
+    expect(text).toContain('6 of 8')
     expect(text).toContain('Sent back by Maya Ortiz: Legal pages missing an Impressum')
   })
 
-  it('shows Impersonate disabled, with the reason, until impersonation is connected', async () => {
+  it('words a history entry it has no words for by its code, never silently', async () => {
+    const odd: Partner = { ...partner('kl'), history: [{ at: '2026-09-27T00:00:00Z', action: 'partner.renamed', by: 'Arjun Menon', note: null }] }
+    expect(textOf(await render({ partner: odd }))).toContain('partner.renamed by Arjun Menon')
+  })
+
+  it('offers Impersonate on the Team tab as the API allows it, with the reason when refused', async () => {
     const html = await render({ tab: 'team' })
-    expect(html).toMatch(/<button type="button" class="df-button" disabled=""[^>]*>Impersonate<\/button>/)
-    expect(textOf(html)).toContain(words.team.impersonateUnavailable)
+    expect(html).toMatch(/<button type="button" class="df-button">Impersonate<\/button>/)
+    const finance = await render({ partner: partner('kl', 'staff-finance'), tab: 'team' })
+    expect(finance).toMatch(/<button type="button" class="df-button" disabled=""[^>]*>Impersonate<\/button>/)
+    expect(textOf(finance)).toContain(messages.impersonate.refusals.STAFF_ROLE_NOT_ALLOWED)
+  })
+
+  it('offers the setup session to Super admins and Partner managers only, and leaves it out for the rest', async () => {
+    for (const role of staffRoles) {
+      const html = await render({ partner: partner('ts', role) })
+      expect(textOf(html).includes(words.actions.setupSession), role).toBe(role === 'staff-super-admin' || role === 'staff-partner-manager')
+    }
   })
 
   it('offers the held invitation on the Team tab', async () => {
     expect(textOf(await render({ partner: partner('nl'), tab: 'team' }))).toContain(words.actions.sendInvite)
   })
 
-  it('formats plan prices as money, and says when one is not priced', async () => {
+  it('shows each plan with its status and limits, and no price until the plans card prices them', async () => {
     const text = textOf(await render({ tab: 'plans' }))
-    expect(text).toContain('€25.00 / month')
-    expect(text).toContain(words.plans.notPriced)
+    expect(text).toContain(words.plans.statuses.draft)
+    expect(text).toContain('Up to 500 products · 2 staff')
+    expect(text).not.toMatch(/[$€£₹]/)
   })
 
   it('says a partner that does not exist cannot be found', async () => {

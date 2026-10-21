@@ -2,10 +2,9 @@ import { getRouteApi, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import { changeStaffRole, inviteStaff, removeStaff, resendStaffInvite, revokeStaffInvite, type StaffMember, type StaffResult } from '../../api/staff'
 import { messages } from '../../messages'
-import { ConfirmDialog } from '../common/ConfirmDialog'
+import { ConfirmDialog, useScreenState, Toast } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { callerFor } from '../common/harnessCaller'
-import { Toast } from '../common/Toast'
-import { useScreenState } from '../common/useScreenState'
 import { Staff, StaffError } from './Staff'
 import { refusalOn, type PageRefusal } from './pageRefusal'
 import { isStaffRole, labelOf, refusalText, staffDialog, staffToast, type StaffDialogKind } from './staffDialog'
@@ -23,7 +22,7 @@ export const StaffScreen = () => {
   const page = staffRoute.useLoaderData()
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
-  const forced = useScreenState(staffStates)
+  const forced = useScreenState(staffStates, harnessEnabled)
   const router = useRouter()
   const caller = callerFor(me.role, searchStr)
   const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? { kind: 'invite', member: null } : null))
@@ -35,17 +34,17 @@ export const StaffScreen = () => {
 
   const run = (kind: StaffDialogKind, member: StaffMember | null, email: string | null, role: string | null): Promise<StaffResult> => {
     const picked = role !== null && isStaffRole(role) ? role : null
-    if (kind === 'invite') return email && picked ? inviteStaff(email, picked, caller) : Promise.reject(new Error('Invite needs an email and a role.'))
+    if (kind === 'invite') return email && picked ? inviteStaff(email, picked) : Promise.reject(new Error('Invite needs an email and a role.'))
     if (!member) return Promise.reject(new Error(`${kind} needs a staff member.`))
     switch (kind) {
       case 'changeRole':
-        return picked ? changeStaffRole(member.id, picked, caller) : Promise.reject(new Error('Change role needs a role.'))
+        return picked ? changeStaffRole(member.id, picked) : Promise.reject(new Error('Change role needs a role.'))
       case 'remove':
-        return removeStaff(member.id, caller)
+        return removeStaff(member.id)
       case 'resend':
-        return resendStaffInvite(member.id, caller)
+        return resendStaffInvite(member.id)
       case 'revoke':
-        return revokeStaffInvite(member.id, caller)
+        return revokeStaffInvite(member.id)
     }
   }
 
@@ -88,9 +87,9 @@ export const StaffScreen = () => {
         cancelLabel={messages.staff.dialogs.cancel}
         {...(dialog?.notes ? { notes: dialog.notes } : {})}
         {...(dialog?.input ? { input: dialog.input } : {})}
-        {...(dialog?.choice ? { choice: dialog.choice } : {})}
+        {...(dialog?.choices ? { choices: dialog.choices } : {})}
         danger={dialog?.danger ?? false}
-        onConfirm={(_reason, email, role) => pending && onConfirm(pending, email, role)}
+        onConfirm={(_reason, email, { role }) => pending && onConfirm(pending, email, role ?? null)}
         onCancel={() => setPending(null)}
       />
       <Toast message={toast} onDone={clearToast} />

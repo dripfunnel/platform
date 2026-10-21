@@ -1,0 +1,5 @@
+{
+  "rule": "jsx/animated-property",
+  "file": "src/theme/components/interactive/Bad.tsx",
+  "line": 9
+}

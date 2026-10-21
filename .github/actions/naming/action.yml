@@ -1,0 +1,26 @@
+name: naming
+description: Check a pull request's branch, title, commits and issues against scripts/git/naming.mjs
+
+inputs:
+  token:
+    description: A token that can read this repository's issues
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - name: Rules
+      run: node --test 'scripts/git/*.test.mjs'
+      shell: bash
+    - name: Branch, title, commits and issues
+      run: node scripts/git/naming.mjs check-pr
+      shell: bash
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        GITHUB_TOKEN: ${{ inputs.token }}

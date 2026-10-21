@@ -1,0 +1,28 @@
+{
+  "nav": {
+    "label": "Main",
+    "menu": "Menu",
+    "submenu": "Submenu: {item}",
+    "shop": "Shop",
+    "about": "About",
+    "contact": "Contact"
+  },
+  "tools": {
+    "search": "Search",
+    "account": "Account",
+    "cart": "Cart",
+    "cartCount": "Cart, {count, plural, one {# item} other {# items}}"
+  },
+  "footer": {
+    "note": "Thank you for shopping with us.",
+    "shop": "Shop",
+    "all": "Shop all",
+    "help": "Help",
+    "shipping": "Shipping",
+    "returns": "Returns",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "legal": "Legal",
+    "notice": "Legal notice"
+  }
+}

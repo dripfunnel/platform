@@ -1,0 +1,161 @@
+# The store's one workflow, locked (storefront LIVE-SHOP.md §3, §4): only the platform starts it, and only the platform
+# writes this file. One job, no checkout, no artifact and no action; the AI's code runs only inside the build image.
+name: build
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: The single-use build id the platform dispatched (LIVE-SHOP.md §4 step 4)
+        required: true
+      api:
+        description: The platform's hooks host, which every call goes to and every OIDC token names (LIVE-SHOP.md §9)
+        required: true
+permissions:
+  id-token: write
+concurrency:
+  group: build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BUILD_ID: ${{ inputs.build_id }}
+      API: ${{ inputs.api }}
+    steps:
+      - name: fetch
+        # The workflow's own runner code: it alone holds the OIDC token and the network.
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$API" =~ ^https://[a-z0-9.-]+$ && "$BUILD_ID" =~ ^[0-9a-f-]{36}$ ]] || { echo "fetch: refused"; exit 1; }
+          # A fresh OIDC token before each call, masked outside the call's captured output.
+          cat > "$RUNNER_TEMP/call.sh" <<'SH'
+          mint() {
+            TOKEN=$(curl -sSf --max-time 30 -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$(jq -rn --arg v "$API" '$v|@uri')" | jq -r .value)
+            echo "::add-mask::$TOKEN"
+          }
+          call() {
+            local body="${2:-}"
+            [[ -n "$body" ]] || body="{\"build\":\"$BUILD_ID\"}"
+            curl -sSf --max-time 120 --retry 3 -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+              --data "$body" "$API/builds/$1"
+          }
+          SH
+          # Every file with its SHA-256 and size, sorted by path; a link or anything but a plain file stops the step.
+          cat > "$RUNNER_TEMP/list.py" <<'PY'
+          import hashlib, json, os, sys
+          root, files = sys.argv[1], []
+          headers = json.load(open(sys.argv[2])) if len(sys.argv) > 2 else {}
+          for folder, dirs, names in os.walk(root):
+              for name in dirs + names:
+                  full = os.path.join(folder, name)
+                  if os.path.islink(full) or not (os.path.isdir(full) or os.path.isfile(full)):
+                      sys.exit("the site holds something other than files and folders")
+              for name in names:
+                  data = open(os.path.join(folder, name), "rb").read()
+                  path = os.path.relpath(os.path.join(folder, name), root).replace(os.sep, "/")
+                  entry = {"path": path, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+                  csp = headers.get(path, {}).get("content-security-policy") if path.endswith(".html") else None
+                  if isinstance(csp, str) and csp:
+                      entry["headers"] = {"content-security-policy": csp}
+                  files.append(entry)
+          files.sort(key=lambda f: f["path"].encode())
+          json.dump({"files": files}, sys.stdout, separators=(",", ":"))
+          PY
+          source "$RUNNER_TEMP/call.sh"
+          mint; start=$(call start)
+          commit=$(jq -r .commit <<<"$start"); core=$(jq -r .core <<<"$start"); strict=$(jq -r .strictLook <<<"$start")
+          [[ "$commit" =~ ^[0-9a-f]{40}$ && "$core" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$ && "$strict" =~ ^(true|false)$ ]] || { echo "fetch: refused"; exit 1; }
+          # The frozen input (read-only to the containers), the build's output and the check's output (LIVE-SHOP §4 step 5).
+          # The runner context isn't available to a job's env, so the paths are set here for every later step.
+          IN="$RUNNER_TEMP/in"; BUILT="$RUNNER_TEMP/built"; CHECKED="$RUNNER_TEMP/checked"
+          { echo "IN=$IN"; echo "BUILT=$BUILT"; echo "CHECKED=$CHECKED"; echo "SITE=$BUILT/site"; } >> "$GITHUB_ENV"
+          mkdir -p "$IN" "$BUILT" "$CHECKED"
+          chmod 777 "$BUILT" "$CHECKED"
+          curl -sSf --max-time 300 --retry 3 -o "$IN/source.bundle" "$(jq -r .source <<<"$start")"
+          curl -sSf --max-time 300 --retry 3 -o "$IN/snapshot.json" "$(jq -r .snapshot <<<"$start")"
+          # The live build's files for the visual diff, each under its own plain path.
+          if [[ "$(jq -r '.live | type' <<<"$start")" == array ]]; then
+            jq -r '.live[] | [.path, .url] | @tsv' <<<"$start" | while IFS=$'\t' read -r path url; do
+              [[ "$path" =~ ^[A-Za-z0-9_][A-Za-z0-9_./-]*$ && "$path" != *..* ]] || { echo "fetch: refused"; exit 1; }
+              mkdir -p "$(dirname "$IN/live/$path")"
+              curl -sSf --max-time 120 --retry 3 -o "$IN/live/$path" "$url"
+            done
+          fi
+          { echo "COMMIT=$commit"; echo "IMAGE=ghcr.io/dripfunnel/storefront-build:$core"; echo "STRICT=$strict"; } >> "$GITHUB_ENV"
+          echo "fetch: done"
+      - name: pull
+        # The only step that holds the ghcr token (LIVE-SHOP §3 step 3): it logs in, pulls the image fetch named and logs out.
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GHCR_USER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE" =~ ^ghcr\.io/dripfunnel/storefront-build:[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$ ]] || { echo "pull: refused"; exit 1; }
+          echo "::add-mask::$GHCR_TOKEN"
+          docker login ghcr.io -u "$GHCR_USER" --password-stdin <<<"$GHCR_TOKEN" > /dev/null
+          pulled=0; docker pull -q "$IMAGE" > /dev/null || pulled=$?
+          docker logout ghcr.io > /dev/null
+          [[ "$pulled" -eq 0 ]] || { echo "pull: failed"; exit 1; }
+          echo "pull: done"
+      - name: build
+        # The AI's code renders here: no network, nothing of the runner's in its environment, the input read-only.
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit 512 --memory 4g -e HOME=/tmp -v "$IN:/in:ro" -v "$BUILT:/out" "$IMAGE" \
+            node /opt/sandbox/dist/publish.js build --source /in/source.bundle --commit "$COMMIT" --snapshot /in/snapshot.json --out /out \
+            > /dev/null 2>&1 && echo "build: done" || echo "build: failed"
+      - name: check
+        # A fresh container of the same image: the theme runs only in its headless browser; then the runner reports.
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/call.sh"
+          if [[ -d "$SITE" ]]; then
+            live=(); [[ -d "$IN/live" ]] && live=(--live /in/live)
+            strict=(); [[ "$STRICT" == true ]] && strict=(--strict-look)
+            docker run --rm --network none --read-only --tmpfs /tmp --shm-size 1g --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit 1024 --memory 6g -e HOME=/tmp -v "$IN:/in:ro" -v "$BUILT:/built:ro" -v "$CHECKED:/out" "$IMAGE" \
+              node /opt/sandbox/dist/publish.js check --source /in/source.bundle --commit "$COMMIT" --snapshot /in/snapshot.json \
+              --built /built ${live[@]+"${live[@]}"} ${strict[@]+"${strict[@]}"} --out /out > /dev/null 2>&1 || true
+          fi
+          # Only the check container's report can pass. The build container ran the theme, so its report can only
+          # refuse: its failing checks are kept, and anything else is the "stopped" failure.
+          stopped='[{"name":"contracts","passed":false,"detail":"The build stopped before its checks finished."}]'
+          if jq -e '(.passed | type == "boolean") and (.checks | type == "array" and length > 0)' "$CHECKED/report.json" > /dev/null 2>&1; then
+            report=$(jq -c . "$CHECKED/report.json")
+          else
+            report=$( (cat "$BUILT/report.json" 2> /dev/null || echo '{}') | jq -c --argjson stopped "$stopped" '{passed: false, checks: ([.checks[]? | select(.passed == false)] | if length > 0 then . else $stopped end)}' 2> /dev/null || printf '{"passed":false,"checks":%s}' "$stopped")
+          fi
+          # The digest of exactly the files handed to the check (LIVE-SHOP §4 step 7), computed out here.
+          mkdir -p "$SITE"
+          digest=$(python3 "$RUNNER_TEMP/list.py" "$SITE" | python3 -c 'import hashlib, json, sys; print(hashlib.sha256("".join(f["sha256"] + "  " + f["path"] + "\n" for f in json.load(sys.stdin)["files"]).encode()).hexdigest())')
+          body=$(jq -c --arg build "$BUILD_ID" --arg digest "$digest" \
+            '{build: $build, passed: .passed, digest: $digest, checks: [.checks[] | {name, passed} + (if .detail then {detail} else {} end)]}' <<<"$report")
+          mint; answer=$(call report "$body")
+          [[ "$(jq -r .upload <<<"$answer")" == true ]] && echo "UPLOAD=1" >> "$GITHUB_ENV"
+          [[ "$(jq -r .passed <<<"$answer")" == true ]] && echo "check: passed" || { echo "check: failed"; exit 1; }
+      - name: upload
+        # Only after a passing report the platform wants uploaded (LIVE-SHOP §4 step 8): no checkout, nothing from the site runs.
+        if: env.UPLOAD == '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/call.sh"
+          headers="$CHECKED/headers.json"; [[ -f "$headers" ]] || echo '{}' > "$headers"
+          python3 "$RUNNER_TEMP/list.py" "$SITE" "$headers" > "$RUNNER_TEMP/manifest.json"
+          mint; creds=$(call credentials)
+          for field in accessKeyId secretAccessKey sessionToken; do echo "::add-mask::$(jq -r ".$field" <<<"$creds")"; done
+          endpoint=$(jq -r .endpoint <<<"$creds"); target="s3://$(jq -r .bucket <<<"$creds")/$(jq -r .prefix <<<"$creds")"
+          AWS_ACCESS_KEY_ID=$(jq -r .accessKeyId <<<"$creds") AWS_SECRET_ACCESS_KEY=$(jq -r .secretAccessKey <<<"$creds") \
+          AWS_SESSION_TOKEN=$(jq -r .sessionToken <<<"$creds") AWS_DEFAULT_REGION=auto \
+          AWS_REQUEST_CHECKSUM_CALCULATION=when_required AWS_RESPONSE_CHECKSUM_VALIDATION=when_required bash -c '
+            aws s3 cp "$SITE" "$1" --recursive --no-follow-symlinks --only-show-errors --endpoint-url "$2"
+            aws s3 cp "$RUNNER_TEMP/manifest.json" "$1_manifest.json" --only-show-errors --endpoint-url "$2"
+          ' upload "$target" "$endpoint"
+          mint; call uploaded > /dev/null
+          echo "upload: done"

@@ -8,53 +8,53 @@
 <body>
 <x-dc>
 <div style="display:flex;flex-direction:column;min-height:100%;">
-  <div style="padding:12px {{ padX }};background:#FFFFFF;border-bottom:1px solid #E8E2DC;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-    <button onClick="{{ a.back }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">← {{ pName }}</button>
+  <div style="padding:12px {{ padX }};background:var(--card,#FFFFFF);border-bottom:1px solid var(--border,#E8E2DC);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button onClick="{{ a.back }}" style="height:34px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">← {{ pName }}</button>
     <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;flex:1;min-width:140px;">A+ content</span>
     <span style="font-size:12px;padding:3px 10px;border-radius:10px;background:{{ state.bg }};color:{{ state.fg }};">{{ state.label }}</span>
-    <span style="font-size:12px;color:#5A6472;">{{ count }} of {{ max }} modules</span>
-    <span style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ views }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.onClick }}" style="height:32px;padding:0 10px;border:0;background:{{ v.bg }};color:{{ v.fg }};font-size:12px;cursor:pointer;">{{ v.label }}</button></sc-for></span>
-    <button onClick="{{ a.saveDraft }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Save draft</button>
+    <span style="font-size:12px;color:var(--muted,#5A6472);">{{ count }} of {{ max }} modules</span>
+    <span style="display:flex;border:1px solid var(--field,#D7D3CD);border-radius:8px;overflow:hidden;"><sc-for list="{{ views }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.onClick }}" style="height:32px;padding:0 10px;border:0;background:{{ v.bg }};color:{{ v.fg }};font-size:12px;cursor:pointer;">{{ v.label }}</button></sc-for></span>
+    <button onClick="{{ a.saveDraft }}" style="height:36px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Save draft</button>
     <button onClick="{{ a.publish }}" style="height:36px;padding:0 14px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ publishLabel }}</button>
   </div>
   <div style="display:grid;grid-template-columns:{{ cols }};flex:1;">
     <sc-if value="{{ showPalette }}" hint-placeholder-val="{{ true }}">
-      <div style="border-right:1px solid #E8E2DC;padding:16px;display:flex;flex-direction:column;gap:8px;background:#FDFAF7;">
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;">Add a module</span>
+      <div style="border-right:1px solid var(--border,#E8E2DC);padding:16px;display:flex;flex-direction:column;gap:8px;background:var(--paper,#FDFAF7);">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted,#5A6472);">Add a module</span>
         <sc-for list="{{ palette }}" as="m" hint-placeholder-count="8">
-          <button onClick="{{ m.onClick }}" style="display:flex;gap:10px;align-items:center;padding:8px;border:1px solid #E8E2DC;border-radius:8px;background:#FFFFFF;cursor:pointer;opacity:{{ m.op }};text-align:left;">
-            <span style="width:40px;height:28px;border-radius:4px;background:#EDEAE5;flex:none;display:grid;grid-template-columns:{{ m.grid }};gap:2px;padding:3px;"><span style="background:#D7D3CD;border-radius:2px;"></span><span style="background:#D7D3CD;border-radius:2px;"></span><span style="background:#D7D3CD;border-radius:2px;"></span></span>
-            <span style="font-size:13px;flex:1;color:#14181F;">{{ m.name }}</span><span style="font-size:10px;color:#8F4017;font-family:'IBM Plex Mono',monospace;">{{ m.tag }}</span>
+          <button onClick="{{ m.onClick }}" style="display:flex;gap:10px;align-items:center;padding:8px;border:1px solid var(--border,#E8E2DC);border-radius:8px;background:var(--card,#FFFFFF);cursor:pointer;opacity:{{ m.op }};text-align:left;">
+            <span style="width:40px;height:28px;border-radius:4px;background:var(--sunk,#EDEAE5);flex:none;display:grid;grid-template-columns:{{ m.grid }};gap:2px;padding:3px;"><span style="background:#D7D3CD;border-radius:2px;"></span><span style="background:#D7D3CD;border-radius:2px;"></span><span style="background:#D7D3CD;border-radius:2px;"></span></span>
+            <span style="font-size:13px;flex:1;color:var(--text,#14181F);">{{ m.name }}</span><span style="font-size:10px;color:var(--pfg,#8F4017);font-family:'IBM Plex Mono',monospace;">{{ m.tag }}</span>
           </button>
         </sc-for>
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;padding-top:8px;">Or start from</span>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ templates }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="font-size:12px;padding:4px 10px;border-radius:12px;border:0;background:#EAF1F8;color:#00325F;cursor:pointer;">{{ t.label }}</button></sc-for></div>
-        <button onClick="{{ a.copyFrom }}" style="align-self:flex-start;border:0;background:none;color:#B8541F;font-size:12px;cursor:pointer;padding:0;">Copy from another product…</button>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted,#5A6472);padding-top:8px;">Or start from</span>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ templates }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="font-size:12px;padding:4px 10px;border-radius:12px;border:0;background:var(--ibg,#EAF1F8);color:var(--ifg,#00325F);cursor:pointer;">{{ t.label }}</button></sc-for></div>
+        <button onClick="{{ a.copyFrom }}" style="align-self:flex-start;border:0;background:none;color:var(--link,#B8541F);font-size:12px;cursor:pointer;padding:0;">Copy from another product…</button>
       </div>
     </sc-if>
-    <div style="padding:20px;background:#F3EDE8;display:flex;flex-direction:column;gap:12px;align-items:center;">
+    <div style="padding:20px;background:var(--desk,#F3EDE8);display:flex;flex-direction:column;gap:12px;align-items:center;">
       <div style="width:100%;max-width:{{ canvasW }};display:flex;flex-direction:column;gap:12px;">
-        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1.5px dashed #D7D3CD;border-radius:12px;padding:40px;text-align:center;color:#5A6472;font-size:14px;">Add a module from the left, or start from a template. Shoppers see this below your product description.</div></sc-if>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="background:var(--card,#FFFFFF);border:1.5px dashed var(--field,#D7D3CD);border-radius:12px;padding:40px;text-align:center;color:var(--muted,#5A6472);font-size:14px;">Add a module from the left, or start from a template. Shoppers see this below your product description.</div></sc-if>
         <sc-for list="{{ mods }}" as="m" hint-placeholder-count="2">
-          <div onClick="{{ m.select }}" style="background:#FFFFFF;border-radius:10px;border:{{ m.bd }};position:relative;cursor:pointer;overflow:hidden;">
-            <sc-if value="{{ m.isBanner }}" hint-placeholder-val="{{ false }}"><div style="height:{{ bannerH }};background:repeating-linear-gradient(45deg,#E8E4DE 0 10px,#EFECE7 10px 20px);display:flex;align-items:flex-end;padding:20px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ bannerFs }};color:#14181F;background:rgba(255,255,255,0.88);padding:6px 12px;border-radius:6px;">{{ m.title }}</span></div></sc-if>
-            <sc-if value="{{ m.isImageText }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;display:grid;grid-template-columns:{{ itCols }};gap:16px;align-items:center;"><div style="aspect-ratio:4/3;border-radius:6px;background:#EDEAE5;"></div><div style="display:flex;flex-direction:column;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">{{ m.title }}</span><span style="font-size:13px;color:{{ m.bodyFg }};">{{ m.bodyText }}</span></div></div></sc-if>
-            <sc-if value="{{ m.isFeatures }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;display:grid;grid-template-columns:{{ featCols }};gap:14px;"><sc-for list="{{ m.items }}" as="it" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:6px;"><div style="aspect-ratio:4/3;border-radius:6px;background:#EDEAE5;"></div><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ it }}</span></div></sc-for></div></sc-if>
-            <sc-if value="{{ m.isCompare }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;display:flex;flex-direction:column;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ m.title }}</span><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;font-size:12px;"><sc-for list="{{ m.items }}" as="it" hint-placeholder-count="3"><span style="padding:6px;border-radius:6px;background:#FDFAF7;">{{ it }}</span></sc-for></div><span style="font-size:11px;color:#5A6472;">Rows come from each product’s Specifications — never retyped.</span></div></sc-if>
+          <div onClick="{{ m.select }}" style="background:var(--card,#FFFFFF);border-radius:10px;border:{{ m.bd }};position:relative;cursor:pointer;overflow:hidden;">
+            <sc-if value="{{ m.isBanner }}" hint-placeholder-val="{{ false }}"><div style="height:{{ bannerH }};background:repeating-linear-gradient(45deg,#E8E4DE 0 10px,#EFECE7 10px 20px);display:flex;align-items:flex-end;padding:20px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ bannerFs }};color:var(--text,#14181F);background:rgba(255,255,255,0.88);padding:6px 12px;border-radius:6px;">{{ m.title }}</span></div></sc-if>
+            <sc-if value="{{ m.isImageText }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;display:grid;grid-template-columns:{{ itCols }};gap:16px;align-items:center;"><div style="aspect-ratio:4/3;border-radius:6px;background:var(--sunk,#EDEAE5);"></div><div style="display:flex;flex-direction:column;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">{{ m.title }}</span><span style="font-size:13px;color:{{ m.bodyFg }};">{{ m.bodyText }}</span></div></div></sc-if>
+            <sc-if value="{{ m.isFeatures }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;display:grid;grid-template-columns:{{ featCols }};gap:14px;"><sc-for list="{{ m.items }}" as="it" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:6px;"><div style="aspect-ratio:4/3;border-radius:6px;background:var(--sunk,#EDEAE5);"></div><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ it }}</span></div></sc-for></div></sc-if>
+            <sc-if value="{{ m.isCompare }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;display:flex;flex-direction:column;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ m.title }}</span><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;font-size:12px;"><sc-for list="{{ m.items }}" as="it" hint-placeholder-count="3"><span style="padding:6px;border-radius:6px;background:var(--paper,#FDFAF7);">{{ it }}</span></sc-for></div><span style="font-size:11px;color:var(--muted,#5A6472);">Rows come from each product’s Specifications — never retyped.</span></div></sc-if>
             <sc-if value="{{ m.isOther }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;display:flex;flex-direction:column;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ m.title }}</span><span style="font-size:13px;color:{{ m.bodyFg }};">{{ m.bodyText }}</span></div></sc-if>
-            <sc-if value="{{ m.selected }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:8px;top:8px;display:flex;gap:4px;"><button onClick="{{ m.up }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:#0A2A4A;color:#FFFFFF;font-size:11px;cursor:pointer;">↑</button><button onClick="{{ m.down }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:#0A2A4A;color:#FFFFFF;font-size:11px;cursor:pointer;">↓</button><button onClick="{{ m.dup }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:#0A2A4A;color:#FFFFFF;font-size:11px;cursor:pointer;">Duplicate</button><button onClick="{{ m.del }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:#B8541F;color:#FFFFFF;font-size:11px;cursor:pointer;">Delete</button></span></sc-if>
+            <sc-if value="{{ m.selected }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:8px;top:8px;display:flex;gap:4px;"><button onClick="{{ m.up }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:var(--navy,#0A2A4A);color:#FFFFFF;font-size:11px;cursor:pointer;">↑</button><button onClick="{{ m.down }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:var(--navy,#0A2A4A);color:#FFFFFF;font-size:11px;cursor:pointer;">↓</button><button onClick="{{ m.dup }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:var(--navy,#0A2A4A);color:#FFFFFF;font-size:11px;cursor:pointer;">Duplicate</button><button onClick="{{ m.del }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:#B8541F;color:#FFFFFF;font-size:11px;cursor:pointer;">Delete</button></span></sc-if>
           </div>
         </sc-for>
       </div>
     </div>
     <sc-if value="{{ showPanel }}" hint-placeholder-val="{{ false }}">
-      <div style="border-left:1px solid #E8E2DC;padding:16px;display:flex;flex-direction:column;gap:10px;background:#FFFFFF;">
+      <div style="border-left:1px solid var(--border,#E8E2DC);padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--card,#FFFFFF);">
         <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">{{ sel.label }}</span>
-        <div style="border:1.5px dashed #9FB8D1;border-radius:8px;aspect-ratio:{{ sel.ratio }};background:#F9FBFD;display:flex;align-items:center;justify-content:center;font-size:12px;color:#00325F;text-align:center;padding:8px;">Photo · best at {{ sel.size }}<br>Wrong size? You’ll get a crop tool.</div>
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Headline<input value="{{ sel.title }}" onChange="{{ on.title }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;outline:none;"></label>
-        <sc-if value="{{ sel.hasBody }}" hint-placeholder-val="{{ false }}"><label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Text<textarea value="{{ sel.body }}" onChange="{{ on.body }}" rows="3" placeholder="2 or 3 sentences" style="border:1px solid #D7D3CD;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:400;outline:none;resize:vertical;"></textarea></label></sc-if>
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Describe the photo <span style="color:#B8541F;font-weight:400;font-size:12px;">required — shoppers using screen readers hear this</span><input value="{{ sel.alt }}" onChange="{{ on.alt }}" placeholder="{{ sel.altPh }}" style="height:40px;border:1px solid {{ sel.altBd }};border-radius:8px;padding:0 10px;font-size:13px;font-weight:400;outline:none;"></label>
-        <sc-if value="{{ todoText }}" hint-placeholder-val="{{ false }}"><div style="padding:10px;border-radius:8px;background:#FFF6E5;border:1px solid #F2D9A6;font-size:12px;color:#7A4B00;">{{ todoText }}</div></sc-if>
+        <div style="border:1.5px dashed var(--ibd,#9FB8D1);border-radius:8px;aspect-ratio:{{ sel.ratio }};background:#F9FBFD;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ifg,#00325F);text-align:center;padding:8px;">Photo · best at {{ sel.size }}<br>Wrong size? You’ll get a crop tool.</div>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Headline<input value="{{ sel.title }}" onChange="{{ on.title }}" style="height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;outline:none;"></label>
+        <sc-if value="{{ sel.hasBody }}" hint-placeholder-val="{{ false }}"><label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Text<textarea value="{{ sel.body }}" onChange="{{ on.body }}" rows="3" placeholder="2 or 3 sentences" style="border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:8px 10px;font-size:13px;font-weight:400;outline:none;resize:vertical;"></textarea></label></sc-if>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Describe the photo <span style="color:var(--link,#B8541F);font-weight:400;font-size:12px;">required — shoppers using screen readers hear this</span><input value="{{ sel.alt }}" onChange="{{ on.alt }}" placeholder="{{ sel.altPh }}" style="height:40px;border:1px solid {{ sel.altBd }};border-radius:8px;padding:0 10px;font-size:13px;font-weight:400;outline:none;"></label>
+        <sc-if value="{{ todoText }}" hint-placeholder-val="{{ false }}"><div style="padding:10px;border-radius:8px;background:var(--wbg,#FFF6E5);border:1px solid var(--wbd,#F2D9A6);font-size:12px;color:var(--wfg,#7A4B00);">{{ todoText }}</div></sc-if>
       </div>
     </sc-if>
   </div>
@@ -62,7 +62,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  constructor(props) { super(props); const p = this.product(props.app); const mods = JSON.parse(JSON.stringify((p && p.aplus) || [])); this.state = { mods, orig: JSON.stringify(mods), sel: mods[0] ? mods[0].id : null, view: 'desktop', published: mods.length > 0 }; }
+  constructor(props) { super(props); const p = this.product(props.app); const mods = JSON.parse(JSON.stringify((p && (p.aplusDraft || p.aplus)) || [])); this.state = { mods, orig: JSON.stringify(mods), sel: mods[0] ? mods[0].id : null, view: 'desktop', published: mods.length > 0 }; }
   product(app) { return app ? app.allProducts.find(p => p.id === app.editId) : null; }
   mk(type, extra) {
     const T = { banner: 'Made to be lived in', imageText: 'From seed to shirt', features: 'Why you’ll love it', compare: 'Compare', gallery: 'In the wild', box: 'What’s in the box', specs: 'Specifications', brand: 'Our story', faq: 'Questions', video: 'Video' };
@@ -78,21 +78,21 @@ class Component extends DCLogic {
     const DEF = [['banner', 'Large banner', '1fr', '1464 × 600', '1464/600'], ['imageText', 'Image + text', '1fr 1fr', '970 × 600', '970/600'], ['features', '3 features', '1fr 1fr 1fr', '300 × 225', '4/3'], ['compare', 'Comparison chart', '1fr 1fr 1fr', '—', '4/3'], ['gallery', 'Photo strip', '1fr 1fr 1fr', '600 × 600', '1'], ['box', 'What’s in the box', '1fr 1fr', '600 × 600', '1'], ['specs', 'Specifications', '1fr 1fr', '—', '4/3'], ['brand', 'Brand story', '1fr 1fr', '970 × 300', '970/300'], ['faq', 'FAQ', '1fr', '—', '4/3'], ['video', 'Video', '1fr', '1280 × 720', '16/9']];
     const videoOk = c.planIncl('video') && app.feat.video;
     const add = type => {
-      if (type === 'video' && !videoOk) { if (!c.planIncl('video')) app.upgrade('video'); else app.toast('Video is switched off in Settings › Catalogue'); return; }
+      if (type === 'video' && !videoOk) { if (!c.planIncl('video')) app.upgradeTo('Product video', 'growth'); else app.toast('Video is switched off in Settings › Catalogue'); return; }
       if (s.mods.length >= max) { app.toast(`${max} modules is the most on your plan — remove one to add another`); return; }
       const m = this.mk(type); this.set([...s.mods, m], m.id);
     };
-    const palette = DEF.map(([k, name, grid]) => ({ name, grid, tag: k === 'specs' ? 'from product' : k === 'faq' ? 'from product' : k === 'brand' ? 'shared' : k === 'video' && !videoOk ? 'Growth' : '', op: k === 'video' && !videoOk ? 0.5 : 1, onClick: () => add(k) }));
+    const palette = DEF.map(([k, name, grid]) => ({ name, grid, tag: k === 'specs' ? 'from product' : k === 'faq' ? 'from product' : k === 'brand' ? 'shared' : k === 'video' && !videoOk ? 'Growth Pro' : '', op: k === 'video' && !videoOk ? 0.5 : 1, onClick: () => add(k) }));
     const TPL = { Fashion: ['banner', 'features', 'imageText', 'gallery'], Electronics: ['banner', 'features', 'compare', 'specs', 'box'], Home: ['banner', 'imageText', 'gallery', 'brand'], Beauty: ['banner', 'features', 'imageText', 'faq'] };
     const templates = Object.keys(TPL).map(k => ({ label: k, onClick: () => { const apply = () => { const mods = TPL[k].map(t => this.mk(t)); this.set(mods, mods[0].id); app.toast(`${k} template added — replace the grey placeholders`); }; if (s.mods.length) app.modal({ title: `Replace with the ${k} template?`, body: 'Your current modules will be swapped out.', confirm: 'Replace', onConfirm: apply }); else apply(); } }));
     const specsRows = (p && p.specs && p.specs.length) ? p.specs.map(x => x.k + ': ' + x.v) : ['Material: Cotton', 'Weight: 180 gsm', 'Fit: Relaxed'];
     const mods = s.mods.map((m, i) => {
       const empty = m.type !== 'features' && m.type !== 'compare' && m.type !== 'specs' && !m.body;
       const move = d => { const a = [...s.mods]; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; this.set(a); };
-      return { selected: s.sel === m.id, bd: s.sel === m.id ? '2px solid #00519F' : '1px solid #E8E2DC', title: m.title,
+      return { selected: s.sel === m.id, bd: s.sel === m.id ? '2px solid var(--focus,#00519F)' : '1px solid var(--border,#E8E2DC)', title: m.title,
         isBanner: m.type === 'banner', isImageText: m.type === 'imageText' || m.type === 'brand', isFeatures: m.type === 'features', isCompare: m.type === 'compare' || m.type === 'specs', isOther: ['gallery', 'box', 'faq', 'video'].includes(m.type),
         items: m.type === 'specs' ? specsRows : m.type === 'compare' ? [p ? p.name : 'This product', 'Heavy Tee', 'Slim Tee'] : m.items,
-        bodyText: m.type === 'faq' ? ((p && p.faqs) ? '' : 'Pulled from the product’s FAQs') : (m.body || 'Replace with your text — 2 or 3 sentences'), bodyFg: m.body ? '#434A55' : '#8A919B',
+        bodyText: m.type === 'faq' ? ((p && p.faqs) ? '' : 'Pulled from the product’s FAQs') : (m.body || 'Replace with your text — 2 or 3 sentences'), bodyFg: m.body ? 'var(--text2,#434A55)' : 'var(--faint,#8A919B)',
         select: () => this.setState({ sel: m.id }), up: e => { e.stopPropagation(); move(-1); }, down: e => { e.stopPropagation(); move(1); },
         dup: e => { e.stopPropagation(); if (s.mods.length >= max) { app.toast(`${max} modules max on your plan`); return; } const cp = { ...m, id: m.id + 'c' }; const a = [...s.mods]; a.splice(i + 1, 0, cp); this.set(a, cp.id); },
         del: e => { e.stopPropagation(); this.set(s.mods.filter(x => x.id !== m.id), null); app.toast('Module removed', 'Undo', () => this.set(s.mods)); } };
@@ -102,6 +102,7 @@ class Component extends DCLogic {
     const todo = s.mods.filter(m => !m.alt).length + s.mods.filter(m => ['imageText', 'brand', 'banner'].includes(m.type) && !m.body && m.type !== 'banner').length;
     const setSel = patch => this.set(s.mods.map(m => m.id === s.sel ? { ...m, ...patch } : m));
     const publish = () => {
+      if (c.readOnly) { app.toast('Your store is view-only until billing is sorted — nothing was published'); return; } if (c.isStaff) { app.toast('Staff can look at A+ content but not publish it'); return; }
       const missingAlt = s.mods.filter(m => !m.alt).length;
       if (missingAlt) { app.toast(`${missingAlt} photo${missingAlt > 1 ? 's need' : ' needs'} a description before publishing`); const first = s.mods.find(m => !m.alt); this.setState({ sel: first.id }); return; }
       app.updateProducts([p.id], { aplus: s.mods });
@@ -111,17 +112,17 @@ class Component extends DCLogic {
     return {
       pName: p ? p.name : 'Product', padX: phone ? '14px' : '24px', cols: phone ? '1fr' : (selM ? '240px minmax(0,1fr) 300px' : '240px minmax(0,1fr)'),
       showPalette: true, showPanel: !!selM, count: String(s.mods.length), max: String(max),
-      state: dirty ? { label: 'Unsaved changes', bg: '#FFF6E5', fg: '#7A4B00' } : (s.published ? { label: 'Live on your store', bg: '#EEF7F2', fg: '#1D6B47' } : { label: 'Draft · not on your store yet', bg: '#F2F0EC', fg: '#434A55' }),
-      views: ['desktop', 'phone'].map(v => ({ label: v === 'desktop' ? 'Desktop' : 'Phone', bg: s.view === v ? '#0A2A4A' : '#FFFFFF', fg: s.view === v ? '#FFFFFF' : '#434A55', onClick: () => this.setState({ view: v }) })),
+      state: dirty ? { label: 'Unsaved changes', bg: 'var(--wbg,#FFF6E5)', fg: 'var(--wfg,#7A4B00)' } : (s.published ? { label: 'Live on your store', bg: 'var(--okbg,#EEF7F2)', fg: 'var(--okfg,#1D6B47)' } : { label: 'Draft · not on your store yet', bg: 'var(--sunk,#F2F0EC)', fg: 'var(--text2,#434A55)' }),
+      views: ['desktop', 'phone'].map(v => ({ label: v === 'desktop' ? 'Desktop' : 'Phone', bg: s.view === v ? 'var(--navy,#0A2A4A)' : 'var(--card,#FFFFFF)', fg: s.view === v ? '#FFFFFF' : 'var(--text2,#434A55)', onClick: () => this.setState({ view: v }) })),
       canvasW: s.view === 'phone' ? '360px' : '860px', bannerH: s.view === 'phone' ? '150px' : '220px', bannerFs: s.view === 'phone' ? '18px' : '26px', itCols: s.view === 'phone' ? '1fr' : '1fr 1fr', featCols: s.view === 'phone' ? '1fr' : 'repeat(3,1fr)',
       publishLabel: c.isVendor && c.approvalOn ? 'Submit with product' : 'Publish with product',
       palette, templates, mods, empty: !s.mods.length,
-      sel: selM ? { label: def[1], size: def[3], ratio: def[4], title: selM.title, body: selM.body, hasBody: !['features', 'compare', 'specs', 'gallery'].includes(selM.type), alt: selM.alt, altPh: 'e.g. ' + (p ? p.name : 'Product') + ' on a wooden chair', altBd: selM.alt ? '#D7D3CD' : '#F0D4BF' } : {},
+      sel: selM ? { label: def[1], size: def[3], ratio: def[4], title: selM.title, body: selM.body, hasBody: !['features', 'compare', 'specs', 'gallery'].includes(selM.type), alt: selM.alt, altPh: 'e.g. ' + (p ? p.name : 'Product') + ' on a wooden chair', altBd: selM.alt ? 'var(--field,#D7D3CD)' : 'var(--pbd,#F0D4BF)' } : {},
       todoText: todo ? `${todo} thing${todo > 1 ? 's' : ''} left to fill in across your modules.` : '',
       on: { title: e => setSel({ title: e.target.value }), body: e => setSel({ body: e.target.value }), alt: e => setSel({ alt: e.target.value }) },
       a: {
         back: () => { if (dirty) app.modal({ title: 'Leave without saving?', body: 'Your A+ changes will be lost.', confirm: 'Keep editing', alt: 'Discard', onAlt: () => app.openProduct(p.id) }); else app.openProduct(p.id); },
-        saveDraft: () => { this.setState({ orig: JSON.stringify(s.mods) }); app.toast('Draft saved — your live page hasn’t changed'); },
+        saveDraft: () => { if (c.readOnly) { app.toast('Your store is view-only until billing is sorted'); return; } app.updateProducts([p.id], pp => ({ ...pp, aplusDraft: s.mods })); this.setState({ orig: JSON.stringify(s.mods) }); app.toast('Draft saved — your live page hasn’t changed'); },
         publish,
         copyFrom: () => { const others = app.allProducts.filter(x => x.id !== (p && p.id) && x.aplus && x.aplus.length); if (!others.length) { app.toast('No other products have A+ content yet'); return; } app.modal({ title: 'Copy A+ content from…', choices: others.map(o => ({ label: o.name, sub: o.aplus.length + ' modules', value: o.id })), confirm: 'Copy', onConfirm: id => { const src = others.find(o => o.id === id); const mods = src.aplus.map(m => ({ ...m, id: m.id + 'x' })); this.set(mods, mods[0].id); app.toast('Copied — change anything that’s different for this product'); } }); }
       }

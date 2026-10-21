@@ -1,0 +1,49 @@
+# `pnpm dev:https`: the consoles and every partner's merchant portal on production-shaped hosts over HTTPS
+# (docs/setup/local.md §6), so the Worker routes and checks origins as on dev (docs/api/README.md §7).
+{
+	skip_install_trust
+	auto_https disable_redirects
+	# A certificate per portal host, made on its first visit, for .localhost names only.
+	on_demand_tls {
+		ask http://localhost:5555/allowed
+	}
+}
+
+admin.localhost {
+	tls internal
+	reverse_proxy localhost:5175
+}
+
+platform.localhost {
+	tls internal
+	reverse_proxy localhost:5174
+}
+
+# Any other .localhost host is a partner's portal (store.northstar.localhost, …): the store app, which passes the host on.
+https:// {
+	tls internal {
+		on_demand
+	}
+	# Preview and shop hosts (store-proxy, docs/setup/local.md §6.3) come first; every other host is a portal.
+	@storefront host *.my-store.localhost
+	handle @storefront {
+		# https upstream: the studio frame's origins must be https (the sandbox refuses http ones).
+		reverse_proxy https://localhost:8788 {
+			# Caddy otherwise sends the upstream's own name as Host, and the proxy finds the store by the host.
+			header_up Host {host}
+			transport http {
+				tls_insecure_skip_verify
+			}
+		}
+	}
+	handle {
+		reverse_proxy localhost:5173
+	}
+}
+
+# Answers Caddy's question before it makes a certificate: yes for a .localhost name, no for anything else.
+http://localhost:5555 {
+	@local expression {query.domain}.endsWith('.localhost')
+	respond @local 200
+	respond 403
+}
