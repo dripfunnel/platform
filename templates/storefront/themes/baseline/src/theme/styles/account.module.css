@@ -275,6 +275,56 @@
   gap: 14px;
 }
 
+.orders {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.order:hover {
+  border-color: var(--ink-soft);
+}
+
+.order:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.orderFacts,
+.orderState {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.orderState {
+  flex-shrink: 0;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.orders .orderPill {
+  align-self: flex-end;
+}
+
 @media (min-width: 900px) {
   .account {
     grid-template-columns: 220px minmax(0, 1fr);

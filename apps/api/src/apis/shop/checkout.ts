@@ -1,4 +1,5 @@
 import { GraphQLError } from 'graphql'
+import type { Page } from '#core/paging'
 import type { PaymentStart } from '#core/payments'
 import { checkoutAudit, createCheckout, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow } from '#engine/modules/checkout/index'
 import { downloadUrl } from '#engine/modules/deliveries/index'
@@ -23,6 +24,8 @@ const words: Record<string, string> = {
   PHONE_REQUIRED: 'Add your mobile number to pay this way.',
   CART_CHANGED: 'Your cart changed while you were paying. Check it and pay again.',
   OFFER_CHANGED: 'An offer in your cart has just ended or been used up. Check your cart and pay again.',
+  SIGNED_OUT: 'Sign in first.',
+  INVALID_CURSOR: 'That page cursor isn’t valid.',
 }
 
 const answered = <T>(result: CheckoutResult<T>): T => {
@@ -54,7 +57,7 @@ const checkoutOf = async (ctx: ShopContext) => {
   })
 }
 
-export const registerCheckout = ({ builder, money }: ShopBuilder) => {
+export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
   const Option = builder.objectRef<PaymentOption>('ShopPaymentOption').implement({
     fields: (t) => ({
       // stripe, paypal, razorpay, cashfree, phonepe, cod or bank_transfer: what placeOrder takes.
@@ -155,6 +158,9 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       licenceKeys: t.field({ type: [Key], resolve: (o) => o.keys }),
     }),
   })
+  const OrderPage = builder.objectRef<Page<ShopOrderRow>>('ShopOrderPage').implement({
+    fields: (t) => ({ nodes: t.field({ type: [Order], resolve: (p) => p.nodes }), pageInfo: t.field({ type: pageInfo, resolve: (p) => p.pageInfo }) }),
+  })
 
   const access = { api: 'shop', scope: 'shop', permission: null } as const
 
@@ -162,6 +168,17 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
     paymentOptions: t.field({ type: [Option], extensions: { access }, resolve: async (_, __, ctx) => (await checkoutOf(ctx)).options() }),
     // The shopper's own order: its account's, or a guest's with the cart token it was placed with.
     order: t.field({ type: Order, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access }, resolve: async (_, args, ctx) => (await checkoutOf(ctx)).order(String(args.id)) }),
+    // The signed-in shopper's own orders, newest first, at most 20 a page; guest orders are never listed.
+    orders: t.field({
+      type: OrderPage,
+      args: { first: t.arg.int(), after: t.arg.string() },
+      extensions: { access },
+      resolve: async (_, args, ctx) => {
+        const page = await (await checkoutOf(ctx)).orders(args)
+        if (!page.ok) throw new GraphQLError(words[page.reason] ?? '', { extensions: { code: page.reason } })
+        return page.value
+      },
+    }),
   }))
   builder.mutationFields((t) => ({
     // "Pay": a ready cart becomes an order paid this way; refused as NOT_READY with `problems` until checkout is complete.

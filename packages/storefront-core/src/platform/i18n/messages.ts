@@ -39,6 +39,7 @@ export const en = {
   'summary.total': 'Total',
   'summary.updating': 'Updating the totals…',
   'order.title': 'Order {number}',
+  'orders.title': 'Your orders',
   'summary.giftCard': 'Gift card',
   'summary.giftCardEnding': 'Gift card ending {last4}',
   'summary.afterGiftCard': 'After the gift card',

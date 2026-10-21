@@ -217,6 +217,16 @@
     "giftOn": "We email the gift card to {name} on {date}, and send you a copy.",
     "giftNow": "We've emailed the gift card to {name}, and sent you a copy."
   },
+  "orders": {
+    "title": "Orders",
+    "loading": "Loading your orders…",
+    "failed": "We couldn't load your orders",
+    "empty": "No orders yet",
+    "emptyLead": "When you place an order, it shows here.",
+    "items": "{count, plural, one {# item} other {# items}}",
+    "loadMore": "Load more",
+    "loadMoreFailed": "We couldn't load more orders. Try again."
+  },
   "account": {
     "preview": "Signing in works on the live shop. On this preview you check out as a guest.",
     "how": "How to sign in",

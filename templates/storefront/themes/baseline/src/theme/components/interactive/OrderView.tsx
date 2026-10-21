@@ -1,8 +1,8 @@
 'use client'
 
-import { clsx } from 'clsx'
 import { Link, OrderSummary, PaymentElement, useOrder, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
+import { OrderPill } from '../OrderPill'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
 import shop from '../../styles/shop.module.css'
@@ -44,17 +44,6 @@ export const OrderView = ({ inAccount = false }: { inAccount?: boolean }) => {
       </section>
     )
   }
-  const pill = order.cancelled
-    ? { words: t('shop.order.pills.cancelled'), tone: styles.pillBad }
-    : order.payment === 'paid'
-      ? { words: t('shop.order.pills.paid'), tone: styles.pillGood }
-      : order.payment === 'refunded'
-        ? { words: t('shop.order.pills.refunded'), tone: styles.pillInfo }
-        : order.payment === 'confirming'
-          ? { words: t('shop.order.pills.confirming'), tone: styles.pillWarn }
-          : order.method === 'cod'
-            ? { words: t('shop.order.pills.cod'), tone: styles.pillInfo }
-            : { words: t('shop.order.pills.transfer'), tone: styles.pillWarn }
   const awaiting = !order.cancelled && order.payment === 'awaiting'
   return (
     <section className={shop.page}>
@@ -66,7 +55,7 @@ export const OrderView = ({ inAccount = false }: { inAccount?: boolean }) => {
                 {t('shop.order.backToAccount')}
               </Link>
             ) : null}
-            <span className={clsx(styles.pill, pill.tone)}>{pill.words}</span>
+            <OrderPill order={order} />
             <h1 className={styles.title}>{order.cancelled ? t('shop.order.cancelledTitle') : inAccount ? t('shop.order.summary', { number: order.number }) : t('shop.order.title')}</h1>
             {order.cancelled ? <p className={styles.lead}>{t('shop.order.cancelledLead', { number: order.number })}</p> : inAccount ? null : <p className={styles.lead}>{t('shop.order.lead', { number: order.number })}</p>}
           </div>

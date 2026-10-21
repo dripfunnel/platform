@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
+import { keepShopperToken, shopperToken } from '../platform/api/tokens'
 import { useLocation } from '../platform/browser/router'
 import { useShopData } from '../platform/render/data'
 import { useHead } from '../platform/seo/head'
@@ -88,7 +90,7 @@ export type OrderPage = {
 
 const manual = new Set(['cod', 'bank_transfer'])
 
-const paymentOf = (o: z.infer<typeof orderSchema>): OrderPayment =>
+const paymentOf = (o: Pick<z.infer<typeof orderSchema>, 'paymentState' | 'paymentMethod'>): OrderPayment =>
   o.paymentState === 'paid' || o.paymentState === 'authorised' ? 'paid' : o.paymentState === 'refunded' || o.paymentState === 'partly_refunded' ? 'refunded' : o.paymentMethod && manual.has(o.paymentMethod) ? 'awaiting' : 'confirming'
 
 const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, when: (iso: string) => string, day: (date: string) => string): Order => ({
@@ -111,6 +113,107 @@ const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, whe
   downloads: (o.downloads ?? []).map((d) => ({ name: d.name ?? '', url: d.url ?? null, usesLeft: d.usesLeft ?? null, until: d.expiresAt ? when(d.expiresAt) : null })),
   licenceKeys: (o.licenceKeys ?? []).flatMap((k) => (k.key ? [{ name: k.name ?? '', key: k.key }] : [])),
 })
+
+export const ordersPageSize = 20
+const listQuery = `query Orders($first: Int, $after: String) { orders(first: $first, after: $after) { nodes { id number state paymentState paymentMethod placedAt pricesIncludeTax lines { quantity } total ${m} } pageInfo { hasNextPage endCursor } } }`
+const rowSchema = z.object({ id: z.string(), number: text, state: text, paymentState: text, paymentMethod: text, placedAt: text, pricesIncludeTax: z.boolean().nullable().optional(), lines: z.array(z.object({ quantity: z.number().int() })).nullable().optional(), total: moneySchema })
+const listSchema = z.object({ orders: z.object({ nodes: z.array(rowSchema).nullable().optional(), pageInfo: z.object({ hasNextPage: z.boolean().nullable().optional(), endCursor: text }).nullable().optional() }).nullable() })
+
+/** One order in the account's list: open it at `/account/orders/{id}/`. */
+export type OrderRow = {
+  id: string
+  number: string
+  /** The day it was placed, in the store's time zone and the shopper's words. */
+  placedOn: string | null
+  /** Items, every quantity counted. */
+  items: number
+  cancelled: boolean
+  payment: OrderPayment
+  method: string | null
+  total: Money
+  includesTax: boolean
+}
+
+export type OrdersPage = {
+  /** `signedOut` when there's no session, or it ended (and always on a preview); the theme sends the shopper to sign in. */
+  status: 'loading' | 'ready' | 'signedOut' | 'error'
+  code: string | null
+  orders: OrderRow[]
+  /** Signed in, with no orders yet. */
+  empty: boolean
+  more: boolean
+  /** The next 20 older orders, added below. */
+  loadMore: () => Promise<void>
+  loadingMore: boolean
+  /** The last `loadMore` failed; asking again is the way on. */
+  loadMoreFailed: boolean
+  retry: () => void
+}
+
+/** The signed-in shopper's own orders, newest first, a page at a time; never asked for on a preview, where nobody signs in. */
+export const useOrders = (): OrdersPage => {
+  const { client, mode, store, locale, t } = useStorefront()
+  const signedIn = mode === 'live' && shopperToken('session') !== undefined
+  const loaded = useShopData(signedIn ? 'orders' : null, (c) => c.query(listQuery, listSchema, { first: ordersPageSize, after: null }))
+  const [later, setLater] = useState<{ rows: z.infer<typeof rowSchema>[]; cursor: string | null; more: boolean } | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false)
+  const day = useMemo(() => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: store.timeZone }), [locale, store.timeZone])
+  const first = loaded.data?.orders
+  const cursor = later ? later.cursor : (first?.pageInfo?.endCursor ?? null)
+  const more = later ? later.more : first?.pageInfo?.hasNextPage === true
+  const orders = useMemo(
+    () =>
+      [...(first?.nodes ?? []), ...(later?.rows ?? [])].map((o): OrderRow => {
+        const placed = o.placedAt ? new Date(o.placedAt) : null
+        return {
+          id: o.id,
+          number: o.number ?? o.id,
+          placedOn: placed && !Number.isNaN(placed.getTime()) ? day.format(placed) : null,
+          items: (o.lines ?? []).reduce((n, l) => n + l.quantity, 0),
+          cancelled: o.state === 'cancelled',
+          payment: paymentOf(o),
+          method: o.paymentMethod ?? null,
+          total: o.total,
+          includesTax: o.pricesIncludeTax === true,
+        }
+      }),
+    [first, later, day],
+  )
+  useHead({ title: t('orders.title'), hidden: true })
+  const signedOut = !signedIn || loaded.code === 'SIGNED_OUT'
+  // The session ended while it was kept: forget it, as the account does, so signing in starts afresh.
+  useEffect(() => {
+    if (signedIn && loaded.code === 'SIGNED_OUT') keepShopperToken('session', null)
+  }, [signedIn, loaded.code])
+  const status = signedOut ? 'signedOut' : loaded.status === 'ready' ? 'ready' : loaded.status === 'error' ? 'error' : 'loading'
+  return {
+    status,
+    code: loaded.code,
+    orders,
+    empty: status === 'ready' && orders.length === 0,
+    more,
+    loadingMore,
+    loadMoreFailed,
+    loadMore: async () => {
+      if (!more || loadingMore || !cursor) return
+      setLoadingMore(true)
+      setLoadMoreFailed(false)
+      try {
+        const next = (await client.query(listQuery, listSchema, { first: ordersPageSize, after: cursor })).orders
+        setLater({ rows: [...(later?.rows ?? []), ...(next?.nodes ?? [])], cursor: next?.pageInfo?.endCursor ?? null, more: next?.pageInfo?.hasNextPage === true })
+      } catch {
+        setLoadMoreFailed(true)
+      } finally {
+        setLoadingMore(false)
+      }
+    },
+    retry: () => {
+      setLater(null)
+      loaded.retry()
+    },
+  }
+}
 
 /** The order the address names (`/order/{id}/`, or `/account/orders/{id}/` in the account); a guest reads it with the cart it was placed from, a customer with their session. */
 export const useOrder = (): OrderPage => {

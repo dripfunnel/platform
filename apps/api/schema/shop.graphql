@@ -49,6 +49,7 @@ type Query {
   health: String
   menu: [ShopMenuItem!]
   order(id: ID!): ShopOrder
+  orders(after: String, first: Int): ShopOrderPage
   paymentOptions: [ShopPaymentOption!]
   product(slug: String!): ShopProduct
   products(after: String, before: String, collection: String, filters: [ID!], first: Int, search: String, sort: ShopProductSort): ShopProductPage
@@ -412,6 +413,11 @@ type ShopOrderLine {
   quantity: Int
   unitPrice: ShopMoney
   versionName: String
+}
+
+type ShopOrderPage {
+  nodes: [ShopOrder!]
+  pageInfo: PageInfo
 }
 
 type ShopPaymentOption {

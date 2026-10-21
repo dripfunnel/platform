@@ -2,19 +2,22 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { clsx } from 'clsx'
-import { AddressFields, Checkbox, Form, Link, SubmitButton, TextField, addressDraft, navigate, useAccount, useStorefront, type AccountPage, type AddressField, type FieldProblem, type SavedAddress } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, Checkbox, Form, Link, Price, SubmitButton, TextField, addressDraft, navigate, useAccount, useOrders, useStorefront, type AccountPage, type AddressField, type FieldProblem, type SavedAddress } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
+import { OrderPill } from '../OrderPill'
 import { Retry } from './Retry'
 import shop from '../../styles/shop.module.css'
 import styles from '../../styles/account.module.css'
 
-type Section = 'details' | 'addresses'
+type Section = 'orders' | 'details' | 'addresses'
+
+const pathOf: Record<Section, string> = { orders: '/account/orders/', details: '/account/', addresses: '/account/addresses/' }
 
 /** The account as D1 draws it: "Hello", Sign out, its sections beside the one open; a signed-out shopper is sent to sign in. */
 export const AccountView = ({ section }: { section: Section }) => {
   const { t } = useStorefront()
   const page = useAccount()
-  const here = section === 'details' ? '/account/' : '/account/addresses/'
+  const here = pathOf[section]
   useEffect(() => {
     if (page.status === 'signedOut') navigate(`/sign-in/?next=${here}`, { replace: true })
   }, [page.status, here])
@@ -51,8 +54,9 @@ export const AccountView = ({ section }: { section: Section }) => {
       </div>
       <div className={styles.account}>
         <nav className={styles.nav} aria-label={t('pages.account.title')}>
-          {tab('/account/', t('shop.account.details'), section === 'details')}
-          {tab('/account/addresses/', t('pages.account.addresses'), section === 'addresses')}
+          {tab(pathOf.details, t('shop.account.details'), section === 'details')}
+          {tab(pathOf.addresses, t('pages.account.addresses'), section === 'addresses')}
+          {tab(pathOf.orders, t('shop.orders.title'), section === 'orders')}
         </nav>
         <div className={styles.body}>
           {page.error ? (
@@ -66,7 +70,7 @@ export const AccountView = ({ section }: { section: Section }) => {
                     : t('shop.account.refused.other')}
             </p>
           ) : null}
-          {section === 'details' ? <Details page={page} /> : <Addresses page={page} />}
+          {section === 'orders' ? <Orders /> : section === 'details' ? <Details page={page} /> : <Addresses page={page} />}
         </div>
       </div>
     </section>
@@ -79,6 +83,71 @@ const Card = ({ title, children }: { title: string; children: ReactNode }) => (
     {children}
   </div>
 )
+
+/** D1's Orders: a row per order, newest first, each opening its page; Load more brings the next 20. */
+const Orders = () => {
+  const { t, locale } = useStorefront()
+  const page = useOrders()
+  useEffect(() => {
+    if (page.status === 'signedOut') navigate(`/sign-in/?next=${pathOf.orders}`, { replace: true })
+  }, [page.status])
+
+  if (page.status === 'loading' || page.status === 'signedOut') {
+    return (
+      <Card title={t('shop.orders.title')}>
+        <p className={styles.note} aria-busy="true">
+          {t('shop.orders.loading')}
+        </p>
+      </Card>
+    )
+  }
+  if (page.status === 'error') {
+    return (
+      <Notice title={t('shop.orders.failed')} lead={t('shop.listing.failedLead')}>
+        <Retry label={t('shop.listing.retry')} onRetry={page.retry} />
+      </Notice>
+    )
+  }
+  if (page.empty) {
+    return (
+      <Notice title={t('shop.orders.empty')} lead={t('shop.orders.emptyLead')}>
+        <Link href="/" className={shop.primary}>
+          {t('shop.order.keepShopping')}
+        </Link>
+      </Notice>
+    )
+  }
+  return (
+    <Card title={t('shop.orders.title')}>
+      <ul className={styles.orders}>
+        {page.orders.map((o) => (
+          <li key={o.id}>
+            <Link href={`/account/orders/${o.id}/`} className={styles.order}>
+              <span className={styles.orderFacts}>
+                <b>{o.number}</b>
+                <span className={styles.note}>{[o.placedOn, t('shop.orders.items', { count: o.items })].filter(Boolean).join(' · ')}</span>
+              </span>
+              <span className={styles.orderState}>
+                <OrderPill order={o} className={styles.orderPill} />
+                <Price money={o.total} includesTax={o.includesTax} locale={locale} t={t} />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {page.loadMoreFailed ? (
+        <p className={styles.alert} role="alert">
+          {t('shop.orders.loadMoreFailed')}
+        </p>
+      ) : null}
+      {page.more ? (
+        <button type="button" className={shop.secondary} disabled={page.loadingMore} aria-busy={page.loadingMore} onClick={() => void page.loadMore()}>
+          {t('shop.orders.loadMore')}
+        </button>
+      ) : null}
+    </Card>
+  )
+}
 
 const Details = ({ page }: { page: AccountPage }) => {
   const { t } = useStorefront()

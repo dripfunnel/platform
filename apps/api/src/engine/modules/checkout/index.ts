@@ -4,6 +4,7 @@ import type { SecretBox } from '#auth/secretBox'
 import { isUuid } from '#core/ids'
 import { logEvent } from '#core/log'
 import type { Money } from '#core/money'
+import { pageOf, pageWindow, type Page, type PageRequest } from '#core/paging'
 import { isCardProvider, PaymentNeedsPhone, PaymentRefused, PaymentUnavailable, type CardProvider, type OAuthConnect, type PaymentGateways, type PaymentMode, type PaymentStart } from '#core/payments'
 import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
@@ -14,8 +15,10 @@ import {
   orderIsTest,
   recordPaid,
   reserveLine,
+  selectCustomerOrders,
   selectLivePaymentAccounts,
   selectShopOrder,
+  type ShopOrderRow,
   selectSnapshotVersions,
   takeOrderNumber,
   writeSnapshot,
@@ -55,6 +58,9 @@ export interface PaymentWiring {
 /** Placing an order a gift card pays for in full (Shop API `placeOrder(provider: "gift_card")`). */
 export const giftCardMethod = 'gift_card'
 const giftCardOption = { provider: giftCardMethod, kind: 'other', instructions: null } as const
+
+/** The most orders one page of the account's list holds (#813). */
+export const maxAccountOrdersPage = 20
 
 export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
 
@@ -333,6 +339,15 @@ export const createCheckout = (deps: CheckoutDeps) => {
   /** A shopper's own placed order, for the confirmation and order pages. */
   const order = (orderId: string) => (isUuid(orderId) ? withScope(sql, context, (tx) => selectShopOrder(tx, storeId, orderId.toLowerCase())) : Promise.resolve(null))
 
+  /** The signed-in shopper's own placed orders, newest first, for the account's list. */
+  const orders = async (request: PageRequest): Promise<{ ok: true; value: Page<ShopOrderRow> } | { ok: false; reason: 'SIGNED_OUT' | 'INVALID_CURSOR' }> => {
+    if (!customerId) return { ok: false, reason: 'SIGNED_OUT' }
+    const window = pageWindow(request, maxAccountOrdersPage)
+    if (!window.ok) return { ok: false, reason: window.code }
+    const rows = await withScope(sql, context, (tx) => selectCustomerOrders(tx, storeId, customerId, window.window))
+    return { ok: true, value: pageOf(rows, window.window, (o) => ({ occurredAt: new Date(o.placed_at), id: o.id })) }
+  }
+
   /** Back from paying, or asked again: the order's card payment read back from its provider, and the order as it is now. */
   const confirm = async (orderId: string) => {
     const mine = await order(orderId)
@@ -388,7 +403,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     })
   }
 
-  return { options, place, order, confirm, pay }
+  return { options, place, order, orders, confirm, pay }
 }
 
 /** "Mark as paid" (Owner and Manager, `orders.mark_paid`): a cash-on-delivery or transfer order whose money has arrived. */
