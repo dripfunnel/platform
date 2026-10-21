@@ -156,7 +156,7 @@ export const updateStoreCustomer = async (tx: ScopedSql, id: string, c: { name: 
   await tx`update customer set name = ${c.name}, phone = ${c.phone} where id = ${id}`
 }
 
-/** The default delivery address, changed in place or added as the first. */
+/** The default delivery address, changed in place or added as the first; a pin it doesn't carry is cleared, never left on another address. */
 export const saveDefaultAddress = async (tx: ScopedSql, storeId: string, customerId: string, a: CartAddress): Promise<void> => {
   const [current] = await tx<{ id: string }[]>`
     select id from customer_address where customer_id = ${customerId} and store_id = ${storeId} and is_default_shipping and deleted_at is null for update
@@ -164,14 +164,14 @@ export const saveDefaultAddress = async (tx: ScopedSql, storeId: string, custome
   if (current) {
     await tx`
       update customer_address set name = ${a.name}, line1 = ${a.line1}, line2 = ${a.line2}, city = ${a.city}, region = ${a.region}, postal_code = ${a.postalCode},
-        country = ${a.country}, phone = ${a.phone}
+        country = ${a.country}, phone = ${a.phone}, latitude = ${a.latitude ?? null}, longitude = ${a.longitude ?? null}
       where id = ${current.id}
     `
     return
   }
   await tx`
-    insert into customer_address (customer_id, store_id, name, line1, line2, city, region, postal_code, country, phone, is_default_shipping)
-    values (${customerId}, ${storeId}, ${a.name}, ${a.line1}, ${a.line2}, ${a.city}, ${a.region}, ${a.postalCode}, ${a.country}, ${a.phone}, true)
+    insert into customer_address (customer_id, store_id, name, line1, line2, city, region, postal_code, country, phone, latitude, longitude, is_default_shipping)
+    values (${customerId}, ${storeId}, ${a.name}, ${a.line1}, ${a.line2}, ${a.city}, ${a.region}, ${a.postalCode}, ${a.country}, ${a.phone}, ${a.latitude ?? null}, ${a.longitude ?? null}, true)
   `
 }
 
