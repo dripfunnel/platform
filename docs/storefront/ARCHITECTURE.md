@@ -231,8 +231,9 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   checking with zod everything it says (decided 2026-10-21 on #814). It loads only when the shopper taps it, starting at the saved pin or the address Google finds; the pin moves by
   dragging, the arrow keys or **Use my location** (the browser's own location, asked for only when pressed; decided
   2026-10-21 on #814), its point read out as text. Confirm saves the pin and leaves the map open; the address Google
-  finds at the pin fills only the fields still empty, never one typed, and nothing from another country (`fillFromPlace`,
-  decided 2026-10-21 on #814). If the frame or Google fails to load, or says nothing in 15 s, it hides
+  finds at the pin fills the fields still empty, and on a later pin replaces what it filled, never one typed, and nothing from another country (`fillFromPlace`,
+  decided 2026-10-21 on #814). If the frame or Google fails to load, the page's CSP refuses the frame (a build published before the shop
+had a map key), or it says nothing in 15 s, it hides
   and the form works as before; on a preview or in the studio frame it asks Google for nothing and says why.
 - **The baseline checkout** (`checkout/baseline.tsx`, #313 part 7): core's own `BaselineCheckout`, in core's words and
   look (a stylesheet core adopts, so no theme CSS is needed), with the preview banner, every step, the sealed summary and

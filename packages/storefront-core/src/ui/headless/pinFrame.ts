@@ -49,6 +49,7 @@ export const frameMaps: MapsLoader = (source, element, title, signal) =>
     const close = () => {
       clearTimeout(timer)
       removeEventListener('message', listen)
+      document.removeEventListener('securitypolicyviolation', refused)
       signal.removeEventListener('abort', stop)
       frame.remove()
     }
@@ -67,6 +68,10 @@ export const frameMaps: MapsLoader = (source, element, title, signal) =>
       reject(new Error('The map could not load.'))
     }
     const stop = () => fail()
+    // A page whose CSP was set before the shop had a map (storefront ARCHITECTURE §3.5) refuses the frame: give up now, not in 15 s.
+    const refused = (e: SecurityPolicyViolationEvent) => {
+      if (e.effectiveDirective === 'frame-src' && e.blockedURI.startsWith(origin)) fail()
+    }
     const timer = setTimeout(fail, loadWaitMs)
     const listen = (e: MessageEvent) => {
       if (e.source !== frame.contentWindow || e.origin !== origin) return
@@ -86,6 +91,7 @@ export const frameMaps: MapsLoader = (source, element, title, signal) =>
       }
     }
     addEventListener('message', listen)
+    document.addEventListener('securitypolicyviolation', refused)
     signal.addEventListener('abort', stop)
     frame.addEventListener('load', () => post({ type: 'hello' }))
     frame.src = source

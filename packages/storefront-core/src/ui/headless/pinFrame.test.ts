@@ -91,6 +91,20 @@ describe('Pin on map’s frame', () => {
     expect(closed.element.querySelector('iframe')).toBeNull()
   })
 
+  it('fails at once when the store’s CSP refuses the frame, and not for another refusal', async () => {
+    const refuse = (effectiveDirective: string, blockedURI: string) => document.dispatchEvent(Object.assign(new Event('securitypolicyviolation'), { effectiveDirective, blockedURI }))
+    const map = open()
+    refuse('img-src', `${origin}/x.png`)
+    refuse('frame-src', 'https://elsewhere.example/')
+    map.say({ type: 'ready' })
+    await expect(map.loading).resolves.toBeTruthy()
+
+    const blocked = open()
+    refuse('frame-src', source)
+    await expect(blocked.loading).rejects.toThrow()
+    expect(blocked.element.querySelector('iframe')).toBeNull()
+  })
+
   it('keeps the map once ready, though the loading it was waiting on is cancelled after', async () => {
     const { loading, say, element, stop } = open()
     say({ type: 'ready' })

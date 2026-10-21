@@ -174,8 +174,10 @@ describe('adding and changing a customer', () => {
     expect((await edit(', name: "Ravi Kumar", phone: "+91 98000 00009", address: { name: "Ravi", line1: "2 Lane", city: "Agra", country: "in" }')).data?.['updateCustomer']).toBe(true)
     const pin = () => db.sql<{ latitude: number | null; longitude: number | null }[]>`select latitude, longitude from customer_address where customer_id = ${id} and is_default_shipping`
     await db.sql`update customer_address set latitude = 27.17, longitude = 78.04 where customer_id = ${id} and is_default_shipping`
+    expect((await edit(', address: { name: "Ravi K", line1: "2 Lane", city: "Agra", country: "IN", phone: "+91 98000 00009" }')).data?.['updateCustomer']).toBe(true)
+    expect(await pin()).toEqual([{ latitude: 27.17, longitude: 78.04 }])
     expect((await edit(', address: { name: "Ravi", line1: "3 Lane", city: "Agra", country: "IN" }')).data?.['updateCustomer']).toBe(true)
-    // The shopper's pin was on the old address; the merchant's edit doesn't carry one (#814).
+    // The pin stays while the place does, and goes with it (#814).
     expect(await pin()).toEqual([{ latitude: null, longitude: null }])
     const after = (await gql(`{ customer(id: "${id}") { phone city addresses { line1 isDefault } } }`, 'staff')).data?.['customer']
     expect(after).toEqual({ phone: '+919800000009', city: 'Agra', addresses: [{ line1: '3 Lane', isDefault: true }] })
