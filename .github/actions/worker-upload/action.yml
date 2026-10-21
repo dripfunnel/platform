@@ -1,4 +1,4 @@
-name: Upload API Worker version
+name: Upload a Worker version
 description: >
   Upload a Worker version without deploying it. Traffic keeps serving whatever version is
   already live; promotion to 100% is a separate, manual `wrangler versions deploy` step.
@@ -7,7 +7,11 @@ inputs:
   config:
     required: false
     default: wrangler.jsonc
-    description: Path to the wrangler config, relative to apps/api
+    description: Path to the wrangler config, relative to the Worker folder
+  directory:
+    required: false
+    default: apps/api
+    description: The Worker's folder, relative to the repo root
   env-name:
     required: true
     description: Named wrangler environment (--env)
@@ -23,11 +27,12 @@ runs:
   steps:
     - id: upload
       shell: bash
-      working-directory: apps/api
+      working-directory: ${{ inputs.directory }}
       env:
         INPUT_CONFIG: ${{ inputs.config }}
         INPUT_MESSAGE: ${{ inputs.message }}
         INPUT_ENV_NAME: ${{ inputs.env-name }}
+        INPUT_DIRECTORY: ${{ inputs.directory }}
       run: |
         set -o pipefail
         pnpm exec wrangler versions upload -c "$INPUT_CONFIG" --env "$INPUT_ENV_NAME" \
@@ -38,6 +43,6 @@ runs:
           exit 1
         fi
         echo "version-id=$version_id" >> "$GITHUB_OUTPUT"
-        echo "### API Worker version" >> "$GITHUB_STEP_SUMMARY"
+        echo "### Worker version: $INPUT_DIRECTORY" >> "$GITHUB_STEP_SUMMARY"
         echo "- Version ID: \`$version_id\` (uploaded, not yet live)" >> "$GITHUB_STEP_SUMMARY"
         echo "- Promote: \`wrangler versions deploy $version_id@100 --env $INPUT_ENV_NAME\`" >> "$GITHUB_STEP_SUMMARY"
