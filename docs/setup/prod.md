@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -97,6 +97,8 @@ email or a file in the repo.
 3. Put Cloudflare Access in front of `admin.dripfunnel.com`, connected to the staff identity
    provider (THIRD-PARTY-ACCESS.md §2.1).
 4. Store addresses, by hand (#744): add `my-store.one` as a zone on the main Cloudflare account, add the proxied wildcard record `*.my-store.one`, and confirm Universal SSL covers it. `store-proxy`'s `env.prod` (#816) holds the routes `*/*` on `dripfunnel.com` and `*.my-store.one/*` on `my-store.one`; `prod.yml` uploads its version after the API's and `promote.yml` promotes both together (it is never deployed from a push). In the zone's Logpush, leave out `ClientRequestPath` and `ClientRequestQuery` (LOGGING §9).
+5. Edge records, by hand (#428): in the `dripfunnel.com` zone, `portal.edge` and `shops.edge` are two proxied records pointing at the same origin, the zone's one Cloudflare for SaaS fallback origin (SAAS.md §8; no `preview.edge`, previews are on `SHOP_DOMAIN`). Check that both resolve (`dig +short portal.edge.dripfunnel.com`, `shops.edge.dripfunnel.com`), and that the fallback origin is set to `portal.edge.dripfunnel.com`.
+6. First deploy of store-proxy, one-off (#428, **not yet run against a real account**): `wrangler versions upload` fails for a Worker that does not exist yet, and neither it nor `versions deploy` applies `routes` (Cloudflare: Gradual deployments; `wrangler triggers deploy` applies them). So create the Worker with no routes, which serves nothing (`workers_dev` is off): once the API Worker exists (the proxy's service bindings need it), in `store-proxy/` copy `wrangler.jsonc` to `wrangler.bootstrap.jsonc`, set `env.prod.routes` to `[]`, run `pnpm exec wrangler deploy --config wrangler.bootstrap.jsonc --env prod`, then delete the copy. Set `PREVIEW_SESSION_KEY` on `dripfunnel-store-proxy-prod` (§4). Nothing reaches the zone until the routes are applied, which is done right after the first `promote.yml` has moved the API and store-proxy to 100%: `pnpm exec wrangler triggers deploy --env prod` in `store-proxy/`, then check in the dashboard (Workers & Pages › the Worker › Settings › Domains & Routes) that `*/*` on `dripfunnel.com` and `*.my-store.one/*` are there, open the consoles and send a test webhook to `hooks.dripfunnel.com`. To back out, delete the two routes there. Later releases need only `prod.yml` and `promote.yml`; run `triggers deploy` again when `routes` changes.
 ### 3.6 GitHub environment `prod`
 
 Repository › Settings › Environments › *New environment* › `prod`:
@@ -139,7 +141,7 @@ moment you save.
 | Name | Type | Production value | How to get it |
 |---|---|---|---|
 | `ADMIN_HOST` | Text | `admin.dripfunnel.com` | fixed |
-| `EDGE_ZONE` | Text | `dripfunnel.com` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>`, SAAS.md §8); the CNAME targets partners are shown |
+| `EDGE_ZONE` | Text | `dripfunnel.com` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>` and `shops.edge.<zone>`, SAAS.md §8, §3.5 step 5); the CNAME targets partners and merchants are shown |
 | `CF_SAAS_ZONE_ID` | Text | the id of the `dripfunnel.com` zone | Cloudflare for SaaS custom hostnames (SAAS.md §8). Without it and the token no hostname is registered, and a portal address goes live on DNS alone |
 | `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
 | `PLATFORM_HOST` | Text | `platform.dripfunnel.com` | fixed |
@@ -161,7 +163,7 @@ moment you save.
 | `STRIPE_TEST_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys |
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.com` zone | Purges the store proxy's cached host lookups (storefront LIVE-SHOP.md §5 step 1); read since #317 with `CF_SAAS_ZONE_ID`. The buckets `storefront-sites-prod`, `storefront-assets-prod` (custom domain `sf-assets.my-store.one`, CORS `GET` from any origin, its route excluded from the Worker) and `storefront-drafts-prod` are created and bound as on dev (dev.md §2.8 item 1), with `-prod` in place of `-dev` |
 | `SHOP_DOMAIN` | Text | `my-store.one` | Every store's free addresses, `{slug}.my-store.one` and `{slug}-preview.my-store.one` (PREVIEW.md §8). Validated at boot; replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
-| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Read since #317 ("Open preview" links). The store proxy (`dripfunnel-store-proxy`) gets its own `PREVIEW_SESSION_KEY`, its value only (the `SITES` and `EDGE` bindings, routes and `SHOP_DOMAIN` are in its `env.prod`, §3.5) |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Read since #317 ("Open preview" links). The store proxy (`dripfunnel-store-proxy-prod`) gets its own `PREVIEW_SESSION_KEY`, its value only (the `SITES` and `EDGE` bindings, routes and `SHOP_DOMAIN` are in its `env.prod`, §3.5) |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
 harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.com`.
@@ -174,7 +176,7 @@ The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Wor
 
 1. Merge a pull request into `main`.
 2. **prod.yml** runs: gates against the test branch → migrations against production →
-   pins the studio image, uploads a new API version, then a store-proxy version. **Nothing is live yet.**
+   pins the studio image, uploads a new API version, then a store-proxy version. **Nothing is live yet.** On the very first release, apply the store-proxy routes after promote (§3.5 step 6).
 3. Open the run's summary. It gives both **version ids** and the **commit sha**.
 4. Run **promote** (Actions › promote › *Run workflow*) with `version_id`, `proxy_version_id` and
    `commit_sha`, soon after, and only for the most recent upload. It:

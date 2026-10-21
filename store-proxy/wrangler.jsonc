@@ -35,7 +35,7 @@
     },
     // Uploaded by prod.yml after the API's and promoted with it by promote.yml (#816); never deployed straight from a push.
     "prod": {
-      "name": "dripfunnel-store-proxy",
+      "name": "dripfunnel-store-proxy-prod",
       "vars": { "OWN_ZONE": "dripfunnel.com", "PAGES_HOST": "dripfunnel-store.pages.dev", "SHOP_DOMAIN": "my-store.one" },
       "services": [
         { "binding": "API", "service": "dripfunnel-api", "entrypoint": "PortalProxy" },
