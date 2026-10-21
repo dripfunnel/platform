@@ -34,6 +34,10 @@ describe('where the studio’s frame may load from (AI-STUDIO §1, §8)', () => 
     expect(frameAddress(frame, '/a b')).toBe(frame)
   })
 
+  it.each(['/%2e%2e/%2e%2e/other/', '/%2E%2E/', '/./', '/a/./b', '/a/../b', '/a%2fb', '/a%5cb', '/%2e/', '/a%00b'])('sends the encoded or dotted path %s to the home page, whatever decodes it later', (path) => {
+    expect(frameAddress(frame, path)).toBe(frame)
+  })
+
   it('lets the frame go only to addresses under its own session, so a link out of it opens nowhere', () => {
     expect(frameMayLoad(frame, frame)).toBe(true)
     expect(frameMayLoad(`${frame}products/kurta/`, frame)).toBe(true)
@@ -42,6 +46,16 @@ describe('where the studio’s frame may load from (AI-STUDIO §1, §8)', () => 
     expect(frameMayLoad('https://juniper.webpreview.store/__studio/other/', frame)).toBe(false)
     expect(frameMayLoad('https://shop.test/', frame)).toBe(false)
     expect(frameMayLoad('about:blank', frame)).toBe(false)
+  })
+
+  it.each([`${frame}%2e%2e/%2e%2e/other/`, `${frame}%2E%2E/`, `${frame}../other/`, `${frame}./`, `${frame}a/../b`, `${frame}a/.%2e/b`, `${frame}a%2f..%2fb`, `${frame}a%5cb`, `${frame}a\\b`,`${frame}a/%2e%2e`])('refuses %s, which a server could resolve out of the session', (address) => {
+    expect(frameMayLoad(address, frame)).toBe(false)
+  })
+
+  it('allows a name with dots in it and a query that mentions dots', () => {
+    expect(frameMayLoad(`${frame}assets/app.v2.js`, frame)).toBe(true)
+    expect(frameMayLoad(`${frame}collections/all/?next=/../x`, frame)).toBe(true)
+    expect(frameMayLoad(`${frame}products/a%20b/`, frame)).toBe(true)
   })
 
   it('does not take a long path made to stall the pattern', () => {

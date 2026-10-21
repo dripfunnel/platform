@@ -25,16 +25,24 @@ export const frameOriginOf = (frameUrl: string, portalHost: string): string | nu
 /** A path on the shop, as the page picker is opened on one (`?page=`). */
 export const studioPathPattern = /^\/[^\s\\]{0,500}$/
 
-const storePath = /^\/(?:[A-Za-z0-9._~%-]+\/)*[A-Za-z0-9._~%-]*$/
+// No `%`: an encoded dot or slash is never taken for a path segment, so no later decoding can move the frame out of its session.
+const storePath = /^\/(?:[A-Za-z0-9._~-]+\/)*[A-Za-z0-9._~-]*$/
 
 /** A store path inside the frame, under the session's base so the id stays in every request's path; anything else shows the home page. */
 export const frameAddress = (frameUrl: string, path: string): string => {
-  if (!storePath.test(path) || path.split('/').includes('..')) return frameUrl
+  if (!storePath.test(path) || path.split('/').some((segment) => segment === '.' || segment === '..')) return frameUrl
   return `${frameUrl}${path.replace(/^\/+/, '')}`
 }
 
-/** The frame may go only to addresses under its own session's base; a link out of it opens nowhere. */
-export const frameMayLoad = (address: string, frameUrl: string): boolean => address.startsWith(frameUrl)
+const dotSegment = /(?:^|\/)(?:\.|%2e){1,2}(?=\/|$)/i
+const encodedSlash = /%2f|%5c|\\/i
+
+/** The frame may go only to addresses under its own session's base, with no dot segment or encoded slash in the path that a server could resolve out of it. */
+export const frameMayLoad = (address: string, frameUrl: string): boolean => {
+  if (!address.startsWith(frameUrl)) return false
+  const path = address.slice(frameUrl.length).split(/[?#]/)[0] ?? ''
+  return !dotSegment.test(path) && !encodedSlash.test(path)
+}
 
 /** What the studio's overlay says about the sandbox, from the session the API answered. */
 export type Sandbox = { kind: 'opening' } | { kind: 'queued'; place: number } | { kind: 'ready' } | { kind: 'finishing' } | { kind: 'ended' } | { kind: 'failed'; notConnected: boolean }

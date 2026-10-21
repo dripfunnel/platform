@@ -10,6 +10,7 @@ jest.setTimeout(120_000)
 
 const mockSession: { client: ApiClient | null } = { client: null }
 const mockParams: { page?: string } = {}
+const mockMounts = { count: 0 }
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn(), navigate: jest.fn() }),
@@ -27,8 +28,15 @@ jest.mock('../../../session', () => ({
 jest.mock('../../../brand/BrandProvider', () => ({ useBrand: () => ({ brand: { productName: 'Juniper' } }) }))
 jest.mock('react-native-webview', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createElement } = require('react')
-  return { WebView: (props: Record<string, unknown>) => createElement('WebView', props) }
+  const { createElement, useEffect } = require('react')
+  return {
+    WebView: (props: Record<string, unknown>) => {
+      useEffect(() => {
+        mockMounts.count += 1
+      }, [])
+      return createElement('WebView', props)
+    },
+  }
 })
 
 const settle = async () => {
@@ -96,7 +104,7 @@ const frames = (renderer: ReactTestRenderer) => renderer.root.findAll((node) => 
 const frameProps = (renderer: ReactTestRenderer) => {
   const found = frames(renderer)[0]
   if (!found) throw new Error('no frame')
-  return found.props as { source: { uri: string }; onMessage?: unknown; injectedJavaScript?: unknown; injectedJavaScriptBeforeContentLoaded?: unknown; incognito?: boolean; originWhitelist: string[]; onShouldStartLoadWithRequest: (request: { url: string }) => boolean; sharedCookiesEnabled?: boolean }
+  return found.props as { source: { uri: string }; onMessage?: unknown; injectedJavaScript?: unknown; injectedJavaScriptBeforeContentLoaded?: unknown; incognito?: boolean; originWhitelist: string[]; onShouldStartLoadWithRequest: (request: { url: string }) => boolean; onNavigationStateChange: (state: { url: string }) => void; sharedCookiesEnabled?: boolean }
 }
 const everyLabel = (renderer: ReactTestRenderer) => JSON.stringify([texts(renderer), renderer.root.findAll((node) => typeof node.props.accessibilityLabel === 'string').map((node) => node.props.accessibilityLabel as string)])
 
@@ -104,6 +112,7 @@ const openURL = jest.spyOn(Linking, 'openURL')
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockMounts.count = 0
   openURL.mockResolvedValue(true)
   delete mockParams.page
   resetScenario()
@@ -131,7 +140,7 @@ describe('the studio’s frame (AI-STUDIO §1, §8)', () => {
     expect(frame.injectedJavaScriptBeforeContentLoaded).toBeUndefined()
   })
 
-  it('opens no address outside its own session, so a link out of the frame goes nowhere', async () => {
+  it('refuses, where the web view asks, any address outside its own session, so a link out of the frame goes nowhere', async () => {
     const { renderer } = await show(base())
 
     const { onShouldStartLoadWithRequest: allows } = frameProps(renderer)
@@ -141,6 +150,24 @@ describe('the studio’s frame (AI-STUDIO §1, §8)', () => {
     expect(allows({ url: 'https://juniper.webpreview.store/' })).toBe(false)
     expect(allows({ url: 'https://shop.test/' })).toBe(false)
     expect(allows({ url: 'https://juniper.webpreview.store/__studio/another/' })).toBe(false)
+    expect(allows({ url: `${frameUrl}%2e%2e/%2e%2e/other/` })).toBe(false)
+    expect(allows({ url: `${frameUrl}../other/` })).toBe(false)
+  })
+
+  it('puts the frame back at its own page when it ends up outside its session where the web view did not ask first (an Android redirect or sub-frame)', async () => {
+    const { renderer } = await show(base())
+    const started = mockMounts.count
+
+    await act(async () => frameProps(renderer).onNavigationStateChange({ url: 'https://evil.example/' }))
+    expect(mockMounts.count).toBe(started + 1)
+    expect(frameProps(renderer).source.uri).toBe(frameUrl)
+
+    await act(async () => frameProps(renderer).onNavigationStateChange({ url: `${frameUrl}%2e%2e/other/` }))
+    expect(mockMounts.count).toBe(started + 2)
+
+    await act(async () => frameProps(renderer).onNavigationStateChange({ url: `${frameUrl}cart/` }))
+    await act(async () => frameProps(renderer).onNavigationStateChange({ url: 'about:blank' }))
+    expect(mockMounts.count).toBe(started + 2)
   })
 
   it.each([
