@@ -79,3 +79,6 @@ export const moreFor = (seat: Seat | null): readonly MoreGroup[] => {
 
 /** The tab a route belongs to, so a screen under More keeps More active. */
 export const tabOfRoute = (name: string, tabs: readonly Tab[]): string => (tabs.some((tab) => tab.route === name) ? name : 'more')
+
+/** The tab bar is hidden only in the full storefront designer, which is every screen below the compact Storefront (DESIGN.md §2). */
+export const tabBarHiddenAt = (segments: readonly string[]): boolean => segments[1] === 'more' && segments[2] === 'storefront' && segments.length > 3

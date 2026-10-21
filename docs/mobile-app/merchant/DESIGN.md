@@ -5,7 +5,7 @@ Scope is [FIRST-RELEASE.md](FIRST-RELEASE.md); code structure is [ARCHITECTURE.m
 
 **Status: decided, not built.**
 
-Last updated: 2026-10-19 (#509: Home and Reports, §3, §5). Before: 2026-10-19 (#508: Offers and Abandoned carts, §5). Before: 2026-10-16 (#505: Import & export, §5). Before: 2026-10-16 (#504: Payment setup, Shipping and Customer accounts, §5). Before: 2026-10-15 (#503: Orders and Customers, §5). Before: 2026-10-15 (#502: Settings, §5). Before: 2026-10-15 (#501: Collections, §5). Before: 2026-10-13 (#500: Products). Before: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
+Last updated: 2026-10-21 (#513: the full storefront designer, §5). Before: 2026-10-19 (#509: Home and Reports, §3, §5). Before: 2026-10-19 (#508: Offers and Abandoned carts, §5). Before: 2026-10-16 (#505: Import & export, §5). Before: 2026-10-16 (#504: Payment setup, Shipping and Customer accounts, §5). Before: 2026-10-15 (#503: Orders and Customers, §5). Before: 2026-10-15 (#502: Settings, §5). Before: 2026-10-15 (#501: Collections, §5). Before: 2026-10-13 (#500: Products). Before: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
 
 ---
 

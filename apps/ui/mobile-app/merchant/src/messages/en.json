@@ -442,7 +442,19 @@
       "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
       "ALREADY_LIVE": "That version is already live.",
       "BUILD_GONE": "That version can’t be restored any more.",
-      "SECURITY_RELEASE": "That version predates a security fix to your storefront, so it can’t be restored."
+      "SECURITY_RELEASE": "That version predates a security fix to your storefront, so it can’t be restored.",
+      "SESSION_ENDED": "Your studio session ended. Reopen the studio to keep designing.",
+      "NOT_LATEST": "Only your latest change can be undone.",
+      "NOT_BISECTED": "That change isn’t the one the refused publish named.",
+      "INVALID_URL": "Use a public website address starting with https://.",
+      "SAMPLE_UNAVAILABLE": "We couldn’t open that website. Try another address."
+    },
+    "storefrontContent": {
+      "NOT_FOUND": "This isn’t here any more. Go back to the list.",
+      "READ_ONLY": "Your store is view-only until the payment goes through.",
+      "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+      "FORBIDDEN": "Only the store owner can change the storefront.",
+      "NO_RESPONSE": "That didn’t delete. Check your connection and try again."
     }
   },
   "auth": {
@@ -5026,8 +5038,409 @@
       "tag": "Best on a bigger screen",
       "body": "Picking a template, editing page by page and your domain settings are easier on a computer. Open the web portal in your browser and sign in there.",
       "open": "Open the web portal",
-      "here": "Open here anyway",
-      "hereLater": "The full designer in the app comes later. Use the web portal for now."
+      "here": "Open here anyway"
+    },
+    "tabs": {
+      "label": "Storefront",
+      "design": "Design",
+      "pages": "Pages",
+      "journal": "Journal",
+      "settings": "Site settings"
+    },
+    "notice": {
+      "manager": "You can look, but only the store owner can change the storefront."
+    },
+    "design": {
+      "noStorefront": "No storefront yet. The store owner sets it up."
+    },
+    "overview": {
+      "custom": "Custom",
+      "creatingTitle": "Setting up your storefront…",
+      "creatingBody": "We’re making your site from the template you picked. It takes a minute or two, and this screen updates by itself.",
+      "liveLine": "{host} · version {number} is live · {template} template",
+      "notLive": "Not published yet",
+      "notPublishedBody": "Shoppers see your site once you publish it.",
+      "viewLive": "View live site ↗",
+      "changeTemplate": "Change template",
+      "openStudio": "Open studio",
+      "continueStudio": "Continue in studio",
+      "draftTitle": "Unpublished changes.",
+      "draftBody": "You’ve changed the design in the studio. Shoppers still see the live version until you publish.",
+      "discard": "Discard"
+    },
+    "gallery": {
+      "first": "Choose a starting point",
+      "change": "Change template",
+      "lede": "Pick a look to start from. You can change everything afterwards — colours, fonts, sections, wording — just by describing it. Nothing goes live until you publish.",
+      "back": "← Back to Storefront",
+      "current": "Your current look",
+      "demo": "View demo ↗",
+      "use": "Use this template",
+      "scratch": "Start from scratch",
+      "choosing": "Starting…",
+      "emptyTitle": "No templates yet",
+      "emptyBody": "There are no templates to pick from yet. Try again later.",
+      "failed": "We couldn’t set up your storefront. Pick a template to try again.",
+      "keepTitle": "Use {name}?",
+      "keepScratchTitle": "Start from scratch?",
+      "keepBody": "Keep your words — headline, menu, footer, About and Contact — or start with the template’s sample text? Your live site doesn’t change until you publish.",
+      "keepWords": "Keep my words",
+      "templateWords": "Use template text",
+      "cancel": "Cancel",
+      "switched": "Switched to {name}",
+      "scratchStarted": "Started from scratch",
+      "refused": {
+        "BRAND_NOT_READY": "Add your shop name and logo first.",
+        "INVALID_TEMPLATE": "That template isn’t offered any more.",
+        "IN_PROGRESS": "Your storefront is still being set up. Try again in a minute.",
+        "STUDIO_QUEUED": "The studio is busy — you’re number {place} in line. Try again in a moment.",
+        "STUDIO_UNAVAILABLE": "The studio couldn’t start. Try again in a minute.",
+        "CHANGE_REFUSED": "That template didn’t pass our checks — nothing on your site changed.",
+        "NOT_CONNECTED": "The studio isn’t set up here yet.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "other": "That didn’t work. Check your connection and try again."
+      }
+    },
+    "brand": {
+      "title": "Your brand",
+      "lede": "Tell us about your shop. Your template and the AI use this to design your site. Only the name and logo are needed now; you can change everything later in Site settings.",
+      "sections": {
+        "identity": "Name and logo",
+        "look": "Favicon and colours",
+        "lookHelp": "Your colours are only a hint for the AI. Templates keep their own colours.",
+        "home": "Home page",
+        "homeHelp": "What Google and shared links show for your home page.",
+        "about": "About your shop",
+        "social": "Social links",
+        "socialHelp": "Your handle, or your profile’s address.",
+        "contact": "Public contact",
+        "contactHelp": "Shown to shoppers on your site. Filled in from Store info."
+      },
+      "shopName": "Shop name",
+      "required": "Required",
+      "logo": "Logo",
+      "logoHelp": "PNG, JPG or WebP. Shown in your site’s header.",
+      "noLogo": "No logo yet",
+      "favicon": "Favicon",
+      "faviconHelp": "The small icon in the browser tab. A square image works best.",
+      "noFavicon": "None",
+      "imageSet": "Added",
+      "upload": "Choose from your photos",
+      "replace": "Replace",
+      "removeImage": "Remove",
+      "uploading": "Uploading…",
+      "primaryColour": "Primary colour",
+      "secondaryColour": "Secondary colour",
+      "colourHelp": "Like #1D6B47. Leave empty for none.",
+      "homeTitle": "Home page title",
+      "homeDescription": "Home page description",
+      "count": "{count} / {limit}",
+      "tagline": "Tagline",
+      "taglineHelp": "A short line under your name, like “Handloom from Jaipur”.",
+      "description": "Short description",
+      "descriptionHelp": "{count} / {limit}. A few sentences about what you sell.",
+      "voice": "Tone of voice",
+      "voiceHelp": "How your site talks to shoppers. Pick one, or use your own words.",
+      "voiceOwn": "Your own words",
+      "voices": {
+        "warm": "Warm and friendly",
+        "calm": "Calm and minimal",
+        "bold": "Bold and playful",
+        "elegant": "Elegant and refined",
+        "expert": "Expert and straightforward"
+      },
+      "social": {
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "x": "X",
+        "youtube": "YouTube",
+        "tiktok": "TikTok",
+        "whatsapp": "WhatsApp"
+      },
+      "socialPlaceholder": "@handle or address",
+      "whatsappPlaceholder": "Your WhatsApp number",
+      "email": "Email",
+      "phone": "Phone",
+      "street": "Street address",
+      "city": "City",
+      "postal": "Postal code",
+      "region": "State or region",
+      "continue": "Continue to templates",
+      "saving": "Saving…",
+      "needed": "Add your shop name and logo to continue.",
+      "card": {
+        "title": "Brand",
+        "lede": "Your shop’s name, logo, colours and voice. Your live site shows changes after your next publish.",
+        "save": "Save",
+        "cancel": "Cancel",
+        "saved": "Brand saved. Your live site shows it after your next publish."
+      },
+      "invalid": {
+        "shopName": "Give your shop a name.",
+        "colour": "Use a colour like #1D6B47.",
+        "contactAddress": "One of these lines is too long.",
+        "social": "Use your {network} handle, or your profile’s address on {network}.",
+        "other": "That’s too long."
+      },
+      "refused": {
+        "INVALID_EMAIL": "That doesn’t look like an email address.",
+        "INVALID_IMAGE": "Use an image you uploaded to this store.",
+        "NOT_FOUND": "That isn’t here any more. Go back and open it again.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "other": "That didn’t save. Check your connection and try again."
+      }
+    },
+    "seo": {
+      "title": "Search and sharing",
+      "lede": "How your shop looks in Google results and when someone shares a link.",
+      "pageTitle": "Page title",
+      "description": "Description",
+      "count": "{count} / {limit}",
+      "countOver": "{count} / {limit} · too long",
+      "shareImage": "Share image",
+      "shareHelp": "From your product photos. Shown at 1200 × 630.",
+      "noPhotos": "Add product photos to pick a share image.",
+      "usePhoto": "Use photo {number}",
+      "photoAlt": "Product photo {number}",
+      "save": "Save",
+      "saved": "Saved — search engines pick it up within a few days. No publish needed.",
+      "tooLong": "Shorten the title or the description to save.",
+      "refused": {
+        "INVALID_INPUT": "Shorten the title or the description to save.",
+        "INVALID_IMAGE": "Pick one of your product photos.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "other": "That didn’t save. Check your connection and try again."
+      }
+    },
+    "studio": {
+      "label": "Studio",
+      "title": "{template} · {store}",
+      "status": {
+        "unpublished_changes": "Unpublished changes",
+        "same_as_live": "Same as live site",
+        "not_published": "Not published"
+      },
+      "page": "Page",
+      "groups": {
+        "shop": "Shop",
+        "policies": "Policies",
+        "content": "Content pages",
+        "custom": "Pages the AI made"
+      },
+      "routes": {
+        "home": "Home",
+        "collection": "All products",
+        "product": "Product: {name}",
+        "search": "Search",
+        "cart": "Cart",
+        "checkout": "Checkout",
+        "account": "Your account",
+        "signIn": "Sign in",
+        "terms": "Terms",
+        "privacy": "Privacy",
+        "shipping": "Shipping",
+        "returns": "Returns"
+      },
+      "panes": {
+        "chat": "Chat",
+        "preview": "Preview"
+      },
+      "frameTitle": "Your draft site",
+      "sandbox": {
+        "opening": "Opening your studio…",
+        "queued": "You’re next — about {seconds} seconds",
+        "finishing": "Finishing your previous change…",
+        "checking": "Checking your change…",
+        "ended": "Your studio session ended. Reopen the studio to keep designing.",
+        "unavailable": "The studio couldn’t start. Try again in a minute.",
+        "notConnected": "The studio isn’t set up here yet.",
+        "reopen": "Reopen"
+      },
+      "chat": {
+        "loading": "Loading your conversation…",
+        "loadFailed": "We couldn’t load the conversation. Reopen the studio to try again.",
+        "empty": "Tell me what to change and I’ll update the preview. Nothing goes live until you publish.",
+        "error": "I couldn’t make that change — nothing on your site changed. Try again, or say it a different way.",
+        "you": "You",
+        "assistant": "{brand} AI",
+        "assistantPlain": "AI",
+        "inspiredBy": "Inspired by {site}",
+        "undone": "Undone — the preview is back to how it was.",
+        "undo": "Undo this change",
+        "suggestionsLabel": "Suggestions",
+        "suggestions": {
+          "0": "Make the colours warmer",
+          "1": "Add a customer reviews section",
+          "2": "Use a more elegant font for headings",
+          "3": "Rewrite the About page in a friendlier tone"
+        },
+        "prompt": "Describe a change",
+        "placeholder": "Describe a change — e.g. “Make it feel warmer and add a reviews section”",
+        "siteField": "Website address",
+        "sitePlaceholder": "https://",
+        "siteInvalid": "Type the full address, starting with https://",
+        "siteHelp": "A public website to take inspiration from.",
+        "addSite": "Add a website to take inspiration from",
+        "removeSite": "Remove the website",
+        "send": "Send",
+        "sending": "Working…",
+        "attachedOnly": "Take inspiration from what I attached.",
+        "notes": {
+          "template": "Switched to {name}",
+          "scratch": "Started from scratch",
+          "undone": "Change undone",
+          "discarded": "Changes discarded"
+        }
+      },
+      "publish": {
+        "button": "Publish",
+        "firstButton": "Publish site",
+        "live": "Version {number} is live — we checked your site and it changed",
+        "lost": "We couldn’t read how your publish is going. The studio waits until we can, so nothing changes under it.",
+        "culprit": "It started with this change: “{text}”.",
+        "before": "Publish everything before this change",
+        "beforeBody": "We publish every change up to the one that didn’t pass our checks, and leave that one and anything after it out. Your live site changes only if the checks pass.",
+        "beforeConfirm": "Publish everything before"
+      },
+      "preview": {
+        "open": "Open preview ↗"
+      }
+    },
+    "content": {
+      "error": {
+        "retry": "Try again"
+      },
+      "more": "Show more",
+      "moreFailed": "We couldn’t load more. Try again.",
+      "status": {
+        "draft": "Draft",
+        "scheduled": "Scheduled",
+        "published": "Published"
+      },
+      "pages": {
+        "title": "Pages",
+        "sub": "About, FAQ, contact and lookbook pages on your storefront.",
+        "add": "Add a page",
+        "empty": "No pages yet.",
+        "foot": "Your menus can link to these pages (Collections › Menus).",
+        "inMenu": "{meta} · in the footer",
+        "ai": "Made by AI",
+        "aiMeta": "Change it in the studio",
+        "aiOpen": "Open {path} in the studio",
+        "untitled": "Untitled page",
+        "body": "The page",
+        "delete": "Delete page",
+        "deleteTitle": "Delete the page “{title}”?",
+        "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
+        "deleteBodyMenu": "It comes off your shop with the next publish. Links to it show “page not found”, and it leaves the footer menu."
+      },
+      "journal": {
+        "title": "Journal",
+        "sub": "Posts for your shop’s blog, newest first. Shoppers find them under Journal.",
+        "add": "Write a post",
+        "empty": "No posts yet. Write about how you make things, care tips or new arrivals.",
+        "foot": "Posts can mention products; shoppers see their live price.",
+        "goesLive": "Goes live {date}",
+        "untitled": "Untitled post",
+        "body": "The post",
+        "delete": "Delete post",
+        "deleteTitle": "Delete “{title}”?",
+        "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
+        "planLimit": "Your plan doesn’t include the Journal."
+      },
+      "editor": {
+        "title": "Title",
+        "slug": "Web address",
+        "kinds": {
+          "heading": "Heading",
+          "text": "Text",
+          "image": "Photo",
+          "faq": "Questions and answers",
+          "products": "Products",
+          "form": "Contact form"
+        },
+        "tools": {
+          "heading": "Add a heading",
+          "text": "Add text",
+          "faq": "Add questions",
+          "products": "Add products",
+          "form": "Add a contact form"
+        },
+        "toolsLabel": "Add a block",
+        "blockText": "{kind}, block {number}",
+        "moveUp": "Move block {number} up",
+        "moveDown": "Move block {number} down",
+        "remove": "Remove block {number}",
+        "photoKept": "A photo on this page stays as it is. Add or change photos on the web portal.",
+        "question": "Question {number}",
+        "answer": "Answer {number}",
+        "removeQuestion": "Remove question {number}",
+        "addQuestion": "+ Add a question",
+        "findProduct": "Find a product to add",
+        "removeProduct": "Remove {name}",
+        "goneProduct": "A product no longer in your catalogue",
+        "unknownProduct": "A product whose name didn’t load",
+        "namesFailed": "We couldn’t load these products’ names. They stay on the page as they are; open the page again to see them.",
+        "productsHelp": "Shown with their live price and stock. A sold-out product shows as sold out, never removed.",
+        "form": "Name, email, order number (optional) and message. Messages go to your store email and a copy goes to the shopper.",
+        "search": "How it looks in search",
+        "seoTitle": "Title in search",
+        "seoTitleHelp": "Leave it empty to use the title.",
+        "seoDescription": "Description",
+        "seoPlaceholder": "Add a description so search engines show something better than the first line.",
+        "publishing": "Publishing",
+        "now": "Now: {status}",
+        "inMenu": "Show in the footer menu",
+        "publish": "Publish",
+        "update": "Update",
+        "draft": "Save as draft",
+        "saving": "Saving…",
+        "note": "Goes live with your shop’s next publish. Your storefront design decides how it looks.",
+        "waiting": "Your last save goes live with your shop’s next publish.",
+        "needsTitle": "Give it a title.",
+        "needsSlug": "Give it a web address: letters, numbers and hyphens.",
+        "seoTooLong": "Shorten the title or description in search to save.",
+        "savedDraft": "Saved as a draft — not on your shop yet",
+        "published": "Published. It goes live with your shop’s next publish.",
+        "deleted": "Deleted",
+        "refused": {
+          "INVALID_INPUT": "Something here isn’t valid. Check each block and try again.",
+          "STALE_REVISION": "Someone else saved this since you opened it. Go back and open it again to see their changes.",
+          "NOT_FOUND": "This isn’t here any more. Go back to the list.",
+          "READ_ONLY": "Your store is view-only until the payment goes through.",
+          "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+          "FORBIDDEN": "Only the store owner can change the storefront.",
+          "PLAN_LIMIT": "Your plan doesn’t include this.",
+          "other": "That didn’t save. Check your connection and try again."
+        }
+      },
+      "taken": {
+        "coreLine": "{path} is your shop’s {what}. Choose another web address.",
+        "core": {
+          "cart": "cart",
+          "checkout": "checkout",
+          "orders": "order pages",
+          "accounts": "shoppers’ account pages",
+          "signIn": "sign-in pages",
+          "search": "search page",
+          "products": "product pages",
+          "collections": "collection pages",
+          "policies": "policy pages",
+          "journal": "Journal"
+        },
+        "coreOther": "{path} is kept for how your shop works behind the scenes. Choose another web address.",
+        "custom": "{path} is a page your AI designer made. Choose another web address, or change that page in the studio.",
+        "language": "{path} is your shop in another language. Choose another web address.",
+        "market": "{path} is where one of your markets lives (Settings › Markets). Choose another web address.",
+        "page": "Another of your pages already uses {path}. Choose another web address.",
+        "post": "Another of your posts already uses {path}. Choose another web address."
+      }
     }
   },
   "activity": {

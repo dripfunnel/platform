@@ -5,7 +5,7 @@ The framework decision is [REACT-NATIVE.md](REACT-NATIVE.md); the look is [DESIG
 builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
 **Status: the project is set up (#496), its foundations are built (#497) and so are getting in and My profile
-(#498), the shell (#499), Products (#500), Collections (#501), Settings (#502), Orders and Customers (#503), Payment setup, Shipping and Customer accounts (#504), Import & export (#505) product kinds in the editor (#507), and Offers and Abandoned carts (#508), Home and Reports (#509), Developers (#510), Apps (#800), and Support access with the banner's Allow/Deny (#801), and the Activity log (#802); the other screens are placeholders.**
+(#498), the shell (#499), Products (#500), Collections (#501), Settings (#502), Orders and Customers (#503), Payment setup, Shipping and Customer accounts (#504), Import & export (#505) product kinds in the editor (#507), and Offers and Abandoned carts (#508), Home and Reports (#509), Developers (#510), Apps (#800), and Support access with the banner's Allow/Deny (#801), and the Activity log (#802), and the full storefront designer with Pages and Journal (#513); the other screens are placeholders.**
 `app.config.ts`, `partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/graphql/`,
 `src/intl/`, `src/format/`, `src/messages/`, `src/theme/`, `src/brand/`, `src/session/`, `src/features/auth/`,
 `src/features/profile/`, `src/features/shell/`, `src/features/states/`, `src/features/products/`, `src/features/collections/`, `src/features/settings/`, `src/features/orders/`, `src/features/customers/`, `src/features/import/`, `src/features/offers/`, `src/features/carts/`, `src/features/home/`, `src/features/reports/`, `src/features/activity/` and `src/api/` (`brand`, `auth`, `profile`, `shell`, `products`, `inventory`,
@@ -13,7 +13,7 @@ builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.m
 `src/features/placeholder/` goes when the first real screen replaces it). Only `nav.ts` is still to build. Rows
 marked *(proposed)* await a yes.
 
-Last updated: 2026-10-19 (#802: Activity log, §3, §5). Before: 2026-10-19 (#801: Support access and the banner, §3, §5). Before: 2026-10-19 (#800: Apps, §3, §5). Before: 2026-10-19 (#510: Developers, §3, §5). Before: 2026-10-19 (#509: Home and Reports, §3, §5). Before: 2026-10-19 (#508: Offers and Abandoned carts, §3, §5). Before: 2026-10-19 (#507: product kinds, §5). Before: 2026-10-16 (#505: Import & export, §3, §5). Before: 2026-10-16 (#504: Payment setup, Shipping and Customer accounts, §3, §5). Before: 2026-10-15 (#503: Orders and Customers, §3, §5). Before: 2026-10-15 (#502: Settings, §3, §5). Before: 2026-10-15 (#501: Collections, §3, §5). Before: 2026-10-13 (#500: Products, §3, §5). Before: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
+Last updated: 2026-10-21 (#513: the full storefront designer, Pages and Journal, §3, §5). Before: 2026-10-19 (#802: Activity log, §3, §5). Before: 2026-10-19 (#801: Support access and the banner, §3, §5). Before: 2026-10-19 (#800: Apps, §3, §5). Before: 2026-10-19 (#510: Developers, §3, §5). Before: 2026-10-19 (#509: Home and Reports, §3, §5). Before: 2026-10-19 (#508: Offers and Abandoned carts, §3, §5). Before: 2026-10-19 (#507: product kinds, §5). Before: 2026-10-16 (#505: Import & export, §3, §5). Before: 2026-10-16 (#504: Payment setup, Shipping and Customer accounts, §3, §5). Before: 2026-10-15 (#503: Orders and Customers, §3, §5). Before: 2026-10-15 (#502: Settings, §3, §5). Before: 2026-10-15 (#501: Collections, §3, §5). Before: 2026-10-13 (#500: Products, §3, §5). Before: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
 
 ---
 
@@ -85,6 +85,7 @@ apps/ui/mobile-app/merchant/
                                 more/carts/ holds the list with its reminder settings and [id] (one cart)
                                 more/reports.tsx is Reports; home.tsx is Home
                                 more/storefront.tsx is Storefront
+                                more/storefront/ holds the full designer (#513): designer, studio, page/[id] and post/[id]; the tab bar is hidden below it
                                 more/activity.tsx is the Manager's Store activity (the Owner's Activity log is a Settings tab)
                                 offers/ holds the list, new, [id] (one offer) and [id]/edit (the editor)
                                 more/settings/ holds the Owner's list of tabs (Store info … Customer accounts, Developers, Apps, Support access, Activity log), [tab] (one tab on its screen) and market/[id] (the Markets editor)

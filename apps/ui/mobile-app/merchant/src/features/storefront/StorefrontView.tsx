@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { askDesign, goBackToVersion, previewLink, requestLimit } from '../../api/storefront'
@@ -28,6 +29,7 @@ export function StorefrontView({ client, designClient, access, data, refresh }: 
   const { overview, host, request, timeZone } = data
   const { colors, radii } = useTheme()
   const feedback = useFeedback()
+  const router = useRouter()
   const [prompt, setPrompt] = useState('')
   const [making, setMaking] = useState(false)
   const [message, setMessage] = useState<Message | null>(null)
@@ -161,7 +163,7 @@ export function StorefrontView({ client, designClient, access, data, refresh }: 
           }}
         /> : null}
       {sheet?.kind === 'restore' ? <RestoreSheet client={client} onClose={closeSheet} version={sheet.version} onDone={refresh} /> : null}
-      {sheet?.kind === 'web' ? <BestOnWebSheet onClose={closeSheet} onOpenWeb={openWeb} onOpenHere={() => feedback.toast({ message: t('storefront.web.hereLater') })} /> : null}
+      {sheet?.kind === 'web' ? <BestOnWebSheet onClose={closeSheet} onOpenWeb={openWeb} onOpenHere={() => router.push('/more/storefront/designer' as never)} /> : null}
     </View>
   )
 }
