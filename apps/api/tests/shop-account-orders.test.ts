@@ -3,18 +3,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import { hashSessionId } from '#auth/session'
+import { maxOrderHistoryPage } from '#engine/modules/checkout/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 // Card #813: the account's list of orders (storefront ARCHITECTURE §2.1 "The account"), the signed-in customer's own,
-// newest first, 20 a page, and never another customer's, another store's or a guest's (ACCESS §11).
+// newest first, a page at a time (at most 50), and never another customer's, another store's or a guest's (ACCESS §11).
 
 let db: TestDatabase
 let t: Tenants
 const hostOf = { india: 'jaipur.shop.example', other: 'surat.shop.example' }
 const stores = { india: '', other: '' }
-const sessions = { asha: '', ravi: '', ashaSurat: '' }
+const sessions = { asha: '', ravi: '', ashaSurat: '', meera: '' }
 const guestCart = 'a'.repeat(64)
 let ashaNumbers: string[] = []
 
@@ -55,6 +56,10 @@ beforeAll(async () => {
   sessions.asha = asha.token
   sessions.ravi = ravi.token
   sessions.ashaSurat = ashaSurat.token
+  // More orders than a page holds, for the cap.
+  const meera = await signedIn(stores.india, 'meera@example.com')
+  sessions.meera = meera.token
+  for (let i = 0; i < maxOrderHistoryPage + 5; i += 1) await placed(stores.india, `JP-4${String(i).padStart(3, '0')}`, 40 + i, { customerId: meera.id })
   ashaNumbers = Array.from({ length: 23 }, (_, i) => `JP-${1100 + i}`)
   for (const [i, number] of ashaNumbers.entries()) await placed(stores.india, number, 30 - i, { customerId: asha.id }, i === 22 ? 3 : 1)
   await placed(stores.india, 'JP-2001', 1, { customerId: ravi.id })
@@ -76,10 +81,10 @@ const gql = async (source: string, who: { host?: string; session?: string; cart?
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
 
-type OrderPage = { nodes: { number: string; state: string; placedAt: string; total: { amount: string; currency: string }; lines: { quantity: number }[] }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+type OrderPage = { nodes: { number: string; state: string; placedAt: string; total: { amount: string; currency: string }; itemCount: number }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
 const list = async (args: string, who: Parameters<typeof gql>[1]) => {
-  const answer = await gql(`{ orders${args} { nodes { number state placedAt total { amount currency } lines { quantity } } pageInfo { hasNextPage endCursor } } }`, who)
-  return { page: answer.data?.['orders'] as OrderPage | null | undefined, code: answer.code }
+  const answer = await gql(`{ orderHistory${args} { nodes { number state placedAt total { amount currency } itemCount } pageInfo { hasNextPage endCursor } } }`, who)
+  return { page: answer.data?.['orderHistory'] as OrderPage | null | undefined, code: answer.code }
 }
 
 describe('the account’s orders', () => {
@@ -88,20 +93,21 @@ describe('the account’s orders', () => {
     expect((await list('', { cart: guestCart })).code).toBe('SIGNED_OUT')
   })
 
-  it('lists the customer’s own orders newest first, 20 a page, and Load more brings the rest in order', async () => {
-    const first = (await list('', { session: sessions.asha })).page
+  it('lists the customer’s own orders newest first, a page at a time, and the next page brings the rest in order', async () => {
+    const first = (await list('(first: 20)', { session: sessions.asha })).page
     expect(first?.nodes.map((o) => o.number)).toEqual([...ashaNumbers].reverse().slice(0, 20))
     expect(first?.pageInfo.hasNextPage).toBe(true)
-    expect(first?.nodes[0]).toMatchObject({ number: 'JP-1122', state: 'placed', total: { amount: '300000', currency: 'INR' }, lines: [{ quantity: 3 }] })
+    expect(first?.nodes[0]).toMatchObject({ number: 'JP-1122', state: 'placed', total: { amount: '300000', currency: 'INR' }, itemCount: 3 })
     const placedAt = first?.nodes.map((o) => Date.parse(o.placedAt)) ?? []
     expect(placedAt).toEqual([...placedAt].sort((a, b) => b - a))
-    const next = (await list(`(after: "${first?.pageInfo.endCursor ?? ''}")`, { session: sessions.asha })).page
+    const next = (await list(`(first: 20, after: "${first?.pageInfo.endCursor ?? ''}")`, { session: sessions.asha })).page
     expect(next?.nodes.map((o) => o.number)).toEqual([...ashaNumbers].reverse().slice(20))
     expect(next?.pageInfo.hasNextPage).toBe(false)
   })
 
-  it('caps a page at 20 and refuses a cursor it didn’t hand out', async () => {
-    expect((await list('(first: 500)', { session: sessions.asha })).page?.nodes).toHaveLength(20)
+  it('caps a page at 50 and refuses a cursor it didn’t hand out', async () => {
+    expect((await list('(first: 500)', { session: sessions.meera })).page?.nodes).toHaveLength(maxOrderHistoryPage)
+    expect((await list('', { session: sessions.meera })).page?.nodes).toHaveLength(maxOrderHistoryPage)
     expect((await list('(first: 5)', { session: sessions.asha })).page?.nodes).toHaveLength(5)
     expect((await list('(after: "not-a-cursor")', { session: sessions.asha })).code).toBe('INVALID_CURSOR')
   })

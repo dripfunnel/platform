@@ -253,28 +253,46 @@ export interface ShopOrderRow {
   discounts: { label: string | null; amount: string }[]
 }
 
-const shopOrderColumns = (tx: ScopedSql) => tx`
-  o.id, o.number, o.state, o.payment_state, o.payment_method, o.email, o.phone, o.currency, o.subtotal_amount::text as subtotal_amount,
-  o.discount_amount::text as discount_amount, o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.gift_card_amount::text as gift_card_amount, o.tax_inclusive,
-  o.shipping_method_label, o.shipping_option, o.placed_at, o.payment_due_by,
-  coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', l.quantity,
-    'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text, 'gift', case when l.gift_recipient_email is null then null
-      else json_build_object('recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'sendOn', l.gift_send_on) end) order by l.position)
-    from order_line l where l.order_id = o.id), '[]'::json) as lines,
-  coalesce((select json_agg(json_build_object('id', d.id, 'name', l.name, 'uses_left', d.uses_left, 'expires_at', d.expires_at) order by l.position)
-    from order_download d join order_line l on l.id = d.order_line_id where d.order_id = o.id and ${handedOut(tx)}), '[]'::json) as downloads,
-  coalesce((select json_agg(json_build_object('name', l.name, 'key', k.key) order by l.position, k.id)
-    from licence_key k join order_line l on l.id = k.order_line_id where l.order_id = o.id and ${handedOut(tx)}), '[]'::json) as keys,
-  coalesce((select json_agg(json_build_object('label', a.label, 'amount', a.amount::text) order by a.label, a.id) from order_adjustment a where a.order_id = o.id and a.kind = 'discount'), '[]'::json) as discounts`
-
 /** A shopper's own placed order, as its policy lets it read one (its account's, or a guest's by its token). */
 export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: string): Promise<ShopOrderRow | null> =>
-  (await tx<ShopOrderRow[]>`select ${shopOrderColumns(tx)} from "order" o where o.id = ${orderId} and o.store_id = ${storeId} and o.state <> 'cart'`)[0] ?? null
+  (
+    await tx<ShopOrderRow[]>`
+      select o.id, o.number, o.state, o.payment_state, o.payment_method, o.email, o.phone, o.currency, o.subtotal_amount::text as subtotal_amount,
+        o.discount_amount::text as discount_amount, o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.gift_card_amount::text as gift_card_amount, o.tax_inclusive,
+        o.shipping_method_label, o.shipping_option, o.placed_at, o.payment_due_by,
+        coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', l.quantity,
+          'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text, 'gift', case when l.gift_recipient_email is null then null
+            else json_build_object('recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'sendOn', l.gift_send_on) end) order by l.position)
+          from order_line l where l.order_id = o.id), '[]'::json) as lines,
+        coalesce((select json_agg(json_build_object('id', d.id, 'name', l.name, 'uses_left', d.uses_left, 'expires_at', d.expires_at) order by l.position)
+          from order_download d join order_line l on l.id = d.order_line_id where d.order_id = o.id and ${handedOut(tx)}), '[]'::json) as downloads,
+        coalesce((select json_agg(json_build_object('name', l.name, 'key', k.key) order by l.position, k.id)
+          from licence_key k join order_line l on l.id = k.order_line_id where l.order_id = o.id and ${handedOut(tx)}), '[]'::json) as keys,
+        coalesce((select json_agg(json_build_object('label', a.label, 'amount', a.amount::text) order by a.label, a.id) from order_adjustment a where a.order_id = o.id and a.kind = 'discount'), '[]'::json) as discounts
+      from "order" o where o.id = ${orderId} and o.store_id = ${storeId} and o.state <> 'cart'
+    `
+  )[0] ?? null
+
+export interface ShopOrderSummaryRow {
+  id: string
+  number: string
+  state: 'placed' | 'cancelled'
+  payment_state: string
+  payment_method: string | null
+  currency: string
+  total_amount: string
+  tax_inclusive: boolean
+  placed_at: Date
+  /** Every line's quantity, summed. */
+  item_count: number
+}
 
 /** A signed-in customer's placed orders, newest first; never a guest's, though the policy would let a cart token read one. */
-export const selectCustomerOrders = (tx: ScopedSql, storeId: string, customerId: string, window: PageWindow): Promise<ShopOrderRow[]> =>
-  tx<ShopOrderRow[]>`
-    select ${shopOrderColumns(tx)} from "order" o
+export const selectCustomerOrders = (tx: ScopedSql, storeId: string, customerId: string, window: PageWindow): Promise<ShopOrderSummaryRow[]> =>
+  tx<ShopOrderSummaryRow[]>`
+    select o.id, o.number, o.state, o.payment_state, o.payment_method, o.currency, o.total_amount::text as total_amount, o.tax_inclusive, o.placed_at,
+      coalesce((select sum(l.quantity) from order_line l where l.order_id = o.id), 0)::int as item_count
+    from "order" o
     where o.store_id = ${storeId} and o.customer_id = ${customerId} and o.state <> 'cart' and ${keysetWhere(tx, window, 'o.placed_at', 'o.id')}
     ${keysetOrder(tx, window, 'o.placed_at', 'o.id')}
   `

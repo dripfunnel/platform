@@ -241,8 +241,8 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   `rename`, `saveAddress` (core's address checks first; also "make default"), `removeAddress`, each reading the account
   again, and `signOut`, which ends the session on the server and here. Without a session, or on a preview, it is
   `signedOut` and asks nothing. An order in the account (`/account/orders/{id}/`) is `useOrder`'s. **`useOrders`** (#813)
-  is the account's list: the Shop API's `orders`, the signed-in customer's own (never a guest's), newest first, 20 a page
-  with `loadMore`, each `OrderRow` its number, day, item count, payment and total; `empty` with none, and `signedOut`
+  is the account's list: the Shop API's `orderHistory` (at most 50 a page, ui/store/FIRST-RELEASE), the signed-in
+  customer's own (never a guest's), newest first, asked 20 at a time with `loadMore`, each `OrderRow` its number, day, item count, payment and total; `empty` with none, and `signedOut`
   without a session (or on a preview, asking nothing), the session forgotten when the Shop API answers `SIGNED_OUT`.
 
 ### 2.2 The store repo

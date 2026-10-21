@@ -115,9 +115,9 @@ const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, whe
 })
 
 export const ordersPageSize = 20
-const listQuery = `query Orders($first: Int, $after: String) { orders(first: $first, after: $after) { nodes { id number state paymentState paymentMethod placedAt pricesIncludeTax lines { quantity } total ${m} } pageInfo { hasNextPage endCursor } } }`
-const rowSchema = z.object({ id: z.string(), number: text, state: text, paymentState: text, paymentMethod: text, placedAt: text, pricesIncludeTax: z.boolean().nullable().optional(), lines: z.array(z.object({ quantity: z.number().int() })).nullable().optional(), total: moneySchema })
-const listSchema = z.object({ orders: z.object({ nodes: z.array(rowSchema).nullable().optional(), pageInfo: z.object({ hasNextPage: z.boolean().nullable().optional(), endCursor: text }).nullable().optional() }).nullable() })
+const listQuery = `query OrderHistory($first: Int, $after: String) { orderHistory(first: $first, after: $after) { nodes { id number state paymentState paymentMethod placedAt pricesIncludeTax itemCount total ${m} } pageInfo { hasNextPage endCursor } } }`
+const rowSchema = z.object({ id: z.string(), number: text, state: text, paymentState: text, paymentMethod: text, placedAt: text, pricesIncludeTax: z.boolean().nullable().optional(), itemCount: z.number().int().nullable().optional(), total: moneySchema })
+const listSchema = z.object({ orderHistory: z.object({ nodes: z.array(rowSchema).nullable().optional(), pageInfo: z.object({ hasNextPage: z.boolean().nullable().optional(), endCursor: text }).nullable().optional() }).nullable() })
 
 /** One order in the account's list: open it at `/account/orders/{id}/`. */
 export type OrderRow = {
@@ -154,12 +154,12 @@ export type OrdersPage = {
 export const useOrders = (): OrdersPage => {
   const { client, mode, store, locale, t } = useStorefront()
   const signedIn = mode === 'live' && shopperToken('session') !== undefined
-  const loaded = useShopData(signedIn ? 'orders' : null, (c) => c.query(listQuery, listSchema, { first: ordersPageSize, after: null }))
+  const loaded = useShopData(signedIn ? 'orderHistory' : null, (c) => c.query(listQuery, listSchema, { first: ordersPageSize, after: null }))
   const [later, setLater] = useState<{ rows: z.infer<typeof rowSchema>[]; cursor: string | null; more: boolean } | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadMoreFailed, setLoadMoreFailed] = useState(false)
   const day = useMemo(() => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: store.timeZone }), [locale, store.timeZone])
-  const first = loaded.data?.orders
+  const first = loaded.data?.orderHistory
   const cursor = later ? later.cursor : (first?.pageInfo?.endCursor ?? null)
   const more = later ? later.more : first?.pageInfo?.hasNextPage === true
   const orders = useMemo(
@@ -170,7 +170,7 @@ export const useOrders = (): OrdersPage => {
           id: o.id,
           number: o.number ?? o.id,
           placedOn: placed && !Number.isNaN(placed.getTime()) ? day.format(placed) : null,
-          items: (o.lines ?? []).reduce((n, l) => n + l.quantity, 0),
+          items: o.itemCount ?? 0,
           cancelled: o.state === 'cancelled',
           payment: paymentOf(o),
           method: o.paymentMethod ?? null,
@@ -200,7 +200,7 @@ export const useOrders = (): OrdersPage => {
       setLoadingMore(true)
       setLoadMoreFailed(false)
       try {
-        const next = (await client.query(listQuery, listSchema, { first: ordersPageSize, after: cursor })).orders
+        const next = (await client.query(listQuery, listSchema, { first: ordersPageSize, after: cursor })).orderHistory
         setLater({ rows: [...(later?.rows ?? []), ...(next?.nodes ?? [])], cursor: next?.pageInfo?.endCursor ?? null, more: next?.pageInfo?.hasNextPage === true })
       } catch {
         setLoadMoreFailed(true)

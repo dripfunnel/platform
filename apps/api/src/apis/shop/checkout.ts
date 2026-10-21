@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
 import type { Page } from '#core/paging'
 import type { PaymentStart } from '#core/payments'
-import { checkoutAudit, createCheckout, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow } from '#engine/modules/checkout/index'
+import { checkoutAudit, createCheckout, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow, type ShopOrderSummaryRow } from '#engine/modules/checkout/index'
 import { downloadUrl } from '#engine/modules/deliveries/index'
 import { paymentModeOf, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
@@ -158,8 +158,22 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
       licenceKeys: t.field({ type: [Key], resolve: (o) => o.keys }),
     }),
   })
-  const OrderPage = builder.objectRef<Page<ShopOrderRow>>('ShopOrderPage').implement({
-    fields: (t) => ({ nodes: t.field({ type: [Order], resolve: (p) => p.nodes }), pageInfo: t.field({ type: pageInfo, resolve: (p) => p.pageInfo }) }),
+  // A row of the account's order history: only what the list shows, never an order's lines, downloads or keys.
+  const Summary = builder.objectRef<ShopOrderSummaryRow>('ShopOrderSummary').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      number: t.exposeString('number'),
+      state: t.exposeString('state'),
+      paymentState: t.exposeString('payment_state'),
+      paymentMethod: t.exposeString('payment_method', { nullable: true }),
+      placedAt: t.string({ resolve: (o) => new Date(o.placed_at).toISOString() }),
+      pricesIncludeTax: t.exposeBoolean('tax_inclusive'),
+      itemCount: t.exposeInt('item_count'),
+      total: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.total_amount), currency: o.currency }) }),
+    }),
+  })
+  const SummaryPage = builder.objectRef<Page<ShopOrderSummaryRow>>('ShopOrderSummaryPage').implement({
+    fields: (t) => ({ nodes: t.field({ type: [Summary], resolve: (p) => p.nodes }), pageInfo: t.field({ type: pageInfo, resolve: (p) => p.pageInfo }) }),
   })
 
   const access = { api: 'shop', scope: 'shop', permission: null } as const
@@ -168,13 +182,13 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
     paymentOptions: t.field({ type: [Option], extensions: { access }, resolve: async (_, __, ctx) => (await checkoutOf(ctx)).options() }),
     // The shopper's own order: its account's, or a guest's with the cart token it was placed with.
     order: t.field({ type: Order, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access }, resolve: async (_, args, ctx) => (await checkoutOf(ctx)).order(String(args.id)) }),
-    // The signed-in shopper's own orders, newest first, at most 20 a page; guest orders are never listed.
-    orders: t.field({
-      type: OrderPage,
+    // The signed-in shopper's own orders, newest first, at most 50 a page; guest orders are never listed.
+    orderHistory: t.field({
+      type: SummaryPage,
       args: { first: t.arg.int(), after: t.arg.string() },
       extensions: { access },
       resolve: async (_, args, ctx) => {
-        const page = await (await checkoutOf(ctx)).orders(args)
+        const page = await (await checkoutOf(ctx)).orderHistory(args)
         if (!page.ok) throw new GraphQLError(words[page.reason] ?? '', { extensions: { code: page.reason } })
         return page.value
       },

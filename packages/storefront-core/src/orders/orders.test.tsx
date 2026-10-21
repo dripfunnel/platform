@@ -26,7 +26,12 @@ const show = async (mode: RenderMode = 'live') => {
   )
   await act(async () => undefined)
 }
-const ordersOf = (nodes: unknown[], endCursor: string | null = null) => ({ data: { orders: { nodes, pageInfo: { hasNextPage: endCursor !== null, endCursor } } } })
+const ordersOf = (nodes: unknown[], endCursor: string | null = null) => ({ data: { orderHistory: { nodes, pageInfo: { hasNextPage: endCursor !== null, endCursor } } } })
+/** A row as the Shop API's orderHistory answers it (ShopOrderSummary). */
+const rowOf = (extra: Record<string, unknown> = {}) => {
+  const { id, number, state, paymentState, paymentMethod, placedAt, pricesIncludeTax, total } = orderOf()
+  return { id, number, state, paymentState, paymentMethod, placedAt, pricesIncludeTax, itemCount: 2, total, ...extra }
+}
 
 afterEach(() => {
   cleanup()
@@ -59,7 +64,7 @@ describe('useOrders', () => {
     await show()
     expect(page().status).toBe('loading')
     expect(asked[0]?.variables).toEqual({ first: 20, after: null })
-    await act(async () => answer.settle(ordersOf([orderOf(), orderOf({ id: 'o-2', number: '1052', state: 'cancelled', paymentState: 'refunded', lines: [{ quantity: 1 }, { quantity: 3 }], total: usd(900), pricesIncludeTax: true })])))
+    await act(async () => answer.settle(ordersOf([rowOf(), rowOf({ id: 'o-2', number: '1052', state: 'cancelled', paymentState: 'refunded', itemCount: 4, total: usd(900), pricesIncludeTax: true })])))
     expect(page()).toMatchObject({ status: 'ready', empty: false, more: false })
     expect(page().orders).toEqual([
       { id: 'o-1', number: '1051', placedOn: 'Oct 13, 2026', items: 2, cancelled: false, payment: 'paid', method: 'stripe', total: usd(5440), includesTax: false },
@@ -79,9 +84,9 @@ describe('useOrders', () => {
     sessionStorage.setItem('df-session', 'sess-1')
     let fail = false
     const asked = shopAnswering((a) => {
-      if (a.variables['after'] === null) return ordersOf([orderOf()], 'c-1')
+      if (a.variables['after'] === null) return ordersOf([rowOf()], 'c-1')
       if (fail) return { errors: [{ message: 'no', extensions: { code: 'INTERNAL' } }] }
-      return a.variables['after'] === 'c-1' ? ordersOf([orderOf({ id: 'o-2', number: '1050' })], 'c-2') : ordersOf([orderOf({ id: 'o-3', number: '1049' })])
+      return a.variables['after'] === 'c-1' ? ordersOf([rowOf({ id: 'o-2', number: '1050' })], 'c-2') : ordersOf([rowOf({ id: 'o-3', number: '1049' })])
     })
     await show()
     expect(page().more).toBe(true)
@@ -100,7 +105,7 @@ describe('useOrders', () => {
   it('shows an error to try again, and is signed out, the session forgotten, when it has ended', async () => {
     sessionStorage.setItem('df-session', 'sess-1')
     let code = 'INTERNAL'
-    const asked = shopAnswering(() => (code === 'none' ? ordersOf([orderOf()]) : { errors: [{ message: 'no', extensions: { code } }] }))
+    const asked = shopAnswering(() => (code === 'none' ? ordersOf([rowOf()]) : { errors: [{ message: 'no', extensions: { code } }] }))
     await show()
     expect(page()).toMatchObject({ status: 'error', code: 'INTERNAL' })
     code = 'none'

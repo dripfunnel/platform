@@ -18,7 +18,7 @@ import {
   selectCustomerOrders,
   selectLivePaymentAccounts,
   selectShopOrder,
-  type ShopOrderRow,
+  type ShopOrderSummaryRow,
   selectSnapshotVersions,
   takeOrderNumber,
   writeSnapshot,
@@ -44,7 +44,7 @@ import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, provide
 export { applyOutcome, closeLatestAttempt, handleMerchantStripeEvent, paymentAudit, releaseUnpaidOrders, settleFromWebhook, settleOrder, settlePayment, type KeyedWebhookOutcome, type MerchantEventOutcome, type SettleDeps, type Settled } from './payments'
 export { cardPaymentMs, isManual, isPaymentProvider, openAccount, paymentProviders, providersFor, transferDaysMs, type PaymentProvider } from './providers'
 export { createPaymentSetup, finishConnectMs, paymentSetupAudit, type ConnectInput, type PaymentSetupDeps, type PaymentSetupView } from './setup'
-export type { ShopOrderRow } from '#db/scoped/orders'
+export type { ShopOrderRow, ShopOrderSummaryRow } from '#db/scoped/orders'
 
 /** What the Worker wires in for payments: the card adapters, Connect Stripe, and Stripe Tax in each mode (null where unset). */
 export interface PaymentWiring {
@@ -59,8 +59,8 @@ export interface PaymentWiring {
 export const giftCardMethod = 'gift_card'
 const giftCardOption = { provider: giftCardMethod, kind: 'other', instructions: null } as const
 
-/** The most orders one page of the account's list holds (#813). */
-export const maxAccountOrdersPage = 20
+/** The most orders one page of the shopper's order history holds (ui/store/FIRST-RELEASE, Shop API). */
+export const maxOrderHistoryPage = 50
 
 export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
 
@@ -340,9 +340,9 @@ export const createCheckout = (deps: CheckoutDeps) => {
   const order = (orderId: string) => (isUuid(orderId) ? withScope(sql, context, (tx) => selectShopOrder(tx, storeId, orderId.toLowerCase())) : Promise.resolve(null))
 
   /** The signed-in shopper's own placed orders, newest first, for the account's list. */
-  const orders = async (request: PageRequest): Promise<{ ok: true; value: Page<ShopOrderRow> } | { ok: false; reason: 'SIGNED_OUT' | 'INVALID_CURSOR' }> => {
+  const orderHistory = async (request: PageRequest): Promise<{ ok: true; value: Page<ShopOrderSummaryRow> } | { ok: false; reason: 'SIGNED_OUT' | 'INVALID_CURSOR' }> => {
     if (!customerId) return { ok: false, reason: 'SIGNED_OUT' }
-    const window = pageWindow(request, maxAccountOrdersPage)
+    const window = pageWindow(request, maxOrderHistoryPage)
     if (!window.ok) return { ok: false, reason: window.code }
     const rows = await withScope(sql, context, (tx) => selectCustomerOrders(tx, storeId, customerId, window.window))
     return { ok: true, value: pageOf(rows, window.window, (o) => ({ occurredAt: new Date(o.placed_at), id: o.id })) }
@@ -403,7 +403,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     })
   }
 
-  return { options, place, order, orders, confirm, pay }
+  return { options, place, order, orderHistory, confirm, pay }
 }
 
 /** "Mark as paid" (Owner and Manager, `orders.mark_paid`): a cash-on-delivery or transfer order whose money has arrived. */
