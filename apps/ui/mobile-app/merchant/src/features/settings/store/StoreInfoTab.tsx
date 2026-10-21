@@ -1,12 +1,13 @@
 import { loadLocale, loadStoreInfo } from '../../../api/settingsStore'
 import { t } from '../../../messages'
 import { TabFrame } from '../TabFrame'
+import { CloseStoreCard } from './CloseStoreCard'
 import { CurrenciesCard } from './CurrenciesCard'
 import { DetailsCard } from './DetailsCard'
 import { LanguagesCard } from './LanguagesCard'
 
 // Settings › Store info (SetStore; FIRST-RELEASE (store) §15): three cards, each saving on its own, so what is typed in one survives a save in
-// another. Close my store (MA 18, #511) goes after the last card.
+// another. Close my store (MA 18, #511) closes the tab.
 export function StoreInfoTab() {
   return (
     <TabFrame
@@ -22,6 +23,7 @@ export function StoreInfoTab() {
           <DetailsCard info={data.info} client={client} canEdit={canEdit} />
           <CurrenciesCard loc={data.locale} client={client} canEdit={canEdit} />
           <LanguagesCard loc={data.locale} client={client} canEdit={canEdit} />
+          <CloseStoreCard client={client} />
         </>
       )}
     </TabFrame>

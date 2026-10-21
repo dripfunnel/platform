@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { typedQuery, type ApiClient } from '../graphql'
+import { exportJobSchema, readExportJob, type ExportJob } from './exportJob'
 
-// Settings › Store info (SetStore; FIRST-RELEASE (store) §15): the store's details, its currencies and its languages.
+// Settings › Store info (SetStore; FIRST-RELEASE (store) §15): the store's details, its currencies and its languages, and Close my store (PortalBilling; §16).
 
 const addressSchema = z.object({ street: z.string().nullable(), city: z.string().nullable(), postal: z.string().nullable(), region: z.string().nullable() })
 
@@ -103,4 +104,47 @@ export const loadTranslationProgress = async (client: ApiClient, languages: read
   const params = languages.map((_, i) => `$l${i}: String!`).join(', ')
   const answer = await typedQuery(client)(`query Progress(${params}) { ${fields} }`, z.record(z.string(), progressSchema), Object.fromEntries(languages.map((code, i) => [`l${i}`, code])))
   return new Map(languages.map((code, i) => [code, answer[`l${i}`] ?? null]))
+}
+
+const subscriptionSchema = z.object({
+  status: z.enum(['trial', 'active', 'past_due', 'cancelled']),
+  price: z.object({ amount: z.string(), currency: z.string() }),
+  periodEnd: z.string(),
+  cancelAt: z.string().nullable(),
+})
+export type StoreSubscription = z.infer<typeof subscriptionSchema>
+
+const subscriptionFields = 'status price { amount currency } periodEnd cancelAt'
+
+/** What closing would do depends on the plan: a paid one sells until its period ends, a trial or free one closes at once (SAAS §4.2). */
+export const loadSubscription = async (client: ApiClient): Promise<StoreSubscription | null> =>
+  (await typedQuery(client)(`{ subscription { ${subscriptionFields} } }`, z.object({ subscription: subscriptionSchema.nullable() }))).subscription
+
+/** The Owner's alone; the store turns read-only at once and the API says when it ends. */
+export const cancelStore = async (client: ApiClient): Promise<StoreSubscription> => {
+  const { cancelStore: sub } = await typedQuery(client)(`mutation CancelStore { cancelStore { ${subscriptionFields} } }`, z.object({ cancelStore: subscriptionSchema.nullable() }))
+  if (!sub) throw new Error('closing answered nothing')
+  return sub
+}
+
+export const storeDataKinds = ['products', 'orders', 'customers'] as const
+export type StoreDataKind = (typeof storeDataKinds)[number]
+export type StoreDataPart = { kind: StoreDataKind; job: ExportJob }
+
+const partSchema = exportJobSchema.extend({ kind: z.enum(storeDataKinds) })
+
+/** "Download my data first": one job of three parts (`store.export`, the Owner in person only); answers its id. */
+export const requestStoreDataExport = async (client: ApiClient): Promise<string> => {
+  const { exportStoreData } = await typedQuery(client)('mutation ExportStoreData { exportStoreData }', z.object({ exportStoreData: z.string().nullable() }))
+  if (!exportStoreData) throw new Error('no export was started')
+  return exportStoreData
+}
+
+/** The three parts, each settled on its own; none when the API no longer knows the job. */
+export const loadStoreDataExport = async (client: ApiClient, id: string): Promise<StoreDataPart[]> => {
+  const { storeDataExport } = await typedQuery(client)('query StoreDataExport($id: ID!) { storeDataExport(id: $id) { id kind state rows truncated csv expiresAt } }', z.object({ storeDataExport: z.array(partSchema).nullable() }), { id })
+  return (storeDataExport ?? []).flatMap((part) => {
+    const job = readExportJob(part)
+    return job ? [{ kind: part.kind, job }] : []
+  })
 }
