@@ -14,9 +14,10 @@ the prod account):
 pnpm exec wrangler versions deploy <version-id>@100 --env prod -y
 ```
 
-`wrangler` refuses to read `apps/api/wrangler.jsonc` while its studio image is still the `PROD_STUDIO_IMAGE`
-placeholder. Before the command, replace it with `registry.cloudflare.com/<account-id>/storefront-build@<digest>`
-in your copy (not committed); prod.yml's run summary prints the digest. `promote.yml` does this itself.
+Every `wrangler` command in `apps/api` (and `store-proxy/`) refuses to read `wrangler.jsonc` while its studio image is still the
+`PROD_STUDIO_IMAGE` placeholder, rollbacks included. Before any of them, replace it with
+`registry.cloudflare.com/<account-id>/storefront-build@<digest>` in your copy (not committed); prod.yml's run summary
+prints the digest. `promote.yml` does this itself.
 
 Nothing serves the new code until this is run — a failed or skipped promotion just leaves the
 previous version live. If you promote by hand, deploy the SPAs by hand too (see below) — skipping

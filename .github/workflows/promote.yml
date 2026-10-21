@@ -118,7 +118,9 @@ jobs:
         env:
           DIGEST: ${{ steps.studio.outputs.digest }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: sed -i "s|PROD_STUDIO_IMAGE|registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build@$DIGEST|" wrangler.jsonc
+        run: |
+          grep -q PROD_STUDIO_IMAGE wrangler.jsonc || { echo "wrangler.jsonc has no PROD_STUDIO_IMAGE placeholder to pin." >&2; exit 1; }
+          sed -i "s|PROD_STUDIO_IMAGE|registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build@$DIGEST|" wrangler.jsonc
 
       - name: Promote Worker to 100%
         id: promote

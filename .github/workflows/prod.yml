@@ -74,6 +74,7 @@ jobs:
       # A Durable Object starts only an image its config names, so the newest stable tag's digest goes into this checkout's
       # copy of the config (#816); nothing is committed.
       - name: Studio image
+        id: studio
         uses: ./.github/actions/studio-image
         with:
           channel: stable
@@ -113,5 +114,5 @@ jobs:
             echo "- Migrations: ${{ steps.migrate.outcome == 'success' && 'ran against `apps/api/migrations`' || format('did NOT complete ({0})', steps.migrate.outcome) }}"
             echo "- API Worker: ${{ steps.worker.outcome == 'success' && format('version `{0}` uploaded, not yet promoted', steps.worker.outputs.version-id) || format('did NOT complete ({0})', steps.worker.outcome) }}"
             echo "- Store proxy: ${{ steps.proxy.outcome == 'success' && format('version `{0}` uploaded, not yet promoted', steps.proxy.outputs.version-id) || format('did NOT complete ({0})', steps.proxy.outcome) }}"
-            echo "- SPAs: not deployed by this workflow. Once the versions above are confirmed healthy, run **promote** (workflow_dispatch) with version_id \`${{ steps.worker.outputs.version-id }}\`, proxy_version_id \`${{ steps.proxy.outputs.version-id }}\` and commit_sha \`${{ github.sha }}\` to promote both Workers and deploy the SPAs together."
+            echo "- SPAs: not deployed by this workflow. Once the versions above are confirmed healthy, run **promote** (workflow_dispatch) with version_id \`${{ steps.worker.outputs.version-id }}\`, proxy_version_id \`${{ steps.proxy.outputs.version-id }}\`, commit_sha \`${{ github.sha }}\` and studio_digest \`${{ steps.studio.outputs.digest }}\` to promote both Workers and deploy the SPAs together."
           } >> "$GITHUB_STEP_SUMMARY"
