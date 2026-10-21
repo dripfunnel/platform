@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -28,7 +28,7 @@ pull request.
 | Consoles | Pages projects `dripfunnel-admin`, `dripfunnel-platform`, `dripfunnel-store` |
 | Database | Neon production project or branch *(decide, THIRD-PARTY-ACCESS.md §2.2)*, Postgres **18**, through Hyperdrive |
 | Gate | Cloudflare Access on `admin.dripfunnel.com` (recommended, §2.1) |
-| Deploys | `prod.yml` on every push to `main` (gates, migrations, Worker **upload**); `promote.yml` by hand (Worker to 100%, health check, consoles) |
+| Deploys | `prod.yml` on every push to `main` (gates, migrations, **upload** of the API and store-proxy versions); `promote.yml` by hand (both to 100%, health check, consoles) |
 | Third parties | Live mode: Stripe live keys, SES production access, the Entra registration's production redirect |
 
 ---
@@ -37,9 +37,6 @@ pull request.
 
 | Missing | Effect | Step |
 |---|---|---|
-| No Hyperdrive binding in `env.prod` (#51) | The Worker has no database: `/api/health` reports `db: "unconfigured"` | §3.4 |
-| No routes in `env.prod` | `admin.`, `platform.` and `hooks.dripfunnel.com` don't reach the Worker, so `promote.yml`'s health check on `platform.dripfunnel.com/api/health` can't pass | §3.5 |
-| No R2 bucket or binding | Uploads fail | §3.4 |
 | `main` unprotected | A direct push deploys without review; `prod.yml` runs its own gates in the meantime | §3.7 |
 | The first super admin | Nobody can sign in to an empty production database (dev.md §5) | §6 |
 
@@ -80,33 +77,26 @@ email or a file in the repo.
    - the app role's **pooled** string → Hyperdrive (§3.4);
    - the two hostnames → `ALLOWED_MIGRATION_HOST` and `ALLOWED_TEST_HOST`.
 
-### 3.4 Hyperdrive and R2 — **Not done yet**
-
-1. Create Hyperdrive on the production account:
+### 3.4 Hyperdrive, R2, the queue and Containers — **Not done yet**
+`env.prod` in `apps/api/wrangler.jsonc` binds all of these (#816), so create them **before** the change merges to `main`: a binding to a missing bucket, queue or Hyperdrive fails the deploy, and a push to `main` runs migrations.
+1. Create Hyperdrive on the production account, and put its id in `env.prod`'s `hyperdrive` binding:
    ```bash
    wrangler hyperdrive create dripfunnel-prod --connection-string="<app role pooled string>"
    ```
-2. Add `"hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<id>" }]` to `env.prod` in
-   `wrangler.jsonc`, in a pull request (#51).
-3. Set `HYPERDRIVE_REQUIRED=1` on the Worker (§4) in the same release, so a lost binding turns
+2. Set `HYPERDRIVE_REQUIRED=1` on the Worker (§4) in the same release, so a lost binding turns
    `/api/health` red.
-4. `wrangler r2 bucket create dripfunnel-assets`, then add the `ASSETS` binding to `env.prod`.
-   Create the bucket first: a binding to a missing bucket fails the deploy.
-5. `wrangler queues create dripfunnel-outbox-wake`, then add the `OUTBOX_WAKE` producer and consumer to `env.prod` as `env.dev` has them (#479). Create the queue first: a binding to a missing queue fails the deploy. Without it the every-minute cron delivers email and texts.
-
+3. Create the buckets: `wrangler r2 bucket create` for `dripfunnel-assets-prod`, `storefront-sites-prod`, `storefront-assets-prod` and `storefront-drafts-prod` (the assets host and CORS: §4, `CF_CACHE_PURGE_TOKEN`).
+4. `wrangler queues create dripfunnel-outbox-wake-prod`. Without it the every-minute cron delivers email and texts.
+5. Turn on Containers and Durable Objects on the production account. Run `release.yml` once so the registry holds a stable `storefront-build:<x.y.z>` tag: `prod.yml`'s *Studio image* step takes the newest and writes its digest into the runner's copy of `wrangler.jsonc`; with none it fails and says so. Nothing is committed.
+6. The Workflows (`dripfunnel-{create-storefront,publish-storefront,render-page,core-upgrade}-prod`) are created by the first upload; the deploy token needs Workflows: Edit (§3.2).
 ### 3.5 Routes and console hostnames — **Not done yet**
-
-1. Add routes to `env.prod`, following `env.dev`'s pattern:
-   `admin.dripfunnel.com/api/*`, `platform.dripfunnel.com/api/*` on the zone, and
-   `hooks.dripfunnel.com` as a custom domain. *(decide in the card that adds them; the store
-   API's hosts come with custom hostnames, SAAS.md §8)*
+1. `env.prod` routes `admin.dripfunnel.com/api/*` and `platform.dripfunnel.com/api/*` on the zone, and `hooks.dripfunnel.com` as a custom domain. There is no `store.` route: merchant portal hosts come with Cloudflare for SaaS (SAAS.md §8).
 2. After the first `promote.yml` creates the Pages projects, attach `admin.dripfunnel.com` to
    `dripfunnel-admin` and `platform.dripfunnel.com` to `dripfunnel-platform` (Pages › the
    project › Custom domains).
 3. Put Cloudflare Access in front of `admin.dripfunnel.com`, connected to the staff identity
    provider (THIRD-PARTY-ACCESS.md §2.1).
-4. Store addresses, by hand (#744; the prod `store-proxy` environment is #428's): add `my-store.one` as a zone on the main Cloudflare account, add the proxied wildcard record `*.my-store.one`, confirm Universal SSL covers it, and add the route `*.my-store.one/*` to prod's `store-proxy`. In the zone's Logpush, leave out `ClientRequestPath` and `ClientRequestQuery` (LOGGING §9).
-
+4. Store addresses, by hand (#744): add `my-store.one` as a zone on the main Cloudflare account, add the proxied wildcard record `*.my-store.one`, and confirm Universal SSL covers it. `store-proxy`'s `env.prod` (#816) holds the routes `*/*` on `dripfunnel.com` and `*.my-store.one/*` on `my-store.one`; `prod.yml` uploads its version after the API's and `promote.yml` promotes both together (it is never deployed from a push). In the zone's Logpush, leave out `ClientRequestPath` and `ClientRequestQuery` (LOGGING §9).
 ### 3.6 GitHub environment `prod`
 
 Repository › Settings › Environments › *New environment* › `prod`:
@@ -154,7 +144,7 @@ moment you save.
 | `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
 | `PLATFORM_HOST` | Text | `platform.dripfunnel.com` | fixed |
 | `HOOKS_HOST` | Text | `hooks.dripfunnel.com` | fixed |
-| `HYPERDRIVE_REQUIRED` | Text | `1` | only once the binding exists (§3.4) |
+| `HYPERDRIVE_REQUIRED` | Text | `1` | in the same release as the binding (§3.4) |
 | `CODE_CHECK` | Text | **leave unset** | `0` accepts any email or text code and exists for dev only: the Worker refuses to start with it on this host (`core/config.ts`) |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Store it in the password manager **before** saving it. Losing it makes every encrypted 2-factor secret and partner or merchant credential unreadable for good; it carries a version for rotation (THIRD-PARTY-ACCESS.md §5) |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center (THIRD-PARTY-ACCESS.md §2.5). Redirect URI `https://admin.dripfunnel.com/api/auth/callback`. The client secret expires (24 months at most): note the date |
@@ -169,9 +159,9 @@ moment you save.
 | `STRIPE_PUBLISHABLE_KEY` | Text | the **live** `pk_live_…` | Stripe (live mode) › Developers › API keys |
 | `STRIPE_TEST_SECRET_KEY` | Secret | a **test-mode** restricted key `rk_test_…`, permissions as `STRIPE_SECRET_KEY`'s | For checkout on preview storefronts in test mode (THIRD-PARTY-ACCESS §8.1); with the next row or neither |
 | `STRIPE_TEST_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys |
-| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.com` zone | Purges the store proxy's cached host lookups (storefront LIVE-SHOP.md §5 step 1); read since #317 with `CF_SAAS_ZONE_ID`. The buckets `storefront-sites`, `storefront-assets` (custom domain `sf-assets.my-store.one`, CORS `GET` from any origin, its route excluded from the Worker) and `storefront-drafts` are created and bound as on dev (dev.md §2.8 item 1), without the `-dev` |
+| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.com` zone | Purges the store proxy's cached host lookups (storefront LIVE-SHOP.md §5 step 1); read since #317 with `CF_SAAS_ZONE_ID`. The buckets `storefront-sites-prod`, `storefront-assets-prod` (custom domain `sf-assets.my-store.one`, CORS `GET` from any origin, its route excluded from the Worker) and `storefront-drafts-prod` are created and bound as on dev (dev.md §2.8 item 1), with `-prod` in place of `-dev` |
 | `SHOP_DOMAIN` | Text | `my-store.one` | Every store's free addresses, `{slug}.my-store.one` and `{slug}-preview.my-store.one` (PREVIEW.md §8). Validated at boot; replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
-| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Read since #317 ("Open preview" links). The store proxy (`dripfunnel-store-proxy`) gets its own `PREVIEW_SESSION_KEY`, the `SITES` and `EDGE` bindings, the `*.my-store.one/*` route and `SHOP_DOMAIN` as dev does (dev.md §2.8 item 8) |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Read since #317 ("Open preview" links). The store proxy (`dripfunnel-store-proxy`) gets its own `PREVIEW_SESSION_KEY`, its value only (the `SITES` and `EDGE` bindings, routes and `SHOP_DOMAIN` are in its `env.prod`, §3.5) |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
 harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.com`.
@@ -184,12 +174,12 @@ The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Wor
 
 1. Merge a pull request into `main`.
 2. **prod.yml** runs: gates against the test branch → migrations against production →
-   uploads a new Worker version. **Nothing is live yet.**
-3. Open the run's summary. It gives the **version id** and the **commit sha**.
-4. Run **promote** (Actions › promote › *Run workflow*) with that `version_id` and
+   pins the studio image, uploads a new API version, then a store-proxy version. **Nothing is live yet.**
+3. Open the run's summary. It gives both **version ids** and the **commit sha**.
+4. Run **promote** (Actions › promote › *Run workflow*) with `version_id`, `proxy_version_id` and
    `commit_sha`, soon after, and only for the most recent upload. It:
-   1. checks that the version was built from that commit;
-   2. moves the Worker to 100%;
+   1. checks that both versions were built from that commit;
+   2. moves the API Worker, then store-proxy, to 100%;
    3. checks `https://platform.dripfunnel.com/api/health` reports that version;
    4. only then builds and deploys the three consoles from the same commit.
 5. If the health check fails, or something is wrong after release, follow
@@ -205,8 +195,8 @@ version still running (AGENTS.md "Data").
 - [ ] Account, zone, SSL Full (strict) (§3.1)
 - [ ] Deploy token (§3.2)
 - [ ] Neon production database, roles, disposable test branch (§3.3)
-- [ ] Hyperdrive and R2, in `env.prod` (§3.4)
-- [ ] Outbox queue `dripfunnel-outbox-wake` and its producer and consumer in `env.prod` (§3.4); until then cron delivers email and texts
+- [ ] Hyperdrive, the four R2 buckets and the outbox queue `dripfunnel-outbox-wake-prod` created before `env.prod` merges (§3.4)
+- [ ] Containers and Durable Objects on; a stable `storefront-build` tag in the registry (§3.4)
 - [ ] Routes, console hostnames, Access on admin (§3.5)
 - [ ] GitHub environment `prod`, with required reviewers (§3.6)
 - [ ] `main` protected (§3.7)
@@ -220,5 +210,4 @@ version still running (AGENTS.md "Data").
 ## 7. Open questions
 
 1. Production database: its own Neon project, or a branch (THIRD-PARTY-ACCESS.md §2.2). *(decide)*
-2. Production routes in `env.prod`, and how the store API's hosts reach the Worker (§3.5). *(decide)*
-3. How the first super admin is created on an empty production database. *(decide)*
+2. How the first super admin is created on an empty production database. *(decide)*

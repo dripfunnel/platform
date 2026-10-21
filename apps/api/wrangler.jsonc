@@ -23,10 +23,8 @@
   "images": { "binding": "IMAGES" },
   // One per cadence, each running its group of src/index.ts's cronGroups (api/README.md §5.1). Inherited by every env.
   "triggers": { "crons": ["* * * * *", "*/5 * * * *", "0 * * * *", "0 3 * * *"] },
-  // No top-level `hyperdrive` binding yet: production has no Hyperdrive resource
-  // provisioned (`wrangler hyperdrive create`, then add `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }`
-  // here). Until then, `wrangler deploy` ships without HYPERDRIVE; /health reports
-  // `{ ok: true, db: "unconfigured" }` (200), not a failure, so no monitor alarms (§7).
+  // No top-level bindings: each env below declares its own, and env.prod's Hyperdrive,
+  // buckets and queue must exist before it deploys (docs/setup/prod.md §3.4).
   "env": {
     // `wrangler dev --env local` only: no Hyperdrive resource is provisioned yet
     // (`wrangler hyperdrive create`), so this placeholder id stays out of the config
@@ -52,7 +50,7 @@
       "r2_buckets": [
         { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-local" },
         // The three storefront buckets (storefront LIVE-SHOP.md §2, §11): storefront-{sites,assets,drafts}-dev on dev and
-        // without the suffix on prod, bound there with the Workflow below once #287 creates them (docs/setup/dev.md §2.8).
+        // with `-prod` on prod, bound there with the Workflow below once #287 creates them (docs/setup/dev.md §2.8).
         { "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-local" },
         { "binding": "STOREFRONT_ASSETS", "bucket_name": "storefront-assets-local" },
         { "binding": "STOREFRONT_DRAFTS", "bucket_name": "storefront-drafts-local" }
@@ -136,18 +134,14 @@
         ]
       },
       "migrations": [{ "tag": "studio-v1", "new_sqlite_classes": ["StudioSession", "StudioCapacity"] }],
-      // Prod gains its queue once it exists (docs/setup/prod.md): a binding to a missing queue fails the deploy.
       "queues": {
         "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-dev" }],
         "consumers": [{ "queue": "dripfunnel-outbox-wake-dev", "max_batch_size": 100, "max_batch_timeout": 1 }]
       }
     },
-    // `wrangler deploy --env prod`, uploaded by .github/workflows/prod.yml on every push to
-    // `main` and promoted to 100% by .github/workflows/promote.yml (§6). Same values as the
-    // top-level config (kept as the implicit default for now); explicit so the workflows can
-    // name the env instead of relying on that default.
-    // No `hyperdrive` binding yet: see the top-level comment above. When #51 adds it, set
-    // HYPERDRIVE_REQUIRED=1 on the Worker too, so a lost binding turns /health red (#30).
+    // `wrangler versions upload --env prod`, from .github/workflows/prod.yml on every push to `main`,
+    // promoted to 100% by .github/workflows/promote.yml (§6). Every resource below must exist first
+    // (docs/setup/prod.md §3.4): a binding to a missing bucket, queue or Hyperdrive fails the deploy.
     "prod": {
       "name": "dripfunnel-api",
       "ratelimits": [
@@ -167,7 +161,38 @@
         "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
         "traces": { "enabled": false }
       },
-      "images": { "binding": "IMAGES" }
+      "images": { "binding": "IMAGES" },
+      "routes": [
+        { "pattern": "admin.dripfunnel.com/api/*", "zone_name": "dripfunnel.com" },
+        { "pattern": "platform.dripfunnel.com/api/*", "zone_name": "dripfunnel.com" },
+        { "pattern": "hooks.dripfunnel.com", "custom_domain": true }
+      ],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "3f5dde455e2a43e1b61f0aa1c08460a4" }],
+      "r2_buckets": [
+        { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-prod" },
+        { "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-prod" },
+        { "binding": "STOREFRONT_ASSETS", "bucket_name": "storefront-assets-prod" },
+        { "binding": "STOREFRONT_DRAFTS", "bucket_name": "storefront-drafts-prod" }
+      ],
+      "workflows": [
+        { "name": "dripfunnel-create-storefront-prod", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" },
+        { "name": "dripfunnel-publish-storefront-prod", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" },
+        { "name": "dripfunnel-render-page-prod", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
+        { "name": "dripfunnel-core-upgrade-prod", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
+      ],
+      // prod.yml swaps the image below for the newest stable tag's digest on the runner before uploading (#816); never commit one.
+      "containers": [{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { "studio": { "image": "PROD_STUDIO_IMAGE" } } }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "STUDIO_SESSION", "class_name": "StudioSession" },
+          { "name": "STUDIO_CAPACITY", "class_name": "StudioCapacity" }
+        ]
+      },
+      "migrations": [{ "tag": "studio-v1", "new_sqlite_classes": ["StudioSession", "StudioCapacity"] }],
+      "queues": {
+        "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-prod" }],
+        "consumers": [{ "queue": "dripfunnel-outbox-wake-prod", "max_batch_size": 100, "max_batch_timeout": 1 }]
+      }
     }
   }
 }
