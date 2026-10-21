@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -87,7 +87,7 @@ email or a file in the repo.
    `/api/health` red.
 3. Create the buckets: `wrangler r2 bucket create` for `dripfunnel-assets-prod`, `storefront-sites-prod`, `storefront-assets-prod` and `storefront-drafts-prod` (the assets host and CORS: §4, `CF_CACHE_PURGE_TOKEN`).
 4. `wrangler queues create dripfunnel-outbox-wake-prod`. Without it the every-minute cron delivers email and texts.
-5. Turn on Containers and Durable Objects on the production account. Run `release.yml` once so the registry holds a stable `storefront-build:<x.y.z>` tag: `prod.yml`'s *Studio image* step takes the newest and writes its digest into the runner's copy of `wrangler.jsonc`; with none it fails and says so. Nothing is committed.
+5. Turn on Containers and Durable Objects on the production account. Run `release.yml` once so the registry holds a stable `storefront-build:<x.y.z>` tag: `prod.yml`'s *Studio image* step (the `studio-image` action) takes the newest and writes its digest into the runner's copy of `wrangler.jsonc`, and prints it in the run summary; with none it fails and says so. `promote.yml` takes that digest as its required `studio_digest` input; the verify step refuses a digest that is not the one in the API version's upload message. Nothing is committed.
 6. The Workflows (`dripfunnel-{create-storefront,publish-storefront,render-page,core-upgrade}-prod`) are created by the first upload; the deploy token needs Workflows: Edit (§3.2).
 ### 3.5 Routes and console hostnames — **Not done yet**
 1. `env.prod` routes `admin.dripfunnel.com/api/*` and `platform.dripfunnel.com/api/*` on the zone, and `hooks.dripfunnel.com` as a custom domain. There is no `store.` route: merchant portal hosts come with Cloudflare for SaaS (SAAS.md §8).
@@ -177,9 +177,9 @@ The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Wor
 1. Merge a pull request into `main`.
 2. **prod.yml** runs: gates against the test branch → migrations against production →
    pins the studio image, uploads a new API version, then a store-proxy version. **Nothing is live yet.** On the very first release, apply the store-proxy routes after promote (§3.5 step 6).
-3. Open the run's summary. It gives both **version ids** and the **commit sha**.
-4. Run **promote** (Actions › promote › *Run workflow*) with `version_id`, `proxy_version_id` and
-   `commit_sha`, soon after, and only for the most recent upload. It:
+3. Open the run's summary. It gives both **version ids**, the **commit sha** and the **studio image digest**.
+4. Run **promote** (Actions › promote › *Run workflow*) with `version_id`, `proxy_version_id`,
+   `commit_sha` and `studio_digest`, soon after, and only for the most recent upload. It:
    1. checks that both versions were built from that commit;
    2. moves the API Worker, then store-proxy, to 100%;
    3. checks `https://platform.dripfunnel.com/api/health` reports that version;
