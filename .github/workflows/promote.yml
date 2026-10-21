@@ -63,6 +63,22 @@ jobs:
             exit 1
           fi
 
+      # wrangler parses the config on every command, and the committed one holds a placeholder for the studio image (#816).
+      - name: Studio image
+        run: |
+          set -euo pipefail
+          tag=$(pnpm exec wrangler containers images list --json | jq -r '[.[] | select(.name == "storefront-build") | .tags[] | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(split(".") | map(tonumber)) | last // empty')
+          [ -n "$tag" ] || { echo "No stable storefront-build tag in the prod registry: run release.yml first." >&2; exit 1; }
+          password=$(pnpm exec wrangler containers registries credentials registry.cloudflare.com --pull --expiration-minutes 5 | tail -n 1)
+          echo "::add-mask::$password"
+          digest=$(curl -sSfI -u "v1:$password" -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+            "https://registry.cloudflare.com/v2/$CLOUDFLARE_ACCOUNT_ID/storefront-build/manifests/$tag" | tr -d '\r' | awk 'tolower($1) == "docker-content-digest:" { print $2 }')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "The registry gave no digest for storefront-build:$tag." >&2; exit 1; }
+          sed -i "s|PROD_STUDIO_IMAGE|registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build@$digest|" wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Verify the versions and commit_sha agree
         env:
           VERSION_ID: ${{ inputs.version_id }}
@@ -97,6 +113,22 @@ jobs:
       # node_modules the first `setup` installed for `main` — and it was `main`'s lockfile
       # anyway, not commit_sha's. Reinstall from commit_sha's lockfile before anything runs.
       - uses: ./.github/actions/setup
+
+      # wrangler parses the config on every command, and the committed one holds a placeholder for the studio image (#816).
+      - name: Studio image
+        run: |
+          set -euo pipefail
+          tag=$(pnpm exec wrangler containers images list --json | jq -r '[.[] | select(.name == "storefront-build") | .tags[] | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(split(".") | map(tonumber)) | last // empty')
+          [ -n "$tag" ] || { echo "No stable storefront-build tag in the prod registry: run release.yml first." >&2; exit 1; }
+          password=$(pnpm exec wrangler containers registries credentials registry.cloudflare.com --pull --expiration-minutes 5 | tail -n 1)
+          echo "::add-mask::$password"
+          digest=$(curl -sSfI -u "v1:$password" -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+            "https://registry.cloudflare.com/v2/$CLOUDFLARE_ACCOUNT_ID/storefront-build/manifests/$tag" | tr -d '\r' | awk 'tolower($1) == "docker-content-digest:" { print $2 }')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "The registry gave no digest for storefront-build:$tag." >&2; exit 1; }
+          sed -i "s|PROD_STUDIO_IMAGE|registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build@$digest|" wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Promote Worker to 100%
         id: promote
