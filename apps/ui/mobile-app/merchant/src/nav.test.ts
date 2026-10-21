@@ -1,4 +1,4 @@
-import { moreFor, seatOf, supplierTiers, tabsFor, type Seat } from './nav'
+import { moreFor, seatOf, supplierTiers, tabBarHiddenAt, tabsFor, type Seat } from './nav'
 
 const keys = (items: readonly { key: string }[]) => items.map((item) => item.key)
 const seat = (role: string, tier: string | null = null): Seat => {
@@ -105,5 +105,16 @@ describe('the seat a membership gives', () => {
     expect(seatOf({ role: 'supplier-admin', tier: 'vendor-catalogue' })).toEqual({ side: 'supplier', admin: true, tier: 'vendor-catalogue' })
     expect(seatOf({ role: 'supplier-member', tier: null })).toBeNull()
     expect(seatOf({ role: 'cashier', tier: null })).toBeNull()
+  })
+})
+
+describe('where the tab bar is hidden (DESIGN.md §2)', () => {
+  it('hides it in the full designer and shows it on the compact Storefront and every other screen', () => {
+    expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront', 'designer'])).toBe(true)
+    expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront', 'studio'])).toBe(true)
+    expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront', 'page', '[id]'])).toBe(true)
+    expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront'])).toBe(false)
+    expect(tabBarHiddenAt(['(tabs)', 'more', 'reports'])).toBe(false)
+    expect(tabBarHiddenAt(['(tabs)', 'orders', 'index'])).toBe(false)
   })
 })
