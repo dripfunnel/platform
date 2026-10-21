@@ -27,7 +27,7 @@ const steps = {
   },
 }
 let probe: TestProbe
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts, assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.my-store.one', wait: async () => undefined })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts, assetOrigin: null, shopDomain: 'shop.example', mapsFrameOrigin: null, dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.my-store.one', wait: async () => undefined })
 const actor: GoBackActor = { actorKind: 'person', actorId: null, actorLabel: 'Owner', api: 'store', requestId: null, ip: null, userAgent: null }
 
 beforeAll(async () => {

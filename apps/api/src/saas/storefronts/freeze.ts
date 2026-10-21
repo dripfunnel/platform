@@ -32,6 +32,8 @@ export interface FreezeDeps {
   assetOrigin: string | null
   /** The domain of every store's free address (SHOP_DOMAIN); without it a store has no address to build for. */
   shopDomain: string | null
+  /** The hooks host, whose "Pin on map" frame the checkout and account pages may show (hooks/mapFrame.ts); null without a Maps key. */
+  mapsFrameOrigin: string | null
   /** Starts the locked workflow (integrations/github `dispatchBuild`); false when GitHub has no such repo. */
   dispatch: (repo: string, buildId: string) => Promise<boolean>
   now: () => Date
@@ -49,7 +51,8 @@ const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.to
 const sha256 = async (bytes: ArrayBuffer) => hex(await crypto.subtle.digest('SHA-256', bytes))
 
 /** core's `catalogueSnapshotSchema` (storefront ARCHITECTURE §4.2, `./guard`): the store as the Shop API answers it. */
-const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string, assetOrigin: string | null, shopDomain: string | null, now: Date): Promise<unknown> => {
+const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string, origins: { asset: string | null; mapsFrame: string | null }, shopDomain: string | null, now: Date): Promise<unknown> => {
+  const assetOrigin = origins.asset
   const store = await selectShopStore(tx, storeId)
   const source = await selectSnapshotSource(tx, storeId, shopDomain)
   const guard = await selectGuardContext(tx, storeId)
@@ -86,7 +89,7 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string,
     // Each gets its own page with its Article data (core's `maxSnapshotPosts`, ARCHITECTURE §8).
     posts: await storeBuildPosts(tx, storeId, now, 500),
     // The portal may frame the pages (the Overview, ARCHITECTURE §3.5); without a live one, no page may.
-    csp: { assetOrigin, mediaOrigins: [], analytics: [], payments: [], ...(portal ? { portalOrigin: `https://${portal}` } : {}) },
+    csp: { assetOrigin, mediaOrigins: [], analytics: [], payments: [], ...(portal ? { portalOrigin: `https://${portal}` } : {}), ...(origins.mapsFrame ? { mapsFrameOrigin: origins.mapsFrame } : {}) },
     assetBase: assetOrigin ? `${assetOrigin}/${assetsFolder(storeId, assetsBuildId)}` : null,
   }
 }
@@ -101,7 +104,7 @@ export const freezeBuild = async (deps: FreezeDeps, storeId: string, buildId: st
     if (!found) throw new FreezeRefused('no_source')
     // A page run's pages load the live build's JS and CSS, which the same commit builds byte for byte (LIVE-SHOP §7).
     const assetsBuild = found.kind === 'page' && found.live_build_id ? ((await selectAssetsBuild(tx, found.live_build_id)) ?? found.live_build_id) : buildId
-    return { input: found, snapshot: found.reported ? null : await snapshotOf(tx, storeId, assetsBuild, deps.assetOrigin, deps.shopDomain, deps.now()) }
+    return { input: found, snapshot: found.reported ? null : await snapshotOf(tx, storeId, assetsBuild, { asset: deps.assetOrigin, mapsFrame: deps.mapsFrameOrigin }, deps.shopDomain, deps.now()) }
   })
   if (input.reported || snapshot === null) return 'reported'
   // An upgrade or a security fix builds the upgrade bot's private commit (LIVE-SHOP §8), never the live one.

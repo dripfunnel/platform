@@ -49,6 +49,9 @@ export const StorefrontProvider = ({ value, address = '/', children }: { value: 
   )
 }
 
+/** The page's store where there is one; core's headless controls also render on their own. */
+export const useOptionalStorefront = (): Storefront | null => useContext(StorefrontContext)
+
 export const useStorefront = (): Storefront => {
   const value = useContext(StorefrontContext)
   if (!value) throw new Error('useStorefront needs a StorefrontProvider above it.')

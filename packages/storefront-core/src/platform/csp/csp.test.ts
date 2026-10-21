@@ -27,6 +27,22 @@ describe('storeCsp', () => {
     expect(directive(csp, 'trusted-types')).toBe('trusted-types df-core default')
   })
 
+  it('lets the checkout and account pages frame Pin on map, and changes nothing else on any page', () => {
+    const hashes = { scripts: ["'sha256-abc='"], styles: ["'sha256-def='"] }
+    const pinned = { ...store, mapsFrameOrigin: 'https://hooks.dripfunnel.com' }
+    const plain = storeCsp(store, hashes, 'checkout/index.html')
+    expect(plain).toBe(storeCsp(store, hashes))
+    expect(storeCsp(pinned, hashes, 'cart/index.html')).toBe(storeCsp(store, hashes, 'cart/index.html'))
+    for (const page of ['checkout/index.html', 'account/addresses/index.html']) {
+      const csp = storeCsp(pinned, hashes, page)
+      expect(directive(csp, 'frame-src')).toBe('frame-src https://js.stripe.com https://hooks.stripe.com https://hooks.dripfunnel.com')
+      expect(csp.replace(' https://hooks.dripfunnel.com', '')).toBe(plain)
+      expect(csp).not.toContain('unsafe')
+      expect(directive(csp, 'require-trusted-types-for')).toBe("require-trusted-types-for 'script'")
+    }
+    expect(() => storeCsp({ ...store, mapsFrameOrigin: 'http://hooks.dripfunnel.com' }, hashes)).toThrow()
+  })
+
   it('is built from hashes only: the same build gives the same header, with no nonce', () => {
     const first = storeCsp(store, { scripts: ["'sha256-abc='"], styles: ["'sha256-def='"] })
     expect(storeCsp(store, { scripts: ["'sha256-abc='"], styles: ["'sha256-def='"] })).toBe(first)

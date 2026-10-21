@@ -78,7 +78,7 @@ const merchant = async (source: string, who: keyof typeof cookies, as: { support
 const readyCart = async (quantity: number) => {
   const token = ((await shop(`mutation { addToCart(versionId: "${kurta}", quantity: ${quantity}) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
   await shop('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', token)
-  await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', token)
+  await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN", latitude: 18.5204, longitude: 73.8567 }) { cart { id } } }', token)
   await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
   await shop('mutation { checkout { id } }', token)
   return token
@@ -129,6 +129,7 @@ describe('placing an order', () => {
     const placed = (await place(orderToken, 'cod')).data?.['placeOrder'] as { orderId: string; number: string; total: { amount: string }; provider: string }
     expect(placed).toMatchObject({ number: 'JP-1001', total: { amount: '205000' }, provider: 'cod' })
     order = placed.orderId
+    expect(await db.sql`select shipping_address->'latitude' as latitude, shipping_address->'longitude' as longitude from "order" where id = ${order}`).toEqual([{ latitude: 18.5204, longitude: 73.8567 }])
     expect(await reserved()).toBe(2)
     await db.sql`update version_price set amount = 999999 where version_id = ${kurta}`
     const seen = (await shop(`{ order(id: "${order}") { number state paymentState lines { quantity unitPrice { amount } } shipping { amount } total { amount } } }`, orderToken)).data?.['order']

@@ -22,7 +22,7 @@ const hostA1 = 'store-a1.shop.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 const steps: PublishSteps = { do: (_, work) => work(), waitFor: async () => undefined }
 // The checks' waits move this clock instead of sleeping.
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(clock), probe, assetHost: 'sf-assets.my-store.one', wait: async (ms) => void (clock += ms) })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: 'shop.example', mapsFrameOrigin: null, dispatch: async () => true, now: () => new Date(clock), probe, assetHost: 'sf-assets.my-store.one', wait: async (ms) => void (clock += ms) })
 
 beforeAll(async () => {
   db = await createTestDatabase()

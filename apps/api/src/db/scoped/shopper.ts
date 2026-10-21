@@ -188,13 +188,15 @@ export interface AddressRow {
   country: string
   phone: string | null
   is_default_shipping: boolean
+  latitude: number | null
+  longitude: number | null
 }
 
 export const maxAddresses = 20
 
 export const selectAddresses = (tx: ScopedSql, customerId: string): Promise<AddressRow[]> =>
   tx<AddressRow[]>`
-    select id, name, line1, line2, city, region, postal_code, country, phone, is_default_shipping from customer_address
+    select id, name, line1, line2, city, region, postal_code, country, phone, is_default_shipping, latitude, longitude from customer_address
     where customer_id = ${customerId} and deleted_at is null order by is_default_shipping desc, created_at, id limit ${maxAddresses}
   `
 
@@ -207,6 +209,8 @@ export interface AddressWrite {
   postalCode: string | null
   country: string
   phone: string | null
+  latitude: number | null
+  longitude: number | null
   /** Null on an edit leaves the address's default as it was. */
   isDefault: boolean | null
 }
@@ -217,22 +221,23 @@ export const saveAddress = async (tx: ScopedSql, storeId: string, customerId: st
   if (a.isDefault) await tx`update customer_address set is_default_shipping = false where customer_id = ${customerId} and is_default_shipping and deleted_at is null`
   if (id === null) {
     const [row] = await tx<{ id: string }[]>`
-      insert into customer_address (customer_id, store_id, name, line1, line2, city, region, postal_code, country, phone, is_default_shipping)
-      values (${customerId}, ${storeId}, ${a.name}, ${a.line1}, ${a.line2}, ${a.city}, ${a.region}, ${a.postalCode}, ${a.country}, ${a.phone}, ${a.isDefault === true})
+      insert into customer_address (customer_id, store_id, name, line1, line2, city, region, postal_code, country, phone, latitude, longitude, is_default_shipping)
+      values (${customerId}, ${storeId}, ${a.name}, ${a.line1}, ${a.line2}, ${a.city}, ${a.region}, ${a.postalCode}, ${a.country}, ${a.phone}, ${a.latitude}, ${a.longitude}, ${a.isDefault === true})
       returning id
     `
     return row?.id ?? null
   }
   const done = await tx`
     update customer_address set name = ${a.name}, line1 = ${a.line1}, line2 = ${a.line2}, city = ${a.city}, region = ${a.region},
-      postal_code = ${a.postalCode}, country = ${a.country}, phone = ${a.phone}, is_default_shipping = ${a.isDefault === null ? tx`is_default_shipping` : a.isDefault}
+      postal_code = ${a.postalCode}, country = ${a.country}, phone = ${a.phone}, latitude = ${a.latitude}, longitude = ${a.longitude}, is_default_shipping = ${a.isDefault === null ? tx`is_default_shipping` : a.isDefault}
     where id = ${id} and customer_id = ${customerId} and deleted_at is null
   `
   return done.count > 0 ? id : null
 }
 
+/** Soft-deleted, its map pin erased with it (DATA-MODEL §5). */
 export const removeAddress = async (tx: ScopedSql, customerId: string, id: string, now: Date): Promise<boolean> =>
-  (await tx`update customer_address set deleted_at = ${now}, is_default_shipping = false where id = ${id} and customer_id = ${customerId} and deleted_at is null`).count > 0
+  (await tx`update customer_address set deleted_at = ${now}, is_default_shipping = false, latitude = null, longitude = null where id = ${id} and customer_id = ${customerId} and deleted_at is null`).count > 0
 
 export const selectAccount = async (tx: ScopedSql, customerId: string): Promise<{ id: string; name: string | null; email: string | null; phone: string | null; email_verified_at: Date | null; phone_verified_at: Date | null } | null> =>
   (await tx<{ id: string; name: string | null; email: string | null; phone: string | null; email_verified_at: Date | null; phone_verified_at: Date | null }[]>`

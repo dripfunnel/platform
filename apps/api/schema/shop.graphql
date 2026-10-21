@@ -79,8 +79,10 @@ type ShopAddress {
 input ShopAddressInput {
   city: String!
   country: String!
+  latitude: Float
   line1: String!
   line2: String
+  longitude: Float
   name: String!
   phone: String
   postalCode: String
@@ -90,8 +92,10 @@ input ShopAddressInput {
 type ShopAddressLines {
   city: String
   country: String
+  latitude: Float
   line1: String
   line2: String
+  longitude: Float
   name: String
   phone: String
   postalCode: String
@@ -537,8 +541,10 @@ type ShopSavedAddress {
   country: String
   id: ID
   isDefault: Boolean
+  latitude: Float
   line1: String
   line2: String
+  longitude: Float
   name: String
   phone: String
   postalCode: String
@@ -548,8 +554,10 @@ type ShopSavedAddress {
 input ShopSavedAddressInput {
   city: String!
   country: String!
+  latitude: Float
   line1: String!
   line2: String
+  longitude: Float
   name: String!
   phone: String
   postalCode: String
@@ -620,6 +628,7 @@ type ShopStore {
   languages: [String!]
   logo: Image
   mainLanguage: String
+  mapFrame: String
   marketId: ID
   markets: [ShopMarket!]
   name: String

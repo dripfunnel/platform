@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { isCountry } from '#core/countries'
 import { cleanEmail } from '#core/email'
 import { isE164 } from '#core/sms'
@@ -20,9 +21,17 @@ export interface AddressInput {
   postalCode?: string | null | undefined
   country: string
   phone?: string | null | undefined
+  latitude?: number | null | undefined
+  longitude?: number | null | undefined
 }
 
 const text = (value: string | null | undefined): string | null => value?.trim() || null
+
+// The shopper's map pin (#814): both or neither, in range.
+const pinSchema = z.union([
+  z.object({ latitude: z.number().finite().min(-90).max(90), longitude: z.number().finite().min(-180).max(180) }),
+  z.object({ latitude: z.null().optional(), longitude: z.null().optional() }).transform(() => ({ latitude: null, longitude: null })),
+])
 
 /** An address as the cart keeps it; null when a required part is missing or anything is too long or malformed. */
 export const cleanAddress = (input: AddressInput): CartAddress | null => {
@@ -30,6 +39,8 @@ export const cleanAddress = (input: AddressInput): CartAddress | null => {
   if (fields.some((f) => (f?.trim().length ?? 0) > 200) || (input.postalCode?.trim().length ?? 0) > 20) return null
   const country = input.country.trim().toUpperCase()
   const phone = text(input.phone)?.replaceAll(/[\s-]/g, '') ?? null
+  const pin = pinSchema.safeParse({ latitude: input.latitude, longitude: input.longitude })
+  if (!pin.success) return null
   const address: CartAddress = {
     name: text(input.name) ?? '',
     line1: text(input.line1) ?? '',
@@ -39,6 +50,8 @@ export const cleanAddress = (input: AddressInput): CartAddress | null => {
     postalCode: text(input.postalCode),
     country,
     phone,
+    latitude: pin.data.latitude,
+    longitude: pin.data.longitude,
   }
   if (address.name === '' || address.line1 === '' || address.city === '' || !isCountry(country) || (phone !== null && !isE164(phone))) return null
   return address

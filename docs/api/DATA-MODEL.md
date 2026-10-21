@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), in the export and erased with the address). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -1360,6 +1360,10 @@ customer_address    -- built on #308 (0067) as below, the shopper's own through 
                     -- the merchant side also writes the default one ("Edit" › Address, #312, 0074)
                     (id, customer_id, store_id, name, line1, line2, city, region, postal_code,
                      country, phone, is_default_shipping, created_at, deleted_at)   -- no billing default
+                    -- latitude, longitude (#814, 0357): the shopper's optional map pin, both or
+                    -- neither, in range; app_shop only, the merchant side reads neither; cleared
+                    -- when the address is deleted. A cart's and an order's pin is in their
+                    -- shipping_address and billing_address JSON (latitude, longitude)
 customer_group      (id, store_id, name, description, deleted_at)   UNIQUE (store_id, lower(name)) among live groups
 customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY (group_id, customer_id)
                     -- both built on #312 (0074): the merchant side's only (app_request, store scope,
@@ -1387,7 +1391,8 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- for the store's list (#312), never linked to the order: the request
                     -- names the email or phone the orders were placed with, proved by a code
                     -- sent to it (subject_verified_at), and covers that row too.
-                    -- Export gathers the customer row (if any), customer_address, every
+                    -- Export gathers the customer row (if any), customer_address (with its
+                    -- latitude and longitude, #814), every
                     -- order placed under the customer id or, for a guest, under the
                     -- verified email or phone, with their email, phone and address
                     -- snapshots, promotion_usage rows, cart reminders and consent history.
@@ -1397,7 +1402,8 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- one is rebuilt, and every file that carries the person is deleted from
                     -- R2. Named so the migration and its test cover them: customer name,
                     -- email, phone, note, tags, consent_source, added_by_user_id and search;
-                    -- customer_address rows; "order" email, phone, shipping_address,
+                    -- customer_address rows, map pins included; "order" email, phone, shipping_address
+                    -- (and the pin in it),
                     -- billing_address, notes, cancel_reason, access_token_hash and search;
                     -- promotion_usage.customer_email; refund.note and "return".note;
                     -- fulfilment.tracking_number and tracking_url (a tracking page can

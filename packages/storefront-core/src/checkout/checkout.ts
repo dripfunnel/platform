@@ -8,7 +8,7 @@ import { navigate } from '../platform/browser/router'
 import { useShopData } from '../platform/render/data'
 import { useStorefront, type RenderMode } from '../platform/store/context'
 import { moneySchema, type Money } from '../pricing/money'
-import { addressProblems, compact, emailPattern, isPhone, type AddressDraft, type AddressField, type FieldProblem } from './address'
+import { addressInput, addressProblems, compact, emailPattern, isPhone, type AddressDraft, type AddressField, type FieldProblem } from './address'
 import { browserSdk, paymentAdapters, type PaySession, type PaymentStart, type Sdk } from './payments'
 
 // The checkout controller (storefront ARCHITECTURE §2.1 `checkout`; DESIGN §6): contact → delivery address → delivery →
@@ -130,10 +130,8 @@ export type CheckoutPage = {
   mode: RenderMode
 }
 
-const draftOf = (a: AddressDraft): Record<string, string | null> => ({ name: a.name.trim(), line1: a.line1.trim(), line2: a.line2.trim() || null, city: a.city.trim(), region: a.region.trim() || null, postalCode: a.postalCode.trim() || null, country: a.country, phone: compact(a.phone) || null })
-
 /** An address the cart holds as a draft to edit. */
-export const addressDraft = (a: CartAddress | null, country: string): AddressDraft => ({ name: a?.name ?? '', line1: a?.line1 ?? '', line2: a?.line2 ?? '', city: a?.city ?? '', region: a?.region ?? '', postalCode: a?.postalCode ?? '', country: a?.country ?? country, phone: a?.phone ?? '' })
+export const addressDraft = (a: CartAddress | null, country: string): AddressDraft => ({ name: a?.name ?? '', line1: a?.line1 ?? '', line2: a?.line2 ?? '', city: a?.city ?? '', region: a?.region ?? '', postalCode: a?.postalCode ?? '', country: a?.country ?? country, phone: a?.phone ?? '', pin: a?.pin ?? null })
 
 type Payer = { store: CheckoutStore; mode: RenderMode; locale: string; test: boolean; contact: { email: string | null; phone: string | null; name: string | null }; paid: (orderId: string) => Promise<void> }
 
@@ -219,7 +217,7 @@ export const useCheckout = (): CheckoutPage => {
     countries,
     saveAddress: async (a) => {
       const errors = addressProblems(a)
-      if (Object.keys(errors).length === 0) await send(addressMutation, { address: draftOf(a) })
+      if (Object.keys(errors).length === 0) await send(addressMutation, { address: addressInput(a) })
       return errors
     },
     chooseDelivery: (option) => send(deliveryMutation, { option }),

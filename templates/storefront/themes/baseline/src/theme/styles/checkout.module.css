@@ -228,6 +228,83 @@
   border-color: var(--danger);
 }
 
+/* Core's "Pin on map" (#814): its controls sit in the address form's last .field. */
+.field > button,
+.field [role='dialog'] button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.field > button:not([aria-expanded]) {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.field button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.field [role='dialog'] {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 12px 10px;
+  margin-top: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.field [role='dialog'] > :not(button) {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.field [role='dialog'] > p:first-child {
+  font-weight: 600;
+}
+
+.field [role='dialog'] > p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.field [role='application'] {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 4px);
+}
+
+.field [role='dialog'] > button:first-of-type {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.field button:focus-visible,
+.field [role='application']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .note {
   margin: 0;
   color: var(--ink-soft);
