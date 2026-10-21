@@ -55,7 +55,6 @@
       "FORBIDDEN": "Only the store owner can change settings."
     },
     "closeStore": {
-      "BILLED_BY_PARTNER": "Your provider bills you directly. Ask them to close your store.",
       "PROVIDER_UNAVAILABLE": "We couldn’t reach our payment provider. Nothing was closed; try again in a minute.",
       "NOT_CONNECTED": "Billing isn’t set up yet. Try again later.",
       "NO_SUBSCRIPTION": "Your store has no plan yet.",

@@ -142,7 +142,8 @@ describe('Close my store', () => {
   })
 
   it.each([
-    ['BILLED_BY_PARTNER', 'Your provider bills you directly. Ask them to close your store.'],
+    ['NOT_CONNECTED', 'Billing isn’t set up yet. Try again later.'],
+    ['NO_SUBSCRIPTION', 'Your store has no plan yet.'],
     ['PROVIDER_UNAVAILABLE', 'We couldn’t reach our payment provider. Nothing was closed; try again in a minute.'],
     ['CANCELLED', 'Your store is already closing.'],
     ['FORBIDDEN', 'Only the store owner can close the store or download its data.'],

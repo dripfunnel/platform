@@ -171,7 +171,6 @@ export const knownErrorCodes = [
   'SCOPES_CHANGED',
   'ALREADY_INSTALLED',
   // Close my store (apps/api src/saas/storeBilling).
-  'BILLED_BY_PARTNER',
   'NO_SUBSCRIPTION',
   'CANCELLED',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
