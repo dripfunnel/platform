@@ -186,6 +186,16 @@ export const knownErrorCodes = [
   'ALREADY_LIVE',
   'BUILD_GONE',
   'SECURITY_RELEASE',
+  // The studio's session, its changes and publishes, the template gallery, and the Pages and Journal editor (apps/api src/saas/ai-designer, src/apis/store/studio.ts, content.ts).
+  'SESSION_ENDED',
+  'NOT_BISECTED',
+  'INVALID_URL',
+  'SAMPLE_UNAVAILABLE',
+  'INVALID_IMAGE',
+  'INVALID_TEMPLATE',
+  'IN_PROGRESS',
+  'CHANGE_REFUSED',
+  'PATH_TAKEN',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

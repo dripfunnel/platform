@@ -11,9 +11,10 @@ import { StorefrontScreen } from './StorefrontScreen'
 jest.setTimeout(120_000)
 
 const mockSession: { client: ApiClient | null } = { client: null }
+const mockPush = jest.fn()
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn(), navigate: jest.fn() }),
   useNavigation: () => ({ dispatch: jest.fn() }),
 }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
@@ -434,13 +435,13 @@ describe('Best on the web', () => {
     expect(openURL).toHaveBeenCalledWith('https://shop.test/storefront')
   })
 
-  it('leaves "Open here anyway" as a placeholder until the full designer is in the app', async () => {
+  it('opens the full designer in the app from "Open here anyway", and the browser not at all', async () => {
     const { renderer } = await show(<StorefrontScreen />, base())
 
     await click(renderer, 'Templates and the full designer')
     await clickLast(renderer, 'Open here anyway')
 
     expect(openURL).not.toHaveBeenCalled()
-    expect(hasText(renderer, 'The full designer in the app comes later. Use the web portal for now.')).toBe(true)
+    expect(mockPush).toHaveBeenCalledWith('/more/storefront/designer')
   })
 })
