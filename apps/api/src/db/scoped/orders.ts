@@ -1,7 +1,9 @@
+import type { PageWindow } from '#core/paging'
 import type { CartGift } from './cart'
 import { handedOut } from './deliveries'
 import { restoreGiftCard } from './giftCards'
 import { pgArray, type ScopedSql } from './index'
+import { keysetOrder, keysetWhere } from './keyset'
 import { releaseUses } from './promotions'
 
 // Placing an order and paying for it (migration 0068; DATA-MODEL §7.6), in system scope: the engine has priced the cart as
@@ -270,6 +272,30 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
       from "order" o where o.id = ${orderId} and o.store_id = ${storeId} and o.state <> 'cart'
     `
   )[0] ?? null
+
+export interface ShopOrderSummaryRow {
+  id: string
+  number: string
+  state: 'placed' | 'cancelled'
+  payment_state: string
+  payment_method: string | null
+  currency: string
+  total_amount: string
+  tax_inclusive: boolean
+  placed_at: Date
+  /** Every line's quantity, summed. */
+  item_count: number
+}
+
+/** A signed-in customer's placed orders, newest first; never a guest's, though the policy would let a cart token read one. */
+export const selectCustomerOrders = (tx: ScopedSql, storeId: string, customerId: string, window: PageWindow): Promise<ShopOrderSummaryRow[]> =>
+  tx<ShopOrderSummaryRow[]>`
+    select o.id, o.number, o.state, o.payment_state, o.payment_method, o.currency, o.total_amount::text as total_amount, o.tax_inclusive, o.placed_at,
+      coalesce((select sum(l.quantity) from order_line l where l.order_id = o.id), 0)::int as item_count
+    from "order" o
+    where o.store_id = ${storeId} and o.customer_id = ${customerId} and o.state <> 'cart' and ${keysetWhere(tx, window, 'o.placed_at', 'o.id')}
+    ${keysetOrder(tx, window, 'o.placed_at', 'o.id')}
+  `
 
 export interface PaymentSetupRow {
   id: string

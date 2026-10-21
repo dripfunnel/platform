@@ -20,9 +20,9 @@ as customised by us, now removed from the workspace); §11 records what was take
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
-behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -240,8 +240,10 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **The account**: **`useAccount`** reads the signed-in shopper's details, addresses and the store's countries;
   `rename`, `saveAddress` (core's address checks first; also "make default"), `removeAddress`, each reading the account
   again, and `signOut`, which ends the session on the server and here. Without a session, or on a preview, it is
-  `signedOut` and asks nothing. An order in the account (`/account/orders/{id}/`) is `useOrder`'s. The account's list of
-  orders waits for the Shop API to list them (it reads one order by id only).
+  `signedOut` and asks nothing. An order in the account (`/account/orders/{id}/`) is `useOrder`'s. **`useOrders`** (#813)
+  is the account's list: the Shop API's `orderHistory` (at most 50 a page, ui/store/FIRST-RELEASE), the signed-in
+  customer's own (never a guest's), newest first, asked 20 at a time with `loadMore`, each `OrderRow` its number, day, item count, payment and total; `empty` with none, and `signedOut`
+  without a session (or on a preview, asking nothing), the session forgotten when the Shop API answers `SIGNED_OUT`.
 
 ### 2.2 The store repo
 
@@ -329,8 +331,11 @@ The six templates and "Start from scratch" live in this repo as complete startin
   and Forgot password each by an emailed code, then the name and password or the new password; on a preview each says
   signing in works on the live shop. The account: "Hello, {name}", Sign out, Your details (the name to edit, the email
   and number with Verified) and Addresses (Default, Make this my default, Remove, Add an address); an order at
-  `/account/orders/{id}/` is the order page headed by its number. D1's Orders list, Messages, Gift cards, Downloads and
-  Your data wait for the Shop API (and #324 for gift cards and downloads).
+  `/account/orders/{id}/` is the order page headed by its number. *Orders, as built on #813*: D1's rows at
+  `/account/orders/` (number, day · items, the order page's status pill, total), each opening its order, Load more for the
+  next 20, and loading, failed (Try again), "No orders yet" and signed-out (to sign in with `?next=`) states; the pill is
+  payment's until the Shop API gives an order's delivery. D1's Messages, Gift cards, Downloads and Your data wait for the
+  Shop API (and #324 for gift cards and downloads).
 - *Baseline's product kinds as built on #324 (part 1)*, from D1's "Product · gift card", "· download" and "· service": a
   gift card's page asks for the recipient's name and email, an optional message (up to 200 characters) and a send-on date
   with the card's expiry, and has one button, "Add gift card to cart", disabled with its reason until a name and a real
