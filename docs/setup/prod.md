@@ -177,9 +177,9 @@ The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Wor
 1. Merge a pull request into `main`.
 2. **prod.yml** runs: gates against the test branch → migrations against production →
    pins the studio image, uploads a new API version, then a store-proxy version. **Nothing is live yet.** On the very first release, apply the store-proxy routes after promote (§3.5 step 6).
-3. Open the run's summary. It gives both **version ids** and the **commit sha**.
-4. Run **promote** (Actions › promote › *Run workflow*) with `version_id`, `proxy_version_id` and
-   `commit_sha`, soon after, and only for the most recent upload. It:
+3. Open the run's summary. It gives both **version ids**, the **commit sha** and the **studio image digest**.
+4. Run **promote** (Actions › promote › *Run workflow*) with `version_id`, `proxy_version_id`,
+   `commit_sha` and `studio_digest`, soon after, and only for the most recent upload. It:
    1. checks that both versions were built from that commit;
    2. moves the API Worker, then store-proxy, to 100%;
    3. checks `https://platform.dripfunnel.com/api/health` reports that version;
