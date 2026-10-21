@@ -54,6 +54,16 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "Only the store owner can change settings."
     },
+    "closeStore": {
+      "BILLED_BY_PARTNER": "Your provider bills you directly. Ask them to close your store.",
+      "PROVIDER_UNAVAILABLE": "We couldn’t reach our payment provider. Nothing was closed; try again in a minute.",
+      "NOT_CONNECTED": "Billing isn’t set up yet. Try again later.",
+      "NO_SUBSCRIPTION": "Your store has no plan yet.",
+      "CANCELLED": "Your store is already closing.",
+      "NOT_FOUND": "That is no longer here.",
+      "READ_ONLY": "Your store is view-only right now, so this can’t change.",
+      "FORBIDDEN": "Only the store owner can close the store or download its data."
+    },
     "settingsPeople": {
       "ALREADY_MEMBER": "They’re already in this store.",
       "NOT_FOUND": "That isn’t here any more. It may have changed elsewhere.",
@@ -2126,7 +2136,52 @@
       "removeLanguage": "Remove {name}",
       "addLanguage": "Add a language",
       "saveLanguages": "Save languages",
-      "savedLanguages": "Languages saved"
+      "savedLanguages": "Languages saved",
+      "close": {
+        "title": "Close my store",
+        "sub": "Takes your shop offline. Products, orders and customers are kept for 90 days, then deleted.",
+        "open": "Close my store…",
+        "loadFailed": "Closing couldn’t be checked right now.",
+        "retry": "Try again",
+        "closingTitle": "Your store is closing",
+        "closingBody": "Your shop closes on {date}. Products, orders and customers are kept for 90 days, then deleted. You can download them until then.",
+        "sheetTitle": "Close your store?",
+        "paid": "Your shop keeps selling until {date}, then goes offline. The portal becomes view-only now.",
+        "now": "Your shop goes offline now, and the portal becomes view-only.",
+        "kept": "Products, orders and customers are kept for 90 days, then deleted.",
+        "download": "You can download them until then.",
+        "downloadFirst": "Download my data first",
+        "downloadData": "Download my data",
+        "continue": "Continue",
+        "keep": "Keep my store",
+        "confirmTitle": "Close {store}?",
+        "confirm": "Close my store",
+        "closedTitle": "Your store is closing",
+        "closed": "Your store is closing. It sells until {date}.",
+        "closedNow": "Your store is closed. Its shop is offline.",
+        "done": "Done",
+        "data": {
+          "title": "Your data",
+          "preparing": "Preparing your products, orders and customers…",
+          "kinds": {
+            "products": "Products",
+            "orders": "Orders",
+            "customers": "Customers"
+          },
+          "rows": {
+            "one": "{count} row",
+            "other": "{count} rows"
+          },
+          "truncated": "{count} rows — the file stops there",
+          "waiting": "Preparing…",
+          "failed": "Couldn’t be prepared. Try again.",
+          "expired": "The link expired. Download again.",
+          "share": "Share {kind}",
+          "again": "Download again",
+          "back": "Back",
+          "shareFailed": "The file couldn’t be shared. Try again."
+        }
+      }
     },
     "people": {
       "roles": {
