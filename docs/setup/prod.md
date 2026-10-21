@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-21 (#428: `shops.edge`, the first route deploy, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -98,7 +98,7 @@ email or a file in the repo.
    provider (THIRD-PARTY-ACCESS.md §2.1).
 4. Store addresses, by hand (#744): add `my-store.one` as a zone on the main Cloudflare account, add the proxied wildcard record `*.my-store.one`, and confirm Universal SSL covers it. `store-proxy`'s `env.prod` (#816) holds the routes `*/*` on `dripfunnel.com` and `*.my-store.one/*` on `my-store.one`; `prod.yml` uploads its version after the API's and `promote.yml` promotes both together (it is never deployed from a push). In the zone's Logpush, leave out `ClientRequestPath` and `ClientRequestQuery` (LOGGING §9).
 5. Edge records, by hand (#428): in the `dripfunnel.com` zone, `portal.edge` and `shops.edge` are two proxied records pointing at the same origin, the zone's one Cloudflare for SaaS fallback origin (SAAS.md §8; no `preview.edge`, previews are on `SHOP_DOMAIN`). Check that both resolve (`dig +short portal.edge.dripfunnel.com`, `shops.edge.dripfunnel.com`), and that the fallback origin is set to `portal.edge.dripfunnel.com`.
-6. First route deploy, one-off (#428): `wrangler versions upload` fails for a Worker that does not exist yet, and neither it nor `versions deploy` applies `routes` (Cloudflare: Gradual deployments; `wrangler triggers deploy` exists for that). So once the API Worker is live (the proxy's service bindings need it), run `pnpm exec wrangler deploy --env prod` in `store-proxy/` by hand, once. **This one goes live at once**, with the `*/*` route on `dripfunnel.com` and the `*.my-store.one/*` route; the proxy forwards `admin`, `platform` and `hooks` to the API (`OWN_ZONE`), so those hosts behave as before. After that, `prod.yml` and `promote.yml` carry every version. When `routes` changes later, run `pnpm exec wrangler triggers deploy --env prod` by hand.
+6. First route deploy, one-off (#428, **goes live at once, not rehearsed**): `wrangler versions upload` fails for a Worker that does not exist yet, and neither it nor `versions deploy` applies `routes` (Cloudflare: Gradual deployments; `wrangler triggers deploy` is the command for that). Only after the API Worker is live (the proxy's service bindings need it) and `PREVIEW_SESSION_KEY` is set on `dripfunnel-store-proxy-prod` (§4; without it storefront and preview requests on `*.my-store.one` fail once the route exists), run `pnpm exec wrangler deploy --env prod` in `store-proxy/` by hand, once. It routes `*/*` on `dripfunnel.com` and `*.my-store.one/*` at once; the proxy forwards `admin`, `platform` and `hooks` to the API (`OWN_ZONE`). Right after, open the consoles and send a test webhook to `hooks.dripfunnel.com`. To back out, delete the two routes in the dashboard (Workers & Pages › the Worker › Settings › Domains & Routes). Later, `prod.yml` and `promote.yml` carry every version; when `routes` changes, run `pnpm exec wrangler triggers deploy --env prod` by hand.
 ### 3.6 GitHub environment `prod`
 
 Repository › Settings › Environments › *New environment* › `prod`:
@@ -176,7 +176,7 @@ The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Wor
 
 1. Merge a pull request into `main`.
 2. **prod.yml** runs: gates against the test branch → migrations against production →
-   pins the studio image, uploads a new API version, then a store-proxy version. **Nothing is live yet.**
+   pins the studio image, uploads a new API version, then a store-proxy version. **Nothing is live yet**, except that the very first release also needs the one-off route deploy (§3.5 step 6).
 3. Open the run's summary. It gives both **version ids** and the **commit sha**.
 4. Run **promote** (Actions › promote › *Run workflow*) with `version_id`, `proxy_version_id` and
    `commit_sha`, soon after, and only for the most recent upload. It:
