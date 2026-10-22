@@ -30,13 +30,15 @@ const open = (stop = new AbortController()) => {
 }
 
 describe('Pin on map’s frame', () => {
-  it('frames the hooks host’s page, sandboxed and titled, and says hello to it once loaded', () => {
-    const { frame, sent } = open()
+  it('frames the hooks host’s page, sandboxed and titled, and says hello to it once loaded', async () => {
+    const { frame, sent, loading, stop } = open()
     expect(frame.src).toBe(source)
     expect(frame.title).toBe('Pin your delivery address')
     expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox')
     frame.dispatchEvent(new Event('load'))
     expect(sent).toHaveBeenCalledWith({ type: 'hello' }, origin)
+    stop.abort()
+    await expect(loading).rejects.toThrow()
   })
 
   it('is ready when the frame says so, and draws, moves, finds and reads addresses through it', async () => {
@@ -103,6 +105,7 @@ describe('Pin on map’s frame', () => {
     refuse('frame-src', source)
     await expect(blocked.loading).rejects.toThrow()
     expect(blocked.element.querySelector('iframe')).toBeNull()
+    expect(map.element.querySelector('iframe')).not.toBeNull()
   })
 
   it('keeps the map once ready, though the loading it was waiting on is cancelled after', async () => {

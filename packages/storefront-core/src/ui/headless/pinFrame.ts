@@ -79,9 +79,10 @@ export const frameMaps: MapsLoader = (source, element, title, signal) =>
       if (!message.success) return
       const m = message.data
       if (m.type === 'ready') {
-        // The signal cancels loading only; from here the control closes the map itself.
+        // The signal and a CSP refusal cancel loading only; from here the control closes the map itself.
         clearTimeout(timer)
         signal.removeEventListener('abort', stop)
+        document.removeEventListener('securitypolicyviolation', refused)
         resolve(maps)
       } else if (m.type === 'failed') fail()
       else if (m.type === 'moved') moved?.(m.at)
