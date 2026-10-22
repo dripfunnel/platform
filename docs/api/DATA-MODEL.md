@@ -2433,7 +2433,7 @@ fulfilment     kind gains 'local': written when the rider marks the delivery pic
 delivery       (id, store_id, order_id, warehouse_id, state ('packing'|'searching'|'unassigned'|'assigned'
                 |'picked_up'|'delivered'|'failed'|'cancelled'), rider_id NULL, fulfilment_id NULL,
                 cash_due_amount NULL, currency, cash_collected_at NULL, failed_reason NULL,
-                handover_code_enc NULL, code_attempts, code_unconfirmed_at NULL, ready_at NULL, searching_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
+                offer_round, handover_code_enc NULL, code_attempts, code_unconfirmed_at NULL, ready_at NULL, searching_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
                 failed_at NULL, cancelled_at NULL, eta_at NULL, eta_computed_at NULL, revision)
                UNIQUE (order_id) WHERE state NOT IN ('failed','cancelled')
                -- a retry after 'failed' is a new row (DELIVERY §3)
@@ -2441,9 +2441,11 @@ delivery       (id, store_id, order_id, warehouse_id, state ('packing'|'searchin
                -- cash_due_amount is integer minor units in delivery.currency (the order's), set for
                -- cash on delivery only; handover_code_enc is made at
                -- assignment, read only for the order's customer, and nulled when the delivery ends
-delivery_offer (id, delivery_id, store_id, rider_id, distance_m, sent_at,
+delivery_offer (id, delivery_id, store_id, offer_round, rider_id, distance_m, sent_at,
                 answer ('accepted'|'declined'|'taken'|'expired') NULL, answered_at NULL)
-               UNIQUE (delivery_id, rider_id)
+               UNIQUE (delivery_id, offer_round, rider_id)
+               -- each broadcast is a round (DELIVERY §3): the first, every Offer again and every hand
+               -- back; the delivery's offer_round counts them, so a rider can be offered it again
 ```
 
 **Row policies:** merchant side (`store` scope, no seller branch: a supplier never reads a
