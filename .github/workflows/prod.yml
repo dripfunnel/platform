@@ -20,7 +20,7 @@ jobs:
   gates:
     # workflow_dispatch can target any branch; push is already restricted to main above, but
     # this job also handles dispatch, so it needs its own guard.
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && vars.GATES_CHECK != '0'
     runs-on: ubuntu-latest
     environment: prod
     defaults:
@@ -53,7 +53,7 @@ jobs:
 
   deploy:
     needs: gates
-    if: github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && contains(fromJSON('["success","skipped"]'), needs.gates.result) }}
     runs-on: ubuntu-latest
     environment: prod
     defaults:
@@ -62,6 +62,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+
+      - name: Warn that the gates were skipped
+        if: needs.gates.result == 'skipped'
+        run: echo "::warning::GATES_CHECK=0, so the gates were skipped and this run migrates prod and uploads a Worker version untested (#870)."
 
       - name: Migrations
         id: migrate

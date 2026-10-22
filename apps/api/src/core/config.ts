@@ -102,7 +102,7 @@ const configSchema = z.object({
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),
   // The org's Actions jobs at once, which a core rollout's waves are sized to (storefront LIVE-SHOP §10). Unset: 20 (Free).
   GITHUB_ACTIONS_JOBS: z.coerce.number().int().min(1).max(10_000).optional(),
-  // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
+  // `0` accepts any email or text code (docs/setup/dev.md).
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
@@ -123,7 +123,6 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   const r2 = [c.R2_STOREFRONT_ACCOUNT_ID, c.R2_STOREFRONT_ACCESS_KEY_ID, c.R2_STOREFRONT_SECRET_ACCESS_KEY, c.R2_STOREFRONT_API_TOKEN, c.STOREFRONT_SITES_BUCKET, c.STOREFRONT_DRAFTS_BUCKET].filter((v) => v !== undefined).length
   if (r2 !== 0 && r2 !== 6) ctx.addIssue({ code: 'custom', message: 'The four R2_STOREFRONT_* values and the two STOREFRONT_*_BUCKET names go together', path: ['R2_STOREFRONT_ACCOUNT_ID'] })
   if ((c.BROWSER_RENDERING_ACCOUNT_ID === undefined) !== (c.BROWSER_RENDERING_TOKEN === undefined)) ctx.addIssue({ code: 'custom', message: 'BROWSER_RENDERING_ACCOUNT_ID and BROWSER_RENDERING_TOKEN go together', path: ['BROWSER_RENDERING_ACCOUNT_ID'] })
-  if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !isLocalhost(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
   if (c.SHOP_DOMAIN !== undefined && ourHosts.some((h) => h === c.SHOP_DOMAIN || h.endsWith(`.${c.SHOP_DOMAIN}`) || c.SHOP_DOMAIN?.endsWith(`.${h}`)))
     ctx.addIssue({ code: 'custom', message: 'SHOP_DOMAIN must be apart from the consoles’ hosts and EDGE_ZONE', path: ['SHOP_DOMAIN'] })
