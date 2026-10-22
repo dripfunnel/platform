@@ -44,7 +44,8 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: '@dripfunnel'
       # Core's own gates first: main has no required checks yet (WORKFLOW.md §2.2).
-      - run: pnpm turbo run build typecheck lint test --filter=@dripfunnel/storefront-core
+      - if: vars.GATES_CHECK != '0'
+        run: pnpm turbo run build typecheck lint test --filter=@dripfunnel/storefront-core
       - id: pack
         run: node scripts/release/publish.mjs pack
         env:

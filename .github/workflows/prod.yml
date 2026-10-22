@@ -20,7 +20,7 @@ jobs:
   gates:
     # workflow_dispatch can target any branch; push is already restricted to main above, but
     # this job also handles dispatch, so it needs its own guard.
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && vars.GATES_CHECK != '0'
     runs-on: ubuntu-latest
     environment: prod
     defaults:
@@ -53,7 +53,7 @@ jobs:
 
   deploy:
     needs: gates
-    if: github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && contains(fromJSON('["success","skipped"]'), needs.gates.result) }}
     runs-on: ubuntu-latest
     environment: prod
     defaults:

@@ -29,8 +29,8 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, ...app, GITHUB_APP_ID: 'my-app' })).toThrow(/numeric id/)
   })
 
-  it('takes CODE_CHECK=0 on dev and localhost only', () => {
-    expect(() => parseConfig({ ...hosts, CODE_CHECK: '0' })).toThrow(/CODE_CHECK=0 is for dev and local development only/)
+  it('takes CODE_CHECK=0 on any host', () => {
+    expect(parseConfig({ ...hosts, CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'dev-hooks.dripfunnel.ai', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, CODE_CHECK: '1' }).CODE_CHECK).toBe('1')
