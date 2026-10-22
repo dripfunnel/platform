@@ -23,7 +23,7 @@ preview key, build ids).
 |---|---|---|
 | **Every table declares one scope**: platform, partner, store, or store-and-seller (§2) | Deciding per query | A table that is "global by accident" was the first platform's worst leak. The scope decides the columns, the scoped layer and the RLS policy. |
 | **Store-level rows carry `store_id` only**, not `partner_id`; the partner is `store.partner_id` | Copying `partner_id` onto every row | Moving a store to another partner changes one row. Partner-level reads join through `store`, one indexed join. |
-| **Four identity pools in separate tables** (§3) | One `users` table with a type column | Each pool signs in on its own host through its own API; a bug in one pool's checks can't grant another pool's power. |
+| **Five identity pools in separate tables** (§3; riders since 2026-10-22, *proposed*, §3.6) | One `users` table with a type column | Each pool signs in on its own host through its own API; a bug in one pool's checks can't grant another pool's power. |
 | **Merchant and supplier accounts are per partner**: `user` unique by `(partner_id, email)` | One account platform-wide | White label never leaks across partners (ACCESS.md §2). |
 | **Customer accounts are per store**, by email and/or phone | One shopper account across stores | Each store's customers are the merchant's, not the platform's. |
 | **Roles are keys; permission sets live in code** | Role and permission tables; a role editor | Nothing to clone or drift; a change is reviewed like code and applies on the next request. |
@@ -2452,8 +2452,8 @@ delivery_offer (id, delivery_id, store_id, offer_round, rider_id, distance_m, se
 **Row policies:** merchant side (`store` scope, no seller branch: a supplier never reads a
 delivery, a rider or a position); a new request role `app_rider` for the Delivery API, reaching
 its own `rider` row, its own offers and the deliveries it holds, and the order's address, name,
-phone and note only while that delivery is `assigned` or `picked_up` and still its own (never after
-it ends or is handed back); `rider_code` rows exist only for invited or active riders' numbers and
+phone and note only while that delivery is `picked_up` and still its own (never before pickup,
+after it ends, or after it is handed back or recalled); `rider_code` rows exist only for invited or active riders' numbers and
 are deleted a day after they expire; `app_shop` reads one delivery through its
 order: the rider's name, photo, vehicle and phone only while it is `assigned` or `picked_up`, the
 rider's position only while it is `picked_up`, and the handover code only while it is `assigned`

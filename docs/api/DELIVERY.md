@@ -10,7 +10,7 @@ their app calls, and what the customer sees while the order is on its way. The t
 **Status: specification, not built.** Decided with Gaurav on 2026-10-22; rows marked
 *(proposed)* await a yes.
 
-Last updated: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -114,11 +114,11 @@ at `searching`. A change of the setting applies to orders placed after it.
 | `searching` | `unassigned` | nobody accepts in the store's minutes, or nobody in range |
 | `unassigned` | `searching` | Offer again (merchant): the same delivery, a new offer round |
 | `unassigned` | `assigned` | assigned by hand (merchant) |
-| `assigned` | `searching` | hand back (rider): a new offer round without that rider |
+| `assigned` | `searching` | hand back (rider): a new offer round without that rider; also automatic when the merchant suspends, removes or erases that rider |
 | `assigned` | `picked_up` | picked up (rider) |
 | `picked_up` | `delivered` | the right code (rider); or the merchant with a reason when the code is locked or unconfirmed |
 | `picked_up` | `failed` | not delivered (rider); the merchant for an unconfirmed code; or the merchant **recalls** it (`cancelDelivery` on a picked-up delivery, reason `recalled`): the rider is told by push to bring the parcel back, and their access to the customer's details and the code end at once |
-| `packing`, `searching`, `unassigned`, `assigned` | `cancelled` | the merchant cancels the delivery, or the order is cancelled |
+| `packing`, `searching`, `unassigned`, `assigned` | `cancelled` | the merchant cancels the delivery, or the order is cancelled. If the order stays open, Offer again makes a new delivery for it, as after `failed` |
 
 An order whose delivery is `picked_up` can't be cancelled: `cancelOrder` already refuses any order
 something has left (`NOT_CANCELLABLE`, store/FIRST-RELEASE.md §19 Part 4), and a parcel in transit
@@ -189,7 +189,7 @@ check.
 | `offers(first, after)` | This rider's open offers, newest first, keyset-paged: `first` 20 by default, at most 50; each with the warehouse, distance, number of items and the customer's area (never the address before accepting) |
 | `acceptOffer(id)`, `declineOffer(id)` | §3 steps 1–2; a lost race answers `TAKEN` |
 | `deliveries(state, first, after)` | This rider's deliveries, newest first, keyset-paged: `first` 20 by default, at most 50. A past delivery shows its date, state, warehouse, the customer's area name and the fee, never the customer's name, phone, address or pin |
-| `delivery(id)` | One delivery: warehouse address and pin, the lines and quantities; **while the rider holds it open** (`assigned` or `picked_up`) also the customer's name, phone, address, pin and note, and the cash to collect. Once it is delivered, failed, cancelled or handed back, none of the customer's details are returned again |
+| `delivery(id)` | One delivery: warehouse address and pin, the lines and quantities; the customer's area name and the cash to collect. **Only once the rider has picked it up** (`picked_up`, and still theirs) also the customer's name, phone, address, pin and note, so accepting and handing back never reveals a customer. Once it is delivered, failed, cancelled or recalled, none of the customer's details are returned again |
 | `handBack(id)`, `markPickedUp(id)`, `markDelivered(id, code, cashCollected, at, key)`, `markFailed(id, reason, at, key)` | §3 steps 4–5. `markDelivered` refuses a wrong code (`WRONG_CODE`, then `CODE_LOCKED`), and for cash on delivery a missing `cashCollected` (`CASH_NOT_CONFIRMED`); a wrong code arriving late answers `CODE_UNCONFIRMED` (§3, Delivered without signal). The last two may arrive late from a phone that had no signal (decided 2026-10-22, delivery/FIRST-RELEASE.md §1): `at` is when the rider did it, accepted between pickup and now and kept as the step's time; `key` makes a resend do nothing twice |
 | `registerPushDevice(token, platform)` | The Expo push token for this phone (§6) |
 
@@ -213,7 +213,9 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
   for an invited or active rider's number, and code rows are deleted a day after they expire.
 - **Profile:** name, photo, vehicle type (bike, scooter, car, bicycle, on foot), vehicle number.
 - **The merchant** sees each rider's status (invited, active, suspended), online now, current
-  delivery and deliveries done, and can **suspend** (sessions end at once) or **remove** (the row
+  delivery and deliveries done, and can **suspend** (sessions end at once; an `assigned` delivery
+  is handed back to the other riders; refused `RIDER_HAS_PARCEL` while they carry a `picked_up` one,
+  which the merchant recalls first) or **remove** (the same rules; the row
   stays, so past deliveries keep their rider; the phone is erased, AGENTS.md "Data").
 - **Export and erase** *(proposed, built on #874)*: the Owner can export one rider's data (profile,
   deliveries with dates, states, warehouse and the customer's area name only, sign-in times) as an
@@ -314,8 +316,8 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
 
 - The isolation matrix (ACCESS.md §11.1) gains these rows, each refused:
   - **Delivery API:** another store's rider; a removed or suspended rider; a rider reading or
-    acting on another rider's offer or delivery; a rider reading the customer's details after
-    the delivery ends or after handing it back; a shopper token or a portal session on the
+    acting on another rider's offer or delivery; a rider reading the customer's name, phone,
+    address or pin before pickup, after the delivery ends, or after handing it back; a shopper token or a portal session on the
     Delivery API; a rider token on the Shop and Store APIs.
   - **Shop API:** another customer, or a guest with another order's token, reading an order's
     delivery, handover code, rider phone or position; anyone reading the rider's details or
@@ -328,6 +330,8 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
     stores.
   - **Export and erase:** `exportRider` and `eraseRider` refused for every seat but the Owner and
     for another store's rider; the export holds no customer address or phone.
+- Suspending or removing a rider with an `assigned` delivery offers it to the others in a new round;
+  with a `picked_up` one it is refused `RIDER_HAS_PARCEL`.
 - A rider's position is gone after the minute sweep (§3) finds it 10 minutes old, sign-out, suspension, removal and erasure.
 - The customer reads the rider's details only while `assigned` or `picked_up`, and the position only
   while `picked_up`.
