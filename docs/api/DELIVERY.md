@@ -10,7 +10,7 @@ their app calls, and what the customer sees while the order is on its way. The t
 **Status: specification, not built.** Decided with Gaurav on 2026-10-22; rows marked
 *(proposed)* await a yes.
 
-Last updated: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -147,6 +147,9 @@ shows it. The rider never reads it. A wrong code is refused (`WRONG_CODE`); afte
 the delivery is locked (`CODE_LOCKED`) and only the merchant can mark it delivered, from the
 order, with a reason. The code is kept encrypted and deleted when the delivery ends.
 
+A new code is made at every assignment: when a rider hands a delivery back, its code is deleted and
+the next rider's assignment makes a fresh one, so a code told to the first rider is useless.
+
 **Delivered without signal** *(proposed)*. The app keeps the step and the code the rider typed in
 secure storage, deleted once sent, and allows one attempt while offline; the server checks it when
 it arrives, as one try. If the code is wrong, the delivery stays `picked_up`, marked
@@ -157,7 +160,9 @@ cash collected sent with it is kept on the delivery, and the order becomes paid 
 delivery becomes `delivered`. With signal the rider retries at the door as usual.
 
 **Online.** A rider switches **Online** in the app. While online the app sends its position every
-60 seconds; a rider with no position for 10 minutes counts as offline *(proposed)*.
+60 seconds; a rider with no position for 10 minutes counts as offline *(proposed)*, and the
+minute sweep (§3 step 3) then deletes their position and clears their online state, so a phone
+that dies or loses signal for good leaves no point behind.
 
 ---
 
@@ -204,6 +209,11 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 - **The merchant** sees each rider's status (invited, active, suspended), online now, current
   delivery and deliveries done, and can **suspend** (sessions end at once) or **remove** (the row
   stays, so past deliveries keep their rider; the phone is erased, AGENTS.md "Data").
+- **Export and erase** *(proposed, built on DL 18)*: the Owner can export one rider's data (profile,
+  deliveries with dates, states, warehouse and the customer's area name only, sign-in times) as an
+  export job, and **erase** a rider: removal, then "Former rider" in place of their name in past
+  deliveries and the activity log's labels (LOGGING §8), with their sessions, devices and position
+  deleted. A rider's own Delete my account does the same.
 - **Sessions** last 30 days from last use, like customers' (DATA-MODEL §3.4), one per phone.
 - **A rider belongs to one store.** The same person delivering for two stores has two accounts
   and two apps, as a customer does.
@@ -237,7 +247,7 @@ with its token):
 - the state and the time of each step (`packing` reads "Being packed");
 - once assigned: the rider's first name, photo, vehicle type and number, and phone number;
 - while `picked_up`: the rider's latest position and its time, and an arrival estimate;
-- while the delivery is open: the handover code (§3).
+- while it is `assigned` or `picked_up`: the handover code (§3).
 
 **On the website** (storefront-core's order page, with a changeset) the same steps, rider details
 and handover code are shown, never the map, the position or the estimate (decided 2026-10-22).
@@ -247,7 +257,8 @@ failed or cancelled); the state history stays.
 
 **Position.** While a delivery is `picked_up` the delivery app sends its position every 15
 seconds, otherwise every 60 seconds while online. `rider_position` keeps one row per rider
-(the latest point), overwritten, deleted when the rider goes offline. No trail is kept, and
+(the latest point), overwritten, and deleted when the rider goes offline, when the sweep finds it
+older than 10 minutes, and when the rider signs out, is suspended, removed or erased. No trail is kept, and
 positions never enter the activity log or technical logs.
 
 **Arrival estimate** *(proposed)*: from Google's Routes API, server-side, at pickup and at most every
@@ -268,7 +279,7 @@ delivery ends.
 | Addition | Permission |
 |---|---|
 | Own delivery in `shippingSettings`, the warehouse's delivery settings in `saveWarehouse` (§2) | As those operations today (Owner) |
-| `riders(first, after)` (50 by default, at most 100), `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider`, `removeRider` (§5) | New `riders.manage`: Owner |
+| `riders(first, after)` (50 by default, at most 100), `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider`, `removeRider`, `exportRider` (a job), `eraseRider` (§5) | New `riders.manage`: Owner |
 | `order(id).delivery`: state, history, rider, position while picked up | `orders.read` |
 | `markReadyForPickup(orderId)` (§3) | `orders.fulfil` |
 | `assignDelivery(deliveryId, riderId)`, `offerDeliveryAgain(deliveryId)`, `cancelDelivery(deliveryId)` (before pickup it cancels; after, it recalls, §3), `markDeliveryDelivered(deliveryId, reason)` (a locked or unconfirmed code, §3) | `orders.fulfil` |
@@ -309,6 +320,11 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
     another store's merchant reading any of it.
   - **Rows:** `push_device`, `rider_position`, `delivery` and `delivery_offer` never cross
     stores.
+  - **Export and erase:** `exportRider` and `eraseRider` refused for every seat but the Owner and
+    for another store's rider; the export holds no customer address or phone.
+- A rider's position is gone after the 10-minute sweep, sign-out, suspension, removal and erasure.
+- The customer reads the rider's details only while `assigned` or `picked_up`, and the position only
+  while `picked_up`.
 - Two accepts of one offer at once: exactly one wins.
 - The hostname guard: `/delivery-api/` answers only on `{slug}.<SHOP_DOMAIN>`.
 

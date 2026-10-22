@@ -604,7 +604,8 @@ rider_code     (id, store_id, phone, code_hash NULL, attempts, expires_at, used_
                -- as customer_code: 6 digits, hashed, 5 tries, 10 minutes, the same rate limits
                -- only for an invited or active rider's number; deleted a day after expiry
 rider_position (rider_id PK, store_id, latitude, longitude, accuracy_m, reported_at)
-               -- the latest point only, overwritten; deleted when the rider goes offline
+               -- the latest point only, overwritten; deleted when the rider goes offline, by the minute
+               -- sweep once older than 10 minutes, and on sign-out, suspension, removal and erasure
 push_device    (id, store_id, subject_kind ('rider'|'customer'|'order'), subject_id, expo_token,
                 platform ('ios'|'android'), created_at, last_seen_at)
                UNIQUE (store_id, expo_token)
@@ -2454,6 +2455,7 @@ its own `rider` row, its own offers and the deliveries it holds, and the order's
 phone and note only while that delivery is `assigned` or `picked_up` and still its own (never after
 it ends or is handed back); `rider_code` rows exist only for invited or active riders' numbers and
 are deleted a day after they expire; `app_shop` reads one delivery through its
-order, and the rider's name, photo, vehicle, phone and position only while that delivery is
-open. Indexes: `delivery (store_id, state, searching_at)`, `delivery (rider_id, state)`,
+order: the rider's name, photo, vehicle and phone only while it is `assigned` or `picked_up`, the
+rider's position only while it is `picked_up`, and the handover code only while it is `assigned`
+or `picked_up` (DELIVERY §7). Indexes: `delivery (store_id, state, searching_at)`, `delivery (rider_id, state)`,
 `delivery_offer (rider_id, answer)`, `rider (store_id, status)`.
