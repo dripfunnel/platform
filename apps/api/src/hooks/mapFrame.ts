@@ -97,8 +97,9 @@ const script = `(() => {
     } else if ((m.type === 'find' || m.type === 'place') && Number.isInteger(m.id)) {
       let result = null
       try {
-        if (m.type === 'find' && /^[A-Z]{2}$/.test(m.country) && typeof m.address === 'string' && m.address.length <= 500) {
-          const found = await lib.geocoder.geocode({ ...(m.address ? { address: m.address } : {}), componentRestrictions: { country: m.country } })
+        if (m.type === 'find' && typeof m.country === 'string' && /^([A-Z]{2})?$/.test(m.country) && typeof m.address === 'string' && m.address.length <= 500 && (m.address || m.country)) {
+          // Without a country, the address alone (#815's form may leave it empty).
+          const found = await lib.geocoder.geocode({ ...(m.address ? { address: m.address } : {}), ...(m.country ? { componentRestrictions: { country: m.country } } : {}) })
           const at = found.results[0] && found.results[0].geometry.location
           result = at ? pinOf(at) : null
         } else if (m.type === 'place' && latLng(m.at)) {

@@ -59,6 +59,8 @@ export interface StoreContext extends Record<string, unknown> {
   studio?: ((context: TenantContext) => StudioApi) | null
   /** The designer's model, a sample site's screenshot and a pasted image's bytes (storefront ARCHITECTURE §6.2). */
   design?: Pick<StudioDeps, 'ai' | 'screenshots' | 'readAsset'> | null
+  /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
+  mapFrame?: string | null
   now: () => Date
 }
 

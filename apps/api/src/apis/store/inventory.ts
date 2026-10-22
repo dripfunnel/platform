@@ -47,6 +47,9 @@ export const registerInventory = (builder: StoreBuilder) => {
       id: t.exposeID('id'),
       name: t.exposeString('name'),
       address: t.field({ type: Address, resolve: (w) => w.address }),
+      // Its map pin (#815), both or neither; read by everyone who reads the location.
+      latitude: t.exposeFloat('latitude', { nullable: true }),
+      longitude: t.exposeFloat('longitude', { nullable: true }),
       // New products start at the owner's default (SetOps).
       isDefault: t.exposeBoolean('is_default'),
       // A supplier's location, which the merchant side reads but doesn't change; null is the merchant's.
@@ -103,7 +106,7 @@ export const registerInventory = (builder: StoreBuilder) => {
     fields: (t) => ({ line1: t.string(), line2: t.string(), city: t.string(), region: t.string(), postalCode: t.string(), country: t.string() }),
   })
   const WarehouseInput = builder.inputType('WarehouseInput', {
-    fields: (t) => ({ name: t.string({ required: true }), address: t.field({ type: AddressInput }) }),
+    fields: (t) => ({ name: t.string({ required: true }), address: t.field({ type: AddressInput }), latitude: t.float(), longitude: t.float() }),
   })
   const QuantityInput = builder.inputType('StockQuantityInput', {
     fields: (t) => ({ versionId: t.id({ required: true }), warehouseId: t.id({ required: true }), quantity: t.int({ required: true }) }),
@@ -114,6 +117,12 @@ export const registerInventory = (builder: StoreBuilder) => {
   const places = { api: 'store', scope: 'store-seller', permission: 'warehouses.write', target: 'none' } as const
 
   builder.queryFields((t) => ({
+    // Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it (#815).
+    warehouseMapFrame: t.string({
+      nullable: true,
+      extensions: { access: places },
+      resolve: (_, __, ctx) => ctx.mapFrame ?? null,
+    }),
     warehouses: t.field({
       type: WarehousePage,
       args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },

@@ -2165,6 +2165,7 @@ type Query {
   taxSetup: TaxSetup
   translationProgress(language: String!): TranslationProgress
   usage: [BillingUsage!]
+  warehouseMapFrame: String
   warehouses(after: String, before: String, first: Int): WarehousePage
   webhookDeliveries(after: String, before: String, endpointId: ID!, first: Int): WebhookDeliveryPage
   webhookEvents: [String!]
@@ -3366,6 +3367,8 @@ type Warehouse {
   address: WarehouseAddress
   id: ID
   isDefault: Boolean
+  latitude: Float
+  longitude: Float
   name: String
   revision: Int
   supplierId: ID
@@ -3393,6 +3396,8 @@ input WarehouseAddressInput {
 
 input WarehouseInput {
   address: WarehouseAddressInput
+  latitude: Float
+  longitude: Float
   name: String!
 }
 

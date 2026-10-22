@@ -69,6 +69,19 @@ describe('a Shiprocket label', () => {
     expect(order['order_items']).toEqual([{ name: 'Kurta', sku: 'KUR-1', units: 2, selling_price: '499.00', hsn: '6211' }])
   })
 
+  it('registers a pinned location with its coordinates, and one without a pin with none (#815)', async () => {
+    const pickupBody = async (from: LabelRequest['from']) => {
+      const seen: Request[] = []
+      await shiprocketBook({ ...creds, fetchImpl: answering([login, { status: 422, body: {} }, { status: 400, body: {} }], seen) }, { ...india, from })
+      return (await seen[1]?.json()) as Record<string, unknown>
+    }
+    expect(await pickupBody({ ...india.from, pin: { latitude: 26.9239, longitude: 75.8267 } })).toMatchObject({ pin_code: '302003', lat: '26.9239', long: '75.8267' })
+    const unpinned = await pickupBody({ ...india.from, pin: null })
+    expect(unpinned).toMatchObject({ pin_code: '302003' })
+    expect(Object.keys(unpinned)).not.toContain('lat')
+    expect(Object.keys(unpinned)).not.toContain('long')
+  })
+
   it('asks no pickup on request, and answers null for a parcel it won’t take or a shopper with no number', async () => {
     const answers = [login, { status: 200, body: {} }, { status: 200, body: { shipment_id: 1 } }, { status: 200, body: { response: { data: { awb_code: 'A1', courier_name: 'Ekart' } } } }, { status: 200, body: { label_url: 'https://x.s3.amazonaws.com/a.pdf' } }, { status: 200, bytes: pdf }]
     const seen: Request[] = []
@@ -110,6 +123,14 @@ describe('an EasyPost label', () => {
     expect(label).toEqual({ providerRef: 'shp_1', trackingNumber: '9400100000000000000000', trackingUrl: 'https://track.easypost.com/abc', courierName: 'USPS GroundAdvantage', label: { bytes: pdf, mime: 'application/pdf' }, pickup: null })
     expect(await seen[1]?.json()).toEqual({ rate: { id: 'rate_b' } })
     expect(((await seen[0]?.json()) as { shipment: { reference: string; options: unknown } }).shipment).toMatchObject({ reference: us.reference, options: { label_format: 'PDF', label_size: '4x6' } })
+  })
+
+  it('sends a pinned location as its text address alone: EasyPost takes no coordinates (#815)', async () => {
+    const seen: Request[] = []
+    await easyPostBook({ apiKey: 'EZK', fetchImpl: answering([{ status: 201, body: created }, { status: 200, body: bought }, { status: 200, bytes: pdf }], seen) }, 'usps', { ...us, from: { ...us.from, pin: { latitude: 39.9612, longitude: -82.9988 } } })
+    const from = ((await seen[0]?.json()) as { shipment: { from_address: Record<string, unknown> } }).shipment.from_address
+    expect(from).toMatchObject({ street1: '1 High St', city: 'Columbus', zip: '43215' })
+    expect(JSON.stringify(from)).not.toMatch(/39\.9612|-82\.9988|lat|lng|long/)
   })
 
   it('names the bought shipment when its label can’t be fetched, so it can be refunded', async () => {

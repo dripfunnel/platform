@@ -2043,6 +2043,21 @@
       "nameMissing": "Give it a name",
       "countryInvalid": "Use the 2-letter country code, like IN"
     },
+    "map": {
+      "open": "Pin on map",
+      "move": "Move the pin",
+      "remove": "Remove the pin",
+      "title": "Pin this location on the map",
+      "help": "Drag the pin to where couriers collect from, or move it with the arrow keys (Shift for bigger steps). Esc closes the map.",
+      "at": "Pin at {latitude}, {longitude}",
+      "pinned": "Pinned on the map: {at}",
+      "loading": "Loading the map…",
+      "confirm": "Use this point",
+      "cancel": "Close the map",
+    "locate": "Use my location",
+    "locating": "Finding where you are…",
+    "locateFailed": "We couldn’t get your location. Check that your browser lets this site use it, or move the pin yourself."
+    },
     "makeDefault": "Make default",
     "makeDefaultBody": "New products start here. Existing stock doesn’t move.",
     "editNext": "Change its name or address next.",

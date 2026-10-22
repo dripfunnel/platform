@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PageWindow } from '#core/paging'
+import { pinSchema } from '#core/pin'
 import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { queueStoreEvent, queueStoreEvents } from '#db/scoped/storeEvents'
@@ -64,6 +65,9 @@ class Refused extends Error {
 export interface WarehouseInput {
   name: string
   address?: Partial<Record<keyof WarehouseAddress, string | null | undefined>> | null | undefined
+  /** Both or neither (#815); left out, the saved pin stays. */
+  latitude?: number | null | undefined
+  longitude?: number | null | undefined
 }
 
 const addressKeys = ['line1', 'line2', 'city', 'region', 'postalCode', 'country'] as const
@@ -79,7 +83,10 @@ const cleanWarehouse = (input: WarehouseInput) => {
     }),
   ) as unknown as WarehouseAddress
   if (address.country !== null && !/^[A-Z]{2}$/.test(address.country)) throw new Refused('INVALID_INPUT')
-  return { name, address }
+  if (input.latitude === undefined && input.longitude === undefined) return { name, address }
+  const pin = pinSchema.safeParse({ latitude: input.latitude, longitude: input.longitude })
+  if (!pin.success) throw new Refused('INVALID_INPUT')
+  return { name, address, pin: pin.data.latitude === null ? null : { latitude: pin.data.latitude, longitude: pin.data.longitude } }
 }
 
 const whole = (value: number, min: number): number => {

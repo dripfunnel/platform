@@ -1,8 +1,8 @@
-import { z } from 'zod'
 import { isCountry } from '#core/countries'
 import { cleanEmail } from '#core/email'
 import { isE164 } from '#core/sms'
 import type { Money } from '#core/money'
+import { pinSchema } from '#core/pin'
 import type { CartAddress, CartGift } from '#db/scoped/cart'
 
 // The pure rules of a cart (PLATFORM-PROMPT §5.4 Cart and checkout): what an address and a contact must hold, what each
@@ -26,12 +26,6 @@ export interface AddressInput {
 }
 
 const text = (value: string | null | undefined): string | null => value?.trim() || null
-
-// The shopper's map pin (#814): both or neither, in range.
-const pinSchema = z.union([
-  z.object({ latitude: z.number().finite().min(-90).max(90), longitude: z.number().finite().min(-180).max(180) }),
-  z.object({ latitude: z.null().optional(), longitude: z.null().optional() }).transform(() => ({ latitude: null, longitude: null })),
-])
 
 /** An address as the cart keeps it; null when a required part is missing or anything is too long or malformed. */
 export const cleanAddress = (input: AddressInput): CartAddress | null => {

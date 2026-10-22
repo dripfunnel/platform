@@ -23,6 +23,7 @@ describe('the Pin on map frame', () => {
     expect(code).toContain('parent.postMessage(message, parentOrigin)')
     expect(code).toContain("'&language=' + language")
     expect(code).toContain('result = placeOf(found.results)')
+    expect(code).toContain('...(m.country ? { componentRestrictions: { country: m.country } } : {})')
   })
 
   it('may be framed by any https store, and by this machine’s http storefront only locally', () => {

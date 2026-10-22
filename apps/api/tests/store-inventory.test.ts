@@ -1,4 +1,6 @@
 import { graphql, type GraphQLSchema } from 'graphql'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
@@ -50,14 +52,14 @@ afterAll(async () => {
 
 const sellerOf: Partial<Record<Who, () => string>> = { supplier: () => t.sellerA1First, otherSupplier: () => t.sellerA1Second }
 
-const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}) => {
+const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, extra: Partial<StoreContext> = {}) => {
   const partnerId = who === 'bOwner' ? t.partnerB : t.partnerA
   const storeId = who === 'bOwner' ? t.storeB1 : t.storeA1
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const seller = sellerOf[who]?.()
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeId, ...(seller ? { [supplierHeader]: seller } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now }
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now, ...extra }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -429,5 +431,61 @@ describe('Stock and its history', () => {
     expect((await gql('mutation T($v: ID!, $w: ID!, $n: Int) { setLowStockThreshold(versionId: $v, warehouseId: $w, threshold: $n) }', 'supplier', { v: theirs.versions[0], w: godown, n: 10 })).data?.['setLowStockThreshold']).toBe(10)
     // A supplier's chip counts only its own products.
     expect((await chip('supplier')).products.nodes.every((p) => p.id !== low.id)).toBe(true)
+  })
+})
+
+describe('A location’s map pin (#815)', () => {
+  type Pinned = { id: string; latitude: number | null; longitude: number | null; revision: number }
+  const pinOf = async (who: Who, id: string) => ((await gql('{ warehouses { nodes { id latitude longitude revision } } }', who)).data?.['warehouses'] as { nodes: Pinned[] } | undefined)?.nodes.find((w) => w.id === id)
+
+  it('saves a pin with the location, keeps it on a save that leaves it out, and takes it off on null', async () => {
+    const id = (await saveWarehouse('owner', { name: 'Pune godown', address: { city: 'Pune', country: 'IN' }, latitude: 18.5204, longitude: 73.8567 })).id ?? ''
+    expect(await pinOf('owner', id)).toMatchObject({ latitude: 18.5204, longitude: 73.8567, revision: 1 })
+    expect((await saveWarehouse('owner', { name: 'Pune godown 2' }, id, 1)).code).toBeUndefined()
+    expect(await pinOf('owner', id)).toMatchObject({ latitude: 18.5204, longitude: 73.8567, revision: 2 })
+    expect((await saveWarehouse('owner', { name: 'Pune godown 2', latitude: 18.53, longitude: 73.85 }, id, 2)).code).toBeUndefined()
+    // Read by every seat that reads stock, Staff included, who can't change it.
+    expect(await pinOf('staff', id)).toMatchObject({ latitude: 18.53, longitude: 73.85 })
+    expect((await saveWarehouse('owner', { name: 'Pune godown 2', latitude: null, longitude: null }, id, 3)).code).toBeUndefined()
+    expect(await pinOf('owner', id)).toMatchObject({ latitude: null, longitude: null })
+    expect((await saveWarehouse('owner', { name: 'Late', latitude: 1, longitude: 1 }, id, 3)).code).toBe('STALE_REVISION')
+    expect(await deleteWarehouse('owner', id)).toBeUndefined()
+  })
+
+  it('refuses a pin out of range or with one side, in the API and in the table', async () => {
+    for (const pin of [{ latitude: 91, longitude: 0 }, { latitude: 0, longitude: -181 }, { latitude: 18.5 }, { longitude: 73.8 }, { latitude: 18.5, longitude: null }]) {
+      expect((await saveWarehouse('owner', { name: 'Bad pin', ...pin })).code, JSON.stringify(pin)).toBe('INVALID_INPUT')
+    }
+    const [own] = await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${t.storeA1} and seller_id is null and deleted_at is null limit 1`
+    await expect(db.sql`update warehouse set latitude = 18.5 where id = ${own?.id ?? ''}`).rejects.toThrow(/warehouse_pin_whole/)
+    await expect(db.sql`update warehouse set latitude = 95, longitude = 0 where id = ${own?.id ?? ''}`).rejects.toThrow(/check/)
+  })
+
+  it('keeps each owner to its own pins, and another store to none (ACCESS §11)', async () => {
+    const theirs = (await saveWarehouse('supplier', { name: 'Anand pinned', latitude: 12.97, longitude: 77.59 })).id ?? ''
+    // The merchant side reads a supplier's pin with its location, and changes neither.
+    expect(await pinOf('owner', theirs)).toMatchObject({ latitude: 12.97, longitude: 77.59 })
+    for (const who of ['owner', 'otherSupplier', 'bOwner'] as const) expect((await saveWarehouse(who, { name: 'Anand pinned', latitude: 1, longitude: 1 }, theirs, 1)).code, who).toBe('NOT_FOUND')
+    expect(await pinOf('otherSupplier', theirs)).toBeUndefined()
+    expect(await pinOf('bOwner', theirs)).toBeUndefined()
+    expect(await pinOf('supplier', theirs)).toMatchObject({ latitude: 12.97, longitude: 77.59, revision: 1 })
+  })
+
+  it('tells only those who may change a location where the map is, and nothing without a Maps key', async () => {
+    const frame = 'https://hooks.dripfunnel.com/maps/pin'
+    const ask = (who: Who, mapFrame: string | null) => gql('{ warehouseMapFrame }', who, {}, { mapFrame })
+    expect((await ask('owner', frame)).data?.['warehouseMapFrame']).toBe(frame)
+    expect((await ask('supplier', frame)).data?.['warehouseMapFrame']).toBe(frame)
+    expect((await ask('owner', null)).data?.['warehouseMapFrame']).toBeNull()
+    expect((await ask('manager', frame)).code).toBe('FORBIDDEN')
+    expect((await ask('staff', frame)).code).toBe('FORBIDDEN')
+  })
+
+  it('migrates a populated table, keeping every location, unpinned', async () => {
+    const before = (await db.sql<{ n: number }[]>`select count(*)::int as n from warehouse`)[0]?.n ?? 0
+    expect(before).toBeGreaterThan(0)
+    await db.sql`alter table warehouse drop constraint warehouse_pin_whole, drop column latitude, drop column longitude`
+    await db.sql.unsafe(readFileSync(fileURLToPath(new URL('../migrations/0358_warehouse_pin.sql', import.meta.url)), 'utf8'))
+    expect(await db.sql`select count(*)::int as n, count(latitude)::int as pinned from warehouse`).toEqual([{ n: before, pinned: 0 }])
   })
 })
