@@ -31,6 +31,9 @@ export const authHeaders = ({ token = () => null, store = () => null, supplier =
 export const createApiClient = ({ domain, timeoutMs = defaultTimeoutMs, token = () => null, store = () => null, supplier = () => null, fetchImpl = fetch }: ClientOptions) => {
   const endpoint = `https://${domain}/api/`
 
+  const getUrl = (query: string, variables?: Record<string, unknown>): string =>
+    `${endpoint}?query=${encodeURIComponent(query)}${variables ? `&variables=${encodeURIComponent(JSON.stringify(variables))}` : ''}`
+
   const headers = (): Record<string, string> => ({ 'content-type': 'application/json', ...authHeaders({ token, store, supplier }) })
 
   return {
@@ -43,7 +46,7 @@ export const createApiClient = ({ domain, timeoutMs = defaultTimeoutMs, token = 
       let body: GraphQLResponse<T>
       try {
         const response = get
-          ? await fetchImpl(`${endpoint}?query=${encodeURIComponent(query)}`, { method: 'GET', headers: authHeaders({ token, store, supplier }), signal: abort.signal, credentials: 'omit' })
+          ? await fetchImpl(getUrl(query, variables), { method: 'GET', headers: authHeaders({ token, store, supplier }), signal: abort.signal, credentials: 'omit' })
           : await fetchImpl(endpoint, { method: 'POST', headers: headers(), body: JSON.stringify({ query, variables }), signal: abort.signal, credentials: 'omit' })
         body = (await response.json()) as GraphQLResponse<T>
       } catch {

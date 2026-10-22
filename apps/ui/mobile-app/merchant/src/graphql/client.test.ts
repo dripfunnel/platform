@@ -35,6 +35,15 @@ describe('the API client', () => {
     expect(init.body).toBeUndefined()
   })
 
+  it('sends the variables of a GET in the query string, not dropped', async () => {
+    const fetchImpl = jest.fn(answer({ data: { ok: true } }))
+    await createApiClient({ domain: 'store.example.com', fetchImpl }).request('query Q($id: ID!) { ok(id: $id) }', { id: 1 }, { get: true })
+
+    const params = new URL(lastCall(fetchImpl).url).searchParams
+    expect(params.get('query')).toBe('query Q($id: ID!) { ok(id: $id) }')
+    expect(JSON.parse(params.get('variables') ?? 'null')).toEqual({ id: 1 })
+  })
+
   it('sends no credentials until there are some', async () => {
     const fetchImpl = jest.fn(answer({ data: {} }))
     await createApiClient({ domain: 'store.example.com', fetchImpl }).request('{ brand }')
