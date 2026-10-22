@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import { WorkerEntrypoint } from 'cloudflare:workers'
+import { ZodError } from 'zod'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { createServer } from '#apis/graphql/server'
@@ -757,8 +758,9 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
   let config
   try {
     config = parseConfig(env)
-  } catch {
-    console.error(JSON.stringify({ code: 'config_invalid' }))
+  } catch (error) {
+    const keys = error instanceof ZodError ? [...new Set(error.issues.map((issue) => issue.path.join('.')))] : undefined
+    console.error(JSON.stringify({ code: 'config_invalid', keys }))
     return { response: new Response(null, { status: 500 }), area: null }
   }
   const area = resolveArea(url, config, entry)
