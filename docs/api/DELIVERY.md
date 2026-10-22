@@ -133,7 +133,8 @@ round's open offers close as `expired`, and an accept answers only for the curre
 `picked_up` and only the merchant moves it on. Nobody reassigns a parcel in transit.
 
 **Trying again after `failed`** (the parcel is back at the warehouse): Offer again makes a **new
-delivery** for the same order, in `searching`, with a new handover code and new offers; the
+delivery** for the same order, in `searching`, with new offers (its handover code is made when a
+rider is assigned, as for every delivery); the
 failed one keeps its rider and reason as history, and that rider's access to the customer's
 details has already ended (§4). The new delivery's pickup writes no second fulfilment: the
 order's `local` fulfilment already took the stock out. Cancelling the order after a failed
@@ -159,9 +160,14 @@ The merchant then marks it delivered with a reason, as for `CODE_LOCKED`, or not
 cash collected sent with it is kept on the delivery, and the order becomes paid only when the
 delivery becomes `delivered`. With signal the rider retries at the door as usual.
 
+**The minute sweep** *(proposed)*: one Cron trigger every minute in `src/jobs`, per store, that
+(a) moves `searching` deliveries older than the store's minutes to `unassigned` and queues the
+merchant's email (step 3), and (b) deletes `rider_position` rows older than 10 minutes and clears
+those riders' `online_at`. It is idempotent: a second run in the same minute changes nothing.
+
 **Online.** A rider switches **Online** in the app. While online the app sends its position every
 60 seconds; a rider with no position for 10 minutes counts as offline *(proposed)*, and the
-minute sweep (§3 step 3) then deletes their position and clears their online state, so a phone
+minute sweep (below) then deletes their position and clears their online state, so a phone
 that dies or loses signal for good leaves no point behind.
 
 ---
@@ -209,7 +215,7 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 - **The merchant** sees each rider's status (invited, active, suspended), online now, current
   delivery and deliveries done, and can **suspend** (sessions end at once) or **remove** (the row
   stays, so past deliveries keep their rider; the phone is erased, AGENTS.md "Data").
-- **Export and erase** *(proposed, built on DL 18)*: the Owner can export one rider's data (profile,
+- **Export and erase** *(proposed, built on #874)*: the Owner can export one rider's data (profile,
   deliveries with dates, states, warehouse and the customer's area name only, sign-in times) as an
   export job, and **erase** a rider: removal, then "Former rider" in place of their name in past
   deliveries and the activity log's labels (LOGGING §8), with their sessions, devices and position
@@ -322,7 +328,7 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
     stores.
   - **Export and erase:** `exportRider` and `eraseRider` refused for every seat but the Owner and
     for another store's rider; the export holds no customer address or phone.
-- A rider's position is gone after the 10-minute sweep, sign-out, suspension, removal and erasure.
+- A rider's position is gone after the minute sweep (§3) finds it 10 minutes old, sign-out, suspension, removal and erasure.
 - The customer reads the rider's details only while `assigned` or `picked_up`, and the position only
   while `picked_up`.
 - Two accepts of one offer at once: exactly one wins.

@@ -26,7 +26,7 @@ Last updated: 2026-10-22 (the Delivery API, its caller and folder, proposed: DEL
 ## 1. What `apps/api` is
 
 **One Cloudflare Worker** holds all server code: the commerce engine, the platform (SaaS)
-layer, four GraphQL APIs, inbound webhooks, and background work on Queues, Workflows and
+layer, five GraphQL APIs (the Delivery API proposed, DELIVERY.md), inbound webhooks, and background work on Queues, Workflows and
 Cron. The SPAs and storefronts are clients of it; none of them contains business logic.
 
 It follows the usual headless-commerce shape (an engine exposing a Shop API and an admin-side
