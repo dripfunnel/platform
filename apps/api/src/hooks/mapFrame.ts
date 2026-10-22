@@ -123,6 +123,7 @@ const headers = (type: string, local: boolean) => ({
   'content-type': `${type}; charset=utf-8`,
   'content-security-policy': frameCsp(local),
   'x-content-type-options': 'nosniff',
+  // Google sees this host as the referrer, which the key is restricted to (THIRD-PARTY-ACCESS §2.12).
   'referrer-policy': 'strict-origin-when-cross-origin',
   'cache-control': 'public, max-age=300',
 })

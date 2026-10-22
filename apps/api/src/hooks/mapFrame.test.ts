@@ -16,6 +16,7 @@ describe('the Pin on map frame', () => {
     expect(directive(csp, 'script-src')).toBe("script-src 'self' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com blob:")
     expect(directive(csp, 'default-src')).toBe("default-src 'none'")
     expect(directive(csp, 'form-action')).toBe("form-action 'none'")
+    expect(page.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
     const script = get(mapFrameScriptPath)
     expect(script.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
     const code = await script.text()
