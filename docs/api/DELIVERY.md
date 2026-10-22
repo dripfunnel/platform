@@ -10,7 +10,7 @@ their app calls, and what the customer sees while the order is on its way. The t
 **Status: specification, not built.** Decided with Gaurav on 2026-10-22; rows marked
 *(proposed)* await a yes.
 
-Last updated: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -105,11 +105,30 @@ at `searching`. A change of the setting applies to orders placed after it.
    the delivery **delivered**, saying first, for cash on delivery, that the cash was collected; or **not delivered** with a reason (no one home, refused, wrong address),
    and returns the parcel. A failed delivery is the merchant's to retry (offer again) or cancel.
 
-**States.** `packing` → `searching` (only with "when ready"); `searching` → `assigned` → `picked_up` → `delivered`; `searching` → `unassigned` →
-`assigned`; `assigned` or `picked_up` → `failed`; anything before `delivered` → `cancelled` when the
-order is cancelled. A rider may hand an `assigned` delivery back before picking it up, which
-returns it to `searching`. `picked_up` and later keep the rider; nobody reassigns a parcel in
-transit.
+**States** *(proposed in detail)*. Every transition, and who makes it:
+
+| From | To | By |
+|---|---|---|
+| `packing` | `searching` | Ready for pickup (merchant) |
+| `searching` | `assigned` | a rider accepts |
+| `searching` | `unassigned` | nobody accepts in the store's minutes, or nobody in range |
+| `unassigned` | `searching` | Offer again (merchant): the same delivery, new offers |
+| `unassigned` | `assigned` | assigned by hand (merchant) |
+| `assigned` | `searching` | hand back (rider), offered again without that rider |
+| `assigned` | `picked_up` | picked up (rider) |
+| `picked_up` | `delivered` | the right code (rider); or the merchant with a reason when the code is locked or unconfirmed |
+| `picked_up` | `failed` | not delivered (rider); or the merchant for an unconfirmed code |
+| `packing`, `searching`, `unassigned`, `assigned` | `cancelled` | the merchant cancels the delivery, or the order is cancelled |
+
+`delivered`, `failed` and `cancelled` are final. A delivery with `code_unconfirmed_at` stays
+`picked_up` and only the merchant moves it on. Nobody reassigns a parcel in transit.
+
+**Trying again after `failed`** (the parcel is back at the warehouse): Offer again makes a **new
+delivery** for the same order, in `searching`, with a new handover code and new offers; the
+failed one keeps its rider and reason as history, and that rider's access to the customer's
+details has already ended (§4). The new delivery's pickup writes no second fulfilment: the
+order's `local` fulfilment already took the stock out. Cancelling the order after a failed
+delivery follows the existing return path (store/FIRST-RELEASE.md §19).
 
 **Handover code** *(details proposed)*. Four digits, made when a rider is assigned, shown only to the
 order's customer, and only where they are signed in or hold the order's link: the shop app's
@@ -144,13 +163,13 @@ check.
 
 | Operation | Does |
 |---|---|
-| `requestCode(phone)`, `signIn(phone, code)`, `signOut` | Sign-in by a 6-digit text code (§5) |
+| `requestCode(phone)`, `signIn(phone, code)`, `signOut` | Sign-in by a 6-digit text code (§5). `requestCode` answers the same, at once, for every number; the text is queued through the outbox only for an invited or active rider of this store, so neither the answer nor its timing tells who is invited, and nobody can send texts to uninvited numbers at the partner's cost. Limits: 3 a number in 10 minutes, the per-address limiter, and 50 a store in 10 minutes, as shoppers' codes (ACCESS §2.1) |
 | `me`, `updateProfile(name, photo, vehicleType, vehicleNumber)` | The rider's own profile |
 | `setOnline(online)`, `reportPosition(lat, lng, accuracy, at)` | Being available; the latest position (§7) |
 | `offers` | At most 20 open offers for this rider, newest first, each with the warehouse, distance, number of items and the customer's area (never the address before accepting) |
 | `acceptOffer(id)`, `declineOffer(id)` | §3 steps 1–2; a lost race answers `TAKEN` |
-| `deliveries(state, first, after)` | This rider's deliveries, newest first, keyset-paged: `first` 20 by default, at most 50 |
-| `delivery(id)` | One delivery: warehouse address and pin; after acceptance the customer's name, phone, address and pin, the lines and quantities, and the cash to collect |
+| `deliveries(state, first, after)` | This rider's deliveries, newest first, keyset-paged: `first` 20 by default, at most 50. A past delivery shows its date, state, warehouse, the customer's area name and the fee, never the customer's name, phone, address or pin |
+| `delivery(id)` | One delivery: warehouse address and pin, the lines and quantities; **while the rider holds it open** (`assigned` or `picked_up`) also the customer's name, phone, address, pin and note, and the cash to collect. Once it is delivered, failed, cancelled or handed back, none of the customer's details are returned again |
 | `handBack(id)`, `markPickedUp(id)`, `markDelivered(id, code, cashCollected, at, key)`, `markFailed(id, reason, at, key)` | §3 steps 4–5. `markDelivered` refuses a wrong code (`WRONG_CODE`, then `CODE_LOCKED`), and for cash on delivery a missing `cashCollected` (`CASH_NOT_CONFIRMED`); a wrong code arriving late answers `CODE_UNCONFIRMED` (§3, Delivered without signal). The last two may arrive late from a phone that had no signal (decided 2026-10-22, delivery/FIRST-RELEASE.md §1): `at` is when the rider did it, accepted between pickup and now and kept as the step's time; `key` makes a resend do nothing twice |
 | `registerPushDevice(token, platform)` | The Expo push token for this phone (§6) |
 
@@ -170,7 +189,8 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
   delivery app links.
 - **Signing in is joining.** The invited number signs in with a code and the invitation is taken;
   there is no link or token. A number never invited gets the same answer as a wrong code, so the
-  API never reveals which numbers a store has invited (AGENTS.md "Security").
+  API never reveals which numbers a store has invited (AGENTS.md "Security"). A code is kept only
+  for an invited or active rider's number, and code rows are deleted a day after they expire.
 - **Profile:** name, photo, vehicle type (bike, scooter, car, bicycle, on foot), vehicle number.
 - **The merchant** sees each rider's status (invited, active, suspended), online now, current
   delivery and deliveries done, and can **suspend** (sessions end at once) or **remove** (the row
@@ -265,9 +285,20 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
 
 ## 10. Testing
 
-- The isolation matrix (ACCESS.md §11.1) gains the rider: another store's rider, a removed or
-  suspended rider, a rider reading another rider's delivery, a shopper token on the Delivery API
-  and a rider token on the Shop and Store APIs. Every one is refused.
+- The isolation matrix (ACCESS.md §11.1) gains these rows, each refused:
+  - **Delivery API:** another store's rider; a removed or suspended rider; a rider reading or
+    acting on another rider's offer or delivery; a rider reading the customer's details after
+    the delivery ends or after handing it back; a shopper token or a portal session on the
+    Delivery API; a rider token on the Shop and Store APIs.
+  - **Shop API:** another customer, or a guest with another order's token, reading an order's
+    delivery, handover code, rider phone or position; anyone reading the rider's details or
+    position after the delivery ends.
+  - **Store API:** a supplier (any tier) reading a delivery, a rider or a position; a support
+    session reading a rider's phone; Manager, Staff, an API key or an app grant calling
+    `riders.manage` operations; a seat without `orders.fulfil` calling the delivery actions;
+    another store's merchant reading any of it.
+  - **Rows:** `push_device`, `rider_position`, `delivery` and `delivery_offer` never cross
+    stores.
 - Two accepts of one offer at once: exactly one wins.
 - The hostname guard: `/delivery-api/` answers only on `{slug}.<SHOP_DOMAIN>`.
 

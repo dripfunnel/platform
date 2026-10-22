@@ -602,6 +602,7 @@ rider_session  (id_hash, store_id, rider_id, created_at, last_seen_at, expires_a
                -- 30 days from last use, as customer_session; suspension ends every session
 rider_code     (id, store_id, phone, code_hash NULL, attempts, expires_at, used_at NULL, created_at)
                -- as customer_code: 6 digits, hashed, 5 tries, 10 minutes, the same rate limits
+               -- only for an invited or active rider's number; deleted a day after expiry
 rider_position (rider_id PK, store_id, latitude, longitude, accuracy_m, reported_at)
                -- the latest point only, overwritten; deleted when the rider goes offline
 push_device    (id, store_id, subject_kind ('rider'|'customer'|'order'), subject_id, expo_token,
@@ -2419,8 +2420,13 @@ decide which columns and which tables each caller kind may select at all**. `app
 
 ```
 store_shipping gains own_delivery_enabled boolean, dispatch_when ('placed'|'ready'), offer_minutes (1..30, default 5)
-warehouse      gains own_delivery boolean, delivery_radius_m, rider_radius_m, delivery_fee_amount
-               -- own_delivery needs the warehouse's pin (#815); the fee in the store's currency
+warehouse      gains own_delivery boolean, delivery_radius_m, rider_radius_m, delivery_fee_amount NULL,
+                delivery_fee_currency NULL
+               -- own_delivery needs the warehouse's pin (#815); the fee is integer minor units in
+               -- delivery_fee_currency, the store's currency when saved; dropped (and the warehouse's
+               -- own_delivery turned off) when the store's currency moves, as market.delivery_amount is.
+               -- The order copies the fee at placement into its own currency, so a later change never
+               -- reprices an order
 "order"        shipping_option gains 'own_delivery'
 fulfilment     kind gains 'local': written when the rider marks the delivery picked up
 
@@ -2430,8 +2436,10 @@ delivery       (id, store_id, order_id, warehouse_id, state ('packing'|'searchin
                 handover_code_enc NULL, code_attempts, code_unconfirmed_at NULL, ready_at NULL, searching_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
                 failed_at NULL, cancelled_at NULL, eta_at NULL, eta_computed_at NULL, revision)
                UNIQUE (order_id) WHERE state NOT IN ('failed','cancelled')
+               -- a retry after 'failed' is a new row (DELIVERY §3)
                -- accepting is one conditional update on state = 'searching' (DELIVERY §3);
-               -- cash_due_amount is set for cash on delivery only; handover_code_enc is made at
+               -- cash_due_amount is integer minor units in delivery.currency (the order's), set for
+               -- cash on delivery only; handover_code_enc is made at
                -- assignment, read only for the order's customer, and nulled when the delivery ends
 delivery_offer (id, delivery_id, store_id, rider_id, distance_m, sent_at,
                 answer ('accepted'|'declined'|'taken'|'expired') NULL, answered_at NULL)
@@ -2441,7 +2449,9 @@ delivery_offer (id, delivery_id, store_id, rider_id, distance_m, sent_at,
 **Row policies:** merchant side (`store` scope, no seller branch: a supplier never reads a
 delivery, a rider or a position); a new request role `app_rider` for the Delivery API, reaching
 its own `rider` row, its own offers and the deliveries it holds, and the order's address, name,
-phone and lines only while it holds the delivery; `app_shop` reads one delivery through its
+phone and note only while that delivery is `assigned` or `picked_up` and still its own (never after
+it ends or is handed back); `rider_code` rows exist only for invited or active riders' numbers and
+are deleted a day after they expire; `app_shop` reads one delivery through its
 order, and the rider's name, photo, vehicle, phone and position only while that delivery is
 open. Indexes: `delivery (store_id, state, searching_at)`, `delivery (rider_id, state)`,
 `delivery_offer (rider_id, answer)`, `rider (store_id, status)`.
