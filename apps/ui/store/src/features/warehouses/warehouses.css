@@ -162,3 +162,71 @@
   background: var(--df-color-muted);
   color: var(--df-color-surface);
 }
+
+/* "Pin on map" (#815): the map is #814's frame on the hooks host, sized here. */
+.df-places-pin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+}
+
+.df-places-pin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-3);
+}
+
+.df-places-link {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-places-map {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-places-map-title {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.df-places-map-area {
+  height: 18rem;
+  overflow: hidden;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+}
+
+.df-places-map-area:focus-visible,
+.df-places-link:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-places-map-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+@media (max-width: 639px) {
+  .df-places-map-area {
+    height: 16rem;
+  }
+}

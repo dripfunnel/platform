@@ -10,12 +10,12 @@ import { fill as fillWords, messages } from '../../messages'
 
 const words = messages.warehouses
 
-const api = vi.hoisted(() => ({ loadPlaces: vi.fn(), savePlace: vi.fn(), makeDefaultPlace: vi.fn(), deletePlace: vi.fn() }))
+const api = vi.hoisted(() => ({ loadPlaces: vi.fn(), savePlace: vi.fn(), makeDefaultPlace: vi.fn(), deletePlace: vi.fn(), loadMapFrame: vi.fn(), loadStoreCountry: vi.fn() }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...api }))
 
 const { WarehousesView, placeInputOf } = await import('./WarehousesView')
 
-const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDefault: false, units: 0, revision: 1, supplierId: null, supplierName: null, address: { line1: '12 High St', line2: null, city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, ...p })
+const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDefault: false, units: 0, revision: 1, latitude: null, longitude: null, supplierId: null, supplierName: null, address: { line1: '12 High St', line2: null, city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, ...p })
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
@@ -30,6 +30,8 @@ const show = async (canEdit = true, side: 'merchant' | 'supplier' = 'supplier') 
 const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 
 beforeEach(() => {
+  api.loadMapFrame.mockResolvedValue(null)
+  api.loadStoreCountry.mockResolvedValue(null)
   // A supplier's own locations carry its seller id, as the API answers them (inventory.ts supplierId).
   api.loadPlaces.mockResolvedValue([place({ id: 'w2', name: 'Back room', units: 4, supplierId: 'sup-1' }), place({ id: 'w1', name: 'Workshop', isDefault: true, units: 30, supplierId: 'sup-1' })])
 })
@@ -40,8 +42,10 @@ afterEach(() => {
 })
 
 describe('a supplier’s locations', () => {
-  it('sends the name and only the address lines given, the country in capitals', () => {
-    expect(placeInputOf({ id: null, revision: null, name: ' Shed ', line1: '', line2: '', city: 'Jaipur', region: '', postalCode: '', country: 'in' })).toEqual({ name: 'Shed', address: { city: 'Jaipur', country: 'IN' } })
+  it('sends the name, only the address lines given, the country in capitals, and the pin or none', () => {
+    const form = { id: null, revision: null, name: ' Shed ', line1: '', line2: '', city: 'Jaipur', region: '', postalCode: '', country: 'in', pin: null }
+    expect(placeInputOf(form)).toEqual({ name: 'Shed', address: { city: 'Jaipur', country: 'IN' }, latitude: null, longitude: null })
+    expect(placeInputOf({ ...form, pin: { latitude: 26.9, longitude: 75.8 } })).toMatchObject({ latitude: 26.9, longitude: 75.8 })
   })
 
   it('on the merchant side, lists a supplier’s location apart with nothing to manage', async () => {
@@ -69,7 +73,7 @@ describe('a supplier’s locations', () => {
     fireEvent.change(screen.getByLabelText(words.form.city), { target: { value: 'Jaipur' } })
     fireEvent.click(screen.getByRole('button', { name: words.form.saveAdd }))
     await settle()
-    expect(api.savePlace).toHaveBeenCalledWith(null, null, { name: 'Shed', address: { city: 'Jaipur' } })
+    expect(api.savePlace).toHaveBeenCalledWith(null, null, { name: 'Shed', address: { city: 'Jaipur' }, latitude: null, longitude: null })
     expect(screen.getByText('Shed added')).toBeTruthy()
   })
 
@@ -117,7 +121,7 @@ describe('a supplier’s locations', () => {
     api.loadPlaces.mockResolvedValue([place({ id: 'w2', name: 'Back room', units: 4 }), place({ id: 'w1', name: 'Workshop HQ', isDefault: true, units: 30, revision: 2 })])
     fireEvent.click(screen.getByRole('button', { name: words.form.save }))
     await settle()
-    expect(api.savePlace).toHaveBeenCalledWith('w1', 1, { name: 'Main workshop', address: { line1: '12 High St', city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' } })
+    expect(api.savePlace).toHaveBeenCalledWith('w1', 1, { name: 'Main workshop', address: { line1: '12 High St', city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, latitude: null, longitude: null })
     expect(screen.getByText(words.refused.STALE_REVISION)).toBeTruthy()
     expect(screen.queryByLabelText(words.form.name)).toBeNull()
     // Opened again, it edits their change at its new revision, and saves.

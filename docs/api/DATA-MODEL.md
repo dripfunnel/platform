@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -1301,7 +1301,10 @@ totals (DESIGN-BRIEF fact 10, flow 73).
 
 ```
 warehouse           (id, store_id, seller_id NULL, name, address jsonb, is_default boolean, created_at,
-                     updated_at, revision, deleted_at)
+                     updated_at, revision, deleted_at, latitude NULL, longitude NULL)
+                    -- latitude, longitude (#815, 0358): the optional map pin, both or neither,
+                    -- in range; written by whoever may change the location, read with it, and
+                    -- sent to a courier that takes coordinates (THIRD-PARTY-ACCESS §3.2)
                     -- one default per owner: a partial unique index on
                     -- (store_id, coalesce(seller_id, '00000000-0000-0000-0000-000000000000'))
                     -- where is_default, so the merchant's null owner counts once too;

@@ -2,9 +2,11 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, ErrorState, LoadingState, Toast, useScreenState, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/states.css'
 import { useCallback, useEffect, useId, useState } from 'react'
-import { deletePlace, loadPlaces, makeDefaultPlace, savePlace, type Place, type PlaceInput } from '../../api/stock'
+import { deletePlace, loadMapFrame, loadPlaces, loadStoreCountry, makeDefaultPlace, savePlace, type Place, type PlaceInput } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
+import type { Pin } from './mapFrame'
+import { PinOnMap, pinText } from './PinOnMap'
 import { placesSample, placesStates } from './placesStates'
 import './warehouses.css'
 import { refusalIn } from '../common/refusal'
@@ -13,34 +15,41 @@ const words = messages.warehouses
 
 type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; places: Place[] }
-type Form = { id: string | null; revision: number | null; name: string; line1: string; line2: string; city: string; region: string; postalCode: string; country: string }
+type Form = { id: string | null; revision: number | null; name: string; line1: string; line2: string; city: string; region: string; postalCode: string; country: string; pin: Pin | null }
 
-const blank: Form = { id: null, revision: null, name: '', line1: '', line2: '', city: '', region: '', postalCode: '', country: '' }
+const blank: Form = { id: null, revision: null, name: '', line1: '', line2: '', city: '', region: '', postalCode: '', country: '', pin: null }
 
-const formOf = (p: Place): Form => ({ id: p.id, revision: p.revision, name: p.name, line1: p.address?.line1 ?? '', line2: p.address?.line2 ?? '', city: p.address?.city ?? '', region: p.address?.region ?? '', postalCode: p.address?.postalCode ?? '', country: p.address?.country ?? '' })
+const pinOf = (p: Place): Pin | null => (typeof p.latitude === 'number' && typeof p.longitude === 'number' ? { latitude: p.latitude, longitude: p.longitude } : null)
 
-/** The form as the API takes it: the name, and only the address lines given. */
+const formOf = (p: Place): Form => ({ id: p.id, revision: p.revision, name: p.name, line1: p.address?.line1 ?? '', line2: p.address?.line2 ?? '', city: p.address?.city ?? '', region: p.address?.region ?? '', postalCode: p.address?.postalCode ?? '', country: p.address?.country ?? '', pin: pinOf(p) })
+
+/** The form as the API takes it: the name, only the address lines given, and the pin or none. */
 export const placeInputOf = (f: Form): PlaceInput => {
   const address: PlaceInput['address'] = {}
   for (const key of ['line1', 'line2', 'city', 'region', 'postalCode', 'country'] as const) {
     const value = f[key].trim()
     if (value) address[key] = key === 'country' ? value.toUpperCase() : value
   }
-  return { name: f.name.trim(), address }
+  return { name: f.name.trim(), address, latitude: f.pin?.latitude ?? null, longitude: f.pin?.longitude ?? null }
 }
 
 const addressLine = (p: Place) => [p.address?.line1, p.address?.city, p.address?.region, p.address?.country].filter(Boolean).join(', ')
 
+const pinLine = (p: Place) => {
+  const pin = pinOf(p)
+  return pin ? pinText(pin) : ''
+}
+
 const refusalOf = refusalIn(words.refused)
 
-const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f: Form) => void; busy: boolean; onSave: () => void; onCancel: () => void }) => {
+const PlaceForm = ({ form, set, busy, mapSource, near, onSave, onCancel }: { form: Form; set: (f: Form) => void; busy: boolean; mapSource: string | null; near: string; onSave: () => void; onCancel: () => void }) => {
   const id = useId()
   // Opened from a button or a dialog: the form takes focus so its arrival is announced (WCAG 2.4.3).
   useEffect(() => document.getElementById(`${id}-name`)?.focus(), [id])
   const [tried, setTried] = useState(false)
   const nameMissing = form.name.trim() === ''
   const countryBad = form.country.trim() !== '' && !/^[A-Za-z]{2}$/.test(form.country.trim())
-  const field = (key: keyof Omit<Form, 'id' | 'revision'>, label: string, extra: { placeholder?: string; problem?: string | null } = {}) => (
+  const field = (key: keyof Omit<Form, 'id' | 'revision' | 'pin'>, label: string, extra: { placeholder?: string; problem?: string | null } = {}) => (
     <div className="df-places-field">
       <label htmlFor={`${id}-${key}`}>{label}</label>
       <input id={`${id}-${key}`} value={form[key]} placeholder={extra.placeholder} maxLength={key === 'country' ? 2 : 120} aria-invalid={Boolean(extra.problem)} aria-describedby={extra.problem ? `${id}-${key}-problem` : undefined} onChange={(e) => set({ ...form, [key]: e.target.value })} />
@@ -66,6 +75,7 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
         {field('postalCode', words.form.postalCode)}
         {field('country', words.form.country, { problem: countryBad ? words.form.countryInvalid : null })}
       </div>
+      <PinOnMap source={mapSource} value={form.pin} onChange={(pin, found) => set({ ...form, pin, ...(found ? { line1: found.line1 ?? '', line2: '', city: found.city ?? '', region: found.region ?? '', postalCode: found.postalCode ?? '', country: found.country } : {}) })} address={[form.line1, form.line2, form.city, form.region, form.postalCode].map((l) => l.trim()).filter(Boolean).join(', ')} country={form.country.trim().toUpperCase()} near={near} />
       <div className="df-places-actions">
         <button type="button" className="df-button" disabled={busy} onClick={onCancel}>
           {words.form.cancel}
@@ -88,6 +98,8 @@ export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'mer
   const [busy, setBusy] = useState(false)
   const [ask, setAsk] = useState<Ask | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [mapSource, setMapSource] = useState<string | null>(null)
+  const [storeCountry, setStoreCountry] = useState<string | null>(null)
 
   const forced = useScreenState(placesStates, harnessEnabled)
   const load = useCallback(() => {
@@ -101,6 +113,13 @@ export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'mer
     )
   }, [forced])
   useEffect(load, [load])
+  // Only those who may change a location are told where the map is; without it, or on any failure, there's no map.
+  useEffect(() => {
+    if (!canEdit || forced) return
+    void loadMapFrame().then(setMapSource, () => setMapSource(null))
+    // A supplier may not read the store's info; the map then starts without it.
+    void loadStoreCountry().then(setStoreCountry, () => setStoreCountry(null))
+  }, [canEdit, forced])
 
   const run = async (work: () => Promise<string>) => {
     setBusy(true)
@@ -176,7 +195,7 @@ export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'mer
         )}
       </div>
       {!canEdit && <p className="df-places-hint">{words.viewOnly}</p>}
-      {form && <PlaceForm key={form.id ?? 'new'} form={form} set={setForm} busy={busy} onSave={() => save(form)} onCancel={() => setForm(null)} />}
+      {form && <PlaceForm key={form.id ?? 'new'} form={form} set={setForm} busy={busy} mapSource={mapSource} near={places.find((p) => p.isDefault)?.address?.country || storeCountry || ''} onSave={() => save(form)} onCancel={() => setForm(null)} />}
       {places.length === 0 ? (
         <p className="df-places-empty">{words.empty}</p>
       ) : (
@@ -188,7 +207,7 @@ export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'mer
               </span>
               <span className="df-places-text">
                 <strong>{p.name}</strong>
-                <span>{[addressLine(p), fill(plural(words.units, p.units), { count: formatCount(p.units) })].filter(Boolean).join(' · ')}</span>
+                <span>{[addressLine(p), pinLine(p), fill(plural(words.units, p.units), { count: formatCount(p.units) })].filter(Boolean).join(' · ')}</span>
               </span>
               {p.isDefault && <span className="df-places-default">{words.default}</span>}
               {canEdit && (
@@ -212,7 +231,7 @@ export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'mer
                 </span>
                 <span className="df-places-text">
                   <strong>{p.name}</strong>
-                  <span>{[p.supplierName ?? '', addressLine(p), fill(plural(words.units, p.units), { count: formatCount(p.units) })].filter(Boolean).join(' · ')}</span>
+                  <span>{[p.supplierName ?? '', addressLine(p), pinLine(p), fill(plural(words.units, p.units), { count: formatCount(p.units) })].filter(Boolean).join(' · ')}</span>
                 </span>
               </li>
             ))}

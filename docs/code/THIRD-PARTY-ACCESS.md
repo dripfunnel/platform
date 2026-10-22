@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-10-22 (#815: warehouse pins in the merchant portal through the same frame, §2.12; Shiprocket takes a pinned location's coordinates, EasyPost doesn't, §3.2). Before: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -280,10 +280,12 @@ developer's **own** fine-grained token in `GITHUB_PAT` (issues, pull requests an
 `dripfunnel/platform` only, 90 days at most). Setup, use, troubleshooting and rotation:
 [GITHUB-MCP.md](GITHUB-MCP.md).
 
-### 2.12 Google Maps (storefront "Pin on map")
+### 2.12 Google Maps (storefront and warehouse "Pin on map")
 
 Shoppers may pin their delivery address on a map at checkout and in My addresses (#814;
-storefront ARCHITECTURE §2.1). One platform key per environment, not per store or partner.
+storefront ARCHITECTURE §2.1), and merchants and suppliers may pin a warehouse in the merchant portal
+(#815), through the same map frame, so the portal never holds the key. One platform key per environment,
+not per store or partner.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
@@ -382,6 +384,12 @@ courier's file store over https. Locally the stand-in books too. Part 2: trackin
 and `hooks.<host>/couriers/easypost/{partnerId}` (an EasyPost webhook with a secret, which signs each event); there is no
 polling. Still missing on dev: each partner's Shiprocket API user and webhook token, and EasyPost key and webhook secret
 (#275 stores them with the account).
+
+**Warehouse pins (#815)**: a pinned location's coordinates go to Shiprocket's add-pickup call as `lat` and `long`
+(optional strings; confirmed from a client library and an integration, as its own docs page wouldn't render, so the card's
+open question asks for a check against the official docs). EasyPost's address takes no coordinates (only its verification
+answers them), so it keeps the text address. Shiprocket registers a location once, at its first label, so a pin added or
+moved after that isn't sent.
 
 **Built on #305**: the adapters (`integrations/couriers/`: Shiprocket's serviceability rates after a login per quote,
 since the Worker keeps nothing between requests; EasyPost's shipment rates, one carrier's at a time) and a store's choice
