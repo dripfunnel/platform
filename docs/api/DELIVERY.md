@@ -10,7 +10,7 @@ their app calls, and what the customer sees while the order is on its way. The t
 **Status: specification, not built.** Decided with Gaurav on 2026-10-22; rows marked
 *(proposed)* await a yes.
 
-Last updated: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -117,8 +117,12 @@ at `searching`. A change of the setting applies to orders placed after it.
 | `assigned` | `searching` | hand back (rider), offered again without that rider |
 | `assigned` | `picked_up` | picked up (rider) |
 | `picked_up` | `delivered` | the right code (rider); or the merchant with a reason when the code is locked or unconfirmed |
-| `picked_up` | `failed` | not delivered (rider); or the merchant for an unconfirmed code |
+| `picked_up` | `failed` | not delivered (rider); the merchant for an unconfirmed code; or the merchant **recalls** it (`cancelDelivery` on a picked-up delivery, reason `recalled`): the rider is told by push to bring the parcel back, and their access to the customer's details and the code end at once |
 | `packing`, `searching`, `unassigned`, `assigned` | `cancelled` | the merchant cancels the delivery, or the order is cancelled |
+
+An order whose delivery is `picked_up` can't be cancelled: `cancelOrder` already refuses any order
+something has left (`NOT_CANCELLABLE`, store/FIRST-RELEASE.md §19 Part 4), and a parcel in transit
+has left. The merchant recalls the delivery first, then refunds through the return path.
 
 `delivered`, `failed` and `cancelled` are final. A delivery with `code_unconfirmed_at` stays
 `picked_up` and only the merchant moves it on. Nobody reassigns a parcel in transit.
@@ -166,7 +170,7 @@ check.
 | `requestCode(phone)`, `signIn(phone, code)`, `signOut` | Sign-in by a 6-digit text code (§5). `requestCode` answers the same, at once, for every number; the text is queued through the outbox only for an invited or active rider of this store, so neither the answer nor its timing tells who is invited, and nobody can send texts to uninvited numbers at the partner's cost. Limits: 3 a number in 10 minutes, the per-address limiter, and 50 a store in 10 minutes, as shoppers' codes (ACCESS §2.1) |
 | `me`, `updateProfile(name, photo, vehicleType, vehicleNumber)` | The rider's own profile |
 | `setOnline(online)`, `reportPosition(lat, lng, accuracy, at)` | Being available; the latest position (§7) |
-| `offers` | At most 20 open offers for this rider, newest first, each with the warehouse, distance, number of items and the customer's area (never the address before accepting) |
+| `offers(first, after)` | This rider's open offers, newest first, keyset-paged: `first` 20 by default, at most 50; each with the warehouse, distance, number of items and the customer's area (never the address before accepting) |
 | `acceptOffer(id)`, `declineOffer(id)` | §3 steps 1–2; a lost race answers `TAKEN` |
 | `deliveries(state, first, after)` | This rider's deliveries, newest first, keyset-paged: `first` 20 by default, at most 50. A past delivery shows its date, state, warehouse, the customer's area name and the fee, never the customer's name, phone, address or pin |
 | `delivery(id)` | One delivery: warehouse address and pin, the lines and quantities; **while the rider holds it open** (`assigned` or `picked_up`) also the customer's name, phone, address, pin and note, and the cash to collect. Once it is delivered, failed, cancelled or handed back, none of the customer's details are returned again |
@@ -262,10 +266,11 @@ delivery ends.
 | `riders(first, after)` (50 by default, at most 100), `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider`, `removeRider` (§5) | New `riders.manage`: Owner |
 | `order(id).delivery`: state, history, rider, position while picked up | `orders.read` |
 | `markReadyForPickup(orderId)` (§3) | `orders.fulfil` |
-| `assignDelivery(deliveryId, riderId)`, `offerDeliveryAgain(deliveryId)`, `cancelDelivery(deliveryId)`, `markDeliveryDelivered(deliveryId, reason)` (a locked or unconfirmed code, §3) | `orders.fulfil` |
+| `assignDelivery(deliveryId, riderId)`, `offerDeliveryAgain(deliveryId)`, `cancelDelivery(deliveryId)` (before pickup it cancels; after, it recalls, §3), `markDeliveryDelivered(deliveryId, reason)` (a locked or unconfirmed code, §3) | `orders.fulfil` |
 
 A supplier never sees riders, positions or a delivery: own delivery carries only the store's
-lines (§2). A support session reads them as `orders.read` allows, never a rider's phone.
+lines (§2), so a supplier's `orders.fulfil` (ACCESS §5.2) never reaches these actions; they
+check the merchant side as well as the permission (ACCESS §5.1). A support session reads them as `orders.read` allows, never a rider's phone.
 
 ---
 

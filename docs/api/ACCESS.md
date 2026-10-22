@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -438,6 +438,8 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `offers.export`: `exportOfferCodes`, a batch's codes as a file; Staff reads offers but may not export their codes (decided 2026-10-05) | ✓ | ✓ | |
 | `store.export`: `exportStoreData`, everything the store holds, for leaving or a data request | ✓ | | |
 | `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
+| `riders.manage` *(proposed)*: the store's riders, Settings › Riders: invite, resend, suspend, restore, remove, export, erase ([DELIVERY.md](DELIVERY.md) §5, §8) | ✓ | | |
+| Own-delivery actions *(proposed)*: Ready for pickup, assign, offer again, cancel or recall, mark delivered with a reason ([DELIVERY.md](DELIVERY.md) §8): the merchant side's `orders.fulfil`, never a supplier's | ✓ | ✓ | ✓ |
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
 | `support.allow_write`: Allow or Deny a support agent's write request inside an open session (§8) (decided 2026-10-05 on #337) | ✓ | ✓ | |
@@ -482,7 +484,7 @@ supplier who can look and not touch.
 | `catalog.propose`: a new product that waits for the merchant's approval, never an edit (decided on #337, built on #295) | ✓ | | | |
 | `stock.read`, `stock.write`, `warehouses.write` | ✓ | ✓ | ✓ | ✓ |
 | `orders.read`: their own sub-orders | | | ✓ | ✓ |
-| `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode | | | ✓ | |
+| `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode; never the store's own-delivery actions or riders ([DELIVERY.md](DELIVERY.md) §8) | | | ✓ | |
 | `orders.refund`: their own lines only, up to their value; never a return's start or an override (§7.3) | | | ✓ | |
 | `sales.read`: Your sales (`mySales`), their own sold lines, no totals; never `reports.read` | | | ✓ | ✓ |
 | `exports.products`: their own products and stock | ✓ | ✓ | ✓ | ✓ |
