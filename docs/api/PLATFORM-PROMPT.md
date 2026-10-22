@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
+Last updated: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -358,7 +358,7 @@ leaks structurally hard:
   and links use that brand's domain. A person with stores under two brands has two accounts
   (decided, ACCESS.md §2).
 - Rate limits on sign-in, sign-up, invitation, password reset and code entry.
-- **Four kinds of caller** reach the engine, and each resolves to the same `TenantContext`
+- **Five kinds of caller** reach the engine, and each resolves to the same `TenantContext`
   (acting store, `SellerScope`, permissions) before any resolver runs:
   - a **person** in the portal (session → membership in the acting store);
   - a **shopper** on a storefront (public store key, plus an optional customer session);
@@ -366,7 +366,9 @@ leaks structurally hard:
     optionally seller-bound for a vendor's own integration, hashed at rest, rotatable,
     last-used shown);
   - an **installed app** (an OAuth-style grant per store with the scopes the merchant
-    approved, revocable on uninstall).
+    approved, revocable on uninstall);
+  - a **rider** in the store's delivery app (a per-store bearer session from a mobile code),
+    reaching only its own offers and deliveries *(proposed, DELIVERY.md)*.
 
   Never let one kind borrow another's power: an API key can't do what its creator's role
   can't, and a vendor's key can't see outside its `seller_id`.

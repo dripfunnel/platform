@@ -5,13 +5,13 @@ Who uses the platform, where each of them signs in, and which hostnames exist. *
 "brand" they mean a **partner**'s white-label identity, and where they say "DF Admin" they
 mean the admin console at `admin.dripfunnel.com`.
 
-Last updated: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug}.my-store.one` live,
+Last updated: 2026-10-22 (riders, a sixth kind of user, §1, with Gaurav; api/DELIVERY.md). Before: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug}.my-store.one` live,
 `{slug}-preview.my-store.one` preview; the partner's shop domain retired; built on #744, #745, `SHOP_DOMAIN` replaces `PREVIEW_DOMAIN`). Before: 2026-10-09
 (previews moved to `{key}.webpreview.store`; §5's checks answered).
 
 ---
 
-## 1. The five kinds of user
+## 1. The six kinds of user
 
 | User | Who | Signs in at | Does | Never sees |
 |---|---|---|---|---|
@@ -19,12 +19,16 @@ Last updated: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug
 | **Partner** | A company that white-labels the platform and sells it to its merchants. **DripFunnel is also a partner** (the house partner) and onboards its own merchants the same way | `platform.dripfunnel.com` (the same host for every partner; not white-labeled) | Self-onboards, sets its branding and domains, its plans and prices, and manages its merchants at account level | Other partners; merchants' customers, orders and catalogues (§4) |
 | **Merchant** | Owns a store, with their staff (Owner, Manager, Staff) | The partner's **portal host**, e.g. `store.partnerdomain.com`, in the partner's look | Lists products, sets up the storefront and its domain, runs orders and offers, invites vendors | Other merchants; the partner's other data |
 | **Vendor** (seller) | A supplier the merchant invites to list products in the merchant's store | The same partner portal host as the merchant | Manages only their own products, stock and (by tier) their order lines | The merchant's and other vendors' data (unchanged from the archived design) |
-| **Customer** | Buys from a merchant's store | The merchant's storefront domain | Browses, buys, manages their account and orders | Everything else |
+| **Customer** | Buys from a merchant's store | The merchant's storefront domain, or the store's own shop app | Browses, buys, manages their account and orders, tracks a delivery | Everything else |
+| **Rider** *(proposed)* | The merchant's own delivery person, invited by the merchant | The store's own delivery app (Delivery API on `{slug}.my-store.one`) | Accepts orders offered from the store's warehouses, picks them up, delivers them, collects cash on delivery ([api/DELIVERY.md](api/DELIVERY.md)) | Everything but the deliveries offered to or held by them |
 
 **Customer accounts are per store** (decided): a person who buys from two merchants has two
 separate customer accounts, because each is the merchant's customer, not the platform's.
 Each store chooses whether shoppers sign in by email, mobile number or both (decided
 2026-09-28, api/ACCESS.md §2.1).
+
+**Rider accounts are per store** *(proposed)*, like customers': a person delivering for two stores
+has two rider accounts and two apps ([api/DELIVERY.md](api/DELIVERY.md) §5).
 
 **Merchant and supplier accounts are per partner** (decided 2026-09-28): one login covers
 every store a person belongs to under one partner; the same email under another partner is
