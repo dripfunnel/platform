@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-22 (#815: warehouse pins in the merchant portal through the same frame, §2.12; Shiprocket takes a pinned location's coordinates, EasyPost doesn't, §3.2). Before: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-10-22 (proposed for the shop and delivery apps: Expo push §2.13, the Routes and native Maps keys §2.12, the merchant's own store accounts §3.7). Before: 2026-10-22 (#815: warehouse pins in the merchant portal through the same frame, §2.12; Shiprocket takes a pinned location's coordinates, EasyPost doesn't, §3.2). Before: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -292,6 +292,17 @@ not per store or partner.
 | **Google Cloud project** with billing | The Maps JavaScript API and the Geocoding API | Project | — | #814 |
 | **Browser API key**, one per environment | Loads the map in the shopper's browser, so it is public by design. **Restricted by referrer** to the hooks host (`https://hooks.<host>/*`; locally `https://hooks.localhost/*`): Google is loaded only inside the map frame, whose page sends its origin as the referrer, so no store domain needs listing. Also **restricted by API** (Maps JavaScript API and Geocoding API only), with a daily quota (decided 2026-10-22 on #814) | `AIza…` (public) | Worker variable `GOOGLE_MAPS_BROWSER_KEY`; only the map frame's page on the hooks host carries it (`hooks.<host>/maps/pin`), never the Shop API, a build or a repo | #814 |
 
+*(proposed, api/DELIVERY.md §7, mobile-app/README.md)* Own delivery adds a **server key** restricted to the
+Routes API, for arrival estimates (Worker secret `GOOGLE_MAPS_SERVER_KEY`; without it no estimate), and
+the shop and delivery apps need **Maps SDK for Android keys** restricted to each store's package and
+signing certificate. *(decide)* One key per environment listing every store's package, or one per store.
+
+### 2.13 Expo push service *(proposed, api/DELIVERY.md §6)*
+
+Pushes to the shop and delivery apps go through Expo's push service. DripFunnel's Expo account holds an
+**access token** for sending (Worker secret `EXPO_PUSH_TOKEN`); each store's APNs key and Firebase
+project are kept in EAS with the store's build credentials (mobile-app/README.md §3).
+
 ---
 
 ## 3. Credentials merchants bring
@@ -433,6 +444,13 @@ prototype, Pricing, PortalBilling).
 - **Outbound webhooks** and **API keys** in Settings › Developers: **we** generate these
   secrets (§5), shown once.
 
+### 3.7 The merchant's own app store accounts *(proposed, mobile-app/README.md §2)*
+
+A store with its own shop and delivery apps enrols as an organization with the Apple Developer Program
+and Google Play Console, and gives DripFunnel least-privilege access (an App Store Connect API key; a Play
+service account), as partners do for the merchant app (mobile-app/merchant/BUILDS-AND-STORE-ACCOUNTS.md §2,
+§5). The keys live in EAS per store, never in the platform's database or the repo.
+
 ---
 
 ## 4. What partners provide
@@ -565,6 +583,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 8. **Exchange rates and duties providers.** ~~US sales tax~~: Stripe Tax (#184), on the merchant's own account through Connect (#284). (§2.8)
 9. **Logpush destination, error tracking, support chat and status page.** (§2.8)
 10. **SES region**, and whether EU partners need EU sending and storage.
+11. *(decide)* The Maps SDK for Android keys for per-store apps: one per environment or one per store (§2.12).
 
 ---
 

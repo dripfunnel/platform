@@ -25,6 +25,7 @@ document disagrees. Then open only the part your task touches:
 | Tables, tenancy tree, users and roles storage, row-level security | [docs/api/DATA-MODEL.md](docs/api/DATA-MODEL.md) |
 | Partners, merchant accounts, provisioning, plans, billing, domains, publishing, fleet | [docs/api/SAAS.md](docs/api/SAAS.md) |
 | Activity (audit) log, technical logs, anything users can search about who did what | [docs/api/LOGGING.md](docs/api/LOGGING.md) |
+| Own delivery, riders, dispatch, delivery tracking, the Delivery API | [docs/api/DELIVERY.md](docs/api/DELIVERY.md) |
 | Any SPA: structure, API calls, text, navigation, states, adding a screen | [docs/ui/README.md](docs/ui/README.md) |
 | Merchant portal (`apps/ui/store`) | [docs/ui/store/](docs/ui/store/README.md) and its DESIGN-BRIEF, CATALOG-DESIGN, OFFERS-DESIGN |
 | Partner console (`apps/ui/platform`) | [docs/ui/platform/](docs/ui/platform/README.md) |
@@ -33,6 +34,7 @@ document disagrees. Then open only the part your task touches:
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
 | Creating a card (task, bug or feature) on the DF Platform board | [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md) |
 | Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
+| Shop or delivery app (`apps/ui/mobile-app/shop`, `delivery`; not built) | [docs/mobile-app/README.md](docs/mobile-app/README.md), then the app's FIRST-RELEASE and ARCHITECTURE |
 | Merchant mobile app (`apps/ui/mobile-app/merchant`) | [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md): start with REACT-NATIVE, then DESIGN and ARCHITECTURE |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 | Storefront builds, hosting, preview, the studio's sandbox | [docs/storefront/LIVE-SHOP.md](docs/storefront/LIVE-SHOP.md), [PREVIEW.md](docs/storefront/PREVIEW.md), [AI-STUDIO.md](docs/storefront/AI-STUDIO.md) |

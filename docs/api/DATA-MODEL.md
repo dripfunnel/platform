@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -587,6 +587,30 @@ partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
 ```
 
 ---
+
+### 3.6 Riders (store) *(proposed, api/DELIVERY.md §5)*
+
+```
+rider          (id, store_id, name, phone, photo_asset_id NULL,
+                vehicle_type ('bike'|'scooter'|'car'|'bicycle'|'foot') NULL, vehicle_number NULL,
+                status ('invited'|'active'|'suspended'|'removed'), online_at NULL,
+                invited_by_user_id NULL, created_at, updated_at, removed_at NULL)
+               UNIQUE (store_id, phone) WHERE status <> 'removed'
+               -- online while online_at is set; removal erases phone and photo, keeping the
+               -- name past deliveries show (AGENTS.md "Data")
+rider_session  (id_hash, store_id, rider_id, created_at, last_seen_at, expires_at, ended_at NULL)
+               -- 30 days from last use, as customer_session; suspension ends every session
+rider_code     (id, store_id, phone, code_hash NULL, attempts, expires_at, used_at NULL, created_at)
+               -- as customer_code: 6 digits, hashed, 5 tries, 10 minutes, the same rate limits
+rider_position (rider_id PK, store_id, latitude, longitude, accuracy_m, reported_at)
+               -- the latest point only, overwritten; deleted when the rider goes offline
+push_device    (id, store_id, subject_kind ('rider'|'customer'|'order'), subject_id, expo_token,
+                platform ('ios'|'android'), created_at, last_seen_at)
+               UNIQUE (store_id, expo_token)
+               -- 'order' is a guest's order; a token Expo reports dead is deleted
+```
+
+All five are system scope or the rider's own rows (§7.12); none has a partner branch.
 
 ## 4. Roles and permissions
 
@@ -2390,3 +2414,34 @@ decide which columns and which tables each caller kind may select at all**. `app
   (order_id, seller_id)` and `return_line (return_id, seller_id)`, and
   `order_line_for_supplier` by `order_line (order_id, seller_id)`; the structural test (§5.4)
   lists all three views, the metering view and every `app_definer` function with its filter.
+
+### 7.12 Own delivery *(proposed, api/DELIVERY.md)*
+
+```
+store_shipping gains own_delivery_enabled boolean, dispatch_when ('placed'|'ready'), offer_minutes (1..30, default 5)
+warehouse      gains own_delivery boolean, delivery_radius_m, rider_radius_m, delivery_fee_amount
+               -- own_delivery needs the warehouse's pin (#815); the fee in the store's currency
+"order"        shipping_option gains 'own_delivery'
+fulfilment     kind gains 'local': written when the rider marks the delivery picked up
+
+delivery       (id, store_id, order_id, warehouse_id, state ('packing'|'searching'|'unassigned'|'assigned'
+                |'picked_up'|'delivered'|'failed'|'cancelled'), rider_id NULL, fulfilment_id NULL,
+                cash_due_amount NULL, currency, cash_collected_at NULL, failed_reason NULL,
+                handover_code_enc NULL, code_attempts, ready_at NULL, searching_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
+                failed_at NULL, cancelled_at NULL, eta_at NULL, eta_computed_at NULL, revision)
+               UNIQUE (order_id) WHERE state NOT IN ('failed','cancelled')
+               -- accepting is one conditional update on state = 'searching' (DELIVERY §3);
+               -- cash_due_amount is set for cash on delivery only; handover_code_enc is made at
+               -- assignment, read only for the order's customer, and nulled when the delivery ends
+delivery_offer (id, delivery_id, store_id, rider_id, distance_m, sent_at,
+                answer ('accepted'|'declined'|'taken'|'expired') NULL, answered_at NULL)
+               UNIQUE (delivery_id, rider_id)
+```
+
+**Row policies:** merchant side (`store` scope, no seller branch: a supplier never reads a
+delivery, a rider or a position); a new request role `app_rider` for the Delivery API, reaching
+its own `rider` row, its own offers and the deliveries it holds, and the order's address, name,
+phone and lines only while it holds the delivery; `app_shop` reads one delivery through its
+order, and the rider's name, photo, vehicle, phone and position only while that delivery is
+open. Indexes: `delivery (store_id, state, searching_at)`, `delivery (rider_id, state)`,
+`delivery_offer (rider_id, answer)`, `rider (store_id, status)`.

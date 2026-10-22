@@ -1,0 +1,73 @@
+# mobile-app/shop: code architecture
+
+How `apps/ui/mobile-app/shop` is laid out and how it talks to the Shop API. Scope is
+[FIRST-RELEASE.md](FIRST-RELEASE.md); builds and per-store configuration are
+[../README.md](../README.md) §3.
+
+**Status: specification, not built.**
+
+Last updated: 2026-10-22 (first version).
+
+---
+
+## 1. Rules
+
+The merchant app's rules hold (merchant/ARCHITECTURE.md §1), with the Shop API in place of the
+Store API: the API decides and the app displays; nothing per store in code; no secrets in the app
+or the repo; text from `messages/`, formatting through `format/`, errors by code, and every screen's
+empty, loading, error and offline states. **API changes are only those in §4**, each built on its
+own Shop API card.
+
+---
+
+## 2. Folder structure
+
+```
+apps/ui/mobile-app/shop/
+  app.config.ts             reads and validates the store's env file (../README.md §3)
+  stores/<storeKey>.env     one per store: public build-time values
+  stores/<storeKey>/        that store's icon, splash and listing text
+  eas.json                  one build profile per store
+  src/
+    app/                    Expo Router routes
+      _layout.tsx           polyfills, brand, session, push
+      (tabs)/               home  browse/  cart  account/
+      product/[handle]  checkout/  orders/[id]  orders/[id]/track
+    features/<area>/        screens per area
+    api/<area>.ts           the app's GraphQL operations, typed from apps/api/schema/shop.graphql
+    session/                the customer's bearer token and the cart token, in secure storage
+    brand/                  the store's look from the Shop API
+    push/                   permission, the Expo token, opening the order a push names
+    nav.ts  messages/
+```
+
+Foundations (`graphql/`, `format/`, `intl/`, `theme/`) come from `apps/ui/mobile-app/shared`
+(../README.md §2).
+
+---
+
+## 3. Dependencies (each with its reason)
+
+| Package | Why |
+|---|---|
+| `expo-notifications` | Order and delivery pushes |
+| `expo-secure-store` | The session and cart tokens |
+| `expo-location` | "Use my location" on the address pin |
+| `react-native-maps` | The address pin and the live tracking map (Google Maps on Android, Apple Maps on iOS) |
+| `@stripe/stripe-react-native` | Stripe's Payment Sheet |
+| `react-native-razorpay` | Razorpay's checkout |
+| `react-native-cashfree-pg-sdk` | Cashfree's checkout |
+| PhonePe's React Native SDK | PhonePe's checkout |
+| PayPal *(decide)* | PayPal has no official React Native SDK: its approval page in the in-app browser, or a native SDK wrapped as an Expo module |
+
+---
+
+## 4. Shop API changes the app needs
+
+| Change | Why |
+|---|---|
+| **A bearer token** for the customer session and the guest cart, beside the cookie, as the Store API takes the merchant app's (`auth/storeCredential.ts`); a bearer request skips the `Origin` check | An app has no cookie jar the API can rely on |
+| **The store's brand**: logo, colours, font, app-facing name | The app's look at runtime (../README.md §3) |
+| **`registerPushDevice`, `unregisterPushDevice`** for a signed-in customer or a guest's order | Order pushes (api/DELIVERY.md §6) |
+| **Own delivery in `shippingOptions`** and **`order.delivery`** | api/DELIVERY.md §2 and §7 |
+| **Payment for a native SDK**: what each provider's app checkout needs (Stripe's payment intent client secret and ephemeral key, PayPal's order, Razorpay's order id, Cashfree's payment session, PhonePe's order token), for the app's `checkout` | The providers' sheets need these instead of the web element |
