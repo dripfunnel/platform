@@ -32,7 +32,7 @@ const deps = (): PublishDeps => ({
   sites,
   assets,
   drafts,
-  assetOrigin: 'https://sf-assets.my-store.one', shopDomain: 'shop.example',
+  assetOrigin: 'https://sf-assets.my-store.one', shopDomain: 'shop.example', mapsFrameOrigin: null,
   dispatch: async (repo, buildId) => {
     dispatched.push({ repo, buildId })
     return true

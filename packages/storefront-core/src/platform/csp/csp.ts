@@ -51,6 +51,8 @@ export const storeCspSchema = z.strictObject({
   payments: z.array(z.enum(paymentProviders)).max(5),
   /** The store's portal, the only page that may frame its pages (the Overview, FIRST-RELEASE §14); absent, none may. */
   portalOrigin: origin.optional(),
+  /** "Pin on map"'s frame on the hooks host (#814), framed only by the checkout and account pages; absent, no map. */
+  mapsFrameOrigin: origin.optional(),
 })
 
 export type StoreCsp = z.infer<typeof storeCspSchema>
@@ -73,11 +75,15 @@ export const trustedTypesPolicies = ['df-core', 'default', 'goog#html'] as const
 const directives = (list: [name: string, sources: readonly string[]][]) =>
   list.map(([name, sources]) => [name, ...new Set(sources)].join(' ')).join('; ')
 
-/** The CSP header for a store's live site and its preview link. */
-export const storeCsp = (input: StoreCsp, hashes: InlineHashes): string => {
+/** The built pages with the address form, the only ones that may frame "Pin on map" (ARCHITECTURE §3.5). */
+export const isMapsPage = (path: string): boolean => /^(?:checkout|account)\//.test(path)
+
+/** The CSP header for a store's live site and its preview link; `page` is the built file's path. */
+export const storeCsp = (input: StoreCsp, hashes: InlineHashes, page = ''): string => {
   const p = storeCspSchema.parse(input)
   const from = (key: keyof Hosts) => [...p.analytics.flatMap((a) => analyticsHosts[a][key] ?? []), ...p.payments.flatMap((k) => paymentHosts[k][key] ?? [])]
   const build = ["'self'", ...(p.assetOrigin ? [p.assetOrigin] : [])]
+  const frames = [...from('frame'), ...(p.mapsFrameOrigin && isMapsPage(page) ? [p.mapsFrameOrigin] : [])]
   return directives([
     ['default-src', ["'none'"]],
     ['script-src', [...build, ...hashes.scripts, ...from('script')]],
@@ -86,7 +92,7 @@ export const storeCsp = (input: StoreCsp, hashes: InlineHashes): string => {
     ['img-src', ["'self'", ...p.mediaOrigins, ...from('img')]],
     ['media-src', ["'self'", ...p.mediaOrigins]],
     ['connect-src', ["'self'", ...from('connect')]],
-    ['frame-src', from('frame').length ? from('frame') : ["'none'"]],
+    ['frame-src', frames.length ? frames : ["'none'"]],
     ['form-action', ["'self'", ...from('form')]],
     ['frame-ancestors', [p.portalOrigin ?? "'none'"]],
     ['base-uri', ["'none'"]],
@@ -129,5 +135,5 @@ export const inlineHashes = async (html: string): Promise<InlineHashes> => ({
 })
 
 /** The headers the build writes into its manifest for each HTML file, for the edge Worker to send unchanged. */
-export const pageHeaders = async (pages: readonly { path: string; html: string }[], csp: (hashes: InlineHashes) => string): Promise<Record<string, { 'content-security-policy': string }>> =>
-  Object.fromEntries(await Promise.all(pages.map(async ({ path, html }) => [path, { 'content-security-policy': csp(await inlineHashes(html)) }] as const)))
+export const pageHeaders = async (pages: readonly { path: string; html: string }[], csp: (hashes: InlineHashes, path: string) => string): Promise<Record<string, { 'content-security-policy': string }>> =>
+  Object.fromEntries(await Promise.all(pages.map(async ({ path, html }) => [path, { 'content-security-policy': csp(await inlineHashes(html), path) }] as const)))

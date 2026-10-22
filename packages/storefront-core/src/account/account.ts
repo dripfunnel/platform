@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { z } from 'zod'
-import { addressProblems, compact, emailPattern, isPhone, type AddressDraft, type AddressField, type FieldProblem } from '../checkout/address'
+import { addressInput, addressProblems, emailPattern, isPhone, pinOf, type AddressDraft, type AddressField, type FieldProblem } from '../checkout/address'
 import { ShopApiError } from '../platform/api/client'
 import { keepShopperToken, shopperToken } from '../platform/api/tokens'
 import { navigate, useLocation } from '../platform/browser/router'
@@ -125,7 +125,7 @@ export const useSignIn = (): SignInPage => {
   }
 }
 
-const addressFields = 'id name line1 line2 city region postalCode country phone isDefault'
+const addressFields = 'id name line1 line2 city region postalCode country phone isDefault latitude longitude'
 const accountQuery = `query Account { account { id name email phone emailVerified phoneVerified addresses { ${addressFields} } } store { markets { countries } } }`
 const text = z.string().nullable().optional()
 const accountSchema = z.object({
@@ -137,7 +137,7 @@ const accountSchema = z.object({
       phone: text,
       emailVerified: z.boolean().nullable().optional(),
       phoneVerified: z.boolean().nullable().optional(),
-      addresses: z.array(z.object({ id: z.string(), name: text, line1: text, line2: text, city: text, region: text, postalCode: text, country: text, phone: text, isDefault: z.boolean().nullable().optional() })).nullable().optional(),
+      addresses: z.array(z.object({ id: z.string(), name: text, line1: text, line2: text, city: text, region: text, postalCode: text, country: text, phone: text, isDefault: z.boolean().nullable().optional(), latitude: z.number().nullable().optional(), longitude: z.number().nullable().optional() })).nullable().optional(),
     })
     .nullable(),
   store: z.object({ markets: z.array(z.object({ countries: z.array(z.string()).nullable().optional() })).nullable().optional() }).nullable().optional(),
@@ -145,8 +145,6 @@ const accountSchema = z.object({
 const renameMutation = `mutation Rename($name: String) { updateAccount(name: $name) }`
 const saveAddressMutation = `mutation SaveAddress($id: ID, $address: ShopSavedAddressInput!, $isDefault: Boolean) { saveAddress(id: $id, address: $address, isDefault: $isDefault) }`
 const deleteAddressMutation = `mutation DeleteAddress($id: ID!) { deleteAddress(id: $id) }`
-
-const draftOf = (a: AddressDraft) => ({ name: a.name.trim(), line1: a.line1.trim(), line2: a.line2.trim() || null, city: a.city.trim(), region: a.region.trim() || null, postalCode: a.postalCode.trim() || null, country: a.country, phone: compact(a.phone) || null })
 
 export type SavedAddress = AddressDraft & { id: string; isDefault: boolean }
 
@@ -193,7 +191,7 @@ export const useAccount = (): AccountPage => {
         phone: raw.phone ?? null,
         emailVerified: raw.emailVerified === true,
         phoneVerified: raw.phoneVerified === true,
-        addresses: (raw.addresses ?? []).map((a) => ({ id: a.id, name: a.name ?? '', line1: a.line1 ?? '', line2: a.line2 ?? '', city: a.city ?? '', region: a.region ?? '', postalCode: a.postalCode ?? '', country: a.country ?? '', phone: a.phone ?? '', isDefault: a.isDefault === true })),
+        addresses: (raw.addresses ?? []).map((a) => ({ id: a.id, name: a.name ?? '', line1: a.line1 ?? '', line2: a.line2 ?? '', city: a.city ?? '', region: a.region ?? '', postalCode: a.postalCode ?? '', country: a.country ?? '', phone: a.phone ?? '', pin: pinOf(a), isDefault: a.isDefault === true })),
       }
     : null
 
@@ -227,12 +225,12 @@ export const useAccount = (): AccountPage => {
     saveAddress: async ({ id, address, isDefault }) => {
       const problems = addressProblems(address)
       if (Object.keys(problems).length > 0) return problems
-      return (await change('addresses', saveAddressMutation, { id, address: draftOf(address), isDefault })) ? {} : null
+      return (await change('addresses', saveAddressMutation, { id, address: addressInput(address), isDefault })) ? {} : null
     },
     makeDefault: (id) => {
       const saved = account?.addresses.find((a) => a.id === id)
       // Sent as it was saved: the Shop API judges it, and a refusal shows as `error` (core's newer checks would only hide it).
-      return saved ? change('addresses', saveAddressMutation, { id, address: draftOf(saved), isDefault: true }) : Promise.resolve(false)
+      return saved ? change('addresses', saveAddressMutation, { id, address: addressInput(saved), isDefault: true }) : Promise.resolve(false)
     },
     removeAddress: (id) => change('addresses', deleteAddressMutation, { id }),
     signOut: async () => {

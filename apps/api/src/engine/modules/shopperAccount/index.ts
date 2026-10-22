@@ -80,7 +80,7 @@ export const createShopperAccount = ({ sql, context, activity, facts, now }: Sho
         // One save at a time per shopper, so two at once can't both pass the cap.
         await serialise(tx, `customer_address:${me}`)
         if (id === null && (await selectAddresses(tx, me)).length >= maxAddresses) return { ok: false, reason: 'TOO_MANY' }
-        const saved = await saveAddress(tx, context.storeId, me, id, { ...address, isDefault })
+        const saved = await saveAddress(tx, context.storeId, me, id, { ...address, latitude: address.latitude ?? null, longitude: address.longitude ?? null, isDefault })
         if (!saved) return { ok: false, reason: 'NOT_FOUND' }
         await activity.recordAll(tx, [entry(shopperAccountAudit.addressSaved, saved, 'Address')])
         return { ok: true, value: saved }

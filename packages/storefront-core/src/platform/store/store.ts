@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { ShopApiError, type ShopClient } from '../api/client'
 
 // The store settings every page needs, read once per page (storefront ARCHITECTURE §2.1, §4.3).
-export const storeQuery = `query Store { store { name description language mainLanguage languages currency pricingCurrency currencies { code } pricesIncludeTax timeZone contactEmail contactPhone logo { url } address { street city region postal country } favicon { url } tagline social { network url } seo { title description image { url } } } }`
+export const storeQuery = `query Store { store { name description language mainLanguage languages currency pricingCurrency currencies { code } pricesIncludeTax timeZone contactEmail contactPhone logo { url } address { street city region postal country } favicon { url } tagline social { network url } seo { title description image { url } } mapFrame } }`
 
 const text = z.string().nullable().optional()
 
@@ -29,6 +29,8 @@ export const storeSchema = z.object({
       tagline: text,
       social: z.array(z.object({ network: text, url: text })).nullable().optional(),
       seo: z.object({ title: text, description: text, image: z.object({ url: text }).nullable().optional() }).nullable().optional(),
+      /** "Pin on map"'s frame (#814); null hides it. */
+      mapFrame: text,
     })
     .nullable(),
 })

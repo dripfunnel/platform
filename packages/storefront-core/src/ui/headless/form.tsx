@@ -1,8 +1,9 @@
 'use client'
 
-import { useId, type ReactNode } from 'react'
-import { addressFields, type AddressDraft, type AddressField, type FieldProblem } from '../../checkout/address'
+import { useId, useRef, type ReactNode } from 'react'
+import { addressFields, fillFromPlace, type AddressDraft, type MapFilled, type AddressField, type FieldProblem } from '../../checkout/address'
 import type { Translate } from '../../platform/i18n/i18n'
+import { PinOnMap } from './pin'
 
 // The checkout's and the account's form controls (ARCHITECTURE §2.1 `ui/headless`): a theme may not write <form> or
 // <input> (§3.4), so core renders them, unstyled, with the theme's classes and words.
@@ -94,6 +95,7 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
   fieldClassName?: string
 }) => {
   const id = useId()
+  const mapFilled = useRef<MapFilled>({})
   const names = new Intl.DisplayNames([locale], { type: 'region' })
   const problem = (p: FieldProblem | undefined) => (p === 'required' ? t('address.required') : p === 'invalid' ? t('address.invalid') : null)
   return (
@@ -127,6 +129,19 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
           className={fieldClassName}
         />
       ))}
+      <PinOnMap
+        value={value.pin ?? null}
+        onChange={(pin, place) => {
+          const { draft, filled } = fillFromPlace(value, place ?? null, countries, mapFilled.current)
+          mapFilled.current = filled
+          onChange({ ...draft, pin })
+        }}
+        address={[value.line1, value.line2, value.city, value.region, value.postalCode].map((p) => p.trim()).filter(Boolean).join(', ')}
+        country={value.country}
+        t={t}
+        locale={locale}
+        className={fieldClassName}
+      />
     </div>
   )
 }

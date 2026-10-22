@@ -23,7 +23,17 @@ describe('an address and a contact', () => {
   const address = { name: ' Asha Rao ', line1: '12 MG Road', city: 'Pune', country: 'in', postalCode: '411001', phone: '+91 98450 22113' }
 
   it('keeps what an address needs, trimmed, the country as its code and the phone in E.164', () => {
-    expect(cleanAddress(address)).toEqual({ name: 'Asha Rao', line1: '12 MG Road', line2: null, city: 'Pune', region: null, postalCode: '411001', country: 'IN', phone: '+919845022113' })
+    expect(cleanAddress(address)).toEqual({ name: 'Asha Rao', line1: '12 MG Road', line2: null, city: 'Pune', region: null, postalCode: '411001', country: 'IN', phone: '+919845022113', latitude: null, longitude: null })
+  })
+
+  it('keeps a map pin whole and in range, refusing half a pin or one off the globe', () => {
+    expect(cleanAddress({ ...address, latitude: 18.5204, longitude: 73.8567 })).toMatchObject({ latitude: 18.5204, longitude: 73.8567 })
+    expect(cleanAddress({ ...address, latitude: -90, longitude: 180 })).toMatchObject({ latitude: -90, longitude: 180 })
+    expect(cleanAddress({ ...address, latitude: 18.5, longitude: null })).toBeNull()
+    expect(cleanAddress({ ...address, longitude: 73.8 })).toBeNull()
+    expect(cleanAddress({ ...address, latitude: 90.1, longitude: 0 })).toBeNull()
+    expect(cleanAddress({ ...address, latitude: 0, longitude: -180.5 })).toBeNull()
+    expect(cleanAddress({ ...address, latitude: Number.NaN, longitude: 0 })).toBeNull()
   })
 
   it('refuses one missing a name, a street or a city, with an unknown country, a bad phone or too long a part', () => {

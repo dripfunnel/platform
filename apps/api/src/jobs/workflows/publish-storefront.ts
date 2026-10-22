@@ -60,6 +60,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       // The asset host on the shop domain (LIVE-SHOP §2).
       assetOrigin: `https://sf-assets.${shopDomain}`,
       shopDomain,
+      mapsFrameOrigin: config.GOOGLE_MAPS_BROWSER_KEY ? api : null,
       dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api }),
       now: () => new Date(),
       probe,

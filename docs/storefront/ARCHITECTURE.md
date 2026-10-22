@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -223,7 +223,18 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   payment; marked `data-df-action` for the smoke test.
 - **Headless form controls** (`ui/headless/form.tsx`): `Form` and `SubmitButton`, `TextField` (its label, hint and error
   tied to it), `Choices` (radio buttons, each option's content the theme's) and `AddressFields` (the country's fields with
-  core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK).
+  core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK). `AddressFields` ends with
+  **"Pin on map"** (`ui/headless/pin.tsx`, #814), an optional point saved with the address as `latitude` and `longitude`:
+  the Shop API's `store.mapFrame` shows it, and none hides it. The map is **a frame of its own** on the hooks host
+  (`https://<HOOKS_HOST>/maps/pin`, the API's `hooks/mapFrame.ts`, which holds the key, THIRD-PARTY-ACCESS §2.12): Google
+  runs there under that page's CSP, never the store's, and core's `ui/headless/pinFrame.ts` talks to it by `postMessage`,
+  checking with zod everything it says (decided 2026-10-21 on #814). It loads only when the shopper taps it, starting at the saved pin or the address Google finds; the pin moves by
+  dragging, the arrow keys or **Use my location** (the browser's own location, asked for only when pressed; decided
+  2026-10-21 on #814), its point read out as text. Confirm saves the pin and leaves the map open; the address Google
+  finds at the pin fills the fields still empty, and on a later pin replaces what it filled, never one typed, and nothing from another country (`fillFromPlace`,
+  decided 2026-10-21 on #814). If the frame or Google fails to load, the page's CSP refuses the frame (a build published before the shop
+had a map key), or it says nothing in 15 s, it hides
+  and the form works as before; on a preview or in the studio frame it asks Google for nothing and says why.
 - **The baseline checkout** (`checkout/baseline.tsx`, #313 part 7): core's own `BaselineCheckout`, in core's words and
   look (a stylesheet core adopts, so no theme CSS is needed), with the preview banner, every step, the sealed summary and
   payment element and Place order. The runtime renders the checkout route inside `CheckoutBoundary` with it as the
@@ -616,6 +627,10 @@ their own cards.
   anyway, for a bundler's chunk loader; *the build's origins decided on #481*) and `goog#html` (gtag.js and GTM's own); nothing else. A
   GTM container's tags run only from the hosts `script-src` lists, so a merchant's extra tags
   need their host added to the store's analytics settings.
+- **The pages with the address form** (built `checkout/` and `account/` files, `isMapsPage`) add one source and nothing
+  else: the hooks host in `frame-src` (`mapsFrameOrigin`, set when the environment has a Maps key), for "Pin on map"'s
+  frame (#814). Google Maps needs `'unsafe-eval'` and no Trusted Types, so it runs only in that frame, under the frame
+  page's own CSP, sandboxed and on another origin; the store's pages keep every wall above (decided 2026-10-21 on #814).
 - **As built on #481** *(decided there)*: `storeCsp(store, hashes)` and `studioCsp(studio, hashes)`
   build the headers from a page's `inlineHashes` (SHA-256 of each inline script and style, never a
   nonce, so the same build gives the same header); `pageHeaders` gives each HTML file of a build

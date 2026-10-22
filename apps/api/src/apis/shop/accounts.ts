@@ -81,6 +81,9 @@ export const registerAccounts = ({ builder }: ShopBuilder) => {
       country: t.exposeString('country'),
       phone: t.exposeString('phone', { nullable: true }),
       isDefault: t.exposeBoolean('is_default_shipping'),
+      // The shopper's map pin; null when not pinned.
+      latitude: t.exposeFloat('latitude', { nullable: true }),
+      longitude: t.exposeFloat('longitude', { nullable: true }),
     }),
   })
   type Account = NonNullable<Awaited<ReturnType<ReturnType<typeof createShopperAccount>['account']>>>
@@ -105,6 +108,9 @@ export const registerAccounts = ({ builder }: ShopBuilder) => {
       postalCode: t.string(),
       country: t.string({ required: true }),
       phone: t.string(),
+      // Both or neither: -90..90 and -180..180.
+      latitude: t.float(),
+      longitude: t.float(),
     }),
   })
   const Channel = builder.enumType('ShopSignInChannel', { values: ['EMAIL', 'PHONE'] as const })
@@ -177,7 +183,7 @@ export const registerAccounts = ({ builder }: ShopBuilder) => {
       args: { id: t.arg.id(), address: t.arg({ type: AddressInput, required: true }), isDefault: t.arg.boolean() },
       extensions: { access: { ...access, audit: shopperAccountAudit.addressSaved } },
       resolve: async (_, args, ctx) => {
-        long(...Object.values(args.address))
+        long(...Object.values(args.address).filter((v) => typeof v === 'string'))
         return answered(await accountOf(ctx).save(args.id ? String(args.id) : null, args.address, args.isDefault ?? null))
       },
     }),

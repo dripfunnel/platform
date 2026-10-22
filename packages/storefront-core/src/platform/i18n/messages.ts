@@ -107,6 +107,23 @@ export const en = {
   'address.required': 'Fill this in.',
   'address.invalid': 'Check this; it doesn’t look right.',
   'address.phoneInvalid': 'Start with the country code, for example +91 98765 43210.',
+  'address.map.open': 'Pin on map',
+  'address.map.move': 'Move the pin',
+  'address.map.pinned': 'Pinned on the map',
+  'address.map.title': 'Pin your delivery address',
+  'address.map.help': 'Drag the map pin, or use the arrow keys, to the exact door. Hold Shift to move further.',
+  'address.map.at': 'Pin at {latitude}, {longitude}',
+  'address.map.confirm': 'Use this point',
+  'address.map.cancel': 'Cancel',
+  'address.map.close': 'Close the map',
+  'address.map.hide': 'Hide the map',
+  'address.map.finding': 'Finding the address…',
+  'address.map.locate': 'Use my location',
+  'address.map.locating': 'Finding where you are…',
+  'address.map.locateFailed': 'We couldn’t get your location. Check that your browser lets this shop use it, or move the pin yourself.',
+  'address.map.remove': 'Remove the pin',
+  'address.map.loading': 'Loading the map…',
+  'address.map.liveOnly': 'Pinning on a map works on the live shop, not on a preview.',
 } as const
 
 export type MessageKey = keyof typeof en
