@@ -63,6 +63,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
 
+      - name: Warn that the gates were skipped
+        if: needs.gates.result == 'skipped'
+        run: echo "::warning::GATES_CHECK=0, so the gates were skipped and this run migrates prod and uploads a Worker version untested (#870)."
+
       - name: Migrations
         id: migrate
         run: pnpm run --if-present migrate
