@@ -86,7 +86,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > **Read first.** [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) (the admin console is
 > `apps/ui/admin`, a static SPA on Cloudflare Pages, calling the Admin API at `/api` on
 > `admin.dripfunnel.com`), [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md) (the
-> five kinds of user, hostnames, partner onboarding and approval, what a partner can see,
+> six kinds of user, hostnames, partner onboarding and approval, what a partner can see,
 > support access), [`../../api/SAAS.md`](../../api/SAAS.md) (partners, provisioning, plans,
 > billing, domains, publishing, fleet, metrics) and [`../../api/ACCESS.md`](../../api/ACCESS.md)
 > (identity, staff identity, roles, tenancy). §3 below states what the platform provides and why it shapes the interface.

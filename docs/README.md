@@ -29,7 +29,8 @@ its clients; everything runs on Cloudflare, with Postgres on Neon.
 | **Merchant portal** | `apps/ui/store` | each partner's portal host, e.g. `store.<partnerdomain>` | Merchant Owner, Manager, Staff; vendors: Stock only, Products and stock, Products, stock and their orders | Store API | [ui/store/](ui/store/README.md) |
 | **Storefront** | one public repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{slug}.my-store.one`, the merchant's domain; preview on `{slug}-preview.my-store.one` | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
 
-All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
+All five APIs live in one Worker, `apps/api`: [api/](api/README.md). The fifth, the Delivery API for
+riders, is specified in [api/DELIVERY.md](api/DELIVERY.md) *(proposed)*.
 
 ---
 
@@ -48,7 +49,7 @@ docs/
   ARCHITECTURE.md           WINS: deployables, hostnames, routing, repo layout, Workers rules, data flow, deploy
   USERS-AND-DOMAINS.md      WINS: the six kinds of user, hostnames, onboarding, partner reach, support access, DNS
   api/
-    README.md               guide: the four APIs and callers, apps/api layout, layers, how to add code, testing
+    README.md               guide: the five APIs and callers, apps/api layout, layers, how to add code, testing
     PLATFORM-PROMPT.md      spec: the engine (tenancy, identity, commerce modules, public APIs, jobs), open questions
     ACCESS.md               spec: identity, sessions, roles and permissions for every portal, invitations, vendors, support access, authorization checks
     DATA-MODEL.md           spec: tenancy tree, table scopes, users and roles in every pool, supplier teams, row-level security, the commerce tables (§7)
