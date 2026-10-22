@@ -185,6 +185,7 @@ check.
 |---|---|
 | `requestCode(phone)`, `signIn(phone, code)`, `signOut` | Sign-in by a 6-digit text code (§5). `requestCode` answers the same, at once, for every number; the text is queued through the outbox only for an invited or active rider of this store, so neither the answer nor its timing tells who is invited, and nobody can send texts to uninvited numbers at the partner's cost. Limits: 3 a number in 10 minutes, the per-address limiter, and 50 a store in 10 minutes, as shoppers' codes (ACCESS §2.1) |
 | `me`, `updateProfile(name, photo, vehicleType, vehicleNumber)` | The rider's own profile |
+| `deleteMyAccount` | The rider's own account only, as the merchant's erase (§5): `assigned` deliveries handed back, refused `RIDER_HAS_PARCEL` while carrying a `picked_up` one, sessions, devices and position deleted, logged with the rider as actor (Apple 5.1.1(v)) |
 | `setOnline(online)`, `reportPosition(lat, lng, accuracy, at)` | Being available; the latest position (§7) |
 | `offers(first, after)` | This rider's open offers, newest first, keyset-paged: `first` 20 by default, at most 50; each with the warehouse, distance, number of items and the customer's area (never the address before accepting) |
 | `acceptOffer(id)`, `declineOffer(id)` | §3 steps 1–2; a lost race answers `TAKEN` |
@@ -292,7 +293,14 @@ delivery ends.
 | `riders(first, after)` (50 by default, at most 100), `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider`, `removeRider`, `exportRider` (a job), `eraseRider` (§5) | New `riders.manage`: Owner |
 | `order(id).delivery`: state, history, rider, position while picked up | `orders.read` |
 | `markReadyForPickup(orderId)` (§3) | `orders.fulfil` |
-| `assignDelivery(deliveryId, riderId)`, `offerDeliveryAgain(deliveryId)`, `cancelDelivery(deliveryId)` (before pickup it cancels; after, it recalls, §3), `markDeliveryDelivered(deliveryId, reason)` (a locked or unconfirmed code, §3) | `orders.fulfil` |
+| `assignDelivery(deliveryId, riderId)`, `offerDeliveryAgain(deliveryId)`, `cancelDelivery(deliveryId)` (before pickup it cancels; after, it recalls, §3), `markDeliveryDelivered(deliveryId, reason, cashReceived)` (a locked or unconfirmed code, §3; cash below) | `orders.fulfil` |
+
+**A merchant-confirmed cash-on-delivery delivery** *(proposed)*: `markDeliveryDelivered` then requires
+`cashReceived`, the merchant's own statement that the cash reached the store. `true` marks the order
+paid through the existing mark-paid path, so it also needs `orders.mark_paid` (Owner, Manager;
+ACCESS §5.1), and the activity entry names the merchant, the reason and the rider's own claim if
+one was sent late. `false` marks the delivery delivered and leaves the order unpaid until someone
+marks it paid as today. A prepaid order ignores the argument.
 
 A supplier never sees riders, positions or a delivery: own delivery carries only the store's
 lines (§2), so a supplier's `orders.fulfil` (ACCESS §5.2) never reaches these actions; they
@@ -331,7 +339,10 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
   - **Rows:** `push_device`, `rider_position`, `delivery` and `delivery_offer` never cross
     stores.
   - **Export and erase:** `exportRider` and `eraseRider` refused for every seat but the Owner and
-    for another store's rider; the export holds no customer address or phone.
+    for another store's rider; the export holds no customer address or phone; `deleteMyAccount`
+    reaches only the calling rider's own account.
+  - **Merchant confirmation:** `markDeliveryDelivered` with `cashReceived: true` refused without
+    `orders.mark_paid`, and refused without `cashReceived` on a cash-on-delivery order.
 - Suspending or removing a rider with an `assigned` delivery offers it to the others in a new round;
   with a `picked_up` one it is refused `RIDER_HAS_PARCEL`. The rider's own Delete my account follows
   the same two rules.
