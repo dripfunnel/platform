@@ -1,7 +1,7 @@
 # AGENTS.md: platform
 
 The whole DripFunnel platform in one repo: one API Worker (`apps/api`: the commerce engine,
-the Store, Platform, Admin and Shop APIs, webhooks and background jobs on Queues, Workflows and
+the Store, Platform, Admin and Shop APIs (and the proposed Delivery API), webhooks and background jobs on Queues, Workflows and
 Cron), three static SPAs on Cloudflare Pages in `apps/ui/` (`store` for merchants and
 vendors, `platform` for Partners, `admin` for DripFunnel staff), the one published package (`storefront-core`) and
 the storefront template every store's own repo is created from. Postgres on Neon via

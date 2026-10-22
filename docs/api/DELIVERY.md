@@ -167,7 +167,7 @@ those riders' `online_at`. It is idempotent: a second run in the same minute cha
 
 **Online.** A rider switches **Online** in the app. While online the app sends its position every
 60 seconds; a rider with no position for 10 minutes counts as offline *(proposed)*, and the
-minute sweep (below) then deletes their position and clears their online state, so a phone
+minute sweep (above) then deletes their position and clears their online state, so a phone
 that dies or loses signal for good leaves no point behind.
 
 ---
@@ -221,7 +221,9 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
   deliveries with dates, states, warehouse and the customer's area name only, sign-in times) as an
   export job, and **erase** a rider: removal, then "Former rider" in place of their name in past
   deliveries and the activity log's labels (LOGGING §8), with their sessions, devices and position
-  deleted. A rider's own Delete my account does the same.
+  deleted. A rider's own Delete my account does the same, under the same rules as suspension:
+  their `assigned` deliveries are handed back, and it is refused `RIDER_HAS_PARCEL` while they
+  carry a `picked_up` one, so a parcel in transit always keeps its rider.
 - **Sessions** last 30 days from last use, like customers' (DATA-MODEL §3.4), one per phone.
 - **A rider belongs to one store.** The same person delivering for two stores has two accounts
   and two apps, as a customer does.
@@ -331,7 +333,8 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
   - **Export and erase:** `exportRider` and `eraseRider` refused for every seat but the Owner and
     for another store's rider; the export holds no customer address or phone.
 - Suspending or removing a rider with an `assigned` delivery offers it to the others in a new round;
-  with a `picked_up` one it is refused `RIDER_HAS_PARCEL`.
+  with a `picked_up` one it is refused `RIDER_HAS_PARCEL`. The rider's own Delete my account follows
+  the same two rules.
 - A rider's position is gone after the minute sweep (§3) finds it 10 minutes old, sign-out, suspension, removal and erasure.
 - The customer reads the rider's details only while `assigned` or `picked_up`, and the position only
   while `picked_up`.

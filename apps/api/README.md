@@ -1,6 +1,6 @@
 # api
 
-The one Cloudflare Worker: the Store, Platform, Admin and Shop APIs, webhooks and background jobs,
+The one Cloudflare Worker: the Store, Platform, Admin and Shop APIs (and the proposed Delivery API), webhooks and background jobs,
 and all server code. Guide: [docs/api/README.md](../../docs/api/README.md) (APIs, layout, layers, how to add code).
 
 ```bash
