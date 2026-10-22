@@ -15,6 +15,9 @@ on:
       commit_sha:
         description: Commit the version was built from (checked out to build the SPAs)
         required: true
+      studio_digest:
+        description: Studio image digest the version was uploaded with (prod.yml's run summary)
+        required: true
 
 permissions:
   contents: read
@@ -63,18 +66,30 @@ jobs:
             exit 1
           fi
 
+      # wrangler parses the config on every command, and the committed one holds a placeholder for the studio image (#816).
+      - name: Studio image
+        id: studio
+        uses: ./.github/actions/studio-image
+        with:
+          channel: stable
+          digest: ${{ inputs.studio_digest }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Verify the versions and commit_sha agree
         env:
           VERSION_ID: ${{ inputs.version_id }}
           PROXY_VERSION_ID: ${{ inputs.proxy_version_id }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          STUDIO_DIGEST: ${{ inputs.studio_digest }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           # Cross-check against the version's own annotation rather than trusting the two inputs to agree.
           version_message=$(pnpm exec wrangler versions view "$VERSION_ID" --env prod --json | jq -r '.annotations["workers/message"] // empty')
-          if [ "$version_message" != "$COMMIT_SHA" ]; then
-            echo "Version $VERSION_ID was uploaded for commit '$version_message', not $COMMIT_SHA — refusing to promote a mismatched commit." >&2
+          if [ "$version_message" != "$COMMIT_SHA $STUDIO_DIGEST" ]; then
+            echo "Version $VERSION_ID was uploaded as '$version_message', not '$COMMIT_SHA $STUDIO_DIGEST' — refusing to promote a mismatched commit or studio image." >&2
             exit 1
           fi
           proxy_message=$(cd ../../store-proxy && pnpm exec wrangler versions view "$PROXY_VERSION_ID" --env prod --json | jq -r '.annotations["workers/message"] // empty')
@@ -97,6 +112,16 @@ jobs:
       # node_modules the first `setup` installed for `main` — and it was `main`'s lockfile
       # anyway, not commit_sha's. Reinstall from commit_sha's lockfile before anything runs.
       - uses: ./.github/actions/setup
+
+      # wrangler parses the config on every command, and the committed one holds a placeholder for the studio image (#816).
+      # The action above is main's; this checkout may predate it, so only the placeholder is swapped (checkout discarded the first edit).
+      - name: Studio image
+        env:
+          DIGEST: ${{ steps.studio.outputs.digest }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          grep -q PROD_STUDIO_IMAGE wrangler.jsonc || { echo "wrangler.jsonc has no PROD_STUDIO_IMAGE placeholder to pin." >&2; exit 1; }
+          sed -i "s|PROD_STUDIO_IMAGE|registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build@$DIGEST|" wrangler.jsonc
 
       - name: Promote Worker to 100%
         id: promote

@@ -5,7 +5,7 @@
 `prod.yml` only uploads a Worker version (`wrangler versions upload`); it does not put it live
 and does not deploy the SPAs. The run summary prints the version ID. To go live, run the
 **promote** workflow (`workflow_dispatch` on `promote.yml`) with that `version_id`, the
-store-proxy's `proxy_version_id` and the commit's `commit_sha`. It promotes both Workers to 100%, health-checks the live prod host, and —
+store-proxy's `proxy_version_id`, the commit's `commit_sha` and the run summary's `studio_digest`. It promotes both Workers to 100%, health-checks the live prod host, and —
 only if that succeeds — builds and deploys all three SPAs from that same commit. If you'd rather
 promote by hand instead (from `apps/api`, with `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` for
 the prod account):
@@ -13,6 +13,11 @@ the prod account):
 ```
 pnpm exec wrangler versions deploy <version-id>@100 --env prod -y
 ```
+
+Every `wrangler` command in `apps/api` (and `store-proxy/`) refuses to read `wrangler.jsonc` while its studio image is still the
+`PROD_STUDIO_IMAGE` placeholder, rollbacks included. Before any of them, replace it with
+`registry.cloudflare.com/<account-id>/storefront-build@<digest>` in your copy (not committed); prod.yml's run summary
+prints the digest. `promote.yml` does this itself, and refuses a `studio_digest` that is not in the API version's upload message; a version uploaded before #825 has only the commit there, so it cannot be promoted that way.
 
 Nothing serves the new code until this is run — a failed or skipped promotion just leaves the
 previous version live. If you promote by hand, deploy the SPAs by hand too (see below) — skipping
