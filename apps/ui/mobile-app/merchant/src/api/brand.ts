@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { decode, type ApiClient } from '../graphql'
 
 // The partner's live look for this host, public and read before anything renders
 // (SAAS.md §3.3; apps/api src/apis/store/shell.ts).
@@ -24,4 +24,4 @@ export type Brand = z.infer<typeof brandSchema>
 const brandAnswer = z.object({ brand: brandSchema.nullable() })
 
 export const fetchBrand = async (client: ApiClient): Promise<Brand | null> =>
-  (await typedQuery(client)(`{ brand { productName primaryColor accentColor font corner helpUrl supportUrl supportEmail files { logoLight logoDark mark } } }`, brandAnswer)).brand
+  decode(brandAnswer, await client.request<unknown>(`{ brand { productName primaryColor accentColor font corner helpUrl supportUrl supportEmail files { logoLight logoDark mark } } }`, undefined, { get: true })).brand
