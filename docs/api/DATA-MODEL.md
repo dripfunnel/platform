@@ -2427,7 +2427,7 @@ fulfilment     kind gains 'local': written when the rider marks the delivery pic
 delivery       (id, store_id, order_id, warehouse_id, state ('packing'|'searching'|'unassigned'|'assigned'
                 |'picked_up'|'delivered'|'failed'|'cancelled'), rider_id NULL, fulfilment_id NULL,
                 cash_due_amount NULL, currency, cash_collected_at NULL, failed_reason NULL,
-                handover_code_enc NULL, code_attempts, ready_at NULL, searching_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
+                handover_code_enc NULL, code_attempts, code_unconfirmed_at NULL, ready_at NULL, searching_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
                 failed_at NULL, cancelled_at NULL, eta_at NULL, eta_computed_at NULL, revision)
                UNIQUE (order_id) WHERE state NOT IN ('failed','cancelled')
                -- accepting is one conditional update on state = 'searching' (DELIVERY §3);

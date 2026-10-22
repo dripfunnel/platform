@@ -20,7 +20,7 @@ Last updated: 2026-10-22 (the handover code; Delivered and Not delivered kept wi
 | **Riders sign in with their mobile number and a texted code**; the merchant's invitation is matched by the number (api/DELIVERY.md §5) | Email and password; an invitation link | Riders have a phone, not necessarily an email, and a link needs the app installed first. |
 | **No earnings or pay in the app**: delivery counts only (decided 2026-10-22) | Per-delivery pay set by the merchant, with earnings and payout summaries | Riders are the merchant's own people, paid outside the platform. |
 | **Location in the background only while Online** *(proposed)* | Location whenever the app runs | Dispatch and tracking need it only then (api/DELIVERY.md §3, §7), and both stores ask apps to justify background location. Going Offline stops it and deletes the position. |
-| **Delivered and Not delivered are kept on the phone without signal and sent when it returns**, with the time they happened; the screen says "Saved, waiting for signal" (decided 2026-10-22). Every other step needs a connection | Every step needs a connection | Doorsteps are often out of signal, and a rider shouldn't have to walk to find it. Only the last step of a delivery is queued, so nothing else can be out of order. |
+| **Delivered and Not delivered are kept on the phone without signal and sent when it returns**, with the time they happened; the screen says "Saved, waiting for signal" (decided 2026-10-22). Every other step needs a connection. Offline, the handover code gets one attempt, checked when the step is sent; a wrong one leaves the delivery for the store to confirm (api/DELIVERY.md §3) | Every step needs a connection | Doorsteps are often out of signal, and a rider shouldn't have to walk to find it. Only the last step of a delivery is queued, so nothing else can be out of order. |
 
 ---
 
@@ -51,4 +51,6 @@ states, and `designs/design.md` maps it.
 
 ## 4. Open questions
 
-None. Proof of delivery, sending without signal and earnings were settled on 2026-10-22 (§1, §2).
+None for the product: proof of delivery, sending without signal and earnings were settled on
+2026-10-22 (§1, §2). One engineering choice is open: how store reviewers sign in
+(ARCHITECTURE.md §4, *(decide)*).

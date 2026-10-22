@@ -10,7 +10,7 @@ their app calls, and what the customer sees while the order is on its way. The t
 **Status: specification, not built.** Decided with Gaurav on 2026-10-22; rows marked
 *(proposed)* await a yes.
 
-Last updated: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -69,6 +69,10 @@ accepts (1–30, default 5).
    options are then not offered.
 3. Otherwise the existing options apply, unchanged.
 4. Pickup, when on, is offered in both cases.
+5. **At placement the engine runs the same rule again** on the address pin and the stock it holds,
+   and takes the option, warehouse and fee from that, never from the client. An own-delivery option
+   the rule no longer gives is refused `SHIPPING_UNAVAILABLE`, as any option no longer offered is
+   (`engine/modules/cart/rules.ts`).
 
 Own delivery takes the store's own part of an order, and a to-store supplier's lines once handed
 over. An order with a to-shopper supplier's lines is not offered own delivery (decided 2026-10-22):
@@ -108,10 +112,21 @@ returns it to `searching`. `picked_up` and later keep the rider; nobody reassign
 transit.
 
 **Handover code** *(details proposed)*. Four digits, made when a rider is assigned, shown only to the
-order's customer: in the shop app, on the website's order page and in the "on the way" email
-and push. The rider never reads it. A wrong code is refused (`WRONG_CODE`); after 5 wrong codes
+order's customer, and only where they are signed in or hold the order's link: the shop app's
+order screen and the website's order page. **No push or email carries it**: the "on the way"
+push and email say to open the order to see the code, so a lock screen or a forwarded email never
+shows it. The rider never reads it. A wrong code is refused (`WRONG_CODE`); after 5 wrong codes
 the delivery is locked (`CODE_LOCKED`) and only the merchant can mark it delivered, from the
 order, with a reason. The code is kept encrypted and deleted when the delivery ends.
+
+**Delivered without signal** *(proposed)*. The app keeps the step and the code the rider typed in
+secure storage, deleted once sent, and allows one attempt while offline; the server checks it when
+it arrives, as one try. If the code is wrong, the delivery stays `picked_up`, marked
+`code_unconfirmed_at`, and the API answers `CODE_UNCONFIRMED`: the rider's app says the code
+didn't match and the store will confirm, and the merchant is alerted by email and on the order.
+The merchant then marks it delivered with a reason, as for `CODE_LOCKED`, or not delivered. The
+cash collected sent with it is kept on the delivery, and the order becomes paid only when the
+delivery becomes `delivered`. With signal the rider retries at the door as usual.
 
 **Online.** A rider switches **Online** in the app. While online the app sends its position every
 60 seconds; a rider with no position for 10 minutes counts as offline *(proposed)*.
@@ -132,14 +147,15 @@ check.
 | `requestCode(phone)`, `signIn(phone, code)`, `signOut` | Sign-in by a 6-digit text code (§5) |
 | `me`, `updateProfile(name, photo, vehicleType, vehicleNumber)` | The rider's own profile |
 | `setOnline(online)`, `reportPosition(lat, lng, accuracy, at)` | Being available; the latest position (§7) |
-| `offers` | Open offers for this rider, each with the warehouse, distance, number of items and the customer's area (never the address before accepting) |
+| `offers` | At most 20 open offers for this rider, newest first, each with the warehouse, distance, number of items and the customer's area (never the address before accepting) |
 | `acceptOffer(id)`, `declineOffer(id)` | §3 steps 1–2; a lost race answers `TAKEN` |
-| `deliveries(state, after)` | This rider's deliveries, newest first, 20 a page |
+| `deliveries(state, first, after)` | This rider's deliveries, newest first, keyset-paged: `first` 20 by default, at most 50 |
 | `delivery(id)` | One delivery: warehouse address and pin; after acceptance the customer's name, phone, address and pin, the lines and quantities, and the cash to collect |
-| `handBack(id)`, `markPickedUp(id)`, `markDelivered(id, code, cashCollected, at, key)`, `markFailed(id, reason, at, key)` | §3 steps 4–5. `markDelivered` refuses a wrong code (`WRONG_CODE`, then `CODE_LOCKED`), and for cash on delivery a missing `cashCollected` (`CASH_NOT_CONFIRMED`). The last two may arrive late from a phone that had no signal (decided 2026-10-22, delivery/FIRST-RELEASE.md §1): `at` is when the rider did it, accepted between pickup and now and kept as the step's time; `key` makes a resend do nothing twice |
+| `handBack(id)`, `markPickedUp(id)`, `markDelivered(id, code, cashCollected, at, key)`, `markFailed(id, reason, at, key)` | §3 steps 4–5. `markDelivered` refuses a wrong code (`WRONG_CODE`, then `CODE_LOCKED`), and for cash on delivery a missing `cashCollected` (`CASH_NOT_CONFIRMED`); a wrong code arriving late answers `CODE_UNCONFIRMED` (§3, Delivered without signal). The last two may arrive late from a phone that had no signal (decided 2026-10-22, delivery/FIRST-RELEASE.md §1): `at` is when the rider did it, accepted between pickup and now and kept as the step's time; `key` makes a resend do nothing twice |
 | `registerPushDevice(token, platform)` | The Expo push token for this phone (§6) |
 
-A rider reads and writes only their own offers and deliveries, of their own store. Every write
+Every list in this API and in §8 is keyset-paged with a stated maximum, never above the scoped
+layer's `maxPageSize` (100). A rider reads and writes only their own offers and deliveries, of their own store. Every write
 goes to the activity log with actor kind `rider` (LOGGING.md §4), the delivery as target.
 Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 
@@ -177,9 +193,10 @@ those through its API.
 |---|---|
 | Rider | An offer; a delivery assigned by hand; an offer taken by someone else (silent update); a delivery cancelled |
 | Customer (shop app) | Rider assigned; picked up and on the way; delivered; not delivered |
-| Merchant | Nobody accepted (§3 step 3), by email; the merchant app has no push yet |
+| Merchant | Nobody accepted (§3 step 3), or a code unconfirmed after a late Delivered (§3), by email; the merchant app has no push yet |
 
-The order emails the customer already gets for a shipment stay as they are.
+The order emails the customer already gets for a shipment stay as they are. Neither a push nor an
+email ever carries the handover code (§3).
 
 ---
 
@@ -222,10 +239,10 @@ delivery ends.
 | Addition | Permission |
 |---|---|
 | Own delivery in `shippingSettings`, the warehouse's delivery settings in `saveWarehouse` (§2) | As those operations today (Owner) |
-| `riders`, `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider`, `removeRider` (§5) | New `riders.manage`: Owner |
+| `riders(first, after)` (50 by default, at most 100), `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider`, `removeRider` (§5) | New `riders.manage`: Owner |
 | `order(id).delivery`: state, history, rider, position while picked up | `orders.read` |
 | `markReadyForPickup(orderId)` (§3) | `orders.fulfil` |
-| `assignDelivery(deliveryId, riderId)`, `offerDeliveryAgain(deliveryId)`, `cancelDelivery(deliveryId)`, `markDeliveryDelivered(deliveryId, reason)` (a locked code, §3) | `orders.fulfil` |
+| `assignDelivery(deliveryId, riderId)`, `offerDeliveryAgain(deliveryId)`, `cancelDelivery(deliveryId)`, `markDeliveryDelivered(deliveryId, reason)` (a locked or unconfirmed code, §3) | `orders.fulfil` |
 
 A supplier never sees riders, positions or a delivery: own delivery carries only the store's
 lines (§2). A support session reads them as `orders.read` allows, never a rider's phone.
