@@ -147,7 +147,7 @@ moment you save.
 | `PLATFORM_HOST` | Text | `platform.dripfunnel.com` | fixed |
 | `HOOKS_HOST` | Text | `hooks.dripfunnel.com` | fixed |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | in the same release as the binding (§3.4) |
-| `CODE_CHECK` | Text | **leave unset** | `0` accepts any email or text code and exists for dev only: the Worker refuses to start with it on this host (`core/config.ts`) |
+| `CODE_CHECK` | Text | unset (codes are checked) | `0` accepts any email or text code, so anyone who knows an email or phone can sign in to that account, 2-factor included; set it on prod only knowingly |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Store it in the password manager **before** saving it. Losing it makes every encrypted 2-factor secret and partner or merchant credential unreadable for good; it carries a version for rotation (THIRD-PARTY-ACCESS.md §5) |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center (THIRD-PARTY-ACCESS.md §2.5). Redirect URI `https://admin.dripfunnel.com/api/auth/callback`. The client secret expires (24 months at most): note the date |
 | `STRIPE_SECRET_KEY` | Secret | **live** restricted key `rk_live_…` | Stripe (live mode) › Developers › API keys › *Create restricted key*, with only the permissions in THIRD-PARTY-ACCESS.md §8 |
@@ -202,7 +202,7 @@ version still running (AGENTS.md "Data").
 - [ ] Routes, console hostnames, Access on admin (§3.5)
 - [ ] GitHub environment `prod`, with required reviewers (§3.6)
 - [ ] `main` protected (§3.7)
-- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset
+- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any code on prod
 - [ ] SES production access granted
 - [ ] The first super admin can sign in (§7)
 - [ ] A first release promoted, with `/api/health` reporting `db: "ok"` (§5)

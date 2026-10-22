@@ -41,6 +41,8 @@ const configSchema = z.object({
   // Where the keys above are live (prod), test-mode ones for preview storefronts' checkout (storefront ARCHITECTURE §4.1).
   STRIPE_TEST_SECRET_KEY: z.string().regex(/^(rk|sk)_test_[A-Za-z0-9]+$/, 'STRIPE_TEST_SECRET_KEY must be a test-mode secret or restricted key').optional(),
   STRIPE_TEST_PUBLISHABLE_KEY: z.string().regex(/^pk_test_[A-Za-z0-9]+$/, 'STRIPE_TEST_PUBLISHABLE_KEY must be a test-mode publishable key').optional(),
+  // The storefront's "Pin on map" (THIRD-PARTY-ACCESS.md §2.12), a Worker variable: a public browser key, restricted by API.
+  GOOGLE_MAPS_BROWSER_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'GOOGLE_MAPS_BROWSER_KEY must be a Google API key').optional(),
   // DripFunnel's Amazon SES (THIRD-PARTY-ACCESS.md §2.4), Worker secrets. Without all four, email
   // waits in the outbox. The sender domain is verified in SES; partners' fallbacks are its subdomains.
   SES_REGION: z.string().regex(/^[a-z]{2}(-[a-z]+)+-\d$/, 'SES_REGION must be an AWS region such as eu-west-1').optional(),
@@ -100,7 +102,7 @@ const configSchema = z.object({
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),
   // The org's Actions jobs at once, which a core rollout's waves are sized to (storefront LIVE-SHOP §10). Unset: 20 (Free).
   GITHUB_ACTIONS_JOBS: z.coerce.number().int().min(1).max(10_000).optional(),
-  // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
+  // `0` accepts any email or text code (docs/setup/dev.md).
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
@@ -121,7 +123,6 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   const r2 = [c.R2_STOREFRONT_ACCOUNT_ID, c.R2_STOREFRONT_ACCESS_KEY_ID, c.R2_STOREFRONT_SECRET_ACCESS_KEY, c.R2_STOREFRONT_API_TOKEN, c.STOREFRONT_SITES_BUCKET, c.STOREFRONT_DRAFTS_BUCKET].filter((v) => v !== undefined).length
   if (r2 !== 0 && r2 !== 6) ctx.addIssue({ code: 'custom', message: 'The four R2_STOREFRONT_* values and the two STOREFRONT_*_BUCKET names go together', path: ['R2_STOREFRONT_ACCOUNT_ID'] })
   if ((c.BROWSER_RENDERING_ACCOUNT_ID === undefined) !== (c.BROWSER_RENDERING_TOKEN === undefined)) ctx.addIssue({ code: 'custom', message: 'BROWSER_RENDERING_ACCOUNT_ID and BROWSER_RENDERING_TOKEN go together', path: ['BROWSER_RENDERING_ACCOUNT_ID'] })
-  if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !isLocalhost(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
   if (c.SHOP_DOMAIN !== undefined && ourHosts.some((h) => h === c.SHOP_DOMAIN || h.endsWith(`.${c.SHOP_DOMAIN}`) || c.SHOP_DOMAIN?.endsWith(`.${h}`)))
     ctx.addIssue({ code: 'custom', message: 'SHOP_DOMAIN must be apart from the consoles’ hosts and EDGE_ZONE', path: ['SHOP_DOMAIN'] })

@@ -14,6 +14,8 @@ export interface BookingPlaceRow {
   contact_phone: string | null
   warehouse_seller_id: string | null
   warehouse_address: Record<string, string | undefined>
+  warehouse_latitude: number | null
+  warehouse_longitude: number | null
   /** The store's courier, null when it isn't connected (`off` or never). */
   courier: { pickup_mode: PickupMode; label_size: LabelSize } | null
   /** Whose courier account books a to-shopper supplier's labels (DATA-MODEL §4.2 seller.label_account). */
@@ -24,7 +26,7 @@ export const selectBookingPlace = async (tx: ScopedSql, storeId: string, warehou
   (
     await tx<BookingPlaceRow[]>`
       select s.name as store_name, s.country as store_country, s.address as store_address, s.contact_email, s.contact_phone,
-        w.seller_id as warehouse_seller_id, w.address as warehouse_address,
+        w.seller_id as warehouse_seller_id, w.address as warehouse_address, w.latitude as warehouse_latitude, w.longitude as warehouse_longitude,
         (select json_build_object('pickup_mode', c.pickup_mode, 'label_size', c.label_size) from store_courier c
           where c.store_id = s.id and c.provider = ${provider} and c.role <> 'off') as courier,
         (select label_account from seller where id = ${sellerId}::uuid and store_id = s.id) as label_account

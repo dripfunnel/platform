@@ -1,0 +1,5 @@
+---
+'@dripfunnel/storefront-core': minor
+---
+
+"Pin on map" (#814): `AddressFields` ends with an optional map pin, saved on the address as `latitude` and `longitude` (`AddressDraft.pin`, `CartAddress.pin`, a saved address's `pin`). It shows only when the Shop API's `store.mapFrame` is set, and loads the map only when the shopper taps it, in a sandboxed frame on the hooks host (`ui/headless/pinFrame.ts`) so Google never runs under the store's CSP; it works by keyboard with its point as text, moves to the shopper's own location on "Use my location" (the browser asks permission only then), stays open after Confirm, fills the address fields still empty from what Google finds at the pin (`fillFromPlace`, never replacing what was typed), hides when the map fails or says nothing in 15 s, and asks Google for nothing on a preview or in the studio frame. `storeCsp` takes the page's path, and `pageHeaders` hands it over; `storeCspSchema` takes an optional `mapsFrameOrigin`, which only the `checkout/` and `account/` pages add, to `frame-src` alone (storefront ARCHITECTURE §3.5). Core's messages add `address.map.*`.

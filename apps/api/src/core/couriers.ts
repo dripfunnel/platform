@@ -1,4 +1,5 @@
 import type { Money } from './money'
+import type { Pin } from './pin'
 
 // The one contract every courier adapter keeps (THIRD-PARTY-ACCESS §3.2): Shiprocket in India, and USPS, UPS and
 // FedEx through EasyPost in the US, each on the partner's own account (#272, #337).
@@ -47,8 +48,8 @@ export type PickupMode = 'scheduled' | 'on_request'
 export interface LabelRequest {
   /** Our shipment's id: the courier's reference for it, so the same shipment is never two parcels there. */
   reference: string
-  /** The location it leaves from; `locationId` names it at a courier that keeps pickup addresses (Shiprocket). */
-  from: LabelAddress & { locationId: string }
+  /** The location it leaves from; `locationId` names it at a courier that keeps pickup addresses (Shiprocket), `pin` is its map pin (#815). */
+  from: LabelAddress & { locationId: string; pin?: Pin | null }
   to: LabelAddress
   weightGrams: number
   items: readonly { name: string; sku: string | null; quantity: number; unitAmount: bigint; hsCode: string | null }[]

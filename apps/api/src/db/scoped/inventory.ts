@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import type { PageWindow } from '#core/paging'
+import type { Pin } from '#core/pin'
 import type { ScopedSql } from './index'
 
 // Stock locations, stock per version and location, and the movement ledger (DATA-MODEL §7.4, migration
@@ -24,6 +25,8 @@ export interface WarehouseRow {
   seller_name: string | null
   name: string
   address: WarehouseAddress
+  latitude: number | null
+  longitude: number | null
   is_default: boolean
   units: number
   revision: number
@@ -36,7 +39,7 @@ const sellerName = (tx: ScopedSql) => tx`(select s.name from seller s where s.id
 export const selectWarehouses = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<WarehouseRow[]> => {
   const backwards = window.before !== null && window.after === null
   return tx<WarehouseRow[]>`
-    select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.is_default, w.revision, w.created_at, ${units(tx)} as units
+    select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, w.is_default, w.revision, w.created_at, ${units(tx)} as units
     from warehouse w where w.store_id = ${storeId} and w.deleted_at is null
       and ${window.after ? tx`(w.created_at, w.id) > (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
       and ${window.before ? tx`(w.created_at, w.id) < (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
@@ -46,7 +49,7 @@ export const selectWarehouses = (tx: ScopedSql, storeId: string, window: PageWin
 }
 
 export const selectWarehouse = async (tx: ScopedSql, storeId: string, id: string): Promise<WarehouseRow | null> =>
-  (await tx<WarehouseRow[]>`select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.is_default, w.revision, w.created_at, ${units(tx)} as units from warehouse w where w.id = ${id} and w.store_id = ${storeId} and w.deleted_at is null`)[0] ?? null
+  (await tx<WarehouseRow[]>`select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, w.is_default, w.revision, w.created_at, ${units(tx)} as units from warehouse w where w.id = ${id} and w.store_id = ${storeId} and w.deleted_at is null`)[0] ?? null
 
 /** The caller's own locations, so a supplier's count says nothing of others'. */
 export const countWarehouses = async (tx: ScopedSql, storeId: string, sellerId: string | null): Promise<number> =>
@@ -55,13 +58,15 @@ export const countWarehouses = async (tx: ScopedSql, storeId: string, sellerId: 
 export interface WarehouseFields {
   name: string
   address: WarehouseAddress
+  /** Undefined keeps the saved pin, so a save that never asked about it doesn't clear it; null removes it. */
+  pin?: Pin | null
 }
 
 /** An owner's first location is its default (SetOps). */
 export const insertWarehouse = async (tx: ScopedSql, storeId: string, sellerId: string | null, id: string, f: WarehouseFields): Promise<void> => {
   await tx`
-    insert into warehouse (id, store_id, seller_id, name, address, is_default)
-    values (${id}, ${storeId}, ${sellerId}, ${f.name}, ${tx.json(f.address as unknown as postgres.JSONValue)},
+    insert into warehouse (id, store_id, seller_id, name, address, latitude, longitude, is_default)
+    values (${id}, ${storeId}, ${sellerId}, ${f.name}, ${tx.json(f.address as unknown as postgres.JSONValue)}, ${f.pin?.latitude ?? null}, ${f.pin?.longitude ?? null},
       not exists (select 1 from warehouse where store_id = ${storeId} and seller_id is not distinct from ${sellerId} and deleted_at is null))
   `
 }
@@ -69,7 +74,8 @@ export const insertWarehouse = async (tx: ScopedSql, storeId: string, sellerId: 
 export const updateWarehouse = async (tx: ScopedSql, storeId: string, id: string, revision: number, f: WarehouseFields, now: Date): Promise<boolean> =>
   (
     await tx`
-      update warehouse set name = ${f.name}, address = ${tx.json(f.address as unknown as postgres.JSONValue)}, updated_at = ${now}, revision = revision + 1
+      update warehouse set name = ${f.name}, address = ${tx.json(f.address as unknown as postgres.JSONValue)},
+        ${f.pin === undefined ? tx`` : tx`latitude = ${f.pin?.latitude ?? null}, longitude = ${f.pin?.longitude ?? null},`} updated_at = ${now}, revision = revision + 1
       where id = ${id} and store_id = ${storeId} and revision = ${revision} and deleted_at is null returning id
     `
   ).length === 1

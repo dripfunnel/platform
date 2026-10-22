@@ -13,6 +13,9 @@ export interface CartAddress {
   postalCode: string | null
   country: string
   phone: string | null
+  /** The shopper's map pin (#814); absent on an address kept before it. */
+  latitude?: number | null
+  longitude?: number | null
 }
 
 /** Who a gift card line goes to and when (migration 0171); null on every other line. */

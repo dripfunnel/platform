@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-10-22 (proposed for the shop and delivery apps: Expo push §2.13, the Routes and native Maps keys §2.12, the merchant's own store accounts §3.7). Before: 2026-10-22 (#815: warehouse pins in the merchant portal through the same frame, §2.12; Shiprocket takes a pinned location's coordinates, EasyPost doesn't, §3.2). Before: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -280,6 +280,29 @@ developer's **own** fine-grained token in `GITHUB_PAT` (issues, pull requests an
 `dripfunnel/platform` only, 90 days at most). Setup, use, troubleshooting and rotation:
 [GITHUB-MCP.md](GITHUB-MCP.md).
 
+### 2.12 Google Maps (storefront and warehouse "Pin on map")
+
+Shoppers may pin their delivery address on a map at checkout and in My addresses (#814;
+storefront ARCHITECTURE §2.1), and merchants and suppliers may pin a warehouse in the merchant portal
+(#815), through the same map frame, so the portal never holds the key. One platform key per environment,
+not per store or partner.
+
+| Item | What it is for | Kind | Kept in | Slice |
+|---|---|---|---|---|
+| **Google Cloud project** with billing | The Maps JavaScript API and the Geocoding API | Project | — | #814 |
+| **Browser API key**, one per environment | Loads the map in the shopper's browser, so it is public by design. **Restricted by referrer** to the hooks host (`https://hooks.<host>/*`; locally `https://hooks.localhost/*`): Google is loaded only inside the map frame, whose page sends its origin as the referrer, so no store domain needs listing. Also **restricted by API** (Maps JavaScript API and Geocoding API only), with a daily quota (decided 2026-10-22 on #814) | `AIza…` (public) | Worker variable `GOOGLE_MAPS_BROWSER_KEY`; only the map frame's page on the hooks host carries it (`hooks.<host>/maps/pin`), never the Shop API, a build or a repo | #814 |
+
+*(proposed, api/DELIVERY.md §7, mobile-app/README.md)* Own delivery adds a **server key** restricted to the
+Routes API, for arrival estimates (Worker secret `GOOGLE_MAPS_SERVER_KEY`; without it no estimate), and
+the shop and delivery apps need **Maps SDK for Android keys** restricted to each store's package and
+signing certificate. *(decide)* One key per environment listing every store's package, or one per store.
+
+### 2.13 Expo push service *(proposed, api/DELIVERY.md §6)*
+
+Pushes to the shop and delivery apps go through Expo's push service. DripFunnel's Expo account holds an
+**access token** for sending (Worker secret `EXPO_PUSH_TOKEN`); each store's APNs key and Firebase
+project are kept in EAS with the store's build credentials (mobile-app/README.md §3).
+
 ---
 
 ## 3. Credentials merchants bring
@@ -373,6 +396,12 @@ and `hooks.<host>/couriers/easypost/{partnerId}` (an EasyPost webhook with a sec
 polling. Still missing on dev: each partner's Shiprocket API user and webhook token, and EasyPost key and webhook secret
 (#275 stores them with the account).
 
+**Warehouse pins (#815)**: a pinned location's coordinates go to Shiprocket's add-pickup call as `lat` and `long`
+(optional strings; confirmed from a client library and an integration, as its own docs page wouldn't render, so the card's
+open question asks for a check against the official docs). EasyPost's address takes no coordinates (only its verification
+answers them), so it keeps the text address. Shiprocket registers a location once, at its first label, so a pin added or
+moved after that isn't sent.
+
 **Built on #305**: the adapters (`integrations/couriers/`: Shiprocket's serviceability rates after a login per quote,
 since the Worker keeps nothing between requests; EasyPost's shipment rates, one carrier's at a time) and a store's choice
 of couriers, which it connects only where its partner has the account. Until #275 reads partners' accounts none has one,
@@ -414,6 +443,13 @@ prototype, Pricing, PortalBilling).
   ownership record).
 - **Outbound webhooks** and **API keys** in Settings › Developers: **we** generate these
   secrets (§5), shown once.
+
+### 3.7 The merchant's own app store accounts *(proposed, mobile-app/README.md §2)*
+
+A store with its own shop and delivery apps enrols as an organization with the Apple Developer Program
+and Google Play Console, and gives DripFunnel least-privilege access (an App Store Connect API key; a Play
+service account), as partners do for the merchant app (mobile-app/merchant/BUILDS-AND-STORE-ACCOUNTS.md §2,
+§5). The keys live in EAS per store, never in the platform's database or the repo.
 
 ---
 
@@ -547,6 +583,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 8. **Exchange rates and duties providers.** ~~US sales tax~~: Stripe Tax (#184), on the merchant's own account through Connect (#284). (§2.8)
 9. **Logpush destination, error tracking, support chat and status page.** (§2.8)
 10. **SES region**, and whether EU partners need EU sending and storage.
+11. *(decide)* The Maps SDK for Android keys for per-store apps: one per environment or one per store (§2.12).
 
 ---
 
@@ -604,6 +641,7 @@ Where it is kept:
 | `STRIPE_WEBHOOK_SECRET` | Verifies events at `hooks.<host>/stripe` (SAAS §7.2) | Stripe → Developers → Webhooks → *Add endpoint* `https://hooks.dripfunnel.com/stripe` (dev: `https://dev-hooks.dripfunnel.ai/stripe`) with `invoice.*`, `charge.*`, `payout.*`, `account.*` and *Listen to events on Connected accounts* → *Reveal signing secret*. Locally `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"` prints one (the Worker picks the API by host, [setup/local.md](../setup/local.md) §8) | `.env.local` (optional) · Worker secret · Worker secret | `core/config.ts`, `hooks/stripe.ts` (since #201) |
 | `STRIPE_CONNECT_CLIENT_ID` | Merchants connect their own Stripe account by Connect OAuth (#284): the platform's `ca_…` id, test mode outside prod. Absent, Connect Stripe says it isn't set up and the callback route doesn't exist | Stripe → Connect → Settings, with the redirect `https://hooks.<host>/stripe/connect/callback` | — · Worker variable (test) · Worker variable (live) | `core/config.ts`, `hooks/stripeConnect.ts` (since #309) |
 | `STRIPE_PUBLISHABLE_KEY` | What checkout's card field acts with on the merchant's account, and what the partner console's Stripe.js acts with for its payout account and card (`pk_…`, #278), in `STRIPE_SECRET_KEY`'s mode (the Worker refuses another). Absent, Stripe isn't offered at checkout and Settings › Payout and payment says the provider isn't switched on | Stripe → Developers → API keys | `.env.local` (optional, test) · Worker variable (test) · Worker variable (live) | `core/config.ts`, `integrations/stripe/payments.ts` (since #309), `saas/billing` (`billingClientConfig`, #278) |
+| `GOOGLE_MAPS_BROWSER_KEY` | The storefront's "Pin on map" (§2.12, #814): a public browser key restricted by referrer to the hooks host and to the Maps JavaScript and Geocoding APIs, with a quota. Absent, the button is hidden and the address form works as before | Google Cloud → APIs & Services → Credentials → Create API key, then Application restrictions → Websites `https://hooks.<host>/*` (dev: `https://dev-hooks.dripfunnel.ai/*`; local: `https://hooks.localhost/*`) and API restrictions | `.env.local` (optional) · Worker variable · Worker variable | `core/config.ts`, `hooks/mapFrame.ts` (the frame's page), `apis/shop/catalog.ts` (`store.mapFrame`, the frame's address) |
 | `STRIPE_TEST_SECRET_KEY`, `STRIPE_TEST_PUBLISHABLE_KEY` | Prod only, both or neither: test-mode keys for preview storefronts' checkout (storefront ARCHITECTURE §4.1) where the keys above are live; the secret is restricted as `STRIPE_SECRET_KEY` is | Stripe (test mode) → Developers → API keys | — · — · Worker secret and variable | `core/config.ts` (since #309) |
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Every email the outbox holds (§2.4, #274). An IAM user limited to `ses:SendEmail`/`ses:SendRawEmail` on the sender domain's identity. **All with `SES_SENDER_DOMAIN` and `EMAIL_SUPPRESSION_KEY`, or email waits in the outbox** | IAM → Users → *Create user* with that inline policy → *Security credentials* → *Create access key*; the region is the SES account's | `.env.local` (optional; the SES sandbox) · Worker secret (sandbox, verified recipients) · Worker secret (production access) | `core/config.ts`, `integrations/ses`, `jobs/queues/deliverers/email.ts` |
 | `SES_SENDER_DOMAIN` | The domain email is sent from: DripFunnel's `no-reply@<it>`, partners' fallbacks `no-reply@<label>.<it>` (SAAS §3.6) | A domain verified in that SES account (SES → Identities → *Create identity* → Domain, then its DKIM records). Locally, any domain you can add DNS records to | `.env.local` · Worker variable · Worker variable (`dripfunnel-mail.com`) | `core/config.ts`, `saas/email` |
@@ -613,7 +651,7 @@ Where it is kept:
 | `SHOPIFY_LOCAL` | `1` answers Connect Shopify with a logging stand-in: approval comes straight back, the shop is empty. It skips Shopify's signature, so the Worker refuses to start with it unless `HOOKS_HOST` is on `localhost`; set, it wins over the two values above | — | `.env.local` only · — · — | `core/config.ts`, `index.ts` |
 | `EMAIL_LOCAL` | `1` sends email through a local stand-in: the outbox, templates and relay run as on dev, and each email prints in the `pnpm dev` terminal and `apps/api/.local-mail/` (docs/setup/local.md §6.1). Needs `EMAIL_SUPPRESSION_KEY`; the Worker refuses to start with it unless `HOOKS_HOST` is on `localhost`; set, it wins over SES | — | `.env.local` only · — · — | `core/config.ts`, `index.ts`, `integrations/local` |
 | `SMS_LOCAL` | `1` delivers texts through a local stand-in: each partner has an account on both providers, and the composed text prints instead of reaching MSG91 or Twilio. Local only, as above | — | `.env.local` only · — · — | `core/config.ts`, `index.ts`, `integrations/local` |
-| `CODE_CHECK` | `0` accepts any email or text code: only the comparison with the stored code is skipped, expiry, tries and lockout stay. `1` or unset checks codes. Dev and local only: the Worker refuses `0` on any other host | — | dev Worker vars, `.env.local` · — · — | `core/config.ts`, `auth/codeCheck.ts` |
+| `CODE_CHECK` | `0` accepts any email or text code: only the comparison with the stored code is skipped, expiry, tries and lockout stay. `1` or unset checks codes. The Worker takes `0` on any host, prod included | — | dev Worker vars, `.env.local` · — · — | `core/config.ts`, `auth/codeCheck.ts` |
 | `DNS_LOCAL` | `1` answers a `*.localhost` name with what its partner domain record expects, so a partner's local addresses verify through the real check, and lets a partner add `*.localhost` addresses. With the `CF_*` values set, a `*.localhost` portal host is live at once and never sent to Cloudflare. Every other name goes to the real resolver and, with those values, to Cloudflare. Local only, as above | — | `.env.local` only · — · — | `core/config.ts`, `index.ts`, `integrations/local`, `saas/partnerDomains` |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY` | Store repos through the *DripFunnel Provisioning* App (§2.3): its five permissions, asked for again on each installation token. All three or none; the key is PEM, PKCS#1 as GitHub issues it or PKCS#8, with real or `\n` newlines. `GITHUB_APP_WEBHOOK_SECRET` is not needed: the App has no webhook (2026-10-09) | GitHub → the org → Settings → Developer settings → GitHub Apps → *New GitHub App*: no webhook, the five permissions of §2.3, installable on this org only → *Generate a private key*; install it on the org for **selected repositories** (#287 confirms a repo it creates joins the installation; otherwise all repositories), and the installation id is the number in that installation's settings URL | — · Worker variables and a Worker secret (#287) · the same | `core/config.ts`, `integrations/github` (since #316) |
 | `GITHUB_LOCAL` | `1` makes store repos in an in-memory GitHub that the App's real client talks to (docs/setup/local.md §6.1), whatever the `GITHUB_APP_*` values; since #517 a store build's calls also take tokens from a local OIDC issuer and answer with credentials and links that name nothing real, whatever the `R2_STOREFRONT_*` values. Local only, as above | — | `.env.local` only · — · — | `core/config.ts`, `integrations/github`, `integrations/local` (since #316) |

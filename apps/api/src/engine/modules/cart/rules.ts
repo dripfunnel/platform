@@ -2,6 +2,7 @@ import { isCountry } from '#core/countries'
 import { cleanEmail } from '#core/email'
 import { isE164 } from '#core/sms'
 import type { Money } from '#core/money'
+import { pinSchema } from '#core/pin'
 import type { CartAddress, CartGift } from '#db/scoped/cart'
 
 // The pure rules of a cart (PLATFORM-PROMPT §5.4 Cart and checkout): what an address and a contact must hold, what each
@@ -20,6 +21,8 @@ export interface AddressInput {
   postalCode?: string | null | undefined
   country: string
   phone?: string | null | undefined
+  latitude?: number | null | undefined
+  longitude?: number | null | undefined
 }
 
 const text = (value: string | null | undefined): string | null => value?.trim() || null
@@ -30,6 +33,8 @@ export const cleanAddress = (input: AddressInput): CartAddress | null => {
   if (fields.some((f) => (f?.trim().length ?? 0) > 200) || (input.postalCode?.trim().length ?? 0) > 20) return null
   const country = input.country.trim().toUpperCase()
   const phone = text(input.phone)?.replaceAll(/[\s-]/g, '') ?? null
+  const pin = pinSchema.safeParse({ latitude: input.latitude, longitude: input.longitude })
+  if (!pin.success) return null
   const address: CartAddress = {
     name: text(input.name) ?? '',
     line1: text(input.line1) ?? '',
@@ -39,6 +44,8 @@ export const cleanAddress = (input: AddressInput): CartAddress | null => {
     postalCode: text(input.postalCode),
     country,
     phone,
+    latitude: pin.data.latitude,
+    longitude: pin.data.longitude,
   }
   if (address.name === '' || address.line1 === '' || address.city === '' || !isCountry(country) || (phone !== null && !isE164(phone))) return null
   return address

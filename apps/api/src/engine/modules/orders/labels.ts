@@ -12,16 +12,17 @@ const field = (value: string | null | undefined) => {
 
 /**
  * Where the parcel leaves from: the location's own address, or for one of the store's locations with none, Store info's
- * (which quotes already price from); null when neither is whole.
+ * (which quotes already price from); null when neither is whole. Only the location's own address carries its pin.
  */
-export const fromAddressOf = (place: BookingPlaceRow, warehouseId: string): (LabelAddress & { locationId: string }) | null => {
+export const fromAddressOf = (place: BookingPlaceRow, warehouseId: string): LabelRequest['from'] | null => {
   const w = place.warehouse_address
   const own = { line1: field(w['line1']), line2: field(w['line2']), city: field(w['city']), region: field(w['region']), postal: field(w['postalCode']), country: field(w['country']) }
   const s = place.store_address
   const store = { line1: field(s['street']), line2: null, city: field(s['city']), region: field(s['region']), postal: field(s['postal']), country: field(place.store_country) }
   const a = own.line1 && own.city && own.postal && own.country ? own : place.warehouse_seller_id === null ? store : own
   if (!a.line1 || !a.city || !a.postal || !a.country) return null
-  return { locationId: warehouseId, name: place.store_name, line1: a.line1, line2: a.line2, city: a.city, region: a.region, postal: a.postal, country: a.country, phone: field(place.contact_phone), email: field(place.contact_email) }
+  const pin = a === own && place.warehouse_latitude !== null && place.warehouse_longitude !== null ? { latitude: place.warehouse_latitude, longitude: place.warehouse_longitude } : null
+  return { locationId: warehouseId, pin, name: place.store_name, line1: a.line1, line2: a.line2, city: a.city, region: a.region, postal: a.postal, country: a.country, phone: field(place.contact_phone), email: field(place.contact_email) }
 }
 
 /** Where it goes: the order's delivery address, with the shopper's number and email for the courier's updates. */

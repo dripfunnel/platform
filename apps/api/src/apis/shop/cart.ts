@@ -49,6 +49,9 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       postalCode: t.exposeString('postalCode', { nullable: true }),
       country: t.exposeString('country'),
       phone: t.exposeString('phone', { nullable: true }),
+      // The shopper's map pin; null when not pinned.
+      latitude: t.float({ nullable: true, resolve: (a) => a.latitude ?? null }),
+      longitude: t.float({ nullable: true, resolve: (a) => a.longitude ?? null }),
     }),
   })
   const Gift = builder.objectRef<CartGift>('ShopGiftCardRecipient').implement({
@@ -185,6 +188,9 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       postalCode: t.string(),
       country: t.string({ required: true }),
       phone: t.string(),
+      // Both or neither: -90..90 and -180..180.
+      latitude: t.float(),
+      longitude: t.float(),
     }),
   })
 
@@ -245,7 +251,7 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       args: { address: t.arg({ type: AddressInput, required: true }) },
       extensions: { access: write },
       resolve: async (_, args, ctx) => {
-        bounded(...Object.values(args.address))
+        bounded(...Object.values(args.address).filter((v) => typeof v === 'string'))
         return answered(await (await cartOf(ctx)).setShippingAddress(args.address))
       },
     }),
@@ -255,7 +261,7 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       args: { address: t.arg({ type: AddressInput }) },
       extensions: { access: write },
       resolve: async (_, args, ctx) => {
-        bounded(...Object.values(args.address ?? {}))
+        bounded(...Object.values(args.address ?? {}).filter((v) => typeof v === 'string'))
         return answered(await (await cartOf(ctx)).setBillingAddress(args.address ?? null))
       },
     }),

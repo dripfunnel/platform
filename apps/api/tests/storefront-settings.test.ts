@@ -260,7 +260,7 @@ describe('the Shop API and the publish snapshot', () => {
       startPublish(tx, { storeId: t.storeA1, kind: 'design', commit: 'b'.repeat(40), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: now() }),
     )
     const runId = started.ok ? started.runId : ''
-    expect(await freezeBuild({ sql: db.sql, drafts, assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now }, t.storeA1, runId)).toBe('frozen')
+    expect(await freezeBuild({ sql: db.sql, drafts, assetOrigin: null, shopDomain: 'shop.example', mapsFrameOrigin: null, dispatch: async () => true, now }, t.storeA1, runId)).toBe('frozen')
     const snapshot = JSON.parse((await (await drafts.get(snapshotFile(t.storeA1, runId)))?.text()) ?? '{}') as { store: Record<string, unknown> }
     expect(snapshot.store).toMatchObject({
       tagline: 'Linen for slow days',

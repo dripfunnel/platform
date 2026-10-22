@@ -189,6 +189,22 @@ describe('a signed-in shopper', () => {
     await gql(`mutation { deleteAddress(id: "${theirs}") }`, who)
   })
 
+  it('keeps a map pin whole and in range, shows it to nobody else, and erases it with the address', async () => {
+    const who = { session: phoneSession }
+    const pinned = 'name: "Asha", line1: "12 MG Road", city: "Pune", country: "IN"'
+    const id = (await gql(`mutation { saveAddress(address: { ${pinned}, latitude: 18.5204, longitude: 73.8567 }) }`, who)).data?.['saveAddress'] as string
+    expect((await gql('{ account { addresses { id latitude longitude } } }', who)).data?.['account']).toEqual({ addresses: [{ id, latitude: 18.5204, longitude: 73.8567 }] })
+    for (const pin of ['latitude: 18.5', 'longitude: 73.8', 'latitude: 18.5, longitude: null', 'latitude: 90.5, longitude: 0', 'latitude: 0, longitude: -180.5']) {
+      expect((await gql(`mutation { saveAddress(address: { ${pinned}, ${pin} }) }`, who)).code).toBe('INVALID_INPUT')
+    }
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919845044335") }')
+    const other = { session: ((await verify('PHONE', '+919845044335', await textedCode('+919845044335'))).data?.['verifySignInCode'] as { sessionToken: string }).sessionToken }
+    expect((await gql('{ account { addresses { latitude } } }', other)).data?.['account']).toEqual({ addresses: [] })
+    expect(await withScope(db.sql, { caller: { kind: 'shopper', customerId: null }, partnerId: t.partnerA, storeId: stores.other, sellerScope: { kind: 'all' }, subscription: 'active' }, (tx) => tx`select latitude from customer_address`)).toHaveLength(0)
+    await gql(`mutation { deleteAddress(id: "${id}") }`, who)
+    expect(await db.sql`select latitude, longitude from customer_address where id = ${id}`).toEqual([{ latitude: null, longitude: null }])
+  })
+
   it('keeps at most 20 addresses, and still edits one at the cap', async () => {
     const who = { session: phoneSession }
     const ids: string[] = []

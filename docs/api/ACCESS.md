@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -28,7 +28,7 @@ Last updated: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are 
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **Four identity pools, kept separate**: merchant and vendor people; partner users; DripFunnel staff; shoppers per store (§2) | One users table with flags; staff as merchants with a superuser flag | Each pool signs in on its own host with its own rules. A staff or partner identity can never be a merchant session with a flag (PLATFORM-PROMPT §5.2), and a bug in one pool's checks can't grant another pool's power. |
+| **Five identity pools, kept separate**: merchant and vendor people; partner users; DripFunnel staff; shoppers per store; riders per store (§2; riders *proposed* 2026-10-22, DELIVERY.md) | One users table with flags; staff as merchants with a superuser flag | Each pool signs in on its own host with its own rules. A staff or partner identity can never be a merchant session with a flag (PLATFORM-PROMPT §5.2), and a bug in one pool's checks can't grant another pool's power. |
 | **One account per person per partner** in the merchant/vendor pool: `user` unique by `(partner_id, email)` (decided 2026-09-28) | An account per store; one account platform-wide | One person, one login, many stores **within a partner** (PLATFORM-PROMPT §2 item 3). Accounts never cross partners, so no password, 2-factor, Google sign-in, reset or "you already have an account" email reveals that two brands run on one platform. The cost: someone with stores under two partners has two unrelated logins. |
 | **`membership(user_id, store_id, seller_id, role_key)`**; vendor identity is a property of the pair (user, store) | Vendor identity on the user | A person can be Staff in one store and a vendor in two others, with a different `seller_id` in each. |
 | **Roles are fixed permission sets in code**, keyed by `role_key` | Role rows per store; cloning at provisioning; a role editor | Nothing to clone or drift; a change is reviewed and deployed like code; a role change takes effect on the next request. |
@@ -53,7 +53,7 @@ Last updated: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are 
 
 ## 2. Identities
 
-Four pools. An email address in one pool says nothing about the others: a partner user and a
+Five pools. An email address in one pool says nothing about the others: a partner user and a
 merchant with the same address are two unrelated accounts.
 
 | Pool | Who | Signs in at | Credentials | Unique by |
@@ -62,6 +62,7 @@ merchant with the same address are two unrelated accounts.
 | **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password (**built on #156**: PBKDF2-SHA256, 100,000 iterations — the most the Workers runtime allows — a 16-byte salt and a 32-byte key, `auth/password.ts`; one decoy derivation when no account matches, so an unknown email costs what a wrong password does); 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
 | **Staff** | DripFunnel employees | `admin.dripfunnel.com`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
 | **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
+| **Riders** *(proposed)* | A merchant's own delivery people | The store's delivery app, Delivery API at `/delivery-api/` on `{slug}.<SHOP_DOMAIN>` | Mobile + one-time code by SMS; invitation only, by the store's Owner (`riders.manage`), matched by the number ([DELIVERY.md](DELIVERY.md) §5) | Phone **per store**: a person delivering for two stores has two rider accounts |
 
 Rules for the **people** pool:
 
@@ -130,6 +131,7 @@ and **never** to a `TenantContext`, except through a support session.
 |---|---|---|---|---|---|
 | **Person** | Store API | Session cookie + acting store named on the request | The acting store, which must be in the membership set | From the membership's `seller_id` | The membership's `role_key` |
 | **Shopper** | Shop API | Public store key or storefront hostname, plus an optional customer session | The key's store | `all`, visibility-filtered to what shoppers may see | The fixed shopper set |
+| **Rider** *(proposed)* | Delivery API | The store's `{slug}.<SHOP_DOMAIN>` host plus the rider's bearer session | The host's store, which must be the rider's | none: a rider reaches only its own offers and deliveries, never a catalogue or order list | The fixed rider set ([DELIVERY.md](DELIVERY.md) §4) |
 | **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes: capped by its creator's role when created, and by the supplier's current tier on every request if vendor-bound (§5.6) |
 | **App grant** | Store API | The app's grant token | The grant's store | `all`: apps are always store-wide; only API keys may be supplier-bound (decided 2026-10-05 on #337) | The scopes the merchant approved |
 | **Staff impersonation** | Store API or Platform API, on the target's host | Impersonation cookie from a handoff (§8.1) | The target membership's store, or none for a partner user | From the target membership | The target's own permissions |
@@ -146,6 +148,7 @@ type SellerScope =
 type StoreCaller =
   | { kind: 'person'; userId: string; sessionId: string }
   | { kind: 'shopper'; customerId: string | null }
+  | { kind: 'rider'; riderId: string }                      // proposed: DELIVERY.md §4
   | { kind: 'api-key'; keyId: string; createdByUserId: string }
   | { kind: 'app'; grantId: string; appId: string }
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }
@@ -435,6 +438,8 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `offers.export`: `exportOfferCodes`, a batch's codes as a file; Staff reads offers but may not export their codes (decided 2026-10-05) | ✓ | ✓ | |
 | `store.export`: `exportStoreData`, everything the store holds, for leaving or a data request | ✓ | | |
 | `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
+| `riders.manage` *(proposed)*: the store's riders, Settings › Riders: invite, resend, suspend, restore, remove, export, erase ([DELIVERY.md](DELIVERY.md) §5, §8) | ✓ | | |
+| Own-delivery actions *(proposed)*: Ready for pickup, assign, offer again, cancel or recall, mark delivered with a reason ([DELIVERY.md](DELIVERY.md) §8): the merchant side's `orders.fulfil`, never a supplier's | ✓ | ✓ | ✓ |
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
 | `support.allow_write`: Allow or Deny a support agent's write request inside an open session (§8) (decided 2026-10-05 on #337) | ✓ | ✓ | |
@@ -479,7 +484,7 @@ supplier who can look and not touch.
 | `catalog.propose`: a new product that waits for the merchant's approval, never an edit (decided on #337, built on #295) | ✓ | | | |
 | `stock.read`, `stock.write`, `warehouses.write` | ✓ | ✓ | ✓ | ✓ |
 | `orders.read`: their own sub-orders | | | ✓ | ✓ |
-| `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode | | | ✓ | |
+| `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode; never the store's own-delivery actions or riders ([DELIVERY.md](DELIVERY.md) §8) | | | ✓ | |
 | `orders.refund`: their own lines only, up to their value; never a return's start or an override (§7.3) | | | ✓ | |
 | `sales.read`: Your sales (`mySales`), their own sold lines, no totals; never `reports.read` | | | ✓ | ✓ |
 | `exports.products`: their own products and stock | ✓ | ✓ | ✓ | ✓ |

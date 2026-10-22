@@ -9,7 +9,7 @@ new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-22 (six kinds of user). Before: 2026-10-05.
 
 Paste §1 to start a design session, then name a flow from §3.
 
@@ -25,7 +25,7 @@ Paste §1 to start a design session, then name a flow from §3.
 > would otherwise have to guess at:
 >
 > - [ARCHITECTURE.md](../../ARCHITECTURE.md) and [USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md):
->   the five kinds of user, where each signs in, and how the platform is deployed. These win
+>   the six kinds of user, where each signs in, and how the platform is deployed. These win
 >   over everything else.
 > - [SAAS.md](../../api/SAAS.md): what the platform is and what it does (partners,
 >   provisioning, plans, billing, domains, publishing)

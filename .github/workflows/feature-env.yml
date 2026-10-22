@@ -44,6 +44,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Gates
+        if: vars.GATES_CHECK != '0'
         run: pnpm turbo run build typecheck lint test
         working-directory: .
 

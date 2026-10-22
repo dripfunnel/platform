@@ -36,7 +36,7 @@ const publishDeps = (): PublishDeps => ({
   sites,
   assets,
   drafts,
-  assetOrigin: null, shopDomain: 'shop.example',
+  assetOrigin: null, shopDomain: 'shop.example', mapsFrameOrigin: null,
   dispatch: async (_repo, buildId) => {
     dispatched.push(buildId)
     return true

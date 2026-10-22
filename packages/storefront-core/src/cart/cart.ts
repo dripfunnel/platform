@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { z } from 'zod'
+import { pinOf, type Pin } from '../checkout/address'
 import { ShopApiError, type ShopClient } from '../platform/api/client'
 import { keepShopperToken, shopperToken } from '../platform/api/tokens'
 import { navigate } from '../platform/browser/router'
@@ -14,17 +15,18 @@ import { moneyFields, productPath } from '../products/summary'
 // per page and changed only by its answers. A change shows at once and the engine's answer then replaces it.
 
 const m = `{ ${moneyFields} }`
-const addressFields = 'name line1 line2 city region postalCode country phone'
+const addressFields = 'name line1 line2 city region postalCode country phone latitude longitude'
 export const cartFields = `id currency email phone note needsShipping checkoutStep problems readyToPay deliverable shippingOption lines { versionId quantity productName productSlug versionName photoUrl unitPrice ${m} lineTotal ${m} discount ${m} available problem gift { recipientName recipientEmail sendOn message } } subtotal ${m} discount ${m} discounts { name code amount ${m} } codes { code state } shipping ${m} shippingDiscount ${m} tax { amount ${m} pricesIncludeTax } total ${m} amountDue ${m} giftCard { applied ${m} balance ${m} expiresAt last4 } shippingAddress { ${addressFields} } billingAddress { ${addressFields} } shippingOptions { id provider service amount ${m} before ${m} minDays maxDays hours }`
 
 const text = z.string().nullable().optional()
 const count = z.number().int().nullable().optional()
+const coordinate = z.number().nullable().optional()
 const money = moneySchema.nullable().optional().catch(null)
 const addressSchema = z
-  .object({ name: text, line1: text, line2: text, city: text, region: text, postalCode: text, country: text, phone: text })
+  .object({ name: text, line1: text, line2: text, city: text, region: text, postalCode: text, country: text, phone: text, latitude: coordinate, longitude: coordinate })
   .nullable()
   .optional()
-  .transform((a): CartAddress | null => (a?.name && a.line1 && a.city && a.country ? { name: a.name, line1: a.line1, line2: a.line2 ?? null, city: a.city, region: a.region ?? null, postalCode: a.postalCode ?? null, country: a.country, phone: a.phone ?? null } : null))
+  .transform((a): CartAddress | null => (a?.name && a.line1 && a.city && a.country ? { name: a.name, line1: a.line1, line2: a.line2 ?? null, city: a.city, region: a.region ?? null, postalCode: a.postalCode ?? null, country: a.country, phone: a.phone ?? null, pin: pinOf(a) } : null))
 
 export const cartSchema = z.object({
   id: z.string(),
@@ -54,7 +56,7 @@ export const cartSchema = z.object({
   shippingOptions: z.array(z.object({ id: z.string(), provider: text, service: text, amount: moneySchema, before: money, minDays: count, maxDays: count, hours: text })).nullable().optional(),
 })
 
-export type CartAddress = { name: string; line1: string; line2: string | null; city: string; region: string | null; postalCode: string | null; country: string; phone: string | null }
+export type CartAddress = { name: string; line1: string; line2: string | null; city: string; region: string | null; postalCode: string | null; country: string; phone: string | null; pin?: Pin | null }
 
 /** What stops a line being bought: gone, not sold in the shopper's market, without a price, or more than is left. */
 export type LineProblem = 'unavailable' | 'not_sold_here' | 'not_priced' | 'short'

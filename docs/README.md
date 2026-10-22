@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-10-09 (#520: storefront LIVE-SHOP, PREVIEW and AI-STUDIO added; #493: the mobile app's first release has no Billing or in-app purchase).
+Last updated: 2026-10-22 (with Gaurav: the shop and delivery apps, own delivery, api/DELIVERY.md, proposed). Before: 2026-10-09 (#520: storefront LIVE-SHOP, PREVIEW and AI-STUDIO added; #493: the mobile app's first release has no Billing or in-app purchase).
 
 ---
 
@@ -29,7 +29,8 @@ its clients; everything runs on Cloudflare, with Postgres on Neon.
 | **Merchant portal** | `apps/ui/store` | each partner's portal host, e.g. `store.<partnerdomain>` | Merchant Owner, Manager, Staff; vendors: Stock only, Products and stock, Products, stock and their orders | Store API | [ui/store/](ui/store/README.md) |
 | **Storefront** | one public repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{slug}.my-store.one`, the merchant's domain; preview on `{slug}-preview.my-store.one` | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
 
-All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
+All five APIs live in one Worker, `apps/api`: [api/](api/README.md). The fifth, the Delivery API for
+riders, is specified in [api/DELIVERY.md](api/DELIVERY.md) *(proposed)*.
 
 ---
 
@@ -46,14 +47,15 @@ facts (decided 2026-10-04).
 docs/
   README.md                 this map
   ARCHITECTURE.md           WINS: deployables, hostnames, routing, repo layout, Workers rules, data flow, deploy
-  USERS-AND-DOMAINS.md      WINS: the five kinds of user, hostnames, onboarding, partner reach, support access, DNS
+  USERS-AND-DOMAINS.md      WINS: the six kinds of user, hostnames, onboarding, partner reach, support access, DNS
   api/
-    README.md               guide: the four APIs and callers, apps/api layout, layers, how to add code, testing
+    README.md               guide: the five APIs and callers, apps/api layout, layers, how to add code, testing
     PLATFORM-PROMPT.md      spec: the engine (tenancy, identity, commerce modules, public APIs, jobs), open questions
     ACCESS.md               spec: identity, sessions, roles and permissions for every portal, invitations, vendors, support access, authorization checks
     DATA-MODEL.md           spec: tenancy tree, table scopes, users and roles in every pool, supplier teams, row-level security, the commerce tables (§7)
     LOGGING.md              spec: the activity (audit) log at every level, who sees what, search by person, retention
     SAAS.md                 spec: partners, merchant accounts, provisioning, plans, billing, domains, publishing, fleet, metrics
+    DELIVERY.md             spec: own delivery, riders, dispatch, the Delivery API, tracking (proposed)
   ui/
     README.md               guide: how every SPA is built (structure, API calls, text, navigation, states, adding a screen)
     admin/README.md         guide: the admin console: purpose, staff roles, navigation, code, rules
@@ -71,6 +73,9 @@ docs/
     store/OFFERS-DESIGN.md  design prompt: offers in depth
     shared/README.md        guide: @dripfunnel/shared, what belongs in it
   mobile-app/
+    README.md               the three apps: who gives which to whom, builds per partner or per store
+    shop/                   the store's shopping app (apps/ui/mobile-app/shop): FIRST-RELEASE, ARCHITECTURE (proposed)
+    delivery/               the store's riders' app (apps/ui/mobile-app/delivery): FIRST-RELEASE, ARCHITECTURE (proposed)
     merchant/               the merchant mobile app (apps/ui/mobile-app/merchant, set up with placeholder screens):
       REACT-NATIVE.md         React Native with Expo, native sign-in, Intl on Hermes, the SDK policy
       BUILDS-AND-STORE-ACCOUNTS.md  one build and one developer account per partner, and the store rules behind it
@@ -149,6 +154,8 @@ run it, then the guide for the part you'll touch.
 | Tables, tenancy, where users and roles are stored, row-level security, the commerce tables | [api/DATA-MODEL.md](api/DATA-MODEL.md) |
 | Partners, plans, billing, provisioning, domains, publishing, fleet | [api/SAAS.md](api/SAAS.md), and `designs/DF Store Pricing.dc.html` for what each plan includes |
 | Activity log, who did what, technical logs | [api/LOGGING.md](api/LOGGING.md) |
+| Own delivery, riders, dispatch, delivery tracking | [api/DELIVERY.md](api/DELIVERY.md) |
+| The shop or delivery app | [mobile-app/README.md](mobile-app/README.md), then [mobile-app/shop/](mobile-app/shop/FIRST-RELEASE.md) or [mobile-app/delivery/](mobile-app/delivery/FIRST-RELEASE.md) |
 | Any SPA code | [ui/README.md](ui/README.md), then the app's guide, then the screen in its prototype ([../designs/design.md](../designs/design.md)) |
 | Merchant portal screens | [ui/store/](ui/store/README.md), [FIRST-RELEASE](ui/store/FIRST-RELEASE.md) (build this first), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md), and `designs/DF Store Prototype.dc.html` |
 | Partner console screens | [ui/platform/](ui/platform/README.md), [FIRST-RELEASE](ui/platform/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines, and `designs/DF Platform Prototype.dc.html` |

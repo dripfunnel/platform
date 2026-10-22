@@ -9,7 +9,7 @@ import { messages } from '../../messages'
 
 const words = messages.warehouses
 
-const api = vi.hoisted(() => ({ loadPlaces: vi.fn(), savePlace: vi.fn(), makeDefaultPlace: vi.fn(), deletePlace: vi.fn() }))
+const api = vi.hoisted(() => ({ loadPlaces: vi.fn(), savePlace: vi.fn(), makeDefaultPlace: vi.fn(), deletePlace: vi.fn(), loadMapFrame: vi.fn(), loadStoreCountry: vi.fn() }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...api }))
 
 const { WarehousesPage } = await import('./WarehousesPage')
@@ -30,6 +30,8 @@ const show = async (acting: Acting, readOnly = false) => {
 }
 
 beforeEach(() => {
+  api.loadMapFrame.mockResolvedValue(null)
+  api.loadStoreCountry.mockResolvedValue(null)
   api.loadPlaces.mockResolvedValue([{ id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null, supplierId: null, supplierName: null }])
 })
 

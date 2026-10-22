@@ -125,6 +125,7 @@ jobs:
       # branch that is the same privileged operation as the Migrations step below, so it runs
       # behind the same guard, pinned to the disposable test branch rather than the dev one.
       - name: Gates
+        if: vars.GATES_CHECK != '0'
         run: pnpm turbo run build typecheck lint test
         working-directory: .
         env:

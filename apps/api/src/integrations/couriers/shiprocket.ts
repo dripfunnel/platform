@@ -109,6 +109,8 @@ export const shiprocketBook = async ({ fetchImpl = fetch, ...creds }: Shiprocket
   const pickupLocation = locationName(from.locationId)
   const place = await post(fetchImpl, token, '/settings/company/addpickup', {
     pickup_location: pickupLocation, name: from.name, email: from.email ?? '', phone: from.phone ?? '', address: from.line1, address_2: from.line2 ?? '', city: from.city, state: from.region ?? '', country: 'India', pin_code: from.postal,
+    // Optional coordinates on a pickup location (#815's card records the source).
+    ...(from.pin ? { lat: String(from.pin.latitude), long: String(from.pin.longitude) } : {}),
   }, signal)
   // 422 is "already registered", the usual answer after a location's first label.
   if (!place.ok && place.status !== 422) failed(place)

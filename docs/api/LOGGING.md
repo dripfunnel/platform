@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-10-15 (#744: previews and live shops on `SHOP_DOMAIN`, both zones' Logpush, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
+Last updated: 2026-10-22 (the `rider` actor kind, §4, proposed: DELIVERY.md). Before: 2026-10-15 (#744: previews and live shops on `SHOP_DOMAIN`, both zones' Logpush, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
 
 ---
 
@@ -95,7 +95,7 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 | `category` | `auth`, `write`, `support`, `system`, `security` |
 | `action` | Stable code, e.g. `store.suspended`, `product.updated`, `customer.signed_in` |
 | `result` | `success`, `denied`, `failed` |
-| `actor_kind`, `actor_id` | `staff`, `partner_user`, `person` (merchant or vendor), `customer`, `api_key`, `app_grant`, `support_session`, `job`, `provider`, `anonymous` |
+| `actor_kind`, `actor_id` | `staff`, `partner_user`, `person` (merchant or vendor), `customer`, `rider` (*proposed*, DELIVERY.md §4), `api_key`, `app_grant`, `support_session`, `job`, `provider`, `anonymous` |
 | `actor_label` | Name and email at the time, so the entry reads well after renames (§8 on erasure) |
 | `on_behalf_of` | The real agent: the partner user behind a support session, or the staff member impersonating a user (with the impersonation id). Null for a staff setup session (ACCESS.md §8.2), where the staff member is the `actor` |
 | `access_ref` | The support session, impersonation or setup session the action ran under, as an id; null for a person's own session |

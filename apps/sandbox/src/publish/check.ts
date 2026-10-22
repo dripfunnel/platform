@@ -74,7 +74,7 @@ const allFiles = async (root: string, prefix = ''): Promise<string[]> =>
 /** Each built page's headers, its CSP among them, as the build's manifest will carry them. */
 export const headersOf = async (root: string, snapshot: CatalogueSnapshot) => {
   const pages = await Promise.all((await allFiles(root)).filter((f) => f.endsWith('.html')).sort().map(async (path) => ({ path, html: await readFile(join(root, path), 'utf8') })))
-  return pageHeaders(pages, (hashes) => storeCsp(snapshot.csp, hashes))
+  return pageHeaders(pages, (hashes, path) => storeCsp(snapshot.csp, hashes, path))
 }
 
 /** What a page asked for and was answered; `reading` holds each body still being read, awaited before the totals. */

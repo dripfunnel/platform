@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import { WorkerEntrypoint } from 'cloudflare:workers'
+import { ZodError } from 'zod'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { createServer } from '#apis/graphql/server'
@@ -55,6 +56,7 @@ import { storeBillingStripe, stripeClient, type StoreBillingStripe, type StripeA
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
 import { handleShopifyCallback, shopifyCallbackPath } from '#hooks/shopify'
+import { handleMapFrame, mapFramePath, mapFrameScriptPath } from '#hooks/mapFrame'
 import { localShopify, shopifyApi, type ShopifyApi } from '#integrations/shopify/api'
 import { deleteAbandonedConnections, deleteStalePendingConnections } from '#db/scoped/externalConnections'
 import { sesClient, snsVerifier, type SesApi, type SnsVerifier } from '#integrations/ses/index'
@@ -561,7 +563,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
       preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
@@ -604,6 +606,7 @@ const buildDepsFor = (config: Config, env: Env): Omit<BuildDeps, 'sql'> | null =
 // hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
 // (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
 const handleHooks = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+  if (url.pathname === mapFramePath || url.pathname === mapFrameScriptPath) return handleMapFrame(request, url.pathname, { key: config.GOOGLE_MAPS_BROWSER_KEY ?? null, local: isLocalhost(config.HOOKS_HOST) })
   if (url.pathname.startsWith(buildsPrefix)) {
     const deps = buildDepsFor(config, env)
     if (!deps) return notFound()
@@ -687,7 +690,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname, config.SHOP_DOMAIN ?? null)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
     if (url.pathname === vitalsPath) return handleVitals(request, context)
@@ -755,8 +758,9 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
   let config
   try {
     config = parseConfig(env)
-  } catch {
-    console.error(JSON.stringify({ code: 'config_invalid' }))
+  } catch (error) {
+    const keys = error instanceof ZodError ? [...new Set(error.issues.map((issue) => issue.path.join('.')))] : undefined
+    console.error(JSON.stringify({ code: 'config_invalid', keys }))
     return { response: new Response(null, { status: 500 }), area: null }
   }
   const area = resolveArea(url, config, entry)

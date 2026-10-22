@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
+Last updated: 2026-10-22 (five APIs with the Delivery API, proposed). Before: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
 Before: 2026-10-09 (the sandbox image published on `ghcr.io` for store builds, public then; private with a pull token since #790).
 
 ---
@@ -27,7 +27,7 @@ Before: 2026-10-09 (the sandbox image published on `ghcr.io` for store builds, p
 | **Cross-layer imports in `apps/api` use `#layer/...` aliases** (`package.json` `imports`, e.g. `#core/config`); relative paths only inside a layer | Relative paths everywhere; TypeScript `paths` | Standard Node resolution that TypeScript, wrangler and Vitest all understand, and a lint rule can check the layer from the import alone. |
 | **pnpm workspaces + Turborepo** | npm or Bun workspaces | Strict dependencies; only what changed is rebuilt and tested. pnpm runs install scripts only for packages listed in `allowBuilds` and refuses versions younger than its minimum release age. |
 | **ESM only, TypeScript strict**; `apps/api` targets the **Workers runtime** (../ARCHITECTURE.md §4) | Node-only server code | The API runs on Cloudflare Workers. |
-| **The engine is a module that the Worker composes** with `createEngine({ bindings, config })`, the way a headless engine library is bootstrapped by its server | The engine as its own service | Every entry point (the four APIs, webhooks, jobs, tests) uses the same engine instance per request. |
+| **The engine is a module that the Worker composes** with `createEngine({ bindings, config })`, the way a headless engine library is bootstrapped by its server | The engine as its own service | Every entry point (the five APIs, webhooks, jobs, tests) uses the same engine instance per request. |
 
 ---
 
