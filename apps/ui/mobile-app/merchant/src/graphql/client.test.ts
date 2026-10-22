@@ -23,6 +23,18 @@ describe('the API client', () => {
     expect(JSON.parse(init.body)).toEqual({ query: '{ ok }', variables: { a: 1 } })
   })
 
+  it('sends a query as a GET on request, with no body', async () => {
+    const fetchImpl = jest.fn(answer({ data: { ok: true } }))
+    const client = createApiClient({ domain: 'store.example.com', fetchImpl })
+
+    await expect(client.request('{ ok }', undefined, { get: true })).resolves.toEqual({ ok: true })
+
+    const { url, init } = lastCall(fetchImpl)
+    expect(url).toBe('https://store.example.com/api/?query=%7B%20ok%20%7D')
+    expect(init.method).toBe('GET')
+    expect(init.body).toBeUndefined()
+  })
+
   it('sends no credentials until there are some', async () => {
     const fetchImpl = jest.fn(answer({ data: {} }))
     await createApiClient({ domain: 'store.example.com', fetchImpl }).request('{ brand }')

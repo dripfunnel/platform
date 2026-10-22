@@ -34,14 +34,17 @@ export const createApiClient = ({ domain, timeoutMs = defaultTimeoutMs, token = 
   const headers = (): Record<string, string> => ({ 'content-type': 'application/json', ...authHeaders({ token, store, supplier }) })
 
   return {
-    async request<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+    // `get` sends a query as a GET, which the API does not Origin-check: for the public brand query read before sign-in.
+    async request<T>(query: string, variables?: Record<string, unknown>, { get = false }: { get?: boolean } = {}): Promise<T> {
       // No answer, a timeout, or a gateway's page instead of the API's JSON: one stable code,
       // so every screen shows its load-error state. The message never carries the request.
       const abort = new AbortController()
       const timer = setTimeout(() => abort.abort(), timeoutMs)
       let body: GraphQLResponse<T>
       try {
-        const response = await fetchImpl(endpoint, { method: 'POST', headers: headers(), body: JSON.stringify({ query, variables }), signal: abort.signal, credentials: 'omit' })
+        const response = get
+          ? await fetchImpl(`${endpoint}?query=${encodeURIComponent(query)}`, { method: 'GET', headers: authHeaders({ token, store, supplier }), signal: abort.signal, credentials: 'omit' })
+          : await fetchImpl(endpoint, { method: 'POST', headers: headers(), body: JSON.stringify({ query, variables }), signal: abort.signal, credentials: 'omit' })
         body = (await response.json()) as GraphQLResponse<T>
       } catch {
         throw new ApiError('NO_RESPONSE', 'The API did not answer.')
