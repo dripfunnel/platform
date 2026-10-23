@@ -120,9 +120,16 @@ describe('adding an address', () => {
 
   it('lets the house partner add a DripFunnel host and nobody else', async () => {
     const house = (await db.sql<{ id: string }[]>`select id from partner where is_house`)[0]?.id ?? ''
-    const added = (await run<Added>(add, callerOf(house, 'partner-owner'), { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain
-    expect(added?.ok).toBe(true)
+    const owner = callerOf(house, 'partner-owner')
     expect((await run<Added>(add, callerOf(ids.fresh, 'partner-owner'), { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    expect((await run<Added>(add, owner, { kind: 'email', host: 'mail.dripfunnel-mail.com' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.net' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    expect((await run<Added>(add, callerOf(house, 'partner-support'), { kind: 'portal', host: 'store.dripfunnel.com' })).code).toBe('FORBIDDEN')
+    for (const host of ['store.dripfunnel.com', 'store.edge.example']) {
+      const added = (await run<Added>(add, owner, { kind: 'portal', host })).data?.addPartnerDomain
+      expect(added?.ok).toBe(true)
+      await db.sql`delete from partner_domain where id = ${added?.id ?? ''}`
+    }
   })
 
   it('adds an address waiting with its records, queues the first check and logs it; the same host or kind again is refused', async () => {
