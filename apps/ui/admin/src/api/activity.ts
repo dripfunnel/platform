@@ -7,7 +7,7 @@ import { query } from './client'
 import { filterOf, isoString, pageInfoSchema, permissionSchema, refSchema } from './decode'
 import type { ActionPermission } from './permissions'
 
-export const actorKinds = ['staff', 'partner_user', 'person', 'customer', 'api_key', 'app_grant', 'support_session', 'job', 'provider', 'anonymous'] as const
+export const actorKinds = ['staff', 'partner_user', 'person', 'customer', 'rider', 'api_key', 'app_grant', 'support_session', 'job', 'provider', 'anonymous'] as const
 export type ActorKind = (typeof actorKinds)[number]
 
 export const activityResults = ['success', 'denied', 'failed'] as const

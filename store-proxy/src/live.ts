@@ -133,9 +133,12 @@ const missing = async (url: URL, store: Store & { buildId: string }, deps: Deps)
   return page('missing', 404, { language: store.language })
 }
 
+const isApiPath = (pathname: string) => ['/shop-api', '/delivery-api'].some((p) => pathname === p || pathname.startsWith(`${p}/`))
+
 /** Every answer on a store's host names the build it came from, or `none` (LIVE-SHOP §4 step 10): the checks know it's ours. */
 export const serveLive = async (request: Request, url: URL, store: Store, deps: Deps): Promise<Response> => {
-  if (url.pathname === '/shop-api' || url.pathname.startsWith('/shop-api/')) return deps.edge.fetch(request)
+  // The Worker judges both, the Delivery API answering only on the store's free address (DELIVERY §4).
+  if (isApiPath(url.pathname)) return deps.edge.fetch(request)
   const answer = await serveStore(request, url, store, deps)
   if (answer.headers.get('x-df-build')) return answer
   const headers = new Headers(answer.headers)

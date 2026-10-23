@@ -66,6 +66,34 @@ describe('resolveArea', () => {
     expect(resolveArea(new URL(`https://admin.dripfunnel.com${frame}`), config, 'edge')).toBeUndefined()
   })
 
+  it('serves the Delivery API only through StorefrontEdge on a store’s free address (DELIVERY §4)', () => {
+    const shops = { ...config, SHOP_DOMAIN: 'my-store.one' }
+    const throughEdge = (href: string) => resolveArea(new URL(href), shops, 'edge')
+    expect(throughEdge('https://kesari.my-store.one/delivery-api')).toBe('delivery')
+    expect(throughEdge('https://kesari.my-store.one/delivery-api/')).toBe('delivery')
+    expect(throughEdge('https://kesari.my-store.one/delivery-apix')).toBeUndefined()
+    // Never a preview host, a merchant's own domain, a deeper name, our hosts or the other entries.
+    expect(throughEdge('https://kesari-preview.my-store.one/delivery-api/')).toBeUndefined()
+    expect(throughEdge('https://www.kesari.com/delivery-api/')).toBeUndefined()
+    expect(throughEdge('https://a.kesari.my-store.one/delivery-api/')).toBeUndefined()
+    expect(throughEdge('https://admin.dripfunnel.com/delivery-api/')).toBeUndefined()
+    expect(resolveArea(new URL('https://kesari.my-store.one/delivery-api/'), config, 'edge')).toBeUndefined()
+    expect(resolveArea(new URL('https://kesari.my-store.one/delivery-api/'), shops, 'public')).toBeUndefined()
+    expect(resolveArea(new URL('https://kesari.my-store.one/delivery-api/'), shops, 'portal')).toBeUndefined()
+    expect(resolveArea(new URL('https://store.dripfunnel.com/delivery-api/'), shops, 'public')).toBeUndefined()
+  })
+
+  it('serves no other API on /delivery-api, and the Delivery API nowhere else on a store’s address', () => {
+    const shops = { ...config, SHOP_DOMAIN: 'my-store.one' }
+    expect(resolveArea(new URL('https://kesari.my-store.one/shop-api'), shops, 'edge')).toBe('shop')
+    expect(resolveArea(new URL('https://kesari.my-store.one/api'), shops, 'edge')).toBeUndefined()
+    for (const host of ['admin.dripfunnel.com', 'platform.dripfunnel.com', 'hooks.dripfunnel.com', 'store.partner.com']) {
+      for (const entry of ['public', 'portal', 'edge'] as const) {
+        expect(resolveArea(new URL(`https://${host}/delivery-api/`), shops, entry)).not.toBe('delivery')
+      }
+    }
+  })
+
   it('serves webhooks only on the hooks host', () => {
     expect(area('https://hooks.dripfunnel.com/stripe')).toBe('hooks')
     expect(area('https://store.partner.com/stripe')).toBeUndefined()

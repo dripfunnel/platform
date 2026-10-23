@@ -13,6 +13,7 @@ export const actorKinds = [
   'partner_user',
   'person',
   'customer',
+  'rider',
   'api_key',
   'app_grant',
   'support_session',
@@ -28,7 +29,7 @@ export type AgentKind = (typeof agentKinds)[number]
 export const accessKinds = ['impersonation', 'setup_session', 'support_session'] as const
 export type AccessKind = (typeof accessKinds)[number]
 
-export const activityApis = ['admin', 'platform', 'store', 'shop', 'system'] as const
+export const activityApis = ['admin', 'platform', 'store', 'shop', 'delivery', 'system'] as const
 export type ActivityApi = (typeof activityApis)[number]
 
 /** The lowest audience allowed to see the entry (LOGGING.md §4, §6). */
