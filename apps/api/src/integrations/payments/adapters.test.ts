@@ -162,6 +162,22 @@ describe('PayPal', () => {
     expect(JSON.parse(asked[1]?.body ?? '')).toEqual({ intent: 'CAPTURE', purchase_units: [{ reference_id: request.orderId, custom_id: request.attemptId, amount: { currency_code: 'USD', value: '25.99' } }] })
   })
 
+  it('asks for the app’s return and cancel URLs and hands on PayPal’s approval page, only a PayPal one', async () => {
+    const app = { returnUrl: 'acmeshop://orders/o1', cancelUrl: 'acmeshop://checkout', shopperId: null, stripeApiVersion: null }
+    const order = { id: '5O190127TN364715T', status: 'PAYER_ACTION_REQUIRED', links: [{ rel: 'self', href: 'https://api.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T' }, { rel: 'payer-action', href: 'https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T' }] }
+    const { asked, fetchImpl } = routes({ '/v2/checkout/orders': order })
+    expect(await paypal({ fetchImpl }).start(keys, { ...request, amount: { amount: 2599n, currency: 'USD' }, app })).toMatchObject({ providerRef: '5O190127TN364715T', redirectUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T' })
+    expect(asked[1]?.headers.get('paypal-request-id')).toBe(request.attemptId)
+    expect(JSON.parse(asked[1]?.body ?? '').payment_source).toEqual({ paypal: { experience_context: { return_url: 'acmeshop://orders/o1', cancel_url: 'acmeshop://checkout', user_action: 'PAY_NOW', shipping_preference: 'NO_SHIPPING' } } })
+    // A link that isn't PayPal's is never handed to the app.
+    const elsewhere = routes({ '/v2/checkout/orders': { ...order, links: [{ rel: 'payer-action', href: 'https://evil.example/paypal.com' }] } })
+    await expect(paypal({ fetchImpl: elsewhere.fetchImpl }).start(keys, { ...request, app })).rejects.toBeInstanceOf(PaymentUnavailable)
+    // The web's order is unchanged: no payment source, no page.
+    const web = routes({ '/v2/checkout/orders': order })
+    expect(await paypal({ fetchImpl: web.fetchImpl }).start(keys, request)).toMatchObject({ redirectUrl: null })
+    expect(JSON.parse(web.asked[1]?.body ?? '')).not.toHaveProperty('payment_source')
+  })
+
   it('captures an approved order when it reads it back, and reads a completed one as captured', async () => {
     const done = { id: 'ORD1', status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ status: 'COMPLETED', amount: { value: '25.99', currency_code: 'USD' } }] } }] }
     const approved = routes({ '/v2/checkout/orders/ORD1': { id: 'ORD1', status: 'APPROVED' }, '/v2/checkout/orders/ORD1/capture': done })
