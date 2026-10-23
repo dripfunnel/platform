@@ -91,7 +91,8 @@ const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.
 
 const houseDomain = 'dripfunnel.com'
 const reservedHouseHosts = [houseDomain, ...['admin', 'platform', 'hooks'].map((label) => `${label}.${houseDomain}`)]
-/** The names the house partner may add (SAAS §3.5): under dripfunnel.com, not its apex or the hosts the platform serves (ARCHITECTURE §2). */
-export const isHouseHost = (host: string): boolean => host.endsWith(`.${houseDomain}`) && !reservedHouseHosts.includes(host)
+/** The names the house partner may add (SAAS §3.5): under dripfunnel.com, not its apex, the hosts the platform serves (ARCHITECTURE §2) or the environment's zone. */
+export const isHouseHost = (host: string, edgeZone: string): boolean =>
+  host.endsWith(`.${houseDomain}`) && !reservedHouseHosts.includes(host) && host !== edgeZone && !host.endsWith(`.${edgeZone}`)
 /** DripFunnel's own names and the environment's zone, which no partner or merchant may claim (FIRST-RELEASE §9.2). */
 export const isDripfunnelHost = (host: string, edgeZone: string): boolean => [...dripfunnelDomains, edgeZone].some((d) => host === d || host.endsWith(`.${d}`))

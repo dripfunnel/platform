@@ -95,7 +95,7 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, edge
     const host = typed.host
     return withScope(sql, context, async (tx): Promise<AddResult> => {
       // The house partner (SAAS §3.5) may add dripfunnel.com names only, not the mail, .net or edge-zone names (#890).
-      if (isDripfunnelHost(host, edgeZone) && !(isHouseHost(host) && (await selectIsHousePartner(tx, partnerId)))) return { ok: false, reason: 'DRIPFUNNEL_DOMAIN' }
+      if (isDripfunnelHost(host, edgeZone) && !(isHouseHost(host, edgeZone) && (await selectIsHousePartner(tx, partnerId)))) return { ok: false, reason: 'DRIPFUNNEL_DOMAIN' }
       // The email sender on a bare domain would clash with the partner's website.
       if (kind === 'email' && isBareDomain(host)) return { ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' }
       const apex = kind === 'portal' && isBareDomain(host)
