@@ -125,10 +125,18 @@ describe('adding an address', () => {
     expect((await run<Added>(add, owner, { kind: 'email', host: 'mail.dripfunnel-mail.com' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
     expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.net' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
     expect((await run<Added>(add, callerOf(house, 'partner-support'), { kind: 'portal', host: 'store.dripfunnel.com' })).code).toBe('FORBIDDEN')
-    for (const host of ['store.dripfunnel.com', 'store.edge.example']) {
-      const added = (await run<Added>(add, owner, { kind: 'portal', host })).data?.addPartnerDomain
-      expect(added?.ok).toBe(true)
+    expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.edge.example' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    // Another file seeds the house partner's portal row; lift it with its records so the slot is free, then put it back.
+    const records = await db.sql`delete from partner_domain_record where partner_id = ${house} returning *`
+    const [seeded] = await db.sql`delete from partner_domain where partner_id = ${house} and kind = 'portal' returning *`
+    try {
+      const added = (await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain
+      expect(added).toMatchObject({ ok: true })
+      await db.sql`delete from partner_domain_record where domain_id = ${added?.id ?? ''}`
       await db.sql`delete from partner_domain where id = ${added?.id ?? ''}`
+    } finally {
+      if (seeded) await db.sql`insert into partner_domain select * from jsonb_populate_record(null::partner_domain, ${db.sql.json(seeded)})`
+      if (records.length) await db.sql`insert into partner_domain_record select * from jsonb_populate_recordset(null::partner_domain_record, ${db.sql.json(records)})`
     }
   })
 

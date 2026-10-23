@@ -161,8 +161,8 @@ A partner owns two kinds of hostname (USERS-AND-DOMAINS §2), both verified thro
 | Email sender domain | `mail.<partnerdomain>` | SES DKIM, SPF, DMARC (§3.6) |
 
 The house partner uses the same pattern on `dripfunnel.com`: Add an address accepts DripFunnel's
-own names (and the environment's zone) from the house partner (`partner.is_house`) only; every
-other partner is refused `DRIPFUNNEL_DOMAIN` (ui/platform/FIRST-RELEASE.md §9.2). Changing a live portal host keeps
+own `dripfunnel.com` names from the house partner (`partner.is_house`) only (the mail, `.net` and
+environment-zone names stay refused to everyone); every other partner is refused `DRIPFUNNEL_DOMAIN` (ui/platform/FIRST-RELEASE.md §9.2). Changing a live portal host keeps
 the old one redirecting for a period *(ask how long)* (F4).
 
 ### 3.6 Email sender
