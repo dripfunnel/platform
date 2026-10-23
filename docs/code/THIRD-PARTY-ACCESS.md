@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-22 (proposed for the shop and delivery apps: Expo push §2.13, the Routes and native Maps keys §2.12, the merchant's own store accounts §3.7). Before: 2026-10-22 (#815: warehouse pins in the merchant portal through the same frame, §2.12; Shiprocket takes a pinned location's coordinates, EasyPost doesn't, §3.2). Before: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-10-23 (#838: the `rider.invited` text, §4). Before: 2026-10-22 (proposed for the shop and delivery apps: Expo push §2.13, the Routes and native Maps keys §2.12, the merchant's own store accounts §3.7). Before: 2026-10-22 (#815: warehouse pins in the merchant portal through the same frame, §2.12; Shiprocket takes a pinned location's coordinates, EasyPost doesn't, §3.2). Before: 2026-10-22 (#814: the Google Maps browser key, served only in the map frame's page and restricted by referrer to the hooks host, §2.12 and §8.1). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: `GHCR_PULL_TOKEN` in §8.1, and the build image's pull is no longer token-free). Before: 2026-10-17 (the `templates` workflow reads the R2 storefront values, §8). Before: 2026-10-15 (with Gaurav: `my-store.one` bought for every store's live address and preview, replacing `webpreview.store`; `my-shop.dev` registered for dev, §2; `SHOP_DOMAIN` replaced `PREVIEW_DOMAIN`, §8, built on #744; #745 took out the per-store Cloudflare hostnames). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -477,7 +477,7 @@ never shown again once saved (**#275** builds the table, the APIs and both scree
 | Partner brand fonts, logos | Branding | None | — |
 
 **The texts a partner registers (India's DLT; built on #289).** MSG91 sends only registered
-templates, so each partner registers these six with its own sender header, word for word, the
+templates, so each partner registers these seven with its own sender header, word for word, the
 variables in this order, and enters each template id with its MSG91 credentials (#275). Twilio
 sends the same words as plain text. `apps/api/src/saas/sms/index.ts` holds the wording; a
 change there needs every Indian partner to register it again.
@@ -489,6 +489,7 @@ change there needs every Indian partner to register it again.
 | `order.confirmed` | {1}: thanks for your order {2}. We'll text you when it ships. |
 | `order.shipped` | {1}: order {2} is on its way with {3}. Track it: {4} |
 | `order.delivered` | {1}: order {2} was delivered. Need help? {3} |
+| `rider.invited` (#838) | {1}: you're invited to deliver our orders. Get the app and sign in with this number: {2} |
 
 {1} is the sender's name (the partner's product, or the store's), and a code is 6 digits. The
 `sms` outbox deliverer (`jobs/queues/deliverers/sms.ts`) picks MSG91 for `+91` numbers and Twilio

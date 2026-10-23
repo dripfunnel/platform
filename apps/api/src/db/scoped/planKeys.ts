@@ -1,7 +1,7 @@
 // Every setting a plan can carry (SAAS.md §6.1), in the pricing page's order (designs/DF Store Pricing).
 // `switch` holds `enabled`; `amount` is a limit or a monthly allowance; `choice` is an index into `choices`.
 // `enforced` is false while the feature behind the row isn't built: the value is stored, the console
-// says Planned, and nothing checks it yet. Migrations 0070 and 0076 insert the same keys into `plan_key`.
+// says Planned, and nothing checks it yet. Migrations 0070, 0076 and 0359 insert the same keys into `plan_key`.
 
 export const UNLIMITED = 2_147_483_647
 
@@ -56,6 +56,9 @@ export const planKeyDefs = [
   amount('stock_locations', 'shipping'),
   amount('couriers', 'shipping'),
   sw('courier_rates', 'shipping'),
+  // Enterprise only, off in every listed plan (DELIVERY §9), as is own_apps.
+  sw('own_delivery', 'shipping', true),
+  amount('riders', 'shipping', true),
   amount('bandwidth_gb', 'storefront'),
   sw('extra_bandwidth', 'storefront'),
   sw('custom_domain', 'storefront', true),
@@ -65,6 +68,7 @@ export const planKeyDefs = [
   // You send one a cart by hand; the first goes automatically; all three, with codes and WhatsApp (SAPI 15, #321).
   choice('cart_reminders', 'storefront', ['youSend', 'onePerCart', 'automatic'], true),
   sw('blog', 'storefront', true),
+  sw('own_apps', 'storefront'),
   sw('reports_sales', 'reports', true),
   sw('reports_export', 'reports', true),
   sw('reports_custom', 'reports', true),
