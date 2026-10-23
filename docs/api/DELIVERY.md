@@ -217,10 +217,11 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
   An invited rider's first code makes them active (`rider.joined`).
 - **`updateProfile`** sets the name (1–120), vehicle type, vehicle number (up to 20) and photo together. The photo
   is uploaded first as the raw image to `POST /delivery-api/assets`, with the same checks as the portal's uploads,
-  and only an image the rider uploaded can be named (`PHOTO_NOT_FOUND`). The log records which fields changed,
-  never their values.
-- **`deleteMyAccount`** removes the rider as an Owner's removal does (§5): sessions ended, phone and photo erased,
-  name kept, the number free to be invited again.
+  and only an image the rider uploaded can be named (`PHOTO_NOT_FOUND`). A rider uploads at most 10 photos in
+  24 hours, then `RATE_LIMITED` (429). The log records which fields changed, never their values.
+- **`deleteMyAccount`** removes the rider as an Owner's removal does (§5): sessions ended, phone erased, name kept,
+  the number free to be invited again. Every photo the rider uploaded goes too, replaced ones included: the rows in
+  the transaction, the files from R2 once it commits. One the store has put on a product since stays, as the store's.
 
 ---
 

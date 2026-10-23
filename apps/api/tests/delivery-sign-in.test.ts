@@ -9,6 +9,7 @@ import { resolveShopper } from '#auth/shopCaller'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { purgeRiderSignIns } from '#db/scoped/riderSignIn'
+import { photoUploadsPerDay, type RiderFiles } from '#engine/modules/ownDelivery/index'
 import { activityLog } from '#saas/activity/index'
 import { StorefrontEdge } from '../src/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -33,6 +34,17 @@ const asha = '+919811100009'
 const stranger = '+919899999999'
 
 let limiterOpen = true
+/** The assets bucket: what was put, and every key deleted. */
+const bucket = new Map<string, Uint8Array>()
+const deletedKeys: string[] = []
+const files: RiderFiles = {
+  put: async (key, value) => void bucket.set(key, value),
+  get: async () => null,
+  delete: async (keys) => {
+    deletedKeys.push(...keys)
+    for (const key of keys) bucket.delete(key)
+  },
+}
 const limiterKeys: string[] = []
 
 const allow = async (storeId: string, on: boolean) => {
@@ -84,6 +96,7 @@ const delivery = async (source: string, o: { host?: string; token?: string | nul
     allowAttempt: async (key) => (limiterKeys.push(key), limiterOpen),
     codeCheck: o.codeCheck,
     defer: (work) => deferred.push(work),
+    files,
     now,
   }
   const result = await graphql({ schema: deliverySchema as GraphQLSchema, source, contextValue, variableValues: o.variables })
@@ -102,6 +115,13 @@ const textedCode = async (to: string) =>
 const codesFor = async (phone: string) => (await db.sql`select 1 from rider_code where phone = ${phone}`).length
 const riderRow = async (phone: string | null, id?: string) =>
   (await db.sql<{ id: string; status: string; phone: string | null; photo_asset_id: string | null }[]>`select id, status, phone, photo_asset_id from rider where ${id ? db.sql`id = ${id}` : db.sql`phone = ${phone}`}`)[0]
+/** The photo upload, as the rider's app sends it. */
+const upload = async (token: string | null) => {
+  const caller = await resolveRider(db.sql, new Request(`https://${hostA1}/delivery-api/assets`, { headers: token ? { authorization: `Bearer ${token}` } : {} }), hostA1, shopDomain, now())
+  const ctx: DeliveryContext = { sql: db.sql, caller, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, defer: () => undefined, files, now }
+  return handleRiderAsset(new Request(`https://${hostA1}/delivery-api/assets`, { method: 'POST', body: png }), ctx)
+}
+const uploadedId = async (token: string) => ((await (await upload(token)).json()) as { asset: { id: string } }).asset.id
 /** A fresh code for the number, and a session with it. */
 const signedIn = async (phone: string, host = hostA1) => {
   await db.sql`delete from rider_code where phone = ${phone}`
@@ -293,12 +313,6 @@ describe('the session', () => {
 describe('the rider’s own profile', () => {
   const save = (token: string, variables: Record<string, unknown>) =>
     delivery('mutation P($name: String!, $photo: ID, $type: VehicleType, $number: String) { updateProfile(name: $name, photoAssetId: $photo, vehicleType: $type, vehicleNumber: $number) { name photoAssetId vehicleType vehicleNumber } }', { token, variables })
-  const upload = async (token: string | null) => {
-    const caller = await resolveRider(db.sql, new Request(`https://${hostA1}/delivery-api/assets`, { headers: token ? { authorization: `Bearer ${token}` } : {} }), hostA1, shopDomain, now())
-    const ctx: DeliveryContext = { sql: db.sql, caller, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, defer: () => undefined, now }
-    const bucket = new Map<string, Uint8Array>()
-    return handleRiderAsset(new Request(`https://${hostA1}/delivery-api/assets`, { method: 'POST', body: png }), ctx, { put: async (key, value) => void bucket.set(key, value), get: async () => null })
-  }
 
   it('saves the name, vehicle and the rider’s own uploaded photo, logging the fields and never their values', async () => {
     const token = await signedIn(ravi)
@@ -319,9 +333,22 @@ describe('the rider’s own profile', () => {
     expect((await save(token, { name: ' ' })).code).toBe('INVALID_INPUT')
     expect((await save(token, { name: 'Ravi', number: 'x'.repeat(21) })).code).toBe('INVALID_INPUT')
     const other = await signedIn(sunil)
-    const theirs = ((await (await upload(other)).json()) as { asset: { id: string } }).asset.id
+    const theirs = await uploadedId(other)
     expect((await save(token, { name: 'Ravi', photo: theirs })).code).toBe('PHOTO_NOT_FOUND')
     expect((await upload(null)).status).toBe(401)
+  })
+
+  it('takes at most 10 photos a rider in 24 hours, the next refused with nothing stored', async () => {
+    const token = await signedIn(meena)
+    const id = (await riderRow(meena))?.id ?? ''
+    const already = (await db.sql<{ n: number }[]>`select count(*)::int as n from asset where created_by = ${id}`)[0]?.n ?? 0
+    for (let i = already; i < photoUploadsPerDay; i++) expect((await upload(token)).status).toBe(200)
+    const refused = await upload(token)
+    expect([refused.status, await refused.json()]).toEqual([429, { ok: false, code: 'RATE_LIMITED' }])
+    expect(await db.sql`select 1 from asset where created_by = ${id}`).toHaveLength(photoUploadsPerDay)
+    // A day later the rider may upload again.
+    await db.sql`update asset set created_at = now() - interval '25 hours' where created_by = ${id}`
+    expect((await upload(token)).status).toBe(200)
   })
 })
 
@@ -330,8 +357,17 @@ describe('deleting the account (DELIVERY §5, as removal)', () => {
     const token = await signedIn(sunil)
     const other = await signedIn(sunil)
     const id = (await riderRow(sunil))?.id ?? ''
+    const replaced = await uploadedId(token)
+    const current = await uploadedId(token)
+    await delivery('mutation P($photo: ID) { updateProfile(name: "Sunil D.", photoAssetId: $photo) { id } }', { token, variables: { photo: current } })
+    const keys = (await db.sql<{ r2_key: string }[]>`select r2_key from asset where created_by = ${id}`).map((r) => r.r2_key)
+    expect(keys.length).toBeGreaterThanOrEqual(2)
     expect((await delivery('mutation { deleteMyAccount }', { token })).data).toEqual({ deleteMyAccount: true })
     expect(await riderRow(null, id)).toMatchObject({ status: 'removed', phone: null, photo_asset_id: null })
+    // Every photo the rider uploaded goes, the replaced one too: rows and files (DELIVERY §5).
+    expect(await db.sql`select 1 from asset where id in (${replaced}, ${current}) or created_by = ${id}`).toHaveLength(0)
+    expect(deletedKeys).toEqual(expect.arrayContaining(keys))
+    for (const key of keys) expect(bucket.has(key)).toBe(false)
     expect(await me(other)).toBeNull()
     const [entry] = await db.sql<{ actor_kind: string; actor_id: string; target_label: string }[]>`select actor_kind, actor_id, target_label from activity_log where action = 'rider.account_deleted'`
     expect(entry).toEqual({ actor_kind: 'rider', actor_id: id, target_label: 'Sunil D.' })

@@ -31,7 +31,7 @@ const signInOf = (ctx: DeliveryContext) => {
 
 const profileOf = (ctx: DeliveryContext) => {
   const { sql, rider } = riderOf(ctx)
-  return createRiderProfile({ sql, context: rider, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+  return createRiderProfile({ sql, context: rider, activity: ctx.activity, facts: ctx.facts, files: ctx.files ?? null, now: ctx.now })
 }
 
 export const registerAccount = (builder: DeliveryBuilder) => {

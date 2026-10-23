@@ -119,3 +119,26 @@ export const updateOwnRider = async (
 /** An image the rider uploaded itself, in its own store: the only photo its profile may name. */
 export const ownPhotoExists = async (tx: ScopedSql, storeId: string, riderId: string, assetId: string): Promise<boolean> =>
   (await tx`select 1 from asset where id = ${assetId} and store_id = ${storeId} and created_by = ${riderId} and kind = 'image'`).length > 0
+
+export const countOwnUploadsSince = async (tx: ScopedSql, storeId: string, riderId: string, since: Date): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from asset where store_id = ${storeId} and created_by = ${riderId} and created_at >= ${since}`)[0]?.n ?? 0
+
+/**
+ * Every photo the rider uploaded goes, with Delete my account (DELIVERY §5); one the store has since put on a product
+ * stays, as the store's. Returns the R2 keys of those deleted.
+ */
+export const deleteOwnUploads = async (tx: ScopedSql, storeId: string, riderId: string): Promise<string[]> => {
+  const files = await tx<{ id: string; r2_key: string }[]>`select id, r2_key from asset where store_id = ${storeId} and created_by = ${riderId}`
+  const deleted: string[] = []
+  for (const file of files) {
+    const gone = await tx.savepoint((sp) => sp`delete from asset where id = ${file.id} and store_id = ${storeId} and created_by = ${riderId}`).then(
+      (r) => r.count > 0,
+      (error: unknown) => {
+        if (error instanceof Error && 'code' in error && error.code === '23503') return false
+        throw error
+      },
+    )
+    if (gone) deleted.push(file.r2_key)
+  }
+  return deleted
+}

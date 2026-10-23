@@ -3,6 +3,7 @@ import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { CodeCheck } from '#auth/codeCheck'
 import type { DeliveryCaller } from '#auth/riderCaller'
+import type { RiderFiles } from '#engine/modules/ownDelivery/index'
 import { unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface DeliveryContext extends Record<string, unknown> {
@@ -17,6 +18,8 @@ export interface DeliveryContext extends Record<string, unknown> {
   codeCheck?: CodeCheck
   /** Work past the response (the Worker's `waitUntil`): a code's look-up and text (DELIVERY §4). */
   defer: (work: Promise<unknown>) => void
+  /** The assets bucket (ASSETS): riders' photos, uploaded and deleted with an account; null where it isn't bound. */
+  files?: RiderFiles | null
   now: () => Date
 }
 
