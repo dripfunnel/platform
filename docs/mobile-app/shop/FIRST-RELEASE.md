@@ -6,7 +6,7 @@ delivery tracking is [api/DELIVERY.md](../../api/DELIVERY.md) §7.
 
 **Status: specification, not built.** The prototype is drawn (§3).
 
-Last updated: 2026-10-23 (#854: the prototype is drawn). Before: 2026-10-22 (every payment method in the app; the handover code). Earlier: 2026-10-22 (first version, with Gaurav).
+Last updated: 2026-10-23 (#855: colours and font are not served yet, §1). Before: 2026-10-23 (#854: the prototype is drawn). Before: 2026-10-22 (every payment method in the app; the handover code). Earlier: 2026-10-22 (first version, with Gaurav).
 
 ---
 
@@ -14,7 +14,7 @@ Last updated: 2026-10-23 (#854: the prototype is drawn). Before: 2026-10-22 (eve
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **Native, in a fixed layout, branded with the store's logo, colours and font**, on the Shop API (decided 2026-10-22) | The storefront website in a web view | Apple rejects apps that only wrap a website (4.2), and checkout in a web view is fragile. The AI-designed theme is website code a native app can't run, so the app looks like the store's brand, not like its website. |
+| **Native, in a fixed layout, branded with the store's logo, colours and font**, on the Shop API (decided 2026-10-22; the API serves the name and logo today, the colours and font are not served yet: shop/ARCHITECTURE.md §4) | The storefront website in a web view | Apple rejects apps that only wrap a website (4.2), and checkout in a web view is fragile. The AI-designed theme is website code a native app can't run, so the app looks like the store's brand, not like its website. |
 | **The storefront's rules hold** (storefront/DESIGN.md, AGENTS.md "Storefronts"): no invented data; the price with its tax label, legal and compliance notices and the order summary at review are always shown as the Shop API gives them, but not the "Powered by" line (below) *(proposed)* | App-only rules | The same store, the same customers, the same law. |
 | **Customers sign in the way the store chose** (Settings › Customer accounts; ACCESS.md §2.1), and their account is the one they have on the website *(proposed)* | A separate app account | Customer accounts are per store already (USERS-AND-DOMAINS §1); the app is one more door to the same account. |
 | **Every payment method the store offers on the website, through each provider's native SDK**: Stripe (Payment Sheet), PayPal, Razorpay, Cashfree and PhonePe, plus cash on delivery and bank transfer (decided 2026-10-22) | A web checkout page inside the app | The payment element is sealed on the website; in the app the provider's own sheet plays that part. Physical goods must not use in-app purchase (Apple 3.1.3(e)). |
