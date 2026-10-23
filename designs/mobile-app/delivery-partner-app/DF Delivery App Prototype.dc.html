@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="../../support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Kesari Threads Delivery — prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#E8E2DC;font-family:Inter,sans-serif;font-size:15px;line-height:1.5;color:#14181F;text-wrap:pretty;}
+*{box-sizing:border-box;}
+a{color:#B8541F;}a:hover{color:#8F4017;}
+button,input,select{font:inherit;}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #00519F;outline-offset:2px;}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;">
+  <div style="background:#14181F;color:#D6DEE7;padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:12px;">
+    <img src="../../assets/dripfunnel-mark-inverse.svg" alt="" height="18" style="height:18px;width:auto;display:block;">
+    <span style="font-family:'IBM Plex Mono',monospace;letter-spacing:0.12em;color:#EC844F;">PROTOTYPE CONTROLS</span>
+    <label style="display:flex;align-items:center;gap:6px;">Screen
+      <select key="{{ ctl.k1 }}" value="{{ ctl.scr }}" onChange="{{ ctl.onScr }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;"><sc-for list="{{ ctl.screens }}" as="o" hint-placeholder-count="8"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></label>
+    <label style="display:flex;align-items:center;gap:6px;">State
+      <select key="{{ ctl.k2 }}" value="{{ ctl.st }}" onChange="{{ ctl.onSt }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;max-width:260px;"><sc-for list="{{ ctl.states }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></label>
+    <label style="display:flex;align-items:center;gap:6px;">Payment
+      <select value="{{ ctl.pay }}" onChange="{{ ctl.onPay }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;"><option value="cod">Cash on delivery</option><option value="online">Paid online</option></select></label>
+    <span style="display:flex;align-items:center;gap:6px;">Permissions<span style="display:flex;border:1px solid #3A424E;border-radius:6px;overflow:hidden;"><button onClick="{{ ctl.setAnd }}" style="height:26px;padding:0 10px;border:0;background:{{ ctl.aBg }};color:{{ ctl.aFg }};font-size:12px;cursor:pointer;">Android</button><button onClick="{{ ctl.setIos }}" style="height:26px;padding:0 10px;border:0;background:{{ ctl.iBg }};color:{{ ctl.iFg }};font-size:12px;cursor:pointer;">iOS</button></span></span>
+    <span style="color:#8A9AAB;">Sign-in code 123456 · customer's handover code 2580</span>
+  </div>
+
+  <div style="flex:1;display:flex;justify-content:center;align-items:flex-start;padding:24px;">
+    <div data-screen-label="{{ ctl.label }}" style="width:390px;height:800px;flex:none;border:10px solid #14181F;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:{{ sb.bg }};box-shadow:0 40px 80px -30px rgba(10,20,30,0.45);">
+      <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px 0 28px;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:{{ sb.fg }};position:relative;z-index:30;">
+        <span>9:41</span>
+        <sc-if value="{{ ctl.ios }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="position:absolute;left:50%;top:8px;transform:translateX(-50%);width:104px;height:28px;border-radius:16px;background:#14181F;"></span></sc-if>
+        <sc-if value="{{ ctl.android }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="position:absolute;left:50%;top:13px;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:#14181F;"></span></sc-if>
+        <span aria-hidden="true" style="display:flex;align-items:center;gap:6px;"><span style="display:flex;align-items:flex-end;gap:2px;height:11px;"><span style="width:3px;height:4px;border-radius:1px;background:currentColor;"></span><span style="width:3px;height:6px;border-radius:1px;background:currentColor;opacity:{{ sb.sig }};"></span><span style="width:3px;height:8px;border-radius:1px;background:currentColor;opacity:{{ sb.sig }};"></span><span style="width:3px;height:11px;border-radius:1px;background:currentColor;opacity:{{ sb.sig }};"></span></span><span style="width:24px;height:12px;border:1.5px solid currentColor;border-radius:4px;padding:1.5px;display:flex;"><span style="width:70%;border-radius:1.5px;background:currentColor;"></span></span></span>
+      </div>
+
+      <sc-if value="{{ v.lock }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;overflow:auto;background:#1E2A36;color:#FFFFFF;padding:24px 14px 40px;display:flex;flex-direction:column;gap:10px;">
+          <div style="text-align:center;padding:12px 0 20px;"><div style="font-size:15px;opacity:0.85;">Friday 23 October</div><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:72px;line-height:1.05;letter-spacing:-0.02em;">9:41</div></div>
+          <sc-for list="{{ lock.items }}" as="n" hint-placeholder-count="5">
+            <div style="background:{{ n.bg }};color:#14181F;border-radius:20px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;">
+              <span aria-hidden="true" style="width:36px;height:36px;border-radius:9px;background:#B4532A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;flex:none;">K</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.35;">
+                <span style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#434A55;"><span style="font-weight:600;letter-spacing:0.02em;">KESARI THREADS DELIVERY</span><span>{{ n.when }}</span></span>
+                <span style="font-weight:600;font-size:14px;">{{ n.title }}</span>
+                <span style="font-size:13px;color:#434A55;">{{ n.body }}</span>
+              </span>
+            </div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#B8C7D6;padding:0 8px 4px;">{{ n.note }}</span>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ v.signin }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;overflow:auto;background:#FDFAF7;padding:28px 22px 40px;display:flex;flex-direction:column;gap:24px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span aria-hidden="true" style="width:48px;height:48px;border-radius:12px;background:#B4532A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">K</span>
+            <span style="display:flex;flex-direction:column;line-height:1.2;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:20px;color:#14181F;">Kesari Threads</span><span style="font-size:13px;color:#5A6472;">Delivery</span></span>
+          </div>
+          <sc-if value="{{ si.phoneScr }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:16px;">
+            <h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.02em;color:#14181F;">Sign in with your mobile number</h1>
+            <p style="margin:0;color:#434A55;">Use the number Kesari Threads invited. We'll text you a code.</p>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Mobile number
+              <span style="display:flex;gap:8px;"><span style="height:52px;padding:0 14px;border:1px solid #D7D3CD;border-radius:10px;background:#F7F2ED;display:flex;align-items:center;font-weight:600;font-size:16px;">+91</span><input value="{{ si.phone }}" onChange="{{ si.onPhone }}" inputmode="numeric" autocomplete="tel-national" placeholder="98xxx 00000" style="flex:1;min-width:0;height:52px;border:1px solid {{ si.phoneBd }};border-radius:10px;padding:0 14px;font-size:17px;font-weight:500;background:#FFFFFF;letter-spacing:0.04em;"></span></label>
+            <sc-if value="{{ si.phoneErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="color:#A1261B;font-size:13px;margin-top:-8px;">{{ si.phoneErr }}</span></sc-if>
+            <button onClick="{{ si.send }}" style="height:52px;border:0;border-radius:10px;background:#B4532A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:16px;cursor:pointer;">Send code</button>
+          </div></sc-if>
+          <sc-if value="{{ si.codeScr }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:16px;">
+            <h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.02em;color:#14181F;">Enter the code</h1>
+            <p style="margin:0;color:#434A55;">We texted a 6-digit code to <strong>{{ si.shown }}</strong>. <button onClick="{{ si.change }}" style="border:0;background:transparent;padding:0;color:#B8541F;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Change number</button></p>
+            <input value="{{ si.code }}" onChange="{{ si.onCode }}" disabled="{{ si.locked }}" inputmode="numeric" autocomplete="one-time-code" maxLength="6" placeholder="••••••" aria-label="6-digit code" aria-invalid="{{ si.bad }}" style="height:60px;border:1px solid {{ si.codeBd }};border-radius:10px;padding:0 16px;font-family:'IBM Plex Mono',monospace;font-size:26px;letter-spacing:0.5em;text-align:center;background:{{ si.codeBg }};">
+            <sc-if value="{{ si.bad }}" hint-placeholder-val="{{ false }}"><span role="alert" style="color:#A1261B;font-size:14px;">That code didn't work. Check it, or ask the store to invite this number.</span></sc-if>
+            <sc-if value="{{ si.locked }}" hint-placeholder-val="{{ false }}"><div role="alert" style="padding:12px 14px;border-radius:12px;background:#FDECEC;border:1px solid #F3C7C2;color:#A1261B;font-size:14px;"><strong>Too many tries.</strong> Wait 10 minutes, then ask for a new code.</div></sc-if>
+            <button onClick="{{ si.verify }}" style="height:52px;border:0;border-radius:10px;background:#B4532A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:16px;cursor:pointer;opacity:{{ si.vOp }};">Continue</button>
+            <sc-if value="{{ si.canResend }}" hint-placeholder-val="{{ false }}"><button onClick="{{ si.resend }}" style="height:44px;border:0;background:transparent;color:#B8541F;font-weight:600;font-size:15px;cursor:pointer;">Resend code</button></sc-if>
+            <sc-if value="{{ si.waitResend }}" hint-placeholder-val="{{ true }}"><span style="height:44px;display:flex;align-items:center;justify-content:center;color:#5A6472;font-size:14px;">Resend code in {{ si.resendIn }}</span></sc-if>
+          </div></sc-if>
+          <sc-if value="{{ si.notifScr }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:16px;">
+            <span aria-hidden="true" style="width:64px;height:64px;border-radius:18px;background:#F6E7DD;color:#B4532A;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z M10 20a2 2 0 0 0 4 0"></path></svg></span>
+            <h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.02em;color:#14181F;">Get offers as they come in</h1>
+            <p style="margin:0;color:#434A55;">Kesari Threads tells you when an order near you needs a delivery partner, and when the store gives you one. Offers go to whoever accepts first, so without notifications you can miss them.</p>
+            <button onClick="{{ si.notifGo }}" style="height:52px;border:0;border-radius:10px;background:#B4532A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:16px;cursor:pointer;">Continue</button>
+          </div></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ v.form }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#FDFAF7;">
+          <div style="height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;border-bottom:1px solid #E8E2DC;background:#FFFFFF;">
+            <sc-if value="{{ pf.edit }}" hint-placeholder-val="{{ false }}"><button onClick="{{ pf.back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#14181F;"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button></sc-if>
+            <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;padding-left:10px;">{{ pf.title }}</span>
+          </div>
+          <div style="flex:1;min-height:0;overflow:auto;padding:20px 18px 24px;display:flex;flex-direction:column;gap:18px;">
+            <sc-if value="{{ pf.first }}" hint-placeholder-val="{{ true }}"><p style="margin:0;color:#434A55;">Kesari Threads and its customers see this while you're delivering their order.</p></sc-if>
+            <div style="display:flex;align-items:center;gap:14px;">
+              <span aria-hidden="true" style="width:72px;height:72px;border-radius:50%;background:#F6E7DD;color:#B4532A;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:24px;flex:none;">{{ pf.init }}</span>
+              <button onClick="{{ pf.photo }}" style="height:44px;padding:0 16px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;font-weight:600;font-size:14px;cursor:pointer;">{{ pf.photoLabel }}</button>
+            </div>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Your name
+              <input value="{{ pf.name }}" onChange="{{ pf.onName }}" autocomplete="name" style="height:50px;border:1px solid {{ pf.nameBd }};border-radius:10px;padding:0 14px;font-size:16px;font-weight:400;background:#FFFFFF;"></label>
+            <sc-if value="{{ pf.nameErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="color:#A1261B;font-size:13px;margin-top:-12px;">Add your name so the store and customers know who's coming.</span></sc-if>
+            <div style="display:flex;flex-direction:column;gap:8px;"><span style="font-size:13px;font-weight:600;">How do you deliver?</span>
+              <div role="radiogroup" aria-label="Vehicle" style="display:flex;flex-wrap:wrap;gap:8px;"><sc-for list="{{ pf.vehicles }}" as="o" hint-placeholder-count="5"><button role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" style="height:44px;padding:0 16px;border-radius:22px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};font-weight:600;font-size:14px;cursor:pointer;">{{ o.l }}</button></sc-for></div>
+            </div>
+            <sc-if value="{{ pf.showVno }}" hint-placeholder-val="{{ true }}"><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Vehicle number
+              <input value="{{ pf.vno }}" onChange="{{ pf.onVno }}" autocapitalize="characters" style="height:50px;border:1px solid #D7D3CD;border-radius:10px;padding:0 14px;font-size:16px;font-weight:400;font-family:'IBM Plex Mono',monospace;background:#FFFFFF;"><span style="font-weight:400;color:#5A6472;font-size:12px;">As on the number plate. Customers see it so they know it's you.</span></label></sc-if>
+          </div>
+          <div style="flex:none;padding:12px 18px 26px;border-top:1px solid #E8E2DC;background:#FFFFFF;"><button onClick="{{ pf.save }}" style="width:100%;height:52px;border:0;border-radius:10px;background:#B4532A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:16px;cursor:pointer;">{{ pf.saveLabel }}</button></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ v.acct }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;overflow:auto;background:#FDFAF7;padding:60px 24px 40px;display:flex;flex-direction:column;gap:18px;">
+          <span aria-hidden="true" style="width:56px;height:56px;border-radius:14px;background:#B4532A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:24px;">K</span>
+          <h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:#14181F;">{{ ac.title }}</h1>
+          <p style="margin:0;color:#434A55;font-size:16px;">{{ ac.body }}</p>
+          <sc-if value="{{ ac.extra }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;border-radius:12px;background:#EAF1F8;border:1px solid #C6D9EC;color:#00325F;font-size:14px;">{{ ac.extra }}</div></sc-if>
+          <span style="flex:1;"></span>
+          <button onClick="{{ ac.go }}" style="height:52px;border:0;border-radius:10px;background:#B4532A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:16px;cursor:pointer;">{{ ac.btn }}</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ v.inApp }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#FDFAF7;">
+          <div style="height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;background:#FFFFFF;border-bottom:1px solid #E8E2DC;">
+            <sc-if value="{{ bar.tabbed }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;"><span aria-hidden="true" style="width:34px;height:34px;border-radius:9px;background:#B4532A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:15px;">K</span><span style="display:flex;flex-direction:column;line-height:1.15;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">{{ bar.title }}</span><span style="font-size:12px;color:#5A6472;">Kesari Threads Delivery</span></span></span></sc-if>
+            <sc-if value="{{ bar.back }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:2px;flex:1;min-width:0;margin-left:-8px;"><button onClick="{{ bar.onBack }}" aria-label="Back to Home" style="width:44px;height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#14181F;"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:17px;">{{ bar.title }}</span></span><span style="height:26px;padding:0 10px;border-radius:13px;background:{{ bar.pBg }};color:{{ bar.pFg }};font-size:12px;font-weight:600;display:flex;align-items:center;white-space:nowrap;">{{ bar.pill }}</span></sc-if>
+          </div>
+          <sc-if value="{{ bn.noSig }}" hint-placeholder-val="{{ false }}"><div role="status" style="flex:none;display:flex;align-items:center;gap:10px;padding:10px 16px;background:#14181F;color:#FFFFFF;font-size:13px;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex:none;"><path d="M2 2l20 20 M8.5 16.5a5 5 0 0 1 7 0 M5 12.9a10 10 0 0 1 5.2-2.7 M12 20h.01"></path></svg><span>No signal. Only Delivered and Not delivered can be saved until it's back.</span></div></sc-if>
+          <sc-if value="{{ bn.notifOff }}" hint-placeholder-val="{{ false }}"><div role="status" style="flex:none;display:flex;align-items:center;gap:10px;padding:10px 16px;background:#FFF6E5;border-bottom:1px solid #F2D9A6;color:#7A4B00;font-size:13px;"><span style="flex:1;">Notifications are off, so you can miss offers.</span><button onClick="{{ bn.openSettings }}" style="height:36px;border:0;background:transparent;color:#7A4B00;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0;">Turn on</button></div></sc-if>
+
+          <div style="flex:1;min-height:0;overflow:auto;">
+            <sc-if value="{{ v.home }}" hint-placeholder-val="{{ true }}"><div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
+              <div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:16px;background:{{ hm.bg }};border:1px solid {{ hm.bd }};">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;color:{{ hm.fg }};">{{ hm.title }}</span><span style="font-size:13px;color:{{ hm.sfg }};">{{ hm.sub }}</span></span>
+                <button role="switch" aria-checked="{{ hm.on }}" aria-label="Online" onClick="{{ hm.toggle }}" style="width:76px;height:44px;flex:none;border-radius:22px;border:0;background:{{ hm.trk }};position:relative;cursor:pointer;opacity:{{ hm.op }};padding:0;"><span style="position:absolute;top:4px;left:{{ hm.kx }};width:36px;height:36px;border-radius:50%;background:#FFFFFF;box-shadow:0 2px 6px rgba(10,20,30,0.3);transition:left .15s;"></span></button>
+              </div>
+              <sc-if value="{{ hm.offline }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:10px;padding:4px 4px 0;color:#434A55;font-size:15px;"><p style="margin:0;">Go online to get delivery offers from Kesari Threads' warehouses near you.</p><p style="margin:0;color:#5A6472;font-size:14px;">Your location is shared only while you're online, and deleted when you go offline.</p></div></sc-if>
+              <sc-if value="{{ hm.locRef }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:12px;background:#FDECEC;border:1px solid #F3C7C2;color:#A1261B;"><strong style="font-size:15px;">Location is off for this app</strong><span style="font-size:14px;color:#14181F;">You can't go online without it: Kesari Threads only offers deliveries to partners near the warehouse.</span><button onClick="{{ hm.openSettings }}" style="align-self:flex-start;height:44px;padding:0 16px;border:1px solid #F3C7C2;border-radius:10px;background:#FFFFFF;color:#A1261B;font-weight:700;cursor:pointer;">Open settings</button></div></sc-if>
+              <sc-if value="{{ hm.current }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;padding-left:4px;">Your delivery</span>
+                <button onClick="{{ cur.open }}" style="display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:14px;border:2px solid #B4532A;background:#FFFFFF;text-align:left;cursor:pointer;color:#14181F;">
+                  <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;"><strong style="font-family:Manrope,sans-serif;font-size:17px;">Order {{ d.id }}</strong><span style="height:24px;padding:0 10px;border-radius:12px;background:#F6E7DD;color:#8A3B1C;font-size:12px;font-weight:600;display:flex;align-items:center;">{{ cur.pill }}</span></span>
+                  <span style="font-size:14px;color:#434A55;">{{ cur.sub }}</span>
+                  <span style="font-weight:700;color:#B4532A;font-size:14px;">Open</span>
+                </button>
+                <span style="font-size:13px;color:#5A6472;padding-left:4px;">New offers pause until this delivery is done.</span>
+              </div></sc-if>
+              <sc-if value="{{ hm.offers }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:10px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;padding-left:4px;">Offers near you</span>
+                <sc-for list="{{ offers }}" as="o" hint-placeholder-count="2">
+                  <div style="border-radius:14px;border:1px solid #E8E2DC;background:{{ o.bg }};overflow:hidden;">
+                    <sc-if value="{{ o.taken }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:16px;display:flex;align-items:center;gap:10px;color:#4A5360;font-size:14px;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14 M19 5L5 19"></path></svg><span><strong>Taken by another delivery partner.</strong> It'll disappear in a moment.</span></div></sc-if>
+                    <sc-if value="{{ o.open }}" hint-placeholder-val="{{ true }}"><div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+                      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><span style="display:flex;flex-direction:column;line-height:1.3;"><strong style="font-family:Manrope,sans-serif;font-size:17px;">{{ o.wh }}</strong><span style="font-size:14px;color:#434A55;">{{ o.km }}</span></span><span aria-label="Time left" style="height:28px;padding:0 10px;border-radius:14px;background:#FFF6E5;color:#7A4B00;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;display:flex;align-items:center;white-space:nowrap;">{{ o.leftL }}</span></div>
+                      <div style="display:flex;gap:18px;font-size:14px;"><span style="display:flex;flex-direction:column;"><span style="font-size:12px;color:#5A6472;">Items</span><strong>{{ o.items }}</strong></span><span style="display:flex;flex-direction:column;"><span style="font-size:12px;color:#5A6472;">Deliver to</span><strong>{{ o.area }}</strong></span></div>
+                      <sc-if value="{{ o.err }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:13px;color:#A1261B;">No signal. Accepting needs a connection, so try again when it's back.</span></sc-if>
+                      <div style="display:flex;gap:8px;"><button onClick="{{ o.decline }}" style="flex:1;height:48px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:15px;cursor:pointer;">Decline</button><button onClick="{{ o.accept }}" style="flex:1.4;height:48px;border:1px solid #E6C3AE;border-radius:10px;background:#F6E7DD;color:#8A3B1C;font-family:Manrope,sans-serif;font-weight:800;font-size:15px;cursor:pointer;">Accept</button></div>
+                    </div></sc-if>
+                  </div>
+                </sc-for>
+              </div></sc-if>
+              <sc-if value="{{ hm.empty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:40px 20px;"><span aria-hidden="true" style="width:56px;height:56px;border-radius:50%;background:#F6E7DD;color:#B4532A;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"></path></svg></span><strong style="font-family:Manrope,sans-serif;font-size:18px;">No offers right now</strong><span style="color:#5A6472;font-size:14px;">Stay online. We'll notify you when an order near you is ready.</span></div></sc-if>
+              <sc-if value="{{ hm.loading }}" hint-placeholder-val="{{ false }}"><div aria-busy="true" aria-label="Loading offers" style="display:flex;flex-direction:column;gap:10px;"><span style="width:120px;height:12px;border-radius:6px;background:#ECE7E1;"></span><span style="height:148px;border-radius:14px;background:#F1ECE6;"></span><span style="height:148px;border-radius:14px;background:#F1ECE6;"></span></div></sc-if>
+              <sc-if value="{{ hm.error }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:36px 20px;"><strong style="font-family:Manrope,sans-serif;font-size:18px;">Couldn't load offers</strong><span style="color:#5A6472;font-size:14px;">Check your signal and try again. You're still online.</span><button onClick="{{ hm.retry }}" style="height:44px;padding:0 20px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;font-weight:600;cursor:pointer;">Try again</button></div></sc-if>
+            </div></sc-if>
+
+            <sc-if value="{{ v.pickup }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+              <sc-if value="{{ pk.cancelled }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:12px;padding:24px 4px;"><span aria-hidden="true" style="width:56px;height:56px;border-radius:50%;background:#F1EEEA;color:#4A5360;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12 M18 6L6 18"></path></svg></span><h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">Kesari Threads cancelled this delivery</h2><p style="margin:0;color:#434A55;">You don't need to pick it up, and there's nothing else to do. New offers start coming in again.</p></div></sc-if>
+              <sc-if value="{{ pk.main }}" hint-placeholder-val="{{ true }}">
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">Pick up from</span>
+                  <span style="display:flex;flex-direction:column;line-height:1.35;"><strong style="font-family:Manrope,sans-serif;font-size:18px;">{{ d.wh }}</strong><span style="font-size:14px;color:#434A55;">{{ d.whAddr }}</span></span>
+                  <button onClick="{{ act.navWh }}" style="height:46px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8-8-2z"></path></svg>Navigate</button>
+                </div>
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">Items · {{ d.count }}</span>
+                  <sc-for list="{{ d.items }}" as="i" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;"><span>{{ i.n }}</span><strong style="font-variant-numeric:tabular-nums;">× {{ i.q }}</strong></div></sc-for>
+                </div>
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">Deliver to</span>
+                  <strong style="font-family:Manrope,sans-serif;font-size:18px;">{{ d.area }}</strong>
+                  <span style="font-size:13px;color:#5A6472;">The customer's name, phone and address show after you mark it picked up.</span>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid #EFEAE4;"><span style="font-size:14px;color:#434A55;">{{ pay.label }}</span><strong style="font-family:Manrope,sans-serif;font-size:18px;">{{ pay.value }}</strong></div>
+                </div>
+              </sc-if>
+            </div></sc-if>
+
+            <sc-if value="{{ v.drop }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+              <sc-if value="{{ dr.main }}" hint-placeholder-val="{{ true }}">
+                <sc-if value="{{ dr.unconf }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:12px;background:#FFF6E5;border:1px solid #F2D9A6;color:#7A4B00;"><strong style="font-size:15px;">The code didn't match. The store will confirm this delivery.</strong><span style="font-size:14px;color:#14181F;">Your Delivered was saved without signal, and the code you typed was wrong. Keep the parcel until Kesari Threads tells you what to do.</span><button onClick="{{ act.callStore }}" style="align-self:flex-start;height:44px;padding:0 16px;border:1px solid #F2D9A6;border-radius:10px;background:#FFFFFF;color:#7A4B00;font-weight:700;cursor:pointer;">Call Kesari Threads</button></div></sc-if>
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:16px;display:flex;align-items:center;gap:12px;">
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.35;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">Customer</span><strong style="font-family:Manrope,sans-serif;font-size:18px;">{{ d.cust }}</strong></span>
+                  <button onClick="{{ act.callCust }}" style="height:46px;padding:0 16px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:8px;flex:none;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"></path></svg>Call</button>
+                </div>
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;">
+                  <div aria-label="Map of the delivery address" role="img" style="height:120px;background:repeating-linear-gradient(0deg,#EFEAE4 0 1px,transparent 1px 28px),repeating-linear-gradient(90deg,#EFEAE4 0 1px,transparent 1px 28px),#F7F3EE;display:flex;align-items:center;justify-content:center;color:#B4532A;"><svg viewBox="0 0 24 24" width="34" height="34" fill="#B4532A" stroke="#FFFFFF" stroke-width="1.5" aria-hidden="true"><path d="M12 22s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 15.8 12 22 12 22z"></path><circle cx="12" cy="10.5" r="2.5" fill="#FFFFFF" stroke="none"></circle></svg></div>
+                  <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;"><span style="font-size:15px;">{{ d.addr }}</span><button onClick="{{ act.navCust }}" style="height:46px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8-8-2z"></path></svg>Navigate</button></div>
+                </div>
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">Note from the customer</span><span style="font-size:15px;">{{ d.note }}</span></div>
+                <div style="background:{{ pay.bg }};border:1px solid {{ pay.bd }};border-radius:14px;padding:16px;display:flex;justify-content:space-between;align-items:center;"><span style="font-size:15px;font-weight:600;">{{ pay.label }}</span><strong style="font-family:Manrope,sans-serif;font-size:22px;">{{ pay.value }}</strong></div>
+              </sc-if>
+              <sc-if value="{{ dr.code }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:14px;padding-top:6px;">
+                <h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.02em;">Enter the handover code</h2>
+                <p style="margin:0;color:#434A55;">Ask the customer for the 4-digit code in their Kesari Threads order.</p>
+                <sc-if value="{{ dr.offline }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;border-radius:12px;background:#FFF6E5;border:1px solid #F2D9A6;color:#7A4B00;font-size:14px;"><strong>No signal: you get one try.</strong> It's checked when your signal comes back.</div></sc-if>
+                <sc-if value="{{ dr.notLocked }}" hint-placeholder-val="{{ true }}"><input value="{{ dr.hcode }}" onChange="{{ dr.onCode }}" inputmode="numeric" maxLength="4" placeholder="••••" aria-label="4-digit handover code" aria-invalid="{{ dr.wrong }}" style="height:72px;border:1px solid {{ dr.bd }};border-radius:12px;font-family:'IBM Plex Mono',monospace;font-size:34px;letter-spacing:0.6em;text-align:center;padding-left:0.6em;background:#FFFFFF;"></sc-if>
+                <sc-if value="{{ dr.wrong }}" hint-placeholder-val="{{ false }}"><span role="alert" style="color:#A1261B;font-size:14px;">That code doesn't match. Ask the customer to check their order. {{ dr.tries }}</span></sc-if>
+                <sc-if value="{{ dr.locked }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:12px;background:#FDECEC;border:1px solid #F3C7C2;"><strong style="color:#A1261B;font-size:15px;">Too many wrong codes. The store will mark this delivered.</strong><span style="font-size:14px;font-weight:600;">What to do now</span><ol style="margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:4px;"><li>Call Kesari Threads and say you're at the door.</li><li>Wait while they check with the customer.</li><li>Hand over the parcel only when the store says so. Otherwise mark it not delivered and bring it back.</li></ol></div></sc-if>
+              </div></sc-if>
+              <sc-if value="{{ dr.result }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:48px 12px 12px;">
+                <span aria-hidden="true" style="width:84px;height:84px;border-radius:50%;background:{{ rs.bg }};color:{{ rs.fg }};display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="{{ rs.icon }}"></path></svg></span>
+                <h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.02em;">{{ rs.title }}</h2>
+                <p style="margin:0;color:#434A55;">{{ rs.body }}</p>
+                <sc-if value="{{ rs.cash }}" hint-placeholder-val="{{ false }}"><span style="padding:8px 14px;border-radius:10px;background:#FFFFFF;border:1px solid #E8E2DC;font-weight:600;">{{ rs.cash }}</span></sc-if>
+              </div></sc-if>
+              <sc-if value="{{ dr.ret }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="padding:12px 14px;border-radius:12px;background:{{ rt.bg }};border:1px solid {{ rt.bd }};color:{{ rt.fg }};font-size:14px;font-weight:600;">{{ rt.note }}</div>
+                <h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:24px;line-height:1.2;letter-spacing:-0.02em;">{{ rt.title }}</h2>
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px;"><strong style="font-family:Manrope,sans-serif;font-size:17px;">{{ d.wh }}</strong><span style="font-size:14px;color:#434A55;">{{ d.whAddr }}</span></div>
+                <p style="margin:0;color:#5A6472;font-size:14px;">The customer's details are hidden now. Hand the parcel to the team at the warehouse; they'll mark it as back.</p>
+              </div></sc-if>
+            </div></sc-if>
+
+            <sc-if value="{{ v.history }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;"><sc-for list="{{ hi.counts }}" as="c" hint-placeholder-count="2"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:14px;display:flex;flex-direction:column;"><span style="font-size:13px;color:#5A6472;">{{ c.l }}</span><strong style="font-family:Manrope,sans-serif;font-size:32px;letter-spacing:-0.03em;line-height:1.1;">{{ c.n }}</strong><span style="font-size:12px;color:#5A6472;">delivered</span></div></sc-for></div>
+              <sc-if value="{{ hi.list }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:8px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;padding-left:4px;">Past deliveries</span>
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;overflow:hidden;"><sc-for list="{{ hi.rows }}" as="r" hint-placeholder-count="6"><div style="padding:12px 14px;border-top:{{ r.bt }};display:flex;flex-direction:column;gap:3px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span style="font-size:13px;color:#5A6472;">{{ r.when }}</span><span style="height:22px;padding:0 9px;border-radius:11px;background:{{ r.pbg }};color:{{ r.pfg }};font-size:12px;font-weight:600;display:flex;align-items:center;">{{ r.res }}</span></div>
+                  <span style="font-size:15px;font-weight:600;">{{ r.wh }} → {{ r.area }}</span>
+                  <span style="font-size:13px;color:#434A55;">{{ r.fee }}</span>
+                </div></sc-for></div>
+                <sc-if value="{{ hi.more }}" hint-placeholder-val="{{ false }}"><button onClick="{{ hi.showMore }}" style="height:48px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;cursor:pointer;">Show more</button></sc-if>
+              </div></sc-if>
+              <sc-if value="{{ hi.empty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:40px 20px;"><strong style="font-family:Manrope,sans-serif;font-size:18px;">No deliveries yet</strong><span style="color:#5A6472;font-size:14px;">Each delivery you finish shows here, newest first.</span></div></sc-if>
+              <sc-if value="{{ hi.loading }}" hint-placeholder-val="{{ false }}"><div aria-busy="true" aria-label="Loading history" style="display:flex;flex-direction:column;gap:8px;"><span style="height:72px;border-radius:12px;background:#F1ECE6;"></span><span style="height:72px;border-radius:12px;background:#F1ECE6;"></span><span style="height:72px;border-radius:12px;background:#F1ECE6;"></span></div></sc-if>
+              <sc-if value="{{ hi.error }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:32px 20px;"><strong style="font-family:Manrope,sans-serif;font-size:18px;">Couldn't load your deliveries</strong><span style="color:#5A6472;font-size:14px;">Check your signal and try again.</span><button onClick="{{ hi.retry }}" style="height:44px;padding:0 20px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;font-weight:600;cursor:pointer;">Try again</button></div></sc-if>
+            </div></sc-if>
+
+            <sc-if value="{{ v.profile }}" hint-placeholder-val="{{ false }}"><div style="padding:20px 16px;display:flex;flex-direction:column;gap:18px;">
+              <div style="display:flex;align-items:center;gap:14px;"><span aria-hidden="true" style="width:72px;height:72px;border-radius:50%;background:#F6E7DD;color:#B4532A;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:24px;">{{ pr.init }}</span><span style="display:flex;flex-direction:column;line-height:1.35;"><strong style="font-family:Manrope,sans-serif;font-size:20px;">{{ pr.name }}</strong><span style="font-size:14px;color:#434A55;">+91 98xxx 00000</span><span style="font-size:14px;color:#434A55;">{{ pr.veh }}</span></span></div>
+              <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;">
+                <button onClick="{{ pr.edit }}" style="min-height:56px;padding:0 16px;border:0;background:transparent;text-align:left;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;color:#14181F;">Edit profile<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#9AA1AB" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></button>
+                <button onClick="{{ pr.signOut }}" style="min-height:56px;padding:0 16px;border:0;border-top:1px solid #EFEAE4;background:transparent;text-align:left;font-size:15px;font-weight:600;cursor:pointer;color:#14181F;">Sign out</button>
+              </div>
+              <button onClick="{{ pr.del }}" style="align-self:flex-start;height:44px;padding:0 4px;border:0;background:transparent;color:#A1261B;font-size:15px;font-weight:600;cursor:pointer;">Delete account</button>
+              <span style="font-size:12px;color:#5A6472;">Kesari Threads Delivery · version 1.0.0</span>
+            </div></sc-if>
+          </div>
+
+          <sc-if value="{{ foot.on }}" hint-placeholder-val="{{ false }}"><div style="flex:none;padding:10px 16px 14px;border-top:1px solid #E8E2DC;background:#FFFFFF;display:flex;flex-direction:column;gap:8px;">
+            <sc-if value="{{ foot.err }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:13px;color:#A1261B;">{{ foot.err }}</span></sc-if>
+            <sc-if value="{{ foot.primary }}" hint-placeholder-val="{{ true }}"><button onClick="{{ foot.onP }}" style="height:54px;border:0;border-radius:10px;background:#B4532A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:800;font-size:17px;cursor:pointer;opacity:{{ foot.pOp }};">{{ foot.primary }}</button></sc-if>
+            <sc-if value="{{ foot.second }}" hint-placeholder-val="{{ false }}"><button onClick="{{ foot.onS }}" style="height:48px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;cursor:pointer;">{{ foot.second }}</button></sc-if>
+            <sc-if value="{{ foot.link }}" hint-placeholder-val="{{ false }}"><button onClick="{{ foot.onL }}" style="height:44px;border:0;background:transparent;color:#B8541F;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;cursor:pointer;">{{ foot.link }}</button></sc-if>
+          </div></sc-if>
+
+          <sc-if value="{{ bar.tabbed }}" hint-placeholder-val="{{ true }}"><nav aria-label="Main" style="flex:none;display:flex;background:#FFFFFF;border-top:1px solid #E8E2DC;padding:4px 8px 18px;"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" aria-current="{{ t.cur }}" style="flex:1;height:56px;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:{{ t.fg }};cursor:pointer;"><span style="width:56px;height:30px;border-radius:15px;background:{{ t.pill }};display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="{{ t.sw }}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ t.icon }}"></path></svg></span><span style="font-size:12px;font-weight:{{ t.fw }};">{{ t.l }}</span></button></sc-for></nav></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ sh.on }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;z-index:40;background:rgba(10,20,30,0.45);display:flex;align-items:flex-end;">
+        <div role="dialog" aria-modal="true" aria-label="{{ sh.title }}" style="width:100%;background:#FFFFFF;border-radius:24px 24px 0 0;padding:10px 20px 30px;display:flex;flex-direction:column;gap:14px;">
+          <span aria-hidden="true" style="width:36px;height:5px;border-radius:3px;background:#D7D3CD;align-self:center;"></span>
+          <h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:21px;line-height:1.25;">{{ sh.title }}</h2>
+          <sc-if value="{{ sh.body }}" hint-placeholder-val="{{ true }}"><p style="margin:0;color:#434A55;">{{ sh.body }}</p></sc-if>
+          <sc-if value="{{ sh.fgs }}" hint-placeholder-val="{{ false }}"><div aria-label="Example of the notification" style="display:flex;gap:10px;padding:12px;border-radius:16px;background:#F1EEEA;"><span aria-hidden="true" style="width:28px;height:28px;border-radius:7px;background:#B4532A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:13px;flex:none;">K</span><span style="display:flex;flex-direction:column;font-size:13px;line-height:1.35;"><strong>You're online for Kesari Threads</strong><span style="color:#434A55;">Sharing your location to get nearby offers. Go offline in the app to stop.</span></span></div></sc-if>
+          <sc-if value="{{ sh.reasons }}" hint-placeholder-val="{{ false }}"><div role="radiogroup" aria-label="Reason" style="display:flex;flex-direction:column;gap:8px;"><sc-for list="{{ sh.reasons }}" as="o" hint-placeholder-count="3"><button role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" style="min-height:52px;padding:0 14px;border-radius:12px;border:{{ o.bd }};background:{{ o.bg }};text-align:left;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:12px;color:#14181F;"><span aria-hidden="true" style="width:20px;height:20px;border-radius:50%;border:2px solid {{ o.dot }};display:flex;align-items:center;justify-content:center;"><span style="width:10px;height:10px;border-radius:50%;background:{{ o.fill }};"></span></span>{{ o.l }}</button></sc-for></div></sc-if>
+          <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px;">
+            <button onClick="{{ sh.onP }}" style="height:52px;border:0;border-radius:10px;background:{{ sh.pBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;cursor:pointer;opacity:{{ sh.pOp }};">{{ sh.primary }}</button>
+            <sc-if value="{{ sh.second }}" hint-placeholder-val="{{ true }}"><button onClick="{{ sh.onS }}" style="height:48px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;cursor:pointer;">{{ sh.second }}</button></sc-if>
+          </div>
+        </div>
+      </div></sc-if>
+
+      <sc-if value="{{ sys.on }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;z-index:45;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;padding:24px;">
+        <sc-if value="{{ ctl.ios }}" hint-placeholder-val="{{ false }}"><div role="alertdialog" aria-label="{{ sys.title }}" style="width:270px;border-radius:14px;background:#F2F2F4;overflow:hidden;text-align:center;font-family:-apple-system,'SF Pro Text',Inter,sans-serif;">
+          <div style="padding:18px 16px 14px;display:flex;flex-direction:column;gap:6px;"><strong style="font-size:16px;line-height:1.3;">{{ sys.title }}</strong><span style="font-size:13px;line-height:1.35;color:#14181F;">{{ sys.body }}</span></div>
+          <sc-for list="{{ sys.btns }}" as="b" hint-placeholder-count="2"><button onClick="{{ b.on }}" style="display:block;width:100%;min-height:44px;border:0;border-top:1px solid #C8C8CC;background:transparent;color:#0A63D1;font-size:16px;font-weight:{{ b.w }};cursor:pointer;">{{ b.l }}</button></sc-for>
+        </div></sc-if>
+        <sc-if value="{{ ctl.android }}" hint-placeholder-val="{{ true }}"><div role="alertdialog" aria-label="{{ sys.title }}" style="width:312px;border-radius:28px;background:#F3EEF4;padding:24px 20px 18px;display:flex;flex-direction:column;gap:14px;text-align:center;font-family:Roboto,Inter,sans-serif;">
+          <span aria-hidden="true" style="align-self:center;color:#0B57D0;"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ sys.icon }}"></path></svg></span>
+          <strong style="font-size:19px;font-weight:500;line-height:1.3;">{{ sys.title }}</strong>
+          <sc-if value="{{ sys.body }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:#434A55;text-align:left;">{{ sys.body }}</span></sc-if>
+          <div style="display:flex;flex-direction:column;gap:6px;"><sc-for list="{{ sys.btns }}" as="b" hint-placeholder-count="2"><button onClick="{{ b.on }}" style="min-height:48px;border:0;border-radius:24px;background:#DCE4F9;color:#0B3B91;font-size:15px;font-weight:500;cursor:pointer;">{{ b.l }}</button></sc-for></div>
+        </div></sc-if>
+      </div></sc-if>
+
+      <sc-if value="{{ toast.on }}" hint-placeholder-val="{{ false }}"><div role="status" style="position:absolute;left:16px;right:16px;bottom:96px;z-index:50;padding:12px 16px;border-radius:12px;background:#14181F;color:#FFFFFF;font-size:14px;box-shadow:0 12px 28px -10px rgba(10,20,30,0.5);">{{ toast.msg }}</div></sc-if>
+      <span aria-hidden="true" style="position:absolute;left:50%;bottom:6px;transform:translateX(-50%);width:120px;height:4px;border-radius:2px;background:{{ sb.home }};z-index:60;pointer-events:none;"></span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { scr: 'home', st: 'offline', os: 'android', cod: true, t0: Date.now(), now: Date.now(), codeAt: Date.now(), phone: '', phoneErr: '', code: '', bad: 0, hcode: '', wrong: 0, reason: '', name: 'Sample Partner', nameErr: false, veh: 'scooter', vno: 'RJ14 XX 0000', photo: false, gone: [], toast: '', locAsked: false, stage: 'pre', more: false };
+  componentDidMount() {
+    try { const p = JSON.parse(localStorage.getItem('df-delivery-proto-v1') || 'null'); if (p && p.scr) this.setState({ scr: p.scr, st: p.st, os: p.os || 'android', cod: p.cod !== false, stage: p.stage || 'pre' }); } catch (e) {}
+    this._iv = setInterval(() => this.setState({ now: Date.now() }), 1000);
+  }
+  componentWillUnmount() { clearInterval(this._iv); clearTimeout(this._tt); clearTimeout(this._sig); }
+  save(x) { try { const s = { ...this.state, ...x }; localStorage.setItem('df-delivery-proto-v1', JSON.stringify({ scr: s.scr, st: s.st, os: s.os, cod: s.cod, stage: s.stage })); } catch (e) {} }
+  to(scr, st, extra) {
+    const x = { scr, st, ...(extra || {}) };
+    if (scr === 'signin' && st === 'code' && !extra) x.codeAt = Date.now();
+    if (scr === 'drop' && ['code', 'offlineCode'].includes(st) && !(extra && 'hcode' in extra)) x.hcode = '';
+    if (scr === 'drop' && st === 'code' && !(extra && 'wrong' in extra)) x.wrong = 0;
+    if (scr === 'drop' && st === 'codeWrong' && !(extra && 'wrong' in extra)) x.wrong = Math.max(1, this.state.wrong);
+    if (scr === 'home' && st === 'offers' && !(extra && 'gone' in extra)) x.gone = [];
+    this.setState(x); this.save(x);
+  }
+  toast(m) { clearTimeout(this._tt); this.setState({ toast: m }); this._tt = setTimeout(() => this.setState({ toast: '' }), 3200); }
+  renderVals() {
+    const s = this.state, ios = s.os === 'ios';
+    const fmt = n => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+    const is = (sc, ...a) => s.scr === sc && (!a.length || a.includes(s.st));
+    const maps = ios ? 'Apple Maps' : 'Google Maps';
+    const SCR = [['signin', 'Getting in'], ['home', 'Home'], ['pickup', 'Delivery: before pickup'], ['drop', 'Delivery: after pickup'], ['history', 'History'], ['profile', 'Profile'], ['notifs', 'Notifications'], ['account', 'Account blocked']];
+    const ST = {
+      signin: [['phone', 'Mobile number'], ['code', 'Code sent (Resend countdown)'], ['codeBad', 'Wrong code / number not invited'], ['tooMany', 'Too many tries'], ['profile', 'First-time profile'], ['notif', 'Notifications: why we ask'], ['notifSys', 'Notifications: system ask']],
+      home: [['offline', 'Offline'], ['locAsk', 'First Online: location while using'], ['locAlways', 'First Online: always / background notice'], ['locRefused', 'Location refused'], ['offers', 'Online with offers'], ['taken', 'Offer taken by someone else'], ['empty', 'Online, no offers'], ['current', 'Current delivery pinned'], ['offHB', 'Go offline before pickup (hands back)'], ['noSignal', 'No signal: Accept refused'], ['notifRefused', 'Notifications refused'], ['loading', 'Loading'], ['error', 'Load error']],
+      pickup: [['normal', 'Before pickup'], ['prepaid', 'Before pickup, paid online'], ['handBack', 'Hand back: confirm'], ['noSignal', 'No signal: Picked up refused'], ['cancelled', 'Cancelled by the store']],
+      drop: [['normal', 'After pickup, cash on delivery'], ['prepaid', 'After pickup, paid online'], ['cash', 'Cash collected: confirm'], ['code', 'Handover code'], ['codeWrong', 'Wrong code'], ['codeLocked', 'Locked after 5 wrong codes'], ['done', 'Delivered'], ['failed', 'Not delivered: reason'], ['returnParcel', 'Return the parcel'], ['offlineCode', 'No signal: one code attempt'], ['saved', 'Saved, waiting for signal'], ['sent', 'Sent'], ['unconfirmed', 'Code unconfirmed'], ['recalled', 'Recalled by the store']],
+      history: [['normal', 'Today and this week'], ['more', 'After Show more'], ['empty', 'Empty'], ['loading', 'Loading'], ['error', 'Load error']],
+      profile: [['normal', 'Profile'], ['edit', 'Edit profile'], ['del', 'Delete account: confirm'], ['delRefused', 'Delete refused (carrying a parcel)']],
+      notifs: [['lock', 'Lock-screen banners']],
+      account: [['suspended', 'Suspended, signed out'], ['autoBack', 'Suspended while holding a delivery'], ['tooOld', 'App too old'], ['featureOff', 'Own delivery switched off']]
+    };
+    const stList = ST[s.scr] || [];
+    const cod = (is('drop', 'prepaid') || is('pickup', 'prepaid')) ? false : s.cod;
+    const D = { id: 'KT-1042', wh: 'Jaipur godown', whAddr: 'Plot 00, Sample Industrial Area, Sitapura, Jaipur 302022', area: 'Malviya Nagar', items: [{ n: 'Block-print cotton kurta', q: 1 }, { n: 'Mulmul dupatta', q: 2 }], count: '3', cash: 1249, cust: 'Sample Customer', phone: '+91 98xxx 00001', addr: 'House 00, Sample Lane 4, Malviya Nagar, Jaipur 302017', note: 'Gate is on the left. Ring the bell twice.' };
+    const pay = cod ? { label: 'Cash to collect', value: fmt(D.cash), bg: '#FFF6E5', bd: '#F2D9A6' } : { label: 'Paid online', value: 'Nothing to collect', bg: '#EEF7F2', bd: '#CBE6D6' };
+    const homeOn = ['offers', 'taken', 'empty', 'current', 'offHB', 'noSignal', 'notifRefused', 'loading', 'error'];
+    const online = is('home') && homeOn.includes(s.st);
+    const current = is('home', 'current', 'offHB');
+    const locRef = is('home', 'locRefused');
+    const el = Math.floor((s.now - s.t0) / 1000);
+    const left = b => { const r = ((b - el) % 300 + 300) % 300; return Math.floor(r / 60) + ':' + String(r % 60).padStart(2, '0'); };
+    const OFF = [{ id: 1, wh: 'Jaipur godown', km: '2.4 km away', items: '3 items', area: 'Malviya Nagar', b: 272 }, { id: 2, wh: 'MI Road shop', km: '3.8 km away', items: '1 item', area: 'Vaishali Nagar', b: 185 }];
+    const offers = OFF.filter(o => !s.gone.includes(o.id)).map((o, i) => { const taken = is('home', 'taken') && i === 0; return { ...o, left: left(o.b), leftL: left(o.b) + ' left', taken, open: !taken, bg: taken ? '#F1EEEA' : '#FFFFFF', err: is('home', 'noSignal') && i === 0, accept: () => { if (is('home', 'noSignal')) { this.toast('No signal. Accepting needs a connection.'); return; } this.to('pickup', 'normal', { stage: 'pre' }); }, decline: () => { this.setState({ gone: [...s.gone, o.id] }); this.toast('Declined. It goes to the others.'); } }; });
+    const showOffers = online && ['offers', 'taken', 'noSignal', 'notifRefused'].includes(s.st) && offers.length > 0;
+    const hm = {
+      on: online ? 'true' : 'false', title: online ? 'You’re online' : 'You’re offline',
+      sub: locRef ? 'Location is off' : current ? 'Offers paused during a delivery' : online ? 'Offers near you show below' : 'Go online to get offers',
+      bg: online ? '#EEF7F2' : '#FFFFFF', bd: online ? '#CBE6D6' : '#E8E2DC', fg: online ? '#1D6B47' : '#14181F', sfg: online ? '#1D6B47' : '#5A6472',
+      trk: online ? '#1D6B47' : '#9AA1AB', kx: online ? '36px' : '4px', op: locRef ? 0.45 : 1,
+      offline: is('home', 'offline', 'locAsk', 'locAlways'), locRef, current, offers: showOffers,
+      empty: online && (is('home', 'empty') || (['offers', 'taken', 'noSignal', 'notifRefused'].includes(s.st) && offers.length === 0)),
+      loading: is('home', 'loading'), error: is('home', 'error'),
+      retry: () => this.to('home', 'offers'), openSettings: () => this.toast(ios ? 'Opens Settings › Kesari Threads Delivery › Location' : 'Opens Android Settings › Apps › Kesari Threads Delivery › Permissions'),
+      toggle: () => {
+        if (locRef) { this.toast('Turn on location in Settings first.'); return; }
+        if (online) {
+          if (current && s.stage === 'pre') { this.to('home', 'offHB'); return; }
+          if (current) { this.toast('You can go offline after this delivery.'); return; }
+          this.to('home', 'offline'); return;
+        }
+        this.to('home', s.locAsked ? 'offers' : 'locAsk');
+      }
+    };
+    const cur = { pill: s.stage === 'pre' ? 'Go to pickup' : 'On the way', sub: s.stage === 'pre' ? 'Pick up from ' + D.wh + ' · ' + D.area : 'Deliver to ' + D.area, open: () => this.to(s.stage === 'pre' ? 'pickup' : 'drop', s.stage === 'pre' ? 'normal' : (cod ? 'normal' : 'prepaid')) };
+    const pk = { cancelled: is('pickup', 'cancelled'), main: is('pickup') && !is('pickup', 'cancelled') };
+    const dr = { main: is('drop', 'normal', 'prepaid', 'cash', 'failed', 'unconfirmed'), unconf: is('drop', 'unconfirmed'), code: is('drop', 'code', 'codeWrong', 'codeLocked', 'offlineCode'), offline: is('drop', 'offlineCode'), locked: is('drop', 'codeLocked'), notLocked: !is('drop', 'codeLocked'), wrong: is('drop', 'codeWrong'), result: is('drop', 'done', 'saved', 'sent'), ret: is('drop', 'returnParcel', 'recalled'), hcode: s.hcode, bd: is('drop', 'codeWrong') ? '#A1261B' : '#D7D3CD', tries: (() => { const n = 5 - Math.max(1, s.wrong); return n + (n === 1 ? ' try left.' : ' tries left.'); })(), onCode: e => this.setState({ hcode: e.target.value.replace(/\D/g, '').slice(0, 4) }) };
+    const submitCode = () => {
+      if (s.hcode.length < 4) { this.toast('Enter all 4 digits.'); return; }
+      if (is('drop', 'offlineCode')) { const ok = s.hcode === '2580'; this.to('drop', 'saved'); clearTimeout(this._sig); this._sig = setTimeout(() => { if (this.state.scr === 'drop' && this.state.st === 'saved') this.to('drop', ok ? 'sent' : 'unconfirmed', { stage: ok ? null : 'post' }); }, 3500); return; }
+      if (s.hcode === '2580') { this.to('drop', 'done', { stage: null }); return; }
+      const w = s.wrong + 1; if (w >= 5) this.to('drop', 'codeLocked', { wrong: w }); else this.to('drop', 'codeWrong', { wrong: w, hcode: '' });
+    };
+    const RS = { done: { bg: '#EEF7F2', fg: '#1D6B47', icon: 'M5 12l5 5 9-11', title: 'Delivered', body: 'Order ' + D.id + ' · ' + D.area + ' · 10:42', cash: cod ? 'Cash collected: ' + fmt(D.cash) : '' }, saved: { bg: '#FFF6E5', fg: '#7A4B00', icon: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2', title: 'Saved, waiting for signal', body: 'Delivered at 10:42 is saved on this phone and sent as soon as you have signal. Keep the app installed until it goes.', cash: '' }, sent: { bg: '#EEF7F2', fg: '#1D6B47', icon: 'M5 12l5 5 9-11', title: 'Sent', body: 'Kesari Threads has your delivery for order ' + D.id + ', done at 10:42.', cash: '' } };
+    const rs = RS[s.st] || RS.done;
+    const REASONS = [['nobody', 'No one home'], ['refused', 'The customer refused it'], ['address', 'Wrong address']];
+    const rt = is('drop', 'recalled') ? { note: 'Kesari Threads recalled this delivery.', title: 'Bring the parcel back to ' + D.wh, bg: '#EAF1F8', bd: '#C6D9EC', fg: '#00325F' } : { note: 'Not delivered: ' + ((REASONS.find(r => r[0] === s.reason) || REASONS[0])[1]).toLowerCase() + '.', title: 'Return the parcel to ' + D.wh, bg: '#F1EEEA', bd: '#E0DAD3', fg: '#4A5360' };
+
+    // footer actions
+    let foot = { on: false };
+    if (pk.main) foot = { on: true, primary: 'Picked up', onP: () => { if (is('pickup', 'noSignal')) { this.toast('No signal. Picked up needs a connection.'); return; } this.to('drop', cod ? 'normal' : 'prepaid', { stage: 'post' }); }, err: is('pickup', 'noSignal') ? 'No signal. Picked up needs a connection, so try again when it’s back.' : '', link: 'Hand back', onL: () => this.to('pickup', 'handBack'), pOp: is('pickup', 'noSignal') ? 0.5 : 1 };
+    if (pk.cancelled) foot = { on: true, primary: 'Back to Home', onP: () => this.to('home', 'offers', { stage: null }), pOp: 1 };
+    if (dr.main && !dr.unconf) foot = { on: true, primary: 'Delivered', onP: () => this.to('drop', cod ? 'cash' : 'code'), second: 'Not delivered', onS: () => this.to('drop', 'failed'), pOp: 1 };
+    if (dr.unconf) foot = { on: true, second: 'Not delivered', onS: () => this.to('drop', 'failed') };
+    if (dr.code && !dr.locked) foot = { on: true, primary: 'Confirm delivered', onP: submitCode, pOp: s.hcode.length === 4 ? 1 : 0.5, link: 'Not delivered', onL: () => this.to('drop', 'failed') };
+    if (dr.locked) foot = { on: true, primary: 'Call Kesari Threads', onP: () => this.toast('Calls Kesari Threads on +91 98xxx 00099'), second: 'Not delivered', onS: () => this.to('drop', 'failed'), pOp: 1 };
+    if (dr.result) foot = { on: true, primary: 'Back to Home', onP: () => this.to('home', s.st === 'saved' ? 'noSignal' : 'offers', { stage: null }), pOp: 1 };
+    if (dr.ret) foot = { on: true, primary: 'Navigate to ' + D.wh, onP: () => this.toast('Opens ' + maps + ' to ' + D.wh), second: 'Back to Home', onS: () => this.to('home', 'offers', { stage: null }), pOp: 1 };
+
+    const tabbed = ['home', 'history', 'profile'].includes(s.scr);
+    const bar = tabbed ? { tabbed: true, back: false, title: { home: 'Home', history: 'History', profile: 'Profile' }[s.scr] } : { tabbed: false, back: true, title: 'Order ' + D.id, onBack: () => this.to('home', 'current', { stage: dr.result || dr.ret || pk.cancelled ? null : s.stage }), pill: s.scr === 'pickup' ? 'Pick up' : dr.ret ? 'Return' : dr.result ? 'Done' : 'Deliver', pBg: dr.ret ? '#EAF1F8' : '#F6E7DD', pFg: dr.ret ? '#00325F' : '#8A3B1C' };
+    const TAB = [['home', 'Home', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'], ['history', 'History', 'M3 12a9 9 0 1 0 3-6.7 M3 4v5h5 M12 7v5l3 2'], ['profile', 'Profile', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21a8 8 0 0 1 16 0']];
+    const tabs = TAB.map(([k, l, icon]) => { const a = s.scr === k; return { l, icon, cur: a ? 'page' : 'false', fg: a ? '#8A3B1C' : '#5A6472', pill: a ? '#F6E7DD' : 'transparent', fw: a ? 700 : 500, sw: a ? 2.1 : 1.7, go: () => this.to(k, ST[k][0][0] === 'offline' && s.locAsked ? 'offers' : ST[k][0][0]) }; });
+
+    // history
+    const AREAS = ['Malviya Nagar', 'Vaishali Nagar', 'C-Scheme', 'Raja Park', 'Mansarovar', 'Bani Park', 'Jagatpura'];
+    const rows = []; const dayName = d => d === 0 ? 'Today' : d === 1 ? 'Yesterday' : (23 - d) + ' Oct';
+    for (let i = 0; i < 27; i++) { const day = Math.floor(i / 3); const res = i === 4 ? 'not' : i === 11 ? 'recalled' : i === 19 ? 'not' : 'ok'; const fee = i % 4 === 2 ? 0 : 49; const hh = 19 - (i % 3) * 3 - (day % 2); rows.push({ when: dayName(day) + ', ' + String(hh).padStart(2, '0') + ':' + String((i * 17) % 60).padStart(2, '0'), wh: i % 3 === 1 ? 'MI Road shop' : 'Jaipur godown', area: AREAS[i % AREAS.length], res: { ok: 'Delivered', not: 'Not delivered', recalled: 'Recalled' }[res], pbg: { ok: '#EEF7F2', not: '#F1EEEA', recalled: '#EAF1F8' }[res], pfg: { ok: '#1D6B47', not: '#4A5360', recalled: '#00325F' }[res], fee: fee ? 'Delivery fee the customer paid: ' + fmt(fee) : 'Free delivery for the customer', day, ok: res === 'ok' }); }
+    const shownRows = (is('history', 'more') ? rows : rows.slice(0, 20)).map((r, i) => ({ ...r, bt: i ? '1px solid #EFEAE4' : '0' }));
+    const emptyH = is('history', 'empty');
+    const hi = { counts: [{ l: 'Today', n: emptyH ? '0' : String(rows.filter(r => r.day === 0 && r.ok).length) }, { l: 'This week', n: emptyH ? '0' : String(rows.filter(r => r.day < 7 && r.ok).length) }], rows: shownRows, list: is('history', 'normal', 'more'), more: is('history', 'normal') && rows.length > 20, showMore: () => this.to('history', 'more'), empty: emptyH, loading: is('history', 'loading'), error: is('history', 'error'), retry: () => this.to('history', 'normal') };
+
+    const VEH = [['bike', 'Motorbike'], ['scooter', 'Scooter'], ['car', 'Car'], ['bicycle', 'Bicycle'], ['foot', 'On foot']];
+    const vehLabel = (VEH.find(x => x[0] === s.veh) || VEH[1])[1];
+    const showVno = !['bicycle', 'foot'].includes(s.veh);
+    const init = (s.name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2) || '?').toUpperCase();
+    const first = is('signin', 'profile');
+    const pf = { first, edit: !first, title: first ? 'Set up your profile' : 'Edit profile', back: () => this.to('profile', 'normal'), init, photoLabel: s.photo ? 'Change photo' : 'Add a photo', photo: () => { this.setState({ photo: true }); this.toast('Opens the camera or your photos'); }, name: s.name, onName: e => this.setState({ name: e.target.value, nameErr: false }), nameErr: s.nameErr, nameBd: s.nameErr ? '#A1261B' : '#D7D3CD', showVno, vno: s.vno, onVno: e => this.setState({ vno: e.target.value.toUpperCase() }), saveLabel: first ? 'Continue' : 'Save',
+      vehicles: VEH.map(([k, l]) => ({ l, on: s.veh === k ? 'true' : 'false', bd: s.veh === k ? '#B4532A' : '#D7D3CD', bg: s.veh === k ? '#F6E7DD' : '#FFFFFF', fg: s.veh === k ? '#8A3B1C' : '#14181F', pick: () => this.setState({ veh: k }) })),
+      save: () => { if (!s.name.trim()) { this.setState({ nameErr: true }); return; } if (first) this.to('signin', 'notif'); else { this.to('profile', 'normal'); this.toast('Profile saved'); } } };
+    const pr = { init, name: s.name || 'Sample Partner', veh: vehLabel + (showVno && s.vno ? ' · ' + s.vno : ''), edit: () => this.to('profile', 'edit'), signOut: () => { this.to('signin', 'phone', { stage: 'pre' }); this.toast('Signed out'); }, del: () => this.to('profile', s.stage === 'post' ? 'delRefused' : 'del') };
+
+    // sign in
+    const digits = s.phone.replace(/\D/g, '');
+    const rLeft = Math.max(0, 30 - Math.floor((s.now - s.codeAt) / 1000));
+    const si = { phoneScr: is('signin', 'phone'), codeScr: is('signin', 'code', 'codeBad', 'tooMany'), notifScr: is('signin', 'notif', 'notifSys'), phone: s.phone, onPhone: e => this.setState({ phone: e.target.value, phoneErr: '' }), phoneErr: s.phoneErr, phoneBd: s.phoneErr ? '#A1261B' : '#D7D3CD',
+      send: () => { if (digits.length !== 10 && !/x/i.test(s.phone)) { this.setState({ phoneErr: 'Enter your 10-digit mobile number.' }); return; } this.to('signin', 'code', { codeAt: Date.now(), code: '', bad: 0 }); },
+      shown: '+91 ' + (s.phone.trim() || '98xxx 00000'), change: () => this.to('signin', 'phone'), code: s.code, onCode: e => this.setState({ code: e.target.value.replace(/\D/g, '').slice(0, 6) }), bad: is('signin', 'codeBad'), locked: is('signin', 'tooMany'), codeBd: is('signin', 'codeBad') ? '#A1261B' : '#D7D3CD', codeBg: is('signin', 'tooMany') ? '#F1EEEA' : '#FFFFFF', vOp: is('signin', 'tooMany') || s.code.length < 6 ? 0.5 : 1,
+      verify: () => { if (is('signin', 'tooMany') || s.code.length < 6) return; if (s.code === '123456') { this.to('signin', 'profile'); return; } const b = s.bad + 1; this.to('signin', b >= 5 ? 'tooMany' : 'codeBad', { bad: b, code: '' }); },
+      canResend: !is('signin', 'tooMany') && rLeft === 0, waitResend: !is('signin', 'tooMany') && rLeft > 0, resendIn: '0:' + String(rLeft).padStart(2, '0'), resend: () => { this.setState({ codeAt: Date.now() }); this.toast('New code sent'); },
+      notifGo: () => this.to('signin', 'notifSys') };
+
+    const ACC = { suspended: { title: 'Kesari Threads has paused your account', body: 'You’ve been signed out and can’t take deliveries for now. Ask the store if you think this is a mistake.', extra: '', btn: 'OK', go: () => this.to('signin', 'phone') }, autoBack: { title: 'Kesari Threads has paused your account', body: 'You’ve been signed out and can’t take deliveries for now. Ask the store if you think this is a mistake.', extra: 'The delivery you’d accepted, order ' + D.id + ', went back to other delivery partners. You don’t need to pick it up.', btn: 'OK', go: () => this.to('signin', 'phone') }, tooOld: { title: 'This version of the app is too old', body: 'Download the new version from Kesari Threads to keep taking deliveries. It takes a minute and keeps you signed in.', extra: '', btn: 'Download the new version', go: () => this.toast('Downloads the latest app from Kesari Threads') }, featureOff: { title: 'Kesari Threads isn’t using its own delivery right now', body: 'You can’t go online until the store turns it back on. You’ll stay signed in, and we’ll let you know.', extra: '', btn: 'OK', go: () => this.toast('Nothing else to do for now') } };
+    const ac = ACC[s.st] || ACC.suspended;
+
+    // sheets
+    let sh = { on: false };
+    if (is('pickup', 'handBack')) sh = { on: true, title: 'Hand back this delivery?', body: 'It goes back to other delivery partners near ' + D.wh + ' straight away.', primary: 'Hand back', pBg: '#A1261B', pOp: 1, onP: () => { this.to('home', 'offers', { stage: null }); this.toast('Handed back. It’s gone to the others.'); }, second: 'Keep it', onS: () => this.to('pickup', 'normal') };
+    if (is('home', 'offHB')) sh = { on: true, title: 'Go offline and hand back?', body: 'You’ve accepted order ' + D.id + ' but haven’t picked it up. Going offline hands it back to other delivery partners.', primary: 'Go offline and hand back', pBg: '#A1261B', pOp: 1, onP: () => { this.to('home', 'offline', { stage: null }); this.toast('You’re offline. The delivery went back to the others.'); }, second: 'Stay online', onS: () => this.to('home', 'current') };
+    if (is('drop', 'cash')) sh = { on: true, title: 'Did you collect ' + fmt(D.cash) + ' in cash?', body: 'Count it before you confirm. Next you’ll enter the customer’s handover code.', primary: 'Yes, I collected ' + fmt(D.cash), pBg: '#B4532A', pOp: 1, onP: () => this.to('drop', 'code'), second: 'Not yet', onS: () => this.to('drop', 'normal') };
+    if (is('drop', 'failed')) sh = { on: true, title: 'Why wasn’t it delivered?', body: '', reasons: REASONS.map(([k, l]) => ({ l, on: s.reason === k ? 'true' : 'false', bd: s.reason === k ? '2px solid #B4532A' : '1px solid #D7D3CD', bg: s.reason === k ? '#FDF6F1' : '#FFFFFF', dot: s.reason === k ? '#B4532A' : '#9AA1AB', fill: s.reason === k ? '#B4532A' : 'transparent', pick: () => this.setState({ reason: k }) })), primary: 'Mark not delivered', pBg: '#B4532A', pOp: s.reason ? 1 : 0.5, onP: () => { if (!s.reason) return; this.to('drop', 'returnParcel', { stage: null }); }, second: 'Cancel', onS: () => this.to('drop', cod ? 'normal' : 'prepaid') };
+    if (is('profile', 'del')) sh = { on: true, title: 'Delete your account?', body: 'You’ll be signed out and can’t take deliveries for Kesari Threads. Any delivery you’ve accepted goes back to other delivery partners. Past deliveries show ‘Former delivery partner’ instead of your name.', primary: 'Delete account', pBg: '#A1261B', pOp: 1, onP: () => { this.to('signin', 'phone', { stage: 'pre' }); this.toast('Account deleted'); }, second: 'Keep my account', onS: () => this.to('profile', 'normal') };
+    if (is('profile', 'delRefused')) sh = { on: true, title: 'You can’t delete your account yet', body: 'Deliver or return your current parcel first.', primary: 'Go to the delivery', pBg: '#B4532A', pOp: 1, onP: () => this.to('drop', cod ? 'normal' : 'prepaid', { stage: 'post' }), second: 'Close', onS: () => this.to('profile', 'normal') };
+    if (is('home', 'locAlways') && !ios) sh = { on: true, title: 'Stay online with the app closed', body: 'While you’re online, Android shows this notification so Kesari Threads can keep sending you nearby offers. Go offline to stop it.', fgs: true, primary: 'Continue', pBg: '#B4532A', pOp: 1, onP: () => this.to('home', 'offers', { locAsked: true }), second: '', onS: null };
+
+    // system dialogs
+    const LOC = 'Kesari Threads uses your location while you’re online to offer you deliveries near its warehouses and to show customers where their order is.';
+    let sys = { on: false };
+    if (is('signin', 'notifSys')) sys = ios ? { on: true, title: '“Kesari Threads Delivery” Would Like to Send You Notifications', body: 'Notifications may include alerts, sounds and icon badges.', btns: [{ l: 'Don’t Allow', w: 400, on: () => this.to('home', 'notifRefused', { locAsked: true }) }, { l: 'Allow', w: 600, on: () => this.to('home', 'offline') }] } : { on: true, icon: 'M6 16V11a6 6 0 1 1 12 0v5l2 2H4z M10 20a2 2 0 0 0 4 0', title: 'Allow Kesari Threads Delivery to send you notifications?', body: '', btns: [{ l: 'Allow', on: () => this.to('home', 'offline') }, { l: 'Don’t allow', on: () => this.to('home', 'notifRefused', { locAsked: true }) }] };
+    if (is('home', 'locAsk')) sys = ios ? { on: true, title: 'Allow “Kesari Threads Delivery” to use your location?', body: LOC, btns: [{ l: 'Allow Once', w: 400, on: () => this.to('home', 'locAlways') }, { l: 'Allow While Using App', w: 400, on: () => this.to('home', 'locAlways') }, { l: 'Don’t Allow', w: 400, on: () => this.to('home', 'locRefused') }] } : { on: true, icon: 'M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z', title: 'Allow Kesari Threads Delivery to access this device’s location?', body: LOC, btns: [{ l: 'While using the app', on: () => this.to('home', 'locAlways') }, { l: 'Only this time', on: () => this.to('home', 'locAlways') }, { l: 'Don’t allow', on: () => this.to('home', 'locRefused') }] };
+    if (is('home', 'locAlways') && ios) sys = { on: true, title: 'Allow “Kesari Threads Delivery” to also use your location even when you are not using the app?', body: 'Kesari Threads keeps offering you nearby deliveries while you’re online, even with the app in the background. Going offline stops it.', btns: [{ l: 'Keep Only While Using', w: 400, on: () => this.to('home', 'offers', { locAsked: true }) }, { l: 'Change to Always Allow', w: 600, on: () => this.to('home', 'offers', { locAsked: true }) }] };
+
+    const lockItems = [
+      { title: 'New delivery offer', body: 'From Jaipur godown, 2.4 km away. Open the app to accept or decline.', when: 'now', note: 'New offer', bg: 'rgba(255,255,255,0.94)' },
+      { title: 'Kesari Threads gave you a delivery', body: 'Open the app to see where to pick it up.', when: '2m ago', note: 'Assigned to you by the store', bg: 'rgba(255,255,255,0.94)' },
+      { title: 'Delivery cancelled', body: 'Kesari Threads cancelled order KT-1042. You don’t need to pick it up.', when: '9m ago', note: 'Cancelled before pickup', bg: 'rgba(255,255,255,0.94)' },
+      { title: 'Bring the parcel back', body: 'Kesari Threads recalled order KT-1042. Open the app to see where to return it.', when: '14m ago', note: 'Recalled after pickup', bg: 'rgba(255,255,255,0.94)' },
+      { title: 'Offer taken', body: 'Silent: no sound or banner. The app quietly removes the offer from Home.', when: '—', note: 'Offer taken by someone else (silent update)', bg: 'rgba(255,255,255,0.6)' }
+    ].concat(ios ? [] : [{ title: 'You’re online for Kesari Threads', body: 'Sharing your location to get nearby offers. Go offline in the app to stop.', when: 'ongoing', note: 'Android: shown while online', bg: 'rgba(255,255,255,0.94)' }]);
+
+    const lock = is('notifs');
+    const scrLabel = (SCR.find(x => x[0] === s.scr) || SCR[0])[1] + ' — ' + ((stList.find(x => x[0] === s.st) || stList[0] || ['', ''])[1]);
+    return {
+      ctl: { k1: 'a' + s.scr, k2: 'b' + s.scr + s.st, scr: s.scr, st: s.st, label: scrLabel, screens: SCR.map(([v, l]) => ({ v, l, sel: v === s.scr })), states: stList.map(([v, l]) => ({ v, l, sel: v === s.st })), onScr: e => { const k = e.target.value; this.to(k, ST[k][0][0]); }, onSt: e => this.to(s.scr, e.target.value), pay: s.cod ? 'cod' : 'online', onPay: e => { const c = e.target.value === 'cod'; this.setState({ cod: c }); this.save({ cod: c }); }, ios, android: !ios, setIos: () => { this.setState({ os: 'ios' }); this.save({ os: 'ios' }); }, setAnd: () => { this.setState({ os: 'android' }); this.save({ os: 'android' }); }, iBg: ios ? '#EC844F' : 'transparent', iFg: ios ? '#14181F' : '#D6DEE7', aBg: ios ? 'transparent' : '#EC844F', aFg: ios ? '#D6DEE7' : '#14181F' },
+      sb: { bg: lock ? '#1E2A36' : '#FFFFFF', fg: lock ? '#FFFFFF' : '#14181F', home: lock ? '#FFFFFF' : '#14181F', sig: (is('home', 'noSignal') || is('pickup', 'noSignal') || is('drop', 'offlineCode', 'saved')) ? 0.25 : 1 },
+      v: { lock, signin: si.phoneScr || si.codeScr || si.notifScr, form: is('signin', 'profile') || is('profile', 'edit'), acct: is('account'), inApp: ['home', 'pickup', 'drop', 'history'].includes(s.scr) || (is('profile') && !is('profile', 'edit')), home: is('home'), pickup: is('pickup'), drop: is('drop'), history: is('history'), profile: is('profile') && !is('profile', 'edit') },
+      lock: { items: lockItems }, si, pf, ac, bar, tabs, hm, cur, offers, pk, dr, rs, rt, hi, pr, foot, sh, sys, pay, d: D,
+      bn: { noSig: is('home', 'noSignal') || is('pickup', 'noSignal') || is('drop', 'offlineCode', 'saved'), notifOff: is('home', 'notifRefused'), openSettings: () => this.toast(ios ? 'Opens Settings › Notifications › Kesari Threads Delivery' : 'Opens Android notification settings for this app') },
+      act: { navWh: () => this.toast('Opens ' + maps + ' to ' + D.wh), navCust: () => this.toast('Opens ' + maps + ' to the customer’s pin'), callCust: () => this.toast('Calls ' + D.phone), callStore: () => this.toast('Calls Kesari Threads on +91 98xxx 00099') },
+      toast: { on: !!s.toast, msg: s.toast }
+    };
+  }
+}
+</script>
+</body>
+</html>
