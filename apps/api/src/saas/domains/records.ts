@@ -90,7 +90,8 @@ export const recordsFor = (kind: DomainKind, host: string, apex: boolean, edgeZo
 const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.com']
 
 const houseDomain = 'dripfunnel.com'
-/** The names the house partner may add (SAAS §3.5); the rest of `isDripfunnelHost` stays refused. */
-export const isHouseHost = (host: string): boolean => host === houseDomain || host.endsWith(`.${houseDomain}`)
+const reservedHouseHosts = [houseDomain, ...['admin', 'platform', 'hooks'].map((label) => `${label}.${houseDomain}`)]
+/** The names the house partner may add (SAAS §3.5): under dripfunnel.com, not its apex or the hosts the platform serves (ARCHITECTURE §2). */
+export const isHouseHost = (host: string): boolean => host.endsWith(`.${houseDomain}`) && !reservedHouseHosts.includes(host)
 /** DripFunnel's own names and the environment's zone, which no partner or merchant may claim (FIRST-RELEASE §9.2). */
 export const isDripfunnelHost = (host: string, edgeZone: string): boolean => [...dripfunnelDomains, edgeZone].some((d) => host === d || host.endsWith(`.${d}`))

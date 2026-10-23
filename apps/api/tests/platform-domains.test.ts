@@ -126,6 +126,9 @@ describe('adding an address', () => {
     expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.net' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
     expect((await run<Added>(add, callerOf(house, 'partner-support'), { kind: 'portal', host: 'store.dripfunnel.com' })).code).toBe('FORBIDDEN')
     expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.edge.example' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    for (const host of ['dripfunnel.com', 'admin.dripfunnel.com', 'platform.dripfunnel.com', 'hooks.dripfunnel.com']) {
+      expect((await run<Added>(add, owner, { kind: 'portal', host })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    }
     // Another file seeds the house partner's portal row; lift it with its records so the slot is free, then put it back.
     const records = await db.sql`delete from partner_domain_record where partner_id = ${house} returning *`
     const [seeded] = await db.sql`delete from partner_domain where partner_id = ${house} and kind = 'portal' returning *`
