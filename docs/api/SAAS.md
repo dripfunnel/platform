@@ -604,7 +604,7 @@ failed; a live hostname can become expiring or broken if its records change.
    take wildcards. What works is a **Worker on a catch-all route** (`*/*` on the zone): it
    receives the partner host first, sends `/api/*` to the API Worker and the rest to Pages
    (whose own URL gives it the right `Host`), and keeps the partner's own `Host` on `/api/*`.
-   Hosts on our own zone pass through untouched, and `dev-admin`, `dev-platform`, `dev-store`
+   Other hosts on our own zone pass through untouched, and `dev-admin`, `dev-platform`, `dev-store`
    and `dev-hooks` answered as before.
    **How a portal host reaches the API (#426, decided on #422):** the proxy's `API` service
    binding names the API Worker's `PortalProxy` entrypoint (`store-proxy/wrangler.jsonc`, dev;
@@ -621,8 +621,9 @@ failed; a live hostname can become expiring or broken if its records change.
    host the proxy asks `PortalProxy.portalHost(host)` and serves a live portal host as above; every
    other own-zone host passes through untouched. The answer, found or not, is kept 60 s in the proxy's
    own cache, an exception to "a host not found is never kept" so our own hosts cost no call per
-   request; with the API unreachable the host passes through as before, so our consoles never depend on
-   the database (a portal host in the zone answers 522 until it is back). *Decided here (#426): our own zone is the admin host's parent, so feature
+   request; with the API failing or slower than 1 s the host passes through as before, remembered as
+   "not a portal host" for 5 s, so our consoles never wait on the database more than once per host per 5 s
+   (a portal host in the zone answers 522 until it is back). *Decided here (#426): our own zone is the admin host's parent, so feature
    environments and `*.localhost` work with no new setting; verifying and issuing hosts are not
    yet live, as the card says.*
    Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the

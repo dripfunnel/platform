@@ -90,6 +90,29 @@ describe('store proxy', () => {
       await route(new Request('https://dev-admin.dripfunnel.ai/'), zoneEnv, deps)
       expect(seen).toEqual(['net https://dev-admin.dripfunnel.ai/'])
     })
+
+    it('gives up on a hanging lookup after a second and does not ask again for five', async () => {
+      vi.useFakeTimers()
+      try {
+        stubFetch()
+        const { deps, settle } = await setup()
+        const hanging = { ...zoneEnv, API: { ...apiWith, portalHost: (host: string) => (asked.push(host), new Promise<boolean>(() => undefined)) } as unknown as Env['API'] }
+        const first = route(new Request('https://dev-admin.dripfunnel.ai/'), hanging, deps)
+        await vi.advanceTimersByTimeAsync(1000)
+        await first
+        await settle()
+        await route(new Request('https://dev-admin.dripfunnel.ai/'), hanging, deps)
+        expect(asked).toHaveLength(1)
+        expect(seen).toEqual(['net https://dev-admin.dripfunnel.ai/', 'net https://dev-admin.dripfunnel.ai/'])
+        clock.at += 6000
+        const later = route(new Request('https://dev-admin.dripfunnel.ai/'), hanging, deps)
+        await vi.advanceTimersByTimeAsync(1000)
+        await later
+        expect(asked).toHaveLength(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   it('does not treat a lookalike host as ours', async () => {

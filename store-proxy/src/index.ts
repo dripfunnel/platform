@@ -57,14 +57,18 @@ const serveStorefront = async (request: Request, url: URL, env: Env, deps: Deps)
   return serveLive(request, url, found, deps)
 }
 
+const portalLookupMs = 1000
+const failedLookupSeconds = 5
+
 /** Whether the API holds this own-zone host as a live partner portal host; kept a minute either way, so our own hosts cost no call per request (SAAS §8, #899). */
 const isOwnZonePortal = async (host: string, env: Env, deps: Deps): Promise<boolean> => {
   const key = `https://${host}/__df/portal-host`
   const hit = await deps.cache.match(key)
   if (hit) return (await hit.text()) === '1'
-  const found = await env.API.portalHost(host)
-  remember(deps, key, new Response(found ? '1' : '0', { headers: { 'cache-control': `max-age=${lookupSeconds}` } }))
-  return found
+  // A slow or failing lookup is "not a portal host" for a few seconds, so a database outage delays our consoles once, not on every request.
+  const found = await Promise.race([env.API.portalHost(host), new Promise<never>((_, reject) => setTimeout(reject, portalLookupMs))]).catch(() => null)
+  remember(deps, key, new Response(found ? '1' : '0', { headers: { 'cache-control': `max-age=${found === null ? failedLookupSeconds : lookupSeconds}` } }))
+  return found === true
 }
 
 export const route = async (request: Request, env: Env, deps: Deps | null): Promise<Response> => {
@@ -74,7 +78,7 @@ export const route = async (request: Request, env: Env, deps: Deps | null): Prom
   if (!deps) return portal(request, url, env)
   try {
     // A lookup that fails passes the host through as before, so our consoles never depend on the database (#899).
-    if (own) return (await isOwnZonePortal(url.hostname, env, deps).catch(() => false)) ? await portal(request, url, env) : await fetch(request)
+    if (own) return (await isOwnZonePortal(url.hostname, env, deps)) ? await portal(request, url, env) : await fetch(request)
     return await serveStorefront(request, url, env, deps)
   } catch {
     // The API or R2 couldn't answer: nothing is cached from it, and the next request tries again.
