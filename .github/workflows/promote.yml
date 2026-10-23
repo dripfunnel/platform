@@ -152,21 +152,18 @@ jobs:
             --message "promote $COMMIT_SHA (studio image)" | tee /tmp/wrangler-deploy.log
           version_id=$(grep -m1 '^Current Version ID:' /tmp/wrangler-deploy.log | sed 's/^Current Version ID: *//' || true)
           [[ "$version_id" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "Could not find 'Current Version ID:' in wrangler's output." >&2; exit 1; }
-          deployed_message=$(pnpm exec wrangler versions view "$version_id" --env prod --json | jq -r '.annotations["workers/message"] // empty')
+          # A durable_object container application keeps its image on the Worker version, not in `containers list`.
+          version=$(pnpm exec wrangler versions view "$version_id" --env prod --json)
+          deployed_message=$(jq -r '.annotations["workers/message"] // empty' <<< "$version")
           if [ "$deployed_message" != "promote $COMMIT_SHA (studio image)" ]; then
             echo "Version $version_id carries '$deployed_message', not this run's commit — refusing to health-check it." >&2
             exit 1
           fi
+          if ! jq -e --arg d "@$DIGEST" '[.resources.script_runtime.containers[]? | select(.class_name == "StudioSession") | .images.studio | endswith($d)] == [true]' <<< "$version" > /dev/null; then
+            echo "Version $version_id does not run the studio image $DIGEST." >&2
+            exit 1
+          fi
           echo "version-id=$version_id" >> "$GITHUB_OUTPUT"
-          for i in $(seq 1 10); do
-            if pnpm exec wrangler containers list --json | jq -e --arg d "@$DIGEST" 'map(select(.name | endswith("-studiosession-prod"))) | length == 1 and (.[0].image | endswith($d))' > /dev/null; then
-              echo "Studio container application runs the promoted image (attempt $i)."
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "The studio container application is not on the promoted image $DIGEST after deploy." >&2
-          exit 1
 
       - name: Health-check prod after promotion
         env:
