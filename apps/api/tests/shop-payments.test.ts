@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
+import { hashSessionId } from '#auth/session'
 import { resolveShopper } from '#auth/shopCaller'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
@@ -47,7 +48,7 @@ const stripe: PaymentGateway = {
     started.push(request)
     const ref = `pi_test${started.length}`
     outcomes.set(ref, { state: 'pending' })
-    return { providerRef: ref, publicKey: account.mode === 'test' ? 'pk_test_platform' : 'pk_live_platform', accountId: account.externalAccountId, clientSecret: `${ref}_secret_x`, sessionId: null, redirectUrl: null }
+    return { providerRef: ref, publicKey: account.mode === 'test' ? 'pk_test_platform' : 'pk_live_platform', accountId: account.externalAccountId, clientSecret: `${ref}_secret_x`, sessionId: null, redirectUrl: null, ...(request.app?.shopperId ? { customerId: 'cus_app', ephemeralKeySecret: 'ek_test_x' } : {}) }
   },
   outcome: async (_, ref) => {
     if (unavailable) throw new PaymentUnavailable('down')
@@ -125,8 +126,8 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const shop = async (source: string, cart: string | null = null, host = live) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host, 'shop.example')
+const shop = async (source: string, cart: string | null = null, host = live, session: string | null = null) => {
+  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: { ...(cart ? { 'x-shop-cart': cart } : {}), ...(session ? { 'x-shop-session': session } : {}) } }), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, payments: wiring, secrets: null, allowAttempt: async () => true, allowNewCart: async () => true, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
@@ -380,6 +381,67 @@ describe('Paying by card', () => {
     expect(await settleOrder(settleDeps(), stores.us, unpaid)).toBe('paid')
     expect((await db.sql`select state, payment_state from "order" where id = ${unpaid}`)[0]).toEqual({ state: 'cancelled', payment_state: 'paid' })
     expect(await actions(unpaid)).toContain('order.paid_after_cancel:provider')
+  })
+})
+
+describe('Paying in the shop app', () => {
+  const app = 'app: { scheme: "acmeshop", stripeApiVersion: "2024-06-20" }'
+  const startOf = (orderId: string) => started.find((r) => r.orderId === orderId)
+  type AppPlaced = { orderId: string; total: { amount: string }; payment: { providerRef: string; clientSecret: string; customerId: string | null; ephemeralKeySecret: string | null } | null }
+  const placeInApp = async (token: string, session: string | null = null) => {
+    const placed = await shop(`mutation { placeOrder(provider: "stripe", ${app}) { orderId total { amount } payment { providerRef clientSecret customerId ephemeralKeySecret } } }`, token, live, session)
+    return { code: placed.code, placed: placed.data?.['placeOrder'] as AppPlaced | undefined }
+  }
+
+  it('asks the provider for the app’s return URLs, with no Customer for a guest, and prices the cart as the web does', async () => {
+    const web = (await placeStripe(await readyCart(1))).placed
+    const { placed } = await placeInApp(await readyCart(1))
+    expect(placed?.payment).toMatchObject({ clientSecret: expect.stringMatching(/_secret_x$/), customerId: null, ephemeralKeySecret: null })
+    expect(startOf(placed?.orderId ?? '')?.app).toEqual({ returnUrl: `acmeshop://orders/${placed?.orderId}`, cancelUrl: 'acmeshop://checkout', shopperId: null, stripeApiVersion: '2024-06-20' })
+    expect(startOf(web?.orderId ?? '')?.app).toBeUndefined()
+    // The total is the engine's: the same cart is the same amount on either door.
+    expect(placed?.total.amount).toBe(String(await totalOf(web?.orderId ?? '')))
+    expect(startOf(placed?.orderId ?? '')?.amount).toEqual(startOf(web?.orderId ?? '')?.amount)
+  })
+
+  it('hands a signed-in shopper’s own id to the provider for their Customer, and a retry does the same', async () => {
+    const [c] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, email_verified_at, status) values (${stores.us}, 'kim@example.com', now(), 'active') returning id`
+    const session = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')
+    await db.sql`insert into customer_session (id_hash, store_id, customer_id, created_at, last_seen_at, expires_at) values (${await hashSessionId(session)}, ${stores.us}, ${c?.id ?? ''}, now(), now(), now() + interval '1 day')`
+    const token = ((await shop(`mutation { addToCart(versionId: "${mug}", quantity: 1) { cartToken } }`, null, live, session)).data?.['addToCart'] as { cartToken: string }).cartToken
+    await shop('mutation { setCartContact(email: "kim@example.com") { cart { id } } }', token, live, session)
+    await shop('mutation { setShippingAddress(address: { name: "Kim", line1: "1 High St", city: "New York", region: "NY", postalCode: "10001", country: "US" }) { cart { id } } }', token, live, session)
+    await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token, live, session)
+    await shop('mutation { checkout { id } }', token, live, session)
+    const { placed } = await placeInApp(token, session)
+    expect(placed?.payment).toMatchObject({ customerId: 'cus_app', ephemeralKeySecret: 'ek_test_x' })
+    expect(startOf(placed?.orderId ?? '')?.app?.shopperId).toBe(c?.id)
+    const retry = await shop(`mutation { payOrder(orderId: "${placed?.orderId}", ${app}) { providerRef customerId ephemeralKeySecret } }`, token, live, session)
+    expect(retry.data?.['payOrder']).toMatchObject({ customerId: 'cus_app', ephemeralKeySecret: 'ek_test_x' })
+    expect(started.at(-1)?.app).toMatchObject({ returnUrl: `acmeshop://orders/${placed?.orderId}`, shopperId: c?.id })
+  })
+
+  it('refuses a return scheme that isn’t an app’s own, before anything is started or placed', async () => {
+    const token = await readyCart(1)
+    const before = started.length
+    const placedBefore = (await db.sql`select 1 from "order" where state = 'placed'`).length
+    for (const scheme of ['https', 'javascript', 'data', 'Acme', 'a', 'acme shop', 'acme://x', 'acmeshop/evil']) {
+      const refused = await shop(`mutation { placeOrder(provider: "stripe", app: { scheme: ${JSON.stringify(scheme)} }) { orderId } }`, token)
+      expect({ scheme, code: refused.code }).toEqual({ scheme, code: 'INVALID_APP_PAYMENT' })
+    }
+    expect((await shop('mutation { placeOrder(provider: "stripe", app: { scheme: "acmeshop", stripeApiVersion: "x; y" }) { orderId } }', token)).code).toBe('INVALID_APP_PAYMENT')
+    expect(started.length).toBe(before)
+    expect(await db.sql`select 1 from "order" where state = 'placed'`).toHaveLength(placedBefore)
+  })
+
+  it('leaves the order unpaid until the provider says paid: the app’s return only reads it', async () => {
+    const { placed } = await placeInApp(await readyCart(1))
+    const id = placed?.orderId ?? ''
+    expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${id}`)[0]?.payment_state).toBe('pending')
+    expect(await db.sql`select state from payment where order_id = ${id}`).toEqual([{ state: 'pending' }])
+    outcomes.set(placed?.payment?.providerRef ?? '', { state: 'captured', amount: { amount: await totalOf(id), currency: 'USD' } })
+    expect(await settleOrder(settleDeps(), stores.us, id)).toBe('paid')
+    expect(await actions(id)).toEqual(['order.placed:anonymous', 'order.paid:provider'])
   })
 })
 

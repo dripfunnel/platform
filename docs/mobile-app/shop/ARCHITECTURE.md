@@ -6,7 +6,7 @@ How `apps/ui/mobile-app/shop` is laid out and how it talks to the Shop API. Scop
 
 **Status: specification, not built.**
 
-Last updated: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
+Last updated: 2026-10-23 (#856: payment for the app's native sheets, Stripe and PayPal, built, §4). Before: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
 
 ---
 
@@ -58,7 +58,7 @@ Foundations (`graphql/`, `format/`, `intl/`, `theme/`) come from `apps/ui/mobile
 | `react-native-razorpay` | Razorpay's checkout |
 | `react-native-cashfree-pg-sdk` | Cashfree's checkout |
 | PhonePe's React Native SDK | PhonePe's checkout |
-| PayPal *(decide)* | PayPal has no official React Native SDK: its approval page in the in-app browser, or a native SDK wrapped as an Expo module |
+| `expo-web-browser` | PayPal, decided on #856: its approval page in the in-app browser (`openAuthSessionAsync`), which returns to the app's scheme. PayPal has no official React Native SDK, so the alternative was our own Expo module around its native SDK to build and keep up. The API side is the same Orders v2 order either way |
 
 ---
 
@@ -70,4 +70,19 @@ Foundations (`graphql/`, `format/`, `intl/`, `theme/`) come from `apps/ui/mobile
 | **The store's brand**: **built as the Shop API's `store`**: name, description, logo, favicon (the app's mark), tagline, contact, social. Its **colours and font are not served**: `app_shop` has no grant on the colours (DATA-MODEL.md §7.8) and no font exists. The app has no per-store colours or font until a card adds them | The app's look at runtime (../README.md §3) |
 | **`registerPushDevice`, `unregisterPushDevice`** for a signed-in customer or a guest's order | Order pushes (api/DELIVERY.md §6) |
 | **Own delivery in `shippingOptions`** and **`order.delivery`** | api/DELIVERY.md §2 and §7 |
-| **Payment for a native SDK**: what each provider's app checkout needs (Stripe's payment intent client secret and ephemeral key, PayPal's order, Razorpay's order id, Cashfree's payment session, PhonePe's order token), for the app's `checkout` | The providers' sheets need these instead of the web element |
+| **Payment for a native SDK**: what each provider's app checkout needs, for the app's `checkout`. **Stripe and PayPal built on #856** (below); Razorpay's order id, Cashfree's payment session and PhonePe's order token come with SH 4 | The providers' sheets need these instead of the web element |
+
+**Stripe and PayPal (#856).** `placeOrder` and `payOrder` take an optional `app: { scheme, stripeApiVersion }`; without it they
+answer as they do for the website, and nothing else changes. `scheme` is the app's own URL scheme (`APP_SCHEME`, ../README.md §3),
+checked for shape only (a custom scheme, never `http`, `https`, `javascript` and the like); the API stores no scheme per store.
+The answer is `ShopPaymentStart`:
+
+| Provider | Answer for the app |
+|---|---|
+| **Stripe** | `clientSecret` of the PaymentIntent on the merchant's connected account, `publicKey` and `accountId` (the sheet's `publishableKey` and `stripeAccountId`). For a signed-in shopper that also names `customerId` (their Customer on the connected account, found by `metadata[df_customer_id]` or made, with nothing else of theirs sent) and `ephemeralKeySecret`, made for the `stripeApiVersion` the app's SDK speaks; without that version, or for a guest, there are no saved cards and neither is set |
+| **PayPal** | `providerRef` (the Orders v2 order id) and `redirectUrl`, PayPal's approval page, created with return URL `<scheme>://orders/<orderId>` and cancel URL `<scheme>://checkout`. The app opens it in the in-app browser, and on the return it reads the order |
+
+The ephemeral key's secret is the one short-lived secret an answer holds, and Stripe made it for the client; no secret key or
+webhook secret is ever in an answer. The amount is the engine's `amountDue`, the same as the website's for the same cart. Payment
+is confirmed only by the providers' webhooks (and, as on the website, by `confirmPayment` reading the provider back on the
+return); the app never marks an order paid.

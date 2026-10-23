@@ -28,6 +28,49 @@ describe('Stripe payments on a connected account', () => {
     await expect(gateway.start({ ...account, mode: 'live' }, request)).rejects.toBeInstanceOf(PaymentUnavailable)
   })
 
+  it('gives the app a signed-in shopper’s Customer and an ephemeral key made for its SDK’s version, before the intent', async () => {
+    const shopperId = '0b8c9a5e-2222-4000-8000-000000000002'
+    const asked: { method: string; url: string; headers: Headers; body: URLSearchParams }[] = []
+    const gateway = (found: object[]) =>
+      stripePayments({
+        keys: { test: { secretKey: 'sk_test_platform', publishableKey: 'pk_test_platform' } },
+        fetchImpl: async (url, init) => {
+          asked.push({ method: init?.method ?? 'GET', url: String(url), headers: new Headers(init?.headers), body: new URLSearchParams(String(init?.body ?? '')) })
+          if (String(url).includes('/customers/search')) return Response.json({ data: found })
+          if (String(url).endsWith('/customers')) return Response.json({ id: 'cus_new' })
+          if (String(url).endsWith('/ephemeral_keys')) return Response.json({ id: 'ephkey_1', secret: 'ek_test_secret' })
+          return Response.json({ id: 'pi_123', status: 'requires_payment_method', amount: 2599, currency: 'usd', client_secret: 'pi_123_secret_x' })
+        },
+      })
+    const app = { returnUrl: 'acmeshop://orders/o1', cancelUrl: 'acmeshop://checkout', shopperId, stripeApiVersion: '2024-06-20' }
+    expect(await gateway([]).start(account, { ...request, app })).toEqual({ providerRef: 'pi_123', publicKey: 'pk_test_platform', accountId: 'acct_merchant', clientSecret: 'pi_123_secret_x', sessionId: null, redirectUrl: null, customerId: 'cus_new', ephemeralKeySecret: 'ek_test_secret' })
+    expect(asked.map((a) => `${a.method} ${a.url.split('/v1')[1]?.split('?')[0]}`)).toEqual(['GET /customers/search', 'POST /customers', 'POST /ephemeral_keys', 'POST /payment_intents'])
+    expect(decodeURIComponent(asked[0]?.url ?? '')).toContain(`metadata['df_customer_id']:'${shopperId}'`)
+    expect(Object.fromEntries(asked[1]?.body ?? [])).toEqual({ 'metadata[df_customer_id]': shopperId })
+    expect(asked[1]?.headers.get('idempotency-key')).toBe(`df-customer:${shopperId}`)
+    expect(asked[2]?.headers.get('stripe-version')).toBe('2024-06-20')
+    expect(asked[2]?.headers.get('idempotency-key')).toBe(`df-ephemeral-key:${request.attemptId}`)
+    expect(Object.fromEntries(asked[2]?.body ?? [])).toEqual({ customer: 'cus_new' })
+    expect(asked.every((a) => a.headers.get('stripe-account') === 'acct_merchant')).toBe(true)
+    expect(Object.fromEntries(asked[3]?.body ?? [])).toMatchObject({ customer: 'cus_new' })
+    // A Customer found is reused, not made again.
+    asked.length = 0
+    expect((await gateway([{ id: 'cus_old' }]).start(account, { ...request, app })).customerId).toBe('cus_old')
+    expect(asked.map((a) => a.method + ' ' + (a.url.split('/v1')[1] ?? '').split('?')[0])).toEqual(['GET /customers/search', 'POST /ephemeral_keys', 'POST /payment_intents'])
+  })
+
+  it('gives the app’s guest, or a shopper whose SDK version it wasn’t told, the intent alone, as the web has it', async () => {
+    const asked: string[] = []
+    const gateway = stripePayments({
+      keys: { test: { secretKey: 'sk_test_p', publishableKey: 'pk_test_p' } },
+      fetchImpl: async (url) => (asked.push(String(url)), Response.json({ id: 'pi_1', status: 'requires_payment_method', amount: 1, currency: 'usd', client_secret: 'pi_1_secret' })),
+    })
+    const app = { returnUrl: 'acmeshop://orders/o1', cancelUrl: 'acmeshop://checkout', shopperId: null, stripeApiVersion: '2024-06-20' }
+    expect(await gateway.start(account, { ...request, app })).not.toHaveProperty('customerId')
+    expect(await gateway.start(account, { ...request, app: { ...app, shopperId: '0b8c9a5e-2222-4000-8000-000000000002', stripeApiVersion: null } })).not.toHaveProperty('ephemeralKeySecret')
+    expect(asked.every((u) => u.endsWith('/payment_intents'))).toBe(true)
+  })
+
   it('reads the outcome back: captured with the amount received, a decline still pending, cancelled failed', async () => {
     const answer = (body: object, status = 200) => stripePayments({ keys: { test: { secretKey: 'sk_test_p', publishableKey: 'pk_test_p' } }, fetchImpl: async () => Response.json(body, { status }) })
     expect(await answer({ id: 'pi_1', status: 'succeeded', amount: 2599, amount_received: 2599, currency: 'usd' }).outcome(account, 'pi_1')).toEqual({ state: 'captured', amount: { amount: 2599n, currency: 'USD' } })

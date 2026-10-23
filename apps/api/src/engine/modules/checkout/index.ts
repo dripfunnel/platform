@@ -1,11 +1,12 @@
 import type postgres from 'postgres'
+import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
 import { isUuid } from '#core/ids'
 import { logEvent } from '#core/log'
 import type { Money } from '#core/money'
 import { pageOf, pageWindow, type Page, type PageRequest } from '#core/paging'
-import { isCardProvider, PaymentNeedsPhone, PaymentRefused, PaymentUnavailable, type CardProvider, type OAuthConnect, type PaymentGateways, type PaymentMode, type PaymentStart } from '#core/payments'
+import { isCardProvider, PaymentNeedsPhone, PaymentRefused, PaymentUnavailable, type AppPayment, type CardProvider, type OAuthConnect, type PaymentGateways, type PaymentMode, type PaymentStart } from '#core/payments'
 import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
@@ -72,6 +73,16 @@ class Refused extends Error {
     super(reason)
   }
 }
+
+// A custom scheme only: a web or script scheme here would send a shopper's PayPal approval somewhere that isn't an app.
+const unsafeSchemes = new Set(['http', 'https', 'javascript', 'data', 'file', 'ftp', 'blob', 'about', 'vbscript', 'ws', 'wss', 'mailto', 'tel', 'sms', 'intent'])
+
+/** What the shop app sends to pay with a provider's native sheet (mobile-app/shop/ARCHITECTURE §4). */
+export const appPaymentInput = z.strictObject({
+  scheme: z.string().regex(/^[a-z][a-z0-9+.-]{2,31}$/).refine((s) => !unsafeSchemes.has(s)),
+  stripeApiVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}(\.[a-z_]+)?$/).nullish(),
+})
+export type AppPaymentInput = z.infer<typeof appPaymentInput>
 
 export interface PaymentOption {
   provider: PaymentProvider
@@ -154,15 +165,22 @@ export const createCheckout = (deps: CheckoutDeps) => {
     ...facts,
   })
 
+  const appOf = (app: AppPaymentInput, orderId: string): AppPayment => ({
+    returnUrl: `${app.scheme}://orders/${orderId}`,
+    cancelUrl: `${app.scheme}://checkout`,
+    shopperId: customerId,
+    stripeApiVersion: app.stripeApiVersion ?? null,
+  })
+
   /** A card payment started with the store's account in this mode; the attempt's id is the payment row's, written after. */
-  const begin = async (provider: CardProvider, orderId: string, amount: Money, customer: { email: string | null; phone: string | null }): Promise<CheckoutResult<{ attemptId: string; accountId: string; started: PaymentStart }>> => {
+  const begin = async (provider: CardProvider, orderId: string, amount: Money, customer: { email: string | null; phone: string | null }, app?: AppPaymentInput): Promise<CheckoutResult<{ attemptId: string; accountId: string; started: PaymentStart }>> => {
     const gateway = deps.gateways[provider]
     const row = await withSystemScope(sql, (tx) => selectGatewayAccount(tx, storeId, provider, mode))
     const account = row ? await openAccount(row, mode, deps.secrets) : null
     if (!row || !gateway || !account || !gateway.available(mode)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     const attemptId = crypto.randomUUID()
     try {
-      return { ok: true, value: { attemptId, accountId: row.id, started: await gateway.start(account, { attemptId, orderId, amount, customer, returnUrl: deps.returnUrl(orderId) }) } }
+      return { ok: true, value: { attemptId, accountId: row.id, started: await gateway.start(account, { attemptId, orderId, amount, customer, returnUrl: deps.returnUrl(orderId), ...(app ? { app: appOf(app, orderId) } : {}) }) } }
     } catch (error) {
       if (error instanceof PaymentUnavailable) return { ok: false, reason: 'PAYMENT_UNAVAILABLE' }
       if (error instanceof PaymentNeedsPhone) return { ok: false, reason: 'PHONE_REQUIRED' }
@@ -235,7 +253,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
   }
 
   /** "Pay" (FIRST-RELEASE §19): a card payment is started before placing, so no order exists that couldn't be paid. */
-  const place = async (provider: string): Promise<CheckoutResult<PlacedOrder>> => {
+  const place = async (provider: string, app?: AppPaymentInput): Promise<CheckoutResult<PlacedOrder>> => {
     const cart = await createCartService({ ...deps, allowNewCart: async () => false }).cart()
     if (!cart) return { ok: false, reason: 'NOT_FOUND' }
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
@@ -257,7 +275,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     if (!option) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     let card: { attemptId: string; accountId: string; started: PaymentStart } | null = null
     if (isCardProvider(option.provider)) {
-      const begun = await begin(option.provider, cart.id, cart.amountDue, { email: cart.email, phone: cart.phone })
+      const begun = await begin(option.provider, cart.id, cart.amountDue, { email: cart.email, phone: cart.phone }, app)
       if (!begun.ok) return begun
       card = begun.value
     }
@@ -365,7 +383,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
   }
 
   /** "Try again" after a card was declined or the shopper left: a new attempt for the same order, unless it got paid meanwhile. */
-  const pay = async (orderId: string): Promise<CheckoutResult<PaymentStart>> => {
+  const pay = async (orderId: string, app?: AppPaymentInput): Promise<CheckoutResult<PaymentStart>> => {
     const mine = await order(orderId)
     if (!mine || mine.state !== 'placed') return { ok: false, reason: 'NOT_FOUND' }
     if (mine.payment_state !== 'pending') return { ok: false, reason: 'ALREADY_PAID' }
@@ -389,7 +407,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     // What is left once the gift card has taken its part, as placement asked for it.
     const amount = { amount: BigInt(mine.total_amount) - BigInt(mine.gift_card_amount), currency: mine.currency }
     // The contact the order was placed with: Cashfree takes no payment without the number.
-    const begun = await begin(method, mine.id, amount, { email: mine.email, phone: mine.phone })
+    const begun = await begin(method, mine.id, amount, { email: mine.email, phone: mine.phone }, app)
     if (!begun.ok) return begun
     const { attemptId, accountId, started } = begun.value
     return withSystemScope(sql, async (tx): Promise<CheckoutResult<PaymentStart>> => {
