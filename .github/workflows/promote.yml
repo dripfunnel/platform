@@ -143,12 +143,14 @@ jobs:
         id: container
         env:
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          DIGEST: ${{ steps.studio.outputs.digest }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          set -o pipefail
           pnpm exec wrangler deploy --env prod --keep-vars --containers-rollout immediate \
             --message "promote $COMMIT_SHA (studio image)" | tee /tmp/wrangler-deploy.log
-          version_id=$(grep -m1 '^Current Version ID:' /tmp/wrangler-deploy.log | sed 's/^Current Version ID: *//')
+          version_id=$(grep -m1 '^Current Version ID:' /tmp/wrangler-deploy.log | sed 's/^Current Version ID: *//' || true)
           [[ "$version_id" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "Could not find 'Current Version ID:' in wrangler's output." >&2; exit 1; }
           deployed_message=$(pnpm exec wrangler versions view "$version_id" --env prod --json | jq -r '.annotations["workers/message"] // empty')
           if [ "$deployed_message" != "promote $COMMIT_SHA (studio image)" ]; then
@@ -157,13 +159,13 @@ jobs:
           fi
           echo "version-id=$version_id" >> "$GITHUB_OUTPUT"
           for i in $(seq 1 10); do
-            if pnpm exec wrangler containers list --json | jq -e 'map(select(.name | endswith("-studiosession-prod"))) | length == 1 and .[0].image != ""' > /dev/null; then
-              echo "Studio container application has its image (attempt $i)."
+            if pnpm exec wrangler containers list --json | jq -e --arg d "@$DIGEST" 'map(select(.name | endswith("-studiosession-prod"))) | length == 1 and (.[0].image | endswith($d))' > /dev/null; then
+              echo "Studio container application runs the promoted image (attempt $i)."
               exit 0
             fi
             sleep 5
           done
-          echo "The studio container application still has no image after deploy." >&2
+          echo "The studio container application is not on the promoted image $DIGEST after deploy." >&2
           exit 1
 
       - name: Health-check prod after promotion
