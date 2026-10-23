@@ -211,8 +211,8 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
   app links exist (DL 15, #852) the link is `https://{slug}.{SHOP_DOMAIN}/app/delivery.apk`, made only
   by `deliveryAppLink`; without a shop domain the invitation is refused `UNAVAILABLE`. A number
   already among the store's riders is refused `PHONE_TAKEN`; a removed rider's number is free again.
-  `resendRiderInvitation` texts an invited rider again, at most 3 times in 24 hours (counted from
-  the activity log), then `RATE_LIMITED`.
+  `resendRiderInvitation` texts an invited rider again while the plan has own delivery: at most 3
+  texts in 24 hours, the invitation included (counted from the activity log), then `RATE_LIMITED`.
 - **Signing in is joining.** The invited number signs in with a code and the invitation is taken;
   there is no link or token. A number never invited gets the same answer as a wrong code, so the
   API never reveals which numbers a store has invited (AGENTS.md "Security"). A code is kept only

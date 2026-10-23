@@ -74,11 +74,11 @@ export const endRiderSessions = async (tx: ScopedSql, storeId: string, riderId: 
   await tx`update rider_session set ended_at = ${now} where store_id = ${storeId} and rider_id = ${riderId} and ended_at is null`
 }
 
-/** Invitations texted to this rider lately, from the log, as partner invitations are counted (partnerTeam.ts). */
-export const countRiderInvitationsSince = async (tx: ScopedSql, storeId: string, riderId: string, since: Date): Promise<number> =>
+/** Invitation texts sent to this rider lately, the first and every resend, from the log, as partner invitations are counted (partnerTeam.ts). */
+export const countRiderTextsSince = async (tx: ScopedSql, storeId: string, riderId: string, since: Date): Promise<number> =>
   (
     await tx<{ n: number }[]>`
       select count(*)::int as n from activity_log
-      where store_id = ${storeId} and occurred_at >= ${since} and action = 'rider.invitation_resent' and target_type = 'rider' and target_id = ${riderId}
+      where store_id = ${storeId} and occurred_at >= ${since} and action in ('rider.invited', 'rider.invitation_resent') and target_type = 'rider' and target_id = ${riderId}
     `
   )[0]?.n ?? 0

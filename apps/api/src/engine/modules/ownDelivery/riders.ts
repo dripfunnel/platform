@@ -8,7 +8,7 @@ import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import {
   countCountedRiders,
-  countRiderInvitationsSince,
+  countRiderTextsSince,
   endRiderSessions,
   insertRider,
   lockRider,
@@ -31,8 +31,8 @@ export const ridersAudit = {
   removed: 'rider.removed',
 } as const
 
-/** Resends a rider can get in a day (#838). */
-export const resendsPerDay = 3
+/** Invitation texts a rider can get in 24 hours, the first one included (#838). */
+export const textsPerDay = 3
 
 /** The store's delivery app, until DL 15 (#852) builds and hosts each store's APK. */
 export const deliveryAppLink = (slug: string, shopDomain: string): string => `https://${slug}.${shopDomain}/app/delivery.apk`
@@ -140,7 +140,8 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
     run(async (tx) => {
       const rider = await locked(tx, id)
       if (rider.status !== 'invited' || !rider.phone) throw new Refused({ reason: 'NOT_INVITED' })
-      if ((await countRiderInvitationsSince(tx, storeId, rider.id, new Date(now().getTime() - 86_400_000))) >= resendsPerDay) throw new Refused({ reason: 'RATE_LIMITED' })
+      if (!(await plan.ownDelivery())) throw new Refused({ reason: 'PLAN_LIMIT', key: 'own_delivery', wanted: null })
+      if ((await countRiderTextsSince(tx, storeId, rider.id, new Date(now().getTime() - 86_400_000))) >= textsPerDay) throw new Refused({ reason: 'RATE_LIMITED' })
       await send(tx, { riderId: rider.id, phone: rider.phone, link: await appLink(tx) })
       await activity.record(tx, entry(ridersAudit.invitationResent, rider))
       return true as const

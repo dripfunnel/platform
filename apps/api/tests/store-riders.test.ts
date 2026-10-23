@@ -122,14 +122,23 @@ describe('inviting a rider', () => {
 describe('resending, suspending, restoring and removing', () => {
   const idOf = async (phone: string) => (await db.sql<{ id: string }[]>`select id from rider where phone = ${phone}`)[0]?.id ?? ''
 
-  it('resends to an invited rider three times a day, never to one who has joined', async () => {
+  it('texts an invited rider three times a day, the invitation included, never one who has joined', async () => {
     const id = await idOf('+919800000012')
-    for (let i = 0; i < 3; i++) expect((await act('owner', 'resendRiderInvitation', id)).code).toBeUndefined()
+    for (let i = 0; i < 2; i++) expect((await act('owner', 'resendRiderInvitation', id)).code).toBeUndefined()
     expect((await act('owner', 'resendRiderInvitation', id)).code).toBe('RATE_LIMITED')
-    expect(await db.sql`select 1 from outbox where kind = 'sms' and payload->>'to' = '+919800000012'`).toHaveLength(4)
+    expect(await db.sql`select 1 from outbox where kind = 'sms' and payload->>'to' = '+919800000012'`).toHaveLength(3)
     const joined = await idOf('+919800000011')
     await db.sql`update rider set status = 'active' where id = ${joined}`
     expect((await act('owner', 'resendRiderInvitation', joined)).code).toBe('NOT_INVITED')
+  })
+
+  it('sends no text once the plan no longer has own delivery', async () => {
+    const id = await idOf('+919800000012')
+    await allow(w.storeOf('owner'), null)
+    const refused = await act('owner', 'resendRiderInvitation', id)
+    await allow(w.storeOf('owner'), 10)
+    expect(refused.code).toBe('PLAN_LIMIT')
+    expect(refused.extensions?.['key']).toBe('own_delivery')
   })
 
   it('suspends an active rider, ending every session at once, and restores them', async () => {
