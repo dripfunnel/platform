@@ -48,6 +48,10 @@ a:hover{color:#00519F;}
       <select value="{{ st.scn }}" onChange="{{ on.scn }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
         <option value="normal">Normal</option><option value="slow">Page is slow to load</option><option value="loadErr">Page won’t load</option><option value="notFound">Broken or old link</option><option value="expired">Session expired</option><option value="removed">Removed from this store</option><option value="invite">Invitation link (staff)</option><option value="inviteBad">Invitation expired</option>
       </select></label>
+    <label style="display:flex;align-items:center;gap:6px;">Own delivery
+      <select value="{{ odc.od }}" onChange="{{ odc.onOd }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;"><option value="on">On</option><option value="empty">On, no riders yet</option><option value="limit">Rider limit reached</option><option value="loading">Riders: loading</option><option value="error">Riders: load error</option><option value="na">Not switched on by DripFunnel</option></select></label>
+    <label style="display:flex;align-items:center;gap:6px;">Delivery
+      <select value="{{ odc.dlv }}" onChange="{{ odc.onDlv }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;"><option value="packing">Being packed</option><option value="searching">Looking for a rider</option><option value="unassigned">Nobody accepted</option><option value="assigned">Assigned</option><option value="picked">Picked up</option><option value="locked">Code locked</option><option value="unconfirmed">Code unconfirmed</option><option value="delivered">Delivered</option><option value="failed">Not delivered</option><option value="recalled">Recalled</option><option value="cancelled">Cancelled</option></select></label>
     <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="7">
       <button onClick="{{ t.onClick }}" style="height:28px;padding:0 10px;border-radius:14px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-size:12px;cursor:pointer;">{{ t.label }}</button>
     </sc-for>
@@ -458,6 +462,33 @@ class Component extends DCLogic {
       invoices: [0, 1, 2].map(i => ({ id: 'INV-' + (2026090 - i * 100), date: new Date(2026, 8 - i, 1).getTime(), amount: 'Plan fee', status: 'Paid' })), card: 'Visa ending 4242'
     };
   }
+  dlvApi(s, R) {
+    const mode = s.od || 'on';
+    const ids = (s.orders || []).filter(o => o.status === 'unfulfilled').slice(0, 2).map(o => o.id);
+    const A = ids[0];
+    const RG = { US: { cc: '+1', ph: n => '+1 555-01' + n, pl: n => 'Plate 7XXX0' + n }, DE: { cc: '+49', ph: n => '+49 151 000 00' + n, pl: n => 'B-XX 0' + n }, IN: { cc: '+91', ph: n => '+91 98xxx 000' + n, pl: n => 'RJ14 XX 00' + n } }[R.key] || { cc: '+91', ph: n => '+91 98xxx 000' + n, pl: n => 'RJ14 XX 00' + n };
+    const NM = { US: ['Rob K.', 'Maya P.', 'Sam T.', 'Ana R.', 'Ian B.'], DE: ['Jonas K.', 'Mia P.', 'Lukas T.', 'Lea R.', 'Emre B.'], IN: ['Ravi K.', 'Meena P.', 'Sunil T.', 'Asha R.', 'Imran B.'] }[R.key] || ['Ravi K.', 'Meena P.', 'Sunil T.', 'Asha R.', 'Imran B.'];
+    const defR = [
+      { id: 'r1', name: NM[0], phone: RG.ph('11'), status: 'active', online: true, km: '1.2', veh: 'Scooter · ' + RG.pl('11'), done: 214 },
+      { id: 'r2', name: NM[1], phone: RG.ph('12'), status: 'active', online: true, km: '3.4', veh: 'Motorbike · ' + RG.pl('12'), done: 167 },
+      { id: 'r3', name: NM[2], phone: RG.ph('13'), status: 'active', online: false, km: '', veh: 'Bicycle', done: 88 },
+      { id: 'r4', name: NM[3], phone: RG.ph('14'), status: 'invited', online: false, km: '', veh: '', done: 0 },
+      { id: 'r5', name: NM[4], phone: RG.ph('15'), status: 'suspended', online: false, km: '', veh: 'Car · ' + RG.pl('15'), done: 41 }];
+    const key = (mode === 'empty' ? 'ridersE' : 'riders') + R.key;
+    const riders = s[key] || (mode === 'empty' ? [] : defR);
+    const x = s.dlvX || {};
+    const of = id => (mode === 'na' || !ids.includes(id)) ? null : id === A ? (s.dlvDemo || 'assigned') : ((s.dlvMap || {})[id] || 'unassigned');
+    const riderOf = id => { const rid = (x[id] || {}).rider || (id === A ? 'r1' : 'r2'); return riders.find(r => r.id === rid) || riders.find(r => r.status === 'active') || null; };
+    const withRider = ['assigned', 'picked', 'locked', 'unconfirmed'];
+    return { cc: RG.cc, mask: d => RG.cc + ' ' + d.slice(0, 3) + '…' + d.slice(-2), mode, on: mode !== 'na', loading: mode === 'loading', error: mode === 'error', ids, of, extra: id => x[id] || {},
+      set: (id, st, ex) => this.setState(y => ({ ...(id === A ? { dlvDemo: st } : { dlvMap: { ...(y.dlvMap || {}), [id]: st } }), dlvX: { ...(y.dlvX || {}), [id]: { ...((y.dlvX || {})[id] || {}), ...(ex || {}) } } })),
+      riders, setRiders: fn => this.setState(y => ({ [key]: fn(y[key] || (mode === 'empty' ? [] : defR)) })), limit: mode === 'limit' ? Math.max(riders.length, 1) : 10,
+      ownDel: s.ownDel || { on: true, when: 'ready', alert: '5' }, setOwnDel: v => this.setState({ ownDel: v }),
+      whDel: s.whDel || {}, setWhDel: (wid, v) => this.setState(y => ({ whDel: { ...(y.whDel || {}), [wid]: v } })),
+      riderOf, carrying: rid => ids.find(id => ['picked', 'locked', 'unconfirmed'].includes(of(id)) && (riderOf(id) || {}).id === rid) || null,
+      currentOf: rid => ids.find(id => withRider.includes(of(id)) && (riderOf(id) || {}).id === rid) || null,
+      appLink: 'https://' + R.store.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-+|-+$/g, '') + '.my-store.one/app/delivery.apk' };
+  }
   fresh(region, dataset, keep) {
     return {
       region, dataset, role: 'owner', plan: 'trial', device: 'phone', aiKey: '', aiUsed: 42, bwUsed: 0.8, bwExtra: 0, billing: 'year', setupBought: false, kept: null, graceDays: 3,
@@ -734,6 +765,7 @@ class Component extends DCLogic {
     const acct = { title: 'Account', items: [
       { label: 'My profile', icon: ICON.customers, onClick: () => this.toast('Profile: change name, password and (owners) two-step sign-in') },
       ...adminItems,
+      ...(c.isOwner ? [{ label: 'Riders', icon: 'M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0 M15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0 M7 17h8 M14 7h3l2 5v5 M9 7h5v10', onClick: () => this.go('settings', { settingsTab: 'riders' }) }] : []),
       { label: 'Switch store', icon: ICON.storefront, onClick: () => this.renderVals().on.switchStore() },
       { label: 'Sign out', icon: 'M14 4h5v16h-5 M10 8l-4 4 4 4 M6 12h10', onClick: () => this.setState({ auth: 'login', navOpen: false, authNonce: s.authNonce + 1 }) }] };
     const moreGroups = [...grp.filter(x => x.items.length), acct].map(x => ({ title: x.title, items: x.items.map((i, j) => ({ label: i.label, note: i.note || '', badge: i.badge || '', icon: i.icon, onClick: i.onClick, op: i.op || 1, bt: j ? '1px solid #EFEAE4' : '0' })) }));
@@ -743,7 +775,7 @@ class Component extends DCLogic {
     const sbOn = s.auth === 'in' && !studioOn;
     const sb = { bg: sbOn ? navBgC : '#FDFAF7', fg: sbOn ? '#FFFFFF' : '#14181F' };
     const app = {
-      st: s, R, fmt, caps: c, phone, products: scope, allProducts: viewProducts, vendorName, collections: s.collections, facets: s.facets, menu: s.menu, sizeCharts: s.sizeCharts, exports: s.exports,
+      st: s, dlv: this.dlvApi(s, R), R, fmt, caps: c, phone, products: scope, allProducts: viewProducts, vendorName, collections: s.collections, facets: s.facets, menu: s.menu, sizeCharts: s.sizeCharts, exports: s.exports,
       feat: s.feat, legalDefaults: s.legalDefaults, importMode: s.importMode || null, walkthrough: s.walkthrough, editId: s.editId, returnTo: s.returnTo, productFilter: s.productFilter || null, sim: s.sim,
       go: (sc, extra) => this.go(sc, extra), openProduct: id => this.go('product', { editId: id, editNonce: s.editNonce + 1 }), newProduct: () => this.go('product', { editId: null, editNonce: s.editNonce + 1 }),
       saveProduct: (p, o) => this.saveProduct(p, o), deleteProducts: ids => this.deleteProducts(ids), updateProducts: (ids, patch) => this.updateProducts(ids, patch),
@@ -779,7 +811,7 @@ class Component extends DCLogic {
     };
 
     return {
-      st: s, R, app, nav, toggles, banners: studioOn ? [] : banners, modal, modalVal: s.modalVal, hasModal: !!m, toast: s.toast || {}, hasToast: !!s.toast,
+      st: s, R, app, odc: { od: s.od || 'on', dlv: s.dlvDemo || 'assigned', onOd: e => this.setState({ od: e.target.value }), onDlv: e => this.setState({ dlvDemo: e.target.value }) }, nav, toggles, banners: studioOn ? [] : banners, modal, modalVal: s.modalVal, hasModal: !!m, toast: s.toast || {}, hasToast: !!s.toast,
       roleLabel: { owner: 'Owner', manager: 'Manager', staff: 'Staff', vendor: 'Supplier · Northwind', vendorStock: 'Supplier · stock only' }[s.role],
       user: c.isVendor ? { initials: 'NT', name: 'Nadia Tran', sub: 'Northwind Textiles' } : ({ owner: { initials: 'FA', name: 'Farhan Ali', sub: 'Owner' }, manager: { initials: 'PS', name: 'Priya Shah', sub: 'Manager' }, staff: { initials: 'TO', name: 'Tom Okafor', sub: 'Staff' } }[s.role]),
       brandOn: c.P.whiteLabel && s.brand.active, brandOff: !(c.P.whiteLabel && s.brand.active), brand: s.brand, navBg: c.P.whiteLabel && s.brand.active ? s.brand.primary : '#0A2A4A',

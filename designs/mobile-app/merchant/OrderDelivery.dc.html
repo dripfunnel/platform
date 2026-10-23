@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+  <div style="padding:10px 16px;background:#FDFAF7;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;">
+    <span style="display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">Delivery</strong><span style="color:#5A6472;font-size:12px;">Own delivery · from {{ wh }}</span></span>
+    <span style="display:inline-flex;height:22px;padding:0 9px;border-radius:11px;align-items:center;background:{{ p.bg }};color:{{ p.fg }};border:1px solid {{ p.bd }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;white-space:nowrap;">{{ p.label }}</span>
+  </div>
+  <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+    <div role="{{ p.role }}" style="padding:12px 14px;border-radius:10px;background:{{ p.bg }};border:1px solid {{ p.bd }};display:flex;flex-direction:column;gap:2px;">
+      <strong style="font-family:Manrope,sans-serif;font-size:14px;color:{{ p.fg }};">{{ p.title }}</strong>
+      <span style="font-size:13px;color:#14181F;">{{ p.body }}</span>
+      <sc-if value="{{ p.timer }}" hint-placeholder-val="{{ false }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:{{ p.fg }};margin-top:4px;">{{ p.timer }}</span></sc-if>
+    </div>
+    <sc-if value="{{ hasRider }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span aria-hidden="true" style="width:44px;height:44px;border-radius:50%;background:#F2F0EC;color:#434A55;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:14px;flex:none;">{{ r.init }}</span>
+      <span style="flex:1;min-width:160px;display:flex;flex-direction:column;line-height:1.35;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ r.name }}</strong><span style="font-size:12px;color:#5A6472;">{{ r.veh }}</span><sc-if value="{{ r.showPhone }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:#434A55;">{{ r.phone }}</span></sc-if></span>
+    </div></sc-if>
+    <sc-if value="{{ showMap }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid #EDEAE5;border-radius:10px;overflow:hidden;">
+      <div role="img" aria-label="Rider's last position on a map" style="height:110px;background:repeating-linear-gradient(0deg,#EFEAE4 0 1px,transparent 1px 26px),repeating-linear-gradient(90deg,#EFEAE4 0 1px,transparent 1px 26px),#F7F3EE;display:flex;align-items:center;justify-content:center;"><span style="width:16px;height:16px;border-radius:50%;background:#00519F;border:3px solid #FFFFFF;box-shadow:0 0 0 6px rgba(0,81,159,0.18);"></span></div>
+      <div style="padding:8px 12px;font-size:12px;color:#434A55;">Last position 10:41 · 1 min ago</div>
+    </div></sc-if>
+    <sc-if value="{{ claim }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 12px;border-radius:10px;background:#FDFAF7;border:1px solid #EFEAE4;font-size:13px;display:flex;flex-direction:column;gap:2px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">The rider says</span><span>{{ claim }}</span></div></sc-if>
+    <sc-if value="{{ hasActs }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <sc-for list="{{ acts }}" as="a" hint-placeholder-count="2"><button onClick="{{ a.on }}" style="height:36px;padding:0 14px;border-radius:8px;border:1px solid {{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};font-family:Manrope,sans-serif;font-weight:{{ a.fw }};font-size:13px;cursor:pointer;">{{ a.label }}</button></sc-for>
+    </div></sc-if>
+    <sc-if value="{{ note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">{{ note }}</span></sc-if>
+    <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #EFEAE4;padding-top:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">Steps</span>
+      <sc-for list="{{ steps }}" as="t" hint-placeholder-count="4"><div style="display:flex;gap:10px;font-size:13px;align-items:baseline;"><span style="width:96px;flex:none;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A6472;">{{ t.at }}</span><span style="color:{{ t.fg }};">{{ t.what }}</span></div></sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { now: Date.now() };
+  componentDidMount() { this._iv = setInterval(() => { const app = this.props.app; if (app && app.dlv && app.dlv.of(this.props.orderId) === 'searching') this.setState({ now: Date.now() }); }, 1000); }
+  componentWillUnmount() { clearInterval(this._iv); }
+  renderVals() {
+    const app = this.props.app, id = this.props.orderId; if (!app || !app.dlv || !id) return {};
+    const dl = app.dlv, st = dl.of(id); if (!st) return {};
+    const o = (app.st.orders || []).find(x => x.id === id) || {};
+    const fmt = app.fmt, c = app.caps, role = app.st.role;
+    const ex = dl.extra(id);
+    const wh = ((app.data('warehouses') || [])[0] || {}).name || app.R.wh;
+    const od = dl.ownDel, mins = Number(od.alert) || 5;
+    const rd = dl.riderOf(id) || { name: 'A rider', veh: '', phone: '' };
+    const cod = o.payment !== 'paid';
+    const canAct = !c.readOnly && !c.isVendor;
+    const claimTxt = cod && st === 'unconfirmed' ? 'Cash collected: ' + fmt(o.total || 0) + ' (sent from the app at 10:42, arrived 10:55)' : cod && st === 'locked' ? 'No cash claim sent from the app' : '';
+    const canPaid = c.isOwner || role === 'manager';
+    const later = fn => setTimeout(fn, 30);
+    const T = { ok: ['#EEF7F2', '#1D6B47', '#CBE6D6'], warn: ['#FFF6E5', '#7A4B00', '#F2D9A6'], bad: ['#FDECEC', '#A1261B', '#F3C7C2'], info: ['#EAF1F8', '#00325F', '#C6D9EC'], neu: ['#F1EEEA', '#4A5360', '#E0DAD3'] };
+    const left = Math.max(0, mins * 60 - Math.floor((this.state.now - (ex.start || this.state.now)) / 1000));
+    const reason = ex.reason || 'no one home';
+    const S = {
+      packing: ['neu', 'Being packed', 'Being packed', od.when === 'ready' ? 'Riders are offered it when you mark it ready for pickup.' : 'Your setting offers orders to riders as soon as they’re placed.'],
+      searching: ['info', 'Looking for a rider', 'Offered to 4 nearby riders', 'Nobody has accepted yet. If no one does within ' + mins + ' minutes, you’re emailed and this order is flagged.'],
+      unassigned: ['warn', 'Nobody accepted', 'Nobody accepted in ' + mins + ' minutes', 'Assign it to a rider yourself, or offer it again to everyone nearby.'],
+      assigned: ['info', 'Rider assigned', rd.name + ' accepted at 10:31', 'On the way to ' + wh + ' to pick it up.'],
+      picked: ['ok', 'On the way', rd.name + ' picked it up at 10:38', 'On the way to the customer.'],
+      locked: ['bad', 'Code locked', 'Code locked after 5 wrong tries', rd.name + ' can’t mark it delivered. Check with the customer, then mark it delivered or not delivered.'],
+      unconfirmed: ['warn', 'Code unconfirmed', 'The code didn’t match', rd.name + ' marked it delivered at 10:42 without signal, and the code didn’t match when it arrived at 10:55. Check with the customer.'],
+      delivered: ['ok', 'Delivered', 'Delivered at 10:44', ex.how || 'The customer gave ' + rd.name + ' the right handover code.'],
+      failed: ['neu', 'Not delivered', 'Not delivered: ' + reason, rd.name + ' is bringing the parcel back to ' + wh + '. Offer it again for a new attempt, or cancel the delivery.'],
+      recalled: ['info', 'Recalled', 'Recalled', rd.name + ' has been told to bring the parcel back to ' + wh + '. You can then offer it again or refund through a return.'],
+      cancelled: ['neu', 'Delivery cancelled', 'Delivery cancelled', 'The order is still open. Offer it again to make a new delivery, or ship it another way.']
+    };
+    const [tone, label, title, body] = S[st]; const tc = T[tone];
+    const base = [['10:12', 'Order placed']], pk = [['10:14', 'Being packed']], srch = [['10:25', 'Ready for pickup'], ['10:25', 'Offered to 4 nearby riders']], acc = [['10:31', 'Accepted by ' + rd.name]], pic = [['10:38', 'Picked up']];
+    const P = { packing: [...base, ...pk], searching: [...base, ...pk, ...srch], unassigned: [...base, ...pk, ...srch, ['10:30', 'Nobody accepted']], assigned: [...base, ...pk, ...srch, ...acc], picked: [...base, ...pk, ...srch, ...acc, ...pic],
+      locked: [...base, ...pk, ...srch, ...acc, ...pic, ['10:49', 'Code locked after 5 wrong tries']], unconfirmed: [...base, ...pk, ...srch, ...acc, ...pic, ['10:42', 'Marked delivered without signal (arrived 10:55); code didn’t match']],
+      delivered: [...base, ...pk, ...srch, ...acc, ...pic, ['10:44', ex.how ? 'Marked delivered by you' : 'Delivered with the handover code']], failed: [...base, ...pk, ...srch, ...acc, ...pic, ['10:47', 'Not delivered: ' + reason]],
+      recalled: [...base, ...pk, ...srch, ...acc, ...pic, ['10:45', 'Recalled by you']], cancelled: [...base, ...pk, ...srch, ['10:28', 'Delivery cancelled']] };
+    const prior = (ex.prior || []).map(([at, what]) => ({ at, what: 'Earlier attempt · ' + what, fg: '#5A6472' }));
+    const steps = [...prior, ...P[st].filter(([, w]) => !(prior.length && w === 'Order placed')).map(([at, what]) => ({ at, what, fg: '#14181F' }))];
+    const go = (ns, extra, msg) => { dl.set(id, ns, extra); if (msg) app.toast(msg); };
+    const offerAgain = () => app.modal({ title: 'Offer it again?', body: 'Every online rider within ' + (((dl.whDel || {})[Object.keys(dl.whDel || {})[0]] || {}).rider || '5') + ' km of ' + wh + ' gets a new offer, and the ' + mins + '-minute alert starts again.' + (['failed', 'recalled', 'cancelled'].includes(st) ? ' This is a new attempt; the earlier one stays in the steps.' : ''), confirm: 'Offer again', onConfirm: () => go('searching', { start: Date.now(), rider: null, how: '', reason: '', prior: ['failed', 'recalled', 'cancelled'].includes(st) ? P[st].slice(1) : (ex.prior || []) }, 'Offered to 4 nearby riders') });
+    const cancel = () => app.modal({ danger: true, title: 'Cancel this delivery?', body: (st === 'assigned' ? rd.name + ' is told not to pick it up. ' : 'Riders lose the offer. ') + 'The order stays open: you can offer it again or ship it another way.', confirm: 'Cancel delivery', cancel: 'Keep it', onConfirm: () => go('cancelled', {}, 'Delivery cancelled. The order is still open.') });
+    const recall = () => app.modal({ danger: true, title: 'Recall this parcel?', body: 'The delivery partner is told to bring the parcel back. You can then offer it again or refund through a return.', confirm: 'Recall', cancel: 'Keep it going', onConfirm: () => go('recalled', {}, rd.name + ' has been told to bring it back') });
+    const assign = () => { const act = dl.riders.filter(r => r.status === 'active'); if (!act.length) { app.toast('No active riders. Invite one in Settings › Riders.'); return; } app.modal({ title: 'Assign by hand', body: 'They get a notification and the delivery straight away.', choices: act.map(r => ({ label: r.name, sub: (r.online ? 'Online · ' + r.km + ' km from ' + wh : 'Offline · gets a notification') + (dl.currentOf(r.id) ? ' · on another delivery' : ''), value: r.id })), confirm: 'Assign', onConfirm: v => { const r = act.find(x => x.id === v) || act[0]; go('assigned', { rider: r.id }, r.name + ' has it. They’ve been notified.'); } }); };
+    const notDel = () => app.modal({ title: 'Mark not delivered?', body: 'The rider brings the parcel back. You can offer it again or cancel afterwards.', choices: [{ label: 'No one home', value: 'no one home' }, { label: 'The customer refused it', value: 'refused' }, { label: 'Wrong address', value: 'wrong address' }], confirm: 'Mark not delivered', onConfirm: v => go('failed', { reason: v || 'no one home' }, 'Marked not delivered') });
+    const markDel = () => app.modal({ title: 'Mark delivered?', body: 'The handover code can’t be used, so say how you know the customer has it. This is kept with the order.', input: { label: 'Reason', placeholder: 'e.g. Called the customer; they have the parcel', required: true, error: 'Add a reason' }, confirm: 'Continue', onConfirm: why => {
+      const done = paid => { go('delivered', { how: 'Marked delivered by you: ' + why + (cod ? (paid ? '. Cash received.' : '. Cash not received yet; the order stays unpaid.') : '') }); if (paid) app.set('orders', os => os.map(x => x.id === id ? { ...x, payment: 'paid', events: [...(x.events || []), { t: Date.now(), what: 'Marked as paid · cash received by rider' }] } : x)); app.toast(id + ' marked delivered' + (paid ? ' and paid' : '')); };
+      if (!cod) { done(false); return; }
+      later(() => app.modal({ title: 'Did the cash reach you?', body: fmt(o.total || 0) + ' cash on delivery. ' + (st === 'unconfirmed' ? rd.name + ' says they collected it. ' : '') + 'Yes marks the order paid. No leaves it unpaid until someone marks it paid.', choices: [{ label: 'Yes, the cash reached us', sub: canPaid ? 'Marks the order paid' : 'Only an owner or manager can say yes', value: 'yes' }, { label: 'No, not yet', sub: 'The order stays in Payment pending', value: 'no' }], confirm: 'Mark delivered', onConfirm: v => { if (v === 'yes' && !canPaid) { app.toast('Only an owner or manager can confirm the cash. Choose No, or ask them.'); return; } done(v === 'yes'); } }));
+    } });
+    const P1 = (label, on) => ({ label, on, bd: '#EC844F', bg: '#EC844F', fg: '#4A1B0C', fw: 700 });
+    const S2 = (label, on, danger) => ({ label, on, bd: danger ? '#F3C7C2' : '#D7D3CD', bg: '#FFFFFF', fg: danger ? '#A1261B' : '#14181F', fw: 600 });
+    const A = { packing: od.when === 'ready' ? [P1('Ready for pickup', () => go('searching', { start: Date.now() }, 'Ready for pickup. Offered to 4 nearby riders.')), S2('Cancel delivery', cancel)] : [S2('Cancel delivery', cancel)],
+      searching: [S2('Cancel delivery', cancel)], unassigned: [P1('Assign by hand', assign), S2('Offer again', offerAgain), S2('Cancel delivery', cancel)], assigned: [S2('Cancel delivery', cancel)], picked: [S2('Recall', recall, true)],
+      locked: [P1('Mark delivered', markDel), S2('Not delivered', notDel)], unconfirmed: [P1('Mark delivered', markDel), S2('Not delivered', notDel)], delivered: [], failed: [P1('Offer again', offerAgain), S2('Cancel delivery', cancel)], recalled: [P1('Offer again', offerAgain)], cancelled: [P1('Offer again', offerAgain)] };
+    const acts = canAct ? A[st] : [];
+    const withRider = ['assigned', 'picked', 'locked', 'unconfirmed', 'delivered', 'failed', 'recalled'].includes(st);
+    const open = ['assigned', 'picked', 'locked', 'unconfirmed'].includes(st);
+    return { wh, p: { label, title, body, bg: tc[0], fg: tc[1], bd: tc[2], role: ['unassigned', 'locked', 'unconfirmed'].includes(st) ? 'alert' : 'status', timer: st === 'searching' ? 'Alert in ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') : '' },
+      hasRider: withRider, r: { name: rd.name, init: rd.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(), veh: rd.veh || 'Vehicle not added', phone: rd.phone, showPhone: open }, showMap: st === 'picked',
+      claim: claimTxt, acts, hasActs: acts.length > 0, note: st === 'picked' ? 'The order can’t be cancelled while the parcel is out. Recall it first.' : st === 'delivered' && ex.how ? '' : open ? 'The handover code is only shown to the customer.' : '', steps };
+  }
+}
+</script>
+</body>
+</html>

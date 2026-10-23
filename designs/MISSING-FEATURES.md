@@ -4,7 +4,7 @@ This compares the DF Store merchant portal, as designed in this folder, with **S
 **Wix eCommerce** and the **first DripFunnel platform**, which was built on a third-party
 commerce framework and has since been removed from the workspace.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-23 (#837: what the delivery app and own-delivery drawings show but the first release doesn't have, §4). Before: 2026-10-05.
 
 "Missing" means DF Store has no screen or flow for the feature at all. When something is
 started but not finished, it is in [INCOMPLETE-FEATURES.md](INCOMPLETE-FEATURES.md).
@@ -237,3 +237,18 @@ This is a suggested order of importance, from what a real shop needs first.
    - marketplaces,
    - app store,
    - automation.
+
+---
+
+## 4. Own delivery and the delivery app (#837)
+
+Drawn in the prototypes but not in the first release, or linked to something that doesn't exist yet.
+
+| What | Where it's drawn | Why it's missing | Card |
+| --- | --- | --- | --- |
+| Export a rider's data (a job, download when ready) | `SetRiders` › Manage | Proposed, built on #874 | #874 |
+| Erase a rider ("Former delivery partner" in past deliveries and the activity log) | `SetRiders` › Manage | Proposed, built on #874 | #874 |
+| iOS build of the delivery app | `DF Delivery App Prototype` (iOS permission wording) | First release is an Android APK only | — |
+| "Download the new version" for a build too old for the API | Delivery app › Account blocked › `tooOld` | Proposed in docs/mobile-app/delivery/FIRST-RELEASE.md §1 | — |
+| Setting a warehouse's map pin on a map | `SetOwnDelivery` › "Set the map pin" places the pin at the address | The map picker is #815's | #815 |
+| Open settings / Call / Navigate from the delivery app | Delivery app (toasts) | Hand-offs to the phone's OS and map apps | — |

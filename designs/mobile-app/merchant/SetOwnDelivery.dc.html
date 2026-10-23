@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;max-width:960px;">
+  <sc-if value="{{ shipNa }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Own delivery</span><span style="font-size:13px;color:#5A6472;">Delivering with your own riders is set up by DripFunnel for Enterprise stores. There's nothing to buy here.</span></div></sc-if>
+
+  <sc-if value="{{ ship }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <span style="display:flex;flex-direction:column;gap:2px;max-width:560px;"><span style="display:flex;align-items:center;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Own delivery</span><span style="font-size:12px;font-weight:600;padding:2px 10px;border-radius:10px;background:{{ sw.pBg }};color:{{ sw.pFg }};">{{ sw.pill }}</span></span><span style="font-size:13px;color:#5A6472;">Your own riders deliver from your warehouses, alongside courier delivery, a flat rate and collect in person.</span></span>
+      <button role="switch" aria-checked="{{ sw.on }}" aria-label="Own delivery" aria-disabled="{{ sw.dis }}" onClick="{{ sw.toggle }}" style="width:52px;height:30px;border-radius:15px;border:0;background:{{ sw.trk }};position:relative;cursor:pointer;opacity:{{ sw.op }};padding:0;flex:none;"><span style="position:absolute;top:3px;left:{{ sw.kx }};width:24px;height:24px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 3px rgba(10,20,30,0.3);transition:left .15s;"></span></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <span style="font-size:13px;font-weight:600;">To turn it on you need</span>
+      <sc-for list="{{ checks }}" as="k" hint-placeholder-count="2">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #EDEAE5;border-radius:10px;flex-wrap:wrap;">
+          <span aria-hidden="true" style="width:22px;height:22px;border-radius:50%;background:{{ k.bg }};color:{{ k.fg }};display:flex;align-items:center;justify-content:center;flex:none;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="{{ k.icon }}"></path></svg></span>
+          <span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ k.name }}</strong><span style="font-size:12px;color:#5A6472;">{{ k.desc }}</span></span>
+          <span style="font-size:12px;font-weight:600;padding:2px 10px;border-radius:10px;background:{{ k.sBg }};color:{{ k.sFg }};">{{ k.state }}</span>
+          <button onClick="{{ k.go }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">{{ k.btn }}</button>
+        </div>
+      </sc-for>
+      <sc-if value="{{ sw.why }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#7A4B00;">{{ sw.why }}</span></sc-if>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <span style="font-size:13px;font-weight:600;">Offer to riders</span>
+      <sc-for list="{{ whens }}" as="w" hint-placeholder-count="2">
+        <button role="radio" aria-checked="{{ w.on }}" onClick="{{ w.pick }}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:{{ w.bd }};border-radius:10px;background:{{ w.bg }};text-align:left;cursor:pointer;color:#14181F;">
+          <span aria-hidden="true" style="width:18px;height:18px;border-radius:50%;border:{{ w.dot }};background:#FFFFFF;flex:none;box-sizing:border-box;"></span>
+          <span style="display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ w.name }}</strong><span style="font-size:12px;color:#5A6472;">{{ w.desc }}</span></span>
+        </button>
+      </sc-for>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;">Alert me if nobody accepts within
+      <input value="{{ alert }}" onChange="{{ onAlert }}" inputmode="numeric" aria-invalid="{{ alertBad }}" style="width:64px;height:38px;border:1px solid {{ alertBd }};border-radius:8px;padding:0 10px;font-size:14px;text-align:center;">minutes</label>
+    <sc-if value="{{ alertErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:12px;color:#A1261B;margin-top:-8px;">{{ alertErr }}</span></sc-if>
+    <span style="font-size:13px;color:#434A55;padding:10px 12px;border-radius:10px;background:#FDFAF7;border:1px solid #EFEAE4;">Inside a warehouse's delivery area, own delivery replaces the courier and the customer doesn't choose. Addresses outside every area go by courier. Orders with a supplier's ship-to-customer lines always go by courier.</span>
+    <sc-if value="{{ canSave }}" hint-placeholder-val="{{ true }}"><div style="display:flex;justify-content:flex-end;"><button onClick="{{ save }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ saveBg }};color:{{ saveFg }};font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save own delivery</button></div></sc-if>
+  </div></sc-if>
+
+  <sc-if value="{{ wh }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+    <span style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Own delivery from your warehouses</span><span style="font-size:13px;color:#5A6472;">Only your own locations. Suppliers' locations never deliver with your riders.</span></span>
+    <sc-for list="{{ whs }}" as="w" hint-placeholder-count="2">
+      <div style="border:1px solid #EDEAE5;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="width:34px;height:34px;border-radius:8px;background:#F2F0EC;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:12px;color:#434A55;flex:none;">{{ w.mark }}</span>
+          <span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ w.name }}</strong><span style="font-size:12px;color:#5A6472;">{{ w.addr }}</span></span>
+          <span style="font-size:12px;font-weight:600;padding:2px 10px;border-radius:10px;background:{{ w.pinBg }};color:{{ w.pinFg }};">{{ w.pinLabel }}</span>
+          <sc-if value="{{ w.noPin }}" hint-placeholder-val="{{ false }}"><button onClick="{{ w.setPin }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Set the map pin</button></sc-if>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button role="switch" aria-checked="{{ w.on }}" aria-label="Delivers with own riders" onClick="{{ w.toggle }}" style="width:44px;height:26px;border-radius:13px;border:0;background:{{ w.trk }};position:relative;cursor:pointer;opacity:{{ w.op }};padding:0;flex:none;"><span style="position:absolute;top:3px;left:{{ w.kx }};width:20px;height:20px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 3px rgba(10,20,30,0.3);"></span></button>
+          <span style="display:flex;flex-direction:column;"><strong style="font-size:14px;">Delivers with own riders</strong><span style="font-size:12px;color:#5A6472;">{{ w.onNote }}</span></span>
+        </div>
+        <sc-if value="{{ w.showFields }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:{{ cols }};gap:12px;">
+          <sc-for list="{{ w.fields }}" as="f" hint-placeholder-count="3"><label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">{{ f.label }}<span style="display:flex;align-items:center;gap:6px;height:40px;border:1px solid {{ f.bd }};border-radius:8px;padding:0 10px;background:#FFFFFF;"><sc-if value="{{ f.pre }}" hint-placeholder-val="{{ false }}"><span style="color:#5A6472;font-weight:400;">{{ f.pre }}</span></sc-if><input value="{{ f.value }}" onChange="{{ f.on }}" inputmode="numeric" aria-invalid="{{ f.bad }}" style="flex:1;min-width:0;border:0;outline:none;font-size:14px;font-weight:400;"><sc-if value="{{ f.unit }}" hint-placeholder-val="{{ false }}"><span style="color:#5A6472;font-weight:400;">{{ f.unit }}</span></sc-if></span><span style="font-weight:400;font-size:12px;color:{{ f.hFg }};">{{ f.help }}</span></label></sc-for>
+        </div></sc-if>
+        <sc-if value="{{ w.dirty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ w.reset }}" style="height:38px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Discard</button><button onClick="{{ w.save }}" style="height:38px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Save {{ w.name }}</button></div></sc-if>
+      </div>
+    </sc-for>
+  </div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { draft: null, wd: {}, werr: {} };
+  defWh(w, i) { return { on: i === 0, pin: i === 0, area: i === 0 ? '8' : '5', rider: '5', fee: '49' }; }
+  renderVals() {
+    const app = this.props.app; if (!app || !app.dlv) return {};
+    const dl = app.dlv, s = this.state, mode = this.props.mode, phone = app.phone, R = app.R, fmt = app.fmt;
+    const ro = !app.caps.isOwner || app.caps.readOnly;
+    const goTab = this.props.goTab || (() => {});
+    const own = (app.data('warehouses') || []).filter(w => !w.supplier);
+    const whOf = (w, i) => ({ ...this.defWh(w, i), ...(dl.whDel[w.id] || {}) });
+    const pad = phone ? '14px 14px 0' : '22px 28px 0';
+    if (!dl.on) return { pad, shipNa: mode === 'shipping', ship: false, wh: false };
+    if (mode === 'shipping') {
+      const saved = dl.ownDel; const d = s.draft || saved;
+      const set = p => this.setState({ draft: { ...d, ...p } });
+      const active = dl.riders.filter(r => r.status === 'active').length;
+      const whReady = own.some((w, i) => { const x = whOf(w, i); return x.on && x.pin && Number(x.area) >= 1; });
+      const ready = active > 0 && whReady;
+      const on = d.on && ready;
+      const n = Number(d.alert); const alertBad = !/^\d+$/.test(String(d.alert)) || n < 1 || n > 30;
+      const dirty = JSON.stringify(d) !== JSON.stringify(saved);
+      const ok = 'M5 12l5 5 9-11', todo = 'M12 7v6 M12 17h.01';
+      const W = [['placed', 'When the order is placed', 'Fastest. Riders may arrive while you’re still packing.'], ['ready', 'When I mark it ready', 'Riders are offered it once you press Ready for pickup on the order.']];
+      return { pad, ship: true, shipNa: false, wh: false,
+        sw: { on: on ? 'true' : 'false', dis: ready ? 'false' : 'true', trk: on ? '#1D6B47' : '#C9CDD3', kx: on ? '25px' : '3px', op: ready && !ro ? 1 : 0.55, pill: on ? 'On' : 'Off', pBg: on ? '#EEF7F2' : '#F2F0EC', pFg: on ? '#1D6B47' : '#5A6472', why: ready ? '' : 'Finish both steps to turn it on.', toggle: () => { if (ro) return; if (!ready) { app.toast('Finish both steps first'); return; } set({ on: !on }); } },
+        checks: [
+          { name: 'At least one active rider', desc: active ? active + ' active' : 'Nobody has signed in yet', state: active ? 'Done' : 'To do', sBg: active ? '#EEF7F2' : '#FFF6E5', sFg: active ? '#1D6B47' : '#7A4B00', bg: active ? '#1D6B47' : '#FFF6E5', fg: active ? '#FFFFFF' : '#7A4B00', icon: active ? ok : todo, btn: 'Riders', go: () => goTab('riders') },
+          { name: 'A warehouse with a map pin and a delivery area', desc: whReady ? own.filter((w, i) => whOf(w, i).on).map(w => w.name).join(', ') + ' delivers' : 'None set up yet', state: whReady ? 'Done' : 'To do', sBg: whReady ? '#EEF7F2' : '#FFF6E5', sFg: whReady ? '#1D6B47' : '#7A4B00', bg: whReady ? '#1D6B47' : '#FFF6E5', fg: whReady ? '#FFFFFF' : '#7A4B00', icon: whReady ? ok : todo, btn: 'Warehouse', go: () => goTab('warehouse') }],
+        whens: W.map(([k, name, desc]) => ({ name, desc, on: d.when === k ? 'true' : 'false', bd: d.when === k ? '2px solid #00519F' : '1px solid #EDEAE5', bg: d.when === k ? '#F4F8FB' : '#FFFFFF', dot: d.when === k ? '5px solid #00519F' : '1.5px solid #9AA1AB', pick: () => !ro && set({ when: k }) })),
+        alert: d.alert, onAlert: e => set({ alert: e.target.value.replace(/\D/g, '').slice(0, 2) }), alertBad: alertBad ? 'true' : 'false', alertBd: alertBad ? '#A1261B' : '#D7D3CD', alertErr: alertBad ? 'Choose between 1 and 30 minutes.' : '',
+        canSave: !ro, saveBg: dirty ? '#EC844F' : '#E3DED8', saveFg: dirty ? '#4A1B0C' : '#5A6472',
+        save: () => { if (!dirty) return; if (alertBad) { app.toast('Fix the alert minutes first'); return; } dl.setOwnDel({ ...d, on }); this.setState({ draft: null }); app.toast(on ? 'Own delivery saved. Checkout uses it inside your delivery areas.' : 'Own delivery saved. It’s off.'); } };
+    }
+    const sh = app.data('shipping') || {};
+    const freeOver = sh.free === 'over' ? fmt(Number(sh.threshold)) : '';
+    const whs = own.map((w, i) => {
+      const saved = whOf(w, i); const d = s.wd[w.id] || saved; const set = p => this.setState({ wd: { ...s.wd, [w.id]: { ...d, ...p } } });
+      const errs = s.werr[w.id] || {};
+      const rng = v => /^\d+$/.test(String(v)) && Number(v) >= 1 && Number(v) <= 50;
+      const field = (k, label, help, extra) => ({ label, value: d[k], on: e => { set({ [k]: e.target.value.replace(/[^\d]/g, '').slice(0, 5) }); this.setState(st => ({ werr: { ...st.werr, [w.id]: { ...(st.werr[w.id] || {}), [k]: '' } } })); }, bad: errs[k] ? 'true' : 'false', bd: errs[k] ? '#A1261B' : '#D7D3CD', help: errs[k] || help, hFg: errs[k] ? '#A1261B' : '#5A6472', pre: '', unit: '', ...(extra || {}) });
+      const dirty = JSON.stringify(d) !== JSON.stringify(saved);
+      return { mark: w.name.slice(0, 2).toUpperCase(), name: w.name, addr: w.addr, noPin: !d.pin && !ro, pinLabel: d.pin ? 'Map pin set' : 'No map pin', pinBg: d.pin ? '#EEF7F2' : '#FFF6E5', pinFg: d.pin ? '#1D6B47' : '#7A4B00',
+        setPin: () => { set({ pin: true }); app.toast('Pin placed at ' + w.name + '’s address. Save to keep it.'); },
+        on: d.on ? 'true' : 'false', trk: d.on ? '#1D6B47' : '#C9CDD3', kx: d.on ? '21px' : '3px', op: d.pin && !ro ? 1 : 0.55, onNote: d.pin ? (d.on ? 'Customers inside its area get own delivery instead of the courier.' : 'Off: orders from here go by courier.') : 'Needs the warehouse’s map pin first.',
+        toggle: () => { if (ro) return; if (!d.pin) { app.toast('Set the map pin first'); return; } set({ on: !d.on }); },
+        showFields: d.on,
+        fields: [field('area', 'Delivery area', 'How far from the pin customers get own delivery, 1–50 km.', { unit: 'km' }), field('rider', 'Rider distance', 'How far away online riders can be and still get the offer, 1–50 km.', { unit: 'km' }), field('fee', 'Fee', freeOver ? 'What the customer pays. Your “free over ' + freeOver + '” rule still applies.' : 'What the customer pays for own delivery.', { pre: R.cur })],
+        dirty: dirty && !ro, reset: () => this.setState({ wd: { ...s.wd, [w.id]: null }, werr: { ...s.werr, [w.id]: {} } }),
+        save: () => { const e = {}; if (d.on) { if (!rng(d.area)) e.area = 'Enter 1 to 50 km.'; if (!rng(d.rider)) e.rider = 'Enter 1 to 50 km.'; if (!/^\d+$/.test(String(d.fee)) || Number(d.fee) > 5000) e.fee = 'Enter an amount from 0 to 5,000.'; } if (Object.keys(e).length) { this.setState({ werr: { ...s.werr, [w.id]: e } }); return; } dl.setWhDel(w.id, d); this.setState({ wd: { ...s.wd, [w.id]: null } }); app.toast(w.name + ' saved'); } };
+    });
+    return { pad: phone ? '0 14px 14px' : '0 28px 22px', ship: false, shipNa: false, wh: true, whs, cols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))' };
+  }
+}
+</script>
+</body>
+</html>
