@@ -3,7 +3,7 @@ import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { checkDownload, checkMedia, type MediaCheck } from '#core/media'
 import type { TenantContext } from '#core/tenancy'
 import { insertAsset, selectAsset } from '#db/scoped/catalog'
-import { withScope } from '#db/scoped/index'
+import { withScope, type ScopedSql } from '#db/scoped/index'
 
 // Catalogue files (DATA-MODEL §7.3 `asset`; FIRST-RELEASE §19 `uploadAsset`): checked by their bytes,
 // stored under the store's own R2 prefix, owned by the uploader's scope until a product links them.
@@ -30,18 +30,25 @@ export interface AssetDeps {
   store: AssetStore
 }
 
+class NotAdmitted extends Error {}
+
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
 export const createAssetService = ({ sql, context, actor, activity, facts, store }: AssetDeps) => {
   const { storeId } = context
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
 
-  const save = async (bytes: Uint8Array<ArrayBuffer>, file: { kind: 'image' | 'video' | 'file'; ext: string; mime: string; width: number | null; height: number | null }): Promise<string> => {
+  const save = async (
+    bytes: Uint8Array<ArrayBuffer>,
+    file: { kind: 'image' | 'video' | 'file'; ext: string; mime: string; width: number | null; height: number | null },
+    admit?: (tx: ScopedSql) => Promise<boolean>,
+  ): Promise<string> => {
     const key = `stores/${storeId}/assets/${crypto.randomUUID()}.${file.ext}`
     const checksum = hex(await crypto.subtle.digest('SHA-256', bytes))
     // Written inside the row's transaction, as brand files are: a failed write rolls the row back; a commit
     // failing after it leaves an object no row names (the sweep for those is open on #293).
     return withScope(sql, context, async (tx) => {
+      if (admit && !(await admit(tx))) throw new NotAdmitted()
       const made = await insertAsset(tx, { storeId, sellerId, key, kind: file.kind, mime: file.mime, bytes: bytes.byteLength, width: file.width, height: file.height, checksum, createdBy: actor.id })
       await activity.record(tx, {
         category: 'write',
@@ -72,12 +79,21 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
     return { ok: true, asset: { id, kind: type.kind, mime: type.mime, bytes: bytes.byteLength, width: type.width, height: type.height } }
   }
 
-  /** A photo alone, no video: a rider's profile picture (DELIVERY §4 `updateProfile`). */
-  const uploadImage = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> => {
+  /**
+   * A photo alone, no video: a rider's profile picture (DELIVERY §4 `updateProfile`). `admit` runs first in the
+   * upload's own transaction, so a limit it counts can't be raced; false answers RATE_LIMITED.
+   */
+  const uploadImage = async (bytes: Uint8Array<ArrayBuffer>, admit?: (tx: ScopedSql) => Promise<boolean>): Promise<UploadResult | { ok: false; code: 'RATE_LIMITED' }> => {
     const checked = checkMedia(bytes)
     if (!checked.ok) return checked
-    if (checked.type.kind !== 'image') return { ok: false, code: 'UNSUPPORTED_TYPE' }
-    return upload(bytes)
+    const { type } = checked
+    if (type.kind !== 'image') return { ok: false, code: 'UNSUPPORTED_TYPE' }
+    const id = await save(bytes, type, admit).catch((error: unknown) => {
+      if (error instanceof NotAdmitted) return null
+      throw error
+    })
+    if (id === null) return { ok: false, code: 'RATE_LIMITED' }
+    return { ok: true, asset: { id, kind: type.kind, mime: type.mime, bytes: bytes.byteLength, width: type.width, height: type.height } }
   }
 
   /** A download's file (CATALOG T14): kept as `file`, which no photo, page or storefront shows (migration 0064's asset policy). */

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { logEvent } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
-import { withScope } from '#db/scoped/index'
+import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { countOwnUploadsSince, deleteOwnUploads, endRiderSessions, markRiderRemoved, ownPhotoExists, selectOwnRider, updateOwnRider, type OwnRiderRow } from '#db/scoped/riders'
 import { createAssetService, type AssetStore, type UploadResult } from '#engine/modules/catalog/index'
 
@@ -86,8 +86,12 @@ export const createRiderProfile = ({ sql, context, activity, facts, files, now }
   const uploadPhoto = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult | { ok: false; code: 'RATE_LIMITED' | 'NOT_CONNECTED' }> => {
     if (!files) return { ok: false, code: 'NOT_CONNECTED' }
     const since = new Date(now().getTime() - 86_400_000)
-    if ((await withScope(sql, context, (tx) => countOwnUploadsSince(tx, storeId, riderId, since))) >= photoUploadsPerDay) return { ok: false, code: 'RATE_LIMITED' }
-    return createAssetService({ sql, context, actor: { id: riderId, partnerId, kind: 'rider' }, activity, facts, store: files }).uploadImage(bytes)
+    // Held to the commit, so parallel uploads count one another (#839's review).
+    const admit = async (tx: ScopedSql) => {
+      await serialise(tx, `rider_uploads:${riderId}`)
+      return (await countOwnUploadsSince(tx, storeId, riderId, since)) < photoUploadsPerDay
+    }
+    return createAssetService({ sql, context, actor: { id: riderId, partnerId, kind: 'rider' }, activity, facts, store: files }).uploadImage(bytes, admit)
   }
 
   /** Signed out everywhere, phone and photos erased, the name kept for past deliveries (DELIVERY §5). */

@@ -350,6 +350,17 @@ describe('the rider’s own profile', () => {
     await db.sql`update asset set created_at = now() - interval '25 hours' where created_by = ${id}`
     expect((await upload(token)).status).toBe(200)
   })
+
+  it('counts parallel uploads against one another, never past the limit', async () => {
+    const token = await signedIn(meena)
+    const id = (await riderRow(meena))?.id ?? ''
+    const recent = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from asset where created_by = ${id} and created_at >= now() - interval '24 hours'`)[0]?.n ?? 0
+    const already = await recent()
+    const answers = await Promise.all(Array.from({ length: 30 }, () => upload(token).then((r) => r.status)))
+    expect(answers.filter((s) => s === 200)).toHaveLength(photoUploadsPerDay - already)
+    expect(answers.filter((s) => s !== 200).every((s) => s === 429)).toBe(true)
+    expect(await recent()).toBe(photoUploadsPerDay)
+  })
 })
 
 describe('deleting the account (DELIVERY §5, as removal)', () => {
@@ -372,6 +383,26 @@ describe('deleting the account (DELIVERY §5, as removal)', () => {
     const [entry] = await db.sql<{ actor_kind: string; actor_id: string; target_label: string }[]>`select actor_kind, actor_id, target_label from activity_log where action = 'rider.account_deleted'`
     expect(entry).toEqual({ actor_kind: 'rider', actor_id: id, target_label: 'Sunil D.' })
     expect(JSON.stringify(await db.sql`select * from activity_log where target_type = 'rider'`)).not.toContain(sunil)
+    await invite('owner', 'Sunil D.', sunil)
+  })
+
+  it('keeps a photo the store has since put on a product, as the store’s, and deletes the rest', async () => {
+    const token = await signedIn(sunil)
+    const id = (await riderRow(sunil))?.id ?? ''
+    const used = await uploadedId(token)
+    const unused = await uploadedId(token)
+    const [product] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug) values (${t.storeA1}, 'Rider photo', 'rider-photo') returning id`
+    await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${product?.id ?? ''}, ${t.storeA1}, ${used}, 0)`
+    const keyOf = async (asset: string) => (await db.sql<{ r2_key: string }[]>`select r2_key from asset where id = ${asset}`)[0]?.r2_key ?? ''
+    const [usedKey, unusedKey] = [await keyOf(used), await keyOf(unused)]
+    // The account's own writes after the kept photo prove its savepoint left the transaction usable.
+    expect((await delivery('mutation { deleteMyAccount }', { token })).data).toEqual({ deleteMyAccount: true })
+    expect(await riderRow(null, id)).toMatchObject({ status: 'removed', phone: null })
+    expect(await db.sql`select 1 from asset where id = ${used}`).toHaveLength(1)
+    expect(await db.sql`select 1 from asset where id = ${unused}`).toHaveLength(0)
+    expect([bucket.has(usedKey), bucket.has(unusedKey)]).toEqual([true, false])
+    expect(deletedKeys).not.toContain(usedKey)
+    expect(await db.sql`select 1 from activity_log where action = 'rider.account_deleted' and actor_id = ${id}`).toHaveLength(1)
     await invite('owner', 'Sunil D.', sunil)
   })
 })
