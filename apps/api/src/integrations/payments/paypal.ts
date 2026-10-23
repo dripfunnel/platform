@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { fromDecimalRounded, toMajor } from '#core/money'
-import { PaymentRefused, type GatewayAccount, type PaymentGateway, type PaymentMode, type PaymentOutcome } from '#core/payments'
+import { PaymentRefused, PaymentUnavailable, type GatewayAccount, type PaymentGateway, type PaymentMode, type PaymentOutcome } from '#core/payments'
 import { callProvider } from './http'
 
 // PayPal on the merchant's own REST app (THIRD-PARTY-ACCESS §3.1): an order approved with PayPal's button, captured when
@@ -14,6 +14,7 @@ const orderSchema = z
   .object({
     id: z.string().regex(/^[A-Z0-9]+$/),
     status: z.string(),
+    links: z.array(z.object({ rel: z.string(), href: z.string() }).loose()).optional(),
     purchase_units: z.array(z.object({ payments: z.object({ captures: z.array(z.object({ id: z.string().optional(), status: z.string(), amount: money }).loose()).optional() }).loose().optional() }).loose()).optional(),
   })
   .loose()
@@ -37,6 +38,14 @@ export const paypal = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {})
     return `Bearer ${answer.access_token}`
   }
 
+  /** Where the shopper approves in the app's in-app browser; only a PayPal page is ever handed on. */
+  const approvalUrl = (order: z.infer<typeof orderSchema>): string => {
+    const href = order.links?.find((l) => l.rel === 'payer-action' || l.rel === 'approve')?.href
+    const url = href && URL.canParse(href) ? new URL(href) : null
+    if (url?.protocol !== 'https:' || !/(^|\.)paypal\.com$/.test(url.hostname)) throw new PaymentUnavailable('no approval page')
+    return url.toString()
+  }
+
   const captured = (order: z.infer<typeof orderSchema>): PaymentOutcome => {
     const capture = order.purchase_units?.[0]?.payments?.captures?.find((c) => c.status === 'COMPLETED')
     const amount = capture ? fromDecimalRounded(capture.amount.value, capture.amount.currency_code) : null
@@ -58,11 +67,15 @@ export const paypal = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {})
           body: JSON.stringify({
             intent: 'CAPTURE',
             purchase_units: [{ reference_id: request.orderId, custom_id: request.attemptId, amount: { currency_code: request.amount.currency, value: toMajor(request.amount) } }],
+            // The app's approval is a page of PayPal's in the in-app browser, which returns to the app's scheme.
+            ...(request.app
+              ? { payment_source: { paypal: { experience_context: { return_url: request.app.returnUrl, cancel_url: request.app.cancelUrl, user_action: 'PAY_NOW', shipping_preference: 'NO_SHIPPING' } } } }
+              : {}),
           }),
         },
         orderSchema,
       )
-      return { providerRef: order.id, publicKey: account.credentials['clientId'] ?? null, accountId: null, clientSecret: null, sessionId: null, redirectUrl: null }
+      return { providerRef: order.id, publicKey: account.credentials['clientId'] ?? null, accountId: null, clientSecret: null, sessionId: null, redirectUrl: request.app ? approvalUrl(order) : null }
     },
     outcome: async (account, providerRef): Promise<PaymentOutcome> => {
       if (!/^[A-Z0-9]{1,40}$/.test(providerRef)) return { state: 'failed' }

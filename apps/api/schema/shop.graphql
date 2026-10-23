@@ -10,8 +10,8 @@ type Mutation {
   checkout: ShopCart
   confirmPayment(orderId: ID!): ShopOrder
   deleteAddress(id: ID!): Boolean
-  payOrder(orderId: ID!): ShopPaymentStart
-  placeOrder(provider: String!): ShopPlacedOrder
+  payOrder(app: ShopAppPaymentInput, orderId: ID!): ShopPaymentStart
+  placeOrder(app: ShopAppPaymentInput, provider: String!): ShopPlacedOrder
   removeCode(code: String!): ShopCartChange
   removeGiftCard: ShopCartChange
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
@@ -100,6 +100,11 @@ type ShopAddressLines {
   phone: String
   postalCode: String
   region: String
+}
+
+input ShopAppPaymentInput {
+  scheme: String!
+  stripeApiVersion: String
 }
 
 type ShopAppliedGiftCard {
@@ -447,6 +452,8 @@ type ShopPaymentOption {
 type ShopPaymentStart {
   accountId: String
   clientSecret: String
+  customerId: String
+  ephemeralKeySecret: String
   providerRef: String
   publicKey: String
   redirectUrl: String
