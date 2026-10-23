@@ -250,7 +250,8 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   connection (not Hyperdrive), and must be backward-compatible with the running version; then
   the API Worker version is uploaded — not deployed. Promotion to 100% and the SPA deploys are a
   separate, manual `workflow_dispatch` (`promote.yml`) run once the uploaded version is confirmed
-  healthy: it promotes the Worker, health-checks the live prod host, and — only then — builds and
+  healthy: it promotes the Worker, runs one `wrangler deploy` of the same commit to apply the studio's
+  container image (`versions deploy` can't, #881), health-checks the live prod host, and — only then — builds and
   deploys all three SPAs from that same commit, so the SPAs are never ahead of the API they call.
   See `docs/code/ROLLBACK.md`.
 - **Pushing `main` is a production action**: it runs migrations against the real prod database
