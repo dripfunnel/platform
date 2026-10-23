@@ -1045,6 +1045,7 @@ type Mutation {
   goBackToVersion(number: Int!): Boolean
   installApp(appId: ID!, scopes: [String!]!): ID
   inviteMember(email: String!, role: String!): Boolean
+  inviteRider(name: String!, phone: String!): Rider
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
   issueGiftCard(issueKey: ID!, productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
@@ -1066,6 +1067,7 @@ type Mutation {
   remindNow(cartId: ID!, discountPercent: Int): ID
   removeDomain(id: ID!): Boolean
   removeMember(membershipId: ID!): Boolean
+  removeRider(id: ID!): Boolean
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
   removeWebhook(id: ID!): Boolean
@@ -1076,7 +1078,9 @@ type Mutation {
   requestPickup(shipmentId: ID!): Boolean
   requestSupportWrite(note: String!): Boolean
   resendInvitation(invitationId: ID!): Boolean
+  resendRiderInvitation(id: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
+  restoreRider(id: ID!): Rider
   resumeCartReminders(cartId: ID!): Boolean
   resumeOffer(id: ID!): Boolean
   resumeSupplier(id: ID!): Int
@@ -1146,6 +1150,7 @@ type Mutation {
   startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
   stopCartReminders(cartId: ID!, note: String): Boolean
+  suspendRider(id: ID!): Rider
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
@@ -2135,6 +2140,7 @@ type Query {
   report(currency: String, days: Int!): StoreReport
   reportExport(id: ID!): ReportExport
   reportExports: [ReportExport!]
+  riders(after: String, before: String, first: Int): RiderPage
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   shippingSettings: ShippingSettings
   shopifyConnection: ShopifyConnection
@@ -2310,6 +2316,24 @@ enum ReturnReason {
   doesnt_fit
   not_as_described
   wrong_item
+}
+
+type Rider {
+  createdAt: String
+  currentDeliveryId: ID
+  deliveriesDone: Int
+  id: ID
+  name: String
+  online: Boolean
+  phone: String
+  status: String
+  vehicleNumber: String
+  vehicleType: String
+}
+
+type RiderPage {
+  nodes: [Rider!]
+  pageInfo: PageInfo
 }
 
 type SavedCollection {

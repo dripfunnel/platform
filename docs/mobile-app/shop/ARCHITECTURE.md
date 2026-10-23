@@ -6,7 +6,7 @@ How `apps/ui/mobile-app/shop` is laid out and how it talks to the Shop API. Scop
 
 **Status: specification, not built.**
 
-Last updated: 2026-10-22 (first version).
+Last updated: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
 
 ---
 
@@ -35,7 +35,7 @@ apps/ui/mobile-app/shop/
       product/[handle]  checkout/  orders/[id]  orders/[id]/track
     features/<area>/        screens per area
     api/<area>.ts           the app's GraphQL operations, typed from apps/api/schema/shop.graphql
-    session/                the customer's bearer token and the cart token, in secure storage
+    session/                the customer's session token and the cart token, in secure storage
     brand/                  the store's look from the Shop API
     push/                   permission, the Expo token, opening the order a push names
     nav.ts  messages/
@@ -66,8 +66,8 @@ Foundations (`graphql/`, `format/`, `intl/`, `theme/`) come from `apps/ui/mobile
 
 | Change | Why |
 |---|---|
-| **A bearer token** for the customer session and the guest cart, beside the cookie, as the Store API takes the merchant app's (`auth/storeCredential.ts`); a bearer request skips the `Origin` check | An app has no cookie jar the API can rely on |
-| **The store's brand**: logo, colours, font, app-facing name | The app's look at runtime (../README.md §3) |
+| ~~A bearer token beside the cookie~~ **Nothing to build** (decided on #855, 2026-10-23): the Shop API has no cookie and checks no `Origin`. Sign-in answers the session token in the body (`sessionToken`) and the app sends it as `X-Shop-Session`; a guest's cart token comes from `addToCart` and goes back as `X-Shop-Cart` (ACCESS.md §2.1) | An app has no cookie jar, and needs none |
+| **The store's brand**: **built as the Shop API's `store`**: name, description, logo, favicon (the app's mark), tagline, contact, social. Its **colours and font are not served**: `app_shop` has no grant on the colours (DATA-MODEL.md §7.8) and no font exists. The app has no per-store colours or font until a card adds them | The app's look at runtime (../README.md §3) |
 | **`registerPushDevice`, `unregisterPushDevice`** for a signed-in customer or a guest's order | Order pushes (api/DELIVERY.md §6) |
 | **Own delivery in `shippingOptions`** and **`order.delivery`** | api/DELIVERY.md §2 and §7 |
 | **Payment for a native SDK**: what each provider's app checkout needs (Stripe's payment intent client secret and ephemeral key, PayPal's order, Razorpay's order id, Cashfree's payment session, PhonePe's order token), for the app's `checkout` | The providers' sheets need these instead of the web element |

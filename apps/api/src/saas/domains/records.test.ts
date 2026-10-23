@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { checkRecords } from './check'
-import { edgeTargets, emailRecords, isBareDomain, recordMatches, recordsFor, senderLabel, zoneOf } from './records'
+import { edgeTargets, emailRecords, isBareDomain, isHouseHost, recordMatches, recordsFor, senderLabel, zoneOf } from './records'
 
 describe('the partner addresses (#518: no preview kind, #745: no shops kind)', () => {
   it('points the portal address at its edge target, and a merchant domain at shops.edge', () => {
@@ -50,6 +50,15 @@ describe('isBareDomain', () => {
     ['mail.northstar.com', false],
     ['shops.northstar.co.uk', false],
   ])('%s → %s', (host, bare) => expect(isBareDomain(host)).toBe(bare))
+})
+
+describe('isHouseHost', () => {
+  it('admits names under dripfunnel.com except the apex, the served hosts and the environment zone', () => {
+    expect(isHouseHost('store.dripfunnel.com', 'edge.dripfunnel.com')).toBe(true)
+    for (const host of ['dripfunnel.com', 'admin.dripfunnel.com', 'platform.dripfunnel.com', 'hooks.dripfunnel.com', 'edge.dripfunnel.com', 'portal.edge.dripfunnel.com']) {
+      expect(isHouseHost(host, 'edge.dripfunnel.com')).toBe(false)
+    }
+  })
 })
 
 describe('checkRecords', () => {

@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-23 (#890: the house partner may add its `dripfunnel.com` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -160,7 +160,9 @@ A partner owns two kinds of hostname (USERS-AND-DOMAINS §2), both verified thro
 | ~~Shop wildcard~~ | ~~`*.shops.<partnerdomain>`~~ | Retired: every store's live address is `{slug}.my-store.one` (decided 2026-10-15, USERS-AND-DOMAINS §2). Removed on #745: migration 0355 queued `domain.remove` for each registered store host, deleted the `shops` rows, their records and the `wildcards` setup items, and narrowed `partner_domain.kind` to portal and email; the Platform and Admin APIs refuse kind `shops` as `INVALID_INPUT`, and the checklist has eight items without the wildcards. Partners are not emailed about it |
 | Email sender domain | `mail.<partnerdomain>` | SES DKIM, SPF, DMARC (§3.6) |
 
-The house partner uses the same pattern on `dripfunnel.com`. Changing a live portal host keeps
+The house partner uses the same pattern on `dripfunnel.com`: Add an address accepts DripFunnel's
+own `dripfunnel.com` names from the house partner (`partner.is_house`) only, except its apex and exactly `admin.`, `platform.` and `hooks.` (names beneath them, such as `x.admin.dripfunnel.com`, are allowed; the mail, `.net` and
+environment-zone names stay refused to everyone); every other partner is refused `DRIPFUNNEL_DOMAIN` (ui/platform/FIRST-RELEASE.md §9.2). Changing a live portal host keeps
 the old one redirecting for a period *(ask how long)* (F4).
 
 ### 3.6 Email sender
@@ -376,10 +378,12 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   one a cart; `onePerCart` sends the first reminder automatically; `automatic` sends all three, with codes and WhatsApp); since #338 `blog` (writing a post; without it the Shop API shows no posts, paused and never deleted, and a post kept through a downgrade can still be deleted, and plan versions 0070 wrote keep its stored off until the partner turns it on); a version
   written before the five catalogue rows existed starts with them on, and one written before `live_offers` with it
   unlimited, so no store loses a section or an offer.
-- **Own delivery and the store's own apps** *(proposed, [DELIVERY.md](DELIVERY.md) §9)*: three more rows,
-  `own_delivery` (on/off), `riders` (limit) and `own_apps` (on/off), **Planned** until built (#838). They
-  are off in every listed plan: Enterprise only, turned on per store by DripFunnel staff through
-  `store_limit_override` (decided 2026-10-22 with Gaurav).
+- **Own delivery and the store's own apps** ([DELIVERY.md](DELIVERY.md) §9): three more rows since
+  #838 (migration 0359), `own_delivery` (on/off) and `riders` (limit), both enforced at `inviteRider`,
+  and `own_apps` (on/off), **Planned** until the apps are built. They are off and 0 in every plan:
+  Enterprise only, turned on per store by DripFunnel staff (decided 2026-10-22 with Gaurav). Not yet
+  possible: `store_limit_override` holds amounts only and has no admin console screen, so only the
+  riders limit can be raised for one store today; switching the two on per store needs a follow-up card.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
   can't configure a plan above it (G2, R3). **Built on #157** with the versioned catalogue,
   DripFunnel's wholesale fee per plan and the partner's contract (fee currency, the other

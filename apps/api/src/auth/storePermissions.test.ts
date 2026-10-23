@@ -8,7 +8,7 @@ const can = (role: StoreRole) => (p: StorePermission) => storeRoleHas(role, p)
 describe('merchant roles (ACCESS.md §5.1)', () => {
   it('gives the Owner every merchant permission and no supplier-only one', () => {
     const owner = can(merchant('owner'))
-    for (const p of ['settings', 'billing', 'invite', 'publish', 'store.export', 'activity.export', 'warehouses.write'] as const) expect(owner(p)).toBe(true)
+    for (const p of ['settings', 'billing', 'invite', 'publish', 'store.export', 'activity.export', 'warehouses.write', 'riders.manage'] as const) expect(owner(p)).toBe(true)
     for (const p of ['sales.read', 'supplier.team'] as const) expect(owner(p)).toBe(false)
   })
 
@@ -22,6 +22,7 @@ describe('merchant roles (ACCESS.md §5.1)', () => {
     expect(manager('orders.mark_paid')).toBe(true)
     expect(manager('settings')).toBe(false)
     expect(manager('publish')).toBe(false)
+    expect(manager('riders.manage')).toBe(false)
     // The Storefront read-only (FIRST-RELEASE §14, #338).
     expect(manager('storefront.read')).toBe(true)
   })
@@ -29,7 +30,7 @@ describe('merchant roles (ACCESS.md §5.1)', () => {
   it('lets Staff work orders and customers and export, and read offers without changing or exporting them', () => {
     const staff = can(merchant('staff'))
     for (const p of ['orders.write', 'orders.fulfil', 'customers.write', 'customers.export', 'exports', 'offers.read', 'carts.read'] as const) expect(staff(p)).toBe(true)
-    for (const p of ['catalog.write', 'offers.write', 'offers.export', 'orders.refund', 'orders.mark_paid', 'reports.read', 'activity.read', 'storefront.read'] as const) expect(staff(p)).toBe(false)
+    for (const p of ['catalog.write', 'offers.write', 'offers.export', 'orders.refund', 'orders.mark_paid', 'reports.read', 'activity.read', 'storefront.read', 'riders.manage'] as const) expect(staff(p)).toBe(false)
   })
 })
 
@@ -51,7 +52,7 @@ describe('supplier tiers (ACCESS.md §5.2)', () => {
 
   it('never gives a supplier offers, customers, settings, billing or reports', () => {
     const fulfil = can(supplier('vendor-orders-fulfil', 'supplier-admin'))
-    for (const p of ['offers.read', 'customers.read', 'settings', 'billing', 'reports.read', 'activity.read', 'invite'] as const) expect(fulfil(p)).toBe(false)
+    for (const p of ['offers.read', 'customers.read', 'settings', 'billing', 'reports.read', 'activity.read', 'invite', 'riders.manage'] as const) expect(fulfil(p)).toBe(false)
   })
 
   it('lets only a Supplier admin manage the supplier’s team', () => {
