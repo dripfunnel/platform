@@ -13,13 +13,14 @@ export const smsKind = 'sms'
 /** An order update unsent after this is news nobody needs, and its number and link leave the outbox. */
 export const orderTextMs = 3 * 24 * 60 * 60 * 1000
 
-export const smsMessages = ['code.second_factor', 'code.verify_phone', 'code.shopper_sign_in', 'order.confirmed', 'order.shipped', 'order.delivered'] as const
+export const smsMessages = ['code.second_factor', 'code.verify_phone', 'code.shopper_sign_in', 'order.confirmed', 'order.shipped', 'order.delivered', 'rider.invited'] as const
 export type SmsMessage = (typeof smsMessages)[number]
 
 const code = z.object({ code: z.string().regex(/^\d{6}$/) }).strict()
 const order = z.object({ order: z.string().min(1).max(40) }).strict()
 const shipped = order.extend({ courier: z.string().min(1).max(40), link: z.url() }).strict()
 const delivered = order.extend({ link: z.url() }).strict()
+const invited = z.object({ link: z.url() }).strict()
 
 const varsSchemas = {
   'code.second_factor': code,
@@ -28,6 +29,7 @@ const varsSchemas = {
   'order.confirmed': order,
   'order.shipped': shipped,
   'order.delivered': delivered,
+  'rider.invited': invited,
 } satisfies Record<SmsMessage, z.ZodType>
 
 /** The outbox payload: no free text, so nothing a caller writes reaches a template unchecked. */
@@ -60,6 +62,7 @@ const en: Record<SmsMessage, Filled> = {
   'order.confirmed': (b, v) => ({ text: `${b}: thanks for your order ${v['order']}. We'll text you when it ships.`, vars: [b, v['order'] ?? ''] }),
   'order.shipped': (b, v) => ({ text: `${b}: order ${v['order']} is on its way with ${v['courier']}. Track it: ${v['link']}`, vars: [b, v['order'] ?? '', v['courier'] ?? '', v['link'] ?? ''] }),
   'order.delivered': (b, v) => ({ text: `${b}: order ${v['order']} was delivered. Need help? ${v['link']}`, vars: [b, v['order'] ?? '', v['link'] ?? ''] }),
+  'rider.invited': (b, v) => ({ text: `${b}: you're invited to deliver our orders. Get the app and sign in with this number: ${v['link']}`, vars: [b, v['link'] ?? ''] }),
 }
 
 /** The text, and for India the registered template with its variables; null template where DLT doesn't apply. */

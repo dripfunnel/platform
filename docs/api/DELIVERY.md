@@ -7,10 +7,10 @@ their app calls, and what the customer sees while the order is on its way. The t
 [mobile-app/shop/](../mobile-app/shop/FIRST-RELEASE.md); why they are built per store is
 [mobile-app/README.md](../mobile-app/README.md).
 
-**Status: specification, not built.** Decided with Gaurav on 2026-10-22; rows marked
-*(proposed)* await a yes.
+**Status: specification, partly built.** Decided with Gaurav on 2026-10-22; rows marked
+*(proposed)* await a yes. Built: the riders pool and its invitations (§5, §8, §9; #838).
 
-Last updated: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -203,18 +203,25 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 
 ## 5. Riders
 
-- **Invited by the Owner** (Store API `inviteRider(name, phone)`) from **Settings › Riders**, a new
+- **Invited by the Owner** (Store API `inviteRider(name, phone)`, built on #838) from **Settings › Riders**, a new
   tab, Owner only like the rest of Settings (store/FIRST-RELEASE.md §15), on the web and in the
-  merchant app. The rider gets a text, sent through the
+  merchant app. The rider gets a text through the outbox, sent through the
   partner's SMS account (MSG91 or Twilio) like every code, with the store's name and the store's
-  delivery app links.
+  delivery app link (the fixed message `rider.invited`, in English, THIRD-PARTY-ACCESS §4). Until the
+  app links exist (DL 15, #852) the link is `https://{slug}.{SHOP_DOMAIN}/app/delivery.apk`, made only
+  by `deliveryAppLink`; without a shop domain the invitation is refused `UNAVAILABLE`. A number
+  already among the store's riders is refused `PHONE_TAKEN`; a removed rider's number is free again.
+  `resendRiderInvitation` texts an invited rider again while the plan has own delivery: at most 3
+  texts in 24 hours, the invitation included (counted from the activity log), then `RATE_LIMITED`.
 - **Signing in is joining.** The invited number signs in with a code and the invitation is taken;
   there is no link or token. A number never invited gets the same answer as a wrong code, so the
   API never reveals which numbers a store has invited (AGENTS.md "Security"). A code is kept only
   for an invited or active rider's number, and code rows are deleted a day after they expire.
 - **Profile:** name, photo, vehicle type (bike, scooter, car, bicycle, on foot), vehicle number.
 - **The merchant** sees each rider's status (invited, active, suspended), online now, current
-  delivery and deliveries done, and can **suspend** (sessions end at once; an `assigned` delivery
+  delivery and deliveries done, and can **suspend** an active rider, **restore** a suspended one
+  (built on #838 with the list and removal; deliveries done and the current delivery read 0 and
+  none until DL 5 and DL 6) (sessions end at once; an `assigned` delivery
   is handed back to the other riders; refused `RIDER_HAS_PARCEL` while they carry a `picked_up` one,
   which the merchant recalls first) or **remove** (the same rules; the row
   stays, so past deliveries keep their rider; the phone is erased, AGENTS.md "Data").
@@ -228,7 +235,8 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 - **Sessions** last 30 days from last use, like customers' (DATA-MODEL §3.4), one per phone.
 - **A rider belongs to one store.** The same person delivering for two stores has two accounts
   and two apps, as a customer does.
-- **Plan:** the number of riders is a plan limit (§9).
+- **Plan:** the number of riders is a plan limit (§9): invited and active riders count, suspended
+  and removed ones don't.
 
 ---
 
@@ -306,19 +314,29 @@ A supplier never sees riders, positions or a delivery: own delivery carries only
 lines (§2), so a supplier's `orders.fulfil` (ACCESS §5.2) never reaches these actions; they
 check the merchant side as well as the permission (ACCESS §5.1). A support session reads them as `orders.read` allows, never a rider's phone.
 
+Built on #838: `riders`, `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider` and
+`removeRider`. All of them are refused to a support session (`BLOCKED_FOR_SUPPORT`), since the list
+holds the riders' phones, and to API keys. Each write is in the activity log with the rider's name
+as its target label, never the phone (LOGGING §3).
+
 ---
 
 ## 9. Plans
 
-Two new plan settings (SAAS.md §6.1), **Planned** until built:
+Three plan keys (SAAS.md §6.1), added on #838 (migration 0359), off and 0 in every existing plan:
 
-- `own_delivery`, on/off, with **riders** as a limit;
-- `own_apps`, on/off: the store's shop and delivery apps (mobile-app/README.md).
+- `own_delivery`, on/off, with **riders** as a limit: both enforced at `inviteRider`, refused
+  `PLAN_LIMIT` with `key`, `limit` and `unlockedBy` like every plan limit;
+- `own_apps`, on/off: the store's shop and delivery apps (mobile-app/README.md), **Planned** until
+  the apps are built.
 
 **Enterprise only, set up by hand** (decided 2026-10-22): both are off in every listed plan, and
 DripFunnel staff turn them on for one store, with its riders limit, as that store's override in the
 admin console (`store_limit_override`, SAAS.md §6.1), once the merchant's Enterprise arrangement is
 agreed. There is no Enterprise plan on the pricing page and nothing to buy in the portal.
+**Not yet possible** (#838): `store_limit_override` holds amounts only and is set from the partner
+console, and the admin console has no override. So a store can be given a riders limit, but
+`own_delivery` and `own_apps` can't yet be switched on for one store; that needs a follow-up card.
 
 ---
 

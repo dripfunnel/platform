@@ -378,10 +378,12 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   one a cart; `onePerCart` sends the first reminder automatically; `automatic` sends all three, with codes and WhatsApp); since #338 `blog` (writing a post; without it the Shop API shows no posts, paused and never deleted, and a post kept through a downgrade can still be deleted, and plan versions 0070 wrote keep its stored off until the partner turns it on); a version
   written before the five catalogue rows existed starts with them on, and one written before `live_offers` with it
   unlimited, so no store loses a section or an offer.
-- **Own delivery and the store's own apps** *(proposed, [DELIVERY.md](DELIVERY.md) §9)*: three more rows,
-  `own_delivery` (on/off), `riders` (limit) and `own_apps` (on/off), **Planned** until built (#838). They
-  are off in every listed plan: Enterprise only, turned on per store by DripFunnel staff through
-  `store_limit_override` (decided 2026-10-22 with Gaurav).
+- **Own delivery and the store's own apps** ([DELIVERY.md](DELIVERY.md) §9): three more rows since
+  #838 (migration 0359), `own_delivery` (on/off) and `riders` (limit), both enforced at `inviteRider`,
+  and `own_apps` (on/off), **Planned** until the apps are built. They are off and 0 in every plan:
+  Enterprise only, turned on per store by DripFunnel staff (decided 2026-10-22 with Gaurav). Not yet
+  possible: `store_limit_override` holds amounts only and has no admin console screen, so only the
+  riders limit can be raised for one store today; switching the two on per store needs a follow-up card.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
   can't configure a plan above it (G2, R3). **Built on #157** with the versioned catalogue,
   DripFunnel's wholesale fee per plan and the partner's contract (fee currency, the other

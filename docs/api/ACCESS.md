@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -331,6 +331,8 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   - **A bearer token is accepted only on a request with no session cookie.** A request
     carrying both is refused, so a browser can never swap its cookie path for the unchecked
     one.
+  - **The shop app is not a bearer case** (decided on #855): the Shop API has no cookie and no `Origin` check, so its
+    session token (`X-Shop-Session`) and guest cart token (`X-Shop-Cart`) are the same for a browser and an app (§2.1).
   - **This applies only to the merchant mobile app.** Nothing changes for the merchant portal,
     the partner console or the admin console: every browser request keeps the cookie and the
     `Origin` check. No new endpoint or table. The change is in the session-opening routes'
@@ -438,7 +440,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `offers.export`: `exportOfferCodes`, a batch's codes as a file; Staff reads offers but may not export their codes (decided 2026-10-05) | ✓ | ✓ | |
 | `store.export`: `exportStoreData`, everything the store holds, for leaving or a data request | ✓ | | |
 | `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
-| `riders.manage` *(proposed)*: the store's riders, Settings › Riders: invite, resend, suspend, restore, remove, export, erase ([DELIVERY.md](DELIVERY.md) §5, §8) | ✓ | | |
+| `riders.manage`: the store's riders, Settings › Riders: invite, resend, suspend, restore, remove (built on #838; never a support session's), export and erase *(proposed, #874)* ([DELIVERY.md](DELIVERY.md) §5, §8) | ✓ | | |
 | Own-delivery actions *(proposed)*: Ready for pickup, assign, offer again, cancel or recall, mark delivered with a reason ([DELIVERY.md](DELIVERY.md) §8): the merchant side's `orders.fulfil`, never a supplier's | ✓ | ✓ | ✓ |
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |

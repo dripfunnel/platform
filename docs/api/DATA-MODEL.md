@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-23 (#838: `rider`, `rider_session` and `rider_code` built (0359), §3.6). Before: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -588,7 +588,10 @@ partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
 
 ---
 
-### 3.6 Riders (store) *(proposed, api/DELIVERY.md §5)*
+### 3.6 Riders (store) (api/DELIVERY.md §5)
+
+`rider`, `rider_session` and `rider_code` are built on #838 (migration 0359); `rider_position` and
+`push_device` are *proposed*.
 
 ```
 rider          (id, store_id, name, phone, photo_asset_id NULL,
@@ -612,7 +615,9 @@ push_device    (id, store_id, subject_kind ('rider'|'customer'|'order'), subject
                -- 'order' is a guest's order; a token Expo reports dead is deleted
 ```
 
-All five are system scope or the rider's own rows (§7.12); none has a partner branch.
+All five are system scope or the rider's own rows (§7.12); none has a partner branch. Built so far
+(#838): the merchant side reads its store's riders and writes their status, phone and photo, never
+a supplier; it reads a session's `ended_at` only to end it, and never `rider_code`.
 
 ## 4. Roles and permissions
 

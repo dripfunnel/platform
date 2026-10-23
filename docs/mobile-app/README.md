@@ -52,7 +52,7 @@ Each app keeps one file per store, `stores/<storeKey>.env`, read and validated b
 
 Secrets (signing, the App Store Connect key, the Play service account, push credentials) live in
 EAS's credential store per store, never in the repo, as merchant/CONFIGURATION.md §3 lists them.
-Colours, logo, font and wording are read at runtime from the store's brand on the Shop API.
+The logo and wording are read at runtime from the store's brand on the Shop API (`store`); its colours and font are not served yet (shop/ARCHITECTURE.md §4).
 
 ---
 
