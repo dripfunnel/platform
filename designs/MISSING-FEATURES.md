@@ -265,5 +265,6 @@ Each is built only if the release gains it.
 | "Need help with this order?" (call or email the store) | Order | Not in the release's Orders row | — |
 | "You may also like" on a product | Product | The release lists the store's product sections, not related products | — |
 | "Email me new arrivals and offers" | Register, Checkout › Contact | Marketing consent is not in the release's Getting in or Checkout rows | — |
+| "Text me offers (SMS)", when the store has SMS on | Checkout › Contact | Same: marketing consent, and its own consent record, are not scoped | — |
 | Change email, mobile number or password | Account › Your details | The release's Account is profile, addresses, sign out and delete | — |
 | "Billing address is the same as delivery" | Checkout › Payment | The release's Checkout row names one address | — |
