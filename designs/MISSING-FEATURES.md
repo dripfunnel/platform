@@ -4,7 +4,7 @@ This compares the DF Store merchant portal, as designed in this folder, with **S
 **Wix eCommerce** and the **first DripFunnel platform**, which was built on a third-party
 commerce framework and has since been removed from the workspace.
 
-Last updated: 2026-10-23 (#837: what the delivery app and own-delivery drawings show but the first release doesn't have, §4). Before: 2026-10-05.
+Last updated: 2026-10-23 (#854: what the shop app drawing shows but the first release doesn't have, §5). Before: 2026-10-23 (#837: the delivery app and own-delivery drawings, §4). Earlier: 2026-10-05.
 
 "Missing" means DF Store has no screen or flow for the feature at all. When something is
 started but not finished, it is in [INCOMPLETE-FEATURES.md](INCOMPLETE-FEATURES.md).
@@ -252,3 +252,19 @@ Drawn in the prototypes but not in the first release, or linked to something tha
 | "Download the new version" for a build too old for the API | Delivery app › Account blocked › `tooOld` | Proposed in docs/mobile-app/delivery/FIRST-RELEASE.md §1 | — |
 | Setting a warehouse's map pin on a map | `SetOwnDelivery` › "Set the map pin" places the pin at the address | The map picker is #815's | #815 |
 | Open settings / Call / Navigate from the delivery app | Delivery app (toasts) | Hand-offs to the phone's OS and map apps | — |
+
+## 5. The shop app (#854)
+
+Drawn in `DF Shop App Prototype`, copied from the Storefront prototype, but not in docs/mobile-app/shop/FIRST-RELEASE.md §2.
+Each is built only if the release gains it.
+
+| What | Where it's drawn | Why it's missing | Card |
+| --- | --- | --- | --- |
+| Cancel an order (until it ships) | Order › Cancel order | Orders in the release are list, detail and tracking; the rule is a proposal (storefront ARCHITECTURE §2.1) | — |
+| Request a return, with the store's returns window | Order › Request a return | Same proposal; the window is the store's returns policy | — |
+| "Need help with this order?" (call or email the store) | Order | Not in the release's Orders row | — |
+| "You may also like" on a product | Product | The release lists the store's product sections, not related products | — |
+| "Email me new arrivals and offers" | Register, Checkout › Contact | Marketing consent is not in the release's Getting in or Checkout rows | — |
+| "Text me offers (SMS)", when the store has SMS on | Checkout › Contact | Same: marketing consent, and its own consent record, are not scoped | — |
+| Change email, mobile number or password | Account › Your details | The release's Account is profile, addresses, sign out and delete | — |
+| "Billing address is the same as delivery" | Checkout › Payment | The release's Checkout row names one address | — |

@@ -3,7 +3,7 @@
 How the DripFunnel platform prototypes in this project are built, so a new
 screen can be added without re-reading 10,000 lines of source.
 
-Last updated: 2026-10-23 (#837: the delivery app and own delivery). Before: 2026-10-15 (#744: the preview address in the Open preview toast).
+Last updated: 2026-10-23 (#854: the shop app's prototype). Before: 2026-10-23 (#837: the delivery app and own delivery). Earlier: 2026-10-15 (#744: the preview address in the Open preview toast).
 
 ---
 
@@ -19,6 +19,7 @@ to a backend.
 | **Platform** | A partner reselling DripFunnel under their own brand, e.g. *Northstar Shops* | Partner console | `DF Platform Prototype.dc.html` |
 | **Admin** | DripFunnel's own staff, running every partner and store | Admin console | `DF Admin Prototype.dc.html` |
 | **Shopper** | A store's customers, on its storefront | The baseline storefront theme (`templates/storefront`) | `DF Storefront Prototype.dc.html` |
+| **Shopper (app)** | The same customers, in the store's own shopping app | `apps/ui/mobile-app/shop` (not built) | `DF Shop App Prototype.dc.html` |
 | **Delivery app** | A store's own riders ("delivery partners" on screen), one app per store in the store's brand | Phone app (Kesari Threads sample) | `mobile-app/delivery-partner-app/DF Delivery App Prototype.dc.html` |
 
 Plus two supporting files:
@@ -149,6 +150,47 @@ in storefront ARCHITECTURE §2.1 as a *proposal* awaiting approval on #285 (its 
 `ImpBanner.dc.html` is the one shared child: the staff-session banner that
 the Platform and Store prototypes mount at the top of their frame (see §8).
 
+### Shop app — single file
+
+`DF Shop App Prototype.dc.html` plus `shop-data.js` is the store's own shopping app on iOS and
+Android (`apps/ui/mobile-app/shop`, not built; docs/mobile-app/shop/FIRST-RELEASE.md). Drawn on
+#854 (SH 1); it decides behaviour, layout and wording for SH 8–SH 14. Every screen is drawn for
+the two sample stores of the Storefront prototype, and the app wears **the store's** logo
+mark, colours and fonts (`BR` in the file: Kesari Threads in terracotta with Lora and Mulish,
+Juniper & Co. in green with Bricolage Grotesque and DM Sans), not DripFunnel's. There is no
+"Powered by" line (FIRST-RELEASE §1).
+
+Screens and their states, in the Screen and State controls (every state also opens from the URL,
+`?screen=order&state=onTheWay&store=IN`):
+
+| Screen | States drawn |
+| --- | --- |
+| Home | collections, products, announcement · loading · load error · offline · empty shop |
+| Collection | filters open · sort open · a filter on · nothing matches · loading · error · offline |
+| Search | before typing · suggestions · results · no results · loading · offline |
+| Product | version chosen · nothing chosen · video · version sold out · low stock · sold out · size chart · added to cart · loading · error · offline |
+| Cart | lines and the automatic offer · code applied · code refused · out of stock since added · empty · loading · error · offline |
+| Sign in, register, reset | email and password · wrong password · mobile number · mobile code · wrong code · register · check your email · reset (ask, sent, new password) |
+| Account | signed out · signed in · details · addresses with pins · add an address with a pin · delete account (confirm, after) · loading · error |
+| Checkout | 1 contact · 2 address (saved, new with a pin, pin missing) · 3 delivery (own delivery or courier by address; pickup) · 4 payment · the provider's sheet · 5 review with the order summary and legal notices · waiting for the provider · payment failed · offline |
+| Order confirmation | placed, for the Payment control's method (paid, cash on delivery, bank transfer with its instructions) |
+| Orders, an order | list (empty, signed out, loading, error, offline) · own delivery: being packed, looking for a rider, rider assigned, on the way (live map), delivered, not delivered · courier shipped and its tracking link · waiting for a bank transfer |
+| Language and currency | choose |
+| Legal pages | list · terms · privacy · returns · legal notice, in the in-app browser |
+| Notifications | why we ask · the system's ask · refused (banner on the order) · lock screen |
+
+Controls: Screen · State · Store (India: INR, cash on delivery, Razorpay, Cashfree, PhonePe,
+own delivery · US: USD, Stripe, PayPal, courier) · Payment · Platform (Android or
+iOS: the status bar and the system's wording). Sample values the strip prints: sign-in code
+`123456`, password `wrong` fails, offer code `DIWALI15` / `WELCOME15`, handover code `2580`
+(the same code as the delivery app's prototype). The tracking screen follows
+api/DELIVERY.md §7: steps, the rider's name, photo, vehicle and Call, the handover code, a live
+map with the rider and the address, and an arrival time. The provider sheets (Razorpay,
+Stripe…) are placeholders: "Drawn by the provider". The last choices persist in
+`localStorage['df-shop-proto-v1']`.
+
+What is drawn but not in the first release is listed in MISSING-FEATURES.md §5.
+
 ### Merchant mobile app — `mobile-app/merchant/`
 
 `mobile-app/merchant/DF Store App.dc.html` is the merchant portal as an iOS and Android app
@@ -181,6 +223,7 @@ design. Add a new state as a control option before adding UI to reach it.
 | Delivery app | Screen (Getting in, Home, before pickup, after pickup, History, Profile, Notifications, Account blocked) · State (per screen) · Payment (cash on delivery / paid online) · Android/iOS (permission wording). Position persists in `localStorage['df-delivery-proto-v1']`. Sign-in code 123456, handover code 2580 |
 | Platform | Partner (Northstar live, Kaufladen draft / set up by DF / awaiting / sent back / just approved) · Role · Theme · Screen · Signed in · Invitation · Scenario |
 | Admin | Signed in as · Theme · Environment · Screen · Data · Sign-in |
+| Shop app | Screen · State · Store (India / US) · Payment · Platform (Android / iOS). URL parameters `screen`, `state`, `store`, `pay` and `platform` open a state directly (#854) |
 
 **Device frames:** desktop fills the viewport. Phone is 375–390px wide,
 780–800px tall, with a 8–10px `#14181F` bezel and a 28–40px radius. Platform

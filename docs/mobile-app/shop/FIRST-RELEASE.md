@@ -4,9 +4,9 @@ The store's own shopping app: what its first release contains. Who gives it to w
 built per store is [../README.md](../README.md); the code is [ARCHITECTURE.md](ARCHITECTURE.md);
 delivery tracking is [api/DELIVERY.md](../../api/DELIVERY.md) §7.
 
-**Status: specification, not built.** No prototype yet (§3).
+**Status: specification, not built.** The prototype is drawn (§3).
 
-Last updated: 2026-10-22 (every payment method in the app; the handover code). Before: 2026-10-22 (first version, with Gaurav).
+Last updated: 2026-10-23 (#854: the prototype is drawn). Before: 2026-10-22 (every payment method in the app; the handover code). Earlier: 2026-10-22 (first version, with Gaurav).
 
 ---
 
@@ -45,10 +45,11 @@ legal ones, and any theme section the AI built on the website.
 
 ## 3. Design
 
-There is no prototype yet. **Before any screen is built**, `designs/DF Shop App Prototype.dc.html`
-is drawn, with every screen above at phone width and its empty, loading, error and offline
-states, and `designs/design.md` maps it. The prototype decides behaviour and wording; this
-document decides scope (docs/README.md §3).
+`designs/DF Shop App Prototype.dc.html` (#854) draws every screen above at phone width with its
+empty, loading, error and offline states, for an India and a US sample store, and `designs/design.md`
+maps it. It also draws a few things this release does not contain; they are listed in
+`designs/MISSING-FEATURES.md` §5 and are not built unless this document adds them. The prototype
+decides behaviour and wording; this document decides scope (docs/README.md §3).
 
 ---
 
