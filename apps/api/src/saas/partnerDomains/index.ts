@@ -86,24 +86,23 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, edge
 
   type AddResult = { ok: true; id: string; apex: boolean } | { ok: false; reason: AddRefusal }
 
-  const addPartnerDomain = async (raw: unknown): Promise<AddResult> => {
+  const addPartnerDomain = (raw: unknown): Promise<AddResult> => {
     const parsed = addInput.safeParse(raw)
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const { kind } = parsed.data
     const typed = parseHostname(parsed.data.host.trim().replace(/^\*\./, ''), { localhost: localHosts })
     if (!typed.ok || typed.wildcard) return Promise.resolve({ ok: false, reason: 'NOT_A_HOSTNAME' })
-    const base = typed.host
-    // The house partner is DripFunnel itself (SAAS §3.5), so its own names are the ones it may add.
-    if (isDripfunnelHost(base, edgeZone) && !(await withScope(sql, context, (tx) => selectIsHousePartner(tx, partnerId)))) return { ok: false, reason: 'DRIPFUNNEL_DOMAIN' }
-    // The email sender on a bare domain would clash with the partner's website.
-    if (kind === 'email' && isBareDomain(base)) return Promise.resolve({ ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' })
-    const host = base
-    const apex = kind === 'portal' && isBareDomain(base)
-    const pointing = recordsFor(kind, host, apex, edgeZone)
-    if (!pointing) return Promise.resolve({ ok: false, reason: 'APEX_NOT_AVAILABLE' })
-    // The token is the partner's proof of control: another partner's claim on the host never verifies.
-    const records = [...pointing, ownershipRecord(host, crypto.randomUUID().replaceAll('-', ''))]
+    const host = typed.host
     return withScope(sql, context, async (tx): Promise<AddResult> => {
+      // The house partner is DripFunnel itself (SAAS §3.5), so its own names are the ones it may add.
+      if (isDripfunnelHost(host, edgeZone) && !(await selectIsHousePartner(tx, partnerId))) return { ok: false, reason: 'DRIPFUNNEL_DOMAIN' }
+      // The email sender on a bare domain would clash with the partner's website.
+      if (kind === 'email' && isBareDomain(host)) return { ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' }
+      const apex = kind === 'portal' && isBareDomain(host)
+      const pointing = recordsFor(kind, host, apex, edgeZone)
+      if (!pointing) return { ok: false, reason: 'APEX_NOT_AVAILABLE' }
+      // The token is the partner's proof of control: another partner's claim on the host never verifies.
+      const records = [...pointing, ownershipRecord(host, crypto.randomUUID().replaceAll('-', ''))]
       const existing = await selectPartnerDomainsWithRecords(tx, partnerId)
       if (existing.some((r) => r.domain.host.toLowerCase() === host)) return { ok: false, reason: 'ALREADY_YOURS' }
       if (existing.some((r) => r.domain.kind === kind)) return { ok: false, reason: 'KIND_TAKEN' }
