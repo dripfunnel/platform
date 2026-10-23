@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { SupplierLine, SupplierOrder, SupplierPart } from '../../api/supplier'
-import { formatNumber } from '../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { SectionCard } from '../common/SectionCard'
 import { lineName } from '../orders/orderDetail'
 

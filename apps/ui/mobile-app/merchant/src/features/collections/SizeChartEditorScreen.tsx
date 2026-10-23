@@ -1,7 +1,7 @@
 import { loadCatalogueFacts } from '../../api/collections'
 import { loadAccess } from '../../api/products'
 import { loadSizeChart, loadSizeChartList, type SizeChart } from '../../api/sizeCharts'
-import { ApiError, type ApiClient } from '../../graphql'
+import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { sessionClient } from '../../session'
 import { stateOfError, useLoad } from '../common/useLoad'

@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { act, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
-import { ApiError, type ApiClient } from '../../graphql'
+import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { fakeApi, type Call } from '../../testing/fakeApi'
 import { actingAs, press, pressableNamed, pressablesNamed, renderShell } from '../../testing/harness'
 

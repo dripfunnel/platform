@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { EditorProduct } from '../../../api/products'
 import { t, tryT } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { SectionCard } from '../../common/SectionCard'
 
 type Props = { readiness: EditorProduct['readiness']; saved: boolean }

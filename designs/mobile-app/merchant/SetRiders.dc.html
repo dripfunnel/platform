@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;max-width:1040px;">
+  <sc-if value="{{ na }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:22px 24px;display:flex;flex-direction:column;gap:8px;max-width:640px;">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">Riders</span>
+    <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:18px;color:#0A2A4A;">Own delivery is set up by DripFunnel for Enterprise stores</span>
+    <span style="font-size:14px;color:#434A55;">With it, your own riders deliver orders from your warehouses using your store's delivery app. There's nothing to buy here: your DripFunnel contact switches it on once it's agreed.</span>
+  </div></sc-if>
+  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div aria-busy="true" aria-label="Loading riders" style="display:flex;flex-direction:column;gap:10px;"><span style="width:180px;height:20px;border-radius:6px;background:#ECE7E1;"></span><span style="height:56px;border-radius:12px;background:#F1ECE6;"></span><span style="height:56px;border-radius:12px;background:#F1ECE6;"></span><span style="height:56px;border-radius:12px;background:#F1ECE6;"></span></div></sc-if>
+  <sc-if value="{{ error }}" hint-placeholder-val="{{ false }}"><div role="alert" style="background:#FFFFFF;border:1px solid #F3C7C2;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;max-width:640px;"><strong style="font-family:Manrope,sans-serif;font-size:16px;color:#A1261B;">Couldn't load your riders</strong><span style="font-size:14px;color:#434A55;">Nothing has changed. Try again in a moment.</span><button onClick="{{ retry }}" style="height:38px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Try again</button></div></sc-if>
+  <sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+      <span style="display:flex;flex-direction:column;gap:2px;max-width:640px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:18px;color:#0A2A4A;">Riders</span><span style="font-size:13px;color:#5A6472;">Your own delivery people. They deliver from your warehouses with the {{ store }} Delivery app, and aren't the courier delivery partners in Shipping.</span></span>
+      <sc-if value="{{ headInvite }}" hint-placeholder-val="{{ true }}"><button onClick="{{ openInvite }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">Invite a rider</button></sc-if>
+    </div>
+    <span style="font-size:13px;color:#434A55;">{{ meter }}</span>
+    <sc-if value="{{ atLimit }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:12px 14px;border-radius:10px;background:#FFF6E5;border:1px solid #F2D9A6;color:#7A4B00;font-size:13px;"><strong>You've reached your rider limit.</strong> Ask DripFunnel to raise your limit, or remove a rider to invite someone new.</div></sc-if>
+
+    <sc-if value="{{ inv.open }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:2px solid #00519F;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;max-width:640px;">
+      <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Invite a rider</span>
+      <div style="display:grid;grid-template-columns:{{ invCols }};gap:12px;">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Name<input value="{{ inv.name }}" onChange="{{ inv.onName }}" placeholder="e.g. Ravi K." style="height:40px;border:1px solid {{ inv.nBd }};border-radius:8px;padding:0 12px;font-size:14px;font-weight:400;"><sc-if value="{{ inv.nErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-weight:400;color:#A1261B;font-size:12px;">{{ inv.nErr }}</span></sc-if></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Mobile number<span style="display:flex;gap:6px;"><span style="height:40px;padding:0 10px;border:1px solid #D7D3CD;border-radius:8px;background:#F7F2ED;display:flex;align-items:center;font-weight:600;">{{ cc }}</span><input value="{{ inv.phone }}" onChange="{{ inv.onPhone }}" inputmode="numeric" placeholder="Mobile number" style="flex:1;min-width:0;height:40px;border:1px solid {{ inv.pBd }};border-radius:8px;padding:0 12px;font-size:14px;font-weight:400;"></span><sc-if value="{{ inv.pErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-weight:400;color:#A1261B;font-size:12px;">{{ inv.pErr }}</span></sc-if></label>
+      </div>
+      <div style="padding:10px 12px;border-radius:8px;background:#FDFAF7;border:1px solid #EFEAE4;font-size:13px;color:#434A55;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;display:block;margin-bottom:2px;">The text they get</span>{{ inv.preview }}</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;"><button onClick="{{ inv.cancel }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Cancel</button><button onClick="{{ inv.send }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Send invitation</button></div>
+    </div></sc-if>
+
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px dashed #D7D3CD;border-radius:12px;padding:32px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;">
+      <strong style="font-family:Manrope,sans-serif;font-size:17px;color:#0A2A4A;">No riders yet</strong>
+      <span style="font-size:14px;color:#434A55;max-width:460px;">Invite your delivery people by mobile number. They get a text with the app link and sign in with that number. Own delivery can be turned on in Shipping once one of them is active.</span>
+      <sc-if value="{{ emptyInvite }}" hint-placeholder-val="{{ true }}"><button onClick="{{ openInvite }}" style="margin-top:6px;height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Invite a rider</button></sc-if>
+    </div></sc-if>
+
+    <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+      <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:minmax(0,1.6fr) 110px minmax(0,1.3fr) minmax(0,1fr) 90px 96px;gap:12px;padding:10px 16px;background:#FDFAF7;border-bottom:1px solid #E8E2DC;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;"><span>Rider</span><span>Status</span><span>Online now</span><span>Current delivery</span><span style="text-align:right;">Done</span><span></span></div></sc-if>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+        <div style="display:grid;grid-template-columns:{{ rowCols }};gap:8px 12px;padding:12px 16px;border-top:{{ r.bt }};align-items:center;font-size:13px;">
+          <span style="display:flex;align-items:center;gap:10px;min-width:0;"><span aria-hidden="true" style="width:36px;height:36px;border-radius:50%;background:#F2F0EC;color:#434A55;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:12px;flex:none;">{{ r.init }}</span><span style="display:flex;flex-direction:column;min-width:0;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:#14181F;">{{ r.name }}</strong><span style="color:#5A6472;font-size:12px;">{{ r.phone }}</span><sc-if value="{{ r.exp }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.dl }}" style="align-self:flex-start;border:0;background:transparent;padding:0;color:#B8541F;font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">{{ r.exp }}</button></sc-if></span></span>
+          <span><span style="display:inline-flex;height:22px;padding:0 9px;border-radius:11px;align-items:center;background:{{ r.stBg }};color:{{ r.stFg }};border:1px solid {{ r.stBd }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;white-space:nowrap;">{{ r.status }}</span></span>
+          <span style="display:flex;align-items:center;gap:6px;color:{{ r.onFg }};"><span aria-hidden="true" style="width:8px;height:8px;border-radius:50%;background:{{ r.dot }};flex:none;"></span>{{ r.online }}</span>
+          <span><sc-if value="{{ r.cur }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.openCur }}" style="border:0;background:transparent;padding:0;color:#B8541F;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">{{ r.cur }}</button></sc-if><sc-if value="{{ r.noCur }}" hint-placeholder-val="{{ true }}"><span style="color:#5A6472;">{{ r.curNone }}</span></sc-if></span>
+          <span style="text-align:{{ r.doneAlign }};color:#434A55;font-variant-numeric:tabular-nums;">{{ r.done }}</span>
+          <span style="display:flex;justify-content:flex-end;"><button onClick="{{ r.manage }}" aria-haspopup="dialog" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Manage</button></span>
+        </div>
+      </sc-for>
+    </div></sc-if>
+
+    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:2px;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ store }} Delivery app for Android</strong><span style="font-size:12px;color:#5A6472;">Riders install it from this link. It's also in every invitation text.</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#14181F;word-break:break-all;">{{ link }}</span></span>
+      <button onClick="{{ copy }}" style="height:36px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Copy link</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { inv: false, name: '', phone: '', nErr: '', pErr: '', exp: {} };
+  renderVals() {
+    const app = this.props.app; if (!app || !app.dlv) return {};
+    const dl = app.dlv, s = this.state, phone = app.phone, R = app.R;
+    const store = (app.data('storeInfo') || {}).name || R.store;
+    const wh = ((app.data('warehouses') || [])[0] || {}).name || R.wh;
+    const ready = dl.on && !dl.loading && !dl.error;
+    const riders = dl.riders;
+    const counted = riders.length;
+    const atLimit = ready && counted >= dl.limit;
+    const later = fn => setTimeout(fn, 30);
+    const refuse = (r, verb, oid) => app.modal({ title: 'Recall ' + oid + ' first', body: r.name + ' is carrying that order’s parcel. Recall the delivery from the order; once it’s back you can ' + verb + ' them.', confirm: 'Open the order', onConfirm: () => app.openOrder(oid) });
+    const upd = (id, patch) => dl.setRiders(l => l.map(x => x.id === id ? { ...x, ...patch } : x));
+    const act = (r, v) => {
+      const oid = dl.carrying(r.id);
+      if (v === 'resend') { app.toast('Invitation texted again to ' + r.phone); return; }
+      if (v === 'restore') { upd(r.id, { status: 'active' }); app.toast(r.name + ' can sign in and take deliveries again'); return; }
+      if (v === 'export') { this.setState({ exp: { ...s.exp, [r.id]: 'running' } }); app.toast('Export started. It’ll be ready to download here in a moment.'); setTimeout(() => this.setState(st => ({ exp: { ...st.exp, [r.id]: 'ready' } })), 2500); return; }
+      if (oid && v !== 'export') { refuse(r, { suspend: 'suspend', remove: 'remove', erase: 'erase' }[v], oid); return; }
+      const cur = dl.currentOf(r.id);
+      const handBack = () => { if (cur) dl.set(cur, 'searching', { start: Date.now() }); };
+      if (v === 'suspend') app.modal({ danger: true, title: 'Suspend ' + r.name + '?', body: 'Signs them out at once; a delivery they’ve accepted goes back to the others. You can restore them later.', confirm: 'Suspend', onConfirm: () => { upd(r.id, { status: 'suspended', online: false, km: '' }); handBack(); app.toast(r.name + ' suspended' + (cur ? '. ' + cur + ' went back to the other riders.' : '')); } });
+      if (v === 'remove') app.modal({ danger: true, title: 'Remove ' + r.name + '?', body: 'They’re signed out and can’t use the app again. Past deliveries keep their name; their phone number is erased.', confirm: 'Remove', onConfirm: () => { dl.setRiders(l => l.filter(x => x.id !== r.id)); handBack(); app.toast(r.name + ' removed'); } });
+      if (v === 'erase') app.modal({ danger: true, title: 'Erase ' + r.name + '?', body: 'Their name becomes ‘Former delivery partner’ in past deliveries and the activity log. Their profile, sign-ins and phone are deleted. This can’t be undone.', confirm: 'Erase', onConfirm: () => { dl.setRiders(l => l.filter(x => x.id !== r.id)); handBack(); app.toast(r.name + ' erased'); } });
+    };
+    const manage = r => {
+      const ch = r.status === 'invited' ? [{ label: 'Resend invitation', sub: 'Texts the app link to ' + r.phone + ' again', value: 'resend' }, { label: 'Remove', sub: 'Cancels the invitation', value: 'remove' }]
+        : [r.status === 'suspended' ? { label: 'Restore', sub: 'They can sign in and take deliveries again', value: 'restore' } : { label: 'Suspend', sub: 'Signs them out at once', value: 'suspend' },
+          { label: 'Remove', sub: 'Past deliveries keep their name; their phone number is erased', value: 'remove' },
+          { label: 'Export their data', sub: 'Profile, deliveries and sign-in times, as a file', value: 'export' },
+          { label: 'Erase', sub: 'Removes them and their name everywhere', value: 'erase' }];
+      app.modal({ title: r.name, body: r.phone + (r.veh ? ' · ' + r.veh : ''), choices: ch, confirm: 'Continue', onConfirm: v => later(() => act(r, v)) });
+    };
+    const download = r => {
+      const AREAS = ['Malviya Nagar', 'Vaishali Nagar', 'C-Scheme', 'Raja Park', 'Mansarovar', 'Bani Park', 'Jagatpura'];
+      const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+      const rows = [['Section', 'Field', 'Value'], ['Profile', 'Name', r.name], ['Profile', 'Mobile', r.phone], ['Profile', 'Vehicle', r.veh || 'Not added'], ['Profile', 'Status', r.status], ['Profile', 'Deliveries done', r.done], [], ['Deliveries', 'Date', 'Result', 'Warehouse', 'Customer area']];
+      const n = Math.min(r.done, 25);
+      for (let i = 0; i < n; i++) { const d = new Date(2026, 9, 23 - Math.floor(i / 3), 18 - (i % 3) * 3, (i * 17) % 60); rows.push(['Deliveries', d.toLocaleString(R.locale), i === 4 ? 'Not delivered' : i === 11 ? 'Recalled' : 'Delivered', i % 3 === 1 ? 'MI Road shop' : wh, AREAS[i % AREAS.length]]); }
+      rows.push([], ['Sign-ins', 'Date']);
+      for (let i = 0; i < 5; i++) rows.push(['Sign-ins', new Date(2026, 9, 23 - i * 4, 8, 55).toLocaleString(R.locale)]);
+      const csv = rows.map(x => x.map(q).join(',')).join('\r\n');
+      const name = r.name.replace(/\W+/g, '-').replace(/-+$/, '').toLowerCase() + '-data.csv';
+      try { const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })); const el = document.createElement('a'); el.href = url; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); app.toast(name + ' downloaded. No customer names, phones or addresses are in it.'); } catch (e) { app.toast('Couldn’t start the download. Try again.'); }
+    };
+    const ST = { active: ['Active', '#EEF7F2', '#1D6B47', '#CBE6D6'], invited: ['Invited', '#EAF1F8', '#00325F', '#C6D9EC'], suspended: ['Suspended', '#A1261B', '#FFFFFF', '#A1261B'] };
+    const rows = riders.map((r, i) => { const st = ST[r.status]; const cur = dl.currentOf(r.id); const ex = s.exp[r.id];
+      return { name: r.name, phone: r.phone, init: r.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(), status: st[0], stBg: st[1], stFg: st[2], stBd: st[3], bt: i ? '1px solid #EDEAE5' : '0',
+        online: r.status !== 'active' ? '—' : r.online ? 'Online · ' + r.km + ' km from ' + wh : 'Offline', dot: r.status === 'active' && r.online ? '#1D6B47' : 'transparent', onFg: r.status === 'active' && r.online ? '#1D6B47' : '#5A6472',
+        cur: cur || '', noCur: !cur, curNone: phone ? 'No current delivery' : '—', openCur: () => app.openOrder(cur), done: phone ? r.done + ' delivered' : String(r.done), doneAlign: phone ? 'left' : 'right',
+        exp: ex === 'running' ? 'Export being prepared…' : ex === 'ready' ? 'Download export' : '', dl: () => { if (ex === 'ready') download(r); }, manage: () => manage(r) }; });
+    const digits = s.phone.replace(/\D/g, '');
+    const openInvite = () => { if (atLimit) { app.modal({ title: 'Rider limit reached', body: 'Your store can have ' + dl.limit + ' riders. Ask DripFunnel to raise your limit, or remove a rider first.', confirm: 'OK' }); return; } this.setState({ inv: true, name: '', phone: '', nErr: '', pErr: '' }); };
+    const send = () => {
+      const nErr = s.name.trim() ? '' : 'Add their name';
+      const pErr = digits.length < 10 || digits.length > 11 ? 'Enter the full mobile number' : riders.some(r => r.phone === dl.mask(digits)) ? 'This number is already on your list' : '';
+      if (nErr || pErr) { this.setState({ nErr, pErr }); return; }
+      const masked = dl.mask(digits);
+      dl.setRiders(l => [...l, { id: 'r' + Date.now(), name: s.name.trim(), phone: masked, status: 'invited', online: false, km: '', veh: '', done: 0 }]);
+      this.setState({ inv: false }); app.toast('Invitation texted to ' + masked);
+    };
+    const first = (s.name.trim().split(/\s+/)[0]) || (riders[0] || {}).name || 'Hello';
+    return { cc: dl.cc, pad: phone ? '14px' : '22px 28px', store, na: !dl.on, loading: dl.loading, error: dl.error, ready, retry: () => app.set('od', 'on'),
+      headInvite: ready && counted > 0, emptyInvite: !s.inv, meter: counted + ' of ' + dl.limit + ' riders on your plan · ' + riders.filter(r => r.status === 'active').length + ' active', atLimit,
+      openInvite, empty: ready && counted === 0, hasRows: ready && counted > 0, rows, wide: !phone, rowCols: phone ? '1fr' : 'minmax(0,1.6fr) 110px minmax(0,1.3fr) minmax(0,1fr) 90px 96px', invCols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))',
+      inv: { open: s.inv, name: s.name, phone: s.phone, nErr: s.nErr, pErr: s.pErr, nBd: s.nErr ? '#A1261B' : '#D7D3CD', pBd: s.pErr ? '#A1261B' : '#D7D3CD', onName: e => this.setState({ name: e.target.value, nErr: '' }), onPhone: e => this.setState({ phone: e.target.value, pErr: '' }), cancel: () => this.setState({ inv: false }), send,
+        preview: first + ', ' + store + ' has invited you to deliver its orders. Get the app: ' + dl.appLink + ' and sign in with this number.' },
+      link: dl.appLink, copy: () => { try { navigator.clipboard.writeText(dl.appLink); } catch (e) {} app.toast('Link copied'); } };
+  }
+}
+</script>
+</body>
+</html>

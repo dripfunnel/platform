@@ -1,5 +1,5 @@
 import { act } from 'react-test-renderer'
-import { ApiError } from '../../graphql'
+import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { actingAs, hasText, press, pressableNamed, pressablesNamed, texts } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'
 import { CollectionsArea } from './CollectionsArea'

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ApiError, typedQuery, type ApiClient } from '../graphql'
+import { ApiError, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { postAsset, type PhotoDeps } from './products'
 
 // A download's file, a service's details and a gift card's expiry (FIRST-RELEASE (store) §11; apps/api src/apis/store/productKinds.ts).

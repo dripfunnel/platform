@@ -1,6 +1,6 @@
 import { View, StyleSheet } from 'react-native'
 import { loadBrand, loadSeo, loadShareImages } from '../../../api/storefrontSettings'
-import type { ApiClient } from '../../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 import { errorMessage } from '../../../messages/errorMessage'
 import { Button } from '../../common/Button'

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { loadMarkets } from '../../../api/settingsMarkets'
 import { loadLocale } from '../../../api/settingsStore'
-import { ApiError } from '../../../graphql'
+import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 import { sessionClient } from '../../../session'
 import { stateOfError, useLoad } from '../../common/useLoad'

@@ -1,4 +1,5 @@
-import { ApiError, createApiClient, type ApiClient } from '../graphql'
+import { ApiError, createApiClient, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { apiPath } from '../graphql'
 
 type Handler = (variables: Record<string, unknown>, headers: Record<string, string>) => unknown
 
@@ -24,6 +25,6 @@ export const fakeApi = (handlers: Record<string, Handler>, seat: { store?: strin
       return { json: async () => ({ errors: [{ message: error.message, extensions: { code: error.code, ...error.details } }] }) }
     }
   }) as unknown as typeof fetch
-  const client = createApiClient({ domain: 'shop.test', fetchImpl, token: () => 'token', store: () => seat.store ?? 'store-1', supplier: () => seat.supplier ?? null })
+  const client = createApiClient({ domain: 'shop.test', path: apiPath, fetchImpl, token: () => 'token', store: () => seat.store ?? 'store-1', supplier: () => seat.supplier ?? null })
   return { client, calls }
 }

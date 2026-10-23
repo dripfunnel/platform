@@ -1,5 +1,5 @@
 import { deleteGroup, type CustomerGroup } from '../../api/customers'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { tCount } from '../../messages/plural'
 import { FormSheet } from '../settings/FormSheet'

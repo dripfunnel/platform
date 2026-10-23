@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 type Props = { label: string; onPress: () => void; selected?: boolean; disabled?: boolean; hint?: string | undefined; dashed?: boolean; accessibilityLabel?: string }
 

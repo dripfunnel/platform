@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router'
 import { loadHome, loadLocaleFacts } from '../../api/home'
 import { loadAccess } from '../../api/products'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { sessionClient } from '../../session'
 import { useReloadOnFocus } from '../collections/useReloadOnFocus'

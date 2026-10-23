@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import { loadCustomer, loadCustomerGroups } from '../../api/customers'
 import { loadStoreTimeZone } from '../../api/storeInfo'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { stateOfError, useLoad } from '../common/useLoad'
 import { ShellScreen } from '../states/ShellScreen'

@@ -1,5 +1,5 @@
 import { reminderText, type ReminderSettings, type ReminderSettingsInput, type ReminderStep } from '../../api/carts'
-import { minorOf, moneyText } from '../../format'
+import { minorOf, moneyText } from '@dripfunnel/mobile-shared/format'
 
 // The reminder settings as the form holds them: the minimum typed in major units, the steps as read. Saved as one, at the revision read.
 

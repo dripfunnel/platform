@@ -1,5 +1,5 @@
-import type { FormatCase } from '../../format/cases'
-import { formatCases } from '../../format/cases'
+import type { FormatCase } from '@dripfunnel/mobile-shared/format/cases'
+import { formatCases } from '@dripfunnel/mobile-shared/format/cases'
 import { reportOf, runChecks } from './runChecks'
 
 const header = { engine: 'Hermes test', platform: 'android', installed: ['listformat'] }

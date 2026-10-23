@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { addTracking, type OrderShipment } from '../../api/order'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { TextField } from '../common/TextField'
 import { FormSheet } from '../settings/FormSheet'

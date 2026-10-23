@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Notice } from '../../common/Notice'
 import { StatusChip } from '../../products/StatusChip'
 import { statusTone } from '../offerView'

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Support access (SetAccess "support"; ACCESS.md §8; apps/api src/apis/store/support.ts): the switch, and the log of the last 90 days.
 

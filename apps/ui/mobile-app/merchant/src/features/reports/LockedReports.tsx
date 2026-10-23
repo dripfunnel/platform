@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Notice } from '../common/Notice'
 
 // Below the plan that has Reports (the prototype's locked view): it names the plan that unlocks it and has no upgrade action, since plans are not in the app (DESIGN.md §5).

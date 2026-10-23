@@ -1,5 +1,5 @@
 import { markOrderPaid, type Order } from '../../api/order'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { FormSheet } from '../settings/FormSheet'
 import { methodText, moneyText } from './orderView'

@@ -1,5 +1,5 @@
 import type { ShippingInput, ShippingSettings } from '../../../api/settingsShipping'
-import { minorOf, moneyText } from '../../../format'
+import { minorOf, moneyText } from '@dripfunnel/mobile-shared/format'
 
 /** The longest collection hours the API keeps (apps/api src/engine/modules/shipping/rules.ts). */
 export const pickupHoursMax = 120

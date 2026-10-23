@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { ExportJob } from '../../../api/exportJob'
 import { loadStoreDataExport, requestStoreDataExport, type StoreDataPart } from '../../../api/settingsStore'
-import type { ApiClient } from '../../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { useExportJob } from '../../common/useExportJob'
 
 // "Download my data first": `exportStoreData`'s three parts, read back until none is still queued. The parts settle on their own, so

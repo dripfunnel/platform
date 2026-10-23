@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { cancelOrder, cancelReasons, type CancelReason, type Order } from '../../api/order'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { ChoiceRows } from '../settings/ChoiceRows'
 import { FormSheet } from '../settings/FormSheet'

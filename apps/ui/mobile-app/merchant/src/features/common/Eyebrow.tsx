@@ -1,5 +1,5 @@
 import { StyleSheet, Text } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 // The small capitals over a group of cards ("Needs you", "Latest orders"), as the prototype's mono caption.
 export function Eyebrow({ text }: { text: string }) {

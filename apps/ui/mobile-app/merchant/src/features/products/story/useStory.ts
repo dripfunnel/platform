@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { copyProductStory, gapsOf, loadProductStory, publishProductStory, saveProductStory, type ProductStory, type StoryGap } from '../../../api/productStory'
-import { isApiError, type ApiClient } from '../../../graphql'
+import { isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 import { errorMessage } from '../../../messages/errorMessage'
 import { useFeedback } from '../../shell/Feedback'

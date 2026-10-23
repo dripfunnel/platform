@@ -1,5 +1,5 @@
 import type { ApiMoney, OrderCounts, OrderFilter, OrderRow } from '../../api/orders'
-import { formatMoney } from '../../format'
+import { formatMoney } from '@dripfunnel/mobile-shared/format'
 import { locale, tryT } from '../../messages'
 import type { Tone } from '../products/productView'
 

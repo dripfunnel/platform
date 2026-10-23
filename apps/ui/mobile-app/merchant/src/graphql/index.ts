@@ -1,6 +1,4 @@
-export { authHeaders, createApiClient, defaultTimeoutMs, type ApiClient, type ClientOptions } from './client'
-export { ApiError, isApiError, knownErrorCodes, type KnownErrorCode } from './errors'
-export { allPages, nextPage, pageInfoSchema, previousPage, type PageInfo, type PageRequest } from './paging'
 export { partnerDomain } from './partnerDomain'
-export { postJson, postSignOut, type RestOptions } from './rest'
-export { decode, typedQuery } from './typed'
+
+/** The Store API's path on the partner's portal host, with the trailing slash the `/api/*` route needs (ARCHITECTURE.md §2). */
+export const apiPath = '/api/'

@@ -3,7 +3,7 @@
 How the DripFunnel platform prototypes in this project are built, so a new
 screen can be added without re-reading 10,000 lines of source.
 
-Last updated: 2026-10-15 (#744: the preview address in the Open preview toast).
+Last updated: 2026-10-23 (#854: the shop app's prototype). Before: 2026-10-23 (#837: the delivery app and own delivery). Earlier: 2026-10-15 (#744: the preview address in the Open preview toast).
 
 ---
 
@@ -19,6 +19,8 @@ to a backend.
 | **Platform** | A partner reselling DripFunnel under their own brand, e.g. *Northstar Shops* | Partner console | `DF Platform Prototype.dc.html` |
 | **Admin** | DripFunnel's own staff, running every partner and store | Admin console | `DF Admin Prototype.dc.html` |
 | **Shopper** | A store's customers, on its storefront | The baseline storefront theme (`templates/storefront`) | `DF Storefront Prototype.dc.html` |
+| **Shopper (app)** | The same customers, in the store's own shopping app | `apps/ui/mobile-app/shop` (not built) | `DF Shop App Prototype.dc.html` |
+| **Delivery app** | A store's own riders ("delivery partners" on screen), one app per store in the store's brand | Phone app (Kesari Threads sample) | `mobile-app/delivery-partner-app/DF Delivery App Prototype.dc.html` |
 
 Plus two supporting files:
 
@@ -56,7 +58,10 @@ Every child receives a single `app` prop (see §3).
 | Import & export | `CatImport` | CSV, Shopify import, match rules, progress, pause |
 | Storefront | `PortalStorefront` | Overview (live preview) · template gallery (6 templates + start from scratch, each with a demo) · full-screen AI studio (chat left, live preview right, undo, publish) · Site settings tab (domains + DNS, search & sharing, AI usage, version history). Studio's Plan A parts (#487): images and a website in the chat, Edit text in every language, the page picker listing every page, "Opening your studio…" over the current preview, the queue, "Finishing your previous change…", "Checking your change…", the session ended state, Open preview with End all preview links (its toast names no host: PREVIEW §1 says `{slug}-preview.my-store.one`), and the publish gate's "Checking your site…", refusal (with Publish everything before this change) and rollback, each under `?state=` (§2). Not drawn yet, decided 2026-10-08: a "Your brand" step before the gallery, Pages and Journal tabs (`StorefrontContent`) and a catalogue "Publish now" bar (FIRST-RELEASE §14) |
 | Pages and Journal | `StorefrontContent` | Content pages (about, FAQ, contact, lookbook) and blog posts: list, block editor, search preview, publish, schedule, delete (#286) |
-| Settings | `PortalSettings` | Tab host → `SetStore`, `SetTeam`, `SetOps`, `CatSettings`, `SetMarkets`, `SetAccess`, `SetDev`, `StoreActivity` |
+| Settings | `PortalSettings` | Tab host → `SetStore`, `SetTeam`, `SetOps`, `CatSettings`, `SetMarkets`, `SetAccess`, `SetDev`, `StoreActivity`, `SetRiders`, `SetOwnDelivery` |
+| Settings › Riders | `SetRiders` | Own riders (Owner): list with status, online now, current delivery, done; invite (name + mobile, text preview), resend, suspend, restore, remove, export, erase; refusals while carrying a parcel; APK link; empty, limit, loading, error, not switched on |
+| Shipping › Own delivery, Warehouse delivery fields | `SetOwnDelivery` | `mode="shipping"`: on/off with checklist, offer when placed / when ready, alert minutes 1–30. `mode="warehouse"`: per own warehouse — map pin, delivers on/off, area km, rider km, fee, validation |
+| Order › Delivery panel | `OrderDelivery` | Mounted in `PortalOrders` detail for own-delivery orders (never for suppliers): every state, rider card, last position, actions, steps. Orders list gains *Own delivery* and *Delivery needs you* chips and a delivery line per row |
 | Customer accounts, Support access | `SetAccess` | `mode=customers`: email, mobile or both, what shoppers see. `mode=support`: the On/Off switch, how a session works, the support access log (#286) |
 | Developers, Apps | `SetDev` | `mode=developers`: storefront key, allowed websites, API keys (scopes, supplier binding, expiry, shown once, rotate, revoke), webhooks (events, deliveries, send again, turned off after failures). `mode=apps`: private apps, install consent, open on the app's site, remove saying what stops (#286) |
 | Activity log, Store activity | `StoreActivity` | Settings tab for the Owner (with export); the Manager's *Store activity* from the user menu (export disabled with the reason) (#286) |
@@ -145,6 +150,47 @@ in storefront ARCHITECTURE §2.1 as a *proposal* awaiting approval on #285 (its 
 `ImpBanner.dc.html` is the one shared child: the staff-session banner that
 the Platform and Store prototypes mount at the top of their frame (see §8).
 
+### Shop app — single file
+
+`DF Shop App Prototype.dc.html` plus `shop-data.js` is the store's own shopping app on iOS and
+Android (`apps/ui/mobile-app/shop`, not built; docs/mobile-app/shop/FIRST-RELEASE.md). Drawn on
+#854 (SH 1); it decides behaviour, layout and wording for SH 8–SH 14. Every screen is drawn for
+the two sample stores of the Storefront prototype, and the app wears **the store's** logo
+mark, colours and fonts (`BR` in the file: Kesari Threads in terracotta with Lora and Mulish,
+Juniper & Co. in green with Bricolage Grotesque and DM Sans), not DripFunnel's. There is no
+"Powered by" line (FIRST-RELEASE §1).
+
+Screens and their states, in the Screen and State controls (every state also opens from the URL,
+`?screen=order&state=onTheWay&store=IN`):
+
+| Screen | States drawn |
+| --- | --- |
+| Home | collections, products, announcement · loading · load error · offline · empty shop |
+| Collection | filters open · sort open · a filter on · nothing matches · loading · error · offline |
+| Search | before typing · suggestions · results · no results · loading · offline |
+| Product | version chosen · nothing chosen · video · version sold out · low stock · sold out · size chart · added to cart · loading · error · offline |
+| Cart | lines and the automatic offer · code applied · code refused · out of stock since added · empty · loading · error · offline |
+| Sign in, register, reset | email and password · wrong password · mobile number · mobile code · wrong code · register · check your email · reset (ask, sent, new password) |
+| Account | signed out · signed in · details · addresses with pins · add an address with a pin · delete account (confirm, after) · loading · error |
+| Checkout | 1 contact · 2 address (saved, new with a pin, pin missing) · 3 delivery (own delivery or courier by address; pickup) · 4 payment · the provider's sheet · 5 review with the order summary and legal notices · waiting for the provider · payment failed · offline |
+| Order confirmation | placed, for the Payment control's method (paid, cash on delivery, bank transfer with its instructions) |
+| Orders, an order | list (empty, signed out, loading, error, offline) · own delivery: being packed, looking for a rider, rider assigned, on the way (live map), delivered, not delivered · courier shipped and its tracking link · waiting for a bank transfer |
+| Language and currency | choose |
+| Legal pages | list · terms · privacy · returns · legal notice, in the in-app browser |
+| Notifications | why we ask · the system's ask · refused (banner on the order) · lock screen |
+
+Controls: Screen · State · Store (India: INR, cash on delivery, Razorpay, Cashfree, PhonePe,
+own delivery · US: USD, Stripe, PayPal, courier) · Payment · Platform (Android or
+iOS: the status bar and the system's wording). Sample values the strip prints: sign-in code
+`123456`, password `wrong` fails, offer code `DIWALI15` / `WELCOME15`, handover code `2580`
+(the same code as the delivery app's prototype). The tracking screen follows
+api/DELIVERY.md §7: steps, the rider's name, photo, vehicle and Call, the handover code, a live
+map with the rider and the address, and an arrival time. The provider sheets (Razorpay,
+Stripe…) are placeholders: "Drawn by the provider". The last choices persist in
+`localStorage['df-shop-proto-v1']`.
+
+What is drawn but not in the first release is listed in MISSING-FEATURES.md §5.
+
 ### Merchant mobile app — `mobile-app/merchant/`
 
 `mobile-app/merchant/DF Store App.dc.html` is the merchant portal as an iOS and Android app
@@ -155,6 +201,12 @@ The other screens in that folder are older copies of the Store screens. They are
 the prototype runs, and they are **not** a source: each screen's content comes from
 `DF Store Prototype.dc.html` at phone width. The rules are in
 `docs/mobile-app/merchant/DESIGN.md` §1.
+
+Own delivery (#837): More has **Riders** for the Owner, and the controls strip has the Store prototype's **Own delivery** and **Delivery** selects. `SetRiders`, `SetOwnDelivery` and `OrderDelivery` are copied here from `designs/`, because `dc-import` loads screens only from the page's own folder.
+
+### Delivery app — `mobile-app/delivery-partner-app/`
+
+`DF Delivery App Prototype.dc.html` is the store's app for its own delivery partners (§14). It loads `designs/support.js` and `designs/assets/` and imports no screens, so the folder holds only that file.
 
 ---
 
@@ -167,9 +219,11 @@ design. Add a new state as a control option before adding UI to reach it.
 
 | Prototype | Controls |
 | --- | --- |
-| Store | Role · Region · Plan · Store (stocked / empty / signup) · Partner support (no session, open, asks to make changes, changes allowed) · Scenario · toggles (Languages, Currencies, Approval, Offline…) · Desktop/Phone · Reset data. URL parameters `region`, `role`, `plan`, `device`, `theme`, `screen`, `settingsTab`, `editId`, `support` and `sfTab` open a state directly (#286). On `screen=storefront` (Owner, stocked store) a **Storefront** control and `state` open the studio's and the publish gate's states (#487): `opening`, `queued`, `finishing`, `checking`, `ended`, `attach`, `edit-text`, `pages`, `preview-menu`, `end-links`, `links-ended`, `pub-checking`, `pub-refused`, `pub-refused-all`, `rolled-back` |
+| Store | Role · Region · Plan · Store (stocked / empty / signup) · Partner support (no session, open, asks to make changes, changes allowed) · Scenario · **Own delivery** (on / no riders / limit reached / riders loading / riders error / not switched on) · **Delivery** (the first unshipped order's delivery state; the second is "Nobody accepted") · toggles (Languages, Currencies, Approval, Offline…) · Desktop/Phone · Reset data. URL parameters `region`, `role`, `plan`, `device`, `theme`, `screen`, `settingsTab`, `editId`, `support` and `sfTab` open a state directly (#286). On `screen=storefront` (Owner, stocked store) a **Storefront** control and `state` open the studio's and the publish gate's states (#487): `opening`, `queued`, `finishing`, `checking`, `ended`, `attach`, `edit-text`, `pages`, `preview-menu`, `end-links`, `links-ended`, `pub-checking`, `pub-refused`, `pub-refused-all`, `rolled-back` |
+| Delivery app | Screen (Getting in, Home, before pickup, after pickup, History, Profile, Notifications, Account blocked) · State (per screen) · Payment (cash on delivery / paid online) · Android/iOS (permission wording). Position persists in `localStorage['df-delivery-proto-v1']`. Sign-in code 123456, handover code 2580 |
 | Platform | Partner (Northstar live, Kaufladen draft / set up by DF / awaiting / sent back / just approved) · Role · Theme · Screen · Signed in · Invitation · Scenario |
 | Admin | Signed in as · Theme · Environment · Screen · Data · Sign-in |
+| Shop app | Screen · State · Store (India / US) · Payment · Platform (Android / iOS). URL parameters `screen`, `state`, `store`, `pay` and `platform` open a state directly (#854) |
 
 **Device frames:** desktop fills the viewport. Phone is 375–390px wide,
 780–800px tall, with a 8–10px `#14181F` bezel and a 28–40px radius. Platform
@@ -516,3 +570,22 @@ have, orange fills on navigation.
 - The Admin prototype's **Environment** control offers only Production and Staging. The product
   has four environments, named by hostname (Production, Dev, Feature, Local; decided on #65), and
   the console builds those; the prototype is behind it.
+
+---
+
+## 14. Delivery app (`mobile-app/delivery-partner-app/DF Delivery App Prototype.dc.html`)
+
+One build per store, in the store's brand (sample: Kesari Threads, accent `#B4532A` / ink `#FFFFFF` / tint `#F6E7DD`). No DripFunnel branding, no "Powered by". Screens say **delivery partner**; the merchant portal says **rider** so they aren't confused with couriers.
+
+| Screen | States |
+| --- | --- |
+| Getting in | `phone`, `code` (Resend after 30 s), `codeBad` (same message for wrong code and uninvited number), `tooMany` (after 5 wrong codes, wait 10 min), `profile`, `notif`, `notifSys` |
+| Home | `offline`, `locAsk`, `locAlways` (iOS always / Android foreground notice), `locRefused`, `offers`, `taken`, `empty`, `current`, `offHB`, `noSignal`, `notifRefused`, `loading`, `error` |
+| Before pickup | `normal`, `prepaid`, `handBack`, `noSignal`, `cancelled` |
+| After pickup | `normal`, `prepaid`, `cash`, `code`, `codeWrong`, `codeLocked`, `done`, `failed`, `returnParcel`, `offlineCode`, `saved`, `sent`, `unconfirmed`, `recalled` |
+| History | `normal` (20 + Show more), `more`, `empty`, `loading`, `error` — fee the customer paid, never pay or customer details |
+| Profile | `normal`, `edit`, `del`, `delRefused` |
+| Notifications | `lock` — offer, assigned by store, cancelled, recalled, taken (silent), Android online notice |
+| Account blocked | `suspended`, `autoBack`, `tooOld`, `featureOff` |
+
+Defaults chosen (card #837): one delivery at a time, offers pause while carrying; going offline before pickup hands back with a confirm, after pickup isn't allowed; the store confirms a returned parcel; History lists delivered, not delivered and recalled only; vehicle number not asked for bicycle or on foot; photo optional; offer countdown = the store's alert minutes; English only.

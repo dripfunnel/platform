@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from './Button'
 
 type Props = { failed: boolean; label: string; busy: boolean; onDiscard: () => void; onSave: () => void }

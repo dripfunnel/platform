@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 // An error or an explanation above a form. Errors are announced to a screen reader as they appear.
 export function Notice({ text, kind = 'info' }: { text: string; kind?: 'info' | 'error' | 'success' }) {

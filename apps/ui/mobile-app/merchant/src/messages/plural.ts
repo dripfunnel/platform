@@ -1,4 +1,4 @@
-import { pluralForm } from '../format'
+import { pluralForm } from '@dripfunnel/mobile-shared/format'
 import { locale, t, type MessageKey } from './index'
 
 type Values = Readonly<Record<string, string | number>>

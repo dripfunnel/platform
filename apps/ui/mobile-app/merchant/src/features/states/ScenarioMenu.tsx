@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { t, type MessageKey } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { SheetFrame } from '../shell/BottomSheet'
 import { resetScenario, setScenario, useScenario, type Scenario } from './scenario'
 

@@ -1,5 +1,5 @@
 import { socialNetworks, type BrandInput, type SocialNetwork, type StorefrontBrand } from '../../../api/storefrontSettings'
-import { isApiError } from '../../../graphql'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 
 // The brand as typed (FIRST-RELEASE (store) §14): every field text, the two images their asset ids.

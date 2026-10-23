@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isApiError, typedQuery, type ApiClient } from '../graphql'
+import { isApiError, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { exportJobFields, exportJobSchema, readExportJob, type ExportJob } from './exportJob'
 import { moneySchema } from './orders'
 

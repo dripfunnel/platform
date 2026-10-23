@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { AddressFields, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
@@ -13,6 +13,7 @@ import styles from '../../styles/checkout.module.css'
 export const CheckoutView = () => {
   const { store, locale, t } = useStorefront()
   const c = useCheckout()
+  const account = useAccount()
   const [email, setEmail] = useState<string | null>(null)
   const [phone, setPhone] = useState<string | null>(null)
   const [contactErrors, setContactErrors] = useState<{ email?: string; phone?: string }>({})
@@ -73,19 +74,19 @@ export const CheckoutView = () => {
         <Form
           className={styles.form}
           onSubmit={() =>
-            void c.saveContact({ email: email ?? cart.email ?? '', phone: phone ?? cart.phone ?? '' }).then((errors) => setContactErrors({ email: problem(errors.email) ?? undefined, phone: (errors.phone === 'invalid' ? t('shop.checkout.phoneInvalid') : problem(errors.phone)) ?? undefined }))
+            void c.saveContact({ email: email ?? cart.email ?? account.account?.email ?? '', phone: phone ?? cart.phone ?? account.account?.phone ?? '' }).then((errors) => setContactErrors({ email: problem(errors.email) ?? undefined, phone: (errors.phone === 'invalid' ? t('shop.checkout.phoneInvalid') : problem(errors.phone)) ?? undefined }))
           }
         >
-          {c.mode === 'live' ? (
+          {c.mode === 'live' && account.status === 'signedOut' ? (
             <p className={styles.note}>
               {t('shop.checkout.haveAccount')}{' '}
-              <Link href="/sign-in/?then=checkout" className={styles.inline}>
+              <Link href="/sign-in/?next=/checkout/" className={styles.inline}>
                 {t('shop.checkout.signIn')}
               </Link>
             </p>
           ) : null}
-          <TextField label={t('shop.checkout.email')} type="email" autoComplete="email" value={email ?? cart.email ?? ''} onChange={setEmail} hint={t('shop.checkout.emailHint')} error={contactErrors.email} className={styles.field} />
-          <TextField label={t('shop.checkout.phone')} type="tel" autoComplete="tel" value={phone ?? cart.phone ?? ''} onChange={setPhone} note={t('shop.checkout.optional')} hint={t('shop.checkout.phoneHint')} error={contactErrors.phone} className={styles.field} />
+          <TextField label={t('shop.checkout.email')} type="email" autoComplete="email" value={email ?? cart.email ?? account.account?.email ?? ''} onChange={setEmail} hint={t('shop.checkout.emailHint')} error={contactErrors.email} className={styles.field} />
+          <TextField label={t('shop.checkout.phone')} type="tel" autoComplete="tel" value={phone ?? cart.phone ?? account.account?.phone ?? ''} onChange={setPhone} note={t('shop.checkout.optional')} hint={t('shop.checkout.phoneHint')} error={contactErrors.phone} className={styles.field} />
           <SubmitButton className={shop.primary} disabled={c.busy}>
             {t('shop.checkout.continue')}
           </SubmitButton>

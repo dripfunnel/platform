@@ -5,14 +5,17 @@
 `prod.yml` only uploads a Worker version (`wrangler versions upload`); it does not put it live
 and does not deploy the SPAs. The run summary prints the version ID. To go live, run the
 **promote** workflow (`workflow_dispatch` on `promote.yml`) with that `version_id`, the
-store-proxy's `proxy_version_id`, the commit's `commit_sha` and the run summary's `studio_digest`. It promotes both Workers to 100%, health-checks the live prod host, and —
+store-proxy's `proxy_version_id`, the commit's `commit_sha` and the run summary's `studio_digest`. It promotes both Workers to 100%, then runs `wrangler deploy --containers-rollout immediate` once from that commit (only `deploy` applies the studio's container image, #881), which makes a **new version of the same code**: the one that ends up live, health-checked and named in the log. It checks that version's message names the commit. Then it health-checks the live prod host and —
 only if that succeeds — builds and deploys all three SPAs from that same commit. If you'd rather
 promote by hand instead (from `apps/api`, with `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` for
 the prod account):
 
 ```
 pnpm exec wrangler versions deploy <version-id>@100 --env prod -y
+pnpm exec wrangler deploy --env prod --keep-vars --containers-rollout immediate
 ```
+
+The second command is needed only when the studio's image changed (a new `studio_digest`) or the container application has none.
 
 Every `wrangler` command in `apps/api` (and `store-proxy/`) refuses to read `wrangler.jsonc` while its studio image is still the
 `PROD_STUDIO_IMAGE` placeholder, rollbacks included. Before any of them, replace it with
@@ -36,6 +39,8 @@ The previous version is still stored by Cloudflare — no rebuild needed.
 pnpm exec wrangler versions list --env prod
 pnpm exec wrangler versions deploy <previous-version-id>@100 --env prod -y
 ```
+
+`versions deploy` does not touch the studio's container application, so the image stays on the newer digest. If the image is the bad part, put the previous digest in your copy of `wrangler.jsonc` (above) and run `pnpm exec wrangler deploy --env prod --keep-vars --containers-rollout immediate` from the previous commit.
 
 This is safe because migrations are required to be backward-compatible with the previously
 running version (ARCHITECTURE.md §6) — the old Worker code keeps working against the current

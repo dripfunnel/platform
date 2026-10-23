@@ -1,5 +1,5 @@
 import { deleteOffer, duplicateOffer, endOffer, setOfferOn, type Offer } from '../../api/offers'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { useFeedback } from '../shell/Feedback'
 import { dateTimeText, statusKeyOf, zoneName } from './offerView'

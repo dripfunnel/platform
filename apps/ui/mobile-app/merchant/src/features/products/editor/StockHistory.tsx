@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { loadStockHistory, type StockMovement } from '../../../api/inventory'
-import type { ApiClient } from '../../../graphql'
-import { formatDateTime } from '../../../format'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { formatDateTime } from '@dripfunnel/mobile-shared/format'
 import { locale, t, tryT } from '../../../messages'
 import { errorMessage } from '../../../messages/errorMessage'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../../common/Button'
 
 type Props = { client: ApiClient; productId: string; /** A version's name by id, for the line under each movement. */ nameOf: (versionId: string) => string }

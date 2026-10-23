@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
-import type { ApiClient } from '../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { FeedbackProvider } from '../features/shell/Feedback'
 import { ShellDataProvider } from '../features/shell/ShellData'
 import type { Acting } from '../session/sessionStore'
-import { buildTheme, ThemeProvider } from '../theme'
+import { buildTheme, ThemeProvider } from '@dripfunnel/mobile-shared/theme'
 
 // The shell's tests render real components against a fake API that answers the four shell reads.
 export type FakeApi = { me?: { name: string | null; email: string }; badges?: { products: number | null; toShip: number | null } | null; state?: unknown; theme?: string | null }

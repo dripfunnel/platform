@@ -2,7 +2,7 @@ import { loadAccess } from '../../../api/products'
 import { loadShopHost } from '../../../api/storefront'
 import { loadDesign, type DesignOverview } from '../../../api/studio'
 import { loadBrand, loadSeo, loadTemplates, type StorefrontBrand, type StorefrontSeo, type StorefrontTemplate } from '../../../api/storefrontSettings'
-import type { ApiClient } from '../../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { storefrontAccessOf, type StorefrontAccess } from '../access'
 
 export type DesignerData = { overview: DesignOverview; host: string | null; templates: StorefrontTemplate[]; brand: StorefrontBrand | null; seo: StorefrontSeo | null }

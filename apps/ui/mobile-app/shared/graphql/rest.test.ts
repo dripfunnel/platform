@@ -54,13 +54,13 @@ describe('postJson', () => {
 describe('postSignOut', () => {
   it('ends the session with the bearer token and does not follow the redirect', async () => {
     const fetchImpl = answer({})
-    await postSignOut({ domain: 'store.example.com', fetchImpl }, 'full-token')
+    await postSignOut({ domain: 'store.example.com', fetchImpl }, '/api/auth/sign-out', 'full-token')
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, { headers: Record<string, string>; redirect: string; credentials: string }]
     expect(url).toBe('https://store.example.com/api/auth/sign-out')
     expect(init).toMatchObject({ headers: { authorization: 'Bearer full-token' }, redirect: 'manual', credentials: 'omit' })
   })
 
   it('does not fail when the API cannot be reached', async () => {
-    await expect(postSignOut({ domain: 'store.example.com', fetchImpl: () => Promise.reject(new Error('offline')) }, 'full-token')).resolves.toBeUndefined()
+    await expect(postSignOut({ domain: 'store.example.com', fetchImpl: () => Promise.reject(new Error('offline')) }, '/api/auth/sign-out', 'full-token')).resolves.toBeUndefined()
   })
 })

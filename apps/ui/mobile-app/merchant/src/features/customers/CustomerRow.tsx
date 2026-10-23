@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { CustomerSummary } from '../../api/customers'
 import { t } from '../../messages'
 import { tCount } from '../../messages/plural'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { rowSub, spentText } from './customerFacts'
 
 // One person as a stacked card (DESIGN.md §4): the name with their city and tags under it, what they've spent (the API's figure) and

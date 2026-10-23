@@ -1,5 +1,5 @@
 // First, so the Intl polyfills are in place before anything formats (ARCHITECTURE.md §4 step 1).
-import '../intl'
+import '@dripfunnel/mobile-shared/intl'
 import { Stack } from 'expo-router'
 import type { ReactNode } from 'react'
 import { StatusBar } from 'expo-status-bar'
@@ -9,7 +9,7 @@ import { ShellDataProvider } from '../features/shell/ShellData'
 import { t } from '../messages'
 import { sessionClient, useSession } from '../session'
 import { SessionProvider } from '../session/SessionProvider'
-import { useTheme } from '../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 // Who may see which screen follows the session (ARCHITECTURE.md §4 steps 4–5): signed out sees getting in; signed in with
 // no store acting sees the chooser; a store acting sees the app. A change of session moves the person by itself.

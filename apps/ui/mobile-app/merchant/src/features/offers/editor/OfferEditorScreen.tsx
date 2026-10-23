@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router'
 import { StyleSheet, View } from 'react-native'
 import { offerKinds, type OfferKind } from '../../../api/offers'
-import type { ApiClient } from '../../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 import { Button } from '../../common/Button'
 import { Notice } from '../../common/Notice'

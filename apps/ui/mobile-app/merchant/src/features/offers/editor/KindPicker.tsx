@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { offerKinds, type OfferKind } from '../../../api/offers'
 import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { ChoiceRow } from '../../common/ChoiceRow'
 
 // "What kind of offer?" (OfferEditor's first screen, OFFERS-DESIGN §5 principle 1): four outcomes with an everyday example. Automatic or

@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AppState } from 'react-native'
 import { loadBadges, loadPerson, loadStoreState, loadTheme, type Badges, type Person, type StoreState } from '../../api/shell'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { seatOf, type Seat } from '../../nav'
 import type { Acting } from '../../session/sessionStore'
-import { setMode } from '../../theme'
+import { setMode } from '@dripfunnel/mobile-shared/theme'
 import { useScenario, type RoleScenario } from '../states/scenario'
 import { useOnline } from './connection'
 
