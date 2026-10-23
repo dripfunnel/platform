@@ -138,8 +138,7 @@ jobs:
           (cd ../../store-proxy && pnpm exec wrangler versions deploy "$PROXY_VERSION_ID@100" -y --env prod \
             --message "promote $COMMIT_SHA")
 
-      # versions deploy never creates or updates a container application (Cloudflare Containers › Rollouts), and
-      # a durable_object one has no REST rollout; only `wrangler deploy` does. Same code, so the version id is new (#881).
+      # Only `wrangler deploy` applies container config, so this makes a new version of the same commit (#881, prod.md §3.5).
       - name: Apply the studio container image
         id: container
         env:
@@ -151,6 +150,11 @@ jobs:
             --message "promote $COMMIT_SHA (studio image)" | tee /tmp/wrangler-deploy.log
           version_id=$(grep -m1 '^Current Version ID:' /tmp/wrangler-deploy.log | sed 's/^Current Version ID: *//')
           [[ "$version_id" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "Could not find 'Current Version ID:' in wrangler's output." >&2; exit 1; }
+          deployed_message=$(pnpm exec wrangler versions view "$version_id" --env prod --json | jq -r '.annotations["workers/message"] // empty')
+          if [ "$deployed_message" != "promote $COMMIT_SHA (studio image)" ]; then
+            echo "Version $version_id carries '$deployed_message', not this run's commit — refusing to health-check it." >&2
+            exit 1
+          fi
           echo "version-id=$version_id" >> "$GITHUB_OUTPUT"
           for i in $(seq 1 10); do
             if pnpm exec wrangler containers list --json | jq -e 'map(select(.name | endswith("-studiosession-prod"))) | length == 1 and .[0].image != ""' > /dev/null; then
