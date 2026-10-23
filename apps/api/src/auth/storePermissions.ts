@@ -49,6 +49,7 @@ export const storePermissions = [
   'storefront.read',
   'billing',
   'settings',
+  'riders.manage',
   'supplier.team',
   'catalog.propose',
 ] as const
