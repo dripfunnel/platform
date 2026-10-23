@@ -1,5 +1,5 @@
 import { StyleSheet, TextInput, type TextInputProps } from 'react-native'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 type Props = { label: string; value: string; onChangeText: (value: string) => void; editable?: boolean; invalid?: boolean; keyboardType?: TextInputProps['keyboardType']; placeholder?: string }
 

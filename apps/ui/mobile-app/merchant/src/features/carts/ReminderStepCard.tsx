@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { reminderDelays, reminderPercents, reminderText, type ReminderStep } from '../../api/carts'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../common/Button'
 import { Notice } from '../common/Notice'
 import { SectionCard } from '../common/SectionCard'

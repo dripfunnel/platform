@@ -1,5 +1,5 @@
 import { Share, StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from './Button'
 
 // The ten backup codes, shown once and never again (ui/README.md §3): the person saves them by sharing them to a

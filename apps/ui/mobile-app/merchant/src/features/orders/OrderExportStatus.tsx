@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { ExportJob } from '../../api/exportJob'
-import { formatNumber } from '../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { tCount } from '../../messages/plural'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../common/Button'
 
 type Props = { job: ExportJob; onShare: () => void }

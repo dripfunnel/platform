@@ -1,7 +1,7 @@
 import { Image } from 'expo-image'
 import { StyleSheet, Text, View } from 'react-native'
 import { t } from '../messages'
-import { useTheme } from '../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { useBrand } from './BrandProvider'
 
 // The partner's logo and name; DripFunnel's name alone until the partner has answered with a look.

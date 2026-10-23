@@ -1,4 +1,4 @@
-import { formatDay } from '../../format'
+import { formatDay } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import type { PublishRun, StorefrontOverview, StorefrontVersion } from '../../api/storefront'
 

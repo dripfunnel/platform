@@ -1,5 +1,5 @@
 import type { InstalledApp } from '../../../api/settingsApps'
-import { formatDateTime } from '../../../format'
+import { formatDateTime } from '@dripfunnel/mobile-shared/format'
 import { locale, t, tryT } from '../../../messages'
 import { dotted } from '../dotted'
 

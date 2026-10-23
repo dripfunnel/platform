@@ -1,5 +1,5 @@
 import type { ApiKey } from '../../../api/settingsDevelopers'
-import { formatDateTime } from '../../../format'
+import { formatDateTime } from '@dripfunnel/mobile-shared/format'
 import { locale, tryT } from '../../../messages'
 import { dotted } from '../dotted'
 

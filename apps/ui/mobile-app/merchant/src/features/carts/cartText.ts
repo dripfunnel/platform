@@ -1,5 +1,5 @@
 import type { AbandonedCart, CartDetail, CartMoney, CartStatus, ReminderSending, ReminderStep } from '../../api/carts'
-import { formatDuration, formatList, formatMoney } from '../../format'
+import { formatDuration, formatList, formatMoney } from '@dripfunnel/mobile-shared/format'
 import { locale, t, tryT, type MessageKey } from '../../messages'
 import { tCount } from '../../messages/plural'
 import { saysShipping } from '../common/region'

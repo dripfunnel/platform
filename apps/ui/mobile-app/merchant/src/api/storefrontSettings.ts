@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { storefrontStatuses } from './storefront'
 
 // The brand step, the template gallery and Search and sharing on the Store API (FIRST-RELEASE (store) §14;

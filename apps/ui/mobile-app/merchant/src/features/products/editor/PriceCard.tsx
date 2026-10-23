@@ -1,5 +1,5 @@
 import { View } from 'react-native'
-import { moneyDigits } from '../../../format'
+import { moneyDigits } from '@dripfunnel/mobile-shared/format'
 import { t } from '../../../messages'
 import { SectionCard } from '../../common/SectionCard'
 import { TextField } from '../../common/TextField'

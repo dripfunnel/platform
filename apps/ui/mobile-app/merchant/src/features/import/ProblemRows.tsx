@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import type { CatalogImport } from '../../api/imports'
 import { t } from '../../messages'
 import { tCount } from '../../messages/plural'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 /** The first problems the API lists, each by row and column in its own words, and how many more are in the file (K3). */
 export function ProblemRows({ job }: { job: Pick<CatalogImport, 'problems' | 'problemCount'> }) {

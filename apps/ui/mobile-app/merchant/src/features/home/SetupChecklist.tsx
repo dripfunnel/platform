@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { formatNumber } from '../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { setupCount, type SetupItem } from './homeView'
 
 type Props = { items: readonly SetupItem[]; onOpen: (href: string) => void }

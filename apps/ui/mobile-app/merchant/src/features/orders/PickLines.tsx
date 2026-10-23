@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { OrderLine } from '../../api/order'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { lineName } from './orderDetail'
 import type { Picks } from './picks'
 import { Stepper } from './Stepper'

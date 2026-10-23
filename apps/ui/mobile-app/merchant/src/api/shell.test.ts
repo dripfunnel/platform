@@ -1,4 +1,4 @@
-import type { ApiClient } from '../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { loadStoreState, loadTheme } from './shell'
 
 const answering = (answer: unknown): ApiClient => ({ request: <T,>() => Promise.resolve(answer as T) })

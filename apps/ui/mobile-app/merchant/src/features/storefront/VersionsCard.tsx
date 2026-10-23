@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { StorefrontVersion } from '../../api/storefront'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Eyebrow } from '../common/Eyebrow'
 import { versionLabel, versionMeta } from './siteView'
 

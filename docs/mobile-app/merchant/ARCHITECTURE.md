@@ -7,13 +7,13 @@ builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.m
 **Status: the project is set up (#496), its foundations are built (#497) and so are getting in and My profile
 (#498), the shell (#499), Products (#500), Collections (#501), Settings (#502), Orders and Customers (#503), Payment setup, Shipping and Customer accounts (#504), Import & export (#505) product kinds in the editor (#507), and Offers and Abandoned carts (#508), Home and Reports (#509), Developers (#510), Apps (#800), and Support access with the banner's Allow/Deny (#801), and the Activity log (#802), and the full storefront designer with Pages and Journal (#513); the other screens are placeholders.**
 `app.config.ts`, `partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/graphql/`,
-`src/intl/`, `src/format/`, `src/messages/`, `src/theme/`, `src/brand/`, `src/session/`, `src/features/auth/`,
+`src/messages/`, `src/brand/`, `src/session/`, `src/features/auth/`,
 `src/features/profile/`, `src/features/shell/`, `src/features/states/`, `src/features/products/`, `src/features/collections/`, `src/features/settings/`, `src/features/orders/`, `src/features/customers/`, `src/features/import/`, `src/features/offers/`, `src/features/carts/`, `src/features/home/`, `src/features/reports/`, `src/features/activity/` and `src/api/` (`brand`, `auth`, `profile`, `shell`, `products`, `inventory`,
 `productStory`, `collections`, `filters`, `menu`, `sizeCharts`, `settingsStore`, `settingsPeople`, `settingsWarehouse`, `settingsTax`, `settingsMarkets`, `settingsCatalogue`, `settingsPayments`, `settingsShipping`, `settingsAccounts`, `orders`, `order`, `customers`, `exportJob`, `imports`, `offers`, `carts`, `home`, `reports`, `settingsDevelopers`, `settingsApps`, `settingsSupport`, `activity`) exist (the placeholder screen in
 `src/features/placeholder/` goes when the first real screen replaces it). Only `nav.ts` is still to build. Rows
 marked *(proposed)* await a yes.
 
-Last updated: 2026-10-21 (#513: the full storefront designer, Pages and Journal, §3, §5). Before: 2026-10-19 (#802: Activity log, §3, §5). Before: 2026-10-19 (#801: Support access and the banner, §3, §5). Before: 2026-10-19 (#800: Apps, §3, §5). Before: 2026-10-19 (#510: Developers, §3, §5). Before: 2026-10-19 (#509: Home and Reports, §3, §5). Before: 2026-10-19 (#508: Offers and Abandoned carts, §3, §5). Before: 2026-10-19 (#507: product kinds, §5). Before: 2026-10-16 (#505: Import & export, §3, §5). Before: 2026-10-16 (#504: Payment setup, Shipping and Customer accounts, §3, §5). Before: 2026-10-15 (#503: Orders and Customers, §3, §5). Before: 2026-10-15 (#502: Settings, §3, §5). Before: 2026-10-15 (#501: Collections, §3, §5). Before: 2026-10-13 (#500: Products, §3, §5). Before: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
+Last updated: 2026-10-23 (#853: the client, formatting, Intl polyfills, theme and secure storage move to `@dripfunnel/mobile-shared`, §1, §3–§5). Before: 2026-10-21 (#513: the full storefront designer, Pages and Journal, §3, §5). Before: 2026-10-19 (#802: Activity log, §3, §5). Before: 2026-10-19 (#801: Support access and the banner, §3, §5). Before: 2026-10-19 (#800: Apps, §3, §5). Before: 2026-10-19 (#510: Developers, §3, §5). Before: 2026-10-19 (#509: Home and Reports, §3, §5). Before: 2026-10-19 (#508: Offers and Abandoned carts, §3, §5). Before: 2026-10-19 (#507: product kinds, §5). Before: 2026-10-16 (#505: Import & export, §3, §5). Before: 2026-10-16 (#504: Payment setup, Shipping and Customer accounts, §3, §5). Before: 2026-10-15 (#503: Orders and Customers, §3, §5). Before: 2026-10-15 (#502: Settings, §3, §5). Before: 2026-10-15 (#501: Collections, §3, §5). Before: 2026-10-13 (#500: Products, §3, §5). Before: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
 
 ---
 
@@ -34,7 +34,7 @@ Last updated: 2026-10-21 (#513: the full storefront designer, Pages and Journal,
    (BUILDS-AND-STORE-ACCOUNTS.md §2).
 5. **The SPA conventions hold, without `@dripfunnel/shared`** (REACT-NATIVE.md §2), unless this
    document says otherwise (ui/README.md §2–§4): text from `messages/`, formatting through the
-   app's own `src/format/`, errors handled by code,
+   `@dripfunnel/mobile-shared`'s `format/`, errors handled by code,
    named exports, one component per file, and every screen's empty, loading, error,
    permission-denied and read-only states.
 6. **A mobile card needs only the Store API card for its area, never the web screen card**
@@ -108,7 +108,7 @@ apps/ui/mobile-app/merchant/
 
 Built in #497 up to step 3, and in #498 for steps 4–5.
 
-1. Load the FormatJS polyfills (`src/intl/`), before anything formats.
+1. Load the FormatJS polyfills (`@dripfunnel/mobile-shared/intl`), before anything formats.
 2. Read the partner's portal domain from the build configuration (`expo-constants`).
 3. Call the Store API's public brand query on that domain, and build the theme from it. Show
    the splash screen until it answers. If it fails, use the last look saved on the device,
@@ -121,14 +121,15 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
 
 ## 5. Talking to the API
 
-- **One client, the app's own** (`src/graphql/`, not `createApiClient`; REACT-NATIVE.md §2), at
-  `https://<portal domain>/api/`. It sends `Authorization: Bearer <token>`, plus `X-Store` and
+- **One client, shared by the mobile apps** (`createApiClient` in `@dripfunnel/mobile-shared/graphql`, built
+  in #853; REACT-NATIVE.md §2), made here with the partner's portal domain and the path `/api/`
+  (`src/graphql/`, `src/session/`). It sends `Authorization: Bearer <token>`, plus `X-Store` and
   `X-Supplier` (ACCESS.md §4).
 - **`api/` is the only place that writes GraphQL**, with operations named for what they do.
   Screens call these functions, never `fetch`.
 - **Errors by code** (`UNAUTHENTICATED`, `FORBIDDEN`, `PLAN_LIMIT_REACHED`, `NOT_CONNECTED`…),
   each mapped to a state from DESIGN.md §4.
-- **Built in #497** (`src/graphql/`): the client sends `Authorization: Bearer`, `X-Store` and `X-Supplier` when
+- **Built in #497** (now `apps/ui/mobile-app/shared/graphql/`): the client sends `Authorization: Bearer`, `X-Store` and `X-Supplier` when
   it has them (read afresh on every call; none exist yet), times out every call (15 s; the brand query
   5 s so a phone with no signal reaches its saved look quickly), and answers failures as an `ApiError` with
   a code. The API's codes pass through (`UNAUTHENTICATED`, `FORBIDDEN`, `READ_ONLY`, `STORE_REQUIRED`,
@@ -138,7 +139,7 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
   integration that isn't connected, never "the network is down". `PLAN_LIMIT` is what the API sends for a
   plan gate (ui/README.md §3 names it `PLAN_LIMIT_REACHED`), so both are known. Each operation's answer is
   decoded with a zod schema written from `apps/api/schema/` (`typedQuery`), as the SPAs do.
-- **The look** (`src/theme/`, `src/brand/`): the tokens are DripFunnel's `--df-*` values as a TypeScript
+- **The look** (`@dripfunnel/mobile-shared/theme`, `src/brand/`): the tokens are DripFunnel's `--df-*` values as a TypeScript
   object, light and dark. The mode is light until the signed-in person's own choice is known (ui/README.md
   §4; the session is #498). The partner's primary colour becomes the header and its accent the brand colour, and
   `corner` halves or removes the radii, as the portal applies them (`apps/ui/store` `brand/applyBrand.ts`).

@@ -4,7 +4,7 @@ import { confirmSecondFactor, regenerateBackupCodes, startSecondFactor, turnOffS
 import { t } from '../../messages'
 import { errorMessage } from '../../messages/errorMessage'
 import { sessionClient } from '../../session'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { BackupCodes } from '../common/BackupCodes'
 import { Button } from '../common/Button'
 import { LinkButton } from '../common/LinkButton'

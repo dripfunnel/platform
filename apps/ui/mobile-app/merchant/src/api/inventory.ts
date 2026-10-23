@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // A product's stock (CATALOG-DESIGN.md G1–G5; apps/api src/apis/store/inventory.ts): its levels per location, the history of
 // every change, and the writes. The API says what is on hand and reserved; the phone adds nothing up that is charged or sold.

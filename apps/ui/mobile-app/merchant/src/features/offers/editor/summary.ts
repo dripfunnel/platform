@@ -1,5 +1,5 @@
 import type { Offer } from '../../../api/offers'
-import { formatList, minorOf, moneyText } from '../../../format'
+import { formatList, minorOf, moneyText } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../../messages'
 import { countryName, dateTimeText, statusKeyOf, timeLine, type RegionWords, type StatusKey } from '../offerView'
 import type { OfferDraft, StoreFacts } from '../offerDraft'

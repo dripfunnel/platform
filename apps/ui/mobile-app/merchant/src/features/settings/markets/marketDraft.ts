@@ -1,6 +1,6 @@
 import type { Market, MarketInput } from '../../../api/settingsMarkets'
 import type { StoreLocale } from '../../../api/settingsStore'
-import { minorOf, moneyText } from '../../../format'
+import { minorOf, moneyText } from '@dripfunnel/mobile-shared/format'
 import { t } from '../../../messages'
 import { bpsOf } from '../percent'
 

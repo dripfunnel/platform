@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import type { Customer } from '../../api/customers'
 import { t } from '../../messages'
 import { tCount } from '../../messages/plural'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../common/Button'
 import { addressText, defaultAddress, spentText } from './customerFacts'
 

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Payment setup (SetOps; FIRST-RELEASE (store) §15; apps/api src/apis/store/payments.ts). Stripe connects on the portal page, so
 // `connectStripe` and `finishStripeConnect` are not called here (ARCHITECTURE.md §5, decided on #504).

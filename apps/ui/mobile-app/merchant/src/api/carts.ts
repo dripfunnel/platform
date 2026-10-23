@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Abandoned carts on the Store API (FIRST-RELEASE (store) §9; apps/api src/apis/store/cartReminders.ts): the merchant side's alone.
 // Owner and Manager remind and stop, Staff read (`carts.read`, `carts.write`). Every status, value and figure is the API's;

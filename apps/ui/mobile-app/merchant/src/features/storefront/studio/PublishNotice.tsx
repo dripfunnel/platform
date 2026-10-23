@@ -1,6 +1,6 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../../common/Button'
 import { Notice } from '../../common/Notice'
 import { failureWords } from '../siteView'

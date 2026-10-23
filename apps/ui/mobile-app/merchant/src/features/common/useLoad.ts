@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { isApiError } from '../../graphql'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import type { StateKind } from '../states/StateView'
 
 export type Load<T> = { status: 'loading' } | { status: 'error'; error: unknown } | { status: 'ready'; data: T }

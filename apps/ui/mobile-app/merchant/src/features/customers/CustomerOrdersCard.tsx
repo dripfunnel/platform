@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Customer } from '../../api/customers'
-import { formatDateTime, formatMoney } from '../../format'
+import { formatDateTime, formatMoney } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { SectionCard } from '../common/SectionCard'
 import { orderStatusOf } from './customerFacts'
 

@@ -16,10 +16,10 @@ import {
   type ShippingMode,
   type Supplier,
 } from '../../../api/settingsPeople'
-import type { ApiClient } from '../../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 import { tCount } from '../../../messages/plural'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../../common/Button'
 import { Switch } from '../../common/Switch'
 import { TextField } from '../../common/TextField'

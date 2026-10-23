@@ -1,5 +1,5 @@
 import { recordMarketingStop, type Customer } from '../../api/customers'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { FormSheet } from '../settings/FormSheet'
 

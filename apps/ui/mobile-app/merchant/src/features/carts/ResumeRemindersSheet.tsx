@@ -1,5 +1,5 @@
 import { resumeReminders, type AbandonedCart } from '../../api/carts'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { FormSheet } from '../settings/FormSheet'
 import { nameOf } from './cartText'

@@ -1,6 +1,6 @@
 import { StyleSheet, Text } from 'react-native'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../common/Button'
 import { SheetFrame } from '../shell/BottomSheet'
 

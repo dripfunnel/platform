@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // The store's main menu on the Store API (FIRST-RELEASE.md §12, CATALOG-DESIGN.md J): one menu, nested one level.
 

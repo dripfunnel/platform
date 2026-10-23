@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { confirmImport, loadImport, loadImports, startFileImport, startShopifyImport, type CatalogImport } from '../../api/imports'
 import { loadWarehouses, type Warehouse } from '../../api/inventory'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { errorMessage } from '../../messages/errorMessage'
 import { checkPicked, CsvTooLarge, fileErrorOf, type FileError } from './importFile'
 import { pickCsv, readCsv } from './files'

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { uploadDownload } from '../../../api/productKinds'
-import { isApiError } from '../../../graphql'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { pickDocument } from '../../common/pickDocument'
 import { fileDeps } from '../files'
 import { withDetails, type Draft } from './draft'

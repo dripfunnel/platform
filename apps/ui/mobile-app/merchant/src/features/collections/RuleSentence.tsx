@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Filter } from '../../api/filters'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Caret } from '../common/Caret'
 import { Chip } from '../common/Chip'
 import { TextField } from '../common/TextField'

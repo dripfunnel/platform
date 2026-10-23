@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Warehouse (SetOps "Warehouse"; FIRST-RELEASE (store) §15): the store's own stock locations to manage, and its suppliers' named
 // apart and read-only.

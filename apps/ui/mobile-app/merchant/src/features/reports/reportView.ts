@@ -1,6 +1,6 @@
 import type { ApiMoney } from '../../api/orders'
 import type { ReportDays, ReportPanel, ReportSuppliers, StoreReport } from '../../api/reports'
-import { formatNumber, formatMoney, regionName } from '../../format'
+import { formatNumber, formatMoney, regionName } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { tCount } from '../../messages/plural'
 

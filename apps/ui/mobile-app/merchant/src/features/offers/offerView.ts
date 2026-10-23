@@ -1,5 +1,5 @@
 import type { ApiMoney, Offer, OfferAction, OfferCondition, OfferKind, OfferTargets } from '../../api/offers'
-import { formatList, formatMoney, formatNumber, regionName } from '../../format'
+import { formatList, formatMoney, formatNumber, regionName } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { tCount } from '../../messages/plural'
 import { saysShipping } from '../common/region'

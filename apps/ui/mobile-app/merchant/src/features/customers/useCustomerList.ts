@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadCustomerCount, loadCustomerGroups, loadCustomers, type CustomerGroup, type CustomerSummary } from '../../api/customers'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 type Page = { rows: CustomerSummary[]; next: string | null }
 type Meta = { count: number; groups: CustomerGroup[] }

@@ -1,4 +1,5 @@
-import { createApiClient } from '../graphql'
+import { createApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { apiPath } from '../graphql'
 import { fetchBrand } from './brand'
 
 const brand = {
@@ -15,7 +16,7 @@ const brand = {
 
 const clientAnswering = (data: unknown) => {
   const fetchImpl = jest.fn(() => Promise.resolve({ json: () => Promise.resolve({ data }) })) as unknown as jest.MockedFunction<typeof fetch>
-  return { fetchImpl, client: createApiClient({ domain: 'store.example.com', fetchImpl }) }
+  return { fetchImpl, client: createApiClient({ domain: 'store.example.com', path: apiPath, fetchImpl }) }
 }
 
 describe('reading the partner look before sign-in', () => {

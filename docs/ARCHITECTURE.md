@@ -105,6 +105,7 @@ platform/
       admin/                Pages SPA: DripFunnel staff (Admin)
       shared/               only code more than one SPA uses
       mobile-app/
+        shared/             @dripfunnel/mobile-shared: the API client, format, intl, theme and secure storage the three apps use
         merchant/           Expo app: merchants and vendors on iOS and Android; shares no code with the SPAs
         shop/               Expo app: a store's customers, one build per store (proposed)
         delivery/           Expo app: a store's riders, one build per store (proposed)

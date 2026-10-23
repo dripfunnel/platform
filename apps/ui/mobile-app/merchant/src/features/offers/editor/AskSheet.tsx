@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../../common/Button'
 import { ChoiceRow } from '../../common/ChoiceRow'
 import { Notice } from '../../common/Notice'

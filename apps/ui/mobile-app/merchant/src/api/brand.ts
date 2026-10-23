@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { decode, type ApiClient } from '../graphql'
+import { decode, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // The partner's live look for this host, public and read before anything renders
 // (SAAS.md §3.3; apps/api src/apis/store/shell.ts).

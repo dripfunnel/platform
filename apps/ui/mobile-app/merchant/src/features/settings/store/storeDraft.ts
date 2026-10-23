@@ -1,5 +1,5 @@
 import type { StoreCurrency, StoreInfo, StoreInfoInput, StoreLocale, Rounding } from '../../../api/settingsStore'
-import { formatMoney } from '../../../format'
+import { formatMoney } from '@dripfunnel/mobile-shared/format'
 import { locale } from '../../../messages'
 
 /** The details card as typed: the next order number stays text until saved, so it can be cleared and retyped. */

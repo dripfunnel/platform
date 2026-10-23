@@ -1,7 +1,7 @@
 import { StyleSheet, Text } from 'react-native'
 import type { Customer } from '../../api/customers'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { LinkButton } from '../common/LinkButton'
 import { SectionCard } from '../common/SectionCard'
 import { consentOf } from './customerFacts'

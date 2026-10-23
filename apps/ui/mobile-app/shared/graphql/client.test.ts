@@ -11,9 +11,9 @@ const lastCall = (fetchImpl: jest.Mock) => {
 const madeByTheApp = ['NO_RESPONSE', 'BAD_RESPONSE', 'UNKNOWN']
 
 describe('the API client', () => {
-  it('posts JSON to the partner host at /api/, with the trailing slash', async () => {
+  it('posts JSON to the host at the path it is given, with the trailing slash', async () => {
     const fetchImpl = jest.fn(answer({ data: { ok: true } }))
-    const client = createApiClient({ domain: 'store.example.com', fetchImpl })
+    const client = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl })
 
     await expect(client.request('{ ok }', { a: 1 })).resolves.toEqual({ ok: true })
 
@@ -23,9 +23,17 @@ describe('the API client', () => {
     expect(JSON.parse(init.body)).toEqual({ query: '{ ok }', variables: { a: 1 } })
   })
 
+  it('uses the path of the app that made it', async () => {
+    const fetchImpl = jest.fn(answer({ data: { ok: true } }))
+
+    await createApiClient({ domain: 'acme.example.com', path: '/shop-api/', fetchImpl }).request('{ ok }')
+
+    expect(lastCall(fetchImpl).url).toBe('https://acme.example.com/shop-api/')
+  })
+
   it('sends a query as a GET on request, with no body', async () => {
     const fetchImpl = jest.fn(answer({ data: { ok: true } }))
-    const client = createApiClient({ domain: 'store.example.com', fetchImpl })
+    const client = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl })
 
     await expect(client.request('{ ok }', undefined, { get: true })).resolves.toEqual({ ok: true })
 
@@ -37,7 +45,7 @@ describe('the API client', () => {
 
   it('sends the variables of a GET in the query string, not dropped', async () => {
     const fetchImpl = jest.fn(answer({ data: { ok: true } }))
-    await createApiClient({ domain: 'store.example.com', fetchImpl }).request('query Q($id: ID!) { ok(id: $id) }', { id: 1 }, { get: true })
+    await createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl }).request('query Q($id: ID!) { ok(id: $id) }', { id: 1 }, { get: true })
 
     const params = new URL(lastCall(fetchImpl).url).searchParams
     expect(params.get('query')).toBe('query Q($id: ID!) { ok(id: $id) }')
@@ -46,14 +54,14 @@ describe('the API client', () => {
 
   it('sends no credentials until there are some', async () => {
     const fetchImpl = jest.fn(answer({ data: {} }))
-    await createApiClient({ domain: 'store.example.com', fetchImpl }).request('{ brand }')
+    await createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl }).request('{ brand }')
     expect(Object.keys(lastCall(fetchImpl).init.headers)).toEqual(['content-type'])
   })
 
   it('adds the bearer token, X-Store and X-Supplier, read afresh on every call', async () => {
     const fetchImpl = jest.fn(answer({ data: {} }))
     let store: string | null = 'store-1'
-    const client = createApiClient({ domain: 'store.example.com', fetchImpl, token: () => 't0ken', store: () => store, supplier: () => 'supplier-1' })
+    const client = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl, token: () => 't0ken', store: () => store, supplier: () => 'supplier-1' })
 
     await client.request('{ a }')
     expect(lastCall(fetchImpl).init.headers).toMatchObject({ authorization: 'Bearer t0ken', 'x-store': 'store-1', 'x-supplier': 'supplier-1' })
@@ -64,7 +72,7 @@ describe('the API client', () => {
   })
 
   it.each(knownErrorCodes.filter((code) => !madeByTheApp.includes(code)))('maps the API code %s to an ApiError with that code', async (code) => {
-    const client = createApiClient({ domain: 'store.example.com', fetchImpl: answer({ errors: [{ message: 'Refused.', extensions: { code, unlockedBy: 'growth' } }] }) })
+    const client = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl: answer({ errors: [{ message: 'Refused.', extensions: { code, unlockedBy: 'growth' } }] }) })
 
     const error = await client.request('{ a }').catch((e: unknown) => e)
 
@@ -74,21 +82,21 @@ describe('the API client', () => {
   })
 
   it('gives a code it has no name for, or no code at all, the code UNKNOWN', async () => {
-    const odd = createApiClient({ domain: 'store.example.com', fetchImpl: answer({ errors: [{ message: 'x', extensions: { code: 'SOMETHING_NEW' } }] }) })
-    const none = createApiClient({ domain: 'store.example.com', fetchImpl: answer({ errors: [{ message: 'x' }] }) })
+    const odd = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl: answer({ errors: [{ message: 'x', extensions: { code: 'SOMETHING_NEW' } }] }) })
+    const none = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl: answer({ errors: [{ message: 'x' }] }) })
     await expect(odd.request('{ a }')).rejects.toMatchObject({ code: 'UNKNOWN' })
     await expect(none.request('{ a }')).rejects.toMatchObject({ code: 'UNKNOWN' })
   })
 
   it('answers NO_RESPONSE when the network fails or the answer is not JSON (a gateway page)', async () => {
-    const down = createApiClient({ domain: 'store.example.com', fetchImpl: () => Promise.reject(new TypeError('Network request failed')) })
-    const page = createApiClient({ domain: 'store.example.com', fetchImpl: (() => Promise.resolve({ json: () => Promise.reject(new SyntaxError('<html>')) })) as unknown as typeof fetch })
+    const down = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl: () => Promise.reject(new TypeError('Network request failed')) })
+    const page = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl: (() => Promise.resolve({ json: () => Promise.reject(new SyntaxError('<html>')) })) as unknown as typeof fetch })
     await expect(down.request('{ a }')).rejects.toMatchObject({ code: 'NO_RESPONSE' })
     await expect(page.request('{ a }')).rejects.toMatchObject({ code: 'NO_RESPONSE' })
   })
 
   it('answers BAD_RESPONSE for an answer with no data', async () => {
-    const client = createApiClient({ domain: 'store.example.com', fetchImpl: answer({}) })
+    const client = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl: answer({}) })
     await expect(client.request('{ a }')).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
   })
 
@@ -96,7 +104,7 @@ describe('the API client', () => {
     jest.useFakeTimers()
     try {
       const hang = ((_url: string, init: { signal: AbortSignal }) => new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted'))))) as unknown as typeof fetch
-      const pending = createApiClient({ domain: 'store.example.com', fetchImpl: hang, timeoutMs: 1000 }).request('{ a }')
+      const pending = createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl: hang, timeoutMs: 1000 }).request('{ a }')
       const settled = expect(pending).rejects.toMatchObject({ code: 'NO_RESPONSE' })
       await jest.advanceTimersByTimeAsync(1000)
       await settled
@@ -106,7 +114,7 @@ describe('the API client', () => {
   })
 
   it('never puts the token in an error', async () => {
-    const client = createApiClient({ domain: 'store.example.com', token: () => 'secret-t0ken', fetchImpl: () => Promise.reject(new Error('secret-t0ken')) })
+    const client = createApiClient({ domain: 'store.example.com', path: '/api/', token: () => 'secret-t0ken', fetchImpl: () => Promise.reject(new Error('secret-t0ken')) })
     const error = (await client.request('{ a }').catch((e: unknown) => e)) as ApiError
     expect(error.message).not.toContain('secret-t0ken')
     expect(JSON.stringify(error.details)).not.toContain('secret-t0ken')

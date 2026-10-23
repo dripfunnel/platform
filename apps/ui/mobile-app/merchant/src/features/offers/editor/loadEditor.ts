@@ -4,7 +4,7 @@ import { loadCustomerGroups, type CustomerGroup } from '../../../api/customers'
 import { loadFilters, type Filter } from '../../../api/filters'
 import { loadCustomerNames, loadOffer, loadOfferFacts, loadProductNames, type Offer, type OfferIdNames } from '../../../api/offers'
 import { loadMarkets, type Market } from '../../../api/settingsMarkets'
-import { ApiError, type ApiClient } from '../../../graphql'
+import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { draftOf, type StoreFacts } from '../offerDraft'
 
 export type OfferEditorData = {

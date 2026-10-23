@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { moneySchema } from './orders'
 import { loadPlaces } from './settingsWarehouse'
 

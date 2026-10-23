@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { exportJobFields, exportJobSchema, readExportJob, type ExportJob } from './exportJob'
 
 // Import and export on the Store API (FIRST-RELEASE.md §13; apps/api src/apis/store/catalogImports.ts, shopify.ts, catalogExports.ts):

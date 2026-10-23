@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { StoreHome } from '../../api/home'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../common/Button'
 import { headlineOf, needsOf } from './homeView'
 import { LatestOrders } from './LatestOrders'

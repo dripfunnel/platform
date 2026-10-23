@@ -14,11 +14,11 @@ import {
   type TaxClass,
   type TaxSetup,
 } from '../../../api/settingsTax'
-import type { ApiClient } from '../../../graphql'
-import { formatList, regionName } from '../../../format'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { formatList, regionName } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../../messages'
 import { tCount } from '../../../messages/plural'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../../common/Button'
 import { Notice } from '../../common/Notice'
 import { SectionCard } from '../../common/SectionCard'
