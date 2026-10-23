@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
