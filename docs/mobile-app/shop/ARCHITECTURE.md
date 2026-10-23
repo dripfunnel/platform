@@ -74,7 +74,7 @@ Foundations (`graphql/`, `format/`, `intl/`, `theme/`) come from `apps/ui/mobile
 
 **Stripe and PayPal (#856).** `placeOrder` and `payOrder` take an optional `app: { scheme, stripeApiVersion }`; without it they
 answer as they do for the website, and nothing else changes. `scheme` is the app's own URL scheme (`APP_SCHEME`, ../README.md §3),
-checked for shape only (a custom scheme, never `http`, `https`, `javascript` and the like); the API stores no scheme per store.
+checked for shape only (a custom scheme, never `http`, `https`, `javascript` and the like); the API stores no scheme per store (decided on #856; the card's "validated against the store's configured scheme" needs a per-store setting no card has built). The risk: a caller can name another app's scheme, and that app then receives the order id in the return link, which alone opens nothing (an order reads only with its session or cart token). A per-store scheme setting would close it.
 The answer is `ShopPaymentStart`:
 
 | Provider | Answer for the app |
