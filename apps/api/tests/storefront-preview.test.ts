@@ -108,7 +108,8 @@ describe('Open preview', () => {
 
 describe('the edge’s preview questions', () => {
   it('opens a link only on its own store’s preview host, and only while it lasts', async () => {
-    const token = tokenOf((await openPreview('owner')).url)
+    // The edge reads the real clock, so the link is sealed at it, not at the fixed `now` the Store API's tests use.
+    const token = await links.seal({ storeId: t.storeA1, userId: people.owner, epoch: 0, expiresAt: Math.floor(Date.now() / 1000) + previewLinkSeconds })
     expect(await edge().openPreview(keys.a1, token)).toEqual({ ok: true, storeId: t.storeA1, userId: people.owner, epoch: 0, folder: 'change-2' })
     expect(await edge().openPreview(keys.b1, token)).toEqual({ ok: false })
     expect(await edge().openPreview(keys.a1, `${token.slice(0, -3)}AAA`)).toEqual({ ok: false })
