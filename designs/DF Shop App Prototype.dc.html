@@ -798,7 +798,7 @@ class Component extends DCLogic {
     ].map(o => ({ ...o, pbg: PILL[o.pk][0], pfg: PILL[o.pk][1] }));
 
     // order detail
-    const oSt = is('notifs', 'refused') ? 'onTheWay' : s.st;
+    const oSt = is('notifs', 'refused') ? (k === 'IN' ? 'onTheWay' : 'courier') : s.st;
     const ownStates = ['packing', 'searching', 'assigned', 'onTheWay', 'delivered', 'notDelivered'];
     const own = k === 'IN' && ownStates.includes(oSt);
     const ownIdx = { packing: 0, searching: 1, assigned: 2, onTheWay: 3, delivered: 4, notDelivered: 4 }[oSt];
@@ -822,9 +822,9 @@ class Component extends DCLogic {
         map: oSt === 'onTheWay', rider: oSt === 'assigned' || oSt === 'onTheWay', code: oSt === 'assigned' || oSt === 'onTheWay', steps: steps2, canCancel: ['packing', 'searching', 'assigned'].includes(oSt),
         codNote: cod && !final ? `Pay ${fmt(ownTot.total)} in cash ${oSt === 'assigned' || oSt === 'onTheWay' ? 'to ' + RIDER.name + ' when he hands it over' : 'when it arrives'}.` : '', ended: final };
     }
-    const dataOrder = !own && !['loading', 'error'].includes(oSt) && is('order') ? D.orders.find(o => o.status === ({ courier: 'shipped', courierLink: 'shipped', preparing: 'preparing', delivered: 'delivered', bankWaiting: 'awaiting' }[oSt])) : null;
+    const dataOrder = !own && !['loading', 'error'].includes(oSt) && (is('order') || is('notifs', 'refused')) ? D.orders.find(o => o.status === ({ courier: 'shipped', courierLink: 'shipped', preparing: 'preparing', delivered: 'delivered', bankWaiting: 'awaiting' }[oSt])) : null;
     let olines, osum;
-    if (own || is('notifs', 'refused')) {
+    if (own) {
       const t3 = this.totals(this.defCart(), k, '', OWN, true);
       olines = this.defCart().map(l => { const li = this.line(l, D); return { name: li.p.name, sub: li.sub, qty: l.qty, total: fmt(li.unit * l.qty), ph: ph(li.p.hue) }; });
       const r3 = [{ k: 'Subtotal', v: fmt(t3.sub) }]; if (t3.disc) r3.push({ k: t3.discName, v: '−' + fmt(t3.disc) }); r3.push({ k: 'Delivery', v: t3.ship ? fmt(t3.ship) : 'Free' });
