@@ -73,7 +73,8 @@ export const route = async (request: Request, env: Env, deps: Deps | null): Prom
   if (own && !deps) return fetch(request)
   if (!deps) return portal(request, url, env)
   try {
-    if (own) return (await isOwnZonePortal(url.hostname, env, deps)) ? await portal(request, url, env) : await fetch(request)
+    // A lookup that fails passes the host through as before, so our consoles never depend on the database (#899).
+    if (own) return (await isOwnZonePortal(url.hostname, env, deps).catch(() => false)) ? await portal(request, url, env) : await fetch(request)
     return await serveStorefront(request, url, env, deps)
   } catch {
     // The API or R2 couldn't answer: nothing is cached from it, and the next request tries again.

@@ -621,7 +621,8 @@ failed; a live hostname can become expiring or broken if its records change.
    host the proxy asks `PortalProxy.portalHost(host)` and serves a live portal host as above; every
    other own-zone host passes through untouched. The answer, found or not, is kept 60 s in the proxy's
    own cache, an exception to "a host not found is never kept" so our own hosts cost no call per
-   request; with the API unreachable the request is 503, never a passthrough. *Decided here (#426): our own zone is the admin host's parent, so feature
+   request; with the API unreachable the host passes through as before, so our consoles never depend on
+   the database (a portal host in the zone answers 522 until it is back). *Decided here (#426): our own zone is the admin host's parent, so feature
    environments and `*.localhost` work with no new setting; verifying and issuing hosts are not
    yet live, as the card says.*
    Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the

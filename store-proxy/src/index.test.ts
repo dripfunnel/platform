@@ -83,14 +83,12 @@ describe('store proxy', () => {
       expect(asked).toHaveLength(3)
     })
 
-    it('answers 503 rather than passing through when the API cannot be asked', async () => {
+    it('passes an own-zone host through untouched when the API cannot be asked', async () => {
       stubFetch()
       const { deps } = await setup()
       failing = true
-      const response = await route(new Request('https://mystore.dripfunnel.ai/'), zoneEnv, deps)
-      expect(response.status).toBe(503)
-      expect(response.headers.get('retry-after')).toBe('5')
-      expect(seen).toEqual([])
+      await route(new Request('https://dev-admin.dripfunnel.ai/'), zoneEnv, deps)
+      expect(seen).toEqual(['net https://dev-admin.dripfunnel.ai/'])
     })
   })
 
