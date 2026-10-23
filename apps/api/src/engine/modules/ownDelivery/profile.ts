@@ -1,0 +1,85 @@
+import type postgres from 'postgres'
+import { z } from 'zod'
+import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import type { TenantContext } from '#core/tenancy'
+import { withScope } from '#db/scoped/index'
+import { endRiderSessions, markRiderRemoved, ownPhotoExists, selectOwnRider, updateOwnRider, type OwnRiderRow } from '#db/scoped/riders'
+
+// A signed-in rider's own account on the Delivery API (DELIVERY §4, §5): its profile, and deleting it, which is the
+// Owner's removal (decided on #839; erasure's "Former rider" comes with #874). Always as app_rider, on its own row.
+
+export const riderProfileAudit = { profileSaved: 'rider.profile_saved', accountDeleted: 'rider.account_deleted' } as const
+
+export const vehicleTypes = ['bike', 'scooter', 'car', 'bicycle', 'foot'] as const
+
+const profileInput = z.strictObject({
+  name: z.string().trim().min(1).max(120),
+  photoAssetId: z.uuid().nullable(),
+  vehicleType: z.enum(vehicleTypes).nullable(),
+  vehicleNumber: z.string().trim().max(20).transform((v) => v || null).nullable(),
+})
+export type ProfileInput = z.input<typeof profileInput>
+
+export type ProfileResult<T> = { ok: true; value: T } | { ok: false; reason: 'UNAUTHENTICATED' | 'INVALID_INPUT' | 'PHOTO_NOT_FOUND' }
+
+export interface RiderProfileDeps {
+  sql: postgres.Sql
+  /** The rider's own context: caller kind `rider`. */
+  context: TenantContext & { caller: { kind: 'rider'; riderId: string } }
+  activity: ActivityLog
+  facts: RequestFacts
+  now: () => Date
+}
+
+export const createRiderProfile = ({ sql, context, activity, facts, now }: RiderProfileDeps) => {
+  const { storeId, partnerId } = context
+  const { riderId } = context.caller
+
+  const entry = (action: string, rider: { id: string; name: string }, changes?: ActivityEntry['changes']): ActivityEntry => ({
+    category: 'write',
+    action,
+    result: 'success',
+    actorKind: 'rider',
+    actorId: rider.id,
+    actorLabel: rider.name,
+    partnerId,
+    storeId,
+    target: { type: 'rider', id: rider.id, label: rider.name },
+    ...(changes ? { changes } : {}),
+    reason: null,
+    api: 'delivery',
+    visibility: 'store',
+    ...facts,
+  })
+
+  const me = (): Promise<OwnRiderRow | null> => withScope(sql, context, (tx) => selectOwnRider(tx, storeId, riderId))
+
+  const update = (raw: ProfileInput): Promise<ProfileResult<OwnRiderRow>> =>
+    withScope(sql, context, async (tx): Promise<ProfileResult<OwnRiderRow>> => {
+      const parsed = profileInput.safeParse(raw)
+      if (!parsed.success) return { ok: false, reason: 'INVALID_INPUT' }
+      const input = parsed.data
+      const before = await selectOwnRider(tx, storeId, riderId)
+      if (!before) return { ok: false, reason: 'UNAUTHENTICATED' }
+      if (input.photoAssetId && input.photoAssetId !== before.photo_asset_id && !(await ownPhotoExists(tx, storeId, riderId, input.photoAssetId))) return { ok: false, reason: 'PHOTO_NOT_FOUND' }
+      const saved = await updateOwnRider(tx, storeId, riderId, input, now())
+      if (!saved) return { ok: false, reason: 'UNAUTHENTICATED' }
+      // The fields that changed, without their values: a rider's details are personal data (LOGGING §4.1).
+      const changed = (['name', 'photo_asset_id', 'vehicle_type', 'vehicle_number'] as const).filter((k) => before[k] !== saved[k])
+      await activity.record(tx, entry(riderProfileAudit.profileSaved, saved, changed.map((field) => ({ field, before: null, after: null }))))
+      return { ok: true, value: saved }
+    })
+
+  /** Signed out everywhere, phone and photo erased, the name kept for past deliveries (DELIVERY §5). */
+  const deleteAccount = (): Promise<ProfileResult<true>> =>
+    withScope(sql, context, async (tx): Promise<ProfileResult<true>> => {
+      const rider = await selectOwnRider(tx, storeId, riderId)
+      if (!rider) return { ok: false, reason: 'UNAUTHENTICATED' }
+      await endRiderSessions(tx, storeId, riderId, now())
+      await markRiderRemoved(tx, storeId, riderId, now())
+      await activity.record(tx, entry(riderProfileAudit.accountDeleted, rider))
+      return { ok: true, value: true }
+    })
+
+  return { me, update, deleteAccount }
+}

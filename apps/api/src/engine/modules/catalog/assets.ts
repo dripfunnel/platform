@@ -23,7 +23,8 @@ export type UploadResult =
 export interface AssetDeps {
   sql: postgres.Sql
   context: TenantContext
-  actor: { id: string; partnerId: string }
+  /** A merchant's or supplier's person on the Store API, or a rider's own photo on the Delivery API (DELIVERY §4). */
+  actor: { id: string; partnerId: string; kind?: 'person' | 'rider' }
   activity: ActivityLog
   facts: RequestFacts
   store: AssetStore
@@ -46,7 +47,7 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
         category: 'write',
         action: assetsAudit.uploaded,
         result: 'success',
-        actorKind: 'person',
+        actorKind: actor.kind ?? 'person',
         actorId: actor.id,
         actorLabel: null,
         partnerId: actor.partnerId,
@@ -54,7 +55,7 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
         sellerId,
         target: { type: 'file', id: made, label: file.mime },
         reason: null,
-        api: 'store',
+        api: actor.kind === 'rider' ? 'delivery' : 'store',
         visibility: 'store',
         ...facts,
       })
@@ -69,6 +70,14 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
     const { type } = checked
     const id = await save(bytes, type)
     return { ok: true, asset: { id, kind: type.kind, mime: type.mime, bytes: bytes.byteLength, width: type.width, height: type.height } }
+  }
+
+  /** A photo alone, no video: a rider's profile picture (DELIVERY §4 `updateProfile`). */
+  const uploadImage = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> => {
+    const checked = checkMedia(bytes)
+    if (!checked.ok) return checked
+    if (checked.type.kind !== 'image') return { ok: false, code: 'UNSUPPORTED_TYPE' }
+    return upload(bytes)
   }
 
   /** A download's file (CATALOG T14): kept as `file`, which no photo, page or storefront shows (migration 0064's asset policy). */
@@ -87,5 +96,5 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
     return object ? { body: object.body, mime: row.mime, bytes: row.bytes } : null
   }
 
-  return { upload, uploadDownload, open }
+  return { upload, uploadImage, uploadDownload, open }
 }

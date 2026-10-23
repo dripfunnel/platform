@@ -5,11 +5,11 @@ and how to add to it. Read [../ARCHITECTURE.md](../ARCHITECTURE.md) and
 [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) first; they win wherever this folder
 disagrees.
 
-**Status: skeleton.** The router, the four GraphQL endpoints (one `health` field each; the Delivery API is the fifth, specified in DELIVERY.md), the
+**Status: skeleton.** The router, the five GraphQL endpoints (one `health` field each; the Delivery API, the fifth, since #839, DELIVERY.md), the
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -26,7 +26,7 @@ Last updated: 2026-10-22 (the Delivery API, its caller and folder, proposed: DEL
 ## 1. What `apps/api` is
 
 **One Cloudflare Worker** holds all server code: the commerce engine, the platform (SaaS)
-layer, five GraphQL APIs (the Delivery API proposed, DELIVERY.md), inbound webhooks, and background work on Queues, Workflows and
+layer, five GraphQL APIs (the Delivery API since #839, DELIVERY.md), inbound webhooks, and background work on Queues, Workflows and
 Cron. The SPAs and storefronts are clients of it; none of them contains business logic.
 
 It follows the usual headless-commerce shape (an engine exposing a Shop API and an admin-side
@@ -46,7 +46,7 @@ doesn't belong to, and a test proves it (`src/router.test.ts`, `src/index.test.t
 | **Platform API** (`src/apis/platform`) | `platform.dripfunnel.com/api` | `schema/platform.graphql` | `apps/ui/platform` | Partner users | **The caller's own partner only**, and its merchants at account level |
 | **Store API** (`src/apis/store`) | `/api` on each partner's portal host | `schema/store.graphql` | `apps/ui/store`, integrations (API keys), installed apps | Merchants, their staff, vendors; API keys; apps; support sessions (read-only) | **The acting store**, and for vendors their own `seller_id` |
 | **Shop API** (`src/apis/shop`) | `/shop-api` on each storefront host | `schema/shop.graphql` | `@dripfunnel/storefront-core`, merchants' own storefronts, the store's shop app | Shoppers (public store key + optional customer session) | One store, public data only |
-| **Delivery API** (`src/apis/delivery`) *(proposed)* | `/delivery-api` on `{slug}.<SHOP_DOMAIN>` only ([DELIVERY.md](DELIVERY.md) §4) | `schema/delivery.graphql` | The store's delivery app | The store's riders (bearer session from a mobile code) | One store, the rider's own offers and deliveries |
+| **Delivery API** (`src/apis/delivery`, #839) | `/delivery-api` on `{slug}.<SHOP_DOMAIN>` only ([DELIVERY.md](DELIVERY.md) §4) | `schema/delivery.graphql` | The store's delivery app | The store's riders (bearer session from a mobile code) | One store, the rider's own offers and deliveries |
 | Webhooks (`src/hooks`) | `hooks.dripfunnel.com` | none | Stripe, Razorpay, Shiprocket, SES, GitHub | Providers (signature verified) | Per provider event |
 | Build calls (`src/apis/builds.ts`) | `hooks.dripfunnel.com/builds/*` | none (JSON) | A store repo's locked workflow | A GitHub Actions run (its OIDC token, storefront/LIVE-SHOP.md §9) | The one build its token and build id name (#517) |
 
@@ -134,7 +134,7 @@ apps/api/
       platform/             Platform API, for partners
       store/                Store API: schema and resolvers per engine module
       shop/                 Shop API: catalog, cart, checkout, account, content
-      delivery/             Delivery API: riders' sign-in, offers, deliveries (proposed, DELIVERY.md §4)
+      delivery/             Delivery API: riders' sign-in and profile (#839); offers, deliveries (DELIVERY.md §4)
     hooks/                  one file per provider: stripe.ts, razorpay.ts, shiprocket.ts, ses.ts
     jobs/
       queues/               outbox-relay.ts, email.ts, search-index.ts, cache-purge.ts, import.ts

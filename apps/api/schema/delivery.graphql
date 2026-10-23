@@ -1,0 +1,34 @@
+type Mutation {
+  deleteMyAccount: Boolean
+  requestCode(phone: String!): Boolean
+  signIn(code: String!, phone: String!): RiderSession
+  signOut: Boolean
+  updateProfile(name: String!, photoAssetId: ID, vehicleNumber: String, vehicleType: VehicleType): Rider
+}
+
+type Query {
+  health: String
+  me: Rider
+}
+
+type Rider {
+  createdAt: String
+  id: ID
+  name: String
+  phone: String
+  photoAssetId: ID
+  vehicleNumber: String
+  vehicleType: VehicleType
+}
+
+type RiderSession {
+  sessionToken: String
+}
+
+enum VehicleType {
+  bicycle
+  bike
+  car
+  foot
+  scooter
+}
