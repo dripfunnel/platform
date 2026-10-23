@@ -90,15 +90,13 @@ apps/ui/mobile-app/merchant/
                                 offers/ holds the list, new, [id] (one offer) and [id]/edit (the editor)
                                 more/settings/ holds the Owner's list of tabs (Store info … Customer accounts, Developers, Apps, Support access, Activity log), [tab] (one tab on its screen) and market/[id] (the Markets editor)
     features/<area>/        screens, private components and hooks per area
-    graphql/                the app's own API client and types generated from apps/api/schema/ (§5)
+    graphql/                the partner's host from the build and the `/api/` path, over the shared client (§5)
     api/<area>.ts           this app's GraphQL operations, typed from apps/api/schema/
-    format/                 the app's own money, date, number and plural formatting (REACT-NATIVE.md §6)
     session/                the bearer token in secure storage, acting store and supplier
     brand/                  loads the partner's look and turns it into the theme
-    theme/                  tokens and the theme provider
-    intl/                   the FormatJS polyfills, loaded first (REACT-NATIVE.md §6)
     nav.ts                  tabs and More items as data, per role
     messages/               en.json (+ other locales)
+  ../shared/                @dripfunnel/mobile-shared: the API client, format/, intl/ (the FormatJS polyfills, loaded first; REACT-NATIVE.md §6), theme/ and secure storage
   package.json  tsconfig.json  README.md
 ```
 
