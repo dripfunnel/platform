@@ -118,6 +118,31 @@ describe('adding an address', () => {
     expect((await run<Added>(add, callerOf(ids.fresh, 'partner-support'), { kind: 'portal', host: 'store.freshpartner.example' })).code).toBe('FORBIDDEN')
   })
 
+  it('lets the house partner add a DripFunnel host and nobody else', async () => {
+    const house = (await db.sql<{ id: string }[]>`select id from partner where is_house`)[0]?.id ?? ''
+    const owner = callerOf(house, 'partner-owner')
+    expect((await run<Added>(add, callerOf(ids.fresh, 'partner-owner'), { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    expect((await run<Added>(add, owner, { kind: 'email', host: 'mail.dripfunnel-mail.com' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.net' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    expect((await run<Added>(add, callerOf(house, 'partner-support'), { kind: 'portal', host: 'store.dripfunnel.com' })).code).toBe('FORBIDDEN')
+    expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.edge.example' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    for (const host of ['dripfunnel.com', 'admin.dripfunnel.com', 'platform.dripfunnel.com', 'hooks.dripfunnel.com']) {
+      expect((await run<Added>(add, owner, { kind: 'portal', host })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    }
+    // Another file seeds the house partner's portal row; lift it with its records so the slot is free, then put it back.
+    const records = await db.sql`delete from partner_domain_record where partner_id = ${house} returning *`
+    const [seeded] = await db.sql`delete from partner_domain where partner_id = ${house} and kind = 'portal' returning *`
+    try {
+      const added = (await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain
+      expect(added).toMatchObject({ ok: true })
+      await db.sql`delete from partner_domain_record where domain_id = ${added?.id ?? ''}`
+      await db.sql`delete from partner_domain where id = ${added?.id ?? ''}`
+    } finally {
+      if (seeded) await db.sql`insert into partner_domain select * from jsonb_populate_record(null::partner_domain, ${db.sql.json(seeded)})`
+      if (records.length) await db.sql`insert into partner_domain_record select * from jsonb_populate_recordset(null::partner_domain_record, ${db.sql.json(records)})`
+    }
+  })
+
   it('adds an address waiting with its records, queues the first check and logs it; the same host or kind again is refused', async () => {
     const owner = callerOf(ids.fresh, 'partner-owner')
     const added = (await run<Added>(add, owner, { kind: 'email', host: 'mail.freshpartner.example' })).data?.addPartnerDomain

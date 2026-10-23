@@ -6,10 +6,10 @@ import { partnerRoleHas } from '#auth/partnerPermissions'
 import { parseHostname } from '#core/hostname'
 import { domainKinds, type HostStatus } from '#db/schema/saas'
 import { withScope } from '#db/scoped/index'
-import { deletePartnerAddress, hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
+import { deletePartnerAddress, hostClaimedElsewhere, insertPartnerAddress, selectIsHousePartner, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
 import { selectCustomDomains } from '#db/scoped/stores'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
-import { isBareDomain, isDripfunnelHost, ownershipRecord, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
+import { isBareDomain, isDripfunnelHost, isHouseHost, ownershipRecord, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
@@ -92,17 +92,17 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, edge
     const { kind } = parsed.data
     const typed = parseHostname(parsed.data.host.trim().replace(/^\*\./, ''), { localhost: localHosts })
     if (!typed.ok || typed.wildcard) return Promise.resolve({ ok: false, reason: 'NOT_A_HOSTNAME' })
-    const base = typed.host
-    if (isDripfunnelHost(base, edgeZone)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
-    // The email sender on a bare domain would clash with the partner's website.
-    if (kind === 'email' && isBareDomain(base)) return Promise.resolve({ ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' })
-    const host = base
-    const apex = kind === 'portal' && isBareDomain(base)
-    const pointing = recordsFor(kind, host, apex, edgeZone)
-    if (!pointing) return Promise.resolve({ ok: false, reason: 'APEX_NOT_AVAILABLE' })
-    // The token is the partner's proof of control: another partner's claim on the host never verifies.
-    const records = [...pointing, ownershipRecord(host, crypto.randomUUID().replaceAll('-', ''))]
+    const host = typed.host
     return withScope(sql, context, async (tx): Promise<AddResult> => {
+      // The house partner (SAAS §3.5) may add dripfunnel.com names only, not the mail, .net or edge-zone names (#890).
+      if (isDripfunnelHost(host, edgeZone) && !(isHouseHost(host, edgeZone) && (await selectIsHousePartner(tx, partnerId)))) return { ok: false, reason: 'DRIPFUNNEL_DOMAIN' }
+      // The email sender on a bare domain would clash with the partner's website.
+      if (kind === 'email' && isBareDomain(host)) return { ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' }
+      const apex = kind === 'portal' && isBareDomain(host)
+      const pointing = recordsFor(kind, host, apex, edgeZone)
+      if (!pointing) return { ok: false, reason: 'APEX_NOT_AVAILABLE' }
+      // The token is the partner's proof of control: another partner's claim on the host never verifies.
+      const records = [...pointing, ownershipRecord(host, crypto.randomUUID().replaceAll('-', ''))]
       const existing = await selectPartnerDomainsWithRecords(tx, partnerId)
       if (existing.some((r) => r.domain.host.toLowerCase() === host)) return { ok: false, reason: 'ALREADY_YOURS' }
       if (existing.some((r) => r.domain.kind === kind)) return { ok: false, reason: 'KIND_TAKEN' }
