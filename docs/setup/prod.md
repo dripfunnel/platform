@@ -182,8 +182,9 @@ The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Wor
    `commit_sha` and `studio_digest`, soon after, and only for the most recent upload. It:
    1. checks that both versions were built from that commit;
    2. moves the API Worker, then store-proxy, to 100%;
-   3. checks `https://platform.dripfunnel.com/api/health` reports that version;
-   4. only then builds and deploys the three consoles from the same commit.
+   3. runs `wrangler deploy --containers-rollout immediate` once, because `versions deploy` never creates or updates the studio's container application (#881). It makes a new version of the same code, and fails if the application still has no image;
+   4. checks `https://platform.dripfunnel.com/api/health` reports that new version;
+   5. only then builds and deploys the three consoles from the same commit.
 5. If the health check fails, or something is wrong after release, follow
    [ROLLBACK.md](../code/ROLLBACK.md).
 
