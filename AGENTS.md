@@ -79,6 +79,9 @@ Run the gates before reporting a change as done.
   generated schema files (`apps/api/schema/`), never by importing `apps/api`.
 - **`apps/ui/shared/`** holds only code more than one SPA uses. Add to it when a second app needs something,
   never in advance; something one app uses stays in that app.
+- **`apps/ui/mobile-app/shared`** (`@dripfunnel/mobile-shared`) holds what more than one mobile app uses: the API client,
+  `format/`, `intl/`, the theme and secure storage. The mobile apps import only it, never `apps/ui/shared`, an SPA or
+  another app; it imports no app (enforced by `eslint.config.js`).
 - **`packages/storefront-core`** is the only published package. It imports nothing from
   the rest of the repo.
 - **`templates/storefront/`** is copied into each new store repo when its merchant picks a
@@ -210,7 +213,8 @@ Run the gates before reporting a change as done.
    `apps/ui/shared/`. Logic needed by more than one app belongs in `shared/`, never copied between
    apps. Extract a shared function or component once the same logic appears a second time,
    not in anticipation of it.
-   Exception: the merchant mobile app shares no code with the SPAs (mobile-app/merchant/REACT-NATIVE.md §2).
+   Exception: the mobile apps share no code with the SPAs; they share `apps/ui/mobile-app/shared`
+   (`@dripfunnel/mobile-shared`) among themselves (mobile-app/README.md §2).
 2. **No unnecessary comments.** Names and types say what the code does. Comment only *why*,
    when it isn't obvious: a constraint, an invariant, a workaround (with a link to the issue
    or doc). No comments that restate the code, no commented-out code, no change-history

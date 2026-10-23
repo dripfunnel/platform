@@ -1,5 +1,5 @@
 import type { Brand } from '../api/brand'
-import { buildTheme, radii, type Mode, type Theme } from '../theme'
+import { buildTheme, radii, type Mode, type Theme } from '@dripfunnel/mobile-shared/theme'
 
 // The partner's look over DripFunnel's tokens, as the portal applies it (apps/ui/store brand/applyBrand.ts):
 // the primary colour is the header, which carries white text; the accent is the brand colour, which carries

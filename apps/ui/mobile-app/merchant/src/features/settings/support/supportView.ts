@@ -1,5 +1,5 @@
 import type { SupportSession } from '../../../api/settingsSupport'
-import { formatDateTime, formatDuration } from '../../../format'
+import { formatDateTime, formatDuration } from '@dripfunnel/mobile-shared/format'
 import { locale, t, tryT } from '../../../messages'
 import { dotted } from '../dotted'
 

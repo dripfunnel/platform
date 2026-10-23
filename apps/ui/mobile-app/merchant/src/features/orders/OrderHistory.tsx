@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { Order } from '../../api/order'
-import { formatDateTime } from '../../format'
+import { formatDateTime } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { SectionCard } from '../common/SectionCard'
 import { eventText } from './orderDetail'
 

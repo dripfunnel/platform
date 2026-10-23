@@ -1,5 +1,5 @@
 import { discardDraft, goBackToVersion, publishDesign, type StorefrontVersion } from '../../api/storefront'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { FormSheet } from '../settings/FormSheet'
 import { versionLabel } from './siteView'

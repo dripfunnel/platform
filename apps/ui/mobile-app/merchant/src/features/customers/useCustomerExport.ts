@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { loadCustomerExport, requestCustomerExport, type CustomerQuery } from '../../api/customers'
 import type { ExportJob } from '../../api/exportJob'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { shareCsv } from '../common/shareCsv'
 import { useExportJob } from '../common/useExportJob'

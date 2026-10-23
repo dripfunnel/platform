@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { t } from '../../../messages'
 import { tCount } from '../../../messages/plural'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { LinkButton } from '../../common/LinkButton'
 import { CompactField } from './CompactField'
 import { quantityOf, versionKey, type Draft, type DraftVersion } from './draft'

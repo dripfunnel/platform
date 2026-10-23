@@ -1,5 +1,5 @@
 import { approveProduct, sendBackProduct } from '../../api/products'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { errorMessage } from '../../messages/errorMessage'
 import { useFeedback } from '../shell/Feedback'

@@ -1,0 +1,54 @@
+{
+  "name": "@dripfunnel/mobile-shared",
+  "private": true,
+  "version": "1.0.0",
+  "exports": {
+    "./graphql": "./graphql/index.ts",
+    "./format": "./format/index.ts",
+    "./format/cases": "./format/cases.ts",
+    "./intl": "./intl/index.ts",
+    "./theme": "./theme/index.ts",
+    "./theme/tokens": "./theme/tokens.ts",
+    "./storage": "./storage/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testTimeout": 30000,
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|@formatjs))",
+      "/node_modules/@react-native/babel-preset/"
+    ]
+  },
+  "dependencies": {
+    "@formatjs/intl-getcanonicallocales": "^3.2.12",
+    "@formatjs/intl-listformat": "^8.3.15",
+    "@formatjs/intl-locale": "^5.3.12",
+    "@formatjs/intl-numberformat": "^9.4.3",
+    "@formatjs/intl-pluralrules": "^6.3.15",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo-secure-store": "~57.0.4",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  },
+  "devDependencies": {
+    "@react-native/jest-preset": "0.86.3",
+    "@types/jest": "29.5.14",
+    "@types/node": "^26.6.3",
+    "@types/react": "~19.2.18",
+    "@types/react-test-renderer": "^19.1.0",
+    "expo": "57.0.27",
+    "jest": "~29.7.0",
+    "jest-expo": "~57.0.5",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-test-renderer": "19.2.3"
+  }
+}

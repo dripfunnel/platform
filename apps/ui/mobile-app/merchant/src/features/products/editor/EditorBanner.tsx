@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { toneColours, type Tone } from '../productView'
 
 export type BannerSpec = { key: string; tone: Tone | 'info'; title: string; body?: string; action?: { label: string; onPress: () => void } }

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { exportJobFields, exportJobSchema, readExportJob, type ExportJob } from './exportJob'
 
 // Customers on the Store API (FIRST-RELEASE (store) §7; apps/api src/apis/store/customers.ts): the merchant side's, Owner, Manager

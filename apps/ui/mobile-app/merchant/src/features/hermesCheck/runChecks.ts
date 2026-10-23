@@ -1,4 +1,4 @@
-import { formatCases, type FormatCase } from '../../format/cases'
+import { formatCases, type FormatCase } from '@dripfunnel/mobile-shared/format/cases'
 
 export type CheckResult = { group: string; name: string; expected: string; actual: string; passed: boolean }
 

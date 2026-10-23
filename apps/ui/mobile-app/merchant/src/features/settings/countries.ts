@@ -1,4 +1,4 @@
-import { regionName } from '../../format'
+import { regionName } from '@dripfunnel/mobile-shared/format'
 import { locale } from '../../messages'
 import type { PickerOption } from './PickerField'
 

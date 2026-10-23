@@ -9,11 +9,11 @@ import {
   type Courier,
   type CourierTest,
 } from '../../../api/settingsShipping'
-import { formatDateTime } from '../../../format'
-import { isApiError, type ApiClient } from '../../../graphql'
+import { formatDateTime } from '@dripfunnel/mobile-shared/format'
+import { isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { locale, t } from '../../../messages'
 import { errorMessage } from '../../../messages/errorMessage'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../../common/Button'
 import { Notice } from '../../common/Notice'
 import { SectionCard } from '../../common/SectionCard'

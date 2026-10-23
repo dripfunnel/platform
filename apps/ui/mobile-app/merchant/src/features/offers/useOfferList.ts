@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadOfferCounts, loadOfferNames, loadOfferPlace, loadOffers, type Offer, type OfferCounts, type OfferKind, type OfferTab } from '../../api/offers'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { noNames, type OfferNames } from './offerView'
 
 type Page = { rows: Offer[]; next: string | null }

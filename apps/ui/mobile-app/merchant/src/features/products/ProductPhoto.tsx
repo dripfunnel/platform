@@ -2,7 +2,7 @@ import { Image } from 'expo-image'
 import { StyleSheet, Text, View } from 'react-native'
 import { assetSource } from '../../api/products'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { fileDeps } from './files'
 
 type Props = { path: string | null; localUri?: string | null; size: number; label: string; radius?: number; showEmpty?: boolean }

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Chip } from '../common/Chip'
 
 type Props<K extends string> = { label: string; value: K; chips: readonly { key: K; label: string; count: number }[]; onChange: (key: K) => void }

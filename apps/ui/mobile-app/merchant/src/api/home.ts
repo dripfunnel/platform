@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { moneySchema } from './orders'
 
 // Home on the Store API (FIRST-RELEASE (store) §5; apps/api src/apis/store/home.ts): what a seat may not see comes back null, so the

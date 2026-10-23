@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { ProductRow } from '../../api/products'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Icon } from '../shell/Icon'
 import { ProductPhoto } from './ProductPhoto'
 import { StatusChip } from './StatusChip'

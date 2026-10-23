@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { AbandonedCart } from '../../api/carts'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../common/Button'
 import { agoText, canRemind, itemsText, moneyText, pillOf, statusLine, stepText, type Sender } from './cartText'
 import { CartPill } from './CartPill'

@@ -1,5 +1,5 @@
 import type { DownloadFile } from '../../../api/productKinds'
-import { formatNumber } from '../../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../../messages'
 
 const types: Record<string, 'pdf' | 'zip' | 'mp3' | 'mp4' | 'webm' | undefined> = { 'application/pdf': 'pdf', 'application/zip': 'zip', 'audio/mpeg': 'mp3', 'video/mp4': 'mp4', 'video/webm': 'webm' }

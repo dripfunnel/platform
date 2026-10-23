@@ -1,5 +1,5 @@
 import { seoLimits, type StorefrontSeo } from '../../../api/storefrontSettings'
-import { isApiError } from '../../../graphql'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 
 // The home page's words, which the brand step asks for and Search and sharing keeps (FIRST-RELEASE (store) §14).

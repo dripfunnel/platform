@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { designOutcomes, storefrontStatuses } from './storefront'
 
 // The AI studio on the Store API (FIRST-RELEASE (store) §14; storefront AI-STUDIO §3–§5, §8; apps/api src/apis/store/studio.ts):

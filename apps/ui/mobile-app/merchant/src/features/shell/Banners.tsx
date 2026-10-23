@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import type { BannerSpec } from './bannerSpecs'
 import { SupportAskBar } from './SupportAskBar'
 

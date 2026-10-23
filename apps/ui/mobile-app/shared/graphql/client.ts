@@ -3,8 +3,10 @@ import { ApiError } from './errors'
 type GraphQLResponse<T> = { data?: T; errors?: { message: string; extensions?: { code?: string } & Record<string, unknown> }[] }
 
 export type ClientOptions = {
-  /** The partner's portal host, from the build configuration (CONFIGURATION.md §2). */
+  /** The API's host, from the app's build configuration. */
   domain: string
+  /** The API's path on that host, with its trailing slash: `/api/` (merchant app), `/shop-api/`, `/delivery-api/`. */
+  path: string
   timeoutMs?: number
   /** Read on every call: the session arrives after the client is made (REACT-NATIVE.md §5). */
   token?: () => string | null
@@ -27,9 +29,9 @@ export const authHeaders = ({ token = () => null, store = () => null, supplier =
   }
 }
 
-// Trailing slash: the `/api/*` route misses bare `/api` (ARCHITECTURE.md §2).
-export const createApiClient = ({ domain, timeoutMs = defaultTimeoutMs, token = () => null, store = () => null, supplier = () => null, fetchImpl = fetch }: ClientOptions) => {
-  const endpoint = `https://${domain}/api/`
+// The trailing slash matters: the `/api/*` route misses bare `/api` (merchant ARCHITECTURE.md §2).
+export const createApiClient = ({ domain, path, timeoutMs = defaultTimeoutMs, token = () => null, store = () => null, supplier = () => null, fetchImpl = fetch }: ClientOptions) => {
+  const endpoint = `https://${domain}${path}`
 
   const getUrl = (query: string, variables?: Record<string, unknown>): string =>
     `${endpoint}?query=${encodeURIComponent(query)}${variables ? `&variables=${encodeURIComponent(JSON.stringify(variables))}` : ''}`

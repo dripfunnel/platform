@@ -1,6 +1,6 @@
 import { act } from 'react-test-renderer'
 import { AppState, Linking } from 'react-native'
-import { type ApiClient } from '../../graphql'
+import { type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { fakeApi, type Call } from '../../testing/fakeApi'
 import { actingAs, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'
@@ -237,7 +237,7 @@ describe('importing a CSV picked from the phone', () => {
   it('words a refusal of the start by its code, never by the API’s words', async () => {
     mockPick.mockResolvedValue(picked)
     mockRead.mockResolvedValue('Title\nShirt\n')
-    const { ApiError } = jest.requireActual('../../graphql') as typeof import('../../graphql')
+    const { ApiError } = jest.requireActual('@dripfunnel/mobile-shared/graphql') as typeof import('@dripfunnel/mobile-shared/graphql')
     const { renderer } = await show({
       startCatalogImport: () => {
         throw new ApiError('FILE_TOO_LARGE', 'internal detail 4f2a')

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 // The list's empty states: a store with no orders yet, and a search or filter that matches none.
 export function ListMessage({ title, body, children }: { title: string; body: string; children?: ReactNode }) {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadMySales, loadSupplierName, type Sale } from '../../api/supplier'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 type Page = { rows: Sale[]; next: string | null }
 

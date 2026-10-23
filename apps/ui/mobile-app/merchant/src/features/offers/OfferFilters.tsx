@@ -1,8 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { offerKinds, offerTabs, type Offer, type OfferCounts, type OfferKind, type OfferTab } from '../../api/offers'
-import { formatNumber } from '../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Chip } from '../common/Chip'
 import type { RegionWords } from './offerView'
 

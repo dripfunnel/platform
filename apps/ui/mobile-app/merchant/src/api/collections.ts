@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Collections on the Store API (FIRST-RELEASE.md §12; CATALOG-DESIGN.md H): groups of products, by rules or by hand. The API
 // decides which products a rule-based collection holds; the app only reads its count and its preview.

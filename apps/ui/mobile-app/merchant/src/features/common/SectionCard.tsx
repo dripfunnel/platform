@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 export function SectionCard({ title, sub, children }: { title: string; sub?: string | undefined; children: ReactNode }) {
   const { colors, radii } = useTheme()

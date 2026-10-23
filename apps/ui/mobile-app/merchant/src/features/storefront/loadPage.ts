@@ -1,7 +1,7 @@
 import { loadAccess } from '../../api/products'
 import { loadStoreTimeZone } from '../../api/storeInfo'
 import { loadLatestRequest, loadOverview, loadShopHost, type StorefrontOverview } from '../../api/storefront'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { storefrontAccessOf, type StorefrontAccess } from './access'
 
 export type StorefrontData = { overview: StorefrontOverview; host: string | null; request: string | null; timeZone: string }

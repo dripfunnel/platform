@@ -19,6 +19,10 @@ const forbidFolders = (folders) => ({
 
 const uiApps = ['admin', 'platform', 'store']
 
+const mobileApps = ['merchant', 'shop', 'delivery']
+const mobileForbidden = ['@dripfunnel/*', '!@dripfunnel/mobile-shared', '**/apps/**', '**/shared/**']
+const otherMobileApps = (own) => mobileApps.filter((app) => app !== own).flatMap((app) => [`**/${app}`, `**/${app}/**`])
+
 // A relative import can only be told apart from the app's own src/api/ (docs/ui/README.md §2)
 // by how far up it climbs: from a file `depth` folders below apps/ui/<app>/, apps/api is
 // exactly depth + 2 levels up. So each depth gets its own pattern.
@@ -81,10 +85,16 @@ export default tseslint.config(
     files: ['apps/ui/mobile-app/merchant/src/app/**/*.tsx'],
     rules: { 'no-restricted-syntax': 'off' },
   },
-  {
-    files: ['apps/ui/mobile-app/merchant/**/*.{ts,tsx}'],
+  ...mobileApps.map((app) => ({
+    files: [`apps/ui/mobile-app/${app}/**/*.{ts,tsx}`],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [{ group: ['@dripfunnel/*', '**/apps/**', '**/shared/**'], message: 'The mobile app shares no code with the SPAs or the API (docs/mobile-app/merchant/REACT-NATIVE.md §2).' }] }],
+      'no-restricted-imports': ['error', { patterns: [{ group: [...mobileForbidden, ...otherMobileApps(app)], message: 'A mobile app imports only @dripfunnel/mobile-shared: no SPA, API or other mobile app (docs/mobile-app/README.md §2).' }] }],
+    },
+  })),
+  {
+    files: ['apps/ui/mobile-app/shared/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [{ group: [...mobileForbidden, ...otherMobileApps()], message: 'mobile-shared never imports from the apps (docs/mobile-app/README.md §2).' }] }],
     },
   },
   {

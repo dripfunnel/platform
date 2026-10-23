@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { CartDetail } from '../../api/carts'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { SectionCard } from '../common/SectionCard'
 import { agoText, eventsOf } from './cartText'
 

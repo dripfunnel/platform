@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // The compact Storefront screen on the Store API (FIRST-RELEASE (store) §14; apps/api src/apis/store/storefront.ts, studio.ts, publishing.ts, preview.ts).
 // `storefront.read` reads; `publish` (the Owner) changes, and the API refuses everyone else.

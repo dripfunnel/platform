@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadProductCounts, loadProducts, type ProductCounts, type ProductQuery, type ProductRow } from '../../api/products'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 type Page = { rows: ProductRow[]; next: string | null }
 

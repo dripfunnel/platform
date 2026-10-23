@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { ShellScreen } from '../states/ShellScreen'
 import type { StateKind } from '../states/StateView'
 

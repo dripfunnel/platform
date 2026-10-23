@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Customer accounts (SetAccess; ACCESS.md §2.1; apps/api src/apis/store/customerAccounts.ts): how shoppers sign in, and how many accounts each way.
 

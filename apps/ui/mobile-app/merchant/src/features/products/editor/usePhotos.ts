@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { uploadPhoto } from '../../../api/products'
-import { isApiError } from '../../../graphql'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { fileDeps } from '../files'
 import { pickFromCamera, pickFromLibrary, type Picked } from '../pickPhoto'
 import { maxPhotos, type Draft, type DraftPhoto } from './draft'

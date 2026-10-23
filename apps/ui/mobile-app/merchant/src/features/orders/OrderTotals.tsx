@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import type { Order } from '../../api/order'
 import type { ApiMoney } from '../../api/orders'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { SectionCard } from '../common/SectionCard'
 import { methodText, moneyText } from './orderView'
 

@@ -1,5 +1,5 @@
 import type { AbandonedCart } from '../../api/carts'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import type { CartAction } from './CartCard'
 import { ResumeRemindersSheet } from './ResumeRemindersSheet'
 import { SendReminderSheet } from './SendReminderSheet'

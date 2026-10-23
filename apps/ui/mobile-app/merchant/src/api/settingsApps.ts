@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Apps (SetDev "apps"; FIRST-RELEASE (store) §15; apps/api src/apis/store/apps.ts): private apps that run on their own site.
 

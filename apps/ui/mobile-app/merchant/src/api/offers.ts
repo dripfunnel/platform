@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { loadCollections } from './collections'
 import { loadCustomerGroups } from './customers'
 import { loadFilters } from './filters'

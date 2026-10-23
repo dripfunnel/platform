@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Catalogue (CatSettings "catalogue"; FIRST-RELEASE (store) §15): which product page sections the store shows, and its badges.
 // Default legal details, custom fields and the plan-usage meters wait for their API (§15), so they are not here.

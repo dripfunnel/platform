@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { brandLimits, socialNetworks } from '../../../api/storefrontSettings'
 import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Chip } from '../../common/Chip'
 import { SectionCard } from '../../common/SectionCard'
 import { TextArea } from '../../common/TextArea'

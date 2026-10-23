@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadCartPlace, loadReminderSending, type ReminderSending } from '../../api/carts'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 export type CartFacts = {
   /** Whether reminders go by themselves and the plan's level; null while unread, or when it couldn't be read. */

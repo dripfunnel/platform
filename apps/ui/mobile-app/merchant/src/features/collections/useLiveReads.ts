@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { previewCollection, searchPickable, type Pickable, type Preview, type RuleInput } from '../../api/collections'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 export type Read<T> = { status: 'idle' } | { status: 'loading' } | { status: 'failed' } | { status: 'ready'; data: T }
 

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Shipping (SetOps; FIRST-RELEASE (store) §15; apps/api src/apis/store/shipping.ts). Amounts are minor-unit digit strings of `currency`.
 

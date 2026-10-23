@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { toneColours, type Tone } from './productView'
 
 // A small pill: Visible, Hidden, Waiting for approval, Sent back (CATALOG-DESIGN.md B1), or a tone for another short fact.

@@ -1,4 +1,4 @@
-import { isApiError } from '../../graphql'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { stateOfError } from '../common/useLoad'
 import type { StateKind } from '../states/StateView'
 

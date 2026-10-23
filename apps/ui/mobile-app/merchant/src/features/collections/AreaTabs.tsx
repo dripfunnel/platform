@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 export const areaTabs = ['collections', 'filters', 'menus', 'sizeCharts'] as const
 export type AreaTab = (typeof areaTabs)[number]

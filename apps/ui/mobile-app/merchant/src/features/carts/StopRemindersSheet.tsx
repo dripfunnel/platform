@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { maxStopNote, stopReminders, type AbandonedCart } from '../../api/carts'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { TextArea } from '../common/TextArea'
 import { FormSheet } from '../settings/FormSheet'

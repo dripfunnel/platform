@@ -1,8 +1,8 @@
 import { productFilters, type ProductCounts, type ProductFilter, type ProductRow } from '../../api/products'
-import { formatMoney } from '../../format'
+import { formatMoney } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { tCount } from '../../messages/plural'
-import type { Palette } from '../../theme/tokens'
+import type { Palette } from '@dripfunnel/mobile-shared/theme/tokens'
 
 // How a list row says what the API sent (CATALOG-DESIGN.md B1, CatList's phone cards): words and tones only. Prices, stock and
 // readiness are the API's to work out; nothing here adds a figure that is charged or sold.

@@ -1,4 +1,4 @@
-import { isApiError } from '../graphql'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t, tryT } from './index'
 
 /** Where an error happened, so one code can read differently: a wrong password at sign-in is not a wrong current password. */

@@ -1,7 +1,7 @@
 import type { EditorProduct, EditorVersion, ProductInput } from '../../../api/products'
 import type { ProductKindView } from '../../../api/productKinds'
 import type { StockLevel } from '../../../api/inventory'
-import { minorOf, moneyText } from '../../../format'
+import { minorOf, moneyText } from '@dripfunnel/mobile-shared/format'
 import { blankDetails, detailsOf, kindOf, type KindDetails, type ProductKind } from './kindDetails'
 
 // A product as the phone's form edits it (FIRST-RELEASE.md §11): text as typed, so a half-typed price is kept, and the versions

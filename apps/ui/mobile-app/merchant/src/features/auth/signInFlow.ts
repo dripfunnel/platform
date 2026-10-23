@@ -1,5 +1,5 @@
 import { enrolConfirm, enrolSendCode, sendCode, signIn, signInWithBackupCode, verifyCode } from '../../api/auth'
-import { ApiError, isApiError, postSignOut, type RestOptions } from '../../graphql'
+import { ApiError, isApiError, postSignOut, type RestOptions } from '@dripfunnel/mobile-shared/graphql'
 import { errorMessage, type ErrorContext } from '../../messages/errorMessage'
 import type { SessionStore } from '../../session'
 import type { PendingStore } from './pending'
@@ -91,6 +91,6 @@ export const failureOf = (error: unknown, context: ErrorContext): Failure => {
 /** Signs out: the API ends the session, best effort, and the phone forgets it either way (REACT-NATIVE.md §5). */
 export const signOut = async ({ rest, session }: Pick<FlowDeps, 'rest' | 'session'>): Promise<void> => {
   const token = session.token()
-  if (token) await postSignOut(rest, token)
+  if (token) await postSignOut(rest, '/api/auth/sign-out', token)
   await session.end('signedOut')
 }
