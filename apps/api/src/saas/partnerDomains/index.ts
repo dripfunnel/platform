@@ -6,7 +6,7 @@ import { partnerRoleHas } from '#auth/partnerPermissions'
 import { parseHostname } from '#core/hostname'
 import { domainKinds, type HostStatus } from '#db/schema/saas'
 import { withScope } from '#db/scoped/index'
-import { deletePartnerAddress, hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
+import { deletePartnerAddress, hostClaimedElsewhere, insertPartnerAddress, selectIsHousePartner, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
 import { selectCustomDomains } from '#db/scoped/stores'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
 import { isBareDomain, isDripfunnelHost, ownershipRecord, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
@@ -86,14 +86,15 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, edge
 
   type AddResult = { ok: true; id: string; apex: boolean } | { ok: false; reason: AddRefusal }
 
-  const addPartnerDomain = (raw: unknown): Promise<AddResult> => {
+  const addPartnerDomain = async (raw: unknown): Promise<AddResult> => {
     const parsed = addInput.safeParse(raw)
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const { kind } = parsed.data
     const typed = parseHostname(parsed.data.host.trim().replace(/^\*\./, ''), { localhost: localHosts })
     if (!typed.ok || typed.wildcard) return Promise.resolve({ ok: false, reason: 'NOT_A_HOSTNAME' })
     const base = typed.host
-    if (isDripfunnelHost(base, edgeZone)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
+    // The house partner is DripFunnel itself (SAAS §3.5), so its own names are the ones it may add.
+    if (isDripfunnelHost(base, edgeZone) && !(await withScope(sql, context, (tx) => selectIsHousePartner(tx, partnerId)))) return { ok: false, reason: 'DRIPFUNNEL_DOMAIN' }
     // The email sender on a bare domain would clash with the partner's website.
     if (kind === 'email' && isBareDomain(base)) return Promise.resolve({ ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' })
     const host = base

@@ -26,7 +26,10 @@ export const selectPartnerDomainsWithRecords = async (tx: ScopedSql, partnerId: 
   return domains.map((domain) => ({ domain, records: records.filter((r) => r.domain_id === domain.id) }))
 }
 
-export const selectDomainRecords = (tx: ScopedSql, domainId: string): Promise<PartnerDomainRecordRow[]> =>
+export const selectIsHousePartner = async (tx: ScopedSql, partnerId: string): Promise<boolean> =>
+  (await tx<{ is_house: boolean }[]>`select is_house from partner where id = ${partnerId}`)[0]?.is_house ?? false
+
+export const selectDomainRecords =(tx: ScopedSql, domainId: string): Promise<PartnerDomainRecordRow[]> =>
   tx<PartnerDomainRecordRow[]>`
     select id, domain_id, position, purpose, record_type, name, expected, found, checked_at
     from partner_domain_record where domain_id = ${domainId} order by position

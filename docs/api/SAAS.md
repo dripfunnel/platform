@@ -160,7 +160,9 @@ A partner owns two kinds of hostname (USERS-AND-DOMAINS §2), both verified thro
 | ~~Shop wildcard~~ | ~~`*.shops.<partnerdomain>`~~ | Retired: every store's live address is `{slug}.my-store.one` (decided 2026-10-15, USERS-AND-DOMAINS §2). Removed on #745: migration 0355 queued `domain.remove` for each registered store host, deleted the `shops` rows, their records and the `wildcards` setup items, and narrowed `partner_domain.kind` to portal and email; the Platform and Admin APIs refuse kind `shops` as `INVALID_INPUT`, and the checklist has eight items without the wildcards. Partners are not emailed about it |
 | Email sender domain | `mail.<partnerdomain>` | SES DKIM, SPF, DMARC (§3.6) |
 
-The house partner uses the same pattern on `dripfunnel.com`. Changing a live portal host keeps
+The house partner uses the same pattern on `dripfunnel.com`: Add an address accepts DripFunnel's
+own names (and the environment's zone) from the house partner (`partner.is_house`) only; every
+other partner is refused `DRIPFUNNEL_DOMAIN` (ui/platform/FIRST-RELEASE.md §9.2). Changing a live portal host keeps
 the old one redirecting for a period *(ask how long)* (F4).
 
 ### 3.6 Email sender

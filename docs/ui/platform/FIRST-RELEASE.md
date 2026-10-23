@@ -464,7 +464,8 @@ Offered (Owner, Admin) while one is missing; "Both addresses are set up" otherwi
 Three steps:
 
 1. **Address**: what it is for (the two kinds; added ones marked); the hostname. Refused: not an
-   address; a DripFunnel domain ("Use a domain your company owns"); already one of yours; a bare
+   address; a DripFunnel domain ("Use a domain your company owns"; the house partner may add
+   its own); already one of yours; a bare
    domain for the email sender ("Use a subdomain, like mail.northstar.com, so it doesn't clash with your
    website."). A root domain for the portal is allowed with a warning ("If northstar.com is
    also your website, the website will stop working.") and gets an A record instead of a CNAME.

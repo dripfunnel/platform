@@ -118,6 +118,13 @@ describe('adding an address', () => {
     expect((await run<Added>(add, callerOf(ids.fresh, 'partner-support'), { kind: 'portal', host: 'store.freshpartner.example' })).code).toBe('FORBIDDEN')
   })
 
+  it('lets the house partner add a DripFunnel host and nobody else', async () => {
+    const house = (await db.sql<{ id: string }[]>`select id from partner where is_house`)[0]?.id ?? ''
+    const added = (await run<Added>(add, callerOf(house, 'partner-owner'), { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain
+    expect(added?.ok).toBe(true)
+    expect((await run<Added>(add, callerOf(ids.fresh, 'partner-owner'), { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+  })
+
   it('adds an address waiting with its records, queues the first check and logs it; the same host or kind again is refused', async () => {
     const owner = callerOf(ids.fresh, 'partner-owner')
     const added = (await run<Added>(add, owner, { kind: 'email', host: 'mail.freshpartner.example' })).data?.addPartnerDomain
