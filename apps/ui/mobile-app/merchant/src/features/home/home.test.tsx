@@ -1,5 +1,5 @@
 import { act, type ReactTestRenderer } from 'react-test-renderer'
-import { ApiError, type ApiClient } from '../../graphql'
+import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { fakeApi } from '../../testing/fakeApi'
 import { actingAs, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'

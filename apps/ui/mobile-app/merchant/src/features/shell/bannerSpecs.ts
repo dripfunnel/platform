@@ -1,5 +1,5 @@
 import type { StoreState } from '../../api/shell'
-import { formatDuration, formatNumber } from '../../format'
+import { formatDuration, formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import type { Seat } from '../../nav'
 import type { BannerScenario } from '../states/scenario'

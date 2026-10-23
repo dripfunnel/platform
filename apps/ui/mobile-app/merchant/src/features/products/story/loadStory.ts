@@ -1,6 +1,6 @@
 import { loadAccess, loadCatalogueBasics, loadProduct } from '../../../api/products'
 import { loadProductStory, loadStoryBlocks, type ProductStory } from '../../../api/productStory'
-import { ApiError, type ApiClient } from '../../../graphql'
+import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 export type StoryData = {
   productId: string

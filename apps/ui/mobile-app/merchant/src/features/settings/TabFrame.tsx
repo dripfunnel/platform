@@ -1,6 +1,6 @@
 import { useCallback, useRef, type ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { sessionClient } from '../../session'
 import { Notice } from '../common/Notice'

@@ -1,6 +1,6 @@
 import { loadCatalogueFacts, loadCollections, loadMarketCountries, type CollectionSummary } from '../../api/collections'
 import { loadFilters, type Filter } from '../../api/filters'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { seasonalFor, type SeasonKey } from './seasonal'
 
 export type AreaFacts = {

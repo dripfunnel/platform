@@ -1,5 +1,5 @@
 import { loadProductStock, loadWarehouses, type StockLevel, type Warehouse } from '../../../api/inventory'
-import { ApiError, type ApiClient } from '../../../graphql'
+import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { loadProductKind, type ProductKindView } from '../../../api/productKinds'
 import { loadSizeChartList } from '../../../api/sizeCharts'
 import { loadAccess, loadApprovalRequired, loadCatalogueBasics, loadProduct, type EditorProduct } from '../../../api/products'

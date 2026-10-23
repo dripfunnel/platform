@@ -1,5 +1,5 @@
 import type { Customer, CustomerAddress, CustomerSummary } from '../../api/customers'
-import { formatDateTime, formatList, formatMoney, type Money } from '../../format'
+import { formatDateTime, formatList, formatMoney, type Money } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { dotted } from '../settings/dotted'
 

@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Linking, StyleSheet, Text, View } from 'react-native'
 import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../../common/Button'
 import { Notice } from '../../common/Notice'
 import type { StorefrontAccess } from '../access'
 import { DiscardSheet } from '../StorefrontSheets'
 import { siteOf } from '../siteView'
-import type { ApiClient } from '../../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import type { DesignerData } from './loadDesigner'
 
 type Props = { client: ApiClient; access: StorefrontAccess; data: DesignerData; refresh: () => Promise<void>; onChangeTemplate: () => void; onOpenStudio: () => void }

@@ -2,7 +2,7 @@ import { loadCatalogueFacts, loadCollection, loadCollections, loadMembers, type 
 import { loadFilters, type Filter } from '../../api/filters'
 import { loadMenu } from '../../api/menu'
 import { loadAccess } from '../../api/products'
-import { ApiError, type ApiClient } from '../../graphql'
+import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 export type CollectionEditorData = {
   /** Null for a new collection. */

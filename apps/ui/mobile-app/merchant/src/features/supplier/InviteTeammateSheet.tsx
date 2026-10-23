@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { inviteTeammate, teamRoles, type TeamRole } from '../../api/supplier'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import type { SupplierTier } from '../../nav'
 import { TextField } from '../common/TextField'

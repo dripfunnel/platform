@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { CartSummary } from '../../api/carts'
-import { formatNumber } from '../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { tCount } from '../../messages/plural'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { moneyList } from './cartText'
 
 // The last 14 days (the prototype's tiles): checkouts left, reminders sent, recovered and recovered sales, all the API's figures. The share

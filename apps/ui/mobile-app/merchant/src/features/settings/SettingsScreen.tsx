@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Icon } from '../shell/Icon'
 import { useShell } from '../shell/ShellData'
 import { ShellScreen } from '../states/ShellScreen'

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { ChoiceRow } from '../common/ChoiceRow'
 
 export type Choice<V extends string> = { value: V; label: string; sub?: string }

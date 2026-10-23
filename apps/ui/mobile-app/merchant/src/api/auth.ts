@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ApiError, decode, nextPage, pageInfoSchema, postJson, typedQuery, type ApiClient, type RestOptions } from '../graphql'
+import { ApiError, decode, nextPage, pageInfoSchema, postJson, typedQuery, type ApiClient, type RestOptions } from '@dripfunnel/mobile-shared/graphql'
 
 // The merchant portal's sign-in routes on the partner's host (ACCESS.md §4). With no Origin and no cookie each
 // answer carries the session as `token`; a refusal is an ApiError with the route's code.

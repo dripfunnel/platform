@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadPublishRun, type PublishRun, type PublishStep } from '../../api/storefront'
-import { isApiError, type ApiClient } from '../../graphql'
+import { isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // How often a running publish is read again, and how many reads may fail in a row before the screen stops asking (the web portal's own numbers).
 export const publishPollMs = 2000

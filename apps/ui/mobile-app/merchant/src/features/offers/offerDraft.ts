@@ -1,4 +1,4 @@
-import { formatNumber, minorOf as minorDigits, moneyDigits, moneyText } from '../../format'
+import { formatNumber, minorOf as minorDigits, moneyDigits, moneyText } from '@dripfunnel/mobile-shared/format'
 import { codeBatchLimits, codeLengths, codePrefixPattern, offerIdLimit, type ApiMoney, type Offer, type OfferAction, type OfferCondition, type OfferKind, type OfferTargets } from '../../api/offers'
 import { locale, t } from '../../messages'
 import { kindOf } from './offerView'

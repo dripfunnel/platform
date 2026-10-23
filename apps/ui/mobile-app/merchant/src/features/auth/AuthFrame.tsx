@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { StyleSheet, Text } from 'react-native'
 import { BrandMark } from '../../brand/BrandMark'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { LinkButton } from '../common/LinkButton'
 import { Screen } from '../common/Screen'
 

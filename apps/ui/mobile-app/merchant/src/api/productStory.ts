@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // A product's A+ content (CATALOG-DESIGN.md Q; apps/api src/apis/store/story.ts): the draft that is edited and the live page,
 // published separately, and the shared brand stories a module can show.

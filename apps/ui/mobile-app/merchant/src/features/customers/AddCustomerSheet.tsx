@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { addCustomer } from '../../api/customers'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { TextField } from '../common/TextField'
 import { looksLikeEmail } from '../settings/email'

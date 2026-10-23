@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { loadAccess } from '../../api/products'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { sessionClient } from '../../session'
 import { stateOfError, useLoad } from '../common/useLoad'
 import { useShell } from '../shell/ShellData'

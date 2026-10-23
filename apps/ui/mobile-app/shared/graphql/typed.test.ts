@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { createApiClient } from './client'
 import { typedQuery } from './typed'
 
-const clientAnswering = (data: unknown) => createApiClient({ domain: 'store.example.com', fetchImpl: (() => Promise.resolve({ json: () => Promise.resolve({ data }) })) as unknown as typeof fetch })
+const clientAnswering = (data: unknown) => createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl: (() => Promise.resolve({ json: () => Promise.resolve({ data }) })) as unknown as typeof fetch })
 
 describe('typedQuery', () => {
   const schema = z.object({ brand: z.object({ productName: z.string() }).nullable() })

@@ -1,5 +1,5 @@
 import type { EditorProduct } from '../../../api/products'
-import { minorOf, moneyText } from '../../../format'
+import { minorOf, moneyText } from '@dripfunnel/mobile-shared/format'
 import { addKindToVersions, blankDraft, combinationsOf, draftOf, inputOf, moveOptionUp, newVersionCount, problemsOf, quantityOf, removeChoice, removeKind, stockChangesOf, syncVersions, versionKey, versionsMade, type Draft } from './draft'
 
 const product = (overrides: Partial<EditorProduct> = {}): EditorProduct => ({

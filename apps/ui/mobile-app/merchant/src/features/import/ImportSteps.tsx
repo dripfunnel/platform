@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 const steps = ['choose', 'check', 'import', 'done'] as const
 

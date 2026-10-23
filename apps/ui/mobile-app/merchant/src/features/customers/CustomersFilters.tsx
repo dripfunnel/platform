@@ -1,8 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import type { CustomerGroup } from '../../api/customers'
-import { formatNumber } from '../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Chip } from '../common/Chip'
 
 type Props = {

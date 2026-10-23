@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // The store's Activity log (StoreActivity; FIRST-RELEASE (store) §15; LOGGING.md §6–7; apps/api src/apis/store/activity.ts).
 

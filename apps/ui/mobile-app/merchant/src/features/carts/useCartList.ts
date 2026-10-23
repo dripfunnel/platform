@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadCartCounts, loadCarts, loadCartSummary, type AbandonedCart, type CartCounts, type CartSummary, type CartTab } from '../../api/carts'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 type Page = { rows: AbandonedCart[]; next: string | null }
 

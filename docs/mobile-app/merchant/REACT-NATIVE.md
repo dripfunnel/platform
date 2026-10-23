@@ -12,7 +12,7 @@ How builds, partners and store accounts work is in
 
 **Status: the project is set up (#496), its foundations are built (#497: the API client, formatting on Hermes, messages and the partner's look) and so are getting in and My profile (#498), the shell (#499), Products (#500), Collections (#501) and Import & export (#505).** The other screens are placeholders. The Hermes check has passed on Android; iOS is still to run (§6).
 
-Last updated: 2026-10-16 (#505: the status line names Import & export). Before: 2026-10-15 (#501: the status line names Collections). Before: 2026-10-14 (#500: the status line names the shell and Products). Before: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
+Last updated: 2026-10-23 (#853: the foundations move to `@dripfunnel/mobile-shared`, §1–§2, §6). Before: 2026-10-16 (#505: the status line names Import & export). Before: 2026-10-15 (#501: the status line names Collections). Before: 2026-10-14 (#500: the status line names the shell and Products). Before: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
 
 ---
 
@@ -22,22 +22,28 @@ Last updated: 2026-10-16 (#505: the status line names Import & export). Before: 
 |---|---|---|
 | **React Native with Expo** for the merchant mobile app (decided 2026-10-08) | Flutter; bare React Native without a framework; separate native apps (Swift and Kotlin); the web portal wrapped in a web view | Same language, React and toolchain as the rest of the platform, typed from the same `apps/api/schema/` (§2). React Native's own docs recommend a framework and name Expo, and Expo turns "one build per partner" into configuration instead of native file edits (§3). Flutter's strengths matter little for a portal of forms, lists and dashboards (§4). |
 | **The app signs in with the portal's own session, carried as a bearer token** (decided 2026-10-08, §5) | Keeping the portal's cookie in the app | The app would have to fake `Origin` on every write to pass the CSRF check, and the cookie would sit outside the phone's secure storage. A token in secure storage, on the same `user_session` row, changes nothing else about sessions. |
-| **Hermes, with FormatJS polyfills filling the gaps in its `Intl`** (decided 2026-10-08, §6) | Switching to JavaScriptCore; writing the app's `src/format/` on a date or number library | Hermes is React Native's and Expo's default engine. FormatJS is pure JavaScript, works the same on Android and iOS, and replaces only what Hermes lacks, so `src/format/` is written on standard `Intl`. |
-| **No shared code.** The app imports nothing from `apps/ui/shared` (`@dripfunnel/shared`) or `apps/ui/store`. It has its own API client, formatting, messages and validation, typed only from `apps/api/schema/`. Nothing moves into `shared/` for it (decided 2026-10-09, §2) | Reusing `@dripfunnel/shared` and moving code from `apps/ui/store` into `shared/` | Decided on #493. The cost is that the app writes and keeps its own versions of those parts (§2). |
+| **Hermes, with FormatJS polyfills filling the gaps in its `Intl`** (decided 2026-10-08, §6) | Switching to JavaScriptCore; writing the apps' formatting on a date or number library | Hermes is React Native's and Expo's default engine. FormatJS is pure JavaScript, works the same on Android and iOS, and replaces only what Hermes lacks, so the shared `format/` (`@dripfunnel/mobile-shared`) is written on standard `Intl`. |
+| **No shared code with the SPAs.** The app imports nothing from `apps/ui/shared` (`@dripfunnel/shared`) or `apps/ui/store`. Its API client, formatting, messages and validation are typed only from `apps/api/schema/`, and nothing moves into `shared/` for it (decided 2026-10-09, §2). The mobile apps share `@dripfunnel/mobile-shared` among themselves (#853, §2) | Reusing `@dripfunnel/shared` and moving code from `apps/ui/store` into `shared/` | Decided on #493. The cost is that the app writes and keeps its own versions of those parts (§2). |
 | **Start on the current Expo SDK; take patch updates on a schedule, and a new SDK only when it improves the app** (decided 2026-10-08, §3) | Following every new SDK as it ships | Every new Expo SDK can break things; patch updates within an SDK don't. A new SDK is worth that work only for a real gain, such as performance. |
 | **The app lives in this repo**, at `apps/ui/mobile-app/merchant`, inside the pnpm workspace and the turbo gates | A separate mobile repo | One repo is the platform's rule (ARCHITECTURE.md §1): a change can go from the GraphQL schema to the mobile screen in one pull request. The pull request that scaffolds the app adds it to ARCHITECTURE.md §1–§3. The `dev` and `prod` pipelines don't deploy it; its builds and submissions are manual ([BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md) §2). |
 
 ---
 
-## 2. Nothing is reused
+## 2. Nothing is reused from the SPAs
 
 The app shares no code with the SPAs (decided 2026-10-09, §1). It imports nothing from
 `@dripfunnel/shared` or `apps/ui/store`, and nothing moves into `apps/ui/shared/` for it.
 
+**The mobile apps share `@dripfunnel/mobile-shared`** (`apps/ui/mobile-app/shared`, built in #853;
+../README.md §2): the API client (`graphql/`), formatting (`format/`), the Intl polyfills (`intl/`),
+the theme tokens and provider (`theme/`) and the secure-storage helpers (`storage/`). The app passes in
+what differs: the host and the path `/api/`, the sign-out path, the brand's theme overrides and how its
+saved last store is read. ESLint lets a mobile app import only this package, and the package import no app.
+
 The app writes its own:
 
-- **API client** (`src/graphql/`), against `https://<portal host>/api/` with the bearer token (§5);
-- **formatting** (`src/format/`): money, dates, numbers, plurals, on Hermes (§6);
+- **session and API wiring** (`src/graphql/`, `src/session/`): the partner's host from the build, the
+  acting store and supplier, and the bearer token (§5), over the shared client and storage;
 - **auth**: the session from the bearer token (§5);
 - **validation** (zod) and **messages** (`messages/`);
 - **brand loading**: the brand query turned into a React Native theme, with values that match the
@@ -183,20 +189,20 @@ loading the partner's look don't.
 ## 6. Formatting on Hermes (decided 2026-10-08)
 
 Hermes builds `Intl` on the phone's own APIs, not the full ICU library browsers have, so parts
-of the app's `src/format/` could fail or come out differently: `Intl.PluralRules` and
+of the app's formatting (`apps/ui/mobile-app/shared/format/`) could fail or come out differently: `Intl.PluralRules` and
 `Intl.ListFormat` have been missing, `NumberFormat`'s `unit` style is partial, and
 `timeZoneName` may differ.
 
 - **The app keeps Hermes and fills the gaps with FormatJS.** FormatJS is pure JavaScript, so it
   runs the same on Android and iOS with no native code or Expo config.
 - At startup, before anything formats, the app imports each FormatJS polyfill first thing in
-  `app/_layout.tsx` (`src/intl/`). Each `polyfill.js` replaces its `Intl` member only where its own
+  `app/_layout.tsx` (`apps/ui/mobile-app/shared/intl/`). Each `polyfill.js` replaces its `Intl` member only where its own
   `shouldPolyfill` check says the engine lacks it, so only what Hermes lacks is replaced. Locale data
   is loaded only for the languages the portal ships (English), and registers only for a polyfill that
   is active.
 - `@formatjs/intl-datetimeformat` and its time-zone data are added only if the zone names fail
   the check below. They did not (§6.1), so it is not installed.
-- **The check:** #497 runs the inputs from the `src/format/` tests on
+- **The check:** #497 runs the inputs from the `shared/format/` tests on
   Hermes on iOS and on Android and compares the output with the expected strings. Tests on Node don't prove
   Hermes. Currency digits in money formatting matter most: money is stored in minor units, so a
   wrong digit count stores a wrong price.
@@ -205,7 +211,7 @@ of the app's `src/format/` could fail or come out differently: `Intl.PluralRules
 
 How to run it: start the app in a development build or Expo Go (`pnpm dev:mobile`) and open
 `/hermes-check`, which exists only in development builds. It runs every input in
-`src/format/cases.ts` on the phone, shows each match or difference, and prints a report (lines starting
+`shared/format/cases.ts` on the phone, shows each match or difference, and prints a report (lines starting
 `HERMES_CHECK`) to the log. The same inputs run on Node in the Jest tests.
 
 | Where | Engine | Inputs matching | FormatJS installed | Date |

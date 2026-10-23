@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
 // A scrolling screen that honours the safe areas and keeps the focused field in view above the keyboard (DESIGN.md §4).
 // `header` is true under a navigation header, which already clears the top.

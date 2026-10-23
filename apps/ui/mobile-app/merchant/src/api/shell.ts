@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // What the shell reads about the acting store and the person (FIRST-RELEASE.md §3, §19): the same queries the web
 // portal's shell reads, none of them needed to sign in, so a failed one draws less rather than stopping the app.

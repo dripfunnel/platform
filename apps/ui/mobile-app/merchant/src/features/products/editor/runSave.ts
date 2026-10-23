@@ -1,7 +1,7 @@
 import { loadProductStock, setStock, type StockLevel } from '../../../api/inventory'
 import { saveProductKind, type ProductKindInput, type ProductKindView } from '../../../api/productKinds'
 import { loadProduct, saveProduct, type EditorProduct, type SavedProduct } from '../../../api/products'
-import type { ApiClient } from '../../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { inputOf, stockChangesOf, versionKey, type Draft } from './draft'
 
 export type SaveRequest = {

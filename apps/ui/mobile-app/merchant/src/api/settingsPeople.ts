@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › People and Suppliers (SetTeam; FIRST-RELEASE (store) §15; ACCESS.md §5–§7): the store's own people with the invitations
 // waiting, and its supplier companies. Invitations go out by email from the server; nothing here ever holds a link or a token.

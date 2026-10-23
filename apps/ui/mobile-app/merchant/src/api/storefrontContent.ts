@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Storefront › Pages and Journal on the Store API (FIRST-RELEASE (store) §14; apps/api src/apis/store/content.ts, SAPI 24, #338):
 // `storefront.read` reads, `publish` (the Owner) writes.

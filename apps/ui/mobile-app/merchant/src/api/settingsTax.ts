@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ApiError, typedQuery, type ApiClient } from '../graphql'
+import { ApiError, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Tax setup (CatSettings tax tab and SetOps tax; FIRST-RELEASE (store) §15; SAPI 7). Tax rates come from the API, never from the app.
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadActivity, type ActivityEntry, type ActivityFilter, type ActivityWhat } from '../../api/activity'
-import type { ApiClient } from '../../graphql'
+import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 export type Person = { kind: string; id: string }
 

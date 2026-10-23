@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // My profile on the Store API (ACCESS.md §4 "My profile, built on #290"; apps/api src/apis/store/profile.ts).
 

@@ -1,8 +1,9 @@
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect, useState, type ReactNode } from 'react'
 import { fetchBrand } from '../api/brand'
-import { createApiClient, partnerDomain } from '../graphql'
-import { buildTheme, ThemeProvider, useMode } from '../theme'
+import { apiPath, partnerDomain } from '../graphql'
+import { createApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { buildTheme, ThemeProvider, useMode } from '@dripfunnel/mobile-shared/theme'
 import { BrandContext, type BrandState } from './BrandContext'
 import { themeFor } from './brandTheme'
 import { loadBrand } from './loadBrand'
@@ -26,7 +27,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     let current = true
     const start = async () => {
       const domain = partnerDomain()
-      const client = createApiClient({ domain, timeoutMs: brandTimeoutMs })
+      const client = createApiClient({ domain, path: apiPath, timeoutMs: brandTimeoutMs })
       const loaded = await loadBrand({ fetch: () => fetchBrand(client), readSaved: () => readSavedBrand(domain), save: (brand) => saveBrand(domain, brand) })
       if (current) setState({ ...loaded, domain })
     }

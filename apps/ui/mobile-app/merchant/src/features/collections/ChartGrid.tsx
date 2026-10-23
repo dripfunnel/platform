@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { t } from '../../messages'
 import { Icon } from '../shell/Icon'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { duplicateHeads, noValue, withHead, withoutColumn, type ChartDraft } from './sizeChartDraft'
 
 type Props = { draft: ChartDraft; onChange: (next: ChartDraft) => void; disabled: boolean; canEdit: boolean; invalid: { columns: boolean; duplicate: boolean; sizes: boolean } }

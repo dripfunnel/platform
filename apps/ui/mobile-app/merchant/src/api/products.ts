@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ApiError, defaultTimeoutMs, pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { ApiError, defaultTimeoutMs, pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Products on the Store API (FIRST-RELEASE.md §11, §17; apps/api src/apis/store/products.ts, approval.ts, assets.ts): the list,
 // the product the editor opens, its save, approval, and a photo's upload. Amounts arrive as strings of minor units.

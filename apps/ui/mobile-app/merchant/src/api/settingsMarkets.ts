@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Markets (SetMarkets; FIRST-RELEASE (store) §15; SAPI 6): groups of countries, each with its currency, language and rules.
 

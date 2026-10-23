@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Offer } from '../../api/offers'
-import { formatNumber } from '../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { tCount } from '../../messages/plural'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { StatusChip } from '../products/StatusChip'
 import { regionWords, statusKeyOf, statusTone, timeLine, whatText, type OfferNames } from './offerView'
 

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { CompactField } from './CompactField'
 import { StockInputs } from './StockInputs'
 import type { Draft, DraftVersion } from './draft'

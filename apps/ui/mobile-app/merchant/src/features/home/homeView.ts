@@ -1,5 +1,5 @@
 import type { HomeOrder, LocaleFacts, StoreHome } from '../../api/home'
-import { formatDay, formatList, formatMoney, formatNumber, formatWeekdayDate, hourIn, languageName, regionName } from '../../format'
+import { formatDay, formatList, formatMoney, formatNumber, formatWeekdayDate, hourIn, languageName, regionName } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { tCount } from '../../messages/plural'
 import type { Seat } from '../../nav'

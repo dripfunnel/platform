@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native'
 import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Caret } from '../../common/Caret'
 import { SectionCard } from '../../common/SectionCard'
 import { useFeedback } from '../../shell/Feedback'

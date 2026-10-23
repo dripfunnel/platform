@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 import { Linking } from 'react-native'
 import { act, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
-import { ApiError, type ApiClient } from '../../graphql'
+import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { fakeApi, type Call } from '../../testing/fakeApi'
 import { fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'

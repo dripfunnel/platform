@@ -41,11 +41,11 @@ export const postJson = async <T extends Record<string, unknown>>(
 }
 
 /** Ends the session on the server. Best effort: the phone forgets it either way, so a failure changes nothing. */
-export const postSignOut = async ({ domain, timeoutMs = defaultTimeoutMs, fetchImpl = fetch }: RestOptions, token: string): Promise<void> => {
+export const postSignOut = async ({ domain, timeoutMs = defaultTimeoutMs, fetchImpl = fetch }: RestOptions, path: string, token: string): Promise<void> => {
   const abort = new AbortController()
   const timer = setTimeout(() => abort.abort(), timeoutMs)
   try {
-    await fetchImpl(`https://${domain}/api/auth/sign-out`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: abort.signal, credentials: 'omit', redirect: 'manual' })
+    await fetchImpl(`https://${domain}${path}`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: abort.signal, credentials: 'omit', redirect: 'manual' })
   } catch {
     // Nothing to do: see above.
   } finally {

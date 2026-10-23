@@ -1,8 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { productSorts, type ProductCounts, type ProductFilter, type ProductSort } from '../../api/products'
-import { formatNumber } from '../../format'
+import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { useFeedback } from '../shell/Feedback'
 import { chipsOf } from './productView'
 

@@ -1,4 +1,5 @@
-import { createApiClient } from '../graphql'
+import { createApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { apiPath } from '../graphql'
 import { loadStores, switchStore } from './auth'
 
 const choice = (id: string, name: string) => ({ membershipId: `m-${id}`, role: 'owner', tier: null, store: { id, name }, seller: null })
@@ -16,7 +17,7 @@ describe('loading the stores a person belongs to', () => {
       return Promise.resolve({ json: () => Promise.resolve({ data: pages[asked.length - 1] }) })
     }) as unknown as typeof fetch
 
-    const { email, stores } = await loadStores(createApiClient({ domain: 'store.example.com', fetchImpl }))
+    const { email, stores } = await loadStores(createApiClient({ domain: 'store.example.com', path: apiPath, fetchImpl }))
 
     expect(email).toBe('owner@example.com')
     expect(stores.map((s) => s.store.name)).toEqual(['Aurelia Home', 'Juniper & Co.'])
@@ -25,12 +26,12 @@ describe('loading the stores a person belongs to', () => {
 
   it('refuses an answer that is not the shape written from the schema', async () => {
     const fetchImpl = (() => Promise.resolve({ json: () => Promise.resolve({ data: { me: { email: 7 } } }) })) as unknown as typeof fetch
-    await expect(loadStores(createApiClient({ domain: 'store.example.com', fetchImpl }))).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
+    await expect(loadStores(createApiClient({ domain: 'store.example.com', path: apiPath, fetchImpl }))).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
   })
 
   it('names the store and supplier the person opens when it switches', async () => {
     const fetchImpl = jest.fn((() => Promise.resolve({ json: () => Promise.resolve({ data: { switchStore: choice('a', 'Aurelia Home') } }) })) as unknown as typeof fetch)
-    await switchStore(createApiClient({ domain: 'store.example.com', fetchImpl }), { ...choice('a', 'Aurelia Home'), seller: { id: 's1', name: 'Kala' } })
+    await switchStore(createApiClient({ domain: 'store.example.com', path: apiPath, fetchImpl }), { ...choice('a', 'Aurelia Home'), seller: { id: 's1', name: 'Kala' } })
     const [, init] = fetchImpl.mock.calls[0] as unknown as [string, { body: string }]
     expect(JSON.parse(init.body).variables).toEqual({ storeId: 'a', supplierId: 's1' })
   })
@@ -47,12 +48,12 @@ describe('a person in a great many stores', () => {
     }) as unknown as typeof fetch
 
   it('gets every store, however many pages that takes, so none is left out of the chooser', async () => {
-    const { stores } = await loadStores(createApiClient({ domain: 'store.example.com', fetchImpl: pagedHost(25) }))
+    const { stores } = await loadStores(createApiClient({ domain: 'store.example.com', path: apiPath, fetchImpl: pagedHost(25) }))
     expect(stores).toHaveLength(25)
     expect(stores.at(-1)?.store.name).toBe('Store 24')
   })
 
   it('stops with an error, not a short list, when the paging never ends', async () => {
-    await expect(loadStores(createApiClient({ domain: 'store.example.com', fetchImpl: pagedHost(Number.POSITIVE_INFINITY) }))).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
+    await expect(loadStores(createApiClient({ domain: 'store.example.com', path: apiPath, fetchImpl: pagedHost(Number.POSITIVE_INFINITY) }))).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
   })
 })

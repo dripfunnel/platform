@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react'
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { polyfilledIntl } from '../../intl'
+import { polyfilledIntl } from '@dripfunnel/mobile-shared/intl'
 import { locale, t } from '../../messages'
-import { useTheme } from '../../theme'
+import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { engineName, reportOf, runChecks } from './runChecks'
 
 // REACT-NATIVE.md §6: the format inputs run on this phone's engine and compared with the expected strings.

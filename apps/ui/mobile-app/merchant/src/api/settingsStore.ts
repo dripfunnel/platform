@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { exportJobSchema, readExportJob, type ExportJob } from './exportJob'
 
 // Settings › Store info (SetStore; FIRST-RELEASE (store) §15): the store's details, its currencies and its languages, and Close my store (PortalBilling; §16).

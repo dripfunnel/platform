@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 import { loadStudioSession, renewStudioSession, type StudioSession } from '../../../api/studio'
-import { isApiError, type ApiClient } from '../../../graphql'
+import { isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { frameOriginOf, openingPollMs, renewEveryMs, sandboxOf, type Sandbox } from './studioRules'
 
 /** What the frame needs: its address, which carries the studio-session id, and the origin it may load from. The id is never drawn, stored or logged. */

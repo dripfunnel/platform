@@ -1,5 +1,5 @@
 import type { Brand } from '../api/brand'
-import { buildTheme, darkPalette, lightPalette, radii } from '../theme'
+import { buildTheme, darkPalette, lightPalette, radii } from '@dripfunnel/mobile-shared/theme'
 import { themeFor } from './brandTheme'
 
 const brand: Brand = { productName: 'Northstar', primaryColor: '#0A2A4A', accentColor: '#EC844F', font: null, corner: null, helpUrl: null, supportUrl: null, supportEmail: null, files: { logoLight: null, logoDark: null, mark: null } }

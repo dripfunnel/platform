@@ -1,4 +1,5 @@
-import { createApiClient, isApiError, type ApiClient, type ClientOptions } from '../graphql'
+import { createApiClient, isApiError, type ApiClient, type ClientOptions } from '@dripfunnel/mobile-shared/graphql'
+import type { SessionStorage as KeystoreStorage } from '@dripfunnel/mobile-shared/storage'
 
 /** The store, and for a person working for more than one supplier in it the supplier, a request acts in (ACCESS.md §4). */
 export type Acting = { storeId: string; supplierId: string | null; storeName: string; role: string; tier: string | null }
@@ -12,12 +13,7 @@ export type SessionState =
   | { status: 'signedIn'; token: string; acting: Acting | null; last: Acting | null }
 
 /** Where the token and the last store live: the phone's secure storage (REACT-NATIVE.md §5). */
-export type SessionStorage = {
-  read: () => Promise<{ token: string | null; last: Acting | null }>
-  writeToken: (token: string) => Promise<void>
-  writeLast: (last: Acting) => Promise<void>
-  wipe: () => Promise<void>
-}
+export type SessionStorage = KeystoreStorage<Acting>
 
 // Only a full session is kept: the pending one a password opens before the second factor lives in memory
 // (features/auth/pending.ts), so a killed app never wakes up half signed in. Everything is wiped on sign-out

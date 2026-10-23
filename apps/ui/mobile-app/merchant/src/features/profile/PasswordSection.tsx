@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { changePassword, type Profile } from '../../api/profile'
-import { formatDateTime } from '../../format'
+import { formatDateTime } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { errorMessage } from '../../messages/errorMessage'
 import { sessionClient } from '../../session'

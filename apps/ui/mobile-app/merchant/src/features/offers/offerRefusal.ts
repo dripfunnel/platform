@@ -1,4 +1,4 @@
-import { isApiError } from '../../graphql'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
 import { errorMessage } from '../../messages/errorMessage'
 

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
+import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Developers (SetDev; FIRST-RELEASE (store) §15; apps/api src/apis/store/developers.ts): API keys.
 // A secret is in the answer that made it and in no other (ACCESS.md §5.6); nothing here keeps one.

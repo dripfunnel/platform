@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { buildTheme, ThemeProvider } from '../../theme'
+import { buildTheme, ThemeProvider } from '@dripfunnel/mobile-shared/theme'
 import Catalogue from '../../app/(tabs)/catalogue/index'
 import Orders from '../../app/(tabs)/orders/index'
 import { pressableNamed } from '../../testing/harness'

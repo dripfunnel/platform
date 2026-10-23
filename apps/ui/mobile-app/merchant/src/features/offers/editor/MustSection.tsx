@@ -1,4 +1,4 @@
-import { formatList } from '../../../format'
+import { formatList } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../../messages'
 import { ChoiceRow } from '../../common/ChoiceRow'
 import { SectionCard } from '../../common/SectionCard'

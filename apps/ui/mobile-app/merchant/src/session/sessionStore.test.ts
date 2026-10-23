@@ -1,3 +1,4 @@
+import { apiPath } from '../graphql'
 import { createSessionClient, createSessionStore, type Acting, type SessionStorage } from './sessionStore'
 
 const acting: Acting = { storeId: 'store-1', supplierId: null, storeName: 'Juniper & Co.', role: 'owner', tier: null }
@@ -90,7 +91,7 @@ describe('a signed-in person’s client', () => {
     await store.act({ ...acting, supplierId: 'supplier-1' })
     const fetchImpl = answer({ data: { ok: true } })
 
-    await createSessionClient(store, { domain: 'store.example.com', fetchImpl }).request('{ ok }')
+    await createSessionClient(store, { domain: 'store.example.com', path: apiPath, fetchImpl }).request('{ ok }')
 
     const [, init] = fetchImpl.mock.calls[0] as unknown as [string, { headers: Record<string, string> }]
     expect(init.headers).toMatchObject({ authorization: 'Bearer t0ken', 'x-store': 'store-1', 'x-supplier': 'supplier-1' })
@@ -103,7 +104,7 @@ describe('a signed-in person’s client', () => {
     store.leaveStore()
     const fetchImpl = answer({ data: { ok: true } })
 
-    await createSessionClient(store, { domain: 'store.example.com', fetchImpl }).request('{ ok }')
+    await createSessionClient(store, { domain: 'store.example.com', path: apiPath, fetchImpl }).request('{ ok }')
 
     const [, init] = fetchImpl.mock.calls[0] as unknown as [string, { headers: Record<string, string> }]
     expect(init.headers).toMatchObject({ authorization: 'Bearer t0ken' })
@@ -115,7 +116,7 @@ describe('a signed-in person’s client', () => {
     const { kept, storage } = memoryStorage()
     const store = createSessionStore(storage)
     await store.open('t0ken')
-    const client = createSessionClient(store, { domain: 'store.example.com', fetchImpl: answer({ errors: [{ message: 'Not signed in.', extensions: { code: 'UNAUTHENTICATED' } }] }) })
+    const client = createSessionClient(store, { domain: 'store.example.com', path: apiPath, fetchImpl: answer({ errors: [{ message: 'Not signed in.', extensions: { code: 'UNAUTHENTICATED' } }] }) })
 
     await expect(client.request('{ me }')).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
 
@@ -126,8 +127,8 @@ describe('a signed-in person’s client', () => {
   it('keeps the session when the answer is another refusal, or no answer at all', async () => {
     const store = createSessionStore(memoryStorage().storage)
     await store.open('t0ken')
-    const refused = createSessionClient(store, { domain: 'store.example.com', fetchImpl: answer({ errors: [{ message: 'No.', extensions: { code: 'FORBIDDEN' } }] }) })
-    const offline = createSessionClient(store, { domain: 'store.example.com', fetchImpl: () => Promise.reject(new TypeError('Network request failed')) })
+    const refused = createSessionClient(store, { domain: 'store.example.com', path: apiPath, fetchImpl: answer({ errors: [{ message: 'No.', extensions: { code: 'FORBIDDEN' } }] }) })
+    const offline = createSessionClient(store, { domain: 'store.example.com', path: apiPath, fetchImpl: () => Promise.reject(new TypeError('Network request failed')) })
 
     await expect(refused.request('{ me }')).rejects.toMatchObject({ code: 'FORBIDDEN' })
     await expect(offline.request('{ me }')).rejects.toMatchObject({ code: 'NO_RESPONSE' })
