@@ -331,6 +331,8 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   - **A bearer token is accepted only on a request with no session cookie.** A request
     carrying both is refused, so a browser can never swap its cookie path for the unchecked
     one.
+  - **The shop app is not a bearer case** (decided on #855): the Shop API has no cookie and no `Origin` check, so its
+    session token (`X-Shop-Session`) and guest cart token (`X-Shop-Cart`) are the same for a browser and an app (§2.1).
   - **This applies only to the merchant mobile app.** Nothing changes for the merchant portal,
     the partner console or the admin console: every browser request keeps the cookie and the
     `Origin` check. No new endpoint or table. The change is in the session-opening routes'
