@@ -1,12 +1,12 @@
-import type { Deps } from './deps'
+import { remember, type Deps } from './deps'
 import type { EdgeApi } from './edge'
-import { lookupHost, serveLive } from './live'
+import { lookupHost, lookupSeconds, serveLive } from './live'
 import { page } from './pages'
 import { servePreview } from './preview'
 import { sessionSeal, type SessionSeal } from './session'
 
-interface Env {
-  API: Fetcher
+export interface Env {
+  API: Fetcher & { portalHost: (host: string) => Promise<boolean> }
   EDGE?: EdgeApi | undefined
   SITES?: R2Bucket | undefined
   OWN_ZONE: string
@@ -57,11 +57,23 @@ const serveStorefront = async (request: Request, url: URL, env: Env, deps: Deps)
   return serveLive(request, url, found, deps)
 }
 
+/** Whether the API holds this own-zone host as a live partner portal host; kept a minute either way, so our own hosts cost no call per request (SAAS §8, #899). */
+const isOwnZonePortal = async (host: string, env: Env, deps: Deps): Promise<boolean> => {
+  const key = `https://${host}/__df/portal-host`
+  const hit = await deps.cache.match(key)
+  if (hit) return (await hit.text()) === '1'
+  const found = await env.API.portalHost(host)
+  remember(deps, key, new Response(found ? '1' : '0', { headers: { 'cache-control': `max-age=${lookupSeconds}` } }))
+  return found
+}
+
 export const route = async (request: Request, env: Env, deps: Deps | null): Promise<Response> => {
   const url = new URL(request.url)
-  if (isOwnHost(url.hostname, env.OWN_ZONE)) return fetch(request)
+  const own = isOwnHost(url.hostname, env.OWN_ZONE)
+  if (own && !deps) return fetch(request)
   if (!deps) return portal(request, url, env)
   try {
+    if (own) return (await isOwnZonePortal(url.hostname, env, deps)) ? await portal(request, url, env) : await fetch(request)
     return await serveStorefront(request, url, env, deps)
   } catch {
     // The API or R2 couldn't answer: nothing is cached from it, and the next request tries again.

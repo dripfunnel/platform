@@ -87,6 +87,16 @@ describe('the PortalProxy entrypoint', () => {
   })
 })
 
+describe('PortalProxy.portalHost (#899)', () => {
+  const asks = (host: string) => new PortalProxy(ctx, { ...env, HYPERDRIVE: { connectionString: db.url } } as never).portalHost(host)
+
+  it('says yes only for a live portal host, ours included, and no for our other hosts', async () => {
+    expect(await asks(ownHost)).toBe(true)
+    expect(await asks(ownHost.toUpperCase())).toBe(true)
+    for (const host of ['store2.dripfunnel.com', 'admin.dripfunnel.com', 'platform.dripfunnel.com', 'hooks.dripfunnel.com', 'mail.partner-a.example']) expect(await asks(host), host).toBe(false)
+  })
+})
+
 describe('the public fetch', () => {
   it('gives a forged Host of a registered partner nothing of that partner’s', async () => {
     for (const host of [hostA, hostB]) {

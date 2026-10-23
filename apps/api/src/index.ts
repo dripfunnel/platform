@@ -1082,6 +1082,12 @@ export class PortalProxy extends WorkerEntrypoint<Env> {
   override fetch(request: Request): Promise<Response> {
     return serve(request, this.env, this.ctx, 'portal')
   }
+
+  /** Whether a live portal row holds this host, for store-proxy's own-zone hosts; thrown when the database can't be asked. */
+  async portalHost(host: string): Promise<boolean> {
+    const partnerId = await edgeQuery(this.env, this.ctx, (sql) => resolvePortalPartner(sql, host, { cache: dataCentreCache(), keep: (work) => this.ctx.waitUntil(work) }))
+    return partnerId !== null
+  }
 }
 
 // The edge's questions, each on its own connection, closed after the answer.

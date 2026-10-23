@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Deps } from './deps'
 import { EdgeAnswerInvalid, parseLiveHost, type LiveHost } from './edge'
-import { route } from './index'
+import { route, type Env } from './index'
 import { lookupSeconds } from './live'
 import { depsWith, fakeCache, fakeEdge, fakeSites, type Clock, type FakeEdge } from './testSupport'
 
@@ -38,7 +38,7 @@ let cache: ReturnType<typeof fakeCache>
 let sites: ReturnType<typeof fakeSites>
 let deps: Deps
 let settle: () => Promise<void>
-const env = { API: { fetch: async () => new Response('api') } as unknown as Fetcher, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', SHOP_DOMAIN: 'my-store.one' }
+const env = { API: { fetch: async () => new Response('api'), portalHost: async () => false } as unknown as Env['API'], OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', SHOP_DOMAIN: 'my-store.one' }
 
 beforeEach(async () => {
   vi.unstubAllGlobals()

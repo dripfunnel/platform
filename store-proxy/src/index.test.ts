@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { configProblem, previewKeyOf, route } from './index'
+import { configProblem, previewKeyOf, route, type Env } from './index'
+import { depsWith, fakeCache, fakeEdge, fakeSites } from './testSupport'
 
 const seen: string[] = []
-const api = { fetch: async (r: Request) => (seen.push(`api ${r.url}`), new Response('api')) } as unknown as Fetcher
+const api = { fetch: async (r: Request) => (seen.push(`api ${r.url}`), new Response('api')), portalHost: async () => false } as unknown as Env['API']
 const env = { API: api, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev' }
 
 afterEach(() => {
@@ -30,6 +31,67 @@ describe('store proxy', () => {
     await route(new Request('https://dev-admin.dripfunnel.ai/api/health'), env, null)
     await route(new Request('https://dripfunnel.ai/'), env, null)
     expect(seen).toEqual(['net https://dev-admin.dripfunnel.ai/api/health', 'net https://dripfunnel.ai/'])
+  })
+
+  describe('own-zone partner portal hosts (#899)', () => {
+    const portalHosts = new Set(['mystore.dripfunnel.ai'])
+    const asked: string[] = []
+    let failing = false
+    const apiWith = {
+      fetch: async (r: Request) => (seen.push(`api ${r.url}`), new Response('api')),
+      portalHost: async (host: string) => {
+        asked.push(host)
+        if (failing) throw new Error('down')
+        return portalHosts.has(host)
+      },
+    } as unknown as Env['API']
+    const zoneEnv = { ...env, API: apiWith }
+    const clock = { at: 1_000_000 }
+    const setup = async () => {
+      asked.length = 0
+      failing = false
+      const { deps, settle } = await depsWith({ edge: fakeEdge(), sites: fakeSites({}).sites, cache: fakeCache(clock).cache, clock })
+      return { deps, settle }
+    }
+
+    it('rewrites a live portal host inside our zone to Pages and sends its /api/* to the API', async () => {
+      stubFetch()
+      const { deps } = await setup()
+      await route(new Request('https://mystore.dripfunnel.ai/dashboard'), zoneEnv, deps)
+      await route(new Request('https://mystore.dripfunnel.ai/api/graphql'), zoneEnv, deps)
+      expect(seen).toEqual(['net https://store.pages.dev/dashboard', 'api https://mystore.dripfunnel.ai/api/graphql'])
+    })
+
+    it('passes every other own-zone host through untouched', async () => {
+      stubFetch()
+      const { deps } = await setup()
+      for (const host of ['dev-admin.dripfunnel.ai', 'dev-platform.dripfunnel.ai', 'unknown.dripfunnel.ai', 'dripfunnel.ai']) await route(new Request(`https://${host}/api/health`), zoneEnv, deps)
+      expect(seen).toEqual(['dev-admin', 'dev-platform', 'unknown', ''].map((h) => `net https://${h ? `${h}.` : ''}dripfunnel.ai/api/health`))
+    })
+
+    it('asks the API once a minute per host, found or not', async () => {
+      stubFetch()
+      const { deps, settle } = await setup()
+      for (const host of ['mystore.dripfunnel.ai', 'dev-admin.dripfunnel.ai']) {
+        await route(new Request(`https://${host}/`), zoneEnv, deps)
+        await settle()
+        await route(new Request(`https://${host}/`), zoneEnv, deps)
+      }
+      expect(asked).toEqual(['mystore.dripfunnel.ai', 'dev-admin.dripfunnel.ai'])
+      clock.at += 61_000
+      await route(new Request('https://mystore.dripfunnel.ai/'), zoneEnv, deps)
+      expect(asked).toHaveLength(3)
+    })
+
+    it('answers 503 rather than passing through when the API cannot be asked', async () => {
+      stubFetch()
+      const { deps } = await setup()
+      failing = true
+      const response = await route(new Request('https://mystore.dripfunnel.ai/'), zoneEnv, deps)
+      expect(response.status).toBe(503)
+      expect(response.headers.get('retry-after')).toBe('5')
+      expect(seen).toEqual([])
+    })
   })
 
   it('does not treat a lookalike host as ours', async () => {

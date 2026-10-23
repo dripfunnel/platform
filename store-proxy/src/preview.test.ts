@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Deps } from './deps'
-import worker, { route } from './index'
+import worker, { route, type Env } from './index'
 import { sessionSeconds } from './session'
 import { depsWith, fakeCache, fakeEdge, fakeSites, sessionKey, type Clock, type FakeEdge } from './testSupport'
 
@@ -25,7 +25,7 @@ let cache: ReturnType<typeof fakeCache>
 let sites: ReturnType<typeof fakeSites>
 let deps: Deps
 let settle: () => Promise<void>
-const env = { API: { fetch: async () => new Response('api') } as unknown as Fetcher, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', SHOP_DOMAIN: 'my-store.one' }
+const env = { API: { fetch: async () => new Response('api'), portalHost: async () => false } as unknown as Env['API'], OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', SHOP_DOMAIN: 'my-store.one' }
 const grantA = { ok: true as const, storeId: storeA, userId: owner, epoch: 3, folder: 'change-2' }
 
 beforeEach(async () => {

@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.com` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-24 (#899: own-zone portal hosts through the proxy, §8). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.com` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -616,7 +616,12 @@ failed; a live hostname can become expiring or broken if its records change.
    never kept, and nothing purges it: a removed domain or a closed partner resolves for up to 60 s,
    the edge lookup's limit below. The session and membership checks still run on every request. The Worker's public `fetch` serves the Store API only on
    our own zone's hosts, so a partner's host sent to it with a forged `Host` is 404
-   (ARCHITECTURE §2). *Decided here (#426): our own zone is the admin host's parent, so feature
+   (ARCHITECTURE §2). **A portal host inside our own zone (#899)**, the house partner's
+   `mystore.dripfunnel.com`, would reach Pages with its own `Host` and answer 522, so for an own-zone
+   host the proxy asks `PortalProxy.portalHost(host)` and serves a live portal host as above; every
+   other own-zone host passes through untouched. The answer, found or not, is kept 60 s in the proxy's
+   own cache, an exception to "a host not found is never kept" so our own hosts cost no call per
+   request; with the API unreachable the request is 503, never a passthrough. *Decided here (#426): our own zone is the admin host's parent, so feature
    environments and `*.localhost` work with no new setting; verifying and issuing hosts are not
    yet live, as the card says.*
    Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the
