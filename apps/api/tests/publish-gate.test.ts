@@ -259,8 +259,8 @@ describe('the locked workflow (LIVE-SHOP §4 step 5)', () => {
   const workflow = readFileSync(new URL('../../../templates/storefront/.github/workflows/build.yml', import.meta.url), 'utf8')
   const step = (name: string) => (new RegExp(`- name: ${name}\\n[\\s\\S]*?(?=\\n {6}- name: |$)`).exec(workflow)?.[0] ?? '').replace(/^ {10}/gm, '')
 
-  it('is one job of fetch, build, check and upload, with the OIDC permission alone, no artifact, no checkout and no push', () => {
-    expect([...workflow.matchAll(/^ {6}- name: (\w+)$/gm)].map((m) => m[1])).toEqual(['fetch', 'build', 'check', 'upload'])
+  it('is one job of fetch, pull, build, check and upload, with the OIDC permission alone, no artifact, no checkout and no push', () => {
+    expect([...workflow.matchAll(/^ {6}- name: (\w+)$/gm)].map((m) => m[1])).toEqual(['fetch', 'pull', 'build', 'check', 'upload'])
     expect([...workflow.matchAll(/^ {2}[a-z]+:\n {4}runs-on:/gm)]).toHaveLength(1)
     expect(workflow).toMatch(/^permissions:\n {2}id-token: write\nconcurrency:/m)
     expect(workflow).not.toMatch(/upload-artifact|download-artifact|actions\/checkout|git push|contents: write|^\s*-?\s*uses:/m)
