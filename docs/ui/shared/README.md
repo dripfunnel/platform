@@ -107,7 +107,9 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   (`prod` only on the two exact production hosts, `dev` on the `dev-*.actuateminds.com` hosts,
   `local` on localhost, everything else `feature`, so a look-alike is never production), and
   `EnvironmentBanner` draws the strip, red only for `prod`. The partner console uses both
-  (#111); the admin console switches to them on #65.
+  (#111); the admin console switches to them on #65. The merchant portal's hosts are open-ended
+  (house and custom domains), so it draws the strip only on `localhost`, `*.localhost`,
+  `127.0.0.1`, `::1` and `*.actuateminds.com` (#926).
 - **Words are props**: every string comes from the calling app's messages.
 - **Visual baseline**: `../../../../.design/settings-tabs.html` (PLATFORM-PROMPT §6).
 - **Tests** beside the code (`money.test.ts`), especially for formatting across currencies
