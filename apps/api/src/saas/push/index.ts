@@ -33,8 +33,8 @@ const en: Wording = {
   'rider.taken': () => ({ title: '', body: '' }),
   'rider.cancelled': (store) => ({ title: store, body: 'The delivery was cancelled. Do not pick it up.' }),
   'rider.recalled': (store) => ({ title: store, body: 'The store has recalled this delivery. Bring the parcel back.' }),
-  // Never the handover code: the customer opens the order to see it (DELIVERY §3).
-  'order.picked_up': (store) => ({ title: store, body: 'Your order is on its way. Open your order to see the code for the rider.' }),
+  // Never the handover code (DELIVERY §3); pointing to it waits for SH 5, which shows it on the order.
+  'order.picked_up': (store) => ({ title: store, body: 'Your order is on its way.' }),
   'order.delivered': (store) => ({ title: store, body: 'Your order has been delivered.' }),
   'order.not_delivered': (store) => ({ title: store, body: 'We couldn’t deliver your order. The store will be in touch.' }),
   'rider.notifications_on': (store) => ({ title: store, body: `Notifications are on for ${store}.` }),

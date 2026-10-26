@@ -166,7 +166,7 @@ delivery follows the existing return path (store/FIRST-RELEASE.md §19).
 order's customer, and only where they are signed in or hold the order's link: the shop app's
 order screen and the website's order page. **No push or email carries it**: the "on the way"
 push and email say to open the order to see the code, so a lock screen or a forwarded email never
-shows it. The rider never reads it. A wrong code is refused (`WRONG_CODE`); after 5 wrong codes
+shows it (that wording comes with SH 5, once the order shows the code; until then they say only that it is on its way). The rider never reads it. A wrong code is refused (`WRONG_CODE`); after 5 wrong codes
 the delivery is locked (`CODE_LOCKED`) and only the merchant can mark it delivered, from the
 order, with a reason. The code is kept encrypted and deleted when the delivery ends.
 
@@ -256,7 +256,7 @@ dispatch is built on #842 (DL 5); pickup, proof and completion on #843 (DL 6), b
 
 - **Pickup** ships every unit not yet sent as `local` shipments from the delivery's warehouse, through the function
   `shipItems` uses: stock out with the rider as the movement's actor, holds given back, the parts' and order's states,
-  the shopper's "on its way" email (which says to open the order for the code) and `order.shipped` webhook. It is
+  the shopper's "on its way" email and `order.shipped` webhook. It is
   refused `NOT_ENOUGH_STOCK` as `shipItems` is, and `NOT_HANDED_OVER` while a to-store supplier's lines are not all
   with the store (§2). A retry after `failed` finds the order's `local` shipment and writes none.
 - **The code** is sealed under the credentials key (`CREDENTIALS_KEK`) bound to its delivery's id; without the key

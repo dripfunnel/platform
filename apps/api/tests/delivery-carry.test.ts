@@ -305,6 +305,40 @@ describe('what a rider reads', () => {
     const supplier = await world.gql('supplier', `query { order(id: "${orderId}") { delivery { id } } }`)
     expect(supplier.data?.['order'] ?? null).toBeNull()
   })
+  it('keeps another store out: its merchants and its rider reach nothing of this store’s delivery', async () => {
+    const { orderId, deliveryId } = await pickedUp()
+    await db.sql`update delivery set code_attempts = 5 where id = ${deliveryId}`
+    for (const who of ['a2Owner', 'bOwner'] as const) {
+      for (const source of [`mutation { markDeliveryDelivered(deliveryId: "${deliveryId}", reason: "Not mine", cashReceived: true) }`, `mutation { cancelDelivery(deliveryId: "${deliveryId}") }`]) {
+        expect([who, source, (await world.gql(who, source)).code]).toEqual([who, source, 'NOT_FOUND'])
+      }
+    }
+    expect(await latest(orderId)).toMatchObject({ state: 'picked_up', code_attempts: 5 })
+
+    const [b] = await db.sql<{ id: string }[]>`insert into rider(store_id,name,phone,status) values(${tenants.storeB1},'Rider B','+919700000099','active') returning id`
+    const other: TenantContext = { partnerId: tenants.partnerB, storeId: tenants.storeB1, sellerScope: { kind: 'all' }, subscription: 'active', caller: { kind: 'rider', riderId: b?.id ?? '' } }
+    const rows = await withScope(db.sql, other, async (tx) => ({
+      warehouse: await tx`select id from warehouse where id = ${warehouse}`,
+      lines: await tx`select id from order_line where order_id = ${orderId}`,
+      order: await tx`select id from "order" where id = ${orderId}`,
+      delivery: await tx`select id from delivery where id = ${deliveryId}`,
+    }))
+    expect(rows).toEqual({ warehouse: [], lines: [], order: [], delivery: [] })
+    const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeB1, partnerId: tenants.partnerB, available: true, rider: { ...other, caller: { kind: 'rider', riderId: b?.id ?? '' } }, token: null }, activity: activityLog, facts, now: () => clock, defer: () => undefined, secrets }
+    const read = await graphql({ schema: deliverySchema as GraphQLSchema, source: `{ delivery(id: "${deliveryId}") { id } }`, contextValue })
+    expect(read.data?.['delivery']).toBeNull()
+    const act = await graphql({ schema: deliverySchema as GraphQLSchema, source: `mutation { markFailed(id: "${deliveryId}", reason: refused, at: "${clock.toISOString()}", key: "b-1") }`, contextValue })
+    expect(act.errors?.[0]?.extensions?.['code']).toBe('NOT_FOUND')
+    expect((await latest(orderId)).state).toBe('picked_up')
+  })
+  it('answers a step key reused for the other step as invalid, never as the other step’s result', async () => {
+    const { deliveryId } = await pickedUp('stripe')
+    const code = await codeOf(deliveryId)
+    await expect(carry(riders[0]).delivered({ id: deliveryId, code: wrong(code), cashCollected: null, at: clock.toISOString(), key: 'shared' })).rejects.toMatchObject({ code: 'WRONG_CODE' })
+    await expect(carry(riders[0]).failed({ id: deliveryId, reason: 'refused', note: null, at: clock.toISOString(), key: 'shared' })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    expect(await carry(riders[0]).failed({ id: deliveryId, reason: 'refused', note: null, at: clock.toISOString(), key: 'own' })).toBe(true)
+    await expect(carry(riders[0]).delivered({ id: deliveryId, code, cashCollected: null, at: clock.toISOString(), key: 'own' })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+  })
   it('counts deliveries since the start of the store’s day and its locale’s week', async () => {
     expect([firstDayOfWeek('en-US'), firstDayOfWeek('en-GB'), firstDayOfWeek('not a locale')]).toEqual([7, 1, 1])
     const page = await riderGql(riders[0] ?? '', '{ deliveries(state: [delivered], first: 2) { nodes { state } pageInfo { hasNextPage } deliveredToday deliveredThisWeek } }')

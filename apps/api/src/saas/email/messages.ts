@@ -219,8 +219,6 @@ export const en = {
     courier: (courier: string, tracking: string) => `With ${courier}, tracking number ${tracking}.`,
     tracking: (tracking: string) => `Tracking number ${tracking}.`,
     action: 'Track your parcel',
-    // Never the code itself: it is shown only on the order (DELIVERY §3).
-    local: 'When the rider arrives, give them the handover code shown on your order page.',
   },
   orderNotDelivered: {
     subject: (store: string, order: string) => `We couldn’t deliver your ${store} order ${order}`,

@@ -61,6 +61,7 @@ export const selectRiderDeliveries = (tx: ScopedSql, storeId: string, riderId: s
       and ${w.after ? tx`(d.created_at, d.id) < (${w.after.occurredAt}, ${w.after.id})` : tx`true`}
     order by d.created_at desc, d.id desc limit ${w.limit + 1}`
 
+// An order holds at most the cart's 100 lines (engine/modules/cart rules.ts `maxCartLines`), so this is all of them.
 export const selectCarriedLines = (tx: ScopedSql, storeId: string, orderId: string) =>
   tx<{ name: string; version_name: string | null; quantity: number }[]>`select name, version_name, quantity from order_line where store_id = ${storeId} and order_id = ${orderId} order by position limit 100`
 

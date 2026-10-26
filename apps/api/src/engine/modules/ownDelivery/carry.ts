@@ -128,9 +128,11 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
     return time
   }
   // A resend with the same key answers what the first did, and changes nothing (DELIVERY §4).
-  const replay = (d: DeliveryRow, key: string): Answer | null => {
+  // A key used for the other step answers INVALID_INPUT rather than the other step's result.
+  const replay = (d: DeliveryRow, key: string, step: 'delivered' | 'failed'): Answer | null => {
     if (d.step_key !== key) return null
-    return d.step_result === 'delivered' || d.step_result === 'failed' ? true : { refused: d.step_result ?? 'INVALID_INPUT' }
+    if (d.step_result === step) return true
+    return step === 'delivered' && d.step_result && d.step_result !== 'failed' ? { refused: d.step_result } : { refused: 'INVALID_INPUT' }
   }
 
   return {
@@ -184,7 +186,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
       if (!input.success) throw new DispatchRefused('INVALID_INPUT')
       const { code, cashCollected, key } = input.data
       return asRider(input.data.id, async (tx, f, d, rider) => {
-        const again = replay(d, key)
+        const again = replay(d, key, 'delivered')
         if (again) return again
         if (d.state !== 'picked_up') throw new DispatchRefused('NOT_PICKED_UP')
         if (d.code_unconfirmed_at) return { refused: 'CODE_UNCONFIRMED' }
@@ -215,7 +217,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
       if (!input.success) throw new DispatchRefused('INVALID_INPUT')
       const { reason, note, key } = input.data
       return asRider(input.data.id, async (tx, f, d) => {
-        const again = replay(d, key)
+        const again = replay(d, key, 'failed')
         if (again) return again
         if (d.state !== 'picked_up') throw new DispatchRefused('NOT_PICKED_UP')
         if (d.code_unconfirmed_at) return { refused: 'CODE_UNCONFIRMED' }
