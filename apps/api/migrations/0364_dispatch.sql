@@ -42,7 +42,6 @@ do $$ declare t text; begin
     execute format('alter table %I enable row level security',t);
     execute format('alter table %I force row level security',t);
     execute format('grant select, insert, update, delete on %I to app_system',t);
-    execute format('grant select on %I to app_request, app_rider',t);
     execute format('create policy %I on %I for all to app_system using (true) with check (true)', t || '_system', t);
     execute format('create policy request_scope on %I as restrictive for all to app_request using (app_setting_text(''app.scope'') = ''store'') with check (app_setting_text(''app.scope'') = ''store'')', t);
     execute format('create policy partner_scope on %I as restrictive for all to app_partner using (false) with check (false)', t);
@@ -52,6 +51,11 @@ do $$ declare t text; begin
     execute format('create policy rider_select on %I for select to app_rider using (app_setting_text(''app.scope'') = ''delivery'' and store_id = app_setting_uuid(''app.store_id'') and rider_id = app_setting_uuid(''app.rider_id''))',t);
   end loop;
 end $$;
+grant select on delivery_offer, rider_position to app_request, app_rider;
+-- Not the handover code or its attempt count: only the engine reads those (DELIVERY §3).
+grant select (id, store_id, order_id, warehouse_id, state, rider_id, fulfilment_id, cash_due_amount, currency, cash_collected_at, failed_reason,
+  offer_round, excluded_rider_id, code_unconfirmed_at, ready_at, searching_at, unassigned_at, assigned_at, picked_up_at, delivered_at,
+  failed_at, cancelled_at, eta_at, eta_computed_at, created_at, revision) on delivery to app_request, app_rider;
 grant insert, update, delete on rider_position to app_rider;
 create policy rider_position_write on rider_position for all to app_rider
 using (app_setting_text('app.scope') = 'delivery' and store_id = app_setting_uuid('app.store_id') and rider_id = app_setting_uuid('app.rider_id'))
