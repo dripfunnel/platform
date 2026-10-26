@@ -1,3 +1,4 @@
+import { cancelOrderDelivery } from '#engine/modules/ownDelivery/index'
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
@@ -400,6 +401,7 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
         // Thrown, not returned, so the stock released above rolls back with it.
         if (!given.ok) throw new Refused(given.reason)
       }
+      await cancelOrderDelivery(tx, { storeId, partnerId: actor.partnerId, activity, now: now(), actor: { actorKind: 'person', actorId: actor.id, actorLabel: null }, facts }, order.id)
       await cancelPlaced(tx, storeId, order.id, reason as CancelReason, now())
       await record(tx, refundAudit.cancelled, order, reason, lines.map((l) => l.seller_id))
       return { ok: true, value: true }

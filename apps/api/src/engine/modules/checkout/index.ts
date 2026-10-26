@@ -1,3 +1,4 @@
+import { createOwnDelivery } from '#engine/modules/ownDelivery/index'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
@@ -350,10 +351,12 @@ export const createCheckout = (deps: CheckoutDeps) => {
         // Cash on delivery and a transfer go through as placed; a card's on payment (payments.ts).
         if (holds) await queueOrderUpdate(tx, storeId, { event: 'confirmed', orderId: cart.id }, `confirmed:${cart.id}`)
         // Paid in full by the card: paid as placed, and delivered as any paid order is.
+        if (mode === 'live' && option.provider === 'cod') await createOwnDelivery(tx, activity, storeId, cart.id, at, placedEntry(cart.id, number))
         if (covered) {
           await recordPaid(tx, storeId, cart.id, at)
           await queueStoreEvent(tx, storeId, 'order.paid', { object: 'order', id: cart.id, number }, cart.id, at)
           await deliverOrder(tx, activity, storeId, cart.id, at)
+          await createOwnDelivery(tx, activity, storeId, cart.id, at, placedEntry(cart.id, number))
         }
         return { ok: true as const, value: { orderId: cart.id, number, total: cart.total, provider: option.provider, instructions: option.instructions, payment: card?.started ?? null } }
       })
@@ -444,6 +447,7 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
     await recordPaid(tx, deps.context.storeId, orderId, deps.now())
     if (!(await orderIsTest(tx, orderId))) await queueStoreEvent(tx, deps.context.storeId, 'order.paid', { object: 'order', id: orderId, number: order.number }, orderId, deps.now())
     await deliverOrder(tx, deps.activity, deps.context.storeId, orderId, deps.now())
+    await createOwnDelivery(tx, deps.activity, deps.context.storeId, orderId, deps.now(), { actorKind: 'person', actorId: deps.actor.id, actorLabel: null, api: 'store' })
     await deps.activity.record(tx, {
       category: 'write',
       action: checkoutAudit.markedPaid,

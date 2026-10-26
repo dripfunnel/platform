@@ -19,6 +19,11 @@ const json = (status: number, body: unknown) => new Response(JSON.stringify(body
 const ticketsFor = (body: unknown) => json(200, { data: (body as unknown[]).map((_, i) => ({ status: 'ok', id: `t-${i}` })) })
 
 describe('the Expo push client', () => {
+  it('sends taken updates without a title, body or sound', async () => {
+    const seen: { url: string; headers: Headers; body: unknown }[] = []
+    await expoPushClient({ token: 'expo-access', fetchImpl: recording([ticketsFor], seen) }).send([{ ...message(0), silent: true, data: { kind: 'rider.taken', deliveryId: 'delivery-id' } }])
+    expect(seen[0]?.body).toEqual([{ to: token(0), data: { kind: 'rider.taken', deliveryId: 'delivery-id' }, _contentAvailable: true }])
+  })
   it('sends at most 100 messages a call, with the access token, and never the subject', async () => {
     const seen: { url: string; headers: Headers; body: unknown }[] = []
     const messages = Array.from({ length: maxPushMessages + 1 }, (_, n) => message(n))

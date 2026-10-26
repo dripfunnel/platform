@@ -41,7 +41,7 @@ export const localSms = (): SmsSender => ({
 export const localPush = (): ExpoPush => ({
   send: async (messages) =>
     messages.map((m) => {
-      print({ kind: 'push', to: m.subject, text: `${m.title}\n${m.body}\n${JSON.stringify(m.data)}` })
+      print({ kind: 'push', to: m.subject, text: m.silent ? `(silent)\n${JSON.stringify(m.data)}` : `${m.title}\n${m.body}\n${JSON.stringify(m.data)}` })
       return { id: `local-${crypto.randomUUID()}`, error: null }
     }),
   receipts: async (ids) => new Map(ids.map((id) => [id, null])),

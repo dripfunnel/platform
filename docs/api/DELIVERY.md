@@ -10,9 +10,11 @@ their app calls, and what the customer sees while the order is on its way. The t
 **Status: specification, partly built.** Decided with Gaurav on 2026-10-22; rows marked
 *(proposed)* await a yes. Built: the riders pool and its invitations (§5, §8, §9; #838); the Delivery API with
 riders' sign-in, profile and account deletion (§4, §5; #839); own delivery as a Shipping method, the warehouses'
-delivery areas and the checkout option (§2, §8; #841).
+delivery areas and the checkout option (§2, §8; #841); dispatch: delivery creation, Ready for pickup, offer rounds,
+accept and decline, assignment by hand, cancellation before pickup, online state, positions and the minute sweep
+(§3, §4, §8; #842).
 
-Last updated: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -101,10 +103,10 @@ those lines travel with the supplier's courier, and one order would arrive in tw
 ## 3. Dispatch
 
 An order placed with own delivery gets a **delivery** (DATA-MODEL §7.12) once it can ship: at
-placement for cash on delivery, at payment otherwise (a bank transfer waits for its payment, as
-`shipItems` does). With the store's "when ready" setting it waits in `packing` until someone with
+placement for cash on delivery, at payment otherwise (a bank transfer waits for `markOrderPaid`; unlike dispatch,
+`shipItems` also allows unpaid bank transfers). With the store's "when ready" setting it waits in `packing` until someone with
 `orders.fulfil` marks it **ready for pickup** (`markReadyForPickup`); with "when placed" it starts
-at `searching`. A change of the setting applies to orders placed after it.
+at `searching`. The setting is read when the delivery is created.
 
 1. **Offer.** A queue job finds the store's riders who are **online** and whose latest position is
    within the warehouse's rider distance, and writes one offer per rider. Each gets a push
@@ -123,7 +125,7 @@ at `searching`. A change of the setting applies to orders placed after it.
    the delivery **delivered**, saying first, for cash on delivery, that the cash was collected; or **not delivered** with a reason (no one home, refused, wrong address),
    and returns the parcel. A failed delivery is the merchant's to retry (offer again) or cancel.
 
-**States** *(proposed in detail)*. Every transition, and who makes it:
+**States**. Every transition, and who makes it (up to pickup and cancellation built on #842; pickup, delivery and recall are DL 6):
 
 | From | To | By |
 |---|---|---|
@@ -178,15 +180,42 @@ The merchant then marks it delivered with a reason, as for `CODE_LOCKED`, or not
 cash collected sent with it is kept on the delivery, and the order becomes paid only when the
 delivery becomes `delivered`. With signal the rider retries at the door as usual.
 
-**The minute sweep** *(proposed)*: one Cron trigger every minute in `src/jobs`, per store, that
+**The minute sweep**: one Cron trigger every minute in `src/jobs`, per store, that
 (a) moves `searching` deliveries older than the store's minutes to `unassigned` and queues the
 merchant's email (step 3), and (b) deletes `rider_position` rows older than 10 minutes and clears
 those riders' `online_at`. It is idempotent: a second run in the same minute changes nothing.
 
 **Online.** A rider switches **Online** in the app. While online the app sends its position every
-60 seconds; a rider with no position for 10 minutes counts as offline *(proposed)*, and the
+60 seconds; a rider with no position for 10 minutes counts as offline, and the
 minute sweep (above) then deletes their position and clears their online state, so a phone
 that dies or loses signal for good leaves no point behind.
+
+**DL 5 built on #842 (2026-10-26).** Delivery creation, Ready for pickup, round-based broadcasts,
+accept/decline, manual assignment, cancellation before pickup, online state and position reporting are built.
+Pickup, delivery proof and customer tracking remain DL 6 / SH 5.
+
+| Decision | Rejected | Why |
+|---|---|---|
+| Going online sets availability; the app immediately reports its first position. Broadcast eligibility requires a position less than 10 minutes old | Adding coordinates to setOnline | Keeps the two API operations and never offers work without a current point |
+| Sign-out hands back assigned work and is refused with RIDER_HAS_PARCEL after pickup; stale positions clear availability but retain assignments | Automatic hand-back on signal loss | Losing connectivity must not silently reassign an existing parcel |
+| The merchant's currentDeliveryId chooses picked-up first, otherwise the oldest assignment, with id as tie-break | Refusing manual assignment to busy riders | Manual assignment may give a rider multiple deliveries |
+| order.delivery is the latest attempt; its steps include earlier attempts | Hiding cancelled attempts | Keeps retry history visible |
+
+The offer job is outbox kind delivery.offer, keyed by delivery and round. Busy riders are omitted
+from broadcasts and refused ON_DELIVERY on acceptance; manual assignment may choose a busy or offline
+active rider, only from unassigned. Offers show postcode and city, total item quantities and rider-to-warehouse
+distance in metres. Notification distances use the store's units and locale. Cash due is the COD payment
+amount after any gift card contribution, in the order currency. Preview orders get no delivery.
+The dispatch setting is read at delivery creation. Ready is refused unless packing.
+Going offline closes open offers and hands assigned deliveries back in a new round without that rider;
+it is refused after pickup. A report while offline is refused. Reports allow 30 seconds of clock skew,
+ignore older points, and permit one write per ten seconds of server time. Positions never enter logs.
+
+Each round without a rider queues one email to active merchant members with orders.fulfil, in the
+partner's look: "Nobody took order {number}", with the portal order link. It waits for a live portal host.
+Closed offers receive a silent taken update. Manual assignment and cancellation notify the rider.
+A person with orders.read (a member, or staff impersonating one) sees the rider's phone on the order; a support session, an API key and an app grant get the
+rider's name and vehicle only (decided 2026-10-26 on #920, replacing #842's decision 6).
 
 ---
 
@@ -219,7 +248,7 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 
 **Built on #839:** the API itself (`src/apis/delivery`, `schema/delivery.graphql`), with `requestCode`, `signIn`,
 `signOut`, `me`, `updateProfile` and `deleteMyAccount`; on #840 (DL 3) `registerPushDevice` and `unregisterPushDevice`;
-the rest comes with DL 5 and DL 6.
+dispatch is built on #842 (DL 5); pickup, proof and completion remain DL 6.
 
 - **The session** comes back from `signIn` once and goes in as `Authorization: Bearer <token>`: hashed in
   `rider_session`, 30 days from last use, ended by `signOut`, suspension, removal and `deleteMyAccount`. A token of
@@ -269,8 +298,7 @@ the rest comes with DL 5 and DL 6.
 - **Profile:** name, photo, vehicle type (bike, scooter, car, bicycle, on foot), vehicle number.
 - **The merchant** sees each rider's status (invited, active, suspended), online now, current
   delivery and deliveries done, and can **suspend** an active rider, **restore** a suspended one
-  (built on #838 with the list and removal; deliveries done and the current delivery read 0 and
-  none until DL 5 and DL 6) (sessions end at once; an `assigned` delivery
+  (built on #838 with the list and removal; deliveries done reads 0 until DL 6; current delivery is built on #842) (sessions end at once; an `assigned` delivery
   is handed back to the other riders; refused `RIDER_HAS_PARCEL` while they carry a `picked_up` one,
   which the merchant recalls first) or **remove** (the same rules; the row
   stays, so past deliveries keep their rider; the phone is erased, AGENTS.md "Data").
@@ -305,7 +333,10 @@ those through its API.
 The order emails the customer already gets for a shipment stay as they are. Neither a push nor an
 email ever carries the handover code (§3).
 
-**Built on #840 (DL 3):** the pipe and one test event; the events in the table come with DL 5, DL 6 and SH 5.
+**Built on #840 (DL 3) and #842 (DL 5):** the pipe, the test event and the rider's messages; the customer's and the pickup events come with DL 6 and SH 5.
+
+- **Rider messages** (`core/push.ts`): `rider.notifications_on`, `rider.offer` (a distance, never an address), `rider.assigned`,
+  `rider.cancelled`, and `rider.taken`, which is silent: the app only refreshes its offers.
 
 - **The test event** is a confirmation, "Notifications are on for {store}", queued by `registerPushDevice` in its own
   transaction when a phone is new to the rider or moved to them.
@@ -376,7 +407,7 @@ marks it paid as today. A prepaid order ignores the argument.
 
 A supplier never sees riders, positions or a delivery: own delivery carries only the store's
 lines (§2), so a supplier's `orders.fulfil` (ACCESS §5.2) never reaches these actions; they
-check the merchant side as well as the permission (ACCESS §5.1). A support session reads them as `orders.read` allows, never a rider's phone.
+check the merchant side as well as the permission (ACCESS §5.1). A support session, an API key or an app grant reads them as `orders.read` allows, never a rider's phone.
 
 Built on #838: `riders`, `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider` and
 `removeRider`. All of them are refused to a support session (`BLOCKED_FOR_SUPPORT`), since the list

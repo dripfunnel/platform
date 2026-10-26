@@ -1,11 +1,38 @@
+type DeliveryOffer {
+  area: String
+  deliveryId: ID
+  distanceM: Float
+  expiresAt: String
+  id: ID
+  itemCount: Int
+  sentAt: String
+  warehouse: String
+}
+
+type DeliveryOfferPage {
+  nodes: [DeliveryOffer!]
+  pageInfo: OfferPageInfo
+}
+
 type Mutation {
+  acceptOffer(id: ID!): Boolean
+  declineOffer(id: ID!): Boolean
   deleteMyAccount: Boolean
   registerPushDevice(platform: PushPlatform!, token: String!): Boolean
+  reportPosition(accuracy: Float!, at: String!, lat: Float!, lng: Float!): Boolean
   requestCode(phone: String!): Boolean
+  setOnline(online: Boolean!): Boolean
   signIn(code: String!, phone: String!): RiderSession
   signOut: Boolean
   unregisterPushDevice(token: String!): Boolean
   updateProfile(name: String!, photoAssetId: ID, vehicleNumber: String, vehicleType: VehicleType): Rider
+}
+
+type OfferPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
 }
 
 enum PushPlatform {
@@ -16,6 +43,7 @@ enum PushPlatform {
 type Query {
   health: String
   me: Rider
+  offers(after: String, first: Int): DeliveryOfferPage
 }
 
 type Rider {

@@ -8,6 +8,7 @@ export interface PushMessage {
   to: string
   /** Whose phone, as `rider:<id>`: never sent to Expo, only what the local stand-in prints in place of the token. */
   subject: string
+  silent?: boolean
   title: string
   body: string
   data: Readonly<Record<string, string>>
@@ -91,7 +92,7 @@ export const expoPushClient = ({ token, fetchImpl = fetch }: { token: string; fe
       const tickets: PushTicket[] = []
       for (let i = 0; i < messages.length; i += maxPushMessages) {
         const chunk = messages.slice(i, i + maxPushMessages)
-        const json = await call('send', chunk.map((m) => ({ to: m.to, title: m.title, body: m.body, data: m.data, sound: 'default' })), signal)
+        const json = await call('send', chunk.map((m) => ({ to: m.to, data: m.data, ...(m.silent ? { _contentAvailable: true } : { title: m.title, body: m.body, sound: 'default' }) })), signal)
         // A 2xx is Expo taking the messages: an unreadable answer still counts as sent, so nothing goes twice.
         const answered = ticketsSchema.safeParse(json)
         tickets.push(...chunk.map((_, n) => ticketOf(answered.success ? answered.data.data[n] : null)))

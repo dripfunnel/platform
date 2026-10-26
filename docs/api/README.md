@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -231,14 +231,16 @@ runs hourly or less often.
 
 | Cron | Jobs |
 |---|---|
-| `* * * * *` | expired SMS, then the outbox relay (the backstop for any wake that never arrived) |
+| `* * * * *` | the dispatch sweep (searching deliveries past their offer time to `unassigned`, stale rider positions deleted and those riders offline; api/DELIVERY.md §3), expired SMS, due core rollouts advanced, then the outbox relay (the backstop for any wake that never arrived), then due posts published |
 | `*/5 * * * *` | due domain checks, stuck exports and imports failed, unpaid orders released, ended trials, overdue stores suspended, abandoned carts marked, due cart reminders queued |
 | `0 * * * *` | exchange-rate refresh, expired exports and imports deleted with stale and abandoned Shopify connections, shopper sign-in codes and sessions purged, unfinished sign-ups purged |
 | `0 3 * * *` (UTC) | expired carts purged, webhook delivery log past a month purged, the storefront buckets cleaned (old builds, preview folders a publish made old, stores closed 90 days; storefront LIVE-SHOP.md §4 step 11, #317), the real-user vitals regression rule (storefront ARCHITECTURE §9, #484) |
 
 A purge that deletes a batch of 500 at a time repeats its batch until one comes back short, up to 60 times an hour
 or 1440 times a day, so it can delete as much as it did when it ran every minute. Rows a job queues in the outbox
-go out with the next every-minute relay. Locally, `pnpm dev` fires each cron in the minute it is due
+go out with the relay that runs after it: a sweep keeps claiming rows that come due within `relayBudgetMs` (20 s,
+checked between batches, each row tried once a sweep), so the pushes a `delivery.offer` row queues (an outbox job,
+idempotent per delivery and round) go out in the same sweep. Rows queued later wait for the next minute's. Locally, `pnpm dev` fires each cron in the minute it is due
 (`apps/api/scripts/local/dev.ts`, ../setup/local.md §6).
 
 ---
