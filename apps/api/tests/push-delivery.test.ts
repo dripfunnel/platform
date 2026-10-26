@@ -95,6 +95,20 @@ const keysAndValues = (value: unknown): string[] =>
       : [String(value).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '')]
 
 describe('pushes through the outbox (DELIVERY §6)', () => {
+  it('sends dispatch events with IDs only, and the taken update is silent', async () => {
+    const { expo, sends } = fakeExpo()
+    const riderId = crypto.randomUUID()
+    const deliveryId = crypto.randomUUID()
+    await device(riderId, 1)
+    for (const message of ['rider.offer', 'rider.assigned', 'rider.taken', 'rider.cancelled'] as const) {
+      await queue({ subject: { kind: 'rider', id: riderId }, message, deliveryId })
+    }
+    await relay(expo)
+    const messages = sends.flat()
+    expect(messages).toHaveLength(4)
+    for (const sent of messages) expect(Object.keys(sent.data).sort()).toEqual(['deliveryId', 'kind'])
+    expect(messages.find((m) => m.data['kind'] === 'rider.taken')?.silent).toBe(true)
+  })
   it('sends every phone of the subject in one call, in the store’s words, and reads the receipts 15 minutes later', async () => {
     const { expo, sends } = fakeExpo()
     const riderId = crypto.randomUUID()

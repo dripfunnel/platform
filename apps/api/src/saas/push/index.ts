@@ -9,20 +9,8 @@ export const pushKind = 'push'
 export const pushReceiptsKind = 'push.receipts'
 
 /** The one event #840 builds: a phone newly registered to a rider. DL 5, DL 6 and SH 5 add theirs. */
-export const pushMessages = ['rider.notifications_on'] as const
-export type PushMessageCode = (typeof pushMessages)[number]
-
-/** The outbox payload: no free text, and ids only. */
-export const pushPayloadSchema = z
-  .object({
-    subject: z.object({ kind: z.enum(['rider', 'customer', 'order']), id: z.uuid() }).strict(),
-    message: z.enum(pushMessages),
-    deliveryId: z.uuid().optional(),
-    orderId: z.uuid().optional(),
-  })
-  .strict()
-  .refine((p) => p.deliveryId === undefined || p.orderId === undefined, 'deliveryId or orderId, not both')
-export type PushPayload = z.infer<typeof pushPayloadSchema>
+export { pushMessages, pushPayloadSchema, type PushPayload, type PushMessageCode } from '#core/push'
+import { pushPayloadSchema, type PushPayload, type PushMessageCode } from '#core/push'
 
 /** Expo's receipts are ready about 15 minutes after a send and kept for a day (THIRD-PARTY-ACCESS §2.13). */
 export const receiptsAfterMs = 15 * 60 * 1000
@@ -36,20 +24,29 @@ export const pushReceiptsPayloadSchema = z
   .strict()
 export type PushReceiptsPayload = z.infer<typeof pushReceiptsPayloadSchema>
 
-type Wording = Record<PushMessageCode, (store: string) => { title: string; body: string }>
+type Wording = Record<PushMessageCode, (store: string, distance: string | null) => { title: string; body: string }>
 
 // English for the first release (ui/README.md: messages per locale); a second locale adds a sibling object.
 const en: Wording = {
+  'rider.offer': (store, distance) => ({ title: store, body: distance ? `New delivery, ${distance} away.` : 'New delivery offer. Open the app to accept or decline.' }),
+  'rider.assigned': (store) => ({ title: store, body: 'A delivery has been assigned to you.' }),
+  'rider.taken': () => ({ title: '', body: '' }),
+  'rider.cancelled': (store) => ({ title: store, body: 'The delivery was cancelled. Do not pick it up.' }),
   'rider.notifications_on': (store) => ({ title: store, body: `Notifications are on for ${store}.` }),
 }
 
 /** The title, body and data for the store's language, English where it has none yet. */
-export const composePush = (payload: PushPayload, store: { name: string; locale: string }) => {
+export const composePush = (payload: PushPayload, store: { name: string; locale: string; unit_system?: string }, distanceM: number | null = null) => {
   const words = ({ en } as Record<string, Wording>)[store.locale.split('-')[0] ?? ''] ?? en
   const data: Record<string, string> = { kind: payload.message }
   if (payload.deliveryId) data['deliveryId'] = payload.deliveryId
   if (payload.orderId) data['orderId'] = payload.orderId
-  return { ...words[payload.message](store.name), data }
+  let distance: string | null = null
+  if (payload.message === 'rider.offer' && distanceM !== null) {
+    const imperial = store.unit_system === 'imperial'
+    distance = new Intl.NumberFormat(store.locale, { style: 'unit', unit: imperial ? 'mile' : 'kilometer', maximumFractionDigits: 1 }).format(distanceM / (imperial ? 1609.344 : 1000))
+  }
+  return { ...words[payload.message](store.name, distance), data, silent: payload.message === 'rider.taken' }
 }
 
 /** Queues one push in the transaction that decided it, once per idempotency key. */

@@ -83,6 +83,19 @@ afterAll(async () => {
 })
 
 describe('a side effect follows its transaction', () => {
+  it('delivers newly queued effects in the same sweep without retrying one row twice', async () => {
+    await queued(staff, 'dispatch-test', 'parent')
+    const sent: string[] = []
+    const all: Deliverers = {
+      'dispatch-test': { deliver: async () => {
+        await withSystemScope(db.sql, (tx) => queueSideEffect(tx, { kind: 'dispatch-push-test', idempotencyKey: 'child', payload: {}, partnerId: null, storeId: null }))
+        await catchUp(db.sql)
+      } },
+      'dispatch-push-test': { deliver: async (effect) => { sent.push(effect.id) } },
+    }
+    expect((await sweep(db.sql, all, { ...options, baseDelayMs: 0 })).delivered).toBe(2)
+    expect(sent).toHaveLength(1)
+  })
   it('a rolled-back transaction queues nothing, so nothing is delivered', async () => {
     await expect(
       withScope(db.sql, staff, async (tx) => {

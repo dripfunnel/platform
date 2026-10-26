@@ -13,11 +13,13 @@ export interface RiderRow {
   status: RiderStatus
   vehicle_type: string | null
   vehicle_number: string | null
+  current_delivery_id: string | null
   online: boolean
   created_at: Date
 }
 
-const columns = (tx: ScopedSql) => tx`r.id, r.name, r.phone, r.status, r.vehicle_type, r.vehicle_number, r.online_at is not null as online, r.created_at`
+const columns = (tx: ScopedSql) => tx`r.id, r.name, r.phone, r.status, r.vehicle_type, r.vehicle_number, r.online_at is not null as online, r.created_at,
+  (select d.id from delivery d where d.rider_id = r.id and d.store_id = r.store_id and d.state in ('assigned','picked_up') order by (d.state = 'picked_up') desc, d.assigned_at, d.id limit 1) as current_delivery_id`
 
 /** Newest first; a removed rider leaves the list, its row kept for past deliveries. */
 export const selectRiders = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<RiderRow[]> => {
