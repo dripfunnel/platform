@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
 import type { DeliveryRow } from '#db/scoped/dispatch'
 import { riderSummary, selectOrderDeliveries } from '#db/scoped/dispatch'
-import { withScope, withSystemScope } from '#db/scoped/index'
+import { withScope } from '#db/scoped/index'
 import { createDispatch, dispatchAudit } from '#engine/modules/ownDelivery/index'
 import { tenantCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
@@ -24,7 +24,7 @@ export const orderDeliveryType = (builder: StoreBuilder) => {
     rider: t.field({ type: Rider, nullable: true, resolve: async (d, _, ctx) => {
       const deps = facts(ctx)
       if (!d.rider_id || deps.context.sellerScope.kind === 'seller') return null
-      const r = await withSystemScope(deps.sql, (tx) => riderSummary(tx, deps.context.storeId, d.rider_id ?? ''))
+      const r = await withScope(deps.sql, deps.context, (tx) => riderSummary(tx, deps.context.storeId, d.rider_id ?? ''))
       return r && deps.context.caller.kind === 'support' ? { ...r, phone: null } : r
     } }),
     steps: t.field({ type: [Step], resolve: (d) => d.attempts.flatMap((a) => {

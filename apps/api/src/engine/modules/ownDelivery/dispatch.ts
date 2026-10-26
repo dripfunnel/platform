@@ -7,7 +7,7 @@ import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { selectStoreEntitlement } from '#db/scoped/entitlements'
-import { serialise, withSystemScope, type ScopedSql } from '#db/scoped/index'
+import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox, insertOutboxMany } from '#db/scoped/outbox'
 import * as queries from '#db/scoped/dispatch'
 
@@ -124,7 +124,8 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
   const f = (): DispatchFacts => ({ storeId: context.storeId, partnerId: context.partnerId, activity, facts, now: now(), actor })
   const run = <T>(work: (tx: ScopedSql, facts: DispatchFacts) => Promise<T>) => {
     if (context.sellerScope.kind === 'seller' || (context.caller.kind === 'support' && context.caller.access === 'read')) throw new DispatchRefused('FORBIDDEN')
-    return withSystemScope(sql, (tx) => work(tx, f()))
+    // An accept answers the other riders' offers too, so a rider runs as the system; a person runs under its own scope (DATA-MODEL §3.6).
+    return riderId ? withSystemScope(sql, (tx) => work(tx, f())) : withScope(sql, context, (tx) => work(tx, f()))
   }
   const required = async (tx: ScopedSql, id: string) => {
     const d = isUuid(id) ? await queries.lockDelivery(tx, context.storeId, id) : null
@@ -202,7 +203,7 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
       if (!['unassigned', 'cancelled'].includes(d.state)) throw new DispatchRefused('NOT_UNASSIGNED')
       let next: queries.DeliveryRow
       if (d.state === 'cancelled') {
-        const order = await queries.deliveryOrder(tx, context.storeId, d.order_id)
+        const order = await queries.deliveryOrder(tx, context.storeId, d.order_id, false)
         if (!order) throw new DispatchRefused('NOT_FOUND')
         const created = await queries.insertDelivery(tx, { storeId: context.storeId, orderId: d.order_id, warehouseId: d.warehouse_id, currency: d.currency, cash: d.cash_due_amount, searching: true, now: f.now })
         if (!created) throw new DispatchRefused('NOT_UNASSIGNED')
