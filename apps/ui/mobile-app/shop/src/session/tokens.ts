@@ -15,6 +15,9 @@ export const loadTokens = async (host: string): Promise<Tokens> => {
   return { session: session.token, cart: cart.token }
 }
 
+/** A guest's cart token, as `addToCart` answers it; the next call carries it as `X-Shop-Cart`. */
+export const saveCartToken = (host: string, token: string): Promise<void> => cartStorage(host).writeToken(token)
+
 /** The Shop API reads the session as `X-Shop-Session` and the cart as `X-Shop-Cart`, each only when there is one (ACCESS.md §2.1). */
 export const shopHeaders = ({ session, cart }: Tokens): Record<string, string> => ({
   ...(session ? { 'x-shop-session': session } : {}),
