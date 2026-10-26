@@ -1,7 +1,7 @@
 import type { PageWindow } from '#core/paging'
 import type { ScopedSql } from './index'
 
-// Settings › Riders (DELIVERY §5; DATA-MODEL §3.6, migration 0359): the merchant side only, in its own scope.
+// Settings › Riders on the merchant side (DELIVERY §5; DATA-MODEL §3.6, migration 0359), and a rider's own row (0360).
 
 export type RiderStatus = 'invited' | 'active' | 'suspended' | 'removed'
 
@@ -82,3 +82,67 @@ export const countRiderTextsSince = async (tx: ScopedSql, storeId: string, rider
       where store_id = ${storeId} and occurred_at >= ${since} and action in ('rider.invited', 'rider.invitation_resent') and target_type = 'rider' and target_id = ${riderId}
     `
   )[0]?.n ?? 0
+
+// The rider's own row, as app_rider (DELIVERY §4 `me`, `updateProfile`; migration 0360).
+
+export interface OwnRiderRow {
+  id: string
+  name: string
+  phone: string | null
+  photo_asset_id: string | null
+  vehicle_type: string | null
+  vehicle_number: string | null
+  status: RiderStatus
+  created_at: Date
+}
+
+const ownColumns = (tx: ScopedSql) => tx`r.id, r.name, r.phone, r.photo_asset_id, r.vehicle_type, r.vehicle_number, r.status, r.created_at`
+
+export const selectOwnRider = async (tx: ScopedSql, storeId: string, id: string): Promise<OwnRiderRow | null> =>
+  (await tx<OwnRiderRow[]>`select ${ownColumns(tx)} from rider r where r.id = ${id} and r.store_id = ${storeId} and r.status = 'active'`)[0] ?? null
+
+export const updateOwnRider = async (
+  tx: ScopedSql,
+  storeId: string,
+  id: string,
+  p: { name: string; photoAssetId: string | null; vehicleType: string | null; vehicleNumber: string | null },
+  now: Date,
+): Promise<OwnRiderRow | null> =>
+  (
+    await tx<OwnRiderRow[]>`
+      update rider r set name = ${p.name}, photo_asset_id = ${p.photoAssetId}, vehicle_type = ${p.vehicleType}, vehicle_number = ${p.vehicleNumber}, updated_at = ${now}
+      where r.id = ${id} and r.store_id = ${storeId} and r.status = 'active'
+      returning ${ownColumns(tx)}
+    `
+  )[0] ?? null
+
+/** An image the rider uploaded itself, in its own store: the only photo its profile may name. */
+export const ownPhotoExists = async (tx: ScopedSql, storeId: string, riderId: string, assetId: string): Promise<boolean> =>
+  (await tx`select 1 from asset where id = ${assetId} and store_id = ${storeId} and created_by = ${riderId} and kind = 'image'`).length > 0
+
+export const countOwnUploadsSince = async (tx: ScopedSql, storeId: string, riderId: string, since: Date): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from asset where store_id = ${storeId} and created_by = ${riderId} and created_at >= ${since}`)[0]?.n ?? 0
+
+/**
+ * Every photo the rider uploaded goes, with Delete my account (DELIVERY §5); one the store has since put on a product
+ * stays, as the store's. Returns the R2 keys of those deleted.
+ */
+export const deleteOwnUploads = async (tx: ScopedSql, storeId: string, riderId: string): Promise<string[]> => {
+  const all = await refusedIfInUse(tx.savepoint((sp) => sp<{ r2_key: string }[]>`delete from asset where store_id = ${storeId} and created_by = ${riderId} returning r2_key`))
+  if (all) return all.map((r) => r.r2_key)
+  // One is in use, and app_rider can't see by whom (RLS), so each is tried alone; only a rider whose photo the store reused.
+  const files = await tx<{ id: string; r2_key: string }[]>`select id, r2_key from asset where store_id = ${storeId} and created_by = ${riderId}`
+  const deleted: string[] = []
+  for (const file of files) {
+    const gone = await refusedIfInUse(tx.savepoint((sp) => sp`delete from asset where id = ${file.id} and store_id = ${storeId} and created_by = ${riderId}`))
+    if (gone?.count) deleted.push(file.r2_key)
+  }
+  return deleted
+}
+
+/** The statement's result, or null when a foreign key refused it (23503): the asset is in use. */
+const refusedIfInUse = <T,>(statement: Promise<T>): Promise<T | null> =>
+  statement.catch((error: unknown) => {
+    if (error instanceof Error && 'code' in error && error.code === '23503') return null
+    throw error
+  })

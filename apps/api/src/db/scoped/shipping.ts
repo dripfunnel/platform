@@ -17,6 +17,9 @@ export interface ShippingRow {
   area_file_name: string | null
   saved_at: Date | null
   revision: number
+  own_delivery_enabled: boolean
+  dispatch_when: 'placed' | 'ready'
+  offer_minutes: number
 }
 
 export interface ShippingStoreRow {
@@ -37,7 +40,8 @@ export const selectShipping = async (tx: ScopedSql, storeId: string): Promise<Sh
         s.pricing_currency::text as pricing_currency,
         (select row_to_json(x) from (
           select h.courier_enabled, h.flat_enabled, h.flat_amount::text as flat_amount, h.pickup_enabled, h.pickup_hours, h.free_mode,
-            h.free_threshold_amount::text as free_threshold_amount, h.currency, h.area_mode, h.area_file_name, h.saved_at, h.revision
+            h.free_threshold_amount::text as free_threshold_amount, h.currency, h.area_mode, h.area_file_name, h.saved_at, h.revision,
+            h.own_delivery_enabled, h.dispatch_when, h.offer_minutes
           from store_shipping h where h.store_id = s.id) x) as shipping,
         (select count(*)::int from delivery_postal_code d where d.store_id = s.id) as area_count,
         coalesce((select json_agg(d.code) from (select code from delivery_postal_code where store_id = s.id order by code limit 3) d), '[]'::json) as area_sample
@@ -55,18 +59,24 @@ export interface ShippingWrite {
   freeThresholdAmount: bigint | null
   currency: string
   areaMode: 'everywhere' | 'list'
+  ownDeliveryEnabled: boolean
+  dispatchWhen: 'placed' | 'ready'
+  offerMinutes: number
 }
 
 /** At the revision read (0 before the first save); false when someone saved since. */
 export const saveShippingRow = async (tx: ScopedSql, storeId: string, revision: number, w: ShippingWrite, now: Date): Promise<boolean> =>
   (
     await tx`
-      insert into store_shipping (store_id, courier_enabled, flat_enabled, flat_amount, pickup_enabled, pickup_hours, free_mode, free_threshold_amount, currency, area_mode, saved_at, revision, updated_at)
+      insert into store_shipping (store_id, courier_enabled, flat_enabled, flat_amount, pickup_enabled, pickup_hours, free_mode, free_threshold_amount, currency, area_mode,
+        own_delivery_enabled, dispatch_when, offer_minutes, saved_at, revision, updated_at)
       values (${storeId}, ${w.courierEnabled}, ${w.flatEnabled}, ${w.flatAmount === null ? null : w.flatAmount.toString()}, ${w.pickupEnabled}, ${w.pickupHours},
-        ${w.freeMode}, ${w.freeThresholdAmount === null ? null : w.freeThresholdAmount.toString()}, ${w.currency}, ${w.areaMode}, ${now}, 1, ${now})
+        ${w.freeMode}, ${w.freeThresholdAmount === null ? null : w.freeThresholdAmount.toString()}, ${w.currency}, ${w.areaMode},
+        ${w.ownDeliveryEnabled}, ${w.dispatchWhen}, ${w.offerMinutes}, ${now}, 1, ${now})
       on conflict (store_id) do update set courier_enabled = excluded.courier_enabled, flat_enabled = excluded.flat_enabled, flat_amount = excluded.flat_amount,
         pickup_enabled = excluded.pickup_enabled, pickup_hours = excluded.pickup_hours, free_mode = excluded.free_mode,
         free_threshold_amount = excluded.free_threshold_amount, currency = excluded.currency, area_mode = excluded.area_mode,
+        own_delivery_enabled = excluded.own_delivery_enabled, dispatch_when = excluded.dispatch_when, offer_minutes = excluded.offer_minutes,
         saved_at = coalesce(store_shipping.saved_at, excluded.saved_at), revision = store_shipping.revision + 1, updated_at = excluded.updated_at
       where store_shipping.revision = ${revision}
     `
@@ -90,7 +100,10 @@ export const postalCodeListed = async (tx: ScopedSql, code: string): Promise<boo
 export interface QuoteSettingsRow {
   country: string | null
   postal: string | null
-  shipping: Pick<ShippingRow, 'courier_enabled' | 'flat_enabled' | 'flat_amount' | 'pickup_enabled' | 'pickup_hours' | 'free_mode' | 'free_threshold_amount' | 'currency' | 'area_mode' | 'saved_at'> | null
+  shipping: Pick<
+    ShippingRow,
+    'courier_enabled' | 'flat_enabled' | 'flat_amount' | 'pickup_enabled' | 'pickup_hours' | 'free_mode' | 'free_threshold_amount' | 'currency' | 'area_mode' | 'saved_at' | 'own_delivery_enabled'
+  > | null
 }
 
 /** What a quote reads, and nothing more: a shopper's cart prices delivery with it (SAPI 9). */
@@ -100,11 +113,39 @@ export const selectQuoteSettings = async (tx: ScopedSql, storeId: string): Promi
       select s.country, nullif(s.address->>'postal', '') as postal,
         (select row_to_json(x) from (
           select h.courier_enabled, h.flat_enabled, h.flat_amount::text as flat_amount, h.pickup_enabled, h.pickup_hours, h.free_mode,
-            h.free_threshold_amount::text as free_threshold_amount, h.currency, h.area_mode, h.saved_at
+            h.free_threshold_amount::text as free_threshold_amount, h.currency, h.area_mode, h.saved_at, h.own_delivery_enabled
           from store_shipping h where h.store_id = s.id) x) as shipping
       from store s where s.id = ${storeId}
     `
   )[0] ?? null
+
+export interface DeliveringWarehouseRow {
+  warehouse_id: string
+  fee_amount: string
+  fee_currency: string
+}
+
+/** Through shop_delivering_warehouse() (migration 0363), so a shopper never reads a warehouse or its stock. */
+export const selectDeliveringWarehouse = async (
+  tx: ScopedSql,
+  pin: { latitude: number; longitude: number },
+  lines: readonly { versionId: string; quantity: number }[],
+): Promise<DeliveringWarehouseRow | null> =>
+  (
+    await tx<DeliveringWarehouseRow[]>`
+      select warehouse_id, fee_amount::text as fee_amount, fee_currency
+      from shop_delivering_warehouse(${pin.latitude}, ${pin.longitude}, ${tx.json(lines.map((l) => ({ version_id: l.versionId, quantity: l.quantity })))})
+    `
+  )[0] ?? null
+
+/** What turning own delivery on needs besides the plan (DELIVERY §2): active riders, and the merchant's delivering warehouses. */
+export const selectOwnDeliveryParts = async (tx: ScopedSql, storeId: string): Promise<{ riders: number; warehouses: number }> =>
+  (
+    await tx<{ riders: number; warehouses: number }[]>`
+      select (select count(*)::int from rider where store_id = ${storeId} and status = 'active') as riders,
+        (select count(*)::int from warehouse where store_id = ${storeId} and seller_id is null and deleted_at is null and own_delivery) as warehouses
+    `
+  )[0] ?? { riders: 0, warehouses: 0 }
 
 export const selectQuoteCouriers = (tx: ScopedSql, storeId: string): Promise<Pick<CourierRow, 'provider' | 'role'>[]> =>
   tx<Pick<CourierRow, 'provider' | 'role'>[]>`select provider, role from store_courier where store_id = ${storeId} and role <> 'off' order by position, provider`

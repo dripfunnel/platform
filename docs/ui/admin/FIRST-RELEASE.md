@@ -1,6 +1,6 @@
 # FIRST-RELEASE.md: the admin console, kept simple
 
-The first version of the admin console (`apps/ui/admin`, `admin.dripfunnel.com`): only what
+The first version of the admin console (`apps/ui/admin`, `admin.dripfunnel.ai`): only what
 DripFunnel staff need to **manage partners and stores**. Everything else in
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md) waits for a later release (§11).
 

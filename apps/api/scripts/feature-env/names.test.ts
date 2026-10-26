@@ -32,12 +32,12 @@ describe('slugOf', () => {
 
 describe('namesFor', () => {
   it('derives every resource name from the slug', () => {
-    const n = namesFor('12-offers', 'dripfunnel.ai')
+    const n = namesFor('12-offers', 'actuateminds.com')
     expect(n.worker).toBe('dripfunnel-feature-12-offers')
     expect(n.hyperdrive).toBe('feature-12-offers')
     expect(n.neonBranch).toBe('feature/12-offers')
     expect(n.pagesProject('admin')).toBe('dripfunnel-feature-admin')
-    expect(n.host('store')).toBe('12-offers-store.dripfunnel.ai')
-    expect(n.host('hooks')).toBe('12-offers-hooks.dripfunnel.ai')
+    expect(n.host('store')).toBe('12-offers-store.actuateminds.com')
+    expect(n.host('hooks')).toBe('12-offers-hooks.actuateminds.com')
   })
 })

@@ -22,7 +22,7 @@ const staffByRole = new Map<StaffRole, StaffMember>()
 const jobs = { failed: '', stuck: '', running: '', own: '', done: '' }
 const secret = 'ghs_abcdefghijklmnopqrstuvwxyz0123456789'
 
-const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
+const request = new Request('https://admin.dripfunnel.ai/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
 const provisioningFor = (staff: StaffMember) =>
   createProvisioningService({ sql: db.sql, staff, facts: factsOf(request), activity: activityLog, now: () => now })
 

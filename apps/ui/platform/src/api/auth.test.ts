@@ -112,13 +112,13 @@ describe('groupedKey', () => {
 })
 
 describe('safeNext', () => {
-  const origin = 'https://platform.dripfunnel.com'
+  const origin = 'https://platform.dripfunnel.ai'
 
   it('keeps a same-origin path with its search and hash', () => {
     expect(safeNext('/stores?status=live#top', origin)).toBe('/stores?status=live#top')
   })
 
-  it.each(['//evil.com/x', '/\\evil.com/x', 'https://evil.com/dashboard', 'http://platform.dripfunnel.com/x', 'javascript:alert(1)', 'dashboard', '', 42, undefined])(
+  it.each(['//evil.com/x', '/\\evil.com/x', 'https://evil.com/dashboard', 'http://platform.dripfunnel.ai/x', 'javascript:alert(1)', 'dashboard', '', 42, undefined])(
     'falls back to the dashboard for %s',
     (next) => {
       expect(safeNext(next, origin)).toBe('/dashboard')

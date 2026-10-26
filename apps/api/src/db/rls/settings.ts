@@ -1,14 +1,15 @@
 import type { CallerContext, Scope } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
 
-/** The database role each caller kind runs as (DATA-MODEL.md §5.3); shoppers as `app_shop` since #306. */
-export type RequestRole = 'app_request' | 'app_supplier' | 'app_shop' | 'app_partner' | 'app_platform'
+/** The database role each caller kind runs as (DATA-MODEL.md §5.3); shoppers as `app_shop` since #306, riders as `app_rider` since #839. */
+export type RequestRole = 'app_request' | 'app_supplier' | 'app_shop' | 'app_rider' | 'app_partner' | 'app_platform'
 
 // Exhaustive and failing closed: a context kind added later throws until it is named here, so it
 // can never run as staff by default.
 export const roleFor = (context: CallerContext): RequestRole => {
   if (isTenantContext(context)) {
     if (context.caller.kind === 'shopper') return 'app_shop'
+    if (context.caller.kind === 'rider') return 'app_rider'
     return context.sellerScope.kind === 'seller' ? 'app_supplier' : 'app_request'
   }
   if (isPartnerContext(context)) return 'app_partner'
@@ -31,6 +32,8 @@ export interface RlsSettings {
   'app.staff_id': string
   /** The hash of the cart token a guest shopper presented (migration 0066): its own carts, compared in the database. */
   'app.order_token_hash': string
+  /** The signed-in rider (delivery scope, migration 0360): its own row and uploads. */
+  'app.rider_id': string
 }
 
 const empty = {
@@ -43,6 +46,7 @@ const empty = {
   'app.user_id': '',
   'app.staff_id': '',
   'app.order_token_hash': '',
+  'app.rider_id': '',
 }
 
 export const settingsFor = (context: CallerContext): RlsSettings => {
@@ -50,8 +54,8 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
     const { caller } = context
     return {
       ...empty,
-      // A shopper reaches the Shop API; every other store caller reaches the Store API.
-      'app.scope': caller.kind === 'shopper' ? 'shop' : 'store',
+      // A shopper reaches the Shop API, a rider the Delivery API; every other store caller reaches the Store API.
+      'app.scope': caller.kind === 'shopper' ? 'shop' : caller.kind === 'rider' ? 'delivery' : 'store',
       'app.partner_id': context.partnerId,
       'app.store_id': context.storeId,
       'app.seller_id': context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : '',
@@ -62,6 +66,7 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
       'app.impersonation_id': caller.kind === 'impersonation' ? caller.impersonationId : '',
       'app.user_id': caller.kind === 'person' ? caller.userId : '',
       'app.order_token_hash': caller.kind === 'shopper' ? (caller.orderTokenHash ?? '') : '',
+      'app.rider_id': caller.kind === 'rider' ? caller.riderId : '',
     }
   }
   if (isPartnerContext(context)) {

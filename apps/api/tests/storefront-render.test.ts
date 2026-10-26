@@ -278,11 +278,11 @@ describe('a page run’s frozen input', () => {
     const runId = started.ok ? started.runId : ''
     const drafts = fakeSites()
     await putText(drafts, sourceBundle(t.storeA1, liveA), 'bundle')
-    const frozen = { sql: db.sql, drafts, assetOrigin: 'https://sf-assets.my-store.one', shopDomain: 'shop.example', mapsFrameOrigin: 'https://hooks.dripfunnel.com', dispatch: async () => true, now: () => new Date() }
+    const frozen = { sql: db.sql, drafts, assetOrigin: 'https://sf-assets.my-store.one', shopDomain: 'shop.example', mapsFrameOrigin: 'https://hooks.dripfunnel.ai', dispatch: async () => true, now: () => new Date() }
     expect(await freezeBuild(frozen, t.storeA1, runId)).toBe('frozen')
     const snapshot = JSON.parse((await (await drafts.get(snapshotFile(t.storeA1, runId)))?.text()) ?? '{}') as { assetBase: string; csp: { mapsFrameOrigin?: string } }
     expect(snapshot.assetBase).toBe(`https://sf-assets.my-store.one/stores/${t.storeA1}/builds/${assetsOf?.id ?? ''}/assets/`)
-    expect(snapshot.csp.mapsFrameOrigin).toBe('https://hooks.dripfunnel.com')
+    expect(snapshot.csp.mapsFrameOrigin).toBe('https://hooks.dripfunnel.ai')
     await db.sql`delete from outbox where payload->>'runId' = ${runId}`
     await db.sql`delete from publish_run where id = ${runId}`
   })

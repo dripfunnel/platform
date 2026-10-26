@@ -2,7 +2,7 @@
 
 `apps/ui/store`: the web app merchants, their staff and their vendors use to run a store.
 It is served on **each partner's portal host** (e.g. `store.northstar.com`, and
-`store.dripfunnel.com` for the house partner), always **in that partner's look**, and it
+`store.dripfunnel.ai` for the house partner), always **in that partner's look**, and it
 calls the **Store API** at `/api` on the same host.
 
 Shoppers never see it; they see the store's storefront (docs/storefront/). DripFunnel staff

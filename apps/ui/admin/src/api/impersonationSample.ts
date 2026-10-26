@@ -33,7 +33,7 @@ type SampleReauth = { ok: true; proof: string } | Extract<Reauth, { ok: false }>
 const minuteMs = 60_000
 const impersonationMs = 30 * minuteMs
 const setupMs = 120 * minuteMs
-const platformHost = 'platform.dripfunnel.com'
+const platformHost = 'platform.dripfunnel.ai'
 
 // Where the dev servers run the two portals; a deployed fixture opens the same paths on them.
 const portalOrigins = { partner: 'http://localhost:5174', store: 'http://localhost:5173' }
@@ -62,7 +62,7 @@ interface SampleTarget {
 const partnerRef = (id: string): Ref => ({ id, name: samplePartners.find((partner) => partner.id === id)?.name ?? id })
 const partnerClosed = (id: string) => samplePartners.find((partner) => partner.id === id)?.state === 'closed'
 const portalHostOf = (partnerId: string) =>
-  samplePartners.find((partner) => partner.id === partnerId)?.domains.find((domain) => domain.kind === 'portal')?.host ?? 'store.dripfunnel.com'
+  samplePartners.find((partner) => partner.id === partnerId)?.domains.find((domain) => domain.kind === 'portal')?.host ?? 'store.dripfunnel.ai'
 
 // Partner users are one pool and store users another (ACCESS.md §2): never merged. A store user is
 // one account per partner, so the same email in two of its stores is one person with two places.
@@ -151,12 +151,12 @@ export const createImpersonationServer = (options: ImpersonationServerOptions = 
   const ago = (minutes: number) => start - minutes * minuteMs
   // The prototype's stories; imp-7Q2 and su-4K9 are the activity sample's, so its links resolve.
   let sessions: SampleSession[] = [
-    seed({ id: 'imp-open1', kind: 'impersonation', staff: staffByRole['staff-support'], targetId: 's1-u2', membership: membershipOf('s1-u2'), reason: 'Can’t publish the Diwali collection', ticket: 'https://support.dripfunnel.com/t/48240', startedAt: ago(1), expiresAt: ago(1) + impersonationMs, outcome: 'open' }),
+    seed({ id: 'imp-open1', kind: 'impersonation', staff: staffByRole['staff-support'], targetId: 's1-u2', membership: membershipOf('s1-u2'), reason: 'Can’t publish the Diwali collection', ticket: 'https://support.dripfunnel.ai/t/48240', startedAt: ago(1), expiresAt: ago(1) + impersonationMs, outcome: 'open' }),
     seed({ id: 'su-open1', kind: 'setup', staff: otherStaff, targetId: null, membership: null, partner: partnerRef('ts'), reason: 'Partner asked for help with its plans', ticket: null, startedAt: ago(40), expiresAt: ago(40) + setupMs, outcome: 'open' }),
     seed({ id: 'imp-7Q2', kind: 'impersonation', staff: staffByRole['staff-support'], targetId: 's1-u1', membership: membershipOf('s1-u1'), reason: 'Ticket #4821: Diwali collection missing', ticket: null, startedAt: ago(7), expiresAt: ago(7) + impersonationMs, endedAt: ago(2), outcome: 'endedByStaff' }),
     seed({ id: 'su-4K9', kind: 'setup', staff: staffByRole['staff-partner-manager'], targetId: null, membership: null, partner: partnerRef('kl'), reason: 'Partner asked for help with branding', ticket: null, startedAt: ago(60 * 30), expiresAt: ago(60 * 30) + setupMs, endedAt: ago(60 * 30 - 25), outcome: 'endedByStaff' }),
     seed({ id: 'imp-h2', kind: 'impersonation', staff: staffByRole['staff-super-admin'], targetId: 'mayachen', membership: membershipOf('mayachen'), reason: 'Scale plan price not showing on the signup page', ticket: null, startedAt: ago(60 * 24 * 4), expiresAt: ago(60 * 24 * 4) + impersonationMs, endedAt: ago(60 * 24 * 4) + impersonationMs, outcome: 'expired' }),
-    seed({ id: 'imp-h3', kind: 'impersonation', staff: staffByRole['staff-support'], targetId: 's1-u1', membership: membershipOf('s1-u1'), reason: 'Size chart not showing', ticket: 'https://support.dripfunnel.com/t/48102', startedAt: ago(60 * 24 * 10), expiresAt: ago(60 * 24 * 10) + impersonationMs, endedAt: ago(60 * 24 * 10 - 14), outcome: 'endedByStaff' }),
+    seed({ id: 'imp-h3', kind: 'impersonation', staff: staffByRole['staff-support'], targetId: 's1-u1', membership: membershipOf('s1-u1'), reason: 'Size chart not showing', ticket: 'https://support.dripfunnel.ai/t/48102', startedAt: ago(60 * 24 * 10), expiresAt: ago(60 * 24 * 10) + impersonationMs, endedAt: ago(60 * 24 * 10 - 14), outcome: 'endedByStaff' }),
   ]
 
   // Expiry is the server's: an open session past its end is expired the next time anyone reads it.

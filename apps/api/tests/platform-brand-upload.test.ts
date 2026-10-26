@@ -12,7 +12,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 const now = new Date('2026-10-03T09:00:00Z')
-const host = 'platform.dripfunnel.com'
+const host = 'platform.dripfunnel.ai'
 const stored = new Map<string, { bytes: Uint8Array; contentType: string }>()
 const store: BrandFileStore = {
   put: async (key, value, options) => {

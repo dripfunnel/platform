@@ -1,6 +1,6 @@
 # ui/admin: the admin console (DF Admin)
 
-`apps/ui/admin` at **`admin.dripfunnel.com`**: the internal console **DripFunnel staff**
+`apps/ui/admin` at **`admin.dripfunnel.ai`**: the internal console **DripFunnel staff**
 use to run the whole platform: every partner, every merchant account, billing at both
 levels, the storefront fleet, domains, integrations and platform settings. It calls the
 **Admin API** at `/api` on the same host, is DripFunnel-branded, and serves **staff only**.

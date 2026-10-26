@@ -19,7 +19,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 let db: TestDatabase
 const now = new Date('2026-10-02T12:00:00Z')
 const staffByRole = new Map<StaffRole, StaffMember>()
-const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
+const request = new Request('https://admin.dripfunnel.ai/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
 const ids = { person: '', partner: '', storeA: '', storeB: '', imp: crypto.randomUUID(), su: crypto.randomUUID(), customer: '', staff: '' }
 // A Partner manager's assignment, a partner inside it and one outside, each with a shopper sharing one email.
 const reach = { assigned: new Set<string>(), insidePartner: '', insideCustomer: '', outsidePartner: '', outsidePerson: '', outsidePersonName: '', outsideCustomer: '' }

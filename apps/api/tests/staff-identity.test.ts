@@ -123,10 +123,10 @@ describe('the session', () => {
 
 describe('who the request resolves to', () => {
   const withSession = (id: string) =>
-    new Request('https://admin.dripfunnel.com/api', { headers: { cookie: `${cookieName}=${id}` } })
+    new Request('https://admin.dripfunnel.ai/api', { headers: { cookie: `${cookieName}=${id}` } })
 
   it('is nobody without a cookie', async () => {
-    expect(await resolveStaff(db.sql, new Request('https://admin.dripfunnel.com/api'), start)).toBeNull()
+    expect(await resolveStaff(db.sql, new Request('https://admin.dripfunnel.ai/api'), start)).toBeNull()
   })
 
   it('is the staff member while the session is live', async () => {
@@ -230,19 +230,19 @@ describe('the sign-in routes', () => {
     sql: db.sql,
     provider,
     activity: activityLog,
-    adminHost: 'admin.dripfunnel.com',
+    adminHost: 'admin.dripfunnel.ai',
     now: () => start,
     allowAttempt: async () => true,
     ...overrides,
   })
 
   const callback = (code: string, { state = 'state', ...headers }: Record<string, string> = {}) =>
-    new Request(`https://admin.dripfunnel.com/api/auth/callback?code=${code}&state=${state}`, {
+    new Request(`https://admin.dripfunnel.ai/api/auth/callback?code=${code}&state=${state}`, {
       headers: { cookie: '__Host-df_admin_oidc=state.nonce.signin', ...headers },
     })
 
   it('sends the browser to the provider and remembers the nonce', async () => {
-    const res = await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/sign-in'), deps())
+    const res = await handleAuth(new Request('https://admin.dripfunnel.ai/api/auth/sign-in'), deps())
     expect(res.status).toBe(302)
     expect(res.headers.get('location')).toContain('login.microsoftonline.com')
     expect(res.headers.get('set-cookie')).toContain('__Host-df_admin_oidc=')
@@ -403,7 +403,7 @@ describe('the sign-in routes', () => {
     }
 
     const reauthCallback = (sessionId: string) =>
-      new Request('https://admin.dripfunnel.com/api/auth/callback?code=good&state=state', {
+      new Request('https://admin.dripfunnel.ai/api/auth/callback?code=good&state=state', {
         headers: { cookie: `__Host-df_admin_oidc=state.nonce.reauth; ${cookieName}=${sessionId}` },
       })
 
@@ -416,8 +416,8 @@ describe('the sign-in routes', () => {
           return 'https://login.microsoftonline.com/authorize'
         },
       }
-      await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/sign-in'), deps({ provider: recording }))
-      await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/reauth'), deps({ provider: recording }))
+      await handleAuth(new Request('https://admin.dripfunnel.ai/api/auth/sign-in'), deps({ provider: recording }))
+      await handleAuth(new Request('https://admin.dripfunnel.ai/api/auth/reauth'), deps({ provider: recording }))
       expect(seen).toEqual(['none', 'login'])
     })
 
@@ -436,7 +436,7 @@ describe('the sign-in routes', () => {
       // Only the handshake is cleared; the session cookie and the session itself stay.
       expect(res.headers.get('set-cookie')).toContain('__Host-df_admin_oidc=;')
       expect(res.headers.get('set-cookie')).not.toContain(`${cookieName}=`)
-      const stillSignedIn = new Request('https://admin.dripfunnel.com/api/', { headers: { cookie: `${cookieName}=${id}` } })
+      const stillSignedIn = new Request('https://admin.dripfunnel.ai/api/', { headers: { cookie: `${cookieName}=${id}` } })
       expect(await resolveStaff(db.sql, stillSignedIn, start)).toMatchObject({ staff: { id: active } })
     })
 
@@ -467,7 +467,7 @@ describe('the sign-in routes', () => {
 
     it('refuses a re-authentication with no session to stamp', async () => {
       const res = await handleAuth(
-        new Request('https://admin.dripfunnel.com/api/auth/callback?code=good&state=state', {
+        new Request('https://admin.dripfunnel.ai/api/auth/callback?code=good&state=state', {
           headers: { cookie: '__Host-df_admin_oidc=state.nonce.reauth' },
         }),
         deps(),
@@ -482,7 +482,7 @@ describe('the sign-in routes', () => {
     const seen: (string | null)[] = []
     const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason), recordAll: async () => undefined }
     const forged = new Request(
-      'https://admin.dripfunnel.com/api/auth/callback?error=invalid_grant&error_description=AADSTS53003',
+      'https://admin.dripfunnel.ai/api/auth/callback?error=invalid_grant&error_description=AADSTS53003',
     )
     const res = await handleAuth(forged, deps({ activity: capturing }))
     expect(res.headers.get('location')).toBe('/sign-in?outcome=refused')
@@ -499,7 +499,7 @@ describe('the sign-in routes', () => {
       ['error=temporarily_unavailable', '/sign-in?outcome=unavailable'],
     ] as const
     for (const [query, expected] of cases) {
-      const request = new Request(`https://admin.dripfunnel.com/api/auth/callback?state=state&${query}`, {
+      const request = new Request(`https://admin.dripfunnel.ai/api/auth/callback?state=state&${query}`, {
         headers: { cookie: '__Host-df_admin_oidc=state.nonce.signin' },
       })
       const res = await handleAuth(request, deps())
@@ -508,13 +508,13 @@ describe('the sign-in routes', () => {
   })
 
   it('refuses a sign-out that is not a POST, so no page can force one', async () => {
-    const res = await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/sign-out'), deps())
+    const res = await handleAuth(new Request('https://admin.dripfunnel.ai/api/auth/sign-out'), deps())
     expect(res.status).toBe(405)
   })
 
   it('refuses a cross-site POST whatever the cookie says', async () => {
     const res = await handleAuth(
-      new Request('https://admin.dripfunnel.com/api/auth/sign-out', {
+      new Request('https://admin.dripfunnel.ai/api/auth/sign-out', {
         method: 'POST',
         headers: { origin: 'https://evil.example' },
       }),
@@ -527,9 +527,9 @@ describe('the sign-in routes', () => {
     const signIn = await handleAuth(callback('good'), deps())
     const id = (signIn.headers.get('set-cookie') ?? '').split(';')[0]?.split('=')[1] ?? ''
     const res = await handleAuth(
-      new Request('https://admin.dripfunnel.com/api/auth/sign-out', {
+      new Request('https://admin.dripfunnel.ai/api/auth/sign-out', {
         method: 'POST',
-        headers: { cookie: `${cookieName}=${id}`, origin: 'https://admin.dripfunnel.com' },
+        headers: { cookie: `${cookieName}=${id}`, origin: 'https://admin.dripfunnel.ai' },
       }),
       deps(),
     )

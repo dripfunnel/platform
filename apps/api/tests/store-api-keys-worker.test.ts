@@ -14,9 +14,9 @@ const host = 'store.partner-a.example'
 const hostB = 'store.partner-b.example'
 
 const env = (overrides: Record<string, unknown> = {}) => ({
-  ADMIN_HOST: 'admin.dripfunnel.com',
-  PLATFORM_HOST: 'platform.dripfunnel.com',
-  HOOKS_HOST: 'hooks.dripfunnel.com',
+  ADMIN_HOST: 'admin.dripfunnel.ai',
+  PLATFORM_HOST: 'platform.dripfunnel.ai',
+  HOOKS_HOST: 'hooks.dripfunnel.ai',
   HYPERDRIVE: { connectionString: db.url },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   SIGN_IN_RATE_LIMITER: { limit: async () => ({ success: true }) },

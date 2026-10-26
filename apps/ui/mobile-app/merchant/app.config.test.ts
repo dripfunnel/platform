@@ -23,13 +23,13 @@ const setTo = (name: string, value: string) => (lines: string[]) => lines.map((l
 describe('app.config.ts', () => {
   it('reads the committed dev partner and builds the app config from it', () => {
     const env = readPartnerEnv(appRoot, 'dev')
-    expect(env.PARTNER_DOMAIN).toBe('dev-store.dripfunnel.ai')
+    expect(env.PARTNER_DOMAIN).toBe('dev-store.actuateminds.com')
 
     const config = buildConfig({}, env)
     expect(config.name).toBe(env.APP_NAME)
     expect(config.ios?.bundleIdentifier).toBe(env.IOS_BUNDLE_ID)
     expect(config.android?.package).toBe(env.ANDROID_PACKAGE)
-    expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.dripfunnel.ai' })
+    expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.actuateminds.com' })
   })
 
   it('fails with the variable named when a value is missing', () => {
@@ -43,12 +43,12 @@ describe('app.config.ts', () => {
   })
 
   it('refuses a portal domain written as a URL', () => {
-    editDevEnv(setTo('PARTNER_DOMAIN', 'https://dev-store.dripfunnel.ai/'))
+    editDevEnv(setTo('PARTNER_DOMAIN', 'https://dev-store.actuateminds.com/'))
     expect(() => readPartnerEnv(root, 'dev')).toThrow(/PARTNER_DOMAIN/)
   })
 
   it('refuses a variable it does not know, so a typo is never ignored', () => {
-    editDevEnv((lines) => [...lines, 'PARTNER_DOMIAN=dev-store.dripfunnel.ai'])
+    editDevEnv((lines) => [...lines, 'PARTNER_DOMIAN=dev-store.actuateminds.com'])
     expect(() => readPartnerEnv(root, 'dev')).toThrow(/PARTNER_DOMIAN/)
   })
 

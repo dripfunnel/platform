@@ -65,6 +65,7 @@ export const registerPayments = (builder: StoreBuilder) => {
       clientId: t.string(),
       clientSecret: t.string(),
       clientVersion: t.string(),
+      merchantId: t.string(),
       webhookUsername: t.string(),
       webhookPassword: t.string(),
       webhookId: t.string(),

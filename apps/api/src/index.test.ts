@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import worker, { cronGroups, guarded, PortalProxy, wakeOutbox } from './index'
 
 const env = {
-  ADMIN_HOST: 'admin.dripfunnel.com',
-  PLATFORM_HOST: 'platform.dripfunnel.com',
-  HOOKS_HOST: 'hooks.dripfunnel.com',
+  ADMIN_HOST: 'admin.dripfunnel.ai',
+  PLATFORM_HOST: 'platform.dripfunnel.ai',
+  HOOKS_HOST: 'hooks.dripfunnel.ai',
   HYPERDRIVE: { connectionString: 'not-a-postgres-url' },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   CF_VERSION_METADATA: { id: 'test-version', tag: '' },
@@ -29,10 +29,10 @@ const query = (href: string) =>
 
 describe('worker', () => {
   it('reports health per area, returning 503 and ok: false on a misconfigured database', async () => {
-    const response = await call('https://platform.dripfunnel.com/api/health')
+    const response = await call('https://platform.dripfunnel.ai/api/health')
     expect(response.status).toBe(503)
     expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'down', version: 'test-version' })
-    const admin = await call('https://admin.dripfunnel.com/api/health')
+    const admin = await call('https://admin.dripfunnel.ai/api/health')
     expect(admin.status).toBe(503)
     expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down', version: 'test-version' })
   })
@@ -40,7 +40,7 @@ describe('worker', () => {
   it('reports how long the database took to answer when it is up', async () => {
     // eslint-disable-next-line no-restricted-globals -- test-only Node process, this file never runs in the Worker
     const connectionString = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
-    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const request = new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HYPERDRIVE: { connectionString } }, ctx)
     expect(response.status).toBe(200)
     const body = (await response.json()) as { dbLatencyMs: number }
@@ -50,7 +50,7 @@ describe('worker', () => {
 
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
     const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
-    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const request = new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured', version: 'test-version' })
@@ -59,7 +59,7 @@ describe('worker', () => {
   it('names which integrations are configured, never a value', async () => {
     const configured = {
       ...env,
-      HOOKS_HOST: 'dev-hooks.dripfunnel.ai',
+      HOOKS_HOST: 'dev-hooks.actuateminds.com',
       ASSETS: {} as R2Bucket,
       ENTRA_TENANT_ID: 't',
       ENTRA_CLIENT_ID: 'c',
@@ -67,14 +67,14 @@ describe('worker', () => {
       STRIPE_SECRET_KEY: 'rk_test_abc',
       STRIPE_WEBHOOK_SECRET: 'whsec_abc',
     }
-    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const request = new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], configured, ctx)).text()
     expect(JSON.parse(text).integrations).toEqual({ entra: 'configured', stripe: 'configured', ses: 'missing', assets: 'configured' })
     expect(text).not.toMatch(/secret-entra|rk_test|whsec_/)
   })
 
   it('leaves integrations out of the public answer on a production host', async () => {
-    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const request = new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const body = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, ASSETS: {} as R2Bucket }, ctx)).json()
     expect(body).not.toHaveProperty('integrations')
   })
@@ -94,8 +94,8 @@ describe('worker', () => {
       EMAIL_SUPPRESSION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
     }
     const ask = async (extra: Record<string, string | undefined>) => {
-      const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
-      const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HOOKS_HOST: 'dev-hooks.dripfunnel.ai', ...extra }, ctx)).text()
+      const request = new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+      const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HOOKS_HOST: 'dev-hooks.actuateminds.com', ...extra }, ctx)).text()
       return { text, ses: JSON.parse(text).integrations.ses }
     }
     const all = await ask(ses)
@@ -106,7 +106,7 @@ describe('worker', () => {
 
   it('reports 503 when the environment requires a database and the binding is gone (#30)', async () => {
     const lost = { ...env, HYPERDRIVE: undefined, HYPERDRIVE_REQUIRED: '1' }
-    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const request = new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], lost, ctx)
     expect(response.status).toBe(503)
     expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'missing', version: 'test-version' })
@@ -114,18 +114,18 @@ describe('worker', () => {
 
   it('rate-limits /health', async () => {
     const limited = { ...env, HEALTH_RATE_LIMITER: { limit: async () => ({ success: false }) } }
-    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const request = new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], limited, ctx)
     expect(response.status).toBe(429)
   })
 
   it('rejects /health when cf-connecting-ip is missing', async () => {
-    const response = await worker.fetch(new Request('https://platform.dripfunnel.com/api/health') as Parameters<typeof worker.fetch>[0], env, ctx)
+    const response = await worker.fetch(new Request('https://platform.dripfunnel.ai/api/health') as Parameters<typeof worker.fetch>[0], env, ctx)
     expect(response.status).toBe(400)
   })
 
   it('answers GraphQL on each API', async () => {
-    for (const href of ['https://admin.dripfunnel.com/api', 'https://platform.dripfunnel.com/api']) {
+    for (const href of ['https://admin.dripfunnel.ai/api', 'https://platform.dripfunnel.ai/api']) {
       const response = await query(href)
       expect(await response.json()).toEqual({ data: { health: 'ok' } })
     }
@@ -158,7 +158,7 @@ describe('worker', () => {
   })
 
   it('answers GraphQL on /api/ with the trailing slash the SPA client sends (client.ts)', async () => {
-    for (const href of ['https://admin.dripfunnel.com/api/', 'https://platform.dripfunnel.com/api/']) {
+    for (const href of ['https://admin.dripfunnel.ai/api/', 'https://platform.dripfunnel.ai/api/']) {
       const response = await query(href)
       expect(await response.json()).toEqual({ data: { health: 'ok' } })
     }
@@ -167,20 +167,20 @@ describe('worker', () => {
   // The Store API knows a portal host only from the database (docs/ARCHITECTURE.md §2; #288).
   it('answers the Store API on a portal host of our own zone without a database, signed out', async () => {
     const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
-    for (const href of ['https://store.dripfunnel.com/api', 'https://store.dripfunnel.com/api/']) {
-      const request = new Request(href, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://store.dripfunnel.com' }, body: JSON.stringify({ query: '{ health }' }) })
+    for (const href of ['https://store.dripfunnel.ai/api', 'https://store.dripfunnel.ai/api/']) {
+      const request = new Request(href, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://store.dripfunnel.ai' }, body: JSON.stringify({ query: '{ health }' }) })
       const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
       expect(await response.json()).toEqual({ data: { health: 'ok' } })
     }
   })
 
   it('fails a Store API request rather than answering it when the database is down', async () => {
-    const response = await query('https://store.dripfunnel.com/api/')
+    const response = await query('https://store.dripfunnel.ai/api/')
     expect(response.status).toBeGreaterThanOrEqual(500)
   })
 
   it('refuses a Store API mutation posted from another origin', async () => {
-    const response = await call('https://store.dripfunnel.com/api/', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://evil.example' }, body: JSON.stringify({ query: '{ health }' }) })
+    const response = await call('https://store.dripfunnel.ai/api/', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://evil.example' }, body: JSON.stringify({ query: '{ health }' }) })
     expect(response.status).toBe(403)
   })
 
@@ -192,7 +192,7 @@ describe('worker', () => {
   it('returns 500 without a payload when required config is missing', async () => {
     const broken = { ...env, PLATFORM_HOST: undefined }
     const response = await worker.fetch(
-      new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } }) as Parameters<typeof worker.fetch>[0],
+      new Request('https://platform.dripfunnel.ai/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } }) as Parameters<typeof worker.fetch>[0],
       broken,
       ctx,
     )
@@ -204,12 +204,12 @@ describe('worker', () => {
     // The console reads `me` to decide whether to offer sign-in, so this branch must not be
     // the error that hides it.
     const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
-    const request = new Request('https://admin.dripfunnel.com/api', {
+    const request = new Request('https://admin.dripfunnel.ai/api', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         cookie: '__Host-df_admin_session=stale',
-        origin: 'https://admin.dripfunnel.com',
+        origin: 'https://admin.dripfunnel.ai',
       },
       body: JSON.stringify({ query: '{ me { id } }' }),
     })
@@ -220,7 +220,7 @@ describe('worker', () => {
 
   it('answers 503 on sign-in when no database is configured', async () => {
     const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
-    const request = new Request('https://admin.dripfunnel.com/api/auth/sign-in', {
+    const request = new Request('https://admin.dripfunnel.ai/api/auth/sign-in', {
       headers: { 'cf-connecting-ip': '203.0.113.1' },
     })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
@@ -230,7 +230,7 @@ describe('worker', () => {
   it('answers 500 on sign-in when the rate limiter binding is missing', async () => {
     const unlimited = { ...env, SIGN_IN_RATE_LIMITER: undefined }
     const response = await worker.fetch(
-      new Request('https://admin.dripfunnel.com/api/auth/sign-in', {
+      new Request('https://admin.dripfunnel.ai/api/auth/sign-in', {
         headers: { 'cf-connecting-ip': '203.0.113.1' },
       }) as Parameters<typeof worker.fetch>[0],
       unlimited,
@@ -243,22 +243,22 @@ describe('worker', () => {
     // The session cookie authenticates these, so without this check #14's and #39's
     // mutations would be reachable from any page (ACCESS.md §4).
     const post = (headers: Record<string, string>) =>
-      call('https://admin.dripfunnel.com/api', {
+      call('https://admin.dripfunnel.ai/api', {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...headers },
         body: JSON.stringify({ query: '{ health }' }),
       })
     expect((await post({ origin: 'https://evil.example' })).status).toBe(403)
-    expect((await post({ origin: 'https://admin.dripfunnel.com.evil.test' })).status).toBe(403)
+    expect((await post({ origin: 'https://admin.dripfunnel.ai.evil.test' })).status).toBe(403)
     expect((await post({})).status).toBe(403)
-    expect((await post({ origin: 'https://admin.dripfunnel.com' })).status).toBe(200)
+    expect((await post({ origin: 'https://admin.dripfunnel.ai' })).status).toBe(200)
   })
 
   it('returns 404 outside the known routes', async () => {
-    expect((await call('https://admin.dripfunnel.com/shop-api')).status).toBe(404)
-    expect((await call('https://platform.dripfunnel.com/shop-api')).status).toBe(404)
-    expect((await call('https://store.dripfunnel.com/')).status).toBe(404)
-    expect((await call('https://hooks.dripfunnel.com/stripe')).status).toBe(404)
+    expect((await call('https://admin.dripfunnel.ai/shop-api')).status).toBe(404)
+    expect((await call('https://platform.dripfunnel.ai/shop-api')).status).toBe(404)
+    expect((await call('https://store.dripfunnel.ai/')).status).toBe(404)
+    expect((await call('https://hooks.dripfunnel.ai/stripe')).status).toBe(404)
   })
 })
 
@@ -269,7 +269,7 @@ describe('the PortalProxy entrypoint', () => {
     )
 
   it('answers nothing on our own hosts, whatever the path', async () => {
-    for (const href of ['https://admin.dripfunnel.com/api/', 'https://platform.dripfunnel.com/api/', 'https://hooks.dripfunnel.com/stripe']) {
+    for (const href of ['https://admin.dripfunnel.ai/api/', 'https://platform.dripfunnel.ai/api/', 'https://hooks.dripfunnel.ai/stripe']) {
       expect((await viaProxy(href)).status).toBe(404)
     }
   })
@@ -297,7 +297,7 @@ describe('guarded', () => {
     console.log = (line: string) => void lines.push(line)
     let result: Awaited<ReturnType<typeof guarded>>
     try {
-      result = await guarded(new Request('https://admin.dripfunnel.com/api/', { headers: { 'cf-ray': 'ray-500' } }), () =>
+      result = await guarded(new Request('https://admin.dripfunnel.ai/api/', { headers: { 'cf-ray': 'ray-500' } }), () =>
         Promise.reject(Object.assign(new Error('permission denied to set role "app_system" for user app_login'), { name: 'PostgresError', code: '42501' })),
       )
     } finally {
@@ -306,12 +306,12 @@ describe('guarded', () => {
     expect(result.response.status).toBe(500)
     expect(await result.response.text()).toBe('')
     expect(result.area).toBeNull()
-    expect(lines.map((l) => JSON.parse(l) as Record<string, unknown>)).toEqual([{ event: 'request_failed', requestId: 'ray-500', host: 'admin.dripfunnel.com', status: 500, code: 'PostgresError:42501' }])
+    expect(lines.map((l) => JSON.parse(l) as Record<string, unknown>)).toEqual([{ event: 'request_failed', requestId: 'ray-500', host: 'admin.dripfunnel.ai', status: 500, code: 'PostgresError:42501' }])
     expect(lines.join('\n')).not.toContain('app_login')
   })
 
   it('passes a response through untouched', async () => {
-    const result = await guarded(new Request('https://admin.dripfunnel.com/api/'), async () => ({ response: new Response('ok', { status: 200 }), area: 'admin' as const }))
+    const result = await guarded(new Request('https://admin.dripfunnel.ai/api/'), async () => ({ response: new Response('ok', { status: 200 }), area: 'admin' as const }))
     expect(result.response.status).toBe(200)
     expect(result.area).toBe('admin')
   })
@@ -441,7 +441,7 @@ describe('the cron', () => {
       events: ['domain_checks_failed', 'exports_purge_failed', 'unpaid_orders_failed', 'trial_end_failed', 'dunning_failed', 'abandoned_carts_failed', 'cart_reminders_failed', 'storefront_auto_publish_failed'],
       threw: false,
     })
-    expect(await failures('0 * * * *')).toEqual({ events: ['rates_refresh_queue_failed', 'exports_purge_failed', 'shopper_identity_purge_failed', 'signup_purge_failed'], threw: false })
+    expect(await failures('0 * * * *')).toEqual({ events: ['rates_refresh_queue_failed', 'exports_purge_failed', 'shopper_identity_purge_failed', 'rider_sign_in_purge_failed', 'signup_purge_failed'], threw: false })
     expect(await failures('0 3 * * *')).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_history_prune_failed', 'storefront_vitals_failed', 'core_images_failed'], threw: false })
   })
 

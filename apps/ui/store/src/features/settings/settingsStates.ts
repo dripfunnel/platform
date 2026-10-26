@@ -151,7 +151,7 @@ const gateway = (g: Pick<Gateway, 'provider' | 'label' | 'kind'> & Partial<Gatew
 
 const sampleGateways: Gateway[] = harness
   ? [
-      gateway({ provider: 'razorpay', label: 'Razorpay', kind: 'gateway', live: true, connections: [{ mode: 'live', live: true, webhookUrl: 'https://hooks.dripfunnel.com/payments/razorpay/3f2a9c' }] }),
+      gateway({ provider: 'razorpay', label: 'Razorpay', kind: 'gateway', live: true, connections: [{ mode: 'live', live: true, webhookUrl: 'https://hooks.dripfunnel.ai/payments/razorpay/3f2a9c' }] }),
       gateway({ provider: 'cashfree', label: 'Cashfree', kind: 'gateway', connections: [{ mode: 'test', live: true, webhookUrl: null }] }),
       gateway({ provider: 'phonepe', label: 'PhonePe', kind: 'gateway', connectable: false }),
       gateway({ provider: 'cod', label: 'Cash on delivery', kind: 'other', live: true, connections: [{ mode: 'live', live: true, webhookUrl: null }] }),

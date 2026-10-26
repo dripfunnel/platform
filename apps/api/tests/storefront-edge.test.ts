@@ -18,9 +18,9 @@ const shopsA2 = 'store-a2.shop.example'
 const customA2 = 'www.a2-shop.example'
 
 const env = () => ({
-  ADMIN_HOST: 'admin.dripfunnel.com',
-  PLATFORM_HOST: 'platform.dripfunnel.com',
-  HOOKS_HOST: 'hooks.dripfunnel.com',
+  ADMIN_HOST: 'admin.dripfunnel.ai',
+  PLATFORM_HOST: 'platform.dripfunnel.ai',
+  HOOKS_HOST: 'hooks.dripfunnel.ai',
   SHOP_DOMAIN: 'shop.example',
   HYPERDRIVE: { connectionString: db.url },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
@@ -136,7 +136,7 @@ describe('the edge’s door to the API', () => {
   it('answers nothing else, and nothing on our own hosts', async () => {
     expect((await edge().fetch(graphql(shopsA1, '/api'))).status).toBe(404)
     expect((await edge().fetch(graphql(shopsA1, '/'))).status).toBe(404)
-    expect((await edge().fetch(graphql('admin.dripfunnel.com'))).status).toBe(404)
+    expect((await edge().fetch(graphql('admin.dripfunnel.ai'))).status).toBe(404)
     expect((await edge().fetch(graphql('unknown.example'))).status).toBe(404)
   })
 })

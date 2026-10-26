@@ -23,11 +23,11 @@ export const integrationsOf = (config: Config, hasAssets: boolean) => ({
   assets: hasAssets ? 'configured' : 'missing',
 })
 
-export const isHealthPath = (area: Exclude<Area, 'hooks' | 'studio'>, pathname: string): boolean => pathname === healthPath[area]
+export const isHealthPath = (area: Exclude<Area, 'hooks' | 'studio' | 'delivery'>, pathname: string): boolean => pathname === healthPath[area]
 
 export const handleHealthCheck = async (
   request: Request,
-  area: Exclude<Area, 'hooks' | 'studio'>,
+  area: Exclude<Area, 'hooks' | 'studio' | 'delivery'>,
   config: Config,
   ctx: WaitUntil,
   rateLimiter: RateLimiter,

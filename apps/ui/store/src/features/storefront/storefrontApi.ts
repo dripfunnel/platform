@@ -79,7 +79,7 @@ export const sampleApi = (state: StorefrontState): StorefrontApi => {
     },
     loadDomains: () => Promise.resolve(domains),
     connectDomain: (host) => {
-      const added = { id: `sample-${host}`, host, kind: 'custom' as const, status: 'waiting' as const, primary: false, checkedAt: null, records: [{ type: 'CNAME', name: host, value: 'shops.edge.dripfunnel.com', found: null }, { type: 'TXT', name: `_df-verify.${host}`, value: 'df-verify=sample', found: null }] }
+      const added = { id: `sample-${host}`, host, kind: 'custom' as const, status: 'waiting' as const, primary: false, checkedAt: null, records: [{ type: 'CNAME', name: host, value: 'shops.edge.dripfunnel.ai', found: null }, { type: 'TXT', name: `_df-verify.${host}`, value: 'df-verify=sample', found: null }] }
       domains = { ...domains, domains: [...domains.domains, added] }
       return Promise.resolve(added)
     },

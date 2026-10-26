@@ -18,7 +18,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 let db: TestDatabase
 const now = new Date('2026-10-02T12:00:00Z')
 const staffByRole = new Map<StaffRole, StaffMember>()
-const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
+const request = new Request('https://admin.dripfunnel.ai/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
 const ids = { priyaMehta: '', priyaKiko: '', usNumber: '', deleted: '', mehta: '', kiko: '', ns: '', inside: '', outside: '', outsidePartner: '', insideStore: '', insidePartner: '' }
 const priya = { email: 'priya.sharma@gmail.com', phone: '+919876543210' }
 // One email at a store the Partner manager is assigned and at one it is not.

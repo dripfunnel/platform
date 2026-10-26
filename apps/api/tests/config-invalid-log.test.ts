@@ -8,8 +8,8 @@ afterEach(() => vi.restoreAllMocks())
 
 it('logs the invalid key names and no value', async () => {
   const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-  const env = { ADMIN_HOST: 'admin.dripfunnel.com', PLATFORM_HOST: 'platform.dripfunnel.com', HOOKS_HOST: 'hooks.dripfunnel.com', CREDENTIALS_KEK: 'bad-secret-value\n' }
-  const response = await worker.fetch(new Request('https://admin.dripfunnel.com/api/health') as Parameters<typeof worker.fetch>[0], env as never, ctx)
+  const env = { ADMIN_HOST: 'admin.dripfunnel.ai', PLATFORM_HOST: 'platform.dripfunnel.ai', HOOKS_HOST: 'hooks.dripfunnel.ai', CREDENTIALS_KEK: 'bad-secret-value\n' }
+  const response = await worker.fetch(new Request('https://admin.dripfunnel.ai/api/health') as Parameters<typeof worker.fetch>[0], env as never, ctx)
   expect(response.status).toBe(500)
   const line = String(log.mock.calls[0]?.[0])
   expect(JSON.parse(line)).toEqual({ code: 'config_invalid', keys: ['CREDENTIALS_KEK'] })

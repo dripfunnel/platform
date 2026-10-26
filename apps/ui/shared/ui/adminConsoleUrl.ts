@@ -3,7 +3,7 @@ export interface AdminUrlEnv {
   VITE_ADMIN_URL?: unknown
 }
 
-export const productionAdminUrl = 'https://admin.dripfunnel.com'
+export const productionAdminUrl = 'https://admin.dripfunnel.ai'
 
 // Where a portal's staff-session links lead: the admin console's dev port under vite dev,
 // otherwise the build's VITE_ADMIN_URL (https only, e.g. a feature environment) or production.

@@ -4,7 +4,7 @@ import { acceptRun, actionsIssuer, actionsKeys, TokenRefused, verifyActionsToken
 
 // INF 2b (#517): GitHub's OIDC token for a store build, against fake GitHub keys (storefront LIVE-SHOP.md §9).
 
-const audience = 'https://hooks.dripfunnel.com'
+const audience = 'https://hooks.dripfunnel.ai'
 const now = new Date('2026-10-11T10:00:00Z')
 const keys: { kid: string; privateKey: CryptoKey; jwk: JWK }[] = []
 let served: JWK[] = []

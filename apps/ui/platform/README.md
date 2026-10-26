@@ -1,7 +1,7 @@
 # platform
 
 The partner console for Partner users: a static SPA on Cloudflare Pages at
-`platform.dripfunnel.com`, calling the Platform API at `/api`. DripFunnel staff use
+`platform.dripfunnel.ai`, calling the Platform API at `/api`. DripFunnel staff use
 `apps/ui/admin` instead. Guide: [docs/ui/platform/](../../../docs/ui/platform/README.md); what
 to build first: [FIRST-RELEASE.md](../../../docs/ui/platform/FIRST-RELEASE.md).
 
@@ -252,4 +252,4 @@ Without the admin console, `?state=` shows `impersonating`, `setup`, `notice`, `
 reason, under Settings.
 The bar's Back link goes to the admin console on its dev port under `vite dev`; a build
 uses `VITE_ADMIN_URL` (https only, e.g. a feature environment's console) or
-`https://admin.dripfunnel.com`.
+`https://admin.dripfunnel.ai`.

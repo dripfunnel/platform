@@ -5,7 +5,7 @@ Every **`#<issue>/feature/<short-name>`** branch ([WORKFLOW.md](WORKFLOW.md) §2
 - its own API Worker,
 - its own merchant portal, partner console and admin console,
 - its own database, branched on Neon,
-- its own hostnames on `dripfunnel.ai`.
+- its own hostnames on `actuateminds.com`.
 
 It is deployed on every push and deleted when the branch goes. The workflow is
 [`.github/workflows/feature-env.yml`](../../.github/workflows/feature-env.yml). The tooling is in
@@ -20,10 +20,10 @@ Last updated: 2026-09-29.
 | Decision | Rejected | Why |
 |---|---|---|
 | **An environment only for `#<issue>/feature/<short-name>` branches**, which [WORKFLOW.md](WORKFLOW.md) §2 reserves for **new feature development**. Tasks (`#<issue>/task/…`) and bugs (`#<issue>/bug/…`) run the gates only | A preview for every pull request (the earlier ARCHITECTURE §6 plan) | Fewer environments and lower cost; only a new feature needs clicking through before it merges |
-| **A separate Cloudflare account ("DripFunnel Dev") holds every feature environment**, with the `dripfunnel.ai` zone | The production account | Cloudflare tokens can't be narrowed to certain Workers or projects. On the production account, code from any feature branch would run with a token that can change production. A separate account also gives feature environments their own 25 Hyperdrive slots |
+| **A separate Cloudflare account ("DripFunnel Dev") holds every feature environment**, with the `actuateminds.com` zone | The production account | Cloudflare tokens can't be narrowed to certain Workers or projects. On the production account, code from any feature branch would run with a token that can change production. A separate account also gives feature environments their own 25 Hyperdrive slots |
 | **A separate Neon project (`dripfunnel-dev`)**; each environment is a branch of its default branch, which holds seeded dummy data | Branching production; an empty database each time | No real personal data ever reaches a feature environment. A key scoped to that project can't reach production |
 | **Same shape as production**: three Cloudflare Pages projects for the SPAs, and one Worker serving `/api/*` on each SPA's hostname plus the hooks host | One Worker serving the SPAs as static assets | Feature environments exercise the production setup. This includes the unverified "Worker route on a Pages custom hostname" check in [../ARCHITECTURE.md](../ARCHITECTURE.md) §2, which the first deploy answers |
-| **Flat hostnames on a dev domain**: `<slug>-store.dripfunnel.ai` and so on | Nested names (`admin.<slug>.dev…`); the production domain | Cloudflare's free certificate covers one level below the zone. Test cookies, email and search engines stay off the production domain |
+| **Flat hostnames on a dev domain**: `<slug>-store.actuateminds.com` and so on | Nested names (`admin.<slug>.dev…`); the production domain | Cloudflare's free certificate covers one level below the zone. Test cookies, email and search engines stay off the production domain |
 | **Cloudflare Access** in front of every feature hostname, for anyone `@softobotics.com` | Open links | Unfinished work and test data stay private |
 | **Deleted when the branch is deleted, and after 14 days without a commit** | Deleting manually only | Forgotten branches don't use up Neon branches, Hyperdrive slots and Pages domains. Pushing again recreates the environment from the seed |
 | **Outside services use shared test accounts** (Stripe test mode, the SES sandbox, Razorpay test, a separate `dripfunnel-dev` GitHub org for storefront repos). Each environment tags what it creates with its slug | Fakes in feature environments | Real integration problems show up before staging. Applies as each integration is built; none exists yet |
@@ -36,10 +36,10 @@ For branch `#12/feature/offers` (slug `12-offers`):
 
 | Part | Name | Notes |
 |---|---|---|
-| Merchant portal | `https://12-offers-store.dripfunnel.ai` | Pages project `dripfunnel-feature-store`, branch deploy `12-offers` |
-| Partner console | `https://12-offers-platform.dripfunnel.ai` | Pages project `dripfunnel-feature-platform` |
-| Admin console | `https://12-offers-admin.dripfunnel.ai` | Pages project `dripfunnel-feature-admin` |
-| API | `/api/*` on the three hosts above; all of `12-offers-hooks.dripfunnel.ai` | Worker `dripfunnel-feature-12-offers`. Its `ADMIN_HOST`, `PLATFORM_HOST` and `HOOKS_HOST` point at the feature hosts, so the router behaves as in production |
+| Merchant portal | `https://12-offers-store.actuateminds.com` | Pages project `dripfunnel-feature-store`, branch deploy `12-offers` |
+| Partner console | `https://12-offers-platform.actuateminds.com` | Pages project `dripfunnel-feature-platform` |
+| Admin console | `https://12-offers-admin.actuateminds.com` | Pages project `dripfunnel-feature-admin` |
+| API | `/api/*` on the three hosts above; all of `12-offers-hooks.actuateminds.com` | Worker `dripfunnel-feature-12-offers`. Its `ADMIN_HOST`, `PLATFORM_HOST` and `HOOKS_HOST` point at the feature hosts, so the router behaves as in production |
 | Database | Neon branch `feature/12-offers` in `dripfunnel-dev` | Copied from the seeded default branch; the branch's own migrations are applied on each deploy |
 | Pooling | Hyperdrive config `feature-12-offers`, bound as `HYPERDRIVE`, with `HYPERDRIVE_REQUIRED` set to `"1"` | Uses Neon's direct connection string, as Cloudflare advises for Hyperdrive. The flag makes `/health` answer 503 if the binding goes missing (docs/api/README.md §7). Production adds the same binding name and flag when the API gets its database (PLATFORM-PROMPT §8 slice 3) |
 
@@ -89,19 +89,19 @@ removal starts only once this workflow is merged to `main`.
 
 1. **Cloudflare dev account.**
    1. Create a Cloudflare account "DripFunnel Dev" on Workers Paid.
-   2. Add the `dripfunnel.ai` zone to it. If the zone is in another account now, remove it
+   2. Add the `actuateminds.com` zone to it. If the zone is in another account now, remove it
       there first; Cloudflare may assign new nameservers, so update them at the registrar.
    3. Set SSL to Full (strict).
 2. **Cloudflare API token** (dev account only). Give it these permissions:
    - *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit;
-   - *Zone `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit.
+   - *Zone `actuateminds.com`*: Zone Read, DNS Edit, Workers Routes Edit.
 
    Add more permissions as resources are added (Queues Edit, Workers R2 Storage Edit,
    Workers KV Storage Edit).
 3. **Cloudflare Access** (Zero Trust on the dev account; login method: one-time PIN):
-   1. Self-hosted application **`*.dripfunnel.ai`**, with an **Allow** policy for emails
+   1. Self-hosted application **`*.actuateminds.com`**, with an **Allow** policy for emails
       ending in `@softobotics.com`.
-   2. Self-hosted application **`*-hooks.dripfunnel.ai`**, with a **Bypass** policy for
+   2. Self-hosted application **`*-hooks.actuateminds.com`**, with a **Bypass** policy for
       everyone, so providers' test webhooks get through. The webhooks verify their own
       signatures.
    3. After the first deploy, turn on **Access for preview deployments** in each of the three
@@ -120,8 +120,8 @@ removal starts only once this workflow is merged to `main`.
    - Deployment branches: `main` (for delete and nightly runs) and the pattern
      `#*/feature/*`.
    - Secrets: `CLOUDFLARE_API_TOKEN`, `NEON_API_KEY`.
-   - Variables: `CLOUDFLARE_ACCOUNT_ID` (dev account), `FEATURE_ZONE_ID` (`dripfunnel.ai`),
-     `FEATURE_DOMAIN` = `dripfunnel.ai`, `NEON_PROJECT_ID` (`dripfunnel-dev`).
+   - Variables: `CLOUDFLARE_ACCOUNT_ID` (dev account), `FEATURE_ZONE_ID` (`actuateminds.com`),
+     `FEATURE_DOMAIN` = `actuateminds.com`, `NEON_PROJECT_ID` (`dripfunnel-dev`).
 6. Merge the workflow to `main`, then push a `#<issue>/feature/<short-name>` branch.
 
 ---
@@ -150,7 +150,7 @@ These follow Cloudflare's and Neon's documented behaviour, but no deploy has run
   `attach` does the same through the API.
 - **A Worker route for `/api/*` on a Pages custom hostname.** This is ARCHITECTURE §2's
   open routing check. If it fails, production needs the Workers static assets fallback too.
-- **Access precedence**: the `*-hooks` Bypass application should win over `*.dripfunnel.ai`
+- **Access precedence**: the `*-hooks` Bypass application should win over `*.actuateminds.com`
   as the more specific match.
 - **Deleting a Pages deployment that has an alias** with `?force=true`.
 - **The token's permission list** in §4 step 2 is enough for Worker custom domains and route

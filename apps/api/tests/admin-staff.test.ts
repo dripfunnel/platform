@@ -18,7 +18,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 let db: TestDatabase
 let now = new Date('2026-10-02T12:00:00Z')
 const staffByRole = new Map<StaffRole, StaffMember>()
-const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
+const request = new Request('https://admin.dripfunnel.ai/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
 
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
@@ -114,12 +114,12 @@ describe('invitations', () => {
       stranger: { subject: 'sso-stranger', email: 'someone.else@dripfunnel.example', name: 'Someone Else' },
     }
     const provider = { authorizeUrl: () => 'https://login.microsoftonline.com/authorize', exchange: async ({ code }: { code: string }) => claimsFor[code] ?? claimsFor['stranger'] ?? { subject: '', email: '', name: '' } }
-    const deps = () => ({ sql: db.sql, provider, activity: activityLog, adminHost: 'admin.dripfunnel.com', now: () => now, allowAttempt: async () => true })
-    const start = (token: string) => handleAuth(new Request(`https://admin.dripfunnel.com/api/auth/accept-invitation?token=${token}`), deps())
+    const deps = () => ({ sql: db.sql, provider, activity: activityLog, adminHost: 'admin.dripfunnel.ai', now: () => now, allowAttempt: async () => true })
+    const start = (token: string) => handleAuth(new Request(`https://admin.dripfunnel.ai/api/auth/accept-invitation?token=${token}`), deps())
     const back = async (started: Response, code: string) => {
       const cookie = started.headers.get('set-cookie')?.split(';')[0] ?? ''
       const state = cookie.split('=')[1]?.split('.')[0] ?? ''
-      return handleAuth(new Request(`https://admin.dripfunnel.com/api/auth/callback?code=${code}&state=${state}`, { headers: { cookie } }), deps())
+      return handleAuth(new Request(`https://admin.dripfunnel.ai/api/auth/callback?code=${code}&state=${state}`, { headers: { cookie } }), deps())
     }
     const mint = async (email: string) => {
       const invitationId = await openInvitationOf((await memberByEmail(email))?.id ?? '')
@@ -175,7 +175,7 @@ describe('invitations', () => {
     })
 
     it('rate-limits the invitation link', async () => {
-      const limited = await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/accept-invitation?token=x'), { ...deps(), allowAttempt: async () => false })
+      const limited = await handleAuth(new Request('https://admin.dripfunnel.ai/api/auth/accept-invitation?token=x'), { ...deps(), allowAttempt: async () => false })
       expect(limited.status).toBe(429)
     })
   })

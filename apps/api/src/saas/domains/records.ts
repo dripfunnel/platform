@@ -87,11 +87,12 @@ export const recordsFor = (kind: DomainKind, host: string, apex: boolean, edgeZo
   }
 }
 
-const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.com']
+const dripfunnelDomains = ['dripfunnel.ai', 'dripfunnel.net', 'dripfunnel-mail.com']
 
-const houseDomain = 'dripfunnel.com'
+// Prod-only by design: the house partner is a production partner, so dev never gets a house zone (#907).
+const houseDomain = 'dripfunnel.ai'
 const reservedHouseHosts = [houseDomain, ...['admin', 'platform', 'hooks'].map((label) => `${label}.${houseDomain}`)]
-/** The names the house partner may add (SAAS §3.5): under dripfunnel.com, not its apex, the hosts the platform serves (ARCHITECTURE §2) or the fallback origins under `edge.` on the environment's zone. */
+/** The names the house partner may add (SAAS §3.5): under dripfunnel.ai, not its apex, the hosts the platform serves (ARCHITECTURE §2) or the fallback origins under `edge.` on the environment's zone. */
 export const isHouseHost = (host: string, edgeZone: string): boolean => {
   const edge = `edge.${edgeZone}`
   return host.endsWith(`.${houseDomain}`) && !reservedHouseHosts.includes(host) && host !== edge && !host.endsWith(`.${edge}`)

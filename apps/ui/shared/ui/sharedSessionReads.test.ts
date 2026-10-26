@@ -19,7 +19,7 @@ const browser = () => {
   }
 }
 
-const session: PortalStaffSession = { id: 's-1', kind: 'setup', state: 'open', endedBy: null, staffName: 'Maya Ortiz', actingAs: null, partnerName: 'Tallis', host: 'platform.dripfunnel.com', expiresAt: '2026-10-05T12:00:00Z' }
+const session: PortalStaffSession = { id: 's-1', kind: 'setup', state: 'open', endedBy: null, staffName: 'Maya Ortiz', actingAs: null, partnerName: 'Tallis', host: 'platform.dripfunnel.ai', expiresAt: '2026-10-05T12:00:00Z' }
 
 const counting = (answer: PortalStaffSession | null) => {
   const calls = { n: 0 }

@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -59,10 +59,10 @@ merchant with the same address are two unrelated accounts.
 | Pool | Who | Signs in at | Credentials | Unique by |
 |---|---|---|---|---|
 | **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, 2-factor **required for Owners and optional for everyone else** (decided 2026-10-02): an authenticator app or an SMS code to the person's own mobile number, plus ten single-use backup codes shown once when made; an Owner without it is sent to set it up at their next sign-in and can change the method but never turn it off (§4) | `(partner, email)`: the same email under two partners is two unrelated accounts |
-| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password (**built on #156**: PBKDF2-SHA256, 100,000 iterations — the most the Workers runtime allows — a 16-byte salt and a 32-byte key, `auth/password.ts`; one decoy derivation when no account matches, so an unknown email costs what a wrong password does); 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
-| **Staff** | DripFunnel employees | `admin.dripfunnel.com`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
+| **Partner users** | A partner's own team | `platform.dripfunnel.ai`, Platform API | Password (**built on #156**: PBKDF2-SHA256, 100,000 iterations — the most the Workers runtime allows — a 16-byte salt and a 32-byte key, `auth/password.ts`; one decoy derivation when no account matches, so an unknown email costs what a wrong password does); 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
+| **Staff** | DripFunnel employees | `admin.dripfunnel.ai`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
 | **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
-| **Riders** *(proposed)* | A merchant's own delivery people | The store's delivery app, Delivery API at `/delivery-api/` on `{slug}.<SHOP_DOMAIN>` | Mobile + one-time code by SMS; invitation only, by the store's Owner (`riders.manage`), matched by the number ([DELIVERY.md](DELIVERY.md) §5) | Phone **per store**: a person delivering for two stores has two rider accounts |
+| **Riders** (sign-in built on #839) | A merchant's own delivery people | The store's delivery app, Delivery API at `/delivery-api/` on `{slug}.<SHOP_DOMAIN>` | Mobile + one-time code by SMS; invitation only, by the store's Owner (`riders.manage`), matched by the number ([DELIVERY.md](DELIVERY.md) §5) | Phone **per store**: a person delivering for two stores has two rider accounts |
 
 Rules for the **people** pool:
 
@@ -131,14 +131,14 @@ and **never** to a `TenantContext`, except through a support session.
 |---|---|---|---|---|---|
 | **Person** | Store API | Session cookie + acting store named on the request | The acting store, which must be in the membership set | From the membership's `seller_id` | The membership's `role_key` |
 | **Shopper** | Shop API | Public store key or storefront hostname, plus an optional customer session | The key's store | `all`, visibility-filtered to what shoppers may see | The fixed shopper set |
-| **Rider** *(proposed)* | Delivery API | The store's `{slug}.<SHOP_DOMAIN>` host plus the rider's bearer session | The host's store, which must be the rider's | none: a rider reaches only its own offers and deliveries, never a catalogue or order list | The fixed rider set ([DELIVERY.md](DELIVERY.md) §4) |
+| **Rider** (#839) | Delivery API | The store's `{slug}.<SHOP_DOMAIN>` host plus the rider's bearer session | The host's store, which must be the rider's | none: a rider reaches only its own offers and deliveries, never a catalogue or order list | The fixed rider set ([DELIVERY.md](DELIVERY.md) §4) |
 | **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes: capped by its creator's role when created, and by the supplier's current tier on every request if vendor-bound (§5.6) |
 | **App grant** | Store API | The app's grant token | The grant's store | `all`: apps are always store-wide; only API keys may be supplier-bound (decided 2026-10-05 on #337) | The scopes the merchant approved |
 | **Staff impersonation** | Store API or Platform API, on the target's host | Impersonation cookie from a handoff (§8.1) | The target membership's store, or none for a partner user | From the target membership | The target's own permissions |
 | **Support session** | Store API, on the store's portal host | Support cookie from a support handoff (§8) | The one store the session was opened for | `all` | The read-only support set; the write set only after the merchant allows it |
-| **Staff setup session** | Platform API, on `platform.dripfunnel.com` | Setup cookie from a handoff (§8.2) | None: a `PartnerContext` for the one partner, with no partner user | none | The partner Owner's set, minus payment method, payout details and team ownership |
-| **Partner user** | Platform API | Session cookie on `platform.dripfunnel.com` | None: a `PartnerContext` (partner, user, partner role) | none | Partner role (§5.3) |
-| **Staff** | Admin API | SSO session on `admin.dripfunnel.com` | None: a `StaffContext` (staff member, staff role) | none | Staff role (§5.4) |
+| **Staff setup session** | Platform API, on `platform.dripfunnel.ai` | Setup cookie from a handoff (§8.2) | None: a `PartnerContext` for the one partner, with no partner user | none | The partner Owner's set, minus payment method, payout details and team ownership |
+| **Partner user** | Platform API | Session cookie on `platform.dripfunnel.ai` | None: a `PartnerContext` (partner, user, partner role) | none | Partner role (§5.3) |
+| **Staff** | Admin API | SSO session on `admin.dripfunnel.ai` | None: a `StaffContext` (staff member, staff role) | none | Staff role (§5.4) |
 
 ```ts
 type SellerScope =
@@ -148,7 +148,7 @@ type SellerScope =
 type StoreCaller =
   | { kind: 'person'; userId: string; sessionId: string }
   | { kind: 'shopper'; customerId: string | null }
-  | { kind: 'rider'; riderId: string }                      // proposed: DELIVERY.md §4
+  | { kind: 'rider'; riderId: string }                      // #839: DELIVERY.md §4
   | { kind: 'api-key'; keyId: string; createdByUserId: string }
   | { kind: 'app'; grantId: string; appId: string }
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }
@@ -183,8 +183,9 @@ The declaration replaces the first platform's tRPC procedure bases:
 
 | Declaration | Archive base | Guarantees |
 |---|---|---|
-| `api` | (one tRPC router) | Which schema the field lives in: `shop`, `store`, `platform` or `admin`. The router already refuses other hosts (ARCHITECTURE §2); this stops a field being mounted in the wrong schema. |
+| `api` | (one tRPC router) | Which schema the field lives in: `shop`, `delivery` (#839), `store`, `platform` or `admin`. The router already refuses other hosts (ARCHITECTURE §2); this stops a field being mounted in the wrong schema. |
 | `scope: 'public'` | `publicProcedure` | No session: sign-in, signup, accept-invitation, forgot and reset password, Shop API catalogue. |
+| `scope: 'rider'` | (none) | A signed-in, active rider of the host's store (Delivery API, #839); no permission, as the rider set is fixed (DELIVERY.md §4). A rider runs as the database role `app_rider` (DATA-MODEL §5.3). |
 | `scope: 'session'` | `sessionProcedure` | A valid person session and **no acting store**: which stores I belong to, my profile, sign out. Nothing declared this way may read store data. |
 | `scope: 'store'` | `tenantProcedure` | Acting store verified (§9 checks 1 and 10), `TenantContext` built, subscription gate applied. |
 | `scope: 'store-seller'` | `scopedProcedure` | `store` plus the `SellerScope` handed to the scoped query layer, so vendor reads and writes are filtered without the resolver asking. Every catalogue, inventory and order field uses this. |
@@ -358,7 +359,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   origins; a protocol-relative `//host` is refused (the first platform's Google callback bug, §12).
 - **Rate limits** on sign-in, signup, invitation, password reset and code entry, per IP and per
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
-- **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
+- **Partner users** use the same session model on `platform.dripfunnel.ai`, with no acting
   store. **Built on #155**: the `__Host-df_platform_session` cookie, a `partner_session` row
   (idle 2 h, absolute 12 h; `last_seen_at` written at most once a minute, so idle can end up to 60 s early, as under Timings; no "Remember me": no partner screen offers it, FIRST-RELEASE §3), `POST /api/auth/sign-out`
   logged as `partner_user.signed_out`, and `me` null for a missing, expired, suspended-user or
@@ -396,7 +397,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   active account the email has, once per request, each queued as an email with its activity
   entry; `reset-password` works once, within 30 minutes of the email being sent, and ends
   every session of that user (`RESET_INVALID` otherwise). Tokens are minted when the email is
-  sent (`auth/partnerTokens.ts`), so none rests in the outbox. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
+  sent (`auth/partnerTokens.ts`), so none rests in the outbox. **Staff** sessions come from SSO on `admin.dripfunnel.ai` and are **shorter than every
   other pool: idle 1 h, absolute 8 h** (decided 2026-10-01; `last_seen_at` written at most once a minute, so idle can end up to 60 s early, as under Timings). A staff session is the one that
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
@@ -1064,7 +1065,7 @@ impersonation(staff_user_id, target_kind, target_id, membership_id NULL, reason,
               started_at, expires_at = +30 min, ended_at)  + activity entry
    │  one-time handoff token, short-lived, single use
    ▼
-Browser → target's host: the partner console (platform.dripfunnel.com) or the store's
+Browser → target's host: the partner console (platform.dripfunnel.ai) or the store's
           portal host → /impersonate/enter?token=…
    → the host's API exchanges it for an impersonation cookie (separate from any real session)
    → PartnerContext, or TenantContext, built from the target exactly as for the real user,
@@ -1109,7 +1110,7 @@ up by DripFunnel may have none yet because the Owner's invitation is held or not
   which Support's "no billing changes" excludes. Support uses impersonation (§8.1) instead.
   Started from the partner's page in the admin
   console, with a reason or ticket and re-authentication.
-- **Where**: the real partner console on `platform.dripfunnel.com`, on the same screens the
+- **Where**: the real partner console on `platform.dripfunnel.ai`, on the same screens the
   partner uses, through a one-time handoff exactly as in §8.1. The session is recorded as
   `partner_setup_session(staff_user_id, partner_id, reason, started_at, expires_at = +2 h,
   ended_at)`. The caller is `{ kind: 'staff_setup', staffId, partnerId, setupSessionId }`.

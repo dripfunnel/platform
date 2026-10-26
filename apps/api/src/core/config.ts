@@ -6,7 +6,7 @@ const configSchema = z.object({
   HOOKS_HOST: z.string().min(1),
   CF_CUSTOM_HOSTNAMES_TOKEN: z.string().min(1).optional(),
   CF_SAAS_ZONE_ID: z.string().min(1).optional(),
-  EDGE_ZONE: z.string().min(1).default('dripfunnel.com'),
+  EDGE_ZONE: z.string().min(1).default('dripfunnel.ai'),
   // Purges the edge Worker's cached host lookups by tag on CF_SAAS_ZONE_ID (storefront LIVE-SHOP.md §5 step 1); absent, they expire in 60 seconds.
   CF_CACHE_PURGE_TOKEN: z.string().min(1).optional(),
   // Every store's preview is `{key}.<it>` (storefront PREVIEW.md §8): its own registrable domain, never a console's.
@@ -80,10 +80,11 @@ const configSchema = z.object({
   STOREFRONT_DRAFTS_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, 'STOREFRONT_DRAFTS_BUCKET must be an R2 bucket name').optional(),
   // The organisation store repos are created in (LIVE-SHOP.md §3).
   GITHUB_STORE_ORG: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/, 'GITHUB_STORE_ORG must be a GitHub organisation name').default('dripfunnel'),
-  // Local stand-ins for the last step of email, SMS, couriers and DNS (docs/setup/local.md §6.1): the outbox, templates,
+  // Local stand-ins for the last step of email, SMS, push, couriers and DNS (docs/setup/local.md §6.1): the outbox, templates,
   // quotes and checks run as on dev, and the message is printed, the rate made up, or the record answered, on this machine.
   EMAIL_LOCAL: z.literal('1').optional(),
   SMS_LOCAL: z.literal('1').optional(),
+  PUSH_LOCAL: z.literal('1').optional(),
   DNS_LOCAL: z.literal('1').optional(),
   COURIERS_LOCAL: z.literal('1').optional(),
   // Store repos in an in-memory GitHub on this machine (docs/setup/local.md §6.1), whatever the GITHUB_APP_* values.
@@ -102,13 +103,15 @@ const configSchema = z.object({
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),
   // The org's Actions jobs at once, which a core rollout's waves are sized to (storefront LIVE-SHOP §10). Unset: 20 (Free).
   GITHUB_ACTIONS_JOBS: z.coerce.number().int().min(1).max(10_000).optional(),
+  // Expo's push service (THIRD-PARTY-ACCESS.md §2.13), a Worker secret. Absent, pushes wait in the outbox.
+  EXPO_PUSH_TOKEN: z.string().regex(/^[A-Za-z0-9_-]{20,}$/, 'EXPO_PUSH_TOKEN must be an Expo access token').optional(),
   // `0` accepts any email or text code (docs/setup/dev.md).
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
-const devHooksHost = 'dev-hooks.dripfunnel.ai'
+const devHooksHost = 'dev-hooks.actuateminds.com'
 export const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
-const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL'] as const
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'PUSH_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
 const checkedConfig = configSchema.superRefine((c, ctx) => {

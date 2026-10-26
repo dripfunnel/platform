@@ -25,7 +25,7 @@ let cache: ReturnType<typeof fakeCache>
 let sites: ReturnType<typeof fakeSites>
 let deps: Deps
 let settle: () => Promise<void>
-const env = { API: { fetch: async () => new Response('api') } as unknown as Fetcher, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', SHOP_DOMAIN: 'my-store.one' }
+const env = { API: { fetch: async () => new Response('api') } as unknown as Fetcher, OWN_ZONE: 'actuateminds.com', PAGES_HOST: 'store.pages.dev', SHOP_DOMAIN: 'my-store.one' }
 const grantA = { ok: true as const, storeId: storeA, userId: owner, epoch: 3, folder: 'change-2' }
 
 beforeEach(async () => {

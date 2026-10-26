@@ -15,6 +15,7 @@ export type ShippingRefusal =
   | 'COURIER_NOT_OFFERED'
   | 'NOT_CONNECTED'
   | 'NOT_FOUND'
+  | 'OWN_DELIVERY_NOT_READY'
 
 export interface ShippingInput {
   courierRate: boolean
@@ -25,6 +26,25 @@ export interface ShippingInput {
   freeMode: string
   freeThresholdAmount?: string | null | undefined
   areaMode: string
+  /** Own delivery (DELIVERY §2); each left out keeps what is saved. */
+  ownDelivery?: boolean | null | undefined
+  dispatchWhen?: string | null | undefined
+  offerMinutes?: number | null | undefined
+}
+
+export interface OwnDeliverySettings {
+  ownDeliveryEnabled: boolean
+  dispatchWhen: 'placed' | 'ready'
+  offerMinutes: number
+}
+
+/** Own delivery's store-wide settings: offered to riders when placed or ready, and 1–30 minutes before the merchant is alerted. */
+export const cleanOwnDelivery = (input: ShippingInput, saved: OwnDeliverySettings): OwnDeliverySettings | 'INVALID_INPUT' => {
+  const dispatchWhen = input.dispatchWhen ?? saved.dispatchWhen
+  const offerMinutes = input.offerMinutes ?? saved.offerMinutes
+  if (dispatchWhen !== 'placed' && dispatchWhen !== 'ready') return 'INVALID_INPUT'
+  if (!Number.isInteger(offerMinutes) || offerMinutes < 1 || offerMinutes > 30) return 'INVALID_INPUT'
+  return { ownDeliveryEnabled: input.ownDelivery ?? saved.ownDeliveryEnabled, dispatchWhen, offerMinutes }
 }
 
 export interface CleanShipping {
@@ -85,8 +105,10 @@ export const labelSizesFor = (country: string | null): readonly ('a6' | 'a4' | '
 export const defaultWeightGrams = 500
 
 export interface DeliveryOption {
-  /** Stable per kind, as a cart stores its choice: `courier`, `flat` or `pickup`. */
-  id: 'courier' | 'flat' | 'pickup'
+  /** Stable per kind, as a cart stores its choice: `courier`, `flat`, `pickup` or `own_delivery`. */
+  id: 'courier' | 'flat' | 'pickup' | 'own_delivery'
+  /** Own delivery's warehouse, for the engine only: the Shop API never shows it. */
+  warehouseId: string | null
   provider: CourierProvider | null
   service: string | null
   amount: Money
@@ -109,6 +131,8 @@ export interface OptionFacts {
   /** The free-delivery threshold in the cart's currency. */
   threshold: Money | null
   subtotal: Money
+  /** The nearest delivering warehouse's fee in the cart's currency (DELIVERY §2); it then replaces the courier and flat rate. */
+  own?: { warehouseId: string; amount: Money } | null
 }
 
 /**
@@ -119,13 +143,16 @@ export const deliveryOptions = (f: OptionFacts): DeliveryOption[] => {
   const free = f.settings.freeMode === 'always' || (f.settings.freeMode === 'over' && f.threshold !== null && compare(f.subtotal, f.threshold) >= 0)
   const priced = (amount: Money) => (free ? { amount: { amount: 0n, currency: f.currency }, before: amount.amount === 0n ? null : amount } : { amount, before: null })
   const options: DeliveryOption[] = []
-  if (f.deliverable && f.settings.courierEnabled && f.courier) {
-    options.push({ id: 'courier', provider: f.courier.provider, service: f.courier.service, ...priced(f.courier.amount), minDays: f.courier.minDays, maxDays: f.courier.maxDays, hours: null })
+  const none = { provider: null, service: null, minDays: null, maxDays: null, hours: null, warehouseId: null }
+  if (f.deliverable && f.own) {
+    options.push({ ...none, id: 'own_delivery', ...priced(f.own.amount), warehouseId: f.own.warehouseId })
+  } else {
+    if (f.deliverable && f.settings.courierEnabled && f.courier) {
+      options.push({ ...none, id: 'courier', provider: f.courier.provider, service: f.courier.service, ...priced(f.courier.amount), minDays: f.courier.minDays, maxDays: f.courier.maxDays })
+    }
+    const fallback = f.settings.courierEnabled && !f.courier
+    if (f.deliverable && f.flat && (f.settings.flatEnabled || fallback)) options.push({ ...none, id: 'flat', ...priced(f.flat) })
   }
-  const fallback = f.settings.courierEnabled && !f.courier
-  if (f.deliverable && f.flat && (f.settings.flatEnabled || fallback)) {
-    options.push({ id: 'flat', provider: null, service: null, ...priced(f.flat), minDays: null, maxDays: null, hours: null })
-  }
-  if (f.settings.pickupEnabled) options.push({ id: 'pickup', provider: null, service: null, amount: { amount: 0n, currency: f.currency }, before: null, minDays: null, maxDays: null, hours: f.settings.pickupHours })
+  if (f.settings.pickupEnabled) options.push({ ...none, id: 'pickup', amount: { amount: 0n, currency: f.currency }, before: null, hours: f.settings.pickupHours })
   return options
 }

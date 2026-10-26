@@ -14,7 +14,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 const now = new Date('2026-10-03T09:00:00Z')
-const host = 'platform.dripfunnel.com'
+const host = 'platform.dripfunnel.ai'
 const users: Record<'ownerA' | 'suspendedA' | 'ownerB', string> = { ownerA: '', suspendedA: '', ownerB: '' }
 
 const userIn = async (partnerId: string, email: string, status: string) => {
@@ -41,7 +41,7 @@ beforeAll(async () => {
   await db.sql`update partner set sent_back_reason = 'Logo too small' where id = ${t.partnerB}`
   await db.sql`
     insert into partner_domain (partner_id, kind, host, status, record_type, expected)
-    values (${t.partnerA}, 'portal', 'store.northstar.example', 'live', 'CNAME', 'portal.dripfunnel.com')
+    values (${t.partnerA}, 'portal', 'store.northstar.example', 'live', 'CNAME', 'portal.dripfunnel.ai')
   `
   users.ownerA = await userIn(t.partnerA, 'maya@northstar.example', 'active')
   users.suspendedA = await userIn(t.partnerA, 'sam@northstar.example', 'suspended')

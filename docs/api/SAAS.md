@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.com` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -33,7 +33,7 @@ Recorded so they aren't relitigated.
 | **Live storefront is a static build on Cloudflare**; preview is a client-rendered SPA | One runtime multi-tenant server-rendered storefront | Static plus edge is fast and cheap; SSR would trade that away. The cost is fleet maintenance and build volume, which §9 and §10 exist to control. |
 | **A partner is a row above stores**, and DripFunnel is the **house partner**, configured on the same screens | DripFunnel special-cased; per-partner deployments | One code path for every partner; the house partner differs only in a badge and in not being deletable (CONSOLE-DESIGN §8). |
 | **One partner, one brand, one look, one portal host** | Several brands per partner | Decided in [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2. |
-| **Partners are invite only: Admin creates the partner and invites its Owner**, the partner sets itself up, and Admin approves before merchants can sign up under it (decided 2026-09-29) | Partner self-sign-up on `platform.dripfunnel.com` | Every partner is a business relationship DripFunnel has already started, so there is no public sign-up to abuse or screen. The partner still does its own setup; approval is where contract, KYC and billing are checked (USERS-AND-DOMAINS §3). |
+| **Partners are invite only: Admin creates the partner and invites its Owner**, the partner sets itself up, and Admin approves before merchants can sign up under it (decided 2026-09-29) | Partner self-sign-up on `platform.dripfunnel.ai` | Every partner is a business relationship DripFunnel has already started, so there is no public sign-up to abuse or screen. The partner still does its own setup; approval is where contract, KYC and billing are checked (USERS-AND-DOMAINS §3). |
 | **Provisioning is a Cloudflare Workflow** with a compensation per step, mirrored in the `job` table | A polling job runner; one database transaction | Workers have no always-on process. Provisioning spans Postgres, GitHub and Cloudflare, so no single transaction covers it; failure midway is normal and must leave nothing behind (§5). |
 | **Plans and entitlements are a first-class, server-enforced model** | Feature checks scattered through the UI | Hiding a button is not access control. Every limit is checked where the write happens (§6). |
 | **Platform billing is its own Stripe Billing integration**, separate from merchants' checkout payments | Reusing the checkout payment adapters | Checkout Stripe takes shoppers' money on each merchant's own keys; platform billing charges partners and merchants. Mixing them mixes two ledgers. |
@@ -95,11 +95,11 @@ can't be paused, offboarded or closed.
 
 ### 3.2 Onboarding
 
-Invite only (USERS-AND-DOMAINS §3); `platform.dripfunnel.com` has no sign-up:
+Invite only (USERS-AND-DOMAINS §3); `platform.dripfunnel.ai` has no sign-up:
 
 1. **Admin creates the partner** in the Admin API (Partner manager or Super admin): name,
    Owner email, country. This creates the `partner` (Draft) and an invitation for its first
-   `partner_user` as **Owner**. The Owner accepts it on `platform.dripfunnel.com`, sets a
+   `partner_user` as **Owner**. The Owner accepts it on `platform.dripfunnel.ai`, sets a
    password and 2-factor, and signs in. Admin can resend the invitation; the old link stops
    working.
 2. It works through a **checklist that can be saved and resumed** (CONSOLE-DESIGN E1): partner
@@ -160,8 +160,8 @@ A partner owns two kinds of hostname (USERS-AND-DOMAINS §2), both verified thro
 | ~~Shop wildcard~~ | ~~`*.shops.<partnerdomain>`~~ | Retired: every store's live address is `{slug}.my-store.one` (decided 2026-10-15, USERS-AND-DOMAINS §2). Removed on #745: migration 0355 queued `domain.remove` for each registered store host, deleted the `shops` rows, their records and the `wildcards` setup items, and narrowed `partner_domain.kind` to portal and email; the Platform and Admin APIs refuse kind `shops` as `INVALID_INPUT`, and the checklist has eight items without the wildcards. Partners are not emailed about it |
 | Email sender domain | `mail.<partnerdomain>` | SES DKIM, SPF, DMARC (§3.6) |
 
-The house partner uses the same pattern on `dripfunnel.com`: Add an address accepts DripFunnel's
-own `dripfunnel.com` names from the house partner (`partner.is_house`) only, except its apex and exactly `admin.`, `platform.` and `hooks.` (names beneath them, such as `x.admin.dripfunnel.com`, are allowed; the mail and `.net` names, and the fallback origins under `edge.` on
+The house partner uses the same pattern on `dripfunnel.ai`: Add an address accepts DripFunnel's
+own `dripfunnel.ai` names from the house partner (`partner.is_house`) only, except its apex and exactly `admin.`, `platform.` and `hooks.` (names beneath them, such as `x.admin.dripfunnel.ai`, are allowed; the mail and `.net` names, and the fallback origins under `edge.` on
 the environment's zone, stay refused to everyone); every other partner is refused `DRIPFUNNEL_DOMAIN` (ui/platform/FIRST-RELEASE.md §9.2). Changing a live portal host keeps
 the old one redirecting for a period *(ask how long)* (F4).
 
@@ -483,7 +483,7 @@ partner's billing, or both) is open (§14).
 - **Stripe Billing** for subscriptions, invoices and payment methods, on DripFunnel's
   platform Stripe account; card details never touch our servers, and screens show the last 4
   digits only.
-- **Webhooks** arrive at `hooks.dripfunnel.com/stripe` (`src/hooks/stripe.ts`), are verified
+- **Webhooks** arrive at `hooks.dripfunnel.ai/stripe` (`src/hooks/stripe.ts`), are verified
   by signature, and are **idempotent through `billing_event`**: the Stripe event id is
   inserted first, and a duplicate is acknowledged and ignored. Webhooks arrive more than once
   and out of order; the handler reads the current object from Stripe rather than trusting the
@@ -590,7 +590,7 @@ failed; a live hostname can become expiring or broken if its records change.
    **Edge routing (checked 2026-10-05, dev):** each environment's zone holds a proxied
    fallback-origin record, `portal.edge.<zone>` → the store Pages project, set as the zone's
    Cloudflare for SaaS fallback origin; `EDGE_ZONE` names the zone and so the CNAME targets
-   partners are shown (`dripfunnel.ai` dev, `dripfunnel.com` prod). **Two edge targets, dev and
+   partners are shown (`actuateminds.com` dev, `dripfunnel.ai` prod). **Two edge targets, dev and
    prod (decided 2026-10-09, #428):** `portal.edge.<zone>` for portal hosts and
    `shops.edge.<zone>` for merchant domains, both on the zone's one fallback origin; there is
    no `preview.edge`. In prod the store-proxy Worker is uploaded by `prod.yml` and promoted
@@ -956,7 +956,7 @@ The SaaS layer is services; the APIs expose them with a declared API, permission
 resolver (PLATFORM-PROMPT §2 item 17). The Store API never carries platform operations above a
 store (§5.5 there).
 
-| Capability | **Store API** (merchant, portal host) | **Platform API** (partner, `platform.dripfunnel.com`) | **Admin API** (staff, `admin.dripfunnel.com`) |
+| Capability | **Store API** (merchant, portal host) | **Platform API** (partner, `platform.dripfunnel.ai`) | **Admin API** (staff, `admin.dripfunnel.ai`) |
 |---|---|---|---|
 | Create a partner and invite its Owner (no partner sign-up) | | | Partner manager, Super admin |
 | Partner checklist, go-live checks, submit for approval | | Own partner | Any, through a setup session (ACCESS §8.2): Partner manager, Super admin |

@@ -7,7 +7,8 @@ import { isCurrency, type Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
 import { selectRates } from '#db/scoped/rates'
 import { moneyIn } from '#engine/modules/markets/index'
-import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
+import { selectStoreEntitlement } from '#db/scoped/entitlements'
+import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   courierRateOff,
   postalCodeListed,
@@ -16,7 +17,9 @@ import {
   saveCourier,
   saveShippingRow,
   selectCouriers,
+  selectDeliveringWarehouse,
   selectMarketDelivery,
+  selectOwnDeliveryParts,
   selectParcelVersions,
   selectQuoteCouriers,
   selectQuoteSettings,
@@ -24,10 +27,13 @@ import {
   type CourierRow,
   type ShippingStoreRow,
 } from '#db/scoped/shipping'
-import { cleanShipping, defaultWeightGrams, deliveryOptions, labelSizesFor, maxPostalCodes, normalisePostal, type DeliveryOption, type ShippingInput, type ShippingRefusal } from './rules'
+import { cleanOwnDelivery, cleanShipping, defaultWeightGrams, deliveryOptions, labelSizesFor, maxPostalCodes, normalisePostal, type DeliveryOption, type ShippingInput, type ShippingRefusal } from './rules'
 
 export { defaultWeightGrams } from './rules'
 export type { DeliveryOption, ShippingInput, ShippingRefusal } from './rules'
+
+/** What turning own delivery on still needs (DELIVERY §2), named in `OWN_DELIVERY_NOT_READY`. */
+export type OwnDeliveryMissing = 'plan' | 'rider' | 'warehouse'
 
 // Settings › Shipping (SetOps) and what delivery costs a cart (SAPI 23, #305; DATA-MODEL §7.2): couriers on the
 // partner's own accounts (THIRD-PARTY-ACCESS §4). Carts (SAPI 9) price delivery with `quote`.
@@ -42,10 +48,13 @@ export const shippingAudit = {
   couriersTested: 'courier.tested',
 } as const
 
-export type ShippingResult<T> = { ok: true; value: T } | { ok: false; reason: ShippingRefusal }
+export type ShippingResult<T> = { ok: true; value: T } | { ok: false; reason: ShippingRefusal; missing?: OwnDeliveryMissing[] }
 
 class Refused extends Error {
-  constructor(readonly reason: ShippingRefusal) {
+  constructor(
+    readonly reason: ShippingRefusal,
+    readonly missing?: OwnDeliveryMissing[],
+  ) {
     super(reason)
   }
 }
@@ -92,13 +101,16 @@ export interface ShippingSettings {
   areaFileName: string | null
   areaCount: number
   areaSample: string[]
+  ownDelivery: boolean
+  dispatchWhen: 'placed' | 'ready'
+  offerMinutes: number
   labelSizes: readonly CourierRow['label_size'][]
   couriers: CourierView[]
 }
 
 export interface QuoteRequest {
   lines: readonly { versionId: string; quantity: number }[]
-  shipTo: { country: string; region: string | null; postal: string | null }
+  shipTo: { country: string; region: string | null; postal: string | null; latitude?: number | null; longitude?: number | null }
   /** The goods' value after discounts, in the cart's currency: the free-delivery threshold reads it. */
   subtotal: Money
   /** The market the cart is in, whose own delivery charge wins when it sells in the cart's currency. */
@@ -147,7 +159,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
         }),
       }
     } catch (error) {
-      if (error instanceof Refused) return { ok: false, reason: error.reason }
+      if (error instanceof Refused) return { ok: false, reason: error.reason, ...(error.missing ? { missing: error.missing } : {}) }
       throw error
     }
   }
@@ -176,6 +188,9 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       areaFileName: s?.area_file_name ?? null,
       areaCount: row.area_count,
       areaSample: row.area_sample,
+      ownDelivery: s?.own_delivery_enabled ?? false,
+      dispatchWhen: s?.dispatch_when ?? 'ready',
+      offerMinutes: s?.offer_minutes ?? 5,
       labelSizes: labelSizesFor(row.country),
       couriers: couriersFor(row.country).map((provider) => {
         const found = rows.find((r) => r.provider === provider)
@@ -205,8 +220,23 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
         if (!(await selectCouriers(tx, storeId)).some((c) => c.role === 'pricing')) throw new Refused('NO_COURIER')
       }
       if (cleaned.areaMode === 'list' && store.area_count === 0) throw new Refused('NO_AREA_LIST')
-      if (!(await saveShippingRow(tx, storeId, revision, { ...cleaned, currency: store.pricing_currency }, now()))) throw new Refused('STALE')
-      const methods = [cleaned.courierEnabled && 'courier', cleaned.flatEnabled && 'flat', cleaned.pickupEnabled && 'pickup'].filter(Boolean).join(', ')
+      const own = cleanOwnDelivery(input, {
+        ownDeliveryEnabled: store.shipping?.own_delivery_enabled ?? false,
+        dispatchWhen: store.shipping?.dispatch_when ?? 'ready',
+        offerMinutes: store.shipping?.offer_minutes ?? 5,
+      })
+      if (own === 'INVALID_INPUT') throw new Refused(own)
+      // Only turning it on is refused (decided on #841): checkout itself stops offering it when a part lapses.
+      if (own.ownDeliveryEnabled && !store.shipping?.own_delivery_enabled) {
+        const parts = await selectOwnDeliveryParts(tx, storeId)
+        const missing: OwnDeliveryMissing[] = []
+        if ((await selectStoreEntitlement(tx, storeId, 'own_delivery', now())).enabled !== true) missing.push('plan')
+        if (parts.riders === 0) missing.push('rider')
+        if (parts.warehouses === 0) missing.push('warehouse')
+        if (missing.length > 0) throw new Refused('OWN_DELIVERY_NOT_READY', missing)
+      }
+      if (!(await saveShippingRow(tx, storeId, revision, { ...cleaned, ...own, currency: store.pricing_currency }, now()))) throw new Refused('STALE')
+      const methods = [cleaned.courierEnabled && 'courier', cleaned.flatEnabled && 'flat', cleaned.pickupEnabled && 'pickup', own.ownDeliveryEnabled && 'own_delivery'].filter(Boolean).join(', ')
       await activity.record(tx, entry(shippingAudit.saved, { type: 'store', id: storeId, label: 'Shipping' }, `${methods}; free ${cleaned.freeMode}; ${cleaned.areaMode}`))
       return revision + 1
     })
@@ -344,6 +374,24 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
   }
 
   /**
+   * Own delivery for a pinned address (DELIVERY §2, decided on #841): while the plan has it and a rider is active, the
+   * nearest delivering warehouse holding the cart, its fee in the cart's currency; null for today's options.
+   */
+  const ownDeliveryFor = async (request: QuoteRequest, currency: string): Promise<{ warehouseId: string; amount: Money } | null> => {
+    const { latitude, longitude } = request.shipTo
+    if (typeof latitude !== 'number' || typeof longitude !== 'number' || !(Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180)) return null
+    const ready = await withSystemScope(sql, async (tx) => (await selectStoreEntitlement(tx, storeId, 'own_delivery', now())).enabled === true && (await selectOwnDeliveryParts(tx, storeId)).riders > 0)
+    if (!ready) return null
+    return inScope(async (tx) => {
+      const found = await selectDeliveringWarehouse(tx, { latitude, longitude }, request.lines.map((l) => ({ versionId: l.versionId.toLowerCase(), quantity: l.quantity })))
+      if (!found) return null
+      const rates = new Map([...(await selectRates(tx, [...new Set([currency, found.fee_currency])])).values()].map((r) => [r.currency, r.per_euro]))
+      const amount = moneyIn({ amount: BigInt(found.fee_amount), currency: found.fee_currency }, currency, rates)
+      return amount ? { warehouseId: found.warehouse_id, amount } : null
+    })
+  }
+
+  /**
    * What delivery costs this cart going to this address, in the cart's currency. One parcel from the store's address
    * (decided on #305): couriers are asked outside any transaction, so a slow one never holds a connection.
    */
@@ -373,8 +421,9 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     if (!settings?.saved_at) return { ok: true, value: { currency, deliverable: false, options: [] } }
     const deliverable = settings.area_mode === 'everywhere' || loaded.listed
     const weightGrams = request.lines.reduce((sum, l) => sum + (loaded.versions.find((v) => v.id === l.versionId.toLowerCase())?.weight_grams ?? defaultWeightGrams) * l.quantity, 0)
+    const delivering = deliverable && settings.own_delivery_enabled ? await ownDeliveryFor(request, currency) : null
     let courier: Parameters<typeof deliveryOptions>[0]['courier'] = null
-    if (deliverable && settings.courier_enabled && loaded.store.country && loaded.store.postal && postal) {
+    if (!delivering && deliverable && settings.courier_enabled && loaded.store.country && loaded.store.postal && postal) {
       const parcel: Parcel = { from: { country: loaded.store.country, postal: loaded.store.postal }, to: { country, region: request.shipTo.region?.trim() || null, postal }, weightGrams, value: request.subtotal }
       const order = [...loaded.rows.filter((r) => r.role === 'pricing'), ...loaded.rows.filter((r) => r.role === 'standby')]
       // Asked at once and taken in the fallback order, so a courier that times out never delays the next one's rate.
@@ -398,6 +447,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       flat: marketFlat ?? own(settings.flat_amount),
       threshold: own(settings.free_threshold_amount),
       subtotal: request.subtotal,
+      own: delivering,
     })
     return { ok: true, value: { currency, deliverable, options } }
   }
