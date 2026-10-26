@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '../../../features/placeholder/PlaceholderScreen'
-import { t } from '../../../messages'
+import { BrowseScreen } from '../../../features/catalogue/BrowseScreen'
 
 export default function Browse() {
-  return <PlaceholderScreen title={t('tabs.browse')} />
+  return <BrowseScreen />
 }
