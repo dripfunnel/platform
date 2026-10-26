@@ -119,6 +119,17 @@ describe('the gallery', () => {
     expect(mainPhoto(screen)?.props.accessibilityValue).toEqual({})
   })
 
+  it('starts every photo unzoomed: a zoom does not follow the shopper to the next photo', async () => {
+    const screen = await render(<Gallery photos={[photo(1), photo(2)]} video={null} name="Linen Tee" />, shop)
+    await act(async () => mockTap.config.onEnd?.())
+    expect(mainPhoto(screen)?.props.accessibilityValue).toEqual({ text: t('product.zoomed') })
+    await press(screen, t('product.photoOf', { number: 2, count: 2, name: 'Linen Tee' }))
+    expect(mainPhoto(screen)?.props.accessibilityLabel).toBe('Photo 2')
+    expect(mainPhoto(screen)?.props.accessibilityValue).toEqual({})
+    await act(async () => mockTap.config.onEnd?.())
+    expect(mainPhoto(screen)?.props.accessibilityValue).toEqual({ text: t('product.zoomed') })
+  })
+
   it('offers a screen reader the zoom as an action, named for what it will do', async () => {
     const screen = await render(<Gallery photos={[photo(1)]} video={null} name="Linen Tee" />, shop)
     expect(mainPhoto(screen)?.props.accessibilityActions).toEqual([{ name: 'magnify', label: t('product.zoomIn') }])

@@ -84,7 +84,7 @@ export function Gallery({ photos, video, name }: { photos: Photo[]; video: Produ
             <WatchLink url={video.pageUrl} />
           ) : null
         ) : photos[current] ? (
-          <ZoomablePhoto photo={photos[current]} label={photos[current].alt ?? t('product.photoOf', { number: current + 1, count: photos.length, name })} />
+          <ZoomablePhoto key={photos[current].url} photo={photos[current]} label={photos[current].alt ?? t('product.photoOf', { number: current + 1, count: photos.length, name })} />
         ) : null}
       </View>
       {slides > 1 ? (
