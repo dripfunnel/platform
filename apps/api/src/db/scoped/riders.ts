@@ -128,17 +128,21 @@ export const countOwnUploadsSince = async (tx: ScopedSql, storeId: string, rider
  * stays, as the store's. Returns the R2 keys of those deleted.
  */
 export const deleteOwnUploads = async (tx: ScopedSql, storeId: string, riderId: string): Promise<string[]> => {
+  const all = await refusedIfInUse(tx.savepoint((sp) => sp<{ r2_key: string }[]>`delete from asset where store_id = ${storeId} and created_by = ${riderId} returning r2_key`))
+  if (all) return all.map((r) => r.r2_key)
+  // One is in use, and app_rider can't see by whom (RLS), so each is tried alone; only a rider whose photo the store reused.
   const files = await tx<{ id: string; r2_key: string }[]>`select id, r2_key from asset where store_id = ${storeId} and created_by = ${riderId}`
   const deleted: string[] = []
   for (const file of files) {
-    const gone = await tx.savepoint((sp) => sp`delete from asset where id = ${file.id} and store_id = ${storeId} and created_by = ${riderId}`).then(
-      (r) => r.count > 0,
-      (error: unknown) => {
-        if (error instanceof Error && 'code' in error && error.code === '23503') return false
-        throw error
-      },
-    )
-    if (gone) deleted.push(file.r2_key)
+    const gone = await refusedIfInUse(tx.savepoint((sp) => sp`delete from asset where id = ${file.id} and store_id = ${storeId} and created_by = ${riderId}`))
+    if (gone?.count) deleted.push(file.r2_key)
   }
   return deleted
 }
+
+/** The statement's result, or null when a foreign key refused it (23503): the asset is in use. */
+const refusedIfInUse = <T,>(statement: Promise<T>): Promise<T | null> =>
+  statement.catch((error: unknown) => {
+    if (error instanceof Error && 'code' in error && error.code === '23503') return null
+    throw error
+  })
