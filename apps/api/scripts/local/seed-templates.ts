@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 import { getPlatformProxy } from 'wrangler'
 import type { R2Bucket } from '@cloudflare/workers-types'
-import { selectNewestRelease, selectSandboxImage } from '#db/scoped/coreReleases'
+import { resolveReleasedCore } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
 import { amzDate, authorization } from '#integrations/ses/sigv4'
 import { isThemePath } from '#saas/storefronts/paths'
@@ -26,10 +26,7 @@ const releasedCore = async (wanted: string | undefined): Promise<string> => {
   assertLocalHost(url)
   const sql = postgres(url, { max: 1 })
   try {
-    const version = wanted ?? (await withSystemScope(sql, selectNewestRelease))
-    if (!version) throw new Error('core_release has no version to upload templates for')
-    if (!(await withSystemScope(sql, (tx) => selectSandboxImage(tx, version)))) throw new Error(`core_release has no unretired row for ${version}`)
-    return version
+    return await withSystemScope(sql, (tx) => resolveReleasedCore(tx, wanted))
   } finally {
     await sql.end()
   }

@@ -27,6 +27,13 @@ export const recordCoreRelease = async (tx: ScopedSql, version: string, sandboxI
 /** The newest version nothing has retired: what a new store may pin, with its image recorded. */
 export const selectNewestRelease = async (tx: ScopedSql): Promise<string | null> =>
   (await tx<{ version: string }[]>`select version from core_release where retired_at is null order by core_version_key(version) desc limit 1`)[0]?.version ?? null
+/** The version a template upload may name: `wanted` if it has an unretired row, else the newest such row; throws when neither exists. */
+export const resolveReleasedCore = async (tx: ScopedSql, wanted: string | undefined): Promise<string> => {
+  const version = wanted ?? (await selectNewestRelease(tx))
+  if (!version) throw new Error('core_release has no version to upload templates for')
+  if (!(await selectSandboxImage(tx, version))) throw new Error(`core_release has no unretired row for ${version}`)
+  return version
+}
 /** A retired version's image is gone, or about to be (AI-STUDIO §9): nothing starts it. */
 export const selectSandboxImage = async (tx: ScopedSql, version: string): Promise<string | null> =>
   (await tx<{ sandbox_image: string }[]>`select sandbox_image from core_release where version = ${version} and retired_at is null`)[0]?.sandbox_image ?? null

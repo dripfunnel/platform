@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { recordCoreRelease, releaseKind, retireRelease, selectNewestRelease, selectSandboxImage } from '#db/scoped/coreReleases'
+import { recordCoreRelease, releaseKind, resolveReleasedCore, retireRelease, selectNewestRelease, selectSandboxImage } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -62,6 +62,18 @@ describe('core_release', () => {
     expect(await withSystemScope(db.sql, selectNewestRelease)).toBe('1.11.0')
     await db.sql`update core_release set retired_at = now()`
     expect(await withSystemScope(db.sql, selectNewestRelease)).toBeNull()
+    await db.sql`update core_release set retired_at = null`
+  })
+
+  it('names the version a template upload asks for only while it has an unretired row (#902)', async () => {
+    const resolve = (wanted?: string) => withSystemScope(db.sql, (tx) => resolveReleasedCore(tx, wanted))
+    expect(await resolve()).toBe('2.0.0')
+    expect(await resolve('1.11.0')).toBe('1.11.0')
+    await expect(resolve('7.7.7')).rejects.toThrow(/no unretired row for 7.7.7/)
+    await withSystemScope(db.sql, (tx) => retireRelease(tx, '1.11.0', new Date()))
+    await expect(resolve('1.11.0')).rejects.toThrow(/no unretired row for 1.11.0/)
+    await db.sql`update core_release set retired_at = now()`
+    await expect(resolve()).rejects.toThrow(/no version to upload/)
     await db.sql`update core_release set retired_at = null`
   })
 
