@@ -2500,4 +2500,7 @@ Merchant reads have store scope with no seller branch, and the merchant changes 
 reads `handover_code_enc` or `code_attempts`, and none deletes a delivery. Riders read their own offers, held deliveries
 and position only; position writes are confined to their own row. A person's dispatch calls run under its own
 scope; a rider's calls and the offer job and sweep run in system scope, because an accept answers the other riders'
-offers, explicitly held to the resolved store and rider.
+offers, explicitly held to the resolved store and rider. Suspending or removing a rider also runs in system scope (it hands
+the rider's deliveries back and deletes its position), after the caller is checked: a supplier or read-only support is
+refused `FORBIDDEN`, and a merchant of another store finds no such rider. The other rider management stays under the
+merchant's own scope.

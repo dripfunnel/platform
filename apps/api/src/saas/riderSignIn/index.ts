@@ -28,6 +28,7 @@ export interface RiderSignInDeps {
 export const riderSignInAudit = { codeRequested: 'rider.code_requested' } as const
 
 export const createRiderSignIn = (deps: RiderSignInDeps) => {
+  // A rider holding a picked-up parcel is refused RIDER_HAS_PARCEL and stays signed in (DELIVERY §4).
   const auth = createRiderAuth({ ...deps, beforeSignOut: (tx, riderId) => releaseRiderDeliveries(tx, { storeId: deps.storeId, partnerId: deps.partnerId, activity: deps.activity, facts: deps.facts, now: deps.now(), actor: { actorKind: 'rider', actorId: riderId, actorLabel: null } }, riderId, 'sign_out') })
 
   const requestCode = async (raw: string): Promise<{ ok: true } | { ok: false; reason: 'INVALID_INPUT' | 'RATE_LIMITED' }> => {

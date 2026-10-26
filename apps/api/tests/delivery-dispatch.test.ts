@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DispatchRefused } from '#core/dispatch'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { createDispatch, createOwnDelivery, broadcastDelivery, sweepDispatch, releaseRiderDeliveries } from '#engine/modules/ownDelivery/index'
+import { createDispatch, createOwnDelivery, createRiders, broadcastDelivery, sweepDispatch, releaseRiderDeliveries } from '#engine/modules/ownDelivery/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -184,6 +184,19 @@ describe('position and isolation', () => {
       expect(await delivery(id)).toMatchObject({ state: 'searching', offer_round: 2, rider_id: null })
       expect(await db.sql`select rider_id from rider_position where rider_id = ${rider.id}`).toHaveLength(0)
     }
+  })
+  it('lets only the owning store merchant suspend or remove a rider, and refuses suppliers and read-only support', async () => {
+    const [rider] = await db.sql<{ id: string }[]>`insert into rider(store_id,name,phone,status) values(${tenants.storeA1},'Guarded rider','+919822222200','active') returning id`
+    if (!rider) throw new Error('no rider')
+    expect((await world.gql('a2Owner', `mutation { suspendRider(id: "${rider.id}") { id } }`)).code).toBe('NOT_FOUND')
+    const as = (caller: TenantContext['caller'], sellerScope: TenantContext['sellerScope'] = { kind: 'all' }) => createRiders({
+      sql: db.sql, context: { ...context(), caller, sellerScope }, actor: { id: world.people.owner, partnerId: tenants.partnerA }, activity: activityLog, facts,
+      plan: { ownDelivery: async () => true, allowance: async () => 10 }, shopDomain: null, send: async () => undefined, now: () => clock,
+    })
+    const refused = { ok: false, reason: 'FORBIDDEN' }
+    expect(await as(context().caller, { kind: 'seller', sellerId: tenants.sellerA1First }).suspend(rider.id)).toEqual(refused)
+    expect(await as({ kind: 'support', supportSessionId: 's', partnerUserId: 'p', access: 'read' }).remove(rider.id)).toEqual(refused)
+    expect(await db.sql`select status from rider where id = ${rider.id}`).toEqual([{ status: 'active' }])
   })
   it('composes the unassigned email for active fulfilment seats in the partner look and waits for its portal', async () => {
     const d = await delivery(await order())

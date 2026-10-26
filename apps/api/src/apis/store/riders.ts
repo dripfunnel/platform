@@ -12,6 +12,7 @@ import { pageInfoType, type StoreBuilder } from './builder'
 // list holds riders' phones. The rules are engine/modules/ownDelivery's; this file authorises, calls and words the refusals.
 
 const words: Record<Exclude<RidersResult<unknown>, { ok: true }>['reason'], string> = {
+  FORBIDDEN: 'You can’t change riders.',
   NOT_FOUND: 'That rider is no longer here.',
   INVALID_INPUT: 'Enter the rider’s name.',
   INVALID_PHONE: 'Enter the mobile number with its country code, such as +91 98765 43210.',
