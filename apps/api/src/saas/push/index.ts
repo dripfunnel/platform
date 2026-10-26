@@ -8,7 +8,7 @@ import { queueSideEffect } from '#saas/outbox/index'
 export const pushKind = 'push'
 export const pushReceiptsKind = 'push.receipts'
 
-/** The messages the platform pushes (DELIVERY §6): the rider's confirmation and, from DL 5, offer, assigned, taken and cancelled. DL 6 and SH 5 add theirs. */
+/** The messages the platform pushes (DELIVERY §6): the rider's, and from DL 6 the customer's picked up, delivered and not delivered. */
 export { pushMessages, pushPayloadSchema, type PushPayload, type PushMessageCode } from '#core/push'
 import { pushPayloadSchema, type PushPayload, type PushMessageCode } from '#core/push'
 
@@ -32,6 +32,11 @@ const en: Wording = {
   'rider.assigned': (store) => ({ title: store, body: 'A delivery has been assigned to you.' }),
   'rider.taken': () => ({ title: '', body: '' }),
   'rider.cancelled': (store) => ({ title: store, body: 'The delivery was cancelled. Do not pick it up.' }),
+  'rider.recalled': (store) => ({ title: store, body: 'The store has recalled this delivery. Bring the parcel back.' }),
+  // Never the handover code: the customer opens the order to see it (DELIVERY §3).
+  'order.picked_up': (store) => ({ title: store, body: 'Your order is on its way. Open your order to see the code for the rider.' }),
+  'order.delivered': (store) => ({ title: store, body: 'Your order has been delivered.' }),
+  'order.not_delivered': (store) => ({ title: store, body: 'We couldn’t deliver your order. The store will be in touch.' }),
   'rider.notifications_on': (store) => ({ title: store, body: `Notifications are on for ${store}.` }),
 }
 

@@ -1,13 +1,14 @@
 import { GraphQLError } from 'graphql'
-import { createDispatch, dispatchAudit, readOrderDelivery, type DeliveryRiderView, type DeliveryStepView, type OrderDeliveryView } from '#engine/modules/ownDelivery/index'
+import { storeRoleHas } from '#auth/storePermissions'
+import { carryAudit, createCarry, createDispatch, dispatchAudit, readOrderDelivery, type DeliveryRiderView, type DeliveryStepView, type OrderDeliveryView } from '#engine/modules/ownDelivery/index'
 import { withDispatchCode } from '../graphql/dispatchRefusals'
-import { tenantCaller, type StoreContext } from './access'
+import { actingCaller, tenantCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
 
 const facts = (ctx: StoreContext) => {
   const caller = tenantCaller(ctx)
   if (!ctx.sql) throw new GraphQLError('Sign in.', { extensions: { code: 'UNAUTHENTICATED' } })
-  return { sql: ctx.sql, context: caller.context, activity: ctx.activity, facts: ctx.facts, now: ctx.now }
+  return { sql: ctx.sql, context: caller.context, activity: ctx.activity, facts: ctx.facts, now: ctx.now, secrets: ctx.secrets ?? null }
 }
 export const orderDeliveryType = (builder: StoreBuilder) => {
   const Rider = builder.objectRef<DeliveryRiderView>('DeliveryRider').implement({ fields: (t) => ({
@@ -21,6 +22,10 @@ export const orderDeliveryType = (builder: StoreBuilder) => {
     id: t.exposeID('id'), state: t.exposeString('state'),
     rider: t.field({ type: Rider, nullable: true, resolve: (d) => d.rider }),
     steps: t.field({ type: [Step], resolve: (d) => d.steps }),
+    failedReason: t.exposeString('failedReason', { nullable: true }), failedNote: t.exposeString('failedNote', { nullable: true }),
+    cashCollectedAt: t.string({ nullable: true, description: 'When the rider said the cash was collected.', resolve: (d) => d.cashCollectedAt?.toISOString() ?? null }),
+    codeUnconfirmedAt: t.string({ nullable: true, resolve: (d) => d.codeUnconfirmedAt?.toISOString() ?? null }),
+    codeLocked: t.exposeBoolean('codeLocked'),
   }) })
   const read = (ctx: StoreContext, orderId: string) => {
     const deps = facts(ctx)
@@ -35,6 +40,16 @@ export const registerDispatch = (builder: StoreBuilder) => {
     markReadyForPickup: t.boolean({ args: { orderId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.ready } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).ready(String(a.orderId))) }),
     assignDelivery: t.boolean({ args: { deliveryId: t.arg.id({ required: true }), riderId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.assigned } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).assign(String(a.deliveryId), String(a.riderId))) }),
     offerDeliveryAgain: t.boolean({ args: { deliveryId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.offered } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).again(String(a.deliveryId))) }),
+    // Only a locked or unconfirmed code; cash received marks the order paid, which also needs orders.mark_paid (DELIVERY §8).
+    markDeliveryDelivered: t.boolean({
+      args: { deliveryId: t.arg.id({ required: true }), reason: t.arg.string({ required: true }), cashReceived: t.arg.boolean() },
+      extensions: { access: { ...access, audit: carryAudit.delivered } },
+      resolve: (_, a, c) => {
+        const caller = tenantCaller(c)
+        const payer = c.standing.kind === 'acting' && storeRoleHas(actingCaller(c).role, 'orders.mark_paid') ? caller.actor.id : null
+        return withDispatchCode(() => createCarry(facts(c)).merchantDelivered({ id: String(a.deliveryId).toLowerCase(), reason: a.reason, cashReceived: a.cashReceived ?? null }, payer))
+      },
+    }),
     cancelDelivery: t.boolean({ args: { deliveryId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.cancelled } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).cancel(String(a.deliveryId))) }),
   }))
 }

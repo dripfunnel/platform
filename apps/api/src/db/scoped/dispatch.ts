@@ -21,17 +21,28 @@ export interface DeliveryRow {
   delivered_at: Date | null
   failed_at: Date | null
   cancelled_at: Date | null
+  fulfilment_id: string | null
+  area: string | null
+  fee_amount: string | null
+  failed_reason: string | null
+  failed_note: string | null
+  cash_collected_at: Date | null
+  code_unconfirmed_at: Date | null
+  step_key: string | null
+  step_result: string | null
 }
 
 /** Every column but the handover code and its attempts, which no request role can read (migration 0364). */
-const deliveryColumns = `id, store_id, order_id, warehouse_id, state, rider_id, offer_round, excluded_rider_id, currency, cash_due_amount::text as cash_due_amount, created_at, ready_at, unassigned_at, searching_at, assigned_at, picked_up_at, delivered_at, failed_at, cancelled_at`
+export const deliveryColumns = `id, store_id, order_id, warehouse_id, state, rider_id, offer_round, excluded_rider_id, currency, cash_due_amount::text as cash_due_amount, created_at, ready_at, unassigned_at, searching_at, assigned_at, picked_up_at, delivered_at, failed_at, cancelled_at,
+  fulfilment_id, area, fee_amount::text as fee_amount, failed_reason, failed_note, cash_collected_at, code_unconfirmed_at, step_key, step_result`
 
 export const lockDelivery = async (tx: ScopedSql, storeId: string, id: string): Promise<DeliveryRow | null> =>
   (await tx<DeliveryRow[]>`select ${tx.unsafe(deliveryColumns)} from delivery where store_id = ${storeId} and id = ${id} for update`)[0] ?? null
 
 export const deliveryOrder = async (tx: ScopedSql, storeId: string, orderId: string, lock = true) =>
-  (await tx<{ id: string; partner_id: string; number: string; currency: string; payment_method: string; payment_state: string; delivery_warehouse_id: string; dispatch_when: string; cash: string | null }[]>`
+  (await tx<{ id: string; partner_id: string; number: string; currency: string; payment_method: string; payment_state: string; delivery_warehouse_id: string; dispatch_when: string; cash: string | null; area: string | null; fee: string | null }[]>`
     select o.id, s.partner_id, o.number, o.currency, o.payment_method, o.payment_state, o.delivery_warehouse_id, sh.dispatch_when,
+      nullif(concat_ws(', ', nullif(o.shipping_address->>'postalCode', ''), o.shipping_address->>'city'), '') as area, o.shipping_amount::text as fee,
       (select p.amount::text from payment p where p.order_id = o.id and p.provider = 'cod' order by p.created_at desc limit 1) as cash
     from "order" o join store s on s.id = o.store_id join store_shipping sh on sh.store_id = s.id
     where o.id = ${orderId} and o.store_id = ${storeId} and o.state = 'placed' and o.shipping_option = 'own_delivery'
@@ -39,9 +50,9 @@ export const deliveryOrder = async (tx: ScopedSql, storeId: string, orderId: str
     ${lock ? tx`for update of o` : tx``}
   `)[0] ?? null
 
-export const insertDelivery = async (tx: ScopedSql, o: { storeId: string; orderId: string; warehouseId: string; currency: string; cash: string | null; searching: boolean; now: Date }): Promise<DeliveryRow | null> =>
-  (await tx<DeliveryRow[]>`insert into delivery(store_id, order_id, warehouse_id, currency, cash_due_amount, state, offer_round, searching_at, created_at)
-    values(${o.storeId}, ${o.orderId}, ${o.warehouseId}, ${o.currency}, ${o.cash}, ${o.searching ? 'searching' : 'packing'}, ${o.searching ? 1 : 0}, ${o.searching ? o.now : null}, ${o.now})
+export const insertDelivery = async (tx: ScopedSql, o: { storeId: string; orderId: string; warehouseId: string; currency: string; cash: string | null; area: string | null; fee: string | null; searching: boolean; now: Date }): Promise<DeliveryRow | null> =>
+  (await tx<DeliveryRow[]>`insert into delivery(store_id, order_id, warehouse_id, currency, cash_due_amount, area, fee_amount, state, offer_round, searching_at, created_at)
+    values(${o.storeId}, ${o.orderId}, ${o.warehouseId}, ${o.currency}, ${o.cash}, ${o.area}, ${o.fee}, ${o.searching ? 'searching' : 'packing'}, ${o.searching ? 1 : 0}, ${o.searching ? o.now : null}, ${o.now})
     on conflict (order_id) where state not in ('failed','cancelled') do nothing returning ${tx.unsafe(deliveryColumns)}`)[0] ?? null
 
 export const startRound = async (tx: ScopedSql, d: DeliveryRow, now: Date, excluded: string | null = null): Promise<DeliveryRow> => {

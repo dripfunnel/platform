@@ -1,3 +1,27 @@
+type DeliveryAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+type DeliveryCustomer {
+  address: DeliveryAddress
+  latitude: Float
+  longitude: Float
+  name: String
+  note: String
+  phone: String
+}
+
+type DeliveryLine {
+  name: String
+  quantity: Int
+  versionName: String
+}
+
 type DeliveryOffer {
   area: String
   deliveryId: ID
@@ -14,10 +38,32 @@ type DeliveryOfferPage {
   pageInfo: OfferPageInfo
 }
 
+enum DeliveryState {
+  assigned
+  cancelled
+  delivered
+  failed
+  packing
+  picked_up
+  searching
+  unassigned
+}
+
+type DeliveryWarehouse {
+  address: DeliveryAddress
+  latitude: Float
+  longitude: Float
+  name: String
+}
+
 type Mutation {
   acceptOffer(id: ID!): Boolean
   declineOffer(id: ID!): Boolean
   deleteMyAccount: Boolean
+  handBack(id: ID!): Boolean
+  markDelivered(at: String!, cashCollected: Boolean, code: String!, id: ID!, key: String!): Boolean
+  markFailed(at: String!, id: ID!, key: String!, note: String, reason: NotDeliveredReason!): Boolean
+  markPickedUp(id: ID!): Boolean
   registerPushDevice(platform: PushPlatform!, token: String!): Boolean
   reportPosition(accuracy: Float!, at: String!, lat: Float!, lng: Float!): Boolean
   requestCode(phone: String!): Boolean
@@ -26,6 +72,13 @@ type Mutation {
   signOut: Boolean
   unregisterPushDevice(token: String!): Boolean
   updateProfile(name: String!, photoAssetId: ID, vehicleNumber: String, vehicleType: VehicleType): Rider
+}
+
+enum NotDeliveredReason {
+  no_one_home
+  other
+  refused
+  wrong_address
 }
 
 type OfferPageInfo {
@@ -41,6 +94,8 @@ enum PushPlatform {
 }
 
 type Query {
+  deliveries(after: String, first: Int, state: [DeliveryState!]): RiderDeliveryPage
+  delivery(id: ID!): RiderDelivery
   health: String
   me: Rider
   offers(after: String, first: Int): DeliveryOfferPage
@@ -54,6 +109,42 @@ type Rider {
   photoAssetId: ID
   vehicleNumber: String
   vehicleType: VehicleType
+}
+
+type RiderDelivery {
+  area: String
+  assignedAt: String
+
+  """Minor units of `currency`, for cash on delivery."""
+  cashDueAmount: String
+  createdAt: String
+  currency: String
+  customer: DeliveryCustomer
+  deliveredAt: String
+  failedAt: String
+  failedReason: String
+
+  """Minor units of `currency`: the delivery fee the customer paid."""
+  feeAmount: String
+  id: ID
+  lines: [DeliveryLine!]
+  pickedUpAt: String
+  state: DeliveryState
+  warehouse: DeliveryWarehouse
+}
+
+type RiderDeliveryPage {
+  deliveredThisWeek: Int
+  deliveredToday: Int
+  nodes: [RiderDelivery!]
+  pageInfo: RiderDeliveryPageInfo
+}
+
+type RiderDeliveryPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
 }
 
 type RiderSession {

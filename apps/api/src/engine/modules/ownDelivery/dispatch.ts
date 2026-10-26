@@ -2,6 +2,7 @@ import { pushPayloadSchema } from '#core/push'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import type { SecretBox } from '#auth/secretBox'
 import { DispatchRefused } from '#core/dispatch'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
@@ -10,16 +11,19 @@ import { selectStoreEntitlement } from '#db/scoped/entitlements'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox, insertOutboxMany } from '#db/scoped/outbox'
 import * as queries from '#db/scoped/dispatch'
+import { setFailed, setHandoverCode } from '#db/scoped/carry'
+import { sealHandoverCode } from './handoverCode'
 
 export const dispatchAudit = {
   created: 'delivery.created', ready: 'delivery.ready', offered: 'delivery.offered', accepted: 'delivery.accepted',
   assigned: 'delivery.assigned', cancelled: 'delivery.cancelled', declined: 'delivery.declined',
   unassigned: 'delivery.unassigned', handedBack: 'delivery.handed_back', online: 'rider.went_online', offline: 'rider.went_offline',
+  recalled: 'delivery.recalled',
 } as const
 export const offerKind = 'delivery.offer'
-type Actor = Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel'>
+export type Actor = Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel'>
 export interface DispatchFacts { storeId: string; partnerId: string; activity: ActivityLog; now: Date; actor?: Actor; facts?: RequestFacts; api?: ActivityEntry['api']; offeredRecorded?: boolean }
-const record = (tx: ScopedSql, f: DispatchFacts, action: string, id: string, reason: string | null = null) => f.activity.record(tx, {
+export const record = (tx: ScopedSql, f: DispatchFacts, action: string, id: string, reason: string | null = null) => f.activity.record(tx, {
   category: f.actor ? 'write' : 'system', action, result: 'success',
   ...(f.actor ?? { actorKind: 'job', actorId: null, actorLabel: null }), storeId: f.storeId, partnerId: f.partnerId,
   target: { type: action.startsWith('rider.') ? 'rider' : 'delivery', id, label: id }, reason,
@@ -27,7 +31,7 @@ const record = (tx: ScopedSql, f: DispatchFacts, action: string, id: string, rea
   ...(f.facts ?? { requestId: null, ip: null, userAgent: null }),
 })
 
-const push = (tx: ScopedSql, f: DispatchFacts, riderId: string, message: string, deliveryId: string, key: string) =>
+export const push = (tx: ScopedSql, f: DispatchFacts, riderId: string, message: string, deliveryId: string, key: string) =>
   insertOutbox(tx, { kind: 'push', partnerId: f.partnerId, storeId: f.storeId, idempotencyKey: key,
     payload: pushPayloadSchema.parse({ subject: { kind: 'rider', id: riderId }, message, deliveryId }) })
 
@@ -40,7 +44,7 @@ const close = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow, an
   const offers = await queries.closeOffers(tx, d, answer, f.now)
   await pushMany(tx, f, offers.map((o) => ({ riderId: o.rider_id, message: 'rider.taken', deliveryId: d.id, key: `taken:${o.id}` })))
 }
-const queueRound = (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) =>
+export const queueRound = (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) =>
   insertOutbox(tx, { kind: offerKind, partnerId: f.partnerId, storeId: f.storeId, idempotencyKey: `${d.id}:${d.offer_round}`, payload: { deliveryId: d.id, round: d.offer_round, ...(f.offeredRecorded ? { offeredRecorded: true } : {}) } })
 
 export const createOwnDelivery = async (tx: ScopedSql, activity: ActivityLog, storeId: string, orderId: string, now: Date, origin?: Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'api'>): Promise<void> => {
@@ -49,7 +53,7 @@ export const createOwnDelivery = async (tx: ScopedSql, activity: ActivityLog, st
   // Only the first: after a cancel, a new attempt is the merchant's Offer again (DELIVERY §3).
   if ((await queries.selectOrderDeliveries(tx, storeId, orderId)).length > 0) return
   const d = await queries.insertDelivery(tx, { storeId, orderId, warehouseId: o.delivery_warehouse_id, currency: o.currency,
-    cash: o.payment_method === 'cod' ? o.cash : null, searching: o.dispatch_when === 'placed', now })
+    cash: o.payment_method === 'cod' ? o.cash : null, area: o.area, fee: o.fee, searching: o.dispatch_when === 'placed', now })
   if (!d) return
   const actor = origin ? { actorKind: origin.actorKind, actorId: origin.actorId, actorLabel: origin.actorLabel } : undefined
   const f = { storeId, partnerId: o.partner_id, activity, now, ...(origin && actor ? { actor, api: origin.api } : {}) }
@@ -97,6 +101,7 @@ export const releaseRiderDeliveries = async (tx: ScopedSql, f: DispatchFacts, ri
   for (const d of deliveries) {
     await close(tx, f, d, 'expired')
     const next = await queries.startRound(tx, d, f.now, riderId)
+    await setHandoverCode(tx, d, null)
     await record(tx, f, dispatchAudit.handedBack, d.id, reason)
     await queueRound(tx, f, next)
   }
@@ -112,6 +117,13 @@ export const cancelOrderDelivery = async (tx: ScopedSql, f: DispatchFacts, order
     if (d && ['packing', 'searching', 'unassigned', 'assigned'].includes(d.state)) await cancel(tx, f, d)
   }
 }
+// The parcel comes back: the rider's view of the customer and the code end with the state (DELIVERY §3).
+const recall = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) => {
+  const reason = d.code_unconfirmed_at ? 'unconfirmed' : 'recalled'
+  await setFailed(tx, d, { at: f.now, reason, note: null, key: null })
+  if (d.rider_id) await push(tx, f, d.rider_id, 'rider.recalled', d.id, `recalled:${d.id}`)
+  await record(tx, f, dispatchAudit.recalled, d.id, reason)
+}
 const cancel = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) => {
   await queries.setDeliveryState(tx, d, 'cancelled', f.now)
   await close(tx, f, d, 'expired')
@@ -120,8 +132,9 @@ const cancel = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) =
 }
 
 const position = z.strictObject({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180), accuracy: z.number().finite().nonnegative(), at: z.iso.datetime() })
-export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext; activity: ActivityLog; facts: RequestFacts; now: () => Date }) => {
+export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext; activity: ActivityLog; facts: RequestFacts; now: () => Date; secrets?: SecretBox | null }) => {
   const { context, sql, activity, facts, now } = deps
+  const secrets = deps.secrets ?? null
   const riderId = context.caller.kind === 'rider' ? context.caller.riderId : null
   const { caller } = context
   // A support session's person entries are rewritten to the session by its activity writer (auth/storeSupport).
@@ -130,10 +143,11 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
     : caller.kind === 'app' ? { actorKind: 'app_grant', actorId: caller.grantId, actorLabel: null }
     : { actorKind: 'person', actorId: caller.kind === 'person' || caller.kind === 'impersonation' ? caller.userId : null, actorLabel: null }
   const f = (): DispatchFacts => ({ storeId: context.storeId, partnerId: context.partnerId, activity, facts, now: now(), actor })
-  const run = <T>(work: (tx: ScopedSql, facts: DispatchFacts) => Promise<T>) => {
+  const run = <T>(work: (tx: ScopedSql, facts: DispatchFacts) => Promise<T>, system = false) => {
     if (context.sellerScope.kind === 'seller' || (context.caller.kind === 'support' && context.caller.access === 'read')) throw new DispatchRefused('FORBIDDEN')
-    // An accept answers the other riders' offers too, so a rider runs as the system; a person runs under its own scope (DATA-MODEL §3.6).
-    return riderId ? withSystemScope(sql, (tx) => work(tx, f())) : withScope(sql, context, (tx) => work(tx, f()))
+    // An accept answers the other riders' offers too, so a rider runs as the system; a person runs under its own scope (DATA-MODEL §3.6),
+    // but as the system where it writes the handover code, which no request role may (migration 0364).
+    return riderId || system ? withSystemScope(sql, (tx) => work(tx, f())) : withScope(sql, context, (tx) => work(tx, f()))
   }
   const required = async (tx: ScopedSql, id: string) => {
     const d = isUuid(id) ? await queries.lockDelivery(tx, context.storeId, id) : null
@@ -175,7 +189,9 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
       if (!r?.online_at || !(await queries.freshPosition(tx, context.storeId, riderId, f.now))) throw new DispatchRefused('TAKEN')
       if (accept) {
         if ((await queries.riderDeliveries(tx, context.storeId, riderId)).length) throw new DispatchRefused('ON_DELIVERY')
+        const sealed = await sealHandoverCode(secrets, d.id)
         if (!(await queries.assignRider(tx, d, riderId, f.now, false))) throw new DispatchRefused('TAKEN')
+        await setHandoverCode(tx, d, sealed)
       }
       await queries.answerOffer(tx, context.storeId, riderId, offer.id, accept ? 'accepted' : 'declined', f.now)
       if (accept) await close(tx, f, d, 'taken')
@@ -199,21 +215,23 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
       await serialise(tx, `dispatch:${context.storeId}:${to}`)
       const d = await required(tx, id)
       if (!await queries.activeRider(tx, context.storeId, to)) throw new DispatchRefused('NOT_FOUND')
+      const sealed = await sealHandoverCode(secrets, d.id)
       if (!await queries.assignRider(tx, d, to, f.now, true)) throw new DispatchRefused('NOT_UNASSIGNED')
+      await setHandoverCode(tx, d, sealed)
       await close(tx, f, d, 'taken')
       await push(tx, f, to, 'rider.assigned', d.id, `assigned:${d.id}:${d.offer_round}`)
       await record(tx, f, dispatchAudit.assigned, d.id)
       return true
-    }),
+    }, true),
     again: (id: string) => run(async (tx, f) => {
       merchant()
       const d = await required(tx, id)
-      if (!['unassigned', 'cancelled'].includes(d.state)) throw new DispatchRefused('NOT_UNASSIGNED')
+      if (!['unassigned', 'cancelled', 'failed'].includes(d.state)) throw new DispatchRefused('NOT_UNASSIGNED')
       let next: queries.DeliveryRow
-      if (d.state === 'cancelled') {
+      if (d.state !== 'unassigned') {
         const order = await queries.deliveryOrder(tx, context.storeId, d.order_id, false)
         if (!order) throw new DispatchRefused('NOT_FOUND')
-        const created = await queries.insertDelivery(tx, { storeId: context.storeId, orderId: d.order_id, warehouseId: d.warehouse_id, currency: d.currency, cash: d.cash_due_amount, searching: true, now: f.now })
+        const created = await queries.insertDelivery(tx, { storeId: context.storeId, orderId: d.order_id, warehouseId: d.warehouse_id, currency: d.currency, cash: d.cash_due_amount, area: order.area, fee: order.fee, searching: true, now: f.now })
         if (!created) throw new DispatchRefused('NOT_UNASSIGNED')
         next = created
         await record(tx, f, dispatchAudit.created, next.id)
@@ -228,9 +246,10 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
     cancel: (id: string) => run(async (tx, f) => {
       merchant()
       const d = await required(tx, id)
-      if (!['packing', 'searching', 'unassigned', 'assigned'].includes(d.state)) throw new DispatchRefused('NOT_CANCELLABLE')
-      await cancel(tx, f, d)
+      if (d.state === 'picked_up') await recall(tx, f, d)
+      else if (['packing', 'searching', 'unassigned', 'assigned'].includes(d.state)) await cancel(tx, f, d)
+      else throw new DispatchRefused('NOT_CANCELLABLE')
       return true
-    }),
+    }, true),
   }
 }

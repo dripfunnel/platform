@@ -4,6 +4,7 @@ import { toMajor } from '#core/money'
 // only locale (AGENTS.md "Product"). A second locale adds a sibling object of the same shape.
 
 export const en = {
+  deliveryCodeUnconfirmed: { subject: (number: string) => `Check the delivery of order ${number}`, heading: 'A handover code didn’t match', body: 'The rider marked this order delivered without signal, and the code they entered didn’t match. Open the order to mark it delivered or recall it.', action: 'Open order' },
   deliveryUnassigned: { subject: (number: string) => `Nobody took order ${number}`, heading: 'A delivery needs a rider', body: 'Nobody accepted this delivery. Open the order to assign a rider or offer it again.', action: 'Open order' },
   footer: {
     support: (contact: string) => `Questions? Contact ${contact}.`,
@@ -218,6 +219,14 @@ export const en = {
     courier: (courier: string, tracking: string) => `With ${courier}, tracking number ${tracking}.`,
     tracking: (tracking: string) => `Tracking number ${tracking}.`,
     action: 'Track your parcel',
+    // Never the code itself: it is shown only on the order (DELIVERY §3).
+    local: 'When the rider arrives, give them the handover code shown on your order page.',
+  },
+  orderNotDelivered: {
+    subject: (store: string, order: string) => `We couldn’t deliver your ${store} order ${order}`,
+    heading: 'Your order wasn’t delivered',
+    intro: (order: string) => `Our rider couldn’t deliver order ${order}.`,
+    next: 'The store will be in touch to arrange another try.',
   },
   orderDownloads: {
     subject: (store: string, order: string) => `Your downloads from ${store}, order ${order}`,
@@ -243,6 +252,7 @@ export const en = {
     subject: (store: string, order: string) => `Your ${store} order ${order} was delivered`,
     heading: 'It’s arrived',
     intro: (order: string) => `The courier delivered these items from order ${order}:`,
+    localIntro: (order: string) => `Our rider delivered these items from order ${order}:`,
     line: (quantity: number, item: string) => `${quantity} × ${item}`,
   },
   // The store's own subject and message come first; these are the parts added for it (Carts' preview).

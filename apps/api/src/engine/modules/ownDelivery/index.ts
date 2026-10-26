@@ -4,4 +4,5 @@ export { createRiderDevices, pushDeviceAudit, pushPlatforms, type ConfirmDevice,
 
 export { createDispatch, createOwnDelivery, cancelOrderDelivery, releaseRiderDeliveries, broadcastDelivery, sweepDispatch, dispatchAudit, offerKind } from './dispatch'
 export type { DispatchFacts } from './dispatch'
+export { createCarry, carryAudit, deliveryStates, failReasons, firstDayOfWeek, type CarriedCustomer, type RiderDeliveryView } from './carry'
 export { readOrderDelivery, type DeliveryRiderView, type DeliveryStepView, type OrderDeliveryView } from './orderDelivery'

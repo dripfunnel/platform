@@ -32,7 +32,7 @@ export type { FulfilmentRow } from '#db/scoped/fulfilment'
 export const fulfilmentAudit = { shipped: 'order.shipped', sentToStore: 'order.sent_to_store', trackingAdded: 'order.tracking_added', pickupRequested: 'order.pickup_requested' } as const
 
 export type FulfilmentRefusal =
-  | 'INVALID_INPUT' | 'NOT_FOUND' | 'NOT_SHIPPABLE' | 'NOT_YOURS' | 'TOO_MANY' | 'NOT_ENOUGH_STOCK' | 'NO_STORE_LOCATION' | 'READ_ONLY'
+  | 'INVALID_INPUT' | 'NOT_FOUND' | 'NOT_SHIPPABLE' | 'NOT_YOURS' | 'TOO_MANY' | 'NOT_ENOUGH_STOCK' | 'NO_STORE_LOCATION' | 'READ_ONLY' | 'NOT_HANDED_OVER'
   // Booking a label and its pickup (SAPI 12).
   | 'NOT_CONNECTED' | 'OWN_LABELS' | 'ONE_PART' | 'NO_ADDRESS' | 'UNSERVED' | 'COURIER_REJECTED' | 'COURIER_UNAVAILABLE' | 'NOT_BOOKED' | 'PICKUP_ASKED'
 export type FulfilmentResult<T> = { ok: true; value: T } | { ok: false; reason: FulfilmentRefusal }
@@ -56,7 +56,8 @@ export interface BookInput {
 export interface FulfilmentDeps {
   sql: postgres.Sql
   context: TenantContext
-  actor: { id: string; partnerId: string }
+  /** A rider's pickup ships as the rider (DELIVERY §3 step 4); everything else as a person. */
+  actor: { id: string; partnerId: string; kind?: 'person' | 'rider' }
   activity: ActivityLog
   facts: RequestFacts
   now: () => Date
@@ -109,14 +110,14 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
       category: 'write',
       action,
       result: 'success',
-      actorKind: 'person',
+      actorKind: actor.kind ?? 'person',
       actorId: actor.id,
       actorLabel: null,
       partnerId: actor.partnerId,
       storeId,
       target: { type: 'order', id: order.id, label: order.number },
       reason,
-      api: 'store',
+      api: actor.kind === 'rider' ? 'delivery' : 'store',
       visibility: 'store',
       ...facts,
     }
@@ -161,7 +162,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
       storeId,
       warehouseId,
       orderId: p.order.id,
-      actorId: actor.id,
+      actor: { kind: actor.kind ?? 'person', id: actor.id },
       lines: p.picked.map(({ line, quantity }) => {
         const onward = !sellerId && line.shipping_mode === 'to-store'
         return { lineId: line.id, versionId: line.version_id, productId: line.product_id, sellerId: line.seller_id, quantity, heldAt: onward ? null : line.reserved_warehouse_id, takeStock: !onward && line.track_stock, fulfils: !p.handOff }
@@ -183,34 +184,54 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
       return { ok: false, reason: 'INVALID_INPUT' }
     }
     try {
-      return await withSystemScope(sql, async (tx): Promise<FulfilmentResult<string[]>> => {
-        const planned = await plan(tx, input, courierName !== null || trackingNumber !== null)
-        if (!planned.ok) return planned
-        const { order, picked, handOff } = planned.value
-        if (handOff && !(await storeDefaultWarehouse(tx, storeId))) return { ok: false, reason: 'NO_STORE_LOCATION' }
+      return await withSystemScope(sql, (tx) => shipIn(tx, { ...input, courierName, trackingNumber, trackingUrl: trackingUrl ?? null }, false))
+    } catch (error) {
+      if (error instanceof Refused) return { ok: false, reason: error.reason }
+      throw error
+    }
+  }
 
-        const shippedAt = now()
-        await takeStock(tx, planned.value, input.warehouseId)
-        const made: string[] = []
-        for (const partId of new Set(picked.map((p) => p.line.part_id))) {
-          const lines = picked.filter((p) => p.line.part_id === partId)
-          const kind = handOff ? 'sent_to_store' : order.shipping_option === 'pickup' && !sellerId ? 'pickup' : 'manual'
-          made.push(
-            await insertFulfilment(
-              tx,
-              { storeId, orderId: order.id, partId, sellerId, kind, warehouseId: input.warehouseId, courierName, trackingNumber, trackingUrl: trackingUrl ?? null, shippedAt, createdBy: actor.id },
-              lines.map((p) => ({ lineId: p.line.id, quantity: p.quantity })),
-            ),
-          )
-          await record(tx, handOff ? fulfilmentAudit.sentToStore : fulfilmentAudit.shipped, order, lines[0]?.line.seller_id ?? null, kind)
-          // The shopper hears of what is on its way to them, never of a hand-off to the store or a pickup they collected.
-          const id = made.at(-1)
-          if (kind === 'manual' && id && !order.test) await queueOrderUpdate(tx, storeId, { event: 'shipped', orderId: order.id, fulfilmentId: id }, `shipped:${id}`)
-          if (!handOff && id && !order.test) await queueStoreEvent(tx, storeId, 'order.shipped', { object: 'order', id: order.id, number: order.number }, id, shippedAt)
-        }
-        await settleShippingStates(tx, order.id, shippedAt, sellerId === null)
-        return { ok: true, value: made }
-      })
+  const shipIn = async (tx: ScopedSql, input: ShipInput, local: boolean): Promise<FulfilmentResult<string[]>> => {
+    const { courierName, trackingNumber, trackingUrl } = input
+    const planned = await plan(tx, input, courierName !== null || trackingNumber !== null)
+    if (!planned.ok) return planned
+    const { order, picked, handOff } = planned.value
+    if (handOff && !(await storeDefaultWarehouse(tx, storeId))) return { ok: false, reason: 'NO_STORE_LOCATION' }
+
+    const shippedAt = now()
+    await takeStock(tx, planned.value, input.warehouseId)
+    const made: string[] = []
+    for (const partId of new Set(picked.map((p) => p.line.part_id))) {
+      const lines = picked.filter((p) => p.line.part_id === partId)
+      const kind = local ? 'local' : handOff ? 'sent_to_store' : order.shipping_option === 'pickup' && !sellerId ? 'pickup' : 'manual'
+      made.push(
+        await insertFulfilment(
+          tx,
+          { storeId, orderId: order.id, partId, sellerId, kind, warehouseId: input.warehouseId, courierName, trackingNumber, trackingUrl, shippedAt, createdBy: actor.id },
+          lines.map((p) => ({ lineId: p.line.id, quantity: p.quantity })),
+        ),
+      )
+      await record(tx, handOff ? fulfilmentAudit.sentToStore : fulfilmentAudit.shipped, order, lines[0]?.line.seller_id ?? null, kind)
+      // The shopper hears of what is on its way to them, never of a hand-off to the store or a pickup they collected.
+      const id = made.at(-1)
+      if ((kind === 'manual' || kind === 'local') && id && !order.test) await queueOrderUpdate(tx, storeId, { event: 'shipped', orderId: order.id, fulfilmentId: id }, `shipped:${id}`)
+      if (!handOff && id && !order.test) await queueStoreEvent(tx, storeId, 'order.shipped', { object: 'order', id: order.id, number: order.number }, id, shippedAt)
+    }
+    await settleShippingStates(tx, order.id, shippedAt, sellerId === null)
+    return { ok: true, value: made }
+  }
+
+  /**
+   * Own delivery's pickup, in the rider's transaction: every unit not yet sent leaves the delivery's warehouse as `local`
+   * shipments (DELIVERY §3 step 4). A to-store line not handed over in full holds the parcel back.
+   */
+  const shipLocal = async (tx: ScopedSql, orderId: string, warehouseId: string): Promise<FulfilmentResult<string[]>> => {
+    const lines = await lockLinesToShip(tx, storeId, orderId)
+    if (lines.some((l) => l.shipping_mode === 'to-store' && l.sent_quantity < l.quantity)) return { ok: false, reason: 'NOT_HANDED_OVER' }
+    const left = lines.filter((l) => l.shipping_mode !== 'to-shopper').map((l) => ({ lineId: l.id, quantity: l.quantity - l.fulfilled_quantity })).filter((l) => l.quantity > 0)
+    if (left.length === 0) return { ok: true, value: [] }
+    try {
+      return await shipIn(tx, { orderId, warehouseId, lines: left, courierName: null, trackingNumber: null, trackingUrl: null }, true)
     } catch (error) {
       if (error instanceof Refused) return { ok: false, reason: error.reason }
       throw error
@@ -344,5 +365,5 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
     })
   }
 
-  return { ship, bookLabel, requestPickup, addTracking }
+  return { ship, shipLocal, bookLabel, requestPickup, addTracking }
 }

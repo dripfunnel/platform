@@ -78,7 +78,7 @@ export interface ShippedLine {
  * One shipment's stock and lines in a fixed few statements, whatever its size: units off hand where they left with an
  * `order` movement, the order's holds given back, the lines' fulfilled counts; false when the location hasn't enough.
  */
-export const shipOut = async (tx: ScopedSql, s: { storeId: string; warehouseId: string; orderId: string; actorId: string; lines: readonly ShippedLine[] }): Promise<boolean> => {
+export const shipOut = async (tx: ScopedSql, s: { storeId: string; warehouseId: string; orderId: string; actor: { kind: 'person' | 'rider'; id: string }; lines: readonly ShippedLine[] }): Promise<boolean> => {
   const sum = <K extends string>(items: readonly ShippedLine[], key: (l: ShippedLine) => K) => {
     const totals = new Map<K, { line: ShippedLine; quantity: number }>()
     for (const l of items) totals.set(key(l), { line: l, quantity: (totals.get(key(l))?.quantity ?? 0) + l.quantity })
@@ -97,7 +97,7 @@ export const shipOut = async (tx: ScopedSql, s: { storeId: string; warehouseId: 
     if (left.length < taken.length) return false
     await tx`
       insert into stock_movement (store_id, seller_id, product_id, version_id, warehouse_id, delta, resulting_quantity, reason, source_kind, source_id, actor_kind, actor_id)
-      select ${s.storeId}, nullif(x.seller, '')::uuid, x.product, x.v, ${s.warehouseId}, -x.q, l.on_hand, 'order', 'order', ${s.orderId}, 'person', ${s.actorId}
+      select ${s.storeId}, nullif(x.seller, '')::uuid, x.product, x.v, ${s.warehouseId}, -x.q, l.on_hand, 'order', 'order', ${s.orderId}, ${s.actor.kind}, ${s.actor.id}
       from unnest(${versions}::uuid[], ${pgArray(taken.map((t) => t.line.productId))}::uuid[], ${pgArray(taken.map((t) => t.line.sellerId ?? ''))}::text[], ${quantities}::int[]) as x(v, product, seller, q)
       join stock_level l on l.version_id = x.v and l.warehouse_id = ${s.warehouseId}
     `
@@ -131,7 +131,7 @@ export interface Booking {
 
 export const insertFulfilment = async (
   tx: ScopedSql,
-  f: { storeId: string; orderId: string; partId: string; sellerId: string | null; kind: 'booked' | 'manual' | 'sent_to_store' | 'pickup'; warehouseId: string; courierName: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: Date; createdBy: string; booking?: Booking },
+  f: { storeId: string; orderId: string; partId: string; sellerId: string | null; kind: 'booked' | 'manual' | 'sent_to_store' | 'pickup' | 'local'; warehouseId: string; courierName: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: Date; createdBy: string; booking?: Booking },
   lines: readonly { lineId: string; quantity: number }[],
 ): Promise<string> => {
   const b = f.booking
