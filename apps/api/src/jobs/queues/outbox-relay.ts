@@ -33,6 +33,9 @@ export interface RelayOptions {
   batch: number
 }
 
+/** How long one sweep keeps claiming rows that come due. It is checked between batches, so a batch (each call capped by `timeoutMs`) can run past it; a sweep the Worker cuts short leaves its rows leased until `leaseMs`. */
+export const relayBudgetMs = 20_000
+
 export const defaultRelayOptions: RelayOptions = {
   now: () => new Date(),
   timeoutMs: 10_000,
@@ -129,9 +132,9 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, dropped: 0, skipped: 0 }
   const kinds = Object.keys(deliverers)
   if (kinds.length === 0) return counts
-  const deadline = Date.now() + 20_000
+  const deadline = opts.now().getTime() + relayBudgetMs
   const attempted = new Set<string>()
-  while (Date.now() < deadline) {
+  while (opts.now().getTime() < deadline) {
     const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, [...attempted]))
     if (rows.length === 0) break
     for (const row of rows) {
