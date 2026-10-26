@@ -143,7 +143,7 @@ These follow decisions in `docs/`, so the prototype needs redrawing here:
   today (decided 2026-10-09). Opening them in the app (universal or app links) would need files
   served on every partner's portal host, an API and hosting change that ARCHITECTURE.md §6
   doesn't list, so it is not in this release.
-- **The help button.** The prototype opens `help.dripfunnel.com/store`; the app opens the
+- **The help button.** The prototype opens `help.dripfunnel.ai/store`; the app opens the
   partner's help centre (white label).
 - **Products** (#500). The prototype's **Change with a reason** holds the change until Save; the API applies it at once (`adjustStock`), as the web portal does,
   so the sheet says it is saved right away. The prototype's "much higher than usual" price check needs the store's other prices, which the app doesn't

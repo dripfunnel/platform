@@ -45,10 +45,10 @@ export const sampleSeo = (state: StorefrontState): StorefrontSeo =>
     ? { title: null, description: null, shareImageAssetId: null }
     : { title: 'Kesari Threads — Everyday clothes and homeware, made to last', description: 'Everyday clothes and homeware, made to last. Free returns within 30 days.', shareImageAssetId: 'sample-photo-1' }
 
-const free = { id: null, host: 'kesari-threads.shops.dripfunnel.com', kind: 'free' as const, checkedAt: null, records: [] }
+const free = { id: null, host: 'kesari-threads.shops.dripfunnel.ai', kind: 'free' as const, checkedAt: null, records: [] }
 const own = { id: 'sample-own', host: 'www.kesarithreads.in', kind: 'custom' as const }
 const records = (found: string | null) => [
-  { type: 'CNAME', name: 'www.kesarithreads.in', value: 'shops.edge.dripfunnel.com', found },
+  { type: 'CNAME', name: 'www.kesarithreads.in', value: 'shops.edge.dripfunnel.ai', found },
   { type: 'TXT', name: '_df-verify.www.kesarithreads.in', value: 'df-verify=3f9c2a71', found: null },
 ]
 
@@ -57,7 +57,7 @@ export const sampleDomains = (state: StorefrontState): StorefrontDomains => {
   const checkedAt = '2026-10-12T08:40:00Z'
   if (state === 'waiting') return { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { ...own, status: 'waiting', primary: false, checkedAt, records: records(null) }] }
   if (state === 'failed') return { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { ...own, status: 'failed', primary: false, checkedAt, records: records('kesarithreads.wixdns.net') }] }
-  return { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: false }, { ...own, status: 'live', primary: true, checkedAt, records: records('shops.edge.dripfunnel.com') }] }
+  return { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: false }, { ...own, status: 'live', primary: true, checkedAt, records: records('shops.edge.dripfunnel.ai') }] }
 }
 
 const templateRows: readonly (readonly [string, string, string, string])[] = harness
@@ -75,7 +75,7 @@ const templateRows: readonly (readonly [string, string, string, string])[] = har
 const unstarted = (state: StorefrontState) => state === 'brand' || state === 'gallery' || state === 'noSite'
 
 export const sampleTemplates = (state: StorefrontState): StorefrontTemplate[] =>
-  templateRows.map(([key, name, tag, description]) => ({ key, name, tag, description, demoUrl: key === 'baseline' ? null : `https://${key}-demo.shops.dripfunnel.com`, current: !unstarted(state) && state !== 'creating' && key === 'linen' }))
+  templateRows.map(([key, name, tag, description]) => ({ key, name, tag, description, demoUrl: key === 'baseline' ? null : `https://${key}-demo.shops.dripfunnel.ai`, current: !unstarted(state) && state !== 'creating' && key === 'linen' }))
 
 export const sampleOverview = (state: StorefrontState): StorefrontOverview => {
   if (!harness || unstarted(state)) return { status: 'not_started', template: null, live: null, draft: null, lastPublish: null }

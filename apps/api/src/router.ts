@@ -7,7 +7,7 @@ export type Entry = 'public' | 'portal' | 'edge'
 
 const under = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`)
 
-// The zone the Worker's own routes sit on: dripfunnel.com, dripfunnel.ai, or localhost locally.
+// The zone the Worker's own routes sit on: dripfunnel.ai, actuateminds.com, or localhost locally.
 const ownZoneOf = (adminHost: string) => adminHost.slice(adminHost.indexOf('.') + 1)
 
 export const resolveArea = (url: URL, config: Pick<Config, 'ADMIN_HOST' | 'PLATFORM_HOST' | 'HOOKS_HOST'>, entry: Entry): Area | undefined => {

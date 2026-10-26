@@ -24,8 +24,8 @@ its clients; everything runs on Cloudflare, with Postgres on Neon.
 
 | Portal | App | Host | Users and roles | API | Guide |
 |---|---|---|---|---|---|
-| **Admin console** | `apps/ui/admin` | `admin.dripfunnel.com` | DripFunnel staff: Super admin, Partner manager, Support, Finance, Engineer on call, Read-only | Admin API | [ui/admin/](ui/admin/README.md) |
-| **Partner console** | `apps/ui/platform` | `platform.dripfunnel.com` | Partner users: Owner, Admin, Support, Finance, Read-only | Platform API | [ui/platform/](ui/platform/README.md) |
+| **Admin console** | `apps/ui/admin` | `admin.dripfunnel.ai` | DripFunnel staff: Super admin, Partner manager, Support, Finance, Engineer on call, Read-only | Admin API | [ui/admin/](ui/admin/README.md) |
+| **Partner console** | `apps/ui/platform` | `platform.dripfunnel.ai` | Partner users: Owner, Admin, Support, Finance, Read-only | Platform API | [ui/platform/](ui/platform/README.md) |
 | **Merchant portal** | `apps/ui/store` | each partner's portal host, e.g. `store.<partnerdomain>` | Merchant Owner, Manager, Staff; vendors: Stock only, Products and stock, Products, stock and their orders | Store API | [ui/store/](ui/store/README.md) |
 | **Storefront** | one public repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{slug}.my-store.one`, the merchant's domain; preview on `{slug}-preview.my-store.one` | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
 
@@ -96,8 +96,8 @@ docs/
     ROLLBACK.md             rolling back a bad prod deploy: API Worker, SPAs, a bad migration
   setup/
     local.md                runbook: your machine: tools, local Postgres, .env.local, setup:local, dev, dev:https, signing in
-    dev.md                  runbook: the dev environment on dripfunnel.ai: one-time setup, the Worker's values, deploying, checklist
-    prod.md                 runbook: production on dripfunnel.com: what is missing, one-time setup, values, releasing, checklist
+    dev.md                  runbook: the dev environment on actuateminds.com: one-time setup, the Worker's values, deploying, checklist
+    prod.md                 runbook: production on dripfunnel.ai: what is missing, one-time setup, values, releasing, checklist
   storefront/
     ARCHITECTURE.md         the storefront template, storefront-core, the walls around AI-written themes,
                             render modes, the publish pipeline, the studio sandbox, fleet upgrades

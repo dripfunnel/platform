@@ -178,7 +178,7 @@ describe('the dispatch', () => {
     const run = await start(t.storeA2, 'design', 23)
     await db.sql`update publish_run set state = 'building', started_at = now() where id = ${run}`
     github.fail(/dispatches$/, 502, 3)
-    const real = { ...deps(), dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api: 'https://hooks.dripfunnel.com' }) }
+    const real = { ...deps(), dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api: 'https://hooks.dripfunnel.ai' }) }
     await expect(dispatchBuild(real, t.storeA2, run)).rejects.toThrow(GitHubUnavailable)
     expect(await dispatchBuild(real, t.storeA2, run)).toBe('skipped')
     expect(github.calls.filter((c) => c.endsWith('/dispatches'))).toHaveLength(1)
@@ -249,9 +249,9 @@ describe('the locked workflow’s dispatch', () => {
     const repos = storeRepos(createGitHubApp({ appId: '7', installationId: '42', privateKey: pem, fetchImpl: github.fetch, sleep: async () => undefined }).session(), 'dripfunnel')
     await repos.create('sf-dispatch01')
     const buildId = crypto.randomUUID()
-    expect(await repos.dispatchBuild('sf-dispatch01', { build_id: buildId, api: 'https://hooks.dripfunnel.com' })).toBe(true)
-    expect(github.dispatches).toEqual([{ repo: 'sf-dispatch01', workflow: 'build.yml', ref: 'main', inputs: { build_id: buildId, api: 'https://hooks.dripfunnel.com' } }])
-    expect(await repos.dispatchBuild('sf-missing00', { build_id: buildId, api: 'https://hooks.dripfunnel.com' })).toBe(false)
+    expect(await repos.dispatchBuild('sf-dispatch01', { build_id: buildId, api: 'https://hooks.dripfunnel.ai' })).toBe(true)
+    expect(github.dispatches).toEqual([{ repo: 'sf-dispatch01', workflow: 'build.yml', ref: 'main', inputs: { build_id: buildId, api: 'https://hooks.dripfunnel.ai' } }])
+    expect(await repos.dispatchBuild('sf-missing00', { build_id: buildId, api: 'https://hooks.dripfunnel.ai' })).toBe(false)
   })
 })
 

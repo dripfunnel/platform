@@ -472,7 +472,7 @@ describe('A location’s map pin (#815)', () => {
   })
 
   it('tells only those who may change a location where the map is, and nothing without a Maps key', async () => {
-    const frame = 'https://hooks.dripfunnel.com/maps/pin'
+    const frame = 'https://hooks.dripfunnel.ai/maps/pin'
     const ask = (who: Who, mapFrame: string | null) => gql('{ warehouseMapFrame }', who, {}, { mapFrame })
     expect((await ask('owner', frame)).data?.['warehouseMapFrame']).toBe(frame)
     expect((await ask('supplier', frame)).data?.['warehouseMapFrame']).toBe(frame)

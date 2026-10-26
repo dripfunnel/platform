@@ -8,7 +8,7 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "help": "Help",
-    "helpUrl": "https://help.dripfunnel.com/admin",
+    "helpUrl": "https://help.dripfunnel.ai/admin",
     "opensInNewTab": "(opens in a new tab)",
     "search": {
       "button": "Search partners and stores",
@@ -2189,7 +2189,7 @@
       "reasonPlaceholderSetup": "What the partner asked for",
       "reasonHint": "Add a reason to continue.",
       "ticket": "Ticket link (optional)",
-      "ticketPlaceholder": "https://support.dripfunnel.com/t/…",
+      "ticketPlaceholder": "https://support.dripfunnel.ai/t/…",
       "ticketError": "Use a link that starts with https://.",
       "confirm": "You’ll be signed in as {name} ({role}, {where}) with {first}’s access for 30 minutes. You can’t change {first}’s password, 2-factor, sign-in methods, payment or payout details, or the {owner}’s ownership. Everyone signed in to {place} will see that Support is signed in as {first}. Everything you do is logged as {me} acting as {first}.",
       "owners": {

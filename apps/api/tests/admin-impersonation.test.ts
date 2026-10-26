@@ -18,9 +18,9 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 
 let db: TestDatabase
 const now = new Date('2026-10-02T12:00:00Z')
-const platformHost = 'platform.dripfunnel.com'
+const platformHost = 'platform.dripfunnel.ai'
 const staffByRole = new Map<StaffRole, StaffMember>()
-const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
+const request = new Request('https://admin.dripfunnel.ai/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
 const ids = { partnerUser: '', partnerId: '', storeMembership: '', storeUser: '', supplierMembership: '', supplierUser: '', otherPartnerUser: '' }
 
 const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext => {

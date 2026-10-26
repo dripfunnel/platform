@@ -15,7 +15,7 @@ bar from `@dripfunnel/shared/ui` above every page. Without the admin console, `?
 `invalid`.
 The bar's Back link goes to the admin console on its dev port under `vite dev`; a build
 uses `VITE_ADMIN_URL` (https only, e.g. a feature environment's console) or
-`https://admin.dripfunnel.com`.
+`https://admin.dripfunnel.ai`.
 
 **Without an API** (`vite dev`, or a build with `VITE_STATE_HARNESS=1`; ui/README.md §6), the shell
 renders from a sample:

@@ -3,7 +3,7 @@ import { clearCookie, originAllowed, readCookie, setCookie } from './cookie'
 import { cookieName } from './session'
 
 const post = (headers: Record<string, string> = {}) =>
-  new Request('https://admin.dripfunnel.com/api', { method: 'POST', headers })
+  new Request('https://admin.dripfunnel.ai/api', { method: 'POST', headers })
 
 describe('the session cookie', () => {
   it('is __Host-, httpOnly, Secure and SameSite, with no Domain', () => {
@@ -31,20 +31,20 @@ describe('the session cookie', () => {
 
 describe('the Origin check', () => {
   it('allows a mutation from the admin host', () => {
-    expect(originAllowed(post({ origin: 'https://admin.dripfunnel.com' }), 'admin.dripfunnel.com')).toBe(true)
+    expect(originAllowed(post({ origin: 'https://admin.dripfunnel.ai' }), 'admin.dripfunnel.ai')).toBe(true)
   })
 
   it('refuses one from anywhere else, and one with no Origin at all', () => {
-    expect(originAllowed(post({ origin: 'https://evil.example' }), 'admin.dripfunnel.com')).toBe(false)
-    expect(originAllowed(post(), 'admin.dripfunnel.com')).toBe(false)
+    expect(originAllowed(post({ origin: 'https://evil.example' }), 'admin.dripfunnel.ai')).toBe(false)
+    expect(originAllowed(post(), 'admin.dripfunnel.ai')).toBe(false)
   })
 
   it('refuses a host that merely ends with the admin host', () => {
-    expect(originAllowed(post({ origin: 'https://evil-admin.dripfunnel.com' }), 'admin.dripfunnel.com')).toBe(false)
-    expect(originAllowed(post({ origin: 'https://admin.dripfunnel.com.evil.test' }), 'admin.dripfunnel.com')).toBe(false)
+    expect(originAllowed(post({ origin: 'https://evil-admin.dripfunnel.ai' }), 'admin.dripfunnel.ai')).toBe(false)
+    expect(originAllowed(post({ origin: 'https://admin.dripfunnel.ai.evil.test' }), 'admin.dripfunnel.ai')).toBe(false)
   })
 
   it('does not require an Origin on a read', () => {
-    expect(originAllowed(new Request('https://admin.dripfunnel.com/api'), 'admin.dripfunnel.com')).toBe(true)
+    expect(originAllowed(new Request('https://admin.dripfunnel.ai/api'), 'admin.dripfunnel.ai')).toBe(true)
   })
 })

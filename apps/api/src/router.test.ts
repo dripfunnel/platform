@@ -1,25 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { resolveArea } from './router'
 
-const config = { ADMIN_HOST: 'admin.dripfunnel.com', PLATFORM_HOST: 'platform.dripfunnel.com', HOOKS_HOST: 'hooks.dripfunnel.com' }
+const config = { ADMIN_HOST: 'admin.dripfunnel.ai', PLATFORM_HOST: 'platform.dripfunnel.ai', HOOKS_HOST: 'hooks.dripfunnel.ai' }
 const area = (href: string) => resolveArea(new URL(href), config, 'public')
 const throughProxy = (href: string) => resolveArea(new URL(href), config, 'portal')
 
 describe('resolveArea', () => {
   it('serves the Admin API only on the admin host', () => {
-    expect(area('https://admin.dripfunnel.com/api')).toBe('admin')
-    expect(area('https://admin.dripfunnel.com/shop-api')).toBeUndefined()
-    expect(area('https://platform.dripfunnel.com/api')).not.toBe('admin')
+    expect(area('https://admin.dripfunnel.ai/api')).toBe('admin')
+    expect(area('https://admin.dripfunnel.ai/shop-api')).toBeUndefined()
+    expect(area('https://platform.dripfunnel.ai/api')).not.toBe('admin')
   })
 
   it('serves the Platform API only on the platform host', () => {
-    expect(area('https://platform.dripfunnel.com/api')).toBe('platform')
-    expect(area('https://platform.dripfunnel.com/shop-api')).toBeUndefined()
+    expect(area('https://platform.dripfunnel.ai/api')).toBe('platform')
+    expect(area('https://platform.dripfunnel.ai/shop-api')).toBeUndefined()
   })
 
   it('serves the Store API on a portal host of our own zone', () => {
-    expect(area('https://store.dripfunnel.com/api')).toBe('store')
-    expect(area('https://store.dripfunnel.com/api/health')).toBe('store')
+    expect(area('https://store.dripfunnel.ai/api')).toBe('store')
+    expect(area('https://store.dripfunnel.ai/api/health')).toBe('store')
     expect(resolveArea(new URL('https://store.northstar.localhost/api'), { ADMIN_HOST: 'admin.localhost', PLATFORM_HOST: 'platform.localhost', HOOKS_HOST: 'hooks.localhost' }, 'public')).toBe('store')
   })
 
@@ -27,7 +27,7 @@ describe('resolveArea', () => {
     expect(area('https://store.partner.com/api')).toBeUndefined()
     expect(area('https://store.partner.com/api/health')).toBeUndefined()
     expect(area('https://evildripfunnel.com/api')).toBeUndefined()
-    expect(area('https://store.dripfunnel.com.partner.com/api')).toBeUndefined()
+    expect(area('https://store.dripfunnel.ai.partner.com/api')).toBeUndefined()
   })
 
   it('serves the Store API through PortalProxy on a partner’s host, and nothing else', () => {
@@ -38,9 +38,9 @@ describe('resolveArea', () => {
   })
 
   it('still decides by hostname first through PortalProxy: our own hosts answer nothing there', () => {
-    expect(throughProxy('https://admin.dripfunnel.com/api')).toBeUndefined()
-    expect(throughProxy('https://platform.dripfunnel.com/api')).toBeUndefined()
-    expect(throughProxy('https://hooks.dripfunnel.com/stripe')).toBeUndefined()
+    expect(throughProxy('https://admin.dripfunnel.ai/api')).toBeUndefined()
+    expect(throughProxy('https://platform.dripfunnel.ai/api')).toBeUndefined()
+    expect(throughProxy('https://hooks.dripfunnel.ai/stripe')).toBeUndefined()
   })
 
   it('serves the Shop API on storefront hosts', () => {
@@ -53,8 +53,8 @@ describe('resolveArea', () => {
     expect(throughEdge('https://abcdefghij.webpreview.store/shop-api/graphql')).toBe('shop')
     expect(throughEdge('https://acme.shops.partner.com/api')).toBeUndefined()
     expect(throughEdge('https://acme.shops.partner.com/')).toBeUndefined()
-    expect(throughEdge('https://admin.dripfunnel.com/shop-api')).toBeUndefined()
-    expect(throughEdge('https://hooks.dripfunnel.com/stripe')).toBeUndefined()
+    expect(throughEdge('https://admin.dripfunnel.ai/shop-api')).toBeUndefined()
+    expect(throughEdge('https://hooks.dripfunnel.ai/stripe')).toBeUndefined()
   })
 
   it('serves the studio frame only through StorefrontEdge, never on a portal host or the public entry (AI-STUDIO §8)', () => {
@@ -63,16 +63,16 @@ describe('resolveArea', () => {
     expect(resolveArea(new URL(`https://abcdefghij.webpreview.store${frame}shop-api`), config, 'edge')).toBe('studio')
     expect(area(`https://store.partner.com${frame}`)).toBeUndefined()
     expect(resolveArea(new URL(`https://store.partner.com${frame}`), config, 'portal')).toBeUndefined()
-    expect(resolveArea(new URL(`https://admin.dripfunnel.com${frame}`), config, 'edge')).toBeUndefined()
+    expect(resolveArea(new URL(`https://admin.dripfunnel.ai${frame}`), config, 'edge')).toBeUndefined()
   })
 
   it('serves webhooks only on the hooks host', () => {
-    expect(area('https://hooks.dripfunnel.com/stripe')).toBe('hooks')
+    expect(area('https://hooks.dripfunnel.ai/stripe')).toBe('hooks')
     expect(area('https://store.partner.com/stripe')).toBeUndefined()
   })
 
   it('answers nothing for unknown paths', () => {
-    expect(area('https://store.dripfunnel.com/')).toBeUndefined()
-    expect(area('https://store.dripfunnel.com/apix')).toBeUndefined()
+    expect(area('https://store.dripfunnel.ai/')).toBeUndefined()
+    expect(area('https://store.dripfunnel.ai/apix')).toBeUndefined()
   })
 })

@@ -9,7 +9,7 @@ import type { FrameMap, Pin } from './mapFrame'
 // "Pin on map" on a location (#815): each state the card names, with the frame stood in for.
 
 const words = messages.warehouses
-const frame = 'https://hooks.dripfunnel.com/maps/pin'
+const frame = 'https://hooks.dripfunnel.ai/maps/pin'
 
 const api = vi.hoisted(() => ({ loadPlaces: vi.fn(), savePlace: vi.fn(), makeDefaultPlace: vi.fn(), deletePlace: vi.fn(), loadMapFrame: vi.fn(), loadStoreCountry: vi.fn() }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...api }))

@@ -104,7 +104,7 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   the job on any screen.
   The `ExportJob` shape is the API's, in `graphql`; `csv` in `format` writes the file.
 - **Environment**: `environmentFor(hostname)` names the four environments for both consoles
-  (`prod` only on the two exact production hosts, `dev` on the `dev-*.dripfunnel.ai` hosts,
+  (`prod` only on the two exact production hosts, `dev` on the `dev-*.actuateminds.com` hosts,
   `local` on localhost, everything else `feature`, so a look-alike is never production), and
   `EnvironmentBanner` draws the strip, red only for `prod`. The partner console uses both
   (#111); the admin console switches to them on #65.

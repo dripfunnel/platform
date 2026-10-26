@@ -42,13 +42,13 @@ doesn't belong to, and a test proves it (`src/router.test.ts`, `src/index.test.t
 
 | API | Served at | Schema | Client | Who calls it | Scope of every operation |
 |---|---|---|---|---|---|
-| **Admin API** (`src/apis/admin`) | `admin.dripfunnel.com/api` | `schema/admin.graphql` | `apps/ui/admin` | DripFunnel staff (company SSO + 2FA) | The whole platform: every partner, every merchant account. Staff role decides what is allowed |
-| **Platform API** (`src/apis/platform`) | `platform.dripfunnel.com/api` | `schema/platform.graphql` | `apps/ui/platform` | Partner users | **The caller's own partner only**, and its merchants at account level |
+| **Admin API** (`src/apis/admin`) | `admin.dripfunnel.ai/api` | `schema/admin.graphql` | `apps/ui/admin` | DripFunnel staff (company SSO + 2FA) | The whole platform: every partner, every merchant account. Staff role decides what is allowed |
+| **Platform API** (`src/apis/platform`) | `platform.dripfunnel.ai/api` | `schema/platform.graphql` | `apps/ui/platform` | Partner users | **The caller's own partner only**, and its merchants at account level |
 | **Store API** (`src/apis/store`) | `/api` on each partner's portal host | `schema/store.graphql` | `apps/ui/store`, integrations (API keys), installed apps | Merchants, their staff, vendors; API keys; apps; support sessions (read-only) | **The acting store**, and for vendors their own `seller_id` |
 | **Shop API** (`src/apis/shop`) | `/shop-api` on each storefront host | `schema/shop.graphql` | `@dripfunnel/storefront-core`, merchants' own storefronts, the store's shop app | Shoppers (public store key + optional customer session) | One store, public data only |
 | **Delivery API** (`src/apis/delivery`) *(proposed)* | `/delivery-api` on `{slug}.<SHOP_DOMAIN>` only ([DELIVERY.md](DELIVERY.md) §4) | `schema/delivery.graphql` | The store's delivery app | The store's riders (bearer session from a mobile code) | One store, the rider's own offers and deliveries |
-| Webhooks (`src/hooks`) | `hooks.dripfunnel.com` | none | Stripe, Razorpay, Shiprocket, SES, GitHub | Providers (signature verified) | Per provider event |
-| Build calls (`src/apis/builds.ts`) | `hooks.dripfunnel.com/builds/*` | none (JSON) | A store repo's locked workflow | A GitHub Actions run (its OIDC token, storefront/LIVE-SHOP.md §9) | The one build its token and build id name (#517) |
+| Webhooks (`src/hooks`) | `hooks.dripfunnel.ai` | none | Stripe, Razorpay, Shiprocket, SES, GitHub | Providers (signature verified) | Per provider event |
+| Build calls (`src/apis/builds.ts`) | `hooks.dripfunnel.ai/builds/*` | none (JSON) | A store repo's locked workflow | A GitHub Actions run (its OIDC token, storefront/LIVE-SHOP.md §9) | The one build its token and build id name (#517) |
 
 ### 2.1 What belongs in which API
 
@@ -431,7 +431,7 @@ out, since nothing answered.
 2. `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"`, and set the `whsec_…` it prints as `STRIPE_WEBHOOK_SECRET`.
 3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
    `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
-   presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
+   presence of each value, never a value. Dev answers the same at `https://dev-platform.actuateminds.com/api/health`.
 
 ---
 

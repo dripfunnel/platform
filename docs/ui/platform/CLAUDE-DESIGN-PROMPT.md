@@ -1,7 +1,7 @@
 # CLAUDE-DESIGN-PROMPT.md: design the partner console
 
 The prompt to paste into a **Claude Design** session to design the partner console
-(`apps/ui/platform`, `platform.dripfunnel.com`). It is self-contained: the design session
+(`apps/ui/platform`, `platform.dripfunnel.ai`). It is self-contained: the design session
 doesn't read this repo. Its sources are [FIRST-RELEASE.md](FIRST-RELEASE.md) (what the first
 release contains, screen by screen), [README.md](README.md),
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), [../../api/SAAS.md](../../api/SAAS.md)

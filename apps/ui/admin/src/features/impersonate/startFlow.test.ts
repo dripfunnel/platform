@@ -18,7 +18,7 @@ const openSession = (kind: StaffSession['kind'], partnerId = 'ts'): StaffSession
   membership: null,
   partner: { id: partnerId, name: partnerId },
   store: null,
-  host: 'platform.dripfunnel.com',
+  host: 'platform.dripfunnel.ai',
   reason: 'r',
   ticket: null,
   startedAt: '2026-10-01T09:00:00Z',

@@ -3,7 +3,7 @@ import { configProblem, previewKeyOf, route } from './index'
 
 const seen: string[] = []
 const api = { fetch: async (r: Request) => (seen.push(`api ${r.url}`), new Response('api')) } as unknown as Fetcher
-const env = { API: api, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev' }
+const env = { API: api, OWN_ZONE: 'actuateminds.com', PAGES_HOST: 'store.pages.dev' }
 
 afterEach(() => {
   seen.length = 0
@@ -27,21 +27,21 @@ describe('store proxy', () => {
 
   it('passes our own hosts through untouched', async () => {
     stubFetch()
-    await route(new Request('https://dev-admin.dripfunnel.ai/api/health'), env, null)
-    await route(new Request('https://dripfunnel.ai/'), env, null)
-    expect(seen).toEqual(['net https://dev-admin.dripfunnel.ai/api/health', 'net https://dripfunnel.ai/'])
+    await route(new Request('https://dev-admin.actuateminds.com/api/health'), env, null)
+    await route(new Request('https://actuateminds.com/'), env, null)
+    expect(seen).toEqual(['net https://dev-admin.actuateminds.com/api/health', 'net https://actuateminds.com/'])
   })
 
   it('does not treat a lookalike host as ours', async () => {
     stubFetch()
-    await route(new Request('https://evildripfunnel.ai/'), env, null)
+    await route(new Request('https://evilactuateminds.com/'), env, null)
     expect(seen).toEqual(['net https://store.pages.dev/'])
   })
 
   it('checks its configuration: a preview domain apart from our zone, a 32-byte key, and the edge with its bucket', () => {
     const fine = { ...env, SHOP_DOMAIN: 'my-store.one', PREVIEW_SESSION_KEY: `${'A'.repeat(43)}=` }
     expect(configProblem(fine)).toBeNull()
-    expect(configProblem({ ...fine, SHOP_DOMAIN: 'preview.dripfunnel.ai' })).toBe('SHOP_DOMAIN')
+    expect(configProblem({ ...fine, SHOP_DOMAIN: 'preview.actuateminds.com' })).toBe('SHOP_DOMAIN')
     expect(configProblem({ ...fine, PREVIEW_SESSION_KEY: 'short' })).toBe('PREVIEW_SESSION_KEY')
     expect(configProblem({ ...fine, SITES: {} as R2Bucket })).toBe('EDGE')
   })

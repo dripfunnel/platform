@@ -86,8 +86,8 @@ export const staffSession = createPortalSession({
           staffName: 'Neha Rao',
           actingAs: { name: 'Olivia Grant', role: 'Owner', where: 'Loom & Thread · Partner console' },
           partnerName: 'Loom & Thread',
-          host: 'platform.dripfunnel.com',
+          host: 'platform.dripfunnel.ai',
           expiresAt,
         }
-      : { id: 'su-sample', kind, staffName: 'Maya Ortiz', actingAs: null, partnerName: 'Tallis Studio', host: 'platform.dripfunnel.com', expiresAt },
+      : { id: 'su-sample', kind, staffName: 'Maya Ortiz', actingAs: null, partnerName: 'Tallis Studio', host: 'platform.dripfunnel.ai', expiresAt },
 })

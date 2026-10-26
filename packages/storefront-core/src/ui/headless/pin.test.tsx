@@ -44,7 +44,7 @@ const Fields = ({ pin = null }: { pin?: Pin | null }) => {
   return <AddressFields value={value} onChange={setValue} countries={['IN']} errors={{}} t={t} locale="en-US" />
 }
 
-const frame = 'https://hooks.dripfunnel.com/maps/pin'
+const frame = 'https://hooks.dripfunnel.ai/maps/pin'
 const show = (o: { mapFrame?: string | null; mode?: RenderMode; pin?: Pin | null } = {}) =>
   render(
     <StorefrontProvider value={{ client: createShopClient(), store: { ...store, mapFrame: o.mapFrame === undefined ? frame : o.mapFrame }, locale: 'en-US', mode: o.mode ?? 'live', poweredBy: null }}>

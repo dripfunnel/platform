@@ -266,7 +266,7 @@ on one of these, from Expo's terminal:
 | **A real phone with Expo Go** | Install Expo Go from the store, put the phone on the same network, and scan the QR code |
 | **A real phone with a development build** | `pnpm --filter @dripfunnel/mobile-merchant exec eas build --profile dev` (needs an Expo account; the first run asks to link the project), install the build, then open it from the QR code |
 
-The `dev` partner points the app at `https://dev-store.dripfunnel.ai/api/`, the one exception to
+The `dev` partner points the app at `https://dev-store.actuateminds.com/api/`, the one exception to
 using only a local database (AGENTS.md "Working with the user" rule 3). At start the app asks that
 host for the partner's look (the public `brand` query). Cloudflare Access gates the host, so the call is
 refused there until that is solved on its own card (CONFIGURATION.md §2); the app then starts in the

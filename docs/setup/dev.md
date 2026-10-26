@@ -1,6 +1,6 @@
 # Dev environment setup
 
-The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
+The shared, long-lived environment on `actuateminds.com` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
 Last updated: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
@@ -17,13 +17,13 @@ Feature environments (one per `feature` branch) are a separate setup:
 | Part | Dev |
 |---|---|
 | Cloudflare account | "DripFunnel Dev", the same account as feature environments |
-| Zone | `dripfunnel.ai` |
+| Zone | `actuateminds.com` |
 | API Worker | `dripfunnel-api-dev` (`wrangler.jsonc` › `env.dev`) |
-| Hosts | `dev-admin.dripfunnel.ai`, `dev-platform.dripfunnel.ai`, `dev-store.dripfunnel.ai` (each `/api/*` routes to the Worker), `dev-hooks.dripfunnel.ai` (the Worker's own custom domain) |
+| Hosts | `dev-admin.actuateminds.com`, `dev-platform.actuateminds.com`, `dev-store.actuateminds.com` (each `/api/*` routes to the Worker), `dev-hooks.actuateminds.com` (the Worker's own custom domain) |
 | Consoles | Pages projects `dripfunnel-admin-dev`, `dripfunnel-platform-dev`, `dripfunnel-store-dev` |
 | Database | Neon project `dripfunnel-dev`, its persistent `dev` branch, through Hyperdrive |
-| Gate | Cloudflare Access: `*.dripfunnel.ai` allows `@softobotics.com`; `*-hooks.dripfunnel.ai` is bypassed so providers' test webhooks arrive |
-| Merchant mobile app | Its `dev` profile points at `dev-store.dripfunnel.ai` ([mobile-app/merchant/CONFIGURATION.md §2](../mobile-app/merchant/CONFIGURATION.md), #493); the Access gate above refuses the app's API calls until its own card solves that |
+| Gate | Cloudflare Access: `*.actuateminds.com` allows `@softobotics.com`; `*-hooks.actuateminds.com` is bypassed so providers' test webhooks arrive |
+| Merchant mobile app | Its `dev` profile points at `dev-store.actuateminds.com` ([mobile-app/merchant/CONFIGURATION.md §2](../mobile-app/merchant/CONFIGURATION.md), #493); the Access gate above refuses the app's API calls until its own card solves that |
 | Deploys | `.github/workflows/dev.yml`, on every push to `dev`, or by hand |
 | Third parties | Test mode everywhere: Stripe test keys, the SES sandbox or a test identity, the Entra registration's dev redirect |
 
@@ -50,7 +50,7 @@ checked off.
 
 ### 2.1 Cloudflare account, zone and Access
 
-1. Create the dev account, add `dripfunnel.ai`, set SSL to Full (strict), and create the two
+1. Create the dev account, add `actuateminds.com`, set SSL to Full (strict), and create the two
    Access applications: [FEATURE-ENVIRONMENTS.md §4](../code/FEATURE-ENVIRONMENTS.md) steps 1
    and 3. Dev and feature environments share all of this.
 2. Check that the Access applications cover `dev-admin`, `dev-platform` and `dev-store`, and
@@ -63,7 +63,7 @@ checked off.
    only**.
 2. Permissions: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit,
    Workers R2 Storage Edit and Queues Edit; *Zone
-   `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit.
+   `actuateminds.com`*: Zone Read, DNS Edit, Workers Routes Edit.
 3. Copy it once. It goes into the GitHub `dev` environment (§2.5).
 
 ### 2.3 Neon
@@ -136,7 +136,7 @@ them and create their DNS records:
 
 ```bash
 CLOUDFLARE_API_TOKEN=<token from §2.2> CLOUDFLARE_ACCOUNT_ID=<dev account id> \
-DEV_ZONE_ID=<dripfunnel.ai zone id> DEV_DOMAIN=dripfunnel.ai \
+DEV_ZONE_ID=<actuateminds.com zone id> DEV_DOMAIN=actuateminds.com \
 pnpm --filter ./apps/api dev-env:attach
 ```
 
@@ -182,7 +182,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    write and *Metadata* read, **no webhook**; install it on the org → `GITHUB_APP_ID`,
    `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`. Store repos need no package access.
 5. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
-   redirect `https://dev-hooks.dripfunnel.ai/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
+   redirect `https://dev-hooks.actuateminds.com/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
    row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
 6. **SMS**: test accounts for the house partner. These are partner credentials, entered in the
    partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
@@ -214,22 +214,22 @@ Never reuse a value from local or production.
 
 | Name | Type | Dev value | How to get it |
 |---|---|---|---|
-| `ADMIN_HOST` | Text | `dev-admin.dripfunnel.ai` | fixed |
-| `EDGE_ZONE` | Text | `dripfunnel.ai` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>` and `shops.edge.<zone>`, SAAS.md §8); the CNAME targets partners and merchants are shown. Both are proxied records in the zone pointing at the zone's one fallback origin (#428); check with `dig +short shops.edge.dripfunnel.ai` |
-| `CF_SAAS_ZONE_ID` | Text | the id of the `dripfunnel.ai` zone | Cloudflare for SaaS custom hostnames (SAAS.md §8). Without it and the token no hostname is registered, and a portal address goes live on DNS alone |
+| `ADMIN_HOST` | Text | `dev-admin.actuateminds.com` | fixed |
+| `EDGE_ZONE` | Text | `actuateminds.com` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>` and `shops.edge.<zone>`, SAAS.md §8); the CNAME targets partners and merchants are shown. Both are proxied records in the zone pointing at the zone's one fallback origin (#428); check with `dig +short shops.edge.actuateminds.com` |
+| `CF_SAAS_ZONE_ID` | Text | the id of the `actuateminds.com` zone | Cloudflare for SaaS custom hostnames (SAAS.md §8). Without it and the token no hostname is registered, and a portal address goes live on DNS alone |
 | `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
-| `PLATFORM_HOST` | Text | `dev-platform.dripfunnel.ai` | fixed |
-| `HOOKS_HOST` | Text | `dev-hooks.dripfunnel.ai` | fixed |
+| `PLATFORM_HOST` | Text | `dev-platform.actuateminds.com` | fixed |
+| `HOOKS_HOST` | Text | `dev-hooks.actuateminds.com` | fixed |
 | `CODE_CHECK` | Text | `0` | Any email or text code is accepted (expiry, tries and lockout still apply), so sign-in 2-factor, phone enrolment and sign-ups work before an SMS provider exists (#275). Prod leaves it unset unless it accepts any code too (prod.md §4) |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | fixed: the dev Worker has its binding |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Keep a copy in the team's password manager: losing it makes every stored 2-factor secret and credential on dev unreadable |
-| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://dev-admin.dripfunnel.ai/api/auth/callback` |
+| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://dev-admin.actuateminds.com/api/auth/callback` |
 | `STRIPE_SECRET_KEY` | Secret | **test-mode** restricted key `rk_test_…` | Stripe › Developers › API keys › *Create restricted key*, with the permissions in §8 |
-| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (test mode) › Developers › Webhooks › *Add endpoint* `https://dev-hooks.dripfunnel.ai/stripe`, with the events in §8 and *Listen to events on Connected accounts* › *Reveal signing secret* Since #309 the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1) |
+| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (test mode) › Developers › Webhooks › *Add endpoint* `https://dev-hooks.actuateminds.com/stripe`, with the events in §8 and *Listen to events on Connected accounts* › *Reveal signing secret* Since #309 the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1) |
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Secret | the sending IAM user, SES sandbox | THIRD-PARTY-ACCESS.md §2.4. In the sandbox only verified recipients receive mail: verify the team's addresses |
 | `SES_SENDER_DOMAIN` | Text | a domain verified in that SES account | SES › Identities › *Create identity* › Domain, then its DKIM records in DNS |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
-| `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
+| `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.actuateminds.com/ses` (THIRD-PARTY-ACCESS.md §2.4) |
 | ~~`CF_PAGES_POOL`~~ | — | — | Not needed since 2026-10-09: no Pages project per store; the R2 storefront upload credential replaces it (THIRD-PARTY-ACCESS §2.1, names on #317) |
 | `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 5. Read since #309 |
 | `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout, and Settings › Payout and payment in the partner console says the provider isn't switched on |
@@ -237,7 +237,7 @@ Never reuse a value from local or production.
 | `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's key pair | Shown once when the R2 token is created (§2.8 item 1) |
 | `R2_STOREFRONT_API_TOKEN` | Secret | the same R2 token's value | Shown once with the key pair (§2.8 item 1). Read since #517 with the five values beside it: without all six a store build's calls don't exist |
 | `STOREFRONT_SITES_BUCKET`, `STOREFRONT_DRAFTS_BUCKET` | Text | `storefront-sites-dev`, `storefront-drafts-dev` | The buckets of §2.8 item 1, by name: the build's credential and links name them (#517) |
-| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.ai` zone | Profile › API Tokens (§2.8 item 1). Read since #317 with `CF_SAAS_ZONE_ID`: purges the store proxy's cached host lookups after a publish, a domain or a state change; without it they expire within 60 seconds |
+| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `actuateminds.com` zone | Profile › API Tokens (§2.8 item 1). Read since #317 with `CF_SAAS_ZONE_ID`: purges the store proxy's cached host lookups after a publish, a domain or a state change; without it they expire within 60 seconds |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
 | `SHOP_DOMAIN` | Text | `my-shop.dev` (§2.8 item 2) | Validated at boot; `my-store.localhost` locally. Replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
@@ -247,7 +247,7 @@ Leaving out a whole group (all of Entra, Stripe or SES) switches that feature of
 "not connected" instead of failing. Leaving out part of a group does the same, so set each
 group whole.
 
-The consoles' two build flags (`VITE_STATE_HARNESS=1` and `VITE_ADMIN_URL=https://dev-admin.dripfunnel.ai`)
+The consoles' two build flags (`VITE_STATE_HARNESS=1` and `VITE_ADMIN_URL=https://dev-admin.actuateminds.com`)
 are meant to be set in the dev build (THIRD-PARTY-ACCESS.md §8), but **`dev.yml` doesn't set
 them yet**. Until it does, dev bundles have no `?state=` harness, and the portals' staff-session
 links point at production's admin console.
@@ -263,7 +263,7 @@ links point at production's admin console.
    [ROLLBACK.md](../code/ROLLBACK.md) before trying again).
 3. Check the API. Access gates the hosts, so open this in a browser where you're signed in to
    Access:
-   `https://dev-platform.dripfunnel.ai/api/health` → `{"ok":true,"area":"platform","db":"ok","dbLatencyMs":…,…}`.
+   `https://dev-platform.actuateminds.com/api/health` → `{"ok":true,"area":"platform","db":"ok","dbLatencyMs":…,…}`.
    `db: "missing"` means the Hyperdrive binding was lost; a 500 usually means a required value
    (§3) is missing.
 4. Watch the Worker's logs: `pnpm --filter ./apps/api exec wrangler tail --env dev`.
@@ -287,7 +287,7 @@ links point at production's admin console.
 
 ## 6. Checklist
 
-- [ ] Cloudflare dev account, `dripfunnel.ai`, SSL Full (strict), Access applications (§2.1)
+- [ ] Cloudflare dev account, `actuateminds.com`, SSL Full (strict), Access applications (§2.1)
 - [ ] Deploy token (§2.2)
 - [ ] Neon `dev` and test branches, migration and app roles, three connection strings (§2.3)
 - [ ] Hyperdrive id in `env.dev` (§2.4)

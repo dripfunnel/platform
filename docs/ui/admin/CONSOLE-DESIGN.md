@@ -1,7 +1,7 @@
 # CONSOLE-DESIGN.md
 
 The prompt for a design session that produces a **clickable prototype of the admin console**
-(`apps/ui/admin` at `admin.dripfunnel.com`; older documents call it DF Admin): the internal
+(`apps/ui/admin` at `admin.dripfunnel.ai`; older documents call it DF Admin): the internal
 console DripFunnel staff use to run the whole platform. It manages **partners** and their
 white-label **brands** (a partner resells the platform under its own name and look, and has
 exactly one brand), every **store** under every partner, **billing** at both levels, and the
@@ -17,9 +17,9 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > yet. [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) and
 > [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md) win wherever this document
 > disagrees with them. There are **two consoles**. The **admin console** is `apps/ui/admin`
-> at **`admin.dripfunnel.com`**, for DripFunnel staff only, calling the Admin API; it manages
+> at **`admin.dripfunnel.ai`**, for DripFunnel staff only, calling the Admin API; it manages
 > every partner and the platform. The **partner console** is `apps/ui/platform` at
-> **`platform.dripfunnel.com`**, for Partner users only, calling the Platform API; the two
+> **`platform.dripfunnel.ai`**, for Partner users only, calling the Platform API; the two
 > never share screens or endpoints. "Brand" in this document means a **partner**'s
 > white-label identity; DripFunnel is also a partner. Partners are **invite only**: **Admin
 > creates** a partner and invites its Owner (there is no partner sign-up), the partner sets
@@ -85,7 +85,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 >
 > **Read first.** [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) (the admin console is
 > `apps/ui/admin`, a static SPA on Cloudflare Pages, calling the Admin API at `/api` on
-> `admin.dripfunnel.com`), [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md) (the
+> `admin.dripfunnel.ai`), [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md) (the
 > six kinds of user, hostnames, partner onboarding and approval, what a partner can see,
 > support access), [`../../api/SAAS.md`](../../api/SAAS.md) (partners, provisioning, plans,
 > billing, domains, publishing, fleet, metrics) and [`../../api/ACCESS.md`](../../api/ACCESS.md)
@@ -210,7 +210,7 @@ why it shapes the interface. The engine is specified in
     Engineers who need raw data get an engineer-only raw data view inside the admin console,
     audited like every other read of tenant data *(ask)*.
 12. **Staff are a separate identity** (PLATFORM-PROMPT §5.2, ACCESS): company SSO with
-    2-factor (Cloudflare Access in front of `admin.dripfunnel.com` is recommended,
+    2-factor (Cloudflare Access in front of `admin.dripfunnel.ai` is recommended,
     ARCHITECTURE §7), their own **staff roles** (§4), and an **audit log** of every write.
     Staff are never a merchant session with a flag, and the admin console never shares
     screens or endpoints with the partner console. Inside a store, staff follow the same
@@ -275,7 +275,7 @@ Every write shows who may do it. A control a role can't use is **visible and dis
 reason** ("Finance can issue refunds"), so staff know whom to ask. Destructive actions can
 require a **second approver** *(ask which)*.
 
-The **partner console** exists (`apps/ui/platform` at `platform.dripfunnel.com`), for Partner
+The **partner console** exists (`apps/ui/platform` at `platform.dripfunnel.ai`), for Partner
 users with the partner roles Owner, Admin, Support, Finance and Read-only (decided 2026-10-01
 on #109). Its first release is [FIRST-RELEASE.md](../platform/FIRST-RELEASE.md); every part in
 §6 marks its partner console counterpart: what a partner sees and does there for its
@@ -309,7 +309,7 @@ Numbered so coverage can be ticked off. *(ask)* marks a decision needed first (�
 
 ### A. Signing in and staying safe
 
-**Partner console:** scoped counterpart: Partner users sign in at `platform.dripfunnel.com`
+**Partner console:** scoped counterpart: Partner users sign in at `platform.dripfunnel.ai`
 with their own identity, separate from staff and merchants. No self-signup: partner users
 arrive only by invitation (USERS-AND-DOMAINS §3). Re-authentication before dangerous actions
 and disabled-with-reason controls work the same way; no SSO requirement; an environment
@@ -702,7 +702,7 @@ USERS-AND-DOMAINS §4); how partners take part in personal-data requests is *(as
 - **What "white-labelled customer" means first**: partners reselling to many merchants, a
   single large merchant white-labelling their own portal (Loom & Thread), or both?
 - ~~Do partners get their own console in the first release?~~ **Settled**: yes, the partner
-  console at `platform.dripfunnel.com` (USERS-AND-DOMAINS §1). Which parts ship in its first
+  console at `platform.dripfunnel.ai` (USERS-AND-DOMAINS §1). Which parts ship in its first
   release is still open; each part's "Partner console:" line says what it would contain.
 - ~~How do partners join?~~ **Settled (2026-09-29)**: invite only. Admin creates the partner
   and invites its Owner; there is no partner sign-up. The partner sets itself up and Admin
