@@ -8,6 +8,7 @@ import { buildTheme, ThemeProvider, useMode } from '@dripfunnel/mobile-shared/th
 import { BrandContext, type BrandState } from './BrandContext'
 import { loadBrand } from './loadBrand'
 import { readSavedBrand, saveBrand } from './storage'
+import { StartupError } from './StartupError'
 
 export { useBrand } from './BrandContext'
 
@@ -20,7 +21,8 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined)
 export function BrandProvider({ children }: { children: ReactNode }) {
   const mode = useMode()
   const [state, setState] = useState<BrandState | null>(null)
-  const [failure, setFailure] = useState<Error | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let current = true
@@ -30,17 +32,26 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const loaded = await loadBrand({ fetch: () => fetchBrand(client), readSaved: () => readSavedBrand(host), save: (brand) => saveBrand(host, brand) })
       if (current) setState(loaded)
     }
-    start().catch((error: unknown) => current && setFailure(error instanceof Error ? error : new Error('The app could not start.')))
+    start().catch(() => current && setFailed(true))
     return () => {
       current = false
     }
-  }, [])
+  }, [attempt])
 
   useEffect(() => {
-    if (state || failure) SplashScreen.hideAsync().catch(() => undefined)
-  }, [state, failure])
+    if (state || failed) SplashScreen.hideAsync().catch(() => undefined)
+  }, [state, failed])
 
-  if (failure) throw failure
+  if (failed) {
+    return (
+      <StartupError
+        onRetry={() => {
+          setFailed(false)
+          setAttempt((n) => n + 1)
+        }}
+      />
+    )
+  }
   if (!state) return null
   return (
     <BrandContext.Provider value={state}>
