@@ -12,9 +12,9 @@ const files = { photo: '', hidden: '', theirs: '' }
 const objects = new Map<string, string>()
 
 const env = () => ({
-  ADMIN_HOST: 'admin.dripfunnel.com',
-  PLATFORM_HOST: 'platform.dripfunnel.com',
-  HOOKS_HOST: 'hooks.dripfunnel.com',
+  ADMIN_HOST: 'admin.dripfunnel.ai',
+  PLATFORM_HOST: 'platform.dripfunnel.ai',
+  HOOKS_HOST: 'hooks.dripfunnel.ai',
   SHOP_DOMAIN: 'shop.example',
   HYPERDRIVE: { connectionString: db.url },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },

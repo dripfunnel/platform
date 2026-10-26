@@ -9,9 +9,9 @@ let db: TestDatabase
 let t: Tenants
 
 const env = () => ({
-  ADMIN_HOST: 'admin.dripfunnel.com',
-  PLATFORM_HOST: 'platform.dripfunnel.com',
-  HOOKS_HOST: 'hooks.dripfunnel.com',
+  ADMIN_HOST: 'admin.dripfunnel.ai',
+  PLATFORM_HOST: 'platform.dripfunnel.ai',
+  HOOKS_HOST: 'hooks.dripfunnel.ai',
   HYPERDRIVE: { connectionString: db.url },
   CF_VERSION_METADATA: { id: 'test', tag: '' },
 })

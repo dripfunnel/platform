@@ -2,8 +2,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { frameMaps } from './pinFrame'
 
-const source = 'https://hooks.dripfunnel.com/maps/pin'
-const origin = 'https://hooks.dripfunnel.com'
+const source = 'https://hooks.dripfunnel.ai/maps/pin'
+const origin = 'https://hooks.dripfunnel.ai'
 
 // The frame's page is the API's to serve; here it never loads.
 type Settings = { fetch: { interceptor: { beforeAsyncRequest: () => Promise<Response> } | null } }

@@ -89,7 +89,7 @@ export const samplePartners: readonly SamplePartner[] = [
     history: [event('2024-02-03T00:00:00Z', 'partner.created', 'Arjun Menon'), event('2024-02-03T00:00:00Z', 'partner.approved', 'Arjun Menon')],
     checklist: allDone('Ravi', 'DripFunnel'),
     branding: { productName: 'DripFunnel', primaryColor: '#EC844F', accentColor: '#0A2A4A', poweredBy: 'house' },
-    domains: domainsFor('dripfunnel.com', 'store.dripfunnel.com'),
+    domains: domainsFor('dripfunnel.ai', 'store.dripfunnel.ai'),
     plans: [
       plan('df-starter', 'Starter', 'live', 10, 1, 402),
       plan('df-growth', 'Growth', 'live', 100, 2, 511),

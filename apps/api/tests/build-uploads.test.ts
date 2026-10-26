@@ -23,7 +23,7 @@ let sites: FakeSites
 let signer: { kid: string; privateKey: CryptoKey; jwk: JWK }
 let stranger: CryptoKey
 const now = new Date('2026-10-11T10:00:00Z')
-const audience = 'https://hooks.dripfunnel.com'
+const audience = 'https://hooks.dripfunnel.ai'
 const parent = { accountId: 'a'.repeat(32), accessKeyId: 'b'.repeat(32), secretAccessKey: 'c'.repeat(64), apiToken: 'parent-api-token-value-0123456789' }
 const minted: { body: Record<string, unknown> }[] = []
 const temporary = { accessKeyId: 'tmp-access-key-id-1', secretAccessKey: 'tmp-secret-access-key-1', sessionToken: 'tmp-session-token-1' }

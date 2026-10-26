@@ -107,7 +107,7 @@ describe('adding an address', () => {
     const refused = async (kind: string, host: string) => (await run<Added>(add, owner, { kind, host })).data?.addPartnerDomain.reason
     expect(await refused('portal', 'not a host!')).toBe('NOT_A_HOSTNAME')
     expect(await refused('portal', '10.0.0.1')).toBe('NOT_A_HOSTNAME')
-    expect(await refused('portal', 'shop.dripfunnel.com')).toBe('DRIPFUNNEL_DOMAIN')
+    expect(await refused('portal', 'shop.dripfunnel.ai')).toBe('DRIPFUNNEL_DOMAIN')
     expect(await refused('portal', 'x.edge.example')).toBe('DRIPFUNNEL_DOMAIN')
     expect(await refused('portal', 'edge.example')).toBe('DRIPFUNNEL_DOMAIN')
     expect(await refused('shops', 'shops.freshpartner.example')).toBe('INVALID_INPUT')
@@ -121,19 +121,19 @@ describe('adding an address', () => {
   it('lets the house partner add a DripFunnel host and nobody else', async () => {
     const house = (await db.sql<{ id: string }[]>`select id from partner where is_house`)[0]?.id ?? ''
     const owner = callerOf(house, 'partner-owner')
-    expect((await run<Added>(add, callerOf(ids.fresh, 'partner-owner'), { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
+    expect((await run<Added>(add, callerOf(ids.fresh, 'partner-owner'), { kind: 'portal', host: 'store.dripfunnel.ai' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
     expect((await run<Added>(add, owner, { kind: 'email', host: 'mail.dripfunnel-mail.com' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
     expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.net' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
-    expect((await run<Added>(add, callerOf(house, 'partner-support'), { kind: 'portal', host: 'store.dripfunnel.com' })).code).toBe('FORBIDDEN')
+    expect((await run<Added>(add, callerOf(house, 'partner-support'), { kind: 'portal', host: 'store.dripfunnel.ai' })).code).toBe('FORBIDDEN')
     expect((await run<Added>(add, owner, { kind: 'portal', host: 'store.edge.example' })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
-    for (const host of ['dripfunnel.com', 'admin.dripfunnel.com', 'platform.dripfunnel.com', 'hooks.dripfunnel.com']) {
+    for (const host of ['dripfunnel.ai', 'admin.dripfunnel.ai', 'platform.dripfunnel.ai', 'hooks.dripfunnel.ai']) {
       expect((await run<Added>(add, owner, { kind: 'portal', host })).data?.addPartnerDomain.reason).toBe('DRIPFUNNEL_DOMAIN')
     }
     // Another file seeds the house partner's portal row; lift it with its records so the slot is free, then put it back.
     const records = await db.sql`delete from partner_domain_record where partner_id = ${house} returning *`
     const [seeded] = await db.sql`delete from partner_domain where partner_id = ${house} and kind = 'portal' returning *`
     try {
-      const added = (await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.com' })).data?.addPartnerDomain
+      const added = (await run<Added>(add, owner, { kind: 'portal', host: 'store.dripfunnel.ai' })).data?.addPartnerDomain
       expect(added).toMatchObject({ ok: true })
       await db.sql`delete from partner_domain_record where domain_id = ${added?.id ?? ''}`
       await db.sql`delete from partner_domain where id = ${added?.id ?? ''}`

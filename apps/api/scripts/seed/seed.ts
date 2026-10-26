@@ -298,7 +298,7 @@ const seedPartner = async (
   }
 
   for (const d of domainsFor(p)) {
-    const records = recordsFor(d.kind, d.host, false, 'dripfunnel.ai') ?? []
+    const records = recordsFor(d.kind, d.host, false, 'actuateminds.com') ?? []
     const [first] = records
     if (!first) continue
     await upsertPartnerDomain(tx, {

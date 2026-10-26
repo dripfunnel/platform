@@ -169,9 +169,9 @@ jobs:
         env:
           VERSION_ID: ${{ steps.container.outputs.version-id }}
         run: |
-          # platform.dripfunnel.com, not admin.dripfunnel.com: admin sits behind Cloudflare Access (§2).
+          # platform.dripfunnel.ai, not admin.dripfunnel.ai: admin sits behind Cloudflare Access (§2).
           for i in $(seq 1 10); do
-            body=$(curl -sf "https://platform.dripfunnel.com/api/health" || echo '')
+            body=$(curl -sf "https://platform.dripfunnel.ai/api/health" || echo '')
             if [ -n "$body" ] && echo "$body" | jq -e --arg v "$VERSION_ID" '.ok == true and .version == $v' > /dev/null 2>&1; then
               echo "Healthy on version $VERSION_ID (attempt $i)."
               exit 0

@@ -21,7 +21,7 @@ const now = new Date('2026-10-02T12:00:00Z')
 const staffByRole = new Map<StaffRole, StaffMember>()
 let secondPm: StaffMember
 
-const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
+const request = new Request('https://admin.dripfunnel.ai/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
 
 const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext => {
   const assigned = (staffId: string, target: Parameters<typeof isAssigned>[2]) => isAssigned(db.sql, staffId, target)

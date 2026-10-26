@@ -6,7 +6,7 @@ const configSchema = z.object({
   HOOKS_HOST: z.string().min(1),
   CF_CUSTOM_HOSTNAMES_TOKEN: z.string().min(1).optional(),
   CF_SAAS_ZONE_ID: z.string().min(1).optional(),
-  EDGE_ZONE: z.string().min(1).default('dripfunnel.com'),
+  EDGE_ZONE: z.string().min(1).default('dripfunnel.ai'),
   // Purges the edge Worker's cached host lookups by tag on CF_SAAS_ZONE_ID (storefront LIVE-SHOP.md §5 step 1); absent, they expire in 60 seconds.
   CF_CACHE_PURGE_TOKEN: z.string().min(1).optional(),
   // Every store's preview is `{key}.<it>` (storefront PREVIEW.md §8): its own registrable domain, never a console's.
@@ -109,7 +109,7 @@ const configSchema = z.object({
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
-const devHooksHost = 'dev-hooks.dripfunnel.ai'
+const devHooksHost = 'dev-hooks.actuateminds.com'
 export const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
 const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'PUSH_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL'] as const
 

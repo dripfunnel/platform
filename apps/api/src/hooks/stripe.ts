@@ -6,7 +6,7 @@ import { handleMerchantStripeEvent, type SettleDeps } from '#engine/modules/chec
 import { eventSchema, StripeUnavailable, verifySignature, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeEvent, retriedOutcomes } from '#saas/billing/index'
 
-// hooks.dripfunnel.com/stripe (SAAS §7.2; THIRD-PARTY-ACCESS §3.1): signature first, then one event; 503 so it comes
+// hooks.dripfunnel.ai/stripe (SAAS §7.2; THIRD-PARTY-ACCESS §3.1): signature first, then one event; 503 so it comes
 // again. A store's connected account's event is a shopper's payment and never reaches billing.
 export const stripeHookPath = '/stripe'
 

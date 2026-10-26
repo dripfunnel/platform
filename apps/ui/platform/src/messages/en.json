@@ -129,7 +129,7 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "help": "Help",
-    "helpUrl": "https://help.dripfunnel.com/partners",
+    "helpUrl": "https://help.dripfunnel.ai/partners",
     "opensInNewTab": "(opens in a new tab)",
     "search": {
       "button": "Search stores by name, domain or owner email",
@@ -239,7 +239,7 @@
         "title": "{partner} is offboarding.",
         "body": "No new stores or signups. Move or close your stores before your contract ends; they keep running until then.",
         "link": "What happens next",
-        "href": "https://help.dripfunnel.com/partners/offboarding"
+        "href": "https://help.dripfunnel.ai/partners/offboarding"
       },
       "domains": {
         "title": "{hosts} stopped pointing at DripFunnel.",

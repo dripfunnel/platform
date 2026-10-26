@@ -146,7 +146,7 @@ assignee** unless the request names one.
 ## 6. The bug sections
 
 ```
-**Environment:** dev (store.acme.dripfunnel.ai), signed in as the store's Owner; seed data, store "Jaipur Looms".
+**Environment:** dev (store.acme.actuateminds.com), signed in as the store's Owner; seed data, store "Jaipur Looms".
 
 **Steps to reproduce**
 1. Open Orders and pick an order paid by card and not shipped.

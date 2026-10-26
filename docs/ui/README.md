@@ -12,8 +12,8 @@ Last updated: 2026-10-11.
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
 | `apps/ui/store` | [store/](store/README.md), [FIRST-RELEASE](store/FIRST-RELEASE.md) | each partner's portal host, e.g. `store.<partnerdomain>` | Merchants (Owner, Manager, Staff) and vendors | Store API | **The partner's** (white label) |
-| `apps/ui/platform` | [platform/](platform/README.md) | `platform.dripfunnel.com` | Partner users | Platform API | DripFunnel |
-| `apps/ui/admin` | [admin/](admin/README.md) | `admin.dripfunnel.com` | DripFunnel staff | Admin API | DripFunnel |
+| `apps/ui/platform` | [platform/](platform/README.md) | `platform.dripfunnel.ai` | Partner users | Platform API | DripFunnel |
+| `apps/ui/admin` | [admin/](admin/README.md) | `admin.dripfunnel.ai` | DripFunnel staff | Admin API | DripFunnel |
 | `apps/ui/shared` | [shared/](shared/README.md) | (library) | every SPA | none of its own | tokens every app themes |
 
 ---

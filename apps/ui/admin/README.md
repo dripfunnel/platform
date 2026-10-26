@@ -1,7 +1,7 @@
 # admin
 
 The admin console for DripFunnel staff (DF Admin): a static SPA on Cloudflare Pages at
-`admin.dripfunnel.com`, calling the Admin API at `/api`. It manages every partner and platform.
+`admin.dripfunnel.ai`, calling the Admin API at `/api`. It manages every partner and platform.
 Guide: [docs/ui/admin/](../../../docs/ui/admin/README.md); design: [CONSOLE-DESIGN.md](../../../docs/ui/admin/CONSOLE-DESIGN.md).
 
 ```bash
@@ -50,8 +50,8 @@ pnpm --filter ./apps/api session arjun@softobotics.example   # prints __Host-df_
   their second user. `navView.ts` turns this app's rows into what the shared side bar draws.
   `AppHeader`, `AppShell` and the search dialog (`search.css`) stay here.
 - **Environment**: the shared `environmentFor` and `EnvironmentBanner` (#65): Production on
-  `admin.dripfunnel.com`, Dev on `dev-admin.dripfunnel.ai`, Feature on a feature environment's
-  `*.dripfunnel.ai` host and Local on localhost; a look-alike or unknown host is never
+  `admin.dripfunnel.ai`, Dev on `dev-admin.actuateminds.com`, Feature on a feature environment's
+  `*.actuateminds.com` host and Local on localhost; a look-alike or unknown host is never
   Production. The words are this app's (`shell.environment` in `messages/en.json`).
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
   drawer opened from the menu button.

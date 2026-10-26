@@ -134,9 +134,9 @@ const signedIn = async (phone: string, host = hostA1) => {
 
 describe('the Delivery API’s host (ARCHITECTURE §2, DELIVERY §4)', () => {
   const env = () => ({
-    ADMIN_HOST: 'admin.dripfunnel.com',
-    PLATFORM_HOST: 'platform.dripfunnel.com',
-    HOOKS_HOST: 'hooks.dripfunnel.com',
+    ADMIN_HOST: 'admin.dripfunnel.ai',
+    PLATFORM_HOST: 'platform.dripfunnel.ai',
+    HOOKS_HOST: 'hooks.dripfunnel.ai',
     SHOP_DOMAIN: shopDomain,
     HYPERDRIVE: { connectionString: db.url },
     HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
@@ -156,7 +156,7 @@ describe('the Delivery API’s host (ARCHITECTURE §2, DELIVERY §4)', () => {
 
   it('answers 404 on a preview host, a merchant’s own domain, an unknown store, our hosts and other paths', async () => {
     await db.sql`insert into custom_domain (store_id, host, status, expected_cname, ownership_token) values (${t.storeA2}, 'www.a2-delivers.example', 'live', 'x', 'y')`
-    for (const host of ['store-a1-preview.shop.example', 'www.a2-delivers.example', 'nobody.shop.example', 'admin.dripfunnel.com', 'hooks.dripfunnel.com']) expect((await post(host)).status).toBe(404)
+    for (const host of ['store-a1-preview.shop.example', 'www.a2-delivers.example', 'nobody.shop.example', 'admin.dripfunnel.ai', 'hooks.dripfunnel.ai']) expect((await post(host)).status).toBe(404)
     expect((await post(hostA1, '/delivery-apix')).status).toBe(404)
   })
 

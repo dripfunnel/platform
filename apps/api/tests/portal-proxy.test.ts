@@ -10,12 +10,12 @@ let t: Tenants
 const hostA = 'store.partner-a.example'
 const hostB = 'portal.partner-b.example'
 const pending = 'store.pending.example'
-const ownHost = 'store.dripfunnel.com'
+const ownHost = 'store.dripfunnel.ai'
 
 const env = {
-  ADMIN_HOST: 'admin.dripfunnel.com',
-  PLATFORM_HOST: 'platform.dripfunnel.com',
-  HOOKS_HOST: 'hooks.dripfunnel.com',
+  ADMIN_HOST: 'admin.dripfunnel.ai',
+  PLATFORM_HOST: 'platform.dripfunnel.ai',
+  HOOKS_HOST: 'hooks.dripfunnel.ai',
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   SIGN_IN_RATE_LIMITER: { limit: async () => ({ success: true }) },
   CF_VERSION_METADATA: { id: 'test', tag: '' },
@@ -96,6 +96,6 @@ describe('the public fetch', () => {
 
   it('still serves a registered portal host on our own zone, which has a route of its own', async () => {
     expect(await viaPublic(ownHost)).toEqual({ status: 200, name: 'DripFunnel' })
-    expect((await viaPublic('store2.dripfunnel.com')).status).toBe(404)
+    expect((await viaPublic('store2.dripfunnel.ai')).status).toBe(404)
   })
 })

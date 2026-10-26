@@ -29,9 +29,9 @@ let ownerSecret = ''
 const day = 86_400_000
 
 const env = () => ({
-  ADMIN_HOST: 'admin.dripfunnel.com',
-  PLATFORM_HOST: 'platform.dripfunnel.com',
-  HOOKS_HOST: 'hooks.dripfunnel.com',
+  ADMIN_HOST: 'admin.dripfunnel.ai',
+  PLATFORM_HOST: 'platform.dripfunnel.ai',
+  HOOKS_HOST: 'hooks.dripfunnel.ai',
   HYPERDRIVE: { connectionString: db.url },
   CREDENTIALS_KEK: kek,
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },

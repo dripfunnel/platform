@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { safeNext } from './next'
 
-const origin = 'https://platform.dripfunnel.com'
+const origin = 'https://platform.dripfunnel.ai'
 
 describe('safeNext', () => {
   it('keeps a path on this host', () => {

@@ -15,7 +15,7 @@ const impersonation: FixtureHandoff = {
   host: 'shop.bazaarcloud.in/mehta-textiles',
   expiresAt: inMinutes(30),
 }
-const setup: FixtureHandoff = { id: 'su-1', kind: 'setup', staffName: 'Maya Ortiz', actingAs: null, partnerName: 'Tallis Studio', host: 'platform.dripfunnel.com', expiresAt: inMinutes(120) }
+const setup: FixtureHandoff = { id: 'su-1', kind: 'setup', staffName: 'Maya Ortiz', actingAs: null, partnerName: 'Tallis Studio', host: 'platform.dripfunnel.ai', expiresAt: inMinutes(120) }
 const open = (handoff: FixtureHandoff): PortalStaffSession => ({ ...handoff, state: 'open', endedBy: null })
 
 const words: StaffSessionWords = {

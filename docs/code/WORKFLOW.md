@@ -34,7 +34,7 @@ kind of work, and a short name.
 
 | Kind | Use it for | Branch | Environment |
 |---|---|---|---|
-| **Feature** | New functionality a user can see or use: a screen, a flow, an API capability behind a screen | `#<issue>/feature/<short-name>`, e.g. `#12/feature/abandoned-carts` | **Yes**: a complete environment on `<issue>-<short-name>-*.dripfunnel.ai` (e.g. `12-abandoned-carts-store.dripfunnel.ai`), redeployed on every push and removed when the branch is deleted ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) |
+| **Feature** | New functionality a user can see or use: a screen, a flow, an API capability behind a screen | `#<issue>/feature/<short-name>`, e.g. `#12/feature/abandoned-carts` | **Yes**: a complete environment on `<issue>-<short-name>-*.actuateminds.com` (e.g. `12-abandoned-carts-store.actuateminds.com`), redeployed on every push and removed when the branch is deleted ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) |
 | **Task** | Everything else that isn't a defect: foundations (database, tenancy, core types), refactors, tooling, CI, dependencies, docs, design-token work | `#<issue>/task/<short-name>`, e.g. `#13/task/db-foundation` | No: gates only |
 | **Bug** | Fixing a defect in something already merged | `#<issue>/bug/<short-name>`, e.g. `#14/bug/money-rounding` | No: gates only |
 

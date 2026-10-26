@@ -12,12 +12,12 @@ let db: TestDatabase
 let t: Tenants
 const hostA = 'store.partner-a.example'
 const fresh = 'store.fresh.example'
-const ownHost = 'store.dripfunnel.com'
+const ownHost = 'store.dripfunnel.ai'
 
 const env = {
-  ADMIN_HOST: 'admin.dripfunnel.com',
-  PLATFORM_HOST: 'platform.dripfunnel.com',
-  HOOKS_HOST: 'hooks.dripfunnel.com',
+  ADMIN_HOST: 'admin.dripfunnel.ai',
+  PLATFORM_HOST: 'platform.dripfunnel.ai',
+  HOOKS_HOST: 'hooks.dripfunnel.ai',
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   SIGN_IN_RATE_LIMITER: { limit: async () => ({ success: true }) },
   CF_VERSION_METADATA: { id: 'test', tag: '' },

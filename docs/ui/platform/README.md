@@ -1,6 +1,6 @@
 # ui/platform: the partner console
 
-`apps/ui/platform` at **`platform.dripfunnel.com`**: the console **partners** use to run
+`apps/ui/platform` at **`platform.dripfunnel.ai`**: the console **partners** use to run
 their white-label business on DripFunnel. It calls the **Platform API** at `/api` on the
 same host. It is DripFunnel-branded for every partner (not white-labelled), and serves
 **partner users only**: DripFunnel staff use the admin console

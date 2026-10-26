@@ -16,7 +16,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 let now = new Date('2026-10-03T09:00:00Z')
-const host = 'platform.dripfunnel.com'
+const host = 'platform.dripfunnel.ai'
 const key = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))
 let secrets: Awaited<ReturnType<typeof secretBox>>
 const attempts: string[] = []

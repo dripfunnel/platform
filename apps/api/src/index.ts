@@ -623,7 +623,7 @@ const buildDepsFor = (config: Config, env: Env): Omit<BuildDeps, 'sql'> | null =
   return { ...common, keys: actionsKeysBuilt, r2: r2Built.r2, buckets: { sites: sitesBucket, drafts: draftsBucket } }
 }
 
-// hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
+// hooks.dripfunnel.ai: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
 // (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
 const handleHooks = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   if (url.pathname === mapFramePath || url.pathname === mapFrameScriptPath) return handleMapFrame(request, url.pathname, { key: config.GOOGLE_MAPS_BROWSER_KEY ?? null, local: isLocalhost(config.HOOKS_HOST) })

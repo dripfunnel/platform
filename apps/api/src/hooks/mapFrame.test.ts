@@ -3,7 +3,7 @@ import { handleMapFrame, mapFramePath, mapFrameScriptPath } from './mapFrame'
 
 const key = 'AIzaSyTestTestTestTestTestTestTestTest12'
 const get = (path: string, o: { key?: string | null; local?: boolean; method?: string } = {}) =>
-  handleMapFrame(new Request(`https://hooks.dripfunnel.com${path}`, { method: o.method ?? 'GET' }), path, { key: o.key === undefined ? key : o.key, local: o.local ?? false })
+  handleMapFrame(new Request(`https://hooks.dripfunnel.ai${path}`, { method: o.method ?? 'GET' }), path, { key: o.key === undefined ? key : o.key, local: o.local ?? false })
 const directive = (csp: string | null, name: string) => (csp ?? '').split('; ').find((d) => d.startsWith(`${name} `))
 
 describe('the Pin on map frame', () => {

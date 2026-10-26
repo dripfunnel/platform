@@ -19,7 +19,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, 
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **Six kinds of user and their hostnames**: Admin on `admin.dripfunnel.com`; Partners on `platform.dripfunnel.com`; merchants and vendors on each partner's own portal host; customers on merchants' domains and their stores' shop apps; riders in their stores' delivery apps *(proposed)*. Full detail in [USERS-AND-DOMAINS.md](USERS-AND-DOMAINS.md) | Per-partner consoles; one shared merchant portal host; Admin and Partners in one console | Partners are our customers and use one console we own; merchants see only their partner's brand. Staff get their own console and host, so an Admin screen or endpoint can never be reached from a partner session, and Cloudflare Access can guard the whole admin host. |
+| **Six kinds of user and their hostnames**: Admin on `admin.dripfunnel.ai`; Partners on `platform.dripfunnel.ai`; merchants and vendors on each partner's own portal host; customers on merchants' domains and their stores' shop apps; riders in their stores' delivery apps *(proposed)*. Full detail in [USERS-AND-DOMAINS.md](USERS-AND-DOMAINS.md) | Per-partner consoles; one shared merchant portal host; Admin and Partners in one console | Partners are our customers and use one console we own; merchants see only their partner's brand. Staff get their own console and host, so an Admin screen or endpoint can never be reached from a partner session, and Cloudflare Access can guard the whole admin host. |
 | **One repo, `dripfunnel/platform`**, for every app, the storefront package and template, and all docs | Four repos (packages, store, admin, template) | One schema and one migration history for one database; an AI agent (or a person) can follow a change from table to API to screen and make it in one pull request; one copy of the rules. Generated **store repos** stay separate by design. |
 | **Four apps**: `api` (one Worker) and three SPAs in `apps/ui/`: `store`, `platform` and `admin`; the mobile apps are separate rows below (merchant, and the proposed shop and delivery apps) | Five API Workers; a package per concern | Fewest moving parts: one API deploy, one config, one set of bindings, no wiring copied between Workers. The modules inside `api` stay separate, so splitting a Worker out later is cheap. |
 | **The merchant mobile app is a React Native (Expo) project in this repo**, `apps/ui/mobile-app/merchant`, inside the pnpm workspace and the turbo gates (`typecheck`, `lint`, `test`; no `build`). Its builds and store submissions are manual, per partner (decided 2026-10-08 on #490; set up on #496) | A separate mobile repo; building and submitting it from the `dev` and `prod` pipelines | One repo is the rule above: a change can go from the GraphQL schema to a mobile screen in one pull request. Every submission goes through Apple's and Google's review, so a person decides when each partner's app ships ([mobile-app/merchant/](mobile-app/merchant/REACT-NATIVE.md)). |
@@ -48,11 +48,11 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, 
 
 | Deployable | Kind | Serves | Hostnames |
 |---|---|---|---|
-| `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, the Delivery API (#839), inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host and every preview host, `{slug}-preview.<SHOP_DOMAIN>`; `/delivery-api/*` on `{slug}.<SHOP_DOMAIN>` *(proposed)*; `hooks.dripfunnel.com` |
+| `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, the Delivery API (#839), inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.ai` and on `admin.dripfunnel.ai`; `/shop-api/*` on every storefront host and every preview host, `{slug}-preview.<SHOP_DOMAIN>`; `/delivery-api/*` on `{slug}.<SHOP_DOMAIN>` *(proposed)*; `hooks.dripfunnel.ai` |
 | `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS, and on `*.<SHOP_DOMAIN>/*` in the shop zone (`my-store.one` in prod, `my-shop.dev` on dev, `my-store.localhost` locally; USERS-AND-DOMAINS §2). Partner portal hosts: `/api/*` to the API Worker's `PortalProxy` entrypoint through a service binding, the rest to the store Pages project. Storefront hosts and `*.<SHOP_DOMAIN>`: each store's built files from R2, `/shop-api/*` to the API Worker's `StorefrontEdge` entrypoint, which also answers its host lookups (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09, entrypoint on #317). Our own hosts pass through (SAAS.md §8). Portal part: dev, and prod once the routes are applied after the first promote (setup/prod.md §3.5 step 6); the storefront part is built (#317) and is bound on dev once #287's bucket and the dev shop zone exist | every partner portal host; every merchant domain; `*.<SHOP_DOMAIN>` |
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
-| `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
-| `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |
+| `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.ai` |
+| `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.ai` |
 | `apps/ui/mobile-app/merchant` | **Mobile app** (Expo; iOS and Android), one build per partner, built and submitted by hand, never by the pipelines (§6) | Merchants and vendors on their phones, in the partner's look; it calls `/api/` on the partner's portal host with a bearer token ([mobile-app/merchant/REACT-NATIVE.md](mobile-app/merchant/REACT-NATIVE.md) §5) | none of its own: the partner's portal host |
 | `apps/ui/mobile-app/shop` *(proposed)* | **Mobile app** (Expo), one build per store, by hand | The store's customers: browse, buy, track a delivery ([mobile-app/shop/](mobile-app/shop/FIRST-RELEASE.md)) | none of its own: `/shop-api/` on `{slug}.<SHOP_DOMAIN>` |
 | `apps/ui/mobile-app/delivery` *(proposed)* | **Mobile app** (Expo), one build per store, by hand | The store's riders: offers, pickup, delivery, cash on delivery ([mobile-app/delivery/](mobile-app/delivery/FIRST-RELEASE.md)) | none of its own: `/delivery-api/` on `{slug}.<SHOP_DOMAIN>` |
@@ -66,19 +66,19 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, 
 
 | Request | Handled by | Anywhere else |
 |---|---|---|
-| `admin.dripfunnel.com/api/*` | Admin API (`src/apis/admin`) | 404 |
-| `platform.dripfunnel.com/api/*` | Platform API (`src/apis/platform`) | 404 |
-| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). The found partner is kept in the data centre's cache (`caches.default`, keyed by the lower-cased host) for 60 s and a host not found is never kept, so a removed or no-longer-live domain, or a closed partner's, resolves for up to 60 s, as the edge lookup does (SAAS.md §8, #637). A partner's own host arrives only through store-proxy's service binding on the `PortalProxy` entrypoint; the Worker's own routes answer the Store API only on hosts in the admin host's zone (`dev-store.dripfunnel.ai` on dev, `store.northstar.localhost` locally) | 404 |
+| `admin.dripfunnel.ai/api/*` | Admin API (`src/apis/admin`) | 404 |
+| `platform.dripfunnel.ai/api/*` | Platform API (`src/apis/platform`) | 404 |
+| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). The found partner is kept in the data centre's cache (`caches.default`, keyed by the lower-cased host) for 60 s and a host not found is never kept, so a removed or no-longer-live domain, or a closed partner's, resolves for up to 60 s, as the edge lookup does (SAAS.md §8, #637). A partner's own host arrives only through store-proxy's service binding on the `PortalProxy` entrypoint; the Worker's own routes answer the Store API only on hosts in the admin host's zone (`dev-store.actuateminds.com` on dev, `store.northstar.localhost` locally) | 404 |
 | A storefront host `/shop-api/*` | Shop API (`src/apis/shop`); through store-proxy's `StorefrontEdge` binding only `/shop-api/*` answers, and never on our own hosts (#317) | |
 | `{slug}.<SHOP_DOMAIN>/delivery-api/*` | Delivery API (`src/apis/delivery`, built on #839), through store-proxy's `StorefrontEdge` binding only, which passes it on every store host as it does `/shop-api/*`; the Worker answers it only when the host is a store's free address, never on a preview host, a merchant's own domain, our hosts or its own routes ([api/DELIVERY.md](api/DELIVERY.md) §4) | 404 |
-| `hooks.dripfunnel.com/*` | Webhooks (`src/hooks`); `/builds/*`, a store repo's build calls by GitHub OIDC (`src/apis/builds.ts`, storefront/LIVE-SHOP.md §4, #517) | 404 |
+| `hooks.dripfunnel.ai/*` | Webhooks (`src/hooks`); `/builds/*`, a store repo's build calls by GitHub OIDC (`src/apis/builds.ts`, storefront/LIVE-SHOP.md §4, #517) | 404 |
 | Queue messages, Cron, Workflow steps | `src/jobs` | no HTTP route |
 
 `PortalProxy` answers only that row: our own hosts, any other path and a host not found are 404, and
 nothing (not even `/api/health`) answers before the lookup. Public traffic can't reach an
 entrypoint, so a forged `Host` on the Worker's own routes finds no partner (decided on #422).
 A test proves every API answers 404 on every host it doesn't belong to. Cloudflare Access
-guards `admin.dripfunnel.com`. Prod deploys upload a Worker version without putting it live;
+guards `admin.dripfunnel.ai`. Prod deploys upload a Worker version without putting it live;
 promoting it to 100% (and rolling back) is a manual `wrangler versions deploy` command, so a
 bad deploy never reaches traffic without a human step (see `docs/code/ROLLBACK.md`).
 
@@ -219,27 +219,27 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 - **Environments**: local, feature (per `#<issue>/feature/<short-name>` branch), dev,
   production. Each has its own Worker, Pages deploys, R2 buckets, Queues and **Neon branch**.
   Feature environments live in a separate Cloudflare account and Neon project, on
-  `dripfunnel.ai` ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
+  `actuateminds.com` ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
 - **Local**: `wrangler dev` for the API Worker with Hyperdrive pointed at the **local
   Postgres** (the local-databases-only rule), `vite dev` for the SPAs, Miniflare for R2,
   Queues and KV.
 - **Pull requests and other branches**: the gates only; Turborepo builds and tests only what
   changed.
 - **Feature branches**: every push deploys the branch's complete environment (Worker, three
-  SPAs, Neon branch with migrations applied, `<slug>-*.dripfunnel.ai` hostnames behind
+  SPAs, Neon branch with migrations applied, `<slug>-*.actuateminds.com` hostnames behind
   Cloudflare Access). It is removed when the branch is deleted or after 14 days without a
   commit ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
 - **Dev**: one long-lived environment, redeployed on every push to `dev`, so both tracks
   see their work running against a real database instead of only locally. Same shape as
   production: migrations run first over Neon's direct connection, then the API Worker, then
   the three SPAs, each deploying only when its own files or `apps/ui/shared/` change. Hosts
-  `dev-store.dripfunnel.ai`, `dev-platform.dripfunnel.ai`, `dev-admin.dripfunnel.ai` and
-  `dev-hooks.dripfunnel.ai` (decided 2026-10-01, correcting `dripfunnel.com`): dev runs on
-  the dev Cloudflare account, and that account holds `dripfunnel.ai`, not the production
+  `dev-store.actuateminds.com`, `dev-platform.actuateminds.com`, `dev-admin.actuateminds.com` and
+  `dev-hooks.actuateminds.com` (decided 2026-10-01; moved from `dripfunnel.ai` to `actuateminds.com` 2026-10-26): dev runs on
+  the dev Cloudflare account, and that account holds `actuateminds.com`, not the production
   zone. Nothing that is not production belongs on the production domain. The dev account's
-  Access applications are meant to cover these — `*.dripfunnel.ai` allows `@softobotics.com`,
-  and `dev-hooks` matches the `*-hooks.dripfunnel.ai` Bypass, so providers' test webhooks
-  reach it; webhooks verify their own signatures. `dev-hooks.dripfunnel.ai`'s DNS record and
+  Access applications are meant to cover these — `*.actuateminds.com` allows `@softobotics.com`,
+  and `dev-hooks` matches the `*-hooks.actuateminds.com` Bypass, so providers' test webhooks
+  reach it; webhooks verify their own signatures. `dev-hooks.actuateminds.com`'s DNS record and
   certificate are provisioned by its `custom_domain: true` route in `wrangler.jsonc`
   (`env.dev`), not by Access; the dashboard Access applications are what must gate the other
   three. Dashboard state that does not yet match this rule is tracked on #106, not here. A
@@ -280,7 +280,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 - Rate limiting with Workers rate-limit bindings and WAF rules on sign-in, signup, invites,
   password reset and the Shop API.
 - Admin staff sign in with company SSO and 2-factor *(recommend Cloudflare Access in front
-  of `admin.dripfunnel.com` as an extra gate)*.
+  of `admin.dripfunnel.ai` as an extra gate)*.
 - **Fetching a URL a user gave us** (an import's image addresses, built on #301): https on a public
   name only, every address it resolves to public (through DoH, before the request and again for
   each redirect), a timeout, a size cap and bounded retries (`integrations/http/publicFetch.ts`).

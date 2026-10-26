@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { parseConfig } from './config'
 
 const key43 = `${'A'.repeat(43)}=`
-const hosts = { ADMIN_HOST: 'admin.dripfunnel.com', PLATFORM_HOST: 'platform.dripfunnel.com', HOOKS_HOST: 'hooks.dripfunnel.com' }
+const hosts = { ADMIN_HOST: 'admin.dripfunnel.ai', PLATFORM_HOST: 'platform.dripfunnel.ai', HOOKS_HOST: 'hooks.dripfunnel.ai' }
 
 describe('parseConfig', () => {
   it('refuses the local Shopify stand-in anywhere but on localhost, so no deployed Worker skips Shopify’s signature', () => {
@@ -31,7 +31,7 @@ describe('parseConfig', () => {
 
   it('takes CODE_CHECK=0 on any host', () => {
     expect(parseConfig({ ...hosts, CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
-    expect(parseConfig({ ...hosts, HOOKS_HOST: 'dev-hooks.dripfunnel.ai', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
+    expect(parseConfig({ ...hosts, HOOKS_HOST: 'dev-hooks.actuateminds.com', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, CODE_CHECK: '1' }).CODE_CHECK).toBe('1')
   })
@@ -41,8 +41,8 @@ describe('parseConfig', () => {
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', SHOP_DOMAIN: 'my-store.localhost' }).SHOP_DOMAIN).toBe('my-store.localhost')
     expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'my-store.localhost' })).toThrow(/local development only/)
     expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'https://my-store.one' })).toThrow(/must be a domain/)
-    expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'shop.dripfunnel.com' })).toThrow(/apart from the consoles/)
-    expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'dripfunnel.com' })).toThrow(/apart from the consoles/)
+    expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'shop.dripfunnel.ai' })).toThrow(/apart from the consoles/)
+    expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'dripfunnel.ai' })).toThrow(/apart from the consoles/)
     expect(parseConfig(hosts).SHOP_DOMAIN).toBeUndefined()
   })
 

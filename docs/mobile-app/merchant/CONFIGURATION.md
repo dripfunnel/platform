@@ -51,7 +51,7 @@ Last updated: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493:
 | `UPDATES_CHANNEL` | `northstar` | The EAS Update channel, so an over-the-air update reaches only this partner's app | Equal to `PARTNER_KEY` |
 
 **The development target is a `dev` partner profile**, `partners/dev.env` with
-`PARTNER_DOMAIN=dev-store.dripfunnel.ai`, the dev environment's portal host (docs/setup/dev.md)
+`PARTNER_DOMAIN=dev-store.actuateminds.com`, the dev environment's portal host (docs/setup/dev.md)
 (decided 2026-10-09: an exception to AGENTS.md "Working with the user" rule 3 for the mobile app
 only). Cloudflare Access gates that host (docs/setup/dev.md §1), so the app's API calls are
 refused there until that is solved on its own card.

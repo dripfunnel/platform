@@ -7,7 +7,7 @@ const tenantId = '11111111-1111-1111-1111-111111111111'
 const clientId = 'client-id'
 const config = { tenantId, clientId, clientSecret: 'secret' }
 const nonce = 'nonce-we-sent'
-const redirectUri = 'https://admin.dripfunnel.com/api/auth/callback'
+const redirectUri = 'https://admin.dripfunnel.ai/api/auth/callback'
 
 let signingKey: CryptoKey
 let jwks: { keys: JWK[] }

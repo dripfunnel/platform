@@ -3,7 +3,7 @@
 Who uses the platform, where each of them signs in, and which hostnames exist. **Decided
 2026-09-27; Admin moved to its own console and host 2026-09-28.** Where older documents say
 "brand" they mean a **partner**'s white-label identity, and where they say "DF Admin" they
-mean the admin console at `admin.dripfunnel.com`.
+mean the admin console at `admin.dripfunnel.ai`.
 
 Last updated: 2026-10-22 (riders, a sixth kind of user, §1, with Gaurav; api/DELIVERY.md). Before: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug}.my-store.one` live,
 `{slug}-preview.my-store.one` preview; the partner's shop domain retired; built on #744, #745, `SHOP_DOMAIN` replaces `PREVIEW_DOMAIN`). Before: 2026-10-09
@@ -15,8 +15,8 @@ Last updated: 2026-10-22 (riders, a sixth kind of user, §1, with Gaurav; api/DE
 
 | User | Who | Signs in at | Does | Never sees |
 |---|---|---|---|---|
-| **Admin** | DripFunnel staff | `admin.dripfunnel.com` (staff only) | Runs the whole platform: approves and manages partners, sees every partner and merchant at account level, fleet, billing, integrations | Nothing is hidden, but store-level access is only ever by **impersonating a user** (§4.2), audited; staff never open a support session (§4.1) |
-| **Partner** | A company that white-labels the platform and sells it to its merchants. **DripFunnel is also a partner** (the house partner) and onboards its own merchants the same way | `platform.dripfunnel.com` (the same host for every partner; not white-labeled) | Self-onboards, sets its branding and domains, its plans and prices, and manages its merchants at account level | Other partners; merchants' customers, orders and catalogues (§4) |
+| **Admin** | DripFunnel staff | `admin.dripfunnel.ai` (staff only) | Runs the whole platform: approves and manages partners, sees every partner and merchant at account level, fleet, billing, integrations | Nothing is hidden, but store-level access is only ever by **impersonating a user** (§4.2), audited; staff never open a support session (§4.1) |
+| **Partner** | A company that white-labels the platform and sells it to its merchants. **DripFunnel is also a partner** (the house partner) and onboards its own merchants the same way | `platform.dripfunnel.ai` (the same host for every partner; not white-labeled) | Self-onboards, sets its branding and domains, its plans and prices, and manages its merchants at account level | Other partners; merchants' customers, orders and catalogues (§4) |
 | **Merchant** | Owns a store, with their staff (Owner, Manager, Staff) | The partner's **portal host**, e.g. `store.partnerdomain.com`, in the partner's look | Lists products, sets up the storefront and its domain, runs orders and offers, invites vendors | Other merchants; the partner's other data |
 | **Vendor** (seller) | A supplier the merchant invites to list products in the merchant's store | The same partner portal host as the merchant | Manages only their own products, stock and (by tier) their order lines | The merchant's and other vendors' data (unchanged from the archived design) |
 | **Customer** | Buys from a merchant's store | The merchant's storefront domain, or the store's own shop app | Browses, buys, manages their account and orders, tracks a delivery | Everything else |
@@ -40,15 +40,15 @@ a separate, unrelated account, so white label never leaks (api/ACCESS.md §2).
 
 | Hostname | Serves | Who uses it | Set up by |
 |---|---|---|---|
-| `admin.dripfunnel.com` | The admin console (`apps/ui/admin`) and the Admin API at `/api` | DripFunnel staff (Admin) only | Fixed |
-| `platform.dripfunnel.com` | The platform console (`apps/ui/platform`) and the Platform API at `/api` | Partner users only | Fixed |
-| **Partner portal host**, chosen by the partner (suggested `store.<partnerdomain>`) | The merchant portal (`apps/ui/store`) in the partner's look, and the Store API at `/api` | Merchants, their staff, vendors | Partner, on `platform.dripfunnel.com` |
+| `admin.dripfunnel.ai` | The admin console (`apps/ui/admin`) and the Admin API at `/api` | DripFunnel staff (Admin) only | Fixed |
+| `platform.dripfunnel.ai` | The platform console (`apps/ui/platform`) and the Platform API at `/api` | Partner users only | Fixed |
+| **Partner portal host**, chosen by the partner (suggested `store.<partnerdomain>`) | The merchant portal (`apps/ui/store`) in the partner's look, and the Store API at `/api` | Merchants, their staff, vendors | Partner, on `platform.dripfunnel.ai` |
 | `{slug}-preview.my-store.one` | Each merchant's storefront **preview** (client-rendered SPA, live data) ([storefront/PREVIEW.md](storefront/PREVIEW.md)) | The merchant and their team, by a signed link | Fixed: one wildcard on our own zone |
 | `{slug}.my-store.one` | Each merchant's **live** storefront, its free address, which keeps working after they connect their own domain ([storefront/LIVE-SHOP.md](storefront/LIVE-SHOP.md) §6) | Customers | Fixed: the same wildcard |
 | The merchant's own domain, e.g. `www.merchantbrand.com` | The merchant's **live** storefront (static build) | Customers | Merchant, in the portal |
 | The partner's email sender domain | Email from the partner's platform (verification, invitations, receipts, order emails) | None (email only) | Partner (SES DKIM, SPF, DMARC records) |
 
-DripFunnel, as the house partner, uses the same pattern (decided): `store.dripfunnel.com`, and
+DripFunnel, as the house partner, uses the same pattern (decided): `store.dripfunnel.ai`, and
 its stores are on `my-store.one` like every other partner's.
 
 **Every store's free addresses are on one domain we own, `my-store.one`, for every partner**
@@ -71,14 +71,14 @@ portal host.
 ## 3. Onboarding
 
 **Partner** (invite only, decided 2026-09-29: there is **no partner sign-up** on
-`platform.dripfunnel.com`)
-1. **Admin creates the partner** on `admin.dripfunnel.com` (name, Owner email, country) as
+`platform.dripfunnel.ai`)
+1. **Admin creates the partner** on `admin.dripfunnel.ai` (name, Owner email, country) as
    *Draft*, and its Owner gets an invitation to the partner console. The Owner accepts it,
    sets a password and 2-factor (never a password sent by email), and signs in.
 2. Sets up branding, portal host, email sender domain,
    plans and prices, and its billing with DripFunnel. Each domain shows the DNS records to add
    and live verification status.
-3. **Admin approves** the partner, on `admin.dripfunnel.com` (contract, KYC, billing). Until then the partner can set
+3. **Admin approves** the partner, on `admin.dripfunnel.ai` (contract, KYC, billing). Until then the partner can set
    everything up, but **merchants can't sign up under it**.
 4. The Owner invites the rest of the partner's team; nobody joins a partner any other way.
 5. **DripFunnel staff can do all of this for the partner** (decided 2026-09-29), in part or
@@ -92,7 +92,7 @@ Offboarding → Closed*.
 
 **Merchant** (on the partner's portal host, or created by the partner)
 1. Signs up in the partner's look, **or the partner creates the merchant from
-   `platform.dripfunnel.com`** and the merchant's Owner gets an invitation to set a password
+   `platform.dripfunnel.ai`** and the merchant's Owner gets an invitation to set a password
    (never a password sent by email). Either way the store is provisioned automatically.
 2. Gets a preview link (`{slug}-preview.my-store.one`) and a live link
    (`{slug}.my-store.one`) straight away.
@@ -199,7 +199,7 @@ checks it, and reports progress (the archived domain flow, DESIGN-BRIEF flow 58)
 
 | Hostnames | How many | Risk for "Pages + `/api` Worker route on the same host" |
 |---|---|---|
-| `admin.dripfunnel.com`, `platform.dripfunnel.com` | Two, on our own zone | Low: standard Pages custom domain plus a Worker route |
+| `admin.dripfunnel.ai`, `platform.dripfunnel.ai` | Two, on our own zone | Low: standard Pages custom domain plus a Worker route |
 | Partner portal hosts | One per partner, on partners' domains | **Tested 2026-10-05 (dev):** a SaaS hostname cannot reach Pages directly (522; the `Host` rewrite is Enterprise only). A catch-all Worker in front of Pages and the API works; serving the portal from Workers static assets remains the fallback. SAAS.md §8 |
 | Live storefronts and previews | One or more per merchant | None: free addresses and previews are on our own `my-store.one` zone and merchant domains are Cloudflare for SaaS hostnames, all on the edge Worker; none uses Pages ([storefront/LIVE-SHOP.md](storefront/LIVE-SHOP.md) §5–§6, [PREVIEW.md](storefront/PREVIEW.md) §2) |
 

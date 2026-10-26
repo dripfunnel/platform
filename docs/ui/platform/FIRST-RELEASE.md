@@ -1,6 +1,6 @@
 # FIRST-RELEASE.md: the partner console
 
-The first version of the partner console (`apps/ui/platform`, `platform.dripfunnel.com`):
+The first version of the partner console (`apps/ui/platform`, `platform.dripfunnel.ai`):
 **everything the prototype draws**, `designs/DF Platform Prototype.dc.html` (decided
 2026-10-01 on #109, replacing the "run merchants" cut made earlier that day). Ten menus,
 twenty screens, every state the prototype's Scenario control reaches.
@@ -108,14 +108,14 @@ reason; nothing is hidden.
 
 **Environment marker** (decided 2026-10-01, settling CONSOLE-DESIGN A3's *(ask)* for
 partners): **nothing in production** — partner users see the console as the prototype draws
-it. On `dev-platform.dripfunnel.ai`, feature hosts and localhost, the same grey Dev, Feature
+it. On `dev-platform.actuateminds.com`, feature hosts and localhost, the same grey Dev, Feature
 or Local strip as the admin console, from one shared `environmentFor` (#65, #111).
 
 ---
 
 ## 3. Accept invitation and sign in
 
-There is **no sign-up** anywhere on `platform.dripfunnel.com` (USERS-AND-DOMAINS §3): the
+There is **no sign-up** anywhere on `platform.dripfunnel.ai` (USERS-AND-DOMAINS §3): the
 Owner is invited when Admin creates the partner; everyone else by the Owner or an Admin
 (§14.2). No "create an account" link; no Google button (decided 2026-10-01: Google sign-in is
 not in this release, ACCESS §2).

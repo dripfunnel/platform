@@ -121,10 +121,10 @@ Run the gates before reporting a change as done.
   §7 step 1), and check `designs/MISSING-FEATURES.md` and `designs/INCOMPLETE-FEATURES.md`
   so you don't implement a dead end.
 - Every portal screen renders in its partner's look (white label) using `shared/ui`
-  tokens. The consoles at `platform.dripfunnel.com` and `admin.dripfunnel.com` are
+  tokens. The consoles at `platform.dripfunnel.ai` and `admin.dripfunnel.ai` are
   DripFunnel-branded for every user.
-- The console at `platform.dripfunnel.com` (`apps/ui/platform`) serves Partner users only;
-  the console at `admin.dripfunnel.com` (`apps/ui/admin`) serves DripFunnel staff only, and
+- The console at `platform.dripfunnel.ai` (`apps/ui/platform`) serves Partner users only;
+  the console at `admin.dripfunnel.ai` (`apps/ui/admin`) serves DripFunnel staff only, and
   never shares screens or endpoints with the partner console. Both are separate from
   merchant identity. A partner sees only its own merchants, at account level, and enters a
   merchant's portal only through audited, consented, read-only support access. Every console
@@ -177,7 +177,7 @@ Run the gates before reporting a change as done.
    committed on or pushed to `main` or `dev`. Without an issue number, ask for one.
 3. **Local databases only.** Nothing in development points at `dbpg01.softobotics.org`
    (dev or prod) until the user says otherwise.
-   Exception: the merchant mobile app's `dev` profile targets `dev-store.dripfunnel.ai` (mobile-app/merchant/CONFIGURATION.md §2).
+   Exception: the merchant mobile app's `dev` profile targets `dev-store.actuateminds.com` (mobile-app/merchant/CONFIGURATION.md §2).
 4. **Report what is true.** Say which commands you ran and what they returned. Compiling is
    not verification. If a check fails, say so; never weaken, skip or delete a test to make
    it pass.

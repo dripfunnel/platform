@@ -7,7 +7,7 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { hashSessionId, newSessionId } from '#auth/session'
 import type { ShopifyApi } from '#integrations/shopify/api'
 
-// hooks.dripfunnel.com/shopify/callback (CATALOG K7): Shopify sends the person back here after they approve the
+// hooks.dripfunnel.ai/shopify/callback (CATALOG K7): Shopify sends the person back here after they approve the
 // app. The state names the pending connection; Shopify's signature and the shop must match it; the code becomes a
 // token, sealed, and the person goes back to their portal with a one-time key that only the starter can finish.
 export const shopifyCallbackPath = '/shopify/callback'

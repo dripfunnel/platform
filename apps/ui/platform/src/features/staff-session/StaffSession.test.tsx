@@ -16,7 +16,7 @@ const setup: PortalStaffSession = {
   staffName: 'Maya Ortiz',
   actingAs: null,
   partnerName: 'Tallis Studio',
-  host: 'platform.dripfunnel.com',
+  host: 'platform.dripfunnel.ai',
   expiresAt: '2026-10-01T11:00:00Z',
 }
 const impersonation: PortalStaffSession = { ...setup, id: 'imp-1', kind: 'impersonation', staffName: 'Neha Rao', actingAs: { name: 'Olivia Grant', role: 'Owner', where: 'Loom & Thread · Partner console' } }

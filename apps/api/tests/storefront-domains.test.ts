@@ -78,7 +78,7 @@ describe('connecting a domain', () => {
     expect(await refused('not a host')).toEqual(['INVALID_HOSTNAME', null])
     expect(await refused('*.juniper.example')).toEqual(['INVALID_HOSTNAME', null])
     expect(await refused('127.0.0.1')).toEqual(['INVALID_HOSTNAME', null])
-    expect(await refused('shop.dripfunnel.com')).toEqual(['DRIPFUNNEL_DOMAIN', null])
+    expect(await refused('shop.dripfunnel.ai')).toEqual(['DRIPFUNNEL_DOMAIN', null])
     expect(await refused('shop.dripfunnel.example')).toEqual(['DRIPFUNNEL_DOMAIN', null])
     expect(await refused(`${await codeOf(t.storeA2)}.shop.example`)).toEqual(['DRIPFUNNEL_DOMAIN', null])
     expect(await refused('shop.example')).toEqual(['DRIPFUNNEL_DOMAIN', null])

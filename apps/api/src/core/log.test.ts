@@ -7,7 +7,7 @@ describe('technical logs (LOGGING.md §9)', () => {
       event: 'request',
       requestId: 'ray-1',
       api: 'admin',
-      host: 'admin.dripfunnel.com',
+      host: 'admin.dripfunnel.ai',
       status: 200,
       durationMs: 12,
       // Not a key the type allows; a caller that smuggles one in still loses it.
@@ -17,7 +17,7 @@ describe('technical logs (LOGGING.md §9)', () => {
     expect(Object.keys(parsed).every((key) => (technicalLogKeys as readonly string[]).includes(key))).toBe(true)
     expect(line).not.toContain('priya')
     expect(line).not.toContain('password')
-    expect(parsed).toEqual({ event: 'request', requestId: 'ray-1', api: 'admin', host: 'admin.dripfunnel.com', status: 200, durationMs: 12 })
+    expect(parsed).toEqual({ event: 'request', requestId: 'ray-1', api: 'admin', host: 'admin.dripfunnel.ai', status: 200, durationMs: 12 })
   })
 
   it('names no key that could hold personal data', () => {
