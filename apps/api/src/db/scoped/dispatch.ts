@@ -23,28 +23,31 @@ export interface DeliveryRow {
   cancelled_at: Date | null
 }
 
-export const lockDelivery = async (tx: ScopedSql, storeId: string, id: string): Promise<DeliveryRow | null> =>
-  (await tx<DeliveryRow[]>`select d.*, d.cash_due_amount::text from delivery d where store_id = ${storeId} and id = ${id} for update`)[0] ?? null
+/** Every column but the handover code and its attempts, which no request role can read (migration 0364). */
+const deliveryColumns = `id, store_id, order_id, warehouse_id, state, rider_id, offer_round, excluded_rider_id, currency, cash_due_amount::text as cash_due_amount, created_at, ready_at, unassigned_at, searching_at, assigned_at, picked_up_at, delivered_at, failed_at, cancelled_at`
 
-export const deliveryOrder = async (tx: ScopedSql, storeId: string, orderId: string) =>
+export const lockDelivery = async (tx: ScopedSql, storeId: string, id: string): Promise<DeliveryRow | null> =>
+  (await tx<DeliveryRow[]>`select ${tx.unsafe(deliveryColumns)} from delivery where store_id = ${storeId} and id = ${id} for update`)[0] ?? null
+
+export const deliveryOrder = async (tx: ScopedSql, storeId: string, orderId: string, lock = true) =>
   (await tx<{ id: string; partner_id: string; number: string; currency: string; payment_method: string; payment_state: string; delivery_warehouse_id: string; dispatch_when: string; cash: string | null }[]>`
     select o.id, s.partner_id, o.number, o.currency, o.payment_method, o.payment_state, o.delivery_warehouse_id, sh.dispatch_when,
       (select p.amount::text from payment p where p.order_id = o.id and p.provider = 'cod' order by p.created_at desc limit 1) as cash
     from "order" o join store s on s.id = o.store_id join store_shipping sh on sh.store_id = s.id
     where o.id = ${orderId} and o.store_id = ${storeId} and o.state = 'placed' and o.shipping_option = 'own_delivery'
       and not exists(select 1 from payment p where p.order_id = o.id and p.mode = 'test')
-    for update of o
+    ${lock ? tx`for update of o` : tx``}
   `)[0] ?? null
 
 export const insertDelivery = async (tx: ScopedSql, o: { storeId: string; orderId: string; warehouseId: string; currency: string; cash: string | null; searching: boolean; now: Date }): Promise<DeliveryRow | null> =>
   (await tx<DeliveryRow[]>`insert into delivery(store_id, order_id, warehouse_id, currency, cash_due_amount, state, offer_round, searching_at, created_at)
     values(${o.storeId}, ${o.orderId}, ${o.warehouseId}, ${o.currency}, ${o.cash}, ${o.searching ? 'searching' : 'packing'}, ${o.searching ? 1 : 0}, ${o.searching ? o.now : null}, ${o.now})
-    on conflict (order_id) where state not in ('failed','cancelled') do nothing returning *`)[0] ?? null
+    on conflict (order_id) where state not in ('failed','cancelled') do nothing returning ${tx.unsafe(deliveryColumns)}`)[0] ?? null
 
 export const startRound = async (tx: ScopedSql, d: DeliveryRow, now: Date, excluded: string | null = null): Promise<DeliveryRow> => {
   const [row] = await tx<DeliveryRow[]>`update delivery set state = 'searching', rider_id = null, excluded_rider_id = ${excluded}, offer_round = offer_round + 1,
     searching_at = ${now}, assigned_at = null, ready_at = case when state = 'packing' then ${now} else ready_at end, unassigned_at = null, revision = revision + 1
-    where id = ${d.id} and store_id = ${d.store_id} returning *`
+    where id = ${d.id} and store_id = ${d.store_id} returning ${tx.unsafe(deliveryColumns)}`
   if (!row) throw new Error('delivery: round returned no row')
   return row
 }
@@ -72,7 +75,7 @@ export const freshPosition = async (tx: ScopedSql, storeId: string, riderId: str
     and received_at > ${new Date(now.getTime() - 600_000)} and reported_at > ${new Date(now.getTime() - 600_000)}`).length > 0
 
 export const riderDeliveries = (tx: ScopedSql, storeId: string, riderId: string): Promise<DeliveryRow[]> =>
-  tx<DeliveryRow[]>`select * from delivery where store_id = ${storeId} and rider_id = ${riderId} and state in ('assigned','picked_up') order by id for update`
+  tx<DeliveryRow[]>`select ${tx.unsafe(deliveryColumns)} from delivery where store_id = ${storeId} and rider_id = ${riderId} and state in ('assigned','picked_up') order by id for update`
 
 export const setDeliveryState = (tx: ScopedSql, d: DeliveryRow, state: 'unassigned' | 'cancelled', now: Date) =>
   tx`update delivery set state = ${state}, cancelled_at = ${state === 'cancelled' ? now : null}, unassigned_at = ${state === 'unassigned' ? now : tx`unassigned_at`}, revision = revision + 1 where id = ${d.id} and store_id = ${d.store_id}`
@@ -145,7 +148,7 @@ export const deliveryExpired = async (tx: ScopedSql, d: DeliveryRow, now: Date):
   (await tx`select 1 from store_shipping where store_id = ${d.store_id} and ${d.searching_at}::timestamptz + offer_minutes * interval '1 minute' <= ${now}`).length > 0
 
 export const selectOrderDeliveries = (tx: ScopedSql, storeId: string, orderId: string): Promise<DeliveryRow[]> =>
-  tx<DeliveryRow[]>`select d.*,d.cash_due_amount::text from delivery d where store_id = ${storeId} and order_id = ${orderId} order by created_at desc,id desc`
+  tx<DeliveryRow[]>`select ${tx.unsafe(deliveryColumns)} from delivery where store_id = ${storeId} and order_id = ${orderId} order by created_at desc,id desc`
 
 export const riderSummary = async (tx: ScopedSql, storeId: string, riderId: string) =>
   (await tx<{ name: string; phone: string | null; photo_asset_id: string | null; vehicle_type: string | null; vehicle_number: string | null }[]>`

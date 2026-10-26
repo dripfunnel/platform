@@ -4,7 +4,7 @@ import { withScope } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
-// DELIVERY §3 and DATA-MODEL §3.6: the merchant reads its own store's deliveries, offers and positions, a rider reads
+// DELIVERY §3 and DATA-MODEL §3.6: the merchant reads its own store's deliveries, offers and positions and changes only the first two, a rider reads
 // only its own and writes only its own position, and no other caller reads them (migration 0364).
 
 let db: TestDatabase
@@ -80,15 +80,32 @@ describe('the merchant side', () => {
     expect(await countAll(store(t.storeA2))).toEqual({ delivery: 1, delivery_offer: 1, rider_position: 1 })
   })
 
-  it('cannot write any of them', async () => {
-    await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`update delivery set state = 'cancelled' where id = ${deliveries.a1}`)).rejects.toThrow(/permission denied/i)
-    await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`delete from rider_position where rider_id = ${riders.a1}`)).rejects.toThrow(/permission denied/i)
+  it('changes its own store’s deliveries and offers, and no other store’s', async () => {
+    const a1 = store(t.storeA1)
+    const touched = (context: CallerContext, table: 'delivery' | 'delivery_offer', id: string) =>
+      withScope(db.sql, context, async (tx) => (table === 'delivery'
+        ? await tx`update delivery set revision = revision where id = ${id} returning id`
+        : await tx`update delivery_offer set answer = answer where delivery_id = ${id} returning id`).length)
+    expect(await touched(a1, 'delivery', deliveries.a1)).toBe(1)
+    expect(await touched(a1, 'delivery_offer', deliveries.a1)).toBe(1)
+    expect(await touched(a1, 'delivery', deliveries.a2)).toBe(0)
+    expect(await touched(a1, 'delivery_offer', deliveries.a2)).toBe(0)
+  })
+
+  it('cannot create a delivery in another store, delete one, or touch a position', async () => {
+    await expect(
+      withScope(db.sql, store(t.storeA1), (tx) => tx`insert into delivery (store_id, order_id, warehouse_id, currency, state) values (${t.storeA2}, ${crypto.randomUUID()}, ${crypto.randomUUID()}, 'INR', 'packing')`),
+    ).rejects.toThrow(/row-level security/i)
+    await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`delete from delivery where id = ${deliveries.a1}`)).rejects.toThrow(/permission denied/i)
+    await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`update rider_position set latitude = 1`)).rejects.toThrow(/permission denied/i)
+    await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`delete from rider_position`)).rejects.toThrow(/permission denied/i)
   })
 
   it('never reads the handover code or its attempts', async () => {
     await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`select handover_code_enc from delivery`)).rejects.toThrow(/permission denied/i)
     await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`select code_attempts from delivery`)).rejects.toThrow(/permission denied/i)
     await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`select * from delivery`)).rejects.toThrow(/permission denied/i)
+    await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`update delivery set handover_code_enc = 'x'`)).rejects.toThrow(/permission denied/i)
   })
 })
 
