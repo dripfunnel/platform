@@ -24,6 +24,9 @@ export const recordCoreRelease = async (tx: ScopedSql, version: string, sandboxI
     on conflict (version) do update set sandbox_image = excluded.sandbox_image`
 }
 
+/** The newest version nothing has retired: what a new store may pin, with its image recorded. */
+export const selectNewestRelease = async (tx: ScopedSql): Promise<string | null> =>
+  (await tx<{ version: string }[]>`select version from core_release where retired_at is null order by core_version_key(version) desc limit 1`)[0]?.version ?? null
 /** A retired version's image is gone, or about to be (AI-STUDIO §9): nothing starts it. */
 export const selectSandboxImage = async (tx: ScopedSql, version: string): Promise<string | null> =>
   (await tx<{ sandbox_image: string }[]>`select sandbox_image from core_release where version = ${version} and retired_at is null`)[0]?.sandbox_image ?? null

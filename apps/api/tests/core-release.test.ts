@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { recordCoreRelease, releaseKind, selectSandboxImage } from '#db/scoped/coreReleases'
+import { recordCoreRelease, releaseKind, retireRelease, selectNewestRelease, selectSandboxImage } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -54,6 +54,15 @@ describe('core_release', () => {
       { version: '1.11.0', kind: 'minor' },
       { version: '2.0.0', kind: 'major' },
     ])
+  })
+
+  it('names the newest version nothing has retired, or null when there is none (#902)', async () => {
+    expect(await withSystemScope(db.sql, selectNewestRelease)).toBe('2.0.0')
+    await withSystemScope(db.sql, (tx) => retireRelease(tx, '2.0.0', new Date()))
+    expect(await withSystemScope(db.sql, selectNewestRelease)).toBe('1.11.0')
+    await db.sql`update core_release set retired_at = now()`
+    expect(await withSystemScope(db.sql, selectNewestRelease)).toBeNull()
+    await db.sql`update core_release set retired_at = null`
   })
 
   it('refuses an image that is not pinned by digest in Cloudflare’s registry', async () => {

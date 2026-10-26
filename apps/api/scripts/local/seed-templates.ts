@@ -1,19 +1,44 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import postgres from 'postgres'
 import { getPlatformProxy } from 'wrangler'
 import type { R2Bucket } from '@cloudflare/workers-types'
+import { selectNewestRelease } from '#db/scoped/coreReleases'
+import { withSystemScope } from '#db/scoped/index'
 import { amzDate, authorization } from '#integrations/ses/sigv4'
 import { isThemePath } from '#saas/storefronts/paths'
+import { bundle } from '../../../sandbox/src/gate/bundle'
+import { assertLocalHost } from '../migrate/host-guard'
 
-// Stands in for the release's template upload (storefront ARCHITECTURE §2.3) until it exists: writes the layout
-// templates.ts reads into the sites bucket, so a store's first template choice can run. Local wrangler R2 by default;
-// `--remote` writes STOREFRONT_SITES_BUCKET over R2's S3 API with the R2_STOREFRONT_* keys (#730).
+// Writes the layout templates.ts reads into the sites bucket (storefront ARCHITECTURE §2.3), each theme's preview being
+// the fast gate's bundle (PREVIEW §4). Local wrangler R2 by default; `--remote` writes STOREFRONT_SITES_BUCKET over R2's
+// S3 API with the R2_STOREFRONT_* keys (#730). `--released` names the newest core_release row in DATABASE_URL, so a
+// version whose image isn't recorded is never pointed at.
 const repo = fileURLToPath(new URL('../../../../', import.meta.url))
 const templates = `${repo}templates/storefront/`
 const coreFlag = process.argv.indexOf('--core')
-const core = coreFlag >= 0 ? (process.argv[coreFlag + 1] ?? '') : (JSON.parse(readFileSync(`${repo}packages/storefront-core/package.json`, 'utf8')) as { version: string }).version
+const newestRelease = async (): Promise<string> => {
+  const url = process.env['DATABASE_URL']
+  if (!url) throw new Error('--released needs DATABASE_URL')
+  assertLocalHost(url)
+  const sql = postgres(url, { max: 1 })
+  try {
+    const version = await withSystemScope(sql, selectNewestRelease)
+    if (!version) throw new Error('core_release has no version to upload templates for')
+    return version
+  } finally {
+    await sql.end()
+  }
+}
+const core = process.argv.includes('--released')
+  ? await newestRelease()
+  : coreFlag >= 0
+    ? (process.argv[coreFlag + 1] ?? '')
+    : (JSON.parse(readFileSync(`${repo}packages/storefront-core/package.json`, 'utf8')) as { version: string }).version
 if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(core)) throw new Error(`--core needs a version such as 1.2.3 or 1.2.3-dev.4, got "${core}"`)
 const tracked = (dir: string) => execFileSync('git', ['ls-files', '-z', '--', dir], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean)
 const read = (path: string) => ({ path, content: readFileSync(`${repo}${path}`, 'utf8') })
@@ -46,16 +71,26 @@ const put = async (key: string, body: string, contentType = 'application/json') 
   if (target) return putRemote(target, key, body, contentType)
   await proxy?.env.STOREFRONT_SITES.put(key, body, { httpMetadata: { contentType } })
 }
+const contentTypes: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' }
+const scratch = mkdtempSync(join(tmpdir(), 'seed-templates-'))
 const keys = readdirSync(`${templates}themes`)
 for (const key of keys) {
   const root = `templates/storefront/themes/${key}/`
   const files = tracked(root.slice(0, -1)).map((p) => ({ ...read(p), path: p.slice(root.length) })).filter((f) => isThemePath(f.path))
-  const html = `<!doctype html><title>${key}</title><p>${key} preview (local stand-in)</p>`
+  const out = join(scratch, key)
+  const built = await bundle(`${templates}themes/${key}`, out)
+  if (!built.ok) throw new Error(`The ${key} theme's preview doesn't build: ${JSON.stringify(built.problems)}`)
   const prefix = `templates/${core}/themes/${key}/`
   await put(`${prefix}source.json`, JSON.stringify({ files }))
-  await put(`${prefix}preview/files/index.html`, html, 'text/html')
-  await put(`${prefix}preview/manifest.json`, JSON.stringify({ files: [{ path: 'index.html', sha256: createHash('sha256').update(html).digest('hex') }] }))
+  const manifest = []
+  for (const { path } of built.bundle.files) {
+    const body = readFileSync(join(out, path), 'utf8')
+    await put(`${prefix}preview/files/${path}`, body, contentTypes[extname(path)] ?? 'application/octet-stream')
+    manifest.push({ path, sha256: sha256Hex(body) })
+  }
+  await put(`${prefix}preview/manifest.json`, JSON.stringify({ files: manifest }))
 }
+rmSync(scratch, { recursive: true, force: true })
 await put(`templates/${core}/skeleton.json`, JSON.stringify({ files: skeleton }))
 await put('templates/current.json', JSON.stringify({ core }))
 await proxy?.dispose()

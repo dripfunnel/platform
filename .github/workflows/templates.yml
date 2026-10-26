@@ -1,20 +1,22 @@
 name: templates
 
-# Uploads the storefront templates to the dev sites bucket (docs/setup/dev.md §2.8), and only when
-# a template file or the upload script changes. The dev deploy does not touch the bucket.
+# Uploads the storefront templates to the sites bucket (docs/setup/dev.md §2.8, docs/setup/prod.md §3.6): dev's from a
+# push to dev, prod's from a push to main, each only when a template file or the upload script changes, and after each
+# release. Neither deploy touches the bucket.
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, main]
     paths:
       - 'templates/storefront/**'
       - 'apps/api/scripts/local/seed-templates.ts'
       - '.github/workflows/templates.yml'
-  # A new core version changes `current.json`; wait for the release so it never names an unpublished core.
+  # A new core version changes `current.json`; wait for the release so it never names an unpublished core. On main
+  # the release includes recording the version's image, which prod's upload waits on.
   workflow_run:
     workflows: [release]
     types: [completed]
-    branches: [dev]
+    branches: [dev, main]
   workflow_dispatch:
 
 permissions:
@@ -29,7 +31,7 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     environment: dev
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.workflow_run.head_branch || github.ref_name) == 'dev'
     env:
       R2_STOREFRONT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       R2_STOREFRONT_ACCESS_KEY_ID: ${{ secrets.R2_STOREFRONT_ACCESS_KEY_ID }}
@@ -54,3 +56,24 @@ jobs:
       - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --core "$CORE_VERSION"
         env:
           CORE_VERSION: ${{ steps.core.outputs.version }}
+
+  # Prod names the newest core_release row, which exists only once the release's image is in both registries, so
+  # `current.json` never names a core a store's build or the studio can't start.
+  upload-prod:
+    runs-on: ubuntu-latest
+    environment: prod
+    if: (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.workflow_run.head_branch || github.ref_name) == 'main'
+    env:
+      R2_STOREFRONT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      R2_STOREFRONT_ACCESS_KEY_ID: ${{ secrets.R2_STOREFRONT_ACCESS_KEY_ID }}
+      R2_STOREFRONT_SECRET_ACCESS_KEY: ${{ secrets.R2_STOREFRONT_SECRET_ACCESS_KEY }}
+      STOREFRONT_SITES_BUCKET: ${{ vars.STOREFRONT_SITES_BUCKET }}
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      ALLOW_REMOTE_MIGRATIONS: '1'
+      ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --released

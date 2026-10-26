@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -101,6 +101,8 @@ email or a file in the repo.
 6. First deploy of store-proxy, one-off (#428, **not yet run against a real account**): `wrangler versions upload` fails for a Worker that does not exist yet, and neither it nor `versions deploy` applies `routes` (Cloudflare: Gradual deployments; `wrangler triggers deploy` applies them). So create the Worker with no routes, which serves nothing (`workers_dev` is off): once the API Worker exists (the proxy's service bindings need it), in `store-proxy/` copy `wrangler.jsonc` to `wrangler.bootstrap.jsonc`, set `env.prod.routes` to `[]`, run `pnpm exec wrangler deploy --config wrangler.bootstrap.jsonc --env prod`, then delete the copy. Set `PREVIEW_SESSION_KEY` on `dripfunnel-store-proxy-prod` (§4). Nothing reaches the zone until the routes are applied, which is done right after the first `promote.yml` has moved the API and store-proxy to 100%: `pnpm exec wrangler triggers deploy --env prod` in `store-proxy/`, then check in the dashboard (Workers & Pages › the Worker › Settings › Domains & Routes) that `*/*` on `dripfunnel.com` and `*.my-store.one/*` are there, open the consoles and send a test webhook to `hooks.dripfunnel.com`. To back out, delete the two routes there. Later releases need only `prod.yml` and `promote.yml`; run `triggers deploy` again when `routes` changes.
 ### 3.6 GitHub environment `prod`
 
+A push to `main` that touches `templates/storefront/**`, and each successful `release.yml` run on `main`, runs `templates.yml`'s `upload-prod` job: it builds each theme's preview and writes the templates to `storefront-sites-prod` for the newest `core_release` row (`seed-templates.ts --remote --released`), so `templates/current.json` never names a core whose image isn't recorded. It needs the secrets and variables below.
+
 Repository › Settings › Environments › *New environment* › `prod`:
 
 1. **Deployment branches:** `main` only.
@@ -112,6 +114,7 @@ Repository › Settings › Environments › *New environment* › `prod`:
    | `CLOUDFLARE_API_TOKEN` | the token from §3.2 |
    | `PROD_DATABASE_URL` | the migration role's direct string |
    | `TEST_DATABASE_URL` | prod's disposable test branch |
+   | `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | the R2 upload key pair of the Worker's values (§4); `templates.yml` uploads the templates with it |
 
 4. **Variables:**
 
@@ -119,6 +122,7 @@ Repository › Settings › Environments › *New environment* › `prod`:
    |---|---|
    | `CLOUDFLARE_ACCOUNT_ID` | the production account id |
    | `ALLOWED_MIGRATION_HOST` | the hostname in `PROD_DATABASE_URL` |
+   | `STOREFRONT_SITES_BUCKET` | `storefront-sites-prod` |
    | `ALLOWED_TEST_HOST` | the hostname in prod's `TEST_DATABASE_URL`; must differ from the one above |
 
 ### 3.7 Protect `main`
