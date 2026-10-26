@@ -242,16 +242,19 @@ describe('position and isolation', () => {
   })
   it('exposes the Delivery API with capped pages and enforces the rider boundary', async () => {
     await available()
-    await broadcast(await order())
+    for (let i = 0; i < 51; i++) await broadcast(await order())
     const id = riders[0] ?? ''
     const rider = { ...context(id), caller: { kind: 'rider' as const, riderId: id } }
     const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider, token: null }, activity: activityLog, facts, now: () => clock, defer: () => undefined }
     const result = await graphql({ schema: deliverySchema as GraphQLSchema, source: '{ offers(first: 999) { nodes { id area itemCount distanceM warehouse } pageInfo { hasNextPage } } }', contextValue })
     expect(result.errors).toBeUndefined()
+    const page = (result.data as { offers: { nodes: unknown[]; pageInfo: { hasNextPage: boolean } } }).offers
+    expect(page.nodes).toHaveLength(50)
+    expect(page.pageInfo.hasNextPage).toBe(true)
     expect(JSON.stringify(result.data)).not.toMatch(/secret street|Secret person/)
     const signedOut = await graphql({ schema: deliverySchema as GraphQLSchema, source: 'mutation { setOnline(online: true) }', contextValue: { ...contextValue, caller: { ...contextValue.caller, rider: null } } })
     expect(signedOut.errors?.[0]?.extensions['code']).toBe('UNAUTHENTICATED')
-  })
+  }, 120_000)
   it('exposes merchant dispatch only in the acting store and excludes supplier reads', async () => {
     const id = await order()
     const d = await delivery(id)
@@ -262,7 +265,8 @@ describe('position and isolation', () => {
     const foreign = await world.gql('a2Owner', query, { id })
     expect(JSON.stringify(foreign.data)).not.toContain(d.id)
     const denied = await world.gql('supplier', 'mutation A($id: ID!, $r: ID!) { assignDelivery(deliveryId: $id, riderId: $r) }', { id: d.id, r: riders[0] })
-    expect(denied.code).toBeDefined()
+    expect(denied.code).toBe('FORBIDDEN')
+    expect(JSON.stringify((await world.gql('supplier', query, { id })).data)).not.toContain(d.id)
     await withSystemScope(db.sql, (tx) => cancelOrderDelivery(tx, jobFacts(), id))
     expect((await delivery(id)).state).toBe('cancelled')
   })
