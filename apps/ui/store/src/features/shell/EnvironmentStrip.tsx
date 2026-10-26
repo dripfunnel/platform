@@ -1,9 +1,15 @@
 import { EnvironmentBanner, environmentFor } from '@dripfunnel/shared/ui'
 import { messages } from '../../messages'
 
-// Nothing in production; dev, feature and local hosts get the shared grey strip (#65).
+const nonProd = /(^|\.)(localhost|actuateminds\.com)$|^(127\.0\.0\.1|\[?::1\]?)$/
+
+// Portal hosts are open-ended (house and custom domains), so only the closed set of non-prod hosts
+// gets the strip; environmentFor's "unknown is feature" default would flag every prod store host.
+export const isNonProdHost = (hostname: string) => nonProd.test(hostname.toLowerCase())
+
 export const EnvironmentStrip = () => {
-  const environment = environmentFor(window.location.hostname)
-  if (environment === 'prod') return null
+  const hostname = window.location.hostname
+  const environment = environmentFor(hostname)
+  if (environment === 'prod' || !isNonProdHost(hostname)) return null
   return <EnvironmentBanner environment={environment} words={messages.shell.environment[environment]} />
 }
