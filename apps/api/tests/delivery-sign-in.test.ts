@@ -363,6 +363,78 @@ describe('the rider’s own profile', () => {
   })
 })
 
+const phoneToken = (name: string) => `ExponentPushToken[${name}]`
+const register = (token: string | null, expo: string, o: { host?: string; platform?: 'ios' | 'android' } = {}) =>
+  delivery(`mutation R($t: String!) { registerPushDevice(token: $t, platform: ${o.platform ?? 'android'}) }`, { ...(o.host ? { host: o.host } : {}), token, variables: { t: expo } })
+const unregister = (token: string | null, expo: string) => delivery('mutation U($t: String!) { unregisterPushDevice(token: $t) }', { token, variables: { t: expo } })
+const devicesOf = async (phone: string) =>
+  db.sql<{ store_id: string; expo_token: string; platform: string }[]>`select store_id, expo_token, platform from push_device where subject_kind = 'rider' and subject_id = ${(await riderRow(phone))?.id ?? ''} order by expo_token`
+const pushesFor = async (phone: string) => (await db.sql`select 1 from outbox where kind = 'push' and payload->'subject'->>'id' = ${(await riderRow(phone))?.id ?? ''}`).length
+
+describe('the rider’s phones for push (DELIVERY §4, §6)', () => {
+  it('registers a phone once, logged without its token and confirmed by one push; a launch’s re-register only refreshes it', async () => {
+    const token = await signedIn(ravi)
+    const id = (await riderRow(ravi))?.id ?? ''
+    expect(await register(token, phoneToken('ravi-1'))).toEqual({ data: { registerPushDevice: true }, code: undefined })
+    expect(await devicesOf(ravi)).toEqual([{ store_id: t.storeA1, expo_token: phoneToken('ravi-1'), platform: 'android' }])
+    const entries = await db.sql<{ actor_kind: string; actor_id: string; api: string }[]>`select actor_kind, actor_id, api from activity_log where action = 'rider.push_device_registered' and actor_id = ${id}`
+    expect(entries).toEqual([{ actor_kind: 'rider', actor_id: id, api: 'delivery' }])
+    expect(JSON.stringify(await db.sql`select * from activity_log where actor_id = ${id}`)).not.toContain('ravi-1')
+    const [push] = await db.sql<{ payload: unknown; store_id: string }[]>`select payload, store_id from outbox where kind = 'push' and payload->'subject'->>'id' = ${id}`
+    expect(push).toEqual({ payload: { subject: { kind: 'rider', id }, message: 'rider.notifications_on' }, store_id: t.storeA1 })
+    await db.sql`update push_device set last_seen_at = now() - interval '1 day' where expo_token = ${phoneToken('ravi-1')}`
+    expect((await register(token, phoneToken('ravi-1'), { platform: 'ios' })).data).toEqual({ registerPushDevice: true })
+    expect(await devicesOf(ravi)).toEqual([{ store_id: t.storeA1, expo_token: phoneToken('ravi-1'), platform: 'ios' }])
+    expect(await db.sql`select 1 from push_device where expo_token = ${phoneToken('ravi-1')} and last_seen_at > now() - interval '1 minute'`).toHaveLength(1)
+    expect(await db.sql`select 1 from activity_log where action = 'rider.push_device_registered' and actor_id = ${id}`).toHaveLength(1)
+    expect(await pushesFor(ravi)).toBe(1)
+  })
+
+  it('refuses a token that isn’t Expo’s, never echoing it, and a caller who isn’t signed in', async () => {
+    const token = await signedIn(ravi)
+    for (const bad of ['not-a-token', 'ExponentPushToken[]', 'ExponentPushToken[a b]', `ExponentPushToken[${'x'.repeat(201)}]`]) {
+      expect((await register(token, bad)).code, bad).toBe('INVALID_INPUT')
+      expect((await unregister(token, bad)).code, bad).toBe('INVALID_INPUT')
+    }
+    expect((await register(null, phoneToken('nobody'))).code).toBe('UNAUTHENTICATED')
+    expect(await db.sql`select 1 from push_device where expo_token = ${phoneToken('nobody')}`).toHaveLength(0)
+  })
+
+  it('moves a phone registered again by another rider of the store to that rider, logged and confirmed', async () => {
+    const meenaToken = await signedIn(meena)
+    const raviToken = await signedIn(ravi)
+    await register(meenaToken, phoneToken('shared'))
+    const before = await pushesFor(ravi)
+    expect((await register(raviToken, phoneToken('shared'))).data).toEqual({ registerPushDevice: true })
+    expect((await devicesOf(meena)).map((d) => d.expo_token)).not.toContain(phoneToken('shared'))
+    expect((await devicesOf(ravi)).map((d) => d.expo_token)).toContain(phoneToken('shared'))
+    expect(await pushesFor(ravi)).toBe(before + 1)
+  })
+
+  it('unregisters only the caller’s own phone, answering the same for another’s', async () => {
+    const meenaToken = await signedIn(meena)
+    const raviToken = await signedIn(ravi)
+    await register(meenaToken, phoneToken('meena-1'))
+    await register(raviToken, phoneToken('ravi-2'))
+    expect(await unregister(raviToken, phoneToken('meena-1'))).toEqual({ data: { unregisterPushDevice: true }, code: undefined })
+    expect((await devicesOf(meena)).map((d) => d.expo_token)).toContain(phoneToken('meena-1'))
+    const id = (await riderRow(ravi))?.id ?? ''
+    const removedBefore = (await db.sql`select 1 from activity_log where action = 'rider.push_device_removed' and actor_id = ${id}`).length
+    expect((await unregister(raviToken, phoneToken('ravi-2'))).data).toEqual({ unregisterPushDevice: true })
+    expect((await devicesOf(ravi)).map((d) => d.expo_token)).not.toContain(phoneToken('ravi-2'))
+    expect(await db.sql`select 1 from activity_log where action = 'rider.push_device_removed' and actor_id = ${id}`).toHaveLength(removedBefore + 1)
+  })
+
+  it('removes every phone of the rider at sign-out', async () => {
+    const token = await signedIn(meena)
+    await register(token, phoneToken('meena-2'))
+    await register(token, phoneToken('meena-3'), { platform: 'ios' })
+    expect((await devicesOf(meena)).length).toBeGreaterThanOrEqual(2)
+    expect((await delivery('mutation { signOut }', { token })).data).toEqual({ signOut: true })
+    expect(await devicesOf(meena)).toEqual([])
+  })
+})
+
 describe('deleting the account (DELIVERY §5, as removal)', () => {
   it('signs the rider out everywhere, erases phone and photo, keeps the name, and frees the number', async () => {
     const token = await signedIn(sunil)
@@ -405,6 +477,15 @@ describe('deleting the account (DELIVERY §5, as removal)', () => {
     expect(await db.sql`select 1 from activity_log where action = 'rider.account_deleted' and actor_id = ${id}`).toHaveLength(1)
     await invite('owner', 'Sunil D.', sunil)
   })
+
+  it('deletes the rider’s phones with the account', async () => {
+    const token = await signedIn(sunil)
+    await register(token, phoneToken('sunil-1'))
+    const id = (await riderRow(sunil))?.id ?? ''
+    expect((await delivery('mutation { deleteMyAccount }', { token })).data).toEqual({ deleteMyAccount: true })
+    expect(await db.sql`select 1 from push_device where subject_id = ${id}`).toHaveLength(0)
+    await invite('owner', 'Sunil D.', sunil)
+  })
 })
 
 describe('who reaches what (ACCESS §11.1, DELIVERY §10)', () => {
@@ -413,6 +494,17 @@ describe('who reaches what (ACCESS §11.1, DELIVERY §10)', () => {
     expect(await me(token, hostA2)).toBeNull()
     await requestCode(ravi, hostA2)
     expect((await signIn(ravi, (await textedCode(ravi)) ?? '', hostA2)).code).toBe('CODE_REFUSED')
+  })
+
+  it('keeps a phone per store: another store’s rider registering the same token moves nothing here, and a token of this store is refused there', async () => {
+    const raviToken = await signedIn(ravi)
+    const ashaToken = await signedIn(asha, hostA2)
+    await register(raviToken, phoneToken('both-stores'))
+    expect((await register(ashaToken, phoneToken('both-stores'), { host: hostA2 })).data).toEqual({ registerPushDevice: true })
+    expect((await devicesOf(ravi)).filter((d) => d.expo_token === phoneToken('both-stores'))).toEqual([{ store_id: t.storeA1, expo_token: phoneToken('both-stores'), platform: 'android' }])
+    expect((await devicesOf(asha)).filter((d) => d.expo_token === phoneToken('both-stores'))).toEqual([{ store_id: t.storeA2, expo_token: phoneToken('both-stores'), platform: 'android' }])
+    expect((await register(raviToken, phoneToken('ravi-on-a2'), { host: hostA2 })).code).toBe('UNAUTHENTICATED')
+    expect(await db.sql`select 1 from push_device where expo_token = ${phoneToken('ravi-on-a2')}`).toHaveLength(0)
   })
 
   it('refuses a shopper’s session and a portal session on the Delivery API', async () => {
@@ -466,6 +558,22 @@ describe('the rows (DATA-MODEL §3.6, §5.3)', () => {
       withScope(db.sql, ctx, (tx) => tx`insert into activity_log (category, action, result, actor_kind, actor_id, partner_id, store_id, api, visibility) values ('write', 'x', 'success', 'rider', ${actorId}, ${t.partnerA}, ${t.storeA1}, 'delivery', 'store')`)
     await expect(write((await riderRow(meena))?.id ?? '')).rejects.toThrow()
     await expect(write(ctx.caller.kind === 'rider' ? ctx.caller.riderId : '')).resolves.toBeDefined()
+  })
+
+  it('lets app_rider see and delete only its own phones, and register none itself', async () => {
+    const ctx = await riderContext(ravi)
+    const raviId = (await riderRow(ravi))?.id ?? ''
+    const meenaId = (await riderRow(meena))?.id ?? ''
+    await db.sql`insert into push_device (store_id, subject_kind, subject_id, expo_token, platform) values
+      (${t.storeA1}, 'rider', ${raviId}, ${phoneToken('rows-ravi')}, 'android'), (${t.storeA1}, 'rider', ${meenaId}, ${phoneToken('rows-meena')}, 'ios'),
+      (${t.storeA1}, 'customer', ${raviId}, ${phoneToken('rows-customer')}, 'ios')`
+    const seen = await withScope(db.sql, ctx, (tx) => tx<{ subject_id: string; subject_kind: string }[]>`select subject_id, subject_kind from push_device`)
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen.every((d) => d.subject_id === raviId && d.subject_kind === 'rider')).toBe(true)
+    expect((await withScope(db.sql, ctx, (tx) => tx`delete from push_device where expo_token in (${phoneToken('rows-meena')}, ${phoneToken('rows-customer')})`)).count).toBe(0)
+    expect((await withScope(db.sql, ctx, (tx) => tx`delete from push_device where expo_token = ${phoneToken('rows-ravi')}`)).count).toBe(1)
+    await expect(withScope(db.sql, ctx, (tx) => tx`insert into push_device (store_id, subject_kind, subject_id, expo_token, platform) values (${t.storeA1}, 'rider', ${raviId}, ${phoneToken('rows-new')}, 'ios')`)).rejects.toThrow()
+    await expect(withScope(db.sql, ctx, (tx) => tx`update push_device set subject_id = ${raviId}`)).rejects.toThrow()
   })
 
   it('sweeps codes a day past expiry and sessions a month after they end', async () => {

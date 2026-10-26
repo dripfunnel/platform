@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { localCloudflare, localCouriers, localDns, localEmail, localMessageMarker, localSms } from './index'
+import { localCloudflare, localCouriers, localDns, localEmail, localMessageMarker, localPush, localSms } from './index'
 
 const printed = () => vi.mocked(console.log).mock.calls.map(([line]) => String(line))
 
@@ -19,6 +19,17 @@ describe('the local stand-ins', () => {
       { kind: 'email', to: ['owner@kesari.example'], from: 'Kesari <no-reply@mail.localhost>', subject: 'Your code', text: 'Code 123456' },
       { kind: 'sms', to: '+919800000000', text: 'Your code is 654321' },
     ])
+  })
+
+  it('prints a push to its subject, never the phone’s token, and answers every receipt delivered', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const push = localPush()
+    const [ticket] = await push.send([{ to: 'ExponentPushToken[abc123]', subject: 'rider:r-1', title: 'Kesari Threads', body: 'Notifications are on.', data: { kind: 'rider.notifications_on' } }])
+    expect(ticket?.id).toMatch(/^local-/)
+    const [line] = printed()
+    expect(line).not.toContain('ExponentPushToken')
+    expect(JSON.parse(String(line).slice(localMessageMarker.length + 1))).toEqual({ kind: 'push', to: 'rider:r-1', text: 'Kesari Threads\nNotifications are on.\n{"kind":"rider.notifications_on"}' })
+    expect([...(await push.receipts([ticket?.id ?? '']))]).toEqual([[ticket?.id, null]])
   })
 
   it('quote couriers at a fixed tariff within their own country, a step per started 500 g', async () => {

@@ -49,7 +49,10 @@ import { isLocalhost, parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localCouriers, localDns, localEmail, localSms, localWhatsApp } from '#integrations/local/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localWhatsApp } from '#integrations/local/index'
+import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
+import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
+import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
 import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
@@ -249,14 +252,25 @@ const emailFor = (config: Config) => {
   return sesFor(config)
 }
 
+// Expo's push service (THIRD-PARTY-ACCESS §2.13): the stand-in where asked for (PUSH_LOCAL wins, as EMAIL_LOCAL does), else
+// EXPO_PUSH_TOKEN, else pushes wait in the outbox.
+let expoBuilt: { key: string; api: ExpoPush } | undefined
+const pushFor = (config: Config): ExpoPush | null => {
+  if (config.PUSH_LOCAL === '1') return localPush()
+  if (!config.EXPO_PUSH_TOKEN) return null
+  if (expoBuilt?.key !== config.EXPO_PUSH_TOKEN) expoBuilt = { key: config.EXPO_PUSH_TOKEN, api: expoPushClient({ token: config.EXPO_PUSH_TOKEN }) }
+  return expoBuilt.api
+}
+
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
-// (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL.
+// (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
 const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null, publishing: { publish: PublishWorkflow; render: PublishWorkflow; sites: R2Bucket; drafts: R2Bucket; repos: StoreRepos; upgrade: UpgradeWorkflow | null } | null): Deliverers => {
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
+  const push = pushFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
@@ -266,6 +280,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
     ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
+    ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),

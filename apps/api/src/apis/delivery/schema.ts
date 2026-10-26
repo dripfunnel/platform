@@ -2,6 +2,7 @@ import { secureSchema } from '../graphql/scope'
 import { deliveryPolicy } from './access'
 import { registerAccount } from './account'
 import { createDeliveryBuilder } from './builder'
+import { registerDevices } from './devices'
 
 export type { DeliveryContext } from './access'
 
@@ -10,5 +11,6 @@ builder.queryFields((t) => ({
   health: t.string({ extensions: { access: { api: 'delivery', scope: 'public', permission: null } }, resolve: () => 'ok' }),
 }))
 registerAccount(builder)
+registerDevices(builder)
 
 export const deliverySchema = secureSchema(builder.toSchema(), deliveryPolicy)

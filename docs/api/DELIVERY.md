@@ -11,7 +11,7 @@ their app calls, and what the customer sees while the order is on its way. The t
 *(proposed)* await a yes. Built: the riders pool and its invitations (§5, §8, §9; #838); the Delivery API with
 riders' sign-in, profile and account deletion (§4, §5; #839).
 
-Last updated: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -193,7 +193,7 @@ check.
 | `deliveries(state, first, after)` | This rider's deliveries, newest first, keyset-paged: `first` 20 by default, at most 50. A past delivery shows its date, state, warehouse, the customer's area name and the fee, never the customer's name, phone, address or pin |
 | `delivery(id)` | One delivery: warehouse address and pin, the lines and quantities; the customer's area name and the cash to collect. **Only once the rider has picked it up** (`picked_up`, and still theirs) also the customer's name, phone, address, pin and note, so accepting and handing back never reveals a customer. Once it is delivered, failed, cancelled or recalled, none of the customer's details are returned again |
 | `handBack(id)`, `markPickedUp(id)`, `markDelivered(id, code, cashCollected, at, key)`, `markFailed(id, reason, at, key)` | §3 steps 4–5. `markDelivered` refuses a wrong code (`WRONG_CODE`, then `CODE_LOCKED`), and for cash on delivery a missing `cashCollected` (`CASH_NOT_CONFIRMED`); a wrong code arriving late answers `CODE_UNCONFIRMED` (§3, Delivered without signal). The last two may arrive late from a phone that had no signal (decided 2026-10-22, delivery/FIRST-RELEASE.md §1): `at` is when the rider did it, accepted between pickup and now and kept as the step's time; `key` makes a resend do nothing twice |
-| `registerPushDevice(token, platform)` | The Expo push token for this phone (§6) |
+| `registerPushDevice(token, platform)`, `unregisterPushDevice(token)` | The Expo push token for this phone, and forgetting it (§6) |
 
 Every list in this API and in §8 is keyset-paged with a stated maximum, never above the scoped
 layer's `maxPageSize` (100). A rider reads and writes only their own offers and deliveries, of their own store. Every write
@@ -201,7 +201,8 @@ goes to the activity log with actor kind `rider` (LOGGING.md §4), the delivery 
 Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 
 **Built on #839:** the API itself (`src/apis/delivery`, `schema/delivery.graphql`), with `requestCode`, `signIn`,
-`signOut`, `me`, `updateProfile` and `deleteMyAccount`; the rest comes with DL 3, DL 5 and DL 6.
+`signOut`, `me`, `updateProfile` and `deleteMyAccount`; on #840 (DL 3) `registerPushDevice` and `unregisterPushDevice`;
+the rest comes with DL 5 and DL 6.
 
 - **The session** comes back from `signIn` once and goes in as `Authorization: Bearer <token>`: hashed in
   `rider_session`, 30 days from last use, ended by `signOut`, suspension, removal and `deleteMyAccount`. A token of
@@ -222,6 +223,13 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 - **`deleteMyAccount`** removes the rider as an Owner's removal does (§5): sessions ended, phone erased, name kept,
   the number free to be invited again. Every photo the rider uploaded goes too, replaced ones included: the rows in
   the transaction, the files from R2 once it commits. One the store has put on a product since stays, as the store's.
+- **`registerPushDevice`** takes an Expo push token (`ExponentPushToken[…]` or `ExpoPushToken[…]`, else `INVALID_INPUT`,
+  never echoed) and `ios` or `android`. A token the store already holds for another rider, customer or order moves to
+  this rider. Only a phone new to the rider, or moved to them, is logged (`rider.push_device_registered`, the platform,
+  never the token) and gets the confirmation push (§6); the app registering again at each launch only moves
+  `last_seen_at`. **`unregisterPushDevice`** deletes the rider's own phone (`rider.push_device_removed`) and answers
+  `true` for any other token, so it says nothing of another's. Sign-out, suspension, removal and `deleteMyAccount`
+  delete every phone of the rider; another phone still signed in registers again at its next launch (decided on #840).
 
 ---
 
@@ -279,6 +287,21 @@ those through its API.
 
 The order emails the customer already gets for a shipment stay as they are. Neither a push nor an
 email ever carries the handover code (§3).
+
+**Built on #840 (DL 3):** the pipe and one test event; the events in the table come with DL 5, DL 6 and SH 5.
+
+- **The test event** is a confirmation, "Notifications are on for {store}", queued by `registerPushDevice` in its own
+  transaction when a phone is new to the rider or moved to them.
+- **An outbox `push` row** names a subject (rider, customer or guest order) and a message; its data is only
+  `{ kind, deliveryId | orderId }`. The deliverer sends the title and body, in the store's language (English until a
+  second exists), to every phone of the subject in that store, 100 a call, with an 8-second timeout. No answer, a 429,
+  a 5xx or a refused access token is retried by the relay with its backoff up to its attempt limit; any other refusal
+  gives the row up under Expo's code. Once sent, the payload keeps only the message.
+- **Dead tokens**: a ticket answered `DeviceNotRegistered` deletes its phone at once. The ticket ids go into a
+  `push.receipts` row due 15 minutes later (ticket and phone ids, never a token), which reads Expo's receipts, deletes
+  the phones answered `DeviceNotRegistered`, and waits again for receipts not ready until a day after the send.
+- **Without `EXPO_PUSH_TOKEN`** pushes wait in the outbox. Locally `PUSH_LOCAL=1` prints each push in the `pnpm dev`
+  terminal, to its subject and never its token (THIRD-PARTY-ACCESS §2.13, §8.1).
 
 ---
 

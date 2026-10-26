@@ -15,6 +15,7 @@ import {
   spendRiderCode,
   touchRiderSession,
 } from '#db/scoped/riderSignIn'
+import { deleteRiderDevices } from '#db/scoped/pushDevices'
 import type { ActivityEntry, ActivityLog, RequestFacts } from './activity'
 import { codeMatches, type CodeCheck } from './codeCheck'
 import { hashSessionId, newSessionId } from './session'
@@ -135,7 +136,10 @@ export const createRiderAuth = ({ sql, storeId, partnerId, activity, facts, allo
   const signOut = (token: string) =>
     withSystemScope(sql, async (tx) => {
       const rider = /^[0-9a-f]{64}$/.test(token) ? await endRiderSession(tx, await hashSessionId(token), storeId, now()) : null
-      if (rider) await activity.record(tx, entry('rider.signed_out', rider))
+      if (!rider) return true as const
+      // Every phone of the rider, as the card says; another signed-in phone registers again at its next launch (#840).
+      await deleteRiderDevices(tx, storeId, rider.id)
+      await activity.record(tx, entry('rider.signed_out', rider))
       return true as const
     })
 

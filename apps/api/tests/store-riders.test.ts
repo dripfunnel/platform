@@ -168,6 +168,26 @@ describe('resending, suspending, restoring and removing', () => {
     expect((await act('owner', 'removeRider', id)).code).toBe('NOT_FOUND')
     expect((await invite('owner', 'Ravi K.', '+919800000011')).code).toBeUndefined()
   })
+
+  it('deletes the rider’s phones for push with suspension and with removal, and no one else’s (#840)', async () => {
+    const storeId = w.storeOf('owner')
+    const phones = async (riderId: string) => (await db.sql`select 1 from push_device where subject_kind = 'rider' and subject_id = ${riderId}`).length
+    const register = (riderId: string, name: string) =>
+      db.sql`insert into push_device (store_id, subject_kind, subject_id, expo_token, platform) values (${storeId}, 'rider', ${riderId}, ${`ExponentPushToken[${name}]`}, 'android')`
+    const suspended = (await invite('owner', 'Push One', '+919800000021')).rider?.id ?? ''
+    const removed = (await invite('owner', 'Push Two', '+919800000022')).rider?.id ?? ''
+    const bystander = crypto.randomUUID()
+    await db.sql`update rider set status = 'active' where id = ${suspended}`
+    await register(suspended, 'one-a')
+    await register(suspended, 'one-b')
+    await register(removed, 'two-a')
+    await register(bystander, 'bystander')
+    expect((await act('owner', 'suspendRider', suspended)).data?.['suspendRider']).toEqual({ status: 'suspended' })
+    expect(await phones(suspended)).toBe(0)
+    expect((await act('owner', 'removeRider', removed)).data?.['removeRider']).toBe(true)
+    expect(await phones(removed)).toBe(0)
+    expect(await phones(bystander)).toBe(1)
+  })
 })
 
 describe('who may manage riders (ACCESS §11.1)', () => {
@@ -233,6 +253,12 @@ describe('the rows (DATA-MODEL §3.6)', () => {
   it('never lets the merchant side read a session’s hash or a sign-in code', async () => {
     await expect(as('app_request', 'store', (tx) => tx`select id_hash from rider_session`)).rejects.toThrow(/permission denied/)
     await expect(as('app_request', 'store', (tx) => tx`select phone from rider_code`)).rejects.toThrow(/permission denied/)
+  })
+
+  it('never lets the merchant side read a phone’s push token, nor a supplier reach the phones at all (#840)', async () => {
+    await expect(as('app_request', 'store', (tx) => tx`select expo_token from push_device`)).rejects.toThrow(/permission denied/)
+    await expect(as('app_supplier', 'store', (tx) => tx`select subject_id from push_device`, t.sellerA1First)).rejects.toThrow(/permission denied/)
+    await expect(as('app_request', 'store', (tx) => tx`update push_device set last_seen_at = now()`)).rejects.toThrow(/permission denied/)
   })
 
   it('shows the merchant side only its own store’s riders', async () => {

@@ -19,7 +19,7 @@ const words: Record<string, string> = {
 
 const refuse = (reason: string) => (reason === 'UNAUTHENTICATED' ? unauthenticated() : new GraphQLError(words[reason] ?? words['INVALID_INPUT'] ?? '', { extensions: { code: reason } }))
 
-const answered = <T>(result: { ok: true; value: T } | { ok: false; reason: string }): T => {
+export const answered = <T>(result: { ok: true; value: T } | { ok: false; reason: string }): T => {
   if (result.ok) return result.value
   throw refuse(result.reason)
 }
