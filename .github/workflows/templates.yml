@@ -21,7 +21,7 @@ on:
   workflow_call:
     inputs:
       core:
-        description: The version release.yml just recorded; empty names the newest recorded one.
+        description: The version release.yml just recorded; prod's upload runs only when it is set.
         type: string
         default: ''
   workflow_dispatch:
@@ -64,12 +64,12 @@ jobs:
         env:
           CORE_VERSION: ${{ steps.core.outputs.version }}
 
-  # Prod names the version release.yml just recorded (else the newest recorded one), from the release's own commit;
+  # Prod names the version release.yml just recorded, from the release's own commit, and never runs without one;
   # --released refuses a version without a core_release row, so `current.json` never names a core without its image.
   upload-prod:
     runs-on: ubuntu-latest
     environment: prod
-    if: (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.workflow_run.head_branch || github.ref_name) == 'main'
+    if: (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.workflow_run.head_branch || github.ref_name) == 'main' && inputs.core != ''
     env:
       R2_STOREFRONT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       R2_STOREFRONT_ACCESS_KEY_ID: ${{ secrets.R2_STOREFRONT_ACCESS_KEY_ID }}
@@ -82,4 +82,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --released ${CORE_VERSION:+--core "$CORE_VERSION"}
+      - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --released --core "$CORE_VERSION"
