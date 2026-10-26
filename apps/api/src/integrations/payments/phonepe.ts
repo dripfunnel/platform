@@ -15,7 +15,7 @@ const expireAfter = 1200
 const tokenSchema = z.object({ access_token: z.string().min(1) }).loose()
 const payment = z.object({ orderId: z.string(), redirectUrl: z.string().url() }).loose()
 const sdkOrder = z.object({ orderId: z.string().min(1), token: z.string().min(1) }).loose()
-const statusSchema =z.object({ state: z.string(), amount: z.number().int().nonnegative() }).loose()
+const statusSchema = z.object({ state: z.string(), amount: z.number().int().nonnegative() }).loose()
 const eventSchema = z.object({ payload: z.object({ merchantOrderId: z.string() }).loose() }).loose()
 
 export const phonepe = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}): PaymentGateway => {
