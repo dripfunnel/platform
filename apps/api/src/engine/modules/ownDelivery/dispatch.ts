@@ -169,7 +169,7 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
         if ((await queries.riderDeliveries(tx, context.storeId, riderId)).length) throw new DispatchRefused('ON_DELIVERY')
         if (!(await queries.assignRider(tx, d, riderId, f.now, false))) throw new DispatchRefused('TAKEN')
       }
-      await queries.answerOffer(tx, offer.id, accept ? 'accepted' : 'declined', f.now)
+      await queries.answerOffer(tx, context.storeId, riderId, offer.id, accept ? 'accepted' : 'declined', f.now)
       if (accept) await close(tx, f, d, 'taken')
       await record(tx, f, accept ? dispatchAudit.accepted : dispatchAudit.declined, d.id)
       return true

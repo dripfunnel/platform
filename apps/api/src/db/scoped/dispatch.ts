@@ -55,13 +55,13 @@ export const startRound = async (tx: ScopedSql, d: DeliveryRow, now: Date, exclu
 export interface OfferRow { id: string; delivery_id: string; store_id: string; rider_id: string; offer_round: number; answer: string | null; distance_m: number; sent_at: Date }
 
 export const closeOffers = (tx: ScopedSql, d: DeliveryRow, answer: 'taken' | 'expired', now: Date): Promise<OfferRow[]> =>
-  tx<OfferRow[]>`update delivery_offer set answer = ${answer}, answered_at = ${now} where delivery_id = ${d.id} and answer is null returning *`
+  tx<OfferRow[]>`update delivery_offer set answer = ${answer}, answered_at = ${now} where delivery_id = ${d.id} and store_id = ${d.store_id} and answer is null returning *`
 
 export const selectOffer = async (tx: ScopedSql, storeId: string, riderId: string, id: string): Promise<OfferRow | null> =>
   (await tx<OfferRow[]>`select * from delivery_offer where id = ${id} and store_id = ${storeId} and rider_id = ${riderId}`)[0] ?? null
 
-export const answerOffer = (tx: ScopedSql, id: string, answer: 'accepted' | 'declined', now: Date) =>
-  tx`update delivery_offer set answer = ${answer}, answered_at = ${now} where id = ${id} and answer is null`
+export const answerOffer = (tx: ScopedSql, storeId: string, riderId: string, id: string, answer: 'accepted' | 'declined', now: Date) =>
+  tx`update delivery_offer set answer = ${answer}, answered_at = ${now} where id = ${id} and store_id = ${storeId} and rider_id = ${riderId} and answer is null`
 
 export const assignRider = async (tx: ScopedSql, d: DeliveryRow, riderId: string, now: Date, manual: boolean): Promise<boolean> =>
   (await tx`update delivery set state = 'assigned', rider_id = ${riderId}, assigned_at = ${now}, revision = revision + 1
@@ -80,6 +80,7 @@ export const riderDeliveries = (tx: ScopedSql, storeId: string, riderId: string)
 export const setDeliveryState = (tx: ScopedSql, d: DeliveryRow, state: 'unassigned' | 'cancelled', now: Date) =>
   tx`update delivery set state = ${state}, cancelled_at = ${state === 'cancelled' ? now : null}, unassigned_at = ${state === 'unassigned' ? now : tx`unassigned_at`}, revision = revision + 1 where id = ${d.id} and store_id = ${d.store_id}`
 
+// Run as the system by the engine, never as the rider or the merchant: neither role may delete a position (DATA-MODEL §3.6).
 export const setOnline = async (tx: ScopedSql, storeId: string, riderId: string, online: boolean, now: Date) => {
   await tx`update rider set online_at = ${online ? tx`coalesce(online_at, ${now})` : null}, updated_at = ${now} where id = ${riderId} and store_id = ${storeId}`
   if (!online) await tx`delete from rider_position where rider_id = ${riderId} and store_id = ${storeId}`
@@ -88,6 +89,7 @@ export const setOnline = async (tx: ScopedSql, storeId: string, riderId: string,
 export const closeRiderOffers = (tx: ScopedSql, storeId: string, riderId: string, now: Date): Promise<OfferRow[]> =>
   tx<OfferRow[]>`update delivery_offer set answer = 'expired', answered_at = ${now} where store_id = ${storeId} and rider_id = ${riderId} and answer is null returning *`
 
+// Run as the system by the engine: a rider's grants don't reach rider.last_position_at (DATA-MODEL §3.6).
 export const writePosition = async (tx: ScopedSql, p: { storeId: string; riderId: string; lat: number; lng: number; accuracy: number; at: Date; now: Date }): Promise<'saved' | 'old' | 'limited'> => {
   const [before] = await tx<{ reported_at: Date | null; last_position_at: Date | null }[]>`select p.reported_at,r.last_position_at from rider r
     left join rider_position p on p.rider_id = r.id and p.store_id = r.store_id where r.id = ${p.riderId} and r.store_id = ${p.storeId}`
