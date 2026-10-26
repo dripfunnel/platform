@@ -11,7 +11,6 @@ import { selectNewestRelease, selectSandboxImage } from '#db/scoped/coreReleases
 import { withSystemScope } from '#db/scoped/index'
 import { amzDate, authorization } from '#integrations/ses/sigv4'
 import { isThemePath } from '#saas/storefronts/paths'
-import { bundle } from '../../../sandbox/src/gate/bundle'
 import { assertLocalHost } from '../migrate/host-guard'
 
 // Writes the layout templates.ts reads into the sites bucket (storefront ARCHITECTURE §2.3), each theme's preview being
@@ -73,6 +72,10 @@ const put = async (key: string, body: string, contentType = 'application/json') 
   if (target) return putRemote(target, key, body, contentType)
   await proxy?.env.STOREFRONT_SITES.put(key, body, { httpMetadata: { contentType } })
 }
+type Built = { ok: true; bundle: { files: { path: string }[] } } | { ok: false; problems: unknown[] }
+// The sandbox builds its own bundle (apps/sandbox/scripts/bundle-theme.ts): the API takes no dependency on its source.
+const bundle = (theme: string, out: string): Built =>
+  JSON.parse(execFileSync('pnpm', ['--silent', '--filter', '@dripfunnel/sandbox', 'exec', 'tsx', 'scripts/bundle-theme.ts', theme, out], { cwd: repo, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })) as Built
 const contentTypes: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' }
 const scratch = mkdtempSync(join(tmpdir(), 'seed-templates-'))
 const keys = readdirSync(`${templates}themes`)
