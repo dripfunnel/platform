@@ -1,7 +1,7 @@
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { act, type ReactTestRenderer } from 'react-test-renderer'
 import { t } from '../../messages'
-import { fakeShop, hasText, press, pressableNamed, render, type Request } from '../../testing/harness'
+import { fakeShop, hasText, isDisabled, press, pressableNamed, render, type Request } from '../../testing/harness'
 import { AddressFormScreen } from './AddressFormScreen'
 
 jest.setTimeout(120_000)
@@ -9,8 +9,10 @@ jest.setTimeout(120_000)
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 
 const mockBack = jest.fn()
-const mockLocation = { granted: true, coords: { latitude: 26.9124, longitude: 75.7873 }, fail: false }
-const mockMap = { animateToRegion: jest.fn(), props: null as null | { onPress: (e: { nativeEvent: { coordinate: object } }) => void } }
+const mockGeocoded: string[] = []
+const mockLocation = { granted: true, coords: { latitude: 26.9124, longitude: 75.7873 }, fail: false, geocoded: [{ latitude: 26.92, longitude: 75.8 }] as object[] | 'fail' }
+type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }
+const mockMap = { animateToRegion: jest.fn(), props: null as null | { onPress: (e: { nativeEvent: { coordinate: object } }) => void; onRegionChangeComplete: (region: Region) => void } }
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, replace: jest.fn(), push: jest.fn(), canGoBack: () => true }) }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
@@ -18,15 +20,23 @@ jest.mock('expo-location', () => ({
   Accuracy: { High: 4 },
   requestForegroundPermissionsAsync: () => Promise.resolve({ granted: mockLocation.granted }),
   getCurrentPositionAsync: () => (mockLocation.fail ? Promise.reject(new Error('no fix')) : Promise.resolve({ coords: mockLocation.coords })),
+  geocodeAsync: (text: string) => {
+    mockGeocoded.push(text)
+    return mockLocation.geocoded === 'fail' ? Promise.reject(new Error('no geocoder')) : Promise.resolve(mockLocation.geocoded)
+  },
 }))
 // The native map does not run in a test: the stub records how it is used and draws a marker only when there is a pin.
 jest.mock('react-native-maps', () => {
   const React = jest.requireActual<typeof import('react')>('react')
   const { View } = jest.requireActual<typeof import('react-native')>('react-native')
-  const MapView = React.forwardRef((props: { children?: unknown; onPress: (e: { nativeEvent: { coordinate: object } }) => void }, ref) => {
+  const MapView = React.forwardRef((props: { children?: unknown; onPress: (e: { nativeEvent: { coordinate: object } }) => void; onRegionChangeComplete: (region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => void; accessibilityLabel?: string }, ref) => {
     React.useImperativeHandle(ref, () => ({ animateToRegion: mockMap.animateToRegion }))
     mockMap.props = props
-    return <View testID="map">{props.children as never}</View>
+    return (
+      <View testID="map" accessibilityLabel={props.accessibilityLabel}>
+        {props.children as never}
+      </View>
+    )
   })
   MapView.displayName = 'MapView'
   return { __esModule: true, default: MapView, Marker: (props: object) => <View testID="marker" {...props} /> }
@@ -49,12 +59,16 @@ const fillIndia = async (screen: ReactTestRenderer) => {
   await fill(screen, t('address.pin'), '302017')
 }
 
+/** The shopper zooms the map in to the street, as the native map would report it. */
+const zoomIn = async () => act(async () => mockMap.props?.onRegionChangeComplete({ latitude: 26.9124, longitude: 75.7873, latitudeDelta: 0.01, longitudeDelta: 0.01 }))
+
 const saves = (requests: Request[]) => requests.filter((r) => r.query.includes('saveAddress'))
 
 beforeEach(() => {
   mockBack.mockClear()
   mockMap.animateToRegion.mockClear()
-  Object.assign(mockLocation, { granted: true, fail: false })
+  mockGeocoded.length = 0
+  Object.assign(mockLocation, { granted: true, fail: false, geocoded: [{ latitude: 26.92, longitude: 75.8 }] })
 })
 
 describe('an address with a map pin', () => {
@@ -72,20 +86,59 @@ describe('an address with a map pin', () => {
     const shop = fakeShop((r) => (r.query.includes('saveAddress') ? { saveAddress: 'new-id' } : mine()), { signedIn: true })
     const screen = await render(<AddressFormScreen id={null} />, shop)
     await fillIndia(screen)
+    await zoomIn()
     await press(screen, t('address.map.drop'))
     expect(screen.root.findAllByProps({ testID: 'marker' }).length).toBeGreaterThan(0)
     await press(screen, t('address.save'))
     expect(saves(shop.requests)[0]?.variables).toMatchObject({
       id: null,
       isDefault: true,
-      address: { name: 'Ana Rao', line1: '12 Sample Lane', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: null, latitude: 20, longitude: 0 },
+      address: { name: 'Ana Rao', line1: '12 Sample Lane', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: null, latitude: 26.9124, longitude: 75.7873 },
     })
     expect(mockBack).toHaveBeenCalled()
+  })
+
+  it('will not drop a pin on the world view it starts on, and says to zoom in or use the location', async () => {
+    const screen = await render(<AddressFormScreen id={null} />, fakeShop(() => mine(), { signedIn: true }))
+    expect(isDisabled(pressableNamed(screen, t('address.map.drop')))).toBe(true)
+    expect(hasText(screen, t('address.map.zoomHint'))).toBe(true)
+    await zoomIn()
+    expect(isDisabled(pressableNamed(screen, t('address.map.drop')))).toBe(false)
+    expect(hasText(screen, t('address.map.help'))).toBe(true)
+  })
+
+  it('keeps the pin controls reachable to a screen reader: nothing around the map groups them away', async () => {
+    const screen = await render(<AddressFormScreen id={null} />, fakeShop(() => mine(), { signedIn: true }))
+    const drop = pressableNamed(screen, t('address.map.drop'))
+    for (let node = drop.parent; node; node = node.parent) expect(node.props.accessible).not.toBe(true)
+    expect(screen.root.findAllByProps({ testID: 'map' })[0]?.props.accessibilityLabel).toBe(t('address.map.noPin'))
+  })
+
+  it('puts the pin where the typed address is, with no map to use, once there is a street and a city', async () => {
+    const screen = await render(<AddressFormScreen id={null} />, fakeShop(() => mine(), { signedIn: true }))
+    expect(screen.root.findAll((node) => node.props.accessibilityLabel === t('address.map.find'))).toHaveLength(0)
+    await fillIndia(screen)
+    await press(screen, t('address.map.find'))
+    expect(mockGeocoded).toEqual(['12 Sample Lane, Jaipur, Rajasthan, 302017, India'])
+    expect(screen.root.findAllByProps({ testID: 'marker' })[0]?.props.coordinate).toEqual({ latitude: 26.92, longitude: 75.8 })
+  })
+
+  it('says when the address cannot be found on the map, and sets no pin', async () => {
+    mockLocation.geocoded = []
+    const screen = await render(<AddressFormScreen id={null} />, fakeShop(() => mine(), { signedIn: true }))
+    await fillIndia(screen)
+    await press(screen, t('address.map.find'))
+    expect(hasText(screen, t('address.map.notFound'))).toBe(true)
+    mockLocation.geocoded = 'fail'
+    await press(screen, t('address.map.find'))
+    expect(hasText(screen, t('address.map.notFound'))).toBe(true)
+    expect(screen.root.findAllByProps({ testID: 'marker' })).toHaveLength(0)
   })
 
   it('moves when the map is tapped, so the pin can be put on the door', async () => {
     const shop = fakeShop(() => mine(), { signedIn: true })
     const screen = await render(<AddressFormScreen id={null} />, shop)
+    await zoomIn()
     await press(screen, t('address.map.drop'))
     await act(async () => mockMap.props?.onPress({ nativeEvent: { coordinate: { latitude: 26.5, longitude: 75.5 } } }))
     expect(screen.root.findAllByProps({ testID: 'marker' })[0]?.props.coordinate).toEqual({ latitude: 26.5, longitude: 75.5 })
@@ -115,6 +168,7 @@ describe('an address with a map pin', () => {
     const screen = await render(<AddressFormScreen id={null} />, shop)
     await fillIndia(screen)
     await fill(screen, t('address.pin'), '12')
+    await zoomIn()
     await press(screen, t('address.map.drop'))
     await press(screen, t('address.save'))
     expect(hasText(screen, t('form.invalidPostal'))).toBe(true)
@@ -155,6 +209,7 @@ describe('an address with a map pin', () => {
     )
     const screen = await render(<AddressFormScreen id={null} />, shop)
     await fillIndia(screen)
+    await zoomIn()
     await press(screen, t('address.map.drop'))
     await press(screen, t('address.save'))
     expect(hasText(screen, t('errors.TOO_MANY'))).toBe(true)

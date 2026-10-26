@@ -275,7 +275,13 @@
       "help": "Move the map so the pin is on your door, or drag the pin. We use it to see who can deliver to you.",
       "useLocation": "Use my location",
       "denied": "Location is off for this app. Allow it in Settings, or move the pin by hand.",
-      "failed": "We couldn’t find your location. Move the pin by hand."
+      "failed": "We couldn’t find your location. Move the pin by hand.",
+      "zoomHint": "Zoom in to your street first, or use your location.",
+      "find": "Find this address on the map",
+      "notFound": "We couldn’t find that address on the map. Check it, or move the pin by hand."
     }
+  },
+  "permissions": {
+    "location": "Allow {name} to use your location to put the pin on your address."
   }
 }

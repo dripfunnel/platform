@@ -18,6 +18,10 @@ const empty = (country: string): Draft => ({ name: '', line1: '', line2: '', cit
 
 const draftOf = (a: SavedAddress): Draft => ({ name: a.name, line1: a.line1, line2: a.line2, city: a.city, region: a.region, postalCode: a.postalCode, country: a.country, phone: a.phone })
 
+/** What the shopper has typed, as one line for the phone's geocoder; null until there is a street and a city. */
+const lookupText = (d: Draft): string | null =>
+  d.line1.trim() && d.city.trim() ? [d.line1, d.line2, d.city, d.region, d.postalCode, d.country ? regionName(d.country, locale) : ''].map((part) => part.trim()).filter(Boolean).join(', ') : null
+
 const problemText = (problem: Problem | undefined, field: FieldName): string | null =>
   problem === 'required' ? t('form.required') : problem === 'invalid' ? t(field === 'phone' ? 'form.invalidPhone' : 'form.invalidPostal') : null
 
@@ -48,7 +52,7 @@ function Form({ read, id }: { read: AccountRead; id: string | null }) {
 
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
-      <PinMap pin={pin} onChange={setPin} error={problems.pin ? t('address.pinRequired') : null} />
+      <PinMap pin={pin} onChange={setPin} error={problems.pin ? t('address.pinRequired') : null} addressText={lookupText(draft)} />
       <View style={styles.field}>
         <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>{t('address.country')}</Text>
         {read.countries.length <= 1 ? (

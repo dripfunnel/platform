@@ -1,6 +1,7 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import messages from './src/messages/en.json'
 import { buildConfig, readStoreEnv } from './app.config'
 
 const appRoot = __dirname
@@ -54,7 +55,7 @@ describe('app.config.ts', () => {
   it('asks for the location only while the app is in use, naming the store', () => {
     const env = readStoreEnv(appRoot, 'dev')
     const plugin = buildConfig({}, env).plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-location')
-    expect(plugin).toEqual(['expo-location', { locationWhenInUsePermission: expect.stringContaining(env.APP_NAME) }])
+    expect(plugin).toEqual(['expo-location', { locationWhenInUsePermission: messages.permissions.location.replace('{name}', env.APP_NAME) }])
   })
 
   it('fails with the variable named when a value is missing', () => {

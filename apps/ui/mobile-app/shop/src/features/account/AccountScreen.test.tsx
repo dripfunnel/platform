@@ -51,6 +51,18 @@ describe('Account', () => {
     expect(shop.requests.find((r) => r.query.includes('updateAccount'))?.variables).toEqual({ name: 'Ana R' })
   })
 
+  it('lets go of the session when a rename says it has ended', async () => {
+    const shop = fakeShop((r: Request) => {
+      if (r.query.includes('updateAccount')) throw new ApiError('SIGNED_OUT', 'x')
+      return mine()
+    }, { signedIn: true })
+    const screen = await render(<AccountScreen />, shop)
+    await fill(screen, t('account.name'), 'Ana R')
+    await press(screen, t('account.saveName'))
+    expect(hasText(screen, t('errors.SIGNED_OUT'))).toBe(true)
+    expect(shop.sessions).toEqual([null])
+  })
+
   it('signs out: ends the session on the phone and shows the guest state', async () => {
     const shop = fakeShop(() => mine(), { signedIn: true })
     const screen = await render(<AccountScreen />, shop)

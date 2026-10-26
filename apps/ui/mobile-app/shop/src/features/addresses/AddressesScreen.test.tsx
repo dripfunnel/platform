@@ -61,6 +61,20 @@ describe('saved addresses', () => {
     expect(hasText(screen, 'Home a2')).toBe(true)
   })
 
+  it('lets go of the session when deleting says it has ended, so the shopper can sign in again', async () => {
+    const shop = fakeShop(
+      (r) => {
+        if (r.query.includes('deleteAddress')) throw new ApiError('SIGNED_OUT', 'x')
+        return mine([address('a1')])
+      },
+      { signedIn: true },
+    )
+    const screen = await render(<AddressesScreen />, shop)
+    await press(screen, t('addresses.delete'))
+    await press(screen, t('addresses.deleteConfirm'))
+    expect(shop.sessions).toEqual([null])
+  })
+
   it('can be backed out of without deleting', async () => {
     const shop = fakeShop(() => mine([address('a1')]), { signedIn: true })
     const screen = await render(<AddressesScreen />, shop)
@@ -70,13 +84,12 @@ describe('saved addresses', () => {
   })
 
   it('shows a load error by its code, and says the shopper is signed out when the API knows no account', async () => {
-    const broken = await render(
-      <AddressesScreen />,
-      fakeShop(() => {
-        throw new ApiError('SIGNED_OUT', 'x')
-      }, { signedIn: true }),
-    )
+    const ended = fakeShop(() => {
+      throw new ApiError('SIGNED_OUT', 'x')
+    }, { signedIn: true })
+    const broken = await render(<AddressesScreen />, ended)
     expect(hasText(broken, t('errors.SIGNED_OUT'))).toBe(true)
+    expect(ended.sessions).toEqual([null])
     const none = await render(<AddressesScreen />, fakeShop(() => ({ account: null, store: null }), { signedIn: true }))
     expect(hasText(none, t('account.guest.title'))).toBe(true)
   })

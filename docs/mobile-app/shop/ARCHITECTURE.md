@@ -62,7 +62,7 @@ DripFunnel's palette (§4: no colours served).
 |---|---|
 | `expo-notifications` | Order and delivery pushes |
 | `expo-secure-store` | The session and cart tokens |
-| `expo-location` | "Use my location" on the address pin (built on #862): asked only while the app is in use and only when the shopper taps for it |
+| `expo-location` | "Use my location" on the address pin (built on #862): asked only while the app is in use and only when the shopper taps for it; its geocoder also puts the pin where the typed address is, the way that needs no map (WCAG 2.2, 2.5.1). A pin is dropped by hand only on a map zoomed in to about a city |
 | `react-native-maps` | The address pin (built on #862) and the live tracking map (Google Maps on Android, Apple Maps on iOS). Android takes its key from the store's optional `GOOGLE_MAPS_ANDROID_KEY` (../README.md §3) |
 | `@stripe/stripe-react-native` | Stripe's Payment Sheet |
 | `react-native-razorpay` | Razorpay's checkout |

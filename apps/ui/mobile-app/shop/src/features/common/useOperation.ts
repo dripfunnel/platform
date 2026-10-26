@@ -15,7 +15,7 @@ const codeOf = (error: unknown): string => (isApiError(error) ? error.code : 'UN
 
 /** Runs an operation when it changes (or on `retry`); with no answer it falls back to the last one kept, never to a blank screen. */
 export function useOperation<T>(operation: Operation<T> | null): { state: Loaded<T>; retry: () => void } {
-  const { host, client } = useShop()
+  const { host, client, endSession } = useShop()
   const [state, setState] = useState<Loaded<T>>({ status: 'loading' })
   const [round, setRound] = useState(0)
   const latest = useRef(operation)
@@ -34,6 +34,8 @@ export function useOperation<T>(operation: Operation<T> | null): { state: Loaded
         if (live) setState({ status: 'ready', data, stale: false })
         if (current.slot) await saveCached(host, current.slot, current.signature, raw)
       } catch (error) {
+        // A session the API says has ended is let go, so the shopper can sign in again.
+        if (isApiError(error, 'SIGNED_OUT')) void endSession()
         const offline = isApiError(error, 'NO_RESPONSE')
         if (offline && current.slot) {
           const kept = await readCached(host, current.slot, current.signature)
@@ -54,7 +56,7 @@ export function useOperation<T>(operation: Operation<T> | null): { state: Loaded
     return () => {
       live = false
     }
-  }, [identity, round, client, host])
+  }, [identity, round, client, host, endSession])
 
   return { state, retry: useCallback(() => setRound((n) => n + 1), []) }
 }
