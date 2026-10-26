@@ -4,6 +4,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { logEvent } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
+import { deleteRiderDevices } from '#db/scoped/pushDevices'
 import { countOwnUploadsSince, deleteOwnUploads, endRiderSessions, markRiderRemoved, ownPhotoExists, selectOwnRider, updateOwnRider, type OwnRiderRow } from '#db/scoped/riders'
 import { createAssetService, type AssetStore, type UploadResult } from '#engine/modules/catalog/index'
 
@@ -100,6 +101,7 @@ export const createRiderProfile = ({ sql, context, activity, facts, files, now }
       const rider = await selectOwnRider(tx, storeId, riderId)
       if (!rider) return { ok: false, reason: 'UNAUTHENTICATED' }
       await endRiderSessions(tx, storeId, riderId, now())
+      await deleteRiderDevices(tx, storeId, riderId)
       await markRiderRemoved(tx, storeId, riderId, now())
       const keys = await deleteOwnUploads(tx, storeId, riderId)
       await activity.record(tx, entry(riderProfileAudit.accountDeleted, rider))

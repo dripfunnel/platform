@@ -18,6 +18,7 @@ import {
   setRiderStatus,
   type RiderRow,
 } from '#db/scoped/riders'
+import { deleteRiderDevices } from '#db/scoped/pushDevices'
 import { selectStoreSlug } from '#db/scoped/storefrontSettings'
 
 // Settings › Riders (DELIVERY §5, §8; SetRiders): the store's own delivery people, the Owner's (`riders.manage`). The
@@ -153,6 +154,7 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
       const rider = await locked(tx, id)
       if (rider.status !== 'active') throw new Refused({ reason: 'NOT_ACTIVE' })
       await endRiderSessions(tx, storeId, rider.id, now())
+      await deleteRiderDevices(tx, storeId, rider.id)
       const changed = await setRiderStatus(tx, storeId, rider.id, 'suspended', now())
       await activity.record(tx, entry(ridersAudit.suspended, rider))
       return changed
@@ -172,6 +174,7 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
     run(async (tx) => {
       const rider = await locked(tx, id)
       await endRiderSessions(tx, storeId, rider.id, now())
+      await deleteRiderDevices(tx, storeId, rider.id)
       await markRiderRemoved(tx, storeId, rider.id, now())
       await activity.record(tx, entry(ridersAudit.removed, rider))
       return true as const
