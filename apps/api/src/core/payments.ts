@@ -28,9 +28,21 @@ export interface PaymentRequest {
   customer: { email: string | null; phone: string | null }
   /** Where a provider that takes the shopper away sends them back. */
   returnUrl: string
+  /** Set when the shop app pays with the provider's native sheet (mobile-app/shop/ARCHITECTURE §4). */
+  app?: AppPayment
 }
 
-/** What the storefront needs to take the payment; which parts are set depends on the provider. */
+export interface AppPayment {
+  /** PayPal: where the approval page sends the shopper back to the app, and where it sends a shopper who backed out. */
+  returnUrl: string
+  cancelUrl: string
+  /** Stripe: the signed-in shopper's customer id in this store; null for a guest. */
+  shopperId: string | null
+  /** Stripe: the API version the app's SDK speaks, which an ephemeral key must be made for; null skips saved cards. */
+  stripeApiVersion: string | null
+}
+
+/** What the storefront or the app needs to take the payment; which parts are set depends on the provider. */
 export interface PaymentStart {
   /** The provider's own id for this payment, read back by `outcome`. */
   providerRef: string
@@ -41,8 +53,11 @@ export interface PaymentStart {
   clientSecret: string | null
   /** Cashfree: the payment session. */
   sessionId: string | null
-  /** PhonePe: the page the shopper pays on. */
+  /** PhonePe: the page the shopper pays on; PayPal, for the app: its approval page. */
   redirectUrl: string | null
+  /** Stripe, for the app: the shopper's Customer on the connected account and its short-lived ephemeral key's secret. */
+  customerId?: string | null
+  ephemeralKeySecret?: string | null
 }
 
 export type PaymentOutcome = { state: 'captured'; amount: Money } | { state: 'pending' } | { state: 'failed' }

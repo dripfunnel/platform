@@ -109,6 +109,17 @@ jobs:
           ALLOW_REMOTE_MIGRATIONS: '1'
           ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
 
+  # Prod's templates for the version just recorded (#902); a workflow_run trigger would run off main and be refused by `prod`.
+  templates-prod:
+    needs: [release, sandbox-image]
+    uses: ./.github/workflows/templates.yml
+    with:
+      core: ${{ needs.release.outputs.version }}
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: read
+
   # A dev prerelease's build image, on ghcr.io for a dev store's build (LIVE-SHOP §4 step 5) and in dev's Cloudflare registry
   # for the studio (dev.yml names the newest tag's digest, #790). No core_release row: the fleet uses main's releases.
   sandbox-image-dev:

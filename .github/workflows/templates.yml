@@ -1,7 +1,8 @@
 name: templates
 
-# Uploads the storefront templates to the dev sites bucket (docs/setup/dev.md §2.8), and only when
-# a template file or the upload script changes. The dev deploy does not touch the bucket.
+# Uploads the storefront templates to the sites bucket (docs/setup/dev.md §2.8, docs/setup/prod.md §3.6): dev's from a
+# push to dev that changes a template file or the upload script, and after each release; prod's only from release.yml,
+# so a released core's templates never change under it. Neither deploy touches the bucket.
 
 on:
   push:
@@ -10,11 +11,19 @@ on:
       - 'templates/storefront/**'
       - 'apps/api/scripts/local/seed-templates.ts'
       - '.github/workflows/templates.yml'
-  # A new core version changes `current.json`; wait for the release so it never names an unpublished core.
+  # Dev's: a new core version changes `current.json`; wait for the release so it never names an unpublished core.
   workflow_run:
     workflows: [release]
     types: [completed]
     branches: [dev]
+  # Prod's: release.yml calls this after the version's image is recorded. A workflow_run job takes the default branch's
+  # ref, which the `prod` environment refuses (main only).
+  workflow_call:
+    inputs:
+      core:
+        description: The version release.yml just recorded; prod's upload runs only when it is set.
+        type: string
+        default: ''
   workflow_dispatch:
 
 permissions:
@@ -29,7 +38,7 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     environment: dev
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.workflow_run.head_branch || github.ref_name) == 'dev'
     env:
       R2_STOREFRONT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       R2_STOREFRONT_ACCESS_KEY_ID: ${{ secrets.R2_STOREFRONT_ACCESS_KEY_ID }}
@@ -54,3 +63,23 @@ jobs:
       - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --core "$CORE_VERSION"
         env:
           CORE_VERSION: ${{ steps.core.outputs.version }}
+
+  # Prod names the version release.yml just recorded, from the release's own commit, and never runs without one;
+  # --released refuses a version without a core_release row, so `current.json` never names a core without its image.
+  upload-prod:
+    runs-on: ubuntu-latest
+    environment: prod
+    if: (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.workflow_run.head_branch || github.ref_name) == 'main' && inputs.core != ''
+    env:
+      R2_STOREFRONT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      R2_STOREFRONT_ACCESS_KEY_ID: ${{ secrets.R2_STOREFRONT_ACCESS_KEY_ID }}
+      R2_STOREFRONT_SECRET_ACCESS_KEY: ${{ secrets.R2_STOREFRONT_SECRET_ACCESS_KEY }}
+      STOREFRONT_SITES_BUCKET: ${{ vars.STOREFRONT_SITES_BUCKET }}
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      ALLOW_REMOTE_MIGRATIONS: '1'
+      ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+      CORE_VERSION: ${{ inputs.core }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --released --core "$CORE_VERSION"

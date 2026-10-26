@@ -24,9 +24,12 @@ const intentSchema = z
   .loose()
 
 const refundSchema = z.object({ id: z.string().regex(/^re_[A-Za-z0-9]+$/), status: z.string() }).loose()
+const customerSchema = z.object({ id: z.string().regex(/^cus_[A-Za-z0-9]+$/) }).loose()
+const customersSchema = z.object({ data: z.array(customerSchema) }).loose()
+const ephemeralKeySchema = z.object({ secret: z.string().min(1) }).loose()
 
 export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Record<PaymentMode, StripeKeys>>; fetchImpl?: typeof fetch }): PaymentGateway => {
-  const call = async <S extends z.ZodType = typeof intentSchema>(mode: PaymentMode, accountId: string, method: 'GET' | 'POST', path: string, opts: { body?: URLSearchParams; idempotencyKey?: string } = {}, schema?: S) => {
+  const call = async <S extends z.ZodType = typeof intentSchema>(mode: PaymentMode, accountId: string, method: 'GET' | 'POST', path: string, opts: { body?: URLSearchParams; idempotencyKey?: string; version?: string } = {}, schema?: S) => {
     const key = keys[mode]
     if (!key) throw new PaymentUnavailable(`no ${mode} key`)
     let response: Response
@@ -38,6 +41,7 @@ export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Reco
           'stripe-account': accountId,
           ...(opts.body ? { 'content-type': 'application/x-www-form-urlencoded' } : {}),
           ...(opts.idempotencyKey ? { 'idempotency-key': opts.idempotencyKey } : {}),
+          ...(opts.version ? { 'stripe-version': opts.version } : {}),
         },
         ...(opts.body ? { body: opts.body.toString() } : {}),
         signal: AbortSignal.timeout(stripeTimeoutMs),
@@ -60,10 +64,28 @@ export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Reco
     return externalAccountId
   }
 
+  /** The shopper's Customer on the merchant's account, found by our id in its metadata or made; nothing else of theirs is sent. */
+  const customerOf = async (mode: PaymentMode, accountId: string, shopperId: string): Promise<string> => {
+    const query = new URLSearchParams({ query: `metadata['df_customer_id']:'${shopperId}'`, limit: '1' })
+    const { intent: found } = await call(mode, accountId, 'GET', `/customers/search?${query.toString()}`, {}, customersSchema)
+    if (found.data[0]) return found.data[0].id
+    // The key keeps two quick payments from making two Customers while Stripe's search catches up.
+    const body = new URLSearchParams({ 'metadata[df_customer_id]': shopperId })
+    const { intent: made } = await call(mode, accountId, 'POST', '/customers', { body, idempotencyKey: `df-customer:${shopperId}` }, customerSchema)
+    return made.id
+  }
+
   return {
     available: (mode) => keys[mode] !== undefined,
     start: async (account, request) => {
       const accountId = accountOf(account.externalAccountId)
+      const { shopperId, stripeApiVersion } = request.app ?? { shopperId: null, stripeApiVersion: null }
+      const saved = shopperId && stripeApiVersion && /^[0-9a-f-]{36}$/.test(shopperId) ? { shopperId, version: stripeApiVersion } : null
+      const customerId = saved ? await customerOf(account.mode, accountId, saved.shopperId) : null
+      const ephemeral =
+        saved && customerId
+          ? (await call(account.mode, accountId, 'POST', '/ephemeral_keys', { body: new URLSearchParams({ customer: customerId }), idempotencyKey: `df-ephemeral-key:${request.attemptId}`, version: saved.version }, ephemeralKeySchema)).intent.secret
+          : null
       const body = new URLSearchParams({
         amount: request.amount.amount.toString(),
         currency: request.amount.currency.toLowerCase(),
@@ -72,9 +94,10 @@ export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Reco
         'metadata[df_payment_id]': request.attemptId,
       })
       if (request.customer.email) body.set('receipt_email', request.customer.email)
+      if (customerId) body.set('customer', customerId)
       const { intent, key } = await call(account.mode, accountId, 'POST', '/payment_intents', { body, idempotencyKey: `df-payment:${request.attemptId}` }, intentSchema)
       if (!intent.client_secret) throw new PaymentUnavailable('no client secret')
-      return { providerRef: intent.id, publicKey: key.publishableKey, accountId, clientSecret: intent.client_secret, sessionId: null, redirectUrl: null }
+      return { providerRef: intent.id, publicKey: key.publishableKey, accountId, clientSecret: intent.client_secret, sessionId: null, redirectUrl: null, ...(customerId && ephemeral ? { customerId, ephemeralKeySecret: ephemeral } : {}) }
     },
     cancel: async (account, providerRef) => {
       if (!/^pi_[A-Za-z0-9]+$/.test(providerRef)) return

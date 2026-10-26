@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
 import type { Page } from '#core/paging'
 import type { PaymentStart } from '#core/payments'
-import { checkoutAudit, createCheckout, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow, type ShopOrderSummaryRow } from '#engine/modules/checkout/index'
+import { appPaymentInput, checkoutAudit, createCheckout, type AppPaymentInput, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow, type ShopOrderSummaryRow } from '#engine/modules/checkout/index'
 import { downloadUrl } from '#engine/modules/deliveries/index'
 import { paymentModeOf, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
@@ -25,12 +25,20 @@ const words: Record<string, string> = {
   CART_CHANGED: 'Your cart changed while you were paying. Check it and pay again.',
   OFFER_CHANGED: 'An offer in your cart has just ended or been used up. Check your cart and pay again.',
   SIGNED_OUT: 'Sign in first.',
+  INVALID_APP_PAYMENT: 'That app payment request isn’t valid.',
   INVALID_CURSOR: 'That page cursor isn’t valid.',
 }
 
 const answered = <T>(result: CheckoutResult<T>): T => {
   if (result.ok) return result.value
   throw new GraphQLError(words[result.reason] ?? words['NOT_READY'] ?? '', { extensions: { code: result.reason, ...(result.problems ? { problems: result.problems } : {}) } })
+}
+
+const appPaymentOf = (input: { scheme: string; stripeApiVersion?: string | null | undefined } | null | undefined): AppPaymentInput | undefined => {
+  if (!input) return undefined
+  const parsed = appPaymentInput.safeParse(input)
+  if (!parsed.success) throw new GraphQLError(words['INVALID_APP_PAYMENT'] ?? '', { extensions: { code: 'INVALID_APP_PAYMENT' } })
+  return parsed.data
 }
 
 const checkoutOf = async (ctx: ShopContext) => {
@@ -78,8 +86,16 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
       accountId: t.exposeString('accountId', { nullable: true }),
       clientSecret: t.exposeString('clientSecret', { nullable: true }),
       sessionId: t.exposeString('sessionId', { nullable: true }),
+      // PhonePe's page, or PayPal's approval page for the app.
       redirectUrl: t.exposeString('redirectUrl', { nullable: true }),
+      // For the app's Stripe sheet, a signed-in shopper's only: their Customer and the ephemeral key's secret, which lasts an hour.
+      customerId: t.exposeString('customerId', { nullable: true }),
+      ephemeralKeySecret: t.exposeString('ephemeralKeySecret', { nullable: true }),
     }),
+  })
+  // What the shop app sends to pay with a provider's own sheet; web calls leave it out and nothing changes.
+  const AppPayment = builder.inputType('ShopAppPaymentInput', {
+    fields: (t) => ({ scheme: t.string({ required: true }), stripeApiVersion: t.string() }),
   })
   const Placed = builder.objectRef<PlacedOrder>('ShopPlacedOrder').implement({
     fields: (t) => ({
@@ -198,11 +214,11 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
     // "Pay": a ready cart becomes an order paid this way; refused as NOT_READY with `problems` until checkout is complete.
     placeOrder: t.field({
       type: Placed,
-      args: { provider: t.arg.string({ required: true }) },
+      args: { provider: t.arg.string({ required: true }), app: t.arg({ type: AppPayment }) },
       extensions: { access: { ...access, audit: checkoutAudit.placed } },
       resolve: async (_, args, ctx) => {
         if (args.provider.length > 40) throw new GraphQLError(words['METHOD_UNAVAILABLE'] ?? '', { extensions: { code: 'METHOD_UNAVAILABLE' } })
-        return answered(await (await checkoutOf(ctx)).place(args.provider))
+        return answered(await (await checkoutOf(ctx)).place(args.provider, appPaymentOf(args.app)))
       },
     }),
     // Back from paying: the card payment read back from its provider, and the order as it is now.
@@ -216,9 +232,9 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
     // "Try again" after a declined card: a new attempt for the same order.
     payOrder: t.field({
       type: Start,
-      args: { orderId: t.arg.id({ required: true }) },
+      args: { orderId: t.arg.id({ required: true }), app: t.arg({ type: AppPayment }) },
       extensions: { access: { ...access, audit: checkoutAudit.retried } },
-      resolve: async (_, args, ctx) => answered(await (await checkoutOf(ctx)).pay(String(args.orderId))),
+      resolve: async (_, args, ctx) => answered(await (await checkoutOf(ctx)).pay(String(args.orderId), appPaymentOf(args.app))),
     }),
   }))
 }

@@ -374,7 +374,7 @@ version's files as it builds the templates' preview bundles (PREVIEW §4):
 paths, the locked workflow and `package.json` included), `templates/{core}/themes/{key}/source.json` (the
 theme's files), `templates/{core}/themes/{key}/preview/manifest.json` (each preview file's path
 and SHA-256) with the files under `preview/files/`, and last `templates/current.json`
-(`{"core": "x.y.z"}`), which names the core new stores pin. The `create-storefront` Workflow
+(`{"core": "x.y.z"}`), which names the core new stores pin. `templates.yml` does the upload (`apps/api/scripts/local/seed-templates.ts`): on `main` for the version `release.yml` just recorded, so the core named has its image recorded, on `dev` for the newest `-dev.N` build. The `create-storefront` Workflow
 refuses a skeleton without its workflow and `package.json` or carrying theme files, and a theme
 writing outside §3.4. "Start from scratch" is the baseline theme drawn in
 `designs/DF Storefront Prototype` (D1, #285). Every template passes every gate of §4.2 with

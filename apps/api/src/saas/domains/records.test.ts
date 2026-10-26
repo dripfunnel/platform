@@ -53,11 +53,12 @@ describe('isBareDomain', () => {
 })
 
 describe('isHouseHost', () => {
-  it('admits names under dripfunnel.com except the apex, the served hosts and the environment zone', () => {
-    expect(isHouseHost('store.dripfunnel.com', 'edge.dripfunnel.com')).toBe(true)
-    for (const host of ['dripfunnel.com', 'admin.dripfunnel.com', 'platform.dripfunnel.com', 'hooks.dripfunnel.com', 'edge.dripfunnel.com', 'portal.edge.dripfunnel.com']) {
-      expect(isHouseHost(host, 'edge.dripfunnel.com')).toBe(false)
+  it('admits names under dripfunnel.com except the apex, the served hosts and the edge fallback origins', () => {
+    for (const zone of ['dripfunnel.com', 'edge.example']) {
+      expect(isHouseHost('mystore.dripfunnel.com', zone)).toBe(true)
+      for (const host of ['dripfunnel.com', 'admin.dripfunnel.com', 'platform.dripfunnel.com', 'hooks.dripfunnel.com']) expect(isHouseHost(host, zone)).toBe(false)
     }
+    for (const host of ['edge.dripfunnel.com', 'portal.edge.dripfunnel.com', 'shops.edge.dripfunnel.com']) expect(isHouseHost(host, 'dripfunnel.com')).toBe(false)
   })
 })
 

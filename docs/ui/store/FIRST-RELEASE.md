@@ -1220,6 +1220,7 @@ the store's own rates leave delivery untaxed (decided on #309). A Stripe account
 into the provider. At checkout `placeOrder` answers Razorpay's order and key id, Cashfree's `sessionId`, PhonePe's
 `redirectUrl` (the shopper returns to the order's page, `/order/{id}/`, and the storefront calls `confirmPayment`) or PayPal's order
 and client id. Cashfree refuses with `PHONE_REQUIRED` until the cart has a mobile number.
+**Built on #856, for the shop app:** `placeOrder` and `payOrder` take an optional `app` (`scheme`, `stripeApiVersion`; `INVALID_APP_PAYMENT` when the scheme isn't an app's own) and answer Stripe's `customerId` and `ephemeralKeySecret` for a signed-in shopper, and PayPal's approval page as `redirectUrl` (mobile-app/shop/ARCHITECTURE.md §4).
 **Built on #310 (SAPI 11), part 1, reading orders:** `orders(filter, search)` (newest first, at most 50; the chips `ALL`,
 `TO_SHIP` (unshipped or partly shipped, and gone through: paid, or cash on delivery or transfer), `PARTLY_SHIPPED`, `SHIPPED`,
 `CANCELLED_REFUNDED`, `PAYMENT_PENDING`; search by number, or the shopper's name on the merchant side), `orderCounts`,
