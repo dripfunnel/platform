@@ -9,8 +9,8 @@ import { t } from '../../messages'
 import { ProductGrid } from './ProductGrid'
 import { screenPadding } from './ProductCardView'
 import { SearchEntry } from './SearchEntry'
-import { Resource, StateMessage } from './ui'
-import { useOperation } from './useOperation'
+import { Resource, StateMessage } from '../common/ui'
+import { useOperation } from '../common/useOperation'
 
 export function CollectionTile({ collection, onOpen }: { collection: Collection; onOpen: (slug: string) => void }) {
   const { colors, radii } = useTheme()

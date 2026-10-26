@@ -7,9 +7,9 @@ import { t } from '../../messages'
 import { FilterSheet, SortSheet, sorts } from './FilterSheet'
 import { ProductCardView, cardGap, screenPadding } from './ProductCardView'
 import { ShowMore } from './ProductGrid'
-import { OfflineBanner, ScreenHeader, Skeleton, StateMessage } from './ui'
+import { OfflineBanner, ScreenHeader, Skeleton, StateMessage } from '../common/ui'
 import { usePaged } from './usePaged'
-import { errorKey } from './words'
+import { errorKey } from '../common/errors'
 
 const labelOf = (facets: Facet[], id: string): string | null => {
   for (const facet of facets) {

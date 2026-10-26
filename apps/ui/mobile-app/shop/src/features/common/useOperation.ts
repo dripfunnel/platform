@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
-import type { Operation } from '../../api/catalogue'
+import type { Operation } from '../../api/operation'
 import { useShop } from '../../api/ShopContext'
 import { readCached, saveCached } from './cache'
 
@@ -14,17 +14,21 @@ export type Loaded<T> =
 const codeOf = (error: unknown): string => (isApiError(error) ? error.code : 'UNKNOWN')
 
 /** Runs an operation when it changes (or on `retry`); with no answer it falls back to the last one kept, never to a blank screen. */
-export function useOperation<T>(operation: Operation<T> | null): { state: Loaded<T>; retry: () => void } {
-  const { host, client } = useShop()
+export function useOperation<T>(operation: Operation<T> | null): { state: Loaded<T>; retry: () => void; refresh: () => void } {
+  const { host, client, endSession } = useShop()
   const [state, setState] = useState<Loaded<T>>({ status: 'loading' })
   const [round, setRound] = useState(0)
   const latest = useRef(operation)
+  const quietRound = useRef(false)
   latest.current = operation
   const identity = operation ? `${operation.slot}|${operation.signature}|${operation.query}` : null
 
   useEffect(() => {
     const current = latest.current
-    setState({ status: 'loading' })
+    // A refresh keeps what is on screen while it asks again, so a list does not flicker back to its skeleton.
+    const quiet = quietRound.current
+    quietRound.current = false
+    if (!quiet) setState({ status: 'loading' })
     if (!current) return
     let live = true
     const load = async () => {
@@ -34,6 +38,10 @@ export function useOperation<T>(operation: Operation<T> | null): { state: Loaded
         if (live) setState({ status: 'ready', data, stale: false })
         if (current.slot) await saveCached(host, current.slot, current.signature, raw)
       } catch (error) {
+        // A session the API says has ended is let go, so the shopper can sign in again.
+        if (isApiError(error, 'SIGNED_OUT')) void endSession()
+        // A refresh that cannot reach the API leaves the page as it was.
+        if (quiet && !isApiError(error, 'SIGNED_OUT')) return
         const offline = isApiError(error, 'NO_RESPONSE')
         if (offline && current.slot) {
           const kept = await readCached(host, current.slot, current.signature)
@@ -54,7 +62,14 @@ export function useOperation<T>(operation: Operation<T> | null): { state: Loaded
     return () => {
       live = false
     }
-  }, [identity, round, client, host])
+  }, [identity, round, client, host, endSession])
 
-  return { state, retry: useCallback(() => setRound((n) => n + 1), []) }
+  return {
+    state,
+    retry: useCallback(() => setRound((n) => n + 1), []),
+    refresh: useCallback(() => {
+      quietRound.current = true
+      setRound((n) => n + 1)
+    }, []),
+  }
 }

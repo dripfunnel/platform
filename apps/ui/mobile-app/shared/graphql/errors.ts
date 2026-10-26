@@ -199,6 +199,12 @@ export const knownErrorCodes = [
   // The Shop API's store and cart refusals (apps/api src/apis/shop/access.ts, cart.ts).
   'STORE_UNAVAILABLE',
   'TOO_MANY_LINES',
+  // The Shop API's sign-in and account refusals (apps/api src/apis/shop/accounts.ts).
+  'METHOD_OFF',
+  'CODE_REFUSED',
+  'SIGN_IN_REFUSED',
+  'SIGNED_OUT',
+  'NOT_IN_PREVIEW',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

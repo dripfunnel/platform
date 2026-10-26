@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { parseEnv } from 'node:util'
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 import { z } from 'zod'
+import messages from './src/messages/en.json'
 
 // docs/mobile-app/README.md §3: one committed file per store, public values only.
 const colour = z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'a quoted colour such as "#0A2A4A" (an unquoted # starts a comment in an env file)')
@@ -23,6 +24,8 @@ export const storeEnvSchema = z
     SPLASH_IMAGE: image,
     SPLASH_BACKGROUND: colour,
     UPDATES_CHANNEL: storeKey,
+    // Google Maps SDK key for Android: a public build value restricted to the app's package and signing certificate, not a secret (docs/code/THIRD-PARTY-ACCESS.md §2.12). Without it the map is blank on Android.
+    GOOGLE_MAPS_ANDROID_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'a Google Maps API key, which starts AIza').optional(),
   })
   .refine((env) => env.UPDATES_CHANNEL === env.STORE_KEY, { path: ['UPDATES_CHANNEL'], message: 'must equal STORE_KEY' })
 
@@ -72,8 +75,15 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
     android: {
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
+      ...(env.GOOGLE_MAPS_ANDROID_KEY ? { config: { googleMaps: { apiKey: env.GOOGLE_MAPS_ANDROID_KEY } } } : {}),
     },
-    plugins: ['expo-router', ['expo-splash-screen', { image: env.SPLASH_IMAGE, backgroundColor: env.SPLASH_BACKGROUND, imageWidth: 200 }], 'expo-updates'],
+    plugins: [
+      'expo-router',
+      ['expo-splash-screen', { image: env.SPLASH_IMAGE, backgroundColor: env.SPLASH_BACKGROUND, imageWidth: 200 }],
+      'expo-updates',
+      // While using the app, and only when the shopper taps "Use my location" on an address pin.
+      ['expo-location', { locationWhenInUsePermission: messages.permissions.location.replace('{name}', env.APP_NAME) }],
+    ],
     extra: { STORE_HOST: env.STORE_HOST, APP_SCHEME: env.APP_SCHEME },
   }
 }

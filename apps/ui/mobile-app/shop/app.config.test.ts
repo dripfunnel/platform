@@ -1,6 +1,7 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import messages from './src/messages/en.json'
 import { buildConfig, readStoreEnv } from './app.config'
 
 const appRoot = __dirname
@@ -34,6 +35,27 @@ describe('app.config.ts', () => {
   it('lets only the store host and the scheme reach the running app', () => {
     const env = readStoreEnv(appRoot, 'dev')
     expect(buildConfig({}, env).extra).toEqual({ STORE_HOST: env.STORE_HOST, APP_SCHEME: env.APP_SCHEME })
+  })
+
+  it('builds without a Maps key, and with one gives it to Android only', () => {
+    expect(buildConfig({}, readStoreEnv(appRoot, 'dev')).android?.config).toBeUndefined()
+    const key = `AIza${'a'.repeat(35)}`
+    editDevEnv((lines) => [...lines, `GOOGLE_MAPS_ANDROID_KEY=${key}`])
+    const config = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(config.android?.config?.googleMaps?.apiKey).toBe(key)
+    expect(config.ios?.config).toBeUndefined()
+    expect(JSON.stringify(config.extra)).not.toContain(key)
+  })
+
+  it('refuses a Maps key that is not shaped like one', () => {
+    editDevEnv((lines) => [...lines, 'GOOGLE_MAPS_ANDROID_KEY=not-a-key'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_MAPS_ANDROID_KEY/)
+  })
+
+  it('asks for the location only while the app is in use, naming the store', () => {
+    const env = readStoreEnv(appRoot, 'dev')
+    const plugin = buildConfig({}, env).plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-location')
+    expect(plugin).toEqual(['expo-location', { locationWhenInUsePermission: messages.permissions.location.replace('{name}', env.APP_NAME) }])
   })
 
   it('fails with the variable named when a value is missing', () => {

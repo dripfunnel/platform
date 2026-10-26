@@ -4,9 +4,9 @@ The store's own shopping app: what its first release contains. Who gives it to w
 built per store is [../README.md](../README.md); the code is [ARCHITECTURE.md](ARCHITECTURE.md);
 delivery tracking is [api/DELIVERY.md](../../api/DELIVERY.md) §7.
 
-**Status: specification; building (SH 8: Home, Browse, search and the product page, #861).** The prototype is drawn (§3).
+**Status: specification; building (SH 8: Home, Browse, search and the product page, #861; SH 9: sign-in, Account and addresses, #862).** The prototype is drawn (§3).
 
-Last updated: 2026-10-26 (#861: the tax line and the stock sentence are the app's words, §1). Before: 2026-10-23 (#855: colours and font are not served yet, §1). Before: 2026-10-23 (#854: the prototype is drawn). Before: 2026-10-22 (every payment method in the app; the handover code). Earlier: 2026-10-22 (first version, with Gaurav).
+Last updated: 2026-10-26 (#862: register and reset are by the email code the API sends, not a link; the address pin is required in the app; Delete my account waits for an API operation, §2). Before: 2026-10-26 (#861: the tax line and the stock sentence are the app's words, §1). Before: 2026-10-23 (#855: colours and font are not served yet, §1). Before: 2026-10-23 (#854: the prototype is drawn). Before: 2026-10-22 (every payment method in the app; the handover code). Earlier: 2026-10-22 (first version, with Gaurav).
 
 ---
 
@@ -27,7 +27,7 @@ Last updated: 2026-10-26 (#861: the tax line and the stock sentence are the app'
 
 | Area | Contains |
 |---|---|
-| **Getting in** | Browse without signing in. Sign in, register and reset by the store's methods (email and password, mobile code, or both). Delete my account in Account (Apple 5.1.1(v)) |
+| **Getting in** | Browse without signing in. Sign in, register and reset by the store's methods (email and password, mobile code, or both); register and reset are by the six-digit code the API emails or texts, which proves the address and sets the password (ACCESS.md §2.1), not by a link. Delete my account in Account (Apple 5.1.1(v)): **not built on #862**, because the Shop API has no operation for it; it needs its own card for the API and the screen, and the app cannot go to the App Store without it |
 | **Home** | The store's collections and products as the Shop API offers them, the announcement, search |
 | **Browse** | Collections with the store's filters and sorting, search, product (photos, video, options and versions, price with tax label, stock as the API words it, the store's product sections) |
 | **Cart** | Lines, quantities, offer codes (OFFERS-DESIGN rules), the totals the engine prices |

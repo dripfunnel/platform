@@ -11,9 +11,10 @@ import { OptionPicker } from './OptionPicker'
 import { ProductPrice } from './ProductPrice'
 import { ProductSections } from './ProductSections'
 import { choose, initialSelection, missingOptions, versionFor, type Selection } from './options'
-import { Button, OfflineBanner, ScreenHeader, StateMessage, Skeleton } from './ui'
-import { useOperation } from './useOperation'
-import { errorKey, stockLine } from './words'
+import { Button, OfflineBanner, ScreenHeader, StateMessage, Skeleton } from '../common/ui'
+import { useOperation } from '../common/useOperation'
+import { stockLine } from './words'
+import { errorKey } from '../common/errors'
 
 export const maxQuantity = 99
 

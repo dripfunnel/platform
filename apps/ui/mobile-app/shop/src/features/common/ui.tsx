@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { t } from '../../messages'
 import type { Loaded } from './useOperation'
-import { errorKey } from './words'
+import { errorKey } from './errors'
 
 // The few pieces every catalogue screen draws; the states are those of shop/FIRST-RELEASE.md §3 (empty, loading, error, offline).
 

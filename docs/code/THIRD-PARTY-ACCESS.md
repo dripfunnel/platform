@@ -295,7 +295,7 @@ not per store or partner.
 *(proposed, api/DELIVERY.md §7, mobile-app/README.md)* Own delivery adds a **server key** restricted to the
 Routes API, for arrival estimates (Worker secret `GOOGLE_MAPS_SERVER_KEY`; without it no estimate), and
 the shop and delivery apps need **Maps SDK for Android keys** restricted to each store's package and
-signing certificate. *(decide)* One key per environment listing every store's package, or one per store.
+signing certificate. **Decided on #862:** each store's key is an optional `GOOGLE_MAPS_ANDROID_KEY` in its `stores/<store>.env` (mobile-app/README.md §3), so one key listing every package and one per store are both possible; which to create is an operations choice, not the code's.
 
 ### 2.13 Expo push service (built on #840, api/DELIVERY.md §6)
 
@@ -587,7 +587,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 8. **Exchange rates and duties providers.** ~~US sales tax~~: Stripe Tax (#184), on the merchant's own account through Connect (#284). (§2.8)
 9. **Logpush destination, error tracking, support chat and status page.** (§2.8)
 10. **SES region**, and whether EU partners need EU sending and storage.
-11. *(decide)* The Maps SDK for Android keys for per-store apps: one per environment or one per store (§2.12).
+11. ~~The Maps SDK for Android keys for per-store apps~~ **Decided on #862:** an optional value in each store's env file (§2.12); whether one key per environment or one per store is created is an operations choice.
 
 ---
 

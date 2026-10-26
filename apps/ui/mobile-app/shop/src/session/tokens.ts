@@ -15,8 +15,17 @@ export const loadTokens = async (host: string): Promise<Tokens> => {
   return { session: session.token, cart: cart.token }
 }
 
+/** The customer's session token, as `signIn` and `verifySignInCode` answer it; the next call carries it as `X-Shop-Session`. */
+export const saveSessionToken = (host: string, token: string): Promise<void> => sessionStorage(host).writeToken(token)
+
+/** Sign-out and an ended session: the token is removed from secure storage (and marked revoked if the keystore would not let go, so it is not used). */
+export const clearSessionToken = (host: string): Promise<void> => sessionStorage(host).wipe()
+
 /** A guest's cart token, as `addToCart` answers it; the next call carries it as `X-Shop-Cart`. */
 export const saveCartToken = (host: string, token: string): Promise<void> => cartStorage(host).writeToken(token)
+
+/** After sign-in the guest cart belongs to the account, so the guest's token is no longer needed. */
+export const clearCartToken = (host: string): Promise<void> => cartStorage(host).wipe()
 
 /** The Shop API reads the session as `X-Shop-Session` and the cart as `X-Shop-Cart`, each only when there is one (ACCESS.md §2.1). */
 export const shopHeaders = ({ session, cart }: Tokens): Record<string, string> => ({

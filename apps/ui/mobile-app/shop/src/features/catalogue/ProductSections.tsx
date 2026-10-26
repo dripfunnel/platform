@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import type { Product, SizeChart, StoryModule } from '../../api/catalogue'
 import { t } from '../../messages'
-import { Sheet } from './ui'
+import { Sheet } from '../common/ui'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const { colors } = useTheme()
