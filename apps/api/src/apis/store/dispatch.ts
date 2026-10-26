@@ -3,6 +3,7 @@ import type { DeliveryRow } from '#db/scoped/dispatch'
 import { riderSummary, selectOrderDeliveries } from '#db/scoped/dispatch'
 import { withScope } from '#db/scoped/index'
 import { createDispatch, dispatchAudit } from '#engine/modules/ownDelivery/index'
+import { withDispatchCode } from '../graphql/dispatchRefusals'
 import { tenantCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
 
@@ -45,9 +46,9 @@ export const orderDeliveryType = (builder: StoreBuilder) => {
 export const registerDispatch = (builder: StoreBuilder) => {
   const access = { api: 'store', scope: 'store', permission: 'orders.fulfil', target: 'none' } as const
   builder.mutationFields((t) => ({
-    markReadyForPickup: t.boolean({ args: { orderId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.ready } }, resolve: (_, a, c) => createDispatch(facts(c)).ready(String(a.orderId)) }),
-    assignDelivery: t.boolean({ args: { deliveryId: t.arg.id({ required: true }), riderId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.assigned } }, resolve: (_, a, c) => createDispatch(facts(c)).assign(String(a.deliveryId), String(a.riderId)) }),
-    offerDeliveryAgain: t.boolean({ args: { deliveryId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.offered } }, resolve: (_, a, c) => createDispatch(facts(c)).again(String(a.deliveryId)) }),
-    cancelDelivery: t.boolean({ args: { deliveryId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.cancelled } }, resolve: (_, a, c) => createDispatch(facts(c)).cancel(String(a.deliveryId)) }),
+    markReadyForPickup: t.boolean({ args: { orderId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.ready } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).ready(String(a.orderId))) }),
+    assignDelivery: t.boolean({ args: { deliveryId: t.arg.id({ required: true }), riderId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.assigned } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).assign(String(a.deliveryId), String(a.riderId))) }),
+    offerDeliveryAgain: t.boolean({ args: { deliveryId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.offered } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).again(String(a.deliveryId))) }),
+    cancelDelivery: t.boolean({ args: { deliveryId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.cancelled } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).cancel(String(a.deliveryId))) }),
   }))
 }

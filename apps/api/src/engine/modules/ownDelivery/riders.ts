@@ -1,3 +1,4 @@
+import { DispatchRefused } from '#core/dispatch'
 import { releaseRiderDeliveries } from './dispatch'
 import { withSystemScope } from '#db/scoped/index'
 import type postgres from 'postgres'
@@ -41,7 +42,7 @@ export const textsPerDay = 3
 export const deliveryAppLink = (slug: string, shopDomain: string): string => `https://${slug}.${shopDomain}/app/delivery.apk`
 
 export type RidersRefusal =
-  | { reason: 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_PHONE' | 'PHONE_TAKEN' | 'NOT_INVITED' | 'NOT_ACTIVE' | 'NOT_SUSPENDED' | 'RATE_LIMITED' | 'UNAVAILABLE' }
+  | { reason: 'FORBIDDEN' | 'RIDER_HAS_PARCEL' | 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_PHONE' | 'PHONE_TAKEN' | 'NOT_INVITED' | 'NOT_ACTIVE' | 'NOT_SUSPENDED' | 'RATE_LIMITED' | 'UNAVAILABLE' }
   | { reason: 'PLAN_LIMIT'; key: 'own_delivery' | 'riders'; wanted: number | null }
 export type RidersResult<T> = { ok: true; value: T } | ({ ok: false } & RidersRefusal)
 
@@ -100,6 +101,7 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
       return { ok: true, value: await open() }
     } catch (error) {
       if (error instanceof Refused) return { ok: false, ...error.refusal }
+      if (error instanceof DispatchRefused && error.code === 'RIDER_HAS_PARCEL') return { ok: false, reason: 'RIDER_HAS_PARCEL' }
       throw error
     }
   }

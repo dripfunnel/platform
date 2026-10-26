@@ -1,5 +1,6 @@
 import { graphql, type GraphQLSchema } from 'graphql'
 import { deliverySchema, type DeliveryContext } from '#apis/delivery/schema'
+import { createServer } from '#apis/graphql/server'
 import { seedStoreWorld, type StoreWorld } from './support/storeWorld'
 import { markPaid, applyOutcome } from '#engine/modules/checkout/index'
 import { cancelOrderDelivery } from '#engine/modules/ownDelivery/index'
@@ -184,6 +185,25 @@ describe('position and isolation', () => {
       expect(await delivery(id)).toMatchObject({ state: 'searching', offer_round: 2, rider_id: null })
       expect(await db.sql`select rider_id from rider_position where rider_id = ${rider.id}`).toHaveLength(0)
     }
+  })
+  it('answers a refusal with its code through the server, which masks any other error', async () => {
+    const [rider] = await db.sql<{ id: string }[]>`insert into rider(store_id,name,phone,status,online_at) values(${tenants.storeA1},'Server rider','+919833333300','active',${clock}) returning id`
+    if (!rider) throw new Error('no rider')
+    const token = crypto.randomUUID().replaceAll('-', '').repeat(2)
+    await db.sql`insert into rider_session(id_hash,store_id,rider_id,expires_at) values(${await hashSessionId(token)},${tenants.storeA1},${rider.id},${new Date(clock.getTime() + 86400000)})`
+    const d = await delivery(await order())
+    await db.sql`update delivery set state = 'picked_up',rider_id = ${rider.id} where id = ${d.id}`
+    const riderContext = { ...context(rider.id), caller: { kind: 'rider' as const, riderId: rider.id } }
+    const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider: riderContext, token }, activity: activityLog, facts, now: () => clock, defer: () => undefined }
+    const server = createServer<DeliveryContext>(deliverySchema as GraphQLSchema, '/delivery-api')
+    const ask = async (query: string) => {
+      const answer = await server.fetch(new Request('http://localhost/delivery-api', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query }) }), contextValue)
+      return ((await answer.json()) as { errors?: { message: string; extensions: { code: string } }[] }).errors?.[0]
+    }
+    expect((await ask('mutation { acceptOffer(id: "00000000-0000-4000-8000-000000000000") }'))?.extensions.code).toBe('TAKEN')
+    const signOut = await ask('mutation { signOut }')
+    expect(signOut?.extensions.code).toBe('RIDER_HAS_PARCEL')
+    expect(signOut?.message).not.toMatch(/unexpected/i)
   })
   it('lets only the owning store merchant suspend or remove a rider, and refuses suppliers and read-only support', async () => {
     const [rider] = await db.sql<{ id: string }[]>`insert into rider(store_id,name,phone,status) values(${tenants.storeA1},'Guarded rider','+919822222200','active') returning id`

@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import { pageOf, pageWindow, type Page } from '#core/paging'
 import type { OfferView } from '#db/scoped/dispatch'
 import { createDispatch, dispatchAudit } from '#engine/modules/ownDelivery/index'
+import { withDispatchCode } from '../graphql/dispatchRefusals'
 import { riderOf, type DeliveryContext } from './access'
 import type { DeliveryBuilder } from './builder'
 
@@ -29,16 +30,16 @@ export const registerDispatch = (builder: DeliveryBuilder) => {
     resolve: async (_, args, ctx) => {
       const p = pageWindow({ first: args.first ?? 20, after: args.after }, 50)
       if (!p.ok) throw new GraphQLError('That page link is invalid.', { extensions: { code: p.code } })
-      return pageOf(await service(ctx).offers(p.window), p.window, (o) => ({ id: o.id, occurredAt: o.sent_at }))
+      return pageOf(await withDispatchCode(() => service(ctx).offers(p.window)), p.window, (o) => ({ id: o.id, occurredAt: o.sent_at }))
     },
   }) }))
   builder.mutationFields((t) => ({
-    setOnline: t.boolean({ args: { online: t.arg.boolean({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.online } }, resolve: (_, a, c) => service(c).online(a.online) }),
+    setOnline: t.boolean({ args: { online: t.arg.boolean({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.online } }, resolve: (_, a, c) => withDispatchCode(() => service(c).online(a.online)) }),
     reportPosition: t.boolean({
       args: { lat: t.arg.float({ required: true }), lng: t.arg.float({ required: true }), accuracy: t.arg.float({ required: true }), at: t.arg.string({ required: true }) },
-      extensions: { access: { ...access, unlogged: 'rider_position' } }, resolve: (_, a, c) => service(c).report(a),
+      extensions: { access: { ...access, unlogged: 'rider_position' } }, resolve: (_, a, c) => withDispatchCode(() => service(c).report(a)),
     }),
-    acceptOffer: t.boolean({ args: { id: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.accepted } }, resolve: (_, a, c) => service(c).answer(String(a.id), true) }),
-    declineOffer: t.boolean({ args: { id: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.declined } }, resolve: (_, a, c) => service(c).answer(String(a.id), false) }),
+    acceptOffer: t.boolean({ args: { id: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.accepted } }, resolve: (_, a, c) => withDispatchCode(() => service(c).answer(String(a.id), true)) }),
+    declineOffer: t.boolean({ args: { id: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.declined } }, resolve: (_, a, c) => withDispatchCode(() => service(c).answer(String(a.id), false)) }),
   }))
 }

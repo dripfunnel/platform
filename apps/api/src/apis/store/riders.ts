@@ -13,6 +13,7 @@ import { pageInfoType, type StoreBuilder } from './builder'
 
 const words: Record<Exclude<RidersResult<unknown>, { ok: true }>['reason'], string> = {
   FORBIDDEN: 'You can’t change riders.',
+  RIDER_HAS_PARCEL: 'This rider is carrying a parcel. Finish or reassign the delivery first.',
   NOT_FOUND: 'That rider is no longer here.',
   INVALID_INPUT: 'Enter the rider’s name.',
   INVALID_PHONE: 'Enter the mobile number with its country code, such as +91 98765 43210.',
