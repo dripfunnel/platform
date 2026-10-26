@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -226,7 +226,7 @@ with the same secret.
   a store's first template choice runs the whole `create-storefront` Workflow without the App. The repos last until
   `pnpm dev` restarts. The templates come from the local `storefront-sites-local` bucket (bound with `storefront-assets-local` and
   `storefront-drafts-local`, storefront LIVE-SHOP.md §2), which stays empty until the release
-  uploads them (storefront ARCHITECTURE §2.3, #486): run `pnpm --filter ./apps/api seed:templates` (§6.3; add `--remote` to write the bucket named by `STOREFRONT_SITES_BUCKET` over R2's S3 API with the `R2_STOREFRONT_*` keys, as for dev, #730; `--core <version>` names the core, defaulting to `packages/storefront-core`'s), or the run
+  uploads them (storefront ARCHITECTURE §2.3, #486): run `pnpm --filter ./apps/api seed:templates` (§6.3; add `--remote` to write the bucket named by `STOREFRONT_SITES_BUCKET` over R2's S3 API with the `R2_STOREFRONT_*` keys, as for dev, #730; `--released` names the newest `core_release` row in `DATABASE_URL`, or with `--core` requires that version's row (what prod's workflow uses); `--core <version>` names the core, defaulting to `packages/storefront-core`'s), or the run
   stops at its first step and undoes itself.
   A store build's calls on `https://hooks.localhost/builds/*` (#517) take tokens from a local OIDC issuer whose key
   lives as long as the Worker, and answer with credentials and links that name nothing real: no runner reaches this
