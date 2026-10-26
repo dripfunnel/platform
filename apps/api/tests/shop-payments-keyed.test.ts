@@ -34,7 +34,20 @@ const cookies: Record<'owner' | 'staff' | 'other', string> = { owner: '', staff:
 // A stand-in for Razorpay's API: orders it was asked to make, and what the test says was paid on them.
 const orders = new Map<string, { amount: number; currency: string; paid: boolean; key: string }>()
 const cashfreeOrders = new Map<string, { amount: string; currency: string; paid: boolean }>()
+// A stand-in for PhonePe's PG API: a token, the website's payment page, and the SDK orders the app's sheet takes.
+const phonepeSdkOrders: { merchantOrderId: string; amount: number; paymentFlow: { type: string } }[] = []
+const phonepeApi = (url: string, init?: RequestInit): Response => {
+  const path = new URL(url).pathname
+  if (path.endsWith('/oauth/token')) return Response.json({ access_token: 'pp_token' })
+  if (path.endsWith('/payments/v2/sdk/order')) {
+    phonepeSdkOrders.push(JSON.parse(String(init?.body)) as (typeof phonepeSdkOrders)[number])
+    return Response.json({ orderId: `OMO_SDK${phonepeSdkOrders.length}`, state: 'CREATED', expireAt: 1, token: 'sdk_order_token' })
+  }
+  if (path.endsWith('/checkout/v2/pay')) return Response.json({ orderId: 'OMO_WEB', state: 'PENDING', redirectUrl: 'https://mercury.phonepe.com/pay/x' })
+  return Response.json({}, { status: 404 })
+}
 const razorpayApi = async (url: string, init?: RequestInit): Promise<Response> => {
+  if (url.includes('phonepe.com')) return phonepeApi(url, init)
   const auth = new Headers(init?.headers).get('authorization') ?? ''
   const [keyId, keySecret] = atob(auth.replace('Basic ', '')).split(':')
   if (keySecret === 'wrong') return Response.json({ error: { code: 'BAD_REQUEST_ERROR' } }, { status: 401 })
@@ -279,6 +292,45 @@ describe('Paying through Razorpay', () => {
     expect((await shop('mutation { placeOrder(provider: "cashfree") { orderId } }', token)).code).toBe('PHONE_REQUIRED')
     // Nothing was placed: the cart is still there to add a number to.
     expect((await shop('{ cart { id } }', token)).data?.['cart']).not.toBeNull()
+  })
+
+  it('answers the app’s Razorpay, Cashfree and PhonePe sheets what each SDK takes, at the amount the website charges, and pays nothing', async () => {
+    const app = 'app: { scheme: "acmeshop" }'
+    const totalOf = async (id: string) => (await db.sql<{ total: string }[]>`select total_amount::text as total from "order" where id = ${id}`)[0]?.total
+    const stateOf = async (id: string) => (await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${id}`)[0]?.payment_state
+    type Placed = { orderId: string; total: { amount: string }; payment: { providerRef: string; publicKey: string | null; sessionId: string | null; mode: string; amount: { amount: string; currency: string }; providerOrderId: string | null; token: string | null; redirectUrl: string | null } }
+    const place = async (provider: string, extra = '') =>
+      (await shop(`mutation { placeOrder(provider: "${provider}"${extra}) { orderId total { amount } payment { providerRef publicKey sessionId mode amount { amount currency } providerOrderId token redirectUrl } } }`, await readyCart('phone: "+919845022113"'))).data?.['placeOrder'] as Placed
+
+    const web = await place('razorpay')
+    const razor = await place('razorpay', `, ${app}`)
+    expect(razor.payment).toMatchObject({ providerRef: expect.stringMatching(/^order_T/), publicKey: 'rzp_live_abcdef', mode: 'live', amount: { amount: await totalOf(razor.orderId), currency: 'INR' } })
+    expect(razor.payment.amount).toEqual(web.payment.amount)
+    expect(orders.get(razor.payment.providerRef)).toMatchObject({ amount: Number(await totalOf(razor.orderId)), currency: 'INR' })
+
+    await merchant('mutation { connectGateway(provider: "cashfree", mode: LIVE, keys: { appId: "app1", secretKey: "cfs" }) }', 'owner')
+    const cashfree = await place('cashfree', `, ${app}`)
+    expect(cashfree.payment).toMatchObject({ sessionId: `session_${cashfree.payment.providerRef}`, mode: 'live', amount: { amount: await totalOf(cashfree.orderId), currency: 'INR' } })
+
+    const phonepeKeys = 'clientId: "cid", clientSecret: "pp_client_secret", clientVersion: "1", webhookUsername: "user", webhookPassword: "pp_hook_pass"'
+    expect((await merchant(`mutation { connectGateway(provider: "phonepe", mode: LIVE, keys: { ${phonepeKeys} }) }`, 'owner')).data?.['connectGateway']).toBe(true)
+    // No merchant id saved: the website's page still works, the app's sheet can't be taken.
+    expect((await place('phonepe')).payment.redirectUrl).toBe('https://mercury.phonepe.com/pay/x')
+    expect((await shop(`mutation { placeOrder(provider: "phonepe", ${app}) { orderId } }`, await readyCart('phone: "+919845022113"'))).code).toBe('METHOD_UNAVAILABLE')
+    expect(phonepeSdkOrders).toHaveLength(0)
+    expect((await merchant(`mutation { connectGateway(provider: "phonepe", mode: LIVE, keys: { ${phonepeKeys}, merchantId: "bad id" }) }`, 'owner')).code).toBe('INVALID_KEYS')
+    expect((await merchant(`mutation { connectGateway(provider: "phonepe", mode: LIVE, keys: { ${phonepeKeys}, merchantId: "M2306160483220675579140" }) }`, 'owner')).data?.['connectGateway']).toBe(true)
+    const phonepe = await place('phonepe', `, ${app}`)
+    expect(phonepe.payment).toMatchObject({ publicKey: 'M2306160483220675579140', providerOrderId: 'OMO_SDK1', token: 'sdk_order_token', redirectUrl: null, amount: { amount: await totalOf(phonepe.orderId), currency: 'INR' } })
+    expect(phonepeSdkOrders[0]).toMatchObject({ merchantOrderId: phonepe.payment.providerRef, amount: Number(await totalOf(phonepe.orderId)), paymentFlow: { type: 'PG' } })
+    // The same cart is the same amount on the app as on the website.
+    expect(phonepe.total.amount).toBe(web.total.amount)
+
+    // Only public values reach the app, and none of the orders is paid until the provider's webhook says so.
+    for (const placed of [razor, cashfree, phonepe]) {
+      expect(JSON.stringify(placed)).not.toMatch(/pp_client_secret|pp_hook_pass|livesecret|livehook|cfs|pp_token/)
+      expect(await stateOf(placed.orderId)).toBe('pending')
+    }
   })
 
   it('forgets the keys on Disconnect, so the old address no longer settles anything', async () => {

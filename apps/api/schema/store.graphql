@@ -1654,6 +1654,7 @@ input PaymentGatewayKeysInput {
   clientVersion: String
   keyId: String
   keySecret: String
+  merchantId: String
   secretKey: String
   webhookId: String
   webhookPassword: String

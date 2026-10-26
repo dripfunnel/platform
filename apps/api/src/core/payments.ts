@@ -58,6 +58,12 @@ export interface PaymentStart {
   /** Stripe, for the app: the shopper's Customer on the connected account and its short-lived ephemeral key's secret. */
   customerId?: string | null
   ephemeralKeySecret?: string | null
+  /** PhonePe, for the app: its own order id and the order token its SDK takes; `publicKey` is then the merchant id. */
+  providerOrderId?: string | null
+  token?: string | null
+  /** What the attempt is for and in which mode (the checkout fills both): Razorpay's amount and currency, Cashfree's environment. */
+  amount?: Money
+  mode?: PaymentMode
 }
 
 export type PaymentOutcome = { state: 'captured'; amount: Money } | { state: 'pending' } | { state: 'failed' }
