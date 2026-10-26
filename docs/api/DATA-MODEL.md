@@ -607,8 +607,10 @@ rider_session  (id_hash, store_id, rider_id, created_at, last_seen_at, expires_a
 rider_code     (id, store_id, phone, code_hash NULL, attempts, expires_at, used_at NULL, created_at)
                -- as customer_code: 6 digits, hashed, 5 tries, 10 minutes, the same rate limits
                -- only for an invited or active rider's number; deleted a day after expiry
-rider_position (rider_id PK, store_id, latitude, longitude, accuracy_m, reported_at)
-               -- the latest point only, overwritten; deleted when the rider goes offline, by the minute
+rider_position (rider_id PK, store_id, latitude, longitude, accuracy_m, reported_at, received_at)
+               -- the latest point only, overwritten; reported_at is the device's time, received_at the server's,
+               -- and rider.last_position_at keeps the server's last write so going offline and online cannot
+               -- reset the ten-second limit; deleted when the rider goes offline, by the minute
                -- sweep once older than 10 minutes, and on sign-out, suspension, removal and erasure
 push_device    (id, store_id, subject_kind ('rider'|'customer'|'order'), subject_id, expo_token,
                 platform ('ios'|'android'), created_at, last_seen_at)
