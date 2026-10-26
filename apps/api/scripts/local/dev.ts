@@ -15,10 +15,10 @@ const scheduled = (cron: string) => `http://localhost:${port}/__scheduled?cron=$
 
 const wrangler = spawn('wrangler', ['dev', '--env', 'local', '--test-scheduled', '--port', String(port), ...process.argv.slice(2)], { stdio: ['inherit', 'pipe', 'inherit'] })
 
-// What the email and SMS stand-ins sent (EMAIL_LOCAL, SMS_LOCAL): shown here as a block and kept as a file, gitignored.
+// What the email, SMS and push stand-ins sent (EMAIL_LOCAL, SMS_LOCAL, PUSH_LOCAL): shown here as a block and kept as a file, gitignored.
 const mailbox = fileURLToPath(new URL('../../.local-mail/', import.meta.url))
 const shown = (m: LocalMessage): string =>
-  m.kind === 'email' ? `── email to ${m.to.join(', ')}\n   from ${m.from}\n   ${m.subject}\n\n${m.text}\n──` : `── text to ${m.to}\n${m.text}\n──`
+  m.kind === 'email' ? `── email to ${m.to.join(', ')}\n   from ${m.from}\n   ${m.subject}\n\n${m.text}\n──` : `── ${m.kind === 'push' ? 'push' : 'text'} to ${m.to}\n${m.text}\n──`
 createInterface({ input: wrangler.stdout }).on('line', (line) => {
   const at = line.indexOf(localMessageMarker)
   if (at === -1) return void console.log(line)

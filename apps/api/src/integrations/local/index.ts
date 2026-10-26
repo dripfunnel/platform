@@ -8,15 +8,16 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectLocalExpectedRecords } from '#db/scoped/partnerDomains'
 import type { CloudflareApi } from '../cloudflare/api'
 import type { DnsLookup } from '../dns/doh'
+import type { ExpoPush } from '../expoPush/index'
 import type { SesApi } from '../ses/index'
 
-// Local stand-ins for the last step of email, SMS, couriers, DNS and custom hostnames (docs/setup/local.md §6.1). Config refuses
+// Local stand-ins for the last step of email, SMS, push, couriers, DNS and custom hostnames (docs/setup/local.md §6.1). Config refuses
 // them anywhere but localhost (core/config.ts), so the personal data they print never leaves the developer's own terminal.
 
 /** The marker `pnpm dev` (scripts/local/dev.ts) reads to show a message and keep it in apps/api/.local-mail/. */
 export const localMessageMarker = '[local-message]'
 
-export type LocalMessage = { kind: 'email'; to: readonly string[]; from: string; subject: string; text: string } | { kind: 'sms' | 'whatsapp'; to: string; text: string }
+export type LocalMessage = { kind: 'email'; to: readonly string[]; from: string; subject: string; text: string } | { kind: 'sms' | 'whatsapp' | 'push'; to: string; text: string }
 
 const print = (message: LocalMessage) => console.log(`${localMessageMarker} ${JSON.stringify(message)}`)
 
@@ -34,6 +35,16 @@ export const localSms = (): SmsSender => ({
     print({ kind: 'sms', to: sms.to, text: sms.text })
     return { providerId: `local-${crypto.randomUUID()}` }
   },
+})
+
+/** Expo's last step on this machine: each push to its subject, never its token; every receipt delivered. */
+export const localPush = (): ExpoPush => ({
+  send: async (messages) =>
+    messages.map((m) => {
+      print({ kind: 'push', to: m.subject, text: `${m.title}\n${m.body}\n${JSON.stringify(m.data)}` })
+      return { id: `local-${crypto.randomUUID()}`, error: null }
+    }),
+  receipts: async (ids) => new Map(ids.map((id) => [id, null])),
 })
 
 /** A partner's WhatsApp number's last step on this machine: the template and its variables. */

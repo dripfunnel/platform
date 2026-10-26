@@ -351,7 +351,7 @@ describe('the backstop itself', () => {
       'store_billing_details', 'invoice', 'invoice_line', 'storefront_push', 'design_draft', 'publish_run', 'design_version', 'core_release', 'storefront_template', 'studio_session', 'ai_run',
       'storefront_content', 'storefront_redirect', 'storefront_content_translation', 'storefront_vitals_day',
       'storefront_brand', 'storefront_seo', 'core_rollout', 'core_rollout_store',
-      'design_message', 'rider', 'rider_session', 'rider_code',
+      'design_message', 'rider', 'rider_session', 'rider_code', 'push_device',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -686,13 +686,14 @@ describe('the backstop itself', () => {
     await db.sql`delete from custom_domain where id = ${b1}`
   })
 
-  it('runs staff as app_platform, partner callers as app_partner, suppliers as app_supplier, shoppers as app_shop and other store callers as app_request (#205, #155, #295, #306)', async () => {
+  it('runs staff as app_platform, partner callers as app_partner, suppliers as app_supplier, shoppers as app_shop, riders as app_rider and other store callers as app_request (#205, #155, #295, #306, #839)', async () => {
     const roleOf = async (context: CallerContext) =>
       withScope(db.sql, context, async (tx) => (await tx<{ role: string }[]>`select current_user as role`)[0]?.role)
     expect(await roleOf(staff)).toBe('app_platform')
     expect(await roleOf(storeCaller(t.partnerA, t.storeA1))).toBe('app_request')
     expect(await roleOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }))).toBe('app_supplier')
     expect(await roleOf(shopper(t.partnerA, t.storeA1, null))).toBe('app_shop')
+    expect(await roleOf({ caller: { kind: 'rider', riderId: '00000000-0000-4000-8000-0000000000bb' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' })).toBe('app_rider')
     expect(await roleOf(supportSession(t.partnerA, t.storeA1, 'read'))).toBe('app_request')
     expect(await roleOf(partnerCaller(t.partnerA))).toBe('app_partner')
   })

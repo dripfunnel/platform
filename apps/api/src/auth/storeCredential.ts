@@ -4,7 +4,7 @@ import { storeCookieName } from './storeSession'
 // The merchant mobile app carries the portal's session as a bearer token instead of the cookie
 // (ACCESS.md §4, "The merchant mobile app").
 
-const bearerOf = (request: Request): string | null => /^Bearer ([^\s,;]+)$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? null
+export const bearerOf = (request: Request): string | null => /^Bearer ([^\s,;]+)$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? null
 const cookieOf = (request: Request): string | null => readCookie(request.headers.get('cookie'), storeCookieName)
 // Present even when empty, so `__Host-portal_session=` beside a bearer token still counts as both.
 export const sendsStoreCookie = (request: Request): boolean =>

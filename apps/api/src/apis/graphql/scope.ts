@@ -11,10 +11,11 @@ import type { PartnerPermission } from '#auth/partnerPermissions'
 import type { StaffPermission } from '#auth/permissions'
 import type { StorePermission } from '#auth/storePermissions'
 
-export type Api = 'admin' | 'platform' | 'store' | 'shop'
+export type Api = 'admin' | 'platform' | 'store' | 'shop' | 'delivery'
 
-/** ACCESS.md §3.1. `public`, `session` and `shop` (a storefront's own store) need no permission; every other scope needs one. */
-export type FieldScope = 'public' | 'session' | 'shop' | 'store' | 'store-seller' | 'partner' | 'platform'
+/** ACCESS.md §3.1. `public`, `session`, `shop` (a storefront's own store) and `rider` (the fixed rider set, DELIVERY §4)
+ *  need no permission; every other scope needs one. */
+export type FieldScope = 'public' | 'session' | 'shop' | 'rider' | 'store' | 'store-seller' | 'partner' | 'platform'
 
 export interface Access<Args = Record<string, unknown>> {
   api: Api
@@ -106,9 +107,9 @@ const checkDeclaration = <Context>(
   if (!policy.scopes.includes(access.scope)) {
     throw new AccessDeclarationError(`${where} declares scope ${access.scope}, which this API does not serve`)
   }
-  const open = access.scope === 'public' || access.scope === 'session' || access.scope === 'shop'
+  const open = access.scope === 'public' || access.scope === 'session' || access.scope === 'shop' || access.scope === 'rider'
   if (open !== (access.permission === null)) {
-    throw new AccessDeclarationError(`${where}: only public, session and shop fields go without a permission`)
+    throw new AccessDeclarationError(`${where}: only public, session, shop and rider fields go without a permission`)
   }
   if (access.permission !== null && !policy.permissions.includes(access.permission)) {
     throw new AccessDeclarationError(`${where} declares ${access.permission}, which is not a ${policy.api} API permission`)

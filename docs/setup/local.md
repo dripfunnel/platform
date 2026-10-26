@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-26 (#840: `PUSH_LOCAL` among the stand-ins, §6.1). Before: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -99,7 +99,7 @@ can use your own role and database names, as long as you put them in `.env.local
    | `EMAIL_SUPPRESSION_KEY` | Keep it, or your own `openssl rand -base64 32`: SES and the email stand-in both need it. |
    | `SES_EVENTS_TOPIC_ARN` | **Delete.** Bounces arrive through SNS, which can't reach your machine. |
    | `CODE_CHECK` | Keep `1`: codes are checked. `0` accepts any code, as on dev. |
-   | `EMAIL_LOCAL`, `SMS_LOCAL`, `DNS_LOCAL`, `COURIERS_LOCAL`, `GITHUB_LOCAL` | Keep `1`: the local stand-ins (§6.1). Emails and texts appear in the `pnpm dev` terminal and `apps/api/.local-mail/`, couriers quote a fixed tariff on every partner's behalf, and a partner's `*.localhost` addresses verify without reaching Cloudflare, even with the `CF_*` values set. Each wins over the provider's real values, and the Worker refuses to start with them anywhere but localhost. |
+   | `EMAIL_LOCAL`, `SMS_LOCAL`, `PUSH_LOCAL`, `DNS_LOCAL`, `COURIERS_LOCAL`, `GITHUB_LOCAL` | Keep `1`: the local stand-ins (§6.1). Emails, texts and pushes appear in the `pnpm dev` terminal and `apps/api/.local-mail/`, couriers quote a fixed tariff on every partner's behalf, and a partner's `*.localhost` addresses verify without reaching Cloudflare, even with the `CF_*` values set. Each wins over the provider's real values, and the Worker refuses to start with them anywhere but localhost. |
    | `SEED_PASSWORD` | Optional, at least 10 characters: every seeded merchant, supplier and partner user gets this password at the next seed (§5). Without it, they sign in after **Forgot password**. |
    | `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | Left commented out unless you have a Shopify app's values (and then remove `SHOPIFY_LOCAL`). Without them or `SHOPIFY_LOCAL`, Connect Shopify says it isn't set up. |
    | `SHOPIFY_LOCAL` | Keep `1` to try Connect Shopify without an app: approval comes straight back and the shop is empty, every call logged. It wins over the two values above, and the Worker refuses to start with it anywhere but localhost. |
@@ -194,13 +194,13 @@ isn't set up.
 
 ### 6.1 Where emails, texts, courier quotes and domain checks go
 
-With `EMAIL_LOCAL`, `SMS_LOCAL`, `DNS_LOCAL` and `COURIERS_LOCAL` (the defaults in `.env.example`), everything
+With `EMAIL_LOCAL`, `SMS_LOCAL`, `PUSH_LOCAL`, `DNS_LOCAL` and `COURIERS_LOCAL` (the defaults in `.env.example`), everything
 runs as on dev up to the provider: the outbox, the every-minute relay, the templates in the
 partner's look, the per-partner SMS provider (MSG91 for +91, Twilio otherwise), the domain-check
 job. Only the last call is local (`apps/api/src/integrations/local/`):
 
-- **Email and SMS** print in the `pnpm dev` terminal as a block, and each is kept as a file in
-  `apps/api/.local-mail/` (gitignored), e.g.
+- **Email, SMS and push** print in the `pnpm dev` terminal as a block, and each is kept as a file in
+  `apps/api/.local-mail/` (gitignored); a push is shown to its subject (`rider:<id>`), never the phone's token, e.g.
   ```
   ── email to lena@juniperhome.example
      from "Northstar Shops" <no-reply@northstar.…>
@@ -526,5 +526,5 @@ The API tests use the same local Postgres as `DATABASE_URL`.
 | A merchant portal's page loads but every call answers 404 | No partner holds that host as a live portal: `select host, status from partner_domain where kind = 'portal'`. Reseed (§5), or wait a minute for a new partner's domain check (§6.1). |
 | `https://store.<partner>.localhost` won't open | Run `pnpm dev:https`, not `pnpm dev`. The name must end in `.localhost`, and Chrome may need a moment for the first certificate. |
 | A new partner's domain stays waiting | `DNS_LOCAL=1` in `.env.local`, the host ends in `.localhost`, and the relay has run (once a minute). |
-| No email or text appears | Wait a minute (the relay runs once a minute), and check `EMAIL_LOCAL` / `SMS_LOCAL` are `1`. The files are in `apps/api/.local-mail/`. |
+| No email, text or push appears | Wait a minute (the relay runs once a minute), and check `EMAIL_LOCAL` / `SMS_LOCAL` / `PUSH_LOCAL` are `1`. The files are in `apps/api/.local-mail/`. |
 | A seeded merchant's password is refused | `SEED_PASSWORD` is read at seed time: set it, then reseed (§5). |

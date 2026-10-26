@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -62,7 +62,7 @@ merchant with the same address are two unrelated accounts.
 | **Partner users** | A partner's own team | `platform.dripfunnel.ai`, Platform API | Password (**built on #156**: PBKDF2-SHA256, 100,000 iterations — the most the Workers runtime allows — a 16-byte salt and a 32-byte key, `auth/password.ts`; one decoy derivation when no account matches, so an unknown email costs what a wrong password does); 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
 | **Staff** | DripFunnel employees | `admin.dripfunnel.ai`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
 | **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
-| **Riders** *(proposed)* | A merchant's own delivery people | The store's delivery app, Delivery API at `/delivery-api/` on `{slug}.<SHOP_DOMAIN>` | Mobile + one-time code by SMS; invitation only, by the store's Owner (`riders.manage`), matched by the number ([DELIVERY.md](DELIVERY.md) §5) | Phone **per store**: a person delivering for two stores has two rider accounts |
+| **Riders** (sign-in built on #839) | A merchant's own delivery people | The store's delivery app, Delivery API at `/delivery-api/` on `{slug}.<SHOP_DOMAIN>` | Mobile + one-time code by SMS; invitation only, by the store's Owner (`riders.manage`), matched by the number ([DELIVERY.md](DELIVERY.md) §5) | Phone **per store**: a person delivering for two stores has two rider accounts |
 
 Rules for the **people** pool:
 
@@ -131,7 +131,7 @@ and **never** to a `TenantContext`, except through a support session.
 |---|---|---|---|---|---|
 | **Person** | Store API | Session cookie + acting store named on the request | The acting store, which must be in the membership set | From the membership's `seller_id` | The membership's `role_key` |
 | **Shopper** | Shop API | Public store key or storefront hostname, plus an optional customer session | The key's store | `all`, visibility-filtered to what shoppers may see | The fixed shopper set |
-| **Rider** *(proposed)* | Delivery API | The store's `{slug}.<SHOP_DOMAIN>` host plus the rider's bearer session | The host's store, which must be the rider's | none: a rider reaches only its own offers and deliveries, never a catalogue or order list | The fixed rider set ([DELIVERY.md](DELIVERY.md) §4) |
+| **Rider** (#839) | Delivery API | The store's `{slug}.<SHOP_DOMAIN>` host plus the rider's bearer session | The host's store, which must be the rider's | none: a rider reaches only its own offers and deliveries, never a catalogue or order list | The fixed rider set ([DELIVERY.md](DELIVERY.md) §4) |
 | **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes: capped by its creator's role when created, and by the supplier's current tier on every request if vendor-bound (§5.6) |
 | **App grant** | Store API | The app's grant token | The grant's store | `all`: apps are always store-wide; only API keys may be supplier-bound (decided 2026-10-05 on #337) | The scopes the merchant approved |
 | **Staff impersonation** | Store API or Platform API, on the target's host | Impersonation cookie from a handoff (§8.1) | The target membership's store, or none for a partner user | From the target membership | The target's own permissions |
@@ -148,7 +148,7 @@ type SellerScope =
 type StoreCaller =
   | { kind: 'person'; userId: string; sessionId: string }
   | { kind: 'shopper'; customerId: string | null }
-  | { kind: 'rider'; riderId: string }                      // proposed: DELIVERY.md §4
+  | { kind: 'rider'; riderId: string }                      // #839: DELIVERY.md §4
   | { kind: 'api-key'; keyId: string; createdByUserId: string }
   | { kind: 'app'; grantId: string; appId: string }
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }
@@ -183,8 +183,9 @@ The declaration replaces the first platform's tRPC procedure bases:
 
 | Declaration | Archive base | Guarantees |
 |---|---|---|
-| `api` | (one tRPC router) | Which schema the field lives in: `shop`, `store`, `platform` or `admin`. The router already refuses other hosts (ARCHITECTURE §2); this stops a field being mounted in the wrong schema. |
+| `api` | (one tRPC router) | Which schema the field lives in: `shop`, `delivery` (#839), `store`, `platform` or `admin`. The router already refuses other hosts (ARCHITECTURE §2); this stops a field being mounted in the wrong schema. |
 | `scope: 'public'` | `publicProcedure` | No session: sign-in, signup, accept-invitation, forgot and reset password, Shop API catalogue. |
+| `scope: 'rider'` | (none) | A signed-in, active rider of the host's store (Delivery API, #839); no permission, as the rider set is fixed (DELIVERY.md §4). A rider runs as the database role `app_rider` (DATA-MODEL §5.3). |
 | `scope: 'session'` | `sessionProcedure` | A valid person session and **no acting store**: which stores I belong to, my profile, sign out. Nothing declared this way may read store data. |
 | `scope: 'store'` | `tenantProcedure` | Acting store verified (§9 checks 1 and 10), `TenantContext` built, subscription gate applied. |
 | `scope: 'store-seller'` | `scopedProcedure` | `store` plus the `SellerScope` handed to the scoped query layer, so vendor reads and writes are filtered without the resolver asking. Every catalogue, inventory and order field uses this. |
