@@ -11,7 +11,7 @@ export function BrandMark() {
   if (!brand) return null
   return (
     <View style={styles.mark}>
-      {brand.logo ? <Image source={{ uri: brand.logo }} accessibilityLabel={t('brand.logo', { name: brand.name ?? '' })} contentFit="contain" style={styles.logo} /> : null}
+      {brand.logo ? <Image source={{ uri: brand.logo }} accessibilityLabel={brand.name ? t('brand.logo', { name: brand.name }) : t('brand.logoUnnamed')} contentFit="contain" style={styles.logo} /> : null}
       {brand.name ? <Text style={[styles.name, { color: colors.heading }]}>{brand.name}</Text> : null}
     </View>
   )

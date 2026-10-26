@@ -13,6 +13,7 @@
     "retry": "Try again"
   },
   "brand": {
-    "logo": "{name} logo"
+    "logo": "{name} logo",
+    "logoUnnamed": "Store logo"
   }
 }
