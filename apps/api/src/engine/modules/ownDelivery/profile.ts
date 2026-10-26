@@ -1,3 +1,5 @@
+import { releaseRiderDeliveries } from './dispatch'
+import { withSystemScope } from '#db/scoped/index'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
@@ -97,9 +99,10 @@ export const createRiderProfile = ({ sql, context, activity, facts, files, now }
 
   /** Signed out everywhere, phone and photos erased, the name kept for past deliveries (DELIVERY §5). */
   const deleteAccount = async (): Promise<ProfileResult<true>> => {
-    const done = await withScope(sql, context, async (tx): Promise<{ ok: false; reason: 'UNAUTHENTICATED' } | { ok: true; keys: string[] }> => {
+    const done = await withSystemScope(sql, async (tx): Promise<{ ok: false; reason: 'UNAUTHENTICATED' } | { ok: true; keys: string[] }> => {
       const rider = await selectOwnRider(tx, storeId, riderId)
       if (!rider) return { ok: false, reason: 'UNAUTHENTICATED' }
+      await releaseRiderDeliveries(tx, { storeId, partnerId, activity, facts, now: now(), actor: { actorKind: 'rider', actorId: riderId, actorLabel: null } }, riderId, 'deleted')
       await endRiderSessions(tx, storeId, riderId, now())
       await deleteRiderDevices(tx, storeId, riderId)
       await markRiderRemoved(tx, storeId, riderId, now())

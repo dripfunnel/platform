@@ -1,3 +1,4 @@
+import { orderDeliveryType } from './dispatch'
 import { GraphQLError } from 'graphql'
 import type { CartAddress } from '#db/scoped/cart'
 import { pageOf } from '#core/paging'
@@ -104,6 +105,7 @@ const answered = <T>(result: OrdersResult<T>): T => {
 type Merchant = NonNullable<OrderDetailRow['merchant']>
 
 export const registerOrders = (builder: StoreBuilder) => {
+  const delivery = orderDeliveryType(builder)
   const PageInfo = pageInfoType(builder)
   const Money = moneyType(builder)
   const service = (ctx: StoreContext) => {
@@ -324,6 +326,7 @@ export const registerOrders = (builder: StoreBuilder) => {
   })
   const Order = builder.objectRef<OrderDetail>('Order').implement({
     fields: (t) => ({
+      delivery: t.field({ type: delivery.type, nullable: true, extensions: { access: { api: 'store', scope: 'store-seller', permission: 'orders.read', target: 'none', machine: true } }, resolve: (o, _, ctx) => delivery.read(ctx, o.id) }),
       id: t.exposeID('id'),
       number: t.exposeString('number'),
       state: t.exposeString('state'),

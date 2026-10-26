@@ -1,3 +1,4 @@
+import { releaseRiderDeliveries } from '#engine/modules/ownDelivery/index'
 import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { CodeCheck } from '#auth/codeCheck'
@@ -27,7 +28,7 @@ export interface RiderSignInDeps {
 export const riderSignInAudit = { codeRequested: 'rider.code_requested' } as const
 
 export const createRiderSignIn = (deps: RiderSignInDeps) => {
-  const auth = createRiderAuth(deps)
+  const auth = createRiderAuth({ ...deps, beforeSignOut: (tx, riderId) => releaseRiderDeliveries(tx, { storeId: deps.storeId, partnerId: deps.partnerId, activity: deps.activity, facts: deps.facts, now: deps.now(), actor: { actorKind: 'rider', actorId: riderId, actorLabel: null } }, riderId, 'sign_out') })
 
   const requestCode = async (raw: string): Promise<{ ok: true } | { ok: false; reason: 'INVALID_INPUT' | 'RATE_LIMITED' }> => {
     const checked = await auth.checkRequest(raw)
