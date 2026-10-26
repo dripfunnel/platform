@@ -6,18 +6,28 @@ import { clampZoom, Gallery, maxZoom } from './Gallery'
 
 jest.setTimeout(120_000)
 
-type PinchConfig = { runOnJS?: boolean; onUpdate?: (event: { scale: number }) => void; onFinalize?: () => void }
-const mockPinch: { config: PinchConfig | null } = { config: null }
+type Callbacks = { runOnJS?: boolean | undefined; onUpdate?: ((event: { scale: number }) => void) | undefined; onFinalize?: (() => void) | undefined }
+const mockPinch: { config: Callbacks } = { config: {} }
 const mockPlayerFor = jest.fn()
 
-// The native gesture and video modules do not run in a test: the hook records how the gallery set it up, and the player is a stub.
-jest.mock('react-native-gesture-handler', () => ({
-  GestureDetector: ({ children }: { children: unknown }) => children,
-  usePinchGesture: (config: PinchConfig) => {
-    mockPinch.config = config
-    return {}
-  },
-}))
+// The native gesture and video modules do not run in a test: the builder records how the gallery set it up, and the player is a stub.
+jest.mock('react-native-gesture-handler', () => {
+  const builder = {
+    runOnJS: (value: boolean) => {
+      mockPinch.config.runOnJS = value
+      return builder
+    },
+    onUpdate: (callback: Callbacks['onUpdate']) => {
+      mockPinch.config.onUpdate = callback
+      return builder
+    },
+    onFinalize: (callback: Callbacks['onFinalize']) => {
+      mockPinch.config.onFinalize = callback
+      return builder
+    },
+  }
+  return { Gesture: { Pinch: () => builder }, GestureDetector: ({ children }: { children: unknown }) => children }
+})
 jest.mock('expo-video', () => {
   const { View } = jest.requireActual<typeof import('react-native')>('react-native')
   return {
@@ -65,13 +75,13 @@ describe('the gallery', () => {
 
   it('zooms with a pinch no further than the limit, and settles back when the fingers lift', async () => {
     await render(<Gallery photos={[photo(1)]} video={null} name="Linen Tee" />, shop)
-    expect(mockPinch.config?.runOnJS).toBe(true)
+    expect(mockPinch.config.runOnJS).toBe(true)
     expect(clampZoom(9)).toBe(maxZoom)
     expect(clampZoom(0.2)).toBe(1)
     expect(clampZoom(2.5)).toBe(2.5)
     act(() => {
-      mockPinch.config?.onUpdate?.({ scale: 2 })
-      mockPinch.config?.onFinalize?.()
+      mockPinch.config.onUpdate?.({ scale: 2 })
+      mockPinch.config.onFinalize?.()
     })
   })
 })
