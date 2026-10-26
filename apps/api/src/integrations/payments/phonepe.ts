@@ -14,7 +14,8 @@ const expireAfter = 1200
 
 const tokenSchema = z.object({ access_token: z.string().min(1) }).loose()
 const payment = z.object({ orderId: z.string(), redirectUrl: z.string().url() }).loose()
-const statusSchema = z.object({ state: z.string(), amount: z.number().int().nonnegative() }).loose()
+const sdkOrder = z.object({ orderId: z.string().min(1), token: z.string().min(1) }).loose()
+const statusSchema =z.object({ state: z.string(), amount: z.number().int().nonnegative() }).loose()
 const eventSchema = z.object({ payload: z.object({ merchantOrderId: z.string() }).loose() }).loose()
 
 export const phonepe = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}): PaymentGateway => {
@@ -35,6 +36,22 @@ export const phonepe = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}
       // PhonePe takes rupees only; another currency is a set-up the store can't use here.
       if (request.amount.currency !== 'INR') throw new PaymentRefused('INR only')
       const reference = referenceOf(request.attemptId)
+      if (request.app) {
+        // The app's SDK takes an order token, not a page; a store that hasn't saved its merchant id can't pay this way.
+        const merchantId = account.credentials['merchantId']
+        if (!merchantId) throw new PaymentRefused('merchant id missing')
+        const order = await callProvider(
+          fetchImpl,
+          `${hosts[account.mode].pg}/payments/v2/sdk/order`,
+          {
+            method: 'POST',
+            headers: { authorization: await token(account), 'content-type': 'application/json' },
+            body: JSON.stringify({ merchantOrderId: reference, amount: Number(request.amount.amount), expireAfter, metaInfo: { udf1: request.orderId }, paymentFlow: { type: 'PG' } }),
+          },
+          sdkOrder,
+        )
+        return { providerRef: reference, publicKey: merchantId, accountId: null, clientSecret: null, sessionId: null, redirectUrl: null, providerOrderId: order.orderId, token: order.token }
+      }
       const started = await callProvider(
         fetchImpl,
         `${hosts[account.mode].pg}/checkout/v2/pay`,
