@@ -1,6 +1,7 @@
 import { t } from '../../messages'
 import { inr } from '../../testing/fixtures'
-import { errorKey, lowStockAt, money, stockLine, taxLine } from './words'
+import { errorKey } from '../common/errors'
+import { lowStockAt, money, stockLine, taxLine } from './words'
 
 const version = (over: Partial<{ inStock: boolean; available: number | null }> = {}) => ({ id: 'v', name: null, inStock: true, available: 20, price: inr('100'), compareAt: null, choices: {}, ...over })
 const colour = { id: 'o', name: 'Colour', values: [] }

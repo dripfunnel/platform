@@ -18,7 +18,8 @@
   },
   "common": {
     "back": "Back",
-    "close": "Close"
+    "close": "Close",
+    "cancel": "Cancel"
   },
   "states": {
     "loading": "Loading",
@@ -42,6 +43,14 @@
     "INVALID_INPUT": "Something here isn’t valid. Check your choices and try again.",
     "STORE_UNAVAILABLE": "This shop isn’t open right now. Try again later.",
     "TOO_MANY_LINES": "Your cart is full. Remove something to add this.",
+    "METHOD_OFF": "This shop doesn’t sign in that way.",
+    "CODE_REFUSED": "That code didn’t work. Check it, or ask for a new one.",
+    "SIGN_IN_REFUSED": "That email and password don’t match an account here.",
+    "WEAK_PASSWORD": "Choose a password of at least 10 characters.",
+    "TOO_MANY": "That’s as many addresses as an account keeps.",
+    "NOT_FOUND": "That is no longer here.",
+    "SIGNED_OUT": "Your session ended. Sign in again.",
+    "NOT_IN_PREVIEW": "Signing in isn’t available on a preview of the shop.",
     "UNKNOWN": "Something went wrong. Try again in a moment."
   },
   "home": {
@@ -152,6 +161,121 @@
     "notFound": {
       "title": "We couldn’t find that product",
       "body": "It may have been removed. Browse the store to find something else."
+    }
+  },
+  "form": {
+    "optional": "optional",
+    "required": "This is needed",
+    "invalidEmail": "Enter an email like name@example.com",
+    "invalidPhone": "Enter the number with its country code, like +91 98765 43210",
+    "invalidCode": "Enter the 6-digit code",
+    "invalidPostal": "Check this, it doesn’t look right for this country",
+    "shortPassword": "Use at least 10 characters",
+    "show": "Show",
+    "hide": "Hide",
+    "showPassword": "Show the password",
+    "hidePassword": "Hide the password"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "phone": "Mobile number",
+    "phoneHelp": "With the country code, like +91 98765 43210.",
+    "phoneNote": "New here? Confirm your number with the code and we make your account.",
+    "code": "6-digit code",
+    "sendCode": "Send code",
+    "sendAgain": "Send a new code",
+    "codeSent": "We sent a code to {to}.",
+    "signInButton": "Sign in",
+    "forgot": "Forgot your password?",
+    "create": "Create an account",
+    "haveAccount": "Already have an account? Sign in",
+    "differentNumber": "Use a different number",
+    "differentEmail": "Use a different email",
+    "passwordHelp": "At least 10 characters.",
+    "tabs": {
+      "email": "Email",
+      "phone": "Mobile number"
+    },
+    "signIn": {
+      "title": "Sign in"
+    },
+    "noMethods": {
+      "title": "Sign-in isn’t available",
+      "body": "This shop isn’t taking sign-ins right now. You can still browse and shop as a guest."
+    },
+    "register": {
+      "title": "Create an account",
+      "intro": "Enter your email and we’ll send a code to confirm it.",
+      "name": "Your name",
+      "button": "Create account"
+    },
+    "reset": {
+      "title": "Reset your password",
+      "intro": "Enter your email and we’ll send a code. With it you can choose a new password.",
+      "newPassword": "New password",
+      "button": "Set password and sign in"
+    }
+  },
+  "account": {
+    "guest": {
+      "title": "Sign in to your account",
+      "body": "See and keep your addresses, and carry your cart between your phone and the website."
+    },
+    "name": "Your name",
+    "saveName": "Save name",
+    "addressesTitle": "Addresses",
+    "addresses": "{count} saved",
+    "signOut": "Sign out"
+  },
+  "addresses": {
+    "title": "Addresses",
+    "add": "Add an address",
+    "edit": "Edit",
+    "delete": "Delete",
+    "default": "Default",
+    "pinned": "Pin saved",
+    "noPin": "No pin yet: edit to add one",
+    "empty": {
+      "title": "No saved addresses",
+      "body": "Add one with a pin on your door, and checkout can use it."
+    },
+    "deleteTitle": "Delete this address?",
+    "deleteBody": "{name} is removed from your account. Orders you’ve placed keep the address they were sent to.",
+    "deleteConfirm": "Delete address",
+    "notFound": {
+      "title": "We couldn’t find that address",
+      "body": "It may have been deleted."
+    }
+  },
+  "address": {
+    "add": "Add an address",
+    "edit": "Edit address",
+    "country": "Country",
+    "noCountries": "This shop isn’t selling to any country yet",
+    "name": "Full name",
+    "line1": "Address",
+    "line2": "Apartment, floor, landmark",
+    "city": "City",
+    "state": "State",
+    "region": "Region",
+    "county": "County",
+    "pin": "PIN code",
+    "zip": "ZIP code",
+    "postcode": "Postcode",
+    "postal": "Postal code",
+    "phone": "Phone",
+    "makeDefault": "Use as my default address",
+    "save": "Save address",
+    "pinRequired": "Put the pin on your door to save. Every address needs one.",
+    "map": {
+      "noPin": "Map: no pin yet",
+      "withPin": "Map with the pin on your door",
+      "drop": "Tap to drop a pin on your door",
+      "help": "Move the map so the pin is on your door, or drag the pin. We use it to see who can deliver to you.",
+      "useLocation": "Use my location",
+      "denied": "Location is off for this app. Allow it in Settings, or move the pin by hand.",
+      "failed": "We couldn’t find your location. Move the pin by hand."
     }
   }
 }

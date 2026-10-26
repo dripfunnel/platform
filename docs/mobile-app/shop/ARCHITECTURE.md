@@ -4,9 +4,9 @@ How `apps/ui/mobile-app/shop` is laid out and how it talks to the Shop API. Scop
 [FIRST-RELEASE.md](FIRST-RELEASE.md); builds and per-store configuration are
 [../README.md](../README.md) §3.
 
-**Status: the project is set up (#860) and Home, Browse, search and the product page are built (#861)**: `app.config.ts` reading `stores/<STORE_KEY>.env` (the `dev` store, host `dev.my-store.localhost`), `eas.json`'s `dev` profile, the Shop API client sending `X-Shop-Session` and `X-Shop-Cart` from secure storage, the store's name and logo at startup (the last look is saved on the device) and placeholder tabs for the screens still to come (SH 9–SH 14). Home, Browse (collections, filters, sort, Show more), search and the product page with add to cart read the catalogue through `features/catalogue/`; the last page each loaded is kept on the device so a phone with no signal shows it under a banner (§2).
+**Status: the project is set up (#860); Home, Browse, search and the product page are built (#861); and sign-in, register, reset, Account and addresses with a map pin are built (#862)**: `app.config.ts` reading `stores/<STORE_KEY>.env` (the `dev` store, host `dev.my-store.localhost`), `eas.json`'s `dev` profile, the Shop API client sending `X-Shop-Session` and `X-Shop-Cart` from secure storage, the store's name and logo at startup (the last look is saved on the device) and placeholder tabs for the screens still to come (SH 10–SH 14). Home, Browse (collections, filters, sort, Show more), search and the product page with add to cart read the catalogue through `features/catalogue/`; the last page each loaded is kept on the device so a phone with no signal shows it under a banner (§2).
 
-Last updated: 2026-10-26 (#861: Home, browsing, search and the product page; the two dependencies they need, §3; the offline cache is capped, §2). Before: 2026-10-26 (#860: the project is set up; the client's extra headers, §2). Before: 2026-10-26 (#857: Razorpay, Cashfree and PhonePe for the app's native sheets, §4). Before: 2026-10-23 (#856: payment for the app's native sheets, Stripe and PayPal, built, §4). Before: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
+Last updated: 2026-10-26 (#862: sign-in, register, reset, Account and addresses with a native map pin, §2 and §3; the session is held by `ShopProvider`; Delete my account waits for a Shop API operation). Before: 2026-10-26 (#861: Home, browsing, search and the product page; the two dependencies they need, §3; the offline cache is capped, §2). Before: 2026-10-26 (#860: the project is set up; the client's extra headers, §2). Before: 2026-10-26 (#857: Razorpay, Cashfree and PhonePe for the app's native sheets, §4). Before: 2026-10-23 (#856: payment for the app's native sheets, Stripe and PayPal, built, §4). Before: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
 
 ---
 
@@ -32,9 +32,11 @@ apps/ui/mobile-app/shop/
     app/                    Expo Router routes
       _layout.tsx           polyfills, brand, session, push
       (tabs)/               home  browse/  cart  account/
+      (auth)/               sign-in  register  reset
       (tabs)/browse/        index  all  search  collection/[slug]
+      (tabs)/account/       index  addresses  address
       product/[handle]  checkout/  orders/[id]  orders/[id]/track
-    features/<area>/        screens per area; catalogue/ holds Home, Browse, collection, search and the product page
+    features/<area>/        screens per area; catalogue/ holds Home, Browse, collection, search and the product page; account/ the sign-in, register, reset and Account screens; addresses/ the saved addresses and the pin; common/ what they share (ui, fields, the load hooks, the offline cache, error words)
     api/<area>.ts           the app's GraphQL operations, typed from apps/api/schema/shop.graphql
     session/                the customer's session token and the cart token, in secure storage
     testing/                the fake Shop API and the renderer the screens' tests share
@@ -47,7 +49,7 @@ Foundations (`graphql/`, `format/`, `intl/`, `theme/`) come from `apps/ui/mobile
 (../README.md §2). The shared client takes `extraHeaders`, read on every call, for the Shop API's
 `X-Shop-Session` and `X-Shop-Cart` (#860). Built so far: the tokens are read from secure storage at start
 (`session/tokens.ts`; the cart token is kept apart, under `<host>.cart`) and the writers come with sign-in and the
-cart (SH 9, SH 10). `ShopProvider` holds the one client the screens call with; `addToCart` answers a guest's cart token, which `saveCartToken` keeps (SH 10 reads it). `pnpm dev:shop` starts Expo's dev server for the `dev` store; the app's theme stays
+cart (SH 9, SH 10). `ShopProvider` holds the one client the screens call with and the session (`signedIn`, `startSession`, `endSession`: a sign-in keeps its token in secure storage and drops the guest cart token, whose cart the API has claimed for the account; sign-out asks the API to end the session and removes the token whatever the answer); `addToCart` answers a guest's cart token, which `saveCartToken` keeps (SH 10 reads it). `pnpm dev:shop` starts Expo's dev server for the `dev` store; the app's theme stays
 DripFunnel's palette (§4: no colours served).
 
 **Offline (#861).** Browsing keeps no cache layer of its own: each screen's first answer is saved in the device's storage under one slot (home, collections, a collection's products, a product), and served only to the same request, when the phone gets no answer (`NO_RESPONSE`). Product pages and collection pages are kept 20 at a time, the most recently loaded, so browsing many products cannot fill the device's storage. It shows under the "You're offline" banner; with nothing kept it shows the offline state. Search is never kept, and recent searches stay on the device and are never sent. A write (add to cart) is not offered while the page shown is a kept one.
@@ -60,8 +62,8 @@ DripFunnel's palette (§4: no colours served).
 |---|---|
 | `expo-notifications` | Order and delivery pushes |
 | `expo-secure-store` | The session and cart tokens |
-| `expo-location` | "Use my location" on the address pin |
-| `react-native-maps` | The address pin and the live tracking map (Google Maps on Android, Apple Maps on iOS) |
+| `expo-location` | "Use my location" on the address pin (built on #862): asked only while the app is in use and only when the shopper taps for it |
+| `react-native-maps` | The address pin (built on #862) and the live tracking map (Google Maps on Android, Apple Maps on iOS). Android takes its key from the store's optional `GOOGLE_MAPS_ANDROID_KEY` (../README.md §3) |
 | `@stripe/stripe-react-native` | Stripe's Payment Sheet |
 | `react-native-razorpay` | Razorpay's checkout |
 | `react-native-cashfree-pg-sdk` | Cashfree's checkout |

@@ -7,13 +7,24 @@ import { ShopContext, type Shop } from '../api/ShopContext'
 export type Request = { query: string; variables: Record<string, unknown> | undefined }
 export type Answer = (request: Request) => unknown
 
-export const fakeShop = (answer: Answer): Shop & { requests: Request[]; cartTokens: string[] } => {
+export const fakeShop = (answer: Answer, { signedIn = false }: { signedIn?: boolean } = {}): Shop & { requests: Request[]; cartTokens: string[]; sessions: (string | null)[] } => {
   const requests: Request[] = []
   const cartTokens: string[] = []
+  const sessions: (string | null)[] = []
   return {
     host: 'acme.my-store.one',
     requests,
     cartTokens,
+    sessions,
+    signedIn,
+    startSession: (token) => {
+      sessions.push(token)
+      return Promise.resolve()
+    },
+    endSession: () => {
+      sessions.push(null)
+      return Promise.resolve()
+    },
     saveCartToken: (token) => {
       cartTokens.push(token)
       return Promise.resolve()

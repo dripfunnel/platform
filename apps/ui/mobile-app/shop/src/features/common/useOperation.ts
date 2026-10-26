@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
-import type { Operation } from '../../api/catalogue'
+import type { Operation } from '../../api/operation'
 import { useShop } from '../../api/ShopContext'
 import { readCached, saveCached } from './cache'
 

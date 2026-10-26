@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
-import { run, type Operation, type Page } from '../../api/catalogue'
+import { run, type Operation, type Page } from '../../api/operation'
 import { useShop } from '../../api/ShopContext'
-import { useOperation, type Loaded } from './useOperation'
+import { useOperation, type Loaded } from '../common/useOperation'
 
 export type MoreState = 'idle' | 'loading' | 'error' | 'offline'
 

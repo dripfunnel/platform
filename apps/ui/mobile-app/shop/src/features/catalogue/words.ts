@@ -1,6 +1,6 @@
 import { formatList, formatMoney, formatNumber } from '@dripfunnel/mobile-shared/format'
 import type { Price, ProductOption, ProductVersion } from '../../api/catalogue'
-import { locale, t, type MessageKey } from '../../messages'
+import { locale, t } from '../../messages'
 
 export const money = (price: Price): string => formatMoney(price, locale)
 
@@ -19,24 +19,4 @@ export const stockLine = (product: { inStock: boolean }, version: ProductVersion
   if (!version.inStock) return { text: t('product.stock.versionSoldOut'), tone: 'out' }
   if (version.available !== null && version.available <= lowStockAt) return { text: t('product.stock.low', { count: formatNumber(version.available, locale) }), tone: 'low' }
   return { text: t('product.stock.in'), tone: 'good' }
-}
-
-/** A refusal's words by its code (errors are worded by code, never by the API's English). */
-export const errorKey = (code: string): MessageKey => {
-  switch (code) {
-    case 'NO_RESPONSE':
-      return 'errors.NO_RESPONSE'
-    case 'UNAVAILABLE':
-      return 'errors.UNAVAILABLE'
-    case 'RATE_LIMITED':
-      return 'errors.RATE_LIMITED'
-    case 'INVALID_INPUT':
-      return 'errors.INVALID_INPUT'
-    case 'STORE_UNAVAILABLE':
-      return 'errors.STORE_UNAVAILABLE'
-    case 'TOO_MANY_LINES':
-      return 'errors.TOO_MANY_LINES'
-    default:
-      return 'errors.UNKNOWN'
-  }
 }

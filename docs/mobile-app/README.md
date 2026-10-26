@@ -48,6 +48,7 @@ Each app keeps one file per store, `stores/<storeKey>.env`, read and validated b
 | `IOS_BUNDLE_ID`, `ANDROID_PACKAGE` | `com.acme.shop` | Registered in the merchant's accounts |
 | `APP_SCHEME` | `acmeshop` | Links that open the app |
 | `ICON_IMAGE`, `ANDROID_ICON_FOREGROUND`, `ANDROID_ICON_BACKGROUND`, `SPLASH_IMAGE`, `SPLASH_BACKGROUND` | | From Settings › Mobile apps |
+| `GOOGLE_MAPS_ANDROID_KEY` | `AIza…` | *Optional.* The Google Maps SDK for Android key for the address pin and tracking map: a public build value restricted to the app's package and signing certificate, never a secret (THIRD-PARTY-ACCESS §2.12; decided on #862). Without it the map is blank on Android |
 | `UPDATES_CHANNEL` | `acme` | Equal to `STORE_KEY` |
 
 Secrets (signing, the App Store Connect key, the Play service account, push credentials) live in
