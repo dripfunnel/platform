@@ -305,7 +305,10 @@ those through its API.
 The order emails the customer already gets for a shipment stay as they are. Neither a push nor an
 email ever carries the handover code (§3).
 
-**Built on #840 (DL 3):** the pipe and one test event; the events in the table come with DL 5, DL 6 and SH 5.
+**Built on #840 (DL 3) and #842 (DL 5):** the pipe, the test event and the rider's messages; the customer's and the pickup events come with DL 6 and SH 5.
+
+- **Rider messages** (`core/push.ts`): `rider.notifications_on`, `rider.offer` (a distance, never an address), `rider.assigned`,
+  `rider.cancelled`, and `rider.taken`, which is silent: the app only refreshes its offers.
 
 - **The test event** is a confirmation, "Notifications are on for {store}", queued by `registerPushDevice` in its own
   transaction when a phone is new to the rider or moved to them.

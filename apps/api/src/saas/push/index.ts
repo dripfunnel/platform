@@ -8,7 +8,7 @@ import { queueSideEffect } from '#saas/outbox/index'
 export const pushKind = 'push'
 export const pushReceiptsKind = 'push.receipts'
 
-/** The one event #840 builds: a phone newly registered to a rider. DL 5, DL 6 and SH 5 add theirs. */
+/** The messages the platform pushes (DELIVERY §6): the rider's confirmation and, from DL 5, offer, assigned, taken and cancelled. DL 6 and SH 5 add theirs. */
 export { pushMessages, pushPayloadSchema, type PushPayload, type PushMessageCode } from '#core/push'
 import { pushPayloadSchema, type PushPayload, type PushMessageCode } from '#core/push'
 
