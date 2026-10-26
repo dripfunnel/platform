@@ -13,7 +13,7 @@ alter table delivery
   add column fee_amount bigint check (fee_amount >= 0),
   add column failed_note text check (char_length(failed_note) between 1 and 500),
   add column step_key text check (char_length(step_key) between 1 and 100),
-  add column step_result text check (step_result in ('delivered', 'failed', 'CODE_UNCONFIRMED')),
+  add column step_result text check (step_result in ('delivered', 'failed', 'WRONG_CODE', 'CODE_LOCKED', 'CODE_UNCONFIRMED')),
   add constraint delivery_failed_reason check (failed_reason in ('no_one_home', 'refused', 'wrong_address', 'other', 'recalled', 'unconfirmed')),
   add constraint delivery_failed_note check (failed_note is null or failed_reason = 'other');
 update delivery d set area = nullif(concat_ws(', ', nullif(o.shipping_address->>'postalCode', ''), o.shipping_address->>'city'), ''), fee_amount = o.shipping_amount

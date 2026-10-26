@@ -2465,7 +2465,7 @@ delivery       (id, store_id, order_id, warehouse_id, state ('packing'|'searchin
                 |'picked_up'|'delivered'|'failed'|'cancelled'), rider_id NULL, fulfilment_id NULL,
                 cash_due_amount NULL, currency, cash_collected_at NULL, failed_reason NULL ('no_one_home'|'refused'
                 |'wrong_address'|'other'|'recalled'|'unconfirmed'), failed_note NULL, area NULL, fee_amount NULL,
-                step_key NULL, step_result NULL ('delivered'|'failed'|'CODE_UNCONFIRMED'),
+                step_key NULL, step_result NULL ('delivered'|'failed'|'WRONG_CODE'|'CODE_LOCKED'|'CODE_UNCONFIRMED'),
                 offer_round, excluded_rider_id NULL, handover_code_enc NULL, code_attempts, code_unconfirmed_at NULL, ready_at NULL, searching_at NULL, unassigned_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
                 failed_at NULL, cancelled_at NULL, eta_at NULL, eta_computed_at NULL, created_at, revision)
                UNIQUE (order_id) WHERE state NOT IN ('failed','cancelled')

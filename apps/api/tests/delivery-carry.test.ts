@@ -154,6 +154,15 @@ describe('the handover code', () => {
     expect(await db.sql`select delivered_at from fulfilment where id = ${d.fulfilment_id}`).toEqual([{ delivered_at: clock }])
     expect(await db.sql`select payload->>'event' as event from outbox where kind = 'order.notify' and payload->>'orderId' = ${orderId} order by created_at`).toEqual([{ event: 'shipped' }, { event: 'delivered' }])
   })
+  it('rolls the delivery back when the order can no longer be marked paid', async () => {
+    const { orderId, deliveryId } = await pickedUp()
+    await db.sql`update "order" set state = 'cancelled' where id = ${orderId}`
+    await expect(carry(riders[0]).delivered({ id: deliveryId, code: await codeOf(deliveryId), cashCollected: true, at: clock.toISOString(), key: 'gone-1' })).rejects.toMatchObject({ code: 'NOT_PENDING' })
+    expect(await latest(orderId)).toMatchObject({ state: 'picked_up', delivered_at: null, cash_collected_at: null })
+    expect(await db.sql`select 1 from activity_log where target_id = ${deliveryId} and action = 'delivery.delivered'`).toHaveLength(0)
+    await db.sql`update "order" set state = 'placed' where id = ${orderId}`
+    await carry(riders[0]).failed({ id: deliveryId, reason: 'refused', note: null, at: clock.toISOString(), key: 'gone-2' })
+  })
   it('a prepaid order needs no cash and stays as it was paid', async () => {
     const { orderId, deliveryId } = await pickedUp('stripe')
     expect(await carry(riders[0]).delivered({ id: deliveryId, code: await codeOf(deliveryId), cashCollected: null, at: clock.toISOString(), key: 'p1' })).toBe(true)
@@ -163,7 +172,11 @@ describe('the handover code', () => {
     const { orderId, deliveryId } = await pickedUp()
     const code = await codeOf(deliveryId)
     const attempt = (typed: string, key: string) => carry(riders[0]).delivered({ id: deliveryId, code: typed, cashCollected: true, at: clock.toISOString(), key })
-    for (let i = 1; i <= 4; i++) await expect(attempt(wrong(code), `w${i}`)).rejects.toMatchObject({ code: 'WRONG_CODE' })
+    await expect(attempt(wrong(code), 'w1')).rejects.toMatchObject({ code: 'WRONG_CODE' })
+    // A lost answer resent under the same key counts no second try.
+    await expect(attempt(wrong(code), 'w1')).rejects.toMatchObject({ code: 'WRONG_CODE' })
+    expect((await latest(orderId)).code_attempts).toBe(1)
+    for (let i = 2; i <= 4; i++) await expect(attempt(wrong(code), `w${i}`)).rejects.toMatchObject({ code: 'WRONG_CODE' })
     await expect(attempt(wrong(code), 'w5')).rejects.toMatchObject({ code: 'CODE_LOCKED' })
     await expect(attempt(code, 'w6')).rejects.toMatchObject({ code: 'CODE_LOCKED' })
     expect(await latest(orderId)).toMatchObject({ state: 'picked_up', code_attempts: 5 })

@@ -25,6 +25,7 @@ const words: Record<string, string> = {
   CODE_UNCONFIRMED: 'The code didn’t match. The store will confirm this delivery.',
   CODE_NOT_LOCKED: 'The rider can still confirm this delivery with the customer’s code.',
   CASH_NOT_CONFIRMED: 'Confirm the cash first.',
+  NOT_PENDING: 'This order’s payment has changed. Ask the store.',
 }
 
 /** Yoga masks an error that is not a GraphQLError, so a refusal's code would never reach the app (DELIVERY §4). */

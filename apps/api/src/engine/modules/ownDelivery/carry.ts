@@ -80,7 +80,9 @@ const deliver = async (tx: ScopedSql, f: DispatchFacts, d: DeliveryRow, s: { at:
   const n = await tellCustomer(tx, f, d, 'order.delivered')
   // The order is paid only when the delivery is delivered, by the mark-paid path (DELIVERY §3, §8).
   if (s.paidBy && n?.payment_method === 'cod' && n.payment_state === 'pending') {
-    await markPaidIn(tx, { storeId: f.storeId, actor: { ...s.paidBy, partnerId: f.partnerId }, activity: f.activity, facts: f.facts ?? { requestId: null, ip: null, userAgent: null }, now: () => f.now }, d.order_id)
+    const paid = await markPaidIn(tx, { storeId: f.storeId, actor: { ...s.paidBy, partnerId: f.partnerId }, activity: f.activity, facts: f.facts ?? { requestId: null, ip: null, userAgent: null }, now: () => f.now }, d.order_id)
+    // Thrown, so the delivery is not left delivered with its cash unrecorded.
+    if (!paid.ok) throw new DispatchRefused(paid.reason === 'NOT_FOUND' ? 'NOT_SHIPPABLE' : 'NOT_PENDING')
   }
   if (n && !n.test && d.fulfilment_id) await queueOrderUpdate(tx, f.storeId, { event: 'delivered', orderId: d.order_id, fulfilmentId: d.fulfilment_id }, `delivered:${d.fulfilment_id}`)
   await record(tx, f, carryAudit.delivered, d.id, s.reason)
@@ -128,7 +130,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
   // A resend with the same key answers what the first did, and changes nothing (DELIVERY §4).
   const replay = (d: DeliveryRow, key: string): Answer | null => {
     if (d.step_key !== key) return null
-    return d.step_result === 'CODE_UNCONFIRMED' ? { refused: 'CODE_UNCONFIRMED' } : true
+    return d.step_result === 'delivered' || d.step_result === 'failed' ? true : { refused: d.step_result ?? 'INVALID_INPUT' }
   }
 
   return {
@@ -196,7 +198,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
           await deliver(tx, f, d, { at, cashAt: cash ? at : null, key, reason: null, paidBy: cash ? { kind: 'rider', id: rider } : null })
           return true
         }
-        const attempts = await carry.countWrongCode(tx, d)
+        const attempts = await carry.countWrongCode(tx, d, key, maxCodeAttempts)
         if (f.now.getTime() - at.getTime() > lateMs) {
           // Checked on arrival as one try: the store confirms it now (DELIVERY §3, Delivered without signal).
           await carry.setUnconfirmed(tx, d, { now: f.now, cashAt: cash ? at : null, key })

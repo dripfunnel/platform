@@ -11,8 +11,11 @@ export const setHandoverCode = (tx: ScopedSql, d: Ref, sealed: string | null) =>
 export const selectHandoverCode = async (tx: ScopedSql, d: Ref) =>
   (await tx<{ handover_code_enc: string | null; code_attempts: number }[]>`select handover_code_enc, code_attempts from delivery where id = ${d.id} and store_id = ${d.store_id}`)[0] ?? null
 
-export const countWrongCode = async (tx: ScopedSql, d: Ref): Promise<number> =>
-  (await tx<{ code_attempts: number }[]>`update delivery set code_attempts = code_attempts + 1, revision = revision + 1 where id = ${d.id} and store_id = ${d.store_id} returning code_attempts`)[0]?.code_attempts ?? 0
+/** One wrong try, kept under the step's key so a resend of it answers the same and counts nothing (DELIVERY §4). */
+export const countWrongCode = async (tx: ScopedSql, d: Ref, key: string, max: number): Promise<number> =>
+  (await tx<{ code_attempts: number }[]>`update delivery set code_attempts = code_attempts + 1, step_key = ${key},
+    step_result = case when code_attempts + 1 >= ${max} then 'CODE_LOCKED' else 'WRONG_CODE' end, revision = revision + 1
+    where id = ${d.id} and store_id = ${d.store_id} returning code_attempts`)[0]?.code_attempts ?? 0
 
 /** The order's earlier `local` shipments: a retry after `failed` carries the parcel they already took out (DELIVERY §3). */
 export const localFulfilments = async (tx: ScopedSql, storeId: string, orderId: string): Promise<string[]> =>
