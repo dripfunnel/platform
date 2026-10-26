@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { z } from 'zod'
 import { cartFields, cartSchema, useCartState, type Cart, type CartAddress } from '../cart/cart'
 import { ShopApiError, type ShopClient } from '../platform/api/client'
@@ -89,7 +89,10 @@ const codeOf = (error: unknown) => (error instanceof ShopApiError ? error.code :
 
 /** The steps a cart needs, each done, open or still to come; without anything to send, no address or delivery. */
 const stepsOf = (cart: Cart | null, s: State): { id: CheckoutStepId; state: 'done' | 'open' | 'later' }[] => {
-  const ids: CheckoutStepId[] = cart && !cart.needsShipping ? ['contact', 'payment', 'review'] : ['contact', 'address', 'delivery', 'payment', 'review']
+  // A store with exactly one delivery option has it applied for the shopper (useCheckout), so the delivery step is
+  // omitted; with several the shopper still chooses it, and with none the step shows why it can't be delivered.
+  const soleApplied = cart !== null && cart.shippingOptions.length === 1 && cart.shippingOption !== null
+  const ids: CheckoutStepId[] = cart && !cart.needsShipping ? ['contact', 'payment', 'review'] : soleApplied ? ['contact', 'address', 'payment', 'review'] : ['contact', 'address', 'delivery', 'payment', 'review']
   const done = (id: CheckoutStepId) =>
     cart !== null &&
     (id === 'contact' ? cart.email !== null : id === 'address' ? cart.shippingAddress !== null : id === 'delivery' ? cart.shippingOption !== null : id === 'payment' ? s.chosen !== null && cart.readyToPay : false)
@@ -185,6 +188,19 @@ export const useCheckout = (): CheckoutPage => {
     store.set({ busy: false, error: carts.get().error, editing: answer ? null : store.get().editing })
     return answer !== null
   }
+
+  // Apply the sole delivery option for the shopper (like a single payment option), so the delivery step is skipped.
+  // Re-applies after an address edit clears it; the in-flight guard and the narrow deps keep a failed send from looping.
+  const soleOption = cart?.needsShipping && cart.shippingOptions.length === 1 ? (cart.shippingOptions[0]?.id ?? null) : null
+  const applyingDelivery = useRef(false)
+  useEffect(() => {
+    if (soleOption === null || (cart?.shippingOption ?? null) !== null || applyingDelivery.current) return
+    applyingDelivery.current = true
+    void send(deliveryMutation, { option: soleOption }).finally(() => {
+      applyingDelivery.current = false
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `send` and `cart` are new each render; depending on them would re-send every render.
+  }, [soleOption, cart?.shippingOption])
 
   const settle = async (orderId: string) => {
     store.set({ phase: { kind: 'confirming', orderId } })
