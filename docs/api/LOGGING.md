@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-10-26 (#841: `shipping.saved` names own delivery among the methods, `warehouse.saved` says when own delivery turns on or off, §3). Before: 2026-10-26 (#840: `rider.push_device_registered` and `rider.push_device_removed`, §3). Before: 2026-10-23 (#839: the `rider` actor kind and the `delivery` API built (migration 0360), the riders' sign-in entries, §3, §4). Before: 2026-10-23 (#838: the `rider.*` entries of Settings › Riders, §3). Before: 2026-10-22 (the `rider` actor kind, §4, proposed: DELIVERY.md). Before: 2026-10-15 (#744: previews and live shops on `SHOP_DOMAIN`, both zones' Logpush, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
+Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions). Before: 2026-10-26 (#841: `shipping.saved` names own delivery among the methods, `warehouse.saved` says when own delivery turns on or off, §3). Before: 2026-10-26 (#840: `rider.push_device_registered` and `rider.push_device_removed`, §3). Before: 2026-10-23 (#839: the `rider` actor kind and the `delivery` API built (migration 0360), the riders' sign-in entries, §3, §4). Before: 2026-10-23 (#838: the `rider.*` entries of Settings › Riders, §3). Before: 2026-10-22 (the `rider` actor kind, §4, proposed: DELIVERY.md). Before: 2026-10-15 (#744: previews and live shops on `SHOP_DOMAIN`, both zones' Logpush, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
 
 ---
 
@@ -86,6 +86,13 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 `on_behalf_of`.
 
 ---
+
+**#842 dispatch entries.** delivery.created, delivery.ready, delivery.offered (one per broadcast),
+delivery.accepted, delivery.assigned, delivery.cancelled, delivery.declined, delivery.unassigned
+and delivery.handed_back name the delivery; rider.went_online and rider.went_offline name the rider.
+Job transitions use actor kind job; rider actions use rider and merchant actions use person.
+The reportPosition mutation declares unlogged: rider_position: coordinates, accuracy and position times
+never enter activity or technical logs. It is the location exception in DELIVERY ?7, not an audit event.
 
 ## 4. The entry
 

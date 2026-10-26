@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-26 (#841: own delivery's settings and checkout option built (0363): the `store_shipping` and `warehouse` columns, `"order".delivery_warehouse_id` and `shipping_option` `own_delivery`, `shop_delivering_warehouse()`, §5.3, §7.2, §7.6, §7.11, §7.12). Before: 2026-10-26 (#840: `push_device` built (0362), the rider's own phones as `app_rider` and the merchant deleting its riders' with suspension and removal, §3.6, §5.3). Before: 2026-10-24 (#897: `storefront_changed()` and `storefront_store_changed()` listed in the `app_definer` row, §5.3). Before: 2026-10-23 (#839: the `app_rider` role and the activity log's `rider` actor and `delivery` API (0360), §3.6, §5.3). Before: 2026-10-23 (#838: `rider`, `rider_session` and `rider_code` built (0359), §3.6). Before: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions). Before: 2026-10-26 (#841: own delivery's settings and checkout option built (0363): the `store_shipping` and `warehouse` columns, `"order".delivery_warehouse_id` and `shipping_option` `own_delivery`, `shop_delivering_warehouse()`, §5.3, §7.2, §7.6, §7.11, §7.12). Before: 2026-10-26 (#840: `push_device` built (0362), the rider's own phones as `app_rider` and the merchant deleting its riders' with suspension and removal, §3.6, §5.3). Before: 2026-10-24 (#897: `storefront_changed()` and `storefront_store_changed()` listed in the `app_definer` row, §5.3). Before: 2026-10-23 (#839: the `app_rider` role and the activity log's `rider` actor and `delivery` API (0360), §3.6, §5.3). Before: 2026-10-23 (#838: `rider`, `rider_session` and `rider_code` built (0359), §3.6). Before: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -592,7 +592,7 @@ partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
 
 `rider`, `rider_session` and `rider_code` are built on #838 (migration 0359), and riders sign in to them on #839
 (0360: codes and sessions in system scope, the rider's own row as `app_rider`, §5.3); `push_device` is built on #840
-(0362); `rider_position` is *proposed*.
+(0362); `rider_position` is built on #842 (0364).
 
 ```
 rider          (id, store_id, name, phone, photo_asset_id NULL,
@@ -2460,7 +2460,7 @@ fulfilment     kind gains 'local': written when the rider marks the delivery pic
 delivery       (id, store_id, order_id, warehouse_id, state ('packing'|'searching'|'unassigned'|'assigned'
                 |'picked_up'|'delivered'|'failed'|'cancelled'), rider_id NULL, fulfilment_id NULL,
                 cash_due_amount NULL, currency, cash_collected_at NULL, failed_reason NULL,
-                offer_round, handover_code_enc NULL, code_attempts, code_unconfirmed_at NULL, ready_at NULL, searching_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
+                offer_round, handover_code_enc NULL, code_attempts, code_unconfirmed_at NULL, ready_at NULL, searching_at NULL, unassigned_at NULL, assigned_at NULL, picked_up_at NULL, delivered_at NULL,
                 failed_at NULL, cancelled_at NULL, eta_at NULL, eta_computed_at NULL, revision)
                UNIQUE (order_id) WHERE state NOT IN ('failed','cancelled')
                -- a retry after 'failed' is a new row (DELIVERY §3)
@@ -2485,3 +2485,14 @@ order: the rider's name, photo, vehicle and phone only while it is `assigned` or
 rider's position only while it is `picked_up`, and the handover code only while it is `assigned`
 or `picked_up` (DELIVERY §7). Indexes: `delivery (store_id, state, searching_at)`, `delivery (rider_id, state)`,
 `delivery_offer (rider_id, answer)`, `rider (store_id, status)`.
+
+**#842 (migration 0364): dispatch storage built.** The delivery, delivery_offer and rider_position
+rows in ?7.12 / ?3.6 exist. Delivery and offer foreign keys include store_id; the open-order unique
+index excludes failed/cancelled, allowing another attempt but never another after delivery.
+A delivery keeps created_at, unassigned_at and excluded_rider_id for a hand-back round. rider_position adds
+received_at (server time); reported_at is the device's time. rider.last_position_at keeps only
+the server's last write time, so offline/online toggling cannot reset the ten-second throttle.
+The minute sweep removes stale positions and clears online_at, preserving assignments.
+Merchant reads have store scope with no seller branch. Riders read their own offers, held deliveries
+and position only; position writes are confined to their own row. Dispatch transitions are engine
+transactions in system scope, explicitly held to the resolved caller, store and rider.
