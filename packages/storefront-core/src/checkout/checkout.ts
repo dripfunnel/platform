@@ -199,7 +199,7 @@ export const useCheckout = (): CheckoutPage => {
     void send(deliveryMutation, { option: soleOption }).finally(() => {
       applyingDelivery.current = false
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `send` and `cart` are new each render; depending on them would re-send every render.
+    // Deps are only the option and whether one is chosen: `send` and `cart` are new each render, so depending on them would re-send every render.
   }, [soleOption, cart?.shippingOption])
 
   const settle = async (orderId: string) => {
