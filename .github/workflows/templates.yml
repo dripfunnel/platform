@@ -11,12 +11,14 @@ on:
       - 'templates/storefront/**'
       - 'apps/api/scripts/local/seed-templates.ts'
       - '.github/workflows/templates.yml'
-  # A new core version changes `current.json`; wait for the release so it never names an unpublished core. On main
-  # the release includes recording the version's image, which prod's upload waits on.
+  # Dev's: a new core version changes `current.json`; wait for the release so it never names an unpublished core.
   workflow_run:
     workflows: [release]
     types: [completed]
-    branches: [dev, main]
+    branches: [dev]
+  # Prod's: release.yml calls this after the version's image is recorded. A workflow_run job takes the default branch's
+  # ref, which the `prod` environment refuses (main only).
+  workflow_call:
   workflow_dispatch:
 
 permissions:
