@@ -12,7 +12,7 @@ their app calls, and what the customer sees while the order is on its way. The t
 riders' sign-in, profile and account deletion (§4, §5; #839); own delivery as a Shipping method, the warehouses'
 delivery areas and the checkout option (§2, §8; #841).
 
-Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -214,7 +214,8 @@ ignore older points, and permit one write per ten seconds of server time. Positi
 Each round without a rider queues one email to active merchant members with orders.fulfil, in the
 partner's look: "Nobody took order {number}", with the portal order link. It waits for a live portal host.
 Closed offers receive a silent taken update. Manual assignment and cancellation notify the rider.
-Support never sees rider phones; orders.read callers otherwise may, including scoped keys and grants.
+A person with orders.read sees the rider's phone on the order; a support session, an API key and an app grant get the
+rider's name and vehicle only (decided 2026-10-26 on #920, replacing #842's decision 6).
 
 ## 4. The Delivery API
 
@@ -404,7 +405,7 @@ marks it paid as today. A prepaid order ignores the argument.
 
 A supplier never sees riders, positions or a delivery: own delivery carries only the store's
 lines (§2), so a supplier's `orders.fulfil` (ACCESS §5.2) never reaches these actions; they
-check the merchant side as well as the permission (ACCESS §5.1). A support session reads them as `orders.read` allows, never a rider's phone.
+check the merchant side as well as the permission (ACCESS §5.1). A support session, an API key or an app grant reads them as `orders.read` allows, never a rider's phone.
 
 Built on #838: `riders`, `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider` and
 `removeRider`. All of them are refused to a support session (`BLOCKED_FOR_SUPPORT`), since the list

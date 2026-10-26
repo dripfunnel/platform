@@ -205,6 +205,20 @@ describe('position and isolation', () => {
     expect(signOut?.extensions.code).toBe('RIDER_HAS_PARCEL')
     expect(signOut?.message).not.toMatch(/unexpected/i)
   })
+  it('shows the rider phone to a person with orders.read and never to an API key with orders.read only', async () => {
+    const id = await order()
+    const d = await delivery(id)
+    await db.sql`update delivery set state = 'assigned', rider_id = ${riders[1] ?? ''}, assigned_at = ${clock} where id = ${d.id}`
+    const query = 'query O($id: ID!) { order(id: $id) { delivery { rider { name phone } } } }'
+    const riderOf = (data: Record<string, unknown> | null | undefined) => (data?.['order'] as { delivery: { rider: { name: string; phone: string | null } } } | undefined)?.delivery.rider
+    expect(riderOf((await world.gql('staff', query, { id })).data)).toEqual({ name: 'Rider 1', phone: '+919800000001' })
+    const made = await world.gql('owner', 'mutation { createApiKey(name: "Ledger", scopes: ["orders.read"]) { secret } }')
+    const secret = (made.data?.['createApiKey'] as { secret: string } | undefined)?.secret ?? ''
+    const byKey = await world.bearer(secret, `query { order(id: "${id}") { delivery { rider { name phone } } } }`, tenants.partnerA)
+    expect(byKey.code).toBeUndefined()
+    expect(riderOf(byKey.data)).toEqual({ name: 'Rider 1', phone: null })
+    await db.sql`update delivery set state = 'cancelled' where id = ${d.id}`
+  })
   it('lets only the owning store merchant suspend or remove a rider, and refuses suppliers and read-only support', async () => {
     const [rider] = await db.sql<{ id: string }[]>`insert into rider(store_id,name,phone,status) values(${tenants.storeA1},'Guarded rider','+919822222200','active') returning id`
     if (!rider) throw new Error('no rider')
