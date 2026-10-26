@@ -107,6 +107,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
     if (!isUuid(id)) throw new DispatchRefused('NOT_FOUND')
     return answered(await withSystemScope(sql, async (tx) => {
       await serialise(tx, `dispatch:${storeId}:${riderId}`)
+      await carry.lockDeliveryOrder(tx, storeId, id)
       const d = await lockDelivery(tx, storeId, id)
       if (d?.rider_id !== riderId) throw new DispatchRefused('NOT_FOUND')
       return work(tx, f(), d, riderId)
@@ -117,6 +118,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
     if (!isUuid(id)) throw new DispatchRefused('NOT_FOUND')
     // Written in system scope, as the rider's steps are: no request role writes the code (migration 0364).
     return answered(await withSystemScope(sql, async (tx) => {
+      await carry.lockDeliveryOrder(tx, storeId, id)
       const d = await lockDelivery(tx, storeId, id)
       if (!d) throw new DispatchRefused('NOT_FOUND')
       return work(tx, f(), d)

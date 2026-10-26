@@ -226,6 +226,8 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
    * shipments (DELIVERY §3 step 4). A to-store line not handed over in full holds the parcel back.
    */
   const shipLocal = async (tx: ScopedSql, orderId: string, warehouseId: string): Promise<FulfilmentResult<string[]>> => {
+    // The order before its lines, as plan() and cancelOrder take them.
+    await lockOrderToShip(tx, storeId, orderId)
     const lines = await lockLinesToShip(tx, storeId, orderId)
     if (lines.some((l) => l.shipping_mode === 'to-store' && l.sent_quantity < l.quantity)) return { ok: false, reason: 'NOT_HANDED_OVER' }
     const left = lines.filter((l) => l.shipping_mode !== 'to-shopper').map((l) => ({ lineId: l.id, quantity: l.quantity - l.fulfilled_quantity })).filter((l) => l.quantity > 0)

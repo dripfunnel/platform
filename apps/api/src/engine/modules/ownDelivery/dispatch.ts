@@ -11,7 +11,7 @@ import { selectStoreEntitlement } from '#db/scoped/entitlements'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox, insertOutboxMany } from '#db/scoped/outbox'
 import * as queries from '#db/scoped/dispatch'
-import { setFailed, setHandoverCode } from '#db/scoped/carry'
+import { lockDeliveryOrder, setFailed, setHandoverCode } from '#db/scoped/carry'
 import { sealHandoverCode } from './handoverCode'
 
 export const dispatchAudit = {
@@ -124,8 +124,10 @@ const recall = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) =
   if (d.rider_id) await push(tx, f, d.rider_id, 'rider.recalled', d.id, `recalled:${d.id}`)
   await record(tx, f, dispatchAudit.recalled, d.id, reason)
 }
+// Every caller runs in system scope (the merchant's cancel, cancelOrder), so the code goes with the delivery.
 const cancel = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) => {
   await queries.setDeliveryState(tx, d, 'cancelled', f.now)
+  await setHandoverCode(tx, d, null)
   await close(tx, f, d, 'expired')
   if (d.rider_id) await push(tx, f, d.rider_id, 'rider.cancelled', d.id, `cancelled:${d.id}`)
   await record(tx, f, dispatchAudit.cancelled, d.id)
@@ -146,7 +148,7 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
   const run = <T>(work: (tx: ScopedSql, facts: DispatchFacts) => Promise<T>, system = false) => {
     if (context.sellerScope.kind === 'seller' || (context.caller.kind === 'support' && context.caller.access === 'read')) throw new DispatchRefused('FORBIDDEN')
     // An accept answers the other riders' offers too, so a rider runs as the system; a person runs under its own scope (DATA-MODEL §3.6),
-    // but as the system where it writes the handover code, which no request role may (migration 0364).
+    // but as the system where it writes the handover code, which no request role may (migration 0364), or locks the order.
     return riderId || system ? withSystemScope(sql, (tx) => work(tx, f())) : withScope(sql, context, (tx) => work(tx, f()))
   }
   const required = async (tx: ScopedSql, id: string) => {
@@ -225,6 +227,8 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
     }, true),
     again: (id: string) => run(async (tx, f) => {
       merchant()
+      // The order first, as cancelOrder takes it: a cancel then sees the new delivery, or this sees the cancelled order.
+      if (isUuid(id)) await lockDeliveryOrder(tx, context.storeId, id)
       const d = await required(tx, id)
       if (!['unassigned', 'cancelled', 'failed'].includes(d.state)) throw new DispatchRefused('NOT_UNASSIGNED')
       let next: queries.DeliveryRow
@@ -242,7 +246,7 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
       await record(tx, f, dispatchAudit.offered, next.id)
       await queueRound(tx, { ...f, offeredRecorded: true }, next)
       return true
-    }),
+    }, true),
     cancel: (id: string) => run(async (tx, f) => {
       merchant()
       const d = await required(tx, id)

@@ -2517,6 +2517,7 @@ merchant's own scope.
 **#843 (migration 0365): carrying a delivery built.** `app_rider` reads the warehouse of any delivery it holds or held
 (name, address, pin), the order's lines while its delivery is `assigned` or `picked_up`, and the order's address, phone
 and note only while `picked_up`, each by a policy on the delivery; past deliveries show the copied area and fee. A
-merchant's assignment and recall run in system scope, as they write the handover code, which no request role reads or
-writes; a supplier or read-only support is refused before. The rider's steps, the code check and the merchant's
+merchant's assignment, cancel and recall run in system scope, as they write the handover code, which no request role
+reads or writes, and Offer again does too, to lock the order first; a supplier or read-only support is refused before.
+Every path that holds a delivery and its order takes the order first, as `cancelOrder` does, so none deadlock. The rider's steps, the code check and the merchant's
 confirmation run in system scope too. An index on `delivery (rider_id, delivered_at)` serves the rider's counts.

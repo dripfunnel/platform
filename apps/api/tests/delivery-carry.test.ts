@@ -4,7 +4,7 @@ import { deliverySchema, type DeliveryContext } from '#apis/delivery/schema'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { createCarry, createDispatch, createOwnDelivery, firstDayOfWeek } from '#engine/modules/ownDelivery/index'
+import { cancelOrderDelivery, createCarry, createDispatch, createOwnDelivery, firstDayOfWeek } from '#engine/modules/ownDelivery/index'
 import { activityLog } from '#saas/activity/index'
 import { seedStoreWorld, type StoreWorld } from './support/storeWorld'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -189,6 +189,8 @@ describe('the handover code', () => {
     const owner = await world.gql('owner', `mutation { markDeliveryDelivered(deliveryId: "${deliveryId}", reason: "Customer showed ID", cashReceived: true) }`)
     expect(owner.code).toBeUndefined()
     expect((await latest(orderId)).state).toBe('delivered')
+    // The merchant's word doesn't change what the rider's last step answered.
+    await expect(attempt(wrong(code), 'w5')).rejects.toMatchObject({ code: 'CODE_LOCKED' })
     expect(await db.sql`select payment_state from "order" where id = ${orderId}`).toEqual([{ payment_state: 'paid' }])
     expect(await db.sql`select actor_kind,reason from activity_log where target_id = ${deliveryId} and action = 'delivery.delivered'`).toEqual([{ actor_kind: 'person', reason: 'Customer showed ID' }])
   })
@@ -234,6 +236,7 @@ describe('steps sent late', () => {
     // With signal again the rider can't move it on: the store does.
     await expect(carry(riders[0]).delivered({ id: deliveryId, code, cashCollected: true, at: clock.toISOString(), key: 'online-1' })).rejects.toMatchObject({ code: 'CODE_UNCONFIRMED' })
     expect(await carry().merchantDelivered({ id: deliveryId, reason: 'Called the customer', cashReceived: true }, merchantId)).toBe(true)
+    await expect(send()).rejects.toMatchObject({ code: 'CODE_UNCONFIRMED' })
     expect(await db.sql`select payment_state from "order" where id = ${orderId}`).toEqual([{ payment_state: 'paid' }])
   })
 })
@@ -260,6 +263,59 @@ describe('not delivered, recall and retry', () => {
     expect(await onHand()).toEqual(afterPickup)
     expect((await latest(orderId)).fulfilment_id).not.toBeNull()
     expect(await carry(riders[1]).delivered({ id: retry.id, code: await codeOf(retry.id), cashCollected: true, at: clock.toISOString(), key: 'r1' })).toBe(true)
+  })
+  it('recalls an unconfirmed delivery as unconfirmed, and a resend still answers what it did', async () => {
+    const { orderId, deliveryId } = await pickedUp()
+    const at = clock
+    tick(10 * 60_000)
+    const typed = wrong(await codeOf(deliveryId))
+    const send = () => carry(riders[0]).delivered({ id: deliveryId, code: typed, cashCollected: true, at: at.toISOString(), key: 'unconf-1' })
+    await expect(send()).rejects.toMatchObject({ code: 'CODE_UNCONFIRMED' })
+    expect((await world.gql('owner', `mutation { cancelDelivery(deliveryId: "${deliveryId}") }`)).code).toBeUndefined()
+    expect(await latest(orderId)).toMatchObject({ state: 'failed', failed_reason: 'unconfirmed' })
+    expect(await db.sql`select reason from activity_log where target_id = ${deliveryId} and action = 'delivery.recalled'`).toEqual([{ reason: 'unconfirmed' }])
+    await expect(carry(riders[0]).delivered({ id: deliveryId, code: '0000', cashCollected: true, at: at.toISOString(), key: 'unconf-1' })).rejects.toMatchObject({ code: 'CODE_UNCONFIRMED' })
+  })
+  it('holds the parcel back while a to-store supplier’s lines are not all with the store, writing nothing', async () => {
+    const { orderId, deliveryId } = await assigned()
+    const [v] = await db.sql<{ product_id: string }[]>`select product_id from product_version where id = ${version}`
+    await db.sql`insert into order_part(order_id,store_id,seller_id,shipping_mode) values(${orderId},${tenants.storeA1},${tenants.sellerA1First},'to-store')`
+    await db.sql`insert into order_line(order_id,store_id,seller_id,version_id,product_id,name,quantity,unit_amount,line_total_amount,position) values(${orderId},${tenants.storeA1},${tenants.sellerA1First},${version},${v?.product_id ?? ''},'Supplier mug',1,3000,3000,1)`
+    const before = await onHand()
+    await expect(carry(riders[0]).pickUp(deliveryId)).rejects.toMatchObject({ code: 'NOT_HANDED_OVER' })
+    expect((await latest(orderId)).state).toBe('assigned')
+    expect(await db.sql`select id from fulfilment where order_id = ${orderId}`).toHaveLength(0)
+    expect(await db.sql`select id from stock_movement where source_id = ${orderId}`).toHaveLength(0)
+    expect(await onHand()).toEqual(before)
+    await dispatch().cancel(deliveryId)
+  })
+  it('takes the order before the delivery, as cancelOrder does, so a pickup or Offer again never deadlocks with it', async () => {
+    // Holds the order as cancelOrder would, and checks the waiting step has not taken the delivery first.
+    const waitsOnOrder = async <T>(orderId: string, deliveryId: string, step: () => Promise<T>): Promise<T> => {
+      let release = () => {}
+      const held = new Promise<void>((resolve) => { release = resolve })
+      let locked = () => {}
+      const lockedOrder = new Promise<void>((resolve) => { locked = resolve })
+      const holder = db.sql.begin(async (tx) => {
+        await tx`select id from "order" where id = ${orderId} for update`
+        locked()
+        await held
+      })
+      await lockedOrder
+      const running = step()
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      await db.sql.begin((tx) => tx`select id from delivery where id = ${deliveryId} for update nowait`)
+      release()
+      await holder
+      return running
+    }
+    const carried = await assigned()
+    expect(await waitsOnOrder(carried.orderId, carried.deliveryId, () => carry(riders[0]).pickUp(carried.deliveryId))).toBe(true)
+    await carry(riders[0]).failed({ id: carried.deliveryId, reason: 'refused', note: null, at: clock.toISOString(), key: 'lock-1' })
+    tick(1000)
+    expect(await waitsOnOrder(carried.orderId, carried.deliveryId, () => dispatch().again(carried.deliveryId))).toBe(true)
+    expect((await latest(carried.orderId)).state).toBe('searching')
+    expect((await world.gql('owner', `mutation { cancelOrder(orderId: "${carried.orderId}", reason: store) }`)).code).toBe('NOT_CANCELLABLE')
   })
   it('recalls a parcel in transit: failed as recalled, the rider told, their view of the customer ended', async () => {
     const { orderId, deliveryId } = await pickedUp()
@@ -345,8 +401,67 @@ describe('what a rider reads', () => {
     expect(page.errors).toBeUndefined()
     const listed = page.data?.['deliveries'] as { nodes: { state: string }[]; pageInfo: { hasNextPage: boolean }; deliveredToday: number; deliveredThisWeek: number }
     expect(listed.nodes.every((n) => n.state === 'delivered')).toBe(true)
-    const [mine] = await db.sql<{ n: number }[]>`select count(*)::int as n from delivery where rider_id = ${riders[0] ?? ""} and state = 'delivered'`
+    const [mine] = await db.sql<{ n: number }[]>`select count(*)::int as n from delivery where rider_id = ${riders[0] ?? ''} and state = 'delivered'`
     expect(listed.deliveredThisWeek).toBe(mine?.n)
     expect(listed.deliveredToday).toBeLessThanOrEqual(listed.deliveredThisWeek)
+  })
+})
+
+describe('who may act, and without the key', () => {
+  it('deletes the code when an assigned delivery is cancelled, by the merchant or with its order', async () => {
+    const byMerchant = await assigned()
+    await dispatch().cancel(byMerchant.deliveryId)
+    expect(await latest(byMerchant.orderId)).toMatchObject({ state: 'cancelled', handover_code_enc: null, code_attempts: 0 })
+    const withOrder = await assigned()
+    await withSystemScope(db.sql, (tx) => cancelOrderDelivery(tx, { storeId: tenants.storeA1, partnerId: tenants.partnerA, activity: activityLog, now: clock }, withOrder.orderId))
+    expect(await latest(withOrder.orderId)).toMatchObject({ state: 'cancelled', handover_code_enc: null })
+  })
+  it('refuses a supplier and a read-only support session the merchant’s writes, changing nothing', async () => {
+    const as = (caller: TenantContext['caller'], sellerScope: TenantContext['sellerScope']) => {
+      const c: TenantContext = { ...context(), caller, sellerScope }
+      return { dispatch: createDispatch({ ...deps(), context: c }), carry: createCarry({ ...deps(), context: c }) }
+    }
+    const supplier = as({ kind: 'person', userId: merchantId, sessionId: 'supplier' }, { kind: 'seller', sellerId: tenants.sellerA1First })
+    const support = as({ kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'read' }, { kind: 'all' })
+    const unassigned = await order()
+    const open = await latest(unassigned)
+    await db.sql`update delivery set state = 'unassigned' where id = ${open.id}`
+    const carried = await pickedUp()
+    await db.sql`update delivery set code_attempts = 5 where id = ${carried.deliveryId}`
+    for (const who of [supplier, support]) {
+      const tries = [
+        () => who.dispatch.assign(open.id, riders[1] ?? ''),
+        () => who.dispatch.cancel(open.id),
+        () => who.dispatch.cancel(carried.deliveryId),
+        () => who.carry.merchantDelivered({ id: carried.deliveryId, reason: 'Trust me', cashReceived: false }, null),
+      ]
+      for (const attempt of tries) await expect(Promise.resolve().then(attempt)).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    }
+    expect(await latest(unassigned)).toMatchObject({ state: 'unassigned', rider_id: null, handover_code_enc: null })
+    expect(await latest(carried.orderId)).toMatchObject({ state: 'picked_up', code_attempts: 5 })
+    await carry(riders[0]).failed({ id: carried.deliveryId, reason: 'refused', note: null, at: clock.toISOString(), key: 'who-1' })
+    await db.sql`update delivery set state = 'cancelled' where id = ${open.id}`
+  })
+  it('answers UNAVAILABLE without the credentials key: no accept, no assignment, no delivery', async () => {
+    const keyless = (riderId?: string) => ({ ...deps(riderId), secrets: null })
+    const rider = riders[1] ?? ''
+    await db.sql`update delivery set state = 'cancelled' where rider_id = ${rider} and state in ('assigned','picked_up')`
+    const searchingOrder = await order()
+    const searching = await latest(searchingOrder)
+    expect(searching.state).toBe('searching')
+    await db.sql`update rider set online_at = ${clock} where id = ${rider}`
+    await db.sql`insert into rider_position(rider_id,store_id,latitude,longitude,accuracy_m,reported_at,received_at) values(${rider},${tenants.storeA1},26.9124,75.7873,5,${clock},${clock})
+      on conflict (rider_id) do update set reported_at = excluded.reported_at, received_at = excluded.received_at`
+    const [offer] = await db.sql<{ id: string }[]>`insert into delivery_offer(delivery_id,store_id,offer_round,rider_id,distance_m,sent_at) values(${searching.id},${tenants.storeA1},${searching.offer_round},${rider},100,${clock}) returning id`
+    await expect(createDispatch(keyless(rider)).answer(offer?.id ?? '', true)).rejects.toMatchObject({ code: 'UNAVAILABLE' })
+    expect(await latest(searchingOrder)).toMatchObject({ state: 'searching', rider_id: null, handover_code_enc: null })
+
+    await db.sql`update delivery set state = 'unassigned' where id = ${searching.id}`
+    await expect(createDispatch(keyless()).assign(searching.id, rider)).rejects.toMatchObject({ code: 'UNAVAILABLE' })
+    expect(await latest(searchingOrder)).toMatchObject({ state: 'unassigned', rider_id: null })
+
+    const carried = await pickedUp()
+    await expect(createCarry(keyless(riders[0])).delivered({ id: carried.deliveryId, code: await codeOf(carried.deliveryId), cashCollected: true, at: clock.toISOString(), key: 'nokey-1' })).rejects.toMatchObject({ code: 'UNAVAILABLE' })
+    expect(await latest(carried.orderId)).toMatchObject({ state: 'picked_up', code_attempts: 0 })
   })
 })

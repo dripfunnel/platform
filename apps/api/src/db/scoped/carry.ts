@@ -5,6 +5,10 @@ import { pgArray, type ScopedSql } from './index'
 type Ref = Pick<DeliveryRow, 'id' | 'store_id'>
 
 // The handover code and its attempts are the engine's, in system scope: no request role reads or writes them (migration 0364).
+/** The delivery's order, locked first as cancelOrder and shipItems lock it, so a step and either one never deadlock. */
+export const lockDeliveryOrder = (tx: ScopedSql, storeId: string, deliveryId: string) =>
+  tx`select o.id from "order" o join delivery d on d.order_id = o.id and d.store_id = o.store_id where d.id = ${deliveryId} and d.store_id = ${storeId} for update of o`.then(() => undefined)
+
 export const setHandoverCode = (tx: ScopedSql, d: Ref, sealed: string | null) =>
   tx`update delivery set handover_code_enc = ${sealed}, code_attempts = 0 where id = ${d.id} and store_id = ${d.store_id}`.then(() => undefined)
 
@@ -26,11 +30,11 @@ export const setPickedUp = (tx: ScopedSql, d: Ref, fulfilmentId: string | null, 
 
 export const setDelivered = (tx: ScopedSql, d: Ref, s: { at: Date; cashAt: Date | null; key: string | null }) =>
   tx`update delivery set state = 'delivered', delivered_at = ${s.at}, cash_collected_at = coalesce(${s.cashAt}, cash_collected_at), handover_code_enc = null,
-    step_key = coalesce(${s.key}, step_key), step_result = 'delivered', revision = revision + 1 where id = ${d.id} and store_id = ${d.store_id}`.then(() => undefined)
+    step_key = coalesce(${s.key}, step_key), step_result = case when ${s.key}::text is null then step_result else 'delivered' end, revision = revision + 1 where id = ${d.id} and store_id = ${d.store_id}`.then(() => undefined)
 
 export const setFailed = (tx: ScopedSql, d: Ref, s: { at: Date; reason: string; note: string | null; key: string | null }) =>
   tx`update delivery set state = 'failed', failed_at = ${s.at}, failed_reason = ${s.reason}, failed_note = ${s.note}, handover_code_enc = null,
-    step_key = coalesce(${s.key}, step_key), step_result = 'failed', revision = revision + 1 where id = ${d.id} and store_id = ${d.store_id}`.then(() => undefined)
+    step_key = coalesce(${s.key}, step_key), step_result = case when ${s.key}::text is null then step_result else 'failed' end, revision = revision + 1 where id = ${d.id} and store_id = ${d.store_id}`.then(() => undefined)
 
 export const setUnconfirmed = (tx: ScopedSql, d: Ref, s: { now: Date; cashAt: Date | null; key: string }) =>
   tx`update delivery set code_unconfirmed_at = ${s.now}, cash_collected_at = ${s.cashAt}, step_key = ${s.key}, step_result = 'CODE_UNCONFIRMED', revision = revision + 1
