@@ -43,7 +43,7 @@ jobs:
       # The pull request controls the checkout, so nothing in it may configure the review:
       # project settings, hooks and MCP servers go, and a verdict committed to the branch too.
       - name: Drop the pull request's own Claude configuration
-        run: rm -rf .claude .mcp.json .claude.json CLAUDE.md "${VERDICT}"
+        run: rm -rf .claude .mcp.json .claude.json CLAUDE.md .review "${VERDICT}"
 
       - name: Check the review can authenticate
         env:
@@ -102,8 +102,11 @@ jobs:
           cat > "${RUNNER_TEMP}/review-prompt.md" <<'PROMPT'
           Review pull request PR_NUMBER of REPOSITORY against **this repository's own rules**,
           not generic best practice. Its head commit (HEAD_SHA) is checked out in the working
-          directory; `gh pr diff PR_NUMBER` shows what it changes and
-          `gh pr view PR_NUMBER --json title,body --jq '.title, .body'` its description (ask for
+          directory. What it changes is in `.review/files/`, one piece per changed file, listed in
+          `.review/index.txt`: read the index, then each piece with the Read tool, the most sensitive
+          first. Do not run `gh pr diff` for the whole pull request: a long output is saved where you
+          cannot read it.
+          `gh pr view PR_NUMBER --json title,body --jq '.title, .body'` gives its description (ask for
           those two fields only: the job's token cannot read check statuses).
 
           Read first, before reviewing:
@@ -171,6 +174,24 @@ jobs:
           summary comment.
           PROMPT
           sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|HEAD_SHA|${HEAD_SHA}|g; s|INLINE_COMMENT|${RUNNER_TEMP}/inline-comment|g; s|SUMMARY_COMMENT|${RUNNER_TEMP}/summary-comment|g" "${RUNNER_TEMP}/review-prompt.md"
+
+      # A long `gh pr diff` is saved under ~/.claude, which the review may not read, so the diff goes
+      # into the workspace instead, a file per changed file (WORKFLOW.md §7, #921).
+      - name: Put the diff where the review can read it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .review/files
+          if ! gh pr diff "${PR_NUMBER}" > .review/pr.diff || [ ! -s .review/pr.diff ]; then
+            echo "::error::GitHub did not return this pull request's diff (it refuses one over 300 files or 20,000 lines), so there is nothing to review. Split the pull request."
+            exit 1
+          fi
+          awk '/^diff --git /{ n++; piece = sprintf(".review/files/%03d.diff", n) } n > 0 { print > piece }' .review/pr.diff
+          for piece in .review/files/*.diff; do
+            path="$(sed -n '1s#^diff --git a/.* b/##p' "${piece}")"
+            counts="$(awk '/^@@/{ body = 1; next } body && /^\+/{ a++ } body && /^-/{ d++ } END { printf "+%d -%d", a, d }' "${piece}")"
+            echo "$(basename "${piece}" .diff) ${path} ${counts}"
+          done > .review/index.txt
 
       # The writes are the two helpers and the verdict file; reads keep out of the places a
       # token can be found, so no text the review meets can make it quote one (WORKFLOW.md §7).

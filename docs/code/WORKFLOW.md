@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-10-26 (`templates.yml` uploads prod's templates, §2.2). Before: 2026-10-17 (`templates.yml`, §2.2). Before: 2026-10-09 (#522: `@claude` in issues and pull request comments, §7).
+Last updated: 2026-10-26 (#921: the review reads the diff as per-file pieces from `.review/`, §7). Before: 2026-10-26 (`templates.yml` uploads prod's templates, §2.2). Before: 2026-10-17 (`templates.yml`, §2.2). Before: 2026-10-09 (#522: `@claude` in issues and pull request comments, §7).
 
 ---
 
@@ -219,6 +219,13 @@ so they appear from `github-actions`. The review reads text an author controls (
 description, the diff, the files), so it may write only through two helpers that refuse a
 token-shaped body, and it cannot read the places a token lives. On a pull request from a
 fork, where secrets are not available, it fails at its first step, and the chain stops there.
+
+**The diff is read from the workspace.** A long `gh pr diff` is saved by Claude Code under `~/.claude`,
+which the review may not read, so it would stop at "the saved diff cannot be read" without having
+looked at any code (#914, #920). The job therefore writes the diff to `.review/files/`, one piece per
+changed file, with `.review/index.txt` listing them, and the review reads those. A pull request whose
+diff GitHub will not return (over 300 files or 20,000 lines) fails that step with a message to split it,
+and no verdict is written (#921).
 
 **Every pull request is reviewed, stacked ones included** (decided 2026-10-02, #167,
 reversing the same day's decision to skip them). `anthropics/claude-code-action` validates a
