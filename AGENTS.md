@@ -34,7 +34,7 @@ document disagrees. Then open only the part your task touches:
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
 | Creating a card (task, bug or feature) on the DF Platform board | [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md) |
 | Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
-| Shop or delivery app (`apps/ui/mobile-app/shop`, `delivery`; not built) | [docs/mobile-app/README.md](docs/mobile-app/README.md), then the app's FIRST-RELEASE and ARCHITECTURE |
+| Shop or delivery app (`apps/ui/mobile-app/shop`: set up with placeholder tabs; `delivery`: not built) | [docs/mobile-app/README.md](docs/mobile-app/README.md), then the app's FIRST-RELEASE and ARCHITECTURE |
 | Merchant mobile app (`apps/ui/mobile-app/merchant`) | [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md): start with REACT-NATIVE, then DESIGN and ARCHITECTURE |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 | Storefront builds, hosting, preview, the studio's sandbox | [docs/storefront/LIVE-SHOP.md](docs/storefront/LIVE-SHOP.md), [PREVIEW.md](docs/storefront/PREVIEW.md), [AI-STUDIO.md](docs/storefront/AI-STUDIO.md) |
@@ -58,6 +58,7 @@ pnpm dev:https:all                               # dev:all plus the studio's san
                                                  # everything but the mobile app in one terminal
 pnpm dev:<api|store|platform|admin>              # one of the four on its own
 pnpm dev:mobile                                  # the merchant mobile app's Expo dev server (not part of pnpm dev)
+pnpm dev:shop                                    # the shop app's Expo dev server, the `dev` store (not part of pnpm dev)
 pnpm dev:storefront                              # the storefront template (builds core first)
 pnpm dev:storefront-core                         # storefront-core rebuilding on change
 pnpm dev:proxy                                   # store-proxy: preview and store hosts (docs/setup/local.md §6.3)

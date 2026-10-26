@@ -1,0 +1,19 @@
+{
+  "tabs": {
+    "home": "Home",
+    "browse": "Browse",
+    "cart": "Cart",
+    "account": "Account"
+  },
+  "placeholder": {
+    "body": "This screen isn't built yet."
+  },
+  "startup": {
+    "failed": "The app couldn’t start. Try again in a moment.",
+    "retry": "Try again"
+  },
+  "brand": {
+    "logo": "{name} logo",
+    "logoUnnamed": "Store logo"
+  }
+}
