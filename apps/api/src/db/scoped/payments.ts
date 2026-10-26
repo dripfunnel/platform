@@ -154,13 +154,15 @@ export interface LineToHoldRow {
   version_id: string
   quantity: number
   track_stock: boolean
+  /** Where the store's own line is held: an own-delivery order's warehouse (#841), else null for anywhere. */
+  hold_at: string | null
 }
 
 /** A paid order's lines whose stock is counted, to hold now (PLATFORM-PROMPT §5.4), in version order as placement locks them. */
 export const selectLinesToHold = (tx: ScopedSql, storeId: string, orderId: string): Promise<LineToHoldRow[]> =>
   tx<LineToHoldRow[]>`
-    select l.id, l.version_id, l.quantity, coalesce(v.track_stock, false) as track_stock
-    from order_line l left join product_version v on v.id = l.version_id
+    select l.id, l.version_id, l.quantity, coalesce(v.track_stock, false) as track_stock, case when l.seller_id is null then o.delivery_warehouse_id end as hold_at
+    from order_line l join "order" o on o.id = l.order_id left join product_version v on v.id = l.version_id
     where l.store_id = ${storeId} and l.order_id = ${orderId} and l.reserved_warehouse_id is null order by l.version_id, l.id
   `
 

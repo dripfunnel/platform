@@ -31,15 +31,22 @@ export interface WarehouseRow {
   units: number
   revision: number
   created_at: Date
+  /** Own delivery (DELIVERY §2, migration 0363): the merchant's own locations only. */
+  own_delivery: boolean
+  delivery_radius_m: number | null
+  rider_radius_m: number
+  delivery_fee_amount: string | null
+  delivery_fee_currency: string | null
 }
 
 const units = (tx: ScopedSql) => tx`(select coalesce(sum(l.on_hand), 0)::int from stock_level l where l.warehouse_id = w.id)`
 const sellerName = (tx: ScopedSql) => tx`(select s.name from seller s where s.id = w.seller_id)`
+const delivery = (tx: ScopedSql) => tx`w.own_delivery, w.delivery_radius_m, w.rider_radius_m, w.delivery_fee_amount::text as delivery_fee_amount, w.delivery_fee_currency`
 
 export const selectWarehouses = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<WarehouseRow[]> => {
   const backwards = window.before !== null && window.after === null
   return tx<WarehouseRow[]>`
-    select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, w.is_default, w.revision, w.created_at, ${units(tx)} as units
+    select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, w.is_default, w.revision, w.created_at, ${units(tx)} as units, ${delivery(tx)}
     from warehouse w where w.store_id = ${storeId} and w.deleted_at is null
       and ${window.after ? tx`(w.created_at, w.id) > (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
       and ${window.before ? tx`(w.created_at, w.id) < (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
@@ -49,7 +56,11 @@ export const selectWarehouses = (tx: ScopedSql, storeId: string, window: PageWin
 }
 
 export const selectWarehouse = async (tx: ScopedSql, storeId: string, id: string): Promise<WarehouseRow | null> =>
-  (await tx<WarehouseRow[]>`select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, w.is_default, w.revision, w.created_at, ${units(tx)} as units from warehouse w where w.id = ${id} and w.store_id = ${storeId} and w.deleted_at is null`)[0] ?? null
+  (await tx<WarehouseRow[]>`select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.latitude, w.longitude, w.is_default, w.revision, w.created_at, ${units(tx)} as units, ${delivery(tx)} from warehouse w where w.id = ${id} and w.store_id = ${storeId} and w.deleted_at is null`)[0] ?? null
+
+/** The currency a location's own-delivery fee is typed in (DATA-MODEL §7.12). */
+export const selectPricingCurrency = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ currency: string | null }[]>`select pricing_currency::text as currency from store where id = ${storeId}`)[0]?.currency ?? null
 
 /** The caller's own locations, so a supplier's count says nothing of others'. */
 export const countWarehouses = async (tx: ScopedSql, storeId: string, sellerId: string | null): Promise<number> =>
@@ -60,22 +71,40 @@ export interface WarehouseFields {
   address: WarehouseAddress
   /** Undefined keeps the saved pin, so a save that never asked about it doesn't clear it; null removes it. */
   pin?: Pin | null
+  /** Undefined keeps the saved own-delivery settings. */
+  delivery?: WarehouseDelivery
 }
+
+export interface WarehouseDelivery {
+  ownDelivery: boolean
+  deliveryRadiusM: number | null
+  riderRadiusM: number
+  feeAmount: bigint | null
+  feeCurrency: string | null
+}
+
+const noDelivery: WarehouseDelivery = { ownDelivery: false, deliveryRadiusM: null, riderRadiusM: 5000, feeAmount: null, feeCurrency: null }
 
 /** An owner's first location is its default (SetOps). */
 export const insertWarehouse = async (tx: ScopedSql, storeId: string, sellerId: string | null, id: string, f: WarehouseFields): Promise<void> => {
+  const d = f.delivery ?? noDelivery
   await tx`
-    insert into warehouse (id, store_id, seller_id, name, address, latitude, longitude, is_default)
+    insert into warehouse (id, store_id, seller_id, name, address, latitude, longitude, is_default, own_delivery, delivery_radius_m, rider_radius_m, delivery_fee_amount, delivery_fee_currency)
     values (${id}, ${storeId}, ${sellerId}, ${f.name}, ${tx.json(f.address as unknown as postgres.JSONValue)}, ${f.pin?.latitude ?? null}, ${f.pin?.longitude ?? null},
-      not exists (select 1 from warehouse where store_id = ${storeId} and seller_id is not distinct from ${sellerId} and deleted_at is null))
+      not exists (select 1 from warehouse where store_id = ${storeId} and seller_id is not distinct from ${sellerId} and deleted_at is null),
+      ${d.ownDelivery}, ${d.deliveryRadiusM}, ${d.riderRadiusM}, ${d.feeAmount === null ? null : d.feeAmount.toString()}, ${d.feeCurrency})
   `
 }
+
+const deliveryColumns = (tx: ScopedSql, d: WarehouseDelivery) =>
+  tx`own_delivery = ${d.ownDelivery}, delivery_radius_m = ${d.deliveryRadiusM}, rider_radius_m = ${d.riderRadiusM},
+    delivery_fee_amount = ${d.feeAmount === null ? null : d.feeAmount.toString()}, delivery_fee_currency = ${d.feeCurrency},`
 
 export const updateWarehouse = async (tx: ScopedSql, storeId: string, id: string, revision: number, f: WarehouseFields, now: Date): Promise<boolean> =>
   (
     await tx`
       update warehouse set name = ${f.name}, address = ${tx.json(f.address as unknown as postgres.JSONValue)},
-        ${f.pin === undefined ? tx`` : tx`latitude = ${f.pin?.latitude ?? null}, longitude = ${f.pin?.longitude ?? null},`} updated_at = ${now}, revision = revision + 1
+        ${f.pin === undefined ? tx`` : tx`latitude = ${f.pin?.latitude ?? null}, longitude = ${f.pin?.longitude ?? null},`} ${f.delivery ? deliveryColumns(tx, f.delivery) : tx``} updated_at = ${now}, revision = revision + 1
       where id = ${id} and store_id = ${storeId} and revision = ${revision} and deleted_at is null returning id
     `
   ).length === 1

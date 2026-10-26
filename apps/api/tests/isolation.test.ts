@@ -824,6 +824,7 @@ describe('the backstop itself', () => {
       'set_store_support_access',
       'set_store_tax_inclusive',
       'set_store_vendor_approval',
+      'shop_delivering_warehouse',
       'shop_stock',
       'spend_partner_reauth',
       'staff_begin_repo',

@@ -18,11 +18,12 @@ const words: Record<ShippingRefusal, string> = {
   COURIER_NOT_OFFERED: 'This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.',
   NOT_CONNECTED: 'Connect this courier first.',
   NOT_FOUND: 'That is no longer here.',
+  OWN_DELIVERY_NOT_READY: 'Own delivery needs your plan to include it, an active rider, and a location with its map pin and delivery area.',
 }
 
 const answered = <T>(result: ShippingResult<T>): T => {
   if (result.ok) return result.value
-  throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
+  throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(result.missing ? { missing: result.missing } : {}) } })
 }
 
 export const registerShipping = (builder: StoreBuilder) => {
@@ -68,6 +69,10 @@ export const registerShipping = (builder: StoreBuilder) => {
       areaFileName: t.exposeString('areaFileName', { nullable: true }),
       areaCount: t.exposeInt('areaCount'),
       areaSample: t.exposeStringList('areaSample'),
+      // Own delivery (DELIVERY §2): riders are offered an order when placed or ready, the merchant alerted after offerMinutes.
+      ownDelivery: t.exposeBoolean('ownDelivery'),
+      dispatchWhen: t.exposeString('dispatchWhen'),
+      offerMinutes: t.exposeInt('offerMinutes'),
       labelSizes: t.field({ type: ['String'], resolve: (s) => [...s.labelSizes] }),
       couriers: t.field({ type: [Courier], resolve: (s) => s.couriers }),
     }),
@@ -90,6 +95,11 @@ export const registerShipping = (builder: StoreBuilder) => {
       freeMode: t.string({ required: true }),
       freeThresholdAmount: t.string(),
       areaMode: t.string({ required: true }),
+      // Each left out keeps what is saved. Turning own delivery on is refused OWN_DELIVERY_NOT_READY with `missing`
+      // (plan, rider, warehouse).
+      ownDelivery: t.boolean(),
+      dispatchWhen: t.string(),
+      offerMinutes: t.int(),
     }),
   })
   const OptionsInput = builder.inputType('CourierOptionsInput', {
@@ -110,7 +120,7 @@ export const registerShipping = (builder: StoreBuilder) => {
       args: { revision: t.arg.int({ required: true }), input: t.arg({ type: Input, required: true }) },
       extensions: { access: { ...access, audit: shippingAudit.saved } },
       resolve: async (_, args, ctx) => {
-        bounded(args.input.flatAmount ?? '', args.input.pickupHours ?? '', args.input.freeThresholdAmount ?? '', args.input.freeMode, args.input.areaMode)
+        bounded(args.input.flatAmount ?? '', args.input.pickupHours ?? '', args.input.freeThresholdAmount ?? '', args.input.freeMode, args.input.areaMode, args.input.dispatchWhen ?? '')
         return answered(await (await service(ctx)).save(args.revision, args.input))
       },
     }),

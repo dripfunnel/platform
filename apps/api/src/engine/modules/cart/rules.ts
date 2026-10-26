@@ -121,7 +121,7 @@ export interface CheckoutFacts {
   hasContact: boolean
   /** Whether anything in it is sent: a download, a service and a gift card are not (CATALOG T14). */
   needsShipping: boolean
-  shippingOption: 'courier' | 'flat' | 'pickup' | null
+  shippingOption: 'courier' | 'flat' | 'pickup' | 'own_delivery' | null
   hasShippingAddress: boolean
   /** Whether the chosen option is among the options offered now. */
   optionOffered: boolean

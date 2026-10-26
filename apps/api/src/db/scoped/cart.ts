@@ -36,7 +36,7 @@ export interface CartRow {
   market_id: string | null
   shipping_address: CartAddress | null
   billing_address: CartAddress | null
-  shipping_option: 'courier' | 'flat' | 'pickup' | null
+  shipping_option: 'courier' | 'flat' | 'pickup' | 'own_delivery' | null
   shopper_note: string | null
   checkout_step: 'contact' | 'ship' | 'pay' | null
   revision: number
@@ -107,7 +107,7 @@ export interface CartPatch {
   shopperNote?: string | null
   shippingAddress?: CartAddress | null
   billingAddress?: CartAddress | null
-  shippingOption?: 'courier' | 'flat' | 'pickup' | null
+  shippingOption?: 'courier' | 'flat' | 'pickup' | 'own_delivery' | null
   checkoutStep?: 'contact' | 'ship' | 'pay' | null
   customerId?: string
   promotionCodes?: readonly string[]
@@ -133,6 +133,11 @@ export const updateCart = async (tx: ScopedSql, id: string, patch: CartPatch, c:
       where id = ${id} and state = 'cart'
     `
   ).count > 0
+}
+
+/** The cart's delivering warehouse (migration 0363), in system scope: the shopper neither reads nor writes it. */
+export const setCartDeliveryWarehouse = async (tx: ScopedSql, storeId: string, id: string, warehouseId: string | null): Promise<void> => {
+  await tx`update "order" set delivery_warehouse_id = ${warehouseId} where id = ${id} and store_id = ${storeId} and state = 'cart'`
 }
 
 /** Each version's product and tax class, by id; what shoppers may see is decided after, by the catalogue's rules (cartItems). */

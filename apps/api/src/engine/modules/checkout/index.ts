@@ -69,7 +69,10 @@ export type CheckoutRefusal = 'OFFER_CHANGED' | 'NOT_READY' | 'METHOD_UNAVAILABL
 export type CheckoutResult<T> = { ok: true; value: T } | { ok: false; reason: CheckoutRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
-  constructor(readonly reason: CheckoutRefusal) {
+  constructor(
+    readonly reason: CheckoutRefusal,
+    readonly problems?: CheckoutProblem[],
+  ) {
     super(reason)
   }
 }
@@ -191,7 +194,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     }
   }
 
-  const snapshotLines = async (tx: ScopedSql, cart: CartView, reserve: boolean): Promise<SnapshotLine[]> => {
+  const snapshotLines = async (tx: ScopedSql, cart: CartView, reserve: boolean, deliveringAt: string | null): Promise<SnapshotLine[]> => {
     const versions = new Map((await selectSnapshotVersions(tx, storeId, cart.lines.map((l) => l.versionId))).map((v) => [v.id, v]))
     const heldAt = new Map<string, string | null>()
     // Checked again here, holding the rows, so two shoppers can't both buy the last one (PLATFORM-PROMPT §5.4); in
@@ -199,7 +202,10 @@ export const createCheckout = (deps: CheckoutDeps) => {
     for (const l of reserve ? [...cart.lines].sort((a, b) => a.versionId.localeCompare(b.versionId)) : []) {
       const v = versions.get(l.versionId)
       if (!v?.track_stock) continue
-      const held = await reserveLine(tx, storeId, v.id, l.quantity, v.continue_selling)
+      // The store's own lines of an own-delivery order are held at its warehouse, or it isn't offered (decided on #841).
+      const at = v.seller_id === null ? deliveringAt : null
+      const held = await reserveLine(tx, storeId, v.id, l.quantity, at === null && v.continue_selling, at)
+      if (!held && at !== null) throw new Refused('NOT_READY', ['SHIPPING_UNAVAILABLE'])
       if (!held) throw new Refused('OUT_OF_STOCK')
       heldAt.set(v.id, held.warehouseId)
     }
@@ -294,7 +300,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
         }
         // A preview's test order takes no real use (storefront PREVIEW); a live one takes each, or the shopper sees the cart again.
         if (mode === 'live') await claimOffers(tx, cart)
-        const lines = await snapshotLines(tx, cart, holds)
+        const deliveringAt = cart.shippingOption === 'own_delivery' ? (cart.shippingOptions.find((o) => o.id === 'own_delivery')?.warehouseId ?? null) : null
+        const lines = await snapshotLines(tx, cart, holds, deliveringAt)
         const parts = [...new Map(lines.map((l) => [l.sellerId ?? 'store', l.sellerId])).values()]
         const modes = new Map((await selectSnapshotVersions(tx, storeId, lines.map((l) => l.versionId))).map((v) => [v.seller_id ?? 'store', v.shipping_mode]))
         const number = await takeOrderNumber(tx, storeId)
@@ -307,6 +314,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
           parts: parts.map((sellerId) => ({ sellerId, shippingMode: sellerId ? (modes.get(sellerId) ?? 'to-store') : 'store' })),
           shipping: cart.shipping ? { amount: cart.shipping.amount, label: shippingLabel(cart) } : null,
           shippingOption: cart.shippingOption,
+          deliveryWarehouseId: deliveringAt,
           tax: { amount: cart.tax?.amount.amount ?? 0n, inclusive: cart.tax?.inclusive ?? false },
           discounts: cart.discounts.map((d) => ({ promotionId: d.offerId, codeId: d.codeId, label: d.name, amount: d.amount.amount })),
           discount: cart.discount.amount,
@@ -349,7 +357,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
         return { ok: true as const, value: { orderId: cart.id, number, total: cart.total, provider: option.provider, instructions: option.instructions, payment: card?.started ?? null } }
       })
     } catch (error) {
-      if (error instanceof Refused) return { ok: false, reason: error.reason }
+      if (error instanceof Refused) return { ok: false, reason: error.reason, ...(error.problems ? { problems: error.problems } : {}) }
       throw error
     }
   }

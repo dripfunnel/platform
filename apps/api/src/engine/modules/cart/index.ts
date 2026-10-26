@@ -5,7 +5,7 @@ import type { PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartGift, setCartLine, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
+import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartDeliveryWarehouse, setCartGift, setCartLine, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
 import { defaultFeatures, type FeatureKey } from '#db/scoped/catalogListing'
 import { setCartGiftCard } from '#db/scoped/giftCards'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
@@ -201,7 +201,9 @@ export const createCartService = (deps: CartDeps) => {
     let shippingOptions: DeliveryOption[] = []
     let deliverable: boolean | null = null
     // Without an address, only collection from the store's own country can be quoted; a store with none offers nothing yet.
-    const shipTo = address ? { country: address.country, region: address.region, postal: address.postalCode } : setup?.country ? { country: setup.country, region: null, postal: null } : null
+    const shipTo = address
+      ? { country: address.country, region: address.region, postal: address.postalCode, latitude: address.latitude ?? null, longitude: address.longitude ?? null }
+      : setup?.country ? { country: setup.country, region: null, postal: null } : null
     if (sent.length > 0 && shipTo) {
       // Free delivery's threshold and the parcel's declared value are what is sent, never a download or gift card.
       const sentValue = { amount: sent.reduce((sum, l) => sum + l.lineTotal.amount, 0n), currency }
@@ -370,12 +372,23 @@ export const createCartService = (deps: CartDeps) => {
       await write(tx, row, { ...contact, shopperNote: note, checkoutStep: row.checkout_step === 'ship' || row.checkout_step === 'pay' ? 'ship' : 'contact' })
     })
 
-  const setShippingAddress = (input: AddressInput) =>
-    change(async (tx, row) => {
-      const address = cleanAddress(input)
-      if (!address) throw new Refused('INVALID_INPUT')
-      await write(tx, row, { shippingAddress: address, checkoutStep: 'ship' })
-    })
+  /** The own-delivery warehouse the cart is quoted now, kept by the engine (decided on #841); placement takes it afresh. */
+  const keepDeliveryWarehouse = async (result: CartResult<CartChange>): Promise<CartResult<CartChange>> => {
+    if (!result.ok) return result
+    const { cart: view } = result.value
+    const warehouseId = view.shippingOption === 'own_delivery' ? (view.shippingOptions.find((o) => o.id === 'own_delivery')?.warehouseId ?? null) : null
+    await withSystemScope(sql, (tx) => setCartDeliveryWarehouse(tx, storeId, view.id, warehouseId))
+    return result
+  }
+
+  const setShippingAddress = async (input: AddressInput) =>
+    keepDeliveryWarehouse(
+      await change(async (tx, row) => {
+        const address = cleanAddress(input)
+        if (!address) throw new Refused('INVALID_INPUT')
+        await write(tx, row, { shippingAddress: address, checkoutStep: 'ship' })
+      }),
+    )
 
   /** Null bills the delivery address. */
   const setBillingAddress = (input: AddressInput | null) =>
@@ -386,11 +399,13 @@ export const createCartService = (deps: CartDeps) => {
     })
 
   /** One of the options the cart is offered; checkout refuses one no longer offered. */
-  const setShippingOption = (option: string) =>
-    change(async (tx, row) => {
-      if (option !== 'courier' && option !== 'flat' && option !== 'pickup') throw new Refused('INVALID_INPUT')
-      await write(tx, row, { shippingOption: option, checkoutStep: 'ship' })
-    })
+  const setShippingOption = async (option: string) =>
+    keepDeliveryWarehouse(
+      await change(async (tx, row) => {
+        if (option !== 'courier' && option !== 'flat' && option !== 'pickup' && option !== 'own_delivery') throw new Refused('INVALID_INPUT')
+        await write(tx, row, { shippingOption: option, checkoutStep: 'ship' })
+      }),
+    )
 
   /**
    * "Discount code or coupon": the code goes on the cart and the cart is priced with it. One that can't work whatever is
