@@ -4,9 +4,9 @@ How `apps/ui/mobile-app/shop` is laid out and how it talks to the Shop API. Scop
 [FIRST-RELEASE.md](FIRST-RELEASE.md); builds and per-store configuration are
 [../README.md](../README.md) §3.
 
-**Status: specification, not built.**
+**Status: the project is set up (#860)**: `app.config.ts` reading `stores/<STORE_KEY>.env` (the `dev` store, host `dev.my-store.localhost`), `eas.json`'s `dev` profile, the Shop API client sending `X-Shop-Session` and `X-Shop-Cart` from secure storage, the store's name and logo at startup (the last look is saved on the device) and placeholder tabs. The screens are not built (SH 8–SH 14).
 
-Last updated: 2026-10-26 (#857: Razorpay, Cashfree and PhonePe for the app's native sheets, §4). Before: 2026-10-23 (#856: payment for the app's native sheets, Stripe and PayPal, built, §4). Before: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
+Last updated: 2026-10-26 (#860: the project is set up; the client's extra headers, §2). Before: 2026-10-26 (#857: Razorpay, Cashfree and PhonePe for the app's native sheets, §4). Before: 2026-10-23 (#856: payment for the app's native sheets, Stripe and PayPal, built, §4). Before: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
 
 ---
 
@@ -42,7 +42,11 @@ apps/ui/mobile-app/shop/
 ```
 
 Foundations (`graphql/`, `format/`, `intl/`, `theme/`) come from `apps/ui/mobile-app/shared`
-(../README.md §2).
+(../README.md §2). The shared client takes `extraHeaders`, read on every call, for the Shop API's
+`X-Shop-Session` and `X-Shop-Cart` (#860). Built so far: the tokens are read from secure storage at start
+(`session/tokens.ts`; the cart token is kept apart, under `<host>.cart`) and the writers come with sign-in and the
+cart (SH 9, SH 10). `pnpm dev:shop` starts Expo's dev server for the `dev` store; the app's theme stays
+DripFunnel's palette (§4: no colours served).
 
 ---
 

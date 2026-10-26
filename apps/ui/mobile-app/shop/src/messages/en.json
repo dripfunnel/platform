@@ -1,0 +1,14 @@
+{
+  "tabs": {
+    "home": "Home",
+    "browse": "Browse",
+    "cart": "Cart",
+    "account": "Account"
+  },
+  "placeholder": {
+    "body": "This screen isn't built yet."
+  },
+  "brand": {
+    "logo": "{name} logo"
+  }
+}

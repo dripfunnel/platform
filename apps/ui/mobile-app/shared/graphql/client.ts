@@ -12,6 +12,8 @@ export type ClientOptions = {
   token?: () => string | null
   store?: () => string | null
   supplier?: () => string | null
+  /** Headers an API reads besides those above, read on every call: the Shop API's `X-Shop-Session` and `X-Shop-Cart`. */
+  extraHeaders?: () => Record<string, string>
   fetchImpl?: typeof fetch
 }
 
@@ -30,13 +32,14 @@ export const authHeaders = ({ token = () => null, store = () => null, supplier =
 }
 
 // The trailing slash matters: the `/api/*` route misses bare `/api` (merchant ARCHITECTURE.md §2).
-export const createApiClient = ({ domain, path, timeoutMs = defaultTimeoutMs, token = () => null, store = () => null, supplier = () => null, fetchImpl = fetch }: ClientOptions) => {
+export const createApiClient = ({ domain, path, timeoutMs = defaultTimeoutMs, token = () => null, store = () => null, supplier = () => null, extraHeaders = () => ({}), fetchImpl = fetch }: ClientOptions) => {
   const endpoint = `https://${domain}${path}`
 
   const getUrl = (query: string, variables?: Record<string, unknown>): string =>
     `${endpoint}?query=${encodeURIComponent(query)}${variables ? `&variables=${encodeURIComponent(JSON.stringify(variables))}` : ''}`
 
-  const headers = (): Record<string, string> => ({ 'content-type': 'application/json', ...authHeaders({ token, store, supplier }) })
+  const sent = (): Record<string, string> => ({ ...authHeaders({ token, store, supplier }), ...extraHeaders() })
+  const headers = (): Record<string, string> => ({ 'content-type': 'application/json', ...sent() })
 
   return {
     // `get` sends a query as a GET, which the API does not Origin-check: for the public brand query read before sign-in.
@@ -48,7 +51,7 @@ export const createApiClient = ({ domain, path, timeoutMs = defaultTimeoutMs, to
       let body: GraphQLResponse<T>
       try {
         const response = get
-          ? await fetchImpl(getUrl(query, variables), { method: 'GET', headers: authHeaders({ token, store, supplier }), signal: abort.signal, credentials: 'omit' })
+          ? await fetchImpl(getUrl(query, variables), { method: 'GET', headers: sent(), signal: abort.signal, credentials: 'omit' })
           : await fetchImpl(endpoint, { method: 'POST', headers: headers(), body: JSON.stringify({ query, variables }), signal: abort.signal, credentials: 'omit' })
         body = (await response.json()) as GraphQLResponse<T>
       } catch {

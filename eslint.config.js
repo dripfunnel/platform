@@ -82,7 +82,7 @@ export default tseslint.config(
   },
   {
     // Expo Router reads each route file's default export (docs/mobile-app/merchant/ARCHITECTURE.md §3).
-    files: ['apps/ui/mobile-app/merchant/src/app/**/*.tsx'],
+    files: ['apps/ui/mobile-app/merchant/src/app/**/*.tsx', 'apps/ui/mobile-app/shop/src/app/**/*.tsx'],
     rules: { 'no-restricted-syntax': 'off' },
   },
   ...mobileApps.map((app) => ({
