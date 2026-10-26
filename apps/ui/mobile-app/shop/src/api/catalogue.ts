@@ -86,6 +86,9 @@ const image = z.object({ url: z.string().nullable() }).nullable()
 const list = <S extends z.ZodType>(item: S) => z.array(item).nullable().transform((value) => value ?? [])
 const text = z.string().nullable()
 
+/** A video's page link is opened in the browser, so only a web address is kept. */
+const webUrl = (url: string | null): string | null => (url !== null && /^https?:\/\//i.test(url) ? url : null)
+
 const photoSchema = z.object({ alt: text, versionId: text.optional(), image })
 const toPhoto = (photo: z.infer<typeof photoSchema> | null): Photo | null => (photo?.image?.url ? { url: photo.image.url, alt: photo.alt, versionId: photo.versionId ?? null } : null)
 const photos = (value: (z.infer<typeof photoSchema> | null)[]): Photo[] => value.flatMap((photo) => toPhoto(photo) ?? [])
@@ -256,7 +259,7 @@ export const productOperation = (slug: string): Operation<Product | null> =>
         options: p.options,
         versions: p.versions.map((v) => ({ id: v.id, name: v.name, inStock: v.inStock, available: v.available, price: v.price, compareAt: v.compareAt, choices: Object.fromEntries(v.choices.map((c) => [c.optionId, c.valueId])) })),
         photos: photos(p.photos),
-        video: p.video && (p.video.file?.url || p.video.url) ? { fileUrl: p.video.file?.url ?? null, pageUrl: p.video.url } : null,
+        video: p.video && (p.video.file?.url || webUrl(p.video.url)) ? { fileUrl: p.video.file?.url ?? null, pageUrl: webUrl(p.video.url) } : null,
         specs: p.specs,
         faqs: p.faqs,
         returns: p.returns,

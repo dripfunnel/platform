@@ -40,6 +40,8 @@
     "UNAVAILABLE": "That isn’t available any more.",
     "RATE_LIMITED": "Too many tries. Wait a minute and try again.",
     "INVALID_INPUT": "Something here isn’t valid. Check your choices and try again.",
+    "STORE_UNAVAILABLE": "This shop isn’t open right now. Try again later.",
+    "TOO_MANY_LINES": "Your cart is full. Remove something to add this.",
     "UNKNOWN": "Something went wrong. Try again in a moment."
   },
   "home": {
@@ -133,6 +135,9 @@
     "photoOf": "{name}, photo {number} of {count}",
     "video": "{name}, video",
     "watchVideo": "Watch the product video",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomed": "Zoomed in",
     "warranty": "Warranty: {text}",
     "sections": {
       "details": "Details",

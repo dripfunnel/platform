@@ -25,6 +25,15 @@ describe('the product read', () => {
     expect(product?.fromPrice).toBe(false)
   })
 
+  it("keeps a hosted video, and a video's page link only when it is a web address", () => {
+    const read = (video: unknown) => productOperation('x').parse(productAnswer(tee({ video })))?.video
+    expect(read({ url: null, file: { url: 'https://cdn.example/v.mp4' } })).toEqual({ fileUrl: 'https://cdn.example/v.mp4', pageUrl: null })
+    expect(read({ url: 'https://videos.example/watch/1', file: null })).toEqual({ fileUrl: null, pageUrl: 'https://videos.example/watch/1' })
+    expect(read({ url: 'javascript:alert(1)', file: null })).toBeNull()
+    expect(read({ url: 'intent://open', file: { url: 'https://cdn.example/v.mp4' } })).toEqual({ fileUrl: 'https://cdn.example/v.mp4', pageUrl: null })
+    expect(read({ url: null, file: null })).toBeNull()
+  })
+
   it("is kept for offline under the product's own slot, never under a request with other words", () => {
     const operation = productOperation('tee-p1')
     expect(operation.slot).toBe('product:tee-p1')

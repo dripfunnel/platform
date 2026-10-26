@@ -32,6 +32,10 @@ export const errorKey = (code: string): MessageKey => {
       return 'errors.RATE_LIMITED'
     case 'INVALID_INPUT':
       return 'errors.INVALID_INPUT'
+    case 'STORE_UNAVAILABLE':
+      return 'errors.STORE_UNAVAILABLE'
+    case 'TOO_MANY_LINES':
+      return 'errors.TOO_MANY_LINES'
     default:
       return 'errors.UNKNOWN'
   }

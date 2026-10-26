@@ -6,7 +6,7 @@ How `apps/ui/mobile-app/shop` is laid out and how it talks to the Shop API. Scop
 
 **Status: the project is set up (#860) and Home, Browse, search and the product page are built (#861)**: `app.config.ts` reading `stores/<STORE_KEY>.env` (the `dev` store, host `dev.my-store.localhost`), `eas.json`'s `dev` profile, the Shop API client sending `X-Shop-Session` and `X-Shop-Cart` from secure storage, the store's name and logo at startup (the last look is saved on the device) and placeholder tabs for the screens still to come (SH 9–SH 14). Home, Browse (collections, filters, sort, Show more), search and the product page with add to cart read the catalogue through `features/catalogue/`; the last page each loaded is kept on the device so a phone with no signal shows it under a banner (§2).
 
-Last updated: 2026-10-26 (#861: Home, browsing, search and the product page; the two dependencies they need, §3). Before: 2026-10-26 (#860: the project is set up; the client's extra headers, §2). Before: 2026-10-26 (#857: Razorpay, Cashfree and PhonePe for the app's native sheets, §4). Before: 2026-10-23 (#856: payment for the app's native sheets, Stripe and PayPal, built, §4). Before: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
+Last updated: 2026-10-26 (#861: Home, browsing, search and the product page; the two dependencies they need, §3; the offline cache is capped, §2). Before: 2026-10-26 (#860: the project is set up; the client's extra headers, §2). Before: 2026-10-26 (#857: Razorpay, Cashfree and PhonePe for the app's native sheets, §4). Before: 2026-10-23 (#856: payment for the app's native sheets, Stripe and PayPal, built, §4). Before: 2026-10-23 (#855: the session and cart tokens need no change; the brand is `store`, without colours or font, §4). Before: 2026-10-22 (first version).
 
 ---
 
@@ -50,7 +50,7 @@ Foundations (`graphql/`, `format/`, `intl/`, `theme/`) come from `apps/ui/mobile
 cart (SH 9, SH 10). `ShopProvider` holds the one client the screens call with; `addToCart` answers a guest's cart token, which `saveCartToken` keeps (SH 10 reads it). `pnpm dev:shop` starts Expo's dev server for the `dev` store; the app's theme stays
 DripFunnel's palette (§4: no colours served).
 
-**Offline (#861).** Browsing keeps no cache layer of its own: each screen's first answer is saved in the device's storage under one slot (home, collections, a collection's products, a product), and served only to the same request, when the phone gets no answer (`NO_RESPONSE`). It shows under the "You're offline" banner; with nothing kept it shows the offline state. Search is never kept, and recent searches stay on the device and are never sent. A write (add to cart) is not offered while the page shown is a kept one.
+**Offline (#861).** Browsing keeps no cache layer of its own: each screen's first answer is saved in the device's storage under one slot (home, collections, a collection's products, a product), and served only to the same request, when the phone gets no answer (`NO_RESPONSE`). Product pages and collection pages are kept 20 at a time, the most recently loaded, so browsing many products cannot fill the device's storage. It shows under the "You're offline" banner; with nothing kept it shows the offline state. Search is never kept, and recent searches stay on the device and are never sent. A write (add to cart) is not offered while the page shown is a kept one.
 
 ---
 
@@ -67,7 +67,7 @@ DripFunnel's palette (§4: no colours served).
 | `react-native-cashfree-pg-sdk` | Cashfree's checkout |
 | PhonePe's React Native SDK | PhonePe's checkout |
 | `expo-video` | The product page's video (#861): a hosted file plays in the product gallery; a video that is only a link to a page opens with `Linking` instead |
-| `react-native-gesture-handler` | Pinch to zoom on a product photo (#861), the same on iOS and Android; React Native's own ScrollView zoom is iOS only. Callbacks run on the JS thread, so it needs no `react-native-reanimated` of its own |
+| `react-native-gesture-handler` | Pinch to zoom on a product photo (#861), the same on iOS and Android, with a double tap and the screen reader's zoom action as the single-pointer way (WCAG 2.2, 2.5.1); React Native's own ScrollView zoom is iOS only. Callbacks run on the JS thread, so it needs no `react-native-reanimated` of its own |
 | `expo-web-browser` | PayPal, decided on #856: its approval page in the in-app browser (`openAuthSessionAsync`), which returns to the app's scheme. PayPal has no official React Native SDK, so the alternative was our own Expo module around its native SDK to build and keep up. The API side is the same Orders v2 order either way |
 
 ---

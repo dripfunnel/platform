@@ -31,6 +31,8 @@ describe('the words for what the API says', () => {
   it('words an error by its code, with one line for a code it has no words for', () => {
     expect(errorKey('NO_RESPONSE')).toBe('errors.NO_RESPONSE')
     expect(errorKey('UNAVAILABLE')).toBe('errors.UNAVAILABLE')
+    expect(errorKey('STORE_UNAVAILABLE')).toBe('errors.STORE_UNAVAILABLE')
+    expect(errorKey('TOO_MANY_LINES')).toBe('errors.TOO_MANY_LINES')
     expect(errorKey('SOMETHING_NEW')).toBe('errors.UNKNOWN')
   })
 })
