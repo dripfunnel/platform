@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 import { getPlatformProxy } from 'wrangler'
 import type { R2Bucket } from '@cloudflare/workers-types'
-import { selectNewestRelease } from '#db/scoped/coreReleases'
+import { selectNewestRelease, selectSandboxImage } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
 import { amzDate, authorization } from '#integrations/ses/sigv4'
 import { isThemePath } from '#saas/storefronts/paths'
@@ -16,28 +16,30 @@ import { assertLocalHost } from '../migrate/host-guard'
 
 // Writes the layout templates.ts reads into the sites bucket (storefront ARCHITECTURE §2.3), each theme's preview being
 // the fast gate's bundle (PREVIEW §4). Local wrangler R2 by default; `--remote` writes STOREFRONT_SITES_BUCKET over R2's
-// S3 API with the R2_STOREFRONT_* keys (#730). `--released` names the newest core_release row in DATABASE_URL, so a
-// version whose image isn't recorded is never pointed at.
+// S3 API with the R2_STOREFRONT_* keys (#730). `--released` reads core_release in DATABASE_URL: alone it names the
+// newest row, with `--core` it requires that version's row, so a version whose image isn't recorded is never pointed at.
 const repo = fileURLToPath(new URL('../../../../', import.meta.url))
 const templates = `${repo}templates/storefront/`
 const coreFlag = process.argv.indexOf('--core')
-const newestRelease = async (): Promise<string> => {
+const releasedCore = async (wanted: string | undefined): Promise<string> => {
   const url = process.env['DATABASE_URL']
   if (!url) throw new Error('--released needs DATABASE_URL')
   assertLocalHost(url)
   const sql = postgres(url, { max: 1 })
   try {
-    const version = await withSystemScope(sql, selectNewestRelease)
+    const version = wanted ?? (await withSystemScope(sql, selectNewestRelease))
     if (!version) throw new Error('core_release has no version to upload templates for')
+    if (!(await withSystemScope(sql, (tx) => selectSandboxImage(tx, version)))) throw new Error(`core_release has no unretired row for ${version}`)
     return version
   } finally {
     await sql.end()
   }
 }
+const named = coreFlag >= 0 ? (process.argv[coreFlag + 1] ?? '') : undefined
 const core = process.argv.includes('--released')
-  ? await newestRelease()
-  : coreFlag >= 0
-    ? (process.argv[coreFlag + 1] ?? '')
+  ? await releasedCore(named || undefined)
+  : named !== undefined
+    ? named
     : (JSON.parse(readFileSync(`${repo}packages/storefront-core/package.json`, 'utf8')) as { version: string }).version
 if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(core)) throw new Error(`--core needs a version such as 1.2.3 or 1.2.3-dev.4, got "${core}"`)
 const tracked = (dir: string) => execFileSync('git', ['ls-files', '-z', '--', dir], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean)

@@ -19,6 +19,11 @@ on:
   # Prod's: release.yml calls this after the version's image is recorded. A workflow_run job takes the default branch's
   # ref, which the `prod` environment refuses (main only).
   workflow_call:
+    inputs:
+      core:
+        description: The version release.yml just recorded; empty names the newest recorded one.
+        type: string
+        default: ''
   workflow_dispatch:
 
 permissions:
@@ -59,8 +64,8 @@ jobs:
         env:
           CORE_VERSION: ${{ steps.core.outputs.version }}
 
-  # Prod names the newest core_release row, which exists only once the release's image is in both registries, so
-  # `current.json` never names a core a store's build or the studio can't start.
+  # Prod names the version release.yml just recorded (else the newest recorded one), from the release's own commit;
+  # --released refuses a version without a core_release row, so `current.json` never names a core without its image.
   upload-prod:
     runs-on: ubuntu-latest
     environment: prod
@@ -73,9 +78,8 @@ jobs:
       DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
       ALLOW_REMOTE_MIGRATIONS: '1'
       ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+      CORE_VERSION: ${{ inputs.core }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
       - uses: ./.github/actions/setup
-      - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --released
+      - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --released ${CORE_VERSION:+--core "$CORE_VERSION"}

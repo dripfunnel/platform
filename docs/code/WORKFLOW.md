@@ -79,7 +79,7 @@ the next push (decided 2026-10-04). `gates` runs only on a pull request into `de
 stacked one skips it and runs `naming` and `changesets` after the review. A stacked pull request
 moved onto `dev` gets its gates on its next push or a re-run; until then `gates` shows *skipped*,
 and `dev.yml`'s own gates still stop a broken deploy. A push to `main` runs `gates` (unless the repo variable `GATES_CHECK` is `0`, #870), and `release.yml`
-(storefront-core's release, ARCHITECTURE.md §5); a push to `dev` also runs `release.yml`, for the dev channel. A push to `dev` touching `templates/storefront/**`, and each successful `release.yml` run on `dev`, runs `templates.yml`, which uploads the templates to the dev sites bucket (docs/setup/dev.md §2.8); on `main`, `release.yml`'s `templates-prod` job uploads them to prod's once the image is recorded, for the newest recorded core (docs/setup/prod.md §3.6).
+(storefront-core's release, ARCHITECTURE.md §5); a push to `dev` also runs `release.yml`, for the dev channel. A push to `dev` touching `templates/storefront/**`, and each successful `release.yml` run on `dev`, runs `templates.yml`, which uploads the templates to the dev sites bucket (docs/setup/dev.md §2.8); on `main`, `release.yml`'s `templates-prod` job uploads them to prod's once the image is recorded, for the version just recorded (docs/setup/prod.md §3.6).
 
 The rules live in one place, [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs), with
 tests beside it. The hooks, the pull-request check and the feature-environment names
