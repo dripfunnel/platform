@@ -91,6 +91,12 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
       // For the app's Stripe sheet, a signed-in shopper's only: their Customer and the ephemeral key's secret, which lasts an hour.
       customerId: t.exposeString('customerId', { nullable: true }),
       ephemeralKeySecret: t.exposeString('ephemeralKeySecret', { nullable: true }),
+      // For the app's Razorpay, Cashfree and PhonePe sheets: what is due now, the storefront's mode (the SDK's environment),
+      // and for PhonePe its own order id and the order token (publicKey is then the merchant id).
+      amount: t.field({ type: money, nullable: true, resolve: (p) => p.amount ?? null }),
+      mode: t.string({ nullable: true, resolve: (p) => p.mode ?? null }),
+      providerOrderId: t.exposeString('providerOrderId', { nullable: true }),
+      token: t.exposeString('token', { nullable: true }),
     }),
   })
   // What the shop app sends to pay with a provider's own sheet; web calls leave it out and nothing changes.
