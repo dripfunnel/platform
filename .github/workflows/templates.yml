@@ -1,12 +1,12 @@
 name: templates
 
 # Uploads the storefront templates to the sites bucket (docs/setup/dev.md §2.8, docs/setup/prod.md §3.6): dev's from a
-# push to dev, prod's from a push to main, each only when a template file or the upload script changes, and after each
-# release. Neither deploy touches the bucket.
+# push to dev that changes a template file or the upload script, and after each release; prod's only from release.yml,
+# so a released core's templates never change under it. Neither deploy touches the bucket.
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev]
     paths:
       - 'templates/storefront/**'
       - 'apps/api/scripts/local/seed-templates.ts'
