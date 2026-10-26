@@ -432,8 +432,8 @@ describe('the cron', () => {
     expect(new Set(jobs).size).toBe(jobs.length)
   })
 
-  it('runs the expired texts and the core rollouts before the outbox relay every minute', async () => {
-    expect(await failures('* * * * *')).toEqual({ events: ['sms_expiry_failed', 'core_rollout_failed'], threw: true })
+  it('runs dispatch, expired texts and core rollouts before the outbox relay every minute', async () => {
+    expect(await failures('* * * * *')).toEqual({ events: ['dispatch_sweep_failed', 'sms_expiry_failed', 'core_rollout_failed'], threw: true })
   })
 
   it('runs every job of a group although each one fails', async () => {

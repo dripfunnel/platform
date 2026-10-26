@@ -7,6 +7,7 @@ import {
   countRiderCodeAttempt,
   countStoreRiderCodes,
   endRiderSession,
+  selectEndingRider,
   insertRiderCode,
   insertRiderSession,
   selectLiveRiderCode,
@@ -44,6 +45,7 @@ export interface RiderAuthDeps {
   allowAttempt: (key: string) => Promise<boolean>
   codeCheck?: CodeCheck
   now: () => Date
+  beforeSignOut?: (tx: ScopedSql, riderId: string) => Promise<void>
 }
 
 // Salted by the code's own row, as shoppers' are.
@@ -54,7 +56,7 @@ const limiterKeyOf = (phone: string) => hashSessionId(`rider-limit:${phone}`)
 
 const ownDeliveryOn = async (tx: ScopedSql, storeId: string, now: Date) => (await selectStoreEntitlement(tx, storeId, 'own_delivery', now)).enabled === true
 
-export const createRiderAuth = ({ sql, storeId, partnerId, activity, facts, allowAttempt, codeCheck, now }: RiderAuthDeps) => {
+export const createRiderAuth = ({ sql, storeId, partnerId, activity, facts, allowAttempt, codeCheck, now, beforeSignOut }: RiderAuthDeps) => {
   const entry = (action: string, rider: { id: string; name: string } | null, result: 'success' | 'failed' = 'success'): ActivityEntry => ({
     category: 'auth',
     action,
@@ -135,7 +137,11 @@ export const createRiderAuth = ({ sql, storeId, partnerId, activity, facts, allo
 
   const signOut = (token: string) =>
     withSystemScope(sql, async (tx) => {
-      const rider = /^[0-9a-f]{64}$/.test(token) ? await endRiderSession(tx, await hashSessionId(token), storeId, now()) : null
+      const hash = /^[0-9a-f]{64}$/.test(token) ? await hashSessionId(token) : null
+      const pending = hash ? await selectEndingRider(tx, hash, storeId) : null
+      if (!pending || !hash) return true as const
+      await beforeSignOut?.(tx, pending.id)
+      const rider = await endRiderSession(tx, hash, storeId, now())
       if (!rider) return true as const
       // Every phone of the rider, as the card says; another signed-in phone registers again at its next launch (#840).
       await deleteRiderDevices(tx, storeId, rider.id)

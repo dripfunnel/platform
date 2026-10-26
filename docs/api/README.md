@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -220,6 +220,12 @@ Side effects (emails, webhooks, search indexing, cache purges, builds) are never
 request. They are outbox rows, delivered by `jobs/queues/outbox-relay.ts` after commit: a mutating request that succeeds (2xx) sends one wake message to the `OUTBOX_WAKE` queue, and a batch of wakes runs one sweep. Rows written after the response (in `waitUntil`) and sweeps that fail are picked up by the every-minute cron, which stays as the backstop (no binding, no wake). Every successful write costs one Queues operation, whether or not it queued a row. A kind
 with no deliverer registered (email without SES values, texts until #275 reads partners' SMS accounts, pushes without `EXPO_PUSH_TOKEN`) waits unclaimed. A
 deliverer that will never deliver a row throws `GiveUp` with a reason, and the row is given up, not delivered. One whose row can't go yet for a reason outside it (a partner with no live portal host) throws `NotYet`: the row is tried again later and the attempt isn't counted.
+
+**#842 dispatch scheduling.** The every-minute group sweeps expired delivery rounds and stale
+rider positions before the outbox relay. delivery.offer is a transactional outbox job, idempotent
+per delivery and round; no additional Cloudflare queue is required. The relay drains newly due rows
+within a 20-second budget, so a broadcast's pushes can run in the same invocation. It does not
+retry a row twice in that invocation. A claimed batch finishes even if the budget expires.
 
 ### 5.1 Schedules
 

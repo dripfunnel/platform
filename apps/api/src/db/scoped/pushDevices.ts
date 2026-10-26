@@ -49,8 +49,9 @@ export const deleteDevicesByIds = async (tx: ScopedSql, storeId: string, ids: re
 export interface PushStoreRow {
   partner_id: string
   name: string
+  unit_system: string
   locale: string
 }
 
 export const selectPushStore = async (tx: ScopedSql, storeId: string): Promise<PushStoreRow | null> =>
-  (await tx<PushStoreRow[]>`select partner_id, name, main_language as locale from store where id = ${storeId}`)[0] ?? null
+  (await tx<PushStoreRow[]>`select partner_id, name, main_language as locale, unit_system from store where id = ${storeId}`)[0] ?? null

@@ -1,3 +1,5 @@
+import { merchantRoles, merchantRolePermissions } from '#auth/storePermissions'
+import { dispatchNotice, dispatchRecipients } from '#db/scoped/dispatch'
 import { z } from 'zod'
 import { mintInvitationToken, mintResetToken } from '#auth/partnerTokens'
 import { mintStaffInvitationToken } from '#auth/staffTokens'
@@ -73,6 +75,7 @@ const dripfunnel: Brand = { name: 'DripFunnel', primary: '#0a2a4a', accent: '#ec
 const id = z.uuid()
 const email = z.string().max(320)
 const payloads = {
+  'delivery-unassigned': z.object({ deliveryId: id }),
   'staff-invitation': z.object({ staffInvitationId: id, to: email }),
   'partner-owner-invitation': z.object({ partnerInvitationId: id, to: email, partnerName: z.string().max(200) }),
   'partner-team-invitation': z.object({ partnerInvitationId: id, to: email, partnerName: z.string().max(200) }),
@@ -187,6 +190,21 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
   const parse = <K extends Template>(k: K) => payloads[k].parse(payload) as z.infer<(typeof payloads)[K]>
 
   switch (t) {
+    case 'delivery-unassigned': {
+      const p = parse(t)
+      if (!row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      const notice = await dispatchNotice(tx, row.storeId, p.deliveryId)
+      if (!notice || notice.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, notice.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const host = await selectLivePortalHost(tx, notice.partner_id)
+      if (!host) throw new NoPortalHost()
+      const roles = merchantRoles.filter((role) => merchantRolePermissions[role].includes('orders.fulfil'))
+      const to = await dispatchRecipients(tx, row.storeId, roles)
+      if (to.length === 0) return { send: false, reason: 'no_recipient' }
+      const w = en.deliveryUnassigned
+      return { send: true, accountSecurity: false, to, ...look, content: { subject: w.subject(notice.number), heading: w.heading, paragraphs: [w.body], action: { label: w.action, url: `https://${host}/orders/${notice.order_id}` } } }
+    }
     case 'staff-invitation': {
       const p = parse(t)
       // Staff email is DripFunnel's own: a row filed under any partner is not one.

@@ -1,3 +1,5 @@
+import { deliveryOfferDeliverer } from '#jobs/queues/deliverers/deliveryOffer'
+import { sweepDispatch, offerKind } from '#engine/modules/ownDelivery/index'
 import type postgres from 'postgres'
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import { ZodError } from 'zod'
@@ -288,6 +290,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
     'export.catalog': catalogExportDeliverer(sql),
+    [offerKind]: deliveryOfferDeliverer(sql, activityLog),
     [orderUpdateKind]: orderNotifyDeliverer(sql),
     'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
     'import.photos': importPhotosDeliverer(sql, assets, lookup),
@@ -892,6 +895,11 @@ const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise
 const sweepOutbox = (env: Env): Promise<void> => relayWith(env, (sql, config) => relayOutbox(sql, config, env))
 
 // The cron's jobs (api/README.md §5.1). Each catches and logs its own failure, so one never stops the rest of its group.
+const sweepDeliveries: CronJob = async (sql) => {
+  await sweepDispatch(sql, activityLog, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'dispatch_sweep_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
 type CronJob = (sql: postgres.Sql, config: Config, env: Env) => Promise<void>
 const purgeBatch = 500
 const runsPerHour = 60
@@ -1095,7 +1103,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
+  '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],

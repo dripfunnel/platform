@@ -129,10 +129,16 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, dropped: 0, skipped: 0 }
   const kinds = Object.keys(deliverers)
   if (kinds.length === 0) return counts
-  const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs))
-  for (const row of rows) {
-    const deliverer = deliverers[row.kind]
-    if (deliverer) counts[await settle(sql, row, deliverer, opts)] += 1
+  const deadline = Date.now() + 20_000
+  const attempted = new Set<string>()
+  while (Date.now() < deadline) {
+    const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, [...attempted]))
+    if (rows.length === 0) break
+    for (const row of rows) {
+      attempted.add(row.id)
+      const deliverer = deliverers[row.kind]
+      if (deliverer) counts[await settle(sql, row, deliverer, opts)] += 1
+    }
   }
   return counts
 }

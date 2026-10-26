@@ -1,3 +1,4 @@
+import { registerDispatch } from './dispatch'
 import { secureSchema } from '../graphql/scope'
 import { storePolicy } from './access'
 import { createStoreBuilder } from './builder'
@@ -79,6 +80,7 @@ registerRiders(builder)
 registerCustomerAccounts(builder)
 registerPayments(builder)
 registerOrders(builder)
+registerDispatch(builder)
 registerCustomers(builder)
 registerOffers(builder)
 registerCartReminders(builder)

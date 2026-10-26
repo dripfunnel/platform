@@ -80,7 +80,7 @@ export const registerRiders = (builder: StoreBuilder) => {
       vehicleNumber: t.exposeString('vehicle_number', { nullable: true }),
       // Deliveries come with DL 5 and DL 6 (#842, #843).
       deliveriesDone: t.int({ resolve: () => 0 }),
-      currentDeliveryId: t.id({ nullable: true, resolve: () => null }),
+      currentDeliveryId: t.exposeID('current_delivery_id', { nullable: true }),
       createdAt: t.string({ resolve: (r) => r.created_at.toISOString() }),
     }),
   })

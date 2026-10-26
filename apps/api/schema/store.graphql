@@ -648,6 +648,20 @@ type CustomerSummary {
   tags: [String!]
 }
 
+type DeliveryRider {
+  name: String
+  phone: String
+  photoAssetId: ID
+  vehicleNumber: String
+  vehicleType: String
+}
+
+type DeliveryStep {
+  at: String
+  deliveryId: ID
+  state: String
+}
+
 type DesignAnswer {
   message: DesignMessage
   outcome: String
@@ -990,7 +1004,9 @@ type Mutation {
   allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
   askDesign(device: String!, imageAssetId: ID, page: String!, sampleUrl: String, text: String!): DesignAnswer
+  assignDelivery(deliveryId: ID!, riderId: ID!): Boolean
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
+  cancelDelivery(deliveryId: ID!): Boolean
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   cancelStore: BillingSubscription
@@ -1052,7 +1068,9 @@ type Mutation {
   keepProducts(ids: [ID!]!): PlanKeep
   makeDomainPrimary(id: ID): Boolean
   markOrderPaid(orderId: ID!): Boolean
+  markReadyForPickup(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
+  offerDeliveryAgain(deliveryId: ID!): Boolean
   pauseOffer(id: ID!): Boolean
   previewLink: String
   proposeProduct(input: ProductInput!): SavedProduct
@@ -1407,6 +1425,7 @@ type Order {
   cancelledAt: String
   customerId: ID
   customerName: String
+  delivery: OrderDelivery
   discount: Money
   duties: Money
   email: String
@@ -1471,6 +1490,13 @@ type OrderCounts {
   paymentPending: Int
   shipped: Int
   toShip: Int
+}
+
+type OrderDelivery {
+  id: ID
+  rider: DeliveryRider
+  state: String
+  steps: [DeliveryStep!]
 }
 
 type OrderEvent {

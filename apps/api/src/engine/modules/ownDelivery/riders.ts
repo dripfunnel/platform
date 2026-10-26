@@ -1,3 +1,5 @@
+import { releaseRiderDeliveries } from './dispatch'
+import { withSystemScope } from '#db/scoped/index'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
@@ -94,8 +96,9 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
   })
 
   const run = async <T>(work: (tx: ScopedSql) => Promise<T>): Promise<RidersResult<T>> => {
+    if (context.sellerScope.kind === 'seller' || context.caller.kind === 'support') throw new Error('riders: merchant required')
     try {
-      return { ok: true, value: await withScope(sql, context, work) }
+      return { ok: true, value: await withSystemScope(sql, work) }
     } catch (error) {
       if (error instanceof Refused) return { ok: false, ...error.refusal }
       throw error
@@ -103,6 +106,7 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
   }
 
   const locked = async (tx: ScopedSql, id: string): Promise<RiderRow> => {
+    await serialise(tx, `dispatch:${storeId}:${id}`)
     const rider = isUuid(id) ? await lockRider(tx, storeId, id) : null
     if (!rider) throw new Refused({ reason: 'NOT_FOUND' })
     return rider
@@ -153,6 +157,7 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
     run(async (tx) => {
       const rider = await locked(tx, id)
       if (rider.status !== 'active') throw new Refused({ reason: 'NOT_ACTIVE' })
+      await releaseRiderDeliveries(tx, { storeId, partnerId: actor.partnerId, activity, facts, now: now(), actor: { actorKind: 'person', actorId: actor.id, actorLabel: null } }, rider.id, 'unavailable')
       await endRiderSessions(tx, storeId, rider.id, now())
       await deleteRiderDevices(tx, storeId, rider.id)
       const changed = await setRiderStatus(tx, storeId, rider.id, 'suspended', now())
@@ -173,6 +178,7 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
   const remove = (id: string): Promise<RidersResult<true>> =>
     run(async (tx) => {
       const rider = await locked(tx, id)
+      await releaseRiderDeliveries(tx, { storeId, partnerId: actor.partnerId, activity, facts, now: now(), actor: { actorKind: 'person', actorId: actor.id, actorLabel: null } }, rider.id, 'removed')
       await endRiderSessions(tx, storeId, rider.id, now())
       await deleteRiderDevices(tx, storeId, rider.id)
       await markRiderRemoved(tx, storeId, rider.id, now())

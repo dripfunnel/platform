@@ -260,6 +260,7 @@ describe('placing an own-delivery order', () => {
   it('takes the option, warehouse and fee from the rule run again, and holds the stock there', async () => {
     const placed = await place(await ready([[versions.kurta, 1]]))
     const order = (placed.data?.['placeOrder'] as { orderId: string; total: { amount: string } }).orderId
+    expect(await db.sql`select state from delivery where order_id = ${order}`).toEqual([{ state: 'searching' }])
     expect(await db.sql`select shipping_option, delivery_warehouse_id, shipping_amount::text as shipping from "order" where id = ${order}`).toEqual([
       { shipping_option: 'own_delivery', delivery_warehouse_id: warehouses.main, shipping: '4000' },
     ])
@@ -286,6 +287,7 @@ describe('placing an own-delivery order', () => {
     await db.sql`insert into order_line (order_id, store_id, version_id, product_id, name, quantity, unit_amount, line_total_amount) values (${o?.id ?? ''}, ${store}, ${versions.mug}, ${mug?.product_id ?? ''}, 'Mug', 2, 50000, 100000)`
     await db.sql`insert into payment (order_id, store_id, provider, provider_ref, kind, amount, currency) values (${o?.id ?? ''}, ${store}, 'stripe', 'pi_own_delivery', 'card', 104000, 'INR')`
     expect(await applyOutcome({ sql: db.sql, activity: activityLog, now: () => now }, 'stripe', 'pi_own_delivery', { state: 'captured', amount: { amount: 104000n, currency: 'INR' } })).toBe('paid')
+    expect(await db.sql`select state from delivery where order_id = ${o?.id ?? ''}`).toEqual([{ state: 'searching' }])
     // The main location has more mugs, but the order delivers from the north one.
     expect(await db.sql`select warehouse_id, reserved from stock_level where version_id = ${versions.mug} order by on_hand`).toEqual([
       { warehouse_id: warehouses.north, reserved: 2 },
