@@ -2487,7 +2487,7 @@ or `picked_up` (DELIVERY §7). Indexes: `delivery (store_id, state, searching_at
 `delivery_offer (rider_id, answer)`, `rider (store_id, status)`.
 
 **#842 (migration 0364): dispatch storage built.** The delivery, delivery_offer and rider_position
-rows in ?7.12 / ?3.6 exist. Delivery and offer foreign keys include store_id; the open-order unique
+rows in §7.12 / §3.6 exist. Delivery and offer foreign keys include store_id; the open-order unique
 index excludes failed/cancelled, allowing another attempt but never another after delivery.
 A delivery keeps created_at, unassigned_at and excluded_rider_id for a hand-back round. rider_position adds
 received_at (server time); reported_at is the device's time. rider.last_position_at keeps only

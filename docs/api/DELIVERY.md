@@ -212,7 +212,7 @@ it is refused after pickup. A report while offline is refused. Reports allow 30 
 ignore older points, and permit one write per ten seconds of server time. Positions never enter logs.
 
 Each round without a rider queues one email to active merchant members with orders.fulfil, in the
-partner's look: ?Nobody took order {number}?, with the portal order link. It waits for a live portal host.
+partner's look: "Nobody took order {number}", with the portal order link. It waits for a live portal host.
 Closed offers receive a silent taken update. Manual assignment and cancellation notify the rider.
 Support never sees rider phones; orders.read callers otherwise may, including scoped keys and grants.
 

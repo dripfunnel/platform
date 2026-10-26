@@ -92,7 +92,7 @@ delivery.accepted, delivery.assigned, delivery.cancelled, delivery.declined, del
 and delivery.handed_back name the delivery; rider.went_online and rider.went_offline name the rider.
 Job transitions use actor kind job; rider actions use rider and merchant actions use person.
 The reportPosition mutation declares unlogged: rider_position: coordinates, accuracy and position times
-never enter activity or technical logs. It is the location exception in DELIVERY ?7, not an audit event.
+never enter activity or technical logs. It is the location exception in DELIVERY §7, not an audit event.
 
 ## 4. The entry
 
