@@ -3,15 +3,19 @@ import { deliverySchema, type DeliveryContext } from '#apis/delivery/schema'
 import { createServer } from '#apis/graphql/server'
 import { seedStoreWorld, type StoreWorld } from './support/storeWorld'
 import { markPaid, applyOutcome } from '#engine/modules/checkout/index'
-import { cancelOrderDelivery } from '#engine/modules/ownDelivery/index'
 import { hashSessionId } from '#auth/session'
+import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { prepareEmail } from '#saas/email/index'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DispatchRefused } from '#core/dispatch'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { createDispatch, createOwnDelivery, createRiders, broadcastDelivery, sweepDispatch, releaseRiderDeliveries } from '#engine/modules/ownDelivery/index'
+import { createDispatch, createOwnDelivery, createRiders, broadcastDelivery, sweepDispatch, releaseRiderDeliveries, offerKind } from '#engine/modules/ownDelivery/index'
 import { activityLog } from '#saas/activity/index'
+import { deliveryOfferDeliverer } from '#jobs/queues/deliverers/deliveryOffer'
+import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
+import { queueSideEffect } from '#saas/outbox/index'
+import type { ActivityEntry } from '#auth/activity'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -28,12 +32,12 @@ const context = (riderId?: string, storeId = tenants.storeA1): TenantContext => 
 })
 const service = (riderId?: string, storeId = tenants.storeA1) => createDispatch({ sql: db.sql, context: context(riderId, storeId), activity: activityLog, facts, now: () => clock })
 const jobFacts = () => ({ storeId: tenants.storeA1, partnerId: tenants.partnerA, activity: activityLog, now: clock })
-const order = async (method = 'cod', paid = false, mode = 'live') => {
+const order = async (method = 'cod', paid = false, mode = 'live', origin?: Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'api'>) => {
   const [o] = await db.sql<{ id: string }[]>`insert into "order"(store_id,state,number,currency,payment_method,payment_state,shipping_option,delivery_warehouse_id,total_amount,placed_at,shipping_address)
     values(${tenants.storeA1},'placed',${crypto.randomUUID()},'INR',${method},${paid ? 'paid' : 'pending'},'own_delivery',${warehouse},10000,${clock},'{"line1":"secret street","city":"Jaipur","postalCode":"302017","name":"Secret person"}') returning id`
   if (!o) throw new Error('no order')
   if (method !== 'gift_card') await db.sql`insert into payment(store_id,order_id,provider,kind,amount,currency,mode) values(${tenants.storeA1},${o.id},${method},${method === 'stripe' ? 'card' : method},7500,'INR',${mode})`
-  await withSystemScope(db.sql, (tx) => createOwnDelivery(tx, activityLog, tenants.storeA1, o.id, clock))
+  await withSystemScope(db.sql, (tx) => createOwnDelivery(tx, activityLog, tenants.storeA1, o.id, clock, origin))
   return o.id
 }
 const delivery = async (orderId: string) => {
@@ -219,6 +223,89 @@ describe('position and isolation', () => {
     expect(riderOf(byKey.data)).toEqual({ name: 'Rider 1', phone: null })
     await db.sql`update delivery set state = 'cancelled' where id = ${d.id}`
   })
+  it('logs the placement as delivery.created by its actor, whatever else the caller passes', async () => {
+    // Checkout hands over its whole order.placed entry; only the actor may reach the delivery's.
+    const placed = { action: 'order.placed', actorKind: 'customer' as const, actorId: null, actorLabel: 'Shopper', api: 'shop' as const, visibility: 'staff' }
+    const id = await order('cod', false, 'live', placed)
+    const d = await delivery(id)
+    expect(await db.sql`select action, actor_kind, actor_label from activity_log where target_id = ${d.id}`).toEqual([{ action: 'delivery.created', actor_kind: 'customer', actor_label: 'Shopper' }])
+  })
+  it('starts no second delivery when an order is paid after its delivery was cancelled', async () => {
+    const id = await order()
+    const d = await delivery(id)
+    await service().cancel(d.id)
+    expect((await markPaid({ sql: db.sql, context: context(), actor: { id: world.people.owner, partnerId: tenants.partnerA }, activity: activityLog, facts, now: () => clock }, id)).ok).toBe(true)
+    expect(await db.sql`select state from delivery where order_id = ${id}`).toEqual([{ state: 'cancelled' }])
+  })
+  it('runs the offer job through the relay: offers and their pushes in one sweep, and gives up a malformed row', async () => {
+    await available()
+    const id = await order()
+    const d = await delivery(id)
+    const pushed: { message: string; deliveryId?: string }[] = []
+    const deliverers = {
+      [offerKind]: deliveryOfferDeliverer(db.sql, activityLog, () => clock),
+      push: { deliver: async (effect: { payload: unknown }) => { pushed.push(effect.payload as { message: string; deliveryId?: string }) } },
+    }
+    const opts = { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) }
+    await relayDue(db.sql, deliverers, opts)
+    expect(await db.sql`select rider_id from delivery_offer where delivery_id = ${d.id} order by rider_id`).toHaveLength(riders.length)
+    expect(pushed.filter((m) => m.deliveryId === d.id && m.message === 'rider.offer')).toHaveLength(riders.length)
+    await withSystemScope(db.sql, (tx) => queueSideEffect(tx, { kind: offerKind, idempotencyKey: `bad-offer-${d.id}`, payload: { deliveryId: 'nope' }, partnerId: tenants.partnerA, storeId: tenants.storeA1 }))
+    await relayDue(db.sql, deliverers, opts)
+    expect(await db.sql`select last_error from outbox where kind = ${offerKind} and idempotency_key like ${`%bad-offer-${d.id}`}`).toEqual([{ last_error: 'bad_payload' }])
+  })
+  it('answers every dispatch mutation with success through its own API', async () => {
+    await available()
+    const riderValue = (riderId: string): DeliveryContext => ({ sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider: { ...context(riderId), caller: { kind: 'rider' as const, riderId } }, token: null }, activity: activityLog, facts, now: () => clock, defer: () => undefined })
+    const ride = async (riderId: string, source: string) => {
+      const answer = await graphql({ schema: deliverySchema as GraphQLSchema, source, contextValue: riderValue(riderId) })
+      expect([source, answer.errors?.[0]?.message]).toEqual([source, undefined])
+      return answer.data
+    }
+    const [first, second] = [riders[0] ?? '', riders[1] ?? '']
+    clock = new Date(clock.getTime() + 11_000)
+    await ride(first, 'mutation { setOnline(online: true) }')
+    await ride(first, `mutation { reportPosition(lat: 26.9124, lng: 75.7873, accuracy: 5, at: "${clock.toISOString()}") }`)
+    const taken = await order()
+    await broadcast(taken)
+    const offerOf = async (riderId: string, orderId: string) => {
+      const data = await ride(riderId, '{ offers(first: 50) { nodes { id deliveryId } } }')
+      const d = await delivery(orderId)
+      return (data?.['offers'] as { nodes: { id: string; deliveryId: string }[] }).nodes.find((n) => n.deliveryId === d.id)?.id ?? ''
+    }
+    await ride(second, `mutation { declineOffer(id: "${await offerOf(second, taken)}") }`)
+    await ride(first, `mutation { acceptOffer(id: "${await offerOf(first, taken)}") }`)
+    expect(await delivery(taken)).toMatchObject({ state: 'assigned', rider_id: first })
+
+    const merchant = async (source: string) => expect([source, (await world.gql('owner', source)).code]).toEqual([source, undefined])
+    const packed = await order()
+    const p = await delivery(packed)
+    await db.sql`update delivery set state = 'packing', searching_at = null where id = ${p.id}`
+    await merchant(`mutation { markReadyForPickup(orderId: "${packed}") }`)
+    expect((await delivery(packed)).state).toBe('searching')
+    await db.sql`update delivery set state = 'unassigned' where id = ${p.id}`
+    await merchant(`mutation { offerDeliveryAgain(deliveryId: "${p.id}") }`)
+    expect((await delivery(packed)).state).toBe('searching')
+    await db.sql`update delivery set state = 'unassigned' where id = ${p.id}`
+    await merchant(`mutation { assignDelivery(deliveryId: "${p.id}", riderId: "${second}") }`)
+    expect(await delivery(packed)).toMatchObject({ state: 'assigned', rider_id: second })
+    await merchant(`mutation { cancelDelivery(deliveryId: "${p.id}") }`)
+    expect((await delivery(packed)).state).toBe('cancelled')
+  })
+  it('never shows the rider phone to a read-only support session', async () => {
+    const id = await order()
+    const d = await delivery(id)
+    await db.sql`update delivery set state = 'assigned', rider_id = ${riders[1] ?? ''}, assigned_at = ${clock} where id = ${d.id}`
+    const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${tenants.partnerA}, 'phone-support@partner-a.example', 'Ravi', 'partner-support', 'active') returning id`
+    const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${world.people.owner}`
+    await db.sql`insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
+      values (${tenants.partnerA}, ${tenants.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${clock}, ${new Date(clock.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-phone')}, ${new Date(clock.getTime() + 5 * 60_000)}, 'read')`
+    const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: tenants.partnerA, activity: activityLog, facts, now: () => clock }, 'tok-phone')
+    const seen = await world.support(entered?.cookie ?? '', tenants.partnerA, `query { order(id: "${id}") { delivery { rider { name phone } } } }`)
+    expect((seen.data?.['order'] as { delivery: { rider: unknown } } | undefined)?.delivery.rider).toEqual({ name: 'Rider 1', phone: null })
+    await db.sql`update delivery set state = 'cancelled' where id = ${d.id}`
+    await db.sql`update support_session set ended_at = ${clock} where partner_user_id = ${agent?.id ?? ''}`
+  })
   it('lets only the owning store merchant suspend or remove a rider, and refuses suppliers and read-only support', async () => {
     const [rider] = await db.sql<{ id: string }[]>`insert into rider(store_id,name,phone,status) values(${tenants.storeA1},'Guarded rider','+919822222200','active') returning id`
     if (!rider) throw new Error('no rider')
@@ -314,8 +401,41 @@ describe('position and isolation', () => {
     const denied = await world.gql('supplier', 'mutation A($id: ID!, $r: ID!) { assignDelivery(deliveryId: $id, riderId: $r) }', { id: d.id, r: riders[0] })
     expect(denied.code).toBe('FORBIDDEN')
     expect(JSON.stringify((await world.gql('supplier', query, { id })).data)).not.toContain(d.id)
-    await withSystemScope(db.sql, (tx) => cancelOrderDelivery(tx, jobFacts(), id))
+  })
+  it('cancels the open delivery when the merchant cancels the order, closing its offers and telling its rider', async () => {
+    const id = await order()
+    const d = await delivery(id)
+    const rider = riders[1] ?? ''
+    await db.sql`update delivery set state = 'assigned', rider_id = ${rider}, assigned_at = ${clock} where id = ${d.id}`
+    await db.sql`insert into delivery_offer(delivery_id,store_id,offer_round,rider_id,distance_m,sent_at) values(${d.id},${tenants.storeA1},${d.offer_round},${riders[0] ?? ''},100,${clock}) on conflict do nothing`
+    const cancelled = await world.gql('owner', `mutation { cancelOrder(orderId: "${id}", reason: store) }`)
+    expect(cancelled.code).toBeUndefined()
     expect((await delivery(id)).state).toBe('cancelled')
+    expect(await db.sql`select id from delivery_offer where delivery_id = ${d.id} and answer is null`).toHaveLength(0)
+    const pushes = await db.sql<{ payload: { subject: { id: string }; message: string } }[]>`select payload from outbox where kind = 'push' and idempotency_key like ${`%:cancelled:${d.id}`}`
+    expect(pushes.map((row) => [row.payload.subject.id, row.payload.message])).toEqual([[rider, 'rider.cancelled']])
+  })
+  it('refuses the four merchant dispatch actions to a key without orders.fulfil and to a read-only support session', async () => {
+    const id = await order()
+    const d = await delivery(id)
+    const actions = [
+      `mutation { markReadyForPickup(orderId: "${id}") }`,
+      `mutation { assignDelivery(deliveryId: "${d.id}", riderId: "${riders[0] ?? ''}") }`,
+      `mutation { offerDeliveryAgain(deliveryId: "${d.id}") }`,
+      `mutation { cancelDelivery(deliveryId: "${d.id}") }`,
+    ]
+    const made = await world.gql('owner', 'mutation { createApiKey(name: "Reader", scopes: ["orders.read"]) { secret } }')
+    const secret = (made.data?.['createApiKey'] as { secret: string } | undefined)?.secret ?? ''
+    const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${tenants.partnerA}, 'dispatch-support@partner-a.example', 'Ravi', 'partner-support', 'active') returning id`
+    const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${world.people.owner}`
+    await db.sql`insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
+      values (${tenants.partnerA}, ${tenants.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${clock}, ${new Date(clock.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-dispatch')}, ${new Date(clock.getTime() + 5 * 60_000)}, 'read')`
+    const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: tenants.partnerA, activity: activityLog, facts, now: () => clock }, 'tok-dispatch')
+    for (const source of actions) {
+      expect([source, (await world.bearer(secret, source, tenants.partnerA)).code]).toEqual([source, 'FORBIDDEN'])
+      expect([source, (await world.support(entered?.cookie ?? '', tenants.partnerA, source)).code]).toEqual([source, 'SUPPORT_READ_ONLY'])
+    }
+    expect((await delivery(id)).state).toBe(d.state)
   })
   it('serializes writes, ignores old points, rejects future reports and expires stale positions', async () => {
     await available()

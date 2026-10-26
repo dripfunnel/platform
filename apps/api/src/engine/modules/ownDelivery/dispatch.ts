@@ -46,10 +46,13 @@ const queueRound = (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) =>
 export const createOwnDelivery = async (tx: ScopedSql, activity: ActivityLog, storeId: string, orderId: string, now: Date, origin?: Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'api'>): Promise<void> => {
   const o = await queries.deliveryOrder(tx, storeId, orderId)
   if (!o || (o.payment_method !== 'cod' && o.payment_state !== 'paid')) return
+  // Only the first: after a cancel, a new attempt is the merchant's Offer again (DELIVERY §3).
+  if ((await queries.selectOrderDeliveries(tx, storeId, orderId)).length > 0) return
   const d = await queries.insertDelivery(tx, { storeId, orderId, warehouseId: o.delivery_warehouse_id, currency: o.currency,
     cash: o.payment_method === 'cod' ? o.cash : null, searching: o.dispatch_when === 'placed', now })
   if (!d) return
-  const f = { storeId, partnerId: o.partner_id, activity, now, ...(origin ? { actor: origin, api: origin.api } : {}) }
+  const actor = origin ? { actorKind: origin.actorKind, actorId: origin.actorId, actorLabel: origin.actorLabel } : undefined
+  const f = { storeId, partnerId: o.partner_id, activity, now, ...(origin && actor ? { actor, api: origin.api } : {}) }
   await record(tx, f, dispatchAudit.created, d.id)
   if (d.state === 'searching') await queueRound(tx, { storeId, partnerId: o.partner_id, activity, now }, d)
 }
@@ -120,7 +123,12 @@ const position = z.strictObject({ lat: z.number().min(-90).max(90), lng: z.numbe
 export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext; activity: ActivityLog; facts: RequestFacts; now: () => Date }) => {
   const { context, sql, activity, facts, now } = deps
   const riderId = context.caller.kind === 'rider' ? context.caller.riderId : null
-  const actor: Actor = { actorKind: riderId ? 'rider' : 'person', actorId: riderId ?? (context.caller.kind === 'person' || context.caller.kind === 'impersonation' ? context.caller.userId : null), actorLabel: null }
+  const { caller } = context
+  // A support session's person entries are rewritten to the session by its activity writer (auth/storeSupport).
+  const actor: Actor = caller.kind === 'rider' ? { actorKind: 'rider', actorId: caller.riderId, actorLabel: null }
+    : caller.kind === 'api-key' ? { actorKind: 'api_key', actorId: caller.keyId, actorLabel: null }
+    : caller.kind === 'app' ? { actorKind: 'app_grant', actorId: caller.grantId, actorLabel: null }
+    : { actorKind: 'person', actorId: caller.kind === 'person' || caller.kind === 'impersonation' ? caller.userId : null, actorLabel: null }
   const f = (): DispatchFacts => ({ storeId: context.storeId, partnerId: context.partnerId, activity, facts, now: now(), actor })
   const run = <T>(work: (tx: ScopedSql, facts: DispatchFacts) => Promise<T>) => {
     if (context.sellerScope.kind === 'seller' || (context.caller.kind === 'support' && context.caller.access === 'read')) throw new DispatchRefused('FORBIDDEN')

@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext, SellerScope } from '#core/tenancy'
-import { withScope } from '#db/scoped/index'
+import { withScope, type ScopedSql } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 // DELIVERY §3 and DATA-MODEL §3.6: the merchant reads its own store's deliveries, offers and positions and changes only the first two, a rider reads
-// only its own and writes only its own position, and no other caller reads them (migration 0364).
+// only its own and writes none, and no other caller reads them (migration 0364).
 
 let db: TestDatabase
 let t: Tenants
@@ -101,6 +101,23 @@ describe('the merchant side', () => {
     await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`delete from rider_position`)).rejects.toThrow(/permission denied/i)
   })
 
+  it('cannot add an offer, change an offer beyond its answer, or move a delivery to another store', async () => {
+    const a1 = store(t.storeA1)
+    await expect(withScope(db.sql, a1, (tx) => tx`insert into delivery_offer (delivery_id, store_id, offer_round, rider_id, distance_m, sent_at) values (${deliveries.a1}, ${t.storeA1}, 9, ${riders.a1}, 1, now())`)).rejects.toThrow(/permission denied/i)
+    await expect(withScope(db.sql, a1, (tx) => tx`update delivery_offer set rider_id = ${riders.a1Other} where delivery_id = ${deliveries.a1}`)).rejects.toThrow(/permission denied/i)
+    await expect(withScope(db.sql, a1, (tx) => tx`update delivery set store_id = ${t.storeA2} where id = ${deliveries.a1}`)).rejects.toThrow(/permission denied/i)
+  })
+
+  it('writes nothing in a read-only support session, which still reads the store', async () => {
+    const support: CallerContext = { caller: { kind: 'support', supportSessionId: 'ss', partnerUserId: 'pu', access: 'read' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    expect((await countAll(support)).delivery).toBe(2)
+    await expect(withScope(db.sql, support, (tx) => tx`update delivery set revision = revision where id = ${deliveries.a1}`)).rejects.toThrow(/row-level security/i)
+    await expect(withScope(db.sql, support, (tx) => tx`update delivery_offer set answer = answer where delivery_id = ${deliveries.a1}`)).rejects.toThrow(/row-level security/i)
+    await expect(
+      withScope(db.sql, support, (tx) => tx`insert into delivery (store_id, order_id, warehouse_id, currency, state) values (${t.storeA1}, ${crypto.randomUUID()}, ${crypto.randomUUID()}, 'INR', 'packing')`),
+    ).rejects.toThrow(/row-level security/i)
+  })
+
   it('never reads the handover code or its attempts', async () => {
     await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`select handover_code_enc from delivery`)).rejects.toThrow(/permission denied/i)
     await expect(withScope(db.sql, store(t.storeA1), (tx) => tx`select code_attempts from delivery`)).rejects.toThrow(/permission denied/i)
@@ -120,17 +137,13 @@ describe('a rider', () => {
     expect(await countAll(rider(riders.a2, t.storeA1))).toEqual({ delivery: 0, delivery_offer: 0, rider_position: 0 })
   })
 
-  it('writes its own position and no other rider’s', async () => {
-    await withScope(db.sql, rider(riders.a1), (tx) => tx`update rider_position set latitude = 27 where rider_id = ${riders.a1}`)
-    await withScope(db.sql, rider(riders.a1), async (tx) => {
-      expect((await tx`update rider_position set latitude = 1 where rider_id = ${riders.a1Other} returning rider_id`).length).toBe(0)
-      expect((await tx`delete from rider_position where rider_id = ${riders.a1Other} returning rider_id`).length).toBe(0)
-    })
-    await expect(
-      withScope(db.sql, rider(riders.a1), (tx) => tx`insert into rider_position (rider_id, store_id, latitude, longitude, accuracy_m, reported_at, received_at)
-        values (${riders.a1Other}, ${t.storeA1}, 1, 1, 1, now(), now()) on conflict (rider_id) do nothing`),
-    ).rejects.toThrow(/row-level security/i)
-    const [row] = await db.sql<{ latitude: number }[]>`select latitude from rider_position where rider_id = ${riders.a1Other}`
+  it('writes no position, its own included: the engine writes it as the system', async () => {
+    for (const write of [
+      (tx: ScopedSql) => tx`update rider_position set latitude = 27 where rider_id = ${riders.a1}`,
+      (tx: ScopedSql) => tx`delete from rider_position where rider_id = ${riders.a1}`,
+      (tx: ScopedSql) => tx`insert into rider_position (rider_id, store_id, latitude, longitude, accuracy_m, reported_at, received_at) values (${riders.a1}, ${t.storeA1}, 1, 1, 1, now(), now())`,
+    ]) await expect(withScope(db.sql, rider(riders.a1), write)).rejects.toThrow(/permission denied/i)
+    const [row] = await db.sql<{ latitude: number }[]>`select latitude from rider_position where rider_id = ${riders.a1}`
     expect(row?.latitude).toBe(26.9)
   })
 

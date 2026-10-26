@@ -96,6 +96,28 @@ describe('a side effect follows its transaction', () => {
     expect((await sweep(db.sql, all, { ...options, baseDelayMs: 0 })).delivered).toBe(2)
     expect(sent).toHaveLength(1)
   })
+  it('tries a failing row once a sweep, though a zero backoff makes it due again at once', async () => {
+    await queued(staff, 'dispatch-fail-test', 'once')
+    let tries = 0
+    const failing: Deliverers = { 'dispatch-fail-test': { deliver: async () => { tries += 1; throw new Error('down') } } }
+    expect((await sweep(db.sql, failing, { ...options, baseDelayMs: 0 })).retry).toBe(1)
+    expect(tries).toBe(1)
+  })
+  it('stops claiming once its budget is spent, leaving what came due for the next sweep', async () => {
+    await queued(staff, 'dispatch-chain-test', 'chain-0')
+    let ticking = clock
+    let step = 0
+    const chain: Deliverers = { 'dispatch-chain-test': { deliver: async () => {
+      step += 1
+      await withSystemScope(db.sql, (tx) => queueSideEffect(tx, { kind: 'dispatch-chain-test', idempotencyKey: `chain-${step}`, payload: {}, partnerId: null, storeId: null }))
+      await catchUp(db.sql)
+      ticking = Math.max(ticking, clock) + 10_000
+    } } }
+    const counts = await sweep(db.sql, chain, { ...options, now: () => new Date(ticking), budgetMs: 25_000 })
+    expect(counts.delivered).toBeLessThanOrEqual(3)
+    const [left] = await db.sql<{ n: string }[]>`select count(*)::text as n from outbox where kind = 'dispatch-chain-test' and delivered_at is null`
+    expect(Number(left?.n)).toBe(1)
+  })
   it('a rolled-back transaction queues nothing, so nothing is delivered', async () => {
     await expect(
       withScope(db.sql, staff, async (tx) => {

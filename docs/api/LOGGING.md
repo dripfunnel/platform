@@ -73,6 +73,13 @@ full entry, with the reason, the note and the customer, is written with `seller_
 store visibility, and a second thin entry for the supplier names only the action, the order
 number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §2.2).
 
+**#842 dispatch entries.** `delivery.created`, `delivery.ready`, `delivery.offered` (one per broadcast),
+`delivery.accepted`, `delivery.assigned`, `delivery.cancelled`, `delivery.declined`, `delivery.unassigned`
+and `delivery.handed_back` name the delivery; `rider.went_online` and `rider.went_offline` name the rider.
+The sweep and the offer job write as `job`, a rider as `rider`, and a merchant member as `person` (a support
+session's entries are rewritten to the session, §4); `delivery.created` at placement takes the placing actor.
+A rider's position is never logged (`rider_position`, §5; DELIVERY §7).
+
 **Reads are not logged**, with one exception: every support session logs what it opened,
 because the merchant has a right to know what support looked at (ACCESS.md §8). Built on #331: each query field
 a support session runs is a `support_session.viewed` entry, store visibility, naming the field and
@@ -86,13 +93,6 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 `on_behalf_of`.
 
 ---
-
-**#842 dispatch entries.** delivery.created, delivery.ready, delivery.offered (one per broadcast),
-delivery.accepted, delivery.assigned, delivery.cancelled, delivery.declined, delivery.unassigned
-and delivery.handed_back name the delivery; rider.went_online and rider.went_offline name the rider.
-Job transitions use actor kind job; rider actions use rider and merchant actions use person.
-The reportPosition mutation declares unlogged: rider_position: coordinates, accuracy and position times
-never enter activity or technical logs. It is the location exception in DELIVERY §7, not an audit event.
 
 ## 4. The entry
 
@@ -173,7 +173,7 @@ They are literals, never interpolated, so an entry cannot carry a subject or an 
   the schema refuses to build without it, or `unlogged: '<rule>'` naming one of the writes §3 leaves out (`cart`: a shopper's cart, built on #308;
   `payment_return`: a shopper back from paying, whose read-back writes only the settlement, which the provider's
   `order.paid` records, #309; `studio_renewal`: a studio session's renewal every two minutes, which only re-checks the seat
-  and moves the session's expiry, #318); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
+  and moves the session's expiry, #318; `rider_position`: a rider's position report, whose coordinates never enter a log, #842); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
   to this section. The entry is written **by the service, inside the
   transaction that makes the change**, because only the service holds that transaction; the
   declaration names the action the mutation records when it does what it is named for, and a

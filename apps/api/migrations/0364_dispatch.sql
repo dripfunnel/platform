@@ -20,6 +20,7 @@ create table delivery (
 create unique index delivery_open_order_key on delivery(order_id) where state not in ('failed','cancelled');
 create index delivery_search_idx on delivery(store_id, state, searching_at);
 create index delivery_rider_idx on delivery(rider_id, state);
+create index delivery_order_idx on delivery(store_id, order_id, created_at desc, id desc);
 create table delivery_offer (
   id uuid primary key default gen_random_uuid(), delivery_id uuid not null, store_id uuid not null references store(id),
   offer_round integer not null, rider_id uuid not null, distance_m double precision not null check(distance_m >= 0),
@@ -59,15 +60,12 @@ grant select (id, store_id, order_id, warehouse_id, state, rider_id, fulfilment_
 grant insert (store_id, order_id, warehouse_id, state, offer_round, currency, cash_due_amount, searching_at, created_at) on delivery to app_request;
 grant update (state, rider_id, excluded_rider_id, offer_round, searching_at, ready_at, unassigned_at, assigned_at, cancelled_at, revision) on delivery to app_request;
 grant update (answer, answered_at) on delivery_offer to app_request;
+-- A read-only support session writes nothing, as 0359's rider policies (DATA-MODEL §5.2).
 create policy merchant_insert on delivery for insert to app_request
-with check (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '');
+with check (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '' and app_setting_text('app.support') <> 'read');
 create policy merchant_update on delivery for update to app_request
 using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '')
-with check (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '');
+with check (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '' and app_setting_text('app.support') <> 'read');
 create policy merchant_update on delivery_offer for update to app_request
 using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '')
-with check (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '');
-grant insert, update, delete on rider_position to app_rider;
-create policy rider_position_write on rider_position for all to app_rider
-using (app_setting_text('app.scope') = 'delivery' and store_id = app_setting_uuid('app.store_id') and rider_id = app_setting_uuid('app.rider_id'))
-with check (app_setting_text('app.scope') = 'delivery' and store_id = app_setting_uuid('app.store_id') and rider_id = app_setting_uuid('app.rider_id'));
+with check (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '' and app_setting_text('app.support') <> 'read');

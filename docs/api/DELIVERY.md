@@ -10,7 +10,9 @@ their app calls, and what the customer sees while the order is on its way. The t
 **Status: specification, partly built.** Decided with Gaurav on 2026-10-22; rows marked
 *(proposed)* await a yes. Built: the riders pool and its invitations (§5, §8, §9; #838); the Delivery API with
 riders' sign-in, profile and account deletion (§4, §5; #839); own delivery as a Shipping method, the warehouses'
-delivery areas and the checkout option (§2, §8; #841).
+delivery areas and the checkout option (§2, §8; #841); dispatch: delivery creation, Ready for pickup, offer rounds,
+accept and decline, assignment by hand, cancellation before pickup, online state, positions and the minute sweep
+(§3, §4, §8; #842).
 
 Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
@@ -101,7 +103,7 @@ those lines travel with the supplier's courier, and one order would arrive in tw
 ## 3. Dispatch
 
 An order placed with own delivery gets a **delivery** (DATA-MODEL §7.12) once it can ship: at
-placement for cash on delivery, at payment otherwise (a bank transfer waits for `markPaid`; unlike dispatch,
+placement for cash on delivery, at payment otherwise (a bank transfer waits for `markOrderPaid`; unlike dispatch,
 `shipItems` also allows unpaid bank transfers). With the store's "when ready" setting it waits in `packing` until someone with
 `orders.fulfil` marks it **ready for pickup** (`markReadyForPickup`); with "when placed" it starts
 at `searching`. The setting is read when the delivery is created.
@@ -123,7 +125,7 @@ at `searching`. The setting is read when the delivery is created.
    the delivery **delivered**, saying first, for cash on delivery, that the cash was collected; or **not delivered** with a reason (no one home, refused, wrong address),
    and returns the parcel. A failed delivery is the merchant's to retry (offer again) or cancel.
 
-**States** *(proposed in detail)*. Every transition, and who makes it:
+**States**. Every transition, and who makes it (up to pickup and cancellation built on #842; pickup, delivery and recall are DL 6):
 
 | From | To | By |
 |---|---|---|
@@ -178,17 +180,15 @@ The merchant then marks it delivered with a reason, as for `CODE_LOCKED`, or not
 cash collected sent with it is kept on the delivery, and the order becomes paid only when the
 delivery becomes `delivered`. With signal the rider retries at the door as usual.
 
-**The minute sweep** *(proposed)*: one Cron trigger every minute in `src/jobs`, per store, that
+**The minute sweep**: one Cron trigger every minute in `src/jobs`, per store, that
 (a) moves `searching` deliveries older than the store's minutes to `unassigned` and queues the
 merchant's email (step 3), and (b) deletes `rider_position` rows older than 10 minutes and clears
 those riders' `online_at`. It is idempotent: a second run in the same minute changes nothing.
 
 **Online.** A rider switches **Online** in the app. While online the app sends its position every
-60 seconds; a rider with no position for 10 minutes counts as offline *(proposed)*, and the
+60 seconds; a rider with no position for 10 minutes counts as offline, and the
 minute sweep (above) then deletes their position and clears their online state, so a phone
 that dies or loses signal for good leaves no point behind.
-
----
 
 **DL 5 built on #842 (2026-10-26).** Delivery creation, Ready for pickup, round-based broadcasts,
 accept/decline, manual assignment, cancellation before pickup, online state and position reporting are built.
@@ -214,8 +214,10 @@ ignore older points, and permit one write per ten seconds of server time. Positi
 Each round without a rider queues one email to active merchant members with orders.fulfil, in the
 partner's look: "Nobody took order {number}", with the portal order link. It waits for a live portal host.
 Closed offers receive a silent taken update. Manual assignment and cancellation notify the rider.
-A person with orders.read sees the rider's phone on the order; a support session, an API key and an app grant get the
+A person with orders.read (a member, or staff impersonating one) sees the rider's phone on the order; a support session, an API key and an app grant get the
 rider's name and vehicle only (decided 2026-10-26 on #920, replacing #842's decision 6).
+
+---
 
 ## 4. The Delivery API
 
