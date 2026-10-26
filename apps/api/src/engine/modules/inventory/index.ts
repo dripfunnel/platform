@@ -11,6 +11,7 @@ import {
   insertWarehouse,
   makeDefaultWarehouse,
   maxWarehouses,
+  selectPricingCurrency,
   selectProductStock,
   selectStockHistory,
   selectWarehouse,
@@ -22,8 +23,11 @@ import {
   updateWarehouse,
   type ChangeReason,
   type WarehouseAddress,
+  type WarehouseDelivery,
+  type WarehouseRow,
 } from '#db/scoped/inventory'
 import { isUuid } from '#core/ids'
+import { parseMinor } from '#core/money'
 
 // Inventory (PLATFORM-PROMPT §5.4, CATALOG-DESIGN G, SetOps): each owner counts its own locations, and
 // every change to a quantity is a movement with its reason, by the database (migration 0046).
@@ -45,6 +49,7 @@ export type InventoryRefusal =
   | 'TOO_MANY_WAREHOUSES'
   | 'DEFAULT_WAREHOUSE'
   | 'WAREHOUSE_HOLDS_STOCK'
+  | 'DELIVERY_AREA_REQUIRED'
 export type InventoryResult<T> = { ok: true; value: T } | { ok: false; reason: InventoryRefusal }
 
 /** The reasons a person gives (G4); a typed number is `typed`, and the first count of a location `starting`. */
@@ -68,6 +73,33 @@ export interface WarehouseInput {
   /** Both or neither (#815); left out, the saved pin stays. */
   latitude?: number | null | undefined
   longitude?: number | null | undefined
+  /** Own delivery (DELIVERY §2), the merchant's locations only; each left out keeps what is saved. */
+  ownDelivery?: boolean | null | undefined
+  deliveryRadiusM?: number | null | undefined
+  riderRadiusM?: number | null | undefined
+  deliveryFeeAmount?: string | null | undefined
+}
+
+/** A delivery area and a rider distance: 1–50 km, in metres (DELIVERY §2). */
+const radiusOk = (metres: number) => Number.isInteger(metres) && metres >= 1000 && metres <= 50_000
+
+const deliveryAsked = (input: WarehouseInput) =>
+  input.ownDelivery != null || input.deliveryRadiusM !== undefined || input.riderRadiusM != null || input.deliveryFeeAmount !== undefined
+
+/** The location's own-delivery settings after this save; the fee in the pricing currency (DATA-MODEL §7.12). */
+const cleanDelivery = (input: WarehouseInput, saved: WarehouseRow | null, currency: string): WarehouseDelivery => {
+  const radius = input.deliveryRadiusM !== undefined ? input.deliveryRadiusM : (saved?.delivery_radius_m ?? null)
+  const rider = input.riderRadiusM ?? saved?.rider_radius_m ?? 5000
+  if ((radius !== null && !radiusOk(radius)) || !radiusOk(rider)) throw new Refused('INVALID_INPUT')
+  let fee = saved?.delivery_fee_amount != null && saved.delivery_fee_currency ? { amount: BigInt(saved.delivery_fee_amount), currency: saved.delivery_fee_currency } : null
+  if (input.deliveryFeeAmount !== undefined) {
+    const typed = input.deliveryFeeAmount?.trim() ?? ''
+    fee = typed === '' ? null : parseMinor(typed, currency)
+    if (typed !== '' && !fee) throw new Refused('INVALID_INPUT')
+  }
+  const ownDelivery = input.ownDelivery ?? saved?.own_delivery ?? false
+  if (ownDelivery && fee === null) throw new Refused('INVALID_INPUT')
+  return { ownDelivery, deliveryRadiusM: radius, riderRadiusM: rider, feeAmount: fee?.amount ?? null, feeCurrency: fee?.currency ?? null }
 }
 
 const addressKeys = ['line1', 'line2', 'city', 'region', 'postalCode', 'country'] as const
@@ -108,7 +140,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
   const inScope = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, context, work)
 
-  const entry = (action: string, target: { type: string; id: string; label: string }): ActivityEntry => ({
+  const entry = (action: string, target: { type: string; id: string; label: string }, reason: string | null = null): ActivityEntry => ({
     category: 'write',
     action,
     result: 'success',
@@ -119,7 +151,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
     storeId,
     sellerId,
     target,
-    reason: null,
+    reason,
     api: 'store',
     visibility: 'store',
     ...facts,
@@ -148,18 +180,30 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
   const saveWarehouse = (id: string | null, revision: number | null, input: WarehouseInput) =>
     run(async (tx) => {
       const clean = cleanWarehouse(input)
+      // A supplier's location never delivers with the store's riders (DELIVERY §2).
+      if (sellerId !== null && (input.ownDelivery === true || input.deliveryRadiusM != null || input.riderRadiusM != null || input.deliveryFeeAmount != null)) throw new Refused('INVALID_INPUT')
+      const saved = id === null ? null : await ownWarehouse(tx, id)
+      const asked = sellerId === null && deliveryAsked(input)
+      const currency = asked ? await selectPricingCurrency(tx, storeId) : null
+      if (asked && !currency) throw new Refused('INVALID_INPUT')
+      const delivery = currency ? cleanDelivery(input, saved, currency) : undefined
+      const pinned = clean.pin === undefined ? saved?.latitude != null : clean.pin !== null
+      const delivers = delivery?.ownDelivery ?? saved?.own_delivery ?? false
+      const area = delivery ? delivery.deliveryRadiusM : (saved?.delivery_radius_m ?? null)
+      if (delivers && (!pinned || area === null)) throw new Refused('DELIVERY_AREA_REQUIRED')
+      const fields = delivery ? { ...clean, delivery } : clean
       let warehouseId: string
       if (id === null) {
         await serialise(tx, `warehouse:${storeId}:${sellerId ?? ''}`)
         if ((await countWarehouses(tx, storeId, sellerId)) >= maxWarehouses) throw new Refused('TOO_MANY_WAREHOUSES')
         warehouseId = crypto.randomUUID()
-        await insertWarehouse(tx, storeId, sellerId, warehouseId, clean)
+        await insertWarehouse(tx, storeId, sellerId, warehouseId, fields)
       } else {
-        await ownWarehouse(tx, id)
-        if (revision === null || !(await updateWarehouse(tx, storeId, id, revision, clean, now()))) throw new Refused('STALE_REVISION')
+        if (revision === null || !(await updateWarehouse(tx, storeId, id, revision, fields, now()))) throw new Refused('STALE_REVISION')
         warehouseId = id
       }
-      await activity.record(tx, entry(inventoryAudit.warehouseSaved, { type: 'warehouse', id: warehouseId, label: clean.name }))
+      const reason = delivery && delivery.ownDelivery !== (saved?.own_delivery ?? false) ? `own delivery ${delivery.ownDelivery ? 'on' : 'off'}` : null
+      await activity.record(tx, entry(inventoryAudit.warehouseSaved, { type: 'warehouse', id: warehouseId, label: clean.name }, reason))
       return warehouseId
     })
 

@@ -2437,10 +2437,13 @@ type ShippingCourier {
 input ShippingInput {
   areaMode: String!
   courierRate: Boolean!
+  dispatchWhen: String
   flatAmount: String
   flatRate: Boolean!
   freeMode: String!
   freeThresholdAmount: String
+  offerMinutes: Int
+  ownDelivery: Boolean
   pickup: Boolean!
   pickupHours: String
 }
@@ -2453,11 +2456,14 @@ type ShippingSettings {
   courierRate: Boolean
   couriers: [ShippingCourier!]
   currency: String
+  dispatchWhen: String
   flatAmount: String
   flatRate: Boolean
   freeMode: String
   freeThresholdAmount: String
   labelSizes: [String!]
+  offerMinutes: Int
+  ownDelivery: Boolean
   pickup: Boolean
   pickupAddress: String
   pickupHours: String
@@ -3389,12 +3395,17 @@ type VersionPricing {
 
 type Warehouse {
   address: WarehouseAddress
+  deliveryFeeAmount: String
+  deliveryFeeCurrency: String
+  deliveryRadiusM: Int
   id: ID
   isDefault: Boolean
   latitude: Float
   longitude: Float
   name: String
+  ownDelivery: Boolean
   revision: Int
+  riderRadiusM: Int
   supplierId: ID
   supplierName: String
   units: Int
@@ -3420,9 +3431,13 @@ input WarehouseAddressInput {
 
 input WarehouseInput {
   address: WarehouseAddressInput
+  deliveryFeeAmount: String
+  deliveryRadiusM: Int
   latitude: Float
   longitude: Float
   name: String!
+  ownDelivery: Boolean
+  riderRadiusM: Int
 }
 
 type WarehousePage {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanShipping, deliveryOptions, normalisePostal, type OptionFacts } from './rules'
+import { cleanOwnDelivery, cleanShipping, deliveryOptions, normalisePostal, type OptionFacts } from './rules'
 
 const inr = (amount: bigint) => ({ amount, currency: 'INR' })
 
@@ -75,5 +75,38 @@ describe('the options a shopper is offered', () => {
     expect(at.map((o) => [o.id, o.amount.amount, o.before?.amount])).toEqual([['courier', 0n, 8500n], ['flat', 0n, 4900n], ['pickup', 0n, undefined]])
     expect(deliveryOptions(facts({ settings, threshold: inr(120001n) }))[0]?.amount.amount).toBe(8500n)
     expect(deliveryOptions(facts({ settings: { ...settings, freeMode: 'always' } }))[1]?.amount.amount).toBe(0n)
+  })
+})
+
+describe('own delivery (DELIVERY §2, #841)', () => {
+  const facts = (over: Partial<OptionFacts> = {}): OptionFacts => ({
+    currency: 'INR',
+    settings: { courierEnabled: true, flatEnabled: true, pickupEnabled: true, pickupHours: 'Mon–Sat', freeMode: 'never' },
+    deliverable: true,
+    courier: { provider: 'shiprocket', amount: inr(8500n), service: 'Delhivery Surface', minDays: 3, maxDays: 5 },
+    flat: inr(4900n),
+    threshold: null,
+    subtotal: inr(120000n),
+    own: { warehouseId: 'w-1', amount: inr(4000n) },
+    ...over,
+  })
+
+  it('replaces the courier and the flat rate with own delivery, pickup beside it', () => {
+    expect(deliveryOptions(facts()).map((o) => [o.id, o.amount.amount, o.warehouseId])).toEqual([['own_delivery', 4000n, 'w-1'], ['pickup', 0n, null]])
+    expect(deliveryOptions(facts({ own: null })).map((o) => o.id)).toEqual(['courier', 'flat', 'pickup'])
+    expect(deliveryOptions(facts({ deliverable: false })).map((o) => o.id)).toEqual(['pickup'])
+  })
+
+  it('applies Shipping’s free-over rule to its fee', () => {
+    const settings = { ...facts().settings, freeMode: 'over' as const }
+    expect(deliveryOptions(facts({ settings, threshold: inr(100000n) }))[0]).toMatchObject({ id: 'own_delivery', amount: inr(0n), before: inr(4000n) })
+  })
+
+  it('keeps what is saved unless named, refusing a dispatch or minutes out of range', () => {
+    const saved = { ownDeliveryEnabled: false, dispatchWhen: 'ready' as const, offerMinutes: 5 }
+    const base = { courierRate: false, flatRate: true, flatAmount: '4900', pickup: false, freeMode: 'never', areaMode: 'everywhere' }
+    expect(cleanOwnDelivery(base, saved)).toEqual(saved)
+    expect(cleanOwnDelivery({ ...base, ownDelivery: true, dispatchWhen: 'placed', offerMinutes: 30 }, saved)).toEqual({ ownDeliveryEnabled: true, dispatchWhen: 'placed', offerMinutes: 30 })
+    for (const bad of [{ offerMinutes: 0 }, { offerMinutes: 31 }, { offerMinutes: 2.5 }, { dispatchWhen: 'soon' }]) expect(cleanOwnDelivery({ ...base, ...bad }, saved)).toBe('INVALID_INPUT')
   })
 })

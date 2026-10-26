@@ -39,11 +39,21 @@ export const selectSnapshotVersions = (tx: ScopedSql, storeId: string, ids: read
     where v.store_id = ${storeId} and v.id = any (${pgArray(ids)}::uuid[])
   `
 
-/** Holds a line at the one location with most left, locked, which must have it all unless the version sells on (DATA-MODEL §7.6); `short` when it held past what was free. */
-export const reserveLine = async (tx: ScopedSql, storeId: string, versionId: string, quantity: number, sellsOn: boolean): Promise<{ warehouseId: string | null; short: boolean } | null> => {
+/**
+ * Holds a line at the one location with most left, or at `warehouseId` (an own-delivery order's, #841), locked, which must
+ * have it all unless the version sells on (DATA-MODEL §7.6); `short` when it held past what was free.
+ */
+export const reserveLine = async (
+  tx: ScopedSql,
+  storeId: string,
+  versionId: string,
+  quantity: number,
+  sellsOn: boolean,
+  warehouseId: string | null = null,
+): Promise<{ warehouseId: string | null; short: boolean } | null> => {
   const levels = await tx<{ warehouse_id: string; free: number }[]>`
     select l.warehouse_id, l.on_hand - l.reserved as free from stock_level l join warehouse w on w.id = l.warehouse_id and w.deleted_at is null
-    where l.store_id = ${storeId} and l.version_id = ${versionId}
+    where l.store_id = ${storeId} and l.version_id = ${versionId} and ${warehouseId === null ? tx`true` : tx`l.warehouse_id = ${warehouseId}`}
     order by l.on_hand - l.reserved desc, l.warehouse_id
     for update of l
   `
@@ -93,7 +103,9 @@ export interface OrderSnapshot {
   /** `label` is a courier's own service name; null for flat delivery and collection, which the storefront words itself. */
   shipping: { amount: bigint; label: string | null } | null
   /** The cart's choice, or null when nothing in it is sent (CATALOG T14). */
-  shippingOption: 'courier' | 'flat' | 'pickup' | null
+  shippingOption: 'courier' | 'flat' | 'pickup' | 'own_delivery' | null
+  /** Own delivery's warehouse, from the rule run again at placement (DELIVERY §2); null for every other option. */
+  deliveryWarehouseId: string | null
   tax: { amount: bigint; inclusive: boolean }
   /** Each offer taken, named as shoppers see it (OFFERS fact 13); `discount` is their sum, delivery's included. */
   discounts: readonly { promotionId: string; codeId: string | null; label: string; amount: bigint }[]
@@ -128,7 +140,7 @@ export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnap
   await tx`
     update "order" set state = 'placed', number = ${s.number}, placed_at = ${s.now}, tax_inclusive = ${s.tax.inclusive},
       subtotal_amount = ${s.subtotal.toString()}, discount_amount = ${s.discount.toString()}, shipping_amount = ${(s.shipping?.amount ?? 0n).toString()}, tax_amount = ${s.tax.amount.toString()},
-      total_amount = ${s.total.toString()}, shipping_method_label = ${s.shipping?.label ?? null}, shipping_option = ${s.shippingOption}, payment_method = ${s.paymentMethod},
+      total_amount = ${s.total.toString()}, shipping_method_label = ${s.shipping?.label ?? null}, shipping_option = ${s.shippingOption}, delivery_warehouse_id = ${s.deliveryWarehouseId}, payment_method = ${s.paymentMethod},
       payment_due_by = ${s.paymentDueBy}, stock_reserved = ${s.stockReserved}, checkout_step = null, cart_expires_at = null,
       updated_at = ${s.now}, revision = revision + 1
     where id = ${s.orderId} and store_id = ${storeId}
@@ -242,7 +254,7 @@ export interface ShopOrderRow {
   gift_card_amount: string
   tax_inclusive: boolean
   shipping_method_label: string | null
-  shipping_option: 'courier' | 'flat' | 'pickup' | null
+  shipping_option: 'courier' | 'flat' | 'pickup' | 'own_delivery' | null
   placed_at: Date
   payment_due_by: Date | null
   lines: { name: string; version_name: string | null; quantity: number; unit_amount: string; line_total_amount: string; gift: { recipientName: string; recipientEmail: string; sendOn: string | null } | null }[]

@@ -17,12 +17,15 @@ const words: Record<InventoryRefusal, string> = {
   TOO_MANY_WAREHOUSES: 'You can have up to 20 locations. Remove one first.',
   DEFAULT_WAREHOUSE: 'Make another location the default first.',
   WAREHOUSE_HOLDS_STOCK: 'This location still holds stock. Set it to 0 or move it first.',
+  DELIVERY_AREA_REQUIRED: 'A location that delivers with your riders needs its map pin and a delivery area.',
 }
 
 const answered = <T>(result: InventoryResult<T>): T => {
   if (result.ok) return result.value
   throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
 }
+
+const merchantSide = (ctx: StoreContext) => tenantCaller(ctx).context.sellerScope.kind !== 'seller'
 
 export const registerInventory = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
@@ -58,6 +61,14 @@ export const registerInventory = (builder: StoreBuilder) => {
       supplierName: t.exposeString('seller_name', { nullable: true }),
       units: t.exposeInt('units'),
       revision: t.exposeInt('revision'),
+      // Own delivery (DELIVERY §2): null to a supplier, whose locations never deliver with the store's riders.
+      ownDelivery: t.boolean({ nullable: true, resolve: (w, _, ctx) => (merchantSide(ctx) ? w.own_delivery : null) }),
+      // Metres from the pin, 1000–50000.
+      deliveryRadiusM: t.int({ nullable: true, resolve: (w, _, ctx) => (merchantSide(ctx) ? w.delivery_radius_m : null) }),
+      riderRadiusM: t.int({ nullable: true, resolve: (w, _, ctx) => (merchantSide(ctx) ? w.rider_radius_m : null) }),
+      // Minor units in deliveryFeeCurrency, the pricing currency when saved.
+      deliveryFeeAmount: t.string({ nullable: true, resolve: (w, _, ctx) => (merchantSide(ctx) ? w.delivery_fee_amount : null) }),
+      deliveryFeeCurrency: t.string({ nullable: true, resolve: (w, _, ctx) => (merchantSide(ctx) ? w.delivery_fee_currency : null) }),
     }),
   })
   const WarehousePage = builder.objectRef<{ nodes: WarehouseRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('WarehousePage').implement({
@@ -106,7 +117,17 @@ export const registerInventory = (builder: StoreBuilder) => {
     fields: (t) => ({ line1: t.string(), line2: t.string(), city: t.string(), region: t.string(), postalCode: t.string(), country: t.string() }),
   })
   const WarehouseInput = builder.inputType('WarehouseInput', {
-    fields: (t) => ({ name: t.string({ required: true }), address: t.field({ type: AddressInput }), latitude: t.float(), longitude: t.float() }),
+    fields: (t) => ({
+      name: t.string({ required: true }),
+      address: t.field({ type: AddressInput }),
+      latitude: t.float(),
+      longitude: t.float(),
+      // Own delivery (DELIVERY §2), the merchant side's only; each left out keeps what is saved.
+      ownDelivery: t.boolean(),
+      deliveryRadiusM: t.int(),
+      riderRadiusM: t.int(),
+      deliveryFeeAmount: t.string(),
+    }),
   })
   const QuantityInput = builder.inputType('StockQuantityInput', {
     fields: (t) => ({ versionId: t.id({ required: true }), warehouseId: t.id({ required: true }), quantity: t.int({ required: true }) }),
@@ -177,7 +198,10 @@ export const registerInventory = (builder: StoreBuilder) => {
     saveWarehouse: t.id({
       args: { id: t.arg.id(), revision: t.arg.int(), input: t.arg({ type: WarehouseInput, required: true }) },
       extensions: { access: { ...places, audit: inventoryAudit.warehouseSaved } },
-      resolve: async (_, args, ctx) => answered(await service(ctx).saveWarehouse(args.id === null || args.id === undefined ? null : String(args.id), args.revision ?? null, args.input)),
+      resolve: async (_, args, ctx) => {
+        if ((args.input.deliveryFeeAmount?.length ?? 0) > 20) throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
+        return answered(await service(ctx).saveWarehouse(args.id === null || args.id === undefined ? null : String(args.id), args.revision ?? null, args.input))
+      },
     }),
     setDefaultWarehouse: t.boolean({
       args: { id: t.arg.id({ required: true }) },

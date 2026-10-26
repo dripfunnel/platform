@@ -9,9 +9,10 @@ their app calls, and what the customer sees while the order is on its way. The t
 
 **Status: specification, partly built.** Decided with Gaurav on 2026-10-22; rows marked
 *(proposed)* await a yes. Built: the riders pool and its invitations (§5, §8, §9; #838); the Delivery API with
-riders' sign-in, profile and account deletion (§4, §5; #839).
+riders' sign-in, profile and account deletion (§4, §5; #839); own delivery as a Shipping method, the warehouses'
+delivery areas and the checkout option (§2, §8; #841).
 
-Last updated: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -43,37 +44,53 @@ decide the wording.
 ## 2. The delivery method
 
 **Settings › Shipping** gains **Own delivery**, beside the courier, flat-rate and pickup choices
-(store/FIRST-RELEASE.md §15). Turning it on needs at least one active rider (§5) and a pinned
-warehouse with its area set. Nothing checks that the delivery app is in an app store: riders may
+(store/FIRST-RELEASE.md §15). Turning it on needs the plan's `own_delivery` (§9), at least one active
+rider (§5) and a pinned warehouse with its area set; otherwise `saveShipping` refuses
+`OWN_DELIVERY_NOT_READY` with `missing` naming `plan`, `rider` and/or `warehouse`. Only turning it on
+is refused: when a piece lapses later, checkout stops offering it (below). Nothing checks that the delivery app is in an app store: riders may
 install it as an APK (mobile-app/README.md §2, decided 2026-10-22). It is Owner-only, like the rest of Shipping.
+**Built on #841** (`shippingSettings`, `saveShipping`, `Warehouse`, `saveWarehouse`; DATA-MODEL §7.12).
 
 Per warehouse that delivers (Settings › Warehouse, a location's form; the merchant's own locations only, never a supplier's):
 
 | Setting | Meaning |
 |---|---|
-| Delivers with own riders | On or off; needs the warehouse's map pin (#815) |
-| Delivery area | Kilometres from the pin, straight line, 1–50 |
-| Rider distance | Kilometres from the pin within which online riders are offered an order, 1–50 *(proposed: default 5)* |
-| Fee | What the customer pays, in the store's currency; Shipping's "free over" rule applies to it as to every method *(proposed)* |
+| Delivers with own riders | On or off (`ownDelivery`); needs the warehouse's map pin (#815) and its area: `saveWarehouse` refuses `DELIVERY_AREA_REQUIRED` without them, including a save that takes either away while it delivers |
+| Delivery area | Kilometres from the pin, straight line, 1–50 (`deliveryRadiusM`, in metres) |
+| Rider distance | Kilometres from the pin within which online riders are offered an order, 1–50, default 5 (`riderRadiusM`, in metres; #841) |
+| Fee | What the customer pays, in the store's currency (`deliveryFeeAmount`); required while it delivers; Shipping's "free over" rule applies to it as to every method, and in another currency it is converted as Shipping's own amounts are. A market's delivery charge replaces only the flat rate (decided on #841) |
+
+A supplier's location never delivers: a supplier sending these fields is refused `INVALID_INPUT`, and
+it reads them as null.
 
 Store-wide: **offer to riders** when the order is placed, or when the merchant marks it ready
-(default: when ready, *proposed*), and **minutes before the merchant is alerted** when nobody
-accepts (1–30, default 5).
+(`dispatchWhen`, default when ready), and **minutes before the merchant is alerted** when nobody
+accepts (`offerMinutes`, 1–30, default 5).
 
-**At checkout** (Shop API `shippingOptions`) *(proposed in detail)*:
+**At checkout** (Shop API `cart.shippingOptions`, built on #841):
 
 1. The address has a pin (#814). An address with no pin is outside every area. The shop app
    always asks for a pin; the storefront's is optional, so a storefront shopper who skips it
    gets the courier.
-2. Own delivery is offered when the pin is inside the area of a delivering warehouse that holds
-   every line of the cart, the nearest such warehouse taking it. The courier and flat-rate
+2. Own delivery is offered when the store has it on, the plan's `own_delivery` is on, a rider is
+   active, the address is one Shipping delivers to (with "only postcodes I upload", its postcode
+   is listed), and the pin is inside the area of a delivering warehouse that holds every line of the
+   cart, the nearest such warehouse taking it. "Holds" means its free stock (on hand less reserved)
+   covers each tracked line the store owns; a product that tracks no stock counts as held anywhere, and
+   a to-store supplier's lines are left out (decided on #841). Its option is `own_delivery`, at the
+   warehouse's fee, with no text and no days: the storefront words it. The courier and flat-rate
    options are then not offered.
 3. Otherwise the existing options apply, unchanged.
 4. Pickup, when on, is offered in both cases.
 5. **At placement the engine runs the same rule again** on the address pin and the stock it holds,
    and takes the option, warehouse and fee from that, never from the client. An own-delivery option
    the rule no longer gives is refused `SHIPPING_UNAVAILABLE`, as any option no longer offered is
-   (`engine/modules/cart/rules.ts`).
+   (`engine/modules/cart/rules.ts`). The store's own lines are held at that warehouse, at placement
+   or, for a card, when paid; one it can no longer hold at placement is refused `SHIPPING_UNAVAILABLE`
+   too. The warehouse is kept on the cart and the order (`delivery_warehouse_id`) and never shown to
+   the shopper.
+
+Distance is straight-line (haversine) in SQL on the pins, in `shop_delivering_warehouse()` (§11).
 
 Own delivery takes the store's own part of an order, and a to-store supplier's lines once handed
 over. An order with a to-shopper supplier's lines is not offered own delivery (decided 2026-10-22):
@@ -344,7 +361,7 @@ delivery ends.
 
 | Addition | Permission |
 |---|---|
-| Own delivery in `shippingSettings`, the warehouse's delivery settings in `saveWarehouse` (§2) | As those operations today (Owner) |
+| Own delivery in `shippingSettings`, the warehouse's delivery settings in `saveWarehouse` (§2; built on #841) | As those operations today (Owner) |
 | `riders(first, after)` (50 by default, at most 100), `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider`, `removeRider`, `exportRider` (a job), `eraseRider` (§5) | New `riders.manage`: Owner |
 | `order(id).delivery`: state, history, rider, position while picked up | `orders.read` |
 | `markReadyForPickup(orderId)` (§3) | `orders.fulfil` |
@@ -428,5 +445,6 @@ console, and the admin console has no override. So a store can be given a riders
 - ~~Proof of delivery?~~ A code the customer gives the rider (decided 2026-10-22, §3).
 - ~~Should dispatch wait until the order is ready?~~ The merchant chooses per store (decided 2026-10-22, §2, §3).
 - ~~An order with a to-shopper supplier's lines?~~ The whole order goes by courier (decided 2026-10-22, §2).
-- *(decide)* Distance in SQL (haversine on the pins) or PostGIS on Neon; haversine is enough for
-  one store's riders.
+- ~~Distance in SQL (haversine on the pins) or PostGIS on Neon?~~ Haversine in plain SQL (decided on #841):
+  PostGIS isn't installed anywhere, and a new extension would make `scripts/migrate`'s extension check refuse to
+  migrate until every database has it; haversine is enough for one store's warehouses and riders.

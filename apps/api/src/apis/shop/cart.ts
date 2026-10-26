@@ -93,7 +93,7 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
   })
   const Option = builder.objectRef<DeliveryOption>('ShopDeliveryOption').implement({
     fields: (t) => ({
-      // courier, flat or pickup: what setShippingOption takes.
+      // courier, flat, pickup or own_delivery: what setShippingOption takes.
       id: t.exposeString('id'),
       provider: t.exposeString('provider', { nullable: true }),
       service: t.exposeString('service', { nullable: true }),

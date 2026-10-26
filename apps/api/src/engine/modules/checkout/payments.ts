@@ -73,7 +73,7 @@ const holdStock = async (tx: ScopedSql, p: PaymentToSettleRow): Promise<boolean>
   let short = false
   for (const line of await selectLinesToHold(tx, p.store_id, p.order_id)) {
     if (!line.track_stock) continue
-    const held = await reserveLine(tx, p.store_id, line.version_id, line.quantity, true)
+    const held = await reserveLine(tx, p.store_id, line.version_id, line.quantity, true, line.hold_at)
     if (held?.warehouseId) await setLineWarehouse(tx, line.id, held.warehouseId)
     short ||= held?.short ?? true
   }
