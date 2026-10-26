@@ -52,6 +52,21 @@ describe('the API client', () => {
     expect(JSON.parse(params.get('variables') ?? 'null')).toEqual({ id: 1 })
   })
 
+  it("sends an API's own headers on a POST and on a GET, read at every call", async () => {
+    const fetchImpl = jest.fn(answer({ data: {} }))
+    let session: string | null = null
+    const client = createApiClient({ domain: 'acme.example.com', path: '/shop-api/', extraHeaders: () => (session ? { 'x-shop-session': session } : {}), fetchImpl })
+
+    await client.request('{ store }')
+    expect(lastCall(fetchImpl).init.headers).not.toHaveProperty('x-shop-session')
+
+    session = 's3ssion'
+    await client.request('{ store }')
+    expect(lastCall(fetchImpl).init.headers).toMatchObject({ 'x-shop-session': 's3ssion' })
+    await client.request('{ store }', undefined, { get: true })
+    expect(lastCall(fetchImpl).init.headers).toMatchObject({ 'x-shop-session': 's3ssion' })
+  })
+
   it('sends no credentials until there are some', async () => {
     const fetchImpl = jest.fn(answer({ data: {} }))
     await createApiClient({ domain: 'store.example.com', path: '/api/', fetchImpl }).request('{ brand }')

@@ -451,13 +451,17 @@ type ShopPaymentOption {
 
 type ShopPaymentStart {
   accountId: String
+  amount: ShopMoney
   clientSecret: String
   customerId: String
   ephemeralKeySecret: String
+  mode: String
+  providerOrderId: String
   providerRef: String
   publicKey: String
   redirectUrl: String
   sessionId: String
+  token: String
 }
 
 type ShopPhoto {

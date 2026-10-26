@@ -3,10 +3,10 @@
 Which mobile apps the platform has, who gives each one to whom, and how each reaches the App
 Store and Google Play. Each app's own folder holds its scope and code.
 
-**Status:** the merchant app is being built (merchant/ARCHITECTURE.md); the shop and delivery
-apps are specified, not built.
+**Status:** the merchant app is being built (merchant/ARCHITECTURE.md); the shop app's project is
+set up with placeholder tabs (shop/ARCHITECTURE.md, #860); the delivery app is specified, not built.
 
-Last updated: 2026-10-22 (the shop and delivery apps, with Gaurav; Enterprise only).
+Last updated: 2026-10-26 (#860: the shop app's project). Before: 2026-10-22 (the shop and delivery apps, with Gaurav; Enterprise only).
 
 ---
 

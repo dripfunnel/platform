@@ -131,6 +131,20 @@ describe('PhonePe', () => {
     await expect(phonepe({ fetchImpl }).start(keys, { ...request, amount: { amount: 100n, currency: 'USD' } })).rejects.toBeInstanceOf(PaymentRefused)
   })
 
+  it('makes an SDK order for the app, handing on PhonePe’s order id, its token and the merchant id, and refuses without a merchant id', async () => {
+    const app = { returnUrl: 'acmeshop://orders/o1', cancelUrl: 'acmeshop://checkout', shopperId: null, stripeApiVersion: null }
+    const { asked, fetchImpl } = answers({ orderId: 'OMO2', state: 'CREATED', expireAt: 1, token: 'sdk_token' })
+    const started = await phonepe({ fetchImpl }).start(account({ ...keys.credentials, merchantId: 'M123' }), { ...request, app })
+    expect(started).toEqual({ providerRef: reference, publicKey: 'M123', accountId: null, clientSecret: null, sessionId: null, redirectUrl: null, providerOrderId: 'OMO2', token: 'sdk_token' })
+    expect(asked[1]?.url).toBe('https://api-preprod.phonepe.com/apis/pg-sandbox/payments/v2/sdk/order')
+    expect(asked[1]?.headers.get('authorization')).toBe('O-Bearer tok')
+    expect(JSON.parse(asked[1]?.body ?? '')).toEqual({ merchantOrderId: reference, amount: 129950, expireAfter: 1200, metaInfo: { udf1: request.orderId }, paymentFlow: { type: 'PG' } })
+    const none = answers({})
+    await expect(phonepe({ fetchImpl: none.fetchImpl }).start(keys, { ...request, app })).rejects.toBeInstanceOf(PaymentRefused)
+    await expect(phonepe({ fetchImpl: none.fetchImpl }).start(account({ ...keys.credentials, merchantId: 'M123' }), { ...request, amount: { amount: 100n, currency: 'USD' }, app })).rejects.toBeInstanceOf(PaymentRefused)
+    expect(none.asked).toHaveLength(0)
+  })
+
   it('reads the status: completed with its amount, failed, or still pending', async () => {
     expect(await phonepe({ fetchImpl: answers({ state: 'COMPLETED', amount: 129950 }).fetchImpl }).outcome(keys, reference)).toEqual({ state: 'captured', amount: { amount: 129950n, currency: 'INR' } })
     expect(await phonepe({ fetchImpl: answers({ state: 'FAILED', amount: 129950 }).fetchImpl }).outcome(keys, reference)).toEqual({ state: 'failed' })

@@ -184,7 +184,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
     if (!row || !gateway || !account || !gateway.available(mode)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     const attemptId = crypto.randomUUID()
     try {
-      return { ok: true, value: { attemptId, accountId: row.id, started: await gateway.start(account, { attemptId, orderId, amount, customer, returnUrl: deps.returnUrl(orderId), ...(app ? { app: appOf(app, orderId) } : {}) }) } }
+      const started = await gateway.start(account, { attemptId, orderId, amount, customer, returnUrl: deps.returnUrl(orderId), ...(app ? { app: appOf(app, orderId) } : {}) })
+      return { ok: true, value: { attemptId, accountId: row.id, started: { ...started, amount, mode } } }
     } catch (error) {
       if (error instanceof PaymentUnavailable) return { ok: false, reason: 'PAYMENT_UNAVAILABLE' }
       if (error instanceof PaymentNeedsPhone) return { ok: false, reason: 'PHONE_REQUIRED' }
