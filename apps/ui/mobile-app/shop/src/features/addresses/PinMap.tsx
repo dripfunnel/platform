@@ -14,11 +14,9 @@ const maxDropDelta = 0.2
 
 /**
  * The address's map pin, native (Google Maps on Android, Apple Maps on iOS): drop it, drag it, tap the map to move it, or take it
- * from the phone's location, asked for only while the app is in use and only when the shopper taps for it.
- */
-/**
- * `addressText` is what the shopper has typed so far, or null while it is too little to look up: it lets a shopper who cannot use the map
- * (a screen reader, one finger) put the pin where the address is, and then correct it.
+ * from the phone's location, asked for only while the app is in use and only when the shopper taps for it. `addressText` is what the
+ * shopper has typed so far, or null while it is too little to look up: it lets a shopper who cannot use the map (a screen reader, one
+ * finger) put the pin where the address is, and then correct it.
  */
 export function PinMap({ pin, onChange, error, addressText = null }: { pin: Pin | null; onChange: (pin: Pin) => void; error?: string | null; addressText?: string | null }) {
   const { colors, radii } = useTheme()

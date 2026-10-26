@@ -2,7 +2,7 @@ import type { MessageKey } from '../../messages'
 import { compact, isPhone } from '../account/validation'
 
 // An address's fields by country, as the website's form has them (storefront-core checkout/address.ts, DESIGN §6): which
-// a country needs, what each is called, and the checks on them. The API checks again.
+// a country needs, what each is called, and the checks on them. The API checks again. A copy, kept equal by rules.parity.test.ts.
 export type Draft = { name: string; line1: string; line2: string; city: string; region: string; postalCode: string; country: string; phone: string }
 export type Field = Exclude<keyof Draft, 'country'>
 export type Problem = 'required' | 'invalid'

@@ -36,7 +36,7 @@ apps/ui/mobile-app/shop/
       (tabs)/browse/        index  all  search  collection/[slug]
       (tabs)/account/       index  addresses  address
       product/[handle]  checkout/  orders/[id]  orders/[id]/track
-    features/<area>/        screens per area; catalogue/ holds Home, Browse, collection, search and the product page; account/ the sign-in, register, reset and Account screens; addresses/ the saved addresses and the pin; common/ what they share (ui, fields, the load hooks, the offline cache, error words)
+    features/<area>/        screens per area; catalogue/ holds Home, Browse, collection, search and the product page; account/ the sign-in, register, reset and Account screens; addresses/ the saved addresses and the pin (its country rules copy the website's, and `rules.parity.test.ts` fails when the two differ); common/ what they share (ui, fields, the load hooks, the offline cache, error words)
     api/<area>.ts           the app's GraphQL operations, typed from apps/api/schema/shop.graphql
     session/                the customer's session token and the cart token, in secure storage
     testing/                the fake Shop API and the renderer the screens' tests share

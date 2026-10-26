@@ -10,6 +10,7 @@ import { errorKey } from '../common/errors'
 import { Button, Resource, ScreenHeader, Sheet, StateMessage } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { useOperation } from '../common/useOperation'
+import { useRefreshOnFocus } from '../common/useRefreshOnFocus'
 
 const lines = (a: SavedAddress): string => [a.line1, a.line2, a.city, a.region, a.postalCode, a.country ? regionName(a.country, locale) : ''].filter((part) => part.trim() !== '').join(', ')
 
@@ -43,7 +44,8 @@ export function AddressesScreen() {
   const router = useRouter()
   const { client } = useShop()
   const { colors } = useTheme()
-  const { state, retry } = useOperation(accountOperation())
+  const { state, retry, refresh } = useOperation(accountOperation())
+  useRefreshOnFocus(refresh)
   const action = useAction()
   const [removing, setRemoving] = useState<SavedAddress | null>(null)
 

@@ -11,6 +11,7 @@ import { Field } from '../common/fields'
 import { Button, Resource, StateMessage } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { useOperation } from '../common/useOperation'
+import { useRefreshOnFocus } from '../common/useRefreshOnFocus'
 
 function SignedOut() {
   const router = useRouter()
@@ -62,7 +63,8 @@ function Profile() {
   const router = useRouter()
   const { endSession } = useShop()
   const { colors, radii } = useTheme()
-  const { state, retry } = useOperation(accountOperation())
+  const { state, retry, refresh } = useOperation(accountOperation())
+  useRefreshOnFocus(refresh)
   const action = useAction()
 
   // The API knowing no account for the token (it ended, or was revoked) means the phone should stop holding it.

@@ -1,6 +1,7 @@
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
+import { act } from 'react-test-renderer'
 import { t } from '../../messages'
-import { fakeShop, hasText, press, render, type Request } from '../../testing/harness'
+import { fakeShop, flush, hasText, press, render, type Request } from '../../testing/harness'
 import { AddressesScreen } from './AddressesScreen'
 
 jest.setTimeout(120_000)
@@ -8,7 +9,18 @@ jest.setTimeout(120_000)
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 
 const mockPush = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), canGoBack: () => true }) }))
+const mockFocus: { effect: (() => void) | null } = { effect: null }
+jest.mock('expo-router', () => {
+  const { useEffect } = jest.requireActual<typeof import('react')>('react')
+  return {
+    useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), canGoBack: () => true }),
+    // The real hook runs when the screen opens and each time it comes back into view; a test comes back by calling `mockFocus.effect`.
+    useFocusEffect: (effect: () => void) => {
+      mockFocus.effect = effect
+      useEffect(effect, [effect])
+    },
+  }
+})
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 
 const address = (id: string, over: object = {}) => ({ id, name: `Home ${id}`, line1: '1 Lake Rd', line2: null, city: 'Jaipur', region: 'Rajasthan', postalCode: '302017', country: 'IN', phone: null, isDefault: false, latitude: 26.9, longitude: 75.8, ...over })
@@ -73,6 +85,34 @@ describe('saved addresses', () => {
     await press(screen, t('addresses.delete'))
     await press(screen, t('addresses.deleteConfirm'))
     expect(shop.sessions).toEqual([null])
+  })
+
+  it('shows an address saved on the next screen when the shopper comes back, without going back to a skeleton', async () => {
+    let list = [address('a1')]
+    const shop = fakeShop(() => mine(list), { signedIn: true })
+    const screen = await render(<AddressesScreen />, shop)
+    const reads = () => shop.requests.filter((r) => r.query.includes('account')).length
+    expect(reads()).toBe(1)
+    list = [...list, address('a2')]
+    await act(async () => mockFocus.effect?.())
+    await flush()
+    expect(reads()).toBe(2)
+    expect(hasText(screen, 'Home a2')).toBe(true)
+    expect(hasText(screen, 'Home a1')).toBe(true)
+  })
+
+  it('keeps the list it has when coming back finds no connection', async () => {
+    let offline = false
+    const shop = fakeShop(() => {
+      if (offline) throw new ApiError('NO_RESPONSE', 'x')
+      return mine([address('a1')])
+    }, { signedIn: true })
+    const screen = await render(<AddressesScreen />, shop)
+    offline = true
+    await act(async () => mockFocus.effect?.())
+    await flush()
+    expect(hasText(screen, 'Home a1')).toBe(true)
+    expect(hasText(screen, t('states.offline.title'))).toBe(false)
   })
 
   it('can be backed out of without deleting', async () => {

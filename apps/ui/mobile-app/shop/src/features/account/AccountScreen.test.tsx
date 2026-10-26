@@ -1,7 +1,7 @@
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { act, type ReactTestRenderer } from 'react-test-renderer'
 import { t } from '../../messages'
-import { fakeShop, hasText, press, render, type Request } from '../../testing/harness'
+import { fakeShop, flush, hasText, press, render, type Request } from '../../testing/harness'
 import { AccountScreen } from './AccountScreen'
 
 jest.setTimeout(120_000)
@@ -9,7 +9,18 @@ jest.setTimeout(120_000)
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 
 const mockPush = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), canGoBack: () => true }) }))
+const mockFocus: { effect: (() => void) | null } = { effect: null }
+jest.mock('expo-router', () => {
+  const { useEffect } = jest.requireActual<typeof import('react')>('react')
+  return {
+    useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), canGoBack: () => true }),
+    // The real hook runs when the screen opens and each time it comes back into view; a test comes back by calling `mockFocus.effect`.
+    useFocusEffect: (effect: () => void) => {
+      mockFocus.effect = effect
+      useEffect(effect, [effect])
+    },
+  }
+})
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 
 const mine = (over: object = {}) => ({ account: { name: 'Ana Rao', email: 'ana@example.com', phone: null, addresses: [{ id: 'a1', name: 'Home', line1: '1 Lake Rd', city: 'Jaipur', country: 'IN' }], ...over }, store: { markets: [{ countries: ['IN'] }] } })
@@ -40,6 +51,17 @@ describe('Account', () => {
     expect(hasText(screen, t('account.addresses', { count: 1 }))).toBe(true)
     await press(screen, t('account.addresses', { count: 1 }))
     expect(mockPush).toHaveBeenLastCalledWith('/account/addresses')
+  })
+
+  it('shows the new address count when the shopper comes back from adding one', async () => {
+    let count = 1
+    const shop = fakeShop(() => mine({ addresses: Array.from({ length: count }, (_, i) => ({ id: `a${i}`, name: 'Home', line1: '1 Lake Rd', city: 'Jaipur', country: 'IN' })) }), { signedIn: true })
+    const screen = await render(<AccountScreen />, shop)
+    expect(hasText(screen, t('account.addresses', { count: 1 }))).toBe(true)
+    count = 2
+    await act(async () => mockFocus.effect?.())
+    await flush()
+    expect(hasText(screen, t('account.addresses', { count: 2 }))).toBe(true)
   })
 
   it('renames the account only once the name has changed', async () => {
