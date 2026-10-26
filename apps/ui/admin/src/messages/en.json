@@ -1452,6 +1452,7 @@
       "partner_user": "Partner user",
       "person": "Store user",
       "customer": "Shopper",
+      "rider": "Rider",
       "api_key": "API key",
       "app_grant": "App",
       "support_session": "Support session",

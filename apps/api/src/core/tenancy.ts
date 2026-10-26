@@ -1,7 +1,7 @@
 // Who is asking and what they may reach (ACCESS.md §3), built on the server from the
 // resolved caller. #13 and #14 add the resolution that produces one.
 
-export type Scope = 'store' | 'partner' | 'platform' | 'shop' | 'system'
+export type Scope = 'store' | 'partner' | 'platform' | 'shop' | 'delivery' | 'system'
 
 // No default, so forgetting the vendor filter is a type error (ACCESS.md §3).
 export type SellerScope = { kind: 'all' } | { kind: 'seller'; sellerId: string }
@@ -9,6 +9,7 @@ export type SellerScope = { kind: 'all' } | { kind: 'seller'; sellerId: string }
 export type StoreCaller =
   | { kind: 'person'; userId: string; sessionId: string }
   | { kind: 'shopper'; customerId: string | null; orderTokenHash?: string | null }
+  | { kind: 'rider'; riderId: string }
   | { kind: 'api-key'; keyId: string; createdByUserId: string }
   | { kind: 'app'; grantId: string; appId: string }
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }

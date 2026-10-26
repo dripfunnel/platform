@@ -10,11 +10,14 @@ import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
 import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
+import { deliverySchema, type DeliveryContext } from '#apis/delivery/schema'
+import { handleRiderAsset, riderAssetsPath } from '#apis/delivery/assets'
 import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
 import { handleDownload, isDownloadPath } from '#apis/shop/downloads'
 import { handleVitals, vitalsPath } from '#apis/shop/vitals'
 import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache'
 import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
+import { resolveRider } from '#auth/riderCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
@@ -105,6 +108,7 @@ import { appNoticeKind } from '#saas/apps/index'
 import { webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDeliverer } from '#jobs/queues/deliverers/webhooks'
 import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
+import { purgeRiderSignIns } from '#db/scoped/riderSignIn'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { storefrontCreateDeliverer, storefrontUndoDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
@@ -152,6 +156,7 @@ const servers = {
   platform: createServer<PlatformContext>(platformSchema, '/api'),
   store: createServer<StoreContext>(storeSchema, '/api'),
   shop: createServer<ShopContext>(shopSchema, '/shop-api'),
+  delivery: createServer<DeliveryContext>(deliverySchema, '/delivery-api'),
 }
 
 interface Env extends Record<string, unknown> {
@@ -699,6 +704,29 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
   })
 }
 
+// A store's free address through StorefrontEdge only (DELIVERY §4): the store from the host, the rider from a bearer session.
+// A code request's look-up runs past the response, so the connection closes only once it settles.
+const handleDelivery = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+  const facts = factsOf(request)
+  const defer = (work: Promise<unknown>) => ctx.waitUntil(work)
+  const hyperdrive = config.HYPERDRIVE
+  if (!hyperdrive) return servers.delivery.fetch(request, { sql: null, caller: null, activity: activityLog, facts, defer, now: () => new Date() })
+  const limiter = env.SHOP_RATE_LIMITER
+  if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+  if (!facts.ip || !(await limiter.limit({ key: `delivery:${url.hostname}:${facts.ip}` })).success) return shopRefusal(429, 'RATE_LIMITED', 'Too many requests. Try again in a minute.')
+  const sql = getClient(hyperdrive)
+  const deferred: Promise<unknown>[] = []
+  try {
+    const caller = await resolveRider(sql, request, url.hostname, config.SHOP_DOMAIN ?? null, new Date())
+    if (!caller) return notFound()
+    const context: DeliveryContext = { sql, caller, activity: activityLog, facts, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, defer: (work) => deferred.push(work), files: env.ASSETS ?? null, now: () => new Date() }
+    if (url.pathname === riderAssetsPath) return await handleRiderAsset(request, context)
+    return await servers.delivery.fetch(request, context)
+  } finally {
+    ctx.waitUntil(Promise.allSettled(deferred).then(() => sql.end({ timeout: 5 })))
+  }
+}
+
 // The designer's model, screenshots and pasted images (storefront ARCHITECTURE §6.2). The merchant's own key has nowhere to
 // be kept yet, so a store on its own key answers AI_NOT_CONNECTED; the plan's is AI_PROVIDER_KEY until #275.
 const designFor = (config: Config, env: Env): NonNullable<StoreContext['design']> => {
@@ -767,6 +795,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
   if (!area) return { response: notFound(), area: null }
   if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
   if (area === 'studio') return { response: await studioFrame(request, config, env, ctx), area }
+  if (area === 'delivery') return { response: await handleDelivery(request, url, config, env, ctx), area }
   // Through PortalProxy nothing answers before the host is found among the live portal rows.
   if (entry === 'public' && isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id, env.ASSETS !== undefined), area }
@@ -987,6 +1016,13 @@ const purgeShopperSignIns: CronJob = async (sql) => {
   })
 }
 
+// Riders' codes and sessions, as shoppers' (DELIVERY §5).
+const purgeRiderCodes: CronJob = async (sql) => {
+  await drained(() => withSystemScope(sql, (tx) => purgeRiderSignIns(tx, new Date(), purgeBatch)), runsPerHour).catch((error: unknown) => {
+    logEvent({ event: 'rider_sign_in_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
 const purgeSignups: CronJob = async (sql) => {
   await drained(() => withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), purgeBatch)), runsPerHour).catch((error: unknown) => {
@@ -1046,7 +1082,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
-  '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
+  '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],
 }
 

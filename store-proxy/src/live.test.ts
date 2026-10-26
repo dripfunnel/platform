@@ -168,9 +168,10 @@ describe('the live site', () => {
     expect(cache.keys().filter((k) => k.includes('/__df/redirects/'))).toEqual([])
   })
 
-  it('sends /shop-api/* to the API, keeping the shopper’s host', async () => {
+  it('sends /shop-api/* and /delivery-api/* to the API, keeping the caller’s host', async () => {
     await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}' })
-    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`])
+    await get(`https://${hostA}/delivery-api/`, { method: 'POST', body: '{}' })
+    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`, `https://${hostA}/delivery-api/`])
   })
 
   it('keeps a portal host’s routing when no store holds the host', async () => {
@@ -192,7 +193,7 @@ describe('the live site', () => {
   it('refuses writes to the built files', async () => {
     expect((await get(`https://${hostA}/`, { method: 'POST' })).status).toBe(405)
   })
-  it('redirects every other address of the store to its primary one, keeping the path and query, but never /shop-api (#471)', async () => {
+  it('redirects every other address of the store to its primary one, keeping the path and query, but never /shop-api or /delivery-api (#471, #839)', async () => {
     const own = 'www.a-shop.example'
     edge.hosts.set(hostA, store(storeA, build1, 'open', 'Shop', own))
     edge.hosts.set(own, store(storeA, build1, 'open', 'Shop', own))
@@ -200,7 +201,8 @@ describe('the live site', () => {
     expect([moved.status, moved.headers.get('location'), moved.headers.get('x-df-build')]).toEqual([301, `https://${own}/about/?ref=ad`, build1])
     expect(await text(`https://${own}/about/`)).toBe('A about')
     await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}' })
-    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`])
+    await get(`https://${hostA}/delivery-api/`, { method: 'POST', body: '{}' })
+    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`, `https://${hostA}/delivery-api/`])
   })
 
   it('takes a lookup with no primary address as no redirect, and refuses one that isn’t a plain host', () => {
