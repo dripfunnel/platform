@@ -131,6 +131,16 @@ When the `dripfunnel` org moves to GitHub Team: apply the `protect-main` ruleset
 only, the CI `gates` check required, no force-push or deletion), then remove the `gates` job
 from `prod.yml` (ARCHITECTURE.md §6).
 
+### 3.8 Moving prod from `dripfunnel.com` to `dripfunnel.ai` (#907)
+
+One-off, done by a person; the repo already names the new zone. Emails stay `@dripfunnel.com`.
+1. Use the `dripfunnel.ai` zone in the prod account; point the deploy token's zone scope (§3.2) and the
+   `admin`, `platform` and `hooks` routes and custom domains at it (§3.5).
+2. Set `EDGE_ZONE`, `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST` and `CF_SAAS_ZONE_ID` (§4), and the `CF_CACHE_PURGE_TOKEN` zone.
+3. Create `portal.edge` and `shops.edge` on `dripfunnel.ai`, and re-point every existing custom-hostname CNAME
+   from `*.edge.dripfunnel.com`.
+4. Update the callbacks: Stripe webhook and Connect redirect, SES/SNS subscription, the Entra redirect URIs.
+
 ---
 
 ## 4. The Worker's values

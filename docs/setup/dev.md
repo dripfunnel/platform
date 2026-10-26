@@ -201,6 +201,18 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.my-shop.dev/*` and the
    variable `SHOP_DOMAIN=my-shop.dev`, as its comment lists (#317, #744).
 
+### 2.9 Moving dev from `dripfunnel.ai` to `actuateminds.com` (#907)
+
+One-off, done by a person; the repo already names the new zone.
+1. Add `actuateminds.com` to the dev Cloudflare account, SSL Full (strict); create the Access
+   applications `*.actuateminds.com` (allow `@softobotics.com`) and the `*-hooks.actuateminds.com` Bypass (§2.1).
+2. Re-point the deploy token's zone scope (§2.2) and the Worker routes to the new zone; `dev-hooks` is a custom domain.
+3. Set `EDGE_ZONE`, `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST`, `CF_SAAS_ZONE_ID` and the `CF_CACHE_PURGE_TOKEN`
+   zone (§3), and the repo's `FEATURE_DOMAIN` and `FEATURE_ZONE_ID` variables (FEATURE-ENVIRONMENTS.md).
+4. Create `portal.edge` and `shops.edge` on the new zone, then reset the dev domain rows so they get the new targets.
+5. Update the callbacks: Stripe webhook and Connect redirect, SES/SNS subscription, the Entra redirect URIs.
+6. Check `https://dev-platform.actuateminds.com/api/health` and the other `dev-` hosts.
+
 ---
 
 ## 3. The Worker's values

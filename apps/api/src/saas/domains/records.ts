@@ -89,6 +89,7 @@ export const recordsFor = (kind: DomainKind, host: string, apex: boolean, edgeZo
 
 const dripfunnelDomains = ['dripfunnel.ai', 'dripfunnel.net', 'dripfunnel-mail.com']
 
+// Prod-only by design: the house partner is a production partner, so dev never gets a house zone (#907).
 const houseDomain = 'dripfunnel.ai'
 const reservedHouseHosts = [houseDomain, ...['admin', 'platform', 'hooks'].map((label) => `${label}.${houseDomain}`)]
 /** The names the house partner may add (SAAS §3.5): under dripfunnel.ai, not its apex, the hosts the platform serves (ARCHITECTURE §2) or the fallback origins under `edge.` on the environment's zone. */
