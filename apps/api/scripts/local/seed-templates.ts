@@ -76,23 +76,26 @@ const put = async (key: string, body: string, contentType = 'application/json') 
 const contentTypes: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' }
 const scratch = mkdtempSync(join(tmpdir(), 'seed-templates-'))
 const keys = readdirSync(`${templates}themes`)
-for (const key of keys) {
-  const root = `templates/storefront/themes/${key}/`
-  const files = tracked(root.slice(0, -1)).map((p) => ({ ...read(p), path: p.slice(root.length) })).filter((f) => isThemePath(f.path))
-  const out = join(scratch, key)
-  const built = await bundle(`${templates}themes/${key}`, out)
-  if (!built.ok) throw new Error(`The ${key} theme's preview doesn't build: ${JSON.stringify(built.problems)}`)
-  const prefix = `templates/${core}/themes/${key}/`
-  await put(`${prefix}source.json`, JSON.stringify({ files }))
-  const manifest = []
-  for (const { path } of built.bundle.files) {
-    const body = readFileSync(join(out, path), 'utf8')
-    await put(`${prefix}preview/files/${path}`, body, contentTypes[extname(path)] ?? 'application/octet-stream')
-    manifest.push({ path, sha256: sha256Hex(body) })
+try {
+  for (const key of keys) {
+    const root = `templates/storefront/themes/${key}/`
+    const files = tracked(root.slice(0, -1)).map((p) => ({ ...read(p), path: p.slice(root.length) })).filter((f) => isThemePath(f.path))
+    const out = join(scratch, key)
+    const built = await bundle(`${templates}themes/${key}`, out)
+    if (!built.ok) throw new Error(`The ${key} theme's preview doesn't build: ${JSON.stringify(built.problems)}`)
+    const prefix = `templates/${core}/themes/${key}/`
+    await put(`${prefix}source.json`, JSON.stringify({ files }))
+    const manifest = []
+    for (const { path } of built.bundle.files) {
+      const body = readFileSync(join(out, path), 'utf8')
+      await put(`${prefix}preview/files/${path}`, body, contentTypes[extname(path)] ?? 'application/octet-stream')
+      manifest.push({ path, sha256: sha256Hex(body) })
+    }
+    await put(`${prefix}preview/manifest.json`, JSON.stringify({ files: manifest }))
   }
-  await put(`${prefix}preview/manifest.json`, JSON.stringify({ files: manifest }))
+} finally {
+  rmSync(scratch, { recursive: true, force: true })
 }
-rmSync(scratch, { recursive: true, force: true })
 await put(`templates/${core}/skeleton.json`, JSON.stringify({ files: skeleton }))
 await put('templates/current.json', JSON.stringify({ core }))
 await proxy?.dispose()
