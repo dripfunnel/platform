@@ -1,0 +1,157 @@
+{
+  "tabs": {
+    "home": "Home",
+    "browse": "Browse",
+    "cart": "Cart",
+    "account": "Account"
+  },
+  "placeholder": {
+    "body": "This screen isn't built yet."
+  },
+  "startup": {
+    "failed": "The app couldn’t start. Try again in a moment.",
+    "retry": "Try again"
+  },
+  "brand": {
+    "logo": "{name} logo",
+    "logoUnnamed": "Store logo"
+  },
+  "common": {
+    "back": "Back",
+    "close": "Close"
+  },
+  "states": {
+    "loading": "Loading",
+    "retry": "Try again",
+    "showMore": "Show more",
+    "moreFailed": "We couldn’t load more. Your products are still here.",
+    "moreOffline": "No connection. Reconnect to see more.",
+    "error": {
+      "title": "We couldn’t load this"
+    },
+    "offline": {
+      "title": "You’re offline",
+      "body": "Connect to the internet and try again. Nothing you’ve done is lost.",
+      "banner": "You’re offline. This is what we last loaded."
+    }
+  },
+  "errors": {
+    "NO_RESPONSE": "No connection. Check your internet and try again.",
+    "UNAVAILABLE": "That isn’t available any more.",
+    "RATE_LIMITED": "Too many tries. Wait a minute and try again.",
+    "INVALID_INPUT": "Something here isn’t valid. Check your choices and try again.",
+    "STORE_UNAVAILABLE": "This shop isn’t open right now. Try again later.",
+    "TOO_MANY_LINES": "Your cart is full. Remove something to add this.",
+    "UNKNOWN": "Something went wrong. Try again in a moment."
+  },
+  "home": {
+    "search": "Search products",
+    "collections": "Shop by collection",
+    "newIn": "New in",
+    "seeAll": "See all",
+    "seeAllNewIn": "See all new products",
+    "empty": {
+      "title": "Nothing here yet",
+      "body": "This store hasn’t added anything to sell. Check back soon."
+    }
+  },
+  "browse": {
+    "title": "Browse",
+    "all": "All products",
+    "allBody": "Everything the store sells",
+    "empty": {
+      "title": "No collections yet",
+      "body": "You can still see all products."
+    }
+  },
+  "collection": {
+    "all": "All products",
+    "filters": "Filters",
+    "filtersCount": "Filters · {count}",
+    "sort": "Sort: {sort}",
+    "sortTitle": "Sort by",
+    "sorts": {
+      "featured": "Featured",
+      "newest": "Newest",
+      "priceLow": "Price, low to high",
+      "priceHigh": "Price, high to low"
+    },
+    "showProducts": "Show products",
+    "clearAll": "Clear all",
+    "clearFilters": "Clear filters",
+    "removeFilter": "Remove filter {label}",
+    "none": {
+      "title": "Nothing matches these filters",
+      "body": "Try removing one, or see everything in this collection."
+    },
+    "empty": {
+      "title": "No products here yet",
+      "body": "Check back soon."
+    },
+    "notFound": {
+      "title": "We couldn’t find that collection",
+      "body": "It may have been removed. Browse the store’s other collections."
+    }
+  },
+  "search": {
+    "label": "Search products",
+    "clear": "Clear search",
+    "recent": "Recent searches",
+    "clearRecent": "Clear",
+    "browseCollections": "Browse collections",
+    "noSuggestions": "No suggestions. Press search to look anyway.",
+    "seeResults": "Search for “{query}”",
+    "none": {
+      "title": "No products match “{query}”",
+      "body": "Check the spelling, try a shorter word, or browse a collection."
+    }
+  },
+  "product": {
+    "from": "From {price}",
+    "was": "Was {price}",
+    "tax": {
+      "included": "Inclusive of all taxes",
+      "added": "Tax calculated at checkout"
+    },
+    "stock": {
+      "soldOut": "Sold out",
+      "versionSoldOut": "This version is sold out",
+      "low": "Only {count} left",
+      "in": "In stock",
+      "choose": "Choose a {options} to see stock"
+    },
+    "choose": "Choose",
+    "chooseOption": "Choose a {option}",
+    "valueSoldOut": "{value}, sold out",
+    "valueUnavailable": "{value}, not available with your other choices",
+    "unavailable": "Not available",
+    "offlineAdd": "Connect to add to cart",
+    "addToCart": "Add to cart",
+    "added": "Added to your cart",
+    "viewCart": "View cart",
+    "quantityLess": "One fewer",
+    "quantityMore": "One more",
+    "quantityValue": "Quantity {count}",
+    "photoOf": "{name}, photo {number} of {count}",
+    "video": "{name}, video",
+    "watchVideo": "Watch the product video",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomed": "Zoomed in",
+    "warranty": "Warranty: {text}",
+    "sections": {
+      "details": "Details",
+      "specs": "Specifications",
+      "returns": "Delivery and returns",
+      "faqs": "Questions"
+    },
+    "sizeChart": {
+      "open": "Size chart",
+      "size": "Size"
+    },
+    "notFound": {
+      "title": "We couldn’t find that product",
+      "body": "It may have been removed. Browse the store to find something else."
+    }
+  }
+}
