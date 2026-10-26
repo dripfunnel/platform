@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { AddressFields, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
@@ -19,6 +19,21 @@ export const CheckoutView = () => {
   const [contactErrors, setContactErrors] = useState<{ email?: string; phone?: string }>({})
   const [address, setAddress] = useState<ReturnType<typeof addressDraft> | null>(null)
   const [addressErrors, setAddressErrors] = useState<Partial<Record<AddressField, FieldProblem>>>({})
+
+  // When the store offers exactly one delivery option, apply it for the shopper so the delivery step can be
+  // skipped; with several, the step still lets them choose (DESIGN-BRIEF §54). The engine prices it either way.
+  const soleOption = c.cart?.needsShipping && c.cart.shippingOptions.length === 1 ? (c.cart.shippingOptions[0]?.id ?? null) : null
+  const chosenShipping = c.cart?.shippingOption ?? null
+  const applying = useRef(false)
+  useEffect(() => {
+    // Apply the sole option whenever it is unchosen — including after an address edit clears it (chosenShipping
+    // changes, re-running this). `applying` guards the in-flight window; on failure chosenShipping stays null and
+    // the step stays visible (its chooser is the retry), and neither dep changes, so there is no retry loop.
+    if (soleOption === null || chosenShipping !== null || applying.current) return
+    applying.current = true
+    void c.chooseDelivery(soleOption).catch(() => {}).finally(() => { applying.current = false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `c` is a new object each render; depending on it would re-run (and could retry) the mutation every render.
+  }, [soleOption, chosenShipping])
 
   if (c.status === 'loading') {
     return (
@@ -191,6 +206,10 @@ export const CheckoutView = () => {
     )
   }
 
+  // Hide the delivery step once its sole option is applied; with several options (or none computed yet) it stays
+  // visible so the shopper gets the chooser, or the "can't deliver" message.
+  const visibleSteps = c.steps.filter((s) => s.id !== 'delivery' || !(cart.shippingOptions.length === 1 && cart.shippingOption !== null))
+
   return (
     <section className={styles.page}>
       <h1 className={styles.title}>{t('shop.checkout.title')}</h1>
@@ -201,7 +220,7 @@ export const CheckoutView = () => {
       ) : null}
       <div className={styles.layout}>
         <ol className={styles.steps}>
-          {c.steps.map((s) => (
+          {visibleSteps.map((s) => (
             <li key={s.id} className={clsx(styles.step, s.state === 'open' && styles.open)}>
               <div className={styles.stepHead}>
                 <span className={clsx(styles.number, s.state === 'done' && styles.numberDone)} aria-hidden="true" />
