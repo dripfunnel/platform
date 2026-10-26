@@ -16,7 +16,7 @@ const filesUnder = (dir: string): string[] =>
     return full.endsWith('.ts') && !full.endsWith('.test.ts') ? [full] : []
   })
 
-const relative = (file: string) => path.relative(srcDir, file)
+const relative = (file: string) => path.relative(srcDir, file).split(path.sep).join('/')
 
 const tenantTables = [
   'partner', 'store', 'seller', 'customer', 'activity_log', 'outbox',
@@ -94,7 +94,7 @@ describe('the data boundary', () => {
   it('touches the row-level security settings in exactly two files', () => {
     // db/rls/settings.ts decides the values from the caller's context and db/scoped applies
     // them (DATA-MODEL.md §5.1). A third file could choose a scope of its own.
-    const allowed = [path.join('db', 'rls', 'settings.ts'), path.join('db', 'scoped', 'index.ts')]
+    const allowed = ['db/rls/settings.ts', 'db/scoped/index.ts']
     const offenders = filesUnder(srcDir)
       .filter((file) => !allowed.includes(relative(file)))
       .filter((file) => /set_config\(|set\s+local\s+app\./i.test(readFileSync(file, 'utf8')))

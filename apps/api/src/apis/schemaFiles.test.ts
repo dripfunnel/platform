@@ -13,7 +13,8 @@ const schemas: Record<string, GraphQLSchema> = { store: storeSchema, admin: admi
 
 describe('the committed schema files', () => {
   it.each(Object.keys(schemas))('match the %s API as built', (name) => {
-    const committed = readFileSync(new URL(`../../schema/${name}.graphql`, import.meta.url), 'utf8')
+    // Git checks the file out with CRLF on Windows.
+    const committed = readFileSync(new URL(`../../schema/${name}.graphql`, import.meta.url), 'utf8').replaceAll('\r\n', '\n')
     expect(committed).toBe(`${printSchema(schemas[name] as GraphQLSchema)}\n`)
   })
 })
