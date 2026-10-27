@@ -2100,7 +2100,6 @@
     "delivery": {
       "title": "Own delivery from your locations",
       "sub": "Where your own riders deliver from. A supplier’s locations aren’t listed: their orders go by courier.",
-      "notOn": "Own delivery is off. Turn it on in Shipping once a location delivers.",
       "pinSet": "Map pin set",
       "pinNone": "No map pin",
       "setPin": "Set the map pin",
@@ -2116,7 +2115,6 @@
       "riderHint": "How far away online riders can be and still get the offer, 1–50 km.",
       "fee": "Fee ({currency})",
       "feeHint": "What the customer pays for own delivery.",
-      "feeFree": "What the customer pays for own delivery. Your “free over” rule in Shipping still applies.",
       "kmInvalid": "Enter 1 to 50 km.",
       "feeMissing": "Type the fee, or 0 for none.",
       "feeInvalid": "Type an amount like {example}.",
@@ -3790,7 +3788,6 @@
         "switch": "Deliver with our own riders",
         "needTitle": "To turn it on you need",
         "plan": "Own delivery in your plan",
-        "planBody": "DripFunnel switches it on for Enterprise stores once it’s agreed.",
         "rider": "At least one active rider",
         "riderBody": "Invite your riders and wait for them to accept.",
         "riderGo": "Riders",
