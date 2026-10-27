@@ -219,6 +219,18 @@ export const knownErrorCodes = [
   'SIGN_IN_REFUSED',
   'SIGNED_OUT',
   'NOT_IN_PREVIEW',
+  // Own delivery: the rider list, the Own delivery settings and an order's delivery (apps/api src/engine/modules/ownDelivery; docs/api/DELIVERY.md).
+  'OWN_DELIVERY_NOT_READY',
+  'DELIVERY_AREA_REQUIRED',
+  'RIDER_HAS_PARCEL',
+  'PHONE_TAKEN',
+  'NOT_INVITED',
+  'NOT_ACTIVE',
+  'NOT_PACKING',
+  'NOT_UNASSIGNED',
+  'NOT_PICKED_UP',
+  'NOT_HANDED_OVER',
+  'CODE_NOT_LOCKED',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

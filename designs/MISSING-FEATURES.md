@@ -252,6 +252,8 @@ Drawn in the prototypes but not in the first release, or linked to something tha
 | "Download the new version" for a build too old for the API | Delivery app › Account blocked › `tooOld` | Proposed in docs/mobile-app/delivery/FIRST-RELEASE.md §1 | — |
 | The rider's photo, "offered to N riders", the alert countdown and the last-position map in an order's Delivery panel | `OrderDelivery` | The API answers a photo's asset id and no address, no offer count or timer, and the portal's first release has no map (#846) | — |
 | Setting a warehouse's map pin on a map | `SetOwnDelivery` › "Set the map pin" places the pin at the address | The map picker is #815's | #815 |
+| The delivery app’s download link with Copy link, on Settings › Riders | `SetRiders` | The API gives no app link until DL 15 | #852 |
+| Own delivery and Delivery needs you chips and the delivery line on a row, in the merchant app’s Orders list | `PortalOrders` list | The merchant app’s #847 built the order’s panel only; the API’s filters exist | — |
 | Open settings / Call / Navigate from the delivery app | Delivery app (toasts) | Hand-offs to the phone's OS and map apps | — |
 
 ## 5. The shop app (#854)

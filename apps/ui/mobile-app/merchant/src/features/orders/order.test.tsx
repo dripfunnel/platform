@@ -74,6 +74,7 @@ const baseOrder = (over: Json = {}): Json => ({
   refunded: null,
   shippingOption: 'flat',
   shopperNote: null,
+  delivery: null,
   ...over,
 })
 

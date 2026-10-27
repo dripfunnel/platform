@@ -20,6 +20,7 @@ import { CancelOrderSheet } from './CancelOrderSheet'
 import { CancelReturnSheet } from './CancelReturnSheet'
 import { loadStateOf } from './loadState'
 import { MarkPaidSheet } from './MarkPaidSheet'
+import { DeliveryWaiting, OrderDelivery } from './OrderDelivery'
 import { OrderCustomer } from './OrderCustomer'
 import { OrderHistory } from './OrderHistory'
 import { OrderLines } from './OrderLines'
@@ -112,6 +113,9 @@ export function OrderScreen({ id }: { id: string }) {
   const canMarkPaid = access.canMarkPaid && awaitingPayment(order)
   const canReturn = access.canRefund && returnable(order)
   const canRefund = access.canRefund && canRefundNow(order)
+  const ownDelivery = order.shippingOption === 'own_delivery'
+  // Only the Owner reads the riders (`riders.manage`), so only they pick one by hand.
+  const canPick = access.canShip && permissions.state.status === 'ready' && permissions.state.data.permissions.includes('riders.manage')
   const canCancel = access.canCancel && order.state === 'placed' && order.paymentState !== 'refunded' && nothingSent(order)
 
   const receive = (ret: OrderReturn) =>
@@ -156,6 +160,11 @@ export function OrderScreen({ id }: { id: string }) {
         ) : null}
 
         <OrderLines order={order} />
+        {order.delivery ? (
+          <OrderDelivery order={order} delivery={order.delivery} timeZone={timeZone} canAct={access.canShip} canPick={canPick} canMarkPaid={access.canMarkPaid} client={client} onDone={refresh} />
+        ) : ownDelivery && order.state === 'placed' ? (
+          <DeliveryWaiting />
+        ) : null}
         <OrderShipments order={order} timeZone={timeZone} canFulfil={access.canShip} busy={write.busy} onAddTracking={(shipment) => setSheet({ kind: 'tracking', shipment })} onRequestPickup={askPickup} />
         <OrderReturns order={order} timeZone={timeZone} canRefund={access.canRefund} busy={write.busy} onReceive={receive} onCancel={(ret) => setSheet({ kind: 'cancelReturn', ret })} onRefund={(ret) => setSheet({ kind: 'refund', from: ret })} />
         <OrderTotals order={order} />
