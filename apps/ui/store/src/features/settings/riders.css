@@ -1,0 +1,114 @@
+/* Settings › Riders (designs/SetRiders.dc.html): the People list's look, with four more columns. */
+
+.df-riders-row {
+  grid-template-columns: minmax(0, 1.6fr) 110px minmax(0, 1fr) minmax(0, 1fr) 90px;
+}
+
+.df-riders-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 110px minmax(0, 1fr) minmax(0, 1fr) 90px;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-riders-head span:nth-child(5) {
+  text-align: right;
+}
+
+.df-riders-done {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-riders-online {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-riders-online::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentcolor;
+  content: '';
+}
+
+.df-riders-online[data-on='true'] {
+  color: var(--df-color-success);
+}
+
+.df-riders-online[data-on='false'] {
+  color: var(--df-color-muted);
+}
+
+.df-riders-online[data-on='false']::before {
+  background: transparent;
+}
+
+.df-riders-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-riders-quiet {
+  color: var(--df-color-muted);
+}
+
+.df-riders-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 24px;
+  border: 1px dashed var(--df-color-field-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  text-align: center;
+}
+
+.df-riders-empty h3 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 17px;
+}
+
+.df-riders-empty p {
+  max-width: 460px;
+  margin: 0;
+  color: var(--df-color-text);
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .df-riders-head {
+    display: none;
+  }
+
+  .df-riders-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+  }
+
+  .df-riders-row > .df-team-who {
+    grid-column: 1 / -1;
+  }
+
+  /* teamRow.css hides the status on a phone; a rider's status (suspended, invited) must stay. */
+  .df-riders-row > .df-team-status {
+    display: block;
+  }
+
+  .df-riders-done {
+    text-align: left;
+  }
+}

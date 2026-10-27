@@ -4,7 +4,7 @@ import { activitySearchShape } from '../activity/activitySearch'
 import { stripeAnswers, stripeKeyPattern } from './stripeBack'
 
 /** The tabs built so far, in PortalSettings' order; each card adds its own (FIRST-RELEASE §15). */
-export const settingsTabs = ['store', 'people', 'supplier', 'payments', 'shipping', 'warehouse', 'tax', 'markets', 'catalogue', 'customers', 'developers', 'apps', 'support', 'activity'] as const
+export const settingsTabs = ['store', 'people', 'supplier', 'payments', 'shipping', 'warehouse', 'tax', 'markets', 'catalogue', 'customers', 'developers', 'apps', 'support', 'riders', 'activity'] as const
 export type SettingsTab = (typeof settingsTabs)[number]
 
 export const settingsSearch = z.looseObject({
