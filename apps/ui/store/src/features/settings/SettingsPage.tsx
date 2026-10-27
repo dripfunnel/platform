@@ -121,8 +121,8 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
     if (!seat.owner) return () => <EmptyState title={words.denied.title} body={words.denied.body} />
     const plan = await reads.riderPlan()
     if (!plan.ownDelivery) return () => <EmptyState title={words.riders.notAvailable.title} body={words.riders.notAvailable.body} />
-    const [first, info] = await Promise.all([reads.riders(null), reads.storeInfo()])
-    return (done, canEdit) => <RidersTab first={first} plan={plan} country={info?.country ?? null} canEdit={canEdit} onChanged={done.reload} />
+    const first = await reads.riders(null)
+    return (done, canEdit) => <RidersTab first={first} canEdit={canEdit} onChanged={done.reload} />
   },
   // The log reads itself, by its filter in the address; a read-only store still reads and exports it.
   activity: async () => () => <ActivityTab read={reads.activity} canExport={seat.owner} forced={seat.forced} />,

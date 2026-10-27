@@ -275,7 +275,7 @@ export const sampleReads: SettingsReads = {
   supportAccess: async () => sampleSupport,
   activity: sampleRead,
   riders: async () => ({ nodes: harness ? sampleRiders : [], pageInfo: { hasNextPage: false, endCursor: null } }),
-  riderPlan: async () => ({ ownDelivery: true, limit: 10 }),
+  riderPlan: async () => ({ ownDelivery: true }),
   catalogue: async () => ({
     pricingCurrency: 'INR',
     unitSystem: 'metric',

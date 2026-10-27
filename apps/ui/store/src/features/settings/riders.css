@@ -76,16 +76,6 @@
   cursor: pointer;
 }
 
-.df-riders-limit {
-  margin: 0;
-  padding: 12px 14px;
-  border: 1px solid var(--df-color-warning-border);
-  border-radius: var(--df-radius);
-  background: var(--df-color-warning-surface);
-  color: var(--df-color-warning);
-  font-size: 13px;
-}
-
 .df-riders-empty {
   display: flex;
   flex-direction: column;

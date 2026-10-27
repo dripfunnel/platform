@@ -55,20 +55,16 @@ export const removeRider = async (id: string): Promise<void> => {
 }
 
 const planSchema = z.object({
-  planCatalogue: z
-    .array(z.object({ current: z.boolean(), values: z.array(z.object({ key: z.string(), enabled: z.boolean().nullable(), amount: z.number().int().nullable(), unlimited: z.boolean().nullable() })) }))
-    .nullable(),
+  planCatalogue: z.array(z.object({ current: z.boolean(), values: z.array(z.object({ key: z.string(), enabled: z.boolean().nullable() })) })).nullable(),
 })
 
-/** What the current plan says about own delivery; `limit` null is no cap. Owner only, like Settings. */
+/** Whether the current plan has own delivery (Owner only, like Settings). The rider limit is the API's: PLAN_LIMIT on invite carries it. */
 export interface RiderPlan {
   ownDelivery: boolean
-  limit: number | null
 }
 
 export const loadRiderPlan = async (): Promise<RiderPlan> => {
-  const { planCatalogue } = await query('{ planCatalogue { current values { key enabled amount unlimited } } }', planSchema)
+  const { planCatalogue } = await query('{ planCatalogue { current values { key enabled } } }', planSchema)
   const values = planCatalogue?.find((p) => p.current)?.values ?? []
-  const riders = values.find((v) => v.key === 'riders')
-  return { ownDelivery: values.some((v) => v.key === 'own_delivery' && v.enabled === true), limit: riders && riders.unlimited !== true ? (riders.amount ?? 0) : null }
+  return { ownDelivery: values.some((v) => v.key === 'own_delivery' && v.enabled === true) }
 }

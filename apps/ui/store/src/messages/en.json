@@ -2932,9 +2932,6 @@
       "title": "Riders",
       "sub": "Your own delivery people. They deliver from your warehouses with your store’s Delivery app, and aren’t the courier delivery partners in Shipping.",
       "invite": "Invite a rider",
-      "meter": "{count} of {limit} riders on your plan · {active} active",
-      "limitTitle": "You’ve reached your rider limit.",
-      "limitBody": "Ask DripFunnel to raise your limit, or remove a rider to invite someone new.",
       "emptyTitle": "No riders yet",
       "emptyBody": "Invite your delivery people by mobile number. They get a text with the app link and sign in with that number. Own delivery can be turned on in Shipping once one of them is active.",
       "columns": {
@@ -2969,7 +2966,7 @@
       "nameMissing": "Add their name",
       "next": "Next: mobile number",
       "mobileTitle": "Mobile number for {name}",
-      "mobileBody": "Use the number they’ll sign in with, with its country code.",
+      "mobileBody": "Use the number they’ll sign in with, starting with its country code.",
       "mobile": "Mobile number",
       "mobilePlaceholder": "+91 98765 43210",
       "mobileInvalid": "Enter the full mobile number with its country code, such as +91 98765 43210",

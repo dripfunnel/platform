@@ -2,10 +2,10 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, initials, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useRef, useState } from 'react'
 import type { PageOf } from '../../api/allPages'
-import { inviteRider, loadRiders, removeRider, restoreRider, resendRiderInvitation, suspendRider, type Rider, type RiderPlan, type RiderStatus } from '../../api/riders'
+import { inviteRider, loadRiders, removeRider, restoreRider, resendRiderInvitation, suspendRider, type Rider, type RiderStatus } from '../../api/riders'
 import { fill, formatCount, messages } from '../../messages'
 import '../common/teamRow.css'
-import { dialCodeOf, isMobile, toE164 } from './riderPhone'
+import { isMobile, toE164 } from './riderPhone'
 import './riders.css'
 
 const words = messages.settings.riders
@@ -27,24 +27,17 @@ export const refusalOf = (error: unknown): string => {
 
 export interface RidersTabProps {
   first: PageOf<Rider>
-  plan: RiderPlan
-  country: string | null
   canEdit: boolean
   onChanged: (toast: string) => void
 }
 
 /** SetRiders: the Owner's own delivery people, with invite, resend, suspend, restore and remove (#844). */
-export const RidersTab = ({ first, plan, country, canEdit, onChanged }: RidersTabProps) => {
+export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
   const [page, setPage] = useState(first)
   const [more, setMore] = useState<'idle' | 'busy' | 'failed'>('idle')
   const [ask, setAsk] = useState<Ask | null>(null)
   const [busy, setBusy] = useState(false)
   const riders = page.nodes
-  const dialCode = dialCodeOf(country)
-  const complete = !page.pageInfo.hasNextPage
-  // The plan counts invited and active riders; the list never holds removed ones (DELIVERY §9, countCountedRiders).
-  const counted = riders.filter((r) => r.status !== 'suspended').length
-  const atLimit = complete && plan.limit !== null && counted >= plan.limit
 
   const inFlight = useRef(false)
 
@@ -94,9 +87,9 @@ export const RidersTab = ({ first, plan, country, canEdit, onChanged }: RidersTa
           // A refusal leaves this dialog open with what was typed.
           stayOpen: true,
           error: null,
-          input: { label: words.mobile, type: 'text', initial: dialCode ? `${dialCode} ` : '', placeholder: words.mobilePlaceholder, error: (v) => (isMobile(v, dialCode) ? null : words.mobileInvalid) },
+          input: { label: words.mobile, type: 'text', initial: '+', placeholder: words.mobilePlaceholder, error: (v) => (isMobile(v) ? null : words.mobileInvalid) },
           onConfirm: (_, value) => {
-            const phone = toE164(value ?? '', dialCode)
+            const phone = toE164(value ?? '')
             setAsk((a) => a && { ...a, error: null })
             void run(
               async () => {
@@ -161,12 +154,6 @@ export const RidersTab = ({ first, plan, country, canEdit, onChanged }: RidersTa
         </div>
         {canEdit && riders.length > 0 && inviteButton}
       </div>
-      {complete && plan.limit !== null && <p className="df-team-foot">{fill(words.meter, { count: formatCount(counted), limit: formatCount(plan.limit), active: formatCount(riders.filter((r) => r.status === 'active').length) })}</p>}
-      {atLimit && (
-        <p className="df-riders-limit" role="status">
-          <strong>{words.limitTitle}</strong> {words.limitBody}
-        </p>
-      )}
       {riders.length === 0 ? (
         <div className="df-riders-empty">
           <h3>{words.emptyTitle}</h3>

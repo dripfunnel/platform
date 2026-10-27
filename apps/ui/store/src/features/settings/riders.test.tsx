@@ -8,7 +8,7 @@ import { z } from 'zod'
 import type { Acting } from '../../api/shell'
 import type { Rider } from '../../api/riders'
 import { messages } from '../../messages'
-import { toE164 } from './riderPhone'
+import { isMobile, toE164 } from './riderPhone'
 
 // Settings › Riders driven as the Owner would (SetRiders, #844).
 
@@ -24,7 +24,7 @@ const api = vi.hoisted(() => ({
   removeRider: vi.fn(),
 }))
 vi.mock('../../api/riders', async (actual) => ({ ...(await actual<typeof import('../../api/riders')>()), ...api }))
-vi.mock('../../api/settings', () => ({ loadStoreInfo: vi.fn(async () => ({ country: 'IN' })), loadLocale: vi.fn() }))
+vi.mock('../../api/settings', () => ({ loadStoreInfo: vi.fn(), loadLocale: vi.fn() }))
 
 const { SettingsPage } = await import('./SettingsPage')
 
@@ -61,7 +61,7 @@ const manage = (name: string) => fireEvent.click(screen.getByRole('button', { na
 const ridersTabLink = () => document.querySelector('a[href*="tab=riders"]')
 
 beforeEach(() => {
-  api.loadRiderPlan.mockResolvedValue({ ownDelivery: true, limit: 10 })
+  api.loadRiderPlan.mockResolvedValue({ ownDelivery: true })
   api.loadRiders.mockResolvedValue(page(riders))
   for (const fn of [api.inviteRider, api.resendRiderInvitation, api.suspendRider, api.restoreRider, api.removeRider]) fn.mockResolvedValue(undefined)
 })
@@ -76,7 +76,7 @@ describe('the tab', () => {
     await show('store')
     expect(ridersTabLink()).not.toBeNull()
     cleanup()
-    api.loadRiderPlan.mockResolvedValue({ ownDelivery: false, limit: null })
+    api.loadRiderPlan.mockResolvedValue({ ownDelivery: false })
     await show('store')
     expect(ridersTabLink()).toBeNull()
   })
@@ -104,7 +104,7 @@ describe('the tab', () => {
   })
 
   it('says so plainly, with no upsell, at an address typed by hand', async () => {
-    api.loadRiderPlan.mockResolvedValue({ ownDelivery: false, limit: null })
+    api.loadRiderPlan.mockResolvedValue({ ownDelivery: false })
     await show('riders')
     expect(screen.getByText(w.notAvailable.title)).toBeTruthy()
     expect(api.loadRiders).not.toHaveBeenCalled()
@@ -120,7 +120,6 @@ describe('the list', () => {
     expect(screen.getByText('42 delivered')).toBeTruthy()
     expect(screen.getByText(w.statuses.suspended)).toBeTruthy()
     expect(screen.getByText(w.statuses.invited)).toBeTruthy()
-    expect(screen.getByText('2 of 10 riders on your plan · 1 active')).toBeTruthy()
   })
 
   it('is empty with an invite button when there are no riders', async () => {
@@ -128,12 +127,6 @@ describe('the list', () => {
     await show('riders')
     expect(screen.getByText(w.emptyTitle)).toBeTruthy()
     expect(screen.getByRole('button', { name: w.invite })).toBeTruthy()
-  })
-
-  it('warns at the plan’s limit', async () => {
-    api.loadRiderPlan.mockResolvedValue({ ownDelivery: true, limit: 2 })
-    await show('riders')
-    expect(screen.getByText(w.limitTitle)).toBeTruthy()
   })
 
   it('adds the next page under Show more', async () => {
@@ -167,11 +160,11 @@ describe('invite', () => {
     confirm(w.next)
   }
 
-  it('asks the name, then the mobile with the store’s code, and sends it as E.164', async () => {
+  it('asks the name, then the mobile starting with +, and sends it as E.164', async () => {
     await start()
     const mobile = dialog().getByLabelText(w.mobile) as HTMLInputElement
-    expect(mobile.value).toBe('+91 ')
-    fireEvent.change(mobile, { target: { value: '098765 43210' } })
+    expect(mobile.value).toBe('+')
+    fireEvent.change(mobile, { target: { value: '+91 98765 43210' } })
     confirm(w.send)
     await settle()
     expect(api.inviteRider).toHaveBeenCalledWith('Asha Rao', '+919876543210')
@@ -209,13 +202,16 @@ describe('invite', () => {
 
 describe('the number as typed', () => {
   it.each([
-    ['98765 43210', '+919876543210'],
-    ['098765 43210', '+919876543210'],
-    ['91 98765 43210', '+919876543210'],
+    ['+91 98765 43210', '+919876543210'],
     ['0091 98765 43210', '+919876543210'],
-    ['+44 7700 900123', '+447700900123'],
+    ['+44 (7700) 900-123', '+447700900123'],
   ])('%s is sent as %s', (typed, sent) => {
-    expect(toE164(typed, '+91')).toBe(sent)
+    expect(toE164(typed)).toBe(sent)
+  })
+
+  it('never guesses a country code', () => {
+    expect(isMobile('98765 43210')).toBe(false)
+    expect(isMobile('+91 98765 43210')).toBe(true)
   })
 })
 
