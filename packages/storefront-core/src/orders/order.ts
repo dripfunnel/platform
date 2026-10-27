@@ -6,17 +6,19 @@ import { keepShopperToken, shopperToken } from '../platform/api/tokens'
 import { useLocation } from '../platform/browser/router'
 import { useShopData } from '../platform/render/data'
 import { useHead } from '../platform/seo/head'
+import type { Translate } from '../platform/i18n/i18n'
 import { useStorefront } from '../platform/store/context'
 import { isZero, moneySchema, type Money } from '../pricing/money'
 import { moneyFields } from '../products/summary'
 import { itemSlug } from '../collections/collections'
 import { useRepay, type PayPhase } from '../checkout/checkout'
+import { deliveryFields, deliverySchema, trackingOf, type OrderTracking } from './tracking'
 
 // A shopper's placed order (storefront ARCHITECTURE §2.1 `orders`): the page `/order/{id}/` a shopper lands on after paying or
 // coming back from a provider. Reading it asks the provider about a card payment still pending (Shop API `confirmPayment`).
 
 const m = `{ ${moneyFields} }`
-const orderFields = `id number state paymentState paymentMethod paymentDueBy shippingMethod placedAt pricesIncludeTax lines { name versionName quantity unitPrice ${m} lineTotal ${m} gift { recipientName sendOn } } subtotal ${m} discounts { name amount ${m} } shipping ${m} giftCard ${m} tax ${m} total ${m} downloads { name url usesLeft expiresAt } licenceKeys { name key }`
+const orderFields = `id number state paymentState paymentMethod paymentDueBy shippingMethod placedAt pricesIncludeTax lines { name versionName quantity unitPrice ${m} lineTotal ${m} gift { recipientName sendOn } } subtotal ${m} discounts { name amount ${m} } shipping ${m} giftCard ${m} tax ${m} total ${m} downloads { name url usesLeft expiresAt } licenceKeys { name key } ${deliveryFields}`
 const confirmMutation = `mutation Order($orderId: ID!) { confirmPayment(orderId: $orderId) { ${orderFields} } }`
 const instructionsQuery = `query Instructions { paymentOptions { provider instructions } }`
 
@@ -41,6 +43,7 @@ const orderSchema = z.object({
   total: moneySchema,
   downloads: z.array(z.object({ name: text, url: text, usesLeft: z.number().int().nullable().optional(), expiresAt: text })).nullable().optional(),
   licenceKeys: z.array(z.object({ name: text, key: text })).nullable().optional(),
+  delivery: deliverySchema,
 })
 const optionsSchema = z.object({ paymentOptions: z.array(z.object({ provider: z.string(), instructions: text })).nullable() })
 
@@ -74,6 +77,8 @@ export type Order = {
   downloads: { name: string; url: string | null; usesLeft: number | null; until: string | null }[]
   /** Each licence key, once paid. */
   licenceKeys: { name: string; key: string }[]
+  /** An own-delivery order's delivery: the steps, and while a rider has it the rider and the handover code; null for any other order. */
+  tracking?: OrderTracking | null
 }
 
 export type OrderPage = {
@@ -93,7 +98,7 @@ const manual = new Set(['cod', 'bank_transfer'])
 const paymentOf = (o: Pick<z.infer<typeof orderSchema>, 'paymentState' | 'paymentMethod'>): OrderPayment =>
   o.paymentState === 'paid' || o.paymentState === 'authorised' ? 'paid' : o.paymentState === 'refunded' || o.paymentState === 'partly_refunded' ? 'refunded' : o.paymentMethod && manual.has(o.paymentMethod) ? 'awaiting' : 'confirming'
 
-const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, when: (iso: string) => string, day: (date: string) => string): Order => ({
+const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, when: (iso: string) => string, day: (date: string) => string, t: Translate, step: (iso: string) => string): Order => ({
   id: o.id,
   number: o.number ?? o.id,
   cancelled: o.state === 'cancelled',
@@ -112,6 +117,7 @@ const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, whe
   giftCard: o.giftCard && !isZero(o.giftCard) ? o.giftCard : null,
   downloads: (o.downloads ?? []).map((d) => ({ name: d.name ?? '', url: d.url ?? null, usesLeft: d.usesLeft ?? null, until: d.expiresAt ? when(d.expiresAt) : null })),
   licenceKeys: (o.licenceKeys ?? []).flatMap((k) => (k.key ? [{ name: k.name ?? '', key: k.key }] : [])),
+  tracking: trackingOf(o.delivery, t, step),
 })
 
 export const ordersPageSize = 20
@@ -220,6 +226,8 @@ export const useOrder = (): OrderPage => {
   const { t, store, locale } = useStorefront()
   const { path } = useLocation()
   const when = (iso: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: store.timeZone, timeZoneName: 'short' }).format(new Date(iso))
+  // A delivery's steps are moments of the day, in the store's own zone.
+  const step = (iso: string) => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: store.timeZone }).format(new Date(iso))
   // A gift's send-on day is a calendar date, not a moment: shown as that date, with no time and no shift of zone.
   const day = (date: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date.slice(0, 10)}T12:00:00Z`))
   const id = itemSlug(path, '/order/') ?? itemSlug(path, '/account/orders/')
@@ -228,7 +236,7 @@ export const useOrder = (): OrderPage => {
     if (!found) return null
     const awaitingTransfer = found.paymentMethod === 'bank_transfer' && paymentOf(found) === 'awaiting'
     const options = awaitingTransfer ? await client.query(instructionsQuery, optionsSchema).catch(() => null) : null
-    return decode(found, options?.paymentOptions?.find((p) => p.provider === 'bank_transfer')?.instructions ?? null, when, day)
+    return decode(found, options?.paymentOptions?.find((p) => p.provider === 'bank_transfer')?.instructions ?? null, when, day, t, step)
   })
   const status = id === null || (loaded.status === 'ready' && !loaded.data) ? 'missing' : loaded.status === 'ready' ? 'ready' : loaded.status === 'error' ? 'error' : 'loading'
   useHead({ title: loaded.data ? t('order.title', { number: loaded.data.number }) : null, hidden: true })

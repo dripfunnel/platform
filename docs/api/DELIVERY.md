@@ -405,7 +405,9 @@ order, and opens it with the store's `SecretBox` only while the delivery is assi
 another store's customer, a guest with no token or another's, and a supplier find no delivery at all, not even that one exists.
 
 **On the website** (storefront-core's order page, with a changeset) the same steps, rider details
-and handover code are shown, never the map, the position or the estimate (decided 2026-10-22).
+and handover code are shown, never the map, the position or the estimate (decided 2026-10-22). **Built on #859** as `order.tracking` in
+`useOrder` and the baseline's order page (storefront ARCHITECTURE §2.1); the rider's photo is not shown there yet, since a browser's `<img>` cannot
+send the order's token and `photoUrl` answers only a request that carries it.
 
 The rider's details and position disappear from the answer once the delivery ends (delivered,
 failed or cancelled); the state history stays.

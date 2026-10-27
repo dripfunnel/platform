@@ -154,4 +154,32 @@ describe('useOrder', () => {
     expect(order?.downloads).toEqual([{ name: 'Pattern PDF', url: 'https://shop.example/dl/abc', usesLeft: 4, until: 'Thursday, November 12 at 12:00 AM UTC' }])
     expect(order?.licenceKeys).toEqual([{ name: 'Font licence', key: 'AAAA-BBBB' }])
   })
+
+  it('gives an own-delivery order its delivery, asking the Shop API for no map, position or estimate, and an order with none no delivery', async () => {
+    const asked = shopAnswering(() => ({
+      data: {
+        confirmPayment: orderOf({
+          delivery: {
+            state: 'picked_up',
+            steps: [{ state: 'packing', at: '2026-10-27T10:14:00Z' }, { state: 'picked_up', at: '2026-10-27T10:40:00Z' }],
+            rider: { firstName: 'Asha', phone: '+919700000001', vehicleType: 'scooter', vehicleNumber: 'RJ14 0001' },
+            handoverCode: '2580',
+          },
+        }),
+      },
+    }))
+    await show('/order/o-1/')
+    expect(asked[0]?.query).toContain('delivery { state steps { state at } rider { firstName phone vehicleType vehicleNumber } handoverCode }')
+    expect(asked[0]?.query).not.toMatch(/position|etaAt|latitude|longitude/i)
+    const tracking = page().order?.tracking
+    expect(tracking).toMatchObject({ state: 'picked_up', status: 'On the way', rider: { name: 'Asha', vehicle: 'Scooter · RJ14 0001' }, code: { value: '2580' } })
+    expect(tracking?.steps[0]?.at).toMatch(/Oct 27/)
+    // The order's own delivery label is unchanged, so a courier order reads as before.
+    expect(page().order?.delivery).toBe('Standard delivery')
+    cleanup()
+    seen = null
+    shopAnswering(() => ({ data: { confirmPayment: orderOf() } }))
+    await show('/order/o-1/')
+    expect(page().order?.tracking).toBeNull()
+  })
 })

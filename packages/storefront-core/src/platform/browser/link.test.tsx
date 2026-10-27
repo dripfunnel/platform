@@ -39,6 +39,17 @@ describe('Link', () => {
     expect(link('live', 'https://instagram.com/juniper').getAttribute('target')).toBeNull()
   })
 
+  it('takes tel: and a dialable number, and no other tel: address', () => {
+    expect(link('live', 'tel:+919700000001').closest('a')?.getAttribute('href')).toBe('tel:+919700000001')
+    cleanup()
+    expect(link('studio', 'tel:9700000001').closest('a')?.getAttribute('target')).toBeNull()
+    cleanup()
+    for (const href of ['tel:', 'tel:12', 'tel:+91 97000 00001', 'tel:+9197000000011234567', 'tel:+91;ext=1', 'tel:+91,2', 'tel:*123#', 'tel://+919700000001', 'sms:+919700000001', 'mailto:a@b.co']) {
+      expect(link('live', href).closest('a')).toBeNull()
+      cleanup()
+    }
+  })
+
   it('never carries a script, data or protocol-relative address', () => {
     for (const href of ['javascript:alert(1)', 'data:text/html,x', '//evil.example/x', '/\\evil.example', '/\t/evil.example', ' https://evil.example']) {
       expect(link('studio', href).closest('a')).toBeNull()

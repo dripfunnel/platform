@@ -1,6 +1,7 @@
 'use client'
 
 import { Link, OrderSummary, PaymentElement, useOrder, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { DeliveryTracking } from '../DeliveryTracking'
 import { Notice } from '../Notice'
 import { OrderPill } from '../OrderPill'
 import { PaymentMethod } from '../PaymentMethod'
@@ -83,6 +84,7 @@ export const OrderView = ({ inAccount = false }: { inAccount?: boolean }) => {
               <PaymentElement t={t} />
             </div>
           ) : null}
+          {!order.cancelled && order.tracking ? <DeliveryTracking tracking={order.tracking} /> : null}
           {order.downloads.length > 0 ? (
             <div className={styles.card}>
               <h2 className={styles.cardTitle}>{t('shop.order.downloads')}</h2>
