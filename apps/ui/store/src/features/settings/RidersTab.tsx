@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import type { PageOf } from '../../api/allPages'
 import { inviteRider, loadRiders, removeRider, restoreRider, resendRiderInvitation, suspendRider, type Rider, type RiderStatus } from '../../api/riders'
 import { fill, formatCount, messages } from '../../messages'
+import { refusalIn } from '../common/refusal'
 import '../common/teamRow.css'
 import { isMobile, toE164 } from './riderPhone'
 import './riders.css'
@@ -14,15 +15,16 @@ type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'> & { sta
 
 const tones: Record<RiderStatus, string> = { active: 'ok', invited: 'wait', suspended: 'off' }
 
-/** The API's refusal in words: the plan's own_delivery and rider limit share one code, told apart by its key. */
-export const refusalOf = (error: unknown): string => {
-  if (!isApiError(error)) return words.refused.other
-  if (error.code === 'PLAN_LIMIT') {
+const otherRefusal = refusalIn(words.refused)
+
+/** PLAN_LIMIT carries both own delivery and the rider limit, told apart by its key; every other code is the shared lookup. */
+const refusalOf = (error: unknown): string => {
+  if (isApiError(error) && error.code === 'PLAN_LIMIT') {
     const limit = error.details['limit']
     if (error.details['key'] === 'riders') return typeof limit === 'number' ? fill(words.refused.riderLimit, { count: formatCount(limit) }) : words.refused.riderLimitNoCount
     return words.refused.notInPlan
   }
-  return (words.refused as Record<string, string>)[error.code] ?? words.refused.other
+  return otherRefusal(error)
 }
 
 export interface RidersTabProps {

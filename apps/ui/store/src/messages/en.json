@@ -2995,7 +2995,7 @@
         "riderLimit": "Your plan allows {count} riders. Remove a rider, or ask DripFunnel to raise your limit.",
         "riderLimitNoCount": "Your plan doesn’t include more riders. Remove a rider, or ask DripFunnel to raise your limit.",
         "PHONE_TAKEN": "That number is already one of your riders.",
-        "RATE_LIMITED": "That rider has had three texts today. Try again tomorrow.",
+        "RATE_LIMITED": "That rider has had three texts in the last 24 hours. Try again later.",
         "RIDER_HAS_PARCEL": "They’re carrying an order: recall it first.",
         "INVALID_PHONE": "Enter the full mobile number with its country code, such as +91 98765 43210.",
         "INVALID_INPUT": "Add the rider’s name.",
