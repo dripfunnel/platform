@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ShopContext, useShop, type OrderAccess } from '../../api/ShopContext'
-import { Skeleton } from '../common/ui'
+import { t } from '../../messages'
+import { Skeleton, StateMessage } from '../common/ui'
 
 const HeadersContext = createContext<Record<string, string>>({})
 
@@ -12,18 +13,23 @@ export function WithOrderAccess({ orderId, children }: { orderId: string; childr
   const shop = useShop()
   const { orderAccess } = shop
   const [access, setAccess] = useState<OrderAccess | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [round, setRound] = useState(0)
 
   useEffect(() => {
     let live = true
-    void orderAccess(orderId).then((found) => {
-      if (live) setAccess(found)
-    })
+    setFailed(false)
+    orderAccess(orderId).then(
+      (found) => live && setAccess(found),
+      () => live && setFailed(true),
+    )
     return () => {
       live = false
     }
-  }, [orderAccess, orderId])
+  }, [orderAccess, orderId, round])
 
   const scoped = useMemo(() => (access ? { ...shop, client: access.client } : null), [shop, access])
+  if (failed) return <StateMessage title={t('states.error.title')} body={t('errors.UNKNOWN')} actionLabel={t('states.retry')} onAction={() => setRound((n) => n + 1)} />
   if (!access || !scoped) return <Skeleton kind="detail" />
   return (
     <HeadersContext.Provider value={access.headers}>

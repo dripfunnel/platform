@@ -9,12 +9,24 @@ import type { TrackingRider } from './tracking'
 
 const photoSize = 56
 
+/** The photo to load, with the order's credentials only when it is on the store's own host; none for an address that is not a URL. */
+export const photoSource = (photoUrl: string | null, host: string, headers: Record<string, string>): { uri: string; headers?: Record<string, string> } | null => {
+  if (!photoUrl) return null
+  const origin = `https://${host}`
+  try {
+    const url = new URL(photoUrl, origin)
+    return { uri: url.toString(), ...(url.origin === origin ? { headers } : {}) }
+  } catch {
+    return null
+  }
+}
+
 /** The rider while they have the order: first name, vehicle, a photo only the order's reader can load, and a call to their number. */
 export function RiderCard({ rider }: { rider: TrackingRider }) {
   const { colors, radii } = useTheme()
   const { host } = useShop()
   const headers = useOrderHeaders()
-  const photo = rider.photoUrl ? new URL(rider.photoUrl, `https://${host}`).toString() : null
+  const source = photoSource(rider.photoUrl, host, headers)
   const phone = rider.phone
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.card }]}>
@@ -22,8 +34,8 @@ export function RiderCard({ rider }: { rider: TrackingRider }) {
         {t('tracking.rider')}
       </Text>
       <View style={styles.row}>
-        {photo ? (
-          <Image accessibilityLabel={t('tracking.photo', { name: rider.name })} source={{ uri: photo, headers }} style={[styles.photo, { backgroundColor: colors.skeleton }]} contentFit="cover" />
+        {source ? (
+          <Image accessibilityLabel={t('tracking.photo', { name: rider.name })} source={source} style={[styles.photo, { backgroundColor: colors.skeleton }]} contentFit="cover" />
         ) : (
           <View accessible={false} style={[styles.photo, styles.initial, { backgroundColor: colors.neutralSurface }]}>
             <Text style={{ color: colors.neutral, fontSize: 22, fontWeight: '800' }}>{rider.name.slice(0, 1)}</Text>
