@@ -8,7 +8,7 @@ import type { DeliveryBuilder } from './builder'
 
 const service = (ctx: DeliveryContext) => {
   const { sql, rider } = riderOf(ctx)
-  return createDispatch({ sql, context: rider, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+  return createDispatch({ sql, context: rider, activity: ctx.activity, facts: ctx.facts, now: ctx.now, secrets: ctx.secrets ?? null })
 }
 export const registerDispatch = (builder: DeliveryBuilder) => {
   const access = { api: 'delivery', scope: 'rider', permission: null } as const

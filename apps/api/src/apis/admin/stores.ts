@@ -80,6 +80,7 @@ const Counts = builder.objectRef<StoreDto['counts']>('StorePeopleCounts').implem
 const Site = builder.objectRef<StoreDto['site']>('StoreSite').implement({
   fields: (t) => ({
     version: t.exposeString('version', { nullable: true }),
+    repo: t.exposeString('repo', { nullable: true }),
     lastBuildAt: t.string({ nullable: true, resolve: (s) => iso(s.lastBuildAt) }),
     lastPublishAt: t.string({ nullable: true, resolve: (s) => iso(s.lastPublishAt) }),
     liveHost: t.exposeString('liveHost'),

@@ -338,6 +338,10 @@ export const selectStoreUsage = (tx: ScopedSql, storeId: string, planId: string,
 export const selectStoreListRow = async (tx: ScopedSql, id: string, now: Date): Promise<StoreListRow | null> =>
   (await tx<StoreListRow[]>`${storeProjection(tx, now)} where s.id = ${id}`)[0] ?? null
 
+/** The store's repo, for the Admin console (0366); platform scope only. */
+export const selectStaffStoreRepo = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ repo: string | null }[]>`select staff_store_repo(${storeId}) as repo`)[0]?.repo ?? null
+
 /** The latest job `j` is running and its step has outlasted its allowance (SAAS.md §5). */
 export const stuckJobPredicate = (tx: ScopedSql, stuckAfterMinutes: Readonly<Record<ProvisioningStep, number>>, now: Date) =>
   tx`(j.state = 'running' and j.step_started_at < ${now}::timestamptz - ((${JSON.stringify(stuckAfterMinutes)}::text::jsonb ->> j.step) || ' minutes')::interval)`

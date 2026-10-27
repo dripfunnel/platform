@@ -441,27 +441,38 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
   withSystemScope(deps.sql, async (tx): Promise<CheckoutResult<true>> => {
     // System scope passes no row policy, so read-only support is refused here (ACCESS §8).
     if (deps.context.caller.kind === 'support' && deps.context.caller.access === 'read') return { ok: false, reason: 'READ_ONLY' }
-    const order = await lockPlacedOrder(tx, deps.context.storeId, orderId)
-    if (!order) return { ok: false, reason: 'NOT_FOUND' }
-    if (order.state !== 'placed' || order.payment_state !== 'pending' || !(order.payment_method && isManual(order.payment_method))) return { ok: false, reason: 'NOT_PENDING' }
-    await recordPaid(tx, deps.context.storeId, orderId, deps.now())
-    if (!(await orderIsTest(tx, orderId))) await queueStoreEvent(tx, deps.context.storeId, 'order.paid', { object: 'order', id: orderId, number: order.number }, orderId, deps.now())
-    await deliverOrder(tx, deps.activity, deps.context.storeId, orderId, deps.now())
-    await createOwnDelivery(tx, deps.activity, deps.context.storeId, orderId, deps.now(), { actorKind: 'person', actorId: deps.actor.id, actorLabel: null, api: 'store' })
-    await deps.activity.record(tx, {
-      category: 'write',
-      action: checkoutAudit.markedPaid,
-      result: 'success',
-      actorKind: 'person',
-      actorId: deps.actor.id,
-      actorLabel: null,
-      partnerId: deps.actor.partnerId,
-      storeId: deps.context.storeId,
-      target: { type: 'order', id: orderId, label: order.number },
-      reason: order.payment_method,
-      api: 'store',
-      visibility: 'store',
-      ...deps.facts,
-    })
-    return { ok: true, value: true }
+    return markPaidIn(tx, { ...deps, storeId: deps.context.storeId, actor: { ...deps.actor, kind: 'person' } }, orderId)
   })
+
+/** Mark as paid inside the caller's system-scope transaction: a rider's Delivered for cash on delivery runs it too (DELIVERY §3). */
+export const markPaidIn = async (
+  tx: ScopedSql,
+  deps: { storeId: string; actor: { id: string; partnerId: string; kind: 'person' | 'rider' }; activity: ActivityLog; facts: RequestFacts; now: () => Date },
+  orderId: string,
+): Promise<CheckoutResult<true>> => {
+  const { storeId, actor } = deps
+  const order = await lockPlacedOrder(tx, storeId, orderId)
+  if (!order) return { ok: false, reason: 'NOT_FOUND' }
+  if (order.state !== 'placed' || order.payment_state !== 'pending' || !(order.payment_method && isManual(order.payment_method))) return { ok: false, reason: 'NOT_PENDING' }
+  const api = actor.kind === 'rider' ? 'delivery' : 'store'
+  await recordPaid(tx, storeId, orderId, deps.now())
+  if (!(await orderIsTest(tx, orderId))) await queueStoreEvent(tx, storeId, 'order.paid', { object: 'order', id: orderId, number: order.number }, orderId, deps.now())
+  await deliverOrder(tx, deps.activity, storeId, orderId, deps.now())
+  await createOwnDelivery(tx, deps.activity, storeId, orderId, deps.now(), { actorKind: actor.kind, actorId: actor.id, actorLabel: null, api })
+  await deps.activity.record(tx, {
+    category: 'write',
+    action: checkoutAudit.markedPaid,
+    result: 'success',
+    actorKind: actor.kind,
+    actorId: actor.id,
+    actorLabel: null,
+    partnerId: actor.partnerId,
+    storeId,
+    target: { type: 'order', id: orderId, label: order.number },
+    reason: order.payment_method,
+    api,
+    visibility: 'store',
+    ...deps.facts,
+  })
+  return { ok: true, value: true }
+}

@@ -167,7 +167,7 @@ describe('stores(filter, after, before) (§5.1)', () => {
 
 describe('store(id) (§5.2, §5.3)', () => {
   const detail = `query($id: ID!) { store(id: $id) {
-    name country history { action by note } counts { owners managers staff suppliers } site { version lastBuildAt liveHost }
+    name country history { action by note } counts { owners managers staff suppliers } site { version repo lastBuildAt liveHost }
     provisioning { error details } records { kind host record expected found status } users { name role supplier status impersonate { allowed reason } }
     supportAccess notes { by text } job { id actions { retry { allowed reason } undo { allowed reason } } }
     actions { suspend { allowed reason } restore { allowed reason } extendTrial { allowed reason } resendInvite { allowed reason } addNote { allowed reason } } } }`
@@ -204,6 +204,15 @@ describe('store(id) (§5.2, §5.3)', () => {
     expect(peakStore?.job?.actions).toEqual({ retry: { allowed: true, reason: null }, undo: { allowed: true, reason: null } })
     // The raw detail is for the roles that open Provisioning; Read-only reads null.
     expect(((await run<Detail>(detail, as('staff-read-only'), { id: peak })).data?.store['provisioning'] as { details: string | null }).details).toBeNull()
+  })
+
+  it('the Storefront tab reads the store\'s repo, null before it has one', async () => {
+    const mehta = await storeIdOf('Mehta Textiles')
+    const repoOf = async () => ((await run<Detail>(detail, as('staff-super-admin'), { id: mehta })).data?.store['site'] as { repo: string | null }).repo
+    expect(await repoOf()).toBeNull()
+    await db.sql`update storefront set repo = 'sf-k7f3q9f2xa' where store_id = ${mehta}`
+    expect(await repoOf()).toBe('sf-k7f3q9f2xa')
+    await db.sql`update storefront set repo = null where store_id = ${mehta}`
   })
 
   it('the permission block depends on the role and the record', async () => {
