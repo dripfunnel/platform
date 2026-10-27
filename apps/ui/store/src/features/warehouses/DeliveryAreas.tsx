@@ -82,10 +82,10 @@ const PlaceDelivery = ({ place, currency, canEdit, busy, onSave, onPin }: { plac
         <strong>{place.name}</strong>
         <span>{pinned ? words.pinSet : words.pinNone}</span>
         <label className="df-ops-pick">
-          <input type="checkbox" role="switch" aria-label={fill(words.switchFor, { name: place.name })} checked={on} disabled={ro || !pinned} onChange={() => setOn(!on)} />
+          <input type="checkbox" role="switch" aria-label={fill(words.switchFor, { name: place.name })} checked={on} disabled={ro || (!pinned && !on)} onChange={() => setOn(!on)} />
           <span className="df-ops-text">
             <strong>{words.switch}</strong>
-            <span>{!pinned ? words.pinFirst : on ? words.onNote : words.offNote}</span>
+            <span>{!pinned && !on ? words.pinFirst : on ? words.onNote : words.offNote}</span>
           </span>
         </label>
         {on && (

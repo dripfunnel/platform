@@ -238,6 +238,18 @@ describe('Warehouse › Own delivery from your locations', () => {
     expect(screen.getByText(d.pinFirst)).toBeTruthy()
   })
 
+  it('lets a delivering location whose pin was cleared be switched off', async () => {
+    stock.loadPlaces.mockResolvedValue([place({ id: 'w1', name: 'Workshop', latitude: null, longitude: null, ownDelivery: true, deliveryRadiusM: 8000, riderRadiusM: 5000, deliveryFeeAmount: '250' })])
+    await show('warehouse')
+    const toggle = screen.getByRole('switch') as HTMLInputElement
+    expect(toggle.checked).toBe(true)
+    expect(toggle.disabled).toBe(false)
+    fireEvent.click(toggle)
+    fireEvent.click(screen.getByRole('button', { name: d.save }))
+    await settle()
+    expect(stock.savePlace.mock.calls[0]?.[2]).toMatchObject({ ownDelivery: false })
+  })
+
   it('sends only “off” when a location is switched off', async () => {
     await show('warehouse')
     fireEvent.click(screen.getByRole('switch'))
