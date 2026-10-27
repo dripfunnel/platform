@@ -1,12 +1,16 @@
 import type { ActivityFilter, ActivityPage } from '../../api/activity'
+import type { PageOf } from '../../api/allPages'
+import type { Rider, RiderPlan } from '../../api/riders'
 import type { InstalledApp } from '../../api/apps'
 import type { CustomerAccounts } from '../../api/customerAccounts'
 import type { ApiKey, ApiKeyChoices, WebhookDelivery, WebhookEndpoint } from '../../api/developers'
 import type { Gateway } from '../../api/payments'
 import type { ShippingSettings } from '../../api/shipping'
+import type { Place } from '../../api/stock'
 import type { StoreInfo, StoreLocale } from '../../api/settings'
 import type { SupportAccess } from '../../api/support'
 import { sampleRead } from '../activity/activitySample'
+import { placesSample } from '../warehouses/placesStates'
 import type { Market } from '../../api/markets'
 import type { ProductBasics } from '../../api/productEditor'
 import type { InvoiceSettings, TaxSetupFull } from '../../api/tax'
@@ -105,6 +109,9 @@ export interface SettingsReads {
   apps: () => Promise<InstalledApp[]>
   supportAccess: (after: string | null) => Promise<SupportAccess>
   activity: (filter: ActivityFilter, after: string | null) => Promise<ActivityPage>
+  riders: (after: string | null) => Promise<PageOf<Rider>>
+  riderPlan: () => Promise<RiderPlan>
+  places: () => Promise<Place[]>
 }
 
 const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
@@ -175,6 +182,9 @@ const sampleShipping: ShippingSettings = {
   areaFileName: null,
   areaCount: 0,
   areaSample: [],
+  ownDelivery: false,
+  dispatchWhen: 'ready',
+  offerMinutes: 5,
   labelSizes: ['a6', 'a4'],
   couriers: [{ provider: 'shiprocket', status: 'pricing', offered: true, pickupMode: 'scheduled', labelSize: 'a6', trackingEmails: true, lastTestedAt: '2026-10-09T08:30:00Z', lastTestResult: 'ok' }],
 }
@@ -242,6 +252,13 @@ const sampleSupport: SupportAccess = {
   },
 }
 
+const sampleRiders: Rider[] = [
+  { id: 'r1', name: 'Ravi Kumar', phone: '+91 98290 11111', status: 'active', online: true, currentDeliveryId: 'd1', deliveriesDone: 42 },
+  { id: 'r2', name: 'Imran Shaikh', phone: '+91 98290 22222', status: 'active', online: false, currentDeliveryId: null, deliveriesDone: 17 },
+  { id: 'r3', name: 'Deepak Meena', phone: '+91 98290 33333', status: 'suspended', online: false, currentDeliveryId: null, deliveriesDone: 6 },
+  { id: 'r4', name: 'Sunil Yadav', phone: '+91 98290 44444', status: 'invited', online: false, currentDeliveryId: null, deliveriesDone: 0 },
+]
+
 /** The tabs' reads under ?state=: the samples above. */
 export const sampleReads: SettingsReads = {
   storeInfo: async () => sampleInfo,
@@ -263,6 +280,9 @@ export const sampleReads: SettingsReads = {
   apps: async () => sampleApps,
   supportAccess: async () => sampleSupport,
   activity: sampleRead,
+  riders: async () => ({ nodes: harness ? sampleRiders : [], pageInfo: { hasNextPage: false, endCursor: null } }),
+  riderPlan: async () => ({ ownDelivery: true }),
+  places: async () => (harness ? (placesSample('list') ?? []) : []),
   catalogue: async () => ({
     pricingCurrency: 'INR',
     unitSystem: 'metric',

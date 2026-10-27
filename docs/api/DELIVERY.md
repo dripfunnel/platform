@@ -13,10 +13,10 @@ riders' sign-in, profile and account deletion (§4, §5; #839); own delivery as 
 delivery areas and the checkout option (§2, §8; #841); dispatch: delivery creation, Ready for pickup, offer rounds,
 accept and decline, assignment by hand, cancellation before pickup, online state, positions and the minute sweep
 (§3, §4, §8; #842); carrying it: pickup as a `local` shipment, the handover code, Delivered and Not delivered sent
-late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the customer's side: `order(id).delivery`, the arrival
-estimate and the customer's and guest orders' push devices (§6, §7; #858).
+late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the portal's Settings › Riders (§5, §8; #844); the customer's
+side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858).
 
-Last updated: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
+Last updated: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
 events, §3, §4, §6, §8). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
@@ -54,9 +54,9 @@ rider (§5) and a pinned warehouse with its area set; otherwise `saveShipping` r
 `OWN_DELIVERY_NOT_READY` with `missing` naming `plan`, `rider` and/or `warehouse`. Only turning it on
 is refused: when a piece lapses later, checkout stops offering it (below). Nothing checks that the delivery app is in an app store: riders may
 install it as an APK (mobile-app/README.md §2, decided 2026-10-22). It is Owner-only, like the rest of Shipping.
-**Built on #841** (`shippingSettings`, `saveShipping`, `Warehouse`, `saveWarehouse`; DATA-MODEL §7.12).
+**Built on #841** (`shippingSettings`, `saveShipping`, `Warehouse`, `saveWarehouse`; DATA-MODEL §7.12); the screens on #845.
 
-Per warehouse that delivers (Settings › Warehouse, a location's form; the merchant's own locations only, never a supplier's):
+Per warehouse that delivers (Settings › Warehouse, a card under the location list as `SetOwnDelivery` draws it; the merchant's own locations only, never a supplier's):
 
 | Setting | Meaning |
 |---|---|

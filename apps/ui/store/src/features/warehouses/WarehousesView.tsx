@@ -10,6 +10,7 @@ import { PinOnMap, pinText } from './PinOnMap'
 import { placesSample, placesStates } from './placesStates'
 import './warehouses.css'
 import { refusalIn } from '../common/refusal'
+import { DeliveryAreas, placeInputOfPlace, type DeliveryPatch } from './DeliveryAreas'
 
 const words = messages.warehouses
 
@@ -41,6 +42,7 @@ const pinLine = (p: Place) => {
 }
 
 const refusalOf = refusalIn(words.refused)
+const deliveryRefusalOf = refusalIn(words.delivery.refused)
 
 const PlaceForm = ({ form, set, busy, mapSource, near, onSave, onCancel }: { form: Form; set: (f: Form) => void; busy: boolean; mapSource: string | null; near: string; onSave: () => void; onCancel: () => void }) => {
   const id = useId()
@@ -92,7 +94,7 @@ const PlaceForm = ({ form, set, busy, mapSource, near, onSave, onCancel }: { for
  * Where stock sits (SetOps "Warehouse"), the default first: a supplier's own inside "Your products" (#337), and the
  * merchant side's own with its suppliers' listed apart and read-only (`side`), each named by the API.
  */
-export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'merchant' | 'supplier' }) => {
+export const WarehousesView = ({ canEdit, side, delivery = null }: { canEdit: boolean; side: 'merchant' | 'supplier'; delivery?: { currency: string } | null }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [form, setForm] = useState<Form | null>(null)
   const [busy, setBusy] = useState(false)
@@ -121,13 +123,13 @@ export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'mer
     void loadStoreCountry().then(setStoreCountry, () => setStoreCountry(null))
   }, [canEdit, forced])
 
-  const run = async (work: () => Promise<string>) => {
+  const run = async (work: () => Promise<string>, refusal = refusalOf) => {
     setBusy(true)
     try {
       setToast(await work())
       setForm(null)
     } catch (error) {
-      setToast(refusalOf(error))
+      setToast(refusal(error))
       // Saving again would only be refused again: the form closes, and the list reloads with their change.
       if (isApiError(error, 'STALE_REVISION')) setForm(null)
     } finally {
@@ -144,6 +146,11 @@ export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'mer
       await savePlace(f.id, f.revision, placeInputOf(f))
       return f.id ? words.saved : fill(words.added, { name: f.name.trim() })
     })
+  const saveDelivery = (p: Place, patch: DeliveryPatch) =>
+    void run(async () => {
+      await savePlace(p.id, p.revision, { ...placeInputOfPlace(p), ...patch })
+      return fill(words.delivery.saved, { name: p.name })
+    }, deliveryRefusalOf)
   const manage = (p: Place) =>
     setAsk({
       title: p.name,
@@ -219,6 +226,7 @@ export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'mer
           ))}
         </ul>
       )}
+      {delivery && side === 'merchant' && <DeliveryAreas places={places} currency={delivery.currency} canEdit={canEdit} busy={busy} onSave={saveDelivery} onPin={(p) => setForm(formOf(p))} />}
       {theirs.length > 0 && (
         <section className="df-places-theirs" aria-labelledby="df-places-theirs">
           <h2 id="df-places-theirs">{words.theirsTitle}</h2>

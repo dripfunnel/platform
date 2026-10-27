@@ -23,6 +23,9 @@ vi.mock('../../api/team', async (actual) => ({ ...(await actual<typeof import('.
 const stock = vi.hoisted(() => ({ loadPlaces: vi.fn(), savePlace: vi.fn(), makeDefaultPlace: vi.fn(), deletePlace: vi.fn() }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stock }))
 
+const riders = vi.hoisted(() => ({ loadRiderPlan: vi.fn(), loadRiders: vi.fn() }))
+vi.mock('../../api/riders', async (actual) => ({ ...(await actual<typeof import('../../api/riders')>()), ...riders }))
+
 const { SettingsPage } = await import('./SettingsPage')
 
 const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['catalog.read', 'settings', 'stock.read', 'warehouses.write'] }
@@ -59,6 +62,7 @@ const show = async (tab: 'warehouse' | 'tax', readOnly = false) => {
 const region = (name: string) => within(screen.getByRole('region', { name }))
 
 beforeEach(() => {
+  riders.loadRiderPlan.mockResolvedValue({ ownDelivery: false })
   tax.loadTax.mockResolvedValue(setup)
   tax.loadInvoiceSettings.mockResolvedValue({ taxPerLine: true, emailWithDispatch: true, footer: 'Thank you', legalName: null })
   settings.loadStoreInfo.mockResolvedValue({ country: 'IN', taxId: '08ABCDE1234F1Z5' })
