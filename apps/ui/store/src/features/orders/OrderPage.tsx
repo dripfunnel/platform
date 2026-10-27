@@ -9,6 +9,7 @@ import { loadShipFrom, type Warehouse } from '../../api/stock'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatList, messages, plural } from '../../messages'
 import { refusalIn } from '../common/refusal'
+import { DeliveryWaiting, OrderDelivery } from './OrderDelivery'
 import { OrderHistory } from './OrderHistory'
 import { OrderReturns } from './OrderReturns'
 import { allLeft, OrderParts, type Picks } from './OrderParts'
@@ -348,6 +349,21 @@ export const OrderPage = () => {
       <div className="df-order-grid">
         <div className="df-order-main">
           <OrderParts order={order} access={access} picks={picks} onPick={(lineId, quantity) => setPicks((current) => (current ? { ...current, [lineId]: Math.max(0, quantity) } : current))} />
+          {!access.supplier && order.delivery && (
+            <OrderDelivery
+              order={order}
+              delivery={order.delivery}
+              timeZone={timeZone}
+              canAct={access.canShip && !ro}
+              canPick={forced ? true : acting.permissions.includes('riders.manage')}
+              canMarkPaid={access.canMarkPaid}
+              onChanged={(text) => {
+                setToast(text)
+                if (!sample) load()
+              }}
+            />
+          )}
+          {!access.supplier && !order.delivery && order.state === 'placed' && order.shippingOption === 'own_delivery' && <DeliveryWaiting />}
           {picks && (
             <ShipPanel
               kind={shipKind}

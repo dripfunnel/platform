@@ -4135,7 +4135,21 @@
       "PARTLY_SHIPPED": "Partly shipped",
       "SHIPPED": "Shipped",
       "CANCELLED_REFUNDED": "Cancelled & refunded",
-      "PAYMENT_PENDING": "Payment pending"
+      "PAYMENT_PENDING": "Payment pending",
+      "OWN_DELIVERY": "Own delivery",
+      "DELIVERY_NEEDS_YOU": "Delivery needs you"
+    },
+    "deliveryState": {
+      "packing": "Being packed",
+      "searching": "Looking for a rider",
+      "unassigned": "Nobody accepted",
+      "assigned": "Rider assigned",
+      "picked_up": "On the way",
+      "code_locked": "Code locked",
+      "code_unconfirmed": "Code unconfirmed",
+      "delivered": "Delivered",
+      "failed": "Not delivered",
+      "cancelled": "Delivery cancelled"
     },
     "noResults": {
       "search": "No orders match “{search}”",
@@ -4161,7 +4175,8 @@
       "forStore": "For {store}",
       "sendToStore": "Send to the store",
       "toShopper": "Send to the shopper",
-      "test": "Test order"
+      "test": "Test order",
+      "delivery": "Own delivery · {state}"
     },
     "status": {
       "toShip": "To ship",
@@ -4220,6 +4235,146 @@
       "supplierNote": "You see only your items in this order. The store delivers to the shopper, so you don’t see who bought it, and totals cover other sellers too.",
       "supplierNoteShopper": "You see only your items in this order. You send them to the shopper yourself.",
       "failed": "That didn’t work. Nothing was changed; try again.",
+      "delivery": {
+        "title": "Delivery",
+        "sub": "Own delivery",
+        "waiting": {
+          "title": "Waiting for payment",
+          "body": "Riders are offered the order once it is paid."
+        },
+        "state": {
+          "packing": { "pill": "Being packed", "title": "Being packed", "body": "Riders are offered it when you mark it ready for pickup." },
+          "searching": { "pill": "Looking for a rider", "title": "Looking for a rider", "body": "Nobody has accepted yet. If no one does within your alert time, you’re emailed and this order is flagged." },
+          "unassigned": { "pill": "Nobody accepted", "title": "Nobody accepted", "body": "Assign it to a rider yourself, or offer it again to every online rider nearby." },
+          "assigned": { "pill": "Rider assigned", "title": "{name} accepted", "body": "On the way to the location to pick it up." },
+          "picked_up": { "pill": "On the way", "title": "{name} picked it up", "body": "On the way to the customer." },
+          "code_locked": { "pill": "Code locked", "title": "Code locked after 5 wrong tries", "body": "{name} can’t mark it delivered. Check with the customer, then mark it delivered or not delivered." },
+          "code_unconfirmed": { "pill": "Code unconfirmed", "title": "The code didn’t match", "body": "{name} marked it delivered without signal, and the code didn’t match when it arrived. Check with the customer." },
+          "delivered": { "pill": "Delivered", "title": "Delivered", "body": "{name} delivered it." },
+          "failed": { "pill": "Not delivered", "title": "Not delivered: {reason}", "body": "{name} is bringing the parcel back. Offer it again for a new attempt." },
+          "recalled": { "pill": "Recalled", "title": "Recalled", "body": "{name} has been told to bring the parcel back. You can then offer it again or refund through a return." },
+          "cancelled": { "pill": "Delivery cancelled", "title": "Delivery cancelled", "body": "The order is still open. Offer it again to make a new delivery, or ship it another way." }
+        },
+        "reasons": {
+          "no_one_home": "no one home",
+          "refused": "the customer refused it",
+          "wrong_address": "wrong address",
+          "other": "other"
+        },
+        "someone": "The rider",
+        "noVehicle": "Vehicle not added",
+        "call": "Call {name}",
+        "claimTitle": "The rider says",
+        "claimCash": "Cash collected: {amount}, sent from the app at {time}",
+        "claimNone": "No cash claim was sent from the app.",
+        "stepsTitle": "Steps",
+        "earlier": "Earlier attempt · {step}",
+        "steps": {
+          "placed": "Order placed",
+          "packing": "Being packed",
+          "searching": "Offered to riders",
+          "unassigned": "Nobody accepted",
+          "assigned": "Accepted by {name}",
+          "assignedEarlier": "Accepted",
+          "picked_up": "Picked up",
+          "delivered": "Delivered",
+          "failed": "Not delivered: {reason}",
+          "failedEarlier": "Not delivered",
+          "recalled": "Recalled by you",
+          "cancelled": "Delivery cancelled"
+        },
+        "note": {
+          "picked_up": "The order can’t be cancelled while the parcel is out. Recall it first.",
+          "code": "The handover code is only shown to the customer.",
+          "readOnly": "You can follow this delivery, but changing it needs permission to fulfil orders.",
+          "assignOwner": "Only the owner can pick the rider; ask them, or offer it again to everyone nearby."
+        },
+        "actions": {
+          "ready": "Ready for pickup",
+          "assign": "Assign by hand",
+          "again": "Offer again",
+          "cancel": "Cancel delivery",
+          "recall": "Recall",
+          "delivered": "Mark delivered",
+          "notDelivered": "Not delivered"
+        },
+        "ready": {
+          "title": "Ready for pickup?",
+          "body": "Every online rider within range gets an offer, and the alert timer starts.",
+          "confirm": "Ready for pickup",
+          "done": "Ready for pickup. Offered to nearby riders."
+        },
+        "again": {
+          "title": "Offer it again?",
+          "body": "Every online rider within range gets a new offer, and the alert timer starts again.",
+          "bodyNew": "Every online rider within range gets a new offer, and the alert timer starts again. This is a new attempt; the earlier one stays in the steps.",
+          "confirm": "Offer again",
+          "done": "Offered again to nearby riders."
+        },
+        "cancel": {
+          "title": "Cancel this delivery?",
+          "bodyAssigned": "{name} is told not to pick it up. The order stays open: you can offer it again or ship it another way.",
+          "body": "Riders lose the offer. The order stays open: you can offer it again or ship it another way.",
+          "confirm": "Cancel delivery",
+          "keep": "Keep it",
+          "done": "Delivery cancelled. The order is still open."
+        },
+        "recall": {
+          "title": "Recall this parcel?",
+          "body": "{name} is told to bring the parcel back. You can then offer it again or refund through a return.",
+          "confirm": "Recall",
+          "keep": "Keep it going",
+          "done": "{name} has been told to bring it back."
+        },
+        "notDelivered": {
+          "title": "Mark not delivered?",
+          "body": "{name} is told to bring the parcel back. You can offer it again or refund through a return afterwards.",
+          "confirm": "Mark not delivered",
+          "done": "Marked not delivered. {name} has been told to bring it back."
+        },
+        "delivered": {
+          "title": "Mark delivered?",
+          "body": "The handover code can’t be used, so say how you know the customer has it. This is kept with the order.",
+          "reason": "Reason",
+          "hint": "Required. It is kept in the order’s activity.",
+          "placeholder": "e.g. Called the customer; they have the parcel",
+          "cash": "Did the cash reach you?",
+          "cashYes": "Yes, the cash reached us",
+          "cashNo": "No, not yet",
+          "cashNeedsRole": "Only an owner or manager can say the cash reached the store.",
+          "cashBody": "Yes marks the order paid. No leaves it unpaid until someone marks it paid.",
+          "confirm": "Mark delivered",
+          "done": "{number} marked delivered."
+        },
+        "assign": {
+          "title": "Assign by hand",
+          "body": "They get a notification and the delivery straight away.",
+          "label": "Rider",
+          "online": "{name} · Online",
+          "offline": "{name} · Offline, gets a notification",
+          "confirm": "Assign",
+          "none": "No active riders. Invite one in Settings › Riders.",
+          "loadFailed": "The riders couldn’t be read. Try again.",
+          "done": "Assigned to {name}.",
+          "missing": "Pick a rider."
+        },
+        "refused": {
+          "FORBIDDEN": "You can’t change this delivery.",
+          "NOT_FOUND": "That delivery isn’t here any more. The order has been read again.",
+          "UNAVAILABLE": "Own delivery isn’t available for this store.",
+          "INVALID_INPUT": "Something here isn’t valid. Check it and try again.",
+          "NOT_PACKING": "This order isn’t waiting to be packed any more.",
+          "NOT_UNASSIGNED": "This delivery isn’t waiting for a rider any more.",
+          "NOT_CANCELLABLE": "This delivery can’t be cancelled now.",
+          "NOT_PICKED_UP": "This delivery isn’t on its way.",
+          "NOT_ENOUGH_STOCK": "The location hasn’t enough stock for this order.",
+          "NOT_SHIPPABLE": "This order can’t ship now.",
+          "NOT_HANDED_OVER": "A supplier hasn’t handed all the items to the store yet.",
+          "CODE_NOT_LOCKED": "The rider can still confirm this delivery with the customer’s code.",
+          "NOT_PENDING": "This order’s payment has changed. Read it again.",
+          "other": "That didn’t work. Nothing was changed; try again."
+        }
+      },
       "refused": {
         "NOT_FOUND": "That order isn’t here any more.",
         "NOT_SHIPPABLE": "This order can’t ship: it’s cancelled, a test, or still waiting for its card payment.",

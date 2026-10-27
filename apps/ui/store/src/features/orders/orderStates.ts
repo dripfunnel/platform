@@ -25,13 +25,14 @@ const summary = (r: Partial<OrderSummary> & Pick<OrderSummary, 'id' | 'number'>)
   items: 3,
   partState: null,
   shippingMode: null,
+  deliveryState: null,
   ...r,
 })
 
 const rows: OrderSummary[] = harness
   ? [
-      summary({ id: 'o1042', number: 'KT-1042' }),
-      summary({ id: 'o1041', number: 'KT-1041', placedAt: hoursAgo(5), customerName: 'Rohan Mehta', city: 'Pune', items: 1, total: inr('249900'), paymentState: 'pending', paymentMethod: 'cod' }),
+      summary({ id: 'o1042', number: 'KT-1042', deliveryState: 'searching' }),
+      summary({ id: 'o1041', number: 'KT-1041', placedAt: hoursAgo(5), customerName: 'Rohan Mehta', city: 'Pune', items: 1, total: inr('249900'), paymentState: 'pending', paymentMethod: 'cod', deliveryState: 'unassigned' }),
       summary({ id: 'o1040', number: 'KT-1040', placedAt: hoursAgo(26), customerName: 'Sara Khan', city: 'Delhi', items: 4, fulfilmentState: 'partly_fulfilled', total: inr('612000') }),
       summary({ id: 'o1039', number: 'KT-1039', placedAt: hoursAgo(50), customerName: 'Vikram Shah', city: 'Mumbai', items: 2, fulfilmentState: 'fulfilled', total: inr('179800') }),
       summary({ id: 'o1038', number: 'KT-1038', placedAt: hoursAgo(74), customerName: 'Meera Pillai', city: 'Kochi', items: 1, fulfilmentState: 'fulfilled', paymentState: 'partly_refunded', total: inr('149900') }),
@@ -52,6 +53,8 @@ const countsOf = (list: OrderSummary[]): OrderCounts => ({
   shipped: list.filter((r) => r.fulfilmentState === 'fulfilled' || r.partState === 'sent_to_store').length,
   cancelledRefunded: list.filter((r) => r.state === 'cancelled' || r.paymentState === 'refunded').length,
   paymentPending: list.filter((r) => r.paymentState === 'pending').length,
+  ownDelivery: list.filter((r) => r.deliveryState !== null).length,
+  deliveryNeedsYou: list.filter((r) => r.deliveryState === 'unassigned' || r.deliveryState === 'code_locked' || r.deliveryState === 'code_unconfirmed').length,
 })
 
 export interface OrderListSample {

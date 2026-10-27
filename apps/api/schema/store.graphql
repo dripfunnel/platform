@@ -1487,6 +1487,8 @@ enum OrderCancelReason {
 type OrderCounts {
   all: Int
   cancelledRefunded: Int
+  deliveryNeedsYou: Int
+  ownDelivery: Int
   partlyShipped: Int
   paymentPending: Int
   shipped: Int
@@ -1528,6 +1530,8 @@ type OrderExport {
 enum OrderFilter {
   ALL
   CANCELLED_REFUNDED
+  DELIVERY_NEEDS_YOU
+  OWN_DELIVERY
   PARTLY_SHIPPED
   PAYMENT_PENDING
   SHIPPED
@@ -1643,6 +1647,11 @@ type OrderShipmentLine {
 type OrderSummary {
   city: String
   customerName: String
+
+  """
+  The latest own delivery: its state, or code_locked / code_unconfirmed for a parcel out whose code needs the merchant. Null for a supplier.
+  """
+  deliveryState: String
   fulfilmentState: String
   id: ID
   items: Int

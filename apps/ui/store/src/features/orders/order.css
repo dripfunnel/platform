@@ -470,3 +470,134 @@
     min-width: 110px;
   }
 }
+
+.df-dlv-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-page);
+}
+
+.df-dlv-heading {
+  display: flex;
+  flex-direction: column;
+}
+
+.df-dlv-heading h2 {
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-dlv-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.df-dlv-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+  background: var(--df-color-page);
+  font-size: 13px;
+}
+
+.df-dlv-banner strong {
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-dlv-banner--info {
+  border-color: var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-dlv-banner--warning {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-dlv-banner--success {
+  border-color: var(--df-color-success-border);
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-dlv-banner--danger {
+  border-color: var(--df-color-danger-border);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}
+
+.df-dlv-rider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.df-dlv-mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--df-color-page);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.df-dlv-person {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.df-dlv-person a {
+  color: var(--df-color-link);
+}
+
+.df-dlv-claim {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+  background: var(--df-color-page);
+  font-size: 13px;
+}
+
+.df-dlv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.df-dlv-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-dlv-steps h3 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
