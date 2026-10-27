@@ -2796,6 +2796,7 @@
       "developers": "Developers",
       "apps": "Apps",
       "support": "Support access",
+      "riders": "Riders",
       "activity": "Activity log"
     },
     "title": "Settings",
@@ -2926,6 +2927,36 @@
         "other": "That didn’t save. Try again."
       },
       "nextMissing": "Type the next order number — 1 or more, and no lower than it is now."
+    },
+    "riders": {
+      "title": "Riders",
+      "sub": "Your own delivery people. They deliver from your warehouses with your store’s Delivery app, and aren’t the courier delivery partners in Shipping.",
+      "emptyTitle": "No riders yet",
+      "emptyBody": "The riders you invite will show here.",
+      "columns": {
+        "rider": "Rider",
+        "status": "Status",
+        "online": "Online now",
+        "current": "Current delivery",
+        "done": "Done"
+      },
+      "statuses": {
+        "invited": "Invited",
+        "active": "Active",
+        "suspended": "Suspended"
+      },
+      "online": "Online",
+      "offline": "Offline",
+      "none": "—",
+      "onDelivery": "On a delivery",
+      "noDelivery": "No current delivery",
+      "delivered": "{count} delivered",
+      "showMore": "Show more",
+      "moreFailed": "Couldn’t load more riders. Try again.",
+      "notAvailable": {
+        "title": "Own delivery isn’t part of your plan",
+        "body": "DripFunnel switches it on for Enterprise stores once it’s agreed."
+      }
     },
     "team": {
       "roles": {
