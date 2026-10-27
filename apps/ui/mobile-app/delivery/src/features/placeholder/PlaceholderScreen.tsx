@@ -3,7 +3,7 @@ import { BrandMark } from '../../brand/BrandMark'
 import { t } from '../../messages'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
-// Every tab has a screen until its own card builds it (SH 8–SH 14).
+// Every tab has a screen until its own card builds it (DL 12–DL 14).
 export function PlaceholderScreen({ title }: { title: string }) {
   const { colors } = useTheme()
   return (
