@@ -1,24 +1,61 @@
-import { initials } from '@dripfunnel/shared/ui'
-import { useState } from 'react'
+import { isApiError } from '@dripfunnel/shared/graphql'
+import { ConfirmDialog, initials, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { useRef, useState } from 'react'
 import type { PageOf } from '../../api/allPages'
-import { loadRiders, type Rider, type RiderStatus } from '../../api/riders'
+import { inviteRider, loadRiders, removeRider, restoreRider, resendRiderInvitation, suspendRider, type Rider, type RiderStatus } from '../../api/riders'
 import { fill, formatCount, messages } from '../../messages'
 import '../common/teamRow.css'
+import { isMobile, toE164 } from './riderPhone'
 import './riders.css'
 
 const words = messages.settings.riders
 
+type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'> & { stayOpen?: boolean }
+
 const tones: Record<RiderStatus, string> = { active: 'ok', invited: 'wait', suspended: 'off' }
+
+/** The API's refusal in words: the plan's own_delivery and rider limit share one code, told apart by its key. */
+export const refusalOf = (error: unknown): string => {
+  if (!isApiError(error)) return words.refused.other
+  if (error.code === 'PLAN_LIMIT') {
+    const limit = error.details['limit']
+    if (error.details['key'] === 'riders') return typeof limit === 'number' ? fill(words.refused.riderLimit, { count: formatCount(limit) }) : words.refused.riderLimitNoCount
+    return words.refused.notInPlan
+  }
+  return (words.refused as Record<string, string>)[error.code] ?? words.refused.other
+}
 
 export interface RidersTabProps {
   first: PageOf<Rider>
+  canEdit: boolean
+  onChanged: (toast: string) => void
 }
 
-/** SetRiders: the Owner's own delivery people, read only here; the writes come in the next part of #844. */
-export const RidersTab = ({ first }: RidersTabProps) => {
+/** SetRiders: the Owner's own delivery people, with invite, resend, suspend, restore and remove (#844). */
+export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
   const [page, setPage] = useState(first)
   const [more, setMore] = useState<'idle' | 'busy' | 'failed'>('idle')
+  const [ask, setAsk] = useState<Ask | null>(null)
+  const [busy, setBusy] = useState(false)
   const riders = page.nodes
+
+  const inFlight = useRef(false)
+
+  /** A write behind a dialog; a refusal goes to `refused`, else to the toast. One write at a time, however fast the clicks. */
+  const run = async (work: () => Promise<string>, refused?: (text: string) => void) => {
+    if (inFlight.current) return
+    inFlight.current = true
+    setBusy(true)
+    try {
+      onChanged(await work())
+    } catch (error) {
+      if (refused) refused(refusalOf(error))
+      else onChanged(refusalOf(error))
+    } finally {
+      inFlight.current = false
+      setBusy(false)
+    }
+  }
 
   const showMore = async () => {
     if (!page.pageInfo.endCursor) return
@@ -32,6 +69,82 @@ export const RidersTab = ({ first }: RidersTabProps) => {
     }
   }
 
+  const inviteAsk = (name: string | null): Ask =>
+    name === null
+      ? {
+          title: words.inviteTitle,
+          target: '',
+          consequence: words.inviteBody,
+          confirmLabel: words.next,
+          input: { label: words.name, type: 'text', initial: '', placeholder: words.namePlaceholder, error: (v) => (v.trim() === '' ? words.nameMissing : null) },
+          onConfirm: (_, value) => setAsk(inviteAsk((value ?? '').trim())),
+        }
+      : {
+          title: fill(words.mobileTitle, { name }),
+          target: name,
+          consequence: words.mobileBody,
+          confirmLabel: words.send,
+          // A refusal leaves this dialog open with what was typed.
+          stayOpen: true,
+          error: null,
+          input: { label: words.mobile, type: 'text', initial: '+', placeholder: words.mobilePlaceholder, error: (v) => (isMobile(v) ? null : words.mobileInvalid) },
+          onConfirm: (_, value) => {
+            const phone = toE164(value ?? '')
+            setAsk((a) => a && { ...a, error: null })
+            void run(
+              async () => {
+                await inviteRider(name, phone)
+                setAsk(null)
+                return fill(words.invited, { name, phone })
+              },
+              (text) => setAsk((a) => a && { ...a, error: text }),
+            )
+          },
+        }
+
+  const confirmed = (rider: Rider, what: 'suspend' | 'remove'): Ask => ({
+    title: fill(what === 'suspend' ? words.suspendTitle : words.removeTitle, { name: rider.name }),
+    target: rider.name,
+    consequence: what === 'suspend' ? words.suspendBody : rider.status === 'invited' ? words.removeInvitedBody : words.removeBody,
+    confirmLabel: what === 'suspend' ? words.suspend : words.remove,
+    danger: true,
+    onConfirm: () =>
+      void run(async () => {
+        if (what === 'suspend') await suspendRider(rider.id)
+        else await removeRider(rider.id)
+        return fill(what === 'suspend' ? words.suspended : words.removed, { name: rider.name })
+      }),
+  })
+
+  const manage = (rider: Rider): Ask => {
+    const sub = [words.statuses[rider.status], rider.phone].filter(Boolean).join(' · ')
+    const options =
+      rider.status === 'invited'
+        ? [{ value: 'resend', label: words.resend }, { value: 'remove', label: words.cancelInvitation }]
+        : [rider.status === 'suspended' ? { value: 'restore', label: words.restore } : { value: 'suspend', label: words.suspend }, { value: 'remove', label: words.remove }]
+    return {
+      title: rider.name,
+      target: sub,
+      consequence: '',
+      confirmLabel: words.continue,
+      choices: [{ key: 'what', label: words.whatNow, options, initial: options[0]?.value ?? 'remove', error: () => null }],
+      onConfirm: (_, __, picks) => {
+        const what = picks['what']
+        if (what === 'resend') return void run(async () => (await resendRiderInvitation(rider.id), fill(words.resent, { name: rider.name })))
+        if (what === 'restore') return void run(async () => (await restoreRider(rider.id), fill(words.restored, { name: rider.name })))
+        setAsk(confirmed(rider, what === 'suspend' ? 'suspend' : 'remove'))
+      },
+    }
+  }
+
+  const shown = ask && (({ stayOpen, ...props }: Ask) => ({ stayOpen: stayOpen === true, props }))(ask)
+
+  const inviteButton = (
+    <button type="button" className="df-button df-button--primary" disabled={busy} onClick={() => setAsk(inviteAsk(null))}>
+      {words.invite}
+    </button>
+  )
+
   return (
     <div className="df-team">
       <div className="df-team-head">
@@ -39,11 +152,13 @@ export const RidersTab = ({ first }: RidersTabProps) => {
           <h2>{words.title}</h2>
           <p>{words.sub}</p>
         </div>
+        {canEdit && riders.length > 0 && inviteButton}
       </div>
       {riders.length === 0 ? (
         <div className="df-riders-empty">
           <h3>{words.emptyTitle}</h3>
           <p>{words.emptyBody}</p>
+          {canEdit && inviteButton}
         </div>
       ) : (
         <div className="df-team-list">
@@ -53,6 +168,7 @@ export const RidersTab = ({ first }: RidersTabProps) => {
             <span>{words.columns.online}</span>
             <span>{words.columns.current}</span>
             <span>{words.columns.done}</span>
+            <span />
           </div>
           <ul aria-label={words.title} className="df-riders-list">
             {riders.map((r) => (
@@ -86,6 +202,13 @@ export const RidersTab = ({ first }: RidersTabProps) => {
                   <span className="df-visually-hidden">{words.columns.done}: </span>
                   {fill(words.delivered, { count: formatCount(r.deliveriesDone) })}
                 </span>
+                {canEdit ? (
+                  <button type="button" className="df-riders-manage" disabled={busy} aria-haspopup="dialog" aria-label={fill(words.manage, { name: r.name })} onClick={() => setAsk(manage(r))}>
+                    {words.manageShort}
+                  </button>
+                ) : (
+                  <span />
+                )}
               </li>
             ))}
           </ul>
@@ -102,6 +225,19 @@ export const RidersTab = ({ first }: RidersTabProps) => {
             </p>
           )}
         </div>
+      )}
+      {shown && (
+        <ConfirmDialog
+          key={`${shown.props.title}|${shown.props.target}|${shown.props.confirmLabel}`}
+          {...shown.props}
+          open
+          cancelLabel={words.cancel}
+          onCancel={() => setAsk(null)}
+          onConfirm={(...args) => {
+            if (!shown.stayOpen) setAsk(null)
+            shown.props.onConfirm(...args)
+          }}
+        />
       )}
     </div>
   )
