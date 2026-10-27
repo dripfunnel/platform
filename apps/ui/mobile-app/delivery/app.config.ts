@@ -59,7 +59,7 @@ export function readStoreEnv(root: string, key: string | undefined): StoreEnv {
   return env
 }
 
-const usage = (text: string, env: StoreEnv): string => text.replace('{name}', env.APP_NAME)
+const usage = (text: string, env: StoreEnv): string => text.replace('{name}', () => env.APP_NAME)
 
 export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoConfig {
   return {

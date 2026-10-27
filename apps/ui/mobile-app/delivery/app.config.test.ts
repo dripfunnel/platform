@@ -53,6 +53,14 @@ describe('app.config.ts', () => {
     ])
   })
 
+  it('puts a store name with a dollar sign in the usage text as it is, not as a replacement pattern', () => {
+    const name = 'Ben $& Jerry'
+    editDevEnv(setTo('APP_NAME', `"${name}"`))
+    const options = (plugin(buildConfig({}, readStoreEnv(root, 'dev')), 'expo-location') as [string, Record<string, string>])[1]
+    expect(options['locationWhenInUsePermission']).toBe(messages.permissions.locationWhenInUse.replace('{name}', () => name))
+    expect(options['locationWhenInUsePermission']).toContain(name)
+  })
+
   it('declares notifications, and the photo library but not the camera or microphone for the profile photo', () => {
     const env = readStoreEnv(appRoot, 'dev')
     const config = buildConfig({}, env)

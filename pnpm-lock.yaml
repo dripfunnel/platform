@@ -191,9 +191,6 @@ importers:
       expo-router:
         specifier: ~57.0.25
         version: 57.0.25(1da2d1639555c5f176992ef686475cfd)
-      expo-secure-store:
-        specifier: ~57.0.4
-        version: 57.0.4(expo@57.0.27)
       expo-splash-screen:
         specifier: ~57.0.9
         version: 57.0.9(expo@57.0.27)(supports-color@10.2.2)(typescript@6.0.3)
