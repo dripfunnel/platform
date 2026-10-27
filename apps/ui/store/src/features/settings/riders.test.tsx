@@ -43,9 +43,11 @@ const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 const pick = (value: string) => fireEvent.change(dialog().getAllByRole('combobox')[0] as HTMLElement, { target: { value } })
 const confirm = (name: string) => fireEvent.click(dialog().getByRole('button', { name }))
 
-const show = async (tab: string, readOnly = false) => {
+const manager: Acting = { ...owner, role: 'manager' }
+
+const show = async (tab: string, readOnly = false, acting: Acting = owner) => {
   const root = createRootRoute({ component: Outlet })
-  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting: owner, state: { readOnly } }), component: Outlet })
+  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
   const settings = createRoute({ getParentRoute: () => app, path: '/settings', validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store', 'riders'])) }), component: SettingsPage })
   const router = createRouter({ routeTree: root.addChildren([app.addChildren([settings])]), history: createMemoryHistory({ initialEntries: [`/settings?tab=${tab}`] }) })
   await act(async () => {
@@ -84,6 +86,16 @@ describe('the tab', () => {
     await show('riders')
     expect(ridersTabLink()).not.toBeNull()
     expect(screen.getByRole('button', { name: messages.settings.error.retry })).toBeTruthy()
+  })
+
+  it('is not listed for a Manager who holds settings, and its address shows the denied state', async () => {
+    await show('store', false, manager)
+    expect(ridersTabLink()).toBeNull()
+    cleanup()
+    await show('riders', false, manager)
+    expect(screen.getByText(messages.settings.denied.title)).toBeTruthy()
+    expect(api.loadRiderPlan).not.toHaveBeenCalled()
+    expect(api.loadRiders).not.toHaveBeenCalled()
   })
 
   it('reads the plan once for the tab list and the tab', async () => {

@@ -42,6 +42,7 @@ export const RidersTab = ({ first, plan, country, canEdit, onChanged }: RidersTa
   const riders = page.nodes
   const dialCode = dialCodeOf(country)
   const complete = !page.pageInfo.hasNextPage
+  // The plan counts invited and active riders; the list never holds removed ones (DELIVERY §9, countCountedRiders).
   const counted = riders.filter((r) => r.status !== 'suspended').length
   const atLimit = complete && plan.limit !== null && counted >= plan.limit
 

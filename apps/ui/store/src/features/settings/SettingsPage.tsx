@@ -118,6 +118,7 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
   },
   // Listed only when the plan has own_delivery; an address typed by hand gets the plain notice, no upsell (DELIVERY §9).
   riders: async () => {
+    if (!seat.owner) return () => <EmptyState title={words.denied.title} body={words.denied.body} />
     const plan = await reads.riderPlan()
     if (!plan.ownDelivery) return () => <EmptyState title={words.riders.notAvailable.title} body={words.riders.notAvailable.body} />
     const [first, info] = await Promise.all([reads.riders(null), reads.storeInfo()])
@@ -135,6 +136,7 @@ export const SettingsPage = () => {
   const [stripeBack, setStripeBack] = useState(() => stripeBackOf(stripe, key))
   const forced = useScreenState(settingsStates, harnessEnabled)
   const allowed = forced ? forced !== 'denied' : acting.permissions.includes('settings')
+  const owner = acting.role === 'owner'
   const readOnly = forced ? forced === 'readOnly' : (state?.readOnly ?? false)
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
@@ -149,7 +151,7 @@ export const SettingsPage = () => {
     return planRead.current
   }, [forced])
   useEffect(() => {
-    if (!allowed || forced === 'loading' || forced === 'error') return
+    if (!allowed || !owner || forced === 'loading' || forced === 'error') return
     let current = true
     // A failed read keeps the tab listed: its own body then shows the error and a retry.
     void riderPlan().then(
@@ -159,12 +161,11 @@ export const SettingsPage = () => {
     return () => {
       current = false
     }
-  }, [allowed, forced, riderPlan])
+  }, [allowed, owner, forced, riderPlan])
 
   // Only the newest read may land: a reload a tab started must not fill another tab opened since.
   const latest = useRef(0)
   const planName = acting.plan?.name ?? null
-  const owner = acting.role === 'owner'
   const load = useCallback(() => {
     const ask = ++latest.current
     if (forced === 'loading') return setView({ kind: 'loading' })
@@ -205,7 +206,7 @@ export const SettingsPage = () => {
       <div className="df-page-tabs">
         <DetailTabs
           label={words.tabs.label}
-          tabs={settingsTabs.filter((t) => t !== 'riders' || ridersListed)}
+          tabs={settingsTabs.filter((t) => t !== 'riders' || (owner && ridersListed))}
           labels={{ riders: words.tabs.riders, store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers, developers: words.tabs.developers, apps: words.tabs.apps, support: words.tabs.support, activity: words.tabs.activity }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
