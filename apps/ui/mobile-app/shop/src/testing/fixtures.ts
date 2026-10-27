@@ -49,3 +49,40 @@ export const tee = (over: Record<string, unknown> = {}) => ({
 })
 
 export const productAnswer = (product: unknown, pricesIncludeTax = true) => ({ store: { pricesIncludeTax }, product })
+
+export const cartLine = (id: string, over: Record<string, unknown> = {}) => ({
+  versionId: `ver-${id}`,
+  productSlug: `tee-${id}`,
+  productName: `Tee ${id}`,
+  versionName: 'Sand / M',
+  photoUrl: null,
+  quantity: 1,
+  available: 9,
+  unitPrice: inr('149900'),
+  lineTotal: inr('149900'),
+  problem: null,
+  ...over,
+})
+
+/** A cart as the Shop API sends it (money in minor units). The totals are the engine's: tests give them, and never expect the app to add them up. */
+export const cartRead = (over: Record<string, unknown> = {}) => ({
+  email: null,
+  phone: null,
+  needsShipping: true,
+  currency: 'INR',
+  checkoutStep: 'contact',
+  readyToPay: false,
+  problems: ['NO_CONTACT'],
+  subtotal: inr('149900'),
+  discount: inr('0'),
+  shipping: null,
+  total: inr('149900'),
+  tax: { amount: inr('7138'), pricesIncludeTax: true },
+  codes: [],
+  discounts: [],
+  lines: [cartLine('1')],
+  shippingAddress: null,
+  shippingOption: null,
+  shippingOptions: [],
+  ...over,
+})

@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '../../features/placeholder/PlaceholderScreen'
-import { t } from '../../messages'
+import { CartScreen } from '../../features/cart/CartScreen'
 
 export default function Cart() {
-  return <PlaceholderScreen title={t('tabs.cart')} />
+  return <CartScreen />
 }

@@ -199,6 +199,13 @@ export const knownErrorCodes = [
   // The Shop API's store and cart refusals (apps/api src/apis/shop/access.ts, cart.ts).
   'STORE_UNAVAILABLE',
   'TOO_MANY_LINES',
+  'NO_CART',
+  'TOO_MANY_CODES',
+  // The Shop API's checkout refusals (apps/api src/apis/shop/checkout.ts).
+  'OUT_OF_STOCK',
+  'OFFER_CHANGED',
+  'CART_CHANGED',
+  'ALREADY_PLACED',
   // The Shop API's sign-in and account refusals (apps/api src/apis/shop/accounts.ts).
   'METHOD_OFF',
   'CODE_REFUSED',

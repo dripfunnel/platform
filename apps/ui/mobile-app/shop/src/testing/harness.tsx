@@ -91,3 +91,10 @@ export const press = async (renderer: ReactTestRenderer, name: string): Promise<
 }
 
 export const isDisabled = (node: ReactTestInstance): boolean => Boolean(node.props.disabled || node.props.accessibilityState?.disabled)
+
+/** Types into the field with this label (the label may carry "(optional)" after it). */
+export const fill = async (renderer: ReactTestRenderer, label: string, value: string): Promise<void> => {
+  const input = renderer.root.findAll((node) => typeof node.props.accessibilityLabel === 'string' && node.props.accessibilityLabel.startsWith(label) && typeof node.props.onChangeText === 'function')[0]
+  if (!input) throw new Error(`No field "${label}". On screen: ${texts(renderer).join(' | ')}`)
+  await act(async () => input.props.onChangeText(value))
+}
