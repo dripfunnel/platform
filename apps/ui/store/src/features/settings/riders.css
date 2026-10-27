@@ -1,12 +1,12 @@
 /* Settings › Riders (designs/SetRiders.dc.html): the People list's look, with four more columns. */
 
 .df-riders-row {
-  grid-template-columns: minmax(0, 1.6fr) 110px minmax(0, 1fr) minmax(0, 1fr) 90px;
+  grid-template-columns: minmax(0, 1.6fr) 110px minmax(0, 1fr) minmax(0, 1fr) 90px 90px;
 }
 
 .df-riders-head {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) 110px minmax(0, 1fr) minmax(0, 1fr) 90px;
+  grid-template-columns: minmax(0, 1.6fr) 110px minmax(0, 1fr) minmax(0, 1fr) 90px 90px;
   gap: 12px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--df-color-border);
@@ -63,6 +63,19 @@
   color: var(--df-color-muted);
 }
 
+.df-riders-manage {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .df-riders-empty {
   display: flex;
   flex-direction: column;
@@ -110,5 +123,9 @@
 
   .df-riders-done {
     text-align: left;
+  }
+
+  .df-riders-manage {
+    min-height: 44px;
   }
 }
