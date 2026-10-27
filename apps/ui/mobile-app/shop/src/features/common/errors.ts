@@ -31,6 +31,26 @@ export const errorKey = (code: string): MessageKey => {
       return 'errors.SIGNED_OUT'
     case 'NOT_IN_PREVIEW':
       return 'errors.NOT_IN_PREVIEW'
+    case 'NO_CART':
+      return 'errors.NO_CART'
+    case 'TOO_MANY_CODES':
+      return 'errors.TOO_MANY_CODES'
+    case 'NOT_READY':
+      return 'errors.NOT_READY'
+    case 'OUT_OF_STOCK':
+      return 'errors.OUT_OF_STOCK'
+    case 'OFFER_CHANGED':
+      return 'errors.OFFER_CHANGED'
+    case 'CART_CHANGED':
+      return 'errors.CART_CHANGED'
+    case 'ALREADY_PLACED':
+      return 'errors.ALREADY_PLACED'
+    case 'METHOD_UNAVAILABLE':
+      return 'errors.METHOD_UNAVAILABLE'
+    case 'PHONE_REQUIRED':
+      return 'errors.PHONE_REQUIRED'
+    case 'SHIPPING_UNAVAILABLE':
+      return 'errors.SHIPPING_UNAVAILABLE'
     default:
       return 'errors.UNKNOWN'
   }
