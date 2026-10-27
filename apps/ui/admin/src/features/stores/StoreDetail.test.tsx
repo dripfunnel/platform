@@ -54,6 +54,16 @@ describe('Store detail', () => {
     expect(text).not.toMatch(/preview/i)
   })
 
+  it('shows the store’s repository on the Storefront tab, and a dash before it has one (#935)', async () => {
+    const store = storeOf('s13')
+    const withRepo = await render({ tab: 'storefront', store: { ...store, site: { ...store.site, repo: 'sf-k7f3q9f2xa' } } })
+    expect(withRepo).toContain(words.storefront.repo)
+    expect(withRepo).toContain('sf-k7f3q9f2xa')
+    const without = await render({ tab: 'storefront', store: { ...store, site: { ...store.site, repo: null } } })
+    expect(without).toContain(words.storefront.repo)
+    expect(without).not.toContain('sf-')
+  })
+
   it('has the tabs decided on #20, with the Customers tab #42 adds after Users', async () => {
     const text = await render()
     for (const label of Object.values(words.tabs)) expect(text).toContain(label)

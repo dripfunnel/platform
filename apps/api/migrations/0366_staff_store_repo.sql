@@ -1,7 +1,5 @@
 -- A store's repo name for the Admin console's Storefront tab (#935). Staff cannot read `storefront` (restrictive policy,
 -- 0064), so one definer function answers one store's repo in platform scope only.
-grant select (store_id, repo) on storefront to app_definer;
-
 create function staff_store_repo(p_store uuid) returns text
 language sql
 stable
