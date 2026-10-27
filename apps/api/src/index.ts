@@ -737,7 +737,7 @@ const handleDelivery = async (request: Request, url: URL, config: Config, env: E
   try {
     const caller = await resolveRider(sql, request, url.hostname, config.SHOP_DOMAIN ?? null, new Date())
     if (!caller) return notFound()
-    const context: DeliveryContext = { sql, caller, activity: activityLog, facts, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, defer: (work) => deferred.push(work), files: env.ASSETS ?? null, now: () => new Date() }
+    const context: DeliveryContext = { sql, caller, activity: activityLog, facts, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, defer: (work) => deferred.push(work), files: env.ASSETS ?? null, secrets: await (secretsFor(config) ?? null), now: () => new Date() }
     if (url.pathname === riderAssetsPath) return await handleRiderAsset(request, context)
     return await servers.delivery.fetch(request, context)
   } finally {

@@ -76,6 +76,8 @@ const id = z.uuid()
 const email = z.string().max(320)
 const payloads = {
   'delivery-unassigned': z.object({ deliveryId: id }),
+  'delivery-code-unconfirmed': z.object({ deliveryId: id }),
+  'order-not-delivered': z.object({ orderId: id, deliveryId: id }),
   'staff-invitation': z.object({ staffInvitationId: id, to: email }),
   'partner-owner-invitation': z.object({ partnerInvitationId: id, to: email, partnerName: z.string().max(200) }),
   'partner-team-invitation': z.object({ partnerInvitationId: id, to: email, partnerName: z.string().max(200) }),
@@ -190,7 +192,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
   const parse = <K extends Template>(k: K) => payloads[k].parse(payload) as z.infer<(typeof payloads)[K]>
 
   switch (t) {
-    case 'delivery-unassigned': {
+    case 'delivery-unassigned':
+    case 'delivery-code-unconfirmed': {
       const p = parse(t)
       if (!row.storeId) return { send: false, reason: 'tenant_mismatch' }
       const notice = await dispatchNotice(tx, row.storeId, p.deliveryId)
@@ -202,7 +205,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const roles = merchantRoles.filter((role) => merchantRolePermissions[role].includes('orders.fulfil'))
       const to = await dispatchRecipients(tx, row.storeId, roles)
       if (to.length === 0) return { send: false, reason: 'no_recipient' }
-      const w = en.deliveryUnassigned
+      const w = t === 'delivery-unassigned' ? en.deliveryUnassigned : en.deliveryCodeUnconfirmed
       return { send: true, accountSecurity: false, to, ...look, content: { subject: w.subject(notice.number), heading: w.heading, paragraphs: [w.body], action: { label: w.action, url: `https://${host}/orders/${notice.order_id}` } } }
     }
     case 'staff-invitation': {
@@ -462,6 +465,19 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const paragraphs = [w.body(session.decided_by_name ?? m.store.name, session.agent_name, session.partner_name, m.store.name), w.control]
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
     }
+    case 'order-not-delivered': {
+      const p = parse(t)
+      const notice = row.storeId ? await dispatchNotice(tx, row.storeId, p.deliveryId) : null
+      const o = notice?.order_id === p.orderId ? await selectOrderEmail(tx, p.orderId, null) : null
+      if (!o || o.state === 'cancelled') return { send: false, reason: 'link_closed' }
+      if (o.partner_id !== row.partnerId || o.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      if (!o.email) return { send: false, reason: 'no_recipient' }
+      const look = await partnerBrand(tx, o.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const brand: Brand = { ...look.brand, name: o.store_name, supportEmail: o.contact_email, supportUrl: null }
+      const w = en.orderNotDelivered
+      return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content: { subject: w.subject(o.store_name, o.number), heading: w.heading, paragraphs: [w.intro(o.number), w.next] } }
+    }
     case 'order-confirmed':
     case 'order-shipped':
     case 'order-delivered': {
@@ -493,7 +509,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!shipment || shipment.order_id !== p.orderId) return { send: false, reason: 'tenant_mismatch' }
       if (t === 'order-delivered') {
         const d = en.orderDelivered
-        const content: EmailContent = { subject: d.subject(o.store_name, o.number), heading: d.heading, paragraphs: [d.intro(o.number), ...o.lines.map((l) => d.line(l.quantity, item(l)))] }
+        const content: EmailContent = { subject: d.subject(o.store_name, o.number), heading: d.heading, paragraphs: [shipment.kind === 'local' ? d.localIntro(o.number) : d.intro(o.number), ...o.lines.map((l) => d.line(l.quantity, item(l)))] }
         return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
       }
       const w = en.orderShipped

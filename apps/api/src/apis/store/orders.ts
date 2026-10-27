@@ -59,6 +59,7 @@ const shipWords: Record<FulfilmentRefusal, string> = {
   TOO_MANY: 'That’s more than is left to ship.',
   NOT_ENOUGH_STOCK: 'That location hasn’t that many. Change the stock or pick another location.',
   NO_STORE_LOCATION: 'The store has no location to send these to yet.',
+  NOT_HANDED_OVER: 'A supplier hasn’t handed all its items to the store yet.',
   READ_ONLY: 'A read-only support session can’t change this store.',
   NOT_CONNECTED: 'This courier isn’t connected for the store. Connect it in Settings › Shipping, or enter tracking by hand.',
   OWN_LABELS: 'The store has you buy your own labels. Ship these and enter the tracking by hand.',

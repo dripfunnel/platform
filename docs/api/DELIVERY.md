@@ -12,9 +12,11 @@ their app calls, and what the customer sees while the order is on its way. The t
 riders' sign-in, profile and account deletion (§4, §5; #839); own delivery as a Shipping method, the warehouses'
 delivery areas and the checkout option (§2, §8; #841); dispatch: delivery creation, Ready for pickup, offer rounds,
 accept and decline, assignment by hand, cancellation before pickup, online state, positions and the minute sweep
-(§3, §4, §8; #842).
+(§3, §4, §8; #842); carrying it: pickup as a `local` shipment, the handover code, Delivered and Not delivered sent
+late, recall and the merchant's confirmation (§3, §4, §6, §8; #843).
 
-Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
+Last updated: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
+events, §3, §4, §6, §8). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
 means a company reselling the platform (USERS-AND-DOMAINS §1), and Settings › Shipping already
@@ -125,7 +127,7 @@ at `searching`. The setting is read when the delivery is created.
    the delivery **delivered**, saying first, for cash on delivery, that the cash was collected; or **not delivered** with a reason (no one home, refused, wrong address),
    and returns the parcel. A failed delivery is the merchant's to retry (offer again) or cancel.
 
-**States**. Every transition, and who makes it (up to pickup and cancellation built on #842; pickup, delivery and recall are DL 6):
+**States**. Every transition, and who makes it (built on #842 and #843):
 
 | From | To | By |
 |---|---|---|
@@ -160,18 +162,18 @@ details has already ended (§4). The new delivery's pickup writes no second fulf
 order's `local` fulfilment already took the stock out. Cancelling the order after a failed
 delivery follows the existing return path (store/FIRST-RELEASE.md §19).
 
-**Handover code** *(details proposed)*. Four digits, made when a rider is assigned, shown only to the
+**Handover code** (built on #843; the customer's view of it is SH 5). Four digits, made when a rider is assigned, shown only to the
 order's customer, and only where they are signed in or hold the order's link: the shop app's
 order screen and the website's order page. **No push or email carries it**: the "on the way"
 push and email say to open the order to see the code, so a lock screen or a forwarded email never
-shows it. The rider never reads it. A wrong code is refused (`WRONG_CODE`); after 5 wrong codes
+shows it (that wording comes with SH 5, once the order shows the code; until then they say only that it is on its way). The rider never reads it. A wrong code is refused (`WRONG_CODE`); after 5 wrong codes
 the delivery is locked (`CODE_LOCKED`) and only the merchant can mark it delivered, from the
 order, with a reason. The code is kept encrypted and deleted when the delivery ends.
 
 A new code is made at every assignment: when a rider hands a delivery back, its code is deleted and
 the next rider's assignment makes a fresh one, so a code told to the first rider is useless.
 
-**Delivered without signal** *(proposed)*. The app keeps the step and the code the rider typed in
+**Delivered without signal** (built on #843; the app's side is DL 9). The app keeps the step and the code the rider typed in
 secure storage, deleted once sent, and allows one attempt while offline; the server checks it when
 it arrives, as one try. If the code is wrong, the delivery stays `picked_up`, marked
 `code_unconfirmed_at`, and the API answers `CODE_UNCONFIRMED`: the rider's app says the code
@@ -192,7 +194,7 @@ that dies or loses signal for good leaves no point behind.
 
 **DL 5 built on #842 (2026-10-26).** Delivery creation, Ready for pickup, round-based broadcasts,
 accept/decline, manual assignment, cancellation before pickup, online state and position reporting are built.
-Pickup, delivery proof and customer tracking remain DL 6 / SH 5.
+Pickup and delivery proof are built on #843 (below); customer tracking remains SH 5.
 
 | Decision | Rejected | Why |
 |---|---|---|
@@ -238,7 +240,7 @@ check.
 | `acceptOffer(id)`, `declineOffer(id)` | §3 steps 1–2; a lost race answers `TAKEN` |
 | `deliveries(state, first, after)` | This rider's deliveries, newest first, keyset-paged: `first` 20 by default, at most 50. A past delivery shows its date, state, warehouse, the customer's area name and the fee, never the customer's name, phone, address or pin |
 | `delivery(id)` | One delivery: warehouse address and pin, the lines and quantities; the customer's area name and the cash to collect. **Only once the rider has picked it up** (`picked_up`, and still theirs) also the customer's name, phone, address, pin and note, so accepting and handing back never reveals a customer. Once it is delivered, failed, cancelled or recalled, none of the customer's details are returned again |
-| `handBack(id)`, `markPickedUp(id)`, `markDelivered(id, code, cashCollected, at, key)`, `markFailed(id, reason, at, key)` | §3 steps 4–5. `markDelivered` refuses a wrong code (`WRONG_CODE`, then `CODE_LOCKED`), and for cash on delivery a missing `cashCollected` (`CASH_NOT_CONFIRMED`); a wrong code arriving late answers `CODE_UNCONFIRMED` (§3, Delivered without signal). The last two may arrive late from a phone that had no signal (decided 2026-10-22, delivery/FIRST-RELEASE.md §1): `at` is when the rider did it, accepted between pickup and now and kept as the step's time; `key` makes a resend do nothing twice |
+| `handBack(id)`, `markPickedUp(id)`, `markDelivered(id, code, cashCollected, at, key)`, `markFailed(id, reason, note, at, key)` | §3 steps 4–5. `markDelivered` refuses a wrong code (`WRONG_CODE`, then `CODE_LOCKED`), and for cash on delivery a missing `cashCollected` (`CASH_NOT_CONFIRMED`); a wrong code arriving late answers `CODE_UNCONFIRMED` (§3, Delivered without signal). The last two may arrive late from a phone that had no signal (decided 2026-10-22, delivery/FIRST-RELEASE.md §1): `at` is when the rider did it, accepted between pickup and now and kept as the step's time; `key` makes a resend do nothing twice |
 | `registerPushDevice(token, platform)`, `unregisterPushDevice(token)` | The Expo push token for this phone, and forgetting it (§6) |
 
 Every list in this API and in §8 is keyset-paged with a stated maximum, never above the scoped
@@ -248,7 +250,30 @@ Sign-in is rate-limited per number and per address, as the Shop API's codes are.
 
 **Built on #839:** the API itself (`src/apis/delivery`, `schema/delivery.graphql`), with `requestCode`, `signIn`,
 `signOut`, `me`, `updateProfile` and `deleteMyAccount`; on #840 (DL 3) `registerPushDevice` and `unregisterPushDevice`;
-dispatch is built on #842 (DL 5); pickup, proof and completion remain DL 6.
+dispatch is built on #842 (DL 5); pickup, proof and completion on #843 (DL 6), below.
+
+**Built on #843 (DL 6), decided on it:**
+
+- **Pickup** ships every unit not yet sent as `local` shipments from the delivery's warehouse, through the function
+  `shipItems` uses: stock out with the rider as the movement's actor, holds given back, the parts' and order's states,
+  the shopper's "on its way" email and `order.shipped` webhook. It is
+  refused `NOT_ENOUGH_STOCK` as `shipItems` is, and `NOT_HANDED_OVER` while a to-store supplier's lines are not all
+  with the store (§2). A retry after `failed` finds the order's `local` shipment and writes none.
+- **The code** is sealed under the credentials key (`CREDENTIALS_KEK`) bound to its delivery's id; without the key
+  an assignment answers `UNAVAILABLE`. A merchant's assignment and recall run in system scope for it (DATA-MODEL §7.12).
+- **`markDelivered`**: `WRONG_CODE` for tries 1 to 4, `CODE_LOCKED` from the fifth; each wrong try is logged
+  (`delivery.code_refused`). `at` from pickup to 30 seconds past the server's time, else `INVALID_INPUT`; a step
+  more than 2 minutes old counts as sent late. A resend with the same `key` answers what the first did and changes
+  nothing. A wrong code sent late leaves `code_unconfirmed_at` and emails the merchant (`delivery-code-unconfirmed`);
+  after that the rider's steps answer `CODE_UNCONFIRMED` and the store moves it on.
+- **`markFailed(id, reason, note, at, key)`**: `no_one_home`, `refused`, `wrong_address` or `other` with a note (1–500);
+  the customer gets a push and the `order-not-delivered` email.
+- **`deliveries`** takes a list of states and counts `deliveredToday` and `deliveredThisWeek` in the store's time zone,
+  the week starting on the first day of the store's language and region (`en-US` Sunday, `en-GB` Monday; Monday where
+  the runtime can't tell; decided 2026-10-26 on #843). The area and the fee are copied onto the delivery when it is
+  made, so a past delivery shows them without the order.
+- Refusals: `NOT_ASSIGNED` (hand back or pick up a delivery not assigned), `NOT_PICKED_UP` (a last step on one not in
+  transit), `CASH_NOT_CONFIRMED`; another rider's or store's delivery is `NOT_FOUND`.
 
 - **The session** comes back from `signIn` once and goes in as `Authorization: Bearer <token>`: hashed in
   `rider_session`, 30 days from last use, ended by `signOut`, suspension, removal and `deleteMyAccount`. A token of
@@ -333,10 +358,12 @@ those through its API.
 The order emails the customer already gets for a shipment stay as they are. Neither a push nor an
 email ever carries the handover code (§3).
 
-**Built on #840 (DL 3) and #842 (DL 5):** the pipe, the test event and the rider's messages; the customer's and the pickup events come with DL 6 and SH 5.
+**Built on #840 (DL 3), #842 (DL 5) and #843 (DL 6):** the pipe, the test event, the rider's messages and the customer's
+picked up, delivered and not delivered (`order.*`, to the customer, or to a guest's order), which reach a phone once SH 5
+registers the shop app's devices. The merchant's emails for nobody accepted and an unconfirmed code are built.
 
 - **Rider messages** (`core/push.ts`): `rider.notifications_on`, `rider.offer` (a distance, never an address), `rider.assigned`,
-  `rider.cancelled`, and `rider.taken`, which is silent: the app only refreshes its offers.
+  `rider.cancelled`, `rider.recalled` (bring the parcel back), and `rider.taken`, which is silent: the app only refreshes its offers.
 
 - **The test event** is a confirmation, "Notifications are on for {store}", queued by `registerPushDevice` in its own
   transaction when a phone is new to the rider or moved to them.
@@ -394,15 +421,16 @@ delivery ends.
 |---|---|
 | Own delivery in `shippingSettings`, the warehouse's delivery settings in `saveWarehouse` (§2; built on #841) | As those operations today (Owner) |
 | `riders(first, after)` (50 by default, at most 100), `inviteRider`, `resendRiderInvitation`, `suspendRider`, `restoreRider`, `removeRider`, `exportRider` (a job), `eraseRider` (§5) | New `riders.manage`: Owner |
-| `order(id).delivery`: state, history, rider, position while picked up | `orders.read` |
+| `order(id).delivery`: state, history, rider, position while picked up; the failed reason and note, the rider's cash claim, and whether the code is locked or unconfirmed (#843) | `orders.read` |
 | `markReadyForPickup(orderId)` (§3) | `orders.fulfil` |
 | `assignDelivery(deliveryId, riderId)`, `offerDeliveryAgain(deliveryId)`, `cancelDelivery(deliveryId)` (before pickup it cancels; after, it recalls, §3), `markDeliveryDelivered(deliveryId, reason, cashReceived)` (a locked or unconfirmed code, §3; cash below) | `orders.fulfil` |
 
-**A merchant-confirmed cash-on-delivery delivery** *(proposed)*: `markDeliveryDelivered` then requires
+**A merchant-confirmed cash-on-delivery delivery** (built on #843): `markDeliveryDelivered` then requires
 `cashReceived`, the merchant's own statement that the cash reached the store. `true` marks the order
 paid through the existing mark-paid path, so it also needs `orders.mark_paid` (Owner, Manager;
-ACCESS §5.1), and the activity entry names the merchant, the reason and the rider's own claim if
-one was sent late. `false` marks the delivery delivered and leaves the order unpaid until someone
+ACCESS §5.1; `FORBIDDEN` without it), and the activity entry names the merchant and the reason; the rider's own
+claim, if one was sent late, stays on the delivery (`cashCollectedAt` on the order). Any other delivery answers
+`CODE_NOT_LOCKED`. `false` marks the delivery delivered and leaves the order unpaid until someone
 marks it paid as today. A prepaid order ignores the argument.
 
 A supplier never sees riders, positions or a delivery: own delivery carries only the store's

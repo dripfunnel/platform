@@ -4,6 +4,7 @@ import { createServer } from '#apis/graphql/server'
 import { seedStoreWorld, type StoreWorld } from './support/storeWorld'
 import { markPaid, applyOutcome } from '#engine/modules/checkout/index'
 import { hashSessionId } from '#auth/session'
+import { secretBox, type SecretBox } from '#auth/secretBox'
 import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { prepareEmail } from '#saas/email/index'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -25,12 +26,13 @@ let world: StoreWorld
 let warehouse = ''
 const riders: string[] = []
 let clock = new Date('2026-10-26T12:00:00Z')
+let secrets: SecretBox
 const facts = { requestId: 'dispatch-test', ip: null, userAgent: null }
 const context = (riderId?: string, storeId = tenants.storeA1): TenantContext => ({
   partnerId: tenants.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active',
   caller: riderId ? { kind: 'rider', riderId } : { kind: 'person', userId: '00000000-0000-4000-8000-000000000001', sessionId: 'test' },
 })
-const service = (riderId?: string, storeId = tenants.storeA1) => createDispatch({ sql: db.sql, context: context(riderId, storeId), activity: activityLog, facts, now: () => clock })
+const service = (riderId?: string, storeId = tenants.storeA1) => createDispatch({ sql: db.sql, context: context(riderId, storeId), activity: activityLog, facts, now: () => clock, secrets })
 const jobFacts = () => ({ storeId: tenants.storeA1, partnerId: tenants.partnerA, activity: activityLog, now: clock })
 const order = async (method = 'cod', paid = false, mode = 'live', origin?: Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'api'>) => {
   const [o] = await db.sql<{ id: string }[]>`insert into "order"(store_id,state,number,currency,payment_method,payment_state,shipping_option,delivery_warehouse_id,total_amount,placed_at,shipping_address)
@@ -62,7 +64,8 @@ const available = async () => {
 beforeAll(async () => {
   db = await createTestDatabase()
   tenants = await seedTenants(db.sql)
-  world = await seedStoreWorld(db.sql, tenants, { now: () => clock, secrets: null, lookup: null })
+  secrets = await secretBox(btoa('k'.repeat(32)))
+  world = await seedStoreWorld(db.sql, tenants, { now: () => clock, secrets, lookup: null })
   const [w] = await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${tenants.storeA1} and seller_id is null limit 1`
   if (!w) throw new Error('no warehouse')
   warehouse = w.id
@@ -176,7 +179,7 @@ describe('position and isolation', () => {
       const d = await delivery(id)
       await db.sql`update delivery set state = 'picked_up',rider_id = ${rider.id} where id = ${d.id}`
       const riderContext = { ...context(rider.id), caller: { kind: 'rider' as const, riderId: rider.id } }
-      const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider: riderContext, token }, activity: activityLog, facts, now: () => clock, defer: () => undefined }
+      const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider: riderContext, token }, activity: activityLog, facts, now: () => clock, defer: () => undefined, secrets }
       const run = async () => {
         if (action === 'suspendRider' || action === 'removeRider') return world.gql('owner', `mutation { ${action}(id: "${rider.id}") ${action === 'suspendRider' ? '{ id }' : ''} }`)
         const answer = await graphql({ schema: deliverySchema as GraphQLSchema, source: `mutation { ${action} }`, contextValue })
@@ -198,7 +201,7 @@ describe('position and isolation', () => {
     const d = await delivery(await order())
     await db.sql`update delivery set state = 'picked_up',rider_id = ${rider.id} where id = ${d.id}`
     const riderContext = { ...context(rider.id), caller: { kind: 'rider' as const, riderId: rider.id } }
-    const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider: riderContext, token }, activity: activityLog, facts, now: () => clock, defer: () => undefined }
+    const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider: riderContext, token }, activity: activityLog, facts, now: () => clock, defer: () => undefined, secrets }
     const server = createServer<DeliveryContext>(deliverySchema as GraphQLSchema, '/delivery-api')
     const ask = async (query: string) => {
       const answer = await server.fetch(new Request('http://localhost/delivery-api', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query }) }), contextValue)
@@ -256,7 +259,7 @@ describe('position and isolation', () => {
   })
   it('answers every dispatch mutation with success through its own API', async () => {
     await available()
-    const riderValue = (riderId: string): DeliveryContext => ({ sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider: { ...context(riderId), caller: { kind: 'rider' as const, riderId } }, token: null }, activity: activityLog, facts, now: () => clock, defer: () => undefined })
+    const riderValue = (riderId: string): DeliveryContext => ({ sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider: { ...context(riderId), caller: { kind: 'rider' as const, riderId } }, token: null }, activity: activityLog, facts, now: () => clock, defer: () => undefined, secrets })
     const ride = async (riderId: string, source: string) => {
       const answer = await graphql({ schema: deliverySchema as GraphQLSchema, source, contextValue: riderValue(riderId) })
       expect([source, answer.errors?.[0]?.message]).toEqual([source, undefined])
@@ -379,7 +382,7 @@ describe('position and isolation', () => {
     for (let i = 0; i < 51; i++) await broadcast(await order())
     const id = riders[0] ?? ''
     const rider = { ...context(id), caller: { kind: 'rider' as const, riderId: id } }
-    const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider, token: null }, activity: activityLog, facts, now: () => clock, defer: () => undefined }
+    const contextValue: DeliveryContext = { sql: db.sql, caller: { storeId: tenants.storeA1, partnerId: tenants.partnerA, available: true, rider, token: null }, activity: activityLog, facts, now: () => clock, defer: () => undefined, secrets }
     const result = await graphql({ schema: deliverySchema as GraphQLSchema, source: '{ offers(first: 999) { nodes { id area itemCount distanceM warehouse } pageInfo { hasNextPage } } }', contextValue })
     expect(result.errors).toBeUndefined()
     const page = (result.data as { offers: { nodes: unknown[]; pageInfo: { hasNextPage: boolean } } }).offers

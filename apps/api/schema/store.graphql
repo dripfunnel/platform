@@ -1067,6 +1067,7 @@ type Mutation {
   issueGiftCard(issueKey: ID!, productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
   keepProducts(ids: [ID!]!): PlanKeep
   makeDomainPrimary(id: ID): Boolean
+  markDeliveryDelivered(cashReceived: Boolean, deliveryId: ID!, reason: String!): Boolean
   markOrderPaid(orderId: ID!): Boolean
   markReadyForPickup(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
@@ -1493,6 +1494,12 @@ type OrderCounts {
 }
 
 type OrderDelivery {
+  """When the rider said the cash was collected."""
+  cashCollectedAt: String
+  codeLocked: Boolean
+  codeUnconfirmedAt: String
+  failedNote: String
+  failedReason: String
   id: ID
   rider: DeliveryRider
   state: String

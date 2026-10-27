@@ -39,13 +39,14 @@ export const selectOrderToTell = async (tx: ScopedSql, orderId: string): Promise
 
 export interface ShipmentToTellRow {
   order_id: string
+  kind: string
   courier_name: string | null
   tracking_number: string | null
   tracking_url: string | null
 }
 
 export const selectShipmentToTell = async (tx: ScopedSql, fulfilmentId: string): Promise<ShipmentToTellRow | null> =>
-  (await tx<ShipmentToTellRow[]>`select order_id, courier_name, tracking_number, tracking_url from fulfilment where id = ${fulfilmentId} and kind in ('manual', 'booked')`)[0] ?? null
+  (await tx<ShipmentToTellRow[]>`select order_id, kind, courier_name, tracking_number, tracking_url from fulfilment where id = ${fulfilmentId} and kind in ('manual', 'booked', 'local')`)[0] ?? null
 
 export interface OrderEmailRow {
   store_id: string
