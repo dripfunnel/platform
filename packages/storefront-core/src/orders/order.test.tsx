@@ -173,7 +173,7 @@ describe('useOrder', () => {
     expect(asked[0]?.query).not.toMatch(/position|etaAt|latitude|longitude/i)
     const tracking = page().order?.tracking
     expect(tracking).toMatchObject({ state: 'picked_up', status: 'On the way', rider: { name: 'Asha', vehicle: 'Scooter · RJ14 0001' }, code: { value: '2580' } })
-    expect(tracking?.steps[0]?.at).toMatch(/Oct 27/)
+    expect(tracking?.steps[0]?.at).toMatch(/Oct 27.*(UTC|GMT)/)
     // The order's own delivery label is unchanged, so a courier order reads as before.
     expect(page().order?.delivery).toBe('Standard delivery')
     cleanup()

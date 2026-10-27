@@ -227,7 +227,7 @@ export const useOrder = (): OrderPage => {
   const { path } = useLocation()
   const when = (iso: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: store.timeZone, timeZoneName: 'short' }).format(new Date(iso))
   // A delivery's steps are moments of the day, in the store's own zone.
-  const step = (iso: string) => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: store.timeZone }).format(new Date(iso))
+  const step = (iso: string) => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: store.timeZone, timeZoneName: 'short' }).format(new Date(iso))
   // A gift's send-on day is a calendar date, not a moment: shown as that date, with no time and no shift of zone.
   const day = (date: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date.slice(0, 10)}T12:00:00Z`))
   const id = itemSlug(path, '/order/') ?? itemSlug(path, '/account/orders/')
