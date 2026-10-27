@@ -15,6 +15,7 @@ import { ContactStep } from './ContactStep'
 import { DeliveryStep } from './DeliveryStep'
 import { SummaryBar } from './OrderSummary'
 import { PaymentStep } from './PaymentStep'
+import { isSheetProvider } from './payments/env'
 import { PayScreen } from './payments/PayScreen'
 import { ReviewStep } from './ReviewStep'
 import { refusalCode, returnFor, stepsFor, type Step } from './steps'
@@ -43,7 +44,7 @@ export function CheckoutScreen() {
   const [wanted, setWanted] = useState<Step>('contact')
   const [notice, setNotice] = useState<string | null>(null)
   const [provider, setProvider] = useState<string | null>(null)
-  const [placed, setPlaced] = useState<{ order: PlacedOrder; cart: Cart } | null>(null)
+  const [placed, setPlaced] = useState<{ order: PlacedOrder; cart: Cart; paid: boolean } | null>(null)
   // An order placed for a card or wallet payment, not yet paid: its sheet is open or the payment is being confirmed.
   const [paying, setPaying] = useState<{ order: PlacedOrder; cart: Cart } | null>(null)
   const [stopped, setStopped] = useState<string | null>(null)
@@ -92,7 +93,7 @@ export function CheckoutScreen() {
         ) : null}
         {step === 'delivery' ? <DeliveryStep cart={live} apply={apply} next={next} changeAddress={() => go('address')} /> : null}
         {step === 'payment' ? <PaymentStep cart={live} provider={provider} onProvider={setProvider} apply={apply} next={next} onRefused={refused} /> : null}
-        {step === 'review' && provider ? <ReviewStep cart={live} provider={provider} onPlaced={(order) => (order.payment ? setPaying({ order, cart: live }) : setPlaced({ order, cart: live }))} onRefused={refused} /> : null}
+        {step === 'review' && provider ? <ReviewStep cart={live} provider={provider} onPlaced={(order) => (isSheetProvider(order.provider) ? setPaying({ order, cart: live }) : setPlaced({ order, cart: live, paid: false }))} onRefused={refused} /> : null}
       </ScrollView>
     )
   }
@@ -101,13 +102,13 @@ export function CheckoutScreen() {
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
       <ScreenHeader title={t('checkout.title')} {...(placed || paying ? {} : { onBack: goBack })} />
       {placed ? (
-        <Confirmation order={placed.order} cart={placed.cart} onDone={() => router.replace('/home')} />
+        <Confirmation order={placed.order} cart={placed.cart} paid={placed.paid} onDone={() => router.replace('/home')} />
       ) : paying ? (
         <PayScreen
           order={paying.order}
           cart={paying.cart}
           onPaid={() => {
-            setPlaced(paying)
+            setPlaced({ ...paying, paid: true })
             setPaying(null)
           }}
           onLeave={() => router.replace('/home')}

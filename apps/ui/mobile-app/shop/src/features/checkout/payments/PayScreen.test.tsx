@@ -129,6 +129,22 @@ describe('paying by Stripe', () => {
   })
 })
 
+describe('an order the API placed with nothing to pay it with', () => {
+  it('opens no sheet and says it could not start, never that it is paid, and pays on a new attempt', async () => {
+    const order: PlacedOrder = { ...placed('stripe', stripeStart()), payment: null }
+    const { screen, shop, onPaid } = await open(order, { paid: true, retried: stripeStart('3') })
+    expect(mockInitSheet).not.toHaveBeenCalled()
+    expect(hasText(screen, t('checkout.pay.unavailable'))).toBe(true)
+    expect(onPaid).not.toHaveBeenCalled()
+    expect(sent(shop.requests, 'confirmPayment')).toHaveLength(0)
+
+    await press(screen, t('checkout.pay.retry'))
+    expect(sent(shop.requests, 'payOrder')).toHaveLength(1)
+    expect(mockInitSheet).toHaveBeenCalledWith(expect.objectContaining({ paymentIntentClientSecret: 'secret_3' }))
+    expect(onPaid).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('when the payment is not confirmed in time', () => {
   it('says it is still confirming and offers no second payment, only to check again or finish', async () => {
     const { screen, onPaid, onLeave } = await open(placed('stripe', stripeStart()), { paid: false })

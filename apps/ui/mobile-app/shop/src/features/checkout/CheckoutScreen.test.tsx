@@ -296,6 +296,21 @@ describe('paying by card or PayPal', () => {
     expect(hasText(screen, 'ORD-1003')).toBe(true)
   })
 
+  it('never shows an order as paid, or as placed, when the API answered a card order with nothing to pay it with', async () => {
+    const shop = shopFor({ payments: ways, place: () => ({ placeOrder: { orderId: 'o-1', number: 'ORD-1004', total: inr('155000'), provider: 'stripe', instructions: null, payment: null } }) })
+    const screen = await render(<CheckoutScreen />, shop)
+    await throughContact(screen)
+    await throughAddress(screen)
+    await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
+    await throughPayment(screen, t('checkout.payment.stripe'))
+    await press(screen, t('checkout.review.place'))
+    expect(hasText(screen, t('checkout.placed.pillPaid'))).toBe(false)
+    expect(hasText(screen, t('checkout.placed.heading'))).toBe(false)
+    expect(hasText(screen, t('checkout.pay.stoppedTitle'))).toBe(true)
+    expect(hasText(screen, t('checkout.pay.unavailable'))).toBe(true)
+    expect(sent(shop.requests, 'confirmPayment')).toHaveLength(0)
+  })
+
   it('goes the same way for PayPal, with the scheme alone', async () => {
     const shop = shopFor({ payments: ways, place: sheetOrder('paypal') })
     const screen = await render(<CheckoutScreen />, shop)

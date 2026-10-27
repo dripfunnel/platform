@@ -5,16 +5,15 @@ import { t } from '../../messages'
 import { money } from '../catalogue/words'
 import { Button } from '../common/ui'
 import { OrderSummary } from './OrderSummary'
-import { isSheetProvider } from './payments/env'
 import { Details } from './ReviewStep'
 
 /** The order is placed: its number, what to do next for cash on delivery or a bank transfer, and what was ordered, from the cart as it stood when it was placed. */
-export function Confirmation({ order, cart, onDone }: { order: PlacedOrder; cart: Cart; onDone: () => void }) {
+/** `paid`: the order was read back as paid after a provider's sheet (never inferred from the way to pay, so an order not known to be paid is never shown as paid). */
+export function Confirmation({ order, cart, paid = false, onDone }: { order: PlacedOrder; cart: Cart; paid?: boolean; onDone: () => void }) {
   const { colors, radii } = useTheme()
   const total = order.total ?? cart.total
   const bank = order.provider === 'bank_transfer'
   const cod = order.provider === 'cod'
-  const paid = isSheetProvider(order.provider)
   return (
     <ScrollView contentContainerStyle={styles.body}>
       {bank || cod || paid ? (

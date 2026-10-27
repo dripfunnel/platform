@@ -76,9 +76,11 @@ export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: P
   }
 
   useEffect(() => {
-    if (started.current || !order.payment) return
+    if (started.current) return
     started.current = true
-    void run(order.payment)
+    // The API placed the order but sent nothing to pay it with: no sheet opens, and the way on is a new attempt, never a green "Paid".
+    if (order.payment) void run(order.payment)
+    else setPhase({ kind: 'stopped', reason: 'unavailable' })
   }, [order.payment, run])
 
   const waiting = phase.kind === 'opening' || phase.kind === 'confirming'
