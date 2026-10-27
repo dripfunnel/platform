@@ -2,7 +2,7 @@ import { Image } from 'expo-image'
 import { StyleSheet, Text, View } from 'react-native'
 import { t } from '../messages'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { useBrand } from '@dripfunnel/mobile-shared/brand'
+import { useBrand } from './BrandContext'
 
 // The store's logo and name, whichever of them it has answered with.
 export function BrandMark() {
