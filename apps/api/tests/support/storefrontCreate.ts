@@ -41,5 +41,5 @@ export const createDepsFor = async (sql: postgres.Sql, now: () => Date): Promise
   const pem = `-----BEGIN PRIVATE KEY-----\n${btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.exportKey('pkcs8', keys.privateKey))))}\n-----END PRIVATE KEY-----`
   const app = createGitHubApp({ appId: '7', installationId: '42', privateKey: pem, fetchImpl: github.fetch, sleep: async () => undefined })
   await uploadTemplates(sites)
-  return { deps: { sql, github: app, org: 'dripfunnel', sites, now }, github, sites }
+  return { deps: { sql, github: app, org: 'dripfunnel', sites, shopDomain: null, now }, github, sites }
 }

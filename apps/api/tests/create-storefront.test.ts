@@ -22,6 +22,7 @@ let deps: CreateDeps
 const at = new Date('2026-10-11T10:00:00Z')
 const core = '1.4.0'
 const lockedWorkflow = readFileSync(new URL('../../../templates/storefront/.github/workflows/build.yml', import.meta.url), 'utf8')
+const npmrc = readFileSync(new URL('../../../templates/storefront/.npmrc', import.meta.url), 'utf8')
 const steps: readonly ProvisioningStep[] = ['repo', 'storeConfig', 'hostingTarget', 'firstBuild', 'done']
 
 const once: StepRunner = { do: (_, work) => work() }
@@ -47,6 +48,7 @@ const uploadTemplates = async (version = core) => {
   const skeleton = [
     { path: 'package.json', content: JSON.stringify({ name: '@dripfunnel/storefront-template', private: true, dependencies: { '@dripfunnel/storefront-core': 'workspace:*', next: '^16.3.6' } }) },
     { path: '.github/workflows/build.yml', content: lockedWorkflow },
+    { path: '.npmrc', content: npmrc },
     { path: 'next.config.ts', content: 'export default {}\n' },
     { path: 'src/app/layout.tsx', content: 'export default function Layout() { return null }\n' },
   ]
@@ -90,7 +92,7 @@ beforeEach(async () => {
   sites = fakeSites()
   const keys = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify'])
   const pem = `-----BEGIN PRIVATE KEY-----\n${btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.exportKey('pkcs8', keys.privateKey))))}\n-----END PRIVATE KEY-----`
-  deps = { sql: db.sql, github: createGitHubApp({ appId: '7', installationId: '42', privateKey: pem, fetchImpl: github.fetch, sleep: async () => undefined }), org: 'dripfunnel', sites, now: () => at }
+  deps = { sql: db.sql, github: createGitHubApp({ appId: '7', installationId: '42', privateKey: pem, fetchImpl: github.fetch, sleep: async () => undefined }), org: 'dripfunnel', sites, shopDomain: 'my-store.one', now: () => at }
   await uploadTemplates()
   await db.sql`delete from design_draft`
   await db.sql`delete from storefront_push`
@@ -179,13 +181,16 @@ describe('the create-storefront Workflow', () => {
     expect(github.history(repo).map((c) => c.message)).toEqual([`Store settings and storefront-core ${core}`, 'Start from the bloom template', 'Initial commit'])
 
     const files = github.files(repo)
-    expect([...(files?.keys() ?? [])].sort()).toEqual(['.github/workflows/build.yml', 'content/en/home.json', 'next.config.ts', 'package.json', 'routes.json', 'src/app/layout.tsx', 'src/theme/pages/HomePage.tsx', 'store.config.ts'])
+    expect([...(files?.keys() ?? [])].sort()).toEqual(['.env.development', '.github/workflows/build.yml', '.npmrc', 'content/en/home.json', 'next.config.ts', 'package.json', 'routes.json', 'src/app/layout.tsx', 'src/theme/pages/HomePage.tsx', 'store.config.ts'])
     expect(files?.get('.github/workflows/build.yml')).toBe(lockedWorkflow)
     expect(lockedWorkflow).toMatch(/on:\n {2}workflow_dispatch:/)
     expect(JSON.parse(files?.get('package.json') ?? '{}')).toEqual({ name: repo, private: true, dependencies: { '@dripfunnel/storefront-core': core, next: '^16.3.6' } })
     expect(files?.get('store.config.ts')).toContain(`publicStoreKey: '${row?.public_store_key ?? ''}'`)
-    // No secret, variable or .npmrc: nothing but the repo, Actions' settings and git data was ever asked for.
-    expect(files?.has('.npmrc')).toBe(false)
+    const [named] = await db.sql<{ slug: string }[]>`select slug from store where id = ${t.storeA1}`
+    expect(files?.get('.env.development')).toBe(`SHOP_API_PROXY=https://${named?.slug ?? ''}.my-store.one\n`)
+    // No secret or variable, and an .npmrc with no token: nothing but the repo, Actions' settings and git data was ever asked for.
+    expect(files?.get('.npmrc')).toBe(npmrc)
+    expect(npmrc).not.toMatch(/_auth|token/i)
     expect(github.calls.filter((c) => /secrets|variables|environments|keys|collaborators/.test(c))).toEqual([])
     expect(github.repos.get(repo)?.settings['/actions/permissions/fork-pr-contributor-approval']).toEqual({ approval_policy: 'all_external_contributors' })
     expect(github.repos.get(repo)?.settings['/actions/permissions/workflow']).toEqual({ default_workflow_permissions: 'read', can_approve_pull_request_reviews: false })

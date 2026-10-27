@@ -54,13 +54,14 @@ export interface CreationRow extends StoreRepoRow {
   partner_id: string
   storefront_kind: 'ai' | 'own'
   public_store_key: string
+  slug: string
   job_state: JobState | null
 }
 
 export const selectCreation = async (tx: ScopedSql, storeId: string, jobId: string): Promise<CreationRow | null> =>
   (
     await tx<CreationRow[]>`
-      select f.repo, f.repo_state, f.repo_head, f.public_store_key, s.partner_id, s.storefront_kind,
+      select f.repo, f.repo_state, f.repo_head, f.public_store_key, s.slug, s.partner_id, s.storefront_kind,
         (select state from job where id = ${jobId} and store_id = ${storeId} and kind = 'create-storefront') as job_state
       from storefront f join store s on s.id = f.store_id where f.store_id = ${storeId}`
   )[0] ?? null
