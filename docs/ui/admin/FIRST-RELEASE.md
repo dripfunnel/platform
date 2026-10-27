@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -172,7 +172,7 @@ Header: name, partner, status, live link, and the actions (§5.3). Tabs:
 | Tab | Contents |
 |---|---|
 | **Overview** | Identity (name, code, partner, owner, country, created), plan and status with history, counts: people by role, vendors, products, orders |
-| **Storefront** | Kind (AI or own), last build and publish, the live link (no preview address: a preview opens only through the merchant's signed link), core version |
+| **Storefront** | Kind (AI or own), the store's repository name ("—" before it has one), last build and publish, the live link (no preview address: a preview opens only through the merchant's signed link), core version |
 | **Domains** | Custom domain and its status, expected vs found DNS records, "Re-check now" |
 | **Provisioning** | Signup steps and their results; retry from here (§6) |
 | **Users** | Everyone in the store: merchant side (Owner, Manager, Staff) and each supplier's users, with role, last sign-in, status and **Impersonate** |

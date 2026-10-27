@@ -102,6 +102,7 @@ const sample = (seed: Seed): SampleStore => {
     site: {
       version: seed.version ?? null,
       lastBuildAt: built?.[0] ?? null,
+      repo: null,
       lastPublishAt: built?.[1] ?? null,
     },
     provisioning: { error: seed.error ?? null },

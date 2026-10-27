@@ -13,6 +13,7 @@ export const StorefrontTab = ({ store }: { store: Store }) => {
   const rows: [string, ReactNode][] = [
     [words.type, own ? words.own : words.ai],
     [words.version, site.version ?? words.none],
+    [words.repo, site.repo ? <code className="df-host">{site.repo}</code> : words.none],
     [words.lastBuild, site.lastBuildAt ? formatTime(site.lastBuildAt) : words.none],
     [words.lastPublish, site.lastPublishAt ? formatTime(site.lastPublishAt) : words.none],
     [words.live, address(store.domain.host)],
