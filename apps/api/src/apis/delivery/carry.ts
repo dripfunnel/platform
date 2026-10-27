@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import { z } from 'zod'
 import { pageOf, pageWindow, type Page } from '#core/paging'
 import { carryAudit, createCarry, deliveryStates, dispatchAudit, failReasons, type CarriedCustomer, type RiderDeliveryView } from '#engine/modules/ownDelivery/index'
+import { carryPorts } from '../graphql/carryPorts'
 import { withDispatchCode } from '../graphql/dispatchRefusals'
 import { riderOf, type DeliveryContext } from './access'
 import type { DeliveryBuilder } from './builder'
@@ -20,7 +21,7 @@ const iso = (at: Date | null) => at?.toISOString() ?? null
 
 const service = (ctx: DeliveryContext) => {
   const { sql, rider } = riderOf(ctx)
-  return createCarry({ sql, context: rider, activity: ctx.activity, facts: ctx.facts, now: ctx.now, secrets: ctx.secrets ?? null })
+  return createCarry({ sql, context: rider, activity: ctx.activity, facts: ctx.facts, now: ctx.now, secrets: ctx.secrets ?? null, ports: carryPorts })
 }
 
 export const registerCarry = (builder: DeliveryBuilder) => {

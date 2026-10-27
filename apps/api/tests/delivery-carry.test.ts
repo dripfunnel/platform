@@ -6,6 +6,7 @@ import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { cancelOrderDelivery, createCarry, createDispatch, createOwnDelivery, firstDayOfWeek } from '#engine/modules/ownDelivery/index'
 import { activityLog } from '#saas/activity/index'
+import { carryPorts } from '#apis/graphql/carryPorts'
 import { seedStoreWorld, type StoreWorld } from './support/storeWorld'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -27,7 +28,8 @@ const context = (riderId?: string, storeId = tenants.storeA1): TenantContext => 
   caller: riderId ? { kind: 'rider', riderId } : { kind: 'person', userId: merchantId, sessionId: 'test' },
 })
 const deps = (riderId?: string, storeId = tenants.storeA1) => ({ sql: db.sql, context: context(riderId, storeId), activity: activityLog, facts, now: () => clock, secrets })
-const carry = (riderId?: string, storeId = tenants.storeA1) => createCarry(deps(riderId, storeId))
+const carryDeps = (riderId?: string, storeId = tenants.storeA1) => ({ ...deps(riderId, storeId), ports: carryPorts })
+const carry = (riderId?: string, storeId = tenants.storeA1) => createCarry(carryDeps(riderId, storeId))
 const dispatch = (riderId?: string) => createDispatch(deps(riderId))
 const tick = (ms: number) => { clock = new Date(clock.getTime() + ms) }
 
@@ -419,7 +421,7 @@ describe('who may act, and without the key', () => {
   it('refuses a supplier and a read-only support session the merchant’s writes, changing nothing', async () => {
     const as = (caller: TenantContext['caller'], sellerScope: TenantContext['sellerScope']) => {
       const c: TenantContext = { ...context(), caller, sellerScope }
-      return { dispatch: createDispatch({ ...deps(), context: c }), carry: createCarry({ ...deps(), context: c }) }
+      return { dispatch: createDispatch({ ...deps(), context: c }), carry: createCarry({ ...carryDeps(), context: c }) }
     }
     const supplier = as({ kind: 'person', userId: merchantId, sessionId: 'supplier' }, { kind: 'seller', sellerId: tenants.sellerA1First })
     const support = as({ kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'read' }, { kind: 'all' })
@@ -461,7 +463,7 @@ describe('who may act, and without the key', () => {
     expect(await latest(searchingOrder)).toMatchObject({ state: 'unassigned', rider_id: null })
 
     const carried = await pickedUp()
-    await expect(createCarry(keyless(riders[0])).delivered({ id: carried.deliveryId, code: await codeOf(carried.deliveryId), cashCollected: true, at: clock.toISOString(), key: 'nokey-1' })).rejects.toMatchObject({ code: 'UNAVAILABLE' })
+    await expect(createCarry({ ...keyless(riders[0]), ports: carryPorts }).delivered({ id: carried.deliveryId, code: await codeOf(carried.deliveryId), cashCollected: true, at: clock.toISOString(), key: 'nokey-1' })).rejects.toMatchObject({ code: 'UNAVAILABLE' })
     expect(await latest(carried.orderId)).toMatchObject({ state: 'picked_up', code_attempts: 0 })
   })
 })

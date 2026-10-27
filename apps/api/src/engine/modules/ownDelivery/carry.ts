@@ -12,8 +12,6 @@ import { lockDelivery, startRound, type DeliveryRow } from '#db/scoped/dispatch'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
 import { insertOutbox } from '#db/scoped/outbox'
-import { markPaidIn } from '#engine/modules/checkout/index'
-import { createFulfilmentService } from '#engine/modules/orders/index'
 import { dispatchAudit, queueRound, record, type Actor, type DispatchFacts } from './dispatch'
 import { handoverCodeMatches, maxCodeAttempts } from './handoverCode'
 
@@ -74,13 +72,22 @@ const tellCustomer = async (tx: ScopedSql, f: DispatchFacts, d: DeliveryRow, mes
   return n
 }
 
-const deliver = async (tx: ScopedSql, f: DispatchFacts, d: DeliveryRow, s: { at: Date; cashAt: Date | null; key: string | null; reason: string | null; paidBy: { kind: 'person' | 'rider'; id: string } | null }) => {
+type Refusal = { ok: false; reason: string }
+type Done<T> = { ok: true; value: T } | Refusal
+
+/** What carrying needs of checkout and orders, handed in by the API layer so this module imports neither (docs/api/README.md §4). */
+export interface CarryPorts {
+  markPaid: (tx: ScopedSql, who: { storeId: string; partnerId: string; actor: { kind: 'person' | 'rider'; id: string }; activity: ActivityLog; facts: RequestFacts; now: () => Date }, orderId: string) => Promise<Done<true>>
+  shipLocal: (tx: ScopedSql, who: { sql: postgres.Sql; context: TenantContext; riderId: string; partnerId: string; activity: ActivityLog; facts: RequestFacts; now: () => Date }, orderId: string, warehouseId: string) => Promise<Done<string[]>>
+}
+
+const deliver = async (tx: ScopedSql, ports: CarryPorts, f: DispatchFacts, d: DeliveryRow, s: { at: Date; cashAt: Date | null; key: string | null; reason: string | null; paidBy: { kind: 'person' | 'rider'; id: string } | null }) => {
   await carry.setDelivered(tx, d, s)
   await carry.setShipmentsDelivered(tx, d.store_id, d.order_id, s.at)
   const n = await tellCustomer(tx, f, d, 'order.delivered')
   // The order is paid only when the delivery is delivered, by the mark-paid path (DELIVERY §3, §8).
   if (s.paidBy && n?.payment_method === 'cod' && n.payment_state === 'pending') {
-    const paid = await markPaidIn(tx, { storeId: f.storeId, actor: { ...s.paidBy, partnerId: f.partnerId }, activity: f.activity, facts: f.facts ?? { requestId: null, ip: null, userAgent: null }, now: () => f.now }, d.order_id)
+    const paid = await ports.markPaid(tx, { storeId: f.storeId, partnerId: f.partnerId, actor: s.paidBy, activity: f.activity, facts: f.facts ?? { requestId: null, ip: null, userAgent: null }, now: () => f.now }, d.order_id)
     // Thrown, so the delivery is not left delivered with its cash unrecorded.
     if (!paid.ok) throw new DispatchRefused(paid.reason === 'NOT_FOUND' ? 'NOT_SHIPPABLE' : 'NOT_PENDING')
   }
@@ -90,8 +97,8 @@ const deliver = async (tx: ScopedSql, f: DispatchFacts, d: DeliveryRow, s: { at:
 
 type Answer = true | { refused: string }
 
-export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; activity: ActivityLog; facts: RequestFacts; now: () => Date; secrets?: SecretBox | null }) => {
-  const { sql, context, activity, facts, now } = deps
+export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; activity: ActivityLog; facts: RequestFacts; now: () => Date; secrets?: SecretBox | null; ports: CarryPorts }) => {
+  const { sql, context, activity, facts, now, ports } = deps
   const { storeId, caller } = context
   const riderId = caller.kind === 'rider' ? caller.riderId : null
   const actor: Actor = riderId ? { actorKind: 'rider', actorId: riderId, actorLabel: null } : { actorKind: 'person', actorId: caller.kind === 'person' || caller.kind === 'impersonation' ? caller.userId : null, actorLabel: null }
@@ -172,8 +179,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
       const earlier = await carry.localFulfilments(tx, storeId, d.order_id)
       let shipment = earlier[0] ?? null
       if (!shipment) {
-        const fulfilment = createFulfilmentService({ sql, context, actor: { id: rider, partnerId: f.partnerId, kind: 'rider' }, activity, facts, now: () => f.now })
-        const shipped = await fulfilment.shipLocal(tx, d.order_id, d.warehouse_id)
+        const shipped = await ports.shipLocal(tx, { sql, context, riderId: rider, partnerId: f.partnerId, activity, facts, now: () => f.now }, d.order_id, d.warehouse_id)
         // Thrown, so whatever the shipment began is rolled back with it.
         if (!shipped.ok) throw new DispatchRefused(shipped.reason)
         shipment = shipped.value[0] ?? null
@@ -199,7 +205,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
         if (!held?.handover_code_enc || !deps.secrets) throw new DispatchRefused('UNAVAILABLE')
         if (held.code_attempts >= maxCodeAttempts) return { refused: 'CODE_LOCKED' }
         if (await handoverCodeMatches(deps.secrets, d.id, held.handover_code_enc, code)) {
-          await deliver(tx, f, d, { at, cashAt: cash ? at : null, key, reason: null, paidBy: cash ? { kind: 'rider', id: rider } : null })
+          await deliver(tx, ports, f, d, { at, cashAt: cash ? at : null, key, reason: null, paidBy: cash ? { kind: 'rider', id: rider } : null })
           return true
         }
         const attempts = await carry.countWrongCode(tx, d, key, maxCodeAttempts)
@@ -243,7 +249,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
         const cash = d.cash_due_amount !== null
         if (cash && cashReceived === null) throw new DispatchRefused('CASH_NOT_CONFIRMED')
         if (cash && cashReceived && !paidBy) throw new DispatchRefused('FORBIDDEN')
-        await deliver(tx, f, d, { at: f.now, cashAt: null, key: null, reason, paidBy: cash && cashReceived && paidBy ? { kind: 'person', id: paidBy } : null })
+        await deliver(tx, ports, f, d, { at: f.now, cashAt: null, key: null, reason, paidBy: cash && cashReceived && paidBy ? { kind: 'person', id: paidBy } : null })
         return true
       })
     },

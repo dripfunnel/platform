@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { storeRoleHas } from '#auth/storePermissions'
 import { carryAudit, createCarry, createDispatch, dispatchAudit, readOrderDelivery, type DeliveryRiderView, type DeliveryStepView, type OrderDeliveryView } from '#engine/modules/ownDelivery/index'
+import { carryPorts } from '../graphql/carryPorts'
 import { withDispatchCode } from '../graphql/dispatchRefusals'
 import { actingCaller, tenantCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
@@ -47,7 +48,7 @@ export const registerDispatch = (builder: StoreBuilder) => {
       resolve: (_, a, c) => {
         const caller = tenantCaller(c)
         const payer = c.standing.kind === 'acting' && storeRoleHas(actingCaller(c).role, 'orders.mark_paid') ? caller.actor.id : null
-        return withDispatchCode(() => createCarry(facts(c)).merchantDelivered({ id: String(a.deliveryId).toLowerCase(), reason: a.reason, cashReceived: a.cashReceived ?? null }, payer))
+        return withDispatchCode(() => createCarry({ ...facts(c), ports: carryPorts }).merchantDelivered({ id: String(a.deliveryId).toLowerCase(), reason: a.reason, cashReceived: a.cashReceived ?? null }, payer))
       },
     }),
     cancelDelivery: t.boolean({ args: { deliveryId: t.arg.id({ required: true }) }, extensions: { access: { ...access, audit: dispatchAudit.cancelled } }, resolve: (_, a, c) => withDispatchCode(() => createDispatch(facts(c)).cancel(String(a.deliveryId))) }),
