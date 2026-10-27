@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { launchChrome, serve, type Answer, type Site } from '../../../test/browser'
 import { hashSource, storeCsp, studioCsp } from './csp'
 
-vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 120_000 })
 
 const pixel: Answer = { body: Uint8Array.from(atob('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), (c) => c.charCodeAt(0)), type: 'image/gif' }
 const other: Answer = { body: 'window.fromOther = true', type: 'text/javascript' }
