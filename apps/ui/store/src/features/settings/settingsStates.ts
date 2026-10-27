@@ -1,4 +1,6 @@
 import type { ActivityFilter, ActivityPage } from '../../api/activity'
+import type { PageOf } from '../../api/allPages'
+import type { Rider, RiderPlan } from '../../api/riders'
 import type { InstalledApp } from '../../api/apps'
 import type { CustomerAccounts } from '../../api/customerAccounts'
 import type { ApiKey, ApiKeyChoices, WebhookDelivery, WebhookEndpoint } from '../../api/developers'
@@ -105,6 +107,8 @@ export interface SettingsReads {
   apps: () => Promise<InstalledApp[]>
   supportAccess: (after: string | null) => Promise<SupportAccess>
   activity: (filter: ActivityFilter, after: string | null) => Promise<ActivityPage>
+  riders: (after: string | null) => Promise<PageOf<Rider>>
+  riderPlan: () => Promise<RiderPlan>
 }
 
 const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
@@ -242,6 +246,13 @@ const sampleSupport: SupportAccess = {
   },
 }
 
+const sampleRiders: Rider[] = [
+  { id: 'r1', name: 'Ravi Kumar', phone: '+91 98290 11111', status: 'active', online: true, currentDeliveryId: 'd1', deliveriesDone: 42 },
+  { id: 'r2', name: 'Imran Shaikh', phone: '+91 98290 22222', status: 'active', online: false, currentDeliveryId: null, deliveriesDone: 17 },
+  { id: 'r3', name: 'Deepak Meena', phone: '+91 98290 33333', status: 'suspended', online: false, currentDeliveryId: null, deliveriesDone: 6 },
+  { id: 'r4', name: 'Sunil Yadav', phone: '+91 98290 44444', status: 'invited', online: false, currentDeliveryId: null, deliveriesDone: 0 },
+]
+
 /** The tabs' reads under ?state=: the samples above. */
 export const sampleReads: SettingsReads = {
   storeInfo: async () => sampleInfo,
@@ -263,6 +274,8 @@ export const sampleReads: SettingsReads = {
   apps: async () => sampleApps,
   supportAccess: async () => sampleSupport,
   activity: sampleRead,
+  riders: async () => ({ nodes: harness ? sampleRiders : [], pageInfo: { hasNextPage: false, endCursor: null } }),
+  riderPlan: async () => ({ ownDelivery: true, limit: 10 }),
   catalogue: async () => ({
     pricingCurrency: 'INR',
     unitSystem: 'metric',

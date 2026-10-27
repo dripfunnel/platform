@@ -11,6 +11,7 @@ import { loadAllMarkets } from '../../api/markets'
 import { loadGateways } from '../../api/payments'
 import { loadShipping } from '../../api/shipping'
 import { loadProductBasics } from '../../api/productEditor'
+import { loadRiderPlan, loadRiders, type RiderPlan } from '../../api/riders'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
 import { loadSupportAccess } from '../../api/support'
 import { loadInvoiceSettings, loadTax } from '../../api/tax'
@@ -33,6 +34,7 @@ import { ActivityTab } from '../activity/ActivityTab'
 import { MarketsTab } from './MarketsTab'
 import { TaxTab } from './TaxTab'
 import { PeopleTab, SupplierTab } from './TeamTabs'
+import { RidersTab } from './RidersTab'
 import { WarehousesView } from '../warehouses/WarehousesView'
 import './settings.css'
 
@@ -51,7 +53,7 @@ interface Done {
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries, apps: loadApps, supportAccess: loadSupportAccess, activity: loadActivity }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries, apps: loadApps, supportAccess: loadSupportAccess, activity: loadActivity, riders: loadRiders, riderPlan: loadRiderPlan }
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: boolean; forced: string | null }): Record<SettingsTab, () => Promise<Render>> => ({
@@ -114,6 +116,13 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
     const access = await reads.supportAccess(null)
     return (done) => <SupportAccessTab initial={access} read={reads.supportAccess} onToast={done.toast} />
   },
+  // Listed only when the plan has own_delivery; an address typed by hand gets the plain notice, no upsell (DELIVERY §9).
+  riders: async () => {
+    const plan = await reads.riderPlan()
+    if (!plan.ownDelivery) return () => <EmptyState title={words.riders.notAvailable.title} body={words.riders.notAvailable.body} />
+    const [first, info] = await Promise.all([reads.riders(null), reads.storeInfo()])
+    return (done, canEdit) => <RidersTab first={first} plan={plan} country={info?.country ?? null} canEdit={canEdit} onChanged={done.reload} />
+  },
   // The log reads itself, by its filter in the address; a read-only store still reads and exports it.
   activity: async () => () => <ActivityTab read={reads.activity} canExport={seat.owner} forced={seat.forced} />,
 })
@@ -129,6 +138,28 @@ export const SettingsPage = () => {
   const readOnly = forced ? forced === 'readOnly' : (state?.readOnly ?? false)
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
+  const [ridersListed, setRidersListed] = useState(false)
+  // One plan read serves the tab list and the Riders tab; a failed read is forgotten so the next one asks again.
+  const planRead = useRef<Promise<RiderPlan> | null>(null)
+  const riderPlan = useCallback(() => {
+    planRead.current ??= (forced ? sampleReads : apiReads).riderPlan().catch((error: unknown) => {
+      planRead.current = null
+      throw error
+    })
+    return planRead.current
+  }, [forced])
+  useEffect(() => {
+    if (!allowed || forced === 'loading' || forced === 'error') return
+    let current = true
+    // A failed read keeps the tab listed: its own body then shows the error and a retry.
+    void riderPlan().then(
+      (plan) => current && setRidersListed(plan.ownDelivery),
+      () => current && setRidersListed(true),
+    )
+    return () => {
+      current = false
+    }
+  }, [allowed, forced, riderPlan])
 
   // Only the newest read may land: a reload a tab started must not fill another tab opened since.
   const latest = useRef(0)
@@ -140,12 +171,12 @@ export const SettingsPage = () => {
     if (forced === 'error') return setView({ kind: 'error' })
     if (!allowed) return
     setView({ kind: 'loading' })
-    void loaders(forced ? sampleReads : apiReads, { planName, owner, forced })[tab]().then(
+    void loaders({ ...(forced ? sampleReads : apiReads), riderPlan }, { planName, owner, forced })[tab]().then(
       (render) => ask === latest.current && setView({ kind: 'ready', render }),
       () => ask === latest.current && setView({ kind: 'error' }),
     )
     // The two values the loaders read, not the whole seat: a new `acting` object from the shell mustn't reload a tab.
-  }, [forced, allowed, tab, planName, owner])
+  }, [forced, allowed, tab, planName, owner, riderPlan])
   useEffect(load, [load])
   // The one-time key leaves the address bar and the history at once; the tab finishes with the copy kept above.
   useEffect(() => {
@@ -174,8 +205,8 @@ export const SettingsPage = () => {
       <div className="df-page-tabs">
         <DetailTabs
           label={words.tabs.label}
-          tabs={settingsTabs}
-          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers, developers: words.tabs.developers, apps: words.tabs.apps, support: words.tabs.support, activity: words.tabs.activity }}
+          tabs={settingsTabs.filter((t) => t !== 'riders' || ridersListed)}
+          labels={{ riders: words.tabs.riders, store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers, developers: words.tabs.developers, apps: words.tabs.apps, support: words.tabs.support, activity: words.tabs.activity }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />
