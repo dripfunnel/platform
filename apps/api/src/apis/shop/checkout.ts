@@ -5,6 +5,7 @@ import { appPaymentInput, checkoutAudit, createCheckout, type AppPaymentInput, t
 import { downloadUrl } from '#engine/modules/deliveries/index'
 import { paymentModeOf, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
+import { registerDelivery, trackingOf } from './delivery'
 
 // Paying for a cart (FIRST-RELEASE §19 Shop API `paymentOptions`, `checkout`, `order`): the ways the store takes payment,
 // placing the order with one, and the shopper's own order afterwards.
@@ -65,7 +66,9 @@ const checkoutOf = async (ctx: ShopContext) => {
   })
 }
 
-export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
+export const registerCheckout = (shop: ShopBuilder) => {
+  const { builder, money, pageInfo } = shop
+  const { Delivery } = registerDelivery(shop)
   const Option = builder.objectRef<PaymentOption>('ShopPaymentOption').implement({
     fields: (t) => ({
       // stripe, paypal, razorpay, cashfree, phonepe, cod or bank_transfer: what placeOrder takes.
@@ -178,6 +181,8 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
         },
       }),
       licenceKeys: t.field({ type: [Key], resolve: (o) => o.keys }),
+      // An own-delivery order's delivery, for its own customer or a guest with its token (DELIVERY §7); null for any other order.
+      delivery: t.field({ type: Delivery, nullable: true, resolve: (o, _, ctx) => trackingOf(ctx).read(o.id) }),
     }),
   })
   // A row of the account's order history: only what the list shows, never an order's lines, downloads or keys.

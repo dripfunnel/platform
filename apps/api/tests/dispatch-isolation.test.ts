@@ -161,9 +161,13 @@ describe('every other caller', () => {
     ['a partner user', () => ({ caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId: t.partnerA })],
     ['staff', () => ({ caller: { kind: 'staff', staffId: 'st' } })],
   ]
-  it.each(others)('%s reads none of them', async (_, context) => {
+  // A shopper reads a delivery, its rider and its position only through an order it owns (migration 0367, DELIVERY §7): with none, it sees no rows.
+  const shopperMayRead = new Set(['delivery', 'rider', 'rider_position'])
+  it.each(others)('%s reads none of them', async (who, context) => {
     for (const table of tables) {
-      await expect(withScope(db.sql, context(), (tx) => tx`select 1 from ${tx(table)} limit 1`)).rejects.toThrow(/permission denied|row-level security/i)
+      const read = withScope(db.sql, context(), (tx) => tx`select 1 from ${tx(table)} limit 1`)
+      if (who === 'a shopper' && shopperMayRead.has(table)) expect(await read).toHaveLength(0)
+      else await expect(read).rejects.toThrow(/permission denied|row-level security/i)
     }
   })
 })

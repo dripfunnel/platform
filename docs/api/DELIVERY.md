@@ -13,9 +13,10 @@ riders' sign-in, profile and account deletion (§4, §5; #839); own delivery as 
 delivery areas and the checkout option (§2, §8; #841); dispatch: delivery creation, Ready for pickup, offer rounds,
 accept and decline, assignment by hand, cancellation before pickup, online state, positions and the minute sweep
 (§3, §4, §8; #842); carrying it: pickup as a `local` shipment, the handover code, Delivered and Not delivered sent
-late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the portal's Settings › Riders (§5, §8; #844).
+late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the portal's Settings › Riders (§5, §8; #844); the customer's
+side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858).
 
-Last updated: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
+Last updated: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
 events, §3, §4, §6, §8). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
@@ -352,15 +353,18 @@ those through its API.
 | Who | When |
 |---|---|
 | Rider | An offer; a delivery assigned by hand; an offer taken by someone else (silent update); a delivery cancelled |
-| Customer (shop app) | Rider assigned; picked up and on the way; delivered; not delivered |
+| Customer (shop app) | Rider assigned (each time one is, so also after a hand-back); picked up and on the way, which says to open the order for the handover code; delivered; not delivered |
 | Merchant | Nobody accepted (§3 step 3), or a code unconfirmed after a late Delivered (§3), by email; the merchant app has no push yet |
 
 The order emails the customer already gets for a shipment stay as they are. Neither a push nor an
 email ever carries the handover code (§3).
 
-**Built on #840 (DL 3), #842 (DL 5) and #843 (DL 6):** the pipe, the test event, the rider's messages and the customer's
-picked up, delivered and not delivered (`order.*`, to the customer, or to a guest's order), which reach a phone once SH 5
-registers the shop app's devices. The merchant's emails for nobody accepted and an unconfirmed code are built.
+**Built on #840 (DL 3), #842 (DL 5), #843 (DL 6) and #858 (SH 5):** the pipe, the test event, the rider's messages and the customer's
+rider assigned, picked up, delivered and not delivered (`order.*`, to the customer, or to a guest's order). **SH 5 registers the phones**: the Shop API's
+`registerPushDevice(token, platform, orderId)` and `unregisterPushDevice(token, orderId)`. A signed-in customer's phone is theirs for every order and needs no `orderId`;
+a guest names the order and must hold its token (the order's own shop policy checks it: `NOT_FOUND` for another's, `SIGNED_OUT` with no token, `INVALID_INPUT` without an
+`orderId`). Registering runs in system scope, since a token another subject of the store holds moves to the new one, and logs `customer.push_device_registered`
+(the platform, never the token; only for a phone new to the subject or moved) and `customer.push_device_removed`. Signing out does not delete a customer's phones: the app unregisters its own first (SH 13). The merchant's emails for nobody accepted and an unconfirmed code are built.
 
 - **Rider messages** (`core/push.ts`): `rider.notifications_on`, `rider.offer` (a distance, never an address), `rider.assigned`,
   `rider.cancelled`, `rider.recalled` (bring the parcel back), and `rider.taken`, which is silent: the app only refreshes its offers.
@@ -375,6 +379,8 @@ registers the shop app's devices. The merchant's emails for nobody accepted and 
 - **Dead tokens**: a ticket answered `DeviceNotRegistered` deletes its phone at once. The ticket ids go into a
   `push.receipts` row due 15 minutes later (ticket and phone ids, never a token), which reads Expo's receipts, deletes
   the phones answered `DeviceNotRegistered`, and waits again for receipts not ready until a day after the send.
+- **Customer messages** (`saas/push`): `order.rider_assigned` ("A rider is picking up your order."), `order.picked_up` ("Your order is on its way. Open it to see your handover code."), `order.delivered`
+  and `order.not_delivered`. None carries the code: the wording points to the order, where only its customer reads it. The own-delivery `order.shipped` email says the same and never prints the code.
 - **Without `EXPO_PUSH_TOKEN`** pushes wait in the outbox. Locally `PUSH_LOCAL=1` prints each push in the `pnpm dev`
   terminal, to its subject and never its token (THIRD-PARTY-ACCESS §2.13, §8.1).
 
@@ -382,13 +388,21 @@ registers the shop app's devices. The merchant's emails for nobody accepted and 
 
 ## 7. Tracking
 
-**What the customer sees** (Shop API `order(id).delivery`, the order's own customer or a guest
+**What the customer sees** (Shop API `order(id).delivery`, built on #858, the order's own customer or a guest
 with its token):
 
 - the state and the time of each step (`packing` reads "Being packed");
 - once assigned: the rider's first name, photo, vehicle type and number, and phone number;
 - while `picked_up`: the rider's latest position and its time, and an arrival estimate;
 - while it is `assigned` or `picked_up`: the handover code (§3).
+
+`delivery` answers `state`, `steps` (the latest attempt's, each with its time; the clients word them), `rider` (`firstName`, `phone`, `photoUrl`, `vehicleType`,
+`vehicleNumber`; only while assigned or picked up), `position` (`latitude`, `longitude`, `reportedAt`; only while picked up), `etaAt` and `handoverCode`. **Who reads it is
+the order's own shop policy** (migration 0367): `app_shop` reads a delivery only through an order it can read, the rider only while the delivery is assigned or picked up,
+the position only while it is picked up, and the rider's photo (`/shop-api/assets/{id}`, answered `private, no-store`) only for that rider; it reads no other column
+(no cash, attempts or step key). The sealed handover code is granted to no request role: the engine reads it in system scope once the reader has shown they own the
+order, and opens it with the store's `SecretBox` only while the delivery is assigned or picked up (decided on #858, keeping DATA-MODEL §7.12's rule). Another customer,
+another store's customer, a guest with no token or another's, and a supplier find no delivery at all, not even that one exists.
 
 **On the website** (storefront-core's order page, with a changeset) the same steps, rider details
 and handover code are shown, never the map, the position or the estimate (decided 2026-10-22).
@@ -402,9 +416,12 @@ seconds, otherwise every 60 seconds while online. `rider_position` keeps one row
 older than 10 minutes, and when the rider signs out, is suspended, removed or erased. No trail is kept, and
 positions never enter the activity log or technical logs.
 
-**Arrival estimate** *(proposed)*: from Google's Routes API, server-side, at pickup and at most every
-2 minutes after while someone is watching, with a server key restricted to that API (THIRD-PARTY-
-ACCESS §2.12). Without the key, the estimate is left out.
+**Arrival estimate** (built on #858): from Google's Routes API (`computeRoutes`, traffic-aware, duration only), server-side, from the rider's latest point to the order's pin,
+with a server key restricted to that API (THIRD-PARTY-ACCESS §2.12; `GOOGLE_MAPS_SERVER_KEY`, validated at boot). Without the key, `etaAt` stays empty. The call has a 5-second timeout
+and one retry. **When it is asked** (decided on #858, with no "last read" column): the pickup queues one `delivery.eta` job; after that, a customer read of a picked-up delivery whose
+`eta_computed_at` is older than 2 minutes (or never made) claims the refresh with one conditional update, so two readers never both ask, and queues one job. The reader gets the stored
+estimate at once and the next poll sees the new one. So nobody reading means no call, and never more than one call every 2 minutes. A failed or empty answer changes nothing and is
+not retried by the relay: the next stale read asks again. Positions and the key never reach a log.
 
 **The customer's app** asks again every 15 seconds while the tracking screen is open; there is no
 socket *(proposed)*.

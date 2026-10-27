@@ -12,3 +12,10 @@ export const sealHandoverCode = async (box: SecretBox | null, deliveryId: string
 
 export const handoverCodeMatches = async (box: SecretBox, deliveryId: string, sealed: string, typed: string): Promise<boolean> =>
   (await box.open(sealed)) === `${deliveryId}:${typed}`
+
+/** The code a sealed value holds for this delivery, or null for one sealed for another row or that does not open. */
+export const openHandoverCode = async (box: SecretBox, deliveryId: string, sealed: string): Promise<string | null> => {
+  const plain = await box.open(sealed)
+  const prefix = `${deliveryId}:`
+  return plain?.startsWith(prefix) ? plain.slice(prefix.length) : null
+}

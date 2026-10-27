@@ -133,10 +133,12 @@ export interface ShopAssetRow {
   r2_key: string
   mime: string
   bytes: number
+  /** A rider's photo, which only the order it is delivering reads and no shared cache may keep (DELIVERY §7). */
+  rider_photo: boolean
 }
 
 export const selectShopAsset = async (tx: ScopedSql, storeId: string, id: string): Promise<ShopAssetRow | null> =>
-  (await tx<ShopAssetRow[]>`select r2_key, mime, bytes from asset where id = ${id} and store_id = ${storeId}`)[0] ?? null
+  (await tx<ShopAssetRow[]>`select r2_key, mime, bytes, exists (select 1 from rider r where r.photo_asset_id = asset.id and r.store_id = asset.store_id) as rider_photo from asset where id = ${id} and store_id = ${storeId}`)[0] ?? null
 
 export interface ShopPricingRow {
   pricing_currency: string
