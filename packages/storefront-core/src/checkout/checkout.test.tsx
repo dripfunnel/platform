@@ -348,6 +348,16 @@ describe('the sole delivery option', () => {
     expect(page.steps.map((s) => s.id)).not.toContain('delivery')
   })
 
+  it('applies the sole option once when several components use the checkout', async () => {
+    const asked = answering(cartWith([flat], null), cartWith([flat], 'flat'))
+    const Step = () => (useCheckout(), null)
+    render(<Provided client={createShopClient({ state: storedShopState })}><Probe /><Step /><Step /></Provided>)
+    await act(async () => undefined)
+    await act(async () => undefined)
+    expect(asked.filter((a) => a.query.includes('setShippingOption')).length).toBe(1)
+    expect(page.steps.map((s) => s.id)).not.toContain('delivery')
+  })
+
   it('keeps the delivery step and does not auto-apply when several options are offered', async () => {
     const asked = answering(cartWith([flat, pickup], null))
     mount()
@@ -382,6 +392,22 @@ describe('the sole delivery option', () => {
     await act(async () => undefined)
     await act(async () => undefined)
     expect(asked.filter((a) => a.query.includes('setShippingOption')).map((a) => a.variables)).toEqual([{ option: 'flat' }])
+  })
+
+  it('never shows the delivery step for the sole option while it is being applied', async () => {
+    const held = later<null>()
+    const asked = shopAnswering(async (a) => {
+      if (a.query.includes('setShippingOption')) return held.promise.then(() => ({ data: { setShippingOption: { cart: cartWith([flat], 'flat') } } }))
+      if (a.query.includes('paymentOptions')) return { data: { paymentOptions: options('test'), store: { markets: [{ id: 'm', countries: ['US'] }] } } }
+      if (a.query.includes('placeOrder') || a.query.includes('checkout {') || a.query.includes('confirmPayment') || a.query.includes('payOrder')) return undefined
+      return { data: { cart: cartWith([flat], null) } }
+    })
+    mount()
+    await act(async () => undefined)
+    expect(asked.some((a) => a.query.includes('setShippingOption'))).toBe(true)
+    expect(page.steps.map((s) => s.id)).toEqual(['contact', 'address', 'payment', 'review'])
+    await act(async () => held.settle(null))
+    expect(page.steps.map((s) => s.id)).toEqual(['contact', 'address', 'payment', 'review'])
   })
 
   it('re-applies the sole option after an address edit sent while applying it', async () => {

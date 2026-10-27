@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { z } from 'zod'
 import { cartFields, cartSchema, useCartState, type Cart, type CartAddress } from '../cart/cart'
 import { ShopApiError, type ShopClient } from '../platform/api/client'
@@ -28,7 +28,7 @@ export type PayPhase =
   | { kind: 'confirming'; orderId: string }
   | { kind: 'failed'; orderId: string | null; amount: Money | null; code: string; message: string | null }
 
-type State = { phase: PayPhase; editing: CheckoutStepId | null; chosen: string | null; host: HTMLElement | null; busy: boolean; error: string | null; problems: string[]; instructions: string | null }
+type State = { phase: PayPhase; editing: CheckoutStepId | null; chosen: string | null; host: HTMLElement | null; busy: boolean; error: string | null; problems: string[]; instructions: string | null; soleDeliveryFailed: boolean }
 
 const optionsQuery = `query PaymentOptions { paymentOptions { provider kind instructions mode publicKey } store { markets { id countries } } }`
 const optionsSchema = z.object({
@@ -54,7 +54,7 @@ export const orderPath = (orderId: string) => `/order/${encodeURIComponent(order
 export const checkoutSdk: { current: Sdk } = { current: browserSdk }
 
 const createCheckoutStore = () => {
-  let state: State = { phase: { kind: 'idle' }, editing: null, chosen: null, host: null, busy: false, error: null, problems: [], instructions: null }
+  let state: State = { phase: { kind: 'idle' }, editing: null, chosen: null, host: null, busy: false, error: null, problems: [], instructions: null, soleDeliveryFailed: false }
   const listeners = new Set<() => void>()
   return {
     subscribe: (l: () => void) => {
@@ -76,7 +76,9 @@ const checkoutStoreOf = (client: ShopClient) => {
   return s
 }
 
-const serverState: State = { phase: { kind: 'idle' }, editing: null, chosen: null, host: null, busy: false, error: null, problems: [], instructions: null }
+const applyingDelivery = new WeakSet<CheckoutStore>()
+
+const serverState: State = { phase: { kind: 'idle' }, editing: null, chosen: null, host: null, busy: false, error: null, problems: [], instructions: null, soleDeliveryFailed: false }
 
 /** The payment phase and the host the sealed payment element gives the provider, shared by every checkout component. */
 export const useCheckoutState = () => {
@@ -89,10 +91,10 @@ const codeOf = (error: unknown) => (error instanceof ShopApiError ? error.code :
 
 /** The steps a cart needs, each done, open or still to come; without anything to send, no address or delivery. */
 const stepsOf = (cart: Cart | null, s: State): { id: CheckoutStepId; state: 'done' | 'open' | 'later' }[] => {
-  // A store with exactly one delivery option has it applied for the shopper (useCheckout), so the delivery step is
-  // omitted; with several the shopper still chooses it, and with none the step shows why it can't be delivered.
-  const soleApplied = cart !== null && cart.shippingOptions.length === 1 && cart.shippingOption !== null
-  const ids: CheckoutStepId[] = cart && !cart.needsShipping ? ['contact', 'payment', 'review'] : soleApplied ? ['contact', 'address', 'payment', 'review'] : ['contact', 'address', 'delivery', 'payment', 'review']
+  // A sole delivery option is applied for the shopper (useCheckout), so its step is omitted, even before the apply
+  // lands, unless applying it failed; with several the shopper chooses, and with none the step shows why.
+  const sole = cart !== null && cart.shippingOptions.length === 1 && !s.soleDeliveryFailed
+  const ids: CheckoutStepId[] = cart && !cart.needsShipping ? ['contact', 'payment', 'review'] : sole ? ['contact', 'address', 'payment', 'review'] : ['contact', 'address', 'delivery', 'payment', 'review']
   const done = (id: CheckoutStepId) =>
     cart !== null &&
     (id === 'contact' ? cart.email !== null : id === 'address' ? cart.shippingAddress !== null : id === 'delivery' ? cart.shippingOption !== null : id === 'payment' ? s.chosen !== null && cart.readyToPay : false)
@@ -189,16 +191,15 @@ export const useCheckout = (): CheckoutPage => {
     return answer !== null
   }
 
-  // Apply the sole delivery option for the shopper (like a single payment option), so the delivery step is skipped.
-  // Re-applies after an address edit clears it: cart changes run one at a time (cart.ts `inTurn`), so that edit lands
-  // after this send settles. The in-flight guard and the narrow deps keep a failed send from looping.
+  // Apply the sole delivery option for the shopper, like a single payment option; cart changes run in turn (cart.ts
+  // `inTurn`), so an address edit lands after this settles. One send per store, however many components use this hook.
   const soleOption = cart?.needsShipping && cart.shippingOptions.length === 1 ? (cart.shippingOptions[0]?.id ?? null) : null
-  const applyingDelivery = useRef(false)
   useEffect(() => {
-    if (soleOption === null || (cart?.shippingOption ?? null) !== null || applyingDelivery.current) return
-    applyingDelivery.current = true
-    void send(deliveryMutation, { option: soleOption }).finally(() => {
-      applyingDelivery.current = false
+    if (soleOption === null || (cart?.shippingOption ?? null) !== null || applyingDelivery.has(store)) return
+    applyingDelivery.add(store)
+    void send(deliveryMutation, { option: soleOption }).catch(() => false).then((applied) => {
+      applyingDelivery.delete(store)
+      store.set({ soleDeliveryFailed: !applied })
     })
     // Deps are only the option and whether one is chosen: `send` and `cart` are new each render, so depending on them would re-send every render.
   }, [soleOption, cart?.shippingOption])
