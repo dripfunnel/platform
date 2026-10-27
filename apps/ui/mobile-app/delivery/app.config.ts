@@ -24,8 +24,6 @@ export const storeEnvSchema = z
     SPLASH_IMAGE: image,
     SPLASH_BACKGROUND: colour,
     UPDATES_CHANNEL: storeKey,
-    // Google Maps SDK key for Android: a public build value restricted to the app's package and signing certificate, not a secret (docs/code/THIRD-PARTY-ACCESS.md §2.12). Without it the map is blank on Android.
-    GOOGLE_MAPS_ANDROID_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'a Google Maps API key, which starts AIza').optional(),
   })
   .refine((env) => env.UPDATES_CHANNEL === env.STORE_KEY, { path: ['UPDATES_CHANNEL'], message: 'must equal STORE_KEY' })
 
@@ -77,7 +75,6 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
     android: {
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
-      ...(env.GOOGLE_MAPS_ANDROID_KEY ? { config: { googleMaps: { apiKey: env.GOOGLE_MAPS_ANDROID_KEY } } } : {}),
     },
     plugins: [
       'expo-router',

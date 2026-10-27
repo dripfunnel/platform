@@ -6,7 +6,7 @@ Store and Google Play. Each app's own folder holds its scope and code.
 **Status:** the merchant app is being built (merchant/ARCHITECTURE.md); the shop app's project is
 built through the cart and checkout, with orders, tracking and markets still to come (shop/ARCHITECTURE.md, #860 to #863); the delivery app is set up (#848), with its screens still to come (delivery/ARCHITECTURE.md).
 
-Last updated: 2026-10-27 (#848: the delivery app's project). Before: 2026-10-27 (#864: the shop app's optional `APPLE_PAY_MERCHANT_ID`, §3). Before: 2026-10-27 (#863: the shop app's status). Before: 2026-10-26 (#860: the shop app's project). Before: 2026-10-22 (the shop and delivery apps, with Gaurav; Enterprise only).
+Last updated: 2026-10-27 (#848: the delivery app's project, and `brand/` moves into mobile-shared, §2). Before: 2026-10-27 (#864: the shop app's optional `APPLE_PAY_MERCHANT_ID`, §3). Before: 2026-10-27 (#863: the shop app's status). Before: 2026-10-26 (#860: the shop app's project). Before: 2026-10-22 (the shop and delivery apps, with Gaurav; Enterprise only).
 
 ---
 
@@ -31,7 +31,7 @@ Last updated: 2026-10-27 (#848: the delivery app's project). Before: 2026-10-27 
 | **The apps are a plan setting**, `own_apps`, for **Enterprise** stores only, turned on by hand by DripFunnel staff (decided 2026-10-22; api/DELIVERY.md §9) | Every store gets them | Each store's apps cost DripFunnel a build, a review and upkeep. |
 | **The app icon, splash and listing text are uploaded in the merchant portal**, Settings › Mobile apps (Owner) *(proposed)* | Asking each merchant for files outside the platform | As the partner's in the partner console (merchant/BUILDS-AND-STORE-ACCOUNTS.md §5): the build takes them from configuration. |
 | **Builds, submissions and over-the-air updates are manual**, per store, as the merchant app's are per partner | Building on merge | Every submission is reviewed by Apple and Google and reaches people's phones. |
-| **The shop and delivery apps share the merchant app's foundations through `apps/ui/mobile-app/shared`**, extracted when the shop app first needs them: the API client, `format/`, `intl/`, the theme and the session's secure storage. **Built in #853** as the workspace package `@dripfunnel/mobile-shared` (`graphql/`, `format/`, `intl/`, `theme/`, `storage/`), which an app imports by name; each app passes in what differs (the API's host and path such as `/api/`, the sign-out path, the brand's theme overrides, how its saved "last used" value is read) and keeps what is its own: the merchant app's PARTNER_DOMAIN, `Acting` and session store. An ESLint rule lets an app import only this package, and the package import no app | Copying them into each app | AGENTS.md "Code" rule 1: extract on the second use. The apps still share nothing with the SPAs (merchant/REACT-NATIVE.md §2). |
+| **The shop and delivery apps share the merchant app's foundations through `apps/ui/mobile-app/shared`**, extracted when the shop app first needs them: the API client, `format/`, `intl/`, the theme and the session's secure storage. **Built in #853** as the workspace package `@dripfunnel/mobile-shared` (`graphql/`, `format/`, `intl/`, `theme/`, `storage/`, and `brand/` from #848: the store's name and logo from the Shop API, the saved look, `storeHost()` and the startup provider, to which an app passes its client and its error screen), which an app imports by name; each app passes in what differs (the API's host and path such as `/api/`, the sign-out path, the brand's theme overrides, how its saved "last used" value is read) and keeps what is its own: the merchant app's PARTNER_DOMAIN, `Acting` and session store. An ESLint rule lets an app import only this package, and the package import no app | Copying them into each app | AGENTS.md "Code" rule 1: extract on the second use. The apps still share nothing with the SPAs (merchant/REACT-NATIVE.md §2). |
 
 ---
 
@@ -48,7 +48,7 @@ Each app keeps one file per store, `stores/<storeKey>.env`, read and validated b
 | `IOS_BUNDLE_ID`, `ANDROID_PACKAGE` | `com.acme.shop` | Registered in the merchant's accounts |
 | `APP_SCHEME` | `acmeshop` | Links that open the app |
 | `ICON_IMAGE`, `ANDROID_ICON_FOREGROUND`, `ANDROID_ICON_BACKGROUND`, `SPLASH_IMAGE`, `SPLASH_BACKGROUND` | | From Settings › Mobile apps |
-| `GOOGLE_MAPS_ANDROID_KEY` | `AIza…` | *Optional.* The Google Maps SDK for Android key for the shop app's address pin and tracking map and the delivery app's warehouse and customer pins: a public build value restricted to the app's package and signing certificate, never a secret (THIRD-PARTY-ACCESS §2.12; decided on #862). Without it the map is blank on Android |
+| `GOOGLE_MAPS_ANDROID_KEY` | `AIza…` | *Optional.* The Google Maps SDK for Android key for the address pin and tracking map: a public build value restricted to the app's package and signing certificate, never a secret (THIRD-PARTY-ACCESS §2.12; decided on #862). Without it the map is blank on Android |
 | `APPLE_PAY_MERCHANT_ID` | `merchant.com.acme.shop` | *Optional, the shop app.* The store's Apple merchant identifier, from its Apple developer account: public, passed to Stripe's config plugin. Only a store that takes Apple Pay has one; without it the Payment Sheet offers no Apple Pay (decided on #864) |
 | `UPDATES_CHANNEL` | `acme` | Equal to `STORE_KEY` |
 

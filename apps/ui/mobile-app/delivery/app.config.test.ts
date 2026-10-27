@@ -68,18 +68,8 @@ describe('app.config.ts', () => {
     expect(plugin(config, 'expo-image-picker')).toEqual(['expo-image-picker', { photosPermission: messages.permissions.photos.replace('{name}', env.APP_NAME), cameraPermission: false, microphonePermission: false }])
   })
 
-  it('builds without a Maps key, and with one gives it to Android only, never to the running app', () => {
-    expect(buildConfig({}, readStoreEnv(appRoot, 'dev')).android?.config).toBeUndefined()
-    const key = `AIza${'a'.repeat(35)}`
-    editDevEnv((lines) => [...lines, `GOOGLE_MAPS_ANDROID_KEY=${key}`])
-    const config = buildConfig({}, readStoreEnv(root, 'dev'))
-    expect(config.android?.config?.googleMaps?.apiKey).toBe(key)
-    expect(config.ios?.config).toBeUndefined()
-    expect(JSON.stringify(config.extra)).not.toContain(key)
-  })
-
-  it('refuses a Maps key that is not shaped like one', () => {
-    editDevEnv((lines) => [...lines, 'GOOGLE_MAPS_ANDROID_KEY=not-a-key'])
+  it('refuses the Maps key, which comes with the map screen', () => {
+    editDevEnv((lines) => [...lines, `GOOGLE_MAPS_ANDROID_KEY=AIza${'a'.repeat(35)}`])
     expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_MAPS_ANDROID_KEY/)
   })
 

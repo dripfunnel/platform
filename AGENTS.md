@@ -82,7 +82,7 @@ Run the gates before reporting a change as done.
 - **`apps/ui/shared/`** holds only code more than one SPA uses. Add to it when a second app needs something,
   never in advance; something one app uses stays in that app.
 - **`apps/ui/mobile-app/shared`** (`@dripfunnel/mobile-shared`) holds what more than one mobile app uses: the API client,
-  `format/`, `intl/`, the theme and secure storage. The mobile apps import only it, never `apps/ui/shared`, an SPA or
+  `format/`, `intl/`, the theme, secure storage and the store's brand (name, logo, saved look and the startup provider). The mobile apps import only it, never `apps/ui/shared`, an SPA or
   another app; it imports no app (enforced by `eslint.config.js`).
 - **`packages/storefront-core`** is the only published package. It imports nothing from
   the rest of the repo.

@@ -62,7 +62,7 @@ The session, `location/`, `pending/`, `push/` and `nav.ts` come with their cards
 | `expo-notifications` (built in #848) | Offers and assignments |
 | `expo-secure-store` | The session token |
 | `expo-image-picker` (built in #848) | The profile photo |
-| `react-native-maps` (with the delivery screen) | The warehouse's and the customer's pins |
+| `react-native-maps`, with the optional `GOOGLE_MAPS_ANDROID_KEY` (mobile-app/README.md §3), with the delivery screen | The warehouse's and the customer's pins |
 
 ---
 

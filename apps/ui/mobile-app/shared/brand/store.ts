@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { decode, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { decode, type ApiClient } from '../graphql'
 
 // The store's brand from the Shop API's `store` (apps/api schema/shop.graphql): its name and logo. Colours and font are not
-// served yet (docs/mobile-app/README.md §3), so the app keeps DripFunnel's palette.
+// served yet (docs/mobile-app/shop/ARCHITECTURE.md §4), so the apps keep DripFunnel's palette.
 export const brandSchema = z.object({ name: z.string().nullable(), logo: z.string().nullable(), mark: z.string().nullable() })
 
 export type Brand = z.infer<typeof brandSchema>

@@ -5,7 +5,7 @@ import { ShopProvider } from './ShopProvider'
 import { useShop, type Shop } from './ShopContext'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
-jest.mock('../graphql/storeHost', () => ({ storeHost: () => 'acme.my-store.one' }))
+jest.mock('@dripfunnel/mobile-shared/brand', () => ({ storeHost: () => 'acme.my-store.one' }))
 
 // The phone's keystore, in memory.
 const mockKeystore = new Map<string, string>()

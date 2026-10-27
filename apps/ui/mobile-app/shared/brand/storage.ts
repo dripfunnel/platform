@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { brandSchema, type Brand } from '../api/store'
+import { brandSchema, type Brand } from './store'
 
 // The last look the store answered with, kept for the next start with no network. The key names the host, so a build
 // never reads a look another store's build saved.

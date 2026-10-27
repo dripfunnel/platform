@@ -1,4 +1,4 @@
-import type { Brand } from '../api/store'
+import type { Brand } from './store'
 import { loadBrand } from './loadBrand'
 
 const answered: Brand = { name: 'Juniper & Co.', logo: 'https://juniper.my-store.one/shop-api/assets/1', mark: null }
