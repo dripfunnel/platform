@@ -302,7 +302,7 @@
     },
     "settings": {
       "title": "Settings",
-      "lede": "Your company, team, payouts and security."
+      "lede": "Your company, team, payouts, security and integrations."
     }
   },
   "states": {
@@ -377,7 +377,8 @@
       "company": "Company",
       "team": "Team",
       "payout": "Payout and payment",
-      "security": "Security"
+      "security": "Security",
+      "integrations": "Integrations"
     },
     "company": {
       "title": "Company",
@@ -563,6 +564,64 @@
       },
       "failed": "That didn’t go through. Nothing was changed. Try again.",
       "staffSession": "Payment method and payout details stay with {partner}. {partner} enters these itself."
+    },
+    "integrations": {
+      "title": "AI provider keys",
+      "note": "Pays for the AI designer on your plans that include AI. DripFunnel holds no AI key of its own. Keys are stored encrypted and never shown again; only the start and last 4 characters are. The default key is the one used; if it is rejected, the designer pauses until you fix it.",
+      "loading": "Loading your AI keys",
+      "error": { "title": "Your AI keys couldn’t be loaded", "body": "Nothing was changed. Try again.", "retry": "Try again" },
+      "empty": "No keys yet. Add an Anthropic or OpenAI key to turn on AI on your plans.",
+      "mayNot": "Your role can’t manage integrations. Owners and Admins can.",
+      "providers": { "anthropic": "Anthropic", "openai": "OpenAI" },
+      "statuses": { "ok": "Connected", "untested": "Not tested", "rejected": "Key rejected" },
+      "default": "Default",
+      "lastTested": "Last tested {when}",
+      "neverTested": "Never tested",
+      "rejectedNote": "The provider rejected this key, so the AI designer is paused on your plans that include AI. Remove it, or make another key the default.",
+      "add": "Add key",
+      "test": "Test",
+      "makeDefault": "Make default",
+      "remove": "Remove",
+      "cancel": "Cancel",
+      "addDialog": {
+        "title": "Add an AI key",
+        "target": "AI provider key",
+        "consequenceAnthropic": "DripFunnel tests the key with one small request before saving it. It is stored encrypted and can’t be shown again.",
+        "consequenceOpenai": "Saved encrypted and can’t be shown again. OpenAI keys aren’t tested yet, so this one shows “Not tested”.",
+        "provider": "Provider",
+        "name": "Name",
+        "namePlaceholder": "Production",
+        "key": "API key",
+        "hint": "Create it in the provider’s console, in your own organisation, with a spend limit.",
+        "save": "Save key",
+        "testAndSave": "Test and save",
+        "incomplete": "Fill in a name and a key that looks like the provider’s."
+      },
+      "removeDialog": {
+        "title": "Remove “{name}”?",
+        "target": "AI provider key",
+        "last": "The AI designer stops working on your plans that include AI until you add a key. Stores that bring their own key are not affected.",
+        "default": "“{next}” becomes the default.",
+        "other": "Nothing else changes.",
+        "confirm": "Remove key"
+      },
+      "toasts": {
+        "added": "Saved.",
+        "ok": "“{name}” works.",
+        "untested": "OpenAI keys can’t be tested yet.",
+        "rejected": "The provider rejected “{name}”.",
+        "default": "“{name}” is the default.",
+        "removed": "“{name}” removed.",
+        "failed": "That didn’t go through. Nothing was changed. Try again."
+      },
+      "refusals": {
+        "INVALID_INPUT": "That key doesn’t look like the provider’s. Check it and try again.",
+        "NAME_TAKEN": "You already have a key with that name.",
+        "KEY_REJECTED": "The provider rejected that key.",
+        "PROVIDER_UNAVAILABLE": "The provider didn’t answer. Nothing was saved. Try again.",
+        "NOT_CONFIGURED": "Keys can’t be stored here yet: the encryption key isn’t set.",
+        "NOT_FOUND": "That key is gone. Reload the page."
+      }
     },
     "security": {
       "title": "Security",

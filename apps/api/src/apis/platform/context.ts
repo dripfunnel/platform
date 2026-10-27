@@ -2,13 +2,16 @@ import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { SecretBox } from '#auth/secretBox'
+import type { AiProvider } from '#db/schema/saas'
 import type { StripeApi } from '#integrations/stripe/index'
 import { createPartnerBillingService } from '#saas/billing/index'
 import { createPartnerActivityService } from '#saas/partnerActivity/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
+import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
+import { checkAnthropicKey, type KeyCheck } from '#integrations/ai/provider'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
 import { createPartnerReportsService } from '#saas/partnerReports/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
@@ -33,7 +36,10 @@ export interface PlatformContextDeps {
   now: () => Date
 }
 
-export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null, billing: null }
+/** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
+const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
+
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
 export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, ...base }: PlatformContextDeps): PlatformContext => {
@@ -48,6 +54,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     storeActions: createPartnerStoreActions(deps),
     dashboard: createPartnerDashboardService(deps),
     domains: createPartnerDomainsService({ ...deps, localHosts }),
+    credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),
     reports: createPartnerReportsService(deps),

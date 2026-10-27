@@ -31,6 +31,7 @@ export const partnerPermissions = [
   'team.manage',
   'team.transfer',
   'security.manage',
+  'integrations.write',
 ] as const
 
 export type PartnerPermission = (typeof partnerPermissions)[number]
@@ -57,6 +58,7 @@ export const partnerRolePermissions: Record<PartnerRole, readonly PartnerPermiss
     'support.session',
     'activity.export',
     'team.manage',
+    'integrations.write',
   ],
   'partner-support': [...everyone, 'support.session'],
   'partner-finance': [...everyone, 'plans.price', 'stores.trial', 'stores.billingStatus', 'billing.read', 'billing.write', 'payout.write', 'card.write'],

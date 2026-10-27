@@ -7,10 +7,11 @@ import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { billingAccess } from '../billing/loadBilling'
 import { CompanyTab } from './CompanyTab'
+import { IntegrationsTab } from './IntegrationsTab'
 import { PayoutTab } from './PayoutTab'
 import { SecurityTab } from './SecurityTab'
 import { Settings, SettingsError, SettingsLoading } from './Settings'
-import { settingsStates } from './settingsHarness'
+import { settingsStates, settingsTabs } from './settingsHarness'
 import { TeamTab, type TeamAction } from './TeamTab'
 
 const settingsRoute = getRouteApi('/_app/settings')
@@ -74,6 +75,8 @@ export const SettingsScreen = () => {
   if (forced === 'loading') return <SettingsLoading />
   if (forced === 'error') return <SettingsError onRetry={() => void router.invalidate()} />
   const readOnly = me.role === 'partner-read-only' || forced === 'readonly'
+  // Integrations is Owners' and Admins' (ACCESS §5.3 integrations.write); everyone else never sees the tab.
+  const mayManage = me.role === 'partner-owner' || me.role === 'partner-admin'
   const members = extra ?? { items: data.team.items, endCursor: data.team.pageInfo.endCursor, more: data.team.pageInfo.hasNextPage }
 
   // Each change answers here: its toast, or its refusal in words; the page then reads the team again.
@@ -121,7 +124,7 @@ export const SettingsScreen = () => {
 
   return (
     <>
-      <Settings tab={tab} readOnly={readOnly}>
+      <Settings tab={tab} readOnly={readOnly} tabs={mayManage ? settingsTabs : settingsTabs.filter((t) => t !== 'integrations')}>
         {tab === 'company' && <CompanyTab company={data.company} />}
         {tab === 'team' && (
           <TeamTab team={members.items} role={me.role} session={session && session.state === 'open' ? session.kind : null} readOnly={readOnly} busy={busy} more={{ show: members.more, busy: moreState === 'busy', failed: moreState === 'failed' }} onRun={onRun} onMore={onMore} />
@@ -138,6 +141,7 @@ export const SettingsScreen = () => {
             onToast={setToast}
           />
         )}
+        {tab === 'integrations' && mayManage && <IntegrationsTab mayChange={!readOnly} onToast={setToast} />}
         {tab === 'security' && <SecurityTab required={data.company.secondFactorRequired} team={members.items} complete={!members.more} blocked={session && session.state === 'open' && session.kind === 'impersonation' ? messages.settings.team.refusals.BLOCKED_WHILE_IMPERSONATING : null} isOwner={me.role === 'partner-owner' && !readOnly} busy={busy} session={session} onChange={onPolicy} />}
       </Settings>
       <Toast message={toast} onDone={clearToast} />

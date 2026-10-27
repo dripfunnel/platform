@@ -687,7 +687,7 @@ reload the card says "This person's timeline".
 
 ## 14. Settings
 
-"Your company, team, payouts and security." Four tabs.
+"Your company, team, payouts, security and integrations." Five tabs; **Integrations** is shown to Owners and Admins only.
 
 ### 14.1 Company
 
@@ -734,6 +734,22 @@ enters these itself." (ACCESS §8.2).
 One switch, **Owner only**: "Require 2-factor for everyone on the team" (decided 2026-10-01,
 §3). "2-factor is off for: Alex Kim. If you require it, they'll set it up at their next
 sign-in." Turning it off never removes anyone's 2-factor.
+
+### 14.5 Integrations
+
+The partner's own third-party accounts (THIRD-PARTY-ACCESS §4, #275). Drawn so far: **AI provider
+keys**, a list of named profiles for **Anthropic** or **OpenAI**. A row shows its name, provider
+and "sk-ant-…x7Qd" (start and last 4 only), a status (Connected · Not tested · Key rejected), a
+**Default** tag, "Last tested", and **Test**, **Make default** and **Remove**; **Add key** takes a
+provider, a name and the key. The key is stored encrypted and never shown again. The default
+profile is the one the AI designer uses; if it is rejected the designer pauses until another is
+made the default or the key is replaced. OpenAI keys show "Not tested" until the OpenAI adapter
+exists (#950). Owner and Admin only; Finance and below see "Your role (Finance) can't manage
+integrations. Owners and Admins can." In a staff setup session the tab works as the partner's own
+(ACCESS §8.2). **Built on #275** (migration 0368; `partnerAiKeys`, `addPartnerAiKey`, `testPartnerAiKey`,
+`setDefaultPartnerAiKey`, `removePartnerAiKey`; permission `integrations.write`). Add and Test check an
+Anthropic key with one `models.list` call; OpenAI keys save as Not tested. Add, Make default and Remove are
+refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, Google sign-in, support chat.
 
 **Built on #193, straight onto #199's API.**
 - **Invite** is a form on the Team tab, because it needs a name, an email and a role, and the

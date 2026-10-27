@@ -74,3 +74,15 @@ export const localAiProvider = (): AiProvider => ({
     costCurrency: 'USD',
   }),
 })
+
+export type KeyCheck = 'ok' | 'rejected' | 'unavailable'
+
+/** One cheap call that tells a live key from a dead one (#275): a refusal of the key is `rejected`, anything else `unavailable`. */
+export const checkAnthropicKey = async (apiKey: string): Promise<KeyCheck> => {
+  try {
+    await new Anthropic({ apiKey, timeout: 15_000, maxRetries: 0 }).models.list({ limit: 1 })
+    return 'ok'
+  } catch (error) {
+    return error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError ? 'rejected' : 'unavailable'
+  }
+}
