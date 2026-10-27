@@ -64,6 +64,21 @@ describe('app.config.ts', () => {
     expect(apple.extra).toMatchObject({ APPLE_PAY_MERCHANT_ID: 'merchant.com.juniper.shop' })
   })
 
+  it('lets the app find PhonePe’s Android SDK and the UPI apps the Indian providers open', () => {
+    const config = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    const properties = config.plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-build-properties')
+    expect(properties).toEqual([
+      'expo-build-properties',
+      {
+        android: {
+          extraMavenRepos: ['https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android'],
+          manifestQueries: { intent: [{ action: 'android.intent.action.VIEW', data: { scheme: 'upi', host: 'pay' } }] },
+        },
+      },
+    ])
+    expect(config.ios?.infoPlist?.['LSApplicationQueriesSchemes']).toEqual(['phonepe', 'tez', 'paytmmp', 'paytm', 'bhim'])
+  })
+
   it('refuses an Apple merchant identifier that is not shaped like one', () => {
     editDevEnv((lines) => [...lines, 'APPLE_PAY_MERCHANT_ID=juniper'])
     expect(() => readStoreEnv(root, 'dev')).toThrow(/APPLE_PAY_MERCHANT_ID/)

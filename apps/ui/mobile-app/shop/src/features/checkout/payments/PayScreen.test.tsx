@@ -1,5 +1,9 @@
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import Constants from 'expo-constants'
+import PhonePe from 'react-native-phonepe-pg'
+import { act } from 'react-test-renderer'
+import RazorpayCheckout from 'react-native-razorpay'
+import { CFPaymentGatewayService } from 'react-native-cashfree-pg-sdk'
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native'
 import * as WebBrowser from 'expo-web-browser'
 import { cartOperation, type Cart, type PaymentStart, type PlacedOrder } from '../../../api/cart'
@@ -15,6 +19,9 @@ jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual(
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { name: 'Dev Shop', extra: { APP_SCHEME: 'devshop' } } } }))
 jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn() }))
+jest.mock('react-native-razorpay', () => ({ __esModule: true, default: { open: jest.fn() } }))
+jest.mock('react-native-cashfree-pg-sdk', () => ({ CFPaymentGatewayService: { setCallback: jest.fn(), removeCallback: jest.fn(), doWebPayment: jest.fn() } }))
+jest.mock('react-native-phonepe-pg', () => ({ __esModule: true, default: { init: jest.fn(), startTransaction: jest.fn() } }))
 jest.mock('@stripe/stripe-react-native', () => ({
   Constants: { API_VERSIONS: { CORE: '2099-01-01' } },
   PaymentSheetError: { Canceled: 'Canceled', Failed: 'Failed', Timeout: 'Timeout' },
@@ -26,11 +33,21 @@ jest.mock('@stripe/stripe-react-native', () => ({
 const mockPresent = jest.mocked(presentPaymentSheet)
 const mockInitSheet = jest.mocked(initPaymentSheet)
 const mockOpen = jest.mocked(WebBrowser.openAuthSessionAsync)
+const mockRazorpay = jest.mocked(RazorpayCheckout.open)
+const mockCashfreeCallback = jest.mocked(CFPaymentGatewayService.setCallback)
+const mockCashfreePay = jest.mocked(CFPaymentGatewayService.doWebPayment)
+const mockPhonePeInit = jest.mocked(PhonePe.init)
+const mockPhonePeStart = jest.mocked(PhonePe.startTransaction)
 
 const stripeStart = (suffix = '1'): PaymentStart => ({
-  providerRef: `pi_${suffix}`, publicKey: 'pk_api', accountId: 'acct_api', clientSecret: `secret_${suffix}`, customerId: null, ephemeralKeySecret: null, redirectUrl: null, mode: 'test',
+  providerRef: `pi_${suffix}`, publicKey: 'pk_api', accountId: 'acct_api', clientSecret: `secret_${suffix}`, customerId: null, ephemeralKeySecret: null, redirectUrl: null, mode: 'test', amount: null, sessionId: null, providerOrderId: null, token: null,
 })
-const paypalStart: PaymentStart = { providerRef: 'T1', publicKey: null, accountId: null, clientSecret: null, customerId: null, ephemeralKeySecret: null, redirectUrl: 'https://www.paypal.com/checkoutnow?token=T1', mode: 'test' }
+const paypalStart: PaymentStart = { providerRef: 'T1', publicKey: null, accountId: null, clientSecret: null, customerId: null, ephemeralKeySecret: null, redirectUrl: 'https://www.paypal.com/checkoutnow?token=T1', mode: 'test', amount: null, sessionId: null, providerOrderId: null, token: null }
+
+const nothing: PaymentStart = { providerRef: null, publicKey: null, accountId: null, clientSecret: null, customerId: null, ephemeralKeySecret: null, redirectUrl: null, mode: 'test', amount: null, sessionId: null, providerOrderId: null, token: null }
+const razorpayStart = (suffix = '1'): PaymentStart => ({ ...nothing, providerRef: `order_${suffix}`, publicKey: 'rzp_test_api', amount: inr('155000') })
+const cashfreeStart = (suffix = '1'): PaymentStart => ({ ...nothing, providerRef: `cf_order_${suffix}`, sessionId: `session_${suffix}` })
+const phonepeStart = (suffix = '1'): PaymentStart => ({ ...nothing, providerRef: 'ORD-1', providerOrderId: `OMO_${suffix}`, token: `token_${suffix}`, publicKey: 'MERCHANT_API' })
 
 const placed = (provider: string, payment: PaymentStart): PlacedOrder => ({ orderId: 'o-1', number: 'ORD-1', total: inr('155000'), provider, instructions: null, payment })
 const cart: Cart = (() => {
@@ -64,11 +81,31 @@ const open = async (order: PlacedOrder, state: Parameters<typeof answers>[0], ex
   return { screen, shop, onPaid, onLeave }
 }
 
+type CashfreeCallback = Parameters<typeof CFPaymentGatewayService.setCallback>[0]
+
+// The checkout answers through the callback the app set, as the SDK does.
+const answerCashfree = (answer: (callback: CashfreeCallback) => void) => {
+  let callback: CashfreeCallback | null = null
+  mockCashfreeCallback.mockImplementation((set) => void (callback = set))
+  mockCashfreePay.mockImplementation(() => {
+    if (callback) answer(callback)
+  })
+}
+
 beforeEach(() => {
   mockPresent.mockClear()
   mockPresent.mockResolvedValue({})
   mockInitSheet.mockClear()
   mockOpen.mockReset()
+  mockRazorpay.mockReset()
+  mockRazorpay.mockResolvedValue({ razorpay_payment_id: 'pay_1' })
+  mockCashfreeCallback.mockReset()
+  mockCashfreePay.mockReset()
+  answerCashfree((callback) => callback.onVerify('cf_order_1'))
+  mockPhonePeInit.mockReset()
+  mockPhonePeInit.mockResolvedValue(true)
+  mockPhonePeStart.mockReset()
+  mockPhonePeStart.mockResolvedValue({ status: 'SUCCESS' })
 })
 
 describe('paying by Stripe', () => {
@@ -219,5 +256,72 @@ describe('paying by PayPal', () => {
     await press(screen, t('checkout.pay.retry'))
     expect(sent(shop.requests, 'payOrder')[0]?.variables).toEqual({ orderId: 'o-1', app: { scheme: 'devshop' } })
     expect(onPaid).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('paying by Razorpay, Cashfree or PhonePe', () => {
+  it('opens Razorpay’s checkout from the API’s answer, then shows the order paid only once the webhook has marked it', async () => {
+    const { shop, onPaid } = await open(placed('razorpay', razorpayStart()), { paid: true })
+    expect(mockRazorpay).toHaveBeenCalledWith(expect.objectContaining({ key: 'rzp_test_api', order_id: 'order_1', amount: '155000', currency: 'INR' }))
+    expect(sent(shop.requests, 'confirmPayment').length).toBeGreaterThan(0)
+    expect(sent(shop.requests, 'payOrder')).toHaveLength(0)
+    expect(onPaid).toHaveBeenCalledTimes(1)
+    expect(mockPresent).not.toHaveBeenCalled()
+  })
+
+  it('does the same for Cashfree and for PhonePe', async () => {
+    const cashfree = await open(placed('cashfree', cashfreeStart()), { paid: true })
+    expect(mockCashfreePay).toHaveBeenCalledTimes(1)
+    expect(cashfree.onPaid).toHaveBeenCalledTimes(1)
+
+    const phonepe = await open(placed('phonepe', phonepeStart()), { paid: true })
+    expect(mockPhonePeInit).toHaveBeenCalledWith('SANDBOX', 'MERCHANT_API', 'ORD1', false)
+    expect(phonepe.onPaid).toHaveBeenCalledTimes(1)
+  })
+
+  it('says it is still confirming, and offers no second payment, when the checkout closed well but the order is not yet paid', async () => {
+    const { screen, onPaid } = await open(placed('razorpay', razorpayStart()), { paid: false })
+    expect(hasText(screen, t('checkout.pay.pendingTitle'))).toBe(true)
+    expect(hasText(screen, t('checkout.pay.retry'))).toBe(false)
+    expect(onPaid).not.toHaveBeenCalled()
+  })
+
+  it('comes back as cancelled, and retries the same order with the scheme alone, never with the Stripe version', async () => {
+    mockRazorpay.mockRejectedValueOnce({ code: 2, description: 'Payment Cancelled' })
+    const { screen, shop, onPaid } = await open(placed('razorpay', razorpayStart()), { paid: true, retried: razorpayStart('2') })
+    expect(hasText(screen, t('checkout.pay.cancelled'))).toBe(true)
+    expect(onPaid).not.toHaveBeenCalled()
+    await press(screen, t('checkout.pay.retry'))
+    expect(sent(shop.requests, 'payOrder')[0]?.variables).toEqual({ orderId: 'o-1', app: { scheme: 'devshop' } })
+    expect(mockRazorpay).toHaveBeenLastCalledWith(expect.objectContaining({ order_id: 'order_2' }))
+    expect(onPaid).toHaveBeenCalledTimes(1)
+  })
+
+  it('words a failure and a left checkout from the code, never from the provider’s own sentence', async () => {
+    answerCashfree((callback) => callback.onError({ getCode: () => 'payment_failed', getMessage: () => 'Your bank said no' } as never, 'cf_order_1'))
+    const declined = await open(placed('cashfree', cashfreeStart()), { paid: false })
+    expect(hasText(declined.screen, t('checkout.pay.declined'))).toBe(true)
+    expect(hasText(declined.screen, 'Your bank said no')).toBe(false)
+    expect(hasText(declined.screen, t('checkout.pay.retry'))).toBe(true)
+
+    mockPhonePeStart.mockResolvedValueOnce({ status: 'INTERRUPTED' })
+    const left = await open(placed('phonepe', phonepeStart()), { paid: false })
+    expect(hasText(left.screen, t('checkout.pay.cancelled'))).toBe(true)
+  })
+
+  it('says it could not start, with a way to try again, when the SDK is not in this build', async () => {
+    mockRazorpay.mockRejectedValueOnce(new TypeError("Cannot read properties of undefined (reading 'open')"))
+    const { screen, onPaid } = await open(placed('razorpay', razorpayStart()), { paid: true })
+    expect(hasText(screen, t('checkout.pay.unavailable'))).toBe(true)
+    expect(hasText(screen, t('checkout.pay.retry'))).toBe(true)
+    expect(onPaid).not.toHaveBeenCalled()
+  })
+
+  it('names the provider while its checkout opens', async () => {
+    let release: (value: { razorpay_payment_id: string }) => void = () => undefined
+    mockRazorpay.mockReturnValueOnce(new Promise((resolve) => (release = resolve)))
+    const { screen } = await open(placed('razorpay', razorpayStart()), { paid: true })
+    expect(hasText(screen, t('checkout.pay.opening', { method: t('checkout.pay.method.razorpay') }))).toBe(true)
+    await act(async () => release({ razorpay_payment_id: 'pay_1' }))
   })
 })

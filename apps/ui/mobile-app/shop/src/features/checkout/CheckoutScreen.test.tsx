@@ -19,6 +19,15 @@ jest.mock('@stripe/stripe-react-native', () => ({
   presentPaymentSheet: jest.fn(async () => ({})),
 }))
 
+jest.mock('react-native-razorpay', () => ({ __esModule: true, default: { open: jest.fn(async () => ({ razorpay_payment_id: 'pay_1' })) } }))
+jest.mock('react-native-cashfree-pg-sdk', () => {
+  let callback: { onVerify: (orderId: string) => void } | null = null
+  return {
+    CFPaymentGatewayService: { setCallback: jest.fn((set: typeof callback) => void (callback = set)), removeCallback: jest.fn(), doWebPayment: jest.fn(() => callback?.onVerify('cf_order_1')) },
+  }
+})
+jest.mock('react-native-phonepe-pg', () => ({ __esModule: true, default: { init: jest.fn(async () => true), startTransaction: jest.fn(async () => ({ status: 'SUCCESS' })) } }))
+
 const mockReplace = jest.fn()
 const mockBack = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack, replace: mockReplace, canGoBack: () => true }) }))
@@ -57,7 +66,7 @@ const afterAddress = (options: object[]) => cartRead({ email: 'ana@example.com',
 const afterOption = (options: object[], id: string, shipping: string) => cartRead({ email: 'ana@example.com', shippingAddress: address, shippingOptions: options, shippingOption: id, shipping: inr(shipping), total: inr('155000'), problems: [] })
 
 const payments = [
-  { provider: 'razorpay', kind: 'card', instructions: null },
+  { provider: 'klarna', kind: 'card', instructions: null },
   { provider: 'cod', kind: 'cod', instructions: null },
   { provider: 'bank_transfer', kind: 'bank_transfer', instructions: 'A/C 123, IFSC ABCD0001' },
 ]
@@ -235,14 +244,14 @@ describe('the contact', () => {
 })
 
 describe('payment', () => {
-  it('lists the card and wallet methods the store offers but cannot place an order with one', async () => {
+  it('lists a way to pay the store offers but the app does not take, and cannot place an order with it', async () => {
     const shop = shopFor()
     const screen = await render(<CheckoutScreen />, shop)
     await throughContact(screen)
     await throughAddress(screen)
     await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
-    const razorpay = pressableNamed(screen, choice(t('checkout.payment.razorpay'), t('checkout.payment.soon')))
-    expect(isDisabled(razorpay)).toBe(true)
+    const unsupported = pressableNamed(screen, choice(t('checkout.payment.other'), t('checkout.payment.soon')))
+    expect(isDisabled(unsupported)).toBe(true)
     expect(isDisabled(pressableNamed(screen, t('checkout.continue')))).toBe(true)
     expect(sent(shop.requests, 'placeOrder')).toHaveLength(0)
   })
@@ -268,17 +277,17 @@ describe('payment', () => {
 describe('paying by card or PayPal', () => {
   const ways = [{ provider: 'stripe', kind: 'card', instructions: null }, { provider: 'paypal', kind: 'card', instructions: null }, ...payments]
   const sheetOrder = (provider: string) => () => ({
-    placeOrder: { orderId: 'o-1', number: 'ORD-1003', total: inr('155000'), provider, instructions: null, payment: { providerRef: 'pi_1', publicKey: 'pk_api', accountId: 'acct_api', clientSecret: 'secret_1', customerId: null, ephemeralKeySecret: null, redirectUrl: 'https://www.paypal.com/checkoutnow?token=T1', mode: 'test' } },
+    placeOrder: { orderId: 'o-1', number: 'ORD-1003', total: inr('155000'), provider, instructions: null, payment: { providerRef: 'pi_1', publicKey: 'pk_api', accountId: 'acct_api', clientSecret: 'secret_1', customerId: null, ephemeralKeySecret: null, redirectUrl: 'https://www.paypal.com/checkoutnow?token=T1', mode: 'test', amount: null, sessionId: null, providerOrderId: null, token: null } },
   })
 
-  it('offers Stripe and PayPal as ways to pay now, with the Indian providers still listed apart', async () => {
+  it('offers Stripe and PayPal as ways to pay now, with a provider the app does not take still listed apart', async () => {
     const screen = await render(<CheckoutScreen />, shopFor({ payments: ways }))
     await throughContact(screen)
     await throughAddress(screen)
     await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
     expect(isDisabled(pressableNamed(screen, t('checkout.payment.stripe')))).toBe(false)
     expect(isDisabled(pressableNamed(screen, t('checkout.payment.paypal')))).toBe(false)
-    expect(isDisabled(pressableNamed(screen, choice(t('checkout.payment.razorpay'), t('checkout.payment.soon'))))).toBe(true)
+    expect(isDisabled(pressableNamed(screen, choice(t('checkout.payment.other'), t('checkout.payment.soon'))))).toBe(true)
   })
 
   it('places the order with the app’s scheme and the SDK’s API version, and shows the confirmation as paid only once the order reads paid', async () => {
@@ -406,4 +415,51 @@ describe('the states', () => {
     expect(hasText(screen, t('checkout.payment.title'))).toBe(true)
     expect(hasText(screen, t('checkout.steps.address'))).toBe(false)
   })
+})
+
+describe('paying by Razorpay, Cashfree or PhonePe', () => {
+  const ways = [
+    { provider: 'razorpay', kind: 'card', instructions: null },
+    { provider: 'cashfree', kind: 'card', instructions: null },
+    { provider: 'phonepe', kind: 'card', instructions: null },
+    ...payments,
+  ]
+  const none = { providerRef: null, publicKey: null, accountId: null, clientSecret: null, customerId: null, ephemeralKeySecret: null, redirectUrl: null, mode: 'test', amount: null, sessionId: null, providerOrderId: null, token: null }
+  const startFor = (provider: string) =>
+    provider === 'razorpay'
+      ? { ...none, providerRef: 'order_1', publicKey: 'rzp_test_api', amount: inr('155000') }
+      : provider === 'cashfree'
+        ? { ...none, providerRef: 'cf_order_1', sessionId: 'session_1' }
+        : { ...none, providerRef: 'ORD-1005', providerOrderId: 'OMO_1', token: 'token_1', publicKey: 'MERCHANT_API' }
+  const indiaOrder = (provider: string) => () => ({
+    placeOrder: { orderId: 'o-1', number: 'ORD-1005', total: inr('155000'), provider, instructions: null, payment: startFor(provider) },
+  })
+
+  it('offers all three as ways to pay now, apart from one the app does not take', async () => {
+    const screen = await render(<CheckoutScreen />, shopFor({ payments: ways }))
+    await throughContact(screen)
+    await throughAddress(screen)
+    await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
+    for (const provider of ['razorpay', 'cashfree', 'phonepe'] as const) {
+      expect(isDisabled(pressableNamed(screen, t(`checkout.payment.${provider}`)))).toBe(false)
+    }
+    expect(isDisabled(pressableNamed(screen, choice(t('checkout.payment.other'), t('checkout.payment.soon'))))).toBe(true)
+  })
+
+  for (const provider of ['razorpay', 'cashfree', 'phonepe'] as const) {
+    it(`places the order for ${provider} with the app's scheme alone, and shows it paid only once the order reads paid`, async () => {
+      const shop = shopFor({ payments: ways, place: indiaOrder(provider) })
+      const screen = await render(<CheckoutScreen />, shop)
+      await throughContact(screen)
+      await throughAddress(screen)
+      await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
+      await throughPayment(screen, t(`checkout.payment.${provider}`))
+      await press(screen, t('checkout.review.place'))
+      expect(sent(shop.requests, 'placeOrder')[0]?.variables).toEqual({ provider, app: { scheme: 'devshop' } })
+      expect(sent(shop.requests, 'confirmPayment').length).toBeGreaterThan(0)
+      expect(hasText(screen, t('checkout.placed.heading'))).toBe(true)
+      expect(hasText(screen, t('checkout.placed.pillPaid'))).toBe(true)
+      expect(hasText(screen, 'ORD-1005')).toBe(true)
+    })
+  }
 })

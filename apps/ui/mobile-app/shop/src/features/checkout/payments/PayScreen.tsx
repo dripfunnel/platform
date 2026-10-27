@@ -17,18 +17,33 @@ import { pay } from './pay'
 import { appPaymentInput } from './start'
 import { realClock, settle, type Clock } from './settle'
 
+const methodName = (provider: string): string => {
+  switch (provider) {
+    case 'paypal':
+      return t('checkout.pay.method.paypal')
+    case 'razorpay':
+      return t('checkout.pay.method.razorpay')
+    case 'cashfree':
+      return t('checkout.pay.method.cashfree')
+    case 'phonepe':
+      return t('checkout.pay.method.phonepe')
+    default:
+      return t('checkout.pay.method.stripe')
+  }
+}
+
 type Phase = { kind: 'opening' } | { kind: 'confirming' } | { kind: 'stopped'; reason: StopReason } | { kind: 'pending' }
 
 type Props = { order: PlacedOrder; cart: Cart; onPaid: () => void; onLeave: () => void; /** The poll's clock, which a test moves by hand. */ clock?: Clock }
 
-/** An order placed for Stripe or PayPal: its sheet opens, then the order is read until paid, with a retry on the same order (shop/ARCHITECTURE.md §2). */
+/** An order placed for a card or wallet provider: its sheet opens, then the order is read until paid, with a retry on the same order (shop/ARCHITECTURE.md §2). */
 export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: Props) {
   const { client } = useShop()
   const { brand } = useBrand()
   const { colors } = useTheme()
   const [phase, setPhase] = useState<Phase>({ kind: 'opening' })
   const started = useRef(false)
-  const method = t(order.provider === 'paypal' ? 'checkout.pay.method.paypal' : 'checkout.pay.method.stripe')
+  const method = methodName(order.provider)
 
   const read = useCallback(() => readPayment(client, order.orderId), [client, order.orderId])
   const finish = useCallback(
@@ -50,7 +65,7 @@ export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: P
         return
       }
       const country = await fetchStoreCountry(client).catch(() => null)
-      finish(await pay(order.provider, start, { build, storeName: brand?.name ?? '', email: cart.email || null, country }, { read, clock, settling: () => setPhase({ kind: 'confirming' }) }))
+      finish(await pay(order.provider, start, { build, storeName: brand?.name ?? '', email: cart.email || null, phone: cart.phone || null, country }, { read, clock, settling: () => setPhase({ kind: 'confirming' }) }))
     },
     [client, order.provider, brand?.name, cart.email, read, clock, finish],
   )

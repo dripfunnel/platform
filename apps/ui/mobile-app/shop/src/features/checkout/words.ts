@@ -21,7 +21,7 @@ export const optionNote = (option: DeliveryOption): string | null => {
 
 export const optionPrice = (option: DeliveryOption): string => (option.amount ? (option.amount.amount === '0' ? t('checkout.delivery.free') : money(option.amount)) : '')
 
-/** What the app can complete: cash on delivery, bank transfer, and Stripe and PayPal in their own sheets. The Indian providers come with SH 12. */
+/** What the app can complete: cash on delivery, bank transfer, and every card or wallet provider in its own sheet. */
 export const takesPayment = (option: PaymentOption): boolean => option.provider === 'cod' || option.provider === 'bank_transfer' || isSheetProvider(option.provider)
 
 export const paymentName = (provider: string): string => {

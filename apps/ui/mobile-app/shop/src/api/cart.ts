@@ -63,6 +63,13 @@ export type PaymentStart = {
   redirectUrl: string | null
   /** `test` or `live`, the storefront's. */
   mode: string | null
+  /** Razorpay: what is due now, in minor units, as the API worked it out. */
+  amount: Price | null
+  /** Cashfree: the payment session. */
+  sessionId: string | null
+  /** PhonePe: its own order id, and the order token its SDK takes. */
+  providerOrderId: string | null
+  token: string | null
 }
 
 /** What the API needs of the app to start a payment in its own sheet: the app's URL scheme, and for Stripe the API version its SDK speaks. */
@@ -222,10 +229,10 @@ export const continueToPayment = async (client: ApiClient): Promise<Cart | null>
   return checkout ? cartOf(checkout) : null
 }
 
-const paymentFields = 'providerRef publicKey accountId clientSecret customerId ephemeralKeySecret redirectUrl mode'
+const paymentFields = 'providerRef publicKey accountId clientSecret customerId ephemeralKeySecret redirectUrl mode amount { amount currency } sessionId providerOrderId token'
 
 const paymentSchema = z
-  .object({ providerRef: text, publicKey: text, accountId: text, clientSecret: text, customerId: text, ephemeralKeySecret: text, redirectUrl: text, mode: text })
+  .object({ providerRef: text, publicKey: text, accountId: text, clientSecret: text, customerId: text, ephemeralKeySecret: text, redirectUrl: text, mode: text, amount: money, sessionId: text, providerOrderId: text, token: text })
   .nullable()
   .optional()
 
@@ -240,6 +247,10 @@ const paymentOf = (raw: z.infer<typeof paymentSchema>): PaymentStart | null =>
         ephemeralKeySecret: raw.ephemeralKeySecret ?? null,
         redirectUrl: raw.redirectUrl ?? null,
         mode: raw.mode ?? null,
+        amount: priceOf(raw.amount),
+        sessionId: raw.sessionId ?? null,
+        providerOrderId: raw.providerOrderId ?? null,
+        token: raw.token ?? null,
       }
     : null
 
