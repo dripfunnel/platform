@@ -435,6 +435,7 @@
       "declined": "The payment was declined or could not be completed. Nothing was charged.",
       "timeout": "The payment took too long and was stopped. Nothing was charged.",
       "unavailable": "We couldn’t start the payment. Nothing was charged. Try again in a moment.",
+      "orderCancelled": "This order was cancelled. Nothing was charged.",
       "orderNote": "Order {number} is placed and waiting for payment. It is cancelled if nothing is paid within a day.",
       "retry": "Try again",
       "leave": "Leave without paying",

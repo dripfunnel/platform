@@ -16,11 +16,7 @@ export type SheetFacts = {
   country: string | null
 }
 
-/**
- * Stripe's Payment Sheet, set up only from what the API answered (the connected account's key and id, the intent's secret, the
- * shopper's customer and ephemeral key): the app holds no key. Apple Pay appears only for a store whose build names a merchant
- * identifier, Google Pay where the device and the account allow it; the sheet decides what it shows.
- */
+/** Stripe's Payment Sheet, set up only from the API's answer (the app holds no key); the sheet decides which wallets show (shop/ARCHITECTURE.md §2). */
 export const presentStripe = async (start: PaymentStart, facts: SheetFacts): Promise<Shown> => {
   if (!start.publicKey || !start.clientSecret) return 'unavailable'
   const { build, country } = facts

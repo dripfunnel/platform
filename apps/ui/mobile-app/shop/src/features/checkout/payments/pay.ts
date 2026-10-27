@@ -12,9 +12,8 @@ export const presentSheet: Present = (provider, start, facts) => (provider === '
 export type PayDeps = { present?: Present; read: () => Promise<PaymentRead | null>; clock?: Clock; everyMs?: number; limitMs?: number; /** Called once the sheet has closed well, before the order is read back. */ settling?: () => void }
 
 /**
- * One attempt to pay an order that is already placed: show the sheet, and when it closes without error read the order until the webhook
- * marks it paid. A closed or failed sheet stops here with its reason and places nothing; a sheet that closed but whose payment is not
- * confirmed in time is `pending`, and the shopper must not pay again.
+ * One attempt to pay a placed order: the sheet, then the order read until the webhook marks it paid.
+ * Unconfirmed in time is `pending`: the shopper must not pay again.
  */
 export const pay = async (provider: string, start: PaymentStart, facts: SheetFacts, deps: PayDeps): Promise<Outcome> => {
   const shown = await (deps.present ?? presentSheet)(provider, start, facts).catch((): Shown => 'unavailable')
@@ -22,5 +21,5 @@ export const pay = async (provider: string, start: PaymentStart, facts: SheetFac
   deps.settling?.()
   const settled = await settle(deps.read, deps.clock ?? realClock, deps.everyMs, deps.limitMs)
   if (settled === 'paid') return { kind: 'paid' }
-  return settled === 'cancelled' ? { kind: 'stopped', reason: 'declined' } : { kind: 'pending' }
+  return settled === 'cancelled' ? { kind: 'stopped', reason: 'orderCancelled' } : { kind: 'pending' }
 }

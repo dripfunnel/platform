@@ -1,4 +1,5 @@
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
+import Constants from 'expo-constants'
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native'
 import * as WebBrowser from 'expo-web-browser'
 import { cartOperation, type Cart, type PaymentStart, type PlacedOrder } from '../../../api/cart'
@@ -167,9 +168,37 @@ describe('when the payment is not confirmed in time', () => {
     expect(onPaid).toHaveBeenCalledTimes(1)
   })
 
-  it('treats an order cancelled meanwhile as a payment that did not go through', async () => {
-    const { screen } = await open(placed('stripe', stripeStart()), { paid: false, cancelled: true })
-    expect(hasText(screen, t('checkout.pay.declined'))).toBe(true)
+  it('says an order cancelled meanwhile is cancelled, and offers no new attempt it would refuse', async () => {
+    const { screen, shop } = await open(placed('stripe', stripeStart()), { paid: false, cancelled: true })
+    expect(hasText(screen, t('checkout.pay.orderCancelled'))).toBe(true)
+    expect(hasText(screen, t('checkout.pay.retry'))).toBe(false)
+    expect(hasText(screen, t('checkout.pay.leave'))).toBe(true)
+    expect(sent(shop.requests, 'payOrder')).toHaveLength(0)
+  })
+
+  it('keeps the shopper on the screen with the API’s refusal when a new attempt is refused as not pending', async () => {
+    mockPresent.mockResolvedValueOnce({ error: { code: 'Canceled', message: 'x' } } as never)
+    const { screen, onPaid } = await open(placed('stripe', stripeStart()), { paid: false, retried: new ApiError('NOT_PENDING', 'x') })
+    await press(screen, t('checkout.pay.retry'))
+    expect(hasText(screen, t('errors.NOT_PENDING'))).toBe(true)
+    expect(hasText(screen, t('checkout.pay.retry'))).toBe(true)
+    expect(onPaid).not.toHaveBeenCalled()
+  })
+
+  it('says it could not start, with a way to try again, when the build has no scheme to start with', async () => {
+    const config = Constants.expoConfig
+    if (!config) throw new Error('no config')
+    const extra = { ...config.extra }
+    config.extra = {}
+    try {
+      const { screen } = await open(placed('stripe', stripeStart()), { paid: true, retried: stripeStart('2') })
+      expect(hasText(screen, t('checkout.pay.unavailable'))).toBe(true)
+      expect(mockInitSheet).not.toHaveBeenCalled()
+      await press(screen, t('checkout.pay.retry'))
+      expect(hasText(screen, t('errors.UNKNOWN'))).toBe(true)
+    } finally {
+      config.extra = extra
+    }
   })
 })
 

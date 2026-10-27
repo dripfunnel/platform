@@ -49,7 +49,7 @@ export type Cart = {
 
 export type PaymentOption = { provider: string; kind: string; instructions: string | null }
 
-/** What a provider's own sheet needs to take a payment, exactly as the API answers it (api ARCHITECTURE: shop/ARCHITECTURE.md §4). */
+/** What a provider's own sheet needs to take a payment, exactly as the Shop API answers it. */
 export type PaymentStart = {
   providerRef: string | null
   /** Stripe: the publishable key of the merchant's connected account, and that account's id. */
@@ -243,10 +243,7 @@ const paymentOf = (raw: z.infer<typeof paymentSchema>): PaymentStart | null =>
       }
     : null
 
-/**
- * Places the order. A way to pay later (cash on delivery, bank transfer) answers no `payment`; a card or wallet provider answers what its
- * sheet needs, and the order is placed unpaid until the provider's webhook says it is paid. The engine re-checks stock, offers, delivery and price.
- */
+/** Places the order; a card or wallet provider also answers what its sheet needs, and the order stays unpaid until the provider's webhook says so. */
 export const placeOrder = async (client: ApiClient, provider: string, app?: AppPayment): Promise<PlacedOrder> => {
   const { placeOrder: placed } = decode(
     z.object({ placeOrder: z.object({ orderId: z.string(), number: z.string(), total: money, provider: z.string(), instructions: text, payment: paymentSchema }) }),
@@ -277,7 +274,7 @@ export const readPayment = async (client: ApiClient, orderId: string): Promise<P
     z.object({ confirmPayment: z.object({ state: text, paymentState: text }).nullable() }),
     await client.request<unknown>('mutation($orderId: ID!) { confirmPayment(orderId: $orderId) { state paymentState } }', { orderId }),
   )
-  return confirmPayment ? { cancelled: confirmPayment.state === 'cancelled', paid: confirmPayment.paymentState === 'paid' || confirmPayment.paymentState === 'authorised' } : null
+  return confirmPayment ? { cancelled: confirmPayment.state === 'cancelled', paid: confirmPayment.paymentState === 'paid' } : null
 }
 
 /** The checkout problems a refusal names (`NO_CONTACT`, `NO_ADDRESS`, ...), unchecked data from the API. */

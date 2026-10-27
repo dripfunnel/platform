@@ -9,10 +9,7 @@ export const realClock: Clock = { now: () => Date.now(), wait: (ms) => new Promi
 
 export type Settled = 'paid' | 'cancelled' | 'pending'
 
-/**
- * Reads the order until the provider's webhook has marked it paid (the read also asks the provider, as on the website), the order was
- * cancelled, or the limit is reached. A read that fails (no signal) is simply asked again: it neither pays nor fails the order.
- */
+/** Reads the order until it is paid, cancelled or the limit is reached; a failed read is asked again, it neither pays nor fails the order. */
 export const settle = async (read: () => Promise<PaymentRead | null>, clock: Clock = realClock, everyMs = settleEveryMs, limitMs = settleLimitMs): Promise<Settled> => {
   const started = clock.now()
   for (;;) {

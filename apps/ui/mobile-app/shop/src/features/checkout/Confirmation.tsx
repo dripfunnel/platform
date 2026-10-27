@@ -7,8 +7,7 @@ import { Button } from '../common/ui'
 import { OrderSummary } from './OrderSummary'
 import { Details } from './ReviewStep'
 
-/** The order is placed: its number, what to do next for cash on delivery or a bank transfer, and what was ordered, from the cart as it stood when it was placed. */
-/** `paid`: the order was read back as paid after a provider's sheet (never inferred from the way to pay, so an order not known to be paid is never shown as paid). */
+/** The order is placed: its number, what to do next, and what was ordered. `paid` only when it was read back as paid after a provider's sheet. */
 export function Confirmation({ order, cart, paid = false, onDone }: { order: PlacedOrder; cart: Cart; paid?: boolean; onDone: () => void }) {
   const { colors, radii } = useTheme()
   const total = order.total ?? cart.total

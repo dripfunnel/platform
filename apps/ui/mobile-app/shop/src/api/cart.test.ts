@@ -95,9 +95,9 @@ describe('paying by a provider’s own sheet', () => {
     await expect(payOrder(client({ payOrder: null }), 'o1', { scheme: 'devshop' })).rejects.toThrow(ApiError)
   })
 
-  it('reads whether an order is paid or cancelled, and calls an authorised payment paid', async () => {
+  it('reads whether an order is paid or cancelled, and does not call an authorised payment paid', async () => {
     expect(await readPayment(client({ confirmPayment: { state: 'placed', paymentState: 'paid' } }), 'o1')).toEqual({ cancelled: false, paid: true })
-    expect(await readPayment(client({ confirmPayment: { state: 'placed', paymentState: 'authorised' } }), 'o1')).toEqual({ cancelled: false, paid: true })
+    expect(await readPayment(client({ confirmPayment: { state: 'placed', paymentState: 'authorised' } }), 'o1')).toEqual({ cancelled: false, paid: false })
     expect(await readPayment(client({ confirmPayment: { state: 'cancelled', paymentState: 'pending' } }), 'o1')).toEqual({ cancelled: true, paid: false })
     expect(await readPayment(client({ confirmPayment: null }), 'o1')).toBeNull()
   })

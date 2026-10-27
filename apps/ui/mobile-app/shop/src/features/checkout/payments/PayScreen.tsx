@@ -11,7 +11,7 @@ import { money } from '../../catalogue/words'
 import { errorKey } from '../../common/errors'
 import { Button } from '../../common/ui'
 import { useAction } from '../../common/useAction'
-import { paymentBuild } from './env'
+import { paymentBuild, type PaymentBuild } from './env'
 import type { Outcome, StopReason } from './outcome'
 import { pay } from './pay'
 import { appPaymentInput } from './start'
@@ -21,11 +21,7 @@ type Phase = { kind: 'opening' } | { kind: 'confirming' } | { kind: 'stopped'; r
 
 type Props = { order: PlacedOrder; cart: Cart; onPaid: () => void; onLeave: () => void; /** The poll's clock, which a test moves by hand. */ clock?: Clock }
 
-/**
- * An order placed for a card or wallet payment: Stripe's sheet or PayPal's approval page opens, and when it closes the order is read until
- * the provider's webhook has marked it paid. A closed or failed sheet comes back here with its reason and a way to try again on the same
- * order (`payOrder`: a new attempt, never a second order); an unconfirmed one says so and does not offer to pay again.
- */
+/** An order placed for Stripe or PayPal: its sheet opens, then the order is read until paid, with a retry on the same order (shop/ARCHITECTURE.md §2). */
 export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: Props) {
   const { client } = useShop()
   const { brand } = useBrand()
@@ -46,7 +42,13 @@ export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: P
   const run = useCallback(
     async (start: PaymentStart) => {
       setPhase({ kind: 'opening' })
-      const build = paymentBuild()
+      let build: PaymentBuild
+      try {
+        build = paymentBuild()
+      } catch {
+        setPhase({ kind: 'stopped', reason: 'unavailable' })
+        return
+      }
       const country = await fetchStoreCountry(client).catch(() => null)
       finish(await pay(order.provider, start, { build, storeName: brand?.name ?? '', email: cart.email || null, country }, { read, clock, settling: () => setPhase({ kind: 'confirming' }) }))
     },
@@ -63,16 +65,17 @@ export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: P
   })
 
   const retry = async () => {
-    const input = appPaymentInput(order.provider)
-    if (!input) return
-    const done = await again.run(() => payOrder(client, order.orderId, input))
-    if (done) await run(done.value)
+    const done = await again.run(async () => {
+      const input = appPaymentInput(order.provider)
+      return input ? payOrder(client, order.orderId, input) : null
+    })
+    if (done?.value) await run(done.value)
   }
 
   const checkAgain = async () => {
     setPhase({ kind: 'confirming' })
     const settled = await settle(read, clock)
-    finish(settled === 'paid' ? { kind: 'paid' } : settled === 'cancelled' ? { kind: 'stopped', reason: 'declined' } : { kind: 'pending' })
+    finish(settled === 'paid' ? { kind: 'paid' } : settled === 'cancelled' ? { kind: 'stopped', reason: 'orderCancelled' } : { kind: 'pending' })
   }
 
   useEffect(() => {
@@ -99,7 +102,7 @@ export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: P
             {t('checkout.pay.stoppedTitle')}
           </Text>
           <Text style={{ color: colors.danger, fontSize: 15, fontWeight: '600' }}>{t(`checkout.pay.${phase.reason}`)}</Text>
-          <Text style={{ color: colors.textStrong, fontSize: 14 }}>{t('checkout.pay.orderNote', { number: order.number })}</Text>
+          {phase.reason !== 'orderCancelled' ? <Text style={{ color: colors.textStrong, fontSize: 14 }}>{t('checkout.pay.orderNote', { number: order.number })}</Text> : null}
           {order.total ? <Text style={{ color: colors.text, fontSize: 15 }}>{money(order.total)}</Text> : null}
         </View>
       ) : null}
@@ -118,7 +121,7 @@ export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: P
       ) : null}
       {phase.kind === 'stopped' ? (
         <>
-          <Button label={t('checkout.pay.retry')} busy={again.busy} onPress={() => void retry()} />
+          {phase.reason !== 'orderCancelled' ? <Button label={t('checkout.pay.retry')} busy={again.busy} onPress={() => void retry()} /> : null}
           <Button kind="secondary" label={t('checkout.pay.leave')} onPress={onLeave} />
         </>
       ) : null}

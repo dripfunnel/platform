@@ -1,5 +1,5 @@
-/** Why a sheet ended without a payment, in the words the checkout has for it (messages checkout.pay.*). */
-export type StopReason = 'cancelled' | 'declined' | 'timeout' | 'unavailable'
+/** Why a sheet ended without a payment, in the words the checkout has for it (messages checkout.pay.*); `orderCancelled` has no way to try again. */
+export type StopReason = 'cancelled' | 'declined' | 'timeout' | 'unavailable' | 'orderCancelled'
 
 export type Shown = 'done' | StopReason
 
