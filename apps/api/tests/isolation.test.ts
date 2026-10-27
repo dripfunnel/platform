@@ -196,6 +196,16 @@ describe('staff on the Admin API', () => {
   it('read every supplier at account level, for the Users tab', async () => {
     expect((await idsOf(staff, 'seller')).sort()).toEqual([t.sellerA1First, t.sellerA1Second, t.sellerB1].sort())
   })
+
+  it('read a store’s repo only through staff_store_repo (0366): no other role may call it', async () => {
+    await db.sql`update storefront set repo = 'sf-k7f3q9f2xa' where store_id = ${t.storeA1}`
+    const repoAs = (context: CallerContext) => withScope(db.sql, context, async (tx) => (await tx<{ repo: string | null }[]>`select staff_store_repo(${t.storeA1}) as repo`)[0]?.repo)
+    expect(await repoAs(staff)).toBe('sf-k7f3q9f2xa')
+    for (const context of [partnerCaller(t.partnerA), storeCaller(t.partnerA, t.storeA1), shopper(t.partnerA, t.storeA1, null), supportSession(t.partnerA, t.storeA1, 'read')]) {
+      await expect(repoAs(context)).rejects.toThrow(/permission denied/i)
+    }
+    await db.sql`update storefront set repo = null where store_id = ${t.storeA1}`
+  })
 })
 
 describe('a read-only support session', () => {
