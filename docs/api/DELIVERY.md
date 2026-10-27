@@ -433,6 +433,8 @@ claim, if one was sent late, stays on the delivery (`cashCollectedAt` on the ord
 `CODE_NOT_LOCKED`. `false` marks the delivery delivered and leaves the order unpaid until someone
 marks it paid as today. A prepaid order ignores the argument.
 
+**The orders list** (built on #846): `OrderSummary.deliveryState` is the order's latest delivery state, or `code_locked` / `code_unconfirmed` for a parcel out whose code needs the merchant (a lock is read from the step that made it, as the attempts themselves aren't readable to the request role); `OrderFilter` gains `OWN_DELIVERY` (has a delivery) and `DELIVERY_NEEDS_YOU` (unassigned, locked or unconfirmed), and `orderCounts` gains `ownDelivery` and `deliveryNeedsYou`. All `orders.read`; a supplier's are null and zero. The portal's Delivery panel is store/FIRST-RELEASE.md §6.
+
 A supplier never sees riders, positions or a delivery: own delivery carries only the store's
 lines (§2), so a supplier's `orders.fulfil` (ACCESS §5.2) never reaches these actions; they
 check the merchant side as well as the permission (ACCESS §5.1). A support session, an API key or an app grant reads them as `orders.read` allows, never a rider's phone.

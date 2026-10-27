@@ -30,7 +30,7 @@ export const OrderList = () => {
   const exportJob = useListExport('orders')
 
   const { filter: opened } = pageRoute.useSearch()
-  const [filter, setFilter] = useState<OrderFilter>(() => (opened && chipsFor(access.supplier).includes(opened) ? opened : 'ALL'))
+  const [filter, setFilter] = useState<OrderFilter>(() => (opened && chipsFor(access.supplier, true).includes(opened) ? opened : 'ALL'))
   const [search, setSearch] = useState('')
   const [cursor, setCursor] = useState<Cursor>({})
   const [pageIndex, setPageIndex] = useState(0)
@@ -121,7 +121,7 @@ export const OrderList = () => {
           <div className="df-orders-toolbar">
             <SearchField label={words.search.label} placeholder={access.supplier ? words.search.placeholderSupplier : words.search.placeholder} value={search || undefined} onChange={(value) => change({ search: value ?? '' })} />
             <div className="df-chips" role="group" aria-label={words.chips.label}>
-              {chipsFor(access.supplier).map((f) => (
+              {chipsFor(access.supplier, view.counts.ownDelivery > 0).map((f) => (
                 <button key={f} type="button" className="df-chip" aria-pressed={filter === f} onClick={() => change({ filter: f })}>
                   {words.chips[f]}
                   <span>{formatCount(view.counts[countKey[f]])}</span>
@@ -172,6 +172,9 @@ const OrderRow = ({ row, access, timeZone, store, sample }: { row: OrderSummary;
   const status = rowStatus(row, access.supplier)
   const pay = paymentOf(row.paymentState)
   const who = access.supplier ? (row.customerName ?? fill(words.row.forStore, { store })) : (row.customerName ?? words.row.guest)
+  const state = access.supplier ? null : row.deliveryState
+  const delivery = state ? fill(words.row.delivery, { state: (words.deliveryState as Record<string, string>)[state] ?? state }) : null
+  const needsYou = state === 'unassigned' || state === 'code_locked' || state === 'code_unconfirmed'
   const where = access.supplier ? (row.shippingMode === 'to-shopper' ? row.city || words.row.toShopper : words.row.sendToStore) : row.city
   return (
     <li>
@@ -187,6 +190,7 @@ const OrderRow = ({ row, access, timeZone, store, sample }: { row: OrderSummary;
         <span className="df-orders-items">{fill(plural(words.row.items, row.items), { count: formatCount(row.items) })}</span>
         <span className="df-orders-status">
           <StatusPill {...statusPill[status]} label={words.status[status]} />
+          {delivery && <span className={needsYou ? 'df-orders-delivery df-orders-delivery--needs' : 'df-orders-delivery'}>{delivery}</span>}
           {row.test && <span className="df-orders-test">{words.row.test}</span>}
         </span>
         {access.money && (

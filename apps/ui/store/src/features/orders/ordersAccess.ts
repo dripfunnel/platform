@@ -21,6 +21,7 @@ export const ordersSeatOf = (forced: string | null, acting: Acting, readOnly: bo
   if (forced === 'denied') return seat(['catalog.read'], true, false)
   if (forced === 'readOnly') return seat(ownerPermissions, false, true)
   if (forced === 'staff') return seat(staffPermissions, false, false)
+  if (forced === 'deliveryStaff') return seat(['orders.read', 'orders.write'], false, false)
   if (forced === 'supplier' || forced === 'supplierEmpty' || forced === 'supplierToShopper') return seat(supplierPermissions, true, false)
   if (forced) return seat(ownerPermissions, false, false)
   return { canRead: acting.permissions.includes('orders.read'), access: ordersAccessOf(acting, readOnly) }

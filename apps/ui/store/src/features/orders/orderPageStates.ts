@@ -1,10 +1,11 @@
 import type { Order, OrderLine, OrderPart } from '../../api/order'
+import { deliverySample, deliveryStates, type DeliverySampleState } from './deliverySamples'
 import { hoursAgo, inr } from './orderStates'
 
 // An order's states under ?state= (ui/README.md §6), for any id: loading, error, notFound, toShip, shipping,
 // partlyShipped, paymentPending, shipped, cancelled, returning, returns, refunding, readOnly, staff, supplier,
 // supplierToShopper.
-export const orderStates = ['loading', 'error', 'notFound', 'toShip', 'shipping', 'partlyShipped', 'paymentPending', 'shipped', 'cancelled', 'returning', 'returns', 'refunding', 'readOnly', 'staff', 'supplier', 'supplierToShopper'] as const
+export const orderStates = ['loading', 'error', 'notFound', 'toShip', 'shipping', 'partlyShipped', 'paymentPending', 'shipped', 'cancelled', 'returning', 'returns', 'refunding', 'readOnly', 'staff', 'supplier', 'supplierToShopper', ...deliveryStates] as const
 export type OrderState = (typeof orderStates)[number]
 
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
@@ -70,13 +71,17 @@ const sampleOrder: Order | null = harness
   shippingOption: 'flat',
   shippingMethodLabel: 'Standard delivery',
   shopperNote: null,
+  delivery: null,
 }
   : null
+
+const isDeliveryState = (state: string): state is DeliverySampleState => (deliveryStates as readonly string[]).includes(state)
 
 /** The order the harness shows for a state, or null for loading, error and notFound. */
 export const orderSample = (state: OrderState | null): Order | null => {
   const baseOrder = sampleOrder
   if (!baseOrder || !state || state === 'loading' || state === 'error' || state === 'notFound') return null
+  if (isDeliveryState(state)) return deliverySample(state, baseOrder)
   switch (state) {
     case 'partlyShipped':
       return {
@@ -153,6 +158,7 @@ export const orderSample = (state: OrderState | null): Order | null => {
         total: null,
         shippingOption: null,
         shippingMethodLabel: null,
+        delivery: null,
       }
     }
     default:

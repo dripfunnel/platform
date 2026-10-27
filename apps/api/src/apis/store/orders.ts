@@ -183,6 +183,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       items: t.exposeInt('items'),
       partState: t.exposeString('part_state', { nullable: true }),
       shippingMode: t.exposeString('shipping_mode', { nullable: true }),
+      deliveryState: t.exposeString('delivery_state', { nullable: true, description: 'The latest own delivery: its state, or code_locked / code_unconfirmed for a parcel out whose code needs the merchant. Null for a supplier.' }),
     }),
   })
   const SummaryPage = builder.objectRef<{ nodes: OrderListRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('OrderPage').implement({
@@ -196,6 +197,8 @@ export const registerOrders = (builder: StoreBuilder) => {
       shipped: t.exposeInt('shipped'),
       cancelledRefunded: t.exposeInt('cancelled_refunded'),
       paymentPending: t.exposeInt('payment_pending'),
+      ownDelivery: t.exposeInt('own_delivery'),
+      deliveryNeedsYou: t.exposeInt('delivery_needs_you'),
     }),
   })
 

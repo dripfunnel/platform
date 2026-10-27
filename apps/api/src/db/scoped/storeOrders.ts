@@ -5,7 +5,7 @@ import type { ScopedSql } from './index'
 // The Orders screen (FIRST-RELEASE §6; DATA-MODEL §7.6, §7.11): the merchant side reads every order of the store, and a
 // supplier only its own part of one, through order_for_supplier and order_line_for_supplier (migration 0070).
 
-export const orderFilters = ['all', 'to_ship', 'partly_shipped', 'shipped', 'cancelled_refunded', 'payment_pending'] as const
+export const orderFilters = ['all', 'to_ship', 'partly_shipped', 'shipped', 'cancelled_refunded', 'payment_pending', 'own_delivery', 'delivery_needs_you'] as const
 export type OrderFilter = (typeof orderFilters)[number]
 
 export interface OrderListRow {
@@ -26,11 +26,23 @@ export interface OrderListRow {
   /** A supplier's own part; null on the merchant side. */
   part_state: string | null
   shipping_mode: string | null
+  /** The order's latest delivery (DELIVERY §3), a picked-up one as code_locked or code_unconfirmed when it needs the merchant; null for a supplier or no delivery. */
+  delivery_state: string | null
 }
 
 // An order that went through (paid, or paid later by cash or transfer) on the live storefront, as a supplier's view has it.
 export const goneThrough = (tx: ScopedSql) =>
   tx`(o.payment_state <> 'pending' or o.payment_method in ('cod', 'bank_transfer')) and not exists (select 1 from payment m where m.order_id = o.id and m.mode = 'test')`
+
+// The handover code's attempts aren't readable here (migration 0365), so a lock is read from the step that made it.
+const deliveryNeedsYou = (tx: ScopedSql) =>
+  tx`exists (select 1 from delivery d where d.order_id = o.id and d.store_id = o.store_id
+    and (d.state = 'unassigned' or (d.state = 'picked_up' and (d.code_unconfirmed_at is not null or d.step_result = 'CODE_LOCKED'))))`
+
+const latestDeliveryState = (tx: ScopedSql) =>
+  tx`(select case when d.state = 'picked_up' and d.code_unconfirmed_at is not null then 'code_unconfirmed'
+      when d.state = 'picked_up' and d.step_result = 'CODE_LOCKED' then 'code_locked' else d.state end
+    from delivery d where d.order_id = o.id and d.store_id = o.store_id order by d.created_at desc, d.id desc limit 1)`
 
 export const merchantFilter = (tx: ScopedSql, filter: OrderFilter) => {
   switch (filter) {
@@ -46,6 +58,10 @@ export const merchantFilter = (tx: ScopedSql, filter: OrderFilter) => {
       return tx`(o.state = 'cancelled' or o.payment_state = 'refunded')`
     case 'payment_pending':
       return tx`o.state = 'placed' and o.payment_state = 'pending'`
+    case 'own_delivery':
+      return tx`exists (select 1 from delivery d where d.order_id = o.id and d.store_id = o.store_id)`
+    case 'delivery_needs_you':
+      return deliveryNeedsYou(tx)
   }
 }
 
@@ -62,6 +78,8 @@ const supplierFilter = (tx: ScopedSql, filter: OrderFilter) => {
       return tx`v.part_state in ('sent_to_store', 'shipped', 'delivered')`
     case 'cancelled_refunded':
     case 'payment_pending':
+    case 'own_delivery':
+    case 'delivery_needs_you':
       return tx`false`
   }
 }
@@ -85,7 +103,8 @@ export const selectMerchantOrders = (tx: ScopedSql, storeId: string, filter: Ord
     select o.id, o.number, o.placed_at, o.state, o.payment_state, o.fulfilment_state, o.payment_method, o.total_amount::text as total_amount, o.currency,
       exists (select 1 from payment m where m.order_id = o.id and m.mode = 'test') as test,
       o.shipping_address ->> 'name' as customer_name, o.shipping_address ->> 'city' as city,
-      (select coalesce(sum(l.quantity), 0)::int from order_line l where l.order_id = o.id) as items, null as part_state, null as shipping_mode
+      (select coalesce(sum(l.quantity), 0)::int from order_line l where l.order_id = o.id) as items, null as part_state, null as shipping_mode,
+      ${latestDeliveryState(tx)} as delivery_state
     from "order" o
     where o.store_id = ${storeId} and o.state <> 'cart' and ${merchantFilter(tx, filter)}
       and ${search ? tx`(o.number ilike ${like(search)} or o.shipping_address ->> 'name' ilike ${like(search)})` : tx`true`}
@@ -96,7 +115,7 @@ export const selectSupplierOrders = (tx: ScopedSql, filter: OrderFilter, search:
   tx<OrderListRow[]>`
     select v.id, v.number, v.placed_at, v.state, null as payment_state, null as fulfilment_state, null as payment_method, null as total_amount, v.currency,
       null as test, v.customer_name, v.shipping_address ->> 'city' as city,
-      (select coalesce(sum(l.quantity), 0)::int from order_line l where l.order_id = v.id) as items, v.part_state, v.shipping_mode
+      (select coalesce(sum(l.quantity), 0)::int from order_line l where l.order_id = v.id) as items, v.part_state, v.shipping_mode, null as delivery_state
     from order_for_supplier v
     where ${supplierFilter(tx, filter)} and ${search ? tx`v.number ilike ${like(search)}` : tx`true`}
     ${pageTail(tx, 'v', window)}
@@ -111,10 +130,12 @@ export const countMerchantOrders = async (tx: ScopedSql, storeId: string): Promi
       count(*) filter (where ${merchantFilter(tx, 'partly_shipped')})::int as partly_shipped,
       count(*) filter (where ${merchantFilter(tx, 'shipped')})::int as shipped,
       count(*) filter (where ${merchantFilter(tx, 'cancelled_refunded')})::int as cancelled_refunded,
-      count(*) filter (where ${merchantFilter(tx, 'payment_pending')})::int as payment_pending
+      count(*) filter (where ${merchantFilter(tx, 'payment_pending')})::int as payment_pending,
+      count(*) filter (where ${merchantFilter(tx, 'own_delivery')})::int as own_delivery,
+      count(*) filter (where ${merchantFilter(tx, 'delivery_needs_you')})::int as delivery_needs_you
     from "order" o where o.store_id = ${storeId} and o.state <> 'cart'
   `
-  return row ?? { all: 0, to_ship: 0, partly_shipped: 0, shipped: 0, cancelled_refunded: 0, payment_pending: 0 }
+  return row ?? { all: 0, to_ship: 0, partly_shipped: 0, shipped: 0, cancelled_refunded: 0, payment_pending: 0, own_delivery: 0, delivery_needs_you: 0 }
 }
 
 export const countSupplierOrders = async (tx: ScopedSql): Promise<OrderCounts> => {
@@ -123,10 +144,10 @@ export const countSupplierOrders = async (tx: ScopedSql): Promise<OrderCounts> =
       count(*) filter (where ${supplierFilter(tx, 'to_ship')})::int as to_ship,
       count(*) filter (where ${supplierFilter(tx, 'partly_shipped')})::int as partly_shipped,
       count(*) filter (where ${supplierFilter(tx, 'shipped')})::int as shipped,
-      0 as cancelled_refunded, 0 as payment_pending
+      0 as cancelled_refunded, 0 as payment_pending, 0 as own_delivery, 0 as delivery_needs_you
     from order_for_supplier v
   `
-  return row ?? { all: 0, to_ship: 0, partly_shipped: 0, shipped: 0, cancelled_refunded: 0, payment_pending: 0 }
+  return row ?? { all: 0, to_ship: 0, partly_shipped: 0, shipped: 0, cancelled_refunded: 0, payment_pending: 0, own_delivery: 0, delivery_needs_you: 0 }
 }
 
 export interface OrderLineRow {

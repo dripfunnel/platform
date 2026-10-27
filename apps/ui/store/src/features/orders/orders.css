@@ -190,3 +190,13 @@
     display: none;
   }
 }
+
+.df-orders-delivery {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-orders-delivery--needs {
+  color: var(--df-color-danger);
+  font-weight: 600;
+}

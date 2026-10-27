@@ -4,7 +4,7 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OrderCounts, OrderSummary } from '../../api/orders'
 import type { Acting } from '../../api/shell'
-import { messages } from '../../messages'
+import { fill, messages } from '../../messages'
 import { ordersAccessOf, rowStatus } from './orderView'
 
 // PortalOrders' list driven as a merchant and a supplier would (FIRST-RELEASE §6): what each seat sees and what each
@@ -31,10 +31,11 @@ const order = (r: Partial<OrderSummary> & Pick<OrderSummary, 'id' | 'number'>): 
   items: 3,
   partState: null,
   shippingMode: null,
+  deliveryState: null,
   ...r,
 })
 
-const counts = (c: Partial<OrderCounts> = {}): OrderCounts => ({ all: 2, toShip: 1, partlyShipped: 0, shipped: 1, cancelledRefunded: 0, paymentPending: 1, ...c })
+const counts = (c: Partial<OrderCounts> = {}): OrderCounts => ({ all: 2, toShip: 1, partlyShipped: 0, shipped: 1, cancelledRefunded: 0, paymentPending: 1, ownDelivery: 0, deliveryNeedsYou: 0, ...c })
 
 const toShip = order({ id: 'o1', number: 'KT-1042' })
 const pending = order({ id: 'o2', number: 'KT-1041', customerName: 'Rohan Mehta', city: 'Pune', items: 1, paymentState: 'pending', paymentMethod: 'cod', fulfilmentState: 'fulfilled' })
@@ -129,6 +130,33 @@ describe('the Orders list', () => {
     await settle()
     expect(api.loadOrders).toHaveBeenLastCalledWith('PAYMENT_PENDING', 'Rohan', { after: 'c2' })
     expect(screen.getByText('Showing 26–27')).toBeTruthy()
+  })
+
+  it('adds the delivery chips and a delivery line to each own-delivery order once the store has one', async () => {
+    api.loadOrderCounts.mockResolvedValue(counts({ ownDelivery: 2, deliveryNeedsYou: 1 }))
+    api.loadOrders.mockResolvedValue({ rows: [order({ id: 'o1', number: 'KT-1042', deliveryState: 'unassigned' }), order({ id: 'o2', number: 'KT-1041', deliveryState: 'code_locked' }), order({ id: 'o3', number: 'KT-1040', deliveryState: 'picked_up' }), order({ id: 'o4', number: 'KT-1039' })], next: null, previous: null })
+    await show(owner)
+    const chips = within(screen.getByRole('group', { name: words.chips.label }))
+    expect(chips.getAllByRole('button').map((b) => b.textContent).slice(-2)).toEqual(['Own delivery2', 'Delivery needs you1'])
+    const rows = within(screen.getByRole('list', { name: words.list.label })).getAllByRole('link')
+    expect(rows[0]?.textContent).toContain(fill(words.row.delivery, { state: words.deliveryState.unassigned }))
+    expect(rows[1]?.textContent).toContain(fill(words.row.delivery, { state: words.deliveryState.code_locked }))
+    expect(rows[2]?.textContent).toContain(fill(words.row.delivery, { state: words.deliveryState.picked_up }))
+    expect(rows[3]?.textContent).not.toContain('Own delivery')
+    expect(rows[0]?.querySelector('.df-orders-delivery--needs')).toBeTruthy()
+    expect(rows[2]?.querySelector('.df-orders-delivery--needs')).toBeNull()
+    fireEvent.click(chips.getByRole('button', { name: /Delivery needs you/ }))
+    await settle()
+    expect(api.loadOrders).toHaveBeenLastCalledWith('DELIVERY_NEEDS_YOU', '', {})
+  })
+
+  it('shows no delivery chips for a store without own delivery, and a supplier never', async () => {
+    await show(owner)
+    expect(screen.queryByRole('button', { name: /Own delivery/ })).toBeNull()
+    cleanup()
+    api.loadOrderCounts.mockResolvedValue(counts({ ownDelivery: 3 }))
+    await show(supplier)
+    expect(screen.queryByRole('button', { name: /Own delivery/ })).toBeNull()
   })
 
   it('offers to clear a filter that holds nothing', async () => {

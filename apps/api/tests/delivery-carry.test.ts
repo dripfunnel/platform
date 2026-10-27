@@ -331,6 +331,46 @@ describe('not delivered, recall and retry', () => {
   })
 })
 
+describe('the orders list', () => {
+  const listed = async (filter: string) => {
+    const r = await world.gql('owner', `query { orders(filter: ${filter}, first: 50) { nodes { id deliveryState } } }`)
+    return (r.data?.['orders'] as { nodes: { id: string; deliveryState: string | null }[] }).nodes
+  }
+
+  it('names each order’s latest delivery state, and filters to own delivery and to what needs the merchant', async () => {
+    const searching = await order()
+    const unassigned = await order()
+    await db.sql`update delivery set state = 'unassigned' where order_id = ${unassigned}`
+    const out = await pickedUp()
+    const locked = await pickedUp()
+    await db.sql`update delivery set step_result = 'CODE_LOCKED', code_attempts = 5 where id = ${locked.deliveryId}`
+    const unconfirmed = await pickedUp()
+    await db.sql`update delivery set code_unconfirmed_at = ${clock} where id = ${unconfirmed.deliveryId}`
+    const plain = await db.sql<{ id: string }[]>`select id from "order" where store_id = ${tenants.storeA1} and shipping_option is distinct from 'own_delivery' limit 1`
+
+    const own = new Map((await listed('OWN_DELIVERY')).map((n) => [n.id, n.deliveryState]))
+    expect(own.get(searching)).toBe('searching')
+    expect(own.get(unassigned)).toBe('unassigned')
+    expect(own.get(out.orderId)).toBe('picked_up')
+    expect(own.get(locked.orderId)).toBe('code_locked')
+    expect(own.get(unconfirmed.orderId)).toBe('code_unconfirmed')
+    for (const row of plain) expect(own.has(row.id)).toBe(false)
+
+    const needs = (await listed('DELIVERY_NEEDS_YOU')).map((n) => n.id).sort()
+    expect(needs).toEqual([unassigned, locked.orderId, unconfirmed.orderId].sort())
+    const counts = await world.gql('owner', 'query { orderCounts { ownDelivery deliveryNeedsYou } }')
+    expect(counts.data?.['orderCounts']).toMatchObject({ deliveryNeedsYou: 3 })
+    expect((counts.data?.['orderCounts'] as { ownDelivery: number }).ownDelivery).toBeGreaterThanOrEqual(5)
+  })
+
+  it('shows a delivery that has locked through the real wrong-code path as needing the merchant', async () => {
+    const { orderId, deliveryId } = await pickedUp()
+    const code = await codeOf(deliveryId)
+    for (let i = 1; i <= 5; i++) await carry(riders[0]).delivered({ id: deliveryId, code: wrong(code), cashCollected: true, at: clock.toISOString(), key: `l${i}` }).catch(() => undefined)
+    expect((await listed('DELIVERY_NEEDS_YOU')).find((n) => n.id === orderId)?.deliveryState).toBe('code_locked')
+  })
+})
+
 describe('what a rider reads', () => {
   it('never answers the handover code, and shows the customer only while the parcel is in hand', async () => {
     const { deliveryId } = await assigned()
