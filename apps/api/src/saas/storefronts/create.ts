@@ -31,6 +31,8 @@ export interface CreateDeps {
   github: GitHubApp
   org: string
   sites: SitesBucket
+  /** SHOP_DOMAIN: names the shop a local `next dev` proxies to; null where none is set. */
+  shopDomain: string | null
   now: () => Date
   /** Tests name a step to fail at the end of, to prove a failure there leaves nothing behind (SAAS §5). */
   failAt?: (step: ProvisioningStep) => void
@@ -112,7 +114,10 @@ const pinnedPackage = (skeletonPackage: string, repo: string, core: string): str
   return `${JSON.stringify({ ...pkg, name: repo, dependencies: { ...dependencies, '@dripfunnel/storefront-core': core } }, null, 2)}\n`
 }
 
-/** Step 5: `store.config.ts`, and core pinned exactly (storefront ARCHITECTURE §2.2). */
+// Read only by a clone's `next dev` (templates/storefront/next.config.ts): the store's own free address.
+const devEnvFile = (slug: string, shopDomain: string) => `SHOP_API_PROXY=https://${slug}.${shopDomain}\n`
+
+/** Step 5: `store.config.ts`, core pinned exactly, and the shop a local run proxies to (storefront ARCHITECTURE §2.2). */
 const configStep = async (deps: CreateDeps, p: CreateParams, core: string): Promise<string> => {
   const row = await enter(deps, p, 'storeConfig')
   if (!row) return stopped
@@ -125,6 +130,7 @@ const configStep = async (deps: CreateDeps, p: CreateParams, core: string): Prom
       changes: [
         { path: 'store.config.ts', content: storeConfigFile(row.public_store_key) },
         { path: 'package.json', content: pinnedPackage(skeletonPackage, row.repo, core) },
+        ...(deps.shopDomain ? [{ path: '.env.development', content: devEnvFile(row.slug, deps.shopDomain) }] : []),
       ],
     })),
   )
