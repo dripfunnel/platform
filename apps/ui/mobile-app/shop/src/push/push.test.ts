@@ -158,6 +158,43 @@ describe('signing out', () => {
   })
 })
 
+describe('signing out with no signal', () => {
+  const failing = (): ApiClient & { attempts: number } => {
+    const api = { attempts: 0, request: <T,>(): Promise<T> => { api.attempts += 1; return Promise.reject(new Error('offline')) } }
+    return api
+  }
+
+  it('tries twice, keeps the token, and says it failed, so the next registration of this phone can move it', async () => {
+    await registerThisPhone(client(), null)
+    const offline = failing()
+    await expect(unregisterThisPhone(offline)).rejects.toThrow('offline')
+    expect(offline.attempts).toBe(2)
+    const later = client()
+    await unregisterThisPhone(later)
+    expect(later.sent[0]?.variables).toEqual({ token: 'ExponentPushToken[abc]' })
+  })
+
+  it('is done by the second try when the first one failed', async () => {
+    await registerThisPhone(client(), null)
+    let tries = 0
+    const flaky: ApiClient = { request: async <T,>(): Promise<T> => { tries += 1; if (tries === 1) throw new Error('blip'); return { unregisterPushDevice: true } as T } }
+    await unregisterThisPhone(flaky)
+    expect(tries).toBe(2)
+    const again = client()
+    await unregisterThisPhone(again)
+    expect(again.sent).toHaveLength(0)
+  })
+
+  it('is replaced by the next sign-in’s own registration of this phone', async () => {
+    await registerThisPhone(client(), null)
+    tokenOf.mockResolvedValue({ type: 'expo', data: 'ExponentPushToken[new]' })
+    await registerThisPhone(client(), null)
+    const out = client()
+    await unregisterThisPhone(out)
+    expect(out.sent[0]?.variables).toEqual({ token: 'ExponentPushToken[new]' })
+  })
+})
+
 describe('being asked', () => {
   it('is remembered once it has happened, so the shopper is asked once', async () => {
     expect(await hasAsked()).toBe(false)

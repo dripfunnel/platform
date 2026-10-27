@@ -69,13 +69,13 @@ export const registerIfGranted = async (client: ApiClient, orderId: string | nul
   if ((await pushPermission()) === 'granted') await registerThisPhone(client, orderId)
 }
 
-/** On sign-out the phone stops getting this customer's pushes, before the session goes (api/DELIVERY.md §6). */
+/** On sign-out the phone stops getting this customer's pushes, before the session goes (api/DELIVERY.md §6). With no signal the token stays kept: the next registration of this phone moves it. */
 export const unregisterThisPhone = async (client: ApiClient): Promise<void> => {
   if (!pushIsSetUp()) return
   const storage = phoneStorage()
   const { token } = await storage.read()
   if (!token) return
-  await unregisterPushDevice(client, token, null)
+  await unregisterPushDevice(client, token, null).catch(() => unregisterPushDevice(client, token, null))
   await storage.wipe()
 }
 

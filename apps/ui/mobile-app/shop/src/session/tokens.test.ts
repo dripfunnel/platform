@@ -65,3 +65,53 @@ describe('the token kept for a guest’s order', () => {
     await expect(loadOrderToken('other.my-store.one', 'order-1')).resolves.toBeNull()
   })
 })
+
+describe('how long a guest’s order token is kept', () => {
+  const host = 'acme.my-store.one'
+  const day = 86_400_000
+  const t0 = Date.UTC(2026, 9, 27)
+
+  beforeEach(async () => {
+    mockKeystore.clear()
+    await jest.requireMock<{ clear: () => Promise<void> }>('@react-native-async-storage/async-storage').clear()
+    await save(`${host}.cart`, 'c4rt')
+  })
+
+  it('is 30 days, after which the token reads nothing and is removed from the phone', async () => {
+    await keepOrderToken(host, 'order-1', t0)
+    await expect(loadOrderToken(host, 'order-1', t0 + 29 * day)).resolves.toBe('c4rt')
+    await expect(loadOrderToken(host, 'order-1', t0 + 31 * day)).resolves.toBeNull()
+    expect([...mockKeystore.keys()].filter((key) => key.includes('.order.'))).toEqual([])
+    await expect(loadOrderToken(host, 'order-1', t0 + 31 * day)).resolves.toBeNull()
+  })
+
+  it('starts again when the same order is kept again, rather than listing it twice', async () => {
+    await keepOrderToken(host, 'order-1', t0)
+    await keepOrderToken(host, 'order-1', t0 + 20 * day)
+    await expect(loadOrderToken(host, 'order-1', t0 + 40 * day)).resolves.toBe('c4rt')
+  })
+
+  it('is the 20 newest orders: a 21st removes the oldest token, and the next removes the next', async () => {
+    for (let n = 0; n < 22; n += 1) await keepOrderToken(host, `order-${n}`, t0 + n * 1000)
+    await expect(loadOrderToken(host, 'order-0', t0 + 30_000)).resolves.toBeNull()
+    await expect(loadOrderToken(host, 'order-1', t0 + 30_000)).resolves.toBeNull()
+    await expect(loadOrderToken(host, 'order-2', t0 + 30_000)).resolves.toBe('c4rt')
+    await expect(loadOrderToken(host, 'order-21', t0 + 30_000)).resolves.toBe('c4rt')
+    expect([...mockKeystore.keys()].filter((key) => key.includes('.order.'))).toHaveLength(20)
+  })
+
+  it('prunes the tokens that have expired whenever another order is kept', async () => {
+    await keepOrderToken(host, 'old', t0)
+    await keepOrderToken(host, 'new', t0 + 40 * day)
+    expect([...mockKeystore.keys()].some((key) => key.endsWith('.order.old.token'))).toBe(false)
+    expect([...mockKeystore.keys()].some((key) => key.endsWith('.order.new.token'))).toBe(true)
+  })
+
+  it('lists only the orders’ ids and times, never a token', async () => {
+    await keepOrderToken(host, 'order-1', t0)
+    const AsyncStorage = jest.requireMock<{ getItem: (key: string) => Promise<string | null> }>('@react-native-async-storage/async-storage')
+    const list = await AsyncStorage.getItem(`df.orders.kept.${host}`)
+    expect(list).toContain('order-1')
+    expect(list).not.toContain('c4rt')
+  })
+})
