@@ -1,0 +1,25 @@
+{
+  "tabs": {
+    "home": "Home",
+    "history": "History",
+    "profile": "Profile"
+  },
+  "placeholder": {
+    "body": "This screen isn’t built yet.",
+    "signIn": "Sign in",
+    "delivery": "Delivery"
+  },
+  "startup": {
+    "failed": "The app couldn’t start. Try again in a moment.",
+    "retry": "Try again"
+  },
+  "brand": {
+    "logo": "{name} logo",
+    "logoUnnamed": "Store logo"
+  },
+  "permissions": {
+    "locationAlways": "{name} shares your position with the store while you are Online, so it can see where your deliveries are, even when the app is closed.",
+    "locationWhenInUse": "{name} uses your position to show you nearby deliveries.",
+    "photos": "Choose a profile photo from your photo library for {name}."
+  }
+}

@@ -4,9 +4,9 @@ How `apps/ui/mobile-app/delivery` is laid out and how it talks to the Delivery A
 [FIRST-RELEASE.md](FIRST-RELEASE.md); the API is [api/DELIVERY.md](../../api/DELIVERY.md) §4;
 builds and per-store configuration are [../README.md](../README.md) §3.
 
-**Status: specification, not built.**
+**Status: the project is set up (#848): `app.config.ts` with its tests, `stores/dev.env`, `eas.json` with a `dev` profile (an internal APK), the Expo Router skeleton with placeholder screens, the brand (the store's name and logo from the Shop API, DripFunnel's palette until more is served), and the two API clients (`src/api/client.ts`). Everything else in this document is still specification.**
 
-Last updated: 2026-10-22 (first version).
+Last updated: 2026-10-27 (#848: the project is set up, status, §2, §3). Before: 2026-10-22 (first version).
 
 ---
 
@@ -44,7 +44,13 @@ apps/ui/mobile-app/delivery/
     session/  brand/  push/  nav.ts  messages/
 ```
 
-Foundations come from `apps/ui/mobile-app/shared` (../README.md §2).
+Foundations come from `apps/ui/mobile-app/shared` (../README.md §2). Built in #848: `app.config.ts` declares the
+background location the app needs (iOS's `location` background mode and `NSLocationAlwaysAndWhenInUse` text,
+Android's `ACCESS_BACKGROUND_LOCATION` and a location foreground service, all from `expo-location`'s config plugin),
+notifications and the photo library for the profile photo; the words are in `src/messages/en.json`, with the store's
+name filled in. Only `STORE_HOST` reaches the running app. `src/api/client.ts` builds the Delivery API client for
+`https://<STORE_HOST>/delivery-api/` and a Shop API client used only to read the store's look (`src/brand/`).
+The session, `location/`, `pending/`, `push/` and `nav.ts` come with their cards (DL 12–DL 14).
 
 ---
 
@@ -52,11 +58,11 @@ Foundations come from `apps/ui/mobile-app/shared` (../README.md §2).
 
 | Package | Why |
 |---|---|
-| `expo-location`, `expo-task-manager` | The position in the background while Online |
-| `expo-notifications` | Offers and assignments |
+| `expo-location` (built in #848), `expo-task-manager` (with the background task, DL 13) | The position in the background while Online |
+| `expo-notifications` (built in #848) | Offers and assignments |
 | `expo-secure-store` | The session token |
-| `expo-image-picker` | The profile photo |
-| `react-native-maps` | The warehouse's and the customer's pins |
+| `expo-image-picker` (built in #848) | The profile photo |
+| `react-native-maps` (with the delivery screen) | The warehouse's and the customer's pins |
 
 ---
 
