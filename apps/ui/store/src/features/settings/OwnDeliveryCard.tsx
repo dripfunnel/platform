@@ -72,8 +72,8 @@ export const OwnDeliveryCard = ({ server, own, canEdit, save, goTab }: OwnDelive
   const pieceLabels = (refused?.missing ?? []).map((m) => (m === 'plan' ? words.plan : m === 'rider' ? words.rider : words.warehouse))
 
   return (
-    <section className="df-set-card" aria-labelledby={`${id}-title`}>
-      <div className="df-ops-head">
+    <section className="df-set-card df-own" aria-labelledby={`${id}-title`}>
+      <div className="df-own-head">
         <h2 id={`${id}-title`}>{words.title}</h2>
         <span className={server.ownDelivery ? 'df-ops-status df-ops-status--ok' : 'df-ops-status'}>{server.ownDelivery ? words.on : words.off}</span>
       </div>
