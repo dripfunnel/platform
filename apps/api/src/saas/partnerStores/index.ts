@@ -186,7 +186,6 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, shopD
         },
         site: {
           liveHost: domains.find((d) => d.status === 'live')?.host ?? (shopDomain ? `${row.slug}.${shopDomain}` : null),
-          repo: row.repo,
           lastPublishAt: row.last_publish_at,
         },
         records: domains.map((d) => ({ host: d.host, status: d.status, type: 'CNAME', value: d.expected_cname, found: d.found_cname, since: d.created_at })),

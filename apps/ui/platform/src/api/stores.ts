@@ -242,7 +242,7 @@ export interface Store extends StoreRow {
   overrides: readonly StoreOverride[]
   billing: StoreBilling
   invoices: readonly StoreInvoice[]
-  site: { liveHost: string | null; repo: string | null; lastPublishAt: string | null }
+  site: { liveHost: string | null; lastPublishAt: string | null }
   records: readonly StoreDnsRecord[]
   setup: { steps: readonly { key: ProvisioningStepKey; state: SetupStepState; detail: SetupStepDetail }[]; stuck: boolean; error: string | null }
   // The ends the API offers Extend trial, worked out by it; empty when the store is not on trial.
@@ -429,7 +429,7 @@ const detailSchema = z.object({
       usage: z.array(z.object({ limit: limitOf, used: z.number().int(), cap: z.number().int().nullable(), percent: z.number().int().nullable(), monthly: z.boolean() })),
       overrides: z.array(z.object({ id: z.string(), limit: limitOf, amount: z.number().int(), duration: z.enum(['month', 'always']), reason: z.string(), by: z.string(), at: z.string() })),
       billing: z.object({ interval: z.enum(['month', 'year']).transform((i) => (i === 'month' ? 'monthly' : 'yearly')).nullable(), nextChargeAt: z.string().nullable(), cardLast4: z.string().nullable(), mode: z.enum(billingModes), partnerName: z.string() }),
-      site: z.object({ liveHost: z.string().nullable(), repo: z.string().nullable(), lastPublishAt: z.string().nullable() }),
+      site: z.object({ liveHost: z.string().nullable(), lastPublishAt: z.string().nullable() }),
       records: z.array(z.object({ host: z.string(), status: z.enum(['live', 'waiting', 'failed']), type: z.literal('CNAME'), value: z.string(), found: z.string().nullable(), since: z.string() })),
       setup: z.object({ state: z.enum(['done', 'running', 'stuck', 'failed', 'cleaning']), error: z.string().nullable() }),
       // Extend trial's offers, dated by the API as it will grant them (FIRST-RELEASE §6.4).
@@ -462,7 +462,7 @@ export const loadStore = async (id: string): Promise<Store | null> => {
       store(id: $id) {
         row { ${rowFields} } country price { amount currency } people { count suppliers } contacts { name email role }
         usage { limit used cap percent monthly } overrides { id limit amount duration reason by at }
-        billing { interval nextChargeAt cardLast4 mode partnerName } site { liveHost repo lastPublishAt }
+        billing { interval nextChargeAt cardLast4 mode partnerName } site { liveHost lastPublishAt }
         records { host status type value found since } setup { state error } trialOffers { days endsAt }
         support { allowed people { id name email role supplier status lastSignInAt } }
         activity { id at who action result }

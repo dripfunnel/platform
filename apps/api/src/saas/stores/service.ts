@@ -15,6 +15,7 @@ import {
   selectCustomDomains,
   selectJobDetail,
   selectPartnerNames,
+  selectStaffStoreRepo,
   selectStoreCounts,
   selectStoreForUpdate,
   selectStoreListRow,
@@ -332,13 +333,14 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     return withScope(sql, context, async (tx) => {
       const row = await selectStoreListRow(tx, id, now())
       if (!row) return null
-      const [people, domains, notes, counts, history, detail] = await Promise.all([
+      const [people, domains, notes, counts, history, detail, repo] = await Promise.all([
         selectStorePeople(tx, id),
         selectCustomDomains(tx, id),
         selectStoreNotes(tx, id),
         selectStoreCounts(tx, id),
         selectActivity(tx, { targetType: 'store', targetId: id }, {}, 100),
         row.job_id ? selectJobDetail(tx, row.job_id) : Promise.resolve(null),
+        selectStaffStoreRepo(tx, id),
       ])
       const base = rowOf(row)
       const domain = domains[0] ?? null
@@ -350,7 +352,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
         counts,
         site: {
           version: row.core_version,
-          repo: row.repo,
+          repo,
           lastBuildAt: row.last_build_at,
           lastPublishAt: row.last_publish_at,
           liveHost: liveHostOf(row),

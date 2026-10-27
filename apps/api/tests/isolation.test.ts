@@ -829,6 +829,7 @@ describe('the backstop itself', () => {
       'spend_partner_reauth',
       'staff_begin_repo',
       'staff_start_row',
+      'staff_store_repo',
       'stock_change',
       'store_billing_status_own_billing',
       'store_default_customer_auth',

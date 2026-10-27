@@ -136,7 +136,6 @@ export interface StoreRow {
   storefront_kind: 'ai' | 'own'
   build_state: BuildState | null
   core_version: string | null
-  repo: string | null
   last_build_at: Date | null
   last_publish_at: Date | null
   support_access_allowed: boolean
