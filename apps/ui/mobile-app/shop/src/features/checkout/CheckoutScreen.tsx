@@ -33,11 +33,7 @@ function Progress({ steps, step }: { steps: Step[]; step: Step }) {
   )
 }
 
-/**
- * Checkout in the prototype's order: contact, address, delivery, payment, review, then the confirmation. The cart on the API is the
- * truth at every step: each step writes to it and the screen shows what the API answers. A refusal returns the shopper to the step
- * that can fix it (steps.ts).
- */
+/** Checkout in the prototype's order, each step written to the API's cart; a refusal returns the shopper to the step that can fix it (steps.ts). */
 export function CheckoutScreen() {
   const router = useRouter()
   const { colors } = useTheme()

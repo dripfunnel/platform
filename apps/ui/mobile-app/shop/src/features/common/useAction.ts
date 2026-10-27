@@ -3,9 +3,8 @@ import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { useShop } from '../../api/ShopContext'
 
 /**
- * One write at a time: whether it is running, and the code of its last refusal (`UNKNOWN` for anything not the API's). A session
- * the API says has ended (`SIGNED_OUT`) is let go. `handled` sees each refusal first and answers true when it has dealt with it
- * (by moving the shopper elsewhere), so no error text is kept for it.
+ * One write at a time: whether it runs, and its last refusal's code (`UNKNOWN` if not the API's); `SIGNED_OUT` lets the session go.
+ * `handled` sees each refusal first; true means it moved the shopper elsewhere, so no error text is kept.
  */
 export function useAction(handled?: (error: unknown) => boolean) {
   const { endSession } = useShop()
