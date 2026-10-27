@@ -36,8 +36,9 @@ export const goneThrough = (tx: ScopedSql) =>
 
 // The handover code's attempts aren't readable here (migration 0365), so a lock is read from the step that made it.
 const deliveryNeedsYou = (tx: ScopedSql) =>
-  tx`exists (select 1 from delivery d where d.order_id = o.id and d.store_id = o.store_id
-    and (d.state = 'unassigned' or (d.state = 'picked_up' and (d.code_unconfirmed_at is not null or d.step_result = 'CODE_LOCKED'))))`
+  tx`exists (select 1 from (select d.state, d.code_unconfirmed_at, d.step_result from delivery d where d.order_id = o.id and d.store_id = o.store_id
+      order by d.created_at desc, d.id desc limit 1) l
+    where l.state = 'unassigned' or (l.state = 'picked_up' and (l.code_unconfirmed_at is not null or l.step_result = 'CODE_LOCKED')))`
 
 const latestDeliveryState = (tx: ScopedSql) =>
   tx`(select case when d.state = 'picked_up' and d.code_unconfirmed_at is not null then 'code_unconfirmed'
