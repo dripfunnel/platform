@@ -124,7 +124,7 @@ export interface StoreDto extends StoreRowDto {
   country: string | null
   history: { at: Date; action: string; by: string | null; note: string | null }[]
   counts: { owners: number; managers: number; staff: number; suppliers: number }
-  site: { version: string | null; lastBuildAt: Date | null; lastPublishAt: Date | null; liveHost: string }
+  site: { version: string | null; repo: string | null; lastBuildAt: Date | null; lastPublishAt: Date | null; liveHost: string }
   provisioning: { error: string | null; details: string | null }
   records: StoreDnsRecord[]
   users: StoreUserDto[]
@@ -350,6 +350,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
         counts,
         site: {
           version: row.core_version,
+          repo: row.repo,
           lastBuildAt: row.last_build_at,
           lastPublishAt: row.last_publish_at,
           liveHost: liveHostOf(row),

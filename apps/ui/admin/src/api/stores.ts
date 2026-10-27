@@ -136,7 +136,7 @@ export interface Store extends StoreRow {
   history: readonly StoreHistoryEntry[]
   // People only: staff never see a store's catalogue or orders here (decided on #34).
   counts: { owners: number; managers: number; staff: number; suppliers: number }
-  site: { version: string | null; lastBuildAt: string | null; lastPublishAt: string | null }
+  site: { version: string | null; repo: string | null; lastBuildAt: string | null; lastPublishAt: string | null }
   provisioning: { error: string | null }
   records: readonly StoreDnsRecord[]
   users: readonly StoreUser[]
@@ -263,7 +263,7 @@ const storeSchema = z.object({
   country: z.string().nullable(),
   history: z.array(z.object({ at: isoString, action: z.string(), by: z.string().nullable(), note: z.string().nullable() })),
   counts: z.object({ owners: z.number().int(), managers: z.number().int(), staff: z.number().int(), suppliers: z.number().int() }),
-  site: z.object({ version: z.string().nullable(), lastBuildAt: isoString.nullable(), lastPublishAt: isoString.nullable() }),
+  site: z.object({ version: z.string().nullable(), repo: z.string().nullable(), lastBuildAt: isoString.nullable(), lastPublishAt: isoString.nullable() }),
   provisioning: z.object({ error: z.string().nullable() }),
   records: z.array(
     z.object({
@@ -309,7 +309,7 @@ const storeQuery = `query Store($id: ID!) {
     ${rowSelection}
     country history { at action by note }
     counts { owners managers staff suppliers }
-    site { version lastBuildAt lastPublishAt }
+    site { version repo lastBuildAt lastPublishAt }
     provisioning { error }
     records { kind host record expected found status }
     users { id name email role supplier status lastSignInAt impersonate ${permissionSelection} }

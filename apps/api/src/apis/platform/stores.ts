@@ -100,7 +100,7 @@ const Billing = builder.objectRef<Detail['billing']>('StoreBilling').implement({
   }),
 })
 const Site = builder.objectRef<Detail['site']>('StoreSite').implement({
-  fields: (t) => ({ liveHost: t.exposeString('liveHost', { nullable: true }), lastPublishAt: t.string({ nullable: true, resolve: (s) => iso(s.lastPublishAt) }) }),
+  fields: (t) => ({ liveHost: t.exposeString('liveHost', { nullable: true }), repo: t.exposeString('repo', { nullable: true }), lastPublishAt: t.string({ nullable: true, resolve: (s) => iso(s.lastPublishAt) }) }),
 })
 const Record = builder.objectRef<Detail['records'][number]>('StoreDnsRecord').implement({
   fields: (t) => ({

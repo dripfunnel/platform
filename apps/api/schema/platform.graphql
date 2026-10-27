@@ -1175,6 +1175,7 @@ type StoreSetup {
 type StoreSite {
   lastPublishAt: String
   liveHost: String
+  repo: String
 }
 
 type StoreState {

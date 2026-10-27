@@ -964,6 +964,7 @@
       "own": "Own storefront (merchant hosts it)",
       "ai": "AI storefront",
       "version": "Version",
+      "repo": "Repository",
       "lastBuild": "Last build",
       "lastPublish": "Last publish",
       "live": "Live",

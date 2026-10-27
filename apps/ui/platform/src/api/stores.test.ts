@@ -45,7 +45,7 @@ const storeDetail = {
     usage: [{ limit: 'publish_now', used: 48, cap: 160, percent: 30, monthly: true }],
     overrides: [{ id: 'o1', limit: 'publish_now', amount: 10, duration: 'month', reason: 'Diwali', by: 'Diego', at: '2026-09-02T12:00:00.000Z' }],
     billing: { interval: 'month', nextChargeAt: '2026-10-10T00:00:00.000Z', cardLast4: null, mode: 'dripfunnel', partnerName: 'Northstar Commerce' },
-    site: { liveHost: 'juniper-co.shops.northstar.example', lastPublishAt: null },
+    site: { liveHost: 'juniper-co.shops.northstar.example', repo: null, lastPublishAt: null },
     records: [],
     setup: { state: 'stuck', error: null },
     trialExtensions: [],

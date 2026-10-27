@@ -1195,6 +1195,8 @@
       "title": "Storefront",
       "own": "This merchant runs its own storefront and uses {name}’s account for products, orders and checkout behind it.",
       "live": "Live",
+      "repo": "Repository",
+      "none": "—",
       "lastPublish": "Last publish",
       "notPublished": "Not published yet",
       "readOnly": "Read-only. The merchant designs and publishes their shop."

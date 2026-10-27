@@ -18,6 +18,8 @@ export const StorefrontTab = ({ store }: { store: Store }) => (
         <dd>
           <DomainCell domain={store.domain} code={store.code} />
         </dd>
+        <dt>{words.repo}</dt>
+        <dd>{store.site.repo ? <code className="df-host">{store.site.repo}</code> : words.none}</dd>
         <dt>{words.lastPublish}</dt>
         <dd>{store.site.lastPublishAt ? formatTime(store.site.lastPublishAt) : words.notPublished}</dd>
       </dl>
