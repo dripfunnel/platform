@@ -8,6 +8,16 @@ import { CheckoutScreen } from './CheckoutScreen'
 jest.setTimeout(120_000)
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
+// Card and wallet payments run in the providers' own native sheets, which a test cannot open.
+jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { name: 'Dev Shop', extra: { APP_SCHEME: 'devshop' } } } }))
+jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn(async () => ({ type: 'success', url: 'devshop://orders/o-1' })) }))
+jest.mock('@stripe/stripe-react-native', () => ({
+  Constants: { API_VERSIONS: { CORE: '2099-01-01' } },
+  PaymentSheetError: { Canceled: 'Canceled', Failed: 'Failed', Timeout: 'Timeout' },
+  initStripe: jest.fn(async () => undefined),
+  initPaymentSheet: jest.fn(async () => ({})),
+  presentPaymentSheet: jest.fn(async () => ({})),
+}))
 
 const mockReplace = jest.fn()
 const mockBack = jest.fn()
@@ -67,6 +77,8 @@ const shopFor = ({ account = signedInAs, options = [own, pickup], payments: ways
       if (checkoutRefusal) throw checkoutRefusal
       return { checkout: afterOption(options, 'own_delivery', '4900') }
     }
+    if (query.includes('confirmPayment')) return { confirmPayment: { state: 'placed', paymentState: 'paid' } }
+    if (query.includes('address { country }')) return { store: { address: { country: 'US' } } }
     if (query.includes('placeOrder')) return place ? place() : { placeOrder: { orderId: 'o1', number: 'ORD-1001', total: inr('155000'), provider: variables?.['provider'], instructions: null } }
     throw new Error(`Unexpected request: ${query}`)
   })
@@ -250,6 +262,73 @@ describe('payment', () => {
     await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
     expect(hasText(screen, t('checkout.payment.none.title'))).toBe(true)
     expect(isDisabled(pressableNamed(screen, t('checkout.continue')))).toBe(true)
+  })
+})
+
+describe('paying by card or PayPal', () => {
+  const ways = [{ provider: 'stripe', kind: 'card', instructions: null }, { provider: 'paypal', kind: 'card', instructions: null }, ...payments]
+  const sheetOrder = (provider: string) => () => ({
+    placeOrder: { orderId: 'o-1', number: 'ORD-1003', total: inr('155000'), provider, instructions: null, payment: { providerRef: 'pi_1', publicKey: 'pk_api', accountId: 'acct_api', clientSecret: 'secret_1', customerId: null, ephemeralKeySecret: null, redirectUrl: 'https://www.paypal.com/checkoutnow?token=T1', mode: 'test' } },
+  })
+
+  it('offers Stripe and PayPal as ways to pay now, with the Indian providers still listed apart', async () => {
+    const screen = await render(<CheckoutScreen />, shopFor({ payments: ways }))
+    await throughContact(screen)
+    await throughAddress(screen)
+    await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
+    expect(isDisabled(pressableNamed(screen, t('checkout.payment.stripe')))).toBe(false)
+    expect(isDisabled(pressableNamed(screen, t('checkout.payment.paypal')))).toBe(false)
+    expect(isDisabled(pressableNamed(screen, choice(t('checkout.payment.razorpay'), t('checkout.payment.soon'))))).toBe(true)
+  })
+
+  it('places the order with the app’s scheme and the SDK’s API version, and shows the confirmation as paid only once the order reads paid', async () => {
+    const shop = shopFor({ payments: ways, place: sheetOrder('stripe') })
+    const screen = await render(<CheckoutScreen />, shop)
+    await throughContact(screen)
+    await throughAddress(screen)
+    await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
+    await throughPayment(screen, t('checkout.payment.stripe'))
+    await press(screen, t('checkout.review.place'))
+    expect(sent(shop.requests, 'placeOrder')[0]?.variables).toEqual({ provider: 'stripe', app: { scheme: 'devshop', stripeApiVersion: '2099-01-01' } })
+    expect(sent(shop.requests, 'confirmPayment').length).toBeGreaterThan(0)
+    expect(hasText(screen, t('checkout.placed.heading'))).toBe(true)
+    expect(hasText(screen, t('checkout.placed.pillPaid'))).toBe(true)
+    expect(hasText(screen, 'ORD-1003')).toBe(true)
+  })
+
+  it('never shows an order as paid, or as placed, when the API answered a card order with nothing to pay it with', async () => {
+    const shop = shopFor({ payments: ways, place: () => ({ placeOrder: { orderId: 'o-1', number: 'ORD-1004', total: inr('155000'), provider: 'stripe', instructions: null, payment: null } }) })
+    const screen = await render(<CheckoutScreen />, shop)
+    await throughContact(screen)
+    await throughAddress(screen)
+    await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
+    await throughPayment(screen, t('checkout.payment.stripe'))
+    await press(screen, t('checkout.review.place'))
+    expect(hasText(screen, t('checkout.placed.pillPaid'))).toBe(false)
+    expect(hasText(screen, t('checkout.placed.heading'))).toBe(false)
+    expect(hasText(screen, t('checkout.pay.stoppedTitle'))).toBe(true)
+    expect(hasText(screen, t('checkout.pay.unavailable'))).toBe(true)
+    expect(sent(shop.requests, 'confirmPayment')).toHaveLength(0)
+  })
+
+  it('goes the same way for PayPal, with the scheme alone', async () => {
+    const shop = shopFor({ payments: ways, place: sheetOrder('paypal') })
+    const screen = await render(<CheckoutScreen />, shop)
+    await throughContact(screen)
+    await throughAddress(screen)
+    await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
+    await throughPayment(screen, t('checkout.payment.paypal'))
+    await press(screen, t('checkout.review.place'))
+    expect(sent(shop.requests, 'placeOrder')[0]?.variables).toEqual({ provider: 'paypal', app: { scheme: 'devshop' } })
+    expect(hasText(screen, t('checkout.placed.pillPaid'))).toBe(true)
+  })
+
+  it('does not pass the app’s payment input for a way paid later', async () => {
+    const shop = shopFor()
+    const screen = await render(<CheckoutScreen />, shop)
+    await toReview(screen)
+    await press(screen, t('checkout.review.place'))
+    expect(sent(shop.requests, 'placeOrder')[0]?.variables).toEqual({ provider: 'cod' })
   })
 })
 

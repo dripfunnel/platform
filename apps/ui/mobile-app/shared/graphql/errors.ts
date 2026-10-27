@@ -206,6 +206,13 @@ export const knownErrorCodes = [
   'OFFER_CHANGED',
   'CART_CHANGED',
   'ALREADY_PLACED',
+  'ALREADY_PAID',
+  'PAYMENT_PENDING',
+  'PAYMENT_MISMATCH',
+  'PAYMENT_UNAVAILABLE',
+  'MODE_MISMATCH',
+  'NOT_PENDING',
+  'INVALID_APP_PAYMENT',
   // The Shop API's sign-in and account refusals (apps/api src/apis/shop/accounts.ts).
   'METHOD_OFF',
   'CODE_REFUSED',

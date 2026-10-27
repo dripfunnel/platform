@@ -1,6 +1,6 @@
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { cartLine, cartRead, inr } from '../testing/fixtures'
-import { applyCode, cartOperation, paymentOptionsOperation, placeOrder, problemsOf, setShippingAddress, setShippingOption, setQuantity } from './cart'
+import { applyCode, cartOperation, payOrder, paymentOptionsOperation, placeOrder, problemsOf, readPayment, setShippingAddress, setShippingOption, setQuantity } from './cart'
 
 const client = (answer: unknown) => {
   const requests: { query: string; variables: Record<string, unknown> | undefined }[] = []
@@ -73,8 +73,33 @@ describe('the writes', () => {
 
   it('place the order by the way chosen, and answer its number and the transfer’s instructions', async () => {
     const api = client({ placeOrder: { orderId: 'o1', number: 'ORD-1001', total: inr('149900'), provider: 'bank_transfer', instructions: 'A/C 123' } })
-    expect(await placeOrder(api, 'bank_transfer')).toEqual({ orderId: 'o1', number: 'ORD-1001', total: inr('149900'), provider: 'bank_transfer', instructions: 'A/C 123' })
+    expect(await placeOrder(api, 'bank_transfer')).toEqual({ orderId: 'o1', number: 'ORD-1001', total: inr('149900'), provider: 'bank_transfer', instructions: 'A/C 123', payment: null })
     expect(api.requests[0]?.variables).toEqual({ provider: 'bank_transfer' })
+  })
+})
+
+describe('paying by a provider’s own sheet', () => {
+  const start = { providerRef: 'pi_1', publicKey: 'pk_1', accountId: 'acct_1', clientSecret: 'secret_1', customerId: null, ephemeralKeySecret: null, redirectUrl: null, mode: 'test' }
+
+  it('places the order with the app’s scheme and API version, and answers what the provider’s sheet needs', async () => {
+    const api = client({ placeOrder: { orderId: 'o1', number: 'ORD-1', total: inr('149900'), provider: 'stripe', instructions: null, payment: start } })
+    const placed = await placeOrder(api, 'stripe', { scheme: 'devshop', stripeApiVersion: '2099-01-01' })
+    expect(api.requests[0]?.variables).toEqual({ provider: 'stripe', app: { scheme: 'devshop', stripeApiVersion: '2099-01-01' } })
+    expect(placed.payment).toEqual(start)
+  })
+
+  it('starts a new attempt for the same order with payOrder, and refuses an answer with nothing to start', async () => {
+    const api = client({ payOrder: start })
+    expect(await payOrder(api, 'o1', { scheme: 'devshop' })).toEqual(start)
+    expect(api.requests[0]?.variables).toEqual({ orderId: 'o1', app: { scheme: 'devshop' } })
+    await expect(payOrder(client({ payOrder: null }), 'o1', { scheme: 'devshop' })).rejects.toThrow(ApiError)
+  })
+
+  it('reads whether an order is paid or cancelled, and does not call an authorised payment paid', async () => {
+    expect(await readPayment(client({ confirmPayment: { state: 'placed', paymentState: 'paid' } }), 'o1')).toEqual({ cancelled: false, paid: true })
+    expect(await readPayment(client({ confirmPayment: { state: 'placed', paymentState: 'authorised' } }), 'o1')).toEqual({ cancelled: false, paid: false })
+    expect(await readPayment(client({ confirmPayment: { state: 'cancelled', paymentState: 'pending' } }), 'o1')).toEqual({ cancelled: true, paid: false })
+    expect(await readPayment(client({ confirmPayment: null }), 'o1')).toBeNull()
   })
 })
 

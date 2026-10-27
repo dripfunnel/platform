@@ -6,7 +6,7 @@ Store and Google Play. Each app's own folder holds its scope and code.
 **Status:** the merchant app is being built (merchant/ARCHITECTURE.md); the shop app's project is
 built through the cart and checkout, with orders, tracking and markets still to come (shop/ARCHITECTURE.md, #860 to #863); the delivery app is specified, not built.
 
-Last updated: 2026-10-27 (#863: the shop app's status). Before: 2026-10-26 (#860: the shop app's project). Before: 2026-10-22 (the shop and delivery apps, with Gaurav; Enterprise only).
+Last updated: 2026-10-27 (#864: the shop app's optional `APPLE_PAY_MERCHANT_ID`, §3). Before: 2026-10-27 (#863: the shop app's status). Before: 2026-10-26 (#860: the shop app's project). Before: 2026-10-22 (the shop and delivery apps, with Gaurav; Enterprise only).
 
 ---
 
@@ -49,6 +49,7 @@ Each app keeps one file per store, `stores/<storeKey>.env`, read and validated b
 | `APP_SCHEME` | `acmeshop` | Links that open the app |
 | `ICON_IMAGE`, `ANDROID_ICON_FOREGROUND`, `ANDROID_ICON_BACKGROUND`, `SPLASH_IMAGE`, `SPLASH_BACKGROUND` | | From Settings › Mobile apps |
 | `GOOGLE_MAPS_ANDROID_KEY` | `AIza…` | *Optional.* The Google Maps SDK for Android key for the address pin and tracking map: a public build value restricted to the app's package and signing certificate, never a secret (THIRD-PARTY-ACCESS §2.12; decided on #862). Without it the map is blank on Android |
+| `APPLE_PAY_MERCHANT_ID` | `merchant.com.acme.shop` | *Optional, the shop app.* The store's Apple merchant identifier, from its Apple developer account: public, passed to Stripe's config plugin. Only a store that takes Apple Pay has one; without it the Payment Sheet offers no Apple Pay (decided on #864) |
 | `UPDATES_CHANNEL` | `acme` | Equal to `STORE_KEY` |
 
 Secrets (signing, the App Store Connect key, the Play service account, push credentials) live in
