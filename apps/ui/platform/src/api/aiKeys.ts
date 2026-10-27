@@ -19,7 +19,7 @@ const keySchema = z.object({
 })
 export type AiKey = z.infer<typeof keySchema>
 
-export const aiKeyRefusals = ['INVALID_INPUT', 'NAME_TAKEN', 'KEY_REJECTED', 'PROVIDER_UNAVAILABLE', 'NOT_CONFIGURED', 'NOT_FOUND'] as const
+export const aiKeyRefusals = ['INVALID_INPUT', 'LIMIT_REACHED', 'NAME_TAKEN', 'KEY_REJECTED', 'PROVIDER_UNAVAILABLE', 'NOT_CONFIGURED', 'NOT_FOUND'] as const
 export type AiKeyRefusal = (typeof aiKeyRefusals)[number]
 export type AiKeyResult<T = object> = ({ ok: true } & T) | { ok: false; reason: AiKeyRefusal }
 

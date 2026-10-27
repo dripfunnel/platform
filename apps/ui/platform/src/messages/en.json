@@ -616,6 +616,7 @@
       },
       "refusals": {
         "INVALID_INPUT": "That key doesn’t look like the provider’s. Check it and try again.",
+        "LIMIT_REACHED": "You have reached the limit of 20 keys. Remove one first.",
         "NAME_TAKEN": "You already have a key with that name.",
         "KEY_REJECTED": "The provider rejected that key.",
         "PROVIDER_UNAVAILABLE": "The provider didn’t answer. Nothing was saved. Try again.",

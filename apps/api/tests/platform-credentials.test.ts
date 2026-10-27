@@ -8,7 +8,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectDefaultAiKey } from '#db/scoped/partnerCredentials'
 import type { KeyCheck } from '#integrations/ai/provider'
 import { activityLog } from '#saas/activity/index'
-import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
+import { createPartnerCredentialsService, maxAiProfiles, partnerAiProvider } from '#saas/partnerCredentials/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -16,7 +16,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 
 let db: TestDatabase
 const now = new Date('2026-10-27T09:00:00Z')
-const ids = { ns: '', kl: '' }
+const ids = { ns: '', kl: '', fresh: '', kl2: '' }
 const facts = { requestId: 'r', ip: '203.0.113.9', userAgent: 'test' }
 const kek = Buffer.alloc(32, 7).toString('base64')
 const anthropicKey = 'sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAx7Qd'
@@ -25,10 +25,10 @@ const openaiKey = 'sk-proj-BBBBBBBBBBBBBBBBBBBBBBBBm2Zp'
 let verdict: KeyCheck | null = 'ok'
 const checked: string[] = []
 
-const callerOf = (partnerId: string, role: PartnerRole, staff = false): PartnerCaller => ({
+const callerOf = (partnerId: string, role: PartnerRole, staff = false, impersonating = false): PartnerCaller => ({
   role,
   user: staff ? null : { id: crypto.randomUUID(), name: 'Maya Chen', email: 'maya@northstar.example' },
-  staff: staff ? { id: crypto.randomUUID(), name: 'Priya Shah', email: 'priya@dripfunnel.example', session: { kind: 'setup', id: crypto.randomUUID(), expiresAt: new Date('2026-10-27T11:00:00Z') } } : null,
+  staff: staff || impersonating ? { id: crypto.randomUUID(), name: 'Priya Shah', email: 'priya@dripfunnel.example', session: { kind: impersonating ? 'impersonation' : 'setup', id: crypto.randomUUID(), expiresAt: new Date('2026-10-27T11:00:00Z') } } : null,
   partner: { id: partnerId, name: 'Northstar Commerce', product: 'Northstar Shops', host: null, state: 'live' },
 })
 
@@ -65,6 +65,9 @@ beforeAll(async () => {
   await seed(db.url, now)
   for (const [key, name] of [['ns', 'Northstar Commerce'], ['kl', 'Kaufladen Digital']] as const) {
     ids[key] = (await db.sql<{ id: string }[]>`select id from partner where name = ${name}`)[0]?.id ?? ''
+  }
+  for (const key of ['fresh', 'kl2'] as const) {
+    ids[key] = (await db.sql<{ id: string }[]>`insert into partner (name, state) values (${`Credentials ${key}`}, 'live') returning id`)[0]?.id ?? ''
   }
 }, 120_000)
 
@@ -152,8 +155,20 @@ describe('who may', () => {
     }
   })
 
-  it('lets every role read the list', async () => {
-    expect((await run<Keys>(list, callerOf(ids.ns, 'partner-read-only'))).data?.partnerAiKeys.length).toBeGreaterThan(0)
+  it('refuses the list to every role but Owner and Admin, since it shows key names and prefixes', async () => {
+    for (const role of ['partner-support', 'partner-finance', 'partner-read-only'] as const) {
+      expect((await run<Keys>(list, callerOf(ids.ns, role))).code).toBe('FORBIDDEN')
+    }
+    expect((await run<Keys>(list, callerOf(ids.ns, 'partner-admin'))).data?.partnerAiKeys.length).toBeGreaterThan(0)
+  })
+
+  it('refuses add, default and remove to an impersonation, and lets it test a key', async () => {
+    const imp = callerOf(ids.ns, 'partner-owner', false, true)
+    const id = (await run<Keys>(list, callerOf(ids.ns, 'partner-owner'))).data?.partnerAiKeys[0]?.id ?? ''
+    expect((await run<Added>(add, imp, { provider: 'anthropic', name: 'By impersonation', key: anthropicKey })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    expect((await run(makeDefault, imp, { id })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    expect((await run(remove, imp, { id })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    expect((await run<{ testPartnerAiKey: { ok: boolean } }>(test, imp, { id })).data?.testPartnerAiKey.ok).toBe(true)
   })
 })
 
@@ -188,5 +203,53 @@ describe('without CREDENTIALS_KEK', () => {
     const caller = callerOf(ids.ns, 'partner-owner')
     const bare = createPartnerCredentialsService({ sql: db.sql, caller, facts, activity: activityLog, secrets: null, checkKey: async () => 'ok', now: () => now })
     expect(await bare.addAiKey({ provider: 'anthropic', name: 'No KEK', key: anthropicKey })).toEqual({ ok: false, reason: 'NOT_CONFIGURED' })
+  })
+})
+
+describe('the default under concurrency and limits', () => {
+  it('lets two simultaneous first adds both succeed with exactly one default', async () => {
+    const caller = callerOf(ids.fresh, 'partner-owner')
+    const results = await Promise.all(['One', 'Two'].map((name) => run<Added>(add, caller, { provider: 'anthropic', name, key: anthropicKey })))
+    expect(results.map((r) => r.data?.addPartnerAiKey.ok)).toEqual([true, true])
+    expect((await db.sql`select 1 from partner_credential where partner_id = ${ids.fresh} and is_default`).length).toBe(1)
+  })
+
+  it('keeps one default when two different keys are made the default at once', async () => {
+    const caller = callerOf(ids.fresh, 'partner-owner')
+    const [a, b] = (await run<Keys>(list, caller)).data?.partnerAiKeys ?? []
+    await Promise.all([run(makeDefault, caller, { id: a?.id }), run(makeDefault, caller, { id: b?.id })])
+    expect((await db.sql`select 1 from partner_credential where partner_id = ${ids.fresh} and is_default`).length).toBe(1)
+  })
+
+  it('stops at the cap on keys per partner', async () => {
+    const caller = callerOf(ids.fresh, 'partner-owner')
+    const held = (await db.sql`select 1 from partner_credential where partner_id = ${ids.fresh}`).length
+    for (let n = held; n < maxAiProfiles; n++) await run<Added>(add, caller, { provider: 'anthropic', name: `Key ${n}`, key: anthropicKey })
+    expect((await run<Added>(add, caller, { provider: 'anthropic', name: 'One too many', key: anthropicKey })).data?.addPartnerAiKey.reason).toBe('LIMIT_REACHED')
+  })
+})
+
+describe('the designer\'s model', () => {
+  const box = () => secretBox(kek)
+  it('uses the platform key only for a partner with no key at all', async () => {
+    expect(await partnerAiProvider(db.sql, await box(), ids.kl2, undefined)).toBeNull()
+    expect(await partnerAiProvider(db.sql, await box(), ids.kl2, 'sk-ant-api03-FALLBACKFALLBACKFALLBACK')).not.toBeNull()
+  })
+
+  it('pauses, rather than fall back, while the default is rejected, unreadable or OpenAI', async () => {
+    const fallback = 'sk-ant-api03-FALLBACKFALLBACKFALLBACK'
+    const caller = callerOf(ids.kl2, 'partner-owner')
+    const id = (await run<Added>(add, caller, { provider: 'anthropic', name: 'Mine', key: anthropicKey })).data?.addPartnerAiKey.id
+    expect(await partnerAiProvider(db.sql, await box(), ids.kl2, fallback)).not.toBeNull()
+    verdict = 'rejected'
+    await run(test, caller, { id })
+    verdict = 'ok'
+    expect(await partnerAiProvider(db.sql, await box(), ids.kl2, fallback)).toBeNull()
+    const id2 = id ?? ''
+    await db.sql`update partner_credential set status = 'ok', key_enc = 'v1.broken.broken' where id = ${id2}`
+    expect(await partnerAiProvider(db.sql, await box(), ids.kl2, fallback)).toBeNull()
+    const sealed = await (await box()).seal(openaiKey)
+    await db.sql`update partner_credential set provider = 'openai', key_enc = ${sealed} where id = ${id2}`
+    expect(await partnerAiProvider(db.sql, await box(), ids.kl2, fallback)).toBeNull()
   })
 })

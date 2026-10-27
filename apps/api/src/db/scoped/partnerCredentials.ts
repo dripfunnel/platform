@@ -39,8 +39,8 @@ export const firstAiProfileId = async (tx: ScopedSql, partnerId: string): Promis
   (await tx<{ id: string }[]>`select id from partner_credential where partner_id = ${partnerId} and kind = 'ai' order by created_at limit 1`)[0]?.id ?? null
 
 /** System scope only: the sealed default key and its provider, for the model call. */
-export const selectDefaultAiKey = async (tx: ScopedSql, partnerId: string): Promise<{ provider: AiProvider; key_enc: string } | null> =>
-  (await tx<{ provider: AiProvider; key_enc: string }[]>`select provider, key_enc from partner_credential where partner_id = ${partnerId} and kind = 'ai' and is_default`)[0] ?? null
+export const selectDefaultAiKey = async (tx: ScopedSql, partnerId: string): Promise<{ provider: AiProvider; key_enc: string; status: PartnerCredentialRow['status'] } | null> =>
+  (await tx<{ provider: AiProvider; key_enc: string; status: PartnerCredentialRow['status'] }[]>`select provider, key_enc, status from partner_credential where partner_id = ${partnerId} and kind = 'ai' and is_default`)[0] ?? null
 
 /** System scope only: one profile's sealed key, held to its partner, for a test. */
 export const selectSealedAiKey = async (tx: ScopedSql, partnerId: string, id: string): Promise<{ provider: AiProvider; key_enc: string } | null> =>

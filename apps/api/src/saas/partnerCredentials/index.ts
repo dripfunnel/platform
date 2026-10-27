@@ -5,7 +5,7 @@ import { actingName, type PartnerCaller, partnerContextOf } from '#auth/partnerC
 import type { SecretBox } from '#auth/secretBox'
 import { aiProviders, type AiProvider, type PartnerCredentialRow } from '#db/schema/saas'
 import { deleteAiProfile, firstAiProfileId, insertAiProfile, selectDefaultAiKey, selectAiProfile, selectSealedAiKey, selectAiProfiles, setDefaultAiProfile, updateAiProfileTest } from '#db/scoped/partnerCredentials'
-import { withScope, withSystemScope } from '#db/scoped/index'
+import { serialise, withScope, withSystemScope } from '#db/scoped/index'
 import { anthropicProvider, type AiProvider as AiModel } from '#integrations/ai/provider'
 import type { KeyCheck } from '#integrations/ai/provider'
 import { partnerEntry } from '#saas/activity/index'
@@ -24,7 +24,10 @@ const keyShape: Record<AiProvider, RegExp> = { anthropic: /^sk-ant-[A-Za-z0-9_-]
 
 const addInput = z.strictObject({ provider: z.enum(aiProviders), name: z.string().trim().min(1).max(60), key: z.string().trim().max(256) })
 
-export type CredentialRefusal = 'INVALID_INPUT' | 'NAME_TAKEN' | 'KEY_REJECTED' | 'PROVIDER_UNAVAILABLE' | 'NOT_CONFIGURED' | 'NOT_FOUND'
+/** Profiles a partner may hold, so the list is bounded (AGENTS.md "Reliability"). */
+export const maxAiProfiles = 20
+
+export type CredentialRefusal = 'INVALID_INPUT' | 'LIMIT_REACHED' | 'NAME_TAKEN' | 'KEY_REJECTED' | 'PROVIDER_UNAVAILABLE' | 'NOT_CONFIGURED' | 'NOT_FOUND'
 
 export interface PartnerCredentialsDeps {
   sql: postgres.Sql
@@ -63,7 +66,9 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
     const keyEnc = await secrets.seal(key)
     const at = now()
     return withScope(sql, context, async (tx): Promise<AddResult> => {
+      await serialise(tx, `partner_ai_keys:${partnerId}`)
       const existing = await selectAiProfiles(tx, partnerId)
+      if (existing.length >= maxAiProfiles) return { ok: false, reason: 'LIMIT_REACHED' }
       if (existing.some((p) => p.name.toLowerCase() === name.toLowerCase())) return { ok: false, reason: 'NAME_TAKEN' }
       let id: string
       try {
@@ -106,6 +111,7 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
   const setDefaultAiKey = (id: string): Promise<PlainResult> => {
     if (!z.guid().safeParse(id).success) return Promise.resolve({ ok: false, reason: 'NOT_FOUND' })
     return withScope(sql, context, async (tx): Promise<PlainResult> => {
+      await serialise(tx, `partner_ai_keys:${partnerId}`)
       const row = await selectAiProfile(tx, partnerId, id)
       if (!row) return { ok: false, reason: 'NOT_FOUND' }
       if (row.is_default) return { ok: true }
@@ -118,6 +124,7 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
   const removeAiKey = (id: string): Promise<PlainResult> => {
     if (!z.guid().safeParse(id).success) return Promise.resolve({ ok: false, reason: 'NOT_FOUND' })
     return withScope(sql, context, async (tx): Promise<PlainResult> => {
+      await serialise(tx, `partner_ai_keys:${partnerId}`)
       const row = await selectAiProfile(tx, partnerId, id)
       if (!row) return { ok: false, reason: 'NOT_FOUND' }
       await deleteAiProfile(tx, id)
@@ -134,14 +141,16 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
 }
 
 /**
- * The model for a partner's AI runs (THIRD-PARTY-ACCESS §2.6): its default key when that is Anthropic's, else the Worker's
- * `AI_PROVIDER_KEY`. OpenAI has no adapter until #950, so an OpenAI default is not used here.
+ * The model for a partner's AI runs (THIRD-PARTY-ACCESS §2.6): its default Anthropic key. Only a partner with no key at all
+ * falls back to the Worker's `AI_PROVIDER_KEY`; a default that is rejected, unreadable or OpenAI's (no adapter until #950)
+ * answers null, so the designer pauses and the platform never pays for a partner who has chosen its own key.
  */
 export const partnerAiProvider = async (sql: postgres.Sql, secrets: SecretBox | null, partnerId: string, fallbackKey: string | undefined): Promise<AiModel | null> => {
   const row = secrets ? await withSystemScope(sql, (tx) => selectDefaultAiKey(tx, partnerId)) : null
-  const key = row && secrets && row.provider === 'anthropic' ? await secrets.open(row.key_enc) : null
-  const used = key ?? fallbackKey
-  return used ? anthropicProvider(used) : null
+  if (!row) return fallbackKey ? anthropicProvider(fallbackKey) : null
+  if (row.provider !== 'anthropic' || row.status === 'rejected' || !secrets) return null
+  const key = await secrets.open(row.key_enc)
+  return key ? anthropicProvider(key) : null
 }
 
 export type PartnerCredentialsService = ReturnType<typeof createPartnerCredentialsService>

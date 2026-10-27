@@ -1,6 +1,6 @@
 import { credentialAudit, type PartnerCredentialsService } from '#saas/partnerCredentials/index'
 import { builder } from './builder'
-import { partnerRead, signedIn } from './fields'
+import { signedIn } from './fields'
 
 // Settings › Integrations on the Platform API (ui/platform/FIRST-RELEASE.md §14.5; card #275). Thin:
 // saas/partnerCredentials decides. A key goes in once and comes back as its first and last characters.
@@ -30,7 +30,7 @@ const OutcomeType = builder.objectRef<Outcome>('PartnerAiKeyResult').implement({
 })
 
 builder.queryFields((t) => ({
-  partnerAiKeys: t.field({ type: [AiKeyType], extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.credentials).aiKeys() }),
+  partnerAiKeys: t.field({ type: [AiKeyType], extensions: { access: writes }, resolve: (_, __, ctx) => signedIn(ctx.credentials).aiKeys() }),
 }))
 
 builder.mutationFields((t) => ({

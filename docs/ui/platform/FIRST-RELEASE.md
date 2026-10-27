@@ -743,9 +743,11 @@ and "sk-ant-…x7Qd" (start and last 4 only), a status (Connected · Not tested 
 **Default** tag, "Last tested", and **Test**, **Make default** and **Remove**; **Add key** takes a
 provider, a name and the key. The key is stored encrypted and never shown again. The default
 profile is the one the AI designer uses; if it is rejected the designer pauses until another is
-made the default or the key is replaced. OpenAI keys show "Not tested" until the OpenAI adapter
-exists (#950). Owner and Admin only; Finance and below see "Your role (Finance) can't manage
-integrations. Owners and Admins can." In a staff setup session the tab works as the partner's own
+made the default or the key is replaced; a default that can't be opened never falls back to
+DripFunnel's key. Only a partner with no key at all uses `AI_PROVIDER_KEY`. OpenAI keys show "Not
+tested" until the OpenAI adapter exists (#950). **Owner and Admin only**, to read and to change:
+the tab is not shown to other roles and the API refuses them (`integrations.write`), with
+at most 20 keys per partner. In a staff setup session the tab works as the partner's own
 (ACCESS §8.2). **Built on #275** (migration 0368; `partnerAiKeys`, `addPartnerAiKey`, `testPartnerAiKey`,
 `setDefaultPartnerAiKey`, `removePartnerAiKey`; permission `integrations.write`). Add and Test check an
 Anthropic key with one `models.list` call; OpenAI keys save as Not tested. Add, Make default and Remove are
