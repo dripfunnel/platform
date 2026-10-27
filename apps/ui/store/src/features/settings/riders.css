@@ -116,6 +116,11 @@
     grid-column: 1 / -1;
   }
 
+  /* teamRow.css hides the status on a phone; a rider's status (suspended, invited) must stay. */
+  .df-riders-row > .df-team-status {
+    display: block;
+  }
+
   .df-riders-done {
     text-align: left;
   }
