@@ -7,16 +7,30 @@ import { ShopContext, type Shop } from '../api/ShopContext'
 export type Request = { query: string; variables: Record<string, unknown> | undefined }
 export type Answer = (request: Request) => unknown
 
-export const fakeShop = (answer: Answer, { signedIn = false }: { signedIn?: boolean } = {}): Shop & { requests: Request[]; cartTokens: string[]; sessions: (string | null)[] } => {
+export const fakeShop = (answer: Answer, { signedIn = false }: { signedIn?: boolean } = {}): Shop & { requests: Request[]; cartTokens: string[]; sessions: (string | null)[]; keptOrders: string[] } => {
   const requests: Request[] = []
   const cartTokens: string[] = []
   const sessions: (string | null)[] = []
+  const keptOrders: string[] = []
+  const client = {
+    request: async <T,>(query: string, variables?: Record<string, unknown>): Promise<T> => {
+      const request = { query, variables }
+      requests.push(request)
+      return (await answer(request)) as T
+    },
+  }
   return {
     host: 'acme.my-store.one',
     requests,
     cartTokens,
     sessions,
+    keptOrders,
     signedIn,
+    keepOrderToken: (orderId) => {
+      keptOrders.push(orderId)
+      return Promise.resolve()
+    },
+    orderAccess: () => Promise.resolve({ client, headers: {} }),
     startSession: (token) => {
       sessions.push(token)
       return Promise.resolve()
@@ -29,13 +43,7 @@ export const fakeShop = (answer: Answer, { signedIn = false }: { signedIn?: bool
       cartTokens.push(token)
       return Promise.resolve()
     },
-    client: {
-      request: async <T,>(query: string, variables?: Record<string, unknown>): Promise<T> => {
-        const request = { query, variables }
-        requests.push(request)
-        return (await answer(request)) as T
-      },
-    },
+    client,
   }
 }
 

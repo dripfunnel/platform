@@ -243,7 +243,9 @@
     "saveName": "Save name",
     "addressesTitle": "Addresses",
     "addresses": "{count} saved",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "ordersTitle": "Orders",
+    "ordersBody": "Your orders, and where a delivery is"
   },
   "addresses": {
     "title": "Addresses",
@@ -462,7 +464,8 @@
       "bankBody": "Use your order number {number} as the reference. If your payment hasn’t reached us in 3 days, we cancel the order and email you.",
       "codBody": "Pay {total} in cash when your order arrives.",
       "orderTitle": "Order {number}",
-      "done": "Continue shopping"
+      "done": "Continue shopping",
+      "viewOrder": "View order"
     },
     "refused": {
       "toCart": "Back to your cart",
@@ -471,5 +474,127 @@
   },
   "permissions": {
     "location": "Allow {name} to use your location to put the pin on your address."
+  },
+  "orders": {
+    "title": "Orders",
+    "guest": {
+      "title": "Sign in to see your orders",
+      "body": "Orders you placed with this email or mobile number, in the app or on the website, show here.",
+      "action": "Sign in"
+    },
+    "empty": {
+      "title": "No orders yet",
+      "body": "Orders you place in the app or on the website show here.",
+      "action": "Start shopping"
+    },
+    "items": {
+      "one": "{count} item",
+      "other": "{count} items"
+    },
+    "row": "{date} · {items}",
+    "more": "Show more orders",
+    "order": "Order {number}",
+    "placedOn": "Placed {date}",
+    "notFound": {
+      "title": "We can’t find this order",
+      "body": "It may belong to another account, or to a phone this order was not placed on."
+    },
+    "itemsTitle": "Items",
+    "quantity": "Quantity {count}",
+    "summary": {
+      "title": "Order summary",
+      "subtotal": "Subtotal",
+      "shipping": "Delivery",
+      "tax": "Tax",
+      "taxIncluded": "Includes {tax} in taxes.",
+      "giftCard": "Gift card",
+      "total": "Total"
+    },
+    "details": {
+      "payment": "Payment",
+      "method": "Delivery method"
+    },
+    "status": {
+      "cancelled": "Cancelled",
+      "paid": "Paid",
+      "refunded": "Refunded",
+      "confirming": "Confirming payment",
+      "payOnDelivery": "Pay on delivery",
+      "bankWaiting": "Waiting for your transfer",
+      "awaiting": "Waiting for payment"
+    },
+    "payBy": "Pay by {date}, or the order is cancelled.",
+    "cancelledNote": "This order was cancelled.",
+    "delivery": {
+      "title": "Delivery",
+      "track": "Track delivery"
+    }
+  },
+  "tracking": {
+    "title": "Track delivery",
+    "stepsTitle": "Delivery steps",
+    "progress": {
+      "done": "Done",
+      "current": "Current step",
+      "todo": "Still to come",
+      "ended": "Ended here"
+    },
+    "state": {
+      "packing": "Being packed",
+      "searching": "Looking for a rider",
+      "assigned": "Rider assigned",
+      "picked_up": "On the way",
+      "delivered": "Delivered",
+      "failed": "Not delivered",
+      "cancelled": "Cancelled"
+    },
+    "lead": {
+      "packing": "We’re packing your order. Next, a delivery partner picks it up.",
+      "searching": "Your order is packed. We’re finding a delivery partner.",
+      "assigned": "{name} is on the way to collect your order.",
+      "picked_up": "{name} has your order and is bringing it to you.",
+      "delivered": "Your order has been delivered.",
+      "failed": "Our delivery partner couldn’t deliver your order. The store will be in touch.",
+      "cancelled": "This delivery was cancelled."
+    },
+    "rider": "Your delivery partner",
+    "call": "Call {name}",
+    "photo": "Photo of {name}",
+    "vehicle": {
+      "bike": "Bike",
+      "scooter": "Scooter",
+      "car": "Car",
+      "bicycle": "Bicycle",
+      "foot": "On foot"
+    },
+    "code": {
+      "title": "Your handover code",
+      "give": "Give this code to your rider",
+      "label": "Handover code {code}",
+      "hint": "Give this code to your rider when they hand you the parcel. They can’t mark it delivered without it, so only share it at your door."
+    },
+    "map": {
+      "label": "Map showing where {name} is",
+      "eta": "Arriving about {time}",
+      "updated": "Position updated {time}",
+      "waiting": "We’ll show {name} on the map once they’re on the way."
+    },
+    "none": {
+      "title": "Nothing to follow here",
+      "body": "This order has no live delivery. Open the order to see where it stands.",
+      "action": "View order"
+    },
+    "unknown": {
+      "title": "We can’t show this delivery yet",
+      "body": "Open it again in a moment."
+    }
+  },
+  "push": {
+    "title": "Know when your order is on its way",
+    "body": "{store} tells you when a delivery partner has your order, when it’s on the way and when it’s delivered. Notifications never show your handover code, address or amounts.",
+    "store": "The store",
+    "allow": "Turn on notifications",
+    "later": "Not now",
+    "failed": "We couldn’t turn notifications on. Try again in a moment."
   }
 }

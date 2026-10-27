@@ -1,5 +1,5 @@
 import { secureStorage } from '@dripfunnel/mobile-shared/storage'
-import { loadTokens, shopHeaders } from './tokens'
+import { keepOrderToken, loadOrderToken, loadTokens, shopHeaders } from './tokens'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 
@@ -43,5 +43,25 @@ describe('the tokens kept on the phone', () => {
     expect(shopHeaders({ session: null, cart: null })).toEqual({})
     expect(shopHeaders({ session: 's3ssion', cart: null })).toEqual({ 'x-shop-session': 's3ssion' })
     expect(shopHeaders({ session: 's3ssion', cart: 'c4rt' })).toEqual({ 'x-shop-session': 's3ssion', 'x-shop-cart': 'c4rt' })
+  })
+})
+
+describe('the token kept for a guest’s order', () => {
+  beforeEach(() => mockKeystore.clear())
+
+  it('is the cart token that placed it, kept apart from the cart token the next cart replaces', async () => {
+    await save('acme.my-store.one.cart', 'c4rt')
+    await keepOrderToken('acme.my-store.one', 'order-1')
+    await save('acme.my-store.one.cart', 'n3w')
+    await expect(loadOrderToken('acme.my-store.one', 'order-1')).resolves.toBe('c4rt')
+    await expect(loadOrderToken('acme.my-store.one', 'order-2')).resolves.toBeNull()
+  })
+
+  it('is none to keep when the shopper has no cart token, and never another store’s', async () => {
+    await keepOrderToken('acme.my-store.one', 'order-1')
+    await expect(loadOrderToken('acme.my-store.one', 'order-1')).resolves.toBeNull()
+    await save('acme.my-store.one.cart', 'c4rt')
+    await keepOrderToken('acme.my-store.one', 'order-1')
+    await expect(loadOrderToken('other.my-store.one', 'order-1')).resolves.toBeNull()
   })
 })

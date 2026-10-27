@@ -463,3 +463,51 @@ describe('paying by Razorpay, Cashfree or PhonePe', () => {
     })
   }
 })
+
+describe('after the order is placed', () => {
+  it('keeps a guest’s order token before the confirmation shows, so the order can be read once the next cart replaces it', async () => {
+    const shop = shopFor()
+    const screen = await render(<CheckoutScreen />, shop)
+    await toReview(screen)
+    await press(screen, t('checkout.review.place'))
+    expect(shop.keptOrders).toEqual(['o1'])
+    expect(hasText(screen, t('checkout.placed.heading'))).toBe(true)
+  })
+
+  it('keeps nothing for a signed-in customer, whose session reads their orders', async () => {
+    const base = shopFor()
+    const shop = { ...base, signedIn: true }
+    const screen = await render(<CheckoutScreen />, shop)
+    await toReview(screen)
+    await press(screen, t('checkout.review.place'))
+    expect(base.keptOrders).toEqual([])
+    expect(hasText(screen, t('checkout.placed.heading'))).toBe(true)
+  })
+
+  it('keeps the token of an order placed for a card too, before its sheet opens', async () => {
+    const shop = shopFor({ payments: [{ provider: 'stripe', kind: 'card', instructions: null }, ...payments], place: () => ({ placeOrder: { orderId: 'o-card', number: 'ORD-1006', total: inr('155000'), provider: 'stripe', instructions: null, payment: { providerRef: 'pi_1', publicKey: 'pk_api', accountId: 'acct_api', clientSecret: 'secret_1', customerId: null, ephemeralKeySecret: null, redirectUrl: null, mode: 'test', amount: null, sessionId: null, providerOrderId: null, token: null } } }) })
+    const screen = await render(<CheckoutScreen />, shop)
+    await throughContact(screen)
+    await throughAddress(screen)
+    await throughDelivery(screen, choice(t('checkout.delivery.own'), '₹49.00', t('checkout.delivery.ownNote')))
+    await throughPayment(screen, t('checkout.payment.stripe'))
+    await press(screen, t('checkout.review.place'))
+    expect(shop.keptOrders).toEqual(['o-card'])
+  })
+
+  it('opens the order from the confirmation', async () => {
+    const screen = await render(<CheckoutScreen />, shopFor())
+    await toReview(screen)
+    await press(screen, t('checkout.review.place'))
+    mockReplace.mockClear()
+    await press(screen, t('checkout.placed.viewOrder'))
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/orders/[id]', params: { id: 'o1' } })
+  })
+
+  it('makes no offer of notifications for a store that sets up none', async () => {
+    const screen = await render(<CheckoutScreen />, shopFor())
+    await toReview(screen)
+    await press(screen, t('checkout.review.place'))
+    expect(hasText(screen, t('push.title'))).toBe(false)
+  })
+})

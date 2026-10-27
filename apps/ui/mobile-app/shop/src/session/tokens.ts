@@ -27,6 +27,17 @@ export const saveCartToken = (host: string, token: string): Promise<void> => car
 /** After sign-in the guest cart belongs to the account, so the guest's token is no longer needed. */
 export const clearCartToken = (host: string): Promise<void> => cartStorage(host).wipe()
 
+const orderStorage = (host: string, orderId: string) => secureStorage<null>(`${host}.order.${orderId}`, noLast)
+
+/** A guest's cart becomes the order (the order's id is the cart's), so the token that placed it reads it: kept apart, since the next cart's token replaces the cart token. */
+export const keepOrderToken = async (host: string, orderId: string): Promise<void> => {
+  const { cart } = await loadTokens(host)
+  if (cart) await orderStorage(host, orderId).writeToken(cart)
+}
+
+/** The token kept for a guest's order, or null for an order a session reads. */
+export const loadOrderToken = async (host: string, orderId: string): Promise<string | null> => (await orderStorage(host, orderId).read()).token
+
 /** The Shop API reads the session as `X-Shop-Session` and the cart as `X-Shop-Cart`, each only when there is one (ACCESS.md §2.1). */
 export const shopHeaders = ({ session, cart }: Tokens): Record<string, string> => ({
   ...(session ? { 'x-shop-session': session } : {}),
