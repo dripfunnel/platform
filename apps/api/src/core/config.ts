@@ -43,6 +43,8 @@ const configSchema = z.object({
   STRIPE_TEST_PUBLISHABLE_KEY: z.string().regex(/^pk_test_[A-Za-z0-9]+$/, 'STRIPE_TEST_PUBLISHABLE_KEY must be a test-mode publishable key').optional(),
   // The storefront's "Pin on map" (THIRD-PARTY-ACCESS.md §2.12), a Worker variable: a public browser key, restricted by API.
   GOOGLE_MAPS_BROWSER_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'GOOGLE_MAPS_BROWSER_KEY must be a Google API key').optional(),
+  // A delivery's arrival estimate (THIRD-PARTY-ACCESS.md §2.12), a Worker secret: a server key restricted to the Routes API. Absent, no estimate.
+  GOOGLE_MAPS_SERVER_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'GOOGLE_MAPS_SERVER_KEY must be a Google API key').optional(),
   // DripFunnel's Amazon SES (THIRD-PARTY-ACCESS.md §2.4), Worker secrets. Without all four, email
   // waits in the outbox. The sender domain is verified in SES; partners' fallbacks are its subdomains.
   SES_REGION: z.string().regex(/^[a-z]{2}(-[a-z]+)+-\d$/, 'SES_REGION must be an AWS region such as eu-west-1').optional(),

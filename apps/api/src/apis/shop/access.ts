@@ -41,6 +41,8 @@ export interface ShopContext extends Record<string, unknown> {
   allowNewCart: (key: string) => Promise<boolean>
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key, so codes can't be guessed; refuses every code where it isn't bound. */
   allowCodeAttempt?: (key: string) => Promise<boolean>
+  /** Whether a delivery's arrival estimate can be made here (GOOGLE_MAPS_SERVER_KEY is set); without it `etaAt` stays empty. */
+  estimates?: boolean
   /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
   mapFrame?: string | null
   now: () => Date

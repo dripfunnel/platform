@@ -1,5 +1,5 @@
 import { deliveryOfferDeliverer } from '#jobs/queues/deliverers/deliveryOffer'
-import { sweepDispatch, offerKind } from '#engine/modules/ownDelivery/index'
+import { sweepDispatch, offerKind, etaKind } from '#engine/modules/ownDelivery/index'
 import type postgres from 'postgres'
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import { ZodError } from 'zod'
@@ -53,6 +53,8 @@ import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
 import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localWhatsApp } from '#integrations/local/index'
 import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
+import { googleRoutesClient, type GoogleRoutes } from '#integrations/googleRoutes/index'
+import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
 import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
@@ -264,6 +266,14 @@ const pushFor = (config: Config): ExpoPush | null => {
   return expoBuilt.api
 }
 
+// Google's Routes API for a delivery's arrival estimate (THIRD-PARTY-ACCESS §2.12): GOOGLE_MAPS_SERVER_KEY, else none.
+let routesBuilt: { key: string; api: GoogleRoutes } | undefined
+const routesFor = (config: Config): GoogleRoutes | null => {
+  if (!config.GOOGLE_MAPS_SERVER_KEY) return null
+  if (routesBuilt?.key !== config.GOOGLE_MAPS_SERVER_KEY) routesBuilt = { key: config.GOOGLE_MAPS_SERVER_KEY, api: googleRoutesClient({ key: config.GOOGLE_MAPS_SERVER_KEY }) }
+  return routesBuilt.api
+}
+
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
 // (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
@@ -291,6 +301,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     'export.stores': storesExportDeliverer(sql),
     'export.catalog': catalogExportDeliverer(sql),
     [offerKind]: deliveryOfferDeliverer(sql, activityLog),
+    [etaKind]: deliveryEtaDeliverer(sql, routesFor(config)),
     [orderUpdateKind]: orderNotifyDeliverer(sql),
     'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
     'import.photos': importPhotosDeliverer(sql, assets, lookup),
@@ -713,7 +724,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname, config.SHOP_DOMAIN ?? null)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), estimates: config.GOOGLE_MAPS_SERVER_KEY !== undefined, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
     if (url.pathname === vitalsPath) return handleVitals(request, context)
