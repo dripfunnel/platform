@@ -10,6 +10,7 @@ import { loadApiKeyChoices, loadApiKeys, loadDeliveries, loadWebhookEvents, load
 import { loadAllMarkets } from '../../api/markets'
 import { loadGateways } from '../../api/payments'
 import { loadShipping } from '../../api/shipping'
+import { loadPlaces } from '../../api/stock'
 import { loadProductBasics } from '../../api/productEditor'
 import { loadRiderPlan, loadRiders, type RiderPlan } from '../../api/riders'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
@@ -48,12 +49,22 @@ interface Done {
   reload: (text: string) => void
   /** Stripe's answer on the way back to Payment setup, until that tab has acted on it. */
   stripe: { back: StripeBack | null; seen: () => void }
+  goTab: (tab: SettingsTab) => void
 }
 /** What a tab shows once its reads are in. */
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries, apps: loadApps, supportAccess: loadSupportAccess, activity: loadActivity, riders: loadRiders, riderPlan: loadRiderPlan }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries, apps: loadApps, supportAccess: loadSupportAccess, activity: loadActivity, riders: loadRiders, riderPlan: loadRiderPlan, places: loadPlaces }
+
+/** What the Own delivery card checks against: the first page of riders and the locations. */
+const deliveryCurrency = async (reads: SettingsReads) => ((await reads.riderPlan()).ownDelivery ? (await reads.shipping()).currency : null)
+
+const ownDeliveryOf = async (reads: SettingsReads) => {
+  if (!(await reads.riderPlan()).ownDelivery) return null
+  const [riders, places] = await Promise.all([reads.riders(null), reads.places()])
+  return { riders: riders.nodes, moreRiders: riders.pageInfo.hasNextPage, places }
+}
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: boolean; forced: string | null }): Record<SettingsTab, () => Promise<Render>> => ({
@@ -78,10 +89,15 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
   // The form keeps its own draft over courier changes and uploads, so only a save's toast reaches the page.
   shipping: async () => {
     const [shipping, info] = await Promise.all([reads.shipping(), reads.storeInfo()])
-    return (done, canEdit) => <ShippingTab shipping={shipping} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} />
+    // Own delivery is extra to Shipping: if its reads fail, the rest of the tab still shows.
+    const own = seat.owner ? await ownDeliveryOf(reads).catch(() => null) : null
+    return (done, canEdit) => <ShippingTab shipping={shipping} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} own={own} goTab={done.goTab} />
   },
   // The store's locations, and its suppliers' named, read-only (SetOps "Warehouse").
-  warehouse: async () => (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" />,
+  warehouse: async () => {
+    const currency = seat.owner ? await deliveryCurrency(reads).catch(() => null) : null
+    return (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" delivery={currency ? { currency } : null} />
+  },
   tax: async () => {
     const [tax, invoice, info] = await Promise.all([reads.tax(), reads.invoice(), reads.storeInfo()])
     if (!tax || !invoice) throw new Error('tax setup missing')
@@ -199,7 +215,8 @@ export const SettingsPage = () => {
     },
     [load],
   )
-  const done: Done = { toast: setToast, reload, stripe: { back: stripeBack, seen: stripeSeen } }
+  const goTab = useCallback((next: SettingsTab) => void navigate({ to: '/settings', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: next }) }), [navigate, forced])
+  const done: Done = { toast: setToast, reload, stripe: { back: stripeBack, seen: stripeSeen }, goTab }
 
   const body = () => {
     if (!allowed) return <EmptyState title={words.denied.title} body={words.denied.body} />

@@ -53,9 +53,9 @@ rider (§5) and a pinned warehouse with its area set; otherwise `saveShipping` r
 `OWN_DELIVERY_NOT_READY` with `missing` naming `plan`, `rider` and/or `warehouse`. Only turning it on
 is refused: when a piece lapses later, checkout stops offering it (below). Nothing checks that the delivery app is in an app store: riders may
 install it as an APK (mobile-app/README.md §2, decided 2026-10-22). It is Owner-only, like the rest of Shipping.
-**Built on #841** (`shippingSettings`, `saveShipping`, `Warehouse`, `saveWarehouse`; DATA-MODEL §7.12).
+**Built on #841** (`shippingSettings`, `saveShipping`, `Warehouse`, `saveWarehouse`; DATA-MODEL §7.12); the screens on #845.
 
-Per warehouse that delivers (Settings › Warehouse, a location's form; the merchant's own locations only, never a supplier's):
+Per warehouse that delivers (Settings › Warehouse, a card under the location list as `SetOwnDelivery` draws it; the merchant's own locations only, never a supplier's):
 
 | Setting | Meaning |
 |---|---|
