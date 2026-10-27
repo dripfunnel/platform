@@ -7,6 +7,7 @@ import { errorKey } from '../common/errors'
 import { Button } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { OrderSummary } from './OrderSummary'
+import { appPaymentInput } from './payments/start'
 import { sendBack } from './steps'
 import { optionName, optionPrice, paymentName } from './words'
 
@@ -40,7 +41,7 @@ export function ReviewStep({ cart, provider, onPlaced, onRefused }: Props) {
   const action = useAction(sendBack(onRefused))
 
   const place = async () => {
-    const done = await action.run(() => placeOrder(client, provider))
+    const done = await action.run(() => placeOrder(client, provider, appPaymentInput(provider)))
     if (done) onPlaced(done.value)
   }
 

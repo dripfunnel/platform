@@ -1,6 +1,7 @@
 import { t } from '../../messages'
 import type { DeliveryOption, PaymentOption } from '../../api/cart'
 import { money } from '../catalogue/words'
+import { isSheetProvider } from './payments/env'
 
 /** The delivery option's name: the courier's own service name where the API gives one, otherwise the app's words for its kind. */
 export const optionName = (option: DeliveryOption): string => {
@@ -20,8 +21,8 @@ export const optionNote = (option: DeliveryOption): string | null => {
 
 export const optionPrice = (option: DeliveryOption): string => (option.amount ? (option.amount.amount === '0' ? t('checkout.delivery.free') : money(option.amount)) : '')
 
-/** What the app can complete today: cash on delivery and bank transfer. Card and wallet providers come with SH 11 and SH 12. */
-export const takesPayment = (option: PaymentOption): boolean => option.provider === 'cod' || option.provider === 'bank_transfer'
+/** What the app can complete: cash on delivery, bank transfer, and Stripe and PayPal in their own sheets. The Indian providers come with SH 12. */
+export const takesPayment = (option: PaymentOption): boolean => option.provider === 'cod' || option.provider === 'bank_transfer' || isSheetProvider(option.provider)
 
 export const paymentName = (provider: string): string => {
   switch (provider) {
