@@ -139,6 +139,15 @@ describe('the list', () => {
     expect(screen.queryByRole('button', { name: w.showMore })).toBeNull()
   })
 
+  it('says so when the next page fails, and keeps the riders it has', async () => {
+    api.loadRiders.mockResolvedValueOnce(page(riders.slice(0, 1), true)).mockRejectedValueOnce(new Error('down'))
+    await show('riders')
+    fireEvent.click(screen.getByRole('button', { name: w.showMore }))
+    await settle()
+    expect(screen.getByText(w.moreFailed)).toBeTruthy()
+    expect(screen.getByText('Ravi Kumar')).toBeTruthy()
+  })
+
   it('shows the error state with a retry', async () => {
     api.loadRiders.mockRejectedValueOnce(new Error('down'))
     await show('riders')
