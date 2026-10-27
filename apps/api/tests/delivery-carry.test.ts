@@ -111,7 +111,7 @@ describe('pickup', () => {
     expect(await db.sql`select fulfilment_state from "order" where id = ${orderId}`).toEqual([{ fulfilment_state: 'fulfilled' }])
     expect(await db.sql`select state from order_part where order_id = ${orderId}`).toEqual([{ state: 'shipped' }])
     expect(await db.sql`select payload->>'event' as event from outbox where kind = 'order.notify' and payload->>'orderId' = ${orderId}`).toEqual([{ event: 'shipped' }])
-    expect(await db.sql`select payload->>'message' as message from outbox where kind = 'push' and payload->>'orderId' = ${orderId}`).toEqual([{ message: 'order.picked_up' }])
+    expect(await db.sql`select payload->>'message' as message from outbox where kind = 'push' and payload->>'orderId' = ${orderId} order by created_at`).toEqual([{ message: 'order.rider_assigned' }, { message: 'order.picked_up' }])
     expect(await db.sql`select action,actor_kind,api from activity_log where target_id = ${deliveryId} and action = 'delivery.picked_up'`).toEqual([{ action: 'delivery.picked_up', actor_kind: 'rider', api: 'delivery' }])
   })
   it('refuses another rider’s delivery, a second pickup, and stock that isn’t there, changing nothing', async () => {
@@ -251,7 +251,7 @@ describe('not delivered, recall and retry', () => {
     expect(await carry(riders[0]).failed({ id: deliveryId, reason: 'no_one_home', note: null, at: clock.toISOString(), key: 'f1' })).toBe(true)
     expect(await latest(orderId)).toMatchObject({ state: 'failed', failed_reason: 'no_one_home', handover_code_enc: null })
     expect(await db.sql`select payload->>'template' as template from outbox where kind = 'email' and payload->>'orderId' = ${orderId}`).toEqual([{ template: 'order-not-delivered' }])
-    expect(await db.sql`select payload->>'message' as message from outbox where kind = 'push' and payload->>'orderId' = ${orderId} order by created_at`).toEqual([{ message: 'order.picked_up' }, { message: 'order.not_delivered' }])
+    expect(await db.sql`select payload->>'message' as message from outbox where kind = 'push' and payload->>'orderId' = ${orderId} order by created_at`).toEqual([{ message: 'order.rider_assigned' }, { message: 'order.picked_up' }, { message: 'order.not_delivered' }])
 
     tick(1000)
     await dispatch().again(deliveryId)

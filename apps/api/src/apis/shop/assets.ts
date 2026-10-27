@@ -15,6 +15,13 @@ export const handleShopAsset = async (request: Request, ctx: ShopContext, store:
   const object = row ? await store.get(row.r2_key) : null
   if (!row || !object) return new Response(null, { status: 404 })
   return new Response(object.body, {
-    headers: { 'content-type': row.mime, 'content-length': String(row.bytes), 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'" },
+    headers: {
+      'content-type': row.mime,
+      'content-length': String(row.bytes),
+      // A rider's photo goes to the order's customer alone, so no shared cache may keep it (DELIVERY §7).
+      'cache-control': row.rider_photo ? 'private, no-store' : 'public, max-age=300',
+      'x-content-type-options': 'nosniff',
+      'content-security-policy': "default-src 'none'",
+    },
   })
 }

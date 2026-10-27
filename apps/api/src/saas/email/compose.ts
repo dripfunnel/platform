@@ -517,7 +517,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const content: EmailContent = {
         subject: w.subject(o.store_name, o.number),
         heading: w.heading,
-        paragraphs: [w.intro(o.number), ...o.lines.map((l) => w.line(l.quantity, item(l))), ...tracking],
+        paragraphs: [w.intro(o.number), ...o.lines.map((l) => w.line(l.quantity, item(l))), ...(shipment.kind === 'local' ? [w.handoverCode] : tracking)],
         ...(shipment.tracking_url ? { action: { label: w.action, url: shipment.tracking_url } } : {}),
       }
       return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
