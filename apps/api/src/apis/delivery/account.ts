@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import type { OwnRiderRow } from '#db/scoped/riders'
 import { createRiderProfile, riderProfileAudit, vehicleTypes, type ProfileResult } from '#engine/modules/ownDelivery/index'
 import { createRiderSignIn, riderSignInAudit } from '#saas/riderSignIn/index'
+import { withDispatchCode } from '../graphql/dispatchRefusals'
 import { unauthenticated } from '../graphql/scope'
 import { riderOf, storeOf, type DeliveryContext } from './access'
 import type { DeliveryBuilder } from './builder'
@@ -91,7 +92,7 @@ export const registerAccount = (builder: DeliveryBuilder) => {
       extensions: { access: { ...open, audit: 'rider.signed_out' } },
       resolve: async (_, __, ctx) => {
         const token = storeOf(ctx).caller.token
-        return token ? signInOf(ctx).signOut(token) : true
+        return token ? withDispatchCode(() => signInOf(ctx).signOut(token)) : true
       },
     }),
     updateProfile: t.field({
@@ -111,7 +112,7 @@ export const registerAccount = (builder: DeliveryBuilder) => {
     // The rider's own account only: signed out everywhere, phone and photo erased (DELIVERY §5).
     deleteMyAccount: t.boolean({
       extensions: { access: { ...signedIn, audit: riderProfileAudit.accountDeleted } },
-      resolve: async (_, __, ctx) => answered<true>((await profileOf(ctx).deleteAccount()) satisfies ProfileResult<true>),
+      resolve: (_, __, ctx) => withDispatchCode(async () => answered<true>((await profileOf(ctx).deleteAccount()) satisfies ProfileResult<true>)),
     }),
   }))
 }

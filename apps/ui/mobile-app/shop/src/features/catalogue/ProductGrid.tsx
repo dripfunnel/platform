@@ -3,7 +3,7 @@ import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import type { ProductCard } from '../../api/catalogue'
 import { t } from '../../messages'
 import { cardGap, ProductCardView, screenPadding } from './ProductCardView'
-import { Button } from './ui'
+import { Button } from '../common/ui'
 import type { MoreState } from './usePaged'
 
 export function ProductGrid({ products, onOpen }: { products: ProductCard[]; onOpen: (slug: string) => void }) {

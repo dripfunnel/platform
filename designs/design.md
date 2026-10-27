@@ -114,7 +114,8 @@ products, a sticky buy bar on phones), the gift card, download and service
 product pages, Search (overlay with suggestions, results, no results), Cart
 (drawer and page, the automatic offer, codes, the free-delivery bar),
 Checkout (contact → address → delivery → payment → review, with the summary
-collapsible on phones), Order confirmation (paid, cash on delivery, bank
+collapsible on phones; the delivery step is skipped and the option applied for the
+shopper when a store offers only one, the "Delivery options" control), Order confirmation (paid, cash on delivery, bank
 transfer with its 3-day deadline, download, gift card, service), Sign in
 (email and password, or a mobile code), Register, Verify, Forgot and Reset,
 Account (orders with tracking, cancel and return, details, addresses, what we

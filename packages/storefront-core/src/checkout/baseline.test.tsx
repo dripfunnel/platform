@@ -69,8 +69,9 @@ describe('the baseline checkout', () => {
     type('State', 'OH')
     type('ZIP code', '43215')
     await press('Continue')
-    fireEvent.click(screen.getByRole('radio', { name: /Standard delivery · Free/ }))
+    // The store offers one delivery option, so it is applied automatically and no delivery step is shown.
     await settle()
+    expect(screen.queryByRole('radio', { name: /Standard delivery/ })).toBeNull()
     fireEvent.click(screen.getByRole('radio', { name: 'Cash on delivery' }))
     await press('Continue')
     expect(document.querySelector('[data-df-sealed="payment"]')).not.toBeNull()

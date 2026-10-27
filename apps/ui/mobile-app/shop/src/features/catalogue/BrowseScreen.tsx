@@ -8,7 +8,7 @@ import { t } from '../../messages'
 import { ShowMore } from './ProductGrid'
 import { screenPadding } from './ProductCardView'
 import { SearchEntry } from './SearchEntry'
-import { Resource, StateMessage } from './ui'
+import { Resource, StateMessage } from '../common/ui'
 import { usePaged } from './usePaged'
 
 function Row({ title, body, imageUrl, onPress }: { title: string; body: string | null; imageUrl: string | null; onPress: () => void }) {

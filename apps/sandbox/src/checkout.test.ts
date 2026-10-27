@@ -7,6 +7,7 @@ vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 })
 
 const usd = (cents: number) => ({ amount: String(cents), currency: 'USD' })
 const flat = { id: 'flat', provider: null, service: null, amount: usd(0), before: null, minDays: 3, maxDays: 5, hours: null }
+const pickup = { ...flat, id: 'pickup', amount: usd(500) }
 
 const engine = ({ place, down = 0 }: { place?: (provider: string) => unknown; down?: number } = {}) => {
   let failures = down
@@ -66,8 +67,9 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
       await page.getByLabel('State').fill('OH')
       await page.getByLabel('ZIP code').fill('43215')
       await page.getByRole('button', { name: 'Continue' }).click()
-      await page.getByRole('radio', { name: /Standard delivery/ }).click()
+      // One delivery option: core applies it and skips the step (storefront ARCHITECTURE §2.1).
       await page.getByRole('radio', { name: 'Cash on delivery' }).click()
+      expect(await page.getByRole('radio', { name: /Standard delivery/ }).count()).toBe(0)
       await page.getByRole('button', { name: 'Continue' }).click()
       await page.getByRole('button', { name: 'Place order' }).waitFor()
       expect(await page.locator('[data-df-sealed="payment"]').count()).toBe(1)
@@ -99,9 +101,9 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
   })
 
   /** A cart already through contact, address and delivery, as a shopper coming back to checkout has it. */
-  const ready = async (api: ReturnType<typeof engine>, width = 1440) => {
+  const ready = async (api: ReturnType<typeof engine>, width = 1440, shippingOptions = [flat]) => {
     if (!preview) throw new Error('no browser')
-    Object.assign(api.cart, { email: 'maya@example.com', shippingAddress: { name: 'Maya Chen', line1: '88 Neil Ave', line2: null, city: 'Columbus', region: 'OH', postalCode: '43215', country: 'US', phone: null }, shippingOptions: [flat], shippingOption: 'flat', checkoutStep: 'ship' })
+    Object.assign(api.cart, { email: 'maya@example.com', shippingAddress: { name: 'Maya Chen', line1: '88 Neil Ave', line2: null, city: 'Columbus', region: 'OH', postalCode: '43215', country: 'US', phone: null }, shippingOptions, shippingOption: 'flat', checkoutStep: 'ship' })
     const context = await preview.open(api.answer, width)
     await context.addInitScript(() => localStorage.setItem('df-cart', 'tok'))
     const page = await context.newPage()
@@ -110,12 +112,14 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
   }
 
   it('reopens a finished step with Change, prices each delivery, and offers no sign-in on a preview', async () => {
-    const { context, page } = await ready(engine())
+    // Two options, so the delivery step is the shopper's to choose; a sole one is skipped.
+    const { context, page } = await ready(engine(), 1440, [flat, pickup])
     try {
       await page.getByRole('radio', { name: 'Cash on delivery' }).waitFor()
       expect(await page.getByRole('link', { name: 'Sign in' }).count()).toBe(0)
       await page.getByRole('button', { name: 'Change Delivery method' }).click()
       await page.getByRole('radio', { name: /Standard delivery\s+Free/ }).waitFor()
+      await page.getByRole('radio', { name: /Collect in person/ }).waitFor()
       await page.getByRole('button', { name: 'Change Contact' }).click()
       expect(await page.getByLabel('Email').inputValue()).toBe('maya@example.com')
     } finally {

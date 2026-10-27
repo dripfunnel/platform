@@ -101,3 +101,5 @@ export const selectDeliveryStore = async (tx: ScopedSql, slug: string): Promise<
   `
   return rows.length === 1 ? (rows[0] ?? null) : null
 }
+
+export const selectEndingRider = async (tx: ScopedSql, idHash: string, storeId: string): Promise<{ id: string; name: string } | null> => (await tx<{ id: string; name: string }[]>`select r.id,r.name from rider_session s join rider r on r.id = s.rider_id and r.store_id = s.store_id where s.id_hash = ${idHash} and s.store_id = ${storeId} and s.ended_at is null`)[0] ?? null

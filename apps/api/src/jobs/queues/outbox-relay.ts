@@ -31,7 +31,12 @@ export interface RelayOptions {
   maxDelayMs: number
   leaseMs: number
   batch: number
+  /** How long one sweep keeps claiming rows that come due, on `now` (relayBudgetMs). */
+  budgetMs: number
 }
+
+/** How long one sweep keeps claiming rows that come due. It is checked between batches, so a batch (each call capped by `timeoutMs`) can run past it; a sweep the Worker cuts short leaves its rows leased until `leaseMs`. */
+export const relayBudgetMs = 20_000
 
 export const defaultRelayOptions: RelayOptions = {
   now: () => new Date(),
@@ -41,6 +46,7 @@ export const defaultRelayOptions: RelayOptions = {
   maxDelayMs: 6 * 60 * 60 * 1000,
   leaseMs: 5 * 60 * 1000,
   batch: 50,
+  budgetMs: relayBudgetMs,
 }
 
 export type Outcome = 'delivered' | 'retry' | 'dead' | 'dropped' | 'skipped'
@@ -129,10 +135,16 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, dropped: 0, skipped: 0 }
   const kinds = Object.keys(deliverers)
   if (kinds.length === 0) return counts
-  const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs))
-  for (const row of rows) {
-    const deliverer = deliverers[row.kind]
-    if (deliverer) counts[await settle(sql, row, deliverer, opts)] += 1
+  const deadline = opts.now().getTime() + opts.budgetMs
+  const attempted = new Set<string>()
+  while (opts.now().getTime() < deadline) {
+    const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, [...attempted]))
+    if (rows.length === 0) break
+    for (const row of rows) {
+      attempted.add(row.id)
+      const deliverer = deliverers[row.kind]
+      if (deliverer) counts[await settle(sql, row, deliverer, opts)] += 1
+    }
   }
   return counts
 }

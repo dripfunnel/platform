@@ -10,11 +10,11 @@ import { t } from '../../messages'
 import { priceLabel, screenPadding } from './ProductCardView'
 import { ProductGrid, ShowMore } from './ProductGrid'
 import { addRecentSearch, clearRecentSearches, readRecentSearches } from './recentSearches'
-import { OfflineBanner, Skeleton, StateMessage } from './ui'
+import { OfflineBanner, Skeleton, StateMessage } from '../common/ui'
 import { searchDebounceMs, useDebounced } from './useDebounced'
-import { useOperation } from './useOperation'
+import { useOperation } from '../common/useOperation'
 import { usePaged } from './usePaged'
-import { errorKey } from './words'
+import { errorKey } from '../common/errors'
 
 const suggestionCount = 5
 

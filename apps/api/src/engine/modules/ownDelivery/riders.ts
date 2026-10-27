@@ -1,3 +1,6 @@
+import { DispatchRefused } from '#core/dispatch'
+import { releaseRiderDeliveries } from './dispatch'
+import { withSystemScope } from '#db/scoped/index'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
@@ -39,7 +42,7 @@ export const textsPerDay = 3
 export const deliveryAppLink = (slug: string, shopDomain: string): string => `https://${slug}.${shopDomain}/app/delivery.apk`
 
 export type RidersRefusal =
-  | { reason: 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_PHONE' | 'PHONE_TAKEN' | 'NOT_INVITED' | 'NOT_ACTIVE' | 'NOT_SUSPENDED' | 'RATE_LIMITED' | 'UNAVAILABLE' }
+  | { reason: 'FORBIDDEN' | 'RIDER_HAS_PARCEL' | 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_PHONE' | 'PHONE_TAKEN' | 'NOT_INVITED' | 'NOT_ACTIVE' | 'NOT_SUSPENDED' | 'RATE_LIMITED' | 'UNAVAILABLE' }
   | { reason: 'PLAN_LIMIT'; key: 'own_delivery' | 'riders'; wanted: number | null }
 export type RidersResult<T> = { ok: true; value: T } | ({ ok: false } & RidersRefusal)
 
@@ -93,16 +96,24 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
     ...facts,
   })
 
-  const run = async <T>(work: (tx: ScopedSql) => Promise<T>): Promise<RidersResult<T>> => {
+  const answered = async <T>(open: () => Promise<T>): Promise<RidersResult<T>> => {
     try {
-      return { ok: true, value: await withScope(sql, context, work) }
+      return { ok: true, value: await open() }
     } catch (error) {
       if (error instanceof Refused) return { ok: false, ...error.refusal }
+      if (error instanceof DispatchRefused && error.code === 'RIDER_HAS_PARCEL') return { ok: false, reason: 'RIDER_HAS_PARCEL' }
       throw error
     }
   }
+  const run = <T>(work: (tx: ScopedSql) => Promise<T>) => answered(() => withScope(sql, context, work))
+  /** Suspending and removing hand deliveries back and delete a position, which no request role may (DATA-MODEL §3.6). */
+  const runAsSystem = <T>(work: (tx: ScopedSql) => Promise<T>): Promise<RidersResult<T>> =>
+    context.sellerScope.kind === 'seller' || (context.caller.kind === 'support' && context.caller.access === 'read')
+      ? Promise.resolve({ ok: false, reason: 'FORBIDDEN' })
+      : answered(() => withSystemScope(sql, work))
 
   const locked = async (tx: ScopedSql, id: string): Promise<RiderRow> => {
+    await serialise(tx, `dispatch:${storeId}:${id}`)
     const rider = isUuid(id) ? await lockRider(tx, storeId, id) : null
     if (!rider) throw new Refused({ reason: 'NOT_FOUND' })
     return rider
@@ -150,9 +161,10 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
 
   /** Signs them out everywhere at once (DELIVERY §5). */
   const suspend = (id: string): Promise<RidersResult<RiderRow>> =>
-    run(async (tx) => {
+    runAsSystem(async (tx) => {
       const rider = await locked(tx, id)
       if (rider.status !== 'active') throw new Refused({ reason: 'NOT_ACTIVE' })
+      await releaseRiderDeliveries(tx, { storeId, partnerId: actor.partnerId, activity, facts, now: now(), actor: { actorKind: 'person', actorId: actor.id, actorLabel: null } }, rider.id, 'unavailable')
       await endRiderSessions(tx, storeId, rider.id, now())
       await deleteRiderDevices(tx, storeId, rider.id)
       const changed = await setRiderStatus(tx, storeId, rider.id, 'suspended', now())
@@ -171,8 +183,9 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
 
   /** An invited rider's invitation is cancelled the same way: the number goes, the name stays (DELIVERY §5). */
   const remove = (id: string): Promise<RidersResult<true>> =>
-    run(async (tx) => {
+    runAsSystem(async (tx) => {
       const rider = await locked(tx, id)
+      await releaseRiderDeliveries(tx, { storeId, partnerId: actor.partnerId, activity, facts, now: now(), actor: { actorKind: 'person', actorId: actor.id, actorLabel: null } }, rider.id, 'removed')
       await endRiderSessions(tx, storeId, rider.id, now())
       await deleteRiderDevices(tx, storeId, rider.id)
       await markRiderRemoved(tx, storeId, rider.id, now())

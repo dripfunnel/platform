@@ -1,3 +1,4 @@
+import { selectOfferDistance } from '#db/scoped/dispatch'
 import type postgres from 'postgres'
 import { logEvent } from '#core/log'
 import { withSystemScope } from '#db/scoped/index'
@@ -34,12 +35,13 @@ export const pushDeliverer = (sql: postgres.Sql, sender: ExpoPush, now: () => Da
     const found = await withSystemScope(sql, async (tx) => {
       const store = await selectPushStore(tx, storeId)
       if (store?.partner_id !== partnerId) return null
-      return { store, devices: await selectSubjectDevices(tx, storeId, payload.subject.kind, payload.subject.id) }
+      const distance = payload.deliveryId && payload.message === 'rider.offer' ? await selectOfferDistance(tx, storeId, payload.deliveryId, payload.subject.id) : null
+      return { store, distance, devices: await selectSubjectDevices(tx, storeId, payload.subject.kind, payload.subject.id) }
     })
     if (!found) return drop('push_skipped', 'no_store')
     // Signed out, suspended or deleted since: nobody to tell.
     if (found.devices.length === 0) return log('push_skipped', 'no_devices')
-    const words = composePush(payload, found.store)
+    const words = composePush(payload, found.store, found.distance)
     const subject = `${payload.subject.kind}:${payload.subject.id}`
     let tickets
     try {

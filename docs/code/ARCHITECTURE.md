@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-10-22 (five APIs with the Delivery API, proposed). Before: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
+Last updated: 2026-10-27 (the template's token-free `.npmrc` for a store repo's local install, §5). Before: 2026-10-22 (five APIs with the Delivery API, proposed). Before: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
 Before: 2026-10-09 (the sandbox image published on `ghcr.io` for store builds, public then; private with a pull token since #790).
 
 ---
@@ -122,7 +122,8 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   Cloudflare digest in `core_release` (built on #482; old versions' images are retired by AI-STUDIO §9's rule, and
   `.github/workflows/retire-images.yml` deletes them from Cloudflare's registry, #485), with core, the allowed libraries
   and the gate tools preinstalled. A store repo's `package.json` only pins the version, which
-  picks the image. No store repo holds an `.npmrc` with a token. The one secret store repos read is `GHCR_PULL_TOKEN`, a read-only
+  picks the image. No store repo holds an `.npmrc` with a token: the template's `.npmrc` names only the registry, for a
+  person running a clone locally with their own `read:packages` token in `~/.npmrc`. The one secret store repos read is `GHCR_PULL_TOKEN`, a read-only
   `read:packages` organisation secret for the image pull (decided on #790, which brings back the org secret #470 replaced).
 - Publishing only from the release workflow (`packages: write`), with artifact attestations.
 

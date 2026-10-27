@@ -1,3 +1,4 @@
+import { createOwnDelivery } from '#engine/modules/ownDelivery/index'
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
@@ -119,6 +120,7 @@ export const applyOutcome = (deps: Pick<SettleDeps, 'sql' | 'activity' | 'now'>,
     if (p.mode === 'live') await queueOrderUpdate(tx, p.store_id, { event: 'confirmed', orderId: p.order_id }, `confirmed:${p.order_id}`)
     if (p.mode === 'live') await queueStoreEvent(tx, p.store_id, 'order.paid', { object: 'order', id: p.order_id, number: p.order_number }, p.order_id, at)
     await deliverOrder(tx, deps.activity, p.store_id, p.order_id, at)
+    if (p.mode === 'live') await createOwnDelivery(tx, deps.activity, p.store_id, p.order_id, at, { actorKind: 'provider', actorId: null, actorLabel: provider, api: 'system' })
     return 'paid'
   })
 

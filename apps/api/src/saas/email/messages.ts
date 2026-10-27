@@ -4,6 +4,7 @@ import { toMajor } from '#core/money'
 // only locale (AGENTS.md "Product"). A second locale adds a sibling object of the same shape.
 
 export const en = {
+  deliveryUnassigned: { subject: (number: string) => `Nobody took order ${number}`, heading: 'A delivery needs a rider', body: 'Nobody accepted this delivery. Open the order to assign a rider or offer it again.', action: 'Open order' },
   footer: {
     support: (contact: string) => `Questions? Contact ${contact}.`,
     poweredBy: 'Powered by DripFunnel',

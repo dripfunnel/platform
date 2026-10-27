@@ -12,6 +12,8 @@ import { pageInfoType, type StoreBuilder } from './builder'
 // list holds riders' phones. The rules are engine/modules/ownDelivery's; this file authorises, calls and words the refusals.
 
 const words: Record<Exclude<RidersResult<unknown>, { ok: true }>['reason'], string> = {
+  FORBIDDEN: 'You can’t change riders.',
+  RIDER_HAS_PARCEL: 'This rider is carrying a parcel. Finish or reassign the delivery first.',
   NOT_FOUND: 'That rider is no longer here.',
   INVALID_INPUT: 'Enter the rider’s name.',
   INVALID_PHONE: 'Enter the mobile number with its country code, such as +91 98765 43210.',
@@ -80,7 +82,7 @@ export const registerRiders = (builder: StoreBuilder) => {
       vehicleNumber: t.exposeString('vehicle_number', { nullable: true }),
       // Deliveries come with DL 5 and DL 6 (#842, #843).
       deliveriesDone: t.int({ resolve: () => 0 }),
-      currentDeliveryId: t.id({ nullable: true, resolve: () => null }),
+      currentDeliveryId: t.exposeID('current_delivery_id', { nullable: true }),
       createdAt: t.string({ resolve: (r) => r.created_at.toISOString() }),
     }),
   })

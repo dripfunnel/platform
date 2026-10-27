@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { decode, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { operation, type Operation, type Page } from './operation'
 
 // The catalogue reads and the add-to-cart write of the Shop API (apps/api schema/shop.graphql). Every price, stock figure and
 // availability is the API's: nothing here adds, rounds or compares an amount except to tell whether two are the same.
@@ -27,8 +28,6 @@ export type Collection = { id: string; slug: string; name: string; description: 
 export type FacetValue = { id: string; name: string; count: number }
 export type Facet = { id: string; name: string; values: FacetValue[] }
 
-/** A page of a list: what a screen shows, and the cursor of the next page. */
-export type Page<Item> = { items: Item[]; next: string | null }
 export type CollectionsPage = Page<Collection>
 export type ProductsPage = Page<ProductCard> & { facets: Facet[]; collection: { name: string; description: string | null } | null }
 export type Home = { collections: Collection[]; products: ProductCard[] }
@@ -73,13 +72,6 @@ export type Product = {
   story: StoryModule[]
   pricesIncludeTax: boolean
 }
-
-/** One call to the Shop API: what to send, how to read the answer, and the slot its answer is kept in for offline (null: never kept). */
-export type Operation<T> = { slot: string | null; signature: string; query: string; variables: Record<string, unknown>; parse: (data: unknown) => T }
-
-export const run = async <T>(client: ApiClient, operation: Operation<T>): Promise<T> => operation.parse(await client.request<unknown>(operation.query, operation.variables))
-
-const operation = <T>(slot: string | null, query: string, variables: Record<string, unknown>, parse: (data: unknown) => T): Operation<T> => ({ slot, signature: JSON.stringify(variables), query, variables, parse })
 
 const money = z.object({ amount: z.string(), currency: z.string() }).nullable()
 const image = z.object({ url: z.string().nullable() }).nullable()

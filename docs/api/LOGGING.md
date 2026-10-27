@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-10-26 (#841: `shipping.saved` names own delivery among the methods, `warehouse.saved` says when own delivery turns on or off, §3). Before: 2026-10-26 (#840: `rider.push_device_registered` and `rider.push_device_removed`, §3). Before: 2026-10-23 (#839: the `rider` actor kind and the `delivery` API built (migration 0360), the riders' sign-in entries, §3, §4). Before: 2026-10-23 (#838: the `rider.*` entries of Settings › Riders, §3). Before: 2026-10-22 (the `rider` actor kind, §4, proposed: DELIVERY.md). Before: 2026-10-15 (#744: previews and live shops on `SHOP_DOMAIN`, both zones' Logpush, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
+Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions). Before: 2026-10-26 (#841: `shipping.saved` names own delivery among the methods, `warehouse.saved` says when own delivery turns on or off, §3). Before: 2026-10-26 (#840: `rider.push_device_registered` and `rider.push_device_removed`, §3). Before: 2026-10-23 (#839: the `rider` actor kind and the `delivery` API built (migration 0360), the riders' sign-in entries, §3, §4). Before: 2026-10-23 (#838: the `rider.*` entries of Settings › Riders, §3). Before: 2026-10-22 (the `rider` actor kind, §4, proposed: DELIVERY.md). Before: 2026-10-15 (#744: previews and live shops on `SHOP_DOMAIN`, both zones' Logpush, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
 
 ---
 
@@ -72,6 +72,13 @@ its parts, filed under its `seller_id`) **carry no free text and no shopper fiel
 full entry, with the reason, the note and the customer, is written with `seller_id` null and
 store visibility, and a second thin entry for the supplier names only the action, the order
 number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §2.2).
+
+**#842 dispatch entries.** `delivery.created`, `delivery.ready`, `delivery.offered` (one per broadcast),
+`delivery.accepted`, `delivery.assigned`, `delivery.cancelled`, `delivery.declined`, `delivery.unassigned`
+and `delivery.handed_back` name the delivery; `rider.went_online` and `rider.went_offline` name the rider.
+The sweep and the offer job write as `job`, a rider as `rider`, and a merchant member as `person` (a support
+session's entries are rewritten to the session, §4); `delivery.created` at placement takes the placing actor.
+A rider's position is never logged (`rider_position`, §5; DELIVERY §7).
 
 **Reads are not logged**, with one exception: every support session logs what it opened,
 because the merchant has a right to know what support looked at (ACCESS.md §8). Built on #331: each query field
@@ -166,7 +173,7 @@ They are literals, never interpolated, so an entry cannot carry a subject or an 
   the schema refuses to build without it, or `unlogged: '<rule>'` naming one of the writes §3 leaves out (`cart`: a shopper's cart, built on #308;
   `payment_return`: a shopper back from paying, whose read-back writes only the settlement, which the provider's
   `order.paid` records, #309; `studio_renewal`: a studio session's renewal every two minutes, which only re-checks the seat
-  and moves the session's expiry, #318); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
+  and moves the session's expiry, #318; `rider_position`: a rider's position report, whose coordinates never enter a log, #842); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
   to this section. The entry is written **by the service, inside the
   transaction that makes the change**, because only the service holds that transaction; the
   declaration names the action the mutation records when it does what it is named for, and a

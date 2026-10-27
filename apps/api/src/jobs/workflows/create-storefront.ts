@@ -22,7 +22,7 @@ export const createStorefrontWorkflow = (connect: (hyperdrive: { connectionStrin
       if (!config.HYPERDRIVE || !github || !sites) throw new Error('create-storefront: unconfigured')
       const sql = connect(config.HYPERDRIVE)
       try {
-        const deps = { sql, github, org: config.GITHUB_STORE_ORG, sites, now: () => new Date() }
+        const deps = { sql, github, org: config.GITHUB_STORE_ORG, sites, shopDomain: config.SHOP_DOMAIN ?? null, now: () => new Date() }
         const steps = { do: (name: string, work: () => Promise<string>) => step.do(name, stepConfig, work) }
         // Never guess: a payload that is neither shape must fail, not run an undo against a live store.
         const create = createStorefrontParams.safeParse(event.payload)

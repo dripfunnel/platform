@@ -1,3 +1,4 @@
+import { registerDispatch } from './dispatch'
 import { secureSchema } from '../graphql/scope'
 import { deliveryPolicy } from './access'
 import { registerAccount } from './account'
@@ -12,5 +13,6 @@ builder.queryFields((t) => ({
 }))
 registerAccount(builder)
 registerDevices(builder)
+registerDispatch(builder)
 
 export const deliverySchema = secureSchema(builder.toSchema(), deliveryPolicy)
