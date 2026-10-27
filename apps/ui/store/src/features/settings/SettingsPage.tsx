@@ -141,14 +141,20 @@ export const SettingsPage = () => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
   const [ridersListed, setRidersListed] = useState(false)
-  // One plan read serves the tab list and the Riders tab; a failed read is forgotten so the next one asks again.
-  const planRead = useRef<Promise<RiderPlan> | null>(null)
+  // One plan read per source serves the tab list and the Riders tab; a failed read is forgotten, and a change reads it again.
+  const planRead = useRef<{ reads: SettingsReads; read: Promise<RiderPlan> } | null>(null)
   const riderPlan = useCallback(() => {
-    planRead.current ??= (forced ? sampleReads : apiReads).riderPlan().catch((error: unknown) => {
-      planRead.current = null
-      throw error
-    })
-    return planRead.current
+    const reads = forced ? sampleReads : apiReads
+    let cached = planRead.current
+    if (cached?.reads !== reads) {
+      const read = reads.riderPlan().catch((error: unknown) => {
+        if (planRead.current?.read === read) planRead.current = null
+        throw error
+      })
+      cached = { reads, read }
+      planRead.current = cached
+    }
+    return cached.read
   }, [forced])
   useEffect(() => {
     if (!allowed || !owner || forced === 'loading' || forced === 'error') return
@@ -188,6 +194,7 @@ export const SettingsPage = () => {
   const reload = useCallback(
     (text: string) => {
       setToast(text)
+      planRead.current = null
       load()
     },
     [load],

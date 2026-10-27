@@ -227,6 +227,7 @@ describe('suspend, restore, remove and resend', () => {
     await settle()
     expect(api.suspendRider).toHaveBeenCalledWith('r1')
     expect(screen.getByText('Ravi Kumar suspended')).toBeTruthy()
+    expect(api.loadRiderPlan).toHaveBeenCalledTimes(2)
   })
 
   it('removes only after its consequence is confirmed', async () => {
