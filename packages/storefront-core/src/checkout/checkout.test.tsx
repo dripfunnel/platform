@@ -384,6 +384,31 @@ describe('the sole delivery option', () => {
     expect(asked.filter((a) => a.query.includes('setShippingOption')).map((a) => a.variables)).toEqual([{ option: 'flat' }])
   })
 
+  it('re-applies the sole option after an address edit sent while applying it', async () => {
+    const held = later<null>()
+    let current = cartWith([flat], null)
+    const asked = shopAnswering(async (a) => {
+      if (a.query.includes('setShippingAddress')) return (current = cartWith([flat], null)), { data: { setShippingAddress: { cart: current } } }
+      if (a.query.includes('setShippingOption')) {
+        if (asked.filter((q) => q.query.includes('setShippingOption')).length === 1) await held.promise
+        return (current = cartWith([flat], 'flat')), { data: { setShippingOption: { cart: current } } }
+      }
+      if (a.query.includes('paymentOptions')) return { data: { paymentOptions: options('test'), store: { markets: [{ id: 'm', countries: ['US'] }] } } }
+      if (a.query.includes('placeOrder') || a.query.includes('checkout {') || a.query.includes('confirmPayment') || a.query.includes('payOrder')) return undefined
+      return { data: { cart: current } }
+    })
+    mount()
+    await act(async () => undefined)
+    let saved: Promise<unknown> = Promise.resolve()
+    act(() => void (saved = page.saveAddress({ ...address, phone: '' })))
+    await act(async () => held.settle(null))
+    await act(async () => void (await saved))
+    await act(async () => undefined)
+    await act(async () => undefined)
+    expect(asked.filter((a) => a.query.includes('setShippingOption')).map((a) => a.variables)).toEqual([{ option: 'flat' }, { option: 'flat' }])
+    expect(page.steps.map((s) => s.id)).not.toContain('delivery')
+  })
+
   it('does not loop when applying the sole option fails: one send, delivery step stays', async () => {
     const asked = shopAnswering((a) => {
       if (a.query.includes('setShippingOption')) return { errors: [{ message: 'nope', extensions: { code: 'UNAVAILABLE' } }] }

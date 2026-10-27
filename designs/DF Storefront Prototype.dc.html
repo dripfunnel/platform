@@ -599,6 +599,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
           </div></sc-if>
         </section>
 
+        <sc-if value="{{ chooseShip }}" hint-placeholder-val="{{ true }}">
         <section class="{{ st3.cls }}">
           <div class="sh"><h2><span class="num">3</span>Delivery method</h2><sc-if value="{{ st3.done }}" hint-placeholder-val="{{ false }}"><button class="lnk small" onClick="{{ st3.edit }}">Change</button></sc-if></div>
           <sc-if value="{{ st3.done }}" hint-placeholder-val="{{ false }}"><p class="sum">{{ shipLine }}</p></sc-if>
@@ -607,6 +608,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
             <button class="btn" style="align-self:flex-start;" onClick="{{ st3.next }}">Continue</button>
           </div></sc-if>
         </section>
+        </sc-if>
         </sc-if>
         <sc-if value="{{ noShip }}" hint-placeholder-val="{{ false }}"><div class="note info small">Nothing to deliver — {{ noShipWhy }}</div></sc-if>
 
@@ -917,7 +919,7 @@ class Component extends DCLogic {
     const q = new URLSearchParams(location.search); const g = (k, d) => q.get(k) || d;
     this.state = {
       region: g('region', 'IN'), device: g('device', 'desktop'), theme: g('theme', 'light'), mode: g('mode', 'live'), shopper: g('shopper', 'guest'), signinOpt: g('signin', 'both'), gateway: g('gateway', 'razorpay'),
-      scn: g('scn', 'normal'), consent: g('consent', 'ask'), powered: g('powered', 'on'), marks: g('marks', 'off'),
+      scn: g('scn', 'normal'), shipOpts: g('shipOpts', 'many'), consent: g('consent', 'ask'), powered: g('powered', 'on'), marks: g('marks', 'off'),
       page: g('page', 'home'), arg: g('arg', null), cart: [], drawer: false, menuOpen: false, filtersOpen: false, searchOpen: false, chart: false, chartUnit: 'cm',
       qIn: '', q: g('q', ''), filt: {}, inStock: false, sort: 'featured', sel: {}, photo: 0, qty: 1, accOpen: { details: true }, pin: '', pinMsg: '', news: '', newsMsg: '',
       codeIn: '', code: '', codeMsg: '', codeOk: false, gcIn: '', gc: 0, gcMsg: '', gcOk: false, giftOpen: false, gift: { amt: null, to: '', email: '', msg: '', date: '2026-10-06' },
@@ -992,6 +994,7 @@ class Component extends DCLogic {
       ...(s.region === 'IN' ? [ctlRow('Card gateway', 'gateway', [opt('Razorpay', 'razorpay'), opt('Cashfree', 'cashfree')])] : []),
       { label: 'Page', value: s.page, opts: [opt('Home', 'home'), opt('Collection', 'collection'), opt('Product', 'product'), opt('Product · gift card', 'gift'), opt('Product · download', 'digital'), opt('Product · service', 'service'), opt('Search results', 'search'), opt('Cart', 'cart'), opt('Checkout', 'checkout'), opt('Order confirmation', 'confirm'), opt('Sign in', 'auth'), opt('Account', 'account'), opt('Policies', 'policy'), opt('About', 'about'), opt('FAQ', 'faq'), opt('Contact', 'contact'), opt('Lookbook', 'lookbook'), opt('Journal', 'blog'), opt('Journal post', 'post'), opt('Not found (404)', 'notfound')], onChange: e => this.jump(e.target.value) },
       ctlRow('Scenario', 'scn', [opt('Normal', 'normal'), opt('Slow to load', 'loading'), opt('Won’t load', 'loadErr'), opt('Offline', 'offline'), opt('Shop suspended', 'suspended'), opt('Payment fails', 'payFail'), opt('Payment slow to confirm', 'paySlow')]),
+      ctlRow('Delivery options', 'shipOpts', [opt('Several (shopper chooses)', 'many'), opt('One (applied, step skipped)', 'one')]),
       ctlRow('Cookie choice', 'consent', [opt('Not made yet', 'ask'), opt('Made', 'done')]),
       ctlRow('“Powered by”', 'powered', [opt('Shown', 'on'), opt('Removed by plan', 'off')]),
       ctlRow('Mark required parts', 'marks', [opt('Off', 'off'), opt('On', 'on')])
@@ -1076,8 +1079,10 @@ class Component extends DCLogic {
     const payIds = s.region === 'IN' ? [s.gateway, 'phonepe', 'cod', 'bank'] : R.payOrder;
     const failing = s.scn === 'payFail'; const slow = s.scn === 'paySlow';
     const pays = payIds.filter(id => id !== 'cod' || needsShip).map(id => { const m = R.pay[id]; const on = s.pay === id; const handoff = id === 'razorpay' || id === 'cashfree' ? `You’ll pay in ${m.by}’s secure window: choose UPI, a card or netbanking there.` : id === 'phonepe' ? 'We open the PhonePe app (or show a QR code on a computer). Approve the payment there.' : id === 'paypal' ? 'You’ll sign in to PayPal in a pop-up and approve the payment.' : ''; return { name: m.name, by: m.by, note: m.note, on, cls: 'radio' + (on ? ' on' : ''), pick: () => this.setState({ pay: id, payState: 'idle' }), showStripe: on && id === 'stripe', showHandoff: on && !!handoff, handoff, showBank: on && id === 'bank', showCod: on && id === 'cod' }; });
-    const stepN = needsShip ? { pay: 4, rev: 5 } : { pay: 2, rev: 3 };
-    const order = needsShip ? [1, 2, 3, 4, 5] : [1, 4, 5];
+    // One delivery option: core applies it and skips the step (storefront ARCHITECTURE §2.1).
+    const soleShip = s.shipOpts === 'one';
+    const stepN = !needsShip ? { pay: 2, rev: 3 } : soleShip ? { pay: 3, rev: 4 } : { pay: 4, rev: 5 };
+    const order = !needsShip ? [1, 4, 5] : soleShip ? [1, 2, 4, 5] : [1, 2, 3, 4, 5];
     const nextOf = k => order[order.indexOf(k) + 1];
     const stepCls = k => 'step' + (s.step === k ? ' cur' : s.done[k] ? ' done' : '');
     const validate = k => {
@@ -1171,7 +1176,7 @@ class Component extends DCLogic {
       nav, navFlat, footShop, footHelp, footLegal, legalName: R.store, payLine, home, posts, col, sort: s.sort, pd, qty: s.qty, pin: s.pin, pinMsg: s.pinMsg, news: s.news, newsMsg: s.newsMsg,
       cart, tot, codeIn: s.codeIn, codeMsg: s.codeMsg, codeColor: s.codeOk ? 'var(--ok)' : 'var(--bad)', drawer: s.drawer, menuOpen: s.menuOpen, filtersOpen: s.filtersOpen, searchOpen: s.searchOpen, qIn: s.qIn, q: s.q, sugg, sr,
       chart: s.chart, chartRows, chartCm: s.chartUnit === 'cm' ? 'on' : '', chartIn: s.chartUnit === 'in' ? 'on' : '', gift: s.gift,
-      co, err: s.err, st1: st[1], st2: st[2], st3: st[3], st4: st[4], st5: st[5], needsShip, noShip: !needsShip, noShipWhy: 'your cart has only downloads, services or gift cards.', addrLine, savedAddr: R.people.addr.slice(1).join(', '), addrForm: !signedIn || s.newAddr, countryName: R.key === 'IN' ? 'India' : 'United States', countryHelp: R.key === 'IN' ? 'We deliver within India.' : 'We ship within the United States.', a1Ph: R.key === 'IN' ? 'House number, street, area' : 'Street address', states: R.key === 'IN' ? ['Karnataka', 'Maharashtra', 'Delhi', 'Rajasthan', 'Tamil Nadu', 'West Bengal'] : ['Ohio', 'California', 'New York', 'Texas', 'Washington'], phoneHelp: R.sms ? 'The courier calls this number, and we text you order updates.' : 'The courier may call this number.',
+      co, err: s.err, st1: st[1], st2: st[2], st3: st[3], st4: st[4], st5: st[5], needsShip, chooseShip: !soleShip, noShip: !needsShip, noShipWhy: 'your cart has only downloads, services or gift cards.', addrLine, savedAddr: R.people.addr.slice(1).join(', '), addrForm: !signedIn || s.newAddr, countryName: R.key === 'IN' ? 'India' : 'United States', countryHelp: R.key === 'IN' ? 'We deliver within India.' : 'We ship within the United States.', a1Ph: R.key === 'IN' ? 'House number, street, area' : 'Street address', states: R.key === 'IN' ? ['Karnataka', 'Maharashtra', 'Delhi', 'Rajasthan', 'Tamil Nadu', 'West Bengal'] : ['Ohio', 'California', 'New York', 'Texas', 'Washington'], phoneHelp: R.sms ? 'The courier calls this number, and we text you order updates.' : 'The courier may call this number.',
       ships, shipLine: shipM ? shipM.name + ' · ' + (tt.ship ? this.fmt(tt.ship) : 'Free') : '', pays, payName: payM ? payM.name + (payM.by ? ' · ' + payM.by : '') : '', payBy: payM ? (payM.by || payM.name) : '', sameBill: s.sameBill, giftOpen: s.giftOpen, giftLinkLabel: s.giftOpen ? 'Hide gift card' : 'Have a gift card?', gcIn: s.gcIn, gcMsg: s.gcMsg, gcColor: s.gcOk ? 'var(--ok)' : 'var(--bad)', coConsent,
       payFailed: s.payState === 'failed', payFailWhy: s.pay === 'stripe' ? 'Your bank declined the card.' : 'The payment was cancelled or timed out.', processing: s.payState === 'processing', cantPlace: s.payState === 'processing' || offline, placeLabel: s.payState === 'processing' ? 'Waiting for confirmation…' : s.payState === 'failed' ? 'Try again · ' + tot.total : s.pay === 'cod' ? 'Place order · pay ' + tot.total + ' on delivery' : s.pay === 'bank' ? 'Place order · ' + tot.total : 'Pay ' + tot.total, testHint: s.region === 'US' ? 'Use card 4242 4242 4242 4242, any future date and any CVC.' : 'Use the test UPI ID success@razorpay.', summOpen: s.summOpen, summLabel: s.summOpen ? 'Hide order summary' : 'Show order summary',
       cf, pw: s.pw, au: auv, acTabs, ac, myOrders, od, acConsent, updatesBy: R.sms ? ' and SMS' : '', dlTabLine: (() => { const d = ordersRaw.find(x => x.status === 'digital'); return `${R.digital.file} · ${R.downloads.times - 1} of ${R.downloads.times} downloads left` + (d ? ` · until ${new Intl.DateTimeFormat(R.locale, { day: 'numeric', month: 'long' }).format(new Date(new Date(d.date).getTime() + R.downloads.days * 864e5))}` : ''); })(), pol, polLinks, faqs, look, post, about: { v1: s.region === 'IN' ? 'Printed with teak blocks in Sanganer, one repeat at a time.' : 'Cut and sewn by three family-run mills we visit every year.', p1: s.region === 'IN' ? 'Our grandfather opened a printing table on the Sanganer road in 1962. We still print there, with many of his blocks.' : 'We started in 2019 with one T-shirt and a sewing machine in a Columbus garage.', p2: 'Everything we sell is made in small batches and shipped from our own studio.' }, addrFull: R.address.join(', '), orderPh: R.key === 'IN' ? 'KT-1042' : 'JC-1042', sentMsg: s.sentMsg,

@@ -10,6 +10,8 @@ import { addressDraft, useCheckout, type CheckoutPage } from './checkout'
 
 const us = { name: 'Maya Chen', line1: '88 Neil Ave', line2: null, city: 'Columbus', region: 'OH', postalCode: '43215', country: 'US', phone: null }
 const flat = { id: 'flat', provider: null, service: null, amount: usd(0), before: null, minDays: 3, maxDays: 5, hours: null }
+// Two options, so the shopper chooses one: a sole option is applied for them (checkout.test.tsx).
+const pickup = { ...flat, id: 'pickup', minDays: null, maxDays: null, hours: 'Mon–Fri' }
 
 /** A cart the engine moves through checkout as the Shop API does (FIRST-RELEASE §19): contact, ship, pay. */
 const engine = (extra: Record<string, unknown> = {}) => {
@@ -17,7 +19,7 @@ const engine = (extra: Record<string, unknown> = {}) => {
   const asked = shopAnswering((a) => {
     const v = a.variables
     if (a.query.includes('setCartContact')) Object.assign(cart, { email: v['email'], phone: v['phone'] })
-    else if (a.query.includes('setShippingAddress')) Object.assign(cart, { shippingAddress: { ...(v['address'] as object) }, shippingOptions: [flat], checkoutStep: 'ship' })
+    else if (a.query.includes('setShippingAddress')) Object.assign(cart, { shippingAddress: { ...(v['address'] as object) }, shippingOptions: [flat, pickup], checkoutStep: 'ship' })
     else if (a.query.includes('setShippingOption')) Object.assign(cart, { shippingOption: v['option'], shipping: usd(0) })
     else if (a.query.includes('checkout {')) {
       if (!cart['email']) return { errors: [{ message: 'not ready', extensions: { code: 'NOT_READY' } }] }

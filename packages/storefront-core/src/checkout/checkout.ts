@@ -190,7 +190,8 @@ export const useCheckout = (): CheckoutPage => {
   }
 
   // Apply the sole delivery option for the shopper (like a single payment option), so the delivery step is skipped.
-  // Re-applies after an address edit clears it; the in-flight guard and the narrow deps keep a failed send from looping.
+  // Re-applies after an address edit clears it: cart changes run one at a time (cart.ts `inTurn`), so that edit lands
+  // after this send settles. The in-flight guard and the narrow deps keep a failed send from looping.
   const soleOption = cart?.needsShipping && cart.shippingOptions.length === 1 ? (cart.shippingOptions[0]?.id ?? null) : null
   const applyingDelivery = useRef(false)
   useEffect(() => {
