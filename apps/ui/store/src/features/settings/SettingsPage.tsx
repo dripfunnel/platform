@@ -122,7 +122,7 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
     const plan = await reads.riderPlan()
     if (!plan.ownDelivery) return () => <EmptyState title={words.riders.notAvailable.title} body={words.riders.notAvailable.body} />
     const first = await reads.riders(null)
-    return (done, canEdit) => <RidersTab first={first} canEdit={canEdit} onChanged={done.reload} />
+    return () => <RidersTab first={first} />
   },
   // The log reads itself, by its filter in the address; a read-only store still reads and exports it.
   activity: async () => () => <ActivityTab read={reads.activity} canExport={seat.owner} forced={seat.forced} />,
@@ -141,7 +141,7 @@ export const SettingsPage = () => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
   const [ridersListed, setRidersListed] = useState(false)
-  // One plan read per source serves the tab list and the Riders tab; a failed read is forgotten, and a change reads it again.
+  // One plan read per source serves the tab list and the Riders tab; a failed read is forgotten.
   const planRead = useRef<{ reads: SettingsReads; read: Promise<RiderPlan> } | null>(null)
   const riderPlan = useCallback(() => {
     const reads = forced ? sampleReads : apiReads
@@ -194,7 +194,6 @@ export const SettingsPage = () => {
   const reload = useCallback(
     (text: string) => {
       setToast(text)
-      planRead.current = null
       load()
     },
     [load],

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { PageOf } from './allPages'
 import { query } from './client'
 
-// Settings › Riders (SetRiders, docs/api/DELIVERY.md §5, §8): the Owner's own delivery people.
+// Settings › Riders (SetRiders, docs/api/DELIVERY.md §5, §8): the Owner's own delivery people; read only in this part of #844.
 
 export const riderStatuses = ['invited', 'active', 'suspended'] as const
 export type RiderStatus = (typeof riderStatuses)[number]
@@ -30,29 +30,6 @@ export const loadRiders = async (after: string | null): Promise<PageOf<Rider>> =
       { after },
     )
   ).riders
-
-/** Texts the number the store's delivery app link. */
-export const inviteRider = async (name: string, phone: string): Promise<void> => {
-  await query(`mutation I($n: String!, $p: String!) { inviteRider(name: $n, phone: $p) { id } }`, z.object({ inviteRider: z.object({ id: z.string() }) }), { n: name, p: phone })
-}
-
-export const resendRiderInvitation = async (id: string): Promise<void> => {
-  await query('mutation R($id: ID!) { resendRiderInvitation(id: $id) }', z.object({ resendRiderInvitation: z.boolean() }), { id })
-}
-
-/** Signs them out at once; refused RIDER_HAS_PARCEL while they carry a parcel. */
-export const suspendRider = async (id: string): Promise<void> => {
-  await query('mutation S($id: ID!) { suspendRider(id: $id) { id } }', z.object({ suspendRider: z.object({ id: z.string() }) }), { id })
-}
-
-export const restoreRider = async (id: string): Promise<void> => {
-  await query('mutation R($id: ID!) { restoreRider(id: $id) { id } }', z.object({ restoreRider: z.object({ id: z.string() }) }), { id })
-}
-
-/** The row stays for past deliveries; the phone is erased. Refused RIDER_HAS_PARCEL like suspend. */
-export const removeRider = async (id: string): Promise<void> => {
-  await query('mutation R($id: ID!) { removeRider(id: $id) }', z.object({ removeRider: z.boolean() }), { id })
-}
 
 const planSchema = z.object({
   planCatalogue: z.array(z.object({ current: z.boolean(), values: z.array(z.object({ key: z.string(), enabled: z.boolean().nullable() })) })).nullable(),
