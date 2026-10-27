@@ -61,6 +61,13 @@
     "METHOD_UNAVAILABLE": "This shop doesn’t take that payment any more. Choose another way to pay.",
     "PHONE_REQUIRED": "Add your mobile number to pay this way.",
     "SHIPPING_UNAVAILABLE": "We can no longer deliver this order to that address that way. Check the delivery step.",
+    "ALREADY_PAID": "This order is already paid.",
+    "PAYMENT_PENDING": "Your earlier payment is still going through. Check back in a few minutes; don’t pay again.",
+    "PAYMENT_MISMATCH": "The shop needs to check this payment before you pay again. Contact the shop.",
+    "PAYMENT_UNAVAILABLE": "We couldn’t reach the payment provider. Nothing was charged. Try again in a minute.",
+    "MODE_MISMATCH": "This order can’t be paid from here. Contact the shop.",
+    "NOT_PENDING": "This order isn’t waiting for a payment.",
+    "INVALID_APP_PAYMENT": "The app couldn’t start this payment. Update the app and try again.",
     "UNKNOWN": "Something went wrong. Try again in a moment."
   },
   "home": {
@@ -395,7 +402,7 @@
       "title": "Payment",
       "cod": "Cash on delivery",
       "bank_transfer": "Bank transfer",
-      "stripe": "Card",
+      "stripe": "Card or wallet",
       "paypal": "PayPal",
       "razorpay": "Razorpay",
       "cashfree": "Cashfree",
@@ -419,10 +426,32 @@
       "place": "Place order",
       "legal": "By placing your order you agree to our Terms and Returns policy. We use your details as our Privacy policy says."
     },
+    "pay": {
+      "opening": "Opening {method}…",
+      "confirming": "Confirming your payment…",
+      "confirmingBody": "Don’t close the app. This usually takes a few seconds.",
+      "stoppedTitle": "Your payment didn’t go through",
+      "cancelled": "You closed the payment before it finished. Nothing was charged.",
+      "declined": "The payment was declined or could not be completed. Nothing was charged.",
+      "timeout": "The payment took too long and was stopped. Nothing was charged.",
+      "unavailable": "We couldn’t start the payment. Nothing was charged. Try again in a moment.",
+      "orderNote": "Order {number} is placed and waiting for payment. It is cancelled if nothing is paid within a day.",
+      "retry": "Try again",
+      "leave": "Leave without paying",
+      "pendingTitle": "We’re still confirming your payment",
+      "pendingBody": "This can take a few minutes. Don’t pay again: if it goes through we’ll email you.",
+      "checkAgain": "Check again",
+      "done": "Done",
+      "method": {
+        "stripe": "the card payment",
+        "paypal": "PayPal"
+      }
+    },
     "placed": {
       "heading": "Thank you for your order",
       "body": "Order {number} is placed. We’ll send the receipt to {email}.",
       "bodyNoEmail": "Order {number} is placed.",
+      "pillPaid": "Paid",
       "pillBank": "Waiting for payment",
       "pillCod": "Cash on delivery",
       "bankTitle": "Pay {total} by bank transfer",

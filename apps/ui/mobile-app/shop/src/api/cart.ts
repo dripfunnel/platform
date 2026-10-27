@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { decode, isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { ApiError, decode, isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { addressInput, type AddressInput, type Pin } from './account'
 import type { Price } from './catalogue'
 import { operation, type Operation } from './operation'
@@ -49,7 +49,26 @@ export type Cart = {
 
 export type PaymentOption = { provider: string; kind: string; instructions: string | null }
 
-export type PlacedOrder = { orderId: string; number: string; total: Price | null; provider: string; instructions: string | null }
+/** What a provider's own sheet needs to take a payment, exactly as the API answers it (api ARCHITECTURE: shop/ARCHITECTURE.md §4). */
+export type PaymentStart = {
+  providerRef: string | null
+  /** Stripe: the publishable key of the merchant's connected account, and that account's id. */
+  publicKey: string | null
+  accountId: string | null
+  clientSecret: string | null
+  /** Stripe, for a signed-in shopper only: their saved cards. */
+  customerId: string | null
+  ephemeralKeySecret: string | null
+  /** PayPal: the approval page. */
+  redirectUrl: string | null
+  /** `test` or `live`, the storefront's. */
+  mode: string | null
+}
+
+/** What the API needs of the app to start a payment in its own sheet: the app's URL scheme, and for Stripe the API version its SDK speaks. */
+export type AppPayment = { scheme: string; stripeApiVersion?: string }
+
+export type PlacedOrder = { orderId: string; number: string; total: Price | null; provider: string; instructions: string | null; payment: PaymentStart | null }
 
 const text = z.string().nullable().optional()
 const money = z.object({ amount: z.string(), currency: z.string() }).nullable().optional()
@@ -203,13 +222,62 @@ export const continueToPayment = async (client: ApiClient): Promise<Cart | null>
   return checkout ? cartOf(checkout) : null
 }
 
-/** Places the order for a way to pay later (cash on delivery, bank transfer). The engine re-checks stock, offers, delivery and price. */
-export const placeOrder = async (client: ApiClient, provider: string): Promise<PlacedOrder> => {
+const paymentFields = 'providerRef publicKey accountId clientSecret customerId ephemeralKeySecret redirectUrl mode'
+
+const paymentSchema = z
+  .object({ providerRef: text, publicKey: text, accountId: text, clientSecret: text, customerId: text, ephemeralKeySecret: text, redirectUrl: text, mode: text })
+  .nullable()
+  .optional()
+
+const paymentOf = (raw: z.infer<typeof paymentSchema>): PaymentStart | null =>
+  raw
+    ? {
+        providerRef: raw.providerRef ?? null,
+        publicKey: raw.publicKey ?? null,
+        accountId: raw.accountId ?? null,
+        clientSecret: raw.clientSecret ?? null,
+        customerId: raw.customerId ?? null,
+        ephemeralKeySecret: raw.ephemeralKeySecret ?? null,
+        redirectUrl: raw.redirectUrl ?? null,
+        mode: raw.mode ?? null,
+      }
+    : null
+
+/**
+ * Places the order. A way to pay later (cash on delivery, bank transfer) answers no `payment`; a card or wallet provider answers what its
+ * sheet needs, and the order is placed unpaid until the provider's webhook says it is paid. The engine re-checks stock, offers, delivery and price.
+ */
+export const placeOrder = async (client: ApiClient, provider: string, app?: AppPayment): Promise<PlacedOrder> => {
   const { placeOrder: placed } = decode(
-    z.object({ placeOrder: z.object({ orderId: z.string(), number: z.string(), total: money, provider: z.string(), instructions: text }) }),
-    await client.request<unknown>('mutation($provider: String!) { placeOrder(provider: $provider) { orderId number total { amount currency } provider instructions } }', { provider }),
+    z.object({ placeOrder: z.object({ orderId: z.string(), number: z.string(), total: money, provider: z.string(), instructions: text, payment: paymentSchema }) }),
+    await client.request<unknown>(
+      `mutation($provider: String!, $app: ShopAppPaymentInput) { placeOrder(provider: $provider, app: $app) { orderId number total { amount currency } provider instructions payment { ${paymentFields} } } }`,
+      app ? { provider, app } : { provider },
+    ),
   )
-  return { orderId: placed.orderId, number: placed.number, total: priceOf(placed.total), provider: placed.provider, instructions: placed.instructions ?? null }
+  return { orderId: placed.orderId, number: placed.number, total: priceOf(placed.total), provider: placed.provider, instructions: placed.instructions ?? null, payment: paymentOf(placed.payment) }
+}
+
+/** "Try again" after a sheet was cancelled or the payment declined: a new attempt for the same order and way to pay, never a second order. */
+export const payOrder = async (client: ApiClient, orderId: string, app: AppPayment): Promise<PaymentStart> => {
+  const { payOrder: start } = decode(
+    z.object({ payOrder: paymentSchema }),
+    await client.request<unknown>(`mutation($orderId: ID!, $app: ShopAppPaymentInput) { payOrder(orderId: $orderId, app: $app) { ${paymentFields} } }`, { orderId, app }),
+  )
+  const started = paymentOf(start)
+  if (!started) throw new ApiError('BAD_RESPONSE', 'The API returned no payment to start.')
+  return started
+}
+
+/** Where an order's payment stands, read back from the provider on the shopper's return (the website's `confirmPayment`); the app never marks an order paid. */
+export type PaymentRead = { cancelled: boolean; paid: boolean }
+
+export const readPayment = async (client: ApiClient, orderId: string): Promise<PaymentRead | null> => {
+  const { confirmPayment } = decode(
+    z.object({ confirmPayment: z.object({ state: text, paymentState: text }).nullable() }),
+    await client.request<unknown>('mutation($orderId: ID!) { confirmPayment(orderId: $orderId) { state paymentState } }', { orderId }),
+  )
+  return confirmPayment ? { cancelled: confirmPayment.state === 'cancelled', paid: confirmPayment.paymentState === 'paid' || confirmPayment.paymentState === 'authorised' } : null
 }
 
 /** The checkout problems a refusal names (`NO_CONTACT`, `NO_ADDRESS`, ...), unchecked data from the API. */

@@ -15,6 +15,7 @@ import { ContactStep } from './ContactStep'
 import { DeliveryStep } from './DeliveryStep'
 import { SummaryBar } from './OrderSummary'
 import { PaymentStep } from './PaymentStep'
+import { PayScreen } from './payments/PayScreen'
 import { ReviewStep } from './ReviewStep'
 import { refusalCode, returnFor, stepsFor, type Step } from './steps'
 
@@ -43,6 +44,8 @@ export function CheckoutScreen() {
   const [notice, setNotice] = useState<string | null>(null)
   const [provider, setProvider] = useState<string | null>(null)
   const [placed, setPlaced] = useState<{ order: PlacedOrder; cart: Cart } | null>(null)
+  // An order placed for a card or wallet payment, not yet paid: its sheet is open or the payment is being confirmed.
+  const [paying, setPaying] = useState<{ order: PlacedOrder; cart: Cart } | null>(null)
   const [stopped, setStopped] = useState<string | null>(null)
 
   const cart = state.status === 'ready' ? state.data : null
@@ -89,16 +92,26 @@ export function CheckoutScreen() {
         ) : null}
         {step === 'delivery' ? <DeliveryStep cart={live} apply={apply} next={next} changeAddress={() => go('address')} /> : null}
         {step === 'payment' ? <PaymentStep cart={live} provider={provider} onProvider={setProvider} apply={apply} next={next} onRefused={refused} /> : null}
-        {step === 'review' && provider ? <ReviewStep cart={live} provider={provider} onPlaced={(order) => setPlaced({ order, cart: live })} onRefused={refused} /> : null}
+        {step === 'review' && provider ? <ReviewStep cart={live} provider={provider} onPlaced={(order) => (order.payment ? setPaying({ order, cart: live }) : setPlaced({ order, cart: live }))} onRefused={refused} /> : null}
       </ScrollView>
     )
   }
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
-      <ScreenHeader title={t('checkout.title')} {...(placed ? {} : { onBack: goBack })} />
+      <ScreenHeader title={t('checkout.title')} {...(placed || paying ? {} : { onBack: goBack })} />
       {placed ? (
         <Confirmation order={placed.order} cart={placed.cart} onDone={() => router.replace('/home')} />
+      ) : paying ? (
+        <PayScreen
+          order={paying.order}
+          cart={paying.cart}
+          onPaid={() => {
+            setPlaced(paying)
+            setPaying(null)
+          }}
+          onLeave={() => router.replace('/home')}
+        />
       ) : stopped ? (
         <StateMessage title={t('states.error.title')} body={t(errorKey(stopped))} actionLabel={t('checkout.refused.toCart')} onAction={() => router.replace('/cart')} />
       ) : (

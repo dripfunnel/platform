@@ -5,6 +5,7 @@ import { t } from '../../messages'
 import { money } from '../catalogue/words'
 import { Button } from '../common/ui'
 import { OrderSummary } from './OrderSummary'
+import { isSheetProvider } from './payments/env'
 import { Details } from './ReviewStep'
 
 /** The order is placed: its number, what to do next for cash on delivery or a bank transfer, and what was ordered, from the cart as it stood when it was placed. */
@@ -13,11 +14,12 @@ export function Confirmation({ order, cart, onDone }: { order: PlacedOrder; cart
   const total = order.total ?? cart.total
   const bank = order.provider === 'bank_transfer'
   const cod = order.provider === 'cod'
+  const paid = isSheetProvider(order.provider)
   return (
     <ScrollView contentContainerStyle={styles.body}>
-      {bank || cod ? (
-        <View style={[styles.pill, { backgroundColor: bank ? colors.warningSurface : colors.neutralSurface }]}>
-          <Text style={{ color: bank ? colors.warning : colors.textStrong, fontWeight: '700', fontSize: 13 }}>{t(bank ? 'checkout.placed.pillBank' : 'checkout.placed.pillCod')}</Text>
+      {bank || cod || paid ? (
+        <View style={[styles.pill, { backgroundColor: bank ? colors.warningSurface : paid ? colors.successSurface : colors.neutralSurface }]}>
+          <Text style={{ color: bank ? colors.warning : paid ? colors.success : colors.textStrong, fontWeight: '700', fontSize: 13 }}>{t(bank ? 'checkout.placed.pillBank' : paid ? 'checkout.placed.pillPaid' : 'checkout.placed.pillCod')}</Text>
         </View>
       ) : null}
       <Text accessibilityRole="header" style={{ color: colors.heading, fontSize: 24, fontWeight: '800' }}>

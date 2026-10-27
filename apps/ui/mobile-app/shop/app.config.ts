@@ -26,6 +26,8 @@ export const storeEnvSchema = z
     UPDATES_CHANNEL: storeKey,
     // Google Maps SDK key for Android: a public build value restricted to the app's package and signing certificate, not a secret (docs/code/THIRD-PARTY-ACCESS.md §2.12). Without it the map is blank on Android.
     GOOGLE_MAPS_ANDROID_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'a Google Maps API key, which starts AIza').optional(),
+    // The store's Apple merchant identifier, from its Apple developer account: public, and only a store that takes Apple Pay has one. Without it the Payment Sheet offers no Apple Pay
+    APPLE_PAY_MERCHANT_ID: z.string().regex(/^merchant\.[A-Za-z0-9.-]+$/, 'an Apple merchant identifier such as merchant.com.acme.shop').optional(),
   })
   .refine((env) => env.UPDATES_CHANNEL === env.STORE_KEY, { path: ['UPDATES_CHANNEL'], message: 'must equal STORE_KEY' })
 
@@ -83,8 +85,10 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       'expo-updates',
       // While using the app, and only when the shopper taps "Use my location" on an address pin.
       ['expo-location', { locationWhenInUsePermission: messages.permissions.location.replace('{name}', env.APP_NAME) }],
+      // Stripe's Payment Sheet: Google Pay is switched on (the sheet shows it only where the device and the account allow it); Apple Pay only for a store with a merchant identifier.
+      ['@stripe/stripe-react-native', { enableGooglePay: true, ...(env.APPLE_PAY_MERCHANT_ID ? { merchantIdentifier: env.APPLE_PAY_MERCHANT_ID } : {}) }],
     ],
-    extra: { STORE_HOST: env.STORE_HOST, APP_SCHEME: env.APP_SCHEME },
+    extra: { STORE_HOST: env.STORE_HOST, APP_SCHEME: env.APP_SCHEME, ...(env.APPLE_PAY_MERCHANT_ID ? { APPLE_PAY_MERCHANT_ID: env.APPLE_PAY_MERCHANT_ID } : {}) },
   }
 }
 

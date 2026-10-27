@@ -52,6 +52,23 @@ describe('app.config.ts', () => {
     expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_MAPS_ANDROID_KEY/)
   })
 
+  it('switches on Stripe’s Payment Sheet and Google Pay, and Apple Pay only for a store that names a merchant identifier', () => {
+    const stripe = (config: ReturnType<typeof buildConfig>) => config.plugins?.find((p) => Array.isArray(p) && p[0] === '@stripe/stripe-react-native')
+    const plain = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    expect(stripe(plain)).toEqual(['@stripe/stripe-react-native', { enableGooglePay: true }])
+    expect(plain.extra).not.toHaveProperty('APPLE_PAY_MERCHANT_ID')
+
+    editDevEnv((lines) => [...lines, 'APPLE_PAY_MERCHANT_ID=merchant.com.juniper.shop'])
+    const apple = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(stripe(apple)).toEqual(['@stripe/stripe-react-native', { enableGooglePay: true, merchantIdentifier: 'merchant.com.juniper.shop' }])
+    expect(apple.extra).toMatchObject({ APPLE_PAY_MERCHANT_ID: 'merchant.com.juniper.shop' })
+  })
+
+  it('refuses an Apple merchant identifier that is not shaped like one', () => {
+    editDevEnv((lines) => [...lines, 'APPLE_PAY_MERCHANT_ID=juniper'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/APPLE_PAY_MERCHANT_ID/)
+  })
+
   it('asks for the location only while the app is in use, naming the store', () => {
     const env = readStoreEnv(appRoot, 'dev')
     const plugin = buildConfig({}, env).plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-location')

@@ -51,6 +51,20 @@ export const errorKey = (code: string): MessageKey => {
       return 'errors.PHONE_REQUIRED'
     case 'SHIPPING_UNAVAILABLE':
       return 'errors.SHIPPING_UNAVAILABLE'
+    case 'ALREADY_PAID':
+      return 'errors.ALREADY_PAID'
+    case 'PAYMENT_PENDING':
+      return 'errors.PAYMENT_PENDING'
+    case 'PAYMENT_MISMATCH':
+      return 'errors.PAYMENT_MISMATCH'
+    case 'PAYMENT_UNAVAILABLE':
+      return 'errors.PAYMENT_UNAVAILABLE'
+    case 'MODE_MISMATCH':
+      return 'errors.MODE_MISMATCH'
+    case 'NOT_PENDING':
+      return 'errors.NOT_PENDING'
+    case 'INVALID_APP_PAYMENT':
+      return 'errors.INVALID_APP_PAYMENT'
     default:
       return 'errors.UNKNOWN'
   }
