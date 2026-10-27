@@ -1,4 +1,4 @@
-import { Toast, useCurrentStaffSession, useScreenState } from '@dripfunnel/shared/ui'
+import { PermissionDenied, Toast, useCurrentStaffSession, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { changeTeamRole, inviteTeamMember, loadMoreTeam, removeTeamMember, resendTeamInvite, revokeTeamInvite, setSecondFactorPolicy, transferOwnership, type TeamMember, type TeamResult } from '../../api/settings'
@@ -141,7 +141,7 @@ export const SettingsScreen = () => {
             onToast={setToast}
           />
         )}
-        {tab === 'integrations' && mayManage && <IntegrationsTab mayChange={!readOnly} onToast={setToast} />}
+        {tab === 'integrations' && (mayManage ? <IntegrationsTab mayChange={!readOnly} onToast={setToast} /> : <PermissionDenied actionLabel={messages.settings.integrations.title} reason={messages.settings.integrations.mayNot} />)}
         {tab === 'security' && <SecurityTab required={data.company.secondFactorRequired} team={members.items} complete={!members.more} blocked={session && session.state === 'open' && session.kind === 'impersonation' ? messages.settings.team.refusals.BLOCKED_WHILE_IMPERSONATING : null} isOwner={me.role === 'partner-owner' && !readOnly} busy={busy} session={session} onChange={onPolicy} />}
       </Settings>
       <Toast message={toast} onDone={clearToast} />

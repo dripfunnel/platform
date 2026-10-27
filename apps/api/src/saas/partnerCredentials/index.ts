@@ -6,8 +6,8 @@ import type { SecretBox } from '#auth/secretBox'
 import { aiProviders, type AiProvider, type PartnerCredentialRow } from '#db/schema/saas'
 import { deleteAiProfile, firstAiProfileId, insertAiProfile, selectDefaultAiKey, selectAiProfile, selectSealedAiKey, selectAiProfiles, setDefaultAiProfile, updateAiProfileTest } from '#db/scoped/partnerCredentials'
 import { serialise, withScope, withSystemScope } from '#db/scoped/index'
-import { anthropicProvider, type AiProvider as AiModel } from '#integrations/ai/provider'
-import type { KeyCheck } from '#integrations/ai/provider'
+import { anthropicProvider, type AiProvider as AiModel } from '#integrations/ai/index'
+import type { KeyCheck } from '#integrations/ai/index'
 import { partnerEntry } from '#saas/activity/index'
 
 // Settings › Integrations, AI provider keys (ui/platform/FIRST-RELEASE.md §14.5; card #275). A key is sealed on the way in and

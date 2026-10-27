@@ -72,3 +72,11 @@ describe('Integrations', () => {
     expect(sent.filter((b) => b.includes('partnerAiKeys') && b.includes(secret))).toHaveLength(0)
   })
 })
+
+describe('Integrations without permission', () => {
+  it('says why, instead of a blank page, when a role that may not opens the address directly', async () => {
+    const { PermissionDenied } = await import('@dripfunnel/shared/ui')
+    render(<PermissionDenied actionLabel={words.title} reason={words.mayNot} />)
+    expect(screen.getByText(words.mayNot)).toBeTruthy()
+  })
+})
