@@ -35,6 +35,8 @@ export type TrackingStep = {
   /** When it was reached, in the store's time zone and the shopper's words; null for a step still to come. */
   at: string | null
   progress: 'done' | 'current' | 'todo'
+  /** The progress in words, so a step is never told apart by colour alone: Done, Current step, Still to come, or Ended here. */
+  progressLabel: string
 }
 
 export type OrderTracking = {
@@ -72,7 +74,8 @@ export const trackingOf = (raw: z.infer<typeof deliverySchema>, t: Translate, wh
   const steps = last.map((s, i): TrackingStep => {
     const progress = i < here || (ended && i === here) ? 'done' : i === here ? 'current' : 'todo'
     const at = reached.get(s)
-    return { state: s, label: t(`order.delivery.state.${s}`), at: at && progress !== 'todo' ? when(at) : null, progress }
+    const stopped = i === here && (state === 'failed' || state === 'cancelled')
+    return { state: s, label: t(`order.delivery.state.${s}`), at: at && progress !== 'todo' ? when(at) : null, progress, progressLabel: t(`order.delivery.progress.${stopped ? 'ended' : progress}`) }
   })
 
   const live = (state === 'assigned' || state === 'picked_up') && raw.rider?.firstName

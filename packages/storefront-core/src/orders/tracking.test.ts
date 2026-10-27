@@ -18,6 +18,7 @@ const delivery = (state: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 })
 const progress = (state: string, extra: Record<string, unknown> = {}) => trackingOf(delivery(state, extra), t, when)?.steps.map((s) => `${s.label}:${s.progress}:${s.at ?? '-'}`)
+const told = (state: string) => trackingOf(delivery(state), t, when)?.steps.map((s) => s.progressLabel)
 
 describe('the delivery on an order page', () => {
   it('asks the Shop API for no map, position or estimate', () => {
@@ -36,6 +37,14 @@ describe('the delivery on an order page', () => {
     expect(progress('searching')).toEqual(['Being packed:done:at 10:14', 'Looking for a rider:current:at 10:31', 'Rider assigned:todo:-', 'On the way:todo:-', 'Delivered:todo:-'])
     // Nobody took the offer yet is still a search to the customer.
     expect(trackingOf(delivery('unassigned'), t, when)?.status).toBe('Looking for a rider')
+  })
+
+  it('says each step’s progress in words, so no step is told apart by colour alone', () => {
+    expect(told('assigned')).toEqual(['Done', 'Done', 'Current step', 'Still to come', 'Still to come'])
+    expect(told('delivered')).toEqual(['Done', 'Done', 'Done', 'Done', 'Done'])
+    // The step a delivery stopped at says so, rather than that it was done.
+    expect(told('failed')).toEqual(['Done', 'Done', 'Done', 'Done', 'Ended here'])
+    expect(told('cancelled')?.at(-1)).toBe('Ended here')
   })
 
   it('shows a handed-back delivery by where it is now, not by the assignment it had', () => {
