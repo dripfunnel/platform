@@ -1096,3 +1096,38 @@
     height: 44px;
   }
 }
+
+.df-own > * + * {
+  margin-top: 16px;
+}
+
+.df-own-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.df-own-head h2 {
+  margin: 0;
+}
+
+.df-own-head .df-ops-status {
+  align-self: center;
+}
+
+.df-own h3 {
+  margin: 0 0 8px;
+}
+
+.df-own .df-set-lede {
+  margin: 8px 0 0;
+}
+
+.df-places-text .df-ops-pick {
+  margin-top: 8px;
+}
+
+.df-places-text .df-places-grid,
+.df-places-text .df-places-actions {
+  margin-top: 12px;
+}
