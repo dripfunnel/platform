@@ -15,12 +15,12 @@ export const paymentBuild = (): PaymentBuild => {
 }
 
 /** The ways to pay the app takes in a provider's own sheet. Cash on delivery and bank transfer are placed and paid later. */
-export const sheetProviders: readonly string[] = ['stripe', 'paypal']
+export const sheetProviders: readonly string[] = ['stripe', 'paypal', 'razorpay', 'cashfree', 'phonepe']
 export const isSheetProvider = (provider: string): boolean => sheetProviders.includes(provider)
 
 /** What the API needs of the app to start this provider's payment; none for a way paid later. */
 export const appPaymentFor = (provider: string, build: PaymentBuild, stripeApiVersion: () => string): AppPayment | undefined => {
   if (provider === 'stripe') return { scheme: build.scheme, stripeApiVersion: stripeApiVersion() }
-  if (provider === 'paypal') return { scheme: build.scheme }
+  if (sheetProviders.includes(provider)) return { scheme: build.scheme }
   return undefined
 }

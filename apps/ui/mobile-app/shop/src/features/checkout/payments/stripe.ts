@@ -12,6 +12,8 @@ export type SheetFacts = {
   storeName: string
   /** The shopper's contact email, so the sheet does not ask for it again. */
   email: string | null
+  /** The shopper's mobile number, for Razorpay's checkout to start with. */
+  phone: string | null
   /** The store's country, for the wallets; without it the sheet takes cards alone. */
   country: string | null
 }

@@ -445,7 +445,10 @@
       "done": "Done",
       "method": {
         "stripe": "the card payment",
-        "paypal": "PayPal"
+        "paypal": "PayPal",
+        "razorpay": "Razorpay",
+        "cashfree": "Cashfree",
+        "phonepe": "PhonePe"
       }
     },
     "placed": {

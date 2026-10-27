@@ -6,7 +6,7 @@ jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn() }))
 
 const mockOpen = jest.mocked(WebBrowser.openAuthSessionAsync)
 const start = (redirectUrl: string | null = 'https://www.paypal.com/checkoutnow?token=T1'): PaymentStart => ({
-  providerRef: 'T1', publicKey: null, accountId: null, clientSecret: null, customerId: null, ephemeralKeySecret: null, redirectUrl, mode: 'test',
+  providerRef: 'T1', publicKey: null, accountId: null, clientSecret: null, customerId: null, ephemeralKeySecret: null, redirectUrl, mode: 'test', amount: null, sessionId: null, providerOrderId: null, token: null,
 })
 
 beforeEach(() => mockOpen.mockReset())

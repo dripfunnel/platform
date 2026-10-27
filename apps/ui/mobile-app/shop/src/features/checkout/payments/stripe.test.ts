@@ -24,9 +24,13 @@ const start = (over: Partial<PaymentStart> = {}): PaymentStart => ({
   ephemeralKeySecret: 'ek_from_the_api',
   redirectUrl: null,
   mode: 'test',
+  amount: null,
+  sessionId: null,
+  providerOrderId: null,
+  token: null,
   ...over,
 })
-const facts = (over: Partial<SheetFacts> = {}): SheetFacts => ({ build: { scheme: 'devshop', appName: 'Dev Shop', appleMerchantId: null }, storeName: 'Juniper', email: 'ana@example.com', country: null, ...over })
+const facts = (over: Partial<SheetFacts> = {}): SheetFacts => ({ build: { scheme: 'devshop', appName: 'Dev Shop', appleMerchantId: null }, storeName: 'Juniper', email: 'ana@example.com', phone: null, country: null, ...over })
 
 beforeEach(() => {
   jest.clearAllMocks()

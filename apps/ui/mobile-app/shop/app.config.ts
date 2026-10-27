@@ -61,6 +61,8 @@ export function readStoreEnv(root: string, key: string | undefined): StoreEnv {
   return env
 }
 
+const phonePeMavenRepo = 'https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android'
+
 export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoConfig {
   return {
     ...config,
@@ -73,7 +75,8 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
     icon: env.ICON_IMAGE,
     userInterfaceStyle: 'automatic',
     runtimeVersion: { policy: 'appVersion' },
-    ios: { bundleIdentifier: env.IOS_BUNDLE_ID, supportsTablet: false },
+    // The UPI apps Razorpay, Cashfree and PhonePe look for on iOS: an app not named here is not found.
+    ios: { bundleIdentifier: env.IOS_BUNDLE_ID, supportsTablet: false, infoPlist: { LSApplicationQueriesSchemes: ['phonepe', 'tez', 'paytmmp', 'paytm', 'bhim'] } },
     android: {
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
@@ -87,6 +90,11 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       ['expo-location', { locationWhenInUsePermission: messages.permissions.location.replace('{name}', env.APP_NAME) }],
       // Stripe's Payment Sheet: Google Pay is switched on (the sheet shows it only where the device and the account allow it); Apple Pay only for a store with a merchant identifier.
       ['@stripe/stripe-react-native', { enableGooglePay: true, ...(env.APPLE_PAY_MERCHANT_ID ? { merchantIdentifier: env.APPLE_PAY_MERCHANT_ID } : {}) }],
+      // PhonePe's Android SDK is served from PhonePe's own repository, not Maven Central; Android 11+ lists the UPI apps an app may open (shop/ARCHITECTURE.md §3).
+      [
+        'expo-build-properties',
+        { android: { extraMavenRepos: [phonePeMavenRepo], manifestQueries: { intent: [{ action: 'android.intent.action.VIEW', data: { scheme: 'upi', host: 'pay' } }] } } },
+      ],
     ],
     extra: { STORE_HOST: env.STORE_HOST, APP_SCHEME: env.APP_SCHEME, ...(env.APPLE_PAY_MERCHANT_ID ? { APPLE_PAY_MERCHANT_ID: env.APPLE_PAY_MERCHANT_ID } : {}) },
   }

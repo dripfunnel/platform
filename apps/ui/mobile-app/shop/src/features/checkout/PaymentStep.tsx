@@ -81,7 +81,7 @@ function Options({ cart, options, provider, onProvider, apply, next, onRefused }
   )
 }
 
-/** The store's ways to pay in the API's order. This card takes cash on delivery and bank transfer; the others are listed and cannot be chosen yet (SH 11, SH 12). */
+/** The store's ways to pay in the API's order; one the app does not take is listed and cannot be chosen. */
 export function PaymentStep(props: Props) {
   const { colors } = useTheme()
   const { state, retry } = useOperation(paymentOptionsOperation())

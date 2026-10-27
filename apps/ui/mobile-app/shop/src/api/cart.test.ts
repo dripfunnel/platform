@@ -79,7 +79,7 @@ describe('the writes', () => {
 })
 
 describe('paying by a provider’s own sheet', () => {
-  const start = { providerRef: 'pi_1', publicKey: 'pk_1', accountId: 'acct_1', clientSecret: 'secret_1', customerId: null, ephemeralKeySecret: null, redirectUrl: null, mode: 'test' }
+  const start = { providerRef: 'pi_1', publicKey: 'pk_1', accountId: 'acct_1', clientSecret: 'secret_1', customerId: null, ephemeralKeySecret: null, redirectUrl: null, mode: 'test', amount: null, sessionId: null, providerOrderId: null, token: null }
 
   it('places the order with the app’s scheme and API version, and answers what the provider’s sheet needs', async () => {
     const api = client({ placeOrder: { orderId: 'o1', number: 'ORD-1', total: inr('149900'), provider: 'stripe', instructions: null, payment: start } })
