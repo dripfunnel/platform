@@ -5,6 +5,7 @@ import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { secureStorage } from '@dripfunnel/mobile-shared/storage'
 import { registerPushDevice, unregisterPushDevice, type PushPlatform } from '../api/push'
 import { storeHost } from '../graphql/storeHost'
+import { t } from '../messages'
 import { pushProjectId } from './config'
 import { loadNotifications } from './sdk'
 
@@ -34,7 +35,7 @@ export const markAsked = (): Promise<void> => AsyncStorage.setItem(askedKey(), '
 const phoneToken = async (): Promise<string> => {
   const Notifications = loadNotifications()
   // Android 13 and later show the permission only once the app has a channel.
-  if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('default', { name: 'default', importance: Notifications.AndroidImportance.DEFAULT })
+  if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('default', { name: t('push.channel'), importance: Notifications.AndroidImportance.DEFAULT })
   const projectId = pushProjectId()
   if (!projectId) throw new Error('This build sets up no push (docs/mobile-app/README.md §3).')
   return (await Notifications.getExpoPushTokenAsync({ projectId })).data

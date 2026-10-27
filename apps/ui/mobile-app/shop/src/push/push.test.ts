@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
+import { t } from '../messages'
 import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { askAndRegister, hasAsked, markAsked, orderOfPush, pushIsSetUp, pushPermission, registerIfGranted, registerThisPhone, unregisterThisPhone } from './push'
 
@@ -124,7 +125,7 @@ describe('turning notifications on', () => {
     Platform.OS = 'android'
     const api = client()
     await askAndRegister(api, null)
-    expect(channel).toHaveBeenCalledWith('default', expect.objectContaining({ name: 'default' }))
+    expect(channel).toHaveBeenCalledWith('default', expect.objectContaining({ name: t('push.channel') }))
     expect(api.sent[0]?.variables).toMatchObject({ platform: 'android' })
   })
 

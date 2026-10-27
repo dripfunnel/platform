@@ -595,6 +595,7 @@
     "store": "The store",
     "allow": "Turn on notifications",
     "later": "Not now",
-    "failed": "We couldn’t turn notifications on. Try again in a moment."
+    "failed": "We couldn’t turn notifications on. Try again in a moment.",
+    "channel": "Order updates"
   }
 }

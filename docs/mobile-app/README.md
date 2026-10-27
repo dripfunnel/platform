@@ -4,7 +4,7 @@ Which mobile apps the platform has, who gives each one to whom, and how each rea
 Store and Google Play. Each app's own folder holds its scope and code.
 
 **Status:** the merchant app is being built (merchant/ARCHITECTURE.md); the shop app's project is
-built through the cart and checkout, with orders, tracking and markets still to come (shop/ARCHITECTURE.md, #860 to #863); the delivery app is specified, not built.
+built through the cart and checkout, every payment method, orders, live delivery tracking and push notifications, with the store's languages, currencies and legal pages still to come (shop/ARCHITECTURE.md, #860 to #866); the delivery app is specified, not built.
 
 Last updated: 2026-10-27 (#866: the shop app's optional `EAS_PROJECT_ID` and `GOOGLE_SERVICES_FILE`, §3). Before: 2026-10-27 (#864: the shop app's optional `APPLE_PAY_MERCHANT_ID`, §3). Before: 2026-10-27 (#863: the shop app's status). Before: 2026-10-26 (#860: the shop app's project). Before: 2026-10-22 (the shop and delivery apps, with Gaurav; Enterprise only).
 

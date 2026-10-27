@@ -2,7 +2,7 @@ import type { Browser, Page } from 'playwright-core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { launchChrome, serve, type Site } from '../../test/browser'
 
-vi.setConfig({ testTimeout: 30_000, hookTimeout: 120_000 })
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
 
 // A theme's CSS that tries every way to hide, cover, shrink or move a sealed price, around hosts core made.
 const page = `<!doctype html><html><head><style>
