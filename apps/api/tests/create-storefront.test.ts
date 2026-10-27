@@ -209,6 +209,14 @@ describe('the create-storefront Workflow', () => {
     expect(entry).toEqual({ action: 'storefront.created', actor_kind: 'job', target_label: repo })
   })
 
+  it('writes no .env.development where SHOP_DOMAIN isn’t set, so a clone’s next dev proxies nothing', async () => {
+    const params = await started(t.storeA1)
+    expect(await runCreateStorefront({ ...deps, shopDomain: null }, params, once)).toBe('created')
+    const files = github.files((await storefront(t.storeA1))?.repo ?? '')
+    expect(files?.has('.env.development')).toBe(false)
+    expect(files?.has('store.config.ts')).toBe(true)
+  })
+
   it('creates a store on a dev prerelease of core', async () => {
     const dev = '0.0.0-dev.7'
     await uploadTemplates(dev)
