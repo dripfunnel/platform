@@ -47,6 +47,7 @@ const order = (over: Partial<Order> = {}): Order => ({
   refunded: null,
   shippingOption: 'flat',
   shopperNote: null,
+  delivery: null,
   ...over,
 })
 

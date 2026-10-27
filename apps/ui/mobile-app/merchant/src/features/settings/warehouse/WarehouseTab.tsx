@@ -1,36 +1,58 @@
 import { useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
+import { loadOwnDeliveryPlan } from '../../../api/settingsRiders'
+import { loadShipping } from '../../../api/settingsShipping'
 import { deletePlace, loadPlaces, makeDefaultPlace, savePlace, type Place } from '../../../api/settingsWarehouse'
 import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { ApiError, isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 import { tCount } from '../../../messages/plural'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
+import { moneyText } from '@dripfunnel/mobile-shared/format'
 import { Button } from '../../common/Button'
+import { Switch } from '../../common/Switch'
 import { TextField } from '../../common/TextField'
 import { useFeedback } from '../../shell/Feedback'
 import { countryOptions } from '../countries'
+import { openPortal } from '../portalLink'
 import { dotted } from '../dotted'
 import { FormSheet } from '../FormSheet'
 import { PickerField } from '../PickerField'
 import { RowCard } from '../RowCard'
 import { TabFrame } from '../TabFrame'
-import { addressLine, blankPlace, formOfPlace, placeInputOf, splitPlaces, type PlaceForm } from './placeDraft'
+import { addressLine, blankPlace, deliveryProblemOf, formOfPlace, placeInputOf, splitPlaces, type DeliveryForm, type PlaceForm } from './placeDraft'
 
 // Settings › Warehouse (SetOps "Warehouse"; FIRST-RELEASE (store) §15): the store's own stock locations to add, edit, make the default and delete, and
 // its suppliers' named apart and read-only.
 export function WarehouseTab() {
   return (
-    <TabFrame label={t('settings.tabs.warehouse')} load={loadPlaces}>
-      {({ data, client, canEdit, refresh, apply }) => <PlaceList places={data} client={client} canEdit={canEdit} refresh={refresh} apply={apply} />}
+    <TabFrame
+      label={t('settings.tabs.warehouse')}
+      load={async (client) => {
+        const [places, currency] = await Promise.all([loadPlaces(client), loadDeliveryCurrency(client)])
+        return { places, currency }
+      }}
+    >
+      {({ data, client, canEdit, refresh, apply }) => (
+        <PlaceList places={data.places} currency={data.currency} client={client} canEdit={canEdit} refresh={refresh} apply={(places) => apply({ ...data, places })} />
+      )}
     </TabFrame>
   )
 }
 
-type Sheet = { kind: 'form'; form: PlaceForm } | { kind: 'default'; place: Place } | { kind: 'delete'; place: Place }
-type Props = { places: readonly Place[]; client: ApiClient; canEdit: boolean; refresh: () => Promise<void>; apply: (places: Place[]) => void }
+/** The store's currency when its plan has own delivery, which is when a location's delivery fields show. Own delivery is extra, so a failed read leaves the rest of the tab. */
+const loadDeliveryCurrency = async (client: ApiClient): Promise<string | null> => {
+  try {
+    return (await loadOwnDeliveryPlan(client)) ? ((await loadShipping(client))?.currency ?? null) : null
+  } catch {
+    return null
+  }
+}
 
-function PlaceList({ places, client, canEdit, refresh, apply }: Props) {
+type Sheet = { kind: 'form'; form: PlaceForm } | { kind: 'default'; place: Place } | { kind: 'delete'; place: Place }
+type Props = { places: readonly Place[]; currency: string | null; client: ApiClient; canEdit: boolean; refresh: () => Promise<void>; apply: (places: Place[]) => void }
+
+function PlaceList({ places, currency, client, canEdit, refresh, apply }: Props) {
   const { colors } = useTheme()
   const feedback = useFeedback()
   const [sheet, setSheet] = useState<Sheet | null>(null)
@@ -43,7 +65,7 @@ function PlaceList({ places, client, canEdit, refresh, apply }: Props) {
       ...(addressLine(place) ? { sub: addressLine(place) } : {}),
       items: [
         ...(place.isDefault ? [] : [{ key: 'default', label: t('settings.warehouse.makeDefault'), onPress: () => setSheet({ kind: 'default', place }) }]),
-        { key: 'edit', label: t('settings.warehouse.edit'), onPress: () => setSheet({ kind: 'form', form: formOfPlace(place) }) },
+        { key: 'edit', label: t('settings.warehouse.edit'), onPress: () => setSheet({ kind: 'form', form: formOfPlace(place, currency) }) },
         ...(place.isDefault
           ? []
           : [
@@ -90,7 +112,7 @@ function PlaceList({ places, client, canEdit, refresh, apply }: Props) {
         </View>
       ) : null}
 
-      {sheet?.kind === 'form' ? <PlaceSheet initial={sheet.form} client={client} onClose={close} onDone={refresh} onFresh={apply} /> : null}
+      {sheet?.kind === 'form' ? <PlaceSheet initial={sheet.form} currency={currency ?? ''} client={client} onClose={close} onDone={refresh} onFresh={apply} /> : null}
       {sheet?.kind === 'default' ? (
         <FormSheet
           title={t('settings.warehouse.makeDefaultTitle', { name: sheet.place.name })}
@@ -124,10 +146,11 @@ function PlaceList({ places, client, canEdit, refresh, apply }: Props) {
   )
 }
 
-function PlaceSheet({ initial, client, onClose, onDone, onFresh }: { initial: PlaceForm; client: ApiClient; onClose: () => void; onDone: () => Promise<void>; onFresh: (places: Place[]) => void }) {
+function PlaceSheet({ initial, currency, client, onClose, onDone, onFresh }: { initial: PlaceForm; currency: string; client: ApiClient; onClose: () => void; onDone: () => Promise<void>; onFresh: (places: Place[]) => void }) {
   const [form, setForm] = useState(initial)
   const [tried, setTried] = useState(false)
-  const set = (key: keyof Omit<PlaceForm, 'id' | 'revision'>, value: string) => setForm((current) => ({ ...current, [key]: value }))
+  const set = (key: keyof Omit<PlaceForm, 'id' | 'revision' | 'delivery'>, value: string) => setForm((current) => ({ ...current, [key]: value }))
+  const setDelivery = (patch: Partial<DeliveryForm>) => setForm((current) => (current.delivery ? { ...current, delivery: { ...current.delivery, ...patch } } : current))
   const adding = initial.id === null
   return (
     <FormSheet
@@ -138,11 +161,15 @@ function PlaceSheet({ initial, client, onClose, onDone, onFresh }: { initial: Pl
       onClose={onClose}
       check={() => {
         setTried(true)
-        return form.name.trim() === '' ? t('settings.warehouse.nameMissing') : null
+        if (form.name.trim() === '') return t('settings.warehouse.nameMissing')
+        const problem = deliveryProblemOf(form.delivery, currency)
+        if (problem === null) return null
+        if (problem === 'feeInvalid') return t('settings.warehouse.delivery.feeInvalid', { example: moneyText({ amount: '4900', currency }) })
+        return t(problem === 'fee' ? 'settings.warehouse.delivery.feeMissing' : 'settings.warehouse.delivery.kmInvalid')
       }}
       onSubmit={async () => {
         try {
-          await savePlace(client, form.id, form.revision, placeInputOf(form))
+          await savePlace(client, form.id, form.revision, placeInputOf(form, currency))
         } catch (error) {
           // Someone else saved first: the list is read once and shown, and the next Save goes at their revision with what was typed kept. If that read
           // fails the sheet says the server could not be reached, never that the list is current; if the location is gone it says so.
@@ -167,11 +194,37 @@ function PlaceSheet({ initial, client, onClose, onDone, onFresh }: { initial: Pl
       <TextField label={t('settings.warehouse.region')} value={form.region} onChangeText={(value) => set('region', value)} autoCapitalize="words" maxLength={120} />
       <TextField label={t('settings.warehouse.postalCode')} value={form.postalCode} onChangeText={(value) => set('postalCode', value)} maxLength={120} />
       <PickerField label={t('settings.warehouse.country')} value={form.country} options={[{ value: '', label: t('settings.warehouse.noCountry') }, ...countryOptions()]} onChange={(value) => set('country', value)} searchable />
+      {form.delivery ? <DeliveryFields delivery={form.delivery} currency={currency} tried={tried} onChange={setDelivery} /> : null}
     </FormSheet>
   )
 }
 
+// A location's own-delivery fields (SetOwnDelivery "warehouse"; docs/api/DELIVERY.md §2): the switch needs a map pin, which is set on the web (#815).
+function DeliveryFields({ delivery, currency, tried, onChange }: { delivery: DeliveryForm; currency: string; tried: boolean; onChange: (patch: Partial<DeliveryForm>) => void }) {
+  const { colors } = useTheme()
+  const problem = deliveryProblemOf(delivery, currency)
+  return (
+    <View style={styles.delivery}>
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.heading }]}>
+        {t('settings.warehouse.delivery.title')}
+      </Text>
+      <Text style={[styles.sub, { color: colors.muted }]}>{delivery.pinned ? t('settings.warehouse.delivery.pinSet') : `${t('settings.warehouse.delivery.pinNone')}. ${t('settings.warehouse.delivery.pinNote')}`}</Text>
+      {delivery.pinned ? null : <Button kind="secondary" label={t('settings.warehouse.delivery.setPinOnWeb')} onPress={() => void openPortal('/settings/warehouse')} />}
+      <Switch label={t('settings.warehouse.delivery.switch')} value={delivery.on} disabled={!delivery.pinned && !delivery.on} onChange={(on) => onChange({ on })} />
+      <Text style={[styles.sub, { color: colors.muted }]}>{!delivery.pinned && !delivery.on ? t('settings.warehouse.delivery.pinFirst') : t(delivery.on ? 'settings.warehouse.delivery.onNote' : 'settings.warehouse.delivery.offNote')}</Text>
+      {delivery.on ? (
+        <>
+          <TextField label={t('settings.warehouse.delivery.area')} value={delivery.area} onChangeText={(area) => onChange({ area })} keyboardType="number-pad" help={t('settings.warehouse.delivery.areaHint')} invalid={tried && problem === 'area'} />
+          <TextField label={t('settings.warehouse.delivery.rider')} value={delivery.rider} onChangeText={(rider) => onChange({ rider })} keyboardType="number-pad" help={t('settings.warehouse.delivery.riderHint')} invalid={tried && problem === 'rider'} />
+          <TextField label={t('settings.warehouse.delivery.fee', { currency })} value={delivery.fee} onChangeText={(fee) => onChange({ fee })} keyboardType="decimal-pad" help={t('settings.warehouse.delivery.feeHint')} invalid={tried && (problem === 'fee' || problem === 'feeInvalid')} />
+        </>
+      ) : null}
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
+  delivery: { gap: 10 },
   head: { gap: 8 },
   title: { fontSize: 17, fontWeight: '800' },
   sub: { fontSize: 13, lineHeight: 19 },

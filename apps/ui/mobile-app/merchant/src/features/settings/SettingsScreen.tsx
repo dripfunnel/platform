@@ -1,6 +1,9 @@
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { loadOwnDeliveryPlan } from '../../api/settingsRiders'
 import { t } from '../../messages'
+import { sessionClient } from '../../session'
+import { useLoad } from '../common/useLoad'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Icon } from '../shell/Icon'
 import { useShell } from '../shell/ShellData'
@@ -16,13 +19,17 @@ export function SettingsScreen() {
   const router = useRouter()
   const { seat, state } = useShell()
   const { allowed } = settingsAccess(seat, state?.readOnly === true)
+  const client = sessionClient()
+  // Riders is listed only with own delivery in the plan; a plan that can't be read leaves it out rather than the whole list.
+  const ownDelivery = useLoad(() => (allowed ? loadOwnDeliveryPlan(client).catch(() => false) : Promise.resolve(false)), [client, allowed])
+  const tabs = settingsTabs.filter((tab) => tab !== 'riders' || (ownDelivery.state.status === 'ready' && ownDelivery.state.data))
 
   return (
     <ShellScreen label={t('settings.screen')} {...(allowed ? {} : { state: 'denied' as const })}>
       <View style={styles.content}>
         <Text style={[styles.intro, { color: colors.muted }]}>{t('settings.intro')}</Text>
         <View style={[styles.list, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.card }]}>
-          {settingsTabs.map((tab, index) => (
+          {tabs.map((tab, index) => (
             <Pressable
               key={tab}
               accessibilityRole="button"

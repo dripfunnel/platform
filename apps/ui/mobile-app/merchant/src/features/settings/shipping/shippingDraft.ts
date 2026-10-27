@@ -65,3 +65,15 @@ export const inputOf = (draft: Draft, settings: ShippingSettings): ShippingInput
     areaMode: draft.areaMode,
   }
 }
+
+/** The saved shipping fields as a save sends them, so a card that saves on its own never carries the form's unsaved edits. */
+export const inputOfSaved = (settings: ShippingSettings): ShippingInput => ({
+  courierRate: settings.courierRate,
+  flatRate: settings.flatRate,
+  flatAmount: settings.flatAmount,
+  pickup: settings.pickup,
+  pickupHours: settings.pickupHours,
+  freeMode: settings.freeMode,
+  freeThresholdAmount: settings.freeThresholdAmount,
+  areaMode: settings.areaMode,
+})

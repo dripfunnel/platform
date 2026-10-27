@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { loadStoreInfo } from '../../../api/settingsStore'
+import { loadRiders, loadOwnDeliveryPlan } from '../../../api/settingsRiders'
+import { loadPlaces } from '../../../api/settingsWarehouse'
 import { loadShipping, replaceDeliveryArea, saveShipping, type ShippingSettings } from '../../../api/settingsShipping'
 import { formatMoney, formatNumber, minorOf, moneyText } from '@dripfunnel/mobile-shared/format'
 import { isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
@@ -18,8 +20,9 @@ import { TabFrame } from '../TabFrame'
 import { useWrite } from '../useWrite'
 import { nameOf } from './courierNames'
 import { CouriersCard } from './CouriersCard'
+import { OwnDeliveryCard, type OwnDeliveryReads, type OwnSettings } from './OwnDeliveryCard'
 import { maxPostalCodes, readPostalCodes } from './postalCodes'
-import { draftOf, inputOf, pickupHoursMax, rebase, same, type Draft } from './shippingDraft'
+import { draftOf, inputOf, inputOfSaved, pickupHoursMax, rebase, same, type Draft } from './shippingDraft'
 
 // Settings › Shipping (SetOps "shipping"; FIRST-RELEASE (store) §15): what the shopper pays, when delivery is free, the couriers and where the store delivers,
 // as one draft saved over its revision. The codes of a delivery list are typed or pasted (decided on #504: no file picker), and each amount is typed in
@@ -29,21 +32,32 @@ export function ShippingTab() {
     <TabFrame
       label={t('settings.tabs.shipping')}
       load={async (client) => {
-        const [shipping, info] = await Promise.all([loadShipping(client), loadStoreInfo(client).catch(() => null)])
+        const [shipping, info, own] = await Promise.all([loadShipping(client), loadStoreInfo(client).catch(() => null), loadOwnDeliveryReads(client)])
         if (!shipping) throw new Error('shipping missing')
-        return { shipping, country: info?.country ?? null, timeZone: info?.timeZone ?? 'UTC' }
+        return { shipping, own, country: info?.country ?? null, timeZone: info?.timeZone ?? 'UTC' }
       }}
     >
-      {({ data, client, canEdit }) => <ShippingBody shipping={data.shipping} country={data.country} timeZone={data.timeZone} client={client} canEdit={canEdit} />}
+      {({ data, client, canEdit }) => <ShippingBody shipping={data.shipping} own={data.own} country={data.country} timeZone={data.timeZone} client={client} canEdit={canEdit} />}
     </TabFrame>
   )
 }
 
-type Props = { shipping: ShippingSettings; country: string | null; timeZone: string; client: ApiClient; canEdit: boolean }
+/** What the Own delivery card checks: only a plan with own delivery has the card, and own delivery is extra to Shipping, so a failed read leaves the rest of the tab. */
+const loadOwnDeliveryReads = async (client: ApiClient): Promise<OwnDeliveryReads | null> => {
+  try {
+    if (!(await loadOwnDeliveryPlan(client))) return null
+    const [riders, places] = await Promise.all([loadRiders(client), loadPlaces(client)])
+    return { riders, places }
+  } catch {
+    return null
+  }
+}
+
+type Props = { shipping: ShippingSettings; own: OwnDeliveryReads | null; country: string | null; timeZone: string; client: ApiClient; canEdit: boolean }
 
 const postalLabelOf = (country: string | null): string => t(country === 'IN' ? 'settings.shipping.postal.IN' : country === 'US' ? 'settings.shipping.postal.US' : 'settings.shipping.postal.other')
 
-function ShippingBody({ shipping, country, timeZone, client, canEdit }: Props) {
+function ShippingBody({ shipping, own, country, timeZone, client, canEdit }: Props) {
   const { colors } = useTheme()
   const form = useWrite('settingsShipping')
   const [server, setServer] = useState(shipping)
@@ -95,6 +109,16 @@ function ShippingBody({ shipping, country, timeZone, client, canEdit }: Props) {
     })
   }
 
+  const saveOwn = async (settings: OwnSettings) => {
+    try {
+      const revision = await saveShipping(client, base.current.revision, { ...inputOfSaved(base.current), ...settings })
+      adopt({ ...base.current, ...settings, revision })
+    } catch (error) {
+      if (isApiError(error, 'STALE')) await readBack().catch(() => undefined)
+      throw error
+    }
+  }
+
   const threshold = minorOf(draft.threshold, currency)
   const flatShown = draft.flatRate || draft.courierRate
   const failure = problem ?? form.failure
@@ -134,6 +158,8 @@ function ShippingBody({ shipping, country, timeZone, client, canEdit }: Props) {
         />
         {draft.freeMode === 'over' ? <TextField label={t('settings.shipping.thresholdLabel', { currency })} value={draft.threshold} onChangeText={(value) => set({ threshold: value })} keyboardType="decimal-pad" editable={canEdit} /> : null}
       </SectionCard>
+
+      {own ? <OwnDeliveryCard server={server} reads={own} canEdit={canEdit} save={saveOwn} /> : null}
 
       <CouriersCard couriers={server.couriers} labelSizes={server.labelSizes} timeZone={timeZone} client={client} canEdit={canEdit} readBack={readBack} />
 
