@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadDeliveryApp, setMinimumBuild, uploadDeliveryApp, type DeliveryApp, type DeliveryAppAnswer } from '../../api/deliveryApp'
 import type { Store } from '../../api/stores'
 import { fill, formatCount, formatTime, messages } from '../../messages'
@@ -29,9 +29,12 @@ export const DeliveryAppTab = ({ store, canChange, onToast }: DeliveryAppTabProp
   const [minimumReason, setMinimumReason] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
 
+  const latest = useRef(0)
   const load = useCallback(() => {
+    const mine = ++latest.current
     setLoaded({ state: 'loading' })
     void loadDeliveryApp(store.id).then((answer) => {
+      if (mine !== latest.current) return
       if (!answer.ok) return setLoaded({ state: 'error' })
       setLoaded({ state: 'ready', current: answer.current })
       setMinimum(answer.current?.minimumBuild?.toString() ?? '')
