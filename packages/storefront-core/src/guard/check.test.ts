@@ -76,9 +76,24 @@ describe('pnpm check', () => {
     expect(lines[0]).toMatch(/^src\/theme\/components\/out\/Note\.tsx:1 {2}jsx\/text-literal/)
   })
 
-  it('says where to run it from outside a store repo', () => {
-    const root = repoWith((r) => rmSync(join(r, '.git'), { recursive: true, force: true }))
-    expect(runCheck(root)).toEqual({ code: 1, lines: ["Run pnpm check from the store repo's root: it needs the repo's .git and content/{language} folders."] })
+  it('names a file whose copy on disk is not the staged one, since a commit would carry the staged one', () => {
+    const page = 'src/theme/pages/HomePage.tsx'
+    const root = repoWith((r) => {
+      rewrite(r, page, (text) => text.replace("{t('pages.home.lead')}", 'Typed words'))
+      git(r, 'add', '-A')
+      rewrite(r, page, (text) => text.replace('Typed words', "{t('pages.home.lead')}"))
+    })
+    const { code, lines } = runCheck(root)
+    expect(code).toBe(0)
+    expect(lines).toContain(`${page}  changed since git add: checked as it is here, so git add it before you commit`)
+  })
+
+  it('says where to run it from outside a store repo, and what is missing without words', () => {
+    expect(runCheck(repoWith((r) => rmSync(join(r, '.git'), { recursive: true, force: true })))).toEqual({ code: 1, lines: ["Run pnpm check from the store repo's root, where its .git folder is."] })
+    expect(runCheck(repoWith((r) => rmSync(join(r, 'content'), { recursive: true, force: true })))).toEqual({
+      code: 1,
+      lines: ['The theme has no words: content/{language}/*.json holds them, one folder per language the store offers.'],
+    })
   })
 })
 

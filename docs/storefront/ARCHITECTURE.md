@@ -489,8 +489,9 @@ network. Each problem names the file, the line, a rule id and a plain-words mess
 loop (#480).
 
 **On a developer's machine** (#974): a store repo's `pnpm check` runs core's `dripfunnel-check`,
-then the typecheck, and exits 1 on any problem. It validates what a push would carry, the files git
-holds (staged changes included), and names theme files never added to git. It needs no network, so
+then the typecheck, and exits 1 on any problem. It validates the theme files git holds, as they are on
+disk, and names any a commit would carry differently: files never added to git, and files changed since
+`git add`. It needs no network, so
 the rules that need the store's data are left to the build, and it says so: that `content/` holds
 exactly the store's languages (locally the languages are its folders), copying the brand's fields, a
 CSS `url()`'s media id (held only to a media id's shape) and a custom path already in use.

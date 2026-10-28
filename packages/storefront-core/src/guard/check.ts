@@ -6,8 +6,8 @@ import { isThemePath } from './files.js'
 import { localePattern, type GuardResult, type ThemeFile } from './rules.js'
 import { storeDataChecks, validateLocally } from './validate.js'
 
-// A store repo's `pnpm check` (`dripfunnel-check`, storefront ARCHITECTURE §3.4, #974): the validator over what a push
-// would carry, before a push to main goes live.
+// A store repo's `pnpm check` (`dripfunnel-check`, storefront ARCHITECTURE §3.4, #974): the validator over the theme files
+// git holds, as they are on disk, naming any a commit would carry differently, before a push to main goes live.
 
 // Where a theme's files live (files.ts `isThemePath`), so git never lists an untracked node_modules.
 const themeRoots = ['src/theme', 'content', 'routes.json']
@@ -26,6 +26,12 @@ const unadded = (root: string) =>
     .split('\0')
     .filter(isThemePath)
 
+/** Theme files whose copy on disk isn't the staged one: what is checked here isn't what a commit would carry. */
+const unstaged = (root: string) =>
+  execFileSync('git', ['diff', '-z', '--name-only', '--', ...themeRoots], { cwd: root, encoding: 'utf8', maxBuffer })
+    .split('\0')
+    .filter(isThemePath)
+
 // The build refuses a link as it does; a tracked file deleted on disk isn't part of what is checked.
 const themeFilesIn = (root: string): ThemeFile[] =>
   tracked(root)
@@ -37,17 +43,19 @@ const localesIn = (root: string): string[] => {
   return statSync(content, { throwIfNoEntry: false })?.isDirectory() ? readdirSync(content).filter((name) => localePattern.test(name) && statSync(join(content, name)).isDirectory()) : []
 }
 
-const report = (result: GuardResult, left: readonly string[]): string[] => [
+const report = (result: GuardResult, left: { unadded: readonly string[]; unstaged: readonly string[] }): string[] => [
   ...result.problems.map((p) => `${p.file ?? 'theme'}${p.line === null ? '' : `:${p.line}`}  ${p.rule}  ${p.message}`),
-  ...left.map((path) => `${path}  not added to git: a push leaves it out, so the build won't see it`),
+  ...left.unadded.map((path) => `${path}  not added to git: a push leaves it out, so the build won't see it`),
+  ...left.unstaged.map((path) => `${path}  changed since git add: checked as it is here, so git add it before you commit`),
   result.ok ? 'The theme passes the validator.' : `${result.problems.length} problem(s): the build would refuse this push.`,
   `Checked when you push, not here: ${storeDataChecks.join('; ')}.`,
 ]
 
 /** The repo at `root` through the validator, with its languages taken from content/. */
 export const runCheck = (root: string): { code: 0 | 1; lines: string[] } => {
+  if (!existsSync(join(root, '.git'))) return { code: 1, lines: ["Run pnpm check from the store repo's root, where its .git folder is."] }
   const locales = localesIn(root)
-  if (locales.length === 0 || !existsSync(join(root, '.git'))) return { code: 1, lines: ["Run pnpm check from the store repo's root: it needs the repo's .git and content/{language} folders."] }
+  if (locales.length === 0) return { code: 1, lines: ['The theme has no words: content/{language}/*.json holds them, one folder per language the store offers.'] }
   const result = validateLocally(themeFilesIn(root), locales)
-  return { code: result.ok ? 0 : 1, lines: report(result, unadded(root)) }
+  return { code: result.ok ? 0 : 1, lines: report(result, { unadded: unadded(root), unstaged: unstaged(root) }) }
 }

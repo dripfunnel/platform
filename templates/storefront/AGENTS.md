@@ -10,6 +10,6 @@ pnpm check
 ```
 
 It runs the build's theme rules on the files git holds, then the TypeScript check, and prints each problem
-as `file:line  rule  message`. Fix every problem it prints, and `git add` any file it says is not added,
-before you push. A few rules need the store's own data, so only the build checks them; `pnpm check` names
+as `file:line  rule  message`. Fix every problem it prints, and `git add` any file it says is not added or
+changed since `git add`, before you commit and push. A few rules need the store's own data, so only the build checks them; `pnpm check` names
 them at the end.
