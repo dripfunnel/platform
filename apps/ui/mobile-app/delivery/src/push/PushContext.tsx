@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Notification, NotificationResponse } from 'expo-notifications'
 import { useSession } from '../session/SessionContext'
 import { pushIsSetUp, registerIfGranted, riderPushOf, type RiderPush } from './push'
-import { loadNotifications } from './sdk'
+import { loadNotifications } from '@dripfunnel/mobile-shared/push'
 
 /** A delivery the store ended under the rider: cancelled before pickup, or recalled after it (docs/api/DELIVERY.md §3). */
 export type Ended = { kind: 'cancelled' | 'recalled'; deliveryId: string | null }

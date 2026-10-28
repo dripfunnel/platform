@@ -7,7 +7,8 @@ jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual(
 const mockRouter = { push: jest.fn(), navigate: jest.fn() }
 jest.mock('expo-router', () => ({ useRouter: () => mockRouter }))
 const mockLast = jest.fn()
-jest.mock('./sdk', () => ({
+jest.mock('@dripfunnel/mobile-shared/push', () => ({
+  ...jest.requireActual('@dripfunnel/mobile-shared/push'),
   loadNotifications: () => ({
     setNotificationHandler: jest.fn(),
     getLastNotificationResponse: () => mockLast(),

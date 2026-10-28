@@ -6,8 +6,8 @@ import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { secureStorage } from '@dripfunnel/mobile-shared/storage'
 import { registerPushDevice, unregisterPushDevice, type PushPlatform } from '../api/dispatch'
 import { t } from '../messages'
+import { loadNotifications } from '@dripfunnel/mobile-shared/push'
 import { pushProjectId } from './config'
-import { loadNotifications } from './sdk'
 
 // Pushes arrive through Expo's push service (docs/api/DELIVERY.md §6), so the phone registers an Expo token. Nothing here runs for a store with
 // no EAS project, and a push never carries an address, a phone number or an amount: the app reads those from the API.
