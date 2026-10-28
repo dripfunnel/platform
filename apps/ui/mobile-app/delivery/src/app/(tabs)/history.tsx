@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '../../features/placeholder/PlaceholderScreen'
-import { t } from '../../messages'
+import { HistoryScreen } from '../../features/history/HistoryScreen'
 
 export default function History() {
-  return <PlaceholderScreen title={t('tabs.history')} />
+  return <HistoryScreen />
 }
