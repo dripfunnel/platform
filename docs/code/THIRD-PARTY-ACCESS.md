@@ -208,7 +208,7 @@ without notice. An API key is the supported way for both.
   the person revokes in the provider's own settings.
 - **Gated and studio-only:** the sign-ins exist only where `AI_SIGN_IN=1` (unset in every environment until an operator turns it on, and
   switchable off without a code change), and serve the designer, never `/api/v1`.
-- **The one exception to the rule below** (Akshay, #950, 2026-10-28): these two sign-ins, which use another product's client id and,
+- **The one exception to the rule below** (approved by Akshay in the card's sign-off comment, https://github.com/dripfunnel/platform/issues/950#issuecomment-6466197555, 2026-10-28): these two sign-ins, which use another product's client id and,
   for OpenAI, an undocumented endpoint, are allowed because the person connecting their own account chose them knowingly. It covers
   nothing else and lapses if either provider objects. Local testing the same day: Claude answered 403
   (`oauth_not_allowed_for_organization`), then 429 on every model; ChatGPT refused every `gpt-*` model on the Codex endpoint. Treat
