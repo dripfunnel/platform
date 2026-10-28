@@ -62,7 +62,7 @@ const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, onImpersonate, cu
     case 'storefront':
       return <StorefrontTab store={store} />
     case 'deliveryApp':
-      return <DeliveryAppTab store={store} canChange={canChangeDeliveryApp} onToast={onToast} />
+      return <DeliveryAppTab key={store.id} store={store} canChange={canChangeDeliveryApp} onToast={onToast} />
     case 'domains':
       return <DomainsTab store={store} onRecheck={onRecheck} />
     case 'provisioning':

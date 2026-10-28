@@ -42,7 +42,17 @@ export const DeliveryAppTab = ({ store, canChange, onToast }: DeliveryAppTabProp
   }, [store.id])
   useEffect(load, [load])
 
+  // The page keys this tab by store, so an answer that lands after the staff member moved on only says what was done, for which store.
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
   const finish = (answer: DeliveryAppAnswer, done: string, reset: () => void) => {
+    if (!mounted.current) return answer.ok ? onToast(done) : undefined
     setBusy(false)
     if (!answer.ok) return setProblem(words.refusals[answer.code])
     setProblem(null)
@@ -58,7 +68,7 @@ export const DeliveryAppTab = ({ store, canChange, onToast }: DeliveryAppTabProp
     if (!file) return
     setBusy(true)
     void uploadDeliveryApp(store.id, file, { versionName, buildNumber: build, reason: uploadReason.trim() }).then((answer) =>
-      finish(answer, fill(words.uploaded, { version: versionName }), () => {
+      finish(answer, fill(words.uploaded, { version: versionName, store: store.name }), () => {
         setFile(null)
         setVersionName('')
         setBuildNumber('')
@@ -72,7 +82,7 @@ export const DeliveryAppTab = ({ store, canChange, onToast }: DeliveryAppTabProp
   const canSetMinimum = canChange && !busy && current !== null && minimumReason.trim() !== '' && (minimumValue === null || (Number.isInteger(minimumValue) && minimumValue >= 1)) && minimumValue !== current.minimumBuild
   const saveMinimum = () => {
     setBusy(true)
-    void setMinimumBuild(store.id, minimumValue, minimumReason.trim()).then((answer) => finish(answer, words.minimumSaved, () => setMinimumReason('')))
+    void setMinimumBuild(store.id, minimumValue, minimumReason.trim()).then((answer) => finish(answer, fill(words.minimumSaved, { store: store.name }), () => setMinimumReason('')))
   }
 
   if (loaded.state === 'loading') return <LoadingState label={words.loading} rows={3} />
