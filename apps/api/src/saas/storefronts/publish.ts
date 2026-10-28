@@ -42,6 +42,7 @@ import {
   type RunRow,
 } from '#db/scoped/publishing'
 import { isUploaded, isVerified } from '#db/scoped/builds'
+import { adoptRepoHead } from '#db/scoped/storefronts'
 import type { EdgeProbe } from '#integrations/http/edgeProbe'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
@@ -217,8 +218,9 @@ const claimStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
     if (run.state !== 'queued') return run.state === 'building' || run.state === 'checking' || run.state === 'deploying' ? claimed : 'stopped'
     // The partial unique index refuses a second running build anyway; this says why, and the Workflow tries again.
     if (await hasActiveRun(tx, p.storeId)) throw new Busy('another publish is running')
-    // A publish may have gone live while this page run waited: it renders beside that build, with its code and core.
-    const live = run.kind === 'page' && storefront.live_build_id ? await selectRun(tx, storefront.live_build_id) : null
+    // A publish may have gone live while this run waited: a page or catalogue run builds that build's code and core.
+    const follows = run.kind === 'page' || run.kind === 'manual' || run.kind === 'automatic'
+    const live = follows && storefront.live_build_id ? await selectRun(tx, storefront.live_build_id) : null
     if (live) await followLiveBuild(tx, p.storeId, run.id, live)
     await startRun(tx, live ? { ...run, commit: live.commit, template: live.template, core_version: live.core_version } : run, deps.now())
     return claimed
@@ -331,6 +333,11 @@ const pushStep = async (deps: PublishDeps, p: PublishParams, buildId: string): P
     const found = await selectRun(tx, buildId)
     return found ? { ...found, version: await versionOfBuild(tx, found.id) } : null
   })
+  // A pushed commit is already on main: the platform adopts it, so its next push fast-forwards from there (#968).
+  if (run?.kind === 'repo' && run.store_id === p.storeId) {
+    await withSystemScope(deps.sql, (tx) => adoptRepoHead(tx, p.storeId, run.commit))
+    return 'adopted'
+  }
   if (!deps.push || !run || run.store_id !== p.storeId || run.kind !== 'design' || run.version === null) return 'skipped'
   const kept = await deps.drafts.get(publishedTheme(p.storeId, run.commit))
   const theme = kept ? themeSchema.safeParse(JSON.parse(await kept.text())) : null

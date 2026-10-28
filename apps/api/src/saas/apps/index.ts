@@ -138,7 +138,7 @@ export const createAppRegistryService = ({ sql, staff, activity, facts, secrets,
     const developer = input.developer.trim()
     if (name.length === 0 || name.length > 80 || developer.length === 0 || developer.length > 120) return { ok: false, reason: 'INVALID_INPUT' }
     const scopes = [...new Set(input.scopes)].sort()
-    if (scopes.length === 0 || !scopes.every(isMachineScope)) return { ok: false, reason: 'INVALID_SCOPES' }
+    if (scopes.length === 0 || !scopes.every((s) => isMachineScope(s) && s !== 'ai.run')) return { ok: false, reason: 'INVALID_SCOPES' }
     const site = await checkEndpointUrl(input.siteUrl, lookup)
     if (!site.ok) return { ok: false, reason: site.reason }
     const hook = await checkEndpointUrl(input.webhookUrl, lookup)

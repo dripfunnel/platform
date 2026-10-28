@@ -1,5 +1,6 @@
 import type { ActivityFilter, ActivityPage } from '../../api/activity'
 import type { PageOf } from '../../api/allPages'
+import type { MobileApps } from '../../api/mobileApps'
 import type { Rider, RiderPlan } from '../../api/riders'
 import type { InstalledApp } from '../../api/apps'
 import type { CustomerAccounts } from '../../api/customerAccounts'
@@ -111,6 +112,7 @@ export interface SettingsReads {
   activity: (filter: ActivityFilter, after: string | null) => Promise<ActivityPage>
   riders: (after: string | null) => Promise<PageOf<Rider>>
   riderPlan: () => Promise<RiderPlan>
+  mobileApps: () => Promise<MobileApps>
   places: () => Promise<Place[]>
 }
 
@@ -281,7 +283,11 @@ export const sampleReads: SettingsReads = {
   supportAccess: async () => sampleSupport,
   activity: sampleRead,
   riders: async () => ({ nodes: harness ? sampleRiders : [], pageInfo: { hasNextPage: false, endCursor: null } }),
-  riderPlan: async () => ({ ownDelivery: true }),
+  riderPlan: async () => ({ ownDelivery: true, ownApps: true }),
+  mobileApps: async () => ({
+    available: true,
+    current: harness ? { version: 3, appIcon: null, appIconForeground: null, splash: null, appName: 'Kesari Threads', shortDescription: 'Handwoven sarees and stoles, delivered.', longDescription: 'Shop Kesari Threads’ handwoven collection and follow your order to your door.', savedAt: '2026-10-20T09:30:00Z' } : null,
+  }),
   places: async () => (harness ? (placesSample('list') ?? []) : []),
   catalogue: async () => ({
     pricingCurrency: 'INR',

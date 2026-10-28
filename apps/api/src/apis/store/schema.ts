@@ -21,6 +21,7 @@ import { registerStoreInfo } from './storeInfo'
 import { registerTax } from './tax'
 import { registerShipping } from './shipping'
 import { registerRiders } from './riders'
+import { registerStoreApps } from './storeApps'
 import { registerCustomerAccounts } from './customerAccounts'
 import { registerPayments } from './payments'
 import { registerOrders } from './orders'
@@ -78,6 +79,7 @@ registerShopify(builder)
 registerTax(builder)
 registerShipping(builder)
 registerRiders(builder)
+registerStoreApps(builder)
 registerCustomerAccounts(builder)
 registerPayments(builder)
 registerOrders(builder)

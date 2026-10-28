@@ -14,7 +14,7 @@ import type { SitesBucket } from './templates'
 // privately with the build, then the store repo's locked workflow started with the build id.
 
 /** Why a build can't start; the publish fails with this code (SAAS §9.1). */
-export type FreezeRefusal = 'no_source' | 'no_address' | 'no_repo'
+export type FreezeRefusal = 'no_source' | 'no_address' | 'no_repo' | 'workflow_changed'
 
 export class FreezeRefused extends Error {
   override name = 'FreezeRefused'
@@ -23,7 +23,7 @@ export class FreezeRefused extends Error {
   }
 }
 
-export const freezeRefusals: ReadonlySet<string> = new Set<FreezeRefusal>(['no_source', 'no_address', 'no_repo'])
+export const freezeRefusals: ReadonlySet<string> = new Set<FreezeRefusal>(['no_source', 'no_address', 'no_repo', 'workflow_changed'])
 
 export interface FreezeDeps {
   sql: postgres.Sql
@@ -36,6 +36,10 @@ export interface FreezeDeps {
   mapsFrameOrigin: string | null
   /** Starts the locked workflow (integrations/github `dispatchBuild`); false when GitHub has no such repo. */
   dispatch: (repo: string, buildId: string) => Promise<boolean>
+  /** A pushed commit as a git bundle (integrations/github `fetchCommitBundle`); absent where GitHub isn't configured. */
+  fetchSource?: (repo: string, commit: string) => Promise<ArrayBuffer | null>
+  /** Whether `main`'s `.github` is still the one at `known` (repoPush `sameWorkflow`): the dispatch runs `main`'s workflow. */
+  workflowIntact?: (repo: string, known: string) => Promise<boolean>
   now: () => Date
 }
 
@@ -95,8 +99,8 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string,
 }
 
 /**
- * Step 3: the source (the draft for a design publish, else the live build's own source bundle, never GitHub) and the
- * snapshot, each under the build's id. Idempotent, and skipped once the build reported.
+ * Step 3: the source (the draft for a design publish, the pushed commit from GitHub for a repo one, else the live build's
+ * own source bundle) and the snapshot, each under the build's id. Idempotent, and skipped once the build reported.
  */
 export const freezeBuild = async (deps: FreezeDeps, storeId: string, buildId: string): Promise<'frozen' | 'reported'> => {
   const { input, snapshot } = await withSystemScope(deps.sql, async (tx) => {
@@ -109,10 +113,15 @@ export const freezeBuild = async (deps: FreezeDeps, storeId: string, buildId: st
   if (input.reported || snapshot === null) return 'reported'
   // An upgrade or a security fix builds the upgrade bot's private commit (LIVE-SHOP §8), never the live one.
   const upgrade = input.kind === 'upgrade' || input.kind === 'security'
-  const from = input.kind === 'design' ? draftBundle(storeId) : upgrade ? upgradeBundle(storeId, input.commit) : input.live_build_id ? sourceBundle(storeId, input.live_build_id) : null
-  const source = from ? await deps.drafts.get(from) : null
-  if (!source) throw new FreezeRefused('no_source')
-  const bundle = await source.arrayBuffer()
+  let bundle: ArrayBuffer | null
+  if (input.kind === 'repo') {
+    bundle = input.repo && deps.fetchSource ? await deps.fetchSource(input.repo, input.commit) : null
+  } else {
+    const from = input.kind === 'design' ? draftBundle(storeId) : upgrade ? upgradeBundle(storeId, input.commit) : input.live_build_id ? sourceBundle(storeId, input.live_build_id) : null
+    const source = from ? await deps.drafts.get(from) : null
+    bundle = source ? await source.arrayBuffer() : null
+  }
+  if (!bundle) throw new FreezeRefused('no_source')
   await deps.drafts.put(sourceBundle(storeId, buildId), bundle, { sha256: await sha256(bundle), httpMetadata: { contentType: 'application/x-git-bundle' } })
   const json = new TextEncoder().encode(JSON.stringify(snapshot)).buffer
   await deps.drafts.put(snapshotFile(storeId, buildId), json, { sha256: await sha256(json), httpMetadata: { contentType: 'application/json' } })
@@ -128,6 +137,8 @@ export const dispatchBuild = async (deps: FreezeDeps, storeId: string, buildId: 
   if (input?.dispatched_at || input?.reported) return 'skipped'
   if (!input?.repo) throw new FreezeRefused('no_repo')
   const repo = input.repo
+  // A hand push may have changed the workflow, whose run GitHub would give our OIDC token (LIVE-SHOP §4, "A push to `main`").
+  if (input.repo_head && deps.workflowIntact && !(await deps.workflowIntact(repo, input.repo_head))) throw new FreezeRefused('workflow_changed')
   if (!(await withSystemScope(deps.sql, (tx) => markDispatched(tx, storeId, buildId, deps.now())))) return 'skipped'
   let started: boolean
   try {

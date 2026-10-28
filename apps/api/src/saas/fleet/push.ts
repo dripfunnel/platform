@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { coreVersionPattern, pushToRepo, upgradeBundle, upgradeFiles, type PushDeps, type PushResult, type SitesBucket } from '#saas/storefronts/index'
 
 // The upgrade's commit reaches the repo's main only once its build is live (LIVE-SHOP §8), through #316's push API, as
-// the files it changed: the platform never reads main back, so the build's own source bundle stays the record.
+// the files it changed: the upgrade never reads main back, so the build's own source bundle stays the record.
 
 export const upgradePushParams = z.strictObject({
   storeId: z.uuid(),

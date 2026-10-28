@@ -458,7 +458,7 @@ store and a vendor in another:
 | `approve` | The approval setting and queue (flows 18–19) |
 | `publish` | Storefront: the brand step and Site settings (brand, search and sharing, domains), choose a template, the AI studio (describe with words, images or a sample site, edit text, undo, discard, open preview), publish, publish everything before a change, go back (flows 48–52; redesigned 2026-10-08 on #470), **End all preview links** (2026-10-09, #520: storefront PREVIEW §5) and catalogue **Publish now**; a Manager sees the Storefront read-only |
 | `billing` | Plan, subscription, invoices, the subscription payment method (flows 59–64) |
-| `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access** (the On/Off switch; Allow/Deny is `support.allow_write`), and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
+| `settings` | Store info, payment, shipping and tax setup, **Settings › Mobile apps** (the store's apps' icon, splash and listing text; needs `own_apps`; built on #868), custom domain, **Support access** (the On/Off switch; Allow/Deny is `support.allow_write`), and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
 
 A Manager reaching an Owner-only screen gets the designed permission-denied state (flow 67);
 the resolver refuses regardless of the screen.

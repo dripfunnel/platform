@@ -728,6 +728,9 @@ SaaS layer owns the state and the rules:
   publish. Saving the home page's search and sharing queues `storefront.render` with `/` (#471 calls it).
 - **Staff publishes**: Admin can run a publish without using the allowance, for example after a
   failure on our side (L5).
+- **A push to the store repo's `main`** (#968): a publish of the pushed commit (`kind = 'repo'`), started by the
+  GitHub App's push event, using no allowance (storefront LIVE-SHOP §4, "A push to `main`"). A waiting page or
+  catalogue run becomes it, and its press is then not counted; a page or catalogue run that starts after it builds it.
 - **One build at a time per store**: a press during a build queues the next; changes made
   during a build go in the next one. Publish builds run in the store repo's workflow on GitHub
   Actions ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4); "Publish now" goes

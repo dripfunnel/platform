@@ -18,7 +18,7 @@ import { contrastReport, type ContrastReport } from './contrast'
 // words, the contrast computed here, and a publish that changes every merchant's portal.
 
 export type { ContrastReport } from './contrast'
-export { brandFileKinds, maxBrandFileBytes, type BrandFileKind } from './brandFile'
+export { brandFileKinds, checkBrandFile, maxBrandFileBytes, type BrandFileKind, type BrandFileRefusal } from './brandFile'
 export { uploadBrandFile, type BrandFileStore } from './upload'
 
 export const brandFonts = ['Nunito', 'Source Sans 3', 'Manrope', 'Lora', 'DM Sans'] as const

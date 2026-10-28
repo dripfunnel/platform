@@ -1,12 +1,12 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers'
 import type postgres from 'postgres'
 import { parseConfig } from '#core/config'
-import { githubFor, storeRepos } from '#integrations/github/index'
+import { fetchCommitBundle, githubFor, storeRepos } from '#integrations/github/index'
 import { httpEdgeProbe, type EdgeProbe } from '#integrations/http/edgeProbe'
 import { localEdgeProbe } from '#integrations/local/edgeProbe'
 import { anthropicProvider, localAiProvider } from '#integrations/ai/index'
 import { designModel, repairBrief } from '#saas/ai-designer/index'
-import { lookupLiveHost, pushToRepo, runPublish, type PublishParams, type RepoFile } from '#saas/storefronts/index'
+import { lookupLiveHost, pushToRepo, runPublish, sameWorkflow, type PublishParams, type RepoFile } from '#saas/storefronts/index'
 import type { StudioSessionObject } from '#jobs/durable/studio'
 
 export interface PublishStorefrontEnv extends Record<string, unknown> {
@@ -62,6 +62,12 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       shopDomain,
       mapsFrameOrigin: config.GOOGLE_MAPS_BROWSER_KEY ? api : null,
       dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api }),
+      // The stand-in's repos aren't on github.com, so a push there has nothing to fetch.
+      ...(config.GITHUB_LOCAL === '1' ? {} : { fetchSource: (repo: string, commit: string) => fetchCommitBundle(config.GITHUB_STORE_ORG, repo, commit) }),
+      workflowIntact: async (repo: string, known: string) => {
+        const main = await repos.head(repo)
+        return main !== null && sameWorkflow(repos, repo, known, main)
+      },
       now: () => new Date(),
       probe,
       assetHost: `sf-assets.${shopDomain}`,
