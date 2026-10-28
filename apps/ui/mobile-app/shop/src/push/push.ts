@@ -6,8 +6,8 @@ import { secureStorage } from '@dripfunnel/mobile-shared/storage'
 import { registerPushDevice, unregisterPushDevice, type PushPlatform } from '../api/push'
 import { storeHost } from '@dripfunnel/mobile-shared/brand'
 import { t } from '../messages'
+import { loadNotifications } from '@dripfunnel/mobile-shared/push'
 import { pushProjectId } from './config'
-import { loadNotifications } from './sdk'
 
 // Pushes arrive through Expo's push service (api/DELIVERY.md §6), so the phone registers an Expo token. Nothing here runs for a store with
 // no EAS project, and a push never carries the handover code, an address or an amount: the app reads those from the API.

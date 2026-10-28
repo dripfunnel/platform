@@ -39,6 +39,21 @@ describe('app.config.ts', () => {
     expect(buildConfig({}, env).extra).toEqual({ STORE_HOST: env.STORE_HOST })
   })
 
+  it('hands the store’s EAS project to the app for its push token, and the Firebase file to Android', () => {
+    editDevEnv((lines) => [...lines, 'EAS_PROJECT_ID=0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    writeFileSync(join(root, 'stores', 'dev', 'google-services.json'), '{}')
+    const config = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(config.extra).toMatchObject({ eas: { projectId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' } })
+    expect(config.android?.googleServicesFile).toBe('./stores/dev/google-services.json')
+  })
+
+  it('refuses a Firebase file of another store, or one that does not exist', () => {
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICES_FILE=stores/other/google-services.json'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_SERVICES_FILE: stores\/other\/google-services\.json is not under stores\/dev\//)
+    editDevEnv(setTo('GOOGLE_SERVICES_FILE', 'stores/dev/google-services.json'))
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_SERVICES_FILE: stores\/dev\/google-services\.json does not exist/)
+  })
+
   it('declares background location on both platforms and the Android foreground service, in the app’s name', () => {
     const env = readStoreEnv(appRoot, 'dev')
     expect(plugin(buildConfig({}, env), 'expo-location')).toEqual([

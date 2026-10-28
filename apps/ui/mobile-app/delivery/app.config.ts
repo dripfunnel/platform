@@ -24,6 +24,10 @@ export const storeEnvSchema = z
     SPLASH_IMAGE: image,
     SPLASH_BACKGROUND: colour,
     UPDATES_CHANNEL: storeKey,
+    // The store's own EAS project, which Expo's push service makes a token for: public. Without it the app never asks for notifications or registers a phone (docs/mobile-app/README.md §3)
+    EAS_PROJECT_ID: z.uuid('an EAS project id, a UUID').optional(),
+    // The Firebase file Android needs to get a push token, under stores/<store>/: a public client config, not a secret
+    GOOGLE_SERVICES_FILE: z.string().regex(/^stores\/[a-z][a-z0-9-]*\/google-services\.json$/, 'a path such as stores/dev/google-services.json').optional(),
   })
   .refine((env) => env.UPDATES_CHANNEL === env.STORE_KEY, { path: ['UPDATES_CHANNEL'], message: 'must equal STORE_KEY' })
 
@@ -50,9 +54,10 @@ export function readStoreEnv(root: string, key: string | undefined): StoreEnv {
   if (env.STORE_KEY !== keyResult.data) fail(file, [`STORE_KEY: is ${env.STORE_KEY}, but the file is for ${keyResult.data}`])
 
   // A store's build never ships another store's image.
-  const foreign = imageKeys.filter((name) => !env[name].startsWith(`stores/${env.STORE_KEY}/`)).map((name) => `${name}: ${env[name]} is not under stores/${env.STORE_KEY}/`)
+  const files = [...imageKeys.map((name) => [name, env[name]] as const), ...(env.GOOGLE_SERVICES_FILE ? [['GOOGLE_SERVICES_FILE', env.GOOGLE_SERVICES_FILE] as const] : [])]
+  const foreign = files.filter(([, path]) => !path.startsWith(`stores/${env.STORE_KEY}/`)).map(([name, path]) => `${name}: ${path} is not under stores/${env.STORE_KEY}/`)
   if (foreign.length > 0) fail(file, foreign)
-  const missing = imageKeys.filter((name) => !existsSync(join(root, env[name]))).map((name) => `${name}: ${env[name]} does not exist`)
+  const missing = files.filter(([, path]) => !existsSync(join(root, path))).map(([name, path]) => `${name}: ${path} does not exist`)
   if (missing.length > 0) fail(file, missing)
   return env
 }
@@ -75,6 +80,7 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
     android: {
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
+      ...(env.GOOGLE_SERVICES_FILE ? { googleServicesFile: `./${env.GOOGLE_SERVICES_FILE}` } : {}),
     },
     plugins: [
       'expo-router',
@@ -97,7 +103,7 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       // The profile photo, from the camera or the photo library; never the microphone.
       ['expo-image-picker', { photosPermission: usage(messages.permissions.photos, env), cameraPermission: usage(messages.permissions.camera, env), microphonePermission: false }],
     ],
-    extra: { STORE_HOST: env.STORE_HOST },
+    extra: { STORE_HOST: env.STORE_HOST, ...(env.EAS_PROJECT_ID ? { eas: { projectId: env.EAS_PROJECT_ID } } : {}) },
   }
 }
 
