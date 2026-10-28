@@ -39,6 +39,10 @@
       "opens": "Needs a connection to open this page."
     }
   },
+  "crash": {
+    "title": "Something went wrong",
+    "body": "The app hit a problem. Try again, and if it keeps happening, close the app and open it again."
+  },
   "legal": {
     "title": "Legal",
     "rowBody": "Terms, privacy, returns, delivery",

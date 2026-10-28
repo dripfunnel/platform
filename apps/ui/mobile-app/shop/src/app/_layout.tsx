@@ -6,6 +6,8 @@ import { StyleSheet } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ShopProvider } from '../api/ShopProvider'
 import { BrandProvider } from '../brand/BrandProvider'
+import { CrashBoundary } from '../crash/CrashBoundary'
+import { CrashEffects } from '../crash/CrashEffects'
 import { MarketsProvider } from '../features/markets/MarketsProvider'
 import { OfflineStrip } from '../features/states/OfflineStrip'
 import { PushEffects } from '../push/PushEffects'
@@ -20,8 +22,11 @@ export default function RootLayout() {
           <GestureHandlerRootView style={styles.root}>
             <StatusBar style="auto" />
             <PushEffects />
+            <CrashEffects />
             <OfflineStrip>
-              <Stack screenOptions={{ headerShown: false }} />
+              <CrashBoundary>
+                <Stack screenOptions={{ headerShown: false }} />
+              </CrashBoundary>
             </OfflineStrip>
           </GestureHandlerRootView>
         </ShopProvider>

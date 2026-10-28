@@ -103,6 +103,44 @@ describe('app.config.ts', () => {
     expect(() => readStoreEnv(root, 'dev')).toThrow(/is not under stores\/dev\//)
   })
 
+  it('switches Crashlytics on only for a store with both Firebase files, and builds the iOS pods as dynamic frameworks for it', () => {
+    const plain = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    expect(plain.plugins).not.toContain('@react-native-firebase/app')
+    expect(plain.extra).not.toHaveProperty('crashReporting')
+    expect(plain.ios).not.toHaveProperty('googleServicesFile')
+
+    writeFileSync(join(root, 'stores/dev/google-services.json'), '{}')
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    const pushOnly = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(pushOnly.plugins).not.toContain('@react-native-firebase/crashlytics')
+    expect(pushOnly.extra).not.toHaveProperty('crashReporting')
+
+    writeFileSync(join(root, 'stores/dev/GoogleService-Info.plist'), '<plist/>')
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICE_INFO_FILE=stores/dev/GoogleService-Info.plist'])
+    const crash = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(crash.plugins).toEqual(expect.arrayContaining(['@react-native-firebase/app', '@react-native-firebase/crashlytics']))
+    expect(crash.ios?.googleServicesFile).toBe('./stores/dev/GoogleService-Info.plist')
+    expect(crash.android?.googleServicesFile).toBe('./stores/dev/google-services.json')
+    expect(crash.extra).toMatchObject({ crashReporting: true })
+    const properties = crash.plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-build-properties')
+    expect(properties?.[1]).toMatchObject({ ios: { useFrameworks: 'dynamic' } })
+  })
+
+  it('refuses the iOS Firebase file without the Android one, and one that is missing, another store’s or misnamed', () => {
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICE_INFO_FILE=stores/dev/GoogleService-Info.plist'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_SERVICE_INFO_FILE.*GOOGLE_SERVICES_FILE/s)
+
+    writeFileSync(join(root, 'stores/dev/google-services.json'), '{}')
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow("GOOGLE_SERVICE_INFO_FILE: stores/dev/GoogleService-Info.plist does not exist")
+
+    editDevEnv((lines) => [...lines.filter((l) => !l.startsWith('GOOGLE_SERVICE_INFO_FILE')), 'GOOGLE_SERVICE_INFO_FILE=stores/other/GoogleService-Info.plist'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow("is not under stores/dev/")
+
+    editDevEnv((lines) => [...lines.filter((l) => !l.startsWith('GOOGLE_SERVICE_INFO_FILE')), 'GOOGLE_SERVICE_INFO_FILE=stores/dev/info.plist'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_SERVICE_INFO_FILE/)
+  })
+
   it('refuses an Apple merchant identifier that is not shaped like one', () => {
     editDevEnv((lines) => [...lines, 'APPLE_PAY_MERCHANT_ID=juniper'])
     expect(() => readStoreEnv(root, 'dev')).toThrow(/APPLE_PAY_MERCHANT_ID/)

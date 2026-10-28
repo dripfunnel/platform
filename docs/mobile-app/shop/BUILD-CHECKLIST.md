@@ -9,7 +9,7 @@ and the screens in [FIRST-RELEASE.md](FIRST-RELEASE.md).
 **Status: written on #869 (SH 16) before the first build. Nothing here has been run against a real store's accounts yet; the pilot
 store's first build confirms or corrects it, and each step that does is noted on the card.**
 
-Last updated: 2026-10-28 (#869: first version).
+Last updated: 2026-10-28 (#876: the Firebase step). Before: 2026-10-28 (#869: first version).
 
 ---
 
@@ -42,6 +42,7 @@ Before the store's first build (the Android map key is the one step that has to 
 - [ ] **Push** (only if the store wants notifications, since without `EAS_PROJECT_ID` the app never asks and every other screen works): a Firebase
       project for the store, its `google-services.json` committed under `stores/<key>/` (public client config), its FCM v1 service
       account key and the merchant's APNs key in EAS (api/DELIVERY.md §6).
+- [ ] **Crash reports** (only if the store wants them; they are on only when **both** files below are present): the store's Firebase project has an Android app (the package) **and** an iOS app (the bundle id), with Crashlytics switched on, and both client files are committed under `stores/<key>/` (`google-services.json`, `GoogleService-Info.plist`), named by `GOOGLE_SERVICES_FILE` and `GOOGLE_SERVICE_INFO_FILE`. Push uses only the Android file. They are public client config, not secrets, and the same Firebase project serves push and Crashlytics. (mobile-app/README.md §3; shop/ARCHITECTURE.md §3.)
 - [ ] **Apple Pay** (only if the store takes it): the Apple merchant identifier is made in the merchant's Apple account and named as
       `APPLE_PAY_MERCHANT_ID`; without it the Payment Sheet offers no Apple Pay.
 - [ ] **The store's website and its Shop API answer** on `STORE_HOST` (`{slug}.<SHOP_DOMAIN>`, which never changes), and the store has
@@ -70,7 +71,8 @@ per-store behaviour in code breaks ARCHITECTURE.md §1.
 | `stores/<key>/icon.png` | The app icon | 1024 × 1024 PNG, **no transparency** and no rounded corners (the stores round them) |
 | `stores/<key>/icon-foreground.png` | The Android adaptive icon foreground | 1024 × 1024 PNG, transparent background, the mark inside the middle two thirds (Android crops the rest) |
 | `stores/<key>/splash.png` | The splash image | PNG, transparent background, the mark in the middle; it must look right on `SPLASH_BACKGROUND` |
-| `stores/<key>/google-services.json` | The Firebase client config, **only for a store with push** | Named by `GOOGLE_SERVICES_FILE`; public, not a secret |
+| `stores/<key>/google-services.json` | The Firebase client config for Android, **only for a store with push or crash reports** | Named by `GOOGLE_SERVICES_FILE`; public, not a secret |
+| `stores/<key>/GoogleService-Info.plist` | The same project's iOS client config, **only for a store with crash reports**, which need this and the Android file | Named by `GOOGLE_SERVICE_INFO_FILE`; public, not a secret; `expo config` fails on one without the Android file |
 | `stores/<key>/listing/` | The store listing: name, short and full description (as saved in Settings › Mobile apps), screenshots, the privacy and data-safety answers (§6) and the reviewer's demo account **by name only** (§6) | Matches the store's name and look; no DripFunnel name, since the apps carry only the store's brand (FIRST-RELEASE §1) |
 | `eas.json` | Two profiles for the store, below, and a submit profile | Each reads `stores/<key>.env` through `STORE_KEY` |
 
@@ -127,6 +129,7 @@ eas build --profile <key>-preview --platform all
 - [ ] **An address with a pin**: "Use my location" asks for permission only when tapped; the map shows on the iPhone (Apple Maps needs no key). **On Android the first preview build has no map** (its key waits for this build's signing certificate, §2a): check the map on the second preview build, after the key is in the store file.
 - [ ] **Cart and checkout** with an offer code, a delivery option and **every payment method the store offers**, each in the provider's sandbox: cash on delivery, bank transfer, Stripe, PayPal, Razorpay, Cashfree, PhonePe.
 - [ ] **Orders**: the list, an order, and **tracking** with a rider (position, handover code) if the store has own delivery.
+- [ ] **Crash reports** (a store with both Firebase files): **the first preview build with them also proves the iOS build links**, since the Firebase pods are built as dynamic frameworks beside Stripe, Razorpay, Cashfree and PhonePe: if it does not, stop and say so on the card. Then force a crash (Firebase's own "test crash" in the console, or a throw from a screen on a scratch branch) and see it appear in the store's Crashlytics **with no name, email, phone, address, cart or amount in it**, and the customer's opaque id or none for a guest. Reports are off in a development build.
 - [ ] **Push** (a store with `EAS_PROJECT_ID`): the offer appears after the first order, never at launch; a push opens that order's tracking.
 - [ ] **Language and currency** switch, **Legal** pages open in the in-app browser, and the **offline banner** shows with the connection off and turns the buttons that write off.
 - [ ] Money, dates and counts are in the store's settings and time zone.
@@ -152,7 +155,7 @@ has one); `eas submit` carries every build after it. Public release is after the
 
 - **Apple App Privacy** and **Google Play Data safety**, answered as the store's seller of record (the merchant answers for them, merchant/BUILDS-AND-STORE-ACCOUNTS.md §5). What the app collects:
   name, email and phone (the account); delivery addresses and **precise location, only when the shopper taps "Use my location" on a pin**; order and purchase history;
-  a **push token** (a device identifier), only for a store with push; payment is made in each provider's own sheet and **the app never holds a card number**. Nothing is used to track people across other companies' apps or sites.
+  a **push token** (a device identifier), only for a store with push; **crash logs, the device model and system version, and the customer's opaque id**, only for a store with crash reports (Firebase Crashlytics, the store's own project; never a name, email, phone, address or order); payment is made in each provider's own sheet and **the app never holds a card number**. Nothing is used to track people across other companies' apps or sites.
 - **Account deletion**: the in-app route (§4 step 7) and, for Google Play, the web address that explains it.
 - **Reviewer's sign-in** (decided §1): in the review notes, a demo customer's **email and password** made by the merchant for this (an ordinary account, never a staff or Owner login), and how to reach checkout
   without a real payment. **For a store that takes mobile codes only, switch Settings › Customer accounts to "Both" before submitting and back after approval**, and say so in the notes. The credentials are written in the console and in no file of the repo;

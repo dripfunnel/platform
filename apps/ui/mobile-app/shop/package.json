@@ -14,7 +14,9 @@
   "jest": {
     "preset": "jest-expo",
     "testTimeout": 30000,
-    "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.ts"
+    ],
     "transformIgnorePatterns": [
       "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@formatjs))",
       "/node_modules/react-native-reanimated/plugin/",
@@ -25,6 +27,8 @@
     "@dripfunnel/mobile-shared": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "12.0.1",
+    "@react-native-firebase/app": "27.1.0",
+    "@react-native-firebase/crashlytics": "27.1.0",
     "@stripe/stripe-react-native": "0.64.0",
     "cashfree-pg-api-contract": "2.2.0",
     "expo": "57.0.27",
@@ -41,6 +45,7 @@
     "expo-updates": "~57.0.25",
     "expo-video": "~57.0.5",
     "expo-web-browser": "~57.0.3",
+    "promise": "8.3.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-cashfree-pg-sdk": "2.5.1",
