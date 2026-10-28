@@ -20,11 +20,18 @@
     "back": "Back",
     "loading": "Loading",
     "retry": "Try again",
-    "optional": "optional"
+    "optional": "optional",
+    "close": "Close"
   },
   "states": {
-    "error": { "title": "Couldn’t load this", "body": "Something went wrong on our side. Try again in a moment." },
-    "offline": { "title": "No signal", "body": "Check your connection and try again." }
+    "error": {
+      "title": "Couldn’t load this",
+      "body": "Something went wrong on our side. Try again in a moment."
+    },
+    "offline": {
+      "title": "No signal",
+      "body": "Check your connection and try again."
+    }
   },
   "signIn": {
     "delivery": "Delivery",
@@ -35,7 +42,9 @@
       "number": "Mobile number",
       "numberHint": "Without the country code",
       "send": "Send code",
-      "invalid": "Enter your mobile number with its country code."
+      "invalid": "Enter your mobile number with its country code.",
+      "chooseCountry": "Choose a country",
+      "select": "Select"
     },
     "code": {
       "title": "Enter the code",
@@ -127,5 +136,44 @@
     "locationWhenInUse": "{name} uses your position to show you nearby deliveries.",
     "photos": "Choose a profile photo from your photo library for {name}.",
     "camera": "Take your profile photo for {name}."
+  },
+  "countries": {
+    "AE": "United Arab Emirates",
+    "AU": "Australia",
+    "BD": "Bangladesh",
+    "BH": "Bahrain",
+    "BR": "Brazil",
+    "CA": "Canada",
+    "CN": "China",
+    "DE": "Germany",
+    "EG": "Egypt",
+    "ES": "Spain",
+    "FR": "France",
+    "GB": "United Kingdom",
+    "ID": "Indonesia",
+    "IE": "Ireland",
+    "IN": "India",
+    "IT": "Italy",
+    "JP": "Japan",
+    "KE": "Kenya",
+    "KR": "South Korea",
+    "KW": "Kuwait",
+    "LK": "Sri Lanka",
+    "MX": "Mexico",
+    "MY": "Malaysia",
+    "NG": "Nigeria",
+    "NL": "Netherlands",
+    "NP": "Nepal",
+    "NZ": "New Zealand",
+    "OM": "Oman",
+    "PH": "Philippines",
+    "PK": "Pakistan",
+    "QA": "Qatar",
+    "SA": "Saudi Arabia",
+    "SG": "Singapore",
+    "TH": "Thailand",
+    "US": "United States",
+    "VN": "Vietnam",
+    "ZA": "South Africa"
   }
 }

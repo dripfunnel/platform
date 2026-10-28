@@ -9,7 +9,8 @@ import { errorText, t } from '../../messages'
 import { useSession } from '../../session/SessionContext'
 import { Button, Field, Refusal, TextButton } from '../common/ui'
 import { useAction } from '../common/useAction'
-import { callingCodeOf, toE164 } from './phone'
+import { CountryPicker } from './CountryPicker'
+import { countryOf, dialOf, toE164, type CountryIso } from './phone'
 import { useCooldown } from './useCooldown'
 
 /** The wait before another code may be asked for, and the tries the API gives a code (docs/api/DELIVERY.md §4, §5). */
@@ -23,9 +24,9 @@ export function SignInScreen() {
   const { colors } = useTheme()
   const action = useAction()
   const cooldown = useCooldown()
-  const [countryCode, setCountryCode] = useState('')
+  const [country, setCountry] = useState<CountryIso | null>(null)
   const [national, setNational] = useState('')
-  const [typedCode, setTypedCode] = useState(false)
+  const [picked, setPicked] = useState(false)
   const [invalidPhone, setInvalidPhone] = useState(false)
   const [sentTo, setSentTo] = useState<string | null>(null)
   const [code, setCode] = useState('')
@@ -35,16 +36,16 @@ export function SignInScreen() {
 
   useEffect(() => {
     let live = true
-    fetchStoreCountry(createBrandClient(host)).then((country) => live && !typedCode && setCountryCode(callingCodeOf(country)))
+    fetchStoreCountry(createBrandClient(host)).then((iso) => live && !picked && setCountry(countryOf(iso)))
     return () => {
       live = false
     }
-  }, [host, typedCode])
+  }, [host, picked])
 
   const locked = refused >= triesPerCode || action.error === 'RATE_LIMITED'
 
   const send = async (resend: boolean) => {
-    const number = resend ? sentTo : toE164(countryCode, national)
+    const number = resend ? sentTo : country ? toE164(dialOf(country), national) : null
     setInvalidPhone(number === null)
     if (number === null) return
     const done = await action.run(() => requestCode(client, number))
@@ -89,15 +90,12 @@ export function SignInScreen() {
           <Text style={{ color: colors.textStrong }}>{t('signIn.phone.body')}</Text>
           <View style={styles.number}>
             <View style={styles.code}>
-              <Field
-                label={t('signIn.phone.countryCode')}
-                value={countryCode ? `+${countryCode}` : '+'}
-                onChangeText={(value) => {
-                  setTypedCode(true)
-                  setCountryCode(value.replaceAll(/\D/g, '').slice(0, 4))
+              <CountryPicker
+                value={country}
+                onChange={(iso) => {
+                  setPicked(true)
+                  setCountry(iso)
                 }}
-                keyboardType="phone-pad"
-                maxLength={5}
               />
             </View>
             <View style={styles.national}>
@@ -152,6 +150,6 @@ const styles = StyleSheet.create({
   form: { gap: 16 },
   title: { fontSize: 26, fontWeight: '800' },
   number: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  code: { width: 96 },
+  code: { width: 132 },
   national: { flex: 1 },
 })

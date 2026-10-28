@@ -1,6 +1,7 @@
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { act, type ReactTestRenderer } from 'react-test-renderer'
 import { errorText, t } from '../../messages'
+import { fetchStoreCountry } from '../../api/rider'
 import { fakeSession, fill, hasButton, hasText, isDisabled, pressableNamed, press, render, type Request } from '../../testing/harness'
 import { resendSeconds, SignInScreen, triesPerCode } from './SignInScreen'
 
@@ -31,13 +32,35 @@ describe('getting in: the mobile number', () => {
   it('preselects the store’s country code and asks for the code in international form', async () => {
     const session = fakeSession(() => ({ requestCode: true }), { signedIn: false })
     const screen = await render(<SignInScreen />, session)
-    expect(screen.root.findAll((node) => node.props.accessibilityLabel === t('signIn.phone.countryCode') && node.props.value === '+91')).not.toHaveLength(0)
+    expect(hasText(screen, '🇮🇳 +91')).toBe(true)
 
     await asksFor(screen)
 
     expect(calls(session.requests, 'requestCode')[0]?.variables).toEqual({ phone: '+919876543210' })
     expect(hasText(screen, t('signIn.code.title'))).toBe(true)
     expect(hasText(screen, '+919876543210')).toBe(true)
+  })
+
+  it('lets the rider choose another country code from a list with flags', async () => {
+    const session = fakeSession(() => ({ requestCode: true }), { signedIn: false })
+    const screen = await render(<SignInScreen />, session)
+    await press(screen, t('signIn.phone.countryCode') + ': India +91')
+    expect(hasText(screen, '🇬🇧')).toBe(true)
+    await press(screen, 'United Kingdom +44')
+    expect(hasText(screen, '🇬🇧 +44')).toBe(true)
+
+    await asksFor(screen, '07911 123456')
+    expect(calls(session.requests, 'requestCode')[0]?.variables).toEqual({ phone: '+447911123456' })
+  })
+
+  it('asks for a country when the store’s is not known, and sends nothing without one', async () => {
+    jest.mocked(fetchStoreCountry).mockResolvedValueOnce(null)
+    const session = fakeSession(() => ({ requestCode: true }), { signedIn: false })
+    const screen = await render(<SignInScreen />, session)
+    expect(hasText(screen, t('signIn.phone.chooseCountry'))).toBe(true)
+    await asksFor(screen)
+    expect(hasText(screen, t('signIn.phone.invalid'))).toBe(true)
+    expect(session.requests).toHaveLength(0)
   })
 
   it('does not ask the API for a number that cannot be one', async () => {

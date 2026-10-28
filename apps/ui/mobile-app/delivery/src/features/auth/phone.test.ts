@@ -1,4 +1,4 @@
-import { callingCodeOf, toE164 } from './phone'
+import { countries, countryOf, dialOf, flagOf, toE164 } from './phone'
 
 describe('the mobile number', () => {
   it('is put in international form from the country code and the national number', () => {
@@ -17,9 +17,15 @@ describe('the mobile number', () => {
     expect(toE164('91', '9'.repeat(20))).toBeNull()
   })
 
-  it('preselects the store’s country, and leaves the code to type for one it does not know', () => {
-    expect(callingCodeOf('IN')).toBe('91')
-    expect(callingCodeOf('ZZ')).toBe('')
-    expect(callingCodeOf(null)).toBe('')
+  it('knows the store’s country when it is in the list, and none for one that is not', () => {
+    expect(countryOf('IN')).toBe('IN')
+    expect(dialOf('IN')).toBe('91')
+    expect(countryOf('ZZ')).toBeNull()
+    expect(countryOf(null)).toBeNull()
+  })
+
+  it('draws a flag for every country in the list', () => {
+    expect(flagOf('IN')).toBe('🇮🇳')
+    expect(countries.every((country) => flagOf(country.iso).length === 4)).toBe(true)
   })
 })
