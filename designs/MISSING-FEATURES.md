@@ -4,7 +4,7 @@ This compares the DF Store merchant portal, as designed in this folder, with **S
 **Wix eCommerce** and the **first DripFunnel platform**, which was built on a third-party
 commerce framework and has since been removed from the workspace.
 
-Last updated: 2026-10-27 (#846: what an order's Delivery panel draws but the first release doesn't have, §4). Before: 2026-10-23 (#854: what the shop app drawing shows but the first release doesn't have, §5). Before: 2026-10-23 (#837: the delivery app and own-delivery drawings, §4). Earlier: 2026-10-05.
+Last updated: 2026-10-28 (#852: the admin store's Delivery app tab, §4). Before: 2026-10-27 (#846: what an order's Delivery panel draws but the first release doesn't have, §4). Before: 2026-10-23 (#854: what the shop app drawing shows but the first release doesn't have, §5). Before: 2026-10-23 (#837: the delivery app and own-delivery drawings, §4). Earlier: 2026-10-05.
 
 "Missing" means DF Store has no screen or flow for the feature at all. When something is
 started but not finished, it is in [INCOMPLETE-FEATURES.md](INCOMPLETE-FEATURES.md).
@@ -254,6 +254,7 @@ Drawn in the prototypes but not in the first release, or linked to something tha
 | Setting a warehouse's map pin on a map | `SetOwnDelivery` › "Set the map pin" places the pin at the address | The map picker is #815's | #815 |
 | The delivery app’s download link with Copy link, on Settings › Riders | `SetRiders` | The API gives no app link until DL 15 | #852 |
 | Own delivery and Delivery needs you chips and the delivery line on a row, in the merchant app’s Orders list | `PortalOrders` list | The merchant app’s #847 built the order’s panel only; the API’s filters exist | — |
+| A Delivery app tab on a store (upload or replace the APK, set the minimum build) | `DF Admin Prototype` store detail has no such tab | Built on #852 from docs/ui/admin/FIRST-RELEASE.md §5.2, with the console's own panels and fields | #852 |
 | Open settings / Call / Navigate from the delivery app | Delivery app (toasts) | Hand-offs to the phone's OS and map apps | — |
 
 ## 5. The shop app (#854)

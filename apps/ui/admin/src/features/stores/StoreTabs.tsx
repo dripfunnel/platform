@@ -6,7 +6,7 @@ const words = messages.store
 
 // The tabs decided on #20, in its order, with Customers after Users where the prototype has it
 // (#42).
-export const storeTabs = ['overview', 'storefront', 'domains', 'provisioning', 'users', 'customers', 'support', 'activity', 'notes'] as const
+export const storeTabs = ['overview', 'storefront', 'deliveryApp', 'domains', 'provisioning', 'users', 'customers', 'support', 'activity', 'notes'] as const
 export type StoreTab = (typeof storeTabs)[number]
 
 export const StoreTabs = ({ storeId, current }: { storeId: string; current: StoreTab }) => (

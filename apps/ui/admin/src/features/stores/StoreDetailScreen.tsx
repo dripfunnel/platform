@@ -23,6 +23,9 @@ const shellRoute = getRouteApi('/_app')
 
 type Pending = { kind: 'store'; action: DialogAction } | { kind: 'job'; action: JobAction }
 
+// ACCESS.md §5.4 `stores.deliveryApp.write`; the API enforces it, this only turns the controls off.
+const deliveryAppRoles: readonly string[] = ['staff-super-admin', 'staff-engineer']
+
 const dialogActions: readonly DialogAction[] = ['suspend', 'restore', 'extendTrial', 'resendInvite']
 
 // ?state=confirm opens the first action this store offers, its signup job's first, so its
@@ -137,6 +140,8 @@ export const StoreDetailScreen = () => {
           onFilterChange: (filter) => void navigate({ to: '.', search: { tab, ...filter }, replace: true }),
         }}
         onReload={() => void router.invalidate()}
+        canChangeDeliveryApp={deliveryAppRoles.includes(me.role)}
+        onToast={setToast}
         activity={
           store && (
             <ActivityTab

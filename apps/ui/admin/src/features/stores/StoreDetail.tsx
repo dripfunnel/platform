@@ -7,6 +7,7 @@ import type { Store, StoreDnsRecord } from '../../api/stores'
 import { messages } from '../../messages'
 import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { CustomersTab, type StoreCustomers } from './CustomersTab'
+import { DeliveryAppTab } from './DeliveryAppTab'
 import { DomainsTab } from './DomainsTab'
 import { NotesTab } from './NotesTab'
 import { OverviewTab } from './OverviewTab'
@@ -36,6 +37,8 @@ export interface StoreDetailProps {
   onReload: () => void
   // The Activity tab, built by the screen with its filters in the page's URL.
   activity: ReactNode
+  canChangeDeliveryApp: boolean
+  onToast: (message: string) => void
 }
 
 export const StoreLoading = () => (
@@ -50,14 +53,16 @@ export const StoreError = ({ onRetry, details }: { onRetry: () => void; details?
   </div>
 )
 
-type TabProps = Pick<StoreDetailProps, 'tab' | 'onJob' | 'onAddNote' | 'onRecheck' | 'onImpersonate' | 'customers' | 'activity'> & { store: Store }
+type TabProps = Pick<StoreDetailProps, 'tab' | 'onJob' | 'onAddNote' | 'onRecheck' | 'onImpersonate' | 'customers' | 'activity' | 'canChangeDeliveryApp' | 'onToast'> & { store: Store }
 
-const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, onImpersonate, customers, activity }: TabProps) => {
+const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, onImpersonate, customers, activity, canChangeDeliveryApp, onToast }: TabProps) => {
   switch (tab) {
     case 'overview':
       return <OverviewTab store={store} />
     case 'storefront':
       return <StorefrontTab store={store} />
+    case 'deliveryApp':
+      return <DeliveryAppTab store={store} canChange={canChangeDeliveryApp} onToast={onToast} />
     case 'domains':
       return <DomainsTab store={store} onRecheck={onRecheck} />
     case 'provisioning':
@@ -75,7 +80,7 @@ const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, onImpersonate, cu
   }
 }
 
-export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onAddNote, onRecheck, onImpersonate, customers, onReload, activity }: StoreDetailProps) => {
+export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onAddNote, onRecheck, onImpersonate, customers, onReload, activity, canChangeDeliveryApp, onToast }: StoreDetailProps) => {
   if (forced === 'loading') return <StoreLoading />
   if (forced === 'error') return <StoreError onRetry={onReload} />
   if (!store) {
@@ -98,7 +103,7 @@ export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onA
       {readOnly && <ReadOnlyNotice title={messages.stores.readOnly.title} body={messages.stores.readOnly.body} />}
       <StoreHeader store={store} onAction={onAction} onJob={onJob} />
       <StoreTabs storeId={store.id} current={tab} />
-      <TabContent store={store} tab={tab} onJob={onJob} onAddNote={onAddNote} onRecheck={onRecheck} onImpersonate={onImpersonate} customers={customers} activity={activity} />
+      <TabContent store={store} tab={tab} onJob={onJob} onAddNote={onAddNote} onRecheck={onRecheck} onImpersonate={onImpersonate} customers={customers} activity={activity} canChangeDeliveryApp={canChangeDeliveryApp} onToast={onToast} />
     </div>
   )
 }

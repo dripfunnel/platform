@@ -46,6 +46,6 @@ export const handleDeliveryApp = async (request: Request, target: DeliveryAppRou
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
   const query = new URL(request.url).searchParams
   const length = Number(request.headers.get('content-length') ?? NaN)
-  const input = { versionName: query.get('versionName') ?? '', buildNumber: Number(query.get('buildNumber') ?? NaN), reason: request.headers.get('x-reason') ?? '' }
+  const input = { versionName: query.get('versionName') ?? '', buildNumber: Number(query.get('buildNumber') ?? NaN), reason: request.headers.get('x-reason') ?? query.get('reason') ?? '' }
   return answer(await service.upload(target.storeId, input, request.body, length))
 }
