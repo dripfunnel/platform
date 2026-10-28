@@ -349,6 +349,34 @@ describe('publishing from the studio', () => {
     expect(github.files(repo)?.get('content/en/pages.json')).toContain('Seen on open.')
   })
 
+  it('a read-only store’s studio takes no hand push, and a push it can’t take never stops the studio opening', async () => {
+    const before = (await repoHead()) ?? ''
+    const taken = await takenCount()
+    const opens = async () => expect((await w.gql('owner', '{ studioSession { state } }')).data?.['studioSession']).toEqual({ state: 'ready' })
+    const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
+    await pushByHand('While past due', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Past due."') }])
+    await db.sql`update store set status = 'past_due' where id = ${t.storeA1}`
+    try {
+      await opens()
+    } finally {
+      await db.sql`update store set status = 'active' where id = ${t.storeA1}`
+    }
+    expect(await repoHead()).toBe(before)
+    resetMain(before)
+    const page = template.find((f) => f.path.startsWith('src/theme/pages/') && f.path.endsWith('.tsx'))?.path ?? ''
+    await pushByHand('Refused on open', [{ path: page, content: 'export const broken: number = "text"\n' }])
+    await opens()
+    githubDown = true
+    try {
+      await opens()
+    } finally {
+      githubDown = false
+    }
+    expect(await repoHead()).toBe(before)
+    expect(await takenCount()).toBe(taken)
+    resetMain(before)
+  })
+
   it('never reads or takes another store’s hand push: store B’s Publish leaves store A’s repo head alone', async () => {
     const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
     await pushByHand('Store A only', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Store A only."') }])
