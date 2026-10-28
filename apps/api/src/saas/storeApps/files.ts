@@ -1,4 +1,4 @@
-import { maxBrandFileBytes, type BrandFileKind } from '#saas/partnerBranding/brandFile'
+import { maxBrandFileBytes, type BrandFileKind } from '#saas/partnerBranding/index'
 
 // The store's app images are the partner's (BUILD-CHECKLIST §2): PNG, 1024 × 1024 for both icons, no transparency in the app icon, at most 512 KB.
 
