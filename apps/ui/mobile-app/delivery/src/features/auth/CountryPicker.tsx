@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { t } from '../../messages'
 import { TextButton } from '../common/ui'
-import { countries, dialOf, flagOf, type CountryIso } from './phone'
+import { countries, dialOf, flagOf, matchesSearch, type CountryIso } from './phone'
 
 const byName = [...countries].sort((a, b) => t(`countries.${a.iso}`).localeCompare(t(`countries.${b.iso}`)))
 
@@ -13,6 +13,12 @@ type Props = { value: CountryIso | null; onChange: (country: CountryIso) => void
 export function CountryPicker({ value, onChange }: Props) {
   const { colors, radii, controlHeight } = useTheme()
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const shown = byName.filter((country) => matchesSearch(t(`countries.${country.iso}`), country.dial, query))
+  const close = () => {
+    setOpen(false)
+    setQuery('')
+  }
   const label = value ? `${t('signIn.phone.countryCode')}: ${t(`countries.${value}`)} +${dialOf(value)}` : `${t('signIn.phone.countryCode')}: ${t('signIn.phone.chooseCountry')}`
 
   return (
@@ -31,18 +37,30 @@ export function CountryPicker({ value, onChange }: Props) {
         </Text>
       </Pressable>
 
-      <Modal transparent animationType="slide" visible={open} onRequestClose={() => setOpen(false)}>
+      <Modal transparent animationType="slide" visible={open} onRequestClose={close}>
         <View style={[styles.backdrop, { backgroundColor: colors.backdrop }]}>
           <View accessibilityViewIsModal style={[styles.sheet, { backgroundColor: colors.surface, borderTopLeftRadius: radii.sheet, borderTopRightRadius: radii.sheet }]}>
             <View style={styles.head}>
               <Text accessibilityRole="header" style={[styles.title, { color: colors.heading }]}>
                 {t('signIn.phone.chooseCountry')}
               </Text>
-              <TextButton label={t('common.close')} onPress={() => setOpen(false)} />
+              <TextButton label={t('common.close')} onPress={close} />
             </View>
+            <TextInput
+              accessibilityLabel={t('signIn.phone.search')}
+              placeholder={t('signIn.phone.search')}
+              placeholderTextColor={colors.muted}
+              value={query}
+              onChangeText={setQuery}
+              autoCorrect={false}
+              autoCapitalize="none"
+              style={[styles.search, { minHeight: controlHeight, borderRadius: radii.button, borderColor: colors.fieldBorder, color: colors.text, backgroundColor: colors.surface }]}
+            />
             <FlatList
-              data={byName}
+              keyboardShouldPersistTaps="handled"
+              data={shown}
               initialNumToRender={byName.length}
+              ListEmptyComponent={<Text accessibilityRole="alert" style={[styles.none, { color: colors.muted }]}>{t('signIn.phone.noMatch')}</Text>}
               keyExtractor={(country) => country.iso}
               renderItem={({ item }) => {
                 const chosen = item.iso === value
@@ -53,7 +71,7 @@ export function CountryPicker({ value, onChange }: Props) {
                     accessibilityState={{ checked: chosen }}
                     onPress={() => {
                       onChange(item.iso)
-                      setOpen(false)
+                      close()
                     }}
                     style={[styles.row, { backgroundColor: chosen ? colors.selected : colors.surface, borderColor: colors.border }]}
                   >
@@ -80,4 +98,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '800' },
   row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, borderBottomWidth: 1 },
   flag: { fontSize: 24 },
+  search: { marginHorizontal: 20, marginVertical: 8, borderWidth: 1, paddingHorizontal: 14, fontSize: 16 },
+  none: { padding: 24, textAlign: 'center', fontSize: 15 },
 })

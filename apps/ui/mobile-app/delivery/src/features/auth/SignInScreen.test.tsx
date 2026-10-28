@@ -53,11 +53,25 @@ describe('getting in: the mobile number', () => {
     expect(calls(session.requests, 'requestCode')[0]?.variables).toEqual({ phone: '+447911123456' })
   })
 
+  it('searches the list by name or by code, and says when nothing matches', async () => {
+    const session = fakeSession(() => ({ requestCode: true }), { signedIn: false })
+    const screen = await render(<SignInScreen />, session)
+    await press(screen, t('signIn.phone.countryCode') + ': India +91')
+    await fill(screen, t('signIn.phone.search'), 'ger')
+    expect(hasText(screen, 'Germany')).toBe(true)
+    expect(hasText(screen, 'India')).toBe(false)
+    await fill(screen, t('signIn.phone.search'), '+971')
+    expect(hasText(screen, 'United Arab Emirates')).toBe(true)
+    expect(hasText(screen, 'Germany')).toBe(false)
+    await fill(screen, t('signIn.phone.search'), 'atlantis')
+    expect(hasText(screen, t('signIn.phone.noMatch'))).toBe(true)
+  })
+
   it('asks for a country when the store’s is not known, and sends nothing without one', async () => {
     jest.mocked(fetchStoreCountry).mockResolvedValueOnce(null)
     const session = fakeSession(() => ({ requestCode: true }), { signedIn: false })
     const screen = await render(<SignInScreen />, session)
-    expect(hasText(screen, t('signIn.phone.chooseCountry'))).toBe(true)
+    expect(hasText(screen, t('signIn.phone.select'))).toBe(true)
     await asksFor(screen)
     expect(hasText(screen, t('signIn.phone.invalid'))).toBe(true)
     expect(session.requests).toHaveLength(0)

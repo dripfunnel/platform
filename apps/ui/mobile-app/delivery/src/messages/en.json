@@ -44,7 +44,9 @@
       "send": "Send code",
       "invalid": "Enter your mobile number with its country code.",
       "chooseCountry": "Choose a country",
-      "select": "Select"
+      "select": "Select",
+      "search": "Search by country or code",
+      "noMatch": "No country matches that."
     },
     "code": {
       "title": "Enter the code",

@@ -29,3 +29,11 @@ export const dialOf = (iso: CountryIso): string => countries.find((country) => c
 
 /** The flag emoji for an ISO 3166 code: its two letters as regional indicator symbols. */
 export const flagOf = (iso: string): string => String.fromCodePoint(...[...iso.toUpperCase()].map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65))
+
+/** Whether a country answers a search: by part of its name, or by its calling code with or without the `+`. */
+export const matchesSearch = (name: string, dial: string, query: string): boolean => {
+  const wanted = query.trim().toLowerCase()
+  if (!wanted) return true
+  const code = wanted.replace(/^\+/, '')
+  return name.toLowerCase().includes(wanted) || (code !== '' && /^\d+$/.test(code) && dial.startsWith(code))
+}

@@ -1,4 +1,4 @@
-import { countries, countryOf, dialOf, flagOf, toE164 } from './phone'
+import { countries, countryOf, dialOf, flagOf, matchesSearch, toE164 } from './phone'
 
 describe('the mobile number', () => {
   it('is put in international form from the country code and the national number', () => {
@@ -22,6 +22,15 @@ describe('the mobile number', () => {
     expect(dialOf('IN')).toBe('91')
     expect(countryOf('ZZ')).toBeNull()
     expect(countryOf(null)).toBeNull()
+  })
+
+  it('finds a country by part of its name, or by its calling code with or without the +', () => {
+    expect(matchesSearch('United Kingdom', '44', 'king')).toBe(true)
+    expect(matchesSearch('United Kingdom', '44', '+44')).toBe(true)
+    expect(matchesSearch('United Kingdom', '44', '4')).toBe(true)
+    expect(matchesSearch('United Kingdom', '44', '91')).toBe(false)
+    expect(matchesSearch('India', '91', 'zzz')).toBe(false)
+    expect(matchesSearch('India', '91', '  ')).toBe(true)
   })
 
   it('draws a flag for every country in the list', () => {
