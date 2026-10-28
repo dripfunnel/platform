@@ -1,15 +1,20 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
+import { useShop } from '../../api/ShopContext'
 import type { Cart, PlacedOrder } from '../../api/cart'
 import { t } from '../../messages'
+import { PushOffer } from '../../push/PushOffer'
+import { usePushAsk } from '../../push/usePushAsk'
 import { money } from '../catalogue/words'
 import { Button } from '../common/ui'
 import { OrderSummary } from './OrderSummary'
 import { Details } from './ReviewStep'
 
 /** The order is placed: its number, what to do next, and what was ordered. `paid` only when it was read back as paid after a provider's sheet. */
-export function Confirmation({ order, cart, paid = false, onDone }: { order: PlacedOrder; cart: Cart; paid?: boolean; onDone: () => void }) {
+export function Confirmation({ order, cart, paid = false, onDone, onViewOrder }: { order: PlacedOrder; cart: Cart; paid?: boolean; onDone: () => void; onViewOrder: () => void }) {
   const { colors, radii } = useTheme()
+  const { signedIn } = useShop()
+  const ask = usePushAsk(order.orderId, !signedIn)
   const total = order.total ?? cart.total
   const bank = order.provider === 'bank_transfer'
   const cod = order.provider === 'cod'
@@ -38,7 +43,9 @@ export function Confirmation({ order, cart, paid = false, onDone }: { order: Pla
       ) : null}
       <Details cart={cart} provider={order.provider} />
       <OrderSummary cart={cart} title={t('checkout.placed.orderTitle', { number: order.number })} />
-      <Button label={t('checkout.placed.done')} onPress={onDone} />
+      {ask.show ? <PushOffer ask={ask} /> : null}
+      <Button label={t('checkout.placed.viewOrder')} onPress={onViewOrder} />
+      <Button kind="secondary" label={t('checkout.placed.done')} onPress={onDone} />
     </ScrollView>
   )
 }

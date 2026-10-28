@@ -4,7 +4,7 @@ import { decodeCursor, encodeCursor } from '#core/cursor'
 import { standingPerson } from '#auth/storeCaller'
 import { endStudioSession } from '#saas/studio/index'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { actingCaller, readOnlyFor, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
 import { answered, designWrite } from './storefront'
 
@@ -22,6 +22,8 @@ const studioFor = (ctx: StoreContext) => {
     activity: ctx.activity,
     facts: ctx.facts,
     studio: ctx.studio?.(caller.context) ?? null,
+    // The session is a read, so a read-only store's studio takes no hand push (mutations refuse it in access.ts).
+    repos: readOnlyFor(caller.role.side, caller.store.status) ? null : (ctx.repos ?? null),
     role: caller.role,
     ai: design?.ai ?? (() => null),
     screenshots: design?.screenshots ?? null,

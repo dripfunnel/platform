@@ -85,7 +85,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    *Why the Durable Object and not the container:* the container has no network. *Why never
    GitHub:* it doesn't have the unpublished changes, its `main` can lag behind a publish whose push
    is still retrying, and reading R2 doesn't use GitHub's API limits.
-5. **The container builds the first bundle** with the fast gate's bundle step.
+5. **The container builds the first bundle** with the fast gate's bundle step. Once it is up, the Owner's studio takes
+   a hand push to the repo's `main` as one change, the only time it reads GitHub (LIVE-SHOP §4 step 2).
 6. **The frame opens** at `https://{slug}-preview.my-store.one/__studio/{session}/`. `{session}` is
    an unguessable studio-session id (128 random bits) that the Store API creates for this store's
    session. **Every frame request carries it in its path**, so no cookie is needed in the
@@ -193,7 +194,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    allowlist, the only paths accepted (anything else under `src/theme` is the template's and stays), and the upgrade bot may write anywhere but `.github/**`. The commit's parent is
    `storefront.repo_head`, and `main` moves only as a fast-forward from it, so a push finding
    `main` elsewhere is refused (`MAIN_MOVED`) and nothing changes. A hand push to `main` doesn't end in that refusal: the
-   next design Publish takes its theme changes into the draft and moves `repo_head` to it first (LIVE-SHOP §4 step 2). Each push has the caller's key
+   Owner's next studio opening or design Publish takes its theme changes into the draft and moves `repo_head` to it first (LIVE-SHOP §4 step 2). Each push has the caller's key
    (`storefront_push`): a retry returns the first push's commit, and one retried after a crash
    rebuilds the identical commit (the same tree, parent and date) and finds it on `main` or in its
    history, so a push never lands twice. Commits are authored as `DripFunnel <noreply@dripfunnel.com>`.

@@ -34,7 +34,7 @@ document disagrees. Then open only the part your task touches:
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
 | Creating a card (task, bug or feature) on the DF Platform board | [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md) |
 | Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
-| Shop or delivery app (`apps/ui/mobile-app/shop`: Home, Browse, search, the product page, sign-in, Account and addresses, Cart and checkout built; `delivery`: set up (#848), getting in and Profile built (#849)) | [docs/mobile-app/README.md](docs/mobile-app/README.md), then the app's FIRST-RELEASE and ARCHITECTURE |
+| Shop or delivery app (`apps/ui/mobile-app/shop`: Home, Browse, search, the product page, sign-in, Account and addresses, Cart and checkout with every payment method, Orders with live delivery tracking, and push built; `delivery`: set up (#848), getting in and Profile built (#849)) | [docs/mobile-app/README.md](docs/mobile-app/README.md), then the app's FIRST-RELEASE and ARCHITECTURE |
 | Merchant mobile app (`apps/ui/mobile-app/merchant`) | [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md): start with REACT-NATIVE, then DESIGN and ARCHITECTURE |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 | Storefront builds, hosting, preview, the studio's sandbox | [docs/storefront/LIVE-SHOP.md](docs/storefront/LIVE-SHOP.md), [PREVIEW.md](docs/storefront/PREVIEW.md), [AI-STUDIO.md](docs/storefront/AI-STUDIO.md) |
@@ -154,7 +154,7 @@ Run the gates before reporting a change as done.
 - Pushing `main` runs migrations against the real prod database and uploads a new Worker
   version — nothing goes live until `promote.yml` is run by hand (docs/ARCHITECTURE.md §6).
   Treat a push to `main` as a production action. The repo variable `GATES_CHECK=0` skips every
-  workflow's gates, prod's included; leave it unset or delete it as soon as the exception ends (#870).
+  workflow's gates, prod's included; `GATES_CHECK=pr` skips only the pull-request gates and leaves the dev and prod gates on. Leave it unset or delete it as soon as the exception ends (#870, #961).
 
 ## Rules
 

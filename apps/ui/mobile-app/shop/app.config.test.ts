@@ -79,6 +79,30 @@ describe('app.config.ts', () => {
     expect(config.ios?.infoPlist?.['LSApplicationQueriesSchemes']).toEqual(['phonepe', 'tez', 'paytmmp', 'paytm', 'bhim'])
   })
 
+  it('sets up push only for a store that names its EAS project, and gives Android its Firebase file from the store’s own folder', () => {
+    const plain = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    expect(plain.extra).not.toHaveProperty('eas')
+    expect(plain.android).not.toHaveProperty('googleServicesFile')
+
+    writeFileSync(join(root, 'stores/dev/google-services.json'), '{}')
+    editDevEnv((lines) => [...lines, 'EAS_PROJECT_ID=0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    const push = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(push.extra).toMatchObject({ eas: { projectId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' } })
+    expect(push.android?.googleServicesFile).toBe('./stores/dev/google-services.json')
+    expect(push.plugins).toContain('expo-notifications')
+  })
+
+  it('refuses a push project that is not an id, and a Firebase file that is missing or another store’s', () => {
+    editDevEnv((lines) => [...lines, 'EAS_PROJECT_ID=my-project'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/EAS_PROJECT_ID/)
+
+    editDevEnv((lines) => [...lines.filter((l) => !l.startsWith('EAS_PROJECT_ID')), 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/does not exist/)
+
+    editDevEnv((lines) => [...lines.filter((l) => !l.startsWith('GOOGLE_SERVICES_FILE')), 'GOOGLE_SERVICES_FILE=stores/other/google-services.json'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/is not under stores\/dev\//)
+  })
+
   it('refuses an Apple merchant identifier that is not shaped like one', () => {
     editDevEnv((lines) => [...lines, 'APPLE_PAY_MERCHANT_ID=juniper'])
     expect(() => readStoreEnv(root, 'dev')).toThrow(/APPLE_PAY_MERCHANT_ID/)

@@ -28,6 +28,10 @@ export const storeEnvSchema = z
     GOOGLE_MAPS_ANDROID_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'a Google Maps API key, which starts AIza').optional(),
     // The store's Apple merchant identifier, from its Apple developer account: public, and only a store that takes Apple Pay has one. Without it the Payment Sheet offers no Apple Pay
     APPLE_PAY_MERCHANT_ID: z.string().regex(/^merchant\.[A-Za-z0-9.-]+$/, 'an Apple merchant identifier such as merchant.com.acme.shop').optional(),
+    // The store's own EAS project, which Expo's push service makes a token for: public. Without it the app never asks for notifications or registers a phone (docs/mobile-app/README.md §3)
+    EAS_PROJECT_ID: z.uuid('an EAS project id, a UUID').optional(),
+    // The Firebase file Android needs to get a push token, under stores/<store>/: a public client config, not a secret
+    GOOGLE_SERVICES_FILE: z.string().regex(/^stores\/[a-z][a-z0-9-]*\/google-services\.json$/, 'a path such as stores/dev/google-services.json').optional(),
   })
   .refine((env) => env.UPDATES_CHANNEL === env.STORE_KEY, { path: ['UPDATES_CHANNEL'], message: 'must equal STORE_KEY' })
 
@@ -53,10 +57,11 @@ export function readStoreEnv(root: string, key: string | undefined): StoreEnv {
   const env = parsed.data
   if (env.STORE_KEY !== keyResult.data) fail(file, [`STORE_KEY: is ${env.STORE_KEY}, but the file is for ${keyResult.data}`])
 
-  // A store's build never ships another store's image.
-  const foreign = imageKeys.filter((name) => !env[name].startsWith(`stores/${env.STORE_KEY}/`)).map((name) => `${name}: ${env[name]} is not under stores/${env.STORE_KEY}/`)
+  // A store's build never ships another store's image or file.
+  const files = [...imageKeys.map((name) => [name, env[name]] as const), ...(env.GOOGLE_SERVICES_FILE ? [['GOOGLE_SERVICES_FILE', env.GOOGLE_SERVICES_FILE] as const] : [])]
+  const foreign = files.filter(([, path]) => !path.startsWith(`stores/${env.STORE_KEY}/`)).map(([name, path]) => `${name}: ${path} is not under stores/${env.STORE_KEY}/`)
   if (foreign.length > 0) fail(file, foreign)
-  const missing = imageKeys.filter((name) => !existsSync(join(root, env[name]))).map((name) => `${name}: ${env[name]} does not exist`)
+  const missing = files.filter(([, path]) => !existsSync(join(root, path))).map(([name, path]) => `${name}: ${path} does not exist`)
   if (missing.length > 0) fail(file, missing)
   return env
 }
@@ -81,6 +86,7 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
       ...(env.GOOGLE_MAPS_ANDROID_KEY ? { config: { googleMaps: { apiKey: env.GOOGLE_MAPS_ANDROID_KEY } } } : {}),
+      ...(env.GOOGLE_SERVICES_FILE ? { googleServicesFile: `./${env.GOOGLE_SERVICES_FILE}` } : {}),
     },
     plugins: [
       'expo-router',
@@ -90,13 +96,19 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       ['expo-location', { locationWhenInUsePermission: messages.permissions.location.replace('{name}', env.APP_NAME) }],
       // Stripe's Payment Sheet: Google Pay is switched on (the sheet shows it only where the device and the account allow it); Apple Pay only for a store with a merchant identifier.
       ['@stripe/stripe-react-native', { enableGooglePay: true, ...(env.APPLE_PAY_MERCHANT_ID ? { merchantIdentifier: env.APPLE_PAY_MERCHANT_ID } : {}) }],
+      'expo-notifications',
       // PhonePe's Android SDK is served from PhonePe's own repository, not Maven Central; Android 11+ lists the UPI apps an app may open (shop/ARCHITECTURE.md §3).
       [
         'expo-build-properties',
         { android: { extraMavenRepos: [phonePeMavenRepo], manifestQueries: { intent: [{ action: 'android.intent.action.VIEW', data: { scheme: 'upi', host: 'pay' } }] } } },
       ],
     ],
-    extra: { STORE_HOST: env.STORE_HOST, APP_SCHEME: env.APP_SCHEME, ...(env.APPLE_PAY_MERCHANT_ID ? { APPLE_PAY_MERCHANT_ID: env.APPLE_PAY_MERCHANT_ID } : {}) },
+    extra: {
+      STORE_HOST: env.STORE_HOST,
+      APP_SCHEME: env.APP_SCHEME,
+      ...(env.APPLE_PAY_MERCHANT_ID ? { APPLE_PAY_MERCHANT_ID: env.APPLE_PAY_MERCHANT_ID } : {}),
+      ...(env.EAS_PROJECT_ID ? { eas: { projectId: env.EAS_PROJECT_ID } } : {}),
+    },
   }
 }
 

@@ -16,6 +16,7 @@ import { checkedUrl } from '#integrations/http/publicFetch'
 import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
+import { takeHandPush } from './handPush'
 import { designModel, type DesignBrief, type Device } from './model'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { designAudit, designErrors, designNotes } from './words'
@@ -91,6 +92,11 @@ export const createStudioService = (deps: StudioDeps) => {
     const opened = existing && renewed ? { id: existing, access, expiresAt: renewed } : await openStudioSession(sql, context, deps.role, now())
     if (!opened) return { ok: false, reason: 'NOT_FOUND' }
     const state = await studio.status(storeId)
+    // Taken once the sandbox is up, so the preview and Publish show it; a push that can't be taken never stops the studio opening.
+    if (state.state === 'ready' && opened.access === 'change') {
+      const taken = await takeHandPush(deps, entry)
+      if (!taken.ok) logEvent({ event: 'storefront_hand_push_not_taken', api: 'store', storeId, code: taken.reason })
+    }
     return { ok: true, value: { ...state, session: opened.id, frameUrl: `https://${key.slug}-preview.${deps.previewDomain}/__studio/${opened.id}/`, access: opened.access, expiresAt: opened.expiresAt } }
   }
 
