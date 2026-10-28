@@ -12,7 +12,12 @@ export function CodeEntry({ code, onChange, offline, refusal }: { code: string; 
         {t('delivery.code.title')}
       </Text>
       <Text style={{ color: colors.textStrong }}>{t('delivery.code.body')}</Text>
-      {offline ? <Text style={{ color: colors.warning, fontWeight: '700' }}>{t('delivery.noSignalCode.title')}</Text> : null}
+      {offline ? (
+        <View style={styles.box}>
+          <Text style={{ color: colors.warning, fontWeight: '700' }}>{t('delivery.noSignalCode.title')}</Text>
+          <Text style={{ color: colors.textStrong }}>{t('delivery.noSignalCode.body')}</Text>
+        </View>
+      ) : null}
       <Field
         label={t('delivery.code.label')}
         value={code}

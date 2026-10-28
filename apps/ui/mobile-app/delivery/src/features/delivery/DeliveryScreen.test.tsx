@@ -249,6 +249,7 @@ describe('without signal', () => {
     const screen = await render(withQueue(), fakeSession(answer))
     await press(screen, t('delivery.delivered'))
     expect(hasText(screen, t('delivery.noSignalCode.title'))).toBe(true)
+    expect(hasText(screen, t('delivery.noSignalCode.body'))).toBe(true)
     await fill(screen, t('delivery.code.label'), '2580')
     await press(screen, t('delivery.code.confirm'))
     expect(sent.some((request) => request.query.includes('markDelivered'))).toBe(false)
