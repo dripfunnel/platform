@@ -22,10 +22,9 @@ export interface AiOAuthDeps {
 }
 
 export type BeginResult = { ok: true; url: string } | { ok: false; reason: 'UNAVAILABLE' | 'NOT_CONFIGURED' | 'INVALID_INPUT' }
-export type CallbackResult = { returnHost: string; kind: AiOwner['kind']; outcome: 'finish' | 'cancelled' | 'failed'; key?: string; attempt: AttemptRow } | null
+export type CallbackResult = { kind: AiOwner['kind']; outcome: 'finish' | 'cancelled' | 'failed'; key?: string; attempt: AttemptRow } | null
 export type TokenResult = { ok: true; token: string; accountId: string | null; provider: AiProvider } | { ok: false; reason: 'NOT_FOUND' | 'EXPIRED' | 'UNAVAILABLE' | 'NOT_CONFIGURED' }
 
-const isHost = (value: string): boolean => /^[a-z0-9.-]{1,253}(:\d{1,5})?$/i.test(value)
 
 export const sealTokens = (secrets: SecretBox, t: OAuthTokens): Promise<string> => secrets.seal(JSON.stringify({ v: 1, accessToken: t.accessToken, refreshToken: t.refreshToken, expiresAt: t.expiresAt, accountId: t.accountId }))
 
@@ -48,9 +47,8 @@ export const createAiOAuth = ({ sql, secrets, providers, now }: AiOAuthDeps) => 
   const availability = (): { provider: AiProvider; availability: OAuthAvailability }[] =>
     (['anthropic', 'openai'] as const).map((provider) => ({ provider, availability: providers[provider].availability() }))
 
-  const begin = async (a: { owner: AiOwner; provider: AiProvider; returnHost: string; startedBy: string; credentialId?: string | null }): Promise<BeginResult> => {
+  const begin = async (a: { owner: AiOwner; provider: AiProvider; startedBy: string; credentialId?: string | null }): Promise<BeginResult> => {
     if (!secrets) return { ok: false, reason: 'NOT_CONFIGURED' }
-    if (!isHost(a.returnHost)) return { ok: false, reason: 'INVALID_INPUT' }
     const adapter = providers[a.provider]
     if (!adapter.availability().available) return { ok: false, reason: 'UNAVAILABLE' }
     const state = newSessionId()
@@ -59,7 +57,7 @@ export const createAiOAuth = ({ sql, secrets, providers, now }: AiOAuthDeps) => 
     const stateHash = await hashSessionId(state)
     const verifierEnc = await secrets.seal(verifier)
     const dropped = await withSystemScope(sql, (tx) =>
-      replaceAttempt(tx, { owner: a.owner, provider: a.provider, credentialId: a.credentialId ?? null, stateHash, verifierEnc, returnHost: a.returnHost, startedBy: a.startedBy, expiresAt: new Date(now().getTime() + attemptMs) }),
+      replaceAttempt(tx, { owner: a.owner, provider: a.provider, credentialId: a.credentialId ?? null, stateHash, verifierEnc, startedBy: a.startedBy, expiresAt: new Date(now().getTime() + attemptMs) }),
     )
     // A sign-in that was approved but never finished is replaced: revocation is attempted, but the adapters' `revoke` does nothing yet.
     for (const d of dropped) await revoke(d.provider, d.tokens_enc)
@@ -73,7 +71,7 @@ export const createAiOAuth = ({ sql, secrets, providers, now }: AiOAuthDeps) => 
     const stateHash = await hashSessionId(state)
     const attempt = await withSystemScope(sql, (tx) => selectAttemptByState(tx, stateHash))
     if (!attempt || attempt.expires_at <= now()) return null
-    const result = (outcome: 'finish' | 'cancelled' | 'failed', key?: string) => ({ returnHost: attempt.return_host, kind: attempt.owner_kind, outcome, ...(key ? { key } : {}), attempt })
+    const result = (outcome: 'finish' | 'cancelled' | 'failed', key?: string) => ({ kind: attempt.owner_kind, outcome, ...(key ? { key } : {}), attempt })
     const fail = async (outcome: 'cancelled' | 'failed') => {
       await withSystemScope(sql, (tx) => deletePendingAttempt(tx, attempt.id))
       return result(outcome)

@@ -203,24 +203,24 @@ const AiAccount = ({ initial, signIn, runs, read, canEdit, onToast }: AiAccountP
           </section>
         </>
       )}
-        {pending && (
-          <section className="df-set-card" aria-labelledby={`${id}-paste`}>
-            <h2 id={`${id}-paste`}>{fill(words.signIn.pasteTitle, { provider: words.signInProviders[pending] })}</h2>
-            <p className="df-set-text">{words.signIn.pasteBody}</p>
-            <div className="df-set-field">
-              <label htmlFor={`${id}-pasted`}>{words.signIn.pasteLabel}</label>
-              <input id={`${id}-pasted`} type="password" autoComplete="off" value={pasted} disabled={signInBusy} onChange={(e) => setPasted(e.target.value)} />
-            </div>
-            <div className="df-dev-buttons">
-              <button type="button" className="df-button df-button--primary" disabled={signInBusy} onClick={finishSignIn}>
-                {busy === 'signin' ? words.signIn.finishing : words.signIn.finish}
-              </button>
-              <button type="button" className="df-button" disabled={signInBusy} onClick={() => { setPending(null); setPasted('') }}>
-                {words.cancel}
-              </button>
-            </div>
-          </section>
-        )}
+      {pending && (
+        <section className="df-set-card" aria-labelledby={`${id}-paste`}>
+          <h2 id={`${id}-paste`}>{fill(words.signIn.pasteTitle, { provider: words.signInProviders[pending] })}</h2>
+          <p className="df-set-text">{words.signIn.pasteBody}</p>
+          <div className="df-set-field">
+            <label htmlFor={`${id}-pasted`}>{words.signIn.pasteLabel}</label>
+            <input id={`${id}-pasted`} type="password" autoComplete="off" value={pasted} disabled={signInBusy} onChange={(e) => setPasted(e.target.value)} />
+          </div>
+          <div className="df-dev-buttons">
+            <button type="button" className="df-button df-button--primary" disabled={signInBusy} onClick={finishSignIn}>
+              {busy === 'signin' ? words.signIn.finishing : words.signIn.finish}
+            </button>
+            <button type="button" className="df-button" disabled={signInBusy} onClick={() => { setPending(null); setPasted('') }}>
+              {words.cancel}
+            </button>
+          </div>
+        </section>
+      )}
       {!account && (
         <section className="df-set-card" aria-labelledby={`${id}-connect`}>
           <h2 id={`${id}-connect`}>{words.key.title}</h2>

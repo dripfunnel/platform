@@ -35,12 +35,10 @@ export interface StoreAiDeps {
   checkKey: (provider: AiProvider, key: string) => Promise<KeyCheck>
   /** The sign-in flow; null where the Worker has none. */
   oauth?: AiOAuth | null
-  /** The portal host the provider's redirect comes back to. */
-  host?: string | undefined
   now: () => Date
 }
 
-export const createStoreAiService = ({ sql, caller, facts, activity, secrets, checkKey, oauth = null, host, now }: StoreAiDeps) => {
+export const createStoreAiService = ({ sql, caller, facts, activity, secrets, checkKey, oauth = null, now }: StoreAiDeps) => {
   const { storeId, partnerId } = caller.context
   const owner = { kind: 'store', id: storeId, partnerId } as const
   const entry = (action: string, changes: NonNullable<ActivityEntry['changes']> = []): ActivityEntry => ({
@@ -130,8 +128,8 @@ export const createStoreAiService = ({ sql, caller, facts, activity, secrets, ch
   const providers = () => oauth?.availability() ?? []
 
   const beginOauth = async (provider: AiProvider): Promise<StoreAiResult<{ url: string }>> => {
-    if (!oauth || !host) return { ok: false, reason: 'NOT_CONFIGURED' }
-    const begun = await oauth.begin({ owner, provider, returnHost: host, startedBy: caller.person.id })
+    if (!oauth) return { ok: false, reason: 'NOT_CONFIGURED' }
+    const begun = await oauth.begin({ owner, provider, startedBy: caller.person.id })
     if (!begun.ok) return { ok: false, reason: begun.reason === 'UNAVAILABLE' ? 'OAUTH_UNAVAILABLE' : begun.reason }
     await withScope(sql, caller.context, (tx) => activity.record(tx, entry(storeAiAudit.oauthStarted, [{ field: 'provider', before: null, after: provider }])))
     return { ok: true, url: begun.url }

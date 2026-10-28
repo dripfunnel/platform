@@ -105,7 +105,7 @@ afterAll(async () => {
 
 const run = async (who: Who, source: string, variables: Record<string, unknown> = {}) => {
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers: { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who) } }), partnerOf(who), now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId: partnerOf(who), sql: db.sql, activity: activityLog, facts, secrets: box, aiOauth: oauth(), host: 'portal.a.example', checkAiKey: () => Promise.resolve('ok'), now: () => now }
+  const contextValue: StoreContext = { standing, partnerId: partnerOf(who), sql: db.sql, activity: activityLog, facts, secrets: box, aiOauth: oauth(), checkAiKey: () => Promise.resolve('ok'), now: () => now }
   const r = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: r.data as Record<string, unknown> | null | undefined, code: r.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -378,7 +378,7 @@ describe('using a signed-in account', () => {
 
 describe('a partner\'s sign-in', () => {
   const caller = (partnerId: string): PartnerCaller => ({ role: 'partner-owner', user: { id: crypto.randomUUID(), name: 'Maya Chen', email: 'maya@northstar.example' }, staff: null, partner: { id: partnerId, name: 'P', product: 'P', host: null, state: 'live' } })
-  const service = (partnerId: string, c = caller(partnerId)) => createPartnerCredentialsService({ sql: db.sql, caller: c, facts, activity: activityLog, secrets: box, checkKey: () => Promise.resolve('ok'), oauth: oauth(), host: 'console.example', now: () => now })
+  const service = (partnerId: string, c = caller(partnerId)) => createPartnerCredentialsService({ sql: db.sql, caller: c, facts, activity: activityLog, secrets: box, checkKey: () => Promise.resolve('ok'), oauth: oauth(), now: () => now })
   const startedBy = (c: PartnerCaller) => c.user?.id ?? ''
   const signInAs = async (partnerId: string, c: PartnerCaller, id: string | null = null) => {
     const begun = await service(partnerId, c).beginOauth('openai', id)

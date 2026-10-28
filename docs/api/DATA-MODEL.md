@@ -1127,7 +1127,7 @@ store_ai_account    (store_id PK, provider ('openai'|'anthropic'), key_enc, key_
 
 ai_oauth_attempt    (id, owner_kind ('store'|'partner'), owner_id, partner_id, provider, credential_id NULL,
                      status ('pending'|'approved'), state_hash NULL, finish_hash NULL, verifier_enc, tokens_enc NULL,
-                     account_label NULL, return_host, started_by, expires_at, created_at)
+                     account_label NULL, started_by, expires_at, created_at)
                     -- built on #950 (0370): an AI sign-in between leaving for the provider and finishing; hashes of the
                     -- one-time values only, the PKCE verifier and the tokens sealed; one live attempt per
                     -- (owner_kind, owner_id); system scope only, no request role reads it. credential_id is the partner

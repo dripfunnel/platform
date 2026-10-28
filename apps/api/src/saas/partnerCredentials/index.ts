@@ -47,9 +47,8 @@ export interface PartnerCredentialsDeps {
   secrets: SecretBox | null
   /** Asks the provider whether a key works; null means there is no check. */
   checkKey: (provider: AiProvider, key: string) => Promise<KeyCheck | null>
-  /** The sign-in flow and the console host its redirect returns to; null where the Worker has none. */
+  /** The sign-in flow; null where the Worker has none. */
   oauth?: AiOAuth | null
-  host?: string | undefined
   now: () => Date
 }
 
@@ -58,7 +57,7 @@ const dto = (r: PartnerCredentialRow) => ({ id: r.id, provider: r.provider, name
 // What the console shows of a key: enough to tell two apart, never enough to use one.
 const prefixOf = (key: string): string => `${key.slice(0, key.startsWith('sk-ant-') ? 7 : 3)}…${key.slice(-4)}`
 
-export const createPartnerCredentialsService = ({ sql, caller, facts, activity, secrets, checkKey, oauth = null, host, now }: PartnerCredentialsDeps) => {
+export const createPartnerCredentialsService = ({ sql, caller, facts, activity, secrets, checkKey, oauth = null, now }: PartnerCredentialsDeps) => {
   const partnerId = caller.partner.id
   const owner = { kind: 'partner', id: partnerId, partnerId } as const
   const context = partnerContextOf(caller)
@@ -169,14 +168,14 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
 
   /** `id` names the sign-in profile a reconnect replaces; none starts a new one. */
   const beginOauth = async (provider: AiProvider, id: string | null): Promise<PlainResult & { url?: string }> => {
-    if (!oauth || !host) return { ok: false, reason: 'NOT_CONFIGURED' }
+    if (!oauth) return { ok: false, reason: 'NOT_CONFIGURED' }
     if (!startedBy) return { ok: false, reason: 'NOT_FOUND' }
     if (id !== null && !z.guid().safeParse(id).success) return { ok: false, reason: 'NOT_FOUND' }
     if (id !== null) {
       const row = await withScope(sql, context, (tx) => selectAiProfile(tx, partnerId, id))
       if (!row || row.auth_type !== 'oauth' || row.provider !== provider) return { ok: false, reason: 'NOT_FOUND' }
     }
-    const begun = await oauth.begin({ owner, provider, returnHost: host, startedBy, credentialId: id })
+    const begun = await oauth.begin({ owner, provider, startedBy, credentialId: id })
     if (!begun.ok) return { ok: false, reason: begun.reason === 'UNAVAILABLE' ? 'OAUTH_UNAVAILABLE' : begun.reason }
     await withScope(sql, context, (tx) => activity.record(tx, entry({ action: credentialAudit.oauthStarted, target: { type: 'ai_key', id: id ?? provider, label: provider }, reason: null, changes: [{ field: 'provider', before: null, after: provider }] })))
     return { ok: true, url: begun.url }

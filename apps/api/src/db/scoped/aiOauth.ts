@@ -16,17 +16,16 @@ export interface AttemptRow {
   verifier_enc: string
   tokens_enc: string | null
   account_label: string | null
-  return_host: string
   started_by: string
   expires_at: Date
 }
 
 /** One live attempt per owner: starting again replaces it, and answers the sealed tokens of an approved one so they can be revoked. */
-export const replaceAttempt = async (tx: ScopedSql, a: { owner: AiOwner; provider: AiProvider; credentialId: string | null; stateHash: string; verifierEnc: string; returnHost: string; startedBy: string; expiresAt: Date }): Promise<{ provider: AiProvider; tokens_enc: string }[]> => {
+export const replaceAttempt = async (tx: ScopedSql, a: { owner: AiOwner; provider: AiProvider; credentialId: string | null; stateHash: string; verifierEnc: string; startedBy: string; expiresAt: Date }): Promise<{ provider: AiProvider; tokens_enc: string }[]> => {
   const dropped = await tx<{ provider: AiProvider; tokens_enc: string | null }[]>`delete from ai_oauth_attempt where owner_kind = ${a.owner.kind} and owner_id = ${a.owner.id} returning provider, tokens_enc`
   await tx`
-    insert into ai_oauth_attempt (owner_kind, owner_id, partner_id, provider, credential_id, status, state_hash, verifier_enc, return_host, started_by, expires_at)
-    values (${a.owner.kind}, ${a.owner.id}, ${a.owner.partnerId}, ${a.provider}, ${a.credentialId}, 'pending', ${a.stateHash}, ${a.verifierEnc}, ${a.returnHost}, ${a.startedBy}, ${a.expiresAt})`
+    insert into ai_oauth_attempt (owner_kind, owner_id, partner_id, provider, credential_id, status, state_hash, verifier_enc, started_by, expires_at)
+    values (${a.owner.kind}, ${a.owner.id}, ${a.owner.partnerId}, ${a.provider}, ${a.credentialId}, 'pending', ${a.stateHash}, ${a.verifierEnc}, ${a.startedBy}, ${a.expiresAt})`
   return dropped.flatMap((d) => (d.tokens_enc ? [{ provider: d.provider, tokens_enc: d.tokens_enc }] : []))
 }
 

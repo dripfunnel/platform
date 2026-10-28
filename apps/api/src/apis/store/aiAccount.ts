@@ -49,7 +49,7 @@ export const registerAiAccount = (builder: StoreBuilder) => {
   const access = { api: 'store', scope: 'store', permission: 'settings', target: 'none' } as const
   const service = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
-    return createStoreAiService({ sql: ctx.sql, caller: actingCaller(ctx), facts: ctx.facts, activity: ctx.activity, secrets: ctx.secrets ?? null, checkKey: ctx.checkAiKey ?? checkKey, oauth: ctx.aiOauth ?? null, host: ctx.host, now: ctx.now })
+    return createStoreAiService({ sql: ctx.sql, caller: actingCaller(ctx), facts: ctx.facts, activity: ctx.activity, secrets: ctx.secrets ?? null, checkKey: ctx.checkAiKey ?? checkKey, oauth: ctx.aiOauth ?? null, now: ctx.now })
   }
   builder.queryFields((t) => ({
     storeAiAccount: t.field({ type: Account, nullable: true, extensions: { access }, resolve: (_, __, ctx) => service(ctx).account() }),

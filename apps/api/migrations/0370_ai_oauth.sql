@@ -30,7 +30,6 @@ create table ai_oauth_attempt (
   verifier_enc text not null,
   tokens_enc text,
   account_label text check (char_length(account_label) <= 200),
-  return_host text not null check (char_length(return_host) <= 255),
   started_by uuid not null,
   expires_at timestamptz not null,
   created_at timestamptz not null default now(),
