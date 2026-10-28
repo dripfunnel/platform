@@ -5,6 +5,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers'
 import { ZodError } from 'zod'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
+import { handleDeliveryApp, matchDeliveryAppPath } from '#apis/admin/deliveryApp'
 import { createServer } from '#apis/graphql/server'
 import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { buildsPrefix, handleBuildCall } from '#apis/builds'
@@ -156,6 +157,7 @@ import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
 import { exportLifetimeMs } from '#saas/partnerActivity/index'
+import { createDeliveryApp } from '#saas/deliveryApp/index'
 import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
@@ -417,14 +419,20 @@ const handleAdmin = async (
     )
   }
 
+  const deliveryAppRoute = matchDeliveryAppPath(url.pathname)
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
+    if (deliveryAppRoute) return handleDeliveryApp(request, deliveryAppRoute, null)
     return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
     const assigned = (staffId: string, target: Parameters<typeof isAssigned>[2]) => isAssigned(sql, staffId, target)
+    if (deliveryAppRoute) {
+      const files = caller ? createDeliveryApp({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, files: env.ASSETS ?? null }) : null
+      return handleDeliveryApp(request, deliveryAppRoute, files)
+    }
     return servers.admin.fetch(request, {
       staff: caller?.staff ?? null,
       isAssigned: assigned,

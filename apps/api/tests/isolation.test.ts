@@ -361,7 +361,7 @@ describe('the backstop itself', () => {
       'store_billing_details', 'invoice', 'invoice_line', 'storefront_push', 'design_draft', 'publish_run', 'design_version', 'core_release', 'storefront_template', 'studio_session', 'ai_run',
       'storefront_content', 'storefront_redirect', 'storefront_content_translation', 'storefront_vitals_day',
       'storefront_brand', 'storefront_seo', 'core_rollout', 'core_rollout_store',
-      'design_message', 'rider', 'rider_session', 'rider_code', 'push_device', 'store_app_assets',
+      'design_message', 'rider', 'rider_session', 'rider_code', 'push_device', 'store_app_assets', 'store_delivery_app',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
