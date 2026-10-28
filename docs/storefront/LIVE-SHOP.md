@@ -307,7 +307,7 @@ checking, deploying, live, failed, rolled back).
    API started. A switch is atomic in each data centre and everywhere within the lookup's
    60-second limit (§5 step 1). The repo gets the code only once it is live; `main` follows the
    live code, usually within seconds, but the platform never reads it back as the source of a build: the live build's
-   source bundle is the record (step 3). The one read is a design publish taking a hand push to `main` (step 2). Each core version's shared runtime (`core/{version}/`) is written only
+   source bundle is the record (step 3). The one read is the studio or a design publish taking a hand push to `main` (step 2). Each core version's shared runtime (`core/{version}/`) is written only
    by the release workflow. The post-deploy checks (step 10) are the platform's own backstop.
 10. **Post-deploy checks and automatic rollback**, from the edge, run by the platform, follow
     ARCHITECTURE §4.2 steps 5–6. A rollback is the same pointer move back to the previous build:
