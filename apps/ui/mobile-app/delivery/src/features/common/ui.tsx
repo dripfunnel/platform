@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { errorText, t } from '../../messages'
 import type { Loaded } from './useLoad'
@@ -117,8 +118,9 @@ export function Chevron({ direction, color }: { direction: 'left' | 'down'; colo
 
 export function ScreenHeader({ title, onBack }: { title: string; onBack?: () => void }) {
   const { colors } = useTheme()
+  const { top } = useSafeAreaInsets()
   return (
-    <View style={[styles.header, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+    <View style={[styles.header, { borderColor: colors.border, backgroundColor: colors.surface, paddingTop: top, minHeight: 56 + top }]}>
       {onBack ? (
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={onBack} style={styles.back}>
           <Chevron direction="left" color={colors.heading} />
