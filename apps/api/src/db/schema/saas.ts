@@ -79,6 +79,24 @@ export interface PartnerDomainRow {
   created_at: Date
 }
 
+export const aiProviders = ['anthropic', 'openai'] as const
+export type AiProvider = (typeof aiProviders)[number]
+
+/** One AI key profile (#275). The sealed key is never in this row: only app_system reads it. */
+export interface PartnerCredentialRow {
+  id: string
+  partner_id: string
+  kind: 'ai'
+  provider: AiProvider
+  name: string
+  is_default: boolean
+  key_prefix: string
+  status: 'untested' | 'ok' | 'rejected'
+  last_tested_at: Date | null
+  created_by: string
+  created_at: Date
+}
+
 /** ui/platform/FIRST-RELEASE.md §4, in order. */
 export const setupItems = ['company', 'branding', 'portalHost', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const
 export type SetupItem = (typeof setupItems)[number]

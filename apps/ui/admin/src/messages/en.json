@@ -420,6 +420,15 @@
       "owner": "Owner",
       "contacts": "Contacts",
       "checklist": "Setup checklist",
+      "aiKeys": {
+        "title": "AI provider keys",
+        "none": "No key set. AI on this partner’s plans answers AI_NOT_CONNECTED.",
+        "note": "Status only. The key is never shown to staff. To add or replace one, open a setup session and use Settings › Integrations.",
+        "providers": { "anthropic": "Anthropic", "openai": "OpenAI" },
+        "statuses": { "ok": "Connected", "untested": "Not tested", "rejected": "Key rejected" },
+        "default": "Default",
+        "lastTested": "Last tested {when}"
+      },
       "history": "State history",
       "items": {
         "company": "Company details",

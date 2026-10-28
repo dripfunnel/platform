@@ -439,6 +439,7 @@ type PageInfo {
 
 type Partner {
   actions: PartnerActions
+  aiKeys: [PartnerAiKeyStatus!]
   approval: PartnerApproval
   branding: PartnerBranding
   checklist: [PartnerChecklistItem!]
@@ -475,6 +476,14 @@ type PartnerActions {
   sendInvite: ActionPermission
   setContract: ActionPermission
   setupSession: ActionPermission
+}
+
+type PartnerAiKeyStatus {
+  isDefault: Boolean
+  lastTestedAt: String
+  name: String
+  provider: String
+  status: String
 }
 
 type PartnerApproval {

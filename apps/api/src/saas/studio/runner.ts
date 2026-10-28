@@ -4,7 +4,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { isNewerVersion } from '#core/semver'
 import { insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
-import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
+import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type FileChange, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
 import { pageTexts, withText } from './texts'
@@ -148,6 +148,11 @@ export class StudioRunner {
       const files = templateChange(await this.themeNow(), theme, (await this.guardContext()).locales, keep)
       return this.commitStep((client, context) => client.change(files, `Use the ${template} template`, context), userId, template)
     })
+  }
+
+  /** A hand push to the repo's `main` (LIVE-SHOP §4 step 2): the files it changed, through the gate like any change. */
+  importPush(changes: readonly FileChange[], head: string, userId: string): Promise<ChangeOutcome> {
+    return this.inTurn(() => this.commitStep((client, context) => client.change(changes, `Take main ${head.slice(0, 12)}`, context), userId))
   }
 
   /** Edit text: the page's words in one language, as the draft holds them (FIRST-RELEASE §14). */

@@ -28,6 +28,7 @@ const table: Record<PartnerPermission, string> = {
   'team.manage': 'OW AD',
   'team.transfer': 'OW',
   'security.manage': 'OW',
+  'integrations.write': 'OW AD',
 }
 
 const column: Record<PartnerRole, string> = {
