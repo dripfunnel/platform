@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import type { NotificationResponse } from 'expo-notifications'
 import { useShop } from '../api/ShopContext'
 import { orderOfPush, pushIsSetUp, registerIfGranted } from './push'
-import { loadNotifications } from './sdk'
+import { loadNotifications } from '@dripfunnel/mobile-shared/push'
 
 const opened = new Set<string>()
 

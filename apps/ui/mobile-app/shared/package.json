@@ -11,6 +11,7 @@
     "./theme/tokens": "./theme/tokens.ts",
     "./storage": "./storage/index.ts",
     "./brand": "./brand/index.ts",
+    "./push": "./push/index.ts",
     "./connection": "./connection/index.ts"
   },
   "scripts": {
@@ -36,6 +37,7 @@
     "@react-native-community/netinfo": "12.0.1",
     "expo-constants": "~57.0.21",
     "expo-image": "~57.0.5",
+    "expo-notifications": "~57.0.24",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "zod": "^4.6.5"
