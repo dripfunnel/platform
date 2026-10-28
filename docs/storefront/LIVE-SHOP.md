@@ -144,7 +144,9 @@ checking, deploying, live, failed, rolled back).
    between them become one change to the draft, through the same gate as any change (a refusal stops the
    publish as `CHANGE_REFUSED`). `repo_head` then moves to `main`, so the publish's own commit
    fast-forwards on top of the hand push (`saas/storefronts/handPush.ts`). A push alone still builds
-   nothing, and files outside the theme allowlist are ignored.
+   nothing, and files outside the theme allowlist are ignored. For a file both the push and an unpublished studio
+   change touched, the push wins. The taken push is an unpublished change like any other: Discard or Undo removes it,
+   and the next publish's commit then replaces it on `main`.
 3. **The platform freezes the input**, as private files for this build behind 15-minute links:
    - the catalogue snapshot, read once from the Shop API (ARCHITECTURE §5);
    - the source to build, as a git bundle of that commit, **kept privately with the build** for as
