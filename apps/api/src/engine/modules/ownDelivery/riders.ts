@@ -38,7 +38,7 @@ export const ridersAudit = {
 /** Invitation texts a rider can get in 24 hours, the first one included (#838). */
 export const textsPerDay = 3
 
-/** The store's delivery app, until DL 15 (#852) builds and hosts each store's APK. */
+/** The store's delivery app APK, served by `apis/delivery/apk.ts` (DELIVERY §5). */
 export const deliveryAppLink = (slug: string, shopDomain: string): string => `https://${slug}.${shopDomain}/app/delivery.apk`
 
 export type RidersRefusal =

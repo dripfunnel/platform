@@ -16,7 +16,7 @@ accept and decline, assignment by hand, cancellation before pickup, online state
 late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the portal's Settings › Riders (§5, §8; #844); the customer's
 side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858).
 
-Last updated: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
+Last updated: 2026-10-28 (#852: the APK download and the Delivery API's `minimumBuild`, §4, §5). Before: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
 events, §3, §4, §6, §8). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
@@ -229,7 +229,8 @@ code in `src/apis/delivery`. Store-proxy's `StorefrontEdge` passes `/delivery-ap
 does `/shop-api/*`. It answers only on the store's `{slug}.<SHOP_DOMAIN>` host: never on a
 preview host, a merchant's own domain or any of our hosts, and every other API answers 404 on
 it (ARCHITECTURE §2). The caller is the rider's bearer token; there is no cookie, so no `Origin`
-check.
+check. Its one plain route is `GET /app/delivery.apk` (§5), passed on the same way. The public query
+`minimumBuild: Int` answers the build below which the app says "Update required", null when staff set none (#852).
 
 | Operation | Does |
 |---|---|
@@ -312,8 +313,10 @@ dispatch is built on #842 (DL 5); pickup, proof and completion on #843 (DL 6), b
   merchant app. The rider gets a text through the outbox, sent through the
   partner's SMS account (MSG91 or Twilio) like every code, with the store's name and the store's
   delivery app link (the fixed message `rider.invited`, in English, THIRD-PARTY-ACCESS §4). Until the
-  app links exist (DL 15, #852) the link is `https://{slug}.{SHOP_DOMAIN}/app/delivery.apk`, made only
-  by `deliveryAppLink`; without a shop domain the invitation is refused `UNAVAILABLE`. **The APK itself** (built on #852,
+  link is `https://{slug}.{SHOP_DOMAIN}/app/delivery.apk`, made only by `deliveryAppLink`; without a shop
+  domain the invitation is refused `UNAVAILABLE`. That address streams the store's newest APK from R2 (public,
+  `GET` only, `no-store`, `nosniff`) on the store's free address only, and answers 404 for a store with no app or one
+  that isn't delivering (built on #852, second part). **The APK itself** (built on #852,
   first part; DATA-MODEL §3.8) is uploaded by staff with `stores.deliveryApp.write` (Super admin, Engineer on call), plain
   HTTP on the Admin API because a GraphQL mutation can't carry a file: `POST /api/stores/{id}/delivery-app` with the file as
   the body, `versionName` and `buildNumber` in the query and the reason in `x-reason` (at most 100 MB, a ZIP, a build above

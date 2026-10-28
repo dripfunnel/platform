@@ -174,6 +174,12 @@ describe('the live site', () => {
     expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`, `https://${hostA}/delivery-api/`])
   })
 
+  it('sends the delivery app download to the API, and nothing else under /app', async () => {
+    await get(`https://${hostA}/app/delivery.apk`)
+    await get(`https://${hostA}/app/other.apk`)
+    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/app/delivery.apk`])
+  })
+
   it('keeps a portal host’s routing when no store holds the host', async () => {
     const seen: string[] = []
     vi.stubGlobal('fetch', async (r: Request) => (seen.push(r.url), new Response('pages')))

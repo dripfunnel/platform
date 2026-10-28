@@ -1,5 +1,9 @@
+import { graphql } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleDeliveryApp, matchDeliveryAppPath } from '#apis/admin/deliveryApp'
+import { handleDeliveryApk, type ApkFiles } from '#apis/delivery/apk'
+import { deliverySchema, type DeliveryContext } from '#apis/delivery/schema'
+import type { DeliveryCaller } from '#auth/riderCaller'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
@@ -240,5 +244,46 @@ describe('the route', () => {
     expect(set.status).toBe(200)
     const read = await handleDeliveryApp(requestFor(maple), { storeId: maple, minimumBuild: false }, serviceFor('staff-read-only'))
     expect(await read.json()).toMatchObject({ ok: true, current: { minimumBuild: 2, buildNumber: 2 } })
+  })
+})
+
+describe('the rider-facing side', () => {
+  const callerFor = async (storeId: string, available = true): Promise<DeliveryCaller> => {
+    const [row] = await db.sql<{ partner_id: string }[]>`select partner_id from store where id = ${storeId}`
+    return { storeId, partnerId: row?.partner_id ?? '', available, rider: null, token: null }
+  }
+  const download = async (storeId: string, init: RequestInit = {}, available = true, files: ApkFiles | null = bucketFiles) =>
+    handleDeliveryApk(new Request('https://kesari.my-store.one/app/delivery.apk', init), db.sql, await callerFor(storeId, available), files)
+  const bucketFiles: ApkFiles = { get: async (key) => (stored.has(key) ? { body: streamOf(stored.get(key) ?? new Uint8Array()) as ReadableStream } : null) }
+  const minimumBuildOf = async (storeId: string) => {
+    const result = await graphql({
+      schema: deliverySchema,
+      source: '{ minimumBuild }',
+      contextValue: { sql: db.sql, caller: await callerFor(storeId), activity: activityLog, facts, defer: () => undefined, now: () => now } satisfies DeliveryContext,
+    })
+    return result.errors ? result.errors.map((e) => e.message) : result.data
+  }
+
+  it('streams the newest APK with the APK type, its size and no sniffing', async () => {
+    const response = await download(maple)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('application/vnd.android.package-archive')
+    expect(response.headers.get('content-length')).toBe('104')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(response.headers.get('content-disposition')).toBe('attachment; filename="delivery-1.1.0.apk"')
+    expect((await response.arrayBuffer()).byteLength).toBe(104)
+  })
+
+  it('answers 404 for a store with no app, an unavailable store or a bucket not bound, and 405 for another method', async () => {
+    const none = await storeIdOf('Harbor Coffee Co.')
+    expect((await download(none)).status).toBe(404)
+    expect((await download(maple, {}, false)).status).toBe(404)
+    expect((await download(maple, {}, true, null)).status).toBe(404)
+    expect((await download(maple, { method: 'POST' })).status).toBe(405)
+  })
+
+  it('shows the Delivery API only its own store’s minimum build, null when none is set', async () => {
+    expect(await minimumBuildOf(maple)).toEqual({ minimumBuild: 2 })
+    expect(await minimumBuildOf(await storeIdOf('Harbor Coffee Co.'))).toEqual({ minimumBuild: null })
   })
 })

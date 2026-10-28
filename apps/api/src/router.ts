@@ -1,4 +1,5 @@
 import type { Config } from '#core/config'
+import { deliveryApkPath } from '#apis/delivery/apk'
 import { liveSlugOf } from '#db/scoped/shopCaller'
 
 export type Area = 'admin' | 'platform' | 'store' | 'shop' | 'delivery' | 'hooks' | 'studio'
@@ -19,7 +20,7 @@ export const resolveArea = (url: URL, config: Pick<Config, 'ADMIN_HOST' | 'PLATF
     // A storefront or preview host's Shop API, after the edge Worker's own checks (storefront LIVE-SHOP §5 step 3, PREVIEW §5 step 5).
     if (under(url.pathname, '/shop-api')) return 'shop'
     // The Delivery API: a store's free address only, never its preview or own domain (DELIVERY §4).
-    if (under(url.pathname, '/delivery-api')) return liveSlugOf(url.hostname, config.SHOP_DOMAIN ?? null) !== null ? 'delivery' : undefined
+    if (under(url.pathname, '/delivery-api') || url.pathname === deliveryApkPath) return liveSlugOf(url.hostname, config.SHOP_DOMAIN ?? null) !== null ? 'delivery' : undefined
     // The studio frame (storefront AI-STUDIO §3 step 6) exists only here: never on a portal host or the public entry.
     return under(url.pathname, '/__studio') ? 'studio' : undefined
   }
