@@ -1065,6 +1065,7 @@
       "version": "Live version",
       "versionValue": "{name} (build {build})",
       "size": "Size",
+      "sizeMb": "{size} MB",
       "uploadedAt": "Uploaded",
       "minimumBuild": "Minimum build",
       "noMinimum": "None",

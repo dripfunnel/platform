@@ -6,7 +6,7 @@ import { ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 
 const words = messages.store.deliveryApp
 
-const megabytes = (bytes: number): string => `${formatCount(Math.round((bytes / (1024 * 1024)) * 10) / 10)} MB`
+const megabytes = (bytes: number): string => fill(words.sizeMb, { size: formatCount(Math.round((bytes / (1024 * 1024)) * 10) / 10) })
 
 export interface DeliveryAppTabProps {
   store: Store
