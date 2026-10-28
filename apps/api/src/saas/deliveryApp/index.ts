@@ -130,11 +130,13 @@ export const createDeliveryApp = ({ sql, staff, facts, activity, isAssigned, fil
     if (!before.ok) return before
     if (before.value.row && input.buildNumber <= before.value.row.build_number) return { ok: false, code: 'BUILD_NOT_NEWER' }
     let kept = false
+    let commitUnknown = false
     try {
       const put = await files.put(key, body, { httpMetadata: { contentType: apkContentType } })
       if (put.size !== length) return { ok: false, code: 'INVALID_INPUT' }
       const head = new Uint8Array((await (await files.get(key, { range: { offset: 0, length: 4 } }))?.arrayBuffer()) ?? new ArrayBuffer(0))
       if (!looksLikeApk(head)) return { ok: false, code: 'NOT_AN_APK' }
+      commitUnknown = true
       const done = await inStore(storeId, async (tx, store, latest) => {
         if (latest && input.buildNumber <= latest.build_number) throw new Refused('BUILD_NOT_NEWER')
         // A new build keeps the minimum staff set, which stays below it.
@@ -142,10 +144,12 @@ export const createDeliveryApp = ({ sql, staff, facts, activity, isAssigned, fil
         await activity.record(tx, entry(store, deliveryAppAudit.uploaded, input.reason, `${store.name}: ${input.versionName} (${input.buildNumber})`))
         return viewOf(row)
       })
+      commitUnknown = false
       kept = done.ok
       return done
     } finally {
-      if (!kept) await files.delete(key).catch(() => undefined)
+      // A transaction that threw may have committed; an orphan object costs storage, a deleted live APK costs the riders their download.
+      if (!kept && !commitUnknown) await files.delete(key).catch(() => undefined)
     }
   }
 

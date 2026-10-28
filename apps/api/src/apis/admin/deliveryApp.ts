@@ -1,10 +1,7 @@
 import type { createDeliveryApp, DeliveryAppRefusal } from '#saas/deliveryApp/index'
 
-// A store's delivery app APK on the Admin API (card #852; api/DELIVERY.md §5), plain HTTP because a GraphQL mutation can't carry the file:
-//   GET  /api/stores/{id}/delivery-app                 the newest version, or null
-//   POST /api/stores/{id}/delivery-app                 the APK as the body; `versionName` and `buildNumber` in the query, `x-reason` header
-//   POST /api/stores/{id}/delivery-app/minimum-build   `{ minimumBuild, reason }`, the build below which the app says "Update required"
-// The Worker has checked the Origin; the session comes before anything else is read, then the role, then the body (as the brand upload does).
+// The delivery app APK routes (api/DELIVERY.md §5), plain HTTP because a GraphQL mutation can't carry the file.
+// The Worker has checked the Origin; the session comes first, then the role, then the body (as the brand upload does).
 
 const route = /^\/api\/stores\/([0-9a-fA-F-]{36})\/delivery-app(\/minimum-build)?$/
 
