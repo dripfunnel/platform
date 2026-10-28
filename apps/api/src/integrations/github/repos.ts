@@ -38,6 +38,8 @@ export interface StoreRepos {
   reaches: (name: string, head: string, commit: string) => Promise<boolean>
   /** Starts the locked workflow on `main` (storefront LIVE-SHOP §4 step 4); a repo GitHub doesn't know is false. */
   dispatchBuild: (name: string, inputs: { build_id: string; api: string }) => Promise<boolean>
+  /** The id of `.github`'s tree at `commit`, which changes with any file under it; null when there is none. */
+  lockedTree: (name: string, commit: string) => Promise<string | null>
 }
 
 /** The store repo's one workflow (LIVE-SHOP §3). */
@@ -50,6 +52,7 @@ const commitSchema = z.object({ sha, tree: z.object({ sha }).loose() }).loose()
 const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string() }).loose()) }).loose()
 const created = z.object({ sha }).loose()
 const compareSchema = z.object({ status: z.string() }).loose()
+const entriesSchema = z.object({ tree: z.array(z.object({ path: z.string(), type: z.string(), sha }).loose()) }).loose()
 
 // The platform's own name on every commit; never a merchant's (AI-STUDIO.md §6).
 const author = { name: 'DripFunnel', email: 'noreply@dripfunnel.com' }
@@ -120,5 +123,10 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
       return answer.status !== 404 && ['ahead', 'identical'].includes(read(compareSchema, answer.body).status)
     },
     dispatchBuild: async (name, inputs) => (await call('POST', `${repo(name)}/actions/workflows/${buildWorkflow}/dispatches`, { ref: 'main', inputs }, [404], { once: true })).status !== 404,
+    lockedTree: async (name, commit) => {
+      const root = read(commitSchema, (await call('GET', `${repo(name)}/git/commits/${commit}`)).body).tree.sha
+      const entries = read(entriesSchema, (await call('GET', `${repo(name)}/git/trees/${root}`)).body).tree
+      return entries.find((entry) => entry.path === '.github' && entry.type === 'tree')?.sha ?? null
+    },
   }
 }

@@ -982,6 +982,31 @@ input MenuItemInput {
   url: String
 }
 
+type MobileAppAssets {
+  appIcon: String
+  appIconForeground: String
+  appName: String
+  longDescription: String
+  savedAt: String
+  shortDescription: String
+  splash: String
+  version: Int
+}
+
+type MobileApps {
+  available: Boolean
+  current: MobileAppAssets
+}
+
+input MobileAppsInput {
+  appIcon: String
+  appIconForeground: String
+  appName: String
+  longDescription: String
+  shortDescription: String
+  splash: String
+}
+
 type Money {
   amount: String
   currency: String
@@ -1125,6 +1150,7 @@ type Mutation {
   saveLanguages(languages: [String!]!, main: String!): Boolean
   saveMarket(id: ID, input: MarketInput!, revision: Int): Market
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
+  saveMobileApps(input: MobileAppsInput!): MobileAppAssets
   saveOffer(id: ID, input: OfferInput!, revision: Int): SavedOffer
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
   saveProductKind(input: ProductKindInput!, productId: ID!, revision: Int!): ProductKind
@@ -2146,6 +2172,7 @@ type Query {
   markets(after: String, before: String, first: Int): MarketPage
   me: Me
   menu: Menu
+  mobileApps: MobileApps
   myActivity(after: String, before: String, first: Int): MyActivity
   mySales(after: String, before: String, first: Int): SupplierSalePage
   mySessions: [SignedInSession!]

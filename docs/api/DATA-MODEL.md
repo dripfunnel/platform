@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
+Last updated: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
 and step key (0365), what `app_rider` reads of a delivery's warehouse, lines and customer, §7.6, §7.12). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the merchant role's column grants on delivery and offers, no request role reads the handover code). Before: 2026-10-26 (#841: own delivery's settings and checkout option built (0363): the `store_shipping` and `warehouse` columns, `"order".delivery_warehouse_id` and `shipping_option` `own_delivery`, `shop_delivering_warehouse()`, §5.3, §7.2, §7.6, §7.11, §7.12). Before: 2026-10-26 (#840: `push_device` built (0362), the rider's own phones as `app_rider` and the merchant deleting its riders' with suspension and removal, §3.6, §5.3). Before: 2026-10-24 (#897: `storefront_changed()` and `storefront_store_changed()` listed in the `app_definer` row, §5.3). Before: 2026-10-23 (#839: the `app_rider` role and the activity log's `rider` actor and `delivery` API (0360), §3.6, §5.3). Before: 2026-10-23 (#838: `rider`, `rider_session` and `rider_code` built (0359), §3.6). Before: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
@@ -628,6 +628,21 @@ a supplier; it reads a session's `ended_at` only to end it, and never `rider_cod
 written in system scope (registering, which may move a token, and the push deliverer); the rider reads and deletes
 its own phones; the merchant side deletes its store's riders' phones (no seller, never read-only support) in the
 suspension's or removal's transaction, reading only `store_id`, `subject_kind` and `subject_id`, never a token.
+
+### 3.7 The store's mobile app assets (built on #868)
+
+Migration `0369`, the store's counterpart of the partner's app images (§2.5, `0075`); the Owner sets them in Settings › Mobile apps and a build reads them (mobile-app/README.md §3).
+
+```
+store_app_assets  (id, store_id, version, app_icon_key NULL, app_icon_foreground_key NULL, splash_key NULL,
+                   app_name NULL (1–30), short_description NULL (1–80), long_description NULL (1–4000),
+                   created_by_user_id, created_at)      unique (store_id, version)
+```
+
+- **Append-only versions.** A save inserts the next version under the store's lock; the newest is the live one. No role holds `update` or `delete`, so no version is ever changed; saving what is already live adds none. There is no draft, scheduled or cancelled state (the partner's has), because nothing in a store waits to be published (decided on #868).
+- The images are R2 object keys under `stores/{store_id}/app/{kind}-{uuid}.png`, never a URL; a key is accepted only if its name carries this store and that kind and the upload's `mobile_app.file_uploaded` entry exists (LOGGING §3), written in the transaction that stores the file, so a key never uploaded here cannot go live and a version is known to have passed that kind's checks (a file the live version already names stays valid) (PNG, 1024 × 1024 for both icons, no transparency in the app icon, at most 512 KB: the partner's rules, BUILD-CHECKLIST §2). The text is empty as null.
+- The merchant side (`app_request`, scope `store`, no seller) reads and inserts its own store's rows, and an insert is refused in a read-only support session; `app_system` reads them for a build. No partner, platform or supplier role has a grant. The four role pins are on the table.
+- The plan switch is `own_apps` (SAAS §6.1); the API refuses an upload and a save without it, and the portal lists no tab.
 
 ## 4. Roles and permissions
 
@@ -1837,8 +1852,9 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                     -- repo_id is the repo's numeric GitHub id, which a build's OIDC token names as
                     -- repository_id (LIVE-SHOP §9; built on #517, migration 0240, written with the repo);
                     -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
-                    -- repo_head the commit its main is at, which a push must find there (built on
-                    -- #316, migration 0230; storefront AI-STUDIO §6); template is written when the
+                    -- repo_head the commit the platform last knew on main, which its push must find there
+                    -- (built on #316, migration 0230; storefront AI-STUDIO §6), and since #968 a person's
+                    -- pushed commit once it is live (LIVE-SHOP §4); template is written when the
                     -- repo is ready (SAAS §5 step 8, migration 0231). Steps 4–8 run as a job of kind
                     -- 'create-storefront', after the signup's 'provision-store' (#316)
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
@@ -1857,7 +1873,7 @@ storefront_push     (store_id, key, parent_sha, commit_sha NULL, state ('pending
                     -- retried push never pushes twice: created_at is the commit's date, so a retry
                     -- rebuilds the same commit and finds it on main (built on #316). System scope only
 publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'page'|'upgrade'
-                     |'security'|'rollback'), state ('queued'|'building'|'checking'|'deploying'
+                     |'security'|'rollback'|'repo'), state ('queued'|'building'|'checking'|'deploying'
                      |'live'|'failed'|'rolled_back'), commit, core_version, uses_allowance boolean,
                      started_by_kind, started_by_id, started_at, finished_at, deploy_ref,
                      previous_deploy_ref NULL, gate jsonb NULL, repair_attempts integer,

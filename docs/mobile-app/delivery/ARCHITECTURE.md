@@ -81,4 +81,4 @@ Both stores check background location closely. Each store's listing needs:
   the store's words, and the privacy answers.
 - **Both:** the reviewer needs a rider account and can't receive the store's text. *(decide)* How
   a reviewer signs in without weakening real riders' codes (the shop app has the same need when
-  a store takes mobile codes only).
+  a store takes mobile codes only). The shop app's answer, a demo customer with a password (shop/BUILD-CHECKLIST.md §1, decided on #869), cannot carry over: a rider has no password, so this is still open until DL 15.

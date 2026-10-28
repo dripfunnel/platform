@@ -29,6 +29,10 @@ export interface StoreWorld {
   storeOf: (who: Who) => string
   partnerOf: (who: Who) => string
   gql: (who: Who, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
+  /** What the Worker hands the Store API for this seat, for the routes that are not GraphQL (uploads). */
+  context: (who: Who) => Promise<StoreContext>
+  /** The same for a partner's support session, by its cookie. */
+  supportContext: (cookie: string, partnerId: string) => Promise<StoreContext>
   /** A partner's support session in a store (ACCESS §8), by its cookie. */
   support: (cookie: string, partnerId: string, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
   /** A bearer credential (an API key or an app's token) on a partner's portal host. */
@@ -67,9 +71,12 @@ export const seedStoreWorld = async (sql: postgres.Sql, t: Tenants, o: WorldOpti
   const partnerOf = (who: Who) => stores[seats[who].store][0]
   const storeOf = (who: Who) => stores[seats[who].store][1]
   const facts = { requestId: 'r', ip: null, userAgent: null }
-  const run = async (headers: Record<string, string>, partnerId: string, source: string, variables: Record<string, unknown> = {}) => {
+  const contextOf = async (headers: Record<string, string>, partnerId: string): Promise<StoreContext> => {
     const standing = await resolveStoreStanding(sql, new Request('https://store.example/api/', { headers }), partnerId, o.now(), activityLog, facts)
-    const contextValue: StoreContext = { standing, partnerId, sql, activity: activityLog, facts, secrets: o.secrets, lookup: o.lookup, domains: { edgeZone: 'dripfunnel.example', localHosts: false, shopDomain: 'shop.example' }, studio: o.studio ?? null, ...o.extra, now: o.now }
+    return { standing, partnerId, sql, activity: activityLog, facts, secrets: o.secrets, lookup: o.lookup, domains: { edgeZone: 'dripfunnel.example', localHosts: false, shopDomain: 'shop.example' }, studio: o.studio ?? null, ...o.extra, now: o.now }
+  }
+  const run = async (headers: Record<string, string>, partnerId: string, source: string, variables: Record<string, unknown> = {}) => {
+    const contextValue = await contextOf(headers, partnerId)
     const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
     return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, extensions: result.errors?.[0]?.extensions }
   }
@@ -77,8 +84,10 @@ export const seedStoreWorld = async (sql: postgres.Sql, t: Tenants, o: WorldOpti
     people,
     storeOf,
     partnerOf,
+    context: (who) => contextOf({ cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(seats[who].supplier ? { [supplierHeader]: t.sellerA1First } : {}) }, partnerOf(who)),
     gql: (who, source, variables = {}) =>
       run({ cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(seats[who].supplier ? { [supplierHeader]: t.sellerA1First } : {}) }, partnerOf(who), source, variables),
+    supportContext: (cookie, partnerId) => contextOf({ cookie: `${supportCookieName}=${cookie}` }, partnerId),
     support: (cookie, partnerId, source, variables = {}) => run({ cookie: `${supportCookieName}=${cookie}` }, partnerId, source, variables),
     bearer: (secret, source, partnerId) => run({ authorization: `Bearer ${secret}` }, partnerId, source),
   }

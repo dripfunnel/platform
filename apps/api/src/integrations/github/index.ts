@@ -4,6 +4,8 @@ import { createGitHubApp, type GitHubApp } from './app'
 
 export { createGitHubApp, GitHubRefused, GitHubUnavailable, noAnswer, type GitHubApp } from './app'
 export { storeRepos, type RepoChange, type StoreRepos } from './repos'
+export { fetchCommitBundle } from './pack'
+export { verifyWebhookSignature } from './webhook'
 
 // Locally the stand-in lives as long as the isolate, so the repos a run made are there for its next step.
 let local: Promise<GitHubApp> | undefined

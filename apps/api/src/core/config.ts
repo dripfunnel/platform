@@ -72,6 +72,8 @@ const configSchema = z.object({
     .transform((value) => value.replaceAll('\\n', '\n').trim())
     .refine((value) => /^-----BEGIN (RSA )?PRIVATE KEY-----\n[\s\S]+\n-----END (RSA )?PRIVATE KEY-----$/.test(value), 'GITHUB_APP_PRIVATE_KEY must be the App’s PEM private key')
     .optional(),
+  // The App's webhook secret, a Worker secret (#968): without it a push to a store repo's `main` builds nothing.
+  GITHUB_WEBHOOK_SECRET: z.string().min(20, 'GITHUB_WEBHOOK_SECRET must be at least 20 characters').optional(),
   // The R2 storefront upload credential (THIRD-PARTY-ACCESS.md §2.1, §8): all six or none; without them a store build's
   // calls (storefront LIVE-SHOP.md §4 steps 5–9) don't exist. The account id and bucket names are variables.
   R2_STOREFRONT_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'R2_STOREFRONT_ACCOUNT_ID must be the 32-character account id').optional(),
