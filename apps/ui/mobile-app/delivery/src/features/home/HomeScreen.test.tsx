@@ -13,6 +13,10 @@ const mockGoOffline = jest.fn()
 jest.mock('../../location/online', () => ({ goOnline: jest.fn(), goOffline: (...args: unknown[]) => mockGoOffline(...args) }))
 jest.mock('../../push/PushContext', () => ({ usePush: () => ({ refresh: 0, ended: null, dismissEnded: jest.fn() }) }))
 jest.mock('../../push/push', () => ({ pushPermission: jest.fn().mockResolvedValue('granted') }))
+const mockDismiss = jest.fn()
+const noPending = { steps: [], notices: [], hidden: new Set<string>(), sentCount: 0, dismissNotice: (id: string) => mockDismiss(id) }
+let mockPending: Record<string, unknown> = noPending
+jest.mock('../../pending/PendingContext', () => ({ usePending: () => mockPending }))
 const mockTracking = jest.fn()
 const mockRetime = jest.fn()
 jest.mock('../../location/tracking', () => ({ isTracking: () => mockTracking(), retime: (...args: unknown[]) => mockRetime(...args) }))
@@ -44,7 +48,35 @@ beforeEach(() => {
   mockGoOffline.mockResolvedValue(undefined)
   mockRetime.mockResolvedValue(undefined)
   current = []
+  mockPending = noPending
   onAccept = () => ({ acceptOffer: true })
+})
+
+describe('Home: what is kept on the phone', () => {
+  it('says how many steps wait for signal, and leaves out a delivery that is done on the phone', async () => {
+    mockPending = { ...noPending, steps: [{ deliveryId: 'd-9' }], hidden: new Set(['d-9']) }
+    current = [delivery('picked_up')]
+    const screen = await render(<HomeScreen />, fakeSession(answer))
+    expect(hasText(screen, t('home.pending.saved', { count: 1 }))).toBe(true)
+    expect(hasButton(screen, t('home.current.open'))).toBe(false)
+  })
+
+  it('tells the rider the store will confirm a delivery, until they dismiss it', async () => {
+    mockPending = { ...noPending, notices: [{ deliveryId: 'd-9', code: 'CODE_UNCONFIRMED', dismissed: false }] }
+    const screen = await render(<HomeScreen />, fakeSession(answer))
+    expect(hasText(screen, t('delivery.unconfirmed.title'))).toBe(true)
+    await press(screen, t('home.pending.dismiss'))
+    expect(mockDismiss).toHaveBeenCalledWith('d-9')
+  })
+
+  it('shows no banner for a dismissed notice, and still leaves that delivery out of the current one', async () => {
+    mockPending = { ...noPending, notices: [{ deliveryId: 'd-9', code: 'CODE_UNCONFIRMED', dismissed: true }], hidden: new Set(['d-9']) }
+    current = [delivery('picked_up')]
+    const screen = await render(<HomeScreen />, fakeSession(answer))
+    expect(hasText(screen, t('delivery.unconfirmed.title'))).toBe(false)
+    expect(hasButton(screen, t('delivery.unconfirmed.title'))).toBe(false)
+    expect(hasButton(screen, t('home.current.open'))).toBe(false)
+  })
 })
 
 describe('Home: Show more', () => {

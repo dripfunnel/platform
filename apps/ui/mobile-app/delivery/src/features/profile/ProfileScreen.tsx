@@ -7,6 +7,7 @@ import { useBrand } from '@dripfunnel/mobile-shared/brand'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { deleteMyAccount } from '../../api/rider'
 import { errorText, t } from '../../messages'
+import { usePending } from '../../pending/PendingContext'
 import { useSession } from '../../session/SessionContext'
 import { Button, Refusal, Resource, TextButton } from '../common/ui'
 import { useAction } from '../common/useAction'
@@ -21,6 +22,7 @@ export function ProfileScreen() {
   const { colors, radii } = useTheme()
   const { brand } = useBrand()
   const { client, fetchRider, signOut, leave } = useSession()
+  const { forget } = usePending()
   const { state, reload } = useLoad(fetchRider)
   const out = useAction()
   const erase = useAction()
@@ -37,7 +39,10 @@ export function ProfileScreen() {
         throw error
       }),
     )
-    if (done) await leave()
+    if (done) {
+      await forget()
+      await leave()
+    }
   }
 
   if (state.status !== 'ready') return <Resource state={state} onRetry={reload}>{() => null}</Resource>

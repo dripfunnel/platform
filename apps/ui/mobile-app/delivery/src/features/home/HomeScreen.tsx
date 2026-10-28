@@ -6,6 +6,7 @@ import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { acceptOffer, declineOffer, fetchCurrentDelivery, fetchOffers, type CurrentDelivery, type Offer } from '../../api/dispatch'
 import { retime } from '../../location/tracking'
 import { errorText, t } from '../../messages'
+import { usePending } from '../../pending/PendingContext'
 import { usePush } from '../../push/PushContext'
 import { pushPermission } from '../../push/push'
 import { useSession } from '../../session/SessionContext'
@@ -49,9 +50,10 @@ export function HomeScreen() {
   const { colors, radii } = useTheme()
   const { client } = useSession()
   const { refresh, ended, dismissEnded } = usePush()
+  const { steps, notices, hidden, sentCount, dismissNotice } = usePending()
   const now = useNow()
   const { state, reload } = useLoad(async () => {
-    const [current, page] = await Promise.all([fetchCurrentDelivery(client), fetchOffers(client)])
+    const [current, page] = await Promise.all([fetchCurrentDelivery(client, hidden), fetchOffers(client)])
     return { current, page }
   })
   const current = state.status === 'ready' ? state.data.current : null
@@ -82,6 +84,12 @@ export function HomeScreen() {
   useEffect(() => {
     if (refresh > 0) reload()
   }, [refresh, reload])
+  const loadedFor = useRef({ hidden, sentCount })
+  useEffect(() => {
+    if (loadedFor.current.hidden === hidden && loadedFor.current.sentCount === sentCount) return
+    loadedFor.current = { hidden, sentCount }
+    reload()
+  }, [hidden, sentCount, reload])
   useEffect(() => {
     if (state.status === 'ready') setMore(null)
   }, [state])
@@ -194,6 +202,18 @@ export function HomeScreen() {
           <TextButton label={t('home.ended.dismiss')} onPress={dismissEnded} />
         </View>
       ) : null}
+
+      {steps.length > 0 ? (
+        <View accessibilityRole="alert" style={[styles.banner, { backgroundColor: colors.warningSurface, borderColor: colors.warningBorder, borderRadius: radii.button }]}>
+          <Text style={{ flex: 1, color: colors.warning, fontSize: 14 }}>{t('home.pending.saved', { count: steps.length })}</Text>
+        </View>
+      ) : null}
+      {notices.filter((notice) => !notice.dismissed).map((notice) => (
+        <View key={notice.deliveryId} accessibilityRole="alert" style={[styles.banner, { backgroundColor: colors.infoSurface, borderColor: colors.infoBorder, borderRadius: radii.button }]}>
+          <Text style={{ flex: 1, color: colors.info, fontSize: 14 }}>{notice.code === 'CODE_UNCONFIRMED' ? t('delivery.unconfirmed.title') : t('home.pending.refused')}</Text>
+          <TextButton label={t('home.pending.dismiss')} onPress={() => dismissNotice(notice.deliveryId)} />
+        </View>
+      ))}
 
       <OnlineCard online={online.online === true} paused={current !== null} locationOff={online.denied} busy={online.busy} onToggle={toggle} />
 

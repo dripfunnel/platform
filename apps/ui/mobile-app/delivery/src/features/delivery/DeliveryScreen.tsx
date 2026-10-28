@@ -1,30 +1,39 @@
 import { useRouter } from 'expo-router'
 import { useRef, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useOnline as useConnection } from '@dripfunnel/mobile-shared/connection'
+import { formatDateTime } from '@dripfunnel/mobile-shared/format'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { fetchDelivery, handBack, markDelivered, markFailed, markPickedUp, type NotDeliveredReason, type RiderDelivery, type Step } from '../../api/delivery'
-import { errorText, t } from '../../messages'
+import { fetchDelivery, handBack, markDelivered, markFailed, markPickedUp, type NotDeliveredReason, type RiderDelivery } from '../../api/delivery'
+import { errorText, locale, t } from '../../messages'
+import { usePending } from '../../pending/PendingContext'
+import type { PendingStep } from '../../pending/store'
 import { useSession } from '../../session/SessionContext'
 import { Button, Refusal, Resource, ScreenHeader, StateMessage, TextButton } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { useLoad } from '../common/useLoad'
 import { CodeEntry, CodeLocked } from './CodeEntry'
 import { cashOf, CustomerDetails, PickupDetails } from './Details'
-import { navigateTo } from './navigate'
+import { ResultCard, ReturnCard } from './Results'
 import { Sheet } from './Sheet'
 import { newStep } from './steps'
 
 const reasons: NotDeliveredReason[] = ['no_one_home', 'refused', 'wrong_address']
 
-type Outcome = { kind: 'delivered'; cash: string | null } | { kind: 'failed'; reason: NotDeliveredReason }
+/** `savedAt` is when the step was taken while the phone had no signal; null when the API already has it. */
+type Outcome = { kind: 'delivered'; cash: string | null; savedAt: string | null } | { kind: 'failed'; reason: NotDeliveredReason; savedAt: string | null } | { kind: 'unconfirmed' }
 type Sheets = 'handBack' | 'cash' | 'reason' | null
+
+const timeOf = (at: string): string => formatDateTime(at, locale, Intl.DateTimeFormat().resolvedOptions().timeZone)
 
 /** One delivery from pickup to the door (docs/mobile-app/delivery/FIRST-RELEASE.md §2). The API decides every step; this screen shows what it answers. */
 export function DeliveryScreen({ id }: { id: string }) {
   const { client } = useSession()
   const router = useRouter()
   const { colors } = useTheme()
+  const connected = useConnection()
+  const { steps, notices, keep, notify } = usePending()
   const { state, reload } = useLoad(() => fetchDelivery(client, id))
   const step = useAction()
   const [sheet, setSheet] = useState<Sheets>(null)
@@ -32,22 +41,17 @@ export function DeliveryScreen({ id }: { id: string }) {
   const [code, setCode] = useState('')
   const [locked, setLocked] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
-  const [codeBusy, setCodeBusy] = useState(false)
+  const [sending, setSending] = useState(false)
   const [reason, setReason] = useState<NotDeliveredReason | null>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const cashCollected = useRef(false)
-  const pending = useRef<{ action: string; payload: string; step: Step } | null>(null)
 
   const home = () => router.navigate('/home')
 
-  // A resend after no answer keeps its step (same time and key), so the API does it once; any answer, even a refusal, ends it.
-  const stepFor = (action: string, payload: string): Step => {
-    if (pending.current?.action !== action || pending.current.payload !== payload) pending.current = { action, payload, step: newStep() }
-    return pending.current.step
-  }
-  const answered = (error: unknown) => {
-    if (!isApiError(error, 'NO_RESPONSE')) pending.current = null
-  }
+  // What the phone already holds for this delivery shows it as done, so reopening it never offers the same step twice.
+  const kept = steps.find((saved) => saved.deliveryId === id)
+  const unconfirmed = notices.some((notice) => notice.deliveryId === id && notice.code === 'CODE_UNCONFIRMED')
+  const shown: Outcome | null = outcome ?? (kept ? (kept.kind === 'delivered' ? { kind: 'delivered', cash: null, savedAt: kept.at } : { kind: 'failed', reason: kept.reason, savedAt: kept.at }) : unconfirmed ? { kind: 'unconfirmed' } : null)
 
   const pickUp = () => void step.run(() => markPickedUp(client, id)).then((done) => done && reload())
   const giveBack = () => {
@@ -57,43 +61,48 @@ export function DeliveryScreen({ id }: { id: string }) {
 
   const deliver = (delivery: RiderDelivery) => (cashOf(delivery) ? setSheet('cash') : setEntering(true))
 
-  const confirmCode = async (delivery: RiderDelivery) => {
-    setCodeBusy(true)
+  // With no signal the step is kept on the phone at once (the code gets this one try, checked when it is sent), and so is one the API did not answer.
+  const send = async (taken: PendingStep, call: () => Promise<void>, done: Outcome) => {
+    const save = async () => ((await keep(taken)) ? setOutcome(done) : setRefusal('NOT_SAVED'))
     setRefusal(null)
+    if (!connected) return save()
+    setSending(true)
     try {
-      await markDelivered(client, id, { code, cashCollected: cashOf(delivery) ? cashCollected.current : null, ...stepFor('delivered', `${code}:${cashCollected.current}`) })
-      pending.current = null
-      setOutcome({ kind: 'delivered', cash: cashOf(delivery) })
+      await call()
+      setOutcome({ ...done, savedAt: null } as Outcome)
     } catch (error) {
-      answered(error)
+      if (isApiError(error, 'NO_RESPONSE')) return save()
       const failure = isApiError(error) ? error.code : 'UNKNOWN'
+      if (failure === 'CODE_UNCONFIRMED') {
+        notify({ deliveryId: id, code: failure, dismissed: false })
+        return setOutcome({ kind: 'unconfirmed' })
+      }
       if (failure === 'WRONG_CODE') setCode('')
       if (failure === 'CODE_LOCKED') setLocked(true)
       setRefusal(failure)
     } finally {
-      setCodeBusy(false)
+      setSending(false)
     }
+  }
+
+  const confirmCode = (delivery: RiderDelivery) => {
+    const cash = cashOf(delivery)
+    const cashDone = cash ? cashCollected.current : null
+    const taken = { kind: 'delivered' as const, deliveryId: id, code, cashCollected: cashDone, ...newStep() }
+    return send(taken, () => markDelivered(client, id, { code, cashCollected: cashDone, at: taken.at, key: taken.key }), { kind: 'delivered', cash, savedAt: taken.at })
   }
 
   const notDelivered = () => {
     if (!reason) return
     setSheet(null)
-    const send = async () => {
-      try {
-        await markFailed(client, id, { reason, ...stepFor('failed', reason) })
-        pending.current = null
-      } catch (error) {
-        answered(error)
-        throw error
-      }
-    }
-    void step.run(send).then((done) => done && setOutcome({ kind: 'failed', reason }))
+    const taken = { kind: 'failed' as const, deliveryId: id, reason, ...newStep() }
+    return send(taken, () => markFailed(client, id, { reason, at: taken.at, key: taken.key }), { kind: 'failed', reason, savedAt: taken.at })
   }
 
   const finished = (title: string, body: string) => <StateMessage title={title} body={body} actionLabel={t('delivery.result.back')} onAction={home} />
 
   const footer = (delivery: RiderDelivery) => {
-    if (outcome || delivery.state === 'cancelled' || delivery.state === 'delivered' || delivery.state === 'failed') return null
+    if (shown || delivery.state === 'cancelled' || delivery.state === 'delivered' || delivery.state === 'failed') return null
     if (delivery.state === 'assigned') {
       return (
         <>
@@ -108,7 +117,7 @@ export function DeliveryScreen({ id }: { id: string }) {
         <TextButton label={t('delivery.notDelivered')} onPress={() => setSheet('reason')} />
       ) : (
         <>
-          <Button label={t('delivery.code.confirm')} busy={codeBusy} disabled={code.length < 4} onPress={() => void confirmCode(delivery)} />
+          <Button label={t('delivery.code.confirm')} busy={sending} disabled={code.length < 4} onPress={() => void confirmCode(delivery)} />
           <TextButton label={t('delivery.notDelivered')} onPress={() => setSheet('reason')} />
         </>
       )
@@ -124,14 +133,24 @@ export function DeliveryScreen({ id }: { id: string }) {
   const body = (delivery: RiderDelivery | null) => {
     if (!delivery) return <StateMessage title={t('delivery.title')} body={errorText('NOT_FOUND')} actionLabel={t('delivery.result.back')} onAction={home} />
     const where = delivery.warehouse?.name ?? t('home.warehouse')
-    if (outcome?.kind === 'delivered') return <ResultCard title={t('delivery.result.title')} body={outcome.cash ? t('delivery.result.cash', { amount: outcome.cash }) : ''} onBack={home} />
-    if (outcome?.kind === 'failed') return <ReturnCard note={t('delivery.returnParcel.notDelivered', { reason: t(`delivery.failedSheet.reason.${outcome.reason}`).toLowerCase() })} title={t('delivery.returnParcel.titleReturn', { warehouse: where })} delivery={delivery} onBack={home} />
+    if (shown?.kind === 'delivered') {
+      return shown.savedAt ? (
+        <ResultCard tone="warning" title={t('delivery.saved.title')} body={t('delivery.saved.delivered', { time: timeOf(shown.savedAt) })} onBack={home} />
+      ) : (
+        <ResultCard tone="success" title={t('delivery.result.title')} body={shown.cash ? t('delivery.result.cash', { amount: shown.cash }) : ''} onBack={home} />
+      )
+    }
+    if (shown?.kind === 'failed') {
+      const note = t('delivery.returnParcel.notDelivered', { reason: t(`delivery.failedSheet.reason.${shown.reason}`).toLowerCase() })
+      return <ReturnCard note={note} saved={shown.savedAt ? t('delivery.saved.notDelivered', { time: timeOf(shown.savedAt) }) : null} title={t('delivery.returnParcel.titleReturn', { warehouse: where })} delivery={delivery} onBack={home} />
+    }
+    if (shown?.kind === 'unconfirmed') return <ResultCard tone="warning" title={t('delivery.unconfirmed.title')} body={t('delivery.unconfirmed.body')} onBack={home} />
     if (delivery.state === 'cancelled') return finished(t('delivery.cancelled.title'), t('delivery.cancelled.body'))
-    if (delivery.state === 'failed' && delivery.failedReason === 'recalled') return <ReturnCard note={t('delivery.returnParcel.recalled')} title={t('delivery.returnParcel.titleBring', { warehouse: where })} delivery={delivery} onBack={home} />
+    if (delivery.state === 'failed' && delivery.failedReason === 'recalled') return <ReturnCard note={t('delivery.returnParcel.recalled')} saved={null} title={t('delivery.returnParcel.titleBring', { warehouse: where })} delivery={delivery} onBack={home} />
     if (delivery.state === 'assigned') return <PickupDetails delivery={delivery} />
     if (delivery.state === 'picked_up') {
       if (!entering) return <CustomerDetails delivery={delivery} />
-      return locked ? <CodeLocked /> : <CodeEntry code={code} onChange={setCode} refusal={refusal === 'WRONG_CODE' ? errorText('WRONG_CODE') : null} />
+      return locked ? <CodeLocked /> : <CodeEntry code={code} onChange={setCode} offline={!connected} refusal={refusal === 'WRONG_CODE' ? errorText('WRONG_CODE') : null} />
     }
     return finished(t('delivery.finished.title'), t('delivery.finished.body'))
   }
@@ -184,38 +203,9 @@ export function DeliveryScreen({ id }: { id: string }) {
             <Text style={{ color: colors.text, fontSize: 16 }}>{t(`delivery.failedSheet.reason.${key}`)}</Text>
           </Pressable>
         ))}
-        <Button label={t('delivery.failedSheet.confirm')} disabled={!reason} busy={step.busy} onPress={notDelivered} />
+        <Button label={t('delivery.failedSheet.confirm')} disabled={!reason} busy={sending} onPress={() => void notDelivered()} />
         <Button kind="secondary" label={t('delivery.failedSheet.cancel')} onPress={() => setSheet(null)} />
       </Sheet>
-    </View>
-  )
-}
-
-function ResultCard({ title, body, onBack }: { title: string; body: string; onBack: () => void }) {
-  const { colors, radii } = useTheme()
-  return (
-    <View accessibilityRole="alert" style={[styles.result, { backgroundColor: colors.successSurface, borderColor: colors.successBorder, borderRadius: radii.card }]}>
-      <Text accessibilityRole="header" style={{ color: colors.success, fontSize: 22, fontWeight: '700' }}>
-        {title}
-      </Text>
-      {body ? <Text style={{ color: colors.success, fontSize: 15 }}>{body}</Text> : null}
-      <Button label={t('delivery.result.back')} onPress={onBack} />
-    </View>
-  )
-}
-
-function ReturnCard({ note, title, delivery, onBack }: { note: string; title: string; delivery: RiderDelivery; onBack: () => void }) {
-  const { colors, radii } = useTheme()
-  const pin = delivery.warehouse && delivery.warehouse.latitude !== null && delivery.warehouse.longitude !== null ? { latitude: delivery.warehouse.latitude, longitude: delivery.warehouse.longitude } : null
-  return (
-    <View style={[styles.result, { backgroundColor: colors.infoSurface, borderColor: colors.infoBorder, borderRadius: radii.card }]}>
-      <Text style={{ color: colors.info, fontSize: 14 }}>{note}</Text>
-      <Text accessibilityRole="header" style={{ color: colors.info, fontSize: 20, fontWeight: '700' }}>
-        {title}
-      </Text>
-      <Text style={{ color: colors.text }}>{t('delivery.returnParcel.body')}</Text>
-      {pin ? <Button label={t('delivery.navigate')} onPress={() => void navigateTo(pin, delivery.warehouse?.name ?? '')} /> : null}
-      <Button kind="secondary" label={t('delivery.returnParcel.backHome')} onPress={onBack} />
     </View>
   )
 }
@@ -225,5 +215,4 @@ const styles = StyleSheet.create({
   body: { gap: 12, padding: 16 },
   footer: { gap: 10, padding: 16, borderTopWidth: 1 },
   reason: { minHeight: 52, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 10 },
-  result: { borderWidth: 1, padding: 20, gap: 12 },
 })
