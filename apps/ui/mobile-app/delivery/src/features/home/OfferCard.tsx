@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { formatDistance, formatDuration, pluralForm } from '@dripfunnel/mobile-shared/format'
+import { formatDuration, pluralForm } from '@dripfunnel/mobile-shared/format'
+import { formatDistance } from '../../format/distance'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import type { Offer } from '../../api/dispatch'
 import { locale, t } from '../../messages'

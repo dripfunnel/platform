@@ -1,5 +1,4 @@
 import { formatDateTime } from './dateTime'
-import { formatDistance } from './distance'
 import { formatDuration } from './duration'
 import { formatList } from './list'
 import { formatMoney } from './money'
@@ -23,10 +22,6 @@ export const formatCases: readonly FormatCase[] = [
   { group: 'money', name: 'JPY, 0 digits', actual: (l) => formatMoney({ amount: 123_456, currency: 'JPY' }, l), expected: '¥123,456' },
   { group: 'money', name: 'KWD, 3 digits', actual: (l) => formatMoney({ amount: 1_234_567, currency: 'KWD' }, l), expected: `KWD${NBSP}1,234.567` },
   { group: 'money', name: 'EUR, zero', actual: (l) => formatMoney({ amount: 0, currency: 'EUR' }, l), expected: '€0.00' },
-  // Distances: kilometres from 1 km, metres below it.
-  { group: 'distance', name: 'kilometres, one decimal', actual: (l) => formatDistance(2_400, l), expected: '2.4 km' },
-  { group: 'distance', name: 'metres', actual: (l) => formatDistance(800, l), expected: '800 m' },
-  { group: 'distance', name: 'a whole kilometre', actual: (l) => formatDistance(1_000, l), expected: '1 km' },
   // Dates: one instant, shown in each named zone with the zone's name.
   { group: 'dateTime', name: 'UTC', actual: (l) => formatDateTime('2026-10-13T00:30:00Z', l, 'UTC'), expected: 'Oct 13, 2026, 00:30 UTC' },
   { group: 'dateTime', name: 'Asia/Kolkata, half-hour offset', actual: (l) => formatDateTime('2026-10-13T00:30:00Z', l, 'Asia/Kolkata'), expected: 'Oct 13, 2026, 06:00 GMT+5:30' },

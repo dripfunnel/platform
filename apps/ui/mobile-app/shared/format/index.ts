@@ -1,5 +1,4 @@
 export { formatDateTime, formatDay, formatWeekdayDate, hourIn } from './dateTime'
-export { formatDistance } from './distance'
 export { formatDuration } from './duration'
 export { formatList } from './list'
 export { formatMoney, minorOf, moneyDigits, moneyText, type Money } from './money'

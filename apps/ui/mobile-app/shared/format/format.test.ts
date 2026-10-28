@@ -10,7 +10,7 @@ describe('format on Node, with the inputs the Hermes check runs on the phone', (
 
   it('covers money in INR, USD and the zero-decimal JPY, dates across zones, plurals and lists', () => {
     const groups = new Set(formatCases.map((c) => c.group))
-    expect([...groups]).toEqual(expect.arrayContaining(['money', 'dateTime', 'plural', 'list', 'number', 'duration', 'distance']))
+    expect([...groups]).toEqual(expect.arrayContaining(['money', 'dateTime', 'plural', 'list', 'number', 'duration']))
     const names = formatCases.filter((c) => c.group === 'money').map((c) => c.name)
     expect(names).toEqual(expect.arrayContaining([expect.stringContaining('INR'), expect.stringContaining('USD'), expect.stringContaining('JPY')]))
   })
