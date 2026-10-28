@@ -212,17 +212,20 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
     const { billed, key, auth, accountId } = who.resolved
     if (billed === 'plan' && !(await reserve())) throw new GatewayRefused('AI_BUDGET_REACHED')
     let ended = false
+    let sent = false
     try {
       for await (const chunk of adapters(input.provider, key, auth, accountId).streamResponse(requestOf(input), signal)) {
         if (chunk.kind === 'end') {
           ended = true
           await record(input, billed, auth, { model: chunk.model, ...chunk.usage }, costIn(auth, checked.model, chunk.usage), 'changed')
         }
+        if (chunk.kind === 'text') sent = true
         yield chunk
       }
     } finally {
       if (!ended) {
-        if (billed === 'plan') await giveBack()
+        // Text already sent is the caller's: the prompt is given back only when nothing reached them.
+        if (billed === 'plan' && !sent) await giveBack()
         await record(input, billed, auth, null, 0, 'failed')
       }
     }

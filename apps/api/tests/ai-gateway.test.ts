@@ -250,14 +250,37 @@ describe('streaming', () => {
     expect((await runs(t.storeA2)).length).toBe(before + 1)
   })
 
-  it('gives the prompt back and records a failed run when the caller goes away mid-stream', async () => {
+  const usedOf = async (storeId: string) => (await db.sql<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = 'ai_prompts'`)[0]?.used ?? 0
+
+  it('keeps the prompt used and records a failed run when the caller goes away after text was sent', async () => {
     await entitle(t.storeA2, 1, 5)
     const g = await gateway(t.storeA2)
     for await (const c of g.stream(input({ stream: true }))) {
       if (c.kind === 'text') break
     }
-    const [used] = await db.sql<{ used: number }[]>`select used from store_usage where store_id = ${t.storeA2} and key = 'ai_prompts'`
-    expect(used?.used ?? 0).toBe(0)
+    expect(await usedOf(t.storeA2)).toBe(1)
+    expect((await runs(t.storeA2)).slice(-1)[0]?.outcome).toBe('failed')
+  })
+
+  it('gives the prompt back when the stream fails before any text', async () => {
+    await entitle(t.storeA2, 1, 5)
+    const failing = createAiGateway({
+      sql: db.sql,
+      context: { caller: { kind: 'api-key', keyId: crypto.randomUUID(), createdByUserId: owner }, partnerId: t.partnerA, storeId: t.storeA2, sellerScope: { kind: 'all' }, subscription: 'active' },
+      secrets: await secretBox(kek),
+      fallbackKey: undefined,
+      actor: { keyId: null, userId: null },
+      adapters: (provider, key) => ({
+        ...fake(provider, key),
+        streamResponse: async function* (): AsyncGenerator<ChatChunk> {
+          yield* []
+          throw new GatewayError('PROVIDER_UNAVAILABLE')
+        },
+      }),
+      now: () => now,
+    })
+    await expect((async () => { for await (const c of failing.stream(input({ stream: true }))) void c })()).rejects.toBeInstanceOf(GatewayError)
+    expect(await usedOf(t.storeA2)).toBe(0)
     expect((await runs(t.storeA2)).slice(-1)[0]?.outcome).toBe('failed')
   })
 })
