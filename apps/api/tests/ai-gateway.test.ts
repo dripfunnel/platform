@@ -8,7 +8,7 @@ import { pgArray, withSystemScope } from '#db/scoped/index'
 import { upsertStoreAiAccount } from '#db/scoped/storeAiAccount'
 import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
 import { activityLog } from '#saas/activity/index'
-import { createAiGateway, designerAiFor, type ChatInput } from '#saas/aiGateway/index'
+import { chatInput, createAiGateway, designerAiFor, type ChatInput } from '#saas/aiGateway/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -207,6 +207,14 @@ describe('validation before any provider or budget', () => {
     expect(g.validate(input({ maxTokens: 32_001, model: 'claude-haiku-5-5' }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
     expect(g.validate(input({ temperature: 1.5 }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
     expect(g.validate(input({ provider: 'openai', model: 'gpt-5', temperature: 1.5 })).ok).toBe(true)
+  })
+})
+
+describe('the request body', () => {
+  it('refuses an empty system text block, which Anthropic would reject', () => {
+    const body = { provider: 'anthropic', model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'Hi' }] }
+    expect(chatInput.safeParse({ ...body, system: [{ type: 'text', text: '' }] }).success).toBe(false)
+    expect(chatInput.safeParse({ ...body, system: [{ type: 'text', text: 'ok' }] }).success).toBe(true)
   })
 })
 

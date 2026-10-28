@@ -27,7 +27,7 @@ const message = z.strictObject({ role: z.enum(['system', 'user', 'assistant']), 
 export const chatInput = z.strictObject({
   provider: z.enum(gatewayProviders),
   model: z.string().min(1).max(100),
-  system: z.union([z.string().max(maxContentChars), z.array(z.strictObject({ type: z.literal('text'), text: z.string().max(maxContentChars) }))]).optional(),
+  system: z.union([z.string().max(maxContentChars), z.array(z.strictObject({ type: z.literal('text'), text: z.string().min(1).max(maxContentChars) }))]).optional(),
   messages: z.array(message).min(1).max(maxMessages),
   temperature: z.number().finite().optional(),
   maxTokens: z.number().int().min(1).max(64_000).optional(),
