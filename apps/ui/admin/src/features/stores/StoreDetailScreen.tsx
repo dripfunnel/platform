@@ -13,6 +13,7 @@ import { RouteError } from '../common/RouteError'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
 import { jobFailureWords, useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
+import { canChangeDeliveryApp } from './deliveryAppRoles'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
 import { phoneAction, PhoneStore } from './PhoneStore'
@@ -22,9 +23,6 @@ const storeRoute = getRouteApi('/_app/stores_/$storeId')
 const shellRoute = getRouteApi('/_app')
 
 type Pending = { kind: 'store'; action: DialogAction } | { kind: 'job'; action: JobAction }
-
-// ACCESS.md §5.4 `stores.deliveryApp.write`; the API enforces it, this only turns the controls off.
-const deliveryAppRoles: readonly string[] = ['staff-super-admin', 'staff-engineer']
 
 const dialogActions: readonly DialogAction[] = ['suspend', 'restore', 'extendTrial', 'resendInvite']
 
@@ -140,7 +138,7 @@ export const StoreDetailScreen = () => {
           onFilterChange: (filter) => void navigate({ to: '.', search: { tab, ...filter }, replace: true }),
         }}
         onReload={() => void router.invalidate()}
-        canChangeDeliveryApp={deliveryAppRoles.includes(me.role)}
+        canChangeDeliveryApp={canChangeDeliveryApp(me.role)}
         onToast={setToast}
         activity={
           store && (
