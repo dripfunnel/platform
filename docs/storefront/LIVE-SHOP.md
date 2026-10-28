@@ -138,6 +138,13 @@ checking, deploying, live, failed, rolled back).
    only once this publish is live (step 9).
    *Why:* the repo is public. A publish that fails its checks, or is refused or bisected, must
    never make an unreleased design public (decided 2026-10-09 with Gaurav, #520).
+   **A hand push to `main`** (the stop-gap for editing a store from a local clone while the studio is
+   built; 2026-10-28): a design publish first reads `main` through the GitHub App. When it is past
+   `storefront.repo_head` and none of the platform's own pushes is pending, the theme files that changed
+   between them become one change to the draft, through the same gate as any change (a refusal stops the
+   publish as `CHANGE_REFUSED`). `repo_head` then moves to `main`, so the publish's own commit
+   fast-forwards on top of the hand push (`saas/storefronts/handPush.ts`). A push alone still builds
+   nothing, and files outside the theme allowlist are ignored.
 3. **The platform freezes the input**, as private files for this build behind 15-minute links:
    - the catalogue snapshot, read once from the Shop API (ARCHITECTURE §5);
    - the source to build, as a git bundle of that commit, **kept privately with the build** for as

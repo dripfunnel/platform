@@ -49,6 +49,19 @@ export const finishPush = async (tx: ScopedSql, storeId: string, key: string, pa
   await tx`update storefront_push set state = 'done', commit_sha = ${commit}, finished_at = ${at} where store_id = ${storeId} and key = ${key}`
 }
 
+/** The store's repo, unless a push of the platform's own is on its way to `main` (its commit isn't a hand push). */
+export const selectRepoAtRest = async (tx: ScopedSql, storeId: string): Promise<StoreRepoRow | null> =>
+  (
+    await tx<StoreRepoRow[]>`
+      select repo, repo_state, repo_head from storefront f
+      where store_id = ${storeId} and not exists (select 1 from storefront_push p where p.store_id = f.store_id and p.state = 'pending')`
+  )[0] ?? null
+
+/** A hand push to `main` is taken into the draft: the next push builds on it (LIVE-SHOP §4 step 2). */
+export const adoptRepoHead = async (tx: ScopedSql, storeId: string, from: string, head: string): Promise<void> => {
+  await tx`update storefront set repo_head = ${head} where store_id = ${storeId} and repo_head = ${from}`
+}
+
 /** What the create-storefront Workflow reads at each step (SAAS §5 steps 4–8). */
 export interface CreationRow extends StoreRepoRow {
   partner_id: string

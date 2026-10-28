@@ -17,6 +17,7 @@ interface Repo {
   main: string | null
   commits: Map<string, Commit>
   trees: Map<string, Map<string, string>>
+  blobs: Map<string, string>
   settings: Record<string, unknown>
 }
 
@@ -61,8 +62,11 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
   const storeTree = async (repo: Repo, files: Map<string, string>) => {
     const sha = await hash([...files].sort(([a], [b]) => a.localeCompare(b)))
     repo.trees.set(sha, files)
+    for (const content of files.values()) repo.blobs.set(await hash(content), content)
     return sha
   }
+
+  const utf8Base64 = (text: string) => btoa(String.fromCharCode(...new TextEncoder().encode(text)))
 
   const storeCommit = async (repo: Repo, commit: Commit) => {
     const sha = await hash(commit)
@@ -100,7 +104,7 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     if (method === 'POST' && path === `/orgs/${org}/repos`) {
       const name = String(body['name'])
       if (repos.has(name)) return reply(422, { message: 'name already exists on this account' })
-      const repo: Repo = { id: repoId(), name, private: body['private'] === true, main: null, commits: new Map(), trees: new Map(), settings: {} }
+      const repo: Repo = { id: repoId(), name, private: body['private'] === true, main: null, commits: new Map(), trees: new Map(), blobs: new Map(), settings: {} }
       if (body['auto_init'] === true) {
         const tree = await storeTree(repo, new Map([['README.md', `# ${name}\n`]]))
         repo.main = await storeCommit(repo, { tree, parents: [], message: 'Initial commit', date: new Date().toISOString() })
@@ -131,7 +135,14 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     const treePath = /^\/git\/trees\/([0-9a-f]{40})\?recursive=1$/.exec(rest)
     if (method === 'GET' && treePath) {
       const files = repo.trees.get(treePath[1] ?? '')
-      return files ? reply(200, { sha: treePath[1], truncated: false, tree: [...files.keys()].map((p) => ({ path: p, type: 'blob', mode: '100644' })) }) : reply(404, { message: 'Not Found' })
+      if (!files) return reply(404, { message: 'Not Found' })
+      const tree = await Promise.all([...files].map(async ([p, content]) => ({ path: p, type: 'blob', mode: '100644', sha: await hash(content) })))
+      return reply(200, { sha: treePath[1], truncated: false, tree })
+    }
+    const blobPath = /^\/git\/blobs\/([0-9a-f]{40})$/.exec(rest)
+    if (method === 'GET' && blobPath) {
+      const content = repo.blobs.get(blobPath[1] ?? '')
+      return content === undefined ? reply(404, { message: 'Not Found' }) : reply(200, { sha: blobPath[1], encoding: 'base64', content: utf8Base64(content) })
     }
     if (method === 'POST' && rest === '/git/trees') {
       const base = typeof body['base_tree'] === 'string' ? repo.trees.get(body['base_tree']) : new Map<string, string>()

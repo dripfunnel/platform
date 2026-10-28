@@ -9,6 +9,7 @@ import { allowanceFor } from '#saas/entitlements/index'
 import { startStorefront } from '#saas/storefronts/index'
 import { createStorefrontSettingsService } from '#saas/storefrontSettings/index'
 import type { StudioApi } from '#saas/studio/index'
+import type { StoreRepos } from '#integrations/github/index'
 import { designAudit, designNotes } from './words'
 
 // The Store API's Storefront area (FIRST-RELEASE §14, §19; SAAS §9.2): the Owner changes the design (`publish`), the
@@ -22,6 +23,8 @@ export interface DesignerDeps {
   facts: RequestFacts
   /** The store's StudioSession; null where the Worker has none bound. */
   studio: StudioApi | null
+  /** The store repos, for a hand push to `main` that Publish takes first (LIVE-SHOP §4 step 2); null without the GitHub App. */
+  repos?: (() => Promise<StoreRepos | null>) | null
   /** The domain of every store's free address (SHOP_DOMAIN); a template's demo is its store's address on it. */
   shopDomain: string | null
   now: () => Date

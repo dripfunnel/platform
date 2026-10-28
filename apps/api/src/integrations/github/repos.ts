@@ -29,6 +29,8 @@ export interface StoreRepos {
   head: (name: string) => Promise<string | null>
   treeOf: (name: string, commit: string) => Promise<string>
   paths: (name: string, tree: string) => Promise<string[]>
+  /** The files `keep` accepts that differ between two commits: each one's text at `to`, or null where `to` removed it. */
+  changes: (name: string, from: string, to: string, keep: (path: string) => boolean) => Promise<RepoChange[]>
   /** A tree from `base` (or empty) with the changes applied. */
   writeTree: (name: string, base: string | null, changes: readonly RepoChange[]) => Promise<string>
   commit: (name: string, commit: NewCommit) => Promise<string>
@@ -47,7 +49,8 @@ const sha = z.string().regex(/^[0-9a-f]{40}$/)
 const repoSchema = z.object({ id: z.number() }).loose()
 const refSchema = z.object({ object: z.object({ sha }).loose() }).loose()
 const commitSchema = z.object({ sha, tree: z.object({ sha }).loose() }).loose()
-const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string() }).loose()) }).loose()
+const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string(), sha: z.string().optional() }).loose()) }).loose()
+const blobSchema = z.object({ content: z.string(), encoding: z.literal('base64') }).loose()
 const created = z.object({ sha }).loose()
 const compareSchema = z.object({ status: z.string() }).loose()
 
@@ -66,6 +69,17 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
   const find = async (name: string) => {
     const answer = await call('GET', repo(name), undefined, [404])
     return answer.status === 404 ? null : { id: read(repoSchema, answer.body).id }
+  }
+
+  const treeOf = async (name: string, commit: string) => read(commitSchema, (await call('GET', `${repo(name)}/git/commits/${commit}`)).body).tree.sha
+  const blobs = async (name: string, tree: string) => {
+    const listed = read(treeSchema, (await call('GET', `${repo(name)}/git/trees/${tree}?recursive=1`)).body)
+    if (listed.truncated) throw new GitHubUnavailable('GitHub listed the tree in part')
+    return listed.tree.filter((entry) => entry.type === 'blob')
+  }
+  const text = async (name: string, blob: string) => {
+    const answer = read(blobSchema, (await call('GET', `${repo(name)}/git/blobs/${blob}`)).body)
+    return new TextDecoder().decode(Uint8Array.from(atob(answer.content.replaceAll('\n', '')), (c) => c.charCodeAt(0)))
   }
 
   return {
@@ -97,11 +111,14 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
       const answer = await call('GET', `${repo(name)}/git/ref/heads/main`, undefined, [404, 409])
       return answer.status === 200 ? read(refSchema, answer.body).object.sha : null
     },
-    treeOf: async (name, commit) => read(commitSchema, (await call('GET', `${repo(name)}/git/commits/${commit}`)).body).tree.sha,
-    paths: async (name, tree) => {
-      const listed = read(treeSchema, (await call('GET', `${repo(name)}/git/trees/${tree}?recursive=1`)).body)
-      if (listed.truncated) throw new GitHubUnavailable('GitHub listed the tree in part')
-      return listed.tree.filter((entry) => entry.type === 'blob').map((entry) => entry.path)
+    treeOf,
+    paths: async (name, tree) => (await blobs(name, tree)).map((entry) => entry.path),
+    changes: async (name, from, to, keep) => {
+      const shas = async (commit: string) => new Map((await blobs(name, await treeOf(name, commit))).filter((e) => keep(e.path)).map((e) => [e.path, read(sha, e.sha)]))
+      const [before, after] = await Promise.all([shas(from), shas(to)])
+      const removed = [...before.keys()].filter((path) => !after.has(path)).map((path) => ({ path, content: null }))
+      const written = await Promise.all([...after].filter(([path, blob]) => before.get(path) !== blob).map(async ([path, blob]) => ({ path, content: await text(name, blob) })))
+      return [...removed, ...written]
     },
     writeTree: async (name, base, changes) => {
       const tree = changes.map((c) => (c.content === null ? { path: c.path, mode: '100644', type: 'blob', sha: null } : { path: c.path, mode: '100644', type: 'blob', content: c.content }))
