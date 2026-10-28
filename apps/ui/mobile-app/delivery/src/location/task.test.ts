@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { latestPosition } from './position'
+import { latestPosition, type Point } from './position'
 import { reportLatest } from './task'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
@@ -16,15 +16,27 @@ jest.mock('../api/dispatch', () => ({
   },
 }))
 
-const points = [
+const points: [Point, Point] = [
   { coords: { latitude: 1, longitude: 1, accuracy: 9 }, timestamp: Date.UTC(2026, 0, 1, 10, 0, 0) },
   { coords: { latitude: 2, longitude: 3, accuracy: null }, timestamp: Date.UTC(2026, 0, 1, 10, 0, 30) },
 ]
 
 describe('a position', () => {
   it('is the latest point of the wake-up, and only that', () => {
-    expect(latestPosition(points)).toEqual({ lat: 2, lng: 3, accuracy: 0, at: '2026-01-01T10:00:30.000Z' })
+    const [first, second] = points
+    expect(latestPosition([first, { ...second, coords: { ...second.coords, accuracy: 4 } }])).toEqual({ lat: 2, lng: 3, accuracy: 4, at: '2026-01-01T10:00:30.000Z' })
     expect(latestPosition([])).toBeNull()
+  })
+
+  it('never passes an unknown accuracy off as 0 m: that point is dropped', () => {
+    expect(latestPosition(points)).toEqual({ lat: 1, lng: 1, accuracy: 9, at: '2026-01-01T10:00:00.000Z' })
+    expect(latestPosition([points[1]])).toBeNull()
+  })
+
+  it('sends nothing when no point has an accuracy', async () => {
+    sent.length = 0
+    await reportLatest([points[1]])
+    expect(sent).toHaveLength(0)
   })
 
   it('is sent and forgotten: never written to storage or logged', async () => {
