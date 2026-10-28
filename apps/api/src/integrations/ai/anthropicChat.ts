@@ -23,13 +23,18 @@ export const anthropicFailure = (error: unknown): GatewayError => {
   return new GatewayError('PROVIDER_UNAVAILABLE')
 }
 
-const paramsOf = (request: ChatRequest) => ({
+const paramsOf = (request: ChatRequest) => {
+  const systemMessages = request.messages.filter((message) => message.role === 'system').map(({ content }) => ({ type: 'text' as const, text: content }))
+  const system = Array.isArray(request.system) ? [...request.system, ...systemMessages] : request.system === undefined ? systemMessages : systemMessages.length ? [{ type: 'text' as const, text: request.system }, ...systemMessages] : request.system
+  const messages = request.messages.flatMap((message) => message.role === 'system' ? [] : [{ role: message.role, content: message.content }])
+  return ({
   model: request.model,
   max_tokens: request.maxTokens,
-  ...(request.system ? { system: request.system } : {}),
+  ...(system.length === 0 || system === '' ? {} : { system }),
   ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
-  messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
-})
+  messages,
+  })
+}
 
 /** A key, or the access token of a Claude sign-in (Bearer, with the OAuth beta header). */
 export const anthropicChat = (credential: string | { authToken: string }): ChatProvider => {

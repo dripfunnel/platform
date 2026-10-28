@@ -25,6 +25,18 @@ describe('the OpenAI adapter', () => {
     expect(body).toMatchObject({ max_completion_tokens: 50, temperature: 0.5 })
   })
 
+  it('preserves a native system block array and existing system messages through chat completions', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(reply(200, { model: 'gpt-5', choices: [] })))
+    vi.stubGlobal('fetch', fetchMock)
+    await openaiChat(key).generateResponse({ ...request, system: [{ type: 'text', text: 'Native system' }], messages: [{ role: 'system', content: 'Existing system' }, { role: 'user', content: 'Hi' }] })
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toMatchObject({ messages: [
+      { role: 'system', content: [{ type: 'text', text: 'Native system' }] },
+      { role: 'system', content: 'Existing system' },
+      { role: 'user', content: 'Hi' },
+    ] })
+  })
+
   it('passes only the provider options it takes and refuses the rest, so no header or host rides along', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(reply(200, { model: 'm', choices: [] }))))
     await expect(openaiChat(key).generateResponse({ ...request, options: { top_p: 0.9, base_url: 'https://evil.example' } })).rejects.toMatchObject({ code: 'BAD_REQUEST' })

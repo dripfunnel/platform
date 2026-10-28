@@ -855,7 +855,9 @@ One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on th
 - **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
   id; the prompt column is empty and no answer is kept. The Store API's per-minute and per-month call limits (ACCESS §5.6)
   apply as to any key.
-- **Differences between the providers.** Both take a system message and turns; Claude takes the system apart from the
+- **Differences between the providers.** Both take a system message and turns; `system` may be text or native text blocks, and
+  a `role: system` turn is accepted. Claude moves system turns into its top-level system field (merging them after supplied
+  system text/blocks); OpenAI-compatible Chat Completions keeps them as system messages. Claude takes the system apart from the
   messages and caps temperature at 1, OpenAI at 2. Tool calling, structured outputs and images are **not** in the unified shape
   yet: a provider-only feature goes through `options` where the adapter lists it, and is refused otherwise.
 - **Streaming:** `text/event-stream` with `text` events (`{text}`) then one `end` (`{provider, model, finish, usage}`), or an

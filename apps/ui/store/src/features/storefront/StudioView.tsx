@@ -227,6 +227,11 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const progress = run !== null && (published === null || published.id !== run) ? publishProgress('queued') : published && published.id === run ? publishProgress(published.step) : null
   const locked = sandbox.kind !== 'ready' || busy || progress !== null
   const shownDevice = phone ? 'phone' : device
+  const editButton = (
+    <button type="button" className="df-button df-studio-edit-toggle" aria-pressed={editing} disabled={locked} onClick={() => postEdit(!editing)}>
+      {words.edit.button}
+    </button>
+  )
   // Reads after a change never throw: the chat says when it couldn't load, and the design keeps its last answer.
   const after = async () => {
     await loadChat()
@@ -384,6 +389,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         {status && <span className={`df-studio-pill${canDiscard ? ' df-studio-pill--draft' : ''}`}>{status}</span>}
         <span className="df-studio-gap" />
         {!phone && <PagePicker groups={groups} value={shownPath} onChange={pick} />}
+        {!phone && editButton}
         {!phone && (
           <>
             <div className="df-studio-devices" role="group" aria-label={words.screen}>
@@ -456,15 +462,13 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         </div>
         <div className="df-studio-pane df-studio-pane--preview" {...paneProps('preview')}>
           <div className={`df-studio-preview df-studio-preview--${shownDevice}`}>
-            <div className="df-studio-toolbar">
+            {(phone || editing) && <div className="df-studio-toolbar">
               {phone && <PagePicker groups={groups} value={shownPath} onChange={pick} />}
               {phone && previewButtons}
               <span className="df-studio-gap" />
               {editing && !phone && <span className="df-studio-hint">{words.edit.hint}</span>}
-              <button type="button" className="df-button df-studio-edit-toggle" aria-pressed={editing} disabled={locked} onClick={() => postEdit(!editing)}>
-                {words.edit.button}
-              </button>
-            </div>
+              {phone && editButton}
+            </div>}
             <div className="df-studio-frame">
               {session && <iframe key={visit.count} ref={frameRef} title={words.frameTitle} src={frameAddress(session.frameUrl, visit.path)} referrerPolicy="no-referrer" />}
               {overlay && (

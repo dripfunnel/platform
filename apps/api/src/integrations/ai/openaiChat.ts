@@ -28,7 +28,7 @@ const bodyOf = (request: ChatRequest, stream: boolean): string => {
     model: request.model,
     max_completion_tokens: request.maxTokens,
     ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
-    messages: [...(request.system ? [{ role: 'system', content: request.system }] : []), ...request.messages.map((m) => ({ role: m.role, content: m.content }))],
+    messages: [...(request.system !== undefined ? [{ role: 'system', content: request.system }] : []), ...request.messages.map((m) => ({ role: m.role, content: m.content }))],
     stream,
     ...(stream ? { stream_options: { include_usage: true } } : {}),
   })

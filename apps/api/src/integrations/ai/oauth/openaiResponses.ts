@@ -10,7 +10,7 @@ const bodyOf = (request: ChatRequest): string => {
   if (request.temperature !== undefined || (request.options && Object.keys(request.options).length > 0)) throw new GatewayError('BAD_REQUEST')
   return JSON.stringify({
     model: request.model,
-    ...(request.system ? { instructions: request.system } : {}),
+    ...(request.system !== undefined ? { instructions: typeof request.system === 'string' ? request.system : request.system.map((block) => block.text).join('\n') } : {}),
     input: request.messages.map((m) => ({ role: m.role, content: [{ type: m.role === 'user' ? 'input_text' : 'output_text', text: m.content }] })),
     store: false,
     stream: true,

@@ -183,20 +183,26 @@ the SPA has no use for them either.
 
 The AI runs the storefront designer and the portal's AI helpers.
 
-**Subscriptions and OAuth (decided 2026-10-28 on #950, revised the same day).** A Claude or ChatGPT *subscription* is not an
-API account. A store's Owner or a partner's console may **sign in** to their own account through one adapter per provider
-(`integrations/ai/oauth`); an API key stays a separate, always-available way to connect.
-
-**The user chose to ship both sign-ins on each provider's own CLI client, with the code pasted back.** Neither is a registration of
-DripFunnel's: both present DripFunnel to the provider as that provider's own CLI, and both screens say so before the person
-connects. The risk lands on the connecting person's own account (refusal, restriction or suspension), and the endpoints can change
-without notice. An API key is the supported way for both.
+**Subscriptions and OAuth.** A Claude or ChatGPT *subscription* is not an API account. OAuth
+adapter code exists in this worktree, but that does not mean a provider has authorized the
+integration. API keys remain a separate authentication method.
 - **Anthropic (Claude): Claude Code's public PKCE client** (`9d1c250a-…`). Authorize at `claude.ai/oauth/authorize` with
   `code=true`, redirect `https://platform.claude.com/oauth/code/callback` (it shows `code#state`), scopes
   `user:profile user:inference`; token at `api.anthropic.com/v1/oauth/token` as JSON; calls use the SDK with `authToken` and the
-  `anthropic-beta: oauth-2025-04-20` header. **Anthropic's terms do not allow this** (no Claude.ai login or Free, Pro or Max
-  credentials in a third-party product: <https://code.claude.com/docs/en/legal-and-compliance>). It is built on the user's decision,
-  not Anthropic's authorisation; revisit if Anthropic objects.
+  `anthropic-beta: oauth-2025-04-20` header. The storefront designer puts the reference's `claude-haiku-4-5` first in the
+  OAuth model picker and uses a non-streaming Messages call with an 8,192-token output limit; other supported Claude
+  models remain selectable. OAuth design calls send merchant reference images as standard Messages image blocks. API-key
+  calls retain their existing model list and adapter.
+  Anthropic's current [Claude Code legal and compliance terms](https://code.claude.com/docs/en/legal-and-compliance)
+  direct product developers to API keys or supported cloud providers and prohibit third-party
+  Claude.ai login or routing Free, Pro or Max subscription credentials for users. They also
+  prohibit collecting, storing or intermediating Claude account credentials or session
+  tokens. The adapter is not authorized by Anthropic; user consent and the issue sign-off do
+  not replace provider authorization. Do not use this subscription flow unless Anthropic
+  gives written authorization covering DripFunnel's architecture. The requested OmniRoute
+  [`claude setup-token` flow](https://github.com/cheaper-inference/OmniRoute/wiki/Claude-Code-Setup-Token)
+  also imports and stores a long-lived Claude Code OAuth token for later inference, so it has
+  the same prerequisite. DripFunnel has no setup-token import endpoint.
 - **OpenAI (ChatGPT): the Codex CLI's public PKCE client** (`app_EMoamEEZ…`), redirect `http://localhost:1455/auth/callback`
   (nothing listens; the browser's "can't be reached" page still shows the full address), authorize at `auth.openai.com/oauth/authorize`
   with `originator=codex_cli_rs`, token at `/oauth/token` form-encoded; the workspace id comes from the id token and is sent as
@@ -208,11 +214,11 @@ without notice. An API key is the supported way for both.
   the person revokes in the provider's own settings.
 - **Gated and studio-only:** the sign-ins exist only where `AI_SIGN_IN=1` (unset in every environment until an operator turns it on, and
   switchable off without a code change), and serve the designer, never `/api/v1`.
-- **The one exception to the rule below** (approved by Akshay in the card's sign-off comment, https://github.com/dripfunnel/platform/issues/950#issuecomment-6466197555, 2026-10-28): these two sign-ins, which use another product's client id and,
-  for OpenAI, an undocumented endpoint, are allowed because the person connecting their own account chose them knowingly. It covers
-  nothing else and lapses if either provider objects. Local testing the same day: Claude answered 403
+- The issue sign-off comment (https://github.com/dripfunnel/platform/issues/950#issuecomment-6466197555, 2026-10-28) records
+  product-owner consent to prototype behavior; it is not provider authorization. Local
+  testing the same day: Claude answered 403
   (`oauth_not_allowed_for_organization`), then 429 on every model; ChatGPT refused every `gpt-*` model on the Codex endpoint. Treat
-  both as unreliable and an API key as the dependable path.
+  these sign-in paths as unsupported and an API key as the dependable path.
 - Everywhere else: never use a consumer login token, a session cookie or an undocumented endpoint as a key, and no client id of another product.
 
 In the prototypes it covers:
