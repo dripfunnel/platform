@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router'
 import { useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { fetchDelivery, handBack, markDelivered, markFailed, markPickedUp, type NotDeliveredReason, type RiderDelivery, type Step } from '../../api/delivery'
@@ -140,7 +140,7 @@ export function DeliveryScreen({ id }: { id: string }) {
   const stepError = step.error ?? (refusal && refusal !== 'WRONG_CODE' && refusal !== 'CODE_LOCKED' ? refusal : null)
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.page }]}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.screen, { backgroundColor: colors.page }]}>
       <ScreenHeader title={t('delivery.title')} onBack={home} />
       <ScrollView contentContainerStyle={styles.body}>
         <Resource state={state} onRetry={reload}>
@@ -187,7 +187,7 @@ export function DeliveryScreen({ id }: { id: string }) {
         <Button label={t('delivery.failedSheet.confirm')} disabled={!reason} busy={step.busy} onPress={notDelivered} />
         <Button kind="secondary" label={t('delivery.failedSheet.cancel')} onPress={() => setSheet(null)} />
       </Sheet>
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 

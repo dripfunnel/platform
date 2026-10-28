@@ -7,6 +7,7 @@ import { DeliveryScreen } from './DeliveryScreen'
 
 const mockNavigate = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ navigate: mockNavigate, push: jest.fn() }) }))
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('react-native-maps', () => {
   const { View } = jest.requireActual<typeof import('react-native')>('react-native')
   return { __esModule: true, default: () => <View testID="map" />, Marker: () => null }
@@ -43,6 +44,12 @@ const pressLast = async (screen: Parameters<typeof press>[0], name: string) => {
 const refuse = (code: string) => () => {
   throw new ApiError(code, 'refused')
 }
+
+// The first render loads react-native's lazy modules cold: over 30 s on a loaded CI runner (as HomeScreen.test.tsx), so it is paid once, here.
+beforeAll(async () => {
+  current = assigned
+  await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
+}, 120_000)
 
 beforeEach(() => {
   jest.clearAllMocks()
