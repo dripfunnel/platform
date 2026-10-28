@@ -101,17 +101,22 @@ export const createDeliveryApp = ({ sql, staff, facts, activity, isAssigned, fil
     }
   }
 
+  /** The live version without taking any lock; `row` is null for a store with none. */
+  const current = async (storeId: string): Promise<DeliveryAppResult<{ row: StoreDeliveryAppRow | null }>> => {
+    if (!(await visible(storeId))) return { ok: false, code: 'NOT_FOUND' }
+    const found = await withScope(sql, context, async (tx) => ((await selectStore(tx, storeId)) ? { row: await selectLatestDeliveryApp(tx, storeId) } : null))
+    return found ? { ok: true, value: found } : { ok: false, code: 'NOT_FOUND' }
+  }
+
   const read = async (storeId: string): Promise<DeliveryAppResult<DeliveryAppView | null>> => {
     if (!roleHas(staff.role, 'stores.read')) return { ok: false, code: 'FORBIDDEN' }
-    if (!(await visible(storeId))) return { ok: false, code: 'NOT_FOUND' }
-    const latest = await withScope(sql, context, async (tx) => ((await selectStore(tx, storeId)) ? { row: await selectLatestDeliveryApp(tx, storeId) } : null))
-    if (!latest) return { ok: false, code: 'NOT_FOUND' }
-    return { ok: true, value: latest.row ? viewOf(latest.row) : null }
+    const found = await current(storeId)
+    return found.ok ? { ok: true, value: found.value.row ? viewOf(found.value.row) : null } : found
   }
 
   /**
-   * Stores the APK under the store's prefix as a new version. The row and the entry are written first and the file last, so a failed
-   * write rolls them back; a file that is not a ZIP is refused the same way, and the object is removed again.
+   * Stores the APK under the store's prefix as a new version. The file is streamed and checked first, outside any transaction, so a slow
+   * upload holds no lock; then the row and the entry are written. A file the transaction did not keep is removed again.
    */
   const upload = async (storeId: string, raw: unknown, body: ReadableStream<Uint8Array> | null, length: number): Promise<DeliveryAppResult<DeliveryAppView>> => {
     if (!may()) return { ok: false, code: 'FORBIDDEN' }
@@ -121,20 +126,27 @@ export const createDeliveryApp = ({ sql, staff, facts, activity, isAssigned, fil
     if (!files) return { ok: false, code: 'UNAVAILABLE' }
     const input = parsed.data
     const key = apkKey(storeId)
-    const done = await inStore(storeId, async (tx, store, latest) => {
-      if (latest && input.buildNumber <= latest.build_number) throw new Refused('BUILD_NOT_NEWER')
-      // A new build keeps the minimum staff set, which stays below it.
-      const row = await insertDeliveryApp(tx, storeId, staff.id, { apk_key: key, version_name: input.versionName, build_number: input.buildNumber, size_bytes: String(length), minimum_build: latest?.minimum_build ?? null })
-      await activity.record(tx, entry(store, deliveryAppAudit.uploaded, input.reason, `${store.name}: ${input.versionName} (${input.buildNumber})`))
+    const before = await current(storeId)
+    if (!before.ok) return before
+    if (before.value.row && input.buildNumber <= before.value.row.build_number) return { ok: false, code: 'BUILD_NOT_NEWER' }
+    let kept = false
+    try {
       const put = await files.put(key, body, { httpMetadata: { contentType: apkContentType } })
-      if (put.size !== length) throw new Refused('INVALID_INPUT')
+      if (put.size !== length) return { ok: false, code: 'INVALID_INPUT' }
       const head = new Uint8Array((await (await files.get(key, { range: { offset: 0, length: 4 } }))?.arrayBuffer()) ?? new ArrayBuffer(0))
-      if (!looksLikeApk(head)) throw new Refused('NOT_AN_APK')
-      return viewOf(row)
-    })
-    // An object the transaction did not keep is not left in the bucket.
-    if (!done.ok) await files.delete(key).catch(() => undefined)
-    return done
+      if (!looksLikeApk(head)) return { ok: false, code: 'NOT_AN_APK' }
+      const done = await inStore(storeId, async (tx, store, latest) => {
+        if (latest && input.buildNumber <= latest.build_number) throw new Refused('BUILD_NOT_NEWER')
+        // A new build keeps the minimum staff set, which stays below it.
+        const row = await insertDeliveryApp(tx, storeId, staff.id, { apk_key: key, version_name: input.versionName, build_number: input.buildNumber, size_bytes: String(length), minimum_build: latest?.minimum_build ?? null })
+        await activity.record(tx, entry(store, deliveryAppAudit.uploaded, input.reason, `${store.name}: ${input.versionName} (${input.buildNumber})`))
+        return viewOf(row)
+      })
+      kept = done.ok
+      return done
+    } finally {
+      if (!kept) await files.delete(key).catch(() => undefined)
+    }
   }
 
   /** A new version with the same file and a new minimum build (null removes it), never above the build uploaded. */

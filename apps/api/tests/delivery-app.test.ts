@@ -119,6 +119,13 @@ describe('uploading the APK', () => {
     expect({ files: stored.size, entries: await logged(mehta, deliveryAppAudit.uploaded), rows: (await versions(mehta)).length }).toEqual(before)
   })
 
+  it('removes the object and keeps no row when the bucket fails midway', async () => {
+    const before = { files: stored.size, entries: await logged(mehta, deliveryAppAudit.uploaded), rows: (await versions(mehta)).length }
+    const failing: DeliveryAppStore = { ...bucket, put: async (key, body) => { await bucket.put(key, body); throw new Error('R2 unavailable') } }
+    await expect(upload('staff-super-admin', mehta, { buildNumber: 9 }, apk(), failing)).rejects.toThrow('R2 unavailable')
+    expect({ files: stored.size, entries: await logged(mehta, deliveryAppAudit.uploaded), rows: (await versions(mehta)).length }).toEqual(before)
+  })
+
   it('refuses a build that is not newer than the live one, a missing reason, a bad name and a missing body', async () => {
     expect(await upload('staff-super-admin', mehta, { buildNumber: 1 })).toEqual({ ok: false, code: 'BUILD_NOT_NEWER' })
     expect(await upload('staff-super-admin', mehta, { buildNumber: 5, reason: '  ' })).toEqual({ ok: false, code: 'INVALID_INPUT' })
