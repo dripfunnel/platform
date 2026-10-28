@@ -69,8 +69,8 @@ describe('the delivery app tab', () => {
     const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit]
     const parsed = new URL(url, 'https://admin.dripfunnel.ai')
     expect(parsed.pathname).toBe(`/api/stores/${store().id}/delivery-app`)
-    expect(Object.fromEntries(parsed.searchParams)).toEqual({ versionName: '1.1.0', buildNumber: '4', reason: 'Fixes the map’s crash' })
-    expect(init).toMatchObject({ method: 'POST', body: apk })
+    expect(Object.fromEntries(parsed.searchParams)).toEqual({ versionName: '1.1.0', buildNumber: '4' })
+    expect(init).toMatchObject({ method: 'POST', body: apk, headers: { 'x-reason': encodeURIComponent('Fixes the map’s crash'), 'x-reason-encoding': 'uri' } })
     expect(screen.getByText('1.1.0 (build 4)')).toBeTruthy()
     expect(onToast).toHaveBeenCalledWith('Delivery app 1.1.0 uploaded.')
   })
@@ -98,6 +98,19 @@ describe('the delivery app tab', () => {
     const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit]
     expect(url).toBe(`/api/stores/${store().id}/delivery-app/minimum-build`)
     expect(JSON.parse(String(init.body))).toEqual({ minimumBuild: 3, reason: 'The API needs build 3' })
+  })
+
+  it('removes the minimum when the field is emptied, and keeps Save off while it equals the current one', async () => {
+    const fetchMock = stubFetch({ ok: true, current: { ...live, minimumBuild: 2 } }, { ok: true, current: live })
+    await shown()
+    const save = screen.getByRole('button', { name: words.saveMinimum }) as HTMLButtonElement
+    fireEvent.change(screen.getAllByLabelText(words.reason)[1] as HTMLElement, { target: { value: 'No longer needed' } })
+    expect(save.disabled).toBe(true)
+    fireEvent.change(screen.getByRole('textbox', { name: words.minimumBuild }), { target: { value: '' } })
+    expect(save.disabled).toBe(false)
+    await act(async () => fireEvent.click(save))
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({ minimumBuild: null, reason: 'No longer needed' })
   })
 
   it('turns every control off for a role that may not change it, and says so', async () => {

@@ -34,6 +34,17 @@ const statusOf: Record<DeliveryAppRefusal, number> = {
 
 const answer = <T>(result: { ok: true; value: T } | { ok: false; code: DeliveryAppRefusal }): Response => (result.ok ? json(200, { ok: true, current: result.value }) : refuse(statusOf[result.code], result.code))
 
+// A reason can hold any character, which a header can't: the console sends it percent-encoded and says so. It never goes in the URL, which is logged.
+const reasonOf = (request: Request): string => {
+  const raw = request.headers.get('x-reason') ?? ''
+  if (request.headers.get('x-reason-encoding') !== 'uri') return raw
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return ''
+  }
+}
+
 /** `service` is null for a caller with no staff session. */
 export const handleDeliveryApp = async (request: Request, target: DeliveryAppRoute, service: Service | null): Promise<Response> => {
   if (!service) return refuse(401, 'UNAUTHENTICATED')
@@ -46,6 +57,6 @@ export const handleDeliveryApp = async (request: Request, target: DeliveryAppRou
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
   const query = new URL(request.url).searchParams
   const length = Number(request.headers.get('content-length') ?? NaN)
-  const input = { versionName: query.get('versionName') ?? '', buildNumber: Number(query.get('buildNumber') ?? NaN), reason: request.headers.get('x-reason') ?? query.get('reason') ?? '' }
+  const input = { versionName: query.get('versionName') ?? '', buildNumber: Number(query.get('buildNumber') ?? NaN), reason: reasonOf(request) }
   return answer(await service.upload(target.storeId, input, request.body, length))
 }

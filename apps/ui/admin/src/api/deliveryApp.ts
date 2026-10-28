@@ -40,11 +40,11 @@ export interface DeliveryAppUpload {
   reason: string
 }
 
-/** The file as the body; the rest in the query, since a header can't carry every character of a reason (DELIVERY §5). */
+/** The file as the body; the reason percent-encoded in a header, since it is free text and a URL is logged (DELIVERY §5). */
 export const uploadDeliveryApp = (storeId: string, file: Blob, { versionName, buildNumber, reason }: DeliveryAppUpload): Promise<DeliveryAppAnswer> =>
   send(
-    `${storeId}/delivery-app?${new URLSearchParams({ versionName, buildNumber: String(buildNumber), reason })}`,
-    { method: 'POST', headers: { 'content-type': 'application/vnd.android.package-archive' }, body: file },
+    `${storeId}/delivery-app?${new URLSearchParams({ versionName, buildNumber: String(buildNumber) })}`,
+    { method: 'POST', headers: { 'content-type': 'application/vnd.android.package-archive', 'x-reason': encodeURIComponent(reason), 'x-reason-encoding': 'uri' }, body: file },
     10 * 60_000,
   )
 
