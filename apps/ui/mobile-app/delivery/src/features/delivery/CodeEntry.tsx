@@ -1,19 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { pluralForm } from '@dripfunnel/mobile-shared/format'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { locale, t } from '../../messages'
+import { t } from '../../messages'
 import { Field } from '../common/ui'
 
-/** Wrong codes the API allows before it locks the delivery (docs/api/DELIVERY.md §3). */
-export const wrongTriesAllowed = 5
-
-export const triesLeft = (wrong: number): string => {
-  const left = Math.max(0, wrongTriesAllowed - wrong)
-  return pluralForm(locale, { one: t('delivery.code.triesLeft.one', { count: left }), other: t('delivery.code.triesLeft.other', { count: left }) }, left)
-}
-
 /** The customer's four digits, typed by the rider at the door. */
-export function CodeEntry({ code, onChange, wrong, refusal }: { code: string; onChange: (code: string) => void; wrong: number; refusal: string | null }) {
+export function CodeEntry({ code, onChange, refusal }: { code: string; onChange: (code: string) => void; refusal: string | null }) {
   const { colors } = useTheme()
   return (
     <View style={styles.box}>
@@ -27,7 +18,7 @@ export function CodeEntry({ code, onChange, wrong, refusal }: { code: string; on
         onChangeText={(next) => onChange(next.replace(/\D/g, '').slice(0, 4))}
         keyboardType="number-pad"
         maxLength={4}
-        error={refusal ? `${refusal} ${triesLeft(wrong)}` : null}
+        error={refusal}
       />
     </View>
   )

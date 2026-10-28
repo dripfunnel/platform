@@ -30,19 +30,21 @@ export function DeliveryScreen({ id }: { id: string }) {
   const [sheet, setSheet] = useState<Sheets>(null)
   const [entering, setEntering] = useState(false)
   const [code, setCode] = useState('')
-  const [wrong, setWrong] = useState(0)
   const [locked, setLocked] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
   const [codeBusy, setCodeBusy] = useState(false)
   const [reason, setReason] = useState<NotDeliveredReason | null>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const cashCollected = useRef(false)
-  const pending = useRef<Step | null>(null)
+  const pending = useRef<{ action: string; payload: string; step: Step } | null>(null)
 
   const home = () => router.navigate('/home')
 
   // A resend after no answer keeps its step (same time and key), so the API does it once; any answer, even a refusal, ends it.
-  const stepFor = (): Step => (pending.current ??= newStep())
+  const stepFor = (action: string, payload: string): Step => {
+    if (pending.current?.action !== action || pending.current.payload !== payload) pending.current = { action, payload, step: newStep() }
+    return pending.current.step
+  }
   const answered = (error: unknown) => {
     if (!isApiError(error, 'NO_RESPONSE')) pending.current = null
   }
@@ -59,16 +61,13 @@ export function DeliveryScreen({ id }: { id: string }) {
     setCodeBusy(true)
     setRefusal(null)
     try {
-      await markDelivered(client, id, { code, cashCollected: cashOf(delivery) ? cashCollected.current : null, ...stepFor() })
+      await markDelivered(client, id, { code, cashCollected: cashOf(delivery) ? cashCollected.current : null, ...stepFor('delivered', `${code}:${cashCollected.current}`) })
       pending.current = null
       setOutcome({ kind: 'delivered', cash: cashOf(delivery) })
     } catch (error) {
       answered(error)
       const failure = isApiError(error) ? error.code : 'UNKNOWN'
-      if (failure === 'WRONG_CODE') {
-        setWrong((now) => now + 1)
-        setCode('')
-      }
+      if (failure === 'WRONG_CODE') setCode('')
       if (failure === 'CODE_LOCKED') setLocked(true)
       setRefusal(failure)
     } finally {
@@ -81,7 +80,7 @@ export function DeliveryScreen({ id }: { id: string }) {
     setSheet(null)
     const send = async () => {
       try {
-        await markFailed(client, id, { reason, ...stepFor() })
+        await markFailed(client, id, { reason, ...stepFor('failed', reason) })
         pending.current = null
       } catch (error) {
         answered(error)
@@ -132,7 +131,7 @@ export function DeliveryScreen({ id }: { id: string }) {
     if (delivery.state === 'assigned') return <PickupDetails delivery={delivery} />
     if (delivery.state === 'picked_up') {
       if (!entering) return <CustomerDetails delivery={delivery} />
-      return locked ? <CodeLocked /> : <CodeEntry code={code} onChange={setCode} wrong={wrong} refusal={refusal === 'WRONG_CODE' ? errorText('WRONG_CODE') : null} />
+      return locked ? <CodeLocked /> : <CodeEntry code={code} onChange={setCode} refusal={refusal === 'WRONG_CODE' ? errorText('WRONG_CODE') : null} />
     }
     return finished(t('delivery.finished.title'), t('delivery.finished.body'))
   }

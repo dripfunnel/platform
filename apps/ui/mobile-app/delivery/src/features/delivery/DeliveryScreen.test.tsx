@@ -142,16 +142,15 @@ describe('at the door', () => {
     expect(hasText(screen, t('delivery.code.title'))).toBe(false)
   })
 
-  it('counts the tries left after a wrong code, and clears the field', async () => {
+  it('says the code was wrong and that repeated mistakes lock it, without a count the app cannot know, and clears the field', async () => {
     onDelivered = refuse('WRONG_CODE')
     const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
     await press(screen, t('delivery.delivered'))
     await fill(screen, t('delivery.code.label'), '1111')
     await press(screen, t('delivery.code.confirm'))
-    expect(hasText(screen, `${t('errors.WRONG_CODE')} 4 tries left.`)).toBe(true)
-    await fill(screen, t('delivery.code.label'), '2222')
-    await press(screen, t('delivery.code.confirm'))
-    expect(hasText(screen, `${t('errors.WRONG_CODE')} 3 tries left.`)).toBe(true)
+    expect(hasText(screen, t('errors.WRONG_CODE'))).toBe(true)
+    expect(hasText(screen, 'try left') || hasText(screen, 'tries left')).toBe(false)
+    expect(isDisabled(pressableNamed(screen, t('delivery.code.confirm')))).toBe(true)
   })
 
   it('tells the rider to ask the store once the code is locked, and takes the entry away', async () => {
@@ -193,6 +192,42 @@ describe('at the door', () => {
     await fill(screen, t('delivery.code.label'), '2580')
     await press(screen, t('delivery.code.confirm'))
     const keys = sent.filter((request) => request.query.includes('markDelivered')).map((request) => request.variables?.['key'])
+    expect(keys[1]).toBe(keys[0])
+    expect(keys[2]).not.toBe(keys[1])
+  })
+})
+
+describe('the step a resend repeats', () => {
+  beforeEach(() => {
+    current = pickedUp
+  })
+
+  const deliveredKeys = () => sent.filter((request) => request.query.includes('markDelivered')).map((request) => request.variables?.['key'])
+
+  it('is not shared with Not delivered after Delivered got no answer', async () => {
+    onDelivered = refuse('NO_RESPONSE')
+    const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
+    await press(screen, t('delivery.delivered'))
+    await fill(screen, t('delivery.code.label'), '2580')
+    await press(screen, t('delivery.code.confirm'))
+    await press(screen, t('delivery.notDelivered'))
+    await press(screen, t('delivery.failedSheet.reason.refused'))
+    await press(screen, t('delivery.failedSheet.confirm'))
+    const failed = sent.find((request) => request.query.includes('markFailed'))?.variables
+    expect(failed?.['key']).not.toBe(deliveredKeys()[0])
+    expect(failed?.['at']).not.toBe(sent.find((request) => request.query.includes('markDelivered'))?.variables?.['at'])
+  })
+
+  it('is new when the code is edited after a no-answer, and the same when it is not', async () => {
+    onDelivered = refuse('NO_RESPONSE')
+    const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
+    await press(screen, t('delivery.delivered'))
+    await fill(screen, t('delivery.code.label'), '2580')
+    await press(screen, t('delivery.code.confirm'))
+    await press(screen, t('delivery.code.confirm'))
+    await fill(screen, t('delivery.code.label'), '2581')
+    await press(screen, t('delivery.code.confirm'))
+    const keys = deliveredKeys()
     expect(keys[1]).toBe(keys[0])
     expect(keys[2]).not.toBe(keys[1])
   })

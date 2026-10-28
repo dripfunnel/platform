@@ -147,7 +147,7 @@
     "NOT_FOUND": "This delivery isn’t yours or no longer exists.",
     "NOT_PICKED_UP": "Mark this delivery picked up first.",
     "CASH_NOT_CONFIRMED": "Confirm you collected the cash first.",
-    "WRONG_CODE": "That code doesn’t match. Ask the customer to check their order.",
+    "WRONG_CODE": "That code doesn’t match. Ask the customer to check their order. Too many wrong codes lock the delivery.",
     "CODE_LOCKED": "Too many wrong codes. The store will mark this delivered.",
     "CODE_UNCONFIRMED": "The code didn’t match: the store will confirm this delivery.",
     "delivery": {
@@ -315,10 +315,6 @@
       "body": "Ask the customer for the 4-digit code in their order.",
       "label": "4-digit handover code",
       "confirm": "Confirm delivered",
-      "triesLeft": {
-        "one": "{count} try left.",
-        "other": "{count} tries left."
-      },
       "lockedTitle": "Too many wrong codes. The store will mark this delivered.",
       "lockedSteps": "What to do now",
       "lockedStep1": "Call the store and say you’re at the door.",
