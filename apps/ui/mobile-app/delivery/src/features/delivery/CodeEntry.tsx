@@ -4,7 +4,7 @@ import { t } from '../../messages'
 import { Field } from '../common/ui'
 
 /** The customer's four digits, typed by the rider at the door. */
-export function CodeEntry({ code, onChange, refusal }: { code: string; onChange: (code: string) => void; refusal: string | null }) {
+export function CodeEntry({ code, onChange, offline, refusal }: { code: string; onChange: (code: string) => void; offline: boolean; refusal: string | null }) {
   const { colors } = useTheme()
   return (
     <View style={styles.box}>
@@ -12,6 +12,7 @@ export function CodeEntry({ code, onChange, refusal }: { code: string; onChange:
         {t('delivery.code.title')}
       </Text>
       <Text style={{ color: colors.textStrong }}>{t('delivery.code.body')}</Text>
+      {offline ? <Text style={{ color: colors.warning, fontWeight: '700' }}>{t('delivery.noSignalCode.title')}</Text> : null}
       <Field
         label={t('delivery.code.label')}
         value={code}

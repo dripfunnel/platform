@@ -263,6 +263,11 @@
       "cancelled": "The store cancelled this delivery. You don’t need to pick it up.",
       "recalled": "The store has recalled this delivery. Bring the parcel back to the warehouse.",
       "dismiss": "OK"
+    },
+    "pending": {
+      "saved": "{count} saved on this phone, waiting for signal.",
+      "refused": "A saved step was not accepted.",
+      "dismiss": "OK"
     }
   },
   "notifications": {
@@ -351,6 +356,19 @@
     "finished": {
       "title": "This delivery is done",
       "body": "Nothing more to do here."
+    },
+    "saved": {
+      "title": "Saved, waiting for signal",
+      "delivered": "Delivered at {time} is saved on this phone and sent as soon as you have signal. Keep the app installed until it goes.",
+      "notDelivered": "Not delivered at {time} is saved on this phone and sent as soon as you have signal. Keep the app installed until it goes."
+    },
+    "noSignalCode": {
+      "title": "No signal: you get one try.",
+      "body": "It’s checked when your signal comes back."
+    },
+    "unconfirmed": {
+      "title": "The code didn’t match: the store will confirm this delivery.",
+      "body": "Your Delivered was saved without signal, and the code you typed was wrong. Keep the parcel until the store tells you what to do."
     }
   }
 }
