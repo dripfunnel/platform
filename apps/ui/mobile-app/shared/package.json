@@ -9,7 +9,8 @@
     "./intl": "./intl/index.ts",
     "./theme": "./theme/index.ts",
     "./theme/tokens": "./theme/tokens.ts",
-    "./storage": "./storage/index.ts"
+    "./storage": "./storage/index.ts",
+    "./brand": "./brand/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -31,7 +32,10 @@
     "@formatjs/intl-numberformat": "^9.4.3",
     "@formatjs/intl-pluralrules": "^6.3.15",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "expo-constants": "~57.0.21",
+    "expo-image": "~57.0.5",
     "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
