@@ -774,7 +774,7 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, partnerId: strin
   }
 }
 
-// The store repos, made only when the studio or a design publish asks for a hand push to `main` (storefront LIVE-SHOP §4 step 2).
+// The store repos, made only when a design publish asks for a hand push to `main` (storefront LIVE-SHOP §4 step 2).
 const reposFor = async (config: Config): Promise<StoreRepos | null> => {
   const app = await githubFor(config)
   return app ? storeRepos(app.session(), config.GITHUB_STORE_ORG) : null

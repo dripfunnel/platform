@@ -162,11 +162,6 @@ describe('the sandbox’s states', () => {
     expect(prompt().readOnly).toBe(false)
   })
 
-  it('reads the storefront again once ready, so a push the opening took into the draft turns Publish on', async () => {
-    const { onOverview } = await show()
-    expect(onOverview).toHaveBeenCalledWith(overview)
-  })
-
   it('gives the place in the queue as seconds', async () => {
     await show({ loadStudioSession: vi.fn().mockResolvedValue({ ...ready, state: 'queued', place: 2 }) })
     expect(screen.getByText(fill(words.sandbox.queued, { seconds: '40' }))).toBeTruthy()
