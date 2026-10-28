@@ -45,7 +45,8 @@ export function PushProvider({ children }: { children: ReactNode }) {
       if (!response) return
       const push = riderPushOf(response.notification.request.content.data)
       const id = response.notification.request.identifier
-      if (!push || opened.has(id)) return
+      // The route is behind the session: a tap before sign-in is kept for the run that follows it, not marked as opened.
+      if (!push || !signedIn || opened.has(id)) return
       opened.add(id)
       heard(push)
       if (push.kind !== 'offer' && push.kind !== 'taken' && push.deliveryId) router.push({ pathname: '/delivery/[id]', params: { id: push.deliveryId } })
@@ -58,7 +59,7 @@ export function PushProvider({ children }: { children: ReactNode }) {
       onReceived.remove()
       onTapped.remove()
     }
-  }, [router, heard])
+  }, [router, heard, signedIn])
 
   useEffect(() => {
     if (!pushIsSetUp() || !signedIn) return

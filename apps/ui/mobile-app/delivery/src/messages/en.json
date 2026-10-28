@@ -232,6 +232,7 @@
     "decline": "Decline",
     "taken": "Taken by another delivery partner. It’ll disappear in a moment.",
     "showMore": "Show more",
+    "showMoreFailed": "Couldn’t load more offers. Check your signal and try again.",
     "emptyTitle": "No offers right now",
     "emptyBody": "Stay online. We’ll notify you when an order near you is ready.",
     "errorTitle": "Couldn’t load offers",

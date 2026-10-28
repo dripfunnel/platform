@@ -65,6 +65,8 @@ export function HomeScreen() {
   const [asking, setAsking] = useState(false)
   const [afterDelivery, setAfterDelivery] = useState(false)
   const [notificationsOff, setNotificationsOff] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [moreFailed, setMoreFailed] = useState(false)
   const lastPickedUp = useRef(pickedUp)
 
   useFocusEffect(
@@ -120,8 +122,16 @@ export function HomeScreen() {
 
   const showMore = async () => {
     const cursor = more ? more.cursor : state.status === 'ready' ? state.data.page.endCursor : null
-    const page = await fetchOffers(client, cursor).catch(() => null)
-    if (page) setMore({ offers: [...(more?.offers ?? []), ...page.offers], cursor: page.endCursor, hasMore: page.hasNextPage })
+    setMoreFailed(false)
+    setLoadingMore(true)
+    try {
+      const page = await fetchOffers(client, cursor)
+      setMore({ offers: [...(more?.offers ?? []), ...page.offers], cursor: page.endCursor, hasMore: page.hasNextPage })
+    } catch {
+      setMoreFailed(true)
+    } finally {
+      setLoadingMore(false)
+    }
   }
 
   const body = () => {
@@ -157,10 +167,14 @@ export function HomeScreen() {
             onDecline={() => void decline(offer)}
           />
         ))}
-        {hasMore ? <Button kind="secondary" label={t('home.showMore')} onPress={() => void showMore()} /> : null}
+        <Refusal message={moreFailed ? t('home.showMoreFailed') : null} />
+        {hasMore ? <Button kind="secondary" label={t('home.showMore')} busy={loadingMore} onPress={() => void showMore()} /> : null}
       </View>
     )
   }
+
+  // Whether the position task runs is asked of the phone first; until it answers there is nothing true to show (an online rider reopening the app is not offline).
+  if (online.online === null) return <View style={[styles.checking, { backgroundColor: colors.page }]}><Loading /></View>
 
   return (
     <ScrollView style={{ backgroundColor: colors.page }} contentContainerStyle={styles.body}>
@@ -215,6 +229,7 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   body: { gap: 16, padding: 16, paddingTop: 56 },
+  checking: { flex: 1, justifyContent: 'center' },
   group: { gap: 10 },
   heading: { fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', paddingLeft: 4 },
   current: { borderWidth: 2, padding: 16, gap: 8 },
