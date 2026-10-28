@@ -38,6 +38,8 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
         customers={{ filter: {}, page: {}, onFilterChange: noop }}
         onReload={noop}
         activity={null}
+        canChangeDeliveryApp
+        onToast={noop}
         {...props}
       />
     ),
@@ -128,6 +130,8 @@ describe('Store detail', () => {
           customers={{ filter: {}, page: {}, onFilterChange: noop }}
           onReload={noop}
           activity={null}
+          canChangeDeliveryApp
+          onToast={noop}
         />
       ),
     })

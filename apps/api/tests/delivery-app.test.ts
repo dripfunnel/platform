@@ -239,6 +239,21 @@ describe('the route', () => {
     expect(await withQuery.json()).toMatchObject({ ok: true, current: { versionName: '1.1.0', buildNumber: 2, sizeBytes: 104 } })
   })
 
+  it('reads a percent-encoded reason from its header when the console says so, and never from the URL', async () => {
+    const bytes = apk(8)
+    const upload = (reason: string) => handleDeliveryApp(
+      new Request(`https://admin.dripfunnel.ai/api/stores/${mehta}/delivery-app?${new URLSearchParams({ versionName: '1.2.0', buildNumber: '3', reason: 'from the url' })}`, { method: 'POST', body: bytes as BodyInit, headers: { 'content-length': String(bytes.byteLength), 'x-reason': encodeURIComponent(reason), 'x-reason-encoding': 'uri' } }),
+      { storeId: mehta, minimumBuild: false },
+      serviceFor('staff-super-admin'),
+    )
+    expect((await upload('')).status).toBe(400)
+    const malformed = new Request(`https://admin.dripfunnel.ai/api/stores/${mehta}/delivery-app?versionName=1.2.0&buildNumber=3`, { method: 'POST', body: bytes as BodyInit, headers: { 'content-length': String(bytes.byteLength), 'x-reason': '%E0%A4%A', 'x-reason-encoding': 'uri' } })
+    expect((await handleDeliveryApp(malformed, { storeId: mehta, minimumBuild: false }, serviceFor('staff-super-admin'))).status).toBe(400)
+    expect((await upload('Fixes the map’s crash')).status).toBe(200)
+    const [entry] = await db.sql<{ reason: string }[]>`select reason from activity_log where store_id = ${mehta} and action = ${deliveryAppAudit.uploaded} order by occurred_at desc limit 1`
+    expect(entry?.reason).toBe('Fixes the map’s crash')
+  })
+
   it('sets the minimum build from a JSON body, and reads the current version', async () => {
     const set = await handleDeliveryApp(requestFor(maple, { method: 'POST', path: '/minimum-build', body: JSON.stringify({ minimumBuild: 2, reason: 'Needs the new API' }) }), { storeId: maple, minimumBuild: true }, serviceFor('staff-engineer'))
     expect(set.status).toBe(200)

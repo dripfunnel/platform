@@ -319,7 +319,7 @@ dispatch is built on #842 (DL 5); pickup, proof and completion on #843 (DL 6), b
   that isn't delivering (built on #852, second part). **The APK itself** (built on #852,
   first part; DATA-MODEL §3.8) is uploaded by staff with `stores.deliveryApp.write` (Super admin, Engineer on call), plain
   HTTP on the Admin API because a GraphQL mutation can't carry a file: `POST /api/stores/{id}/delivery-app` with the file as
-  the body, `versionName` and `buildNumber` in the query and the reason in `x-reason` (at most 100 MB, a ZIP, a build above
+  the body, `versionName` and `buildNumber` in the query and the reason in `x-reason`, percent-encoded when `x-reason-encoding: uri` says so, never in the URL (at most 100 MB, a ZIP, a build above
   the live one), `POST /api/stores/{id}/delivery-app/minimum-build` with `{ minimumBuild, reason }` (null removes it, never
   above the build uploaded) and `GET` for the newest version. Each write is in the activity log with its reason; a refusal
   is `FORBIDDEN`, `NOT_FOUND`, `INVALID_INPUT`, `TOO_LARGE`, `NOT_AN_APK`, `BUILD_NOT_NEWER`, `NO_APP`,
