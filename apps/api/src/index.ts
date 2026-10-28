@@ -484,10 +484,10 @@ const paymentsFor = (config: Config): PaymentWiring => {
   return wiring
 }
 
-// Imported once per isolate, like the identity provider, and only from configuration.
 /** The AI sign-in flow: each provider's own client, with the code pasted back (THIRD-PARTY-ACCESS §2.6). */
 const aiOauthFor = (sql: postgres.Sql, secrets: SecretBox | null, config: Config): AiOAuth => createAiOAuth({ sql, secrets, providers: createOAuthProviders(config.AI_SIGN_IN === '1'), now: () => new Date() })
 
+// Imported once per isolate, like the identity provider, and only from configuration.
 let box: { key: string; secrets: Promise<SecretBox> } | undefined
 
 const secretsFor = (config: Config): Promise<SecretBox> | null => {
