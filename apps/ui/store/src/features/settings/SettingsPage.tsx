@@ -13,6 +13,7 @@ import { loadShipping } from '../../api/shipping'
 import { loadPlaces } from '../../api/stock'
 import { loadProductBasics } from '../../api/productEditor'
 import { loadRiderPlan, loadRiders, type RiderPlan } from '../../api/riders'
+import { loadMobileApps } from '../../api/mobileApps'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
 import { loadSupportAccess } from '../../api/support'
 import { loadInvoiceSettings, loadTax } from '../../api/tax'
@@ -35,6 +36,7 @@ import { ActivityTab } from '../activity/ActivityTab'
 import { MarketsTab } from './MarketsTab'
 import { TaxTab } from './TaxTab'
 import { PeopleTab, SupplierTab } from './TeamTabs'
+import { MobileAppsTab } from './MobileAppsTab'
 import { RidersTab } from './RidersTab'
 import { WarehousesView } from '../warehouses/WarehousesView'
 import './settings.css'
@@ -55,7 +57,7 @@ interface Done {
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries, apps: loadApps, supportAccess: loadSupportAccess, activity: loadActivity, riders: loadRiders, riderPlan: loadRiderPlan, places: loadPlaces }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries, apps: loadApps, supportAccess: loadSupportAccess, activity: loadActivity, riders: loadRiders, riderPlan: loadRiderPlan, mobileApps: loadMobileApps, places: loadPlaces }
 
 /** What the Own delivery card checks against: the first page of riders and the locations. */
 const deliveryCurrency = async (reads: SettingsReads) => ((await reads.riderPlan()).ownDelivery ? (await reads.shipping()).currency : null)
@@ -140,6 +142,13 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
     const first = await reads.riders(null)
     return (done, canEdit) => <RidersTab first={first} canEdit={canEdit} onChanged={done.reload} />
   },
+  // Listed only when the plan has own_apps; the Owner's, as every tab here (SH 15).
+  'mobile-apps': async () => {
+    if (!seat.owner) return () => <EmptyState title={words.denied.title} body={words.denied.body} />
+    const apps = await reads.mobileApps()
+    if (!apps.available) return () => <EmptyState title={words.mobileApps.notAvailable.title} body={words.mobileApps.notAvailable.body} />
+    return (done, canEdit) => <MobileAppsTab current={apps.current} canEdit={canEdit} onSaved={done.toast} />
+  },
   // The log reads itself, by its filter in the address; a read-only store still reads and exports it.
   activity: async () => () => <ActivityTab read={reads.activity} canExport={seat.owner} forced={seat.forced} />,
 })
@@ -156,7 +165,7 @@ export const SettingsPage = () => {
   const readOnly = forced ? forced === 'readOnly' : (state?.readOnly ?? false)
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
-  const [ridersListed, setRidersListed] = useState(false)
+  const [listed, setListed] = useState({ riders: false, apps: false })
   // One plan read per source serves the tab list and the Riders tab; a failed read is forgotten, and a change reads it again.
   const planRead = useRef<{ reads: SettingsReads; read: Promise<RiderPlan> } | null>(null)
   const riderPlan = useCallback(() => {
@@ -177,8 +186,8 @@ export const SettingsPage = () => {
     let current = true
     // A failed read keeps the tab listed: its own body then shows the error and a retry.
     void riderPlan().then(
-      (plan) => current && setRidersListed(plan.ownDelivery),
-      () => current && setRidersListed(true),
+      (plan) => current && setListed({ riders: plan.ownDelivery, apps: plan.ownApps }),
+      () => current && setListed({ riders: true, apps: true }),
     )
     return () => {
       current = false
@@ -230,8 +239,8 @@ export const SettingsPage = () => {
       <div className="df-page-tabs">
         <DetailTabs
           label={words.tabs.label}
-          tabs={settingsTabs.filter((t) => t !== 'riders' || (owner && ridersListed))}
-          labels={{ riders: words.tabs.riders, store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers, developers: words.tabs.developers, apps: words.tabs.apps, support: words.tabs.support, activity: words.tabs.activity }}
+          tabs={settingsTabs.filter((t) => (t !== 'riders' || (owner && listed.riders)) && (t !== 'mobile-apps' || (owner && listed.apps)))}
+          labels={{ 'mobile-apps': words.tabs.mobileApps, riders: words.tabs.riders, store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers, developers: words.tabs.developers, apps: words.tabs.apps, support: words.tabs.support, activity: words.tabs.activity }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />

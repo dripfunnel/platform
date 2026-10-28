@@ -1,0 +1,104 @@
+/* Settings › Mobile apps: the three images as they will look, and the listing text with its counters. */
+
+.df-app-files {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-app-file {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.df-app-file-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.df-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.df-app-off {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.df-app-preview {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* A store rounds the icon itself; this is only how it will look. */
+.df-app-preview--icon {
+  width: 96px;
+  height: 96px;
+  border-radius: 22%;
+}
+
+/* Android crops the foreground to a circle and keeps the middle two thirds. */
+.df-app-preview--foreground {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--df-color-border);
+}
+
+.df-app-preview--splash {
+  width: 64px;
+  height: 128px;
+  border: 3px solid var(--df-color-text);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.df-app-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.df-app-image--none {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+}
+
+.df-app-count {
+  align-self: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-set-field textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+@media (max-width: 480px) {
+  .df-app-file {
+    grid-template-columns: 1fr;
+  }
+}

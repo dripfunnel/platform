@@ -471,8 +471,7 @@ Three plan keys (SAAS.md §6.1), added on #838 (migration 0359), off and 0 in ev
 
 - `own_delivery`, on/off, with **riders** as a limit: both enforced at `inviteRider`, refused
   `PLAN_LIMIT` with `key`, `limit` and `unlockedBy` like every plan limit;
-- `own_apps`, on/off: the store's shop and delivery apps (mobile-app/README.md), **Planned** until
-  the apps are built.
+- `own_apps`, on/off: the store's shop and delivery apps (mobile-app/README.md). **Enforced on Settings › Mobile apps** (#868): without it the API refuses an upload and a save with `PLAN_LIMIT` (`key` `own_apps`) and the portal lists no tab. The apps themselves are still being built.
 
 **Enterprise only, set up by hand** (decided 2026-10-22): both are off in every listed plan, and
 DripFunnel staff turn them on for one store, with its riders limit, as that store's override in the

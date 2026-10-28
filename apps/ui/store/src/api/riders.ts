@@ -58,13 +58,15 @@ const planSchema = z.object({
   planCatalogue: z.array(z.object({ current: z.boolean(), values: z.array(z.object({ key: z.string(), enabled: z.boolean().nullable() })) })).nullable(),
 })
 
-/** Whether the current plan has own delivery (Owner only, like Settings). The rider limit is the API's: PLAN_LIMIT on invite carries it. */
+/** Whether the current plan has own delivery and the store's own apps (Owner only, like Settings), which list their tabs. The rider limit is the API's: PLAN_LIMIT on invite carries it. */
 export interface RiderPlan {
   ownDelivery: boolean
+  ownApps: boolean
 }
 
 export const loadRiderPlan = async (): Promise<RiderPlan> => {
   const { planCatalogue } = await query('{ planCatalogue { current values { key enabled } } }', planSchema)
   const values = planCatalogue?.find((p) => p.current)?.values ?? []
-  return { ownDelivery: values.some((v) => v.key === 'own_delivery' && v.enabled === true) }
+  const on = (key: string) => values.some((v) => v.key === key && v.enabled === true)
+  return { ownDelivery: on('own_delivery'), ownApps: on('own_apps') }
 }
