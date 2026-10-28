@@ -1,4 +1,4 @@
-import { Linking } from 'react-native'
+import { KeyboardAvoidingView, Linking } from 'react-native'
 import { act } from 'react-test-renderer'
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
@@ -123,6 +123,11 @@ describe('before pickup', () => {
 describe('at the door', () => {
   beforeEach(() => {
     current = pickedUp
+  })
+
+  it('lifts the footer above the keyboard, as an edge-to-edge window is not resized by it', async () => {
+    const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
+    expect(screen.root.findAllByType(KeyboardAvoidingView).map((node) => node.props.behavior)).toEqual(['padding'])
   })
 
   it('calls the customer and opens the map on their pin', async () => {

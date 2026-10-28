@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { buildTheme, ThemeProvider } from '@dripfunnel/mobile-shared/theme'
 import { SessionContext, type Session } from '../session/SessionContext'
@@ -58,13 +59,16 @@ afterEach(async () => {
   await act(async () => mounted.splice(0).forEach((renderer) => renderer.unmount()))
 })
 
-export const render = async (children: ReactNode, session: Session): Promise<ReactTestRenderer> => {
+/** `top` is the status bar's height, which a phone's screens must clear. */
+export const render = async (children: ReactNode, session: Session, { top = 0 }: { top?: number } = {}): Promise<ReactTestRenderer> => {
   let renderer!: ReactTestRenderer
   await act(async () => {
     renderer = create(
-      <ThemeProvider theme={buildTheme('light')}>
-        <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
-      </ThemeProvider>,
+      <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top, left: 0, right: 0, bottom: 0 } }}>
+        <ThemeProvider theme={buildTheme('light')}>
+          <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
+        </ThemeProvider>
+      </SafeAreaProvider>,
     )
   })
   mounted.push(renderer)
