@@ -24,6 +24,8 @@ export const storeEnvSchema = z
     SPLASH_IMAGE: image,
     SPLASH_BACKGROUND: colour,
     UPDATES_CHANNEL: storeKey,
+    // Google Maps SDK key for Android, for the customer's pin: a public build value restricted to the app's package and signing certificate, not a secret (docs/code/THIRD-PARTY-ACCESS.md §2.12). Without it the map is blank on Android.
+    GOOGLE_MAPS_ANDROID_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'a Google Maps API key, which starts AIza').optional(),
     // The store's own EAS project, which Expo's push service makes a token for: public. Without it the app never asks for notifications or registers a phone (docs/mobile-app/README.md §3)
     EAS_PROJECT_ID: z.uuid('an EAS project id, a UUID').optional(),
     // The Firebase file Android needs to get a push token, under stores/<store>/: a public client config, not a secret
@@ -80,6 +82,7 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
     android: {
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
+      ...(env.GOOGLE_MAPS_ANDROID_KEY ? { config: { googleMaps: { apiKey: env.GOOGLE_MAPS_ANDROID_KEY } } } : {}),
       ...(env.GOOGLE_SERVICES_FILE ? { googleServicesFile: `./${env.GOOGLE_SERVICES_FILE}` } : {}),
     },
     plugins: [

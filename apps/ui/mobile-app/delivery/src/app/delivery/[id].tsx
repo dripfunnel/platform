@@ -1,6 +1,7 @@
-import { PlaceholderScreen } from '../../features/placeholder/PlaceholderScreen'
-import { t } from '../../messages'
+import { useLocalSearchParams } from 'expo-router'
+import { DeliveryScreen } from '../../features/delivery/DeliveryScreen'
 
-export default function DeliveryScreen() {
-  return <PlaceholderScreen title={t('placeholder.delivery')} />
+export default function Delivery() {
+  const { id } = useLocalSearchParams<{ id: string }>()
+  return <DeliveryScreen id={id} />
 }

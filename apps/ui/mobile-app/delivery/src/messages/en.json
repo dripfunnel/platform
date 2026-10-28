@@ -5,8 +5,7 @@
     "profile": "Profile"
   },
   "placeholder": {
-    "body": "This screen isn’t built yet.",
-    "delivery": "Delivery"
+    "body": "This screen isn’t built yet."
   },
   "startup": {
     "failed": "The app couldn’t start. Try again in a moment.",
@@ -141,6 +140,18 @@
     },
     "online": {
       "RIDER_HAS_PARCEL": "You can go offline after this delivery."
+    },
+    "NOT_ASSIGNED": "This delivery isn’t waiting for pickup any more. Go back and check Home.",
+    "NOT_ENOUGH_STOCK": "The warehouse doesn’t have all of this order’s items. Ask the store.",
+    "NOT_HANDED_OVER": "The store hasn’t got every item for this order yet. Ask the store.",
+    "NOT_FOUND": "This delivery isn’t yours or no longer exists.",
+    "NOT_PICKED_UP": "Mark this delivery picked up first.",
+    "CASH_NOT_CONFIRMED": "Confirm you collected the cash first.",
+    "WRONG_CODE": "That code doesn’t match. Ask the customer to check their order. Too many wrong codes lock the delivery.",
+    "CODE_LOCKED": "Too many wrong codes. The store will mark this delivered.",
+    "CODE_UNCONFIRMED": "The code didn’t match: the store will confirm this delivery.",
+    "delivery": {
+      "NO_RESPONSE": "No signal. This step needs a connection, so try again when it’s back."
     }
   },
   "permissions": {
@@ -261,5 +272,85 @@
   },
   "push": {
     "channel": "Delivery offers"
+  },
+  "delivery": {
+    "title": "Order delivery",
+    "pill": {
+      "pickUp": "Pick up",
+      "deliver": "Deliver",
+      "return": "Return",
+      "done": "Done"
+    },
+    "pickUpFrom": "Pick up from",
+    "navigate": "Navigate",
+    "call": "Call",
+    "items": "Items · {count}",
+    "quantity": "× {quantity}",
+    "deliverTo": "Deliver to",
+    "hiddenUntilPickup": "The customer’s name, phone and address show after you mark it picked up.",
+    "customer": "Customer",
+    "customerNote": "Note from the customer",
+    "cashToCollect": "Cash to collect",
+    "paid": "Paid online",
+    "noPin": "No map pin for this address.",
+    "mapLabel": "Map of the delivery address",
+    "pickedUp": "Picked up",
+    "handBack": "Hand back",
+    "handBackSheet": {
+      "title": "Hand back this delivery?",
+      "body": "It goes back to other delivery partners near {warehouse} straight away.",
+      "confirm": "Hand back",
+      "keep": "Keep it"
+    },
+    "delivered": "Delivered",
+    "notDelivered": "Not delivered",
+    "cashSheet": {
+      "title": "Did you collect {amount} in cash?",
+      "body": "Count it before you confirm. Next you’ll enter the customer’s handover code.",
+      "confirm": "Yes, I collected {amount}",
+      "notYet": "Not yet"
+    },
+    "code": {
+      "title": "Enter the handover code",
+      "body": "Ask the customer for the 4-digit code in their order.",
+      "label": "4-digit handover code",
+      "confirm": "Confirm delivered",
+      "lockedTitle": "Too many wrong codes. The store will mark this delivered.",
+      "lockedSteps": "What to do now",
+      "lockedStep1": "Call the store and say you’re at the door.",
+      "lockedStep2": "Wait while they check with the customer.",
+      "lockedStep3": "Hand over the parcel only when the store says so. Otherwise mark it not delivered and bring it back."
+    },
+    "failedSheet": {
+      "title": "Why wasn’t it delivered?",
+      "confirm": "Mark not delivered",
+      "cancel": "Cancel",
+      "reason": {
+        "no_one_home": "No one home",
+        "refused": "The customer refused it",
+        "wrong_address": "Wrong address"
+      }
+    },
+    "result": {
+      "title": "Delivered",
+      "cash": "Cash collected: {amount}",
+      "back": "Back to Home"
+    },
+    "returnParcel": {
+      "notDelivered": "Not delivered: {reason}.",
+      "recalled": "The store recalled this delivery.",
+      "titleReturn": "Return the parcel to {warehouse}",
+      "titleBring": "Bring the parcel back to {warehouse}",
+      "body": "The customer’s details are hidden now. Hand the parcel to the team at the warehouse; they’ll mark it as back.",
+      "backHome": "Back to Home"
+    },
+    "cancelled": {
+      "title": "The store cancelled this delivery",
+      "body": "You don’t need to pick it up, and there’s nothing else to do. New offers start coming in again."
+    },
+    "finished": {
+      "title": "This delivery is done",
+      "body": "Nothing more to do here."
+    }
   }
 }
