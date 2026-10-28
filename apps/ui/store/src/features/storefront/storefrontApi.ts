@@ -123,7 +123,7 @@ export const sampleApi = (state: StorefrontState): StorefrontApi => {
   }
 }
 
-const sampleSession = { session: 'sampleStudioSession0000', frameUrl: 'https://kesari-threads.webpreview.store/__studio/sampleStudioSession0000/', access: 'change' as const, expiresAt: '2026-10-12T09:05:00Z' }
+const sampleSession = { session: 'sampleStudioSession0000', models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'], frameUrl: 'https://kesari-threads.webpreview.store/__studio/sampleStudioSession0000/', access: 'change' as const, expiresAt: '2026-10-12T09:05:00Z' }
 const sessionStates: Partial<Record<StorefrontState, { state: 'starting' | 'queued' | 'busy'; place: number | null }>> = { opening: { state: 'starting', place: null }, queued: { state: 'queued', place: 1 }, finishing: { state: 'busy', place: null } }
 
 /** The studio's sample: a short conversation, and every change accepted at once. */

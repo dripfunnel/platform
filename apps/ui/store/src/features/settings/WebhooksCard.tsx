@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import { addWebhook, replayDelivery, turnOnWebhook, type WebhookDelivery, type WebhookEndpoint } from '../../api/developers'
 import { fill, formatCount, formatTime, locale, messages, plural } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { refusalIn } from '../common/refusal'
 import { SecretOnce } from './SecretOnce'
 import { useFreshList } from './useFreshList'

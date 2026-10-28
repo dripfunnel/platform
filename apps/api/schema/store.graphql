@@ -1028,8 +1028,9 @@ type Mutation {
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
-  askDesign(device: String!, imageAssetId: ID, page: String!, sampleUrl: String, text: String!): DesignAnswer
+  askDesign(device: String!, imageAssetId: ID, model: String, page: String!, sampleUrl: String, text: String!): DesignAnswer
   assignDelivery(deliveryId: ID!, riderId: ID!): Boolean
+  beginStoreAiOauth(provider: String!): String
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelDelivery(deliveryId: ID!): Boolean
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
@@ -1047,6 +1048,7 @@ type Mutation {
   connectDomain(host: String!): StorefrontDomain
   connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
   connectShopify(shop: String!): String
+  connectStoreAiAccount(key: String!, provider: String!): Boolean
   connectStripe: String
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   createApiKey(expiresInDays: Int, name: String!, scopes: [String!]!, supplierId: ID): IssuedApiKey
@@ -1081,6 +1083,7 @@ type Mutation {
   exportReport(currency: String, custom: CustomReportInput, days: Int!, panel: ReportPanel!): ID
   exportStoreData: ID
   finishShopifyConnect(key: String!): String
+  finishStoreAiOauth(response: String!): Boolean
   finishStripeConnect(key: String!): Boolean
   generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
   goBackToVersion(number: Int!): Boolean
@@ -1112,6 +1115,7 @@ type Mutation {
   removeDomain(id: ID!): Boolean
   removeMember(membershipId: ID!): Boolean
   removeRider(id: ID!): Boolean
+  removeStoreAiAccount: Boolean
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
   removeWebhook(id: ID!): Boolean
@@ -1184,6 +1188,7 @@ type Mutation {
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
+  setStoreAiSwitch(on: Boolean!): Boolean
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
   setSupportAccess(allowed: Boolean!): SupportAccessSet
@@ -1199,6 +1204,7 @@ type Mutation {
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
+  testStoreAiAccount: StoreAiTest
   turnOnWebhook(id: ID!): Int
   undoDesignChange(messageId: ID!): DesignMessage
   uninstallApp(id: ID!): Boolean
@@ -2218,6 +2224,8 @@ type Query {
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeAiAccount: StoreAiAccount
+  storeAiSignIn: [StoreAiSignIn!]
   storeDataExport(id: ID!): [StoreDataPart!]
   storeInfo: StoreInfo
   storeLocale: StoreLocale
@@ -2762,6 +2770,27 @@ input StoreAddressInput {
   street: String
 }
 
+type StoreAiAccount {
+  accountLabel: String
+  authType: String
+  connectedBy: String
+  keyPrefix: String
+  lastTestedAt: String
+  provider: String
+  status: String
+  useWhenPlanUsed: Boolean
+}
+
+type StoreAiSignIn {
+  available: Boolean
+  provider: String
+  reason: String
+}
+
+type StoreAiTest {
+  status: String
+}
+
 type StoreChoice {
   membershipId: ID
   role: String
@@ -3214,6 +3243,7 @@ type StudioSession {
   access: String
   expiresAt: String
   frameUrl: String
+  models: [String!]
   place: Int
   session: String
   state: String

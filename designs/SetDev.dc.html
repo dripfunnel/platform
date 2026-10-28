@@ -144,7 +144,7 @@ class Component extends DCLogic {
           install: () => { app.set('devApps', x => [...x, { id: 'a' + Date.now(), name: 'Ledger Sync', init: 'LS', bg: '#0A2A4A', site: 'ledgersync.app', meta: 'By Tally Bridges Pvt Ltd · installed just now by Farhan', access: 'Can see orders, refunds, invoices and products', stops: 'Your accounts stop getting new orders and refunds.' }]); this.setState({ consent: false }); app.toast('Ledger Sync installed. Open it to finish setting it up.'); }, cancelInstall: () => this.setState({ consent: false }) } };
     }
     const keys = app.st.devKeys || []; const hooks = app.st.devHooks || []; const sup = (app.data('suppliers') || []).map(v => ({ id: v.id, name: v.name }));
-    const SC = [['products.read', 'See products'], ['products.write', 'Change products'], ['stock.write', 'Change stock'], ['orders.read', 'See orders'], ['orders.write', 'Update orders'], ['customers.read', 'See customers']];
+    const SC = [['products.read', 'See products'], ['products.write', 'Change products'], ['stock.write', 'Change stock'], ['orders.read', 'See orders'], ['orders.write', 'Update orders'], ['customers.read', 'See customers'], ['ai.run', 'Run AI requests']];
     const scopeName = k => (SC.find(x => x[0] === k) || [k, k])[1];
     const origins = [{ url: 'https://' + app.R.domain, fixed: true, canRemove: false }, ...(app.st.devOrigins || []).map(u => ({ url: u, fixed: false, canRemove: true, remove: () => app.set('devOrigins', x => x.filter(y => y !== u)) }))];
     const EV = ['order.placed', 'order.paid', 'order.shipped', 'order.refunded', 'product.updated', 'stock.changed'];

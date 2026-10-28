@@ -4,6 +4,8 @@ import { ApiError, isApiError, type ApiClient } from '@dripfunnel/mobile-shared/
 import { uploadPhoto } from '../api/photo'
 import { createDeliveryClient } from '../api/client'
 import { fetchMe, signOut as signOutOnServer } from '../api/rider'
+import { isTracking, startTracking, stopTracking } from '../location/tracking'
+import { registerIfGranted, unregisterThisPhone } from '../push/push'
 import { SessionContext, type Session } from './SessionContext'
 import { clearToken, loadToken, saveToken } from './token'
 
@@ -29,7 +31,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const session = useMemo<Session | null>(() => {
     if (host === null) return null
+    // The position task stops first, so no point is sent once the session is going (docs/mobile-app/delivery/FIRST-RELEASE.md §1).
     const leave = async () => {
+      await stopTracking().catch(() => undefined)
       token.current = null
       setSignedIn(false)
       await clearToken(host)
@@ -55,9 +59,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await saveToken(host, value)
       },
       signOut: async () => {
-        // A phone with no signal must still be able to sign out; only a parcel in hand keeps the session.
-        await signOutOnServer(client).catch((error: unknown) => {
-          if (isApiError(error, 'RIDER_HAS_PARCEL')) throw error
+        const wasTracking = await isTracking().catch(() => false)
+        await stopTracking().catch(() => undefined)
+        await unregisterThisPhone(client).catch(() => undefined)
+        // A phone with no signal must still be able to sign out; only a parcel in hand keeps the session, and its position goes on being sent.
+        await signOutOnServer(client).catch(async (error: unknown) => {
+          if (!isApiError(error, 'RIDER_HAS_PARCEL')) return
+          await registerIfGranted(client).catch(() => undefined)
+          if (wasTracking) await startTracking(true).catch(() => undefined)
+          throw error
         })
         await leave()
       },

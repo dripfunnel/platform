@@ -6,8 +6,9 @@ import { scratchTemplate, type StorefrontBrand, type StorefrontDomains, type Sto
 import { currentBrand } from '../../brand/current'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { tabKeyHandler } from '../common/tabKeys'
+import { AiTab, aiReads, sampleAiReads } from './AiTab'
 import { BrandStep } from './BrandStep'
 import { ContentTab } from './ContentTab'
 import { DesignTab, type PoweredLine } from './DesignTab'
@@ -46,6 +47,9 @@ export const StorefrontPage = () => {
   const forced = useScreenState(storefrontStates, harnessEnabled)
   const access = useMemo(() => storefrontAccessOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
   const api = useMemo(() => (forced ? sampleApi(forced) : storeApi), [forced])
+  // The AI account is the Owner's (`settings`), though a Manager reads the rest of Storefront.
+  const aiListed = forced !== null || acting.permissions.includes('settings')
+  const tabs = useMemo(() => storefrontTabs.filter((t) => t !== 'ai' || aiListed), [aiListed])
   const canUpgrade = forced !== null || acting.permissions.includes('billing')
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
@@ -129,7 +133,7 @@ export const StorefrontPage = () => {
   const goTab = (next: StorefrontTab) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: next === 'design' ? undefined : next }), replace: true })
   const goView = (next: StorefrontView | undefined, path?: string) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: undefined, view: next, page: path }) })
   const goEntry = (next: string | undefined) => void navigate({ to: '/storefront', search: (prev) => ({ ...prev, entry: next }) })
-  const onTabKey = tabKeyHandler(storefrontTabs, tab, goTab, (next) => tabRefs.current[next]?.focus())
+  const onTabKey = tabKeyHandler(tabs, tab, goTab, (next) => tabRefs.current[next]?.focus())
 
   const title = <h1 className="df-sf-title">{words.title}</h1>
   if (!access.canRead)
@@ -226,6 +230,8 @@ export const StorefrontPage = () => {
       )
     if (tab === 'journal')
       return <ContentTab kind="post" api={api} canEdit={access.canEdit} onStudio={null} entry={entry} onEntry={goEntry} host={host} shopName={brand?.shopName ?? acting.store.name} contactEmail={null} onToast={setToast} />
+    if (tab === 'ai')
+      return aiListed ? <AiTab reads={forced ? sampleAiReads : aiReads} canEdit={access.canEdit} onToast={setToast} /> : <EmptyState title={words.ai.denied.title} body={words.ai.denied.body} />
     if (tab === 'settings')
       return (
         <SiteSettingsTab
@@ -301,7 +307,7 @@ export const StorefrontPage = () => {
         </p>
       )}
       <div className="df-sf-tabs" role="tablist" aria-label={words.tabs.label} onKeyDown={onTabKey}>
-        {storefrontTabs.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t}
             ref={(el) => {

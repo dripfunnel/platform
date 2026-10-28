@@ -2,7 +2,7 @@ import { ConfirmDialog, EmptyState, type ConfirmDialogProps } from '@dripfunnel/
 import { useEffect, useId, useState } from 'react'
 import { connectKeys, connectStripe, disconnectGateway, turnOnMethod, type Gateway, type PaymentMode } from '../../api/payments'
 import { fill, locale, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { productName } from '../common/productName'
 import { refusalIn } from '../common/refusal'
 import { stripeOutcome, type StripeBack } from './stripeBack'
