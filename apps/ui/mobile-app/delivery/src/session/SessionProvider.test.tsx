@@ -6,10 +6,15 @@ import { useSession, type Session } from './SessionContext'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 jest.mock('@dripfunnel/mobile-shared/brand', () => ({ storeHost: () => 'acme.my-store.one' }))
+const mockCalls: string[] = []
 jest.mock('../location/tracking', () => ({
   isTracking: jest.fn().mockResolvedValue(false),
-  startTracking: jest.fn().mockResolvedValue(undefined),
-  stopTracking: jest.fn().mockResolvedValue(undefined),
+  startTracking: jest.fn((pickedUp: boolean) => (mockCalls.push(`startTracking:${pickedUp}`), Promise.resolve())),
+  stopTracking: jest.fn(() => (mockCalls.push('stopTracking'), Promise.resolve())),
+}))
+jest.mock('../push/push', () => ({
+  unregisterThisPhone: jest.fn(() => (mockCalls.push('unregisterPush'), Promise.resolve())),
+  registerIfGranted: jest.fn(() => (mockCalls.push('registerPush'), Promise.resolve())),
 }))
 
 // The phone's keystore, in memory.
@@ -52,7 +57,10 @@ const answerWith = (answer: () => Promise<unknown>) => {
 const ok = (data: unknown) => Promise.resolve({ json: async () => ({ data }) })
 const refused = (code: string) => Promise.resolve({ json: async () => ({ errors: [{ message: 'x', extensions: { code } }] }) })
 
-beforeEach(() => mockKeystore.clear())
+beforeEach(() => {
+  mockKeystore.clear()
+  mockCalls.length = 0
+})
 
 describe('the rider’s session', () => {
   it('starts signed out with no token, and keeps one in secure storage once signed in', async () => {
@@ -139,6 +147,52 @@ describe('the rider’s session', () => {
       error = await session.fetchRider().catch((e: unknown) => e)
     })
     expect(error).toBeInstanceOf(ApiError)
+    expect(mockKeystore.has(tokenKey)).toBe(false)
+  })
+})
+describe('signing out and the position task', () => {
+  it('stops the task and unregisters the phone before the token goes', async () => {
+    mockKeystore.set(tokenKey, 'tok-1')
+    const tokenWhen: Record<string, boolean> = {}
+    answerWith(() => ok({ signOut: true }))
+    await mount()
+    const stop = jest.requireMock('../location/tracking').stopTracking as jest.Mock
+    stop.mockImplementationOnce(() => {
+      tokenWhen['stop'] = mockKeystore.has(tokenKey)
+      mockCalls.push('stopTracking')
+      return Promise.resolve()
+    })
+    await act(async () => session.signOut())
+    expect(tokenWhen['stop']).toBe(true)
+    expect(mockCalls.indexOf('stopTracking')).toBeLessThan(mockCalls.indexOf('unregisterPush'))
+    expect(mockKeystore.has(tokenKey)).toBe(false)
+  })
+
+  it('puts the task back at the 15 s interval and registers the phone again when a parcel keeps the session', async () => {
+    mockKeystore.set(tokenKey, 'tok-1')
+    jest.requireMock('../location/tracking').isTracking.mockResolvedValueOnce(true)
+    answerWith(() => refused('RIDER_HAS_PARCEL'))
+    await mount()
+    await act(async () => void (await session.signOut().catch(() => undefined)))
+    expect(mockCalls).toEqual(['stopTracking', 'unregisterPush', 'registerPush', 'startTracking:true'])
+    expect(mockKeystore.get(tokenKey)).toBe('tok-1')
+  })
+
+  it('does not start a task for a rider who was offline when a parcel refuses the sign-out', async () => {
+    mockKeystore.set(tokenKey, 'tok-1')
+    answerWith(() => refused('RIDER_HAS_PARCEL'))
+    await mount()
+    await act(async () => void (await session.signOut().catch(() => undefined)))
+    expect(mockCalls).not.toContain('startTracking:true')
+  })
+
+  it('stops the task and still signs out when the phone has no signal', async () => {
+    mockKeystore.set(tokenKey, 'tok-1')
+    answerWith(() => Promise.reject(new Error('offline')))
+    await mount()
+    await act(async () => session.signOut())
+    expect(mockCalls).toContain('stopTracking')
+    expect(mockCalls).not.toContain('startTracking:true')
     expect(mockKeystore.has(tokenKey)).toBe(false)
   })
 })

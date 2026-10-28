@@ -31,7 +31,7 @@ export function OnlineCard({ online, paused, locationOff, busy, onToggle }: Prop
         onPress={onToggle}
         style={[styles.track, { backgroundColor: online ? colors.success : colors.neutral, opacity: locationOff || busy ? 0.5 : 1 }]}
       >
-        <View style={[styles.knob, { left: online ? 36 : 4 }]} />
+        <View style={[styles.knob, { left: online ? 36 : 4, backgroundColor: colors.surface }]} />
       </Pressable>
     </View>
   )
@@ -42,5 +42,5 @@ const styles = StyleSheet.create({
   words: { flex: 1, gap: 2 },
   title: { fontSize: 22, fontWeight: '800' },
   track: { width: 76, height: 44, borderRadius: 22 },
-  knob: { position: 'absolute', top: 4, width: 36, height: 36, borderRadius: 18, backgroundColor: '#ffffff' },
+  knob: { position: 'absolute', top: 4, width: 36, height: 36, borderRadius: 18 },
 })
