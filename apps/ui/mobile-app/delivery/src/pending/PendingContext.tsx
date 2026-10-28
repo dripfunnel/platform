@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useOnline as useConnection } from '@dripfunnel/mobile-shared/connection'
 import { useSession } from '../session/SessionContext'
 import { flushSteps } from './send'
-import { keepSaved, loadSaved, nothingSaved, type PendingNotice, type PendingStep, type Saved } from './store'
+import { keepLastRider, keepSaved, loadLastRider, loadSaved, nothingSaved, type PendingNotice, type PendingStep, type Saved } from './store'
 
 /** First retry after 5 s, doubling to 5 minutes, while steps wait and the phone says it has signal. */
 export const retryAfterMs = (tries: number): number => Math.min(5_000 * 2 ** tries, 300_000)
@@ -14,14 +14,14 @@ export type Pending = {
   sentCount: number
   /** Deliveries that must not show as the rider's current one: a step waits to be sent, or the store will confirm it. */
   hidden: ReadonlySet<string>
-  /** Keeps the step on the phone and tries to send it now. */
-  keep: (step: PendingStep) => void
+  /** Writes the step to secure storage and tries to send it now. False when it could not be written, so it is not saved. */
+  keep: (step: PendingStep) => Promise<boolean>
   /** Keeps an answer for the rider to read on Home, as when the API answers a step at once. */
   notify: (notice: PendingNotice) => void
   dismissNotice: (deliveryId: string) => void
 }
 
-const none: Pending = { steps: [], notices: [], sentCount: 0, hidden: new Set(), keep: () => undefined, notify: () => undefined, dismissNotice: () => undefined }
+const none: Pending = { steps: [], notices: [], sentCount: 0, hidden: new Set(), keep: () => Promise.resolve(true), notify: () => undefined, dismissNotice: () => undefined }
 
 const PendingContext = createContext<Pending>(none)
 
@@ -29,8 +29,9 @@ export const usePending = (): Pending => useContext(PendingContext)
 
 /** Delivered and Not delivered kept on the phone until the API has them (docs/mobile-app/delivery/ARCHITECTURE.md §2). */
 export function PendingProvider({ children }: { children: ReactNode }) {
-  const { host, client, signedIn } = useSession()
+  const { host, client, signedIn, fetchRider } = useSession()
   const connected = useConnection()
+  const [rider, setRider] = useState<string | null>(null)
   const [saved, setSaved] = useState<Saved>(nothingSaved)
   const [loaded, setLoaded] = useState(false)
   const [sentCount, setSentCount] = useState(0)
@@ -38,18 +39,32 @@ export function PendingProvider({ children }: { children: ReactNode }) {
   const current = useRef(saved)
   const flushing = useRef(false)
 
-  const commit = useCallback(
-    (next: Saved) => {
-      current.current = next
-      setSaved(next)
-      void keepSaved(host, next).catch(() => undefined)
-    },
-    [host],
-  )
+  // The rider the steps belong to: asked of the API, or the last one it named when the phone has no signal.
+  useEffect(() => {
+    let live = true
+    if (!signedIn) {
+      setRider(null)
+      return
+    }
+    void (async () => {
+      const known = await fetchRider().then(
+        async ({ id }) => (await keepLastRider(host, id), id),
+        () => loadLastRider(host),
+      )
+      if (live) setRider(known)
+    })()
+    return () => {
+      live = false
+    }
+  }, [host, signedIn, connected, fetchRider])
 
   useEffect(() => {
     let live = true
-    void loadSaved(host).then((kept) => {
+    setLoaded(false)
+    current.current = nothingSaved
+    setSaved(nothingSaved)
+    if (rider === null) return
+    void loadSaved(host, rider).then((kept) => {
       if (!live) return
       current.current = kept
       setSaved(kept)
@@ -58,7 +73,26 @@ export function PendingProvider({ children }: { children: ReactNode }) {
     return () => {
       live = false
     }
-  }, [host])
+  }, [host, rider])
+
+  /** Holds `next` in memory and writes it; when the write fails memory goes back to what it was and this answers false. */
+  const commit = useCallback(
+    async (next: Saved): Promise<boolean> => {
+      if (rider === null) return false
+      const before = current.current
+      current.current = next
+      setSaved(next)
+      try {
+        await keepSaved(host, rider, next)
+        return true
+      } catch {
+        current.current = before
+        setSaved(before)
+        return false
+      }
+    },
+    [host, rider],
+  )
 
   const flush = useCallback(async () => {
     if (flushing.current || current.current.steps.length === 0) return
@@ -67,7 +101,7 @@ export function PendingProvider({ children }: { children: ReactNode }) {
       const snapshot = current.current.steps
       const { left, notices, sent } = await flushSteps(client, snapshot)
       const added = current.current.steps.filter((step) => !snapshot.includes(step))
-      commit({ steps: [...left, ...added], notices: [...current.current.notices, ...notices] })
+      await commit({ steps: [...left, ...added], notices: [...current.current.notices, ...notices] })
       if (sent) setSentCount((count) => count + 1)
       setTries((count) => (left.length > 0 ? count + 1 : 0))
     } finally {
@@ -87,19 +121,20 @@ export function PendingProvider({ children }: { children: ReactNode }) {
   }, [loaded, signedIn, connected, waiting, tries, flush])
 
   const keep = useCallback(
-    (step: PendingStep) => {
-      commit({ ...current.current, steps: [...current.current.steps.filter((kept) => kept.deliveryId !== step.deliveryId), step] })
-      setTries(0)
+    async (step: PendingStep): Promise<boolean> => {
+      const done = await commit({ ...current.current, steps: [...current.current.steps.filter((kept) => kept.deliveryId !== step.deliveryId), step] })
+      if (done) setTries(0)
+      return done
     },
     [commit],
   )
 
   const notify = useCallback(
-    (notice: PendingNotice) => commit({ ...current.current, notices: [...current.current.notices.filter((kept) => kept.deliveryId !== notice.deliveryId), notice] }),
+    (notice: PendingNotice) => void commit({ ...current.current, notices: [...current.current.notices.filter((kept) => kept.deliveryId !== notice.deliveryId), notice] }),
     [commit],
   )
 
-  const dismissNotice = useCallback((deliveryId: string) => commit({ ...current.current, notices: current.current.notices.filter((notice) => notice.deliveryId !== deliveryId) }), [commit])
+  const dismissNotice = useCallback((deliveryId: string) => void commit({ ...current.current, notices: current.current.notices.filter((notice) => notice.deliveryId !== deliveryId) }), [commit])
 
   const value = useMemo<Pending>(
     () => ({

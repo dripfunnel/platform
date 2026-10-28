@@ -110,6 +110,7 @@
   "errors": {
     "generic": "Something went wrong. Try again.",
     "NO_RESPONSE": "No signal. Check your connection and try again.",
+    "NOT_SAVED": "This step could not be saved on this phone. Try again.",
     "BAD_RESPONSE": "Something went wrong. Try again.",
     "UNAUTHENTICATED": "Your session ended. Sign in again.",
     "INVALID_INPUT": "Something here isn’t valid. Check it and try again.",

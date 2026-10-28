@@ -20,12 +20,14 @@ export type Saved = z.infer<typeof savedSchema>
 export const nothingSaved: Saved = { steps: [], notices: [] }
 
 const options: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY }
-const keyOf = (host: string): string => `df.pending.${host}`
+// Kept per rider, so a rider who signs in on this phone never sees or sends another's steps.
+const keyOf = (host: string, riderId: string): string => `df.pending.${host}.rider.${riderId}`
+const lastRiderKey = (host: string): string => `df.pending.${host}.last`
 
-/** What is kept for this host; nothing readable is nothing kept. */
-export const loadSaved = async (host: string): Promise<Saved> => {
+/** What is kept for this rider; nothing readable is nothing kept. */
+export const loadSaved = async (host: string, riderId: string): Promise<Saved> => {
   try {
-    const text = await SecureStore.getItemAsync(keyOf(host))
+    const text = await SecureStore.getItemAsync(keyOf(host, riderId))
     const parsed = text === null ? null : savedSchema.safeParse(JSON.parse(text))
     return parsed?.success ? parsed.data : nothingSaved
   } catch {
@@ -33,7 +35,13 @@ export const loadSaved = async (host: string): Promise<Saved> => {
   }
 }
 
-export const keepSaved = async (host: string, saved: Saved): Promise<void> => {
-  if (saved.steps.length === 0 && saved.notices.length === 0) return SecureStore.deleteItemAsync(keyOf(host))
-  await SecureStore.setItemAsync(keyOf(host), JSON.stringify(saved), options)
+/** Refuses when it could not write, so a step is never told to the rider as saved when it is not. */
+export const keepSaved = async (host: string, riderId: string, saved: Saved): Promise<void> => {
+  if (saved.steps.length === 0 && saved.notices.length === 0) return SecureStore.deleteItemAsync(keyOf(host, riderId))
+  await SecureStore.setItemAsync(keyOf(host, riderId), JSON.stringify(saved), options)
 }
+
+/** The rider this phone last knew to be signed in, for when the phone has no signal to ask. */
+export const loadLastRider = (host: string): Promise<string | null> => SecureStore.getItemAsync(lastRiderKey(host)).catch(() => null)
+
+export const keepLastRider = (host: string, riderId: string): Promise<void> => SecureStore.setItemAsync(lastRiderKey(host), riderId, options).catch(() => undefined)

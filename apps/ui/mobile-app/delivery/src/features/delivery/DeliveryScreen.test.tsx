@@ -9,10 +9,11 @@ import { DeliveryScreen } from './DeliveryScreen'
 let mockConnected = true
 jest.mock('@dripfunnel/mobile-shared/connection', () => ({ useOnline: () => mockConnected }))
 const mockKeystore = new Map<string, string>()
+let mockWriteFails = false
 jest.mock('expo-secure-store', () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'when-unlocked-this-device-only',
   getItemAsync: (key: string) => Promise.resolve(mockKeystore.get(key) ?? null),
-  setItemAsync: (key: string, value: string) => (mockKeystore.set(key, value), Promise.resolve()),
+  setItemAsync: (key: string, value: string) => (mockWriteFails ? Promise.reject(new Error('keystore full')) : (mockKeystore.set(key, value), Promise.resolve())),
   deleteItemAsync: (key: string) => (mockKeystore.delete(key), Promise.resolve()),
 }))
 
@@ -41,6 +42,7 @@ let current: unknown
 let onDelivered: (variables: Record<string, unknown>) => unknown
 const sent: Request[] = []
 const answer = (request: Request): unknown => {
+  if (request.query === '{ me }') return { me: { id: 'r-1' } }
   sent.push(request)
   if (request.query.includes('markDelivered')) return onDelivered(request.variables ?? {})
   if (request.query.includes('markPickedUp')) {
@@ -211,7 +213,20 @@ describe('without signal', () => {
   beforeEach(() => {
     current = pickedUp
     mockConnected = true
+    mockWriteFails = false
     mockKeystore.clear()
+  })
+
+  it('does not say a step is saved when it could not be written to the phone', async () => {
+    mockConnected = false
+    const screen = await render(withQueue(), fakeSession(answer))
+    mockWriteFails = true
+    await press(screen, t('delivery.delivered'))
+    await fill(screen, t('delivery.code.label'), '2580')
+    await press(screen, t('delivery.code.confirm'))
+    expect(hasText(screen, t('errors.NOT_SAVED'))).toBe(true)
+    expect(hasText(screen, t('delivery.saved.title'))).toBe(false)
+    expect(pending.steps).toEqual([])
   })
 
   const deliver = async (screen: Parameters<typeof press>[0]) => {
@@ -254,7 +269,7 @@ describe('without signal', () => {
 
   it('offers nothing more on reopening a delivery whose step is kept', async () => {
     mockConnected = false
-    mockKeystore.set('df.pending.acme.my-store.one', JSON.stringify({ steps: [{ kind: 'delivered', deliveryId: 'd-1', at: '2026-10-28T10:00:00.000Z', key: 'k', code: '2580', cashCollected: null }], notices: [] }))
+    mockKeystore.set('df.pending.acme.my-store.one.rider.r-1', JSON.stringify({ steps: [{ kind: 'delivered', deliveryId: 'd-1', at: '2026-10-28T10:00:00.000Z', key: 'k', code: '2580', cashCollected: null }], notices: [] }))
     const screen = await render(withQueue(), fakeSession(answer))
     expect(hasText(screen, t('delivery.saved.title'))).toBe(true)
     expect(hasButton(screen, t('delivery.delivered'))).toBe(false)

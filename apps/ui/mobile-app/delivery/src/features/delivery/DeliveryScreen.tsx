@@ -63,20 +63,15 @@ export function DeliveryScreen({ id }: { id: string }) {
 
   // With no signal the step is kept on the phone at once (the code gets this one try, checked when it is sent), and so is one the API did not answer.
   const send = async (taken: PendingStep, call: () => Promise<void>, done: Outcome) => {
-    if (!connected) {
-      keep(taken)
-      return setOutcome(done)
-    }
-    setSending(true)
+    const save = async () => ((await keep(taken)) ? setOutcome(done) : setRefusal('NOT_SAVED'))
     setRefusal(null)
+    if (!connected) return save()
+    setSending(true)
     try {
       await call()
       setOutcome({ ...done, savedAt: null } as Outcome)
     } catch (error) {
-      if (isApiError(error, 'NO_RESPONSE')) {
-        keep(taken)
-        return setOutcome(done)
-      }
+      if (isApiError(error, 'NO_RESPONSE')) return save()
       const failure = isApiError(error) ? error.code : 'UNKNOWN'
       if (failure === 'CODE_UNCONFIRMED') {
         notify({ deliveryId: id, code: failure })
