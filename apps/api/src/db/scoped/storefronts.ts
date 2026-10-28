@@ -58,9 +58,8 @@ export const selectRepoAtRest = async (tx: ScopedSql, storeId: string): Promise<
   )[0] ?? null
 
 /** A hand push to `main` is taken into the draft: the next push builds on it (LIVE-SHOP §4 step 2). */
-export const adoptRepoHead = async (tx: ScopedSql, storeId: string, from: string, head: string): Promise<void> => {
-  await tx`update storefront set repo_head = ${head} where store_id = ${storeId} and repo_head = ${from}`
-}
+export const adoptRepoHead = async (tx: ScopedSql, storeId: string, from: string, head: string): Promise<boolean> =>
+  (await tx`update storefront set repo_head = ${head} where store_id = ${storeId} and repo_head = ${from}`).count > 0
 
 /** What the create-storefront Workflow reads at each step (SAAS §5 steps 4–8). */
 export interface CreationRow extends StoreRepoRow {

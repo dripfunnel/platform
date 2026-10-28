@@ -1,5 +1,5 @@
 import type postgres from 'postgres'
-import { withSystemScope } from '#db/scoped/index'
+import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { adoptRepoHead, selectRepoAtRest } from '#db/scoped/storefronts'
 import type { RepoChange, StoreRepos } from '#integrations/github/index'
 import { isThemePath } from './paths'
@@ -22,6 +22,5 @@ export const handPushOf = async (sql: postgres.Sql, repos: StoreRepos, storeId: 
   return { from: store.repo_head, head, changes: await repos.changes(store.repo, store.repo_head, head, isThemePath) }
 }
 
-/** The draft took the push: the publish's own commit then fast-forwards from it (push.ts). */
-export const adoptHandPush = (sql: postgres.Sql, storeId: string, push: Pick<HandPush, 'from' | 'head'>): Promise<void> =>
-  withSystemScope(sql, (tx) => adoptRepoHead(tx, storeId, push.from, push.head))
+/** The draft took the push: the publish's own commit then fast-forwards from it (push.ts). False when another Publish took it first. */
+export const adoptHandPush = (tx: ScopedSql, storeId: string, push: Pick<HandPush, 'from' | 'head'>): Promise<boolean> => adoptRepoHead(tx, storeId, push.from, push.head)

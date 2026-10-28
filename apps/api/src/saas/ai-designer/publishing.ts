@@ -88,8 +88,10 @@ export const createPublishingService = (deps: DesignerDeps) => {
       if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
       if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
     }
-    await adoptHandPush(sql, storeId, push)
-    await recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.repoPushTaken, [{ field: 'main', before: push.from, after: push.head }])))
+    // A second Publish racing for the same push finds repo_head moved and records nothing; a failed write leaves the push to be taken again.
+    await recordAfter(sql, storeId, async (tx) => {
+      if (await adoptHandPush(tx, storeId, push)) await activity.record(tx, entry(designAudit.repoPushTaken, [{ field: 'main', before: push.from, after: push.head }]))
+    })
     return { ok: true, value: null }
   }
 

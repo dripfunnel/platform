@@ -298,6 +298,18 @@ describe('publishing from the studio', () => {
     expect(github.files(repo)?.get('README.md')).toBe('# notes\n')
   })
 
+  it('never reads or takes another store’s hand push: store B’s Publish leaves store A’s repo head alone', async () => {
+    const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
+    await pushByHand('Store A only', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Store A only."') }])
+    const before = await repoHead()
+    const calls = github.calls.length
+    expect((await publish('bOwner')).code).toBe('NOTHING_TO_PUBLISH')
+    expect(github.calls.slice(calls).filter((c) => c.includes(`/${repo}/`))).toEqual([])
+    expect(await repoHead()).toBe(before)
+    const taken = await db.sql<{ store_id: string }[]>`select store_id from activity_log where action = 'storefront.repo_push_taken'`
+    expect(taken.every((r) => r.store_id === t.storeA1)).toBe(true)
+  })
+
   it('refuses to publish a hand push the gate refuses, and keeps the live site and the repo head', async () => {
     const page = template.find((f) => f.path.startsWith('src/theme/pages/') && f.path.endsWith('.tsx'))?.path ?? ''
     const before = await repoHead()
