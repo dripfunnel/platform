@@ -2830,6 +2830,7 @@
       "apps": "Apps",
       "support": "Support access",
       "riders": "Riders",
+      "mobileApps": "Mobile apps",
       "activity": "Activity log"
     },
     "title": "Settings",
@@ -3039,6 +3040,72 @@
         "UNAVAILABLE": "Own delivery isn’t available for this store yet.",
         "FORBIDDEN": "You can’t change riders.",
         "BLOCKED_FOR_SUPPORT": "Riders can’t be changed in a support session.",
+        "other": "That didn’t go through. Nothing has changed. Try again in a moment."
+      }
+    },
+    "mobileApps": {
+      "notAvailable": {
+        "title": "Your own apps aren’t in your plan",
+        "body": "A store’s own shopping and delivery apps come with the Enterprise plan. Ask your account manager to add them."
+      },
+      "imagesTitle": "App images",
+      "imagesSub": "The picture on your shoppers’ home screens, and the screen shown while the app opens. Builds take these from here; a new build is needed for a change to reach phones.",
+      "files": {
+        "appIcon": "App icon",
+        "appIconForeground": "Android icon foreground",
+        "splash": "Splash image"
+      },
+      "rules": {
+        "appIcon": "PNG, exactly 1024 × 1024 pixels, no transparency, no rounded corners (the stores round them), up to 512 KB.",
+        "appIconForeground": "PNG, exactly 1024 × 1024 pixels, transparent background, your mark inside the middle two thirds (Android crops the rest), up to 512 KB.",
+        "splash": "PNG with a transparent background and your mark in the middle, up to 512 KB."
+      },
+      "none": "None yet",
+      "previewFailed": "Preview unavailable",
+      "upload": "Upload",
+      "replace": "Replace",
+      "pick": "Choose a file for {file}",
+      "remove": "Remove",
+      "removeLabel": "Remove {file}",
+      "uploading": "Uploading…",
+      "uploadRefused": {
+        "TOO_LARGE": "That image is over 512 KB.",
+        "NOT_PNG": "Use a PNG image.",
+        "UNSUPPORTED_TYPE": "Use a PNG image.",
+        "WRONG_DIMENSIONS": "That image must be exactly 1024 × 1024 pixels for the icons.",
+        "HAS_TRANSPARENCY": "The app icon can’t have a transparent background.",
+        "PLAN_LIMIT": "Your plan doesn’t include your own apps.",
+        "FORBIDDEN": "Only the store’s Owner can change this.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "SUPPORT_READ_ONLY": "This support session is read-only until the store allows changes.",
+        "BLOCKED_FOR_SUPPORT": "This can’t be changed in a support session.",
+        "UNAVAILABLE": "Images can’t be saved just now. Try again later.",
+        "INVALID_KIND": "That image can’t be used here.",
+        "NOT_CONNECTED": "The image didn’t upload. Check your connection and try again."
+      },
+      "listingTitle": "Store listing",
+      "listingSub": "The words on the App Store and Google Play pages. Leave a field empty to use the store’s own.",
+      "appName": "App name",
+      "appNameHelp": "Under the icon on a phone.",
+      "shortDescription": "Short description",
+      "shortDescriptionHelp": "One line under the name in the stores.",
+      "longDescription": "Full description",
+      "longDescriptionHelp": "What shoppers read before they install.",
+      "counter": "{count} of {max}",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Mobile apps saved as version {version}",
+      "version": "Version {version}, saved {time}",
+      "noVersion": "Nothing saved yet.",
+      "refused": {
+        "INVALID_INPUT": "Something here isn’t valid. Check the name and the descriptions.",
+        "UNKNOWN_FILE": "One of the images needs uploading again.",
+        "PLAN_LIMIT": "Your plan doesn’t include your own apps.",
+        "FORBIDDEN": "Only the store’s Owner can change this.",
+        "UNAVAILABLE": "Images can’t be saved just now. Try again later.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "SUPPORT_READ_ONLY": "This support session is read-only until the store allows changes.",
+        "BLOCKED_FOR_SUPPORT": "This can’t be changed in a support session.",
         "other": "That didn’t go through. Nothing has changed. Try again in a moment."
       }
     },
@@ -6690,6 +6757,8 @@
       "rider.suspended": "suspended rider {target}",
       "rider.restored": "restored rider {target}",
       "rider.removed": "removed rider {target}",
+      "mobile_app.assets_saved": "saved the mobile apps’ icon, splash and text ({target})",
+      "mobile_app.file_uploaded": "uploaded a mobile app image",
       "rider.code_requested": "asked for a delivery app sign-in code",
       "rider.joined": "joined as a rider",
       "rider.signed_in": "signed in to the delivery app",

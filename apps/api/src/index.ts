@@ -23,6 +23,7 @@ import { resolveRider } from '#auth/riderCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
+import { handleAppAssets, isAppAssetsPath } from '#apis/store/appAssets'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
 import { handleDocument, isDocumentsPath } from '#apis/store/documents'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
@@ -606,6 +607,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
       preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env, sql, partnerId, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
+    if (isAppAssetsPath(url.pathname)) return handleAppAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
   })

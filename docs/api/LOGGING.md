@@ -76,6 +76,7 @@ number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §2.2).
 **#842 dispatch entries.** `delivery.created`, `delivery.ready`, `delivery.offered` (one per broadcast),
 `delivery.accepted`, `delivery.assigned`, `delivery.cancelled`, `delivery.declined`, `delivery.unassigned`
 and `delivery.handed_back` name the delivery; `rider.went_online` and `rider.went_offline` name the rider.
+**#868 mobile app entries.** `mobile_app.file_uploaded` (an app image stored, naming the key and its kind) and `mobile_app.assets_saved` (a new version of the store's app images and listing text, naming the version), both the Owner's as `person`; neither holds the text or the image.
 The sweep and the offer job write as `job`, a rider as `rider`, and a merchant member as `person` (a support
 session's entries are rewritten to the session, §4); `delivery.created` at placement takes the placing actor.
 A rider's position is never logged (`rider_position`, §5; DELIVERY §7).
