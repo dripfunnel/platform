@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { createDesignerService, designAudit, type DesignRefusal, type DesignResult, type StorefrontView, type TemplateView } from '#saas/ai-designer/index'
 import type { VersionHistoryRow } from '#db/scoped/design'
+import { maxHandPushFiles } from '#saas/storefronts/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
@@ -38,7 +39,7 @@ const words: Record<DesignRefusal['reason'], string> = {
   NOTHING_WAITING: 'Your live site is already up to date.',
   NO_PRESSES_LEFT: 'You’ve used this month’s Publish now presses. Your changes go live with the next automatic publish.',
   SECURITY_RELEASE: 'That version predates a security fix to your storefront, so it can’t be restored.',
-  HAND_PUSH_TOO_LARGE: 'Your store’s repo changes more than 100 design files since the last publish. Publish after every 100 files or fewer.',
+  HAND_PUSH_TOO_LARGE: `Your store’s repo changes more than ${maxHandPushFiles} design files since the last publish. Publish after every ${maxHandPushFiles} files or fewer.`,
 }
 
 export const answered = <T>(result: DesignResult<T>): T => {
