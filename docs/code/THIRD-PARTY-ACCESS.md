@@ -183,6 +183,31 @@ the SPA has no use for them either.
 
 The AI runs the storefront designer and the portal's AI helpers.
 
+**Subscriptions and OAuth (decided 2026-10-28 on #950, revised the same day).** A Claude or ChatGPT *subscription* is not an
+API account. A store's Owner or a partner's console may **sign in** to their own account through one adapter per provider
+(`integrations/ai/oauth`); an API key stays a separate, always-available way to connect.
+
+**The user chose to ship both sign-ins on each provider's own CLI client, with the code pasted back.** Neither is a registration of
+DripFunnel's: both present DripFunnel to the provider as that provider's own CLI, and both screens say so before the person
+connects. The risk lands on the connecting person's own account (refusal, restriction or suspension), and the endpoints can change
+without notice. An API key is the supported way for both.
+- **Anthropic (Claude): Claude Code's public PKCE client** (`9d1c250a-…`). Authorize at `claude.ai/oauth/authorize` with
+  `code=true`, redirect `https://platform.claude.com/oauth/code/callback` (it shows `code#state`), scopes
+  `user:profile user:inference`; token at `api.anthropic.com/v1/oauth/token` as JSON; calls use the SDK with `authToken` and the
+  `anthropic-beta: oauth-2025-04-20` header. **Anthropic's terms do not allow this** (no Claude.ai login or Free, Pro or Max
+  credentials in a third-party product: <https://code.claude.com/docs/en/legal-and-compliance>). It is built on the user's decision,
+  not Anthropic's authorisation; revisit if Anthropic objects.
+- **OpenAI (ChatGPT): the Codex CLI's public PKCE client** (`app_EMoamEEZ…`), redirect `http://localhost:1455/auth/callback`
+  (nothing listens; the browser's "can't be reached" page still shows the full address), authorize at `auth.openai.com/oauth/authorize`
+  with `originator=codex_cli_rs`, token at `/oauth/token` form-encoded; the workspace id comes from the id token and is sent as
+  `ChatGPT-Account-ID`. Inference is the private `chatgpt.com/backend-api/codex/responses` (`store: false`, `stream: true`),
+  not OpenAI's API. **Not verified against a live account.**
+- **Paste, not callback.** The person opens the provider in a new tab, signs in, and pastes the code (`code#state`) or the whole
+  address back; the Worker checks `state`, exchanges with PKCE and seals the tokens (SAAS §9.3). There is no hooks-host callback
+  and no client id or secret in configuration. Neither provider has a revocation we call: Disconnect deletes the tokens here and
+  the person revokes in the provider's own settings.
+- Never use a consumer login token, a session cookie or an undocumented endpoint as a key, and no client id of another product beyond the two the user chose above.
+
 In the prototypes it covers:
 
 - the storefront designer: "Describe a change" and "describe your shop" at setup;

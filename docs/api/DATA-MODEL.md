@@ -1096,15 +1096,27 @@ invoice_settings    (store_id PK, legal_name, tax_per_line boolean, email_with_d
                     -- invoice; issued invoices never change (§7.6 order_document); built on #296
                     -- (Store info writes legal_name), the address being the store row's
 partner_credential  (id, partner_id, kind ('ai'), provider ('anthropic'|'openai'), name, is_default boolean,
-                     key_enc, key_prefix, status ('untested'|'ok'|'rejected'), last_tested_at, created_by,
-                     created_at, updated_at)
+                     key_enc, key_prefix, status ('untested'|'ok'|'rejected'), last_tested_at,
+                     auth_type ('api_key'|'oauth'), account_label NULL, created_by, created_at, updated_at)
                     -- built on #275 (0368): a partner's AI key profiles; unique (partner_id, kind, lower(name))
                     -- and one default per (partner_id, kind); key_enc readable by app_system only (§5.3),
                     -- never returned: the consoles see key_prefix ("sk-ant-…x7Qd")
 store_ai_account    (store_id PK, provider ('openai'|'anthropic'), key_enc, key_prefix,
-                     connected_by, connected_at)
+                     status ('untested'|'ok'|'rejected'), last_tested_at, use_when_plan_used boolean,
+                     auth_type ('api_key'|'oauth'), account_label NULL, connected_by, connected_at, updated_at)
+                    -- built on #950 (0369, 0370): key_enc and the rest written in system scope; app_request reads
+                    -- every column but key_enc. A sign-in (auth_type 'oauth') seals its tokens as JSON in key_enc, key_prefix ''
+                    -- and account_label the account's email. ai_run gained kind 'gateway', api_key_id and provider (0369)
                     -- "connect your own AI account" on plans without AI included (Pricing,
                     -- PortalBilling); key_enc readable by app_system only (§5.3)
+
+ai_oauth_attempt    (id, owner_kind ('store'|'partner'), owner_id, partner_id, provider, credential_id NULL,
+                     status ('pending'|'approved'), state_hash NULL, finish_hash NULL, verifier_enc, tokens_enc NULL,
+                     account_label NULL, return_host, started_by, expires_at, created_at)
+                    -- built on #950 (0370): an AI sign-in between leaving for the provider and finishing; hashes of the
+                    -- one-time values only, the PKCE verifier and the tokens sealed; one live attempt per
+                    -- (owner_kind, owner_id); system scope only, no request role reads it. credential_id is the partner
+                    -- profile a reconnect replaces. ai_run gained auth_method ('api_key'|'oauth') (0370)
 
 cart_reminder_flow  (store_id PK, enabled boolean, min_amount NULL, currency, skip_out_of_stock boolean,
                      quiet_hours jsonb, weekly_cap integer)

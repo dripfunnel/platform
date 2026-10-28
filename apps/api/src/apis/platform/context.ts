@@ -12,6 +12,7 @@ import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
 import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { checkAnthropicKey, type KeyCheck } from '#integrations/ai/index'
+import type { AiOAuth } from '#saas/aiOAuth/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
 import { createPartnerReportsService } from '#saas/partnerReports/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
@@ -33,6 +34,9 @@ export interface PlatformContextDeps {
   shopDomain: string | null
   /** `*.localhost` partner domains, where the local DNS stand-in answers them (DNS_LOCAL). */
   localHosts?: boolean
+  /** The AI sign-in flow and the console host its redirect returns to (SAAS §9.3); absent where the Worker has none. */
+  aiOauth?: AiOAuth | null
+  consoleHost?: string
   now: () => Date
 }
 
@@ -42,7 +46,7 @@ const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null>
 export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, consoleHost, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -54,7 +58,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     storeActions: createPartnerStoreActions(deps),
     dashboard: createPartnerDashboardService(deps),
     domains: createPartnerDomainsService({ ...deps, localHosts }),
-    credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey }),
+    credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey, oauth: aiOauth, host: consoleHost }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),
     reports: createPartnerReportsService(deps),

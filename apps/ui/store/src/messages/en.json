@@ -3855,7 +3855,8 @@
           "catalog.read": "See products",
           "stock.read": "See stock",
           "orders.read": "See orders",
-          "customers.read": "See customers"
+          "customers.read": "See customers",
+          "ai.run": "Run AI requests"
         },
         "worksFor": "Works for",
         "wholeStore": "The whole store",
@@ -6766,7 +6767,134 @@
       "design": "Design",
       "pages": "Pages",
       "journal": "Journal",
-      "settings": "Site settings"
+      "settings": "Site settings",
+      "ai": "AI"
+    },
+    "ai": {
+      "title": "AI",
+      "sub": "Your own AI account, for the AI features and for programs that call your store’s AI endpoint.",
+      "cancel": "Cancel",
+      "loading": "Loading your AI account",
+      "denied": {
+        "title": "You don’t have access to AI",
+        "body": "Only the store owner can connect an AI account. Ask your store owner if something needs changing."
+      },
+      "error": {
+        "title": "We couldn’t load your AI account",
+        "body": "Nothing was changed. Check your connection and try again.",
+        "retry": "Try again"
+      },
+      "plan": {
+        "title": "Plan AI runs",
+        "of": "{used} of {allowed} used this month",
+        "unlimited": "{used} used this month",
+        "body": "Your plan includes a number of AI runs each month. They are paid by your partner’s AI account, so you don’t need an account of your own."
+      },
+      "connect": {
+        "done": "AI account connected"
+      },
+      "claude": {
+        "title": "Sign in with Claude",
+        "ready": "Sign in at Claude with your own account and paste the code it shows back here. DripFunnel never sees your password.",
+        "go": "Sign in with Claude"
+      },
+      "chatgpt": {
+        "title": "Sign in with ChatGPT",
+        "ready": "Sign in at ChatGPT with your own account and paste the address it ends on back here. DripFunnel never sees your password.",
+        "go": "Sign in with ChatGPT"
+      },
+      "key": {
+        "title": "API key",
+        "body": "Add a key from Anthropic or OpenAI. We check it before we keep it, and never show it again. Only the first few characters are shown.",
+        "provider": "Provider",
+        "key": "Paste your key",
+        "go": "Check and connect",
+        "checking": "Checking the key…",
+        "missing": "Paste the API key first."
+      },
+      "providers": {
+        "anthropic": "Anthropic (Claude)",
+        "openai": "OpenAI"
+      },
+      "keyHints": {
+        "anthropic": "sk-ant-…",
+        "openai": "sk-…"
+      },
+      "account": {
+        "label": "Your AI account",
+        "test": "Test key",
+        "testing": "Testing…",
+        "remove": "Remove",
+        "neverTested": "Not tested yet.",
+        "lastTested": "Last tested {time}.",
+        "rejected": "{provider} no longer accepts this key. AI runs that need it stop until you remove it and connect a new one.",
+        "tested": "The key works",
+        "testedRejected": "The provider rejected the key",
+        "removeTitle": "Remove your AI account?",
+        "removeBody": "The key is deleted from DripFunnel. AI runs go back to using only your plan’s runs, and the switch is turned off.",
+        "removeGo": "Remove account",
+        "removed": "AI account removed"
+      },
+      "signInProviders": {
+        "anthropic": "Claude",
+        "openai": "ChatGPT"
+      },
+      "signIn": {
+        "name": "AI account",
+        "via": "Signed in with your account",
+        "badge": "Not available",
+        "off": "Sign-in isn’t available here right now. Use an API key.",
+        "opening": "Opening…",
+        "pasteTitle": "Finish signing in with {provider}",
+        "pasteBody": "A new tab opened. Sign in there, then copy the code it shows, or the whole address your browser ends on (it may say it can’t be reached), and paste it here within 10 minutes.",
+        "pasteLabel": "Code or address",
+        "finish": "Finish connection",
+        "finishing": "Connecting…",
+        "missing": "Paste the code or address first.",
+        "connected": "{provider} account connected",
+        "reconnect": "Reconnect",
+        "disconnect": "Disconnect",
+        "tested": "The {provider} sign-in works",
+        "testedRejected": "The provider no longer accepts this sign-in. Reconnect it.",
+        "expired": "This sign-in has expired. Reconnect it.",
+        "rejected": "The provider no longer accepts this sign-in. AI runs that need it stop until you reconnect or disconnect it.",
+        "removeTitle": "Disconnect your {provider} account?",
+        "removeBody": "DripFunnel deletes the sign-in here. Revoke it in {provider} too if you want it gone there. AI runs go back to using only your plan’s runs, and the switch is turned off. You can sign in again at any time.",
+        "removeGo": "Disconnect",
+        "removed": "{provider} account disconnected",
+        "badLink": "The sign-in address isn’t one we can trust. Nothing was changed. Use an API key instead."
+      },
+      "status": {
+        "ok": "Working",
+        "rejected": "Rejected",
+        "untested": "Not tested",
+        "expired": "Needs reconnecting"
+      },
+      "switch": {
+        "label": "Use my own AI account when the plan’s runs are used up",
+        "on": "On: runs after the plan’s use your account.",
+        "off": "Off: when the plan’s runs are used up, AI runs stop.",
+        "body": "It is off unless you turn it on. When it is on, runs after your plan’s are charged to your account by {provider}, and we show you each time it happens.",
+        "bodySignIn": "It is off unless you turn it on. When it is on, runs after your plan’s use your signed-in account, and we show you each time it happens.",
+        "turnedOn": "Switch on. Your account covers runs after the plan’s.",
+        "turnedOff": "Switch off. AI runs stop when the plan’s are used up."
+      },
+      "call": {
+        "title": "Call it from your own program",
+        "body": "Create an API key in Developers with “Run AI requests” ticked, then send requests to your store at {path}. A key reaches only the provider whose key pays for it.",
+        "path": "/api/v1/chat/completions"
+      },
+      "refused": {
+        "INVALID_INPUT": "That key doesn’t look like the provider’s. Check it and try again.",
+        "KEY_REJECTED": "The provider rejected that key.",
+        "PROVIDER_UNAVAILABLE": "The provider didn’t answer. Nothing was saved. Try again.",
+        "NOT_CONFIGURED": "Keys can’t be stored here yet: the encryption key isn’t set.",
+        "NOT_FOUND": "There is no AI account to change. Reload to see this page.",
+        "OAUTH_UNAVAILABLE": "Signing in with this provider isn’t available. Use an API key instead.",
+        "OAUTH_EXPIRED": "That sign-in has expired or was already used. Sign in again.",
+        "READ_ONLY": "This store is read-only.",
+        "other": "That didn’t save. Check your connection and try again."
+      }
     },
     "design": {
       "noSiteTitle": "No storefront yet",

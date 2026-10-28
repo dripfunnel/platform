@@ -683,6 +683,11 @@ test (§11.2).
   as gone (decided 2026-10-05 on #337). This is accepted because only an Owner creates keys and
   a vendor-bound key is re-capped on every request to the supplier's current tier, so it never
   outlives a narrowed tier, and stops with a removed or suspended supplier (§7.5).
+- **A scope may be used by a REST endpoint instead of a GraphQL field** (decided 2026-10-28 on #950): `ai.run`
+  (Owner-grantable, never a vendor's) lets a key call `/api/v1/*` on the portal host, which spends the plan's AI prompts
+  or the store's own AI account. It is the one scope no GraphQL field uses (`restMachineScopes` in `auth/apiKeys.ts`),
+  and the key, never a person's cookie, is the actor in `ai_run.api_key_id`. Every other scope still has a read-only
+  GraphQL field behind it (`machine.test.ts`).
 - **Vendors' own keys: later** (decided 2026-09-28). Until then only the merchant's Owner
   creates a vendor-bound key; when they come, a Supplier admin creates them within the
   supplier's access level.

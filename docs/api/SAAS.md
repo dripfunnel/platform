@@ -825,6 +825,55 @@ repo's GitHub Actions (decided 2026-10-09). ~~Whether the AI reads the
 store's catalogue~~ **It reads a sample** (about 12 products: names and prices; photos dropped
 on #470), metered in `ai_run` (decided 2026-10-05 on #337).
 
+### 9.3 The AI gateway (#950)
+
+One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on the portal host: `POST /api/v1/chat/completions`
+(JSON, or SSE with `"stream": true`), `GET /api/v1/providers`, `GET /api/v1/providers/{provider}/models`. Code:
+`integrations/ai` (`gateway.ts` the interface and error codes, `anthropicChat.ts`, `openaiChat.ts`, `registry.ts`, `retry.ts`),
+`saas/aiGateway` (whose key pays, the budget, metering), `apis/store/aiGateway.ts` (the REST path), `saas/storeAiAccount`.
+
+- **Whose key.** A plan whose `ai_mode` is own key always runs on the store's own account. Otherwise the partner's default
+  profile (#275) while the month's `ai_prompts` last, one prompt a call (taken before the call, given back if the provider was
+  never reached). Once they are used up the store's own account takes over only if its Owner switched on *Use my own AI account
+  when the plan's runs are used up* (`store_ai_account.use_when_plan_used`, off by default, audited); otherwise `AI_BUDGET_REACHED`.
+  A key reaches only its own provider's models (`MODEL_NOT_FOUND` otherwise): no silent switch from Claude to ChatGPT.
+- **Rejected or unreadable partner default:** the gateway pauses (`AI_NOT_CONNECTED`); only a partner with no key at all uses
+  `AI_PROVIDER_KEY`.
+- **Validation before any provider or budget:** `.strict()` zod schema, 50 messages, 100,000 characters each, 400 kB a body,
+  a model from `registry.ts` only (a name not listed is refused), tokens and temperature within the model's range. Provider-only
+  parameters go in `options`; the OpenAI adapter takes `top_p`, `presence_penalty`, `frequency_penalty`, `seed`, `stop`,
+  `response_format` and refuses the rest. Endpoints are fixed: no caller picks a host or a header.
+- **Retries:** rate limits, an unreachable provider and a timeout are tried up to three times with exponential backoff and full
+  jitter, honouring `retry-after`; a refused key, a bad request or an unknown model never. Calls carry a 60 s deadline and the
+  caller's abort. Fallback to another provider or profile is **off** and is not built: nothing switches silently.
+- **Errors** are codes only (`INVALID_CREDENTIALS`, `RATE_LIMITED`, `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `CANCELLED`, `BAD_REQUEST`,
+  `MODEL_NOT_FOUND`, `CONTENT_REFUSED`) with no upstream text, header or key.
+- **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
+  id; the prompt column is empty and no answer is kept. The Store API's per-minute and per-month call limits (ACCESS §5.6)
+  apply as to any key.
+- **Differences between the providers.** Both take a system message and turns; Claude takes the system apart from the
+  messages and caps temperature at 1, OpenAI at 2. Tool calling, structured outputs and images are **not** in the unified shape
+  yet: a provider-only feature goes through `options` where the adapter lists it, and is refused otherwise.
+- **Streaming:** `text/event-stream` with `text` events (`{text}`) then one `end` (`{provider, model, finish, usage}`), or an
+  `error` (`{code}`); closing the connection cancels the call and gives the plan's prompt back.
+- **Not OpenAI-compatible:** the path and body are DripFunnel's own. An OpenAI-compatible layer is a card of its own.
+- **Signing in instead of pasting a key (#950; THIRD-PARTY-ACCESS §2.6).** A store's Owner (Storefront › AI) and a partner's
+  console (Integrations) may connect a Claude or ChatGPT account, each on the provider's own CLI client and with the code pasted
+  back (§2.6 states the risk). Owners are separate: a store's account is `store_ai_account` (one per store), a partner's a
+  `partner_credential` profile with `auth_type 'oauth'`; neither is ever read for the other. Code: `integrations/ai/oauth` (the adapter:
+  authorize URL, exchange, refresh, the model adapter), `saas/aiOAuth` (begin, submit, the token for a call).
+  Flow: `beginStoreAiOauth` or `beginPartnerAiOauth` seals the PKCE verifier and keeps only the hash of `state` in
+  `ai_oauth_attempt` (one live attempt per owner, ten minutes) and answers the provider's address, which the screen opens in a new
+  tab; the person pastes back `code#state` or the address, and `finishStoreAiOauth(response)` or `finishPartnerAiOauth(response)`
+  checks that the attempt is this owner's and this person's, exchanges the code and stores the tokens in one transaction. A wrong,
+  replayed, expired or other-owner answer is `OAUTH_EXPIRED`. **A sign-in's token** is renewed under the row's lock when within a
+  minute of its end (the provider rotates the refresh token); a grant the provider refuses marks the account `rejected`, and the
+  gateway answers `AI_ACCOUNT_EXPIRED` (409), or `AI_ACCOUNT_UNAVAILABLE` (503) when the provider can't be reached for the renewal,
+  with no model call. **Runs on a sign-in** are `ai_run` rows with `auth_method 'oauth'` and a cost of 0: the person's own plan pays.
+  The ChatGPT route refuses `temperature` and every provider option and sends no output-token cap. Neither provider is asked to
+  revoke on Disconnect or replacement; the tokens are deleted here. The designer still uses only a partner's Anthropic key (§9.2); a
+  sign-in does not reach it.
+
 ---
 
 ## 10. Fleet

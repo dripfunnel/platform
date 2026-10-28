@@ -566,14 +566,45 @@
       "staffSession": "Payment method and payout details stay with {partner}. {partner} enters these itself."
     },
     "integrations": {
-      "title": "AI provider keys",
-      "note": "Pays for the AI designer on your plans that include AI. DripFunnel holds no AI key of its own. Keys are stored encrypted and never shown again; only the start and last 4 characters are. The default key is the one used; if it is rejected, the designer pauses until you fix it.",
-      "loading": "Loading your AI keys",
-      "error": { "title": "Your AI keys couldn’t be loaded", "body": "Nothing was changed. Try again.", "retry": "Try again" },
-      "empty": "No keys yet. Add an Anthropic or OpenAI key to turn on AI on your plans.",
+      "title": "AI accounts",
+      "note": "Pays for the AI designer on your plans that include AI. DripFunnel holds no AI account of its own. Keys are stored encrypted and never shown again; only the start and last 4 characters are. A sign-in is kept only as long as you stay connected, and your merchants’ own accounts are separate from yours. The default account is the one used; if it is rejected, the designer pauses until you fix it.",
+      "loading": "Loading your AI accounts",
+      "error": { "title": "Your AI accounts couldn’t be loaded", "body": "Nothing was changed. Try again.", "retry": "Try again" },
+      "empty": "No accounts yet. Add an Anthropic or OpenAI key, or sign in with Claude or ChatGPT, to turn on AI on your plans.",
       "mayNot": "Your role can’t manage integrations. Owners and Admins can.",
       "providers": { "anthropic": "Anthropic", "openai": "OpenAI" },
       "statuses": { "ok": "Connected", "untested": "Not tested", "rejected": "Key rejected" },
+      "kinds": { "api_key": "API key", "oauth": "Sign-in" },
+      "signInStatuses": { "ok": "Working", "untested": "Not tested", "rejected": "Needs reconnecting" },
+      "signInProviders": { "anthropic": "Claude", "openai": "ChatGPT" },
+      "signInAccount": "Signed in · {account}",
+      "signInNoAccount": "account",
+      "signInRejectedNote": "The sign-in has expired or the provider no longer accepts it, so the AI designer is paused on your plans that include AI. Reconnect it, or make another account the default.",
+      "signIn": {
+        "claude": {
+          "title": "Sign in with Claude",
+          "text": "Sign in at Claude with your company’s account and paste the code it shows back here. DripFunnel never sees the password.",
+          "risk": "This uses Claude Code’s sign-in, not an Anthropic registration for DripFunnel. Anthropic’s terms don’t allow it, so Anthropic may refuse it or restrict the account. An API key is the supported way.",
+          "button": "Sign in with Claude"
+        },
+        "chatgpt": {
+          "title": "Sign in with ChatGPT",
+          "text": "Sign in at ChatGPT with your company’s account and paste the address it ends on back here. DripFunnel never sees the password.",
+          "risk": "This uses the Codex CLI’s sign-in, not an OpenAI registration for DripFunnel. OpenAI may refuse it or change it without notice. An API key is the dependable way.",
+          "button": "Sign in with ChatGPT"
+        },
+        "badge": "Not available",
+        "off": "Sign-in isn’t available here right now. Add an API key.",
+        "opening": "Opening…",
+        "pasteTitle": "Finish signing in with {provider}",
+        "pasteBody": "A new tab opened. Sign in there, then copy the code it shows, or the whole address your browser ends on (it may say it can’t be reached), and paste it here within 10 minutes.",
+        "pasteLabel": "Code or address",
+        "finish": "Finish connection",
+        "finishing": "Connecting…",
+        "missing": "Paste the code or address first.",
+        "failed": "We couldn’t finish connecting the account. Nothing was changed. Try again, or add an API key."
+      },
+      "reconnect": "Reconnect",
       "default": "Default",
       "lastTested": "Last tested {when}",
       "neverTested": "Never tested",
@@ -582,6 +613,7 @@
       "test": "Test",
       "makeDefault": "Make default",
       "remove": "Remove",
+      "disconnect": "Disconnect",
       "cancel": "Cancel",
       "addDialog": {
         "title": "Add an AI key",
@@ -600,7 +632,10 @@
       "removeDialog": {
         "title": "Remove “{name}”?",
         "target": "AI provider key",
-        "last": "The AI designer stops working on your plans that include AI until you add a key. Stores that bring their own key are not affected.",
+        "last": "The AI designer stops working on your plans that include AI until you add a key or sign in again. Stores that bring their own account are not affected.",
+        "signInTitle": "Disconnect “{name}”?",
+        "signInLead": "DripFunnel deletes the sign-in here; revoke it in the provider’s account settings too if you want it gone there. ",
+        "signInConfirm": "Disconnect",
         "default": "“{next}” becomes the default.",
         "other": "Nothing else changes.",
         "confirm": "Remove key"
@@ -612,6 +647,8 @@
         "rejected": "The provider rejected “{name}”.",
         "default": "“{name}” is the default.",
         "removed": "“{name}” removed.",
+        "disconnected": "“{name}” disconnected.",
+        "connected": "AI account connected.",
         "failed": "That didn’t go through. Nothing was changed. Try again."
       },
       "refusals": {
@@ -621,7 +658,9 @@
         "KEY_REJECTED": "The provider rejected that key.",
         "PROVIDER_UNAVAILABLE": "The provider didn’t answer. Nothing was saved. Try again.",
         "NOT_CONFIGURED": "Keys can’t be stored here yet: the encryption key isn’t set.",
-        "NOT_FOUND": "That key is gone. Reload the page."
+        "NOT_FOUND": "That key is gone. Reload the page.",
+        "OAUTH_UNAVAILABLE": "Signing in with this provider isn’t available. Add an API key instead.",
+        "OAUTH_EXPIRED": "That sign-in has expired or was already used. Sign in again."
       }
     },
     "security": {

@@ -35,6 +35,7 @@ import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
 import { registerSupport } from './support'
 import { registerActivity } from './activity'
+import { registerAiAccount } from './aiAccount'
 import { registerDevelopers } from './developers'
 import { registerWebhooks } from './webhooks'
 import { registerApps } from './apps'
@@ -91,6 +92,7 @@ registerListing(builder)
 registerSupport(builder)
 registerActivity(builder)
 registerDevelopers(builder)
+registerAiAccount(builder)
 registerWebhooks(builder)
 registerApps(builder)
 registerBilling(builder)

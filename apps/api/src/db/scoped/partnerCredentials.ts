@@ -2,7 +2,7 @@ import type { AiProvider, PartnerCredentialRow } from '../schema/saas'
 import type { ScopedSql } from './index'
 
 // A partner's AI key profiles (#275). The sealed key is written here and read only in system scope (selectDefaultKey).
-const columns = `id, partner_id, kind, provider, name, is_default, key_prefix, status, last_tested_at, created_by, created_at`
+const columns = `id, partner_id, kind, provider, name, is_default, key_prefix, status, last_tested_at, auth_type, account_label, created_by, created_at`
 
 export const selectAiProfiles = (tx: ScopedSql, partnerId: string): Promise<PartnerCredentialRow[]> =>
   tx<PartnerCredentialRow[]>`select ${tx.unsafe(columns)} from partner_credential where partner_id = ${partnerId} and kind = 'ai' order by created_at`
@@ -12,12 +12,12 @@ export const selectAiProfile = async (tx: ScopedSql, partnerId: string, id: stri
 
 export const insertAiProfile = async (
   tx: ScopedSql,
-  input: { partnerId: string; provider: AiProvider; name: string; keyEnc: string; keyPrefix: string; status: 'untested' | 'ok'; testedAt: Date | null; isDefault: boolean; createdBy: string },
+  input: { partnerId: string; provider: AiProvider; name: string; keyEnc: string; keyPrefix: string; status: 'untested' | 'ok'; testedAt: Date | null; isDefault: boolean; createdBy: string; authType?: 'api_key' | 'oauth'; accountLabel?: string | null },
 ): Promise<string> =>
   (
     await tx<{ id: string }[]>`
-      insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, status, last_tested_at, is_default, created_by)
-      values (${input.partnerId}, 'ai', ${input.provider}, ${input.name}, ${input.keyEnc}, ${input.keyPrefix}, ${input.status}, ${input.testedAt}, ${input.isDefault}, ${input.createdBy})
+      insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, status, last_tested_at, is_default, created_by, auth_type, account_label)
+      values (${input.partnerId}, 'ai', ${input.provider}, ${input.name}, ${input.keyEnc}, ${input.keyPrefix}, ${input.status}, ${input.testedAt}, ${input.isDefault}, ${input.createdBy}, ${input.authType ?? 'api_key'}, ${input.accountLabel ?? null})
       returning id`
   )[0]?.id ?? ''
 
@@ -39,9 +39,9 @@ export const firstAiProfileId = async (tx: ScopedSql, partnerId: string): Promis
   (await tx<{ id: string }[]>`select id from partner_credential where partner_id = ${partnerId} and kind = 'ai' order by created_at limit 1`)[0]?.id ?? null
 
 /** System scope only: the sealed default key and its provider, for the model call. */
-export const selectDefaultAiKey = async (tx: ScopedSql, partnerId: string): Promise<{ provider: AiProvider; key_enc: string; status: PartnerCredentialRow['status'] } | null> =>
-  (await tx<{ provider: AiProvider; key_enc: string; status: PartnerCredentialRow['status'] }[]>`select provider, key_enc, status from partner_credential where partner_id = ${partnerId} and kind = 'ai' and is_default`)[0] ?? null
+export const selectDefaultAiKey = async (tx: ScopedSql, partnerId: string): Promise<{ id: string; provider: AiProvider; key_enc: string; status: PartnerCredentialRow['status']; auth_type: PartnerCredentialRow['auth_type'] } | null> =>
+  (await tx<{ id: string; provider: AiProvider; key_enc: string; status: PartnerCredentialRow['status']; auth_type: PartnerCredentialRow['auth_type'] }[]>`select id, provider, key_enc, status, auth_type from partner_credential where partner_id = ${partnerId} and kind = 'ai' and is_default`)[0] ?? null
 
 /** System scope only: one profile's sealed key, held to its partner, for a test. */
-export const selectSealedAiKey = async (tx: ScopedSql, partnerId: string, id: string): Promise<{ provider: AiProvider; key_enc: string } | null> =>
-  (await tx<{ provider: AiProvider; key_enc: string }[]>`select provider, key_enc from partner_credential where id = ${id} and partner_id = ${partnerId} and kind = 'ai'`)[0] ?? null
+export const selectSealedAiKey = async (tx: ScopedSql, partnerId: string, id: string): Promise<{ provider: AiProvider; key_enc: string; auth_type: PartnerCredentialRow['auth_type'] } | null> =>
+  (await tx<{ provider: AiProvider; key_enc: string; auth_type: PartnerCredentialRow['auth_type'] }[]>`select provider, key_enc, auth_type from partner_credential where id = ${id} and partner_id = ${partnerId} and kind = 'ai'`)[0] ?? null

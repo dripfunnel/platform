@@ -177,3 +177,27 @@
   padding-top: var(--df-space-3);
   border-top: 1px solid var(--df-color-border);
 }
+.df-settings-signin {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--df-space-3);
+}
+.df-settings-paste {
+  display: grid;
+  gap: var(--df-space-3);
+  margin-top: var(--df-space-3);
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+.df-settings-paste .df-field input {
+  width: 100%;
+}
+.df-settings-signin > div {
+  display: grid;
+  gap: var(--df-space-2);
+  align-content: start;
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
