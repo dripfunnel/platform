@@ -52,6 +52,16 @@ describe('flushSteps', () => {
     expect(result).toEqual({ left: steps, notices: [], sent: false })
   })
 
+  it.each([
+    ['an answer that is not the API’s', new ApiError('BAD_RESPONSE', 'no data')],
+    ['a code the app has no name for', new ApiError('SOMETHING_NEW', 'internal error')],
+    ['an error that is not the API’s', new Error('boom')],
+  ])('keeps the step on %s, to try again', async (_name, error) => {
+    const steps = [delivered('d-1'), failed('d-2')]
+    const result = await flushSteps(clientAnswering(() => { throw error }), steps)
+    expect(result).toEqual({ left: steps, notices: [], sent: false })
+  })
+
   it('tells the rider about a late wrong code, drops it, and carries on with the next step', async () => {
     const result = await flushSteps(
       clientAnswering((id) => {

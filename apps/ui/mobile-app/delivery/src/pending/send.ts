@@ -11,6 +11,8 @@ export type Flushed = {
   sent: boolean
 }
 
+const retryable: ReadonlySet<string> = new Set(['NO_RESPONSE', 'UNAUTHENTICATED', 'BAD_RESPONSE', 'UNKNOWN'])
+
 const send = (client: ApiClient, step: PendingStep): Promise<void> =>
   step.kind === 'delivered'
     ? markDelivered(client, step.deliveryId, { code: step.code, cashCollected: step.cashCollected, at: step.at, key: step.key })
@@ -25,9 +27,9 @@ export const flushSteps = async (client: ApiClient, steps: readonly PendingStep[
       await send(client, step)
       sent = true
     } catch (error) {
-      // A session that ended keeps the step for the next sign-in; any other refusal is final and is told to the rider.
-      if (isApiError(error, 'NO_RESPONSE') || isApiError(error, 'UNAUTHENTICATED')) return { left: steps.slice(index), notices, sent }
-      notices.push({ deliveryId: step.deliveryId, code: isApiError(error) ? error.code : 'UNKNOWN' })
+      // Only a refusal the API named is final and told to the rider; no answer, an ended session or an answer that is not the API's is tried again, never dropped.
+      if (!isApiError(error) || retryable.has(error.code)) return { left: steps.slice(index), notices, sent }
+      notices.push({ deliveryId: step.deliveryId, code: error.code })
     }
   }
   return { left: [], notices, sent }
