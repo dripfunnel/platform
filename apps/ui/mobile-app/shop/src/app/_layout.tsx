@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ShopProvider } from '../api/ShopProvider'
 import { BrandProvider } from '../brand/BrandProvider'
+import { PushEffects } from '../push/PushEffects'
 
 // BrandProvider loads the store's look before anything renders; ShopProvider holds the one client the screens call the Shop API with.
 export default function RootLayout() {
@@ -14,6 +15,7 @@ export default function RootLayout() {
       <ShopProvider>
         <GestureHandlerRootView style={styles.root}>
           <StatusBar style="auto" />
+          <PushEffects />
           <Stack screenOptions={{ headerShown: false }} />
         </GestureHandlerRootView>
       </ShopProvider>

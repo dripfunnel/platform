@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { storeHost } from '../graphql/storeHost'
-import { clearCartToken, clearSessionToken, loadTokens, saveCartToken, saveSessionToken, type Tokens } from '../session/tokens'
+import { unregisterThisPhone } from '../push/push'
+import { clearCartToken, clearSessionToken, keepOrderToken, loadOrderToken, loadTokens, saveCartToken, saveSessionToken, shopHeaders, type Tokens } from '../session/tokens'
 import { createShopClient } from './client'
 import { ShopContext, type Shop } from './ShopContext'
 
@@ -42,11 +43,19 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         await Promise.all([saveSessionToken(host, token), clearCartToken(host)])
       },
       endSession: async () => {
-        // Best effort: a phone with no signal must still be able to sign out, so the token goes either way.
+        // Best effort: a phone with no signal must still be able to sign out, so the token goes either way. The phone stops getting this customer's pushes first (api/DELIVERY.md §6).
+        await unregisterThisPhone(client).catch(() => undefined)
         await client.request('mutation { signOut }').catch(() => undefined)
         tokens.session = null
         setSignedIn(false)
         await clearSessionToken(host)
+      },
+      keepOrderToken: (orderId) => keepOrderToken(host, orderId),
+      orderAccess: async (orderId) => {
+        const kept = await loadOrderToken(host, orderId)
+        if (!kept) return { client, headers: shopHeaders(tokens) }
+        const own = { ...tokens, cart: kept }
+        return { client: createShopClient(host, own), headers: shopHeaders(own) }
       },
     }
   }, [loaded, signedIn])
