@@ -10,6 +10,7 @@ import { PendingProvider } from '../pending/PendingContext'
 import { PushProvider } from '../push/PushContext'
 import { SessionProvider } from '../session/SessionProvider'
 import { useSession } from '../session/SessionContext'
+import { UpdateGate } from '../update/UpdateGate'
 
 // BrandProvider loads the store's look before anything renders; SessionProvider holds the token and the one client. A call the API answers
 // as signed out drops the token, which takes every signed-in screen away and leaves getting in. The position task is defined at import; PushProvider handles pushes.
@@ -36,14 +37,16 @@ export default function RootLayout() {
   return (
     <BrandProvider>
       <SessionProvider>
-        <PushProvider>
-          <PendingProvider>
-            <GestureHandlerRootView style={styles.root}>
-              <StatusBar style="auto" />
-              <Screens />
-            </GestureHandlerRootView>
-          </PendingProvider>
-        </PushProvider>
+        <UpdateGate>
+          <PushProvider>
+            <PendingProvider>
+              <GestureHandlerRootView style={styles.root}>
+                <StatusBar style="auto" />
+                <Screens />
+              </GestureHandlerRootView>
+            </PendingProvider>
+          </PushProvider>
+        </UpdateGate>
       </SessionProvider>
     </BrandProvider>
   )

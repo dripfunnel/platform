@@ -37,6 +37,11 @@
     "optional": "optional",
     "close": "Close"
   },
+  "update": {
+    "title": "Update required",
+    "body": "This version of the app is too old to work with the shop. Download the new version, install it, and open the app again.",
+    "download": "Download the new version"
+  },
   "states": {
     "error": {
       "title": "Couldn’t load this",
