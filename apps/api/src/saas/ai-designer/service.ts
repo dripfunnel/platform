@@ -23,7 +23,7 @@ export interface DesignerDeps {
   facts: RequestFacts
   /** The store's StudioSession; null where the Worker has none bound. */
   studio: StudioApi | null
-  /** The store repos, for a hand push to `main` that Publish takes first (LIVE-SHOP §4 step 2); null without the GitHub App. */
+  /** The store repos, for a hand push to `main` that the Owner's studio and Publish take (LIVE-SHOP §4 step 2); null without the GitHub App or on a read-only store. */
   repos?: (() => Promise<StoreRepos | null>) | null
   /** The domain of every store's free address (SHOP_DOMAIN); a template's demo is its store's address on it. */
   shopDomain: string | null

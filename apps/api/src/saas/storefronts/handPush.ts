@@ -4,7 +4,7 @@ import { adoptRepoHead, selectRepoAtRest } from '#db/scoped/storefronts'
 import type { RepoChange, StoreRepos } from '#integrations/github/index'
 import { isThemePath } from './paths'
 
-// A hand push to a store repo's `main` (LIVE-SHOP §4 step 2): a design publish takes its theme changes into the draft first.
+// A hand push to a store repo's `main` (LIVE-SHOP §4 step 2): the studio and a design publish take its theme changes into the draft.
 
 export interface HandPush {
   from: string
