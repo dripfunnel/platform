@@ -1,4 +1,4 @@
-export const settingsTabs = ['company', 'team', 'payout', 'security'] as const
+export const settingsTabs = ['company', 'team', 'payout', 'security', 'integrations'] as const
 export type SettingsTab = (typeof settingsTabs)[number]
 
 export const settingsStates = ['loading', 'error', 'readonly', 'notconnected', 'verifying', 'declined'] as const
