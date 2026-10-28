@@ -18,7 +18,7 @@ jest.mock('expo-secure-store', () => ({
 const host = 'acme.my-store.one'
 const saved: Saved = {
   steps: [{ kind: 'delivered', deliveryId: 'd-1', at: '2026-10-28T10:00:00.000Z', key: 'k-1', code: '2580', cashCollected: true }],
-  notices: [{ deliveryId: 'd-0', code: 'CODE_UNCONFIRMED' }],
+  notices: [{ deliveryId: 'd-0', code: 'CODE_UNCONFIRMED', dismissed: false }],
 }
 
 beforeEach(() => mockKeystore.clear())

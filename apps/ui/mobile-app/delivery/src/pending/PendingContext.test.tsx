@@ -198,10 +198,21 @@ describe('the steps waiting for signal', () => {
     await act(async () => void (await pending.keep(step)))
     await wait()
     expect(pending.steps).toEqual([])
-    expect(pending.notices).toEqual([{ deliveryId: 'd-1', code: 'CODE_UNCONFIRMED' }])
+    expect(pending.notices).toEqual([{ deliveryId: 'd-1', code: 'CODE_UNCONFIRMED', dismissed: false }])
     expect(pending.hidden.has('d-1')).toBe(true)
     await act(async () => pending.dismissNotice('d-1'))
-    expect(pending.hidden.has('d-1')).toBe(false)
+    expect(pending.notices).toEqual([{ deliveryId: 'd-1', code: 'CODE_UNCONFIRMED', dismissed: true }])
+    expect(pending.hidden.has('d-1')).toBe(true)
+    expect(mockKeystore.get(storeKey('r-1'))).toContain('"dismissed":true')
+  })
+
+  it('drop any other notice once it is dismissed', async () => {
+    mockConnected = false
+    mockKeystore.set(storeKey('r-1'), JSON.stringify({ steps: [], notices: [{ deliveryId: 'd-0', code: 'NOT_ASSIGNED' }] }))
+    await mount()
+    expect(pending.notices).toEqual([{ deliveryId: 'd-0', code: 'NOT_ASSIGNED', dismissed: false }])
+    await act(async () => pending.dismissNotice('d-0'))
+    expect(pending.notices).toEqual([])
   })
 
   it('replace an earlier step of the same delivery', async () => {

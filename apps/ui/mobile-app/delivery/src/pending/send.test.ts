@@ -69,13 +69,13 @@ describe('flushSteps', () => {
       }),
       [delivered('d-1'), failed('d-2')],
     )
-    expect(result.notices).toEqual([{ deliveryId: 'd-1', code: 'CODE_UNCONFIRMED' }])
+    expect(result.notices).toEqual([{ deliveryId: 'd-1', code: 'CODE_UNCONFIRMED', dismissed: false }])
     expect(result.left).toEqual([])
     expect(sent).toHaveLength(2)
   })
 
   it('drops a step the API refused, with the reason for the rider', async () => {
     const result = await flushSteps(clientAnswering(() => { throw new ApiError('NOT_ASSIGNED', 'not yours') }), [failed('d-1')])
-    expect(result).toEqual({ left: [], notices: [{ deliveryId: 'd-1', code: 'NOT_ASSIGNED' }], sent: false })
+    expect(result).toEqual({ left: [], notices: [{ deliveryId: 'd-1', code: 'NOT_ASSIGNED', dismissed: false }], sent: false })
   })
 })

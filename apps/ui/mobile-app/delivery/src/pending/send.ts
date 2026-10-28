@@ -29,7 +29,7 @@ export const flushSteps = async (client: ApiClient, steps: readonly PendingStep[
     } catch (error) {
       // Only a refusal the API named is final and told to the rider; no answer, an ended session or an answer that is not the API's is tried again, never dropped.
       if (!isApiError(error) || retryable.has(error.code)) return { left: steps.slice(index), notices, sent }
-      notices.push({ deliveryId: step.deliveryId, code: error.code })
+      notices.push({ deliveryId: step.deliveryId, code: error.code, dismissed: false })
     }
   }
   return { left: [], notices, sent }

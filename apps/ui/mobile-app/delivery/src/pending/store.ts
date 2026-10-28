@@ -10,8 +10,8 @@ const entrySchema = z.discriminatedUnion('kind', [
 ])
 export type PendingStep = z.infer<typeof entrySchema>
 
-/** An answer the rider has not seen yet: the code did not match (`CODE_UNCONFIRMED`), or the step was refused for another reason. */
-const noticeSchema = z.object({ deliveryId: z.string(), code: z.string() })
+/** An answer for the rider: the code did not match (`CODE_UNCONFIRMED`), or the step was refused for another reason. A dismissed `CODE_UNCONFIRMED` stays, hidden from Home's banner, so the store's delivery is never offered again. */
+const noticeSchema = z.object({ deliveryId: z.string(), code: z.string(), dismissed: z.boolean().default(false) })
 export type PendingNotice = z.infer<typeof noticeSchema>
 
 const savedSchema = z.object({ steps: z.array(entrySchema), notices: z.array(noticeSchema) })

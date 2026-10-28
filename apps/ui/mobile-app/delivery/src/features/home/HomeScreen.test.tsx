@@ -62,11 +62,20 @@ describe('Home: what is kept on the phone', () => {
   })
 
   it('tells the rider the store will confirm a delivery, until they dismiss it', async () => {
-    mockPending = { ...noPending, notices: [{ deliveryId: 'd-9', code: 'CODE_UNCONFIRMED' }] }
+    mockPending = { ...noPending, notices: [{ deliveryId: 'd-9', code: 'CODE_UNCONFIRMED', dismissed: false }] }
     const screen = await render(<HomeScreen />, fakeSession(answer))
     expect(hasText(screen, t('delivery.unconfirmed.title'))).toBe(true)
     await press(screen, t('home.pending.dismiss'))
     expect(mockDismiss).toHaveBeenCalledWith('d-9')
+  })
+
+  it('shows no banner for a dismissed notice, and still leaves that delivery out of the current one', async () => {
+    mockPending = { ...noPending, notices: [{ deliveryId: 'd-9', code: 'CODE_UNCONFIRMED', dismissed: true }], hidden: new Set(['d-9']) }
+    current = [delivery('picked_up')]
+    const screen = await render(<HomeScreen />, fakeSession(answer))
+    expect(hasText(screen, t('delivery.unconfirmed.title'))).toBe(false)
+    expect(hasButton(screen, t('delivery.unconfirmed.title'))).toBe(false)
+    expect(hasButton(screen, t('home.current.open'))).toBe(false)
   })
 })
 

@@ -208,7 +208,7 @@ export function HomeScreen() {
           <Text style={{ flex: 1, color: colors.warning, fontSize: 14 }}>{t('home.pending.saved', { count: steps.length })}</Text>
         </View>
       ) : null}
-      {notices.map((notice) => (
+      {notices.filter((notice) => !notice.dismissed).map((notice) => (
         <View key={notice.deliveryId} accessibilityRole="alert" style={[styles.banner, { backgroundColor: colors.infoSurface, borderColor: colors.infoBorder, borderRadius: radii.button }]}>
           <Text style={{ flex: 1, color: colors.info, fontSize: 14 }}>{notice.code === 'CODE_UNCONFIRMED' ? t('delivery.unconfirmed.title') : t('home.pending.refused')}</Text>
           <TextButton label={t('home.pending.dismiss')} onPress={() => dismissNotice(notice.deliveryId)} />

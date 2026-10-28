@@ -74,7 +74,7 @@ export function DeliveryScreen({ id }: { id: string }) {
       if (isApiError(error, 'NO_RESPONSE')) return save()
       const failure = isApiError(error) ? error.code : 'UNKNOWN'
       if (failure === 'CODE_UNCONFIRMED') {
-        notify({ deliveryId: id, code: failure })
+        notify({ deliveryId: id, code: failure, dismissed: false })
         return setOutcome({ kind: 'unconfirmed' })
       }
       if (failure === 'WRONG_CODE') setCode('')

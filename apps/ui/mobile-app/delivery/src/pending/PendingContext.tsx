@@ -144,7 +144,14 @@ export function PendingProvider({ children }: { children: ReactNode }) {
     await forgetLastRider(host)
   }, [commit, host])
 
-  const dismissNotice = useCallback((deliveryId: string) => void commit({ ...current.current, notices: current.current.notices.filter((notice) => notice.deliveryId !== deliveryId) }), [commit])
+  const dismissNotice = useCallback(
+    (deliveryId: string) =>
+      void commit({
+        ...current.current,
+        notices: current.current.notices.flatMap((notice) => (notice.deliveryId !== deliveryId ? [notice] : notice.code === 'CODE_UNCONFIRMED' ? [{ ...notice, dismissed: true }] : [])),
+      }),
+    [commit],
+  )
 
   const value = useMemo<Pending>(
     () => ({
