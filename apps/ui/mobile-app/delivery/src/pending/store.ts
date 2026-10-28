@@ -44,4 +44,6 @@ export const keepSaved = async (host: string, riderId: string, saved: Saved): Pr
 /** The rider this phone last knew to be signed in, for when the phone has no signal to ask. */
 export const loadLastRider = (host: string): Promise<string | null> => SecureStore.getItemAsync(lastRiderKey(host)).catch(() => null)
 
-export const keepLastRider = (host: string, riderId: string): Promise<void> => SecureStore.setItemAsync(lastRiderKey(host), riderId, options).catch(() => undefined)
+export const forgetLastRider = (host: string): Promise<void> => SecureStore.deleteItemAsync(lastRiderKey(host)).catch(() => undefined)
+
+export const keepLastRider =(host: string, riderId: string): Promise<void> => SecureStore.setItemAsync(lastRiderKey(host), riderId, options).catch(() => undefined)

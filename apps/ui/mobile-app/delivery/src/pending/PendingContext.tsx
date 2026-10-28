@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useOnline as useConnection } from '@dripfunnel/mobile-shared/connection'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { useSession } from '../session/SessionContext'
 import { flushSteps } from './send'
-import { keepLastRider, keepSaved, loadLastRider, loadSaved, nothingSaved, type PendingNotice, type PendingStep, type Saved } from './store'
+import { forgetLastRider, keepLastRider, keepSaved, loadLastRider, loadSaved, nothingSaved, type PendingNotice, type PendingStep, type Saved } from './store'
 
 /** First retry after 5 s, doubling to 5 minutes, while steps wait and the phone says it has signal. */
 export const retryAfterMs = (tries: number): number => Math.min(5_000 * 2 ** tries, 300_000)
@@ -19,9 +20,11 @@ export type Pending = {
   /** Keeps an answer for the rider to read on Home, as when the API answers a step at once. */
   notify: (notice: PendingNotice) => void
   dismissNotice: (deliveryId: string) => void
+  /** Removes everything kept for this rider and the last-rider mark, for an account that is gone: those steps can never be sent. */
+  forget: () => Promise<void>
 }
 
-const none: Pending = { steps: [], notices: [], sentCount: 0, hidden: new Set(), keep: () => Promise.resolve(true), notify: () => undefined, dismissNotice: () => undefined }
+const none: Pending = { steps: [], notices: [], sentCount: 0, hidden: new Set(), keep: () => Promise.resolve(true), notify: () => undefined, dismissNotice: () => undefined, forget: () => Promise.resolve() }
 
 const PendingContext = createContext<Pending>(none)
 
@@ -47,9 +50,10 @@ export function PendingProvider({ children }: { children: ReactNode }) {
       return
     }
     void (async () => {
+      // The last rider stands in only when there was no answer; any other failure leaves the steps unowned rather than under someone else.
       const known = await fetchRider().then(
         async ({ id }) => (await keepLastRider(host, id), id),
-        () => loadLastRider(host),
+        (error: unknown) => (isApiError(error, 'NO_RESPONSE') ? loadLastRider(host) : null),
       )
       if (live) setRider(known)
     })()
@@ -101,7 +105,8 @@ export function PendingProvider({ children }: { children: ReactNode }) {
       const snapshot = current.current.steps
       const { left, notices, sent } = await flushSteps(client, snapshot)
       const added = current.current.steps.filter((step) => !snapshot.includes(step))
-      await commit({ steps: [...left, ...added], notices: [...current.current.notices, ...notices] })
+      const replaced = left.filter((step) => !added.some((newer) => newer.deliveryId === step.deliveryId))
+      await commit({ steps: [...replaced, ...added], notices: [...current.current.notices, ...notices] })
       if (sent) setSentCount((count) => count + 1)
       setTries((count) => (left.length > 0 ? count + 1 : 0))
     } finally {
@@ -134,6 +139,11 @@ export function PendingProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
+  const forget = useCallback(async () => {
+    await commit(nothingSaved)
+    await forgetLastRider(host)
+  }, [commit, host])
+
   const dismissNotice = useCallback((deliveryId: string) => void commit({ ...current.current, notices: current.current.notices.filter((notice) => notice.deliveryId !== deliveryId) }), [commit])
 
   const value = useMemo<Pending>(
@@ -145,8 +155,9 @@ export function PendingProvider({ children }: { children: ReactNode }) {
       keep,
       notify,
       dismissNotice,
+      forget,
     }),
-    [saved, sentCount, keep, notify, dismissNotice],
+    [saved, sentCount, keep, notify, dismissNotice, forget],
   )
 
   return <PendingContext.Provider value={value}>{children}</PendingContext.Provider>

@@ -43,9 +43,15 @@ const Probe = () => {
 
 const sent: Request[] = []
 let reply: () => void = () => undefined
+let gate: Promise<void> | null = null
+let meFails: ApiError | null = null
 const answer = (request: Request): unknown => {
-  if (request.query === '{ me }') return { me: { id: rider } }
+  if (request.query === '{ me }') {
+    if (meFails) throw meFails
+    return { me: { id: rider } }
+  }
   sent.push(request)
+  if (gate) return gate.then(reply).then(() => ({ ok: true }))
   reply()
   return { ok: true }
 }
@@ -59,6 +65,8 @@ beforeEach(() => {
   sent.length = 0
   rider = 'r-1'
   reply = () => undefined
+  gate = null
+  meFails = null
 })
 
 // The first render loads react-native's lazy modules cold, over 30 s on a loaded CI runner (as HomeScreen.test.tsx), so it is paid once, here.
@@ -120,6 +128,44 @@ describe('the steps waiting for signal', () => {
     expect(pending.notices).toEqual([])
     expect(sent).toHaveLength(0)
     expect(mockKeystore.has(storeKey('r-1'))).toBe(true)
+  })
+
+  it('are not put under the last rider when the rider could not be told for another reason than no signal', async () => {
+    mockKeystore.set('df.pending.acme.my-store.one.last', 'r-1')
+    mockKeystore.set(storeKey('r-1'), JSON.stringify({ steps: [step], notices: [] }))
+    meFails = new ApiError('BAD_RESPONSE', 'no data')
+    await mount()
+    expect(pending.steps).toEqual([])
+    let kept = true
+    await act(async () => void (kept = await pending.keep({ ...step, key: 'k-9' })))
+    expect(kept).toBe(false)
+    expect(sent).toHaveLength(0)
+  })
+
+  it('keep only the newer step of a delivery that was replaced while the older was being sent', async () => {
+    let release!: () => void
+    gate = new Promise<void>((resolve) => (release = resolve))
+    reply = () => {
+      throw new ApiError('NO_RESPONSE', 'offline')
+    }
+    await mount()
+    await act(async () => void (await pending.keep(step)))
+    await wait()
+    await act(async () => void (await pending.keep({ ...step, key: 'k-2' })))
+    await act(async () => release())
+    await wait()
+    expect(pending.steps.map((kept) => kept.key)).toEqual(['k-2'])
+  })
+
+  it('are forgotten with the last rider when the account is deleted', async () => {
+    mockConnected = false
+    await mount()
+    await act(async () => void (await pending.keep(step)))
+    expect(mockKeystore.has(storeKey('r-1'))).toBe(true)
+    await act(async () => pending.forget())
+    expect(pending.steps).toEqual([])
+    expect(mockKeystore.has(storeKey('r-1'))).toBe(false)
+    expect(mockKeystore.has('df.pending.acme.my-store.one.last')).toBe(false)
   })
 
   it('are not told to the rider as kept when they could not be written', async () => {

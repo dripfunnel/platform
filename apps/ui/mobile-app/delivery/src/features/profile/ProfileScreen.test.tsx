@@ -13,6 +13,8 @@ jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual(
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }), useFocusEffect: () => undefined }))
 jest.mock('./pickPhoto', () => ({ pickPhoto: jest.fn() }))
+const mockForget = jest.fn().mockResolvedValue(undefined)
+jest.mock('../../pending/PendingContext', () => ({ usePending: () => ({ forget: mockForget }) }))
 
 const rider: Rider = { id: 'r1', name: 'Asha Rao', phone: '+919876543210', photoAssetId: null, vehicleType: 'scooter', vehicleNumber: 'KA01AB1234' }
 
@@ -36,6 +38,7 @@ describe('Profile', () => {
     await press(screen, t('profile.delete.confirm'))
     expect(session.requests.some((r) => r.query.includes('deleteMyAccount'))).toBe(true)
     expect(session.events).toEqual(['leave'])
+    expect(mockForget).toHaveBeenCalledTimes(1)
   })
 
   it('says to finish or return the current delivery when it cannot be deleted', async () => {
