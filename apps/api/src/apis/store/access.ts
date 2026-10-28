@@ -14,6 +14,7 @@ import { machineScopes } from '#auth/apiKeys'
 import type { MachineCaller } from '#auth/machineCaller'
 import type { TenantContext } from '#core/tenancy'
 import type { StudioApi } from '#saas/studio/index'
+import type { StoreRepos } from '#integrations/github/index'
 import type { StudioDeps } from '#saas/ai-designer/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { accessErrorCode, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
@@ -57,6 +58,8 @@ export interface StoreContext extends Record<string, unknown> {
   domains?: { edgeZone: string; localHosts: boolean; shopDomain: string | null } | null
   /** The store's StudioSession, by the session's TenantContext only (AI-STUDIO §3 step 2); null where none is bound. */
   studio?: ((context: TenantContext) => StudioApi) | null
+  /** The store repos through the GitHub App, made only when asked; null without the App. */
+  repos?: (() => Promise<StoreRepos | null>) | null
   /** The designer's model, a sample site's screenshot and a pasted image's bytes (storefront ARCHITECTURE §6.2). */
   design?: Pick<StudioDeps, 'ai' | 'screenshots' | 'readAsset'> | null
   /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */

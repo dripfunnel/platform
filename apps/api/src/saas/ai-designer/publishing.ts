@@ -1,4 +1,5 @@
 import type { ActivityEntry } from '#auth/activity'
+import { failureCode, logEvent } from '#core/log'
 import { selectMessage } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { lockStorefront, monthStart, pressesInFlight, selectCatalogueState, selectDraftCommits, selectLastPublish, selectPublishRun, selectVersionByNumber, type LastPublishRow, type PublishRunView } from '#db/scoped/publishing'
@@ -7,8 +8,8 @@ import { usedThisPeriod } from '#db/scoped/storeAccount'
 import { UNLIMITED } from '#db/scoped/planKeys'
 import { allowanceFor } from '#saas/entitlements/index'
 import { autoPublishIntervalMs } from '#saas/storefronts/index'
-import { publishBefore, startPublish, type GoBackActor } from '#saas/storefronts/index'
-import type { DesignerDeps, DesignResult } from './service'
+import { adoptHandPush, handPushOf, publishBefore, startPublish, type GoBackActor } from '#saas/storefronts/index'
+import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { designAudit } from './words'
 
 // Publishing from the studio (storefront AI-STUDIO §6; SAAS §9.1–§9.2): the store's StudioSession finishes any change and
@@ -71,8 +72,33 @@ export const createPublishingService = (deps: DesignerDeps) => {
 
   const started = (tx: ScopedSql, runId: string, kind: string) => activity.record(tx, entry(designAudit.publishStarted, [{ field: 'publish', before: null, after: kind }])).then(() => runId)
 
+  /** A hand push to `main` becomes one change to the draft before it is published (LIVE-SHOP §4 step 2). */
+  const takeHandPush = async (): Promise<DesignResult<null>> => {
+    const repos = await deps.repos?.()
+    if (!repos || !studio) return { ok: true, value: null }
+    // GitHub being down never stops a publish: the draft is published as it is, and the push is taken next time.
+    const push = await handPushOf(sql, repos, storeId).catch((error: unknown) => {
+      logEvent({ event: 'storefront_hand_push_unread', api: 'store', storeId, code: failureCode(error) })
+      return null
+    })
+    if (!push) return { ok: true, value: null }
+    if (push.changes.length > 0) {
+      const answer = await studio.importPush(storeId, { changes: push.changes, head: push.head, userId: actor.id })
+      if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
+      if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+      if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
+    }
+    // A second Publish racing for the same push finds repo_head moved and records nothing; a failed write leaves the push to be taken again.
+    await recordAfter(sql, storeId, async (tx) => {
+      if (await adoptHandPush(tx, storeId, push)) await activity.record(tx, entry(designAudit.repoPushTaken, [{ field: 'main', before: push.from, after: push.head }]))
+    })
+    return { ok: true, value: null }
+  }
+
   /** `publishDesign`: the draft's head through the full pipeline; nothing reaches the repo until it is live. */
   const publishDesign = async (): Promise<DesignResult<string>> => {
+    const taken = await takeHandPush()
+    if (!taken.ok) return taken
     const ready = await handOff(null)
     if (!ready.ok) return ready
     return withSystemScope(sql, async (tx) => {
