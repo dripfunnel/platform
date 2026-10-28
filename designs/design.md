@@ -84,12 +84,17 @@ Screens: Sign in / accept invitation, setup session bar, Dashboard,
 Onboarding checklist, Stores, Store detail, Create store, Plans, Plan editor,
 Compare plans, Plan defaults, Branding, Domains, Add domain, Reports, Billing
 and payouts, Support, Activity log, Settings, Support-session tab.
+Settings has five tabs: Company, Team, Payout and payment, Security and, for
+Owners and Admins, **Integrations** (#275): named AI keys for Anthropic or OpenAI,
+add, test, make default, remove, with the Not connected / Not tested / Key
+rejected states, under `#/settings/integrations` and the *AI key rejected*
+scenario. Screenshots: `screenshots/platform-settings-integrations-*.png`.
 
 ### Admin — single file
 
 `DF Admin Prototype.dc.html` (~1,600 lines) plus `admin-data.js` →
 `window.DFA`. Hash-routed. Screens: Dashboard, Partners (+ detail with a
-**Setup** tab, approval and go-live checks), Stores, Customers, Approvals,
+**Setup** tab, approval and go-live checks; the Setup tab ends with a read-only *Integrations* block of the partner's AI key status, #275), Stores, Customers, Approvals,
 Provisioning, Impersonate, Activity log, Staff (Super admin only).
 
 **The Setup tab is prototype-only.** The admin console has none (decided on

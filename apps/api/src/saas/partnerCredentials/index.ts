@@ -146,7 +146,7 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
  * answers null, so the designer pauses and the platform never pays for a partner who has chosen its own key.
  */
 export const partnerAiProvider = async (sql: postgres.Sql, secrets: SecretBox | null, partnerId: string, fallbackKey: string | undefined): Promise<AiModel | null> => {
-  const row = secrets ? await withSystemScope(sql, (tx) => selectDefaultAiKey(tx, partnerId)) : null
+  const row = await withSystemScope(sql, (tx) => selectDefaultAiKey(tx, partnerId))
   if (!row) return fallbackKey ? anthropicProvider(fallbackKey) : null
   if (row.provider !== 'anthropic' || row.status === 'rejected' || !secrets) return null
   const key = await secrets.open(row.key_enc)

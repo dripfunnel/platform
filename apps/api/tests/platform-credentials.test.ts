@@ -248,6 +248,7 @@ describe('the designer\'s model', () => {
     const id2 = id ?? ''
     await db.sql`update partner_credential set status = 'ok', key_enc = 'v1.broken.broken' where id = ${id2}`
     expect(await partnerAiProvider(db.sql, await box(), ids.kl2, fallback)).toBeNull()
+    expect(await partnerAiProvider(db.sql, null, ids.kl2, fallback)).toBeNull()
     const sealed = await (await box()).seal(openaiKey)
     await db.sql`update partner_credential set provider = 'openai', key_enc = ${sealed} where id = ${id2}`
     expect(await partnerAiProvider(db.sql, await box(), ids.kl2, fallback)).toBeNull()
