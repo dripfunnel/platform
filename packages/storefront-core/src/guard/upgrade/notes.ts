@@ -38,7 +38,7 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
     kind: 'minor',
     security: false,
     notes: [
-      'Nothing a theme must change; every addition is optional.',
+      'Every addition is optional, except that a theme must not assume the delivery step is always present (below).',
       'useOrder().order.tracking is new (OrderTracking, TrackingStep, TrackingState from ./theme): an own-delivery order\'s steps, the rider while assigned, and the handover code, all in core\'s words. It is null for other orders; a theme may show it on the order page, as the baseline\'s DeliveryTracking does.',
       'Link now renders a tel: address with a dialable number as a link; any other tel: address is still refused.',
       'useCheckout skips the delivery step when a store offers exactly one shipping method and applies it for the shopper. A theme that renders the steps useCheckout gives needs no change; one that assumes a delivery step always comes between address and payment must follow the steps instead.',
