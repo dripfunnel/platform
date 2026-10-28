@@ -8,18 +8,10 @@ import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { deleteMyAccount } from '../../api/rider'
 import { errorText, t } from '../../messages'
 import { useSession } from '../../session/SessionContext'
-import { Button, Loading, Refusal, StateMessage, TextButton } from '../common/ui'
+import { Button, Refusal, Resource, TextButton } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { useLoad } from '../common/useLoad'
-
-const initials = (name: string): string =>
-  name
-    .trim()
-    .split(/\s+/)
-    .map((word) => word[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || '?'
+import { initials } from './initials'
 
 type Asking = 'none' | 'delete' | 'parcel'
 
@@ -48,9 +40,7 @@ export function ProfileScreen() {
     if (done) await leave()
   }
 
-  if (state.status === 'loading') return <Loading />
-  if (state.status === 'offline') return <StateMessage title={t('states.offline.title')} body={t('states.offline.body')} actionLabel={t('common.retry')} onAction={reload} />
-  if (state.status === 'error') return <StateMessage title={t('states.error.title')} body={errorText(state.code)} actionLabel={t('common.retry')} onAction={reload} />
+  if (state.status !== 'ready') return <Resource state={state} onRetry={reload}>{() => null}</Resource>
   const rider = state.data
   const vehicle = rider.vehicleType ? [t(`profile.vehicles.${rider.vehicleType}`), rider.vehicleNumber].filter(Boolean).join(' · ') : t('profile.noVehicle')
   const version = [brand?.name, t('signIn.delivery'), t('profile.version', { version: Constants.expoConfig?.version ?? '' })].filter(Boolean).join(' · ')

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { t } from '../../messages'
-import { TextButton } from '../common/ui'
+import { Chevron, TextButton } from '../common/ui'
 import { countries, dialOf, flagOf, matchesSearch, type CountryIso } from './phone'
 
 const byName = [...countries].sort((a, b) => t(`countries.${a.iso}`).localeCompare(t(`countries.${b.iso}`)))
@@ -32,9 +32,7 @@ export function CountryPicker({ value, onChange }: Props) {
         style={[styles.trigger, { minHeight: controlHeight + 8, borderRadius: radii.button, borderColor: colors.fieldBorder, backgroundColor: colors.surface }]}
       >
         <Text style={{ color: colors.text, fontSize: 16 }}>{value ? `${flagOf(value)} +${dialOf(value)}` : t('signIn.phone.select')}</Text>
-        <Text aria-hidden style={{ color: colors.muted, fontSize: 12 }}>
-          ▼
-        </Text>
+        <Chevron direction="down" color={colors.muted} />
       </Pressable>
 
       <Modal transparent animationType="slide" visible={open} onRequestClose={close}>

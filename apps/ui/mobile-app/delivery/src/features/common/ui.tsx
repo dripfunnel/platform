@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { t } from '../../messages'
+import { errorText, t } from '../../messages'
+import type { Loaded } from './useLoad'
 
 export function Button({ label, onPress, kind = 'primary', disabled = false, busy = false }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger'; disabled?: boolean; busy?: boolean }) {
   const { colors, radii } = useTheme()
@@ -100,13 +102,26 @@ export function Loading() {
   )
 }
 
+/** One load, in whichever state it is in; `children` draws only the loaded data. */
+export function Resource<T>({ state, onRetry, children }: { state: Loaded<T>; onRetry: () => void; children: (data: T) => ReactNode }) {
+  if (state.status === 'loading') return <Loading />
+  if (state.status === 'offline') return <StateMessage title={t('states.offline.title')} body={t('states.offline.body')} actionLabel={t('common.retry')} onAction={onRetry} />
+  if (state.status === 'error') return <StateMessage title={t('states.error.title')} body={errorText(state.code)} actionLabel={t('common.retry')} onAction={onRetry} />
+  return <>{children(state.data)}</>
+}
+
+/** An arrow drawn from borders, so no glyph is text. */
+export function Chevron({ direction, color }: { direction: 'left' | 'down'; color: string }) {
+  return <View aria-hidden style={{ width: 10, height: 10, borderRightWidth: 2, borderBottomWidth: 2, borderColor: color, transform: [{ rotate: direction === 'down' ? '45deg' : '135deg' }] }} />
+}
+
 export function ScreenHeader({ title, onBack }: { title: string; onBack?: () => void }) {
   const { colors } = useTheme()
   return (
     <View style={[styles.header, { borderColor: colors.border, backgroundColor: colors.surface }]}>
       {onBack ? (
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={onBack} style={styles.back}>
-          <Text style={[styles.backGlyph, { color: colors.heading }]}>‹</Text>
+          <Chevron direction="left" color={colors.heading} />
         </Pressable>
       ) : null}
       <Text accessibilityRole="header" numberOfLines={1} style={[styles.headerTitle, { color: colors.heading }]}>
@@ -129,6 +144,5 @@ const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   header: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 4, borderBottomWidth: 1 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  backGlyph: { fontSize: 32, lineHeight: 36 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', paddingHorizontal: 12 },
 })

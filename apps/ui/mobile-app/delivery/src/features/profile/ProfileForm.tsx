@@ -7,18 +7,10 @@ import { errorText, t } from '../../messages'
 import { useSession } from '../../session/SessionContext'
 import { Button, Field, Refusal, ScreenHeader, TextButton } from '../common/ui'
 import { useAction } from '../common/useAction'
+import { initials } from './initials'
 import { pickPhoto, type PhotoSource } from './pickPhoto'
 
 const withoutNumber: readonly VehicleType[] = ['bicycle', 'foot']
-
-const initials = (name: string): string =>
-  name
-    .trim()
-    .split(/\s+/)
-    .map((word) => word[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || '?'
 
 type Props = {
   rider: Rider
@@ -86,6 +78,7 @@ export function ProfileForm({ rider, mode, storeName, onSaved, onBack }: Props) 
             <Button kind="secondary" label={t('profile.photo.library')} onPress={() => void choose('library')} />
           </View>
         ) : null}
+        {hasPhoto && !preview ? <Text style={{ color: colors.muted, fontSize: 13 }}>{t('profile.photo.saved')}</Text> : null}
         {upload.busy ? (
           <Text accessibilityRole="alert" style={{ color: colors.muted, fontSize: 13 }}>
             {t('profile.photo.uploading')}

@@ -68,7 +68,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await leave()
         throw new ApiError('UNAUTHENTICATED', 'The API reads this token as signed out.')
       },
-      uploadPhoto: (uri, mimeType) => uploadPhoto({ host, token: token.current, uri, mimeType }),
+      // The upload is not a GraphQL call, so a refusal as signed out is checked here as `request` checks it.
+      uploadPhoto: async (uri, mimeType) => {
+        try {
+          return await uploadPhoto({ host, token: token.current, uri, mimeType })
+        } catch (error) {
+          if (token.current && isApiError(error, 'UNAUTHENTICATED')) await leave()
+          throw error
+        }
+      },
     }
   }, [host, signedIn])
 

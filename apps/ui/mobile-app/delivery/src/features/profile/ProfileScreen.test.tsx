@@ -126,6 +126,12 @@ describe('the profile form', () => {
     expect(session.requests[0]?.variables).toMatchObject({ vehicleType: 'bicycle', vehicleNumber: null })
   })
 
+  it('says the photo the rider already has is saved, since the API gives no way to show it', async () => {
+    const screen = await render(form({ name: 'Asha Rao', vehicleType: 'bike', photoAssetId: 'asset-3' }, 'edit'), fakeSession(() => ({})))
+    expect(hasText(screen, t('profile.photo.saved'))).toBe(true)
+    expect(hasText(screen, t('profile.photo.change'))).toBe(true)
+  })
+
   it('uploads a photo the rider picks and sends its id with the profile', async () => {
     jest.mocked(pickPhoto).mockResolvedValue({ uri: 'file:///me.jpg', mimeType: 'image/jpeg' })
     const session = fakeSession(() => ({ updateProfile: rider }), { photoId: 'asset-7' })

@@ -199,6 +199,30 @@ describe('getting in: the code', () => {
     expect(hasButton(screen, t('signIn.code.resend'))).toBe(false)
   })
 
+  it('does not count a dropped connection or a suspended account as a wrong code', async () => {
+    let refusal: ApiError = new ApiError('NO_RESPONSE', 'x')
+    const session = fakeSession(
+      answers(() => {
+        throw refusal
+      }),
+      { signedIn: false },
+    )
+    const screen = await render(<SignInScreen />, session)
+    await asksFor(screen)
+    for (let attempt = 0; attempt < triesPerCode; attempt += 1) {
+      await fill(screen, t('signIn.code.label'), '111111')
+      await press(screen, t('signIn.code.submit'))
+    }
+    expect(hasText(screen, errorText('NO_RESPONSE', 'signIn'))).toBe(true)
+    expect(isDisabled(pressableNamed(screen, t('signIn.code.submit')))).toBe(false)
+    refusal = new ApiError('RIDER_SUSPENDED', 'x')
+    for (let attempt = 0; attempt < triesPerCode; attempt += 1) {
+      await fill(screen, t('signIn.code.label'), '111111')
+      await press(screen, t('signIn.code.submit'))
+    }
+    expect(isDisabled(pressableNamed(screen, t('signIn.code.submit')))).toBe(false)
+  })
+
   it('goes back to the number to change it', async () => {
     const session = fakeSession(answers(() => ({})), { signedIn: false })
     const screen = await render(<SignInScreen />, session)

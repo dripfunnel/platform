@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { createBrandClient } from '../../api/client'
 import { fetchStoreCountry, requestCode, signIn } from '../../api/rider'
@@ -65,15 +66,21 @@ export function SignInScreen() {
     const entered = code.trim()
     setInvalidCode(!/^\d{6}$/.test(entered))
     if (!sentTo || !/^\d{6}$/.test(entered)) return
-    const done = await action.run(() => signIn(client, sentTo, entered))
+    // Only a refused code spends one of the API's tries; no signal or another refusal spends none, and RATE_LIMITED is the API's own lock.
+    const done = await action.run(() =>
+      signIn(client, sentTo, entered).catch((error: unknown) => {
+        if (isApiError(error, 'CODE_REFUSED')) {
+          setCode('')
+          setRefused((n) => n + 1)
+        }
+        throw error
+      }),
+    )
     if (done) {
       setResent(false)
       await startSession(done.value)
       router.replace('/')
-      return
     }
-    setCode('')
-    setRefused((n) => n + 1)
   }
 
   const refusal = locked ? errorText('RATE_LIMITED', 'signIn') : action.error ? errorText(action.error, 'signIn') : null

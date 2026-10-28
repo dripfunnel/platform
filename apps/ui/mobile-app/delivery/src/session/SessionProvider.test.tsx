@@ -112,6 +112,19 @@ describe('the rider’s session', () => {
     expect(session.signedIn).toBe(false)
   })
 
+  it('lets go of the token when the photo upload is answered as signed out', async () => {
+    mockKeystore.set(tokenKey, 'tok-1')
+    global.fetch = jest.fn().mockResolvedValueOnce({ blob: async () => 'IMAGE' }).mockResolvedValueOnce({ json: async () => ({ ok: false, code: 'UNAUTHENTICATED' }) }) as unknown as typeof fetch
+    await mount()
+    let error: unknown
+    await act(async () => {
+      error = await session.uploadPhoto('file:///me.jpg', 'image/jpeg').catch((e: unknown) => e)
+    })
+    expect(error).toBeInstanceOf(ApiError)
+    expect(mockKeystore.has(tokenKey)).toBe(false)
+    expect(session.signedIn).toBe(false)
+  })
+
   it('treats a profile the API reads as signed out as a session that ended', async () => {
     mockKeystore.set(tokenKey, 'tok-1')
     answerWith(() => ok({ me: null }))

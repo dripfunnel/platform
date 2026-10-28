@@ -11,7 +11,7 @@ export const uploadPhoto = async ({ host, token, uri, mimeType, timeoutMs = defa
   const abort = new AbortController()
   const timer = setTimeout(() => abort.abort(), timeoutMs)
   try {
-    const bytes = await (await fetchImpl(uri)).blob()
+    const bytes = await (await fetchImpl(uri, { signal: abort.signal })).blob()
     const response = await fetchImpl(`https://${host}${deliveryPath}assets`, {
       method: 'POST',
       headers: { 'content-type': mimeType, ...(token ? { authorization: `Bearer ${token}` } : {}) },

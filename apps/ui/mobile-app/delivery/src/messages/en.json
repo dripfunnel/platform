@@ -78,7 +78,8 @@
       "uploading": "Uploading the photo",
       "cameraDenied": "Camera access is off. Allow it in Settings, or choose a photo from your library.",
       "openSettings": "Open Settings",
-      "of": "Your profile photo"
+      "of": "Your profile photo",
+      "saved": "Your photo is saved."
     },
     "vehicle": "How do you deliver?",
     "vehicles": {
