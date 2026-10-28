@@ -1837,8 +1837,9 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                     -- repo_id is the repo's numeric GitHub id, which a build's OIDC token names as
                     -- repository_id (LIVE-SHOP §9; built on #517, migration 0240, written with the repo);
                     -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
-                    -- repo_head the commit its main is at, which a push must find there (built on
-                    -- #316, migration 0230; storefront AI-STUDIO §6); template is written when the
+                    -- repo_head the commit the platform last knew on main, which its push must find there
+                    -- (built on #316, migration 0230; storefront AI-STUDIO §6), and since #968 a person's
+                    -- pushed commit once it is live (LIVE-SHOP §4); template is written when the
                     -- repo is ready (SAAS §5 step 8, migration 0231). Steps 4–8 run as a job of kind
                     -- 'create-storefront', after the signup's 'provision-store' (#316)
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
@@ -1857,7 +1858,7 @@ storefront_push     (store_id, key, parent_sha, commit_sha NULL, state ('pending
                     -- retried push never pushes twice: created_at is the commit's date, so a retry
                     -- rebuilds the same commit and finds it on main (built on #316). System scope only
 publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'page'|'upgrade'
-                     |'security'|'rollback'), state ('queued'|'building'|'checking'|'deploying'
+                     |'security'|'rollback'|'repo'), state ('queued'|'building'|'checking'|'deploying'
                      |'live'|'failed'|'rolled_back'), commit, core_version, uses_allowance boolean,
                      started_by_kind, started_by_id, started_at, finished_at, deploy_ref,
                      previous_deploy_ref NULL, gate jsonb NULL, repair_attempts integer,

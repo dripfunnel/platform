@@ -265,7 +265,9 @@ org (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md) §3), into which
 `apps/api/src/integrations/github` copies `templates/storefront/` with the chosen template's
 theme (§2.3) through the GitHub App, then writes the generated `store.config.ts` and pins the
 published `@dripfunnel/storefront-core` version (PLATFORM-PROMPT §5.7, `../ARCHITECTURE.md` §1;
-built on #316, SAAS §5 steps 4–8). Nothing in the repo is edited by hand: each change the AI makes becomes a commit in the
+built on #316, SAAS §5 steps 4–8). Someone the org gives write access may push to `main` by hand, and that commit
+builds and goes live by itself, unless it changed `.github/**` ([LIVE-SHOP.md](LIVE-SHOP.md) §4, "A push to `main`";
+#968). Otherwise each change the AI makes becomes a commit in the
 store's private draft once it passes the fast gate (§6.2), and **the platform pushes the published
 tree to the repo as one squashed commit once its publish is live** through the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6); the
 sandbox itself holds no credential (§6.1).

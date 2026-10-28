@@ -5,7 +5,7 @@ import { primaryHostOf } from './shopCaller'
 // Publish runs, the live pointer and the versions (DATA-MODEL §7.8, storefront LIVE-SHOP.md §4), always in system scope:
 // only the publish-storefront Workflow and the jobs around it write them.
 
-export type PublishKind = 'manual' | 'automatic' | 'staff' | 'design' | 'page' | 'upgrade' | 'security' | 'rollback'
+export type PublishKind = 'manual' | 'automatic' | 'staff' | 'design' | 'page' | 'upgrade' | 'security' | 'rollback' | 'repo'
 export type RunState = 'queued' | 'building' | 'checking' | 'checked' | 'deploying' | 'live' | 'failed' | 'rolled_back'
 export const activeStates = ['building', 'checking', 'deploying'] as const satisfies readonly RunState[]
 
@@ -69,10 +69,26 @@ export const setQueuedRender = async (tx: ScopedSql, storeId: string, runId: str
   await tx`update publish_run set render = ${tx.json({ pages: render.pages, drop: render.drop })} where id = ${runId} and store_id = ${storeId} and state = 'queued' and kind = 'page'`
 }
 
-/** A page run builds the live commit as it is when it starts, not as it was when asked for (LIVE-SHOP §7). */
+/**
+ * A page or catalogue run builds the live commit as it is when it starts, not as it was when asked for (LIVE-SHOP §7), so
+ * one queued behind a pushed commit (#968) builds that commit.
+ */
 export const followLiveBuild = async (tx: ScopedSql, storeId: string, runId: string, live: Pick<RunRow, 'commit' | 'template' | 'core_version'>): Promise<void> => {
-  await tx`update publish_run set commit = ${live.commit}, template = ${live.template}, core_version = ${live.core_version} where id = ${runId} and store_id = ${storeId} and kind = 'page' and state = 'queued'`
+  await tx`
+    update publish_run set commit = ${live.commit}, template = ${live.template}, core_version = ${live.core_version}
+    where id = ${runId} and store_id = ${storeId} and kind in ('page', 'manual', 'automatic') and state = 'queued'`
 }
+
+/** A waiting run of the live commit, or an older push, becomes the push behind it, which builds a fresh snapshot anyway. */
+export const takeQueuedRun = async (tx: ScopedSql, storeId: string, runId: string, commit: string): Promise<void> => {
+  await tx`
+    update publish_run set kind = 'repo', render = null, commit = ${commit}, uses_allowance = false
+    where id = ${runId} and store_id = ${storeId} and state = 'queued' and kind in ('page', 'manual', 'automatic', 'repo')`
+}
+
+/** Whether `commit` is queued or building already, so a push GitHub delivers twice starts it once. */
+export const hasRunOfCommit = async (tx: ScopedSql, storeId: string, commit: string): Promise<boolean> =>
+  (await tx<{ id: string }[]>`select id from publish_run where store_id = ${storeId} and commit = ${commit} and state in ('queued', 'building', 'checking', 'deploying')`).length > 0
 
 /** A waiting page run becomes the full publish pressed behind it, which renders every page anyway. */
 export const widenQueuedRun = async (tx: ScopedSql, storeId: string, runId: string, run: Omit<NewRun, 'storeId' | 'at' | 'render'>): Promise<void> => {
@@ -353,6 +369,7 @@ export interface BuildInputRow {
   commit: string
   core_version: string
   repo: string | null
+  repo_head: string | null
   live_build_id: string | null
   dispatched_at: Date | null
   reported: boolean
@@ -362,7 +379,7 @@ export interface BuildInputRow {
 export const selectBuildInput = async (tx: ScopedSql, storeId: string, runId: string): Promise<BuildInputRow | null> =>
   (
     await tx<BuildInputRow[]>`
-      select r.kind, r.commit, r.core_version, f.repo, f.live_build_id, r.dispatched_at, r.gate is not null as reported
+      select r.kind, r.commit, r.core_version, f.repo, f.repo_head, f.live_build_id, r.dispatched_at, r.gate is not null as reported
       from publish_run r join storefront f on f.store_id = r.store_id where r.id = ${runId} and r.store_id = ${storeId}`
   )[0] ?? null
 

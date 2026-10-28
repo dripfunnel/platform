@@ -64,6 +64,7 @@ import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
 import { storeBillingStripe, stripeClient, type StoreBillingStripe, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
+import { githubHookPath, handleGitHubHook } from '#hooks/github'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
 import { handleShopifyCallback, shopifyCallbackPath } from '#hooks/shopify'
 import { handleMapFrame, mapFramePath, mapFrameScriptPath } from '#hooks/mapFrame'
@@ -128,7 +129,7 @@ import { browserScreenshots } from '#integrations/cloudflare/screenshot'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
-import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
+import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, storefrontRepoPushKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
@@ -137,6 +138,7 @@ import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type Upgrad
 import { advanceRollouts, createFleetService, defaultActionsJobs, retireCoreImages, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
+import { storefrontRepoPushDeliverer } from '#jobs/queues/deliverers/storefrontRepoPush'
 import { indexNowClient } from '#integrations/indexnow/client'
 import { githubConfigured, githubFor, storeRepos, type StoreRepos } from '#integrations/github/index'
 import { actionsKeys } from '#integrations/github/oidc'
@@ -321,6 +323,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
           [storefrontRenderPageKind]: storefrontPublishDeliverer(publishing.render),
           [storefrontRenderKind]: storefrontRenderDeliverer(sql, () => new Date()),
           [storefrontUpgradePushKind]: storefrontUpgradePushDeliverer(sql, publishing.repos, publishing.drafts),
+          [storefrontRepoPushKind]: storefrontRepoPushDeliverer(sql, publishing.repos),
           ...(publishing.upgrade ? { [storefrontUpgradeKind]: storefrontUpgradeDeliverer(publishing.upgrade) } : {}),
           [storefrontIndexNowKind]: indexNowDeliverer(sql, publishing.sites, indexNowClient(), config.SHOP_DOMAIN ?? null),
         }
@@ -649,6 +652,12 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     const limiter = env.BUILD_RATE_LIMITER
     if (!limiter) return misconfigured('BUILD_RATE_LIMITER')
     return withConnection(config.HYPERDRIVE, ctx, (sql) => handleBuildCall(request, { ...deps, sql }, async (key) => (await limiter.limit({ key })).success))
+  }
+  if (url.pathname === githubHookPath) {
+    const secret = config.GITHUB_WEBHOOK_SECRET
+    if (!secret || !githubConfigured(config)) return notFound()
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleGitHubHook(request, { sql, secret, org: config.GITHUB_STORE_ORG }))
   }
   if (url.pathname === shopifyCallbackPath) {
     const shopify = shopifyFor(config)

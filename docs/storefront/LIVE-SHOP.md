@@ -17,9 +17,10 @@ clean-up (§4 steps 1, 9 item 3 and 11), and the edge Worker's live path (§5, `
 lookup, its `/shop-api` door and the cache purge. On #517: the OIDC check (§9), the build calls (§4, "The build calls"),
 the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2). On
 #483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
-(§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). The rest is specification.
+(§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). On #968: a push to a store
+repo's `main` builds that commit and goes live (§4, "A push to `main`"). The rest is specification.
 
-Last updated: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -31,8 +32,8 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 | Decision | Rejected | Why |
 |---|---|---|
 | **One public GitHub repo per store**, created when the merchant first picks a template | Private repos built in Cloudflare Containers (decided 2026-10-08 on #470, replaced); one repo holding every store | Builds on GitHub-hosted runners cost nothing in public repos. A repo per store keeps its own push limit (GitHub allows 6 pushes a minute per repo), its own history, and makes deleting or exporting a merchant one repo operation. One shared repo would share those 6 pushes between every store, pass GitHub's recommended 3,000 entries per folder and 10 GB, and turn a merchant's deletion request into a rewrite of everyone's history. |
-| **The code reaches GitHub only once its publish is live** (decided 2026-10-09; first "at Publish", moved after the switch on #520) | A commit to the repo for each accepted AI change (decided 2026-10-08 on #470, replaced); pushing at Publish, before the checks | The repos are public. A commit per change would show unreleased products, sale banners and half-finished designs before the merchant publishes them, and a busy studio would push several times a minute. The draft lives in private storage until then ([AI-STUDIO.md](AI-STUDIO.md) §1), and a publish that fails its checks never makes it public. |
-| **A locked workflow in each repo builds the site, started only by the platform** (`workflow_dispatch`) | A build on every push; a pool of build containers | The platform decides when a build runs and keeps one build at a time per store (SAAS §9.1). A push alone builds nothing, so nothing outside the platform can start a deploy. |
+| **The code reaches GitHub only once its publish is live** (decided 2026-10-09; first "at Publish", moved after the switch on #520) | A commit to the repo for each accepted AI change (decided 2026-10-08 on #470, replaced); pushing at Publish, before the checks | The repos are public. A commit per change would show unreleased products, sale banners and half-finished designs before the merchant publishes them, and a busy studio would push several times a minute. The draft lives in private storage until then ([AI-STUDIO.md](AI-STUDIO.md) §1), and a publish that fails its checks never makes it public. A person who pushes to `main` themselves makes their own code public, and the platform then builds it (§4, "A push to `main`"; #968). |
+| **A locked workflow in each repo builds the site, started only by the platform** (`workflow_dispatch`); a push to `main` asks the platform for one through the GitHub App's push event (decided 2026-10-28 with Kshitij, #968) | A build the push starts itself (`on: push`); a pool of build containers | The platform decides when a build runs and keeps one build at a time per store (SAAS §9.1). A push starts no run in the repo: the App's signed event reaches the API, which starts an ordinary publish, so nothing outside the platform starts a run, and a push that changed `.github/**` never builds. `on: push` was rejected because the one template workflow can't know which environment's API to call. |
 | **The build runs inside the build image for the store's core version, with networking off** | `npm install` on the runner | It is the same image the studio uses ([AI-STUDIO.md](AI-STUDIO.md) §1), so a theme that passed the studio's fast gate builds the same way. GitHub's npm registry needs a token even for public packages. The image's package on `ghcr.io` is private (decided on #790, 2026-10-18), so the runner logs in to pull it with the one organisation secret `GHCR_PULL_TOKEN` (§3 step 3). With no network, the AI's code can't call out during the build, and the same inputs always give the same files. |
 | **No secret in any repo but the image pull token: GitHub OIDC, and the API mints 15-minute R2 credentials limited to that build's staging folder** | A Cloudflare token in each repo's secrets, or in one organisation secret | An R2 token can be limited to a bucket, never to a folder, so a token in every repo could overwrite every store's site and its old versions. A GitHub OIDC token lasts minutes and names the repo and the workflow that asked. The credential the API mints can write only the new build's staging folder: not any build folder, not older builds, and not the live pointer. The API copies verified files into the build's folder itself (§4 step 9). |
 | **Built files in R2, a folder per store and per build** | A Cloudflare Pages project per store (decided 2026-10-05 on #284, replaced); a Worker per store | Cloudflare allows 100 Pages projects per account and doesn't routinely raise the limit; normal Workers stop at 500 per account. R2 has no such limit. Keeping every build as its own folder makes going back to an earlier version a pointer move, with no rebuild. |
@@ -106,7 +107,8 @@ template.
    runner steps use only the runner's own `curl`, `jq`, `python3` and `aws` (#517).
    *Why:* nothing in the repo can be stolen but a read-only pull token, which only the locked workflow reads, and nothing but the platform can start a run. The token belongs to one person's account: if that account loses access to the org, every store's build fails until a new token replaces it.
 4. **The AI can never change the workflow.** `.github/**` is outside the file allowlist
-   (ARCHITECTURE §3.4), and the GitHub App is the only writer.
+   (ARCHITECTURE §3.4), and the GitHub App is its only writer: since #968 a person's push that changes it never builds,
+   and no build is dispatched while `main`'s differs (§4, "A push to `main`").
    *Why:* a workflow the AI could edit could leak or skip anything.
 5. **The first preview** comes from the template's ready-made preview bundle ([PREVIEW.md](PREVIEW.md)
    §4). The first live build is the merchant's first Publish (SAAS §5).
@@ -116,7 +118,7 @@ template.
 ## 4. Publishing: from code to live
 
 The same steps run for every kind of publish (SAAS §9.1: design, catalogue, automatic, staff,
-core upgrade, security). `publish_run` records each step's real state (queued, building,
+core upgrade, security, and since #968 a push to `main`). `publish_run` records each step's real state (queued, building,
 checking, deploying, live, failed, rolled back).
 
 1. **A publish starts** and the `publish-storefront` Workflow creates the store's
@@ -133,8 +135,8 @@ checking, deploying, live, failed, rolled back).
    #517), and only a verified build is switched; any failure leaves the run failed with a code and the live build as
    it was.
 2. **Nothing reaches GitHub yet.** A design publish builds the draft's head commit from the
-   store's private draft (AI-STUDIO §6); other publishes build the **live commit**, read from the
-   live build's kept source bundle (step 3), never from GitHub. The repo's `main` gets the draft
+   store's private draft (AI-STUDIO §6); a push's publish builds the pushed commit, read once from GitHub ("A push to
+   `main`" below); other publishes build the **live commit**, read from the live build's kept source bundle (step 3). The repo's `main` gets the draft
    only once this publish is live (step 9).
    *Why:* the repo is public. A publish that fails its checks, or is refused or bisected, must
    never make an unreleased design public (decided 2026-10-09 with Gaurav, #520).
@@ -143,13 +145,15 @@ checking, deploying, live, failed, rolled back).
    - the source to build, as a git bundle of that commit, **kept privately with the build** for as
      long as the build is kept (`sources/{store}/{build id}.bundle` in the private drafts bucket).
      The live build's bundle is the platform's own record of the live code: the studio, Discard,
-     the next publish and the upgrade bot read the live commit from it, never from GitHub;
+     the next publish and the upgrade bot read the live commit from it, never from GitHub (a push's publish alone
+     reads its commit from GitHub once, below);
    - the live build's files, for the visual diff.
 
    *Why:* the run reads only these, so it needs no network and no repo checkout, and two builds
    of the same commit and snapshot give the same files.
    **Built on #483** (`saas/storefronts/freeze.ts`): the source is a byte copy of the store's draft bundle for a design
-   publish, or of the live build's own source bundle otherwise (none: `no_source`), and the build checks the run's
+   publish, the pushed commit fetched from GitHub for a `repo` one (#968), or of the live build's own source bundle
+   otherwise (none: `no_source`), and the build checks the run's
    `commit` out of it. The snapshot is core's `catalogueSnapshotSchema`: the store as the Shop API's `store` reads it,
    the live address (the store's primary host, `{slug}.<SHOP_DOMAIN>` until a domain is connected, §6: none is `no_address`), the partner's
    "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
@@ -361,6 +365,39 @@ keys or Cloudflare not answering is `503`, and more than 60 calls a minute from 
 good for **2 hours from its dispatch** (`publish_run.started_at`; decided on #517: the job's 30 minutes and a wait for a
 runner), and only for the first run that uses it.
 
+**A push to `main`** (built on #968, `hooks/github.ts`, `saas/storefronts/repoPush.ts`). Anyone the org gives write
+access to a store repo may push to its `main` (decided 2026-10-28 with Kshitij), and the pushed commit goes live by itself:
+
+1. **GitHub sends the App's push event** to `POST https://<hooks host>/github`, signed with the App's webhook secret
+   (`GITHUB_WEBHOOK_SECRET`, THIRD-PARTY-ACCESS §2.3). An unsigned body is `401`; any other event, branch or
+   organisation, a deleted branch or a repo no store has is answered and ignored. A store's push is queued in the
+   outbox (`storefront.repo_push`, once per repo and commit) and the hook answers at once: GitHub doesn't send a
+   failed delivery again, so the work that asks GitHub is the relay's, retried with backoff.
+2. **Nothing starts** for a commit the platform made (`storefront.repo_head`, or any `storefront_push` commit), so its
+   own "Publish version N" never builds twice; for a store with no live build yet (the first is the merchant's first
+   Publish, SAAS §5); for a commit that is no longer `main`'s head, so a push delivered late never builds over a newer
+   one; or for a commit already queued or building, which GitHub may deliver twice.
+3. **A push that changed `.github/**`** (its `.github` tree differs from `repo_head`'s) never builds:
+   `storefront.repo_publish` is recorded as `denied` with `workflow_changed`, staff only. And since every dispatch runs
+   `main`'s workflow, **no build of any kind is dispatched while `main`'s `.github` differs from `repo_head`'s**: it
+   fails as `workflow_changed` until someone puts it back. A push in the seconds between that check and the dispatch
+   isn't caught; GitHub's own protection of `.github/**` would close that (*proposed* as a follow-up).
+4. **Otherwise it is a `repo` publish** of that commit, with the live build's template and core version, using no
+   monthly press, one at a time per store like any other (step 1). A waiting page, catalogue or older push run becomes
+   it, since each would build older code; while any other kind waits (design, staff, upgrade, security, rollback),
+   the push waits in the outbox and is tried again about five minutes later. `storefront.repo_publish` names the
+   pusher's GitHub login and the commit.
+5. **Its source** (step 3) is the pushed commit's history, read once from the public repo with git's own HTTP protocol
+   (`integrations/github/pack.ts`, at most 25 MB) and kept as the build's source bundle, so the workflow is unchanged.
+   Locally (`GITHUB_LOCAL`) the stand-in's repos aren't on github.com, so a `repo` run fails as `no_source`.
+6. **Once live**, `storefront.repo_head` becomes the commit, and nothing is pushed back. The build's bundle is the
+   private copy every later publish reads (step 3), and a page or catalogue run that waited behind it builds it too
+   (it follows the live build when it starts, decided on #968).
+
+*Not covered yet:* the studio's draft doesn't follow a pushed commit, so a design Publish after a push may drop the
+pushed change or fail its push as `MAIN_MOVED`; and an upgrade the bot prepared before a push went live builds its
+older source (§8), as it does after a go back. Each is its own card.
+
 ---
 
 ## 5. Serving a page
@@ -544,8 +581,11 @@ What the edge Worker does on each request to a storefront host.
   reads staging folders and writes build folders; the studio's Durable Object writes preview
   folders; an upload credential writes one staging folder for 15 minutes. The drafts bucket is
   the platform's alone (§2).
-- **The GitHub App is the only writer** to store repos (THIRD-PARTY-ACCESS §2.3), and merchants
-  never get repo access (SAAS §10).
+- **The GitHub App is the only writer** of `.github/**` (THIRD-PARTY-ACCESS §2.3): a push that changed it never builds,
+  and no build is dispatched while `main`'s differs (§4, "A push to `main`"). People the org gives write access may
+  push the rest (#968); merchants never get repo access (SAAS §10).
+- **The push event is signed**: only a body whose `x-hub-signature-256` is the App's webhook secret's HMAC starts
+  anything, and it starts a publish only on the store whose repo id it names.
 
 ---
 

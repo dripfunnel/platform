@@ -133,6 +133,21 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
       const files = repo.trees.get(treePath[1] ?? '')
       return files ? reply(200, { sha: treePath[1], truncated: false, tree: [...files.keys()].map((p) => ({ path: p, type: 'blob', mode: '100644' })) }) : reply(404, { message: 'Not Found' })
     }
+    // The top level only, as GitHub lists it: a folder's id is the hash of what is under it.
+    const topPath = /^\/git\/trees\/([0-9a-f]{40})$/.exec(rest)
+    if (method === 'GET' && topPath) {
+      const files = repo.trees.get(topPath[1] ?? '')
+      if (!files) return reply(404, { message: 'Not Found' })
+      const folders = new Map<string, [string, string][]>()
+      const tree: { path: string; type: string; sha: string }[] = []
+      for (const [path, content] of files) {
+        const [top = '', ...below] = path.split('/')
+        if (below.length === 0) tree.push({ path, type: 'blob', sha: await hash(content) })
+        else folders.set(top, [...(folders.get(top) ?? []), [below.join('/'), content]])
+      }
+      for (const [path, entries] of folders) tree.push({ path, type: 'tree', sha: await hash(entries.sort(([a], [b]) => a.localeCompare(b))) })
+      return reply(200, { sha: topPath[1], tree })
+    }
     if (method === 'POST' && rest === '/git/trees') {
       const base = typeof body['base_tree'] === 'string' ? repo.trees.get(body['base_tree']) : new Map<string, string>()
       if (!base) return reply(422, { message: 'base_tree is not a valid tree' })

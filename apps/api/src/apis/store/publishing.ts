@@ -102,7 +102,7 @@ export const registerPublishing = (builder: StoreBuilder, storefront: ReturnType
   const Run = builder.objectRef<PublishRunView>('PublishRun').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
-      // design, manual, automatic, staff, page, security or rollback.
+      // design, manual, automatic, staff, page, security, rollback or repo.
       kind: t.exposeString('kind'),
       // queued, building, checking, checked, deploying, live, failed or rolled_back.
       state: t.exposeString('state'),
