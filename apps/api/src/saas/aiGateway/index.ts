@@ -265,7 +265,7 @@ export const designerAiFor = async (deps: DesignerDeps, billed: Billed, requeste
   const anthropicOAuth = found.provider === 'anthropic' && found.auth === 'oauth'
   const model = requested ?? (anthropicOAuth ? anthropicOAuthDesignerModel : found.provider === 'anthropic' ? designerModel : openaiDesignerModel)
   const capability = capabilityOf(found.provider, model)
-  if (anthropicOAuth) return model === anthropicOAuthDesignerModel || capability ? anthropicOAuthDesignerProvider(found.key, model) : null
+  if (anthropicOAuth) return capability ? anthropicOAuthDesignerProvider(found.key, model) : null
   if (!capability) return null
   if (found.provider === 'anthropic' && found.auth === 'api_key') return anthropicProvider(found.key, model)
   const chat = (deps.adapters ?? realAdapters)(found.provider, found.key, found.auth, found.accountId ?? null)

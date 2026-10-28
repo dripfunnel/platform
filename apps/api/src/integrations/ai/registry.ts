@@ -16,6 +16,7 @@ export interface ModelCapability {
 export const modelCapabilities: readonly ModelCapability[] = [
   { provider: 'anthropic', id: 'claude-opus-5-5', maxOutputTokens: 64_000, temperature: [0, 1], centsPerMillion: { input: 400, output: 2000 } },
   { provider: 'anthropic', id: 'claude-sonnet-5-5', maxOutputTokens: 64_000, temperature: [0, 1], centsPerMillion: { input: 300, output: 1500 } },
+  { provider: 'anthropic', id: 'claude-haiku-4-5', maxOutputTokens: 64_000, temperature: [0, 1], centsPerMillion: { input: 100, output: 500 } },
   { provider: 'anthropic', id: 'claude-haiku-5-5', maxOutputTokens: 32_000, temperature: [0, 1], centsPerMillion: { input: 100, output: 500 } },
   { provider: 'openai', id: 'gpt-5', maxOutputTokens: 32_000, temperature: [0, 2], centsPerMillion: { input: 125, output: 1000 } },
   { provider: 'openai', id: 'gpt-5-mini', maxOutputTokens: 32_000, temperature: [0, 2], centsPerMillion: { input: 25, output: 200 } },

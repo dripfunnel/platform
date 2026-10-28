@@ -61,7 +61,7 @@ export const anthropicChat = (credential: string | { authToken: string }): ChatP
     },
     generateResponse: async (request, signal): Promise<ChatAnswer> => {
       try {
-        const message = await client.messages.create(paramsOf(request), { signal })
+        const message = await client.messages.stream(paramsOf(request), { signal }).finalMessage()
         return {
           text: message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join(''),
           model: message.model,

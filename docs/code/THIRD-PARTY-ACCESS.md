@@ -190,7 +190,7 @@ integration. API keys remain a separate authentication method.
   `code=true`, redirect `https://platform.claude.com/oauth/code/callback` (it shows `code#state`), scopes
   `user:profile user:inference`; token at `api.anthropic.com/v1/oauth/token` as JSON; calls use the SDK with `authToken` and the
   `anthropic-beta: oauth-2025-04-20` header. The storefront designer puts the reference's `claude-haiku-4-5` first in the
-  OAuth model picker and uses a non-streaming Messages call with an 8,192-token output limit; other supported Claude
+  OAuth model picker and streams a Messages call at the model's maximum output; other supported Claude
   models remain selectable. OAuth design calls send merchant reference images as standard Messages image blocks. API-key
   calls retain their existing model list and adapter.
   Anthropic's current [Claude Code legal and compliance terms](https://code.claude.com/docs/en/legal-and-compliance)
