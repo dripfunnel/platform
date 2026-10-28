@@ -202,6 +202,7 @@ describe('validation before any provider or budget', () => {
     expect(g.validate(input({ model: 'claude-made-up' }))).toEqual({ ok: false, reason: 'MODEL_NOT_FOUND' })
     expect(g.validate(input({ maxTokens: 64_000, model: 'claude-haiku-5-5' }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
     expect(g.validate(input({ messages: [{ role: 'system', content: 'Only a system turn' }] }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    expect(g.validate(input({ messages: [{ role: 'system', content: 'S' }, { role: 'assistant', content: 'A' }] }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
     expect(g.validate({ ...input(), maxTokens: undefined, model: 'claude-haiku-5-5' }).ok).toBe(true)
     expect(g.validate(input({ maxTokens: 32_001, model: 'claude-haiku-5-5' }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
     expect(g.validate(input({ temperature: 1.5 }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
