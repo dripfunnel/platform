@@ -6,7 +6,7 @@ import { seatOf, type Seat } from '../../nav'
 import type { Acting } from '../../session/sessionStore'
 import { setMode } from '@dripfunnel/mobile-shared/theme'
 import { useScenario, type RoleScenario } from '../states/scenario'
-import { useOnline } from './connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 
 export type Shell = {
   acting: Acting

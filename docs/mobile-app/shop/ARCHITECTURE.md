@@ -45,7 +45,7 @@ apps/ui/mobile-app/shop/
     features/orders/        the list and an order; `WithOrderAccess` reads an order the way its owner does (a guest by the token kept for it, a customer by the session)
     features/markets/       the shopper's language and currency: `MarketsProvider` (above `ShopProvider`) reads the phone's copy, asks the store what it offers, and remounts everything below on a new pick; `choice.ts` is the rules (the default language, the headers), `storage.ts` the phone's copy, `MarketsScreen.tsx` the two lists
     features/legal/         the five policy pages: `policies.ts` builds the storefront's address and opens it in the in-app browser, `LegalScreen.tsx` lists them, `PolicyLinks.tsx` links the ones a sentence names
-    features/states/        `connection.ts` (whether the phone is online; the same rule as the merchant app's) and `OfflineStrip.tsx`, the banner on every screen
+    features/states/        `OfflineStrip.tsx`, the banner on every screen (whether the phone is online comes from `@dripfunnel/mobile-shared/connection`, which the merchant app uses too)
     features/tracking/      the tracking screen, its map, rider card, handover code and steps; `tracking.ts` is what each state may show, `useLivePolling.ts` the 15-second ask
     nav.ts  messages/
 ```
@@ -68,7 +68,7 @@ DripFunnel's palette (§4: no colours served).
 | Package | Why |
 |---|---|
 | `expo-notifications` | Order and delivery pushes (built on #866, at the version Expo SDK 57 bundles). Pushes come through Expo's push service (api/DELIVERY.md §6), so the app registers an Expo push token for the store's own EAS project (`EAS_PROJECT_ID`, README §3), and on Android needs the store's Firebase file (`GOOGLE_SERVICES_FILE`). It loads only for a store that sets them (`push/sdk.ts`): Expo Go cannot do remote push on Android and logs an error on import. Its config plugin is always in the build; the permission is asked only after the first order |
-| `@react-native-community/netinfo` | Whether the phone is online (built on #867, the version the merchant app uses): the banner on every screen, and a button that writes is off while offline. Reading `NO_RESPONSE` from the API alone would not say so before a request is made |
+| `@react-native-community/netinfo` | Whether the phone is online, read once in `@dripfunnel/mobile-shared/connection` (built on #867, moved there from the merchant app; the shop lists it only for its tests' mock): the banner on every screen, and a button that writes is off while offline. Reading `NO_RESPONSE` from the API alone would not say so before a request is made |
 | `expo-secure-store` | The session and cart tokens |
 | `expo-location` | "Use my location" on the address pin (built on #862): asked only while the app is in use and only when the shopper taps for it; its geocoder also puts the pin where the typed address is, the way that needs no map (WCAG 2.2, 2.5.1). A pin is dropped by hand only on a map zoomed in to about a city |
 | `react-native-maps` | The address pin (built on #862) and the live tracking map (Google Maps on Android, Apple Maps on iOS). Android takes its key from the store's optional `GOOGLE_MAPS_ANDROID_KEY` (../README.md §3) |

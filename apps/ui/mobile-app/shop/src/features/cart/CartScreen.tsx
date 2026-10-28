@@ -13,7 +13,7 @@ import { Field } from '../common/fields'
 import { Button, Resource, ScreenHeader, StateMessage } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { useRefreshOnFocus } from '../common/useRefreshOnFocus'
-import { useOnline } from '../states/connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 import { Totals } from './Totals'
 import { useCart } from './useCart'
 

@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { t } from '../../messages'
-import { useOnline } from '../states/connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 import type { Loaded } from './useOperation'
 import { errorKey } from './errors'
 

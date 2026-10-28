@@ -7,7 +7,7 @@ import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../common/Button'
 import { Notice } from '../common/Notice'
 import { SectionCard } from '../common/SectionCard'
-import { useOnline } from '../shell/connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 import { ProblemRows } from './ProblemRows'
 import { ShareProblems } from './ShareProblems'
 

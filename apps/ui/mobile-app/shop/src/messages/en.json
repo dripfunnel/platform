@@ -35,7 +35,8 @@
       "body": "Connect to the internet and try again. Nothing you’ve done is lost.",
       "banner": "You’re offline. This is what we last loaded.",
       "strip": "You’re offline. You can keep browsing what’s loaded; prices and stock may have changed. Reconnect to check out.",
-      "writes": "Needs a connection. Reconnect to continue."
+      "writes": "Needs a connection. Reconnect to continue.",
+      "opens": "Needs a connection to open this page."
     }
   },
   "legal": {

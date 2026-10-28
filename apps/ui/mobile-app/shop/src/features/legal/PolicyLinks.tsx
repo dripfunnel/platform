@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { t } from '../../messages'
-import { useOnline } from '../states/connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 import { policies, type PolicyKind } from './policies'
 import { useOpenPolicy } from './useOpenPolicy'
 
@@ -19,7 +19,7 @@ export function PolicyLinks({ kinds }: { kinds: readonly PolicyKind[] }) {
             key={kind}
             accessibilityRole="link"
             accessibilityLabel={t(title)}
-            accessibilityHint={online ? undefined : t('states.offline.writes')}
+            accessibilityHint={online ? undefined : t('states.offline.opens')}
             accessibilityState={{ disabled: !online }}
             disabled={!online}
             onPress={() => void open(kind)}

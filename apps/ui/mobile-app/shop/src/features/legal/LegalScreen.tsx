@@ -4,7 +4,7 @@ import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { useShop } from '../../api/ShopContext'
 import { t } from '../../messages'
 import { ScreenHeader } from '../common/ui'
-import { useOnline } from '../states/connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 import { policies } from './policies'
 import { useOpenPolicy } from './useOpenPolicy'
 
@@ -25,7 +25,7 @@ export function LegalScreen() {
               key={kind}
               accessibilityRole="link"
               accessibilityLabel={t(title)}
-              accessibilityHint={online ? undefined : t('states.offline.writes')}
+              accessibilityHint={online ? undefined : t('states.offline.opens')}
               accessibilityState={{ disabled: !online }}
               disabled={!online}
               onPress={() => void open(kind)}

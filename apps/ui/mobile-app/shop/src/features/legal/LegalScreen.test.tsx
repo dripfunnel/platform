@@ -56,6 +56,7 @@ describe('the legal pages', () => {
     const screen = await render(<LegalScreen />, fakeShop(() => ({})))
     await act(async () => mockNet.listener?.({ isConnected: false, isInternetReachable: false }))
     expect(isDisabled(pressableNamed(screen, t('legal.terms')))).toBe(true)
+    expect(pressableNamed(screen, t('legal.terms')).props.accessibilityHint).toBe(t('states.offline.opens'))
     await act(async () => mockNet.listener?.({ isConnected: true, isInternetReachable: true }))
     expect(isDisabled(pressableNamed(screen, t('legal.terms')))).toBe(false)
   })

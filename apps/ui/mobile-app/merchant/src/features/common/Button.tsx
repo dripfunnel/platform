@@ -1,6 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { useOnline } from '../shell/connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 
 type Props = { label: string; onPress: () => void; kind?: 'primary' | 'secondary'; busy?: boolean; disabled?: boolean; saves?: boolean }
 

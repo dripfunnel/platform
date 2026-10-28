@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { t } from '../../messages'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../common/Button'
-import { useOnline } from './connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 
 export type SheetChoice = { value: string; label: string; sub?: string }
 

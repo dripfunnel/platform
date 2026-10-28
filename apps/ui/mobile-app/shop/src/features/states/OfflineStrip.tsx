@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { t } from '../../messages'
-import { useOnline } from './connection'
+import { useOnline } from '@dripfunnel/mobile-shared/connection'
 
 /** The banner every screen shows while offline (shop/FIRST-RELEASE.md §1). It takes the status bar's inset, so the screens below get none; the tree never changes shape, so nothing typed is lost. */
 export function OfflineStrip({ children }: { children: ReactNode }) {
