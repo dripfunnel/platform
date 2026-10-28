@@ -3,7 +3,7 @@ import type postgres from 'postgres'
 import { parseConfig } from '#core/config'
 import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
-import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type FileChange, type SandboxHost } from '#integrations/sandbox/index'
+import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
 import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
@@ -174,11 +174,6 @@ export const studioSessionClass = (connect: Connect) =>
     async editText(storeId: string, input: { locale: string; key: string; text: string; userId: string }): Promise<StudioAnswer | { outcome: 'missing' }> {
       const runner = await this.active(storeId)
       return studioAnswer(() => runner.editText(input.locale, input.key, input.text, input.userId))
-    }
-
-    async importPush(storeId: string, input: { changes: FileChange[]; head: string; userId: string }): Promise<StudioAnswer> {
-      const runner = await this.active(storeId)
-      return studioAnswer(() => runner.importPush(input.changes, input.head, input.userId))
     }
 
     async discard(storeId: string): Promise<void> {

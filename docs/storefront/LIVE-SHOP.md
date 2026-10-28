@@ -138,16 +138,6 @@ checking, deploying, live, failed, rolled back).
    only once this publish is live (step 9).
    *Why:* the repo is public. A publish that fails its checks, or is refused or bisected, must
    never make an unreleased design public (decided 2026-10-09 with Gaurav, #520).
-   **A hand push to `main`** (the stop-gap for editing a store from a local clone while the studio is
-   built; 2026-10-28): the Owner's studio, once its sandbox is up, and a design publish first read `main`
-   through the GitHub App. When it is past `storefront.repo_head` and none of the platform's own pushes is
-   pending, the theme files that changed between them become one change to the draft, through the same gate
-   as any change, so the preview shows it and Publish is on (a refusal stops the publish as `CHANGE_REFUSED`;
-   the studio opens anyway). `repo_head` then moves to `main`, so the publish's own commit
-   fast-forwards on top of the hand push (`saas/storefronts/handPush.ts`). A push alone still builds
-   nothing, and files outside the theme allowlist are ignored. For a file both the push and an unpublished studio
-   change touched, the push wins. The taken push is an unpublished change like any other: Discard or Undo removes it,
-   and the next publish's commit then replaces it on `main`.
 3. **The platform freezes the input**, as private files for this build behind 15-minute links:
    - the catalogue snapshot, read once from the Shop API (ARCHITECTURE §5);
    - the source to build, as a git bundle of that commit, **kept privately with the build** for as
@@ -306,8 +296,8 @@ checking, deploying, live, failed, rolled back).
    provably the build that passed: the same bytes, checked by a run of the locked workflow the
    API started. A switch is atomic in each data centre and everywhere within the lookup's
    60-second limit (§5 step 1). The repo gets the code only once it is live; `main` follows the
-   live code, usually within seconds, but the platform never reads it back as the source of a build: the live build's
-   source bundle is the record (step 3). The one read is the studio or a design publish taking a hand push to `main` (step 2). Each core version's shared runtime (`core/{version}/`) is written only
+   live code, usually within seconds, but the platform never reads it back: the live build's
+   source bundle is the record (step 3). Each core version's shared runtime (`core/{version}/`) is written only
    by the release workflow. The post-deploy checks (step 10) are the platform's own backstop.
 10. **Post-deploy checks and automatic rollback**, from the edge, run by the platform, follow
     ARCHITECTURE §4.2 steps 5–6. A rollback is the same pointer move back to the previous build:
