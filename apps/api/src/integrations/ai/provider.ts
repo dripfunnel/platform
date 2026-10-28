@@ -87,7 +87,7 @@ export const anthropicOAuthDesignerProvider = (authToken: string, model: string 
         }).finalMessage()
         if (message.stop_reason === 'refusal') throw new AiDeclined('the model declined')
         const text = message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
-        return { text, model: message.model, tokensIn: message.usage.input_tokens, tokensOut: message.usage.output_tokens, costAmount: 0, costCurrency: 'USD' }
+        return { text, model: message.model, tokensIn: message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0) + (message.usage.cache_creation_input_tokens ?? 0), tokensOut: message.usage.output_tokens, costAmount: 0, costCurrency: 'USD' }
       } catch (error) {
         if (error instanceof AiDeclined) throw error
         throw anthropicFailure(error)

@@ -55,3 +55,9 @@ it('sends reference images through the standard Messages content format', async 
     ] }],
   })
 })
+
+it('counts cached input tokens in tokensIn, as the API-key provider does', async () => {
+  mocks.stream.mockReturnValue({ finalMessage: async () => ({ content: [{ type: 'text', text: 'ok' }], model: 'claude-haiku-4-5', stop_reason: 'end_turn', usage: { input_tokens: 10, cache_read_input_tokens: 20, cache_creation_input_tokens: 5, output_tokens: 3 } }) })
+  const answer = await anthropicOAuthDesignerProvider('oauth-token').complete({ system: 's', text: 't', images: [] })
+  expect(answer.tokensIn).toBe(35)
+})
