@@ -180,6 +180,10 @@ describe('saving', () => {
     // The foreground's key is not an app icon's, a made-up key is nobody's, and another store's is not this one's.
     expect((await save('owner', { appIcon: foregroundKey })).code).toBe('UNKNOWN_FILE')
     expect((await save('owner', { appIcon: `stores/${w.storeOf('owner')}/app/appIcon-00000000-0000-4000-8000-000000000000.png/../x` })).code).toBe('UNKNOWN_FILE')
+    // A well-formed key for this store and kind that was never uploaded names nothing, and is refused too.
+    const before = await versions(w.storeOf('owner'))
+    expect((await save('owner', { appIcon: `stores/${w.storeOf('owner')}/app/appIcon-00000000-0000-4000-8000-000000000000.png` })).code).toBe('UNKNOWN_FILE')
+    expect(await versions(w.storeOf('owner'))).toEqual(before)
     const theirs = (await send('bOwner', 'appIcon', icon())).key
     await allow(w.storeOf('bOwner'), true)
     const other = (await send('bOwner', 'appIcon', icon())).key ?? theirs ?? ''

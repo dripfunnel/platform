@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope } from '#db/scoped/index'
-import { insertAppAssets, selectLatestAppAssets, type StoreAppAssetsFields, type StoreAppAssetsRow } from '#db/scoped/storeAppAssets'
+import { appFileWasUploaded, insertAppAssets, selectLatestAppAssets, type StoreAppAssetsFields, type StoreAppAssetsRow } from '#db/scoped/storeAppAssets'
 import { checkBrandFile, type BrandFileRefusal, type BrandFileStore } from '#saas/partnerBranding/index'
 import { appFileKey, appFileKinds, uploadedAsAppFile, type AppFileKind } from './files'
 
@@ -107,7 +107,7 @@ export const createStoreApps = ({ sql, context, actor, activity, facts, ownApps,
     if (!parsed.success) return { ok: false, reason: 'INVALID_INPUT' }
     if (!(await ownApps())) return { ok: false, reason: 'PLAN_LIMIT', key: 'own_apps' }
     const input = parsed.data
-    // A file is one this store uploaded as that kind, which is how it is known to have passed that kind's checks.
+    // A name that carries this store and the kind, and (below, in the transaction) a record that the upload succeeded: only then is a file known to have passed that kind's checks.
     const named = [
       ['appIcon', input.appIcon],
       ['appIconForeground', input.appIconForeground],
@@ -125,13 +125,18 @@ export const createStoreApps = ({ sql, context, actor, activity, facts, ownApps,
     const row = await withScope(sql, context, async (tx) => {
       await serialise(tx, `store-apps:${storeId}`)
       const latest = await selectLatestAppAssets(tx, storeId)
+      // A file the live version already names was checked then; any other must have been uploaded here.
+      const live = new Set([latest?.app_icon_key, latest?.app_icon_foreground_key, latest?.splash_key])
+      for (const [, value] of named) {
+        if (value && !live.has(value) && !(await appFileWasUploaded(tx, storeId, value, storeAppsAudit.fileUploaded))) return null
+      }
       // Saving what is already live adds nothing to the history.
       if (latest && same(latest, fields)) return latest
       const added = await insertAppAssets(tx, storeId, actor.id, fields)
       await activity.record(tx, entry(storeAppsAudit.saved, { type: 'mobile_app', id: storeId, label: `version ${added.version}` }))
       return added
     })
-    return { ok: true, value: row }
+    return row ? { ok: true, value: row } : { ok: false, reason: 'UNKNOWN_FILE' }
   }
 
   return { read, upload, save }

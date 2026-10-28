@@ -18,6 +18,10 @@ export type StoreAppAssetsFields = Omit<StoreAppAssetsRow, 'version' | 'created_
 
 const columns = (tx: ScopedSql) => tx`version, app_icon_key, app_icon_foreground_key, splash_key, app_name, short_description, long_description, created_at`
 
+/** Whether an upload of this file succeeded for the store: its entry is written in the transaction that stores the file, so one exists only for a file that passed its checks (saas/storeApps). */
+export const appFileWasUploaded = async (tx: ScopedSql, storeId: string, key: string, action: string): Promise<boolean> =>
+  (await tx`select 1 from activity_log where store_id = ${storeId} and action = ${action} and target_type = 'file' and target_id = ${key} limit 1`).length > 0
+
 export const selectLatestAppAssets = async (tx: ScopedSql, storeId: string): Promise<StoreAppAssetsRow | null> =>
   (await tx<StoreAppAssetsRow[]>`select ${columns(tx)} from store_app_assets where store_id = ${storeId} order by version desc limit 1`)[0] ?? null
 
