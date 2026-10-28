@@ -443,7 +443,6 @@
       "NOT_FOUND": "That version isn’t kept any more.",
       "NOTHING_TO_DISCARD": "There are no unpublished changes to discard.",
       "NOTHING_TO_PUBLISH": "There are no changes to publish.",
-      "CHANGE_REFUSED": "That change didn’t pass our checks — nothing on your site changed.",
       "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
       "ALREADY_LIVE": "That version is already live.",
       "BUILD_GONE": "That version can’t be restored any more.",

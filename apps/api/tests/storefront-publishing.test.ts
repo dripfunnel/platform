@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { recordGate } from '#db/scoped/builds'
 import { withSystemScope } from '#db/scoped/index'
-import { createGitHubApp, GitHubUnavailable, noAnswer, storeRepos, type StoreRepos } from '#integrations/github/index'
+import { createGitHubApp, storeRepos, type StoreRepos } from '#integrations/github/index'
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
 import { designModel, repairBrief } from '#saas/ai-designer/index'
@@ -51,7 +51,6 @@ let host: SandboxProcess
 let github: LocalGitHub
 let repos: StoreRepos
 let template: { path: string; content: string }[]
-let githubDown = false
 const dispatched: string[] = []
 
 /** The runner's view of the drafts bucket: the same objects the publish pipeline reads. */
@@ -143,7 +142,7 @@ beforeAll(async () => {
     secrets: null,
     lookup: null,
     studio: local.studio,
-    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design: { ai: () => provider, screenshots: null, readAsset: null }, repos: async () => (githubDown ? { ...repos, head: () => Promise.reject(new GitHubUnavailable(noAnswer)) } : repos) },
+    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design: { ai: () => provider, screenshots: null, readAsset: null } },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -263,99 +262,6 @@ describe('publishing from the studio', () => {
     const repaired = await db.sql<{ billed_to: string; requested_by: string | null }[]>`select billed_to, requested_by from ai_run where store_id = ${t.storeA1} and billed_to = 'platform'`
     expect(repaired.length).toBeGreaterThan(0)
     expect(repaired.every((r) => r.requested_by === null)).toBe(true)
-  })
-
-  const pushByHand = async (message: string, files: { path: string; content: string }[]) => {
-    const parent = (await repos.head(repo)) ?? ''
-    const tree = await repos.writeTree(repo, await repos.treeOf(repo, parent), files)
-    const commit = await repos.commit(repo, { tree, parent, message, at: new Date() })
-    expect(await repos.advance(repo, commit)).toBe(true)
-    return commit
-  }
-  const repoHead = async () => (await db.sql<{ repo_head: string }[]>`select repo_head from storefront where store_id = ${t.storeA1}`)[0]?.repo_head
-
-  it('takes a hand push to main into the draft at Publish: it goes live and the publish commit builds on it', async () => {
-    const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
-    const pushed = await pushByHand('Add sale banner', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Pushed by hand."') }])
-    const runId = (await publish()).data?.publishDesign ?? ''
-    expect(runId).not.toBe('')
-    expect(await repoHead()).toBe(pushed)
-    expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, workflow(new Set()))).toBe('live')
-    const [published, hand] = pushedMessages()
-    expect(published).toMatch(/^Publish version \d+\n\nBuild /)
-    expect(hand).toBe('Add sale banner')
-    expect(github.files(repo)?.get('content/en/pages.json')).toContain('Pushed by hand.')
-    const taken = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${t.storeA1} and action = 'storefront.repo_push_taken'`
-    expect(taken[0]?.n).toBe(1)
-  })
-
-  it('takes only the files a hand push changed: a file it left alone keeps the draft’s unpublished change', async () => {
-    expect((await ask('An unpublished change', lead('Studio change kept.'))).outcome).toBe('changed')
-    const other = template.find((f) => f.path.startsWith('content/en/') && f.path !== 'content/en/pages.json')?.path ?? ''
-    await pushByHand('Touch other words and the readme', [{ path: other, content: `${github.files(repo)?.get(other)?.trimEnd() ?? '{}'}\n\n` }, { path: 'README.md', content: '# notes\n' }])
-    const runId = (await publish()).data?.publishDesign ?? ''
-    expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, workflow(new Set()))).toBe('live')
-    expect(github.files(repo)?.get('content/en/pages.json')).toContain('Studio change kept.')
-    expect(github.files(repo)?.get('README.md')).toBe('# notes\n')
-  })
-
-  /** Puts the stand-in's main back, so a push a test leaves untaken doesn't reach the next test's Publish. */
-  const resetMain = (to: string) => {
-    const r = github.repos.get(repo)
-    if (r) r.main = to
-  }
-  const takenCount = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${t.storeA1} and action = 'storefront.repo_push_taken'`)[0]?.n ?? 0
-
-  it('a push touching only non-theme files moves the repo head and changes nothing in the draft', async () => {
-    const taken = await takenCount()
-    const pushed = await pushByHand('Readme only', [{ path: 'README.md', content: '# readme\n' }])
-    expect((await publish()).code).toBe('NOTHING_TO_PUBLISH')
-    expect(await repoHead()).toBe(pushed)
-    expect(await takenCount()).toBe(taken + 1)
-  })
-
-  it('never takes main as a hand push while a platform push is pending, nor when GitHub can’t be read', async () => {
-    const before = (await repoHead()) ?? ''
-    const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
-    await pushByHand('Not yet', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Not taken."') }])
-    await db.sql`insert into storefront_push (store_id, key, parent_sha, state, created_at) values (${t.storeA1}, 'test:pending', ${before}, 'pending', now())`
-    expect((await publish()).code).toBe('NOTHING_TO_PUBLISH')
-    expect(await repoHead()).toBe(before)
-    await db.sql`delete from storefront_push where store_id = ${t.storeA1} and key = 'test:pending'`
-    githubDown = true
-    const log = vi.spyOn(console, 'log')
-    try {
-      expect((await publish()).code).toBe('NOTHING_TO_PUBLISH')
-      expect(log.mock.calls.some(([line]) => String(line).includes('storefront_hand_push_unread'))).toBe(true)
-    } finally {
-      githubDown = false
-      log.mockRestore()
-    }
-    expect(await repoHead()).toBe(before)
-    resetMain(before)
-  })
-
-  it('never reads or takes another store’s hand push: store B’s Publish leaves store A’s repo head alone', async () => {
-    const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
-    await pushByHand('Store A only', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Store A only."') }])
-    const before = await repoHead()
-    const calls = github.calls.length
-    expect((await publish('bOwner')).code).toBe('NOTHING_TO_PUBLISH')
-    expect(github.calls.slice(calls).filter((c) => c.includes(`/${repo}/`))).toEqual([])
-    expect(await repoHead()).toBe(before)
-    const taken = await db.sql<{ store_id: string }[]>`select store_id from activity_log where action = 'storefront.repo_push_taken'`
-    expect(taken.every((r) => r.store_id === t.storeA1)).toBe(true)
-  })
-
-  it('refuses to publish a hand push the gate refuses, and keeps the live site and the repo head', async () => {
-    const page = template.find((f) => f.path.startsWith('src/theme/pages/') && f.path.endsWith('.tsx'))?.path ?? ''
-    const before = await repoHead()
-    const live = await liveBuild()
-    await pushByHand('Break the page', [{ path: page, content: 'export const broken: number = "text"\n' }])
-    expect((await publish()).code).toBe('CHANGE_REFUSED')
-    expect(await repoHead()).toBe(before)
-    expect(await liveBuild()).toBe(live)
-    resetMain(before ?? '')
   })
 
   it('never goes back across a newer security release of core: the live site and the draft stay', async () => {

@@ -1,7 +1,6 @@
 export { createFailedMessage, runCreateStorefront, runUndoStorefront, type CreateDeps, type CreateParams, type StepRunner } from './create'
 export { commitToMain, pushToRepo, type PushDeps, type PushReason, type PushResult, type RepoFile } from './push'
 export { coreVersionPattern } from './paths'
-export { adoptHandPush, handPushOf, type HandPush } from './handPush'
 export { templateFiles, type SitesBucket } from './templates'
 export { draftBundle, previewFolder, publishedTheme, sourceBundle, upgradeBundle, upgradeFiles } from './layout'
 export { dispatchBuild, freezeBuild, FreezeRefused, freezeRefusals, guardContextFor, type FreezeDeps } from './freeze'
