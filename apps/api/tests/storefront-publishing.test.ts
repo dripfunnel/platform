@@ -335,6 +335,20 @@ describe('publishing from the studio', () => {
     resetMain(before)
   })
 
+  it('takes a hand push when the Owner opens the studio, so the preview and Publish show it; a Manager’s studio takes nothing', async () => {
+    const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
+    const pushed = await pushByHand('Seen on open', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Seen on open."') }])
+    expect((await w.gql('manager', '{ studioSession { access } }')).data?.['studioSession']).toEqual({ access: 'view' })
+    expect(await repoHead()).not.toBe(pushed)
+    expect((await w.gql('owner', '{ studioSession { state } }')).data?.['studioSession']).toEqual({ state: 'ready' })
+    expect(await repoHead()).toBe(pushed)
+    expect(await leadNow()).toBe('Seen on open.')
+    expect((await w.gql('owner', '{ storefront { status } }')).data?.['storefront']).toEqual({ status: 'unpublished_changes' })
+    const runId = (await publish()).data?.publishDesign ?? ''
+    expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, workflow(new Set()))).toBe('live')
+    expect(github.files(repo)?.get('content/en/pages.json')).toContain('Seen on open.')
+  })
+
   it('never reads or takes another store’s hand push: store B’s Publish leaves store A’s repo head alone', async () => {
     const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
     await pushByHand('Store A only', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Store A only."') }])

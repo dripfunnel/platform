@@ -119,6 +119,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
           setSession((was) => (was?.id === s.session ? was : { id: s.session, frameUrl: s.frameUrl, origin }))
           const next = sandboxOf(s.state, s.place)
           setSandbox(next)
+          // Opening may have taken a push to the store's repo into the draft (storefront LIVE-SHOP §4 step 2).
+          if (next.kind === 'ready') void api.loadOverview().then(onOverview, () => undefined)
           if (next.kind !== 'ready' && next.kind !== 'failed') timer = setTimeout(() => void read(s.session), openingPollMs)
         },
         (e: unknown) => current && setSandbox(isApiError(e, 'SESSION_ENDED') ? { kind: 'ended' } : { kind: 'failed', text: isApiError(e, 'NOT_CONNECTED') ? words.sandbox.notConnected : words.sandbox.unavailable }),
@@ -131,7 +133,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
       current = false
       clearTimeout(timer)
     }
-  }, [api, opened, loadChat])
+  }, [api, opened, loadChat, onOverview])
 
   // The session lives 5 minutes; a refused renewal ends it, a failed one is tried again next time (AI-STUDIO §8).
   const sessionId = session?.id ?? null
