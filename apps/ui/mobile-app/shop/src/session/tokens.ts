@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { secureStorage } from '@dripfunnel/mobile-shared/storage'
 
 // The customer's session token and a guest's cart token, each kept in the phone's secure storage, keyed by the
@@ -26,6 +27,50 @@ export const saveCartToken = (host: string, token: string): Promise<void> => car
 
 /** After sign-in the guest cart belongs to the account, so the guest's token is no longer needed. */
 export const clearCartToken = (host: string): Promise<void> => cartStorage(host).wipe()
+
+const orderStorage = (host: string, orderId: string) => secureStorage<null>(`${host}.order.${orderId}`, noLast)
+
+// A kept token reads its order, so each is a bearer credential: it lasts 30 days, and the phone keeps the 20 newest. The list holds ids and times, never a token.
+export const orderTokenDays = 30
+export const orderTokensKept = 20
+const dayMs = 86_400_000
+
+type Kept = { id: string; at: number }
+const keptKey = (host: string) => `df.orders.kept.${host}`
+
+const readKept = async (host: string): Promise<Kept[]> => {
+  try {
+    const parsed: unknown = JSON.parse((await AsyncStorage.getItem(keptKey(host))) ?? '[]')
+    return Array.isArray(parsed) ? parsed.filter((k): k is Kept => typeof k?.id === 'string' && typeof k?.at === 'number') : []
+  } catch {
+    return []
+  }
+}
+const writeKept = (host: string, kept: Kept[]) => AsyncStorage.setItem(keptKey(host), JSON.stringify(kept)).catch(() => undefined)
+
+/** A guest's cart becomes the order (the order's id is the cart's), so the token that placed it reads it: kept apart, since the next cart's token replaces the cart token. */
+export const keepOrderToken = async (host: string, orderId: string, now = Date.now()): Promise<void> => {
+  const { cart } = await loadTokens(host)
+  if (!cart) return
+  await orderStorage(host, orderId).writeToken(cart)
+  const all = [{ id: orderId, at: now }, ...(await readKept(host)).filter((k) => k.id !== orderId)]
+  const kept = all.filter((k) => now - k.at <= orderTokenDays * dayMs).sort((a, b) => b.at - a.at).slice(0, orderTokensKept)
+  await Promise.all(all.filter((k) => !kept.includes(k)).map((k) => orderStorage(host, k.id).wipe()))
+  await writeKept(host, kept)
+}
+
+/** The token kept for a guest's order, or null for an order a session reads and for one whose token has expired (and is removed). */
+export const loadOrderToken = async (host: string, orderId: string, now = Date.now()): Promise<string | null> => {
+  const kept = await readKept(host)
+  const entry = kept.find((k) => k.id === orderId)
+  if (!entry) return null
+  if (now - entry.at > orderTokenDays * dayMs) {
+    await orderStorage(host, orderId).wipe()
+    await writeKept(host, kept.filter((k) => k !== entry))
+    return null
+  }
+  return (await orderStorage(host, orderId).read()).token
+}
 
 /** The Shop API reads the session as `X-Shop-Session` and the cart as `X-Shop-Cart`, each only when there is one (ACCESS.md §2.1). */
 export const shopHeaders = ({ session, cart }: Tokens): Record<string, string> => ({

@@ -565,6 +565,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `team.manage` (invite, change role, remove; never an Owner unless the caller is one) | §14.2 | ✓ | ✓ | | | |
 | `team.transfer` | §14.2 | ✓ | | | | |
 | `security.manage` (the 2-factor switch) | §14.4 | ✓ | | | | |
+| `integrations.write` (add, test, default and remove an AI key; built on #275) | §14.5 | ✓ | ✓ | | | |
 
 The Billing menu is absent for Support and the Support menu for Finance and Read-only
 (FIRST-RELEASE §2.1): a role with no permission on a whole screen does not see its row,

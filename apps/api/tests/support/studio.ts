@@ -47,6 +47,10 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
         const r = runner(storeId)
         return studioAnswer(() => r.editText(input.locale, input.key, input.text, input.userId))
       },
+      importPush: async (storeId, input) => {
+        const r = runner(storeId)
+        return studioAnswer(() => r.importPush(input.changes, input.head, input.userId))
+      },
       discard: async (storeId) => {
         await runner(storeId).reset(() => withSystemScope(sql(), (tx) => deleteDraft(tx, storeId)).then(() => true))
       },

@@ -6,6 +6,8 @@ import { useShop, type Shop } from './ShopContext'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 jest.mock('@dripfunnel/mobile-shared/brand', () => ({ storeHost: () => 'acme.my-store.one' }))
+const mockUnregister = jest.fn(() => Promise.resolve())
+jest.mock('../push/push', () => ({ unregisterThisPhone: () => mockUnregister() }))
 
 // The phone's keystore, in memory.
 const mockKeystore = new Map<string, string>()
@@ -47,6 +49,7 @@ const sent = () => fetchSpy.mock.calls.map(([, init]) => (init as { headers: Rec
 
 beforeEach(() => {
   mockKeystore.clear()
+  mockUnregister.mockClear()
   fetchSpy.mockReset().mockResolvedValue({ json: () => Promise.resolve({ data: { signOut: true } }) })
   global.fetch = fetchSpy as unknown as typeof fetch
 })
@@ -106,5 +109,57 @@ describe('the shopper’s session', () => {
     await act(async () => shop.startSession('sess-secret'))
     await act(async () => shop.endSession())
     expect(JSON.stringify([...log.mock.calls, ...warn.mock.calls])).not.toContain('sess-secret')
+  })
+})
+
+describe('signing out', () => {
+  it('stops the phone’s pushes first, before the session ends on the server and is removed', async () => {
+    await mount()
+    await act(async () => shop.startSession('sess-1'))
+    await act(async () => shop.endSession())
+    expect(mockUnregister).toHaveBeenCalledTimes(1)
+    expect(mockUnregister.mock.invocationCallOrder[0]).toBeLessThan(fetchSpy.mock.invocationCallOrder[0] ?? 0)
+  })
+
+  it('still signs out when the phone cannot be unregistered', async () => {
+    mockUnregister.mockRejectedValueOnce(new Error('offline'))
+    await mount()
+    await act(async () => shop.startSession('sess-1'))
+    await act(async () => shop.endSession())
+    expect(shop.signedIn).toBe(false)
+    expect(await loadTokens(host)).toEqual({ session: null, cart: null })
+  })
+})
+
+describe('a guest’s order', () => {
+  it('is read by the cart token that placed it, even after the next cart replaces the cart token', async () => {
+    await mount()
+    await act(async () => shop.saveCartToken('cart-1'))
+    await act(async () => shop.keepOrderToken('order-1'))
+    await act(async () => shop.saveCartToken('cart-2'))
+
+    const kept = await shop.orderAccess('order-1')
+    expect(kept.headers).toEqual({ 'x-shop-cart': 'cart-1' })
+    await kept.client.request('{ order(id: "order-1") { id } }')
+    expect(sent().at(-1)).toMatchObject({ 'x-shop-cart': 'cart-1' })
+
+    const other = await shop.orderAccess('order-2')
+    expect(other.headers).toEqual({ 'x-shop-cart': 'cart-2' })
+  })
+
+  it('is read by the session when no token was kept for it, and a signed-in customer keeps none', async () => {
+    await mount()
+    await act(async () => shop.startSession('sess-1'))
+    await act(async () => shop.keepOrderToken('order-1'))
+    expect((await shop.orderAccess('order-1')).headers).toEqual({ 'x-shop-session': 'sess-1' })
+  })
+
+  it('never logs the kept token', async () => {
+    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    await mount()
+    await act(async () => shop.saveCartToken('cart-secret'))
+    await act(async () => shop.keepOrderToken('order-1'))
+    await shop.orderAccess('order-1')
+    expect(JSON.stringify(log.mock.calls)).not.toContain('cart-secret')
   })
 })

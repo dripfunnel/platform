@@ -4,7 +4,7 @@ import '@dripfunnel/shared/ui/detail.css'
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { messages } from '../../messages'
-import { settingsTabs, type SettingsTab } from './settingsHarness'
+import type { SettingsTab } from './settingsHarness'
 import './settings.css'
 
 const words = messages.settings
@@ -26,13 +26,13 @@ export const SettingsError = ({ onRetry }: { onRetry: () => void }) => (
   </div>
 )
 
-// Four tabs, each its own address (?tab=), as the prototype draws them (§14).
-export const Settings = ({ tab, readOnly, children }: { tab: SettingsTab; readOnly: boolean; children: ReactNode }) => (
+// Five tabs (Integrations for Owners and Admins), each its own address (?tab=), as the prototype draws them (§14).
+export const Settings = ({ tab, tabs, readOnly, children }: { tab: SettingsTab; tabs: readonly SettingsTab[]; readOnly: boolean; children: ReactNode }) => (
   <div className="df-page df-list df-settings">
     <Header />
     <DetailTabs
       label={words.tabsLabel}
-      tabs={settingsTabs}
+      tabs={tabs}
       labels={words.tabs}
       current={tab}
       link={(target, props) => <Link to="/settings" search={{ tab: target === 'company' ? undefined : target }} activeOptions={{ explicitUndefined: true }} {...props} />}

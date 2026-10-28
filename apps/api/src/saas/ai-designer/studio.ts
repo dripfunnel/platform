@@ -26,7 +26,7 @@ import { designAudit, designErrors, designNotes } from './words'
 export interface StudioDeps extends DesignerDeps {
   role: StoreRole
   /** The designer's provider for who pays: the plan's (the partner's key) or the merchant's own; null when there is none. */
-  ai: (billedTo: 'plan' | 'own_key') => AiProvider | null
+  ai: (billedTo: 'plan' | 'own_key') => AiProvider | null | Promise<AiProvider | null>
   screenshots: Screenshotter | null
   lookup: DnsLookup | null
   /** A merchant image's bytes from the assets bucket, by its row's key; null when the bucket isn't bound. */
@@ -167,7 +167,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (text.length === 0 || text.length > maxRequest || input.page.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
     if (input.sampleUrl !== null && input.sampleUrl.length > maxUrl) return { ok: false, reason: 'INVALID_URL' }
     const billedTo = await billing()
-    const provider = deps.ai(billedTo)
+    const provider = await deps.ai(billedTo)
     if (!provider) return { ok: false, reason: 'AI_NOT_CONNECTED' }
     if (billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     const image = input.imageAssetId ? await imageOf(input.imageAssetId) : null

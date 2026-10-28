@@ -1095,6 +1095,12 @@ invoice_settings    (store_id PK, legal_name, tax_per_line boolean, email_with_d
                     -- SetOps "Save invoice settings" and the "from" block of a shopper's
                     -- invoice; issued invoices never change (§7.6 order_document); built on #296
                     -- (Store info writes legal_name), the address being the store row's
+partner_credential  (id, partner_id, kind ('ai'), provider ('anthropic'|'openai'), name, is_default boolean,
+                     key_enc, key_prefix, status ('untested'|'ok'|'rejected'), last_tested_at, created_by,
+                     created_at, updated_at)
+                    -- built on #275 (0368): a partner's AI key profiles; unique (partner_id, kind, lower(name))
+                    -- and one default per (partner_id, kind); key_enc readable by app_system only (§5.3),
+                    -- never returned: the consoles see key_prefix ("sk-ant-…x7Qd")
 store_ai_account    (store_id PK, provider ('openai'|'anthropic'), key_enc, key_prefix,
                      connected_by, connected_at)
                     -- "connect your own AI account" on plans without AI included (Pricing,

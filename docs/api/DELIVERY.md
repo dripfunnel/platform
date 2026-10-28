@@ -364,7 +364,7 @@ rider assigned, picked up, delivered and not delivered (`order.*`, to the custom
 `registerPushDevice(token, platform, orderId)` and `unregisterPushDevice(token, orderId)`. A signed-in customer's phone is theirs for every order and needs no `orderId`;
 a guest names the order and must hold its token (the order's own shop policy checks it: `NOT_FOUND` for another's, `SIGNED_OUT` with no token, `INVALID_INPUT` without an
 `orderId`). Registering runs in system scope, since a token another subject of the store holds moves to the new one, and logs `customer.push_device_registered`
-(the platform, never the token; only for a phone new to the subject or moved) and `customer.push_device_removed`. Signing out does not delete a customer's phones: the app unregisters its own first (SH 13). The merchant's emails for nobody accepted and an unconfirmed code are built.
+(the platform, never the token; only for a phone new to the subject or moved) and `customer.push_device_removed`. Signing out does not delete a customer's phones: the app unregisters its own first (built on #866). The merchant's emails for nobody accepted and an unconfirmed code are built.
 
 - **Rider messages** (`core/push.ts`): `rider.notifications_on`, `rider.offer` (a distance, never an address), `rider.assigned`,
   `rider.cancelled`, `rider.recalled` (bring the parcel back), and `rider.taken`, which is silent: the app only refreshes its offers.
@@ -425,8 +425,8 @@ and one retry. **When it is asked** (decided on #858, with no "last read" column
 estimate at once and the next poll sees the new one. So nobody reading means no call, and never more than one call every 2 minutes. A failed or empty answer changes nothing and is
 not retried by the relay: the next stale read asks again. Positions and the key never reach a log.
 
-**The customer's app** asks again every 15 seconds while the tracking screen is open; there is no
-socket *(proposed)*.
+**The customer's app** asks again every 15 seconds while the tracking screen is open and the app is in the foreground, and stops when it ends; there is no
+socket (built on #866). The order has no delivery address or pin on the Shop API yet, so the app's map shows the rider alone.
 
 **Who sees a rider's phone:** the customer of an open delivery the rider carries, the merchant's
 people with `orders.read`, and the rider. Never another customer, a supplier, or after the

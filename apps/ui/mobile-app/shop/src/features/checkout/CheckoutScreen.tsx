@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { accountOperation } from '../../api/account'
 import type { Cart, PlacedOrder } from '../../api/cart'
+import { useShop } from '../../api/ShopContext'
 import { t } from '../../messages'
 import { useCart } from '../cart/useCart'
 import { errorKey } from '../common/errors'
@@ -40,6 +41,7 @@ export function CheckoutScreen() {
   const router = useRouter()
   const { colors } = useTheme()
   const { state, retry, apply } = useCart()
+  const { signedIn, keepOrderToken } = useShop()
   const account = useOperation(accountOperation())
   const [wanted, setWanted] = useState<Step>('contact')
   const [notice, setNotice] = useState<string | null>(null)
@@ -48,6 +50,13 @@ export function CheckoutScreen() {
   // An order placed for a card or wallet payment, not yet paid: its sheet is open or the payment is being confirmed.
   const [paying, setPaying] = useState<{ order: PlacedOrder; cart: Cart } | null>(null)
   const [stopped, setStopped] = useState<string | null>(null)
+
+  // A guest's order is read with the cart token that placed it: kept before anything else, since the next cart's token replaces it.
+  const afterPlacing = (order: PlacedOrder, live: Cart) => {
+    const next = () => (isSheetProvider(order.provider) ? setPaying({ order, cart: live }) : setPlaced({ order, cart: live, paid: false }))
+    if (signedIn) next()
+    else void keepOrderToken(order.orderId).catch(() => undefined).then(next)
+  }
 
   const cart = state.status === 'ready' ? state.data : null
   const steps = cart ? stepsFor(cart) : []
@@ -93,7 +102,7 @@ export function CheckoutScreen() {
         ) : null}
         {step === 'delivery' ? <DeliveryStep cart={live} apply={apply} next={next} changeAddress={() => go('address')} /> : null}
         {step === 'payment' ? <PaymentStep cart={live} provider={provider} onProvider={setProvider} apply={apply} next={next} onRefused={refused} /> : null}
-        {step === 'review' && provider ? <ReviewStep cart={live} provider={provider} onPlaced={(order) => (isSheetProvider(order.provider) ? setPaying({ order, cart: live }) : setPlaced({ order, cart: live, paid: false }))} onRefused={refused} /> : null}
+        {step === 'review' && provider ? <ReviewStep cart={live} provider={provider} onPlaced={(order) => afterPlacing(order, live)} onRefused={refused} /> : null}
       </ScrollView>
     )
   }
@@ -102,7 +111,7 @@ export function CheckoutScreen() {
     <View style={[styles.screen, { backgroundColor: colors.page }]}>
       <ScreenHeader title={t('checkout.title')} {...(placed || paying ? {} : { onBack: goBack })} />
       {placed ? (
-        <Confirmation order={placed.order} cart={placed.cart} paid={placed.paid} onDone={() => router.replace('/home')} />
+        <Confirmation order={placed.order} cart={placed.cart} paid={placed.paid} onDone={() => router.replace('/home')} onViewOrder={() => router.replace({ pathname: '/orders/[id]', params: { id: placed.order.orderId } })} />
       ) : paying ? (
         <PayScreen
           order={paying.order}

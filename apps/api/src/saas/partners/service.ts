@@ -1,3 +1,4 @@
+import { selectAiProfiles } from '#db/scoped/partnerCredentials'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
@@ -156,6 +157,8 @@ export interface PartnerDto extends PartnerRowDto {
   branding: { productName: string | null; primaryColor: string | null; accentColor: string | null; poweredBy: PartnerRow['powered_by'] }
   domains: { id: string; kind: DomainKind; host: string; status: HostStatus; record: string; expected: string; found: string | null; checkedAt: Date | null }[]
   plans: { id: string; name: string; status: PlanRow['status']; maxProducts: number | null; maxStaff: number | null; stores: number }[]
+  /** Status only: staff never see a key (#275). */
+  aiKeys: { name: string; provider: string; status: string; isDefault: boolean; lastTestedAt: Date | null }[]
   team: { id: string; name: string; email: string; role: string; status: string; lastSignInAt: Date | null }[]
   setupSessions: SetupSessionDto[]
   contract: ContractDto | null
@@ -466,6 +469,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
         })),
         branding: { productName: partner.product_name, primaryColor: partner.primary_color, accentColor: partner.accent_color, poweredBy: partner.powered_by },
         domains: f.domains.map((d) => ({ id: d.id, kind: d.kind, host: d.host, status: d.status, record: d.record_type, expected: d.expected, found: d.found, checkedAt: d.checked_at })),
+        aiKeys: (await selectAiProfiles(tx, id)).map((k) => ({ name: k.name, provider: k.provider, status: k.status, isDefault: k.is_default, lastTestedAt: k.last_tested_at })),
         plans: f.plans.map((p) => ({ id: p.id, name: p.name, status: p.status, maxProducts: p.max_products, maxStaff: p.max_staff, stores: p.store_count })),
         team: team.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role_key, status: u.status, lastSignInAt: u.last_sign_in_at })),
         setupSessions: f.sessions.map((s) => sessionDto(s, at)),

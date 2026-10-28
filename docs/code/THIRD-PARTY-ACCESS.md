@@ -465,6 +465,13 @@ environment variables. The partner's Owner or Admin enters them in the partner c
 setup session (ACCESS §8.2). Each shows a masked hint, its last check and *Test connection*, and is
 never shown again once saved (**#275** builds the table, the APIs and both screens).
 
+*Built on #275 (migration 0368):* **AI provider keys** only, in `partner_credential`: named profiles for Anthropic or
+OpenAI, one default, sealed with `CREDENTIALS_KEK` (`v1.` values), `key_enc` readable by `app_system` alone. Anthropic
+keys are checked with one `models.list` call before saving; an OpenAI key saves as *Not tested* until #950's adapter.
+The designer's model is the partner's default Anthropic key, else `AI_PROVIDER_KEY` (the Worker secret stays as the
+fallback; the publish workflow's repair still uses it). Couriers, SMS and WhatsApp, Google sign-in, the chat widget and
+merchants' own keys are not built.
+
 | Item | What it is for | Credential | Instead of |
 |---|---|---|---|
 | Portal host, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5; every store's free address and preview are on our own `my-store.one`, and #745 took out the partner `shops` wildcard, decided 2026-10-15) | White-label hosts and email (DripFunnel's SES sends from it) | DNS records only; no credential | — |

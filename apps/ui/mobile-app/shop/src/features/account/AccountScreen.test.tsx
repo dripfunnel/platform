@@ -53,6 +53,14 @@ describe('Account', () => {
     expect(mockPush).toHaveBeenLastCalledWith('/account/addresses')
   })
 
+  it('opens the shopper’s orders from a row of their own, and shows none to a guest', async () => {
+    const screen = await render(<AccountScreen />, fakeShop(() => mine(), { signedIn: true }))
+    await press(screen, t('account.ordersTitle'))
+    expect(mockPush).toHaveBeenLastCalledWith('/orders')
+    const guest = await render(<AccountScreen />, fakeShop(() => mine(), { signedIn: false }))
+    expect(hasText(guest, t('account.ordersTitle'))).toBe(false)
+  })
+
   it('shows the new address count when the shopper comes back from adding one', async () => {
     let count = 1
     const shop = fakeShop(() => mine({ addresses: Array.from({ length: count }, (_, i) => ({ id: `a${i}`, name: 'Home', line1: '1 Lake Rd', city: 'Jaipur', country: 'IN' })) }), { signedIn: true })

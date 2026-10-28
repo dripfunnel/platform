@@ -1,3 +1,4 @@
+import type { FileChange } from '#integrations/sandbox/index'
 import type { GoBackActor, GoBackResult } from '../storefronts/index'
 import type { DesignModel } from './model'
 import { StudioQueued, StudioUnavailable, type ChangeOutcome } from './runner'
@@ -30,6 +31,8 @@ export interface StudioApi {
   /** The page's words in one language, or null while the sandbox can't load. */
   texts: (storeId: string, input: { page: string; locale: string }) => Promise<{ key: string; text: string }[] | null>
   editText: (storeId: string, input: { locale: string; key: string; text: string; userId: string }) => Promise<StudioAnswer | { outcome: 'missing' }>
+  /** A hand push's theme changes as one change to the draft (LIVE-SHOP §4 step 2). */
+  importPush: (storeId: string, input: { changes: FileChange[]; head: string; userId: string }) => Promise<StudioAnswer>
   /** Discard: the draft's row and bundle go and the sandbox reloads the live code (AI-STUDIO §5). */
   discard: (storeId: string) => Promise<void>
   /** The hand-off to a publish (AI-STUDIO §6 steps 1–3): the draft's head, or one of its changes, kept for the push. */

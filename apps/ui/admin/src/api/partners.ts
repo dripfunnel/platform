@@ -162,6 +162,14 @@ export interface PartnerContract {
   poweredBy: PoweredByTerm
 }
 
+export interface PartnerAiKey {
+  name: string
+  provider: 'anthropic' | 'openai'
+  status: 'untested' | 'ok' | 'rejected'
+  isDefault: boolean
+  lastTestedAt: string | null
+}
+
 export interface Partner extends PartnerRow {
   country: string | null
   contacts: readonly { name: string; role: string; email: string }[]
@@ -170,6 +178,8 @@ export interface Partner extends PartnerRow {
   branding: { productName: string | null; primaryColor: string | null; accentColor: string | null; poweredBy: 'on' | 'off' | 'house' }
   domains: readonly PartnerDomain[]
   plans: readonly PartnerPlan[]
+  // Status only: staff never see a key (#275).
+  aiKeys: readonly PartnerAiKey[]
   team: readonly PartnerUser[]
   // Whether the caller may impersonate each team member, by their id (ACCESS.md §8.1). The
   // API gives none until #40, so nothing is offered.
@@ -266,6 +276,7 @@ const partnerSchema = z.object({
     }),
   ),
   plans: z.array(z.object({ id: z.string(), name: z.string(), status: z.enum(planStatuses), maxProducts: z.number().int().nullable(), maxStaff: z.number().int().nullable(), stores: z.number().int() })),
+  aiKeys: z.array(z.object({ name: z.string(), provider: z.enum(['anthropic', 'openai']), status: z.enum(['untested', 'ok', 'rejected']), isDefault: z.boolean(), lastTestedAt: isoString.nullable() })),
   team: z.array(teamMember),
   contract: z.object({ feeCurrency: z.string(), currencies: z.array(z.string()), poweredBy: z.enum(poweredByTerms) }).nullable(),
   actions: z.object({
@@ -303,6 +314,7 @@ const partnerQuery = `query Partner($id: ID!) {
     branding { productName primaryColor accentColor poweredBy }
     domains { id kind host status record expected found checkedAt }
     plans { id name status maxProducts maxStaff stores }
+    aiKeys { name provider status isDefault lastTestedAt }
     team { id name email role status lastSignInAt }
     contract { feeCurrency currencies poweredBy }
     actions {
