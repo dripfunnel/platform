@@ -20,7 +20,6 @@ This page is the order to do things in.
 | Merchant portal (`apps/ui/store`), one per partner | `https://store.<partner>.localhost` with `pnpm dev:https` (e.g. `https://store.northstar.localhost`); `http://localhost:5173?as=owner` for the sample harness only | Vite, behind Caddy |
 | Partner console (`apps/ui/platform`) | `http://localhost:5174`, or `https://platform.localhost` with `pnpm dev:https` | Vite |
 | Admin console (`apps/ui/admin`) | `http://localhost:5175`, or `https://admin.localhost` with `pnpm dev:https` | Vite |
-| The Worker's hooks host: webhooks, and the storefront's "Pin on map" frame (#814, needs `GOOGLE_MAPS_BROWSER_KEY`) | `https://hooks.localhost` with `pnpm dev:https` | The Worker, behind Caddy |
 | Merchant mobile app (`apps/ui/mobile-app/merchant`) | Expo's dev server on port 8081, opened on an emulator, a simulator or a phone (§6.2); not part of `pnpm dev` | `pnpm dev:mobile` |
 | Postgres 18 | `localhost:5432` (or the port you choose) | Homebrew, apt or the Windows installer |
 | R2, rate limiters, version metadata | inside `wrangler dev` | Wrangler's local simulation |
