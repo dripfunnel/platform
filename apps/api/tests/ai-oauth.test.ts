@@ -1,5 +1,5 @@
 import { graphql, type GraphQLSchema } from 'graphql'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import type { PartnerCaller } from '#auth/partnerCaller'
@@ -224,6 +224,23 @@ describe('using a signed-in account', () => {
     await db.sql`update store_ai_account set key_enc = ${sealed}, status = 'ok' where store_id = ${t.storeA1}`
   }
   const owner = { kind: 'store', id: '', partnerId: '' } as const
+
+  it('writes no token, key or authorization header to any log line, even when a sign-in or a refresh fails', async () => {
+    const lines: string[] = []
+    const spies = (['log', 'error', 'warn', 'info'] as const).map((m) => vi.spyOn(console, m).mockImplementation((...a: unknown[]) => void lines.push(a.map(String).join(' '))))
+    try {
+      await connected()
+      await finish('owner', (await signIn('owner', 'bad')).pasted)
+      await expireTokens()
+      refreshOutcome = 'rejected'
+      await oauth().accessToken({ ...owner, id: t.storeA1, partnerId: t.partnerA }, null)
+      refreshOutcome = 'ok'
+    } finally {
+      spies.forEach((spy) => spy.mockRestore())
+    }
+    expect(lines.length).toBeGreaterThan(0)
+    expect(lines.filter((l) => /refresh-old|access-\d+|refresh-\d+|stale|authorization|bearer/i.test(l))).toEqual([])
+  })
 
   it('renews an expired token once under the row lock, keeping the label', async () => {
     await connected()
