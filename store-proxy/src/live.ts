@@ -133,7 +133,7 @@ const missing = async (url: URL, store: Store & { buildId: string }, deps: Deps)
   return page('missing', 404, { language: store.language })
 }
 
-const isApiPath = (pathname: string) => ['/shop-api', '/delivery-api'].some((p) => pathname === p || pathname.startsWith(`${p}/`))
+const isApiPath = (pathname: string) => pathname === '/app/delivery.apk' || ['/shop-api', '/delivery-api'].some((p) => pathname === p || pathname.startsWith(`${p}/`))
 
 /** Every answer on a store's host names the build it came from, or `none` (LIVE-SHOP §4 step 10): the checks know it's ours. */
 export const serveLive = async (request: Request, url: URL, store: Store, deps: Deps): Promise<Response> => {
