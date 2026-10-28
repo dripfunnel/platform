@@ -42,6 +42,7 @@
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span aria-hidden="true" style="{{ S.chip }}">C</span><strong style="{{ S.t }}flex:1;">Sign in with Claude</strong><sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><span style="{{ S.badge }}background:var(--sunk,#F2F0EC);color:var(--muted,#5A6472);">Not available</span></sc-if></div>
           <sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--text2,#434A55);flex:1;">Sign-in isn’t available here right now. Use an API key.</span></sc-if>
           <sc-if value="{{ gpt.ready }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--text2,#434A55);flex:1;">Sign in at Claude with your own account and paste the code it shows back here. DripFunnel never sees your password.</span></sc-if>
+          <sc-if value="{{ gpt.ready }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:var(--muted,#5A6472);flex:1;">This uses Claude Code’s sign-in, not an Anthropic registration for DripFunnel. Anthropic’s terms don’t allow it, so Anthropic may refuse it or restrict your account. An API key is the supported way.</span></sc-if>
           <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;"><button onClick="{{ a.signinClaude }}" disabled="{{ gpt.dis }}" aria-disabled="{{ gpt.dis }}" style="{{ gpt.btnStyle }}">{{ gpt.labelClaude }}</button><sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.useKey }}" style="{{ S.link }}">Use an API key</button></sc-if></div>
         </div>
 
@@ -49,6 +50,7 @@
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span aria-hidden="true" style="{{ S.chip }}">G</span><strong style="{{ S.t }}flex:1;">Sign in with ChatGPT</strong><sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><span style="{{ S.badge }}background:var(--sunk,#F2F0EC);color:var(--muted,#5A6472);">Not set up</span></sc-if></div>
           <sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--text2,#434A55);flex:1;">Sign-in isn’t available here right now. Use an API key.</span></sc-if>
           <sc-if value="{{ gpt.ready }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--text2,#434A55);flex:1;">Sign in at ChatGPT with your own account and paste the address it ends on back here. DripFunnel never sees your password.</span></sc-if>
+          <sc-if value="{{ gpt.ready }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:var(--muted,#5A6472);flex:1;">This uses the Codex CLI’s sign-in, not an OpenAI registration for DripFunnel. OpenAI may refuse it or change it without notice. An API key is the dependable way.</span></sc-if>
           <sc-if value="{{ gpt.btn }}" hint-placeholder-val="{{ true }}"><div><button onClick="{{ a.signin }}" disabled="{{ gpt.dis }}" aria-disabled="{{ gpt.dis }}" style="{{ gpt.btnStyle }}">{{ gpt.label }}</button></div></sc-if>
         </div>
       </div>

@@ -193,6 +193,15 @@ describe('Storefront › AI', () => {
     expect((within(chatgpt).getByRole('button', { name: w.chatgpt.go }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it("shows each provider's terms risk before the sign-in is used, and none where it is off", async () => {
+    ai.loadStoreAiAccount.mockResolvedValue(null)
+    ai.loadStoreAiSignIn.mockResolvedValue({ anthropic: true, openai: false })
+    await show()
+    expect(within(screen.getByRole('region', { name: w.claude.title })).getByText(w.claude.risk)).toBeTruthy()
+    expect(screen.queryByText(w.chatgpt.risk)).toBeNull()
+    expect(ai.beginStoreAiOauth).not.toHaveBeenCalled()
+  })
+
   it('says so and disables a sign-in the API does not offer', async () => {
     ai.loadStoreAiAccount.mockResolvedValue(null)
     ai.loadStoreAiSignIn.mockResolvedValue({ anthropic: true, openai: false })

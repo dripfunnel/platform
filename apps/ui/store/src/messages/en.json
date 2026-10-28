@@ -6865,11 +6865,13 @@
       "claude": {
         "title": "Sign in with Claude",
         "ready": "Sign in at Claude with your own account and paste the code it shows back here. DripFunnel never sees your password.",
+        "risk": "This uses Claude Code’s sign-in, not an Anthropic registration for DripFunnel. Anthropic’s terms don’t allow it, so Anthropic may refuse it or restrict your account. An API key is the supported way.",
         "go": "Sign in with Claude"
       },
       "chatgpt": {
         "title": "Sign in with ChatGPT",
         "ready": "Sign in at ChatGPT with your own account and paste the address it ends on back here. DripFunnel never sees your password.",
+        "risk": "This uses the Codex CLI’s sign-in, not an OpenAI registration for DripFunnel. OpenAI may refuse it or change it without notice. An API key is the dependable way.",
         "go": "Sign in with ChatGPT"
       },
       "key": {

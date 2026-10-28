@@ -183,6 +183,7 @@ const AiAccount = ({ initial, signIn, runs, read, canEdit, onToast }: AiAccountP
               {!signIn.anthropic && <span className="df-ops-status">{words.signIn.badge}</span>}
             </div>
             <p className="df-set-text">{signIn.anthropic ? words.claude.ready : words.signIn.off}</p>
+            {signIn.anthropic && <p className="df-set-text">{words.claude.risk}</p>}
             <div className="df-dev-buttons">
               <button type="button" className="df-button df-button--primary" disabled={signInBusy || !signIn.anthropic} onClick={() => goToProvider('anthropic')}>
                 {busy === 'signin' && pending === null ? words.signIn.opening : words.claude.go}
@@ -195,6 +196,7 @@ const AiAccount = ({ initial, signIn, runs, read, canEdit, onToast }: AiAccountP
               {!signIn.openai && <span className="df-ops-status">{words.signIn.badge}</span>}
             </div>
             <p className="df-set-text">{signIn.openai ? words.chatgpt.ready : words.signIn.off}</p>
+            {signIn.openai && <p className="df-set-text">{words.chatgpt.risk}</p>}
             <div className="df-dev-buttons">
               <button type="button" className="df-button df-button--primary" disabled={signInBusy || !signIn.openai} onClick={() => goToProvider('openai')}>
                 {busy === 'signin' && pending === null ? words.signIn.opening : words.chatgpt.go}
