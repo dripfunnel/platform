@@ -237,6 +237,9 @@ export const knownErrorCodes = [
   'NOT_PICKED_UP',
   'NOT_HANDED_OVER',
   'CODE_NOT_LOCKED',
+  'CODE_LOCKED',
+  'CODE_UNCONFIRMED',
+  'CASH_NOT_CONFIRMED',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

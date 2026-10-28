@@ -47,6 +47,20 @@ describe('app.config.ts', () => {
     expect(config.android?.googleServicesFile).toBe('./stores/dev/google-services.json')
   })
 
+  it('builds without a Maps key, and with one gives it to Android only', () => {
+    const key = 'AIza' + 'a'.repeat(35)
+    expect(buildConfig({}, readStoreEnv(root, 'dev')).android?.config).toBeUndefined()
+    editDevEnv((lines) => [...lines, `GOOGLE_MAPS_ANDROID_KEY=${key}`])
+    const config = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(config.android?.config?.googleMaps?.apiKey).toBe(key)
+    expect(config.ios?.config).toBeUndefined()
+  })
+
+  it('refuses a Maps key that is not shaped like one', () => {
+    editDevEnv((lines) => [...lines, 'GOOGLE_MAPS_ANDROID_KEY=not-a-key'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_MAPS_ANDROID_KEY/)
+  })
+
   it('refuses a Firebase file of another store, or one that does not exist', () => {
     editDevEnv((lines) => [...lines, 'GOOGLE_SERVICES_FILE=stores/other/google-services.json'])
     expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_SERVICES_FILE: stores\/other\/google-services\.json is not under stores\/dev\//)
@@ -81,11 +95,6 @@ describe('app.config.ts', () => {
     const config = buildConfig({}, env)
     expect(plugin(config, 'expo-notifications')).toBe('expo-notifications')
     expect(plugin(config, 'expo-image-picker')).toEqual(['expo-image-picker', { photosPermission: messages.permissions.photos.replace('{name}', env.APP_NAME), cameraPermission: messages.permissions.camera.replace('{name}', env.APP_NAME), microphonePermission: false }])
-  })
-
-  it('refuses the Maps key, which comes with the map screen', () => {
-    editDevEnv((lines) => [...lines, `GOOGLE_MAPS_ANDROID_KEY=AIza${'a'.repeat(35)}`])
-    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_MAPS_ANDROID_KEY/)
   })
 
   it('fails with the variable named when a value is missing', () => {
