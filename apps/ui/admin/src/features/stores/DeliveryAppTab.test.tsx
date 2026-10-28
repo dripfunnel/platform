@@ -54,7 +54,7 @@ describe('the delivery app tab', () => {
     expect((screen.getByRole('textbox', { name: words.minimumBuild }) as HTMLInputElement).value).toBe('2')
   })
 
-  it('uploads the file with its version, build and reason in the query, then shows the new version', async () => {
+  it('uploads the file with version and build in the query and the reason in an encoded header, never in the URL, then shows the new version', async () => {
     const fetchMock = stubFetch({ ok: true, current: live }, { ok: true, current: { ...live, version: 2, versionName: '1.1.0', buildNumber: 4 } })
     const onToast = await shown()
     const upload = screen.getByRole('button', { name: words.upload }) as HTMLButtonElement
