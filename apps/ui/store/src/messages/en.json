@@ -7425,7 +7425,6 @@
         "refused": {
           "NOTHING_TO_PUBLISH": "There are no changes to publish.",
           "CHANGE_REFUSED": "The changes pushed to your store’s repo didn’t pass our checks — nothing on your site changed.",
-          "HAND_PUSH_TOO_LARGE": "Your store’s repo changes too many design files since the last publish. Publish in smaller steps.",
           "NOT_BISECTED": "That change isn’t the one the refused publish named.",
           "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
           "STUDIO_QUEUED": "The studio is waiting for room. Try again in a moment.",

@@ -8,7 +8,7 @@ import { createGitHubApp, GitHubUnavailable, noAnswer, storeRepos, type StoreRep
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
 import { designModel, repairBrief } from '#saas/ai-designer/index'
-import { digestOf, maxHandPushFiles, pushToRepo, runPublish, type PublishDeps, type PublishRepair, type PublishSteps } from '#saas/storefronts/index'
+import { digestOf, pushToRepo, runPublish, type PublishDeps, type PublishRepair, type PublishSteps } from '#saas/storefronts/index'
 import { stagingFolder } from '#saas/storefronts/layout'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
 import { testProbe } from './support/edgeProbe'
@@ -314,14 +314,6 @@ describe('publishing from the studio', () => {
     expect(await takenCount()).toBe(taken + 1)
   })
 
-  it('refuses a push that changes more theme files than the cap, and takes none of it', async () => {
-    const before = (await repoHead()) ?? ''
-    await pushByHand('Too many', Array.from({ length: maxHandPushFiles + 1 }, (_, i) => ({ path: `content/en/bulk${i}.json`, content: '{}\n' })))
-    expect((await publish()).code).toBe('HAND_PUSH_TOO_LARGE')
-    expect(await repoHead()).toBe(before)
-    resetMain(before)
-  })
-
   it('never takes main as a hand push while a platform push is pending, nor when GitHub can’t be read', async () => {
     const before = (await repoHead()) ?? ''
     const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
@@ -363,6 +355,7 @@ describe('publishing from the studio', () => {
     expect((await publish()).code).toBe('CHANGE_REFUSED')
     expect(await repoHead()).toBe(before)
     expect(await liveBuild()).toBe(live)
+    resetMain(before ?? '')
   })
 
   it('never goes back across a newer security release of core: the live site and the draft stay', async () => {

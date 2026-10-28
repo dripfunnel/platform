@@ -29,8 +29,8 @@ export interface StoreRepos {
   head: (name: string) => Promise<string | null>
   treeOf: (name: string, commit: string) => Promise<string>
   paths: (name: string, tree: string) => Promise<string[]>
-  /** The files `keep` accepts that differ between two commits: each one's text at `to`, or null where `to` removed it. Null when more than `max` differ, before any is read. */
-  changes: (name: string, from: string, to: string, keep: (path: string) => boolean, max: number) => Promise<RepoChange[] | null>
+  /** The files `keep` accepts that differ between two commits: each one's text at `to`, or null where `to` removed it. */
+  changes: (name: string, from: string, to: string, keep: (path: string) => boolean) => Promise<RepoChange[]>
   /** A tree from `base` (or empty) with the changes applied. */
   writeTree: (name: string, base: string | null, changes: readonly RepoChange[]) => Promise<string>
   commit: (name: string, commit: NewCommit) => Promise<string>
@@ -114,12 +114,11 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
     },
     treeOf,
     paths: async (name, tree) => (await blobs(name, tree)).map((entry) => entry.path),
-    changes: async (name, from, to, keep, max) => {
+    changes: async (name, from, to, keep) => {
       const shas = async (commit: string) => new Map((await blobs(name, await treeOf(name, commit))).filter((e) => keep(e.path)).map((e) => [e.path, read(sha, e.sha)]))
       const [before, after] = await Promise.all([shas(from), shas(to)])
       const removed: RepoChange[] = [...before.keys()].filter((path) => !after.has(path)).map((path) => ({ path, content: null }))
       const changed = [...after].filter(([path, blob]) => before.get(path) !== blob)
-      if (removed.length + changed.length > max) return null
       // A few reads at a time keeps one Publish request well inside GitHub's and the Worker's limits.
       const written: RepoChange[] = []
       for (let at = 0; at < changed.length; at += blobReadsAtOnce) {

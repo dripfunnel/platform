@@ -186,7 +186,6 @@ export const knownErrorCodes = [
   'ALREADY_LIVE',
   'BUILD_GONE',
   'SECURITY_RELEASE',
-  'HAND_PUSH_TOO_LARGE',
   // The studio's session, its changes and publishes, the template gallery, and the Pages and Journal editor (apps/api src/saas/ai-designer, src/apis/store/studio.ts, content.ts).
   'SESSION_ENDED',
   'NOT_BISECTED',

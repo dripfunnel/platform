@@ -59,7 +59,6 @@ export type DesignRefusal =
         | 'NOTHING_WAITING'
         | 'NO_PRESSES_LEFT'
         | 'SECURITY_RELEASE'
-        | 'HAND_PUSH_TOO_LARGE'
     }
   | { reason: 'STUDIO_QUEUED'; place: number }
   | { reason: 'CHANGE_REFUSED'; problems: number }
