@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { BrandProvider } from '../brand/BrandProvider'
 import '../location/task'
+import { PendingProvider } from '../pending/PendingContext'
 import { PushProvider } from '../push/PushContext'
 import { SessionProvider } from '../session/SessionProvider'
 import { useSession } from '../session/SessionContext'
@@ -36,10 +37,12 @@ export default function RootLayout() {
     <BrandProvider>
       <SessionProvider>
         <PushProvider>
-          <GestureHandlerRootView style={styles.root}>
-            <StatusBar style="auto" />
-            <Screens />
-          </GestureHandlerRootView>
+          <PendingProvider>
+            <GestureHandlerRootView style={styles.root}>
+              <StatusBar style="auto" />
+              <Screens />
+            </GestureHandlerRootView>
+          </PendingProvider>
         </PushProvider>
       </SessionProvider>
     </BrandProvider>

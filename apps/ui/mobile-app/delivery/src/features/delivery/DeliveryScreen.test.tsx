@@ -1,9 +1,27 @@
-import { Linking } from 'react-native'
+import { KeyboardAvoidingView, Linking } from 'react-native'
 import { act } from 'react-test-renderer'
 import { ApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
+import { PendingProvider, usePending, type Pending } from '../../pending/PendingContext'
 import { fakeSession, fill, flush, hasButton, hasText, isDisabled, press, pressableNamed, render, type Request } from '../../testing/harness'
 import { DeliveryScreen } from './DeliveryScreen'
+
+let mockConnected = true
+jest.mock('@dripfunnel/mobile-shared/connection', () => ({ useOnline: () => mockConnected }))
+const mockKeystore = new Map<string, string>()
+let mockWriteFails = false
+jest.mock('expo-secure-store', () => ({
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'when-unlocked-this-device-only',
+  getItemAsync: (key: string) => Promise.resolve(mockKeystore.get(key) ?? null),
+  setItemAsync: (key: string, value: string) => (mockWriteFails ? Promise.reject(new Error('keystore full')) : (mockKeystore.set(key, value), Promise.resolve())),
+  deleteItemAsync: (key: string) => (mockKeystore.delete(key), Promise.resolve()),
+}))
+
+let pending!: Pending
+const Probe = () => {
+  pending = usePending()
+  return null
+}
 
 const mockNavigate = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ navigate: mockNavigate, push: jest.fn() }) }))
@@ -24,6 +42,7 @@ let current: unknown
 let onDelivered: (variables: Record<string, unknown>) => unknown
 const sent: Request[] = []
 const answer = (request: Request): unknown => {
+  if (request.query === '{ me }') return { me: { id: 'r-1' } }
   sent.push(request)
   if (request.query.includes('markDelivered')) return onDelivered(request.variables ?? {})
   if (request.query.includes('markPickedUp')) {
@@ -106,6 +125,11 @@ describe('at the door', () => {
     current = pickedUp
   })
 
+  it('lifts the footer above the keyboard, as an edge-to-edge window is not resized by it', async () => {
+    const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
+    expect(screen.root.findAllByType(KeyboardAvoidingView).map((node) => node.props.behavior)).toEqual(['padding'])
+  })
+
   it('calls the customer and opens the map on their pin', async () => {
     const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
     await press(screen, t('delivery.call'))
@@ -181,61 +205,90 @@ describe('at the door', () => {
     expect(hasText(screen, 'Asha Rao')).toBe(false)
   })
 
-  it('resends a step with no answer under the same key, and a fresh one after an answer', async () => {
-    let tries = 0
-    onDelivered = () => {
-      tries += 1
-      if (tries === 1) throw new ApiError('NO_RESPONSE', 'offline')
-      if (tries === 2) throw new ApiError('WRONG_CODE', 'x')
-      return { markDelivered: true }
-    }
-    const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
-    await press(screen, t('delivery.delivered'))
-    await fill(screen, t('delivery.code.label'), '2580')
-    await press(screen, t('delivery.code.confirm'))
-    expect(hasText(screen, t('errors.delivery.NO_RESPONSE'))).toBe(true)
-    await press(screen, t('delivery.code.confirm'))
-    await fill(screen, t('delivery.code.label'), '2580')
-    await press(screen, t('delivery.code.confirm'))
-    const keys = sent.filter((request) => request.query.includes('markDelivered')).map((request) => request.variables?.['key'])
-    expect(keys[1]).toBe(keys[0])
-    expect(keys[2]).not.toBe(keys[1])
-  })
 })
 
-describe('the step a resend repeats', () => {
+describe('without signal', () => {
+  const withQueue = (id = 'd-1') => (
+    <PendingProvider>
+      <DeliveryScreen id={id} />
+      <Probe />
+    </PendingProvider>
+  )
+
   beforeEach(() => {
     current = pickedUp
+    mockConnected = true
+    mockWriteFails = false
+    mockKeystore.clear()
   })
 
-  const deliveredKeys = () => sent.filter((request) => request.query.includes('markDelivered')).map((request) => request.variables?.['key'])
-
-  it('is not shared with Not delivered after Delivered got no answer', async () => {
-    onDelivered = refuse('NO_RESPONSE')
-    const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
+  it('does not say a step is saved when it could not be written to the phone', async () => {
+    mockConnected = false
+    const screen = await render(withQueue(), fakeSession(answer))
+    mockWriteFails = true
     await press(screen, t('delivery.delivered'))
     await fill(screen, t('delivery.code.label'), '2580')
     await press(screen, t('delivery.code.confirm'))
+    expect(hasText(screen, t('errors.NOT_SAVED'))).toBe(true)
+    expect(hasText(screen, t('delivery.saved.title'))).toBe(false)
+    expect(pending.steps).toEqual([])
+  })
+
+  const deliver = async (screen: Parameters<typeof press>[0]) => {
+    await press(screen, t('delivery.delivered'))
+    await fill(screen, t('delivery.code.label'), '2580')
+    await press(screen, t('delivery.code.confirm'))
+  }
+
+  it('keeps Delivered on the phone when the API does not answer, and says it is waiting for signal', async () => {
+    onDelivered = refuse('NO_RESPONSE')
+    const screen = await render(withQueue(), fakeSession(answer))
+    await deliver(screen)
+    expect(hasText(screen, t('delivery.saved.title'))).toBe(true)
+    expect(pending.steps).toMatchObject([{ kind: 'delivered', deliveryId: 'd-1', code: '2580' }])
+    expect(hasButton(screen, t('delivery.code.confirm'))).toBe(false)
+  })
+
+  it('sends nothing and keeps the step when the phone already has no signal, and the code gets one try', async () => {
+    mockConnected = false
+    const screen = await render(withQueue(), fakeSession(answer))
+    await press(screen, t('delivery.delivered'))
+    expect(hasText(screen, t('delivery.noSignalCode.title'))).toBe(true)
+    expect(hasText(screen, t('delivery.noSignalCode.body'))).toBe(true)
+    await fill(screen, t('delivery.code.label'), '2580')
+    await press(screen, t('delivery.code.confirm'))
+    expect(sent.some((request) => request.query.includes('markDelivered'))).toBe(false)
+    expect(hasText(screen, t('delivery.saved.title'))).toBe(true)
+    expect(pending.steps).toHaveLength(1)
+  })
+
+  it('keeps Not delivered the same way, and still says where to return the parcel', async () => {
+    mockConnected = false
+    const screen = await render(withQueue(), fakeSession(answer))
     await press(screen, t('delivery.notDelivered'))
     await press(screen, t('delivery.failedSheet.reason.refused'))
     await press(screen, t('delivery.failedSheet.confirm'))
-    const failed = sent.find((request) => request.query.includes('markFailed'))?.variables
-    expect(failed?.['key']).not.toBe(deliveredKeys()[0])
-    expect(failed?.['at']).not.toBe(sent.find((request) => request.query.includes('markDelivered'))?.variables?.['at'])
+    expect(pending.steps).toMatchObject([{ kind: 'failed', reason: 'refused' }])
+    expect(hasText(screen, t('delivery.returnParcel.titleReturn', { warehouse: 'Pune godown' }))).toBe(true)
+    expect(hasText(screen, t('delivery.saved.notDelivered', { time: '' }).slice(0, 15))).toBe(true)
   })
 
-  it('is new when the code is edited after a no-answer, and the same when it is not', async () => {
-    onDelivered = refuse('NO_RESPONSE')
-    const screen = await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
-    await press(screen, t('delivery.delivered'))
-    await fill(screen, t('delivery.code.label'), '2580')
-    await press(screen, t('delivery.code.confirm'))
-    await press(screen, t('delivery.code.confirm'))
-    await fill(screen, t('delivery.code.label'), '2581')
-    await press(screen, t('delivery.code.confirm'))
-    const keys = deliveredKeys()
-    expect(keys[1]).toBe(keys[0])
-    expect(keys[2]).not.toBe(keys[1])
+  it('offers nothing more on reopening a delivery whose step is kept', async () => {
+    mockConnected = false
+    mockKeystore.set('df.pending.acme.my-store.one.rider.r-1', JSON.stringify({ steps: [{ kind: 'delivered', deliveryId: 'd-1', at: '2026-10-28T10:00:00.000Z', key: 'k', code: '2580', cashCollected: null }], notices: [] }))
+    const screen = await render(withQueue(), fakeSession(answer))
+    expect(hasText(screen, t('delivery.saved.title'))).toBe(true)
+    expect(hasButton(screen, t('delivery.delivered'))).toBe(false)
+    expect(hasButton(screen, t('delivery.notDelivered'))).toBe(false)
+  })
+
+  it('says the store will confirm the delivery when a late code did not match', async () => {
+    onDelivered = refuse('CODE_UNCONFIRMED')
+    const screen = await render(withQueue(), fakeSession(answer))
+    await deliver(screen)
+    expect(hasText(screen, t('delivery.unconfirmed.title'))).toBe(true)
+    expect(pending.steps).toEqual([])
+    expect(pending.hidden.has('d-1')).toBe(true)
   })
 })
 

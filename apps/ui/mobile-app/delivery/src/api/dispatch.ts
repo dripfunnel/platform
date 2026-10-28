@@ -43,13 +43,13 @@ const currentSchema = z.object({
 })
 export type CurrentDelivery = z.infer<typeof currentSchema>
 
-/** The delivery the rider is on: picked up first, else the oldest assigned (docs/api/DELIVERY.md §3). Null when there is none. */
-export const fetchCurrentDelivery = async (client: ApiClient): Promise<CurrentDelivery | null> => {
+/** The delivery the rider is on: picked up first, else the oldest assigned (docs/api/DELIVERY.md §3). Null when there is none; `hidden` are ones already done on the phone. */
+export const fetchCurrentDelivery = async (client: ApiClient, hidden: ReadonlySet<string> = new Set()): Promise<CurrentDelivery | null> => {
   const { deliveries } = decode(
     z.object({ deliveries: z.object({ nodes: z.array(z.unknown()) }) }),
     await client.request<unknown>('query($state: [DeliveryState!]) { deliveries(state: $state, first: 20) { nodes { id state area warehouse { name } } } }', { state: ['assigned', 'picked_up'] }),
   )
-  const current = deliveries.nodes.map((node) => decode(currentSchema, node))
+  const current = deliveries.nodes.map((node) => decode(currentSchema, node)).filter((delivery) => !hidden.has(delivery.id))
   return current.find((delivery) => delivery.state === 'picked_up') ?? current[0] ?? null
 }
 
