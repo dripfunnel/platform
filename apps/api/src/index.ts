@@ -126,7 +126,7 @@ import { studioCapacityClass, studioSessionClass, type CapacityNamespace, type S
 import { handleStudioFrame } from '#apis/studio/frame'
 import type { TenantContext } from '#core/tenancy'
 import { localAiProvider } from '#integrations/ai/index'
-import { partnerAiProvider } from '#saas/partnerCredentials/index'
+import { designerAiFor, designerModelsFor } from '#saas/aiGateway/index'
 import { browserScreenshots } from '#integrations/cloudflare/screenshot'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
@@ -607,7 +607,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
-      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env, sql, partnerId, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
+      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env, sql, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     if (isAiGatewayPath(url.pathname)) return handleAiGateway(request, context, { fallbackKey: config.AI_PROVIDER_KEY, oauth: context.aiOauth ?? null })
@@ -764,13 +764,15 @@ const handleDelivery = async (request: Request, url: URL, config: Config, env: E
   }
 }
 
-// The designer's model, screenshots and pasted images (storefront ARCHITECTURE §6.2). The merchant's own key has nowhere to
-// be kept yet, so a store on its own key answers AI_NOT_CONNECTED; the plan's is the partner's default key (#275), else AI_PROVIDER_KEY.
-const designFor = (config: Config, env: Env, sql: postgres.Sql, partnerId: string, secrets: SecretBox | null): NonNullable<StoreContext['design']> => {
+// The designer's model, screenshots and pasted images (storefront ARCHITECTURE §6.2). The model runs on the account the gateway
+// resolves: the store's own when the plan is own-key, else the partner's default (#275), else AI_PROVIDER_KEY.
+const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretBox | null): NonNullable<StoreContext['design']> => {
   const { BROWSER_RENDERING_ACCOUNT_ID: accountId, BROWSER_RENDERING_TOKEN: token, AI_PROVIDER_KEY: key } = config
   const assets = env.ASSETS
+  const accounts = (context: TenantContext) => ({ sql, context, secrets, fallbackKey: key, oauth: aiOauthFor(sql, secrets) })
   return {
-    ai: (billedTo) => (config.AI_LOCAL === '1' ? localAiProvider() : billedTo === 'plan' ? partnerAiProvider(sql, secrets, partnerId, key) : null),
+    ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
+    models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
     readAsset: assets
       ? async (r2Key) => {

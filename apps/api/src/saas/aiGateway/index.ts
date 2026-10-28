@@ -7,7 +7,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectDefaultAiKey } from '#db/scoped/partnerCredentials'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectSealedStoreKey } from '#db/scoped/storeAiAccount'
-import { anthropicChat, openaiChat, openaiResponsesChat, capabilityOf, costOf, GatewayError, gatewayProviders, withRetry, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
+import { AiDeclined, anthropicChat, anthropicProvider, designerModel, openaiChat, openaiResponsesChat, capabilityOf, costOf, modelsOf, GatewayError, gatewayProviders, withRetry, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
 import { allowanceFor } from '#saas/entitlements/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
 import type { AiOwner } from '#db/scoped/aiOauth'
@@ -226,7 +226,52 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
     }
   }
 
-  return { validate, complete, stream, resolve }
+  /** The account that pays for `billed`, with no allowance check: the studio takes its own unit (SAAS §9.2). */
+  const credential = (billed: Billed) => (billed === 'plan' ? planKey() : ownKey(false))
+
+  return { validate, complete, stream, resolve, credential }
 }
 
 export type AiGateway = ReturnType<typeof createAiGateway>
+
+const openaiDesignerModel = 'gpt-5'
+
+type DesignerDeps = Omit<GatewayDeps, 'actor' | 'now'>
+
+const credentialFor = async (deps: DesignerDeps, billed: Billed) => {
+  const found = await createAiGateway({ ...deps, actor: { keyId: null, userId: null }, now: () => new Date() }).credential(billed)
+  return !found || 'unusable' in found ? null : found
+}
+
+/** The studio's models on the account that pays, the default first; none when no account can be used. */
+export const designerModelsFor = async (deps: DesignerDeps, billed: Billed): Promise<readonly string[]> => {
+  const found = await credentialFor(deps, billed)
+  return found ? modelsOf(found.provider) : []
+}
+
+/**
+ * The studio's model on the account that pays (#950): a Claude API key as before; a sign-in or a ChatGPT key through the chat
+ * adapters, text only, so a pasted image is declined there. `model` is one of `designerModelsFor`; nothing usable answers null.
+ */
+export const designerAiFor = async (deps: DesignerDeps, billed: Billed, requested: string | null = null): Promise<DesignerAi | null> => {
+  const found = await credentialFor(deps, billed)
+  if (!found) return null
+  const model = requested ?? (found.provider === 'anthropic' ? designerModel : openaiDesignerModel)
+  const capability = capabilityOf(found.provider, model)
+  if (!capability) return null
+  if (found.provider === 'anthropic' && found.auth === 'api_key') return anthropicProvider(found.key, model)
+  const chat = (deps.adapters ?? realAdapters)(found.provider, found.key, found.auth, found.accountId ?? null)
+  return {
+    complete: async (call) => {
+      if (call.images.length > 0) throw new AiDeclined('images need an API key')
+      let text = ''
+      let end: Extract<ChatChunk, { kind: 'end' }> | null = null
+      for await (const chunk of chat.streamResponse({ model, system: call.system, messages: [{ role: 'user', content: call.text }], maxTokens: capability.maxOutputTokens })) {
+        if (chunk.kind === 'text') text += chunk.text
+        else end = chunk
+      }
+      if (!end || end.finish === 'refusal') throw new AiDeclined('the model declined')
+      return { text, model: end.model, tokensIn: end.usage.tokensIn, tokensOut: end.usage.tokensOut, costAmount: found.auth === 'oauth' ? 0 : costOf(capability, end.usage.tokensIn, end.usage.tokensOut), costCurrency: 'USD' }
+    },
+  }
+}

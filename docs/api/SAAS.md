@@ -761,7 +761,8 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 "Your brand" saved (shop name and logo at least)
   → chooseTemplate: the template becomes the theme; the first time, the store repo is created
     (§5 steps 4–8); later, "keep my words" or "use template text"
-  → askDesign(text, image?, sampleSite?, page, device): the Worker asks the model with the
+  → askDesign(text, image?, sampleSite?, model?, page, device): the Worker asks the model (one of
+    `studioSession.models`, the account's models, the default first) with the
     store's theme files, core's theme API and its rules, the page and screen size, the last
     four requests, the brand and ~12 products (names, prices)
   → the store's Durable Object runs the diff in the store's container: the fast gate

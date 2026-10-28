@@ -1,4 +1,5 @@
 import { GraphQLError } from 'graphql'
+import { readCapped } from '#core/http'
 import { GatewayError, gatewayProviders, modelsOf, type GatewayErrorCode } from '#integrations/ai/index'
 import { chatInput, createAiGateway, GatewayRefused, maxBodyBytes, type GatewayDeps, type GatewayRefusal } from '#saas/aiGateway/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
@@ -49,10 +50,9 @@ export const handleAiGateway = async (request: Request, ctx: StoreContext, env: 
     return provider ? json({ provider, models: modelsOf(provider) }) : failure('NOT_FOUND', 404)
   }
   const caller = tenantCaller(ctx)
-  // The size is read before the body is parsed, so an oversized request costs nothing (AGENTS.md "Security").
-  if (Number(request.headers.get('content-length') ?? 0) > maxBodyBytes) return failure('INVALID_INPUT', 413)
-  const raw = await request.text()
-  if (raw.length > maxBodyBytes) return failure('INVALID_INPUT', 413)
+  const body = await readCapped(request, maxBodyBytes)
+  if (!body.ok) return failure('INVALID_INPUT', 413)
+  const raw = new TextDecoder().decode(body.bytes)
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)

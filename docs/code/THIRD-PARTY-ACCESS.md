@@ -206,7 +206,12 @@ without notice. An API key is the supported way for both.
   address back; the Worker checks `state`, exchanges with PKCE and seals the tokens (SAAS §9.3). There is no hooks-host callback
   and no client id or secret in configuration. Neither provider has a revocation we call: Disconnect deletes the tokens here and
   the person revokes in the provider's own settings.
-- Never use a consumer login token, a session cookie or an undocumented endpoint as a key, and no client id of another product beyond the two the user chose above.
+- **The one exception to the rule below** (Akshay, #950, 2026-10-28): these two sign-ins, which use another product's client id and,
+  for OpenAI, an undocumented endpoint, are allowed because the person connecting their own account chose them knowingly. It covers
+  nothing else and lapses if either provider objects. Local testing the same day: Claude answered 403
+  (`oauth_not_allowed_for_organization`), then 429 on every model; ChatGPT refused every `gpt-*` model on the Codex endpoint. Treat
+  both as unreliable and an API key as the dependable path.
+- Everywhere else: never use a consumer login token, a session cookie or an undocumented endpoint as a key, and no client id of another product.
 
 In the prototypes it covers:
 

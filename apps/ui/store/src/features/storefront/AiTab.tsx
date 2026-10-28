@@ -253,8 +253,8 @@ const AiAccount = ({ initial, signIn, runs, read, canEdit, onToast }: AiAccountP
           <section className="df-set-card" aria-label={words.account.label}>
             <div className="df-dev-head">
               <span className="df-dev-cell">
-                <strong>{oauth ? (account.accountLabel ?? words.signIn.name) : name}</strong>
-                <span className="df-dev-muted">{oauth ? words.signIn.via : `${account.keyPrefix}…`}</span>
+                <strong>{oauth ? (account.accountLabel ?? fill(words.signIn.name, { provider: via })) : name}</strong>
+                <span className="df-dev-muted">{oauth ? fill(words.signIn.via, { provider: via }) : `${account.keyPrefix}…`}</span>
               </span>
               <span className="df-dev-buttons">
                 <span className={status === 'ok' ? 'df-ops-status df-ops-status--ok' : status === 'untested' ? 'df-ops-status' : 'df-ops-status df-ops-status--warn'}>{words.status[status]}</span>

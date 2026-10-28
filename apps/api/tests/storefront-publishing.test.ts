@@ -142,7 +142,7 @@ beforeAll(async () => {
     secrets: null,
     lookup: null,
     studio: local.studio,
-    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design: { ai: () => provider, screenshots: null, readAsset: null } },
+    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design: { ai: () => provider, models: () => [], screenshots: null, readAsset: null } },
   })
   host = await sandboxProcess()
   sites = fakeSites()

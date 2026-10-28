@@ -6840,8 +6840,8 @@
         "openai": "ChatGPT"
       },
       "signIn": {
-        "name": "AI account",
-        "via": "Signed in with your account",
+        "name": "{provider} account",
+        "via": "Signed in with {provider}",
         "badge": "Not available",
         "off": "Sign-in isn’t available here right now. Use an API key.",
         "opening": "Opening…",
@@ -7444,6 +7444,7 @@
         "assistant": "{brand} AI",
         "assistantPlain": "AI",
         "prompt": "Describe a change",
+        "model": "Model",
         "placeholder": "Describe a change — e.g. “Make it feel warmer and add a reviews section”",
         "hint": "Enter to send · Shift+Enter for a new line",
         "send": "Send",

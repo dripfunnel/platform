@@ -8,7 +8,7 @@ import { pgArray, withSystemScope } from '#db/scoped/index'
 import { upsertStoreAiAccount } from '#db/scoped/storeAiAccount'
 import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
 import { activityLog } from '#saas/activity/index'
-import { createAiGateway, type ChatInput } from '#saas/aiGateway/index'
+import { createAiGateway, designerAiFor, type ChatInput } from '#saas/aiGateway/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -101,6 +101,26 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db?.drop()
+})
+
+describe("the studio's model", () => {
+  const deps = async () => ({ sql: db.sql, context: { caller: { kind: 'api-key' as const, keyId: crypto.randomUUID(), createdByUserId: owner }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }, secrets: await secretBox(kek), fallbackKey: undefined, adapters: (provider: GatewayProvider, key: string) => fake(provider, key) })
+
+  it("runs on the store's own ChatGPT key when the plan is own-key, text only", async () => {
+    await entitle(t.storeA1, 0, 0)
+    await storeAccount(t.storeA1)
+    calls.length = 0
+    const model = await designerAiFor(await deps(), 'own_key')
+    const done = await model?.complete({ system: 'sys', text: 'make it warmer', images: [] })
+    expect(done?.text).toBe('hello')
+    expect(calls).toMatchObject([{ provider: 'openai', key: storeKey, request: { model: 'gpt-5', system: 'sys' } }])
+    await expect(model?.complete({ system: 's', text: 't', images: [{ mediaType: 'image/png', base64: 'AA==' }] })).rejects.toThrow('images need an API key')
+  })
+
+  it('answers null when nothing is connected', async () => {
+    await db.sql`delete from partner_credential where partner_id = ${t.partnerA}`
+    expect(await designerAiFor(await deps(), 'plan')).toBeNull()
+  })
 })
 
 describe('whose key runs a call', () => {
@@ -263,6 +283,8 @@ describe('/api/v1 over a store key', () => {
     expect((await call(key, post({ ...input(), extra: 1 }))).status).toBe(400)
     expect((await call(key, post(null, '{nope'))).status).toBe(400)
     expect((await call(key, post(null, 'x'.repeat(500_000)))).status).toBe(413)
+    // 250,000 characters but 500,000 bytes: the limit is in bytes.
+    expect((await call(key, post(null, 'é'.repeat(250_000)))).status).toBe(413)
     expect((await call(key, post({ ...input(), model: 'nope' }))).status).toBe(404)
   })
 

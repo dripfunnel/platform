@@ -1003,7 +1003,7 @@ type Mutation {
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
-  askDesign(device: String!, imageAssetId: ID, page: String!, sampleUrl: String, text: String!): DesignAnswer
+  askDesign(device: String!, imageAssetId: ID, model: String, page: String!, sampleUrl: String, text: String!): DesignAnswer
   assignDelivery(deliveryId: ID!, riderId: ID!): Boolean
   beginStoreAiOauth(provider: String!): String
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
@@ -3216,6 +3216,7 @@ type StudioSession {
   access: String
   expiresAt: String
   frameUrl: String
+  models: [String!]
   place: Int
   session: String
   state: String

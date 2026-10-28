@@ -164,16 +164,19 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
   }
 
   const providers = () => oauth?.availability() ?? []
+  /** The person or staff member acting; a sign-in is refused without one (`started_by` is a uuid). */
+  const startedBy = caller.user?.id ?? caller.staff?.id ?? null
 
   /** `id` names the sign-in profile a reconnect replaces; none starts a new one. */
   const beginOauth = async (provider: AiProvider, id: string | null): Promise<PlainResult & { url?: string }> => {
     if (!oauth || !host) return { ok: false, reason: 'NOT_CONFIGURED' }
+    if (!startedBy) return { ok: false, reason: 'NOT_FOUND' }
     if (id !== null && !z.guid().safeParse(id).success) return { ok: false, reason: 'NOT_FOUND' }
     if (id !== null) {
       const row = await withScope(sql, context, (tx) => selectAiProfile(tx, partnerId, id))
       if (!row || row.auth_type !== 'oauth' || row.provider !== provider) return { ok: false, reason: 'NOT_FOUND' }
     }
-    const begun = await oauth.begin({ owner, provider, returnHost: host, startedBy: caller.user?.id ?? caller.staff?.id ?? '', credentialId: id })
+    const begun = await oauth.begin({ owner, provider, returnHost: host, startedBy, credentialId: id })
     if (!begun.ok) return { ok: false, reason: begun.reason === 'UNAVAILABLE' ? 'OAUTH_UNAVAILABLE' : begun.reason }
     await withScope(sql, context, (tx) => activity.record(tx, entry({ action: credentialAudit.oauthStarted, target: { type: 'ai_key', id: id ?? provider, label: provider }, reason: null, changes: [{ field: 'provider', before: null, after: provider }] })))
     return { ok: true, url: begun.url }
@@ -183,15 +186,15 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
 
   /** `response` is what the person pasted back from the provider; only the person who started the sign-in can finish it. */
   const finishOauth = async (response: string): Promise<AddResult> => {
-    if (!oauth) return { ok: false, reason: 'OAUTH_EXPIRED' }
-    const submitted = await oauth.submit({ owner, startedBy: caller.user?.id ?? caller.staff?.id ?? '', pasted: response })
+    if (!oauth || !startedBy) return { ok: false, reason: 'OAUTH_EXPIRED' }
+    const submitted = await oauth.submit({ owner, startedBy, pasted: response })
     if (!submitted || !('key' in submitted)) return { ok: false, reason: 'OAUTH_EXPIRED' }
     const key = submitted.key
     const at = now()
     // Taking the attempt and storing the profile are one transaction: a failed write gives the attempt back.
     type Done = { result: AddResult; replaced: { provider: AiProvider; key_enc: string } | null }
     const done: Done = await withSystemScope(sql, async (tx): Promise<Done> => {
-      const attempt = await oauth.takeApproved(tx, { owner, startedBy: caller.user?.id ?? caller.staff?.id ?? '', key })
+      const attempt = await oauth.takeApproved(tx, { owner, startedBy, key })
       if (!attempt?.tokens_enc) return { result: { ok: false, reason: 'OAUTH_EXPIRED' }, replaced: null }
       await serialise(tx, `partner_ai_keys:${partnerId}`)
       if (attempt.credential_id) {
