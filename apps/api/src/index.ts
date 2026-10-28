@@ -430,7 +430,7 @@ const handleAdmin = async (
     const caller = await resolveStaff(sql, request, new Date())
     const assigned = (staffId: string, target: Parameters<typeof isAssigned>[2]) => isAssigned(sql, staffId, target)
     if (deliveryAppRoute) {
-      const files = caller ? createDeliveryApp({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, files: env.ASSETS ?? null }) : null
+      const files = caller ? createDeliveryApp({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, files: env.ASSETS ?? null }) : null
       return handleDeliveryApp(request, deliveryAppRoute, files)
     }
     return servers.admin.fetch(request, {

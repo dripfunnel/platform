@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleDeliveryApp, matchDeliveryAppPath } from '#apis/admin/deliveryApp'
 import { factsOf } from '#auth/activity'
+import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
@@ -22,7 +23,9 @@ const facts = factsOf(new Request('https://admin.dripfunnel.ai/api', { headers: 
 const stored = new Map<string, Uint8Array>()
 const bucket: DeliveryAppStore = {
   put: async (key, body) => {
-    stored.set(key, body instanceof Uint8Array ? body : new Uint8Array(await new Response(body).arrayBuffer()))
+    const bytes = body instanceof Uint8Array ? body : new Uint8Array(await new Response(body).arrayBuffer())
+    stored.set(key, bytes)
+    return { size: bytes.byteLength }
   },
   get: async (key, options) => {
     const bytes = stored.get(key)
@@ -41,7 +44,7 @@ const as = (role: StaffRole): StaffMember => {
   if (!s) throw new Error(`no seeded staff with role ${role}`)
   return s
 }
-const serviceFor = (role: StaffRole, files: DeliveryAppStore | null = bucket) => createDeliveryApp({ sql: db.sql, staff: as(role), facts, activity: activityLog, files })
+const serviceFor = (role: StaffRole, files: DeliveryAppStore | null = bucket) => createDeliveryApp({ sql: db.sql, staff: as(role), facts, activity: activityLog, isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target), files })
 
 const storeIdOf = async (name: string): Promise<string> => {
   const [row] = await db.sql<{ id: string }[]>`select id from store where name = ${name}`
@@ -108,6 +111,14 @@ describe('uploading the APK', () => {
     expect({ files: stored.size, entries: await logged(mehta, deliveryAppAudit.uploaded), rows: (await versions(mehta)).length }).toEqual(before)
   })
 
+  it('refuses a body whose stored size differs from the length sent, and keeps nothing of it', async () => {
+    const before = { files: stored.size, entries: await logged(mehta, deliveryAppAudit.uploaded), rows: (await versions(mehta)).length }
+    const bytes = apk()
+    const result = await serviceFor('staff-super-admin').upload(mehta, { versionName: '1.0.9', buildNumber: 9, reason: 'Wrong length' }, streamOf(bytes), bytes.byteLength + 10)
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT' })
+    expect({ files: stored.size, entries: await logged(mehta, deliveryAppAudit.uploaded), rows: (await versions(mehta)).length }).toEqual(before)
+  })
+
   it('refuses a build that is not newer than the live one, a missing reason, a bad name and a missing body', async () => {
     expect(await upload('staff-super-admin', mehta, { buildNumber: 1 })).toEqual({ ok: false, code: 'BUILD_NOT_NEWER' })
     expect(await upload('staff-super-admin', mehta, { buildNumber: 5, reason: '  ' })).toEqual({ ok: false, code: 'INVALID_INPUT' })
@@ -158,6 +169,17 @@ describe('reading', () => {
   it('shows the newest version to any role that reads stores, and nothing for a store with none', async () => {
     expect(await serviceFor('staff-read-only').read(mehta)).toMatchObject({ ok: true, value: { buildNumber: 2 } })
     expect(await serviceFor('staff-read-only').read(await storeIdOf('Harbor Coffee Co.'))).toEqual({ ok: true, value: null })
+  })
+
+  it('hides a store outside a Partner manager’s assignment, whether or not it has an app', async () => {
+    const manager = as('staff-partner-manager')
+    const own = (await db.sql<{ id: string }[]>`
+      select id from store where partner_id in (select partner_id from staff_partner_assignment where staff_user_id = ${manager.id} and removed_at is null) limit 1`)[0]?.id ?? ''
+    expect(own).not.toBe('')
+    const [other] = await db.sql<{ id: string }[]>`
+      select id from store where partner_id not in (select partner_id from staff_partner_assignment where staff_user_id = ${manager.id} and removed_at is null) limit 1`
+    expect(await serviceFor('staff-partner-manager').read(own)).toMatchObject({ ok: true })
+    expect(await serviceFor('staff-partner-manager').read(other?.id ?? '')).toEqual({ ok: false, code: 'NOT_FOUND' })
   })
 })
 

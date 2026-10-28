@@ -1,12 +1,13 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import { roleHas } from '#auth/permissions'
+import type { AccessTarget } from '#auth/assignment'
+import { partnerScopedRoles, roleHas } from '#auth/permissions'
 import type { StaffMember } from '#auth/staff'
 import type { StaffContext } from '#core/tenancy'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { insertDeliveryApp, selectLatestDeliveryApp, type StoreDeliveryAppRow } from '#db/scoped/storeDeliveryApp'
-import { selectStoreForUpdate } from '#db/scoped/stores'
+import { selectStore, selectStoreForUpdate } from '#db/scoped/stores'
 import { reasonText, staffEntry } from '#saas/staff/index'
 import { apkContentType, apkKey, looksLikeApk, maxApkBytes } from './files'
 
@@ -22,7 +23,7 @@ export type DeliveryAppResult<T> = { ok: true; value: T } | { ok: false; code: D
 
 /** The assets bucket, as far as the APK needs it (the Worker's `ASSETS` binding). */
 export interface DeliveryAppStore {
-  put(key: string, body: ReadableStream<Uint8Array> | Uint8Array, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>
+  put(key: string, body: ReadableStream<Uint8Array> | Uint8Array, options?: { httpMetadata?: { contentType?: string } }): Promise<{ size: number }>
   get(key: string, options?: { range?: { offset: number; length: number } }): Promise<{ arrayBuffer(): Promise<ArrayBuffer> } | null>
   delete(key: string): Promise<unknown>
 }
@@ -32,6 +33,7 @@ export interface DeliveryAppDeps {
   staff: StaffMember
   facts: RequestFacts
   activity: ActivityLog
+  isAssigned: (staffId: string, target: AccessTarget) => Promise<boolean>
   /** Null where no assets bucket is bound yet (THIRD-PARTY-ACCESS.md §2.1). */
   files: DeliveryAppStore | null
 }
@@ -71,8 +73,11 @@ class Refused extends Error {
   }
 }
 
-export const createDeliveryApp = ({ sql, staff, facts, activity, files }: DeliveryAppDeps) => {
+export const createDeliveryApp = ({ sql, staff, facts, activity, isAssigned, files }: DeliveryAppDeps) => {
   const context: StaffContext = { caller: { kind: 'staff', staffId: staff.id } }
+  // A store outside a Partner manager's assignment is not found (ACCESS.md §5.4).
+  const visible = async (storeId: string): Promise<boolean> =>
+    z.guid().safeParse(storeId).success && (!partnerScopedRoles.includes(staff.role) || (await isAssigned(staff.id, { storeId })))
   const asStaff = staffEntry(staff, facts)
   const may = () => roleHas(staff.role, 'stores.deliveryApp.write')
 
@@ -81,7 +86,7 @@ export const createDeliveryApp = ({ sql, staff, facts, activity, files }: Delive
 
   /** Runs `write` under the store's lock; a refusal thrown inside rolls the transaction back, entry and row with it. */
   const inStore = async <T>(storeId: string, write: (tx: ScopedSql, store: StoreFacts, latest: StoreDeliveryAppRow | null) => Promise<T>): Promise<DeliveryAppResult<T>> => {
-    if (!z.guid().safeParse(storeId).success) return { ok: false, code: 'NOT_FOUND' }
+    if (!(await visible(storeId))) return { ok: false, code: 'NOT_FOUND' }
     try {
       const value = await withScope(sql, context, async (tx) => {
         const store = await selectStoreForUpdate(tx, storeId)
@@ -98,7 +103,10 @@ export const createDeliveryApp = ({ sql, staff, facts, activity, files }: Delive
 
   const read = async (storeId: string): Promise<DeliveryAppResult<DeliveryAppView | null>> => {
     if (!roleHas(staff.role, 'stores.read')) return { ok: false, code: 'FORBIDDEN' }
-    return inStore(storeId, async (_tx, _store, latest) => (latest ? viewOf(latest) : null))
+    if (!(await visible(storeId))) return { ok: false, code: 'NOT_FOUND' }
+    const latest = await withScope(sql, context, async (tx) => ((await selectStore(tx, storeId)) ? { row: await selectLatestDeliveryApp(tx, storeId) } : null))
+    if (!latest) return { ok: false, code: 'NOT_FOUND' }
+    return { ok: true, value: latest.row ? viewOf(latest.row) : null }
   }
 
   /**
@@ -118,7 +126,8 @@ export const createDeliveryApp = ({ sql, staff, facts, activity, files }: Delive
       // A new build keeps the minimum staff set, which stays below it.
       const row = await insertDeliveryApp(tx, storeId, staff.id, { apk_key: key, version_name: input.versionName, build_number: input.buildNumber, size_bytes: String(length), minimum_build: latest?.minimum_build ?? null })
       await activity.record(tx, entry(store, deliveryAppAudit.uploaded, input.reason, `${store.name}: ${input.versionName} (${input.buildNumber})`))
-      await files.put(key, body, { httpMetadata: { contentType: apkContentType } })
+      const put = await files.put(key, body, { httpMetadata: { contentType: apkContentType } })
+      if (put.size !== length) throw new Refused('INVALID_INPUT')
       const head = new Uint8Array((await (await files.get(key, { range: { offset: 0, length: 4 } }))?.arrayBuffer()) ?? new ArrayBuffer(0))
       if (!looksLikeApk(head)) throw new Refused('NOT_AN_APK')
       return viewOf(row)
