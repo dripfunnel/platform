@@ -33,3 +33,16 @@ it('lifts existing system messages into Anthropic system without dropping them',
   })
   expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ system: [{ type: 'text', text: 'Existing system' }], messages: [{ role: 'user', content: 'Hi' }] }), { signal: undefined })
 })
+
+it('skips an empty system string but keeps system turns', async () => {
+  await anthropicChat('key').generateResponse({
+    model: 'claude-sonnet', maxTokens: 100, system: '',
+    messages: [{ role: 'system', content: 'Existing system' }, { role: 'user', content: 'Hi' }],
+  })
+  expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ system: [{ type: 'text', text: 'Existing system' }] }), { signal: undefined })
+})
+
+it('sends no system field for an empty system string and no system turns', async () => {
+  await anthropicChat('key').generateResponse({ model: 'claude-sonnet', maxTokens: 100, system: '', messages: [{ role: 'user', content: 'Hi' }] })
+  expect(mocks.create.mock.calls[0]?.[0]).not.toHaveProperty('system')
+})

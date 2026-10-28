@@ -24,16 +24,15 @@ export const anthropicFailure = (error: unknown): GatewayError => {
 }
 
 const paramsOf = (request: ChatRequest) => {
-  const systemMessages = request.messages.filter((message) => message.role === 'system').map(({ content }) => ({ type: 'text' as const, text: content }))
-  const system = Array.isArray(request.system) ? [...request.system, ...systemMessages] : request.system === undefined ? systemMessages : systemMessages.length ? [{ type: 'text' as const, text: request.system }, ...systemMessages] : request.system
-  const messages = request.messages.flatMap((message) => message.role === 'system' ? [] : [{ role: message.role, content: message.content }])
-  return ({
-  model: request.model,
-  max_tokens: request.maxTokens,
-  ...(system.length === 0 || system === '' ? {} : { system }),
-  ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
-  messages,
-  })
+  const blocks = typeof request.system === 'string' ? (request.system === '' ? [] : [{ type: 'text' as const, text: request.system }]) : (request.system ?? [])
+  const system = [...blocks, ...request.messages.filter((m) => m.role === 'system').map(({ content }) => ({ type: 'text' as const, text: content }))]
+  return {
+    model: request.model,
+    max_tokens: request.maxTokens,
+    ...(system.length > 0 ? { system } : {}),
+    ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+    messages: request.messages.flatMap((m) => (m.role === 'system' ? [] : [{ role: m.role, content: m.content }])),
+  }
 }
 
 /** A key, or the access token of a Claude sign-in (Bearer, with the OAuth beta header). */
