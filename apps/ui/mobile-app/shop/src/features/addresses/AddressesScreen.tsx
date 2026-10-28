@@ -83,7 +83,7 @@ export function AddressesScreen() {
       {removing ? (
         <Sheet title={t('addresses.deleteTitle')} onClose={() => setRemoving(null)}>
           <Text style={{ color: colors.textStrong, fontSize: 15, paddingBottom: 12 }}>{t('addresses.deleteBody', { name: removing.name })}</Text>
-          <Button label={t('addresses.deleteConfirm')} busy={action.busy} onPress={() => void confirmDelete()} />
+          <Button saves label={t('addresses.deleteConfirm')} busy={action.busy} onPress={() => void confirmDelete()} />
           <Button kind="secondary" label={t('common.cancel')} onPress={() => setRemoving(null)} />
         </Sheet>
       ) : null}

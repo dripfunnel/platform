@@ -13,6 +13,7 @@ import { Field } from '../common/fields'
 import { Button, Resource, ScreenHeader, StateMessage } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { useRefreshOnFocus } from '../common/useRefreshOnFocus'
+import { useOnline } from '../states/connection'
 import { Totals } from './Totals'
 import { useCart } from './useCart'
 
@@ -88,7 +89,7 @@ function Codes({ cart, busy, change }: { cart: Cart; busy: boolean; change: Chan
   return (
     <View style={styles.codes}>
       <Field label={t('cart.code.label')} value={entry} onChangeText={setEntry} autoCapitalize="characters" returnKeyType="done" onSubmitEditing={() => void apply()} />
-      <Button kind="secondary" label={t('cart.code.apply')} busy={action.busy} disabled={busy || !entry.trim()} onPress={() => void apply()} />
+      <Button saves kind="secondary" label={t('cart.code.apply')} busy={action.busy} disabled={busy || !entry.trim()} onPress={() => void apply()} />
       {action.error ? (
         <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 13, fontWeight: '600' }}>
           {t(errorKey(action.error))}
@@ -118,6 +119,7 @@ function Filled({ cart, apply }: { cart: Cart; apply: (change: { cart: Cart | nu
   const router = useRouter()
   const { colors } = useTheme()
   const action = useAction()
+  const online = useOnline()
   const change: Change = async (work) => {
     const done = await action.run(work)
     if (done) await apply(done.value)
@@ -127,18 +129,18 @@ function Filled({ cart, apply }: { cart: Cart; apply: (change: { cart: Cart | nu
     <>
       <ScrollView contentContainerStyle={styles.body}>
         {cart.lines.map((line) => (
-          <LineRow key={line.versionId} line={line} busy={action.busy} change={change} onOpen={(slug) => router.push(`/product/${slug}`)} />
+          <LineRow key={line.versionId} line={line} busy={action.busy || !online} change={change} onOpen={(slug) => router.push(`/product/${slug}`)} />
         ))}
         {action.error ? (
           <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 14 }}>
             {t(errorKey(action.error))}
           </Text>
         ) : null}
-        <Codes cart={cart} busy={action.busy} change={change} />
+        <Codes cart={cart} busy={action.busy || !online} change={change} />
         <Totals cart={cart} stage="cart" />
       </ScrollView>
       <View style={[styles.footer, { borderColor: colors.border, backgroundColor: colors.page }]}>
-        <Button label={cart.total ? t('cart.checkout', { total: money(cart.total) }) : t('checkout.title')} disabled={blocked || action.busy} onPress={() => router.push('/checkout')} />
+        <Button saves label={cart.total ? t('cart.checkout', { total: money(cart.total) }) : t('checkout.title')} disabled={blocked || action.busy} onPress={() => router.push('/checkout')} />
       </View>
     </>
   )

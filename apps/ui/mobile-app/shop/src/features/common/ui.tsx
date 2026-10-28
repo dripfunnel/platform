@@ -3,20 +3,25 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { t } from '../../messages'
+import { useOnline } from '../states/connection'
 import type { Loaded } from './useOperation'
 import { errorKey } from './errors'
 
 // The few pieces every catalogue screen draws; the states are those of shop/FIRST-RELEASE.md §3 (empty, loading, error, offline).
 
-export function Button({ label, onPress, kind = 'primary', disabled = false, busy = false }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary'; disabled?: boolean; busy?: boolean }) {
+/** `saves` marks a button that writes: it is off while the phone has no connection, and says why to a screen reader (the banner says it to everyone). */
+export function Button({ label, onPress, kind = 'primary', disabled = false, busy = false, saves = false }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary'; disabled?: boolean; busy?: boolean; saves?: boolean }) {
   const { colors, radii, controlHeight } = useTheme()
+  const online = useOnline()
   const primary = kind === 'primary'
-  const off = disabled || busy
+  const needsConnection = saves && !online
+  const off = disabled || busy || needsConnection
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: off, busy }}
+      accessibilityHint={needsConnection ? t('states.offline.writes') : undefined}
       disabled={off}
       onPress={onPress}
       style={[
@@ -43,9 +48,10 @@ export function StateMessage({ title, body, actionLabel, onAction }: { title: st
   )
 }
 
-/** Shown above the last page the phone loaded, when it has no signal: writes still need a connection. */
+/** Shown above the last page the phone loaded when the API gave no answer: writes still need a connection. While the phone itself is offline the screen-wide banner says so instead. */
 export function OfflineBanner() {
   const { colors } = useTheme()
+  if (!useOnline()) return null
   return (
     <View accessibilityRole="alert" style={[styles.banner, { backgroundColor: colors.warningSurface, borderColor: colors.warningBorder }]}>
       <Text style={{ color: colors.warning, fontWeight: '600', fontSize: 13 }}>{t('states.offline.banner')}</Text>

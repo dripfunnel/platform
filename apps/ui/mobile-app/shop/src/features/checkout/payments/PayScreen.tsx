@@ -136,13 +136,13 @@ export function PayScreen({ order, cart, onPaid, onLeave, clock = realClock }: P
       ) : null}
       {phase.kind === 'stopped' ? (
         <>
-          {phase.reason !== 'orderCancelled' ? <Button label={t('checkout.pay.retry')} busy={again.busy} onPress={() => void retry()} /> : null}
+          {phase.reason !== 'orderCancelled' ? <Button saves label={t('checkout.pay.retry')} busy={again.busy} onPress={() => void retry()} /> : null}
           <Button kind="secondary" label={t('checkout.pay.leave')} onPress={onLeave} />
         </>
       ) : null}
       {phase.kind === 'pending' ? (
         <>
-          <Button label={t('checkout.pay.checkAgain')} onPress={() => void checkAgain()} />
+          <Button saves label={t('checkout.pay.checkAgain')} onPress={() => void checkAgain()} />
           <Button kind="secondary" label={t('checkout.pay.done')} onPress={onLeave} />
         </>
       ) : null}

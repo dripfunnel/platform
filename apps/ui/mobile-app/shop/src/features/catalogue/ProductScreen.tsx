@@ -96,7 +96,7 @@ function Loaded({ product, stale }: { product: Product; stale: boolean }) {
         <View style={styles.buy}>
           <Stepper quantity={quantity} onChange={setQuantity} />
           <View style={styles.buyButton}>
-            <Button label={blocked ?? t('product.addToCart')} disabled={blocked !== null} busy={adding} onPress={() => void add()} />
+            <Button saves label={blocked ?? t('product.addToCart')} disabled={blocked !== null} busy={adding} onPress={() => void add()} />
           </View>
         </View>
         {outcome?.kind === 'refused' ? (

@@ -33,7 +33,33 @@
     "offline": {
       "title": "You’re offline",
       "body": "Connect to the internet and try again. Nothing you’ve done is lost.",
-      "banner": "You’re offline. This is what we last loaded."
+      "banner": "You’re offline. This is what we last loaded.",
+      "strip": "You’re offline. You can keep browsing what’s loaded; prices and stock may have changed. Reconnect to check out.",
+      "writes": "Needs a connection. Reconnect to continue."
+    }
+  },
+  "legal": {
+    "title": "Legal",
+    "rowBody": "Terms, privacy, returns, delivery",
+    "terms": "Terms of sale",
+    "privacy": "Privacy policy",
+    "returns": "Returns and refunds",
+    "shipping": "Delivery",
+    "notice": "Legal notice",
+    "note": "These open {host} inside the app.",
+    "failed": "We couldn’t open that page. Try again."
+  },
+  "markets": {
+    "title": "Language and currency",
+    "language": "Language",
+    "currency": "Currency",
+    "thisShop": "This shop",
+    "languageNote": "Product names and descriptions show in the language you choose where {shop} has translated them.",
+    "currencyNote": "Your cart and checkout use the currency you choose here.",
+    "oneCurrency": "{shop} sells in {currency} only.",
+    "unavailable": {
+      "title": "Languages and currencies aren’t loaded yet",
+      "body": "They appear here once you’re back online."
     }
   },
   "errors": {

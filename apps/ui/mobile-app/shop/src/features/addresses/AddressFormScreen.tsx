@@ -45,7 +45,7 @@ function Form({ read, id }: { read: AccountRead; id: string | null }) {
           {t(errorKey(action.error))}
         </Text>
       ) : null}
-      <Button label={t('address.save')} busy={action.busy} onPress={() => void save()} />
+      <Button saves label={t('address.save')} busy={action.busy} onPress={() => void save()} />
     </ScrollView>
   )
 }
