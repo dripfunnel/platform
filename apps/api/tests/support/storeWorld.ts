@@ -31,6 +31,8 @@ export interface StoreWorld {
   gql: (who: Who, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
   /** What the Worker hands the Store API for this seat, for the routes that are not GraphQL (uploads). */
   context: (who: Who) => Promise<StoreContext>
+  /** The same for a partner's support session, by its cookie. */
+  supportContext: (cookie: string, partnerId: string) => Promise<StoreContext>
   /** A partner's support session in a store (ACCESS §8), by its cookie. */
   support: (cookie: string, partnerId: string, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
   /** A bearer credential (an API key or an app's token) on a partner's portal host. */
@@ -85,6 +87,7 @@ export const seedStoreWorld = async (sql: postgres.Sql, t: Tenants, o: WorldOpti
     context: (who) => contextOf({ cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(seats[who].supplier ? { [supplierHeader]: t.sellerA1First } : {}) }, partnerOf(who)),
     gql: (who, source, variables = {}) =>
       run({ cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(seats[who].supplier ? { [supplierHeader]: t.sellerA1First } : {}) }, partnerOf(who), source, variables),
+    supportContext: (cookie, partnerId) => contextOf({ cookie: `${supportCookieName}=${cookie}` }, partnerId),
     support: (cookie, partnerId, source, variables = {}) => run({ cookie: `${supportCookieName}=${cookie}` }, partnerId, source, variables),
     bearer: (secret, source, partnerId) => run({ authorization: `Bearer ${secret}` }, partnerId, source),
   }

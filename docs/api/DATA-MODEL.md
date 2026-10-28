@@ -589,21 +589,6 @@ partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
 
 ---
 
-### 3.7 The store's mobile app assets (built on #868)
-
-Migration `0369`, the store's counterpart of the partner's app images (§2.5, `0075`); the Owner sets them in Settings › Mobile apps and a build reads them (mobile-app/README.md §3).
-
-```
-store_app_assets  (id, store_id, version, app_icon_key NULL, app_icon_foreground_key NULL, splash_key NULL,
-                   app_name NULL (1–30), short_description NULL (1–80), long_description NULL (1–4000),
-                   created_by_user_id, created_at)      unique (store_id, version)
-```
-
-- **Append-only versions.** A save inserts the next version under the store's lock; the newest is the live one. No role holds `update` or `delete`, so no version is ever changed; saving what is already live adds none. There is no draft, scheduled or cancelled state (the partner's has), because nothing in a store waits to be published (decided on #868).
-- The images are R2 object keys under `stores/{store_id}/app/{kind}-{uuid}.png`, never a URL; a key is accepted only if this store uploaded it as that kind, which is how a version is known to have passed that kind's checks (PNG, 1024 × 1024 for both icons, no transparency in the app icon, at most 512 KB: the partner's rules, BUILD-CHECKLIST §2). The text is empty as null.
-- The merchant side (`app_request`, scope `store`, no seller) reads and inserts its own store's rows, and an insert is refused in a read-only support session; `app_system` reads them for a build. No partner, platform or supplier role has a grant. The four role pins are on the table.
-- The plan switch is `own_apps` (SAAS §6.1); the API refuses an upload and a save without it, and the portal lists no tab.
-
 ### 3.6 Riders (store) (api/DELIVERY.md §5)
 
 `rider`, `rider_session` and `rider_code` are built on #838 (migration 0359), and riders sign in to them on #839
@@ -643,6 +628,21 @@ a supplier; it reads a session's `ended_at` only to end it, and never `rider_cod
 written in system scope (registering, which may move a token, and the push deliverer); the rider reads and deletes
 its own phones; the merchant side deletes its store's riders' phones (no seller, never read-only support) in the
 suspension's or removal's transaction, reading only `store_id`, `subject_kind` and `subject_id`, never a token.
+
+### 3.7 The store's mobile app assets (built on #868)
+
+Migration `0369`, the store's counterpart of the partner's app images (§2.5, `0075`); the Owner sets them in Settings › Mobile apps and a build reads them (mobile-app/README.md §3).
+
+```
+store_app_assets  (id, store_id, version, app_icon_key NULL, app_icon_foreground_key NULL, splash_key NULL,
+                   app_name NULL (1–30), short_description NULL (1–80), long_description NULL (1–4000),
+                   created_by_user_id, created_at)      unique (store_id, version)
+```
+
+- **Append-only versions.** A save inserts the next version under the store's lock; the newest is the live one. No role holds `update` or `delete`, so no version is ever changed; saving what is already live adds none. There is no draft, scheduled or cancelled state (the partner's has), because nothing in a store waits to be published (decided on #868).
+- The images are R2 object keys under `stores/{store_id}/app/{kind}-{uuid}.png`, never a URL; a key is accepted only if this store uploaded it as that kind, which is how a version is known to have passed that kind's checks (PNG, 1024 × 1024 for both icons, no transparency in the app icon, at most 512 KB: the partner's rules, BUILD-CHECKLIST §2). The text is empty as null.
+- The merchant side (`app_request`, scope `store`, no seller) reads and inserts its own store's rows, and an insert is refused in a read-only support session; `app_system` reads them for a build. No partner, platform or supplier role has a grant. The four role pins are on the table.
+- The plan switch is `own_apps` (SAAS §6.1); the API refuses an upload and a save without it, and the portal lists no tab.
 
 ## 4. Roles and permissions
 

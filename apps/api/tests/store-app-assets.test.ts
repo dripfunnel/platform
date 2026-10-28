@@ -1,8 +1,12 @@
+import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { actingCaller } from '#apis/store/access'
 import { handleAppAssets } from '#apis/store/appAssets'
+import { hashSessionId } from '#auth/session'
 import { withScope } from '#db/scoped/index'
+import { activityLog } from '#saas/activity/index'
 import type { BrandFileStore } from '#saas/partnerBranding/index'
+import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { seedStoreWorld, type StoreWorld, type Who } from './support/storeWorld'
@@ -186,6 +190,63 @@ describe('saving', () => {
     const context = actingCaller(await w.context('owner')).context
     await expect(withScope(db.sql, context, (tx) => tx`update store_app_assets set app_name = 'Hacked' where store_id = ${w.storeOf('owner')}`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, context, (tx) => tx`delete from store_app_assets where store_id = ${w.storeOf('owner')}`)).rejects.toThrow(/permission denied/)
+  })
+})
+
+describe('a store or a session that may not write', () => {
+  beforeAll(async () => {
+    await allow(w.storeOf('owner'), true)
+  })
+
+  const untouched = async (work: () => Promise<void>) => {
+    const before = { versions: await versions(w.storeOf('owner')), objects: stored.size, uploads: await logged(w.storeOf('owner'), 'mobile_app.file_uploaded'), saves: await logged(w.storeOf('owner'), 'mobile_app.assets_saved') }
+    await work()
+    expect({ versions: await versions(w.storeOf('owner')), objects: stored.size, uploads: await logged(w.storeOf('owner'), 'mobile_app.file_uploaded'), saves: await logged(w.storeOf('owner'), 'mobile_app.assets_saved') }).toEqual(before)
+  }
+
+  it('refuses an upload and a save while the store is past due, writing no version, object or entry, and keeps reading', async () => {
+    await db.sql`update store set status = 'past_due' where id = ${w.storeOf('owner')}`
+    try {
+      await untouched(async () => {
+        expect(await send('owner', 'appIcon', icon())).toMatchObject({ status: 403, code: 'READ_ONLY' })
+        expect((await save('owner', { appName: 'Late' })).code).toBe('READ_ONLY')
+      })
+      expect((await read('owner')).code).toBeUndefined()
+    } finally {
+      await db.sql`update store set status = 'active' where id = ${w.storeOf('owner')}`
+    }
+  })
+
+  it('refuses an upload and a save in a read-only support session, writing no version, object or entry, and lets it read', async () => {
+    const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'priya@partner-a.example', 'Priya', 'partner-support', 'active') returning id`
+    const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${w.people.owner}`
+    const at = now()
+    await db.sql`
+      insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
+      values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-apps')}, ${new Date(at.getTime() + 5 * 60_000)}, 'read')`
+    const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now }, 'tok-apps')
+    const cookie = entered?.cookie ?? ''
+    expect(cookie).not.toBe('')
+    await untouched(async () => {
+      const response = await handleAppAssets(new Request('https://store.example/api/app-assets?kind=appIcon', { method: 'POST', body: icon() as BodyInit }), await w.supportContext(cookie, t.partnerA), files)
+      expect(response.status).toBe(403)
+      expect(((await response.json()) as { code: string }).code).toBe('SUPPORT_READ_ONLY')
+      const saved = await w.support(cookie, t.partnerA, 'mutation { saveMobileApps(input: { appName: "Support" }) { version } }')
+      expect(saved.code).toBe('SUPPORT_READ_ONLY')
+    })
+    expect((await w.support(cookie, t.partnerA, '{ mobileApps { available } }')).code).toBeUndefined()
+  })
+
+  it('has the row-level policy refuse an insert in a read-only support session too, whatever the code above does', async () => {
+    const insert = (support: string) =>
+      db.sql.begin(async (tx: postgres.TransactionSql) => {
+        await tx.unsafe('set local role app_request')
+        for (const [k, v] of [['app.scope', 'store'], ['app.partner_id', t.partnerA], ['app.store_id', t.storeA1], ['app.seller_id', ''], ['app.support', support]] as const) await tx`select set_config(${k}, ${v}, true)`
+        return tx`insert into store_app_assets (store_id, version, app_name) values (${t.storeA1}, 999, 'Raw') returning version`
+      })
+    await expect(insert('read')).rejects.toThrow(/row-level security/)
+    expect(await insert('')).toEqual([{ version: 999 }])
+    await db.sql`delete from store_app_assets where store_id = ${t.storeA1} and version = 999`
   })
 })
 
