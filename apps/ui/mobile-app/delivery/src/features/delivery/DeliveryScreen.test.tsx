@@ -44,6 +44,12 @@ const refuse = (code: string) => () => {
   throw new ApiError(code, 'refused')
 }
 
+// The first render loads react-native's lazy modules cold: over 30 s on a loaded CI runner (as HomeScreen.test.tsx), so it is paid once, here.
+beforeAll(async () => {
+  current = assigned
+  await render(<DeliveryScreen id="d-1" />, fakeSession(answer))
+}, 120_000)
+
 beforeEach(() => {
   jest.clearAllMocks()
   sent.length = 0
