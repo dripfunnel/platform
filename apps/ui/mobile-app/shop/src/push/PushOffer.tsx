@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { useBrand } from '../brand/BrandContext'
+import { useBrand } from '@dripfunnel/mobile-shared/brand'
 import { t } from '../messages'
 import { Button } from '../features/common/ui'
 import type { usePushAsk } from './usePushAsk'

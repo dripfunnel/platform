@@ -5,7 +5,7 @@ import type { ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { askAndRegister, hasAsked, markAsked, orderOfPush, pushIsSetUp, pushPermission, registerIfGranted, registerThisPhone, unregisterThisPhone } from './push'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
-jest.mock('../graphql/storeHost', () => ({ storeHost: () => 'acme.my-store.one' }))
+jest.mock('@dripfunnel/mobile-shared/brand', () => ({ storeHost: () => 'acme.my-store.one' }))
 
 // The phone's keystore, in memory.
 const mockKeystore = new Map<string, string>()

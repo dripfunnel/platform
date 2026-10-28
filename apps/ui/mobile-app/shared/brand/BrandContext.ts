@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { Brand } from '../api/store'
+import type { Brand } from './store'
 import type { BrandSource } from './loadBrand'
 
 export type BrandState = { brand: Brand | null; source: BrandSource }

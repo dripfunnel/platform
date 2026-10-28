@@ -11,8 +11,7 @@ import { readChoice, saveChoice, saveOffers } from './storage'
 jest.setTimeout(120_000)
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
-jest.mock('../../graphql/storeHost', () => ({ storeHost: () => 'acme.my-store.one' }))
-jest.mock('../../brand/BrandProvider', () => ({ brandTimeoutMs: 5000 }))
+jest.mock('@dripfunnel/mobile-shared/brand', () => ({ storeHost: () => 'acme.my-store.one', brandTimeoutMs: 5000 }))
 jest.mock('../../push/push', () => ({ unregisterThisPhone: () => Promise.resolve() }))
 jest.mock('expo-secure-store', () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'when-unlocked-this-device-only',

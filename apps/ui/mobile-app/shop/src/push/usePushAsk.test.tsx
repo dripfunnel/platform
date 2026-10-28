@@ -7,7 +7,7 @@ import { hasAsked } from './push'
 import { usePushAsk } from './usePushAsk'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
-jest.mock('../graphql/storeHost', () => ({ storeHost: () => 'acme.my-store.one' }))
+jest.mock('@dripfunnel/mobile-shared/brand', () => ({ ...jest.requireActual('@dripfunnel/mobile-shared/brand'), storeHost: () => 'acme.my-store.one' }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('expo-secure-store', () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'x',

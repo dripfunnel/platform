@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useBrand } from '@dripfunnel/mobile-shared/brand'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { useBrand } from '../../brand/BrandContext'
 import { locale, t } from '../../messages'
 import { Choice } from '../checkout/Choice'
 import { ScreenHeader, StateMessage } from '../common/ui'

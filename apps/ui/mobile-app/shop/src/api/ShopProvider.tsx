@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { storeHost } from '@dripfunnel/mobile-shared/brand'
 import { useMarkets } from '../features/markets/MarketsContext'
-import { storeHost } from '../graphql/storeHost'
 import { unregisterThisPhone } from '../push/push'
 import { clearCartToken, clearSessionToken, keepOrderToken, loadOrderToken, loadTokens, saveCartToken, saveSessionToken, shopHeaders, type Tokens } from '../session/tokens'
 import { createShopClient } from './client'

@@ -10,6 +10,7 @@ jest.setTimeout(120_000)
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), canGoBack: () => true }) }))
+jest.mock('@dripfunnel/mobile-shared/brand', () => ({ useBrand: () => ({ brand: null, source: 'defaults' }) }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 
 const choose = jest.fn()

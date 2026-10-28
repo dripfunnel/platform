@@ -34,7 +34,7 @@ document disagrees. Then open only the part your task touches:
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
 | Creating a card (task, bug or feature) on the DF Platform board | [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md) |
 | Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
-| Shop or delivery app (`apps/ui/mobile-app/shop`: Home, Browse, search, the product page, sign-in, Account and addresses, Cart and checkout with every payment method, Orders with live delivery tracking, and push built; `delivery`: not built) | [docs/mobile-app/README.md](docs/mobile-app/README.md), then the app's FIRST-RELEASE and ARCHITECTURE |
+| Shop or delivery app (`apps/ui/mobile-app/shop`: Home, Browse, search, the product page, sign-in, Account and addresses, Cart and checkout with every payment method, Orders with live delivery tracking, and push built; `delivery`: set up (#848), no screens yet) | [docs/mobile-app/README.md](docs/mobile-app/README.md), then the app's FIRST-RELEASE and ARCHITECTURE |
 | Merchant mobile app (`apps/ui/mobile-app/merchant`) | [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md): start with REACT-NATIVE, then DESIGN and ARCHITECTURE |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 | Storefront builds, hosting, preview, the studio's sandbox | [docs/storefront/LIVE-SHOP.md](docs/storefront/LIVE-SHOP.md), [PREVIEW.md](docs/storefront/PREVIEW.md), [AI-STUDIO.md](docs/storefront/AI-STUDIO.md) |
@@ -59,6 +59,7 @@ pnpm dev:https:all                               # dev:all plus the studio's san
 pnpm dev:<api|store|platform|admin>              # one of the four on its own
 pnpm dev:mobile                                  # the merchant mobile app's Expo dev server (not part of pnpm dev)
 pnpm dev:shop                                    # the shop app's Expo dev server, the `dev` store (not part of pnpm dev)
+pnpm dev:delivery                                # the delivery app's Expo dev server, the `dev` store (not part of pnpm dev)
 pnpm dev:storefront                              # the storefront template (builds core first)
 pnpm dev:storefront-core                         # storefront-core rebuilding on change
 pnpm dev:proxy                                   # store-proxy: preview and store hosts (docs/setup/local.md §6.3)
@@ -81,7 +82,7 @@ Run the gates before reporting a change as done.
 - **`apps/ui/shared/`** holds only code more than one SPA uses. Add to it when a second app needs something,
   never in advance; something one app uses stays in that app.
 - **`apps/ui/mobile-app/shared`** (`@dripfunnel/mobile-shared`) holds what more than one mobile app uses: the API client,
-  `format/`, `intl/`, the theme and secure storage. The mobile apps import only it, never `apps/ui/shared`, an SPA or
+  `format/`, `intl/`, the theme, secure storage and the store's brand (name, logo, saved look and the startup provider). The mobile apps import only it, never `apps/ui/shared`, an SPA or
   another app; it imports no app (enforced by `eslint.config.js`).
 - **`packages/storefront-core`** is the only published package. It imports nothing from
   the rest of the repo.

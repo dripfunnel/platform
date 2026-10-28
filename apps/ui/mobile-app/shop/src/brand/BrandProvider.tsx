@@ -1,61 +1,19 @@
-import * as SplashScreen from 'expo-splash-screen'
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { BrandProvider as SharedBrandProvider } from '@dripfunnel/mobile-shared/brand'
 import { createShopClient } from '../api/client'
-import { fetchBrand } from '../api/store'
-import { storeHost } from '../graphql/storeHost'
 import { loadTokens } from '../session/tokens'
-import { buildTheme, ThemeProvider, useMode } from '@dripfunnel/mobile-shared/theme'
-import { BrandContext, type BrandState } from './BrandContext'
-import { loadBrand } from './loadBrand'
-import { readSavedBrand, saveBrand } from './storage'
 import { StartupError } from './StartupError'
 
-export { useBrand } from './BrandContext'
+// The load, offline fallback and saved look live in mobile-shared/brand, shared with the delivery app: fix them there, never in a copy here.
+export { useBrand } from '@dripfunnel/mobile-shared/brand'
 
-// Short, so a phone with no signal reaches the saved look in seconds, not after the client's own timeout.
-export const brandTimeoutMs = 5_000
+const createClient = async (host: string, timeoutMs: number) => createShopClient(host, await loadTokens(host), timeoutMs)
+const renderError = (retry: () => void) => <StartupError onRetry={retry} />
 
-SplashScreen.preventAutoHideAsync().catch(() => undefined)
-
-// The splash stays up until the store has answered, or failed to.
 export function BrandProvider({ children }: { children: ReactNode }) {
-  const mode = useMode()
-  const [state, setState] = useState<BrandState | null>(null)
-  const [failed, setFailed] = useState(false)
-  const [attempt, setAttempt] = useState(0)
-
-  useEffect(() => {
-    let current = true
-    const start = async () => {
-      const host = storeHost()
-      const client = createShopClient(host, await loadTokens(host), brandTimeoutMs)
-      const loaded = await loadBrand({ fetch: () => fetchBrand(client), readSaved: () => readSavedBrand(host), save: (brand) => saveBrand(host, brand) })
-      if (current) setState(loaded)
-    }
-    start().catch(() => current && setFailed(true))
-    return () => {
-      current = false
-    }
-  }, [attempt])
-
-  useEffect(() => {
-    if (state || failed) SplashScreen.hideAsync().catch(() => undefined)
-  }, [state, failed])
-
-  if (failed) {
-    return (
-      <StartupError
-        onRetry={() => {
-          setFailed(false)
-          setAttempt((n) => n + 1)
-        }}
-      />
-    )
-  }
-  if (!state) return null
   return (
-    <BrandContext.Provider value={state}>
-      <ThemeProvider theme={buildTheme(mode)}>{children}</ThemeProvider>
-    </BrandContext.Provider>
+    <SharedBrandProvider createClient={createClient} renderError={renderError}>
+      {children}
+    </SharedBrandProvider>
   )
 }

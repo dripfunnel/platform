@@ -1,4 +1,4 @@
-import type { Brand } from '../api/store'
+import type { Brand } from './store'
 
 export type BrandSource = 'network' | 'saved' | 'defaults'
 
