@@ -3079,6 +3079,8 @@
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "SUPPORT_READ_ONLY": "This support session is read-only until the store allows changes.",
         "BLOCKED_FOR_SUPPORT": "This can’t be changed in a support session.",
+        "UNAVAILABLE": "Images can’t be saved just now. Try again later.",
+        "INVALID_KIND": "That image can’t be used here.",
         "NOT_CONNECTED": "The image didn’t upload. Check your connection and try again."
       },
       "listingTitle": "Store listing",

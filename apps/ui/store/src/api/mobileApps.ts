@@ -48,7 +48,7 @@ export interface MobileAppsInput {
 export const saveMobileApps = async (input: MobileAppsInput): Promise<MobileAppAssets> =>
   (await query(`mutation S($input: MobileAppsInput!) { saveMobileApps(input: $input) { ${fields} } }`, z.object({ saveMobileApps: assetsSchema }), { input })).saveMobileApps
 
-export const uploadRefusals = ['TOO_LARGE', 'NOT_PNG', 'UNSUPPORTED_TYPE', 'WRONG_DIMENSIONS', 'HAS_TRANSPARENCY', 'PLAN_LIMIT', 'FORBIDDEN', 'READ_ONLY', 'SUPPORT_READ_ONLY', 'BLOCKED_FOR_SUPPORT', 'NOT_CONNECTED'] as const
+export const uploadRefusals = ['TOO_LARGE', 'NOT_PNG', 'UNSUPPORTED_TYPE', 'WRONG_DIMENSIONS', 'HAS_TRANSPARENCY', 'PLAN_LIMIT', 'FORBIDDEN', 'READ_ONLY', 'SUPPORT_READ_ONLY', 'BLOCKED_FOR_SUPPORT', 'UNAVAILABLE', 'INVALID_KIND', 'NOT_CONNECTED'] as const
 export type UploadRefusal = (typeof uploadRefusals)[number]
 
 /** The URL a stored image is read back from for the preview; it needs the acting store's headers, so it goes through AssetImage. */
