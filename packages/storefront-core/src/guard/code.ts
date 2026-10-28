@@ -449,12 +449,12 @@ const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
 }
 
 /** The code rules of ARCHITECTURE §3.4 over every .tsx file, and the content keys the theme's t() calls ask for. */
-export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext): { problems: Problem[]; keys: KeyUse[] } => {
+export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true): { problems: Problem[]; keys: KeyUse[] } => {
   const problems: Problem[] = []
   const keys: KeyUse[] = []
   if (code.size === 0) return { problems, keys }
   const { checker, program, sourceFile } = themeProgram(code)
-  const copied = brandCopied(context.brand)
+  const copied = storeData ? brandCopied(context.brand) : () => undefined
   const holds = new Map<ts.Type, boolean>()
   for (const file of code.keys()) {
     const sf = sourceFile(file)

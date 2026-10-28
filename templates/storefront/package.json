@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check": "dripfunnel-check && tsc -p tsconfig.json"
   },
   "dependencies": {
     "@dripfunnel/storefront-core": "workspace:*",

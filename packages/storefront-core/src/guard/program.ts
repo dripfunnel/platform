@@ -1,3 +1,5 @@
+/// <reference types="node" />
+import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
 /** Where the theme's files sit in the in-memory program; nothing is read from or written to it on disk. */
@@ -7,7 +9,9 @@ export const coreThemeModule = '@dripfunnel/storefront-core/theme'
 const cssModules = `${virtualRoot}/css-modules.d.ts`
 const cssModulesText = "declare module '*.module.css' { const classes: { readonly [name: string]: string }; export default classes }\n"
 
-const here = (relative: string) => decodeURIComponent(new URL(relative, import.meta.url).pathname)
+/** A file next to this one, as TypeScript names files: `URL.pathname` would give `/D:/…` on Windows (#974). */
+export const fileNear = (relative: string, base: string, windows = process.platform === 'win32') => fileURLToPath(new URL(relative, base), { windows }).replaceAll('\\', '/')
+const here = (relative: string) => fileNear(relative, import.meta.url)
 // Core's theme entry next to this file: the built .d.ts in a store's image, the source in core's own tests.
 const themeEntry = [here('../theme/index.d.ts'), here('../theme/index.ts')].find((f) => ts.sys.fileExists(f))
 const coreFolder = here('../')

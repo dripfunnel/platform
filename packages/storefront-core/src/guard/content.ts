@@ -49,9 +49,9 @@ const nearestLine = (read: Words, key: string): number => {
 }
 
 /** The content rules of ARCHITECTURE §3.4: every key in every language the store offers, and no invented claim or copied brand field. */
-export const checkContent = (files: ReadonlyMap<string, string>, keys: readonly KeyUse[], context: GuardContext): Problem[] => {
+export const checkContent = (files: ReadonlyMap<string, string>, keys: readonly KeyUse[], context: GuardContext, storeData = true): Problem[] => {
   const problems: Problem[] = []
-  const copied = brandCopied(context.brand)
+  const copied = storeData ? brandCopied(context.brand) : () => undefined
   const byName = new Map<string, Map<string, Words>>()
   for (const [path, text] of files) {
     const [, locale, name] = contentPath.exec(path) ?? []
