@@ -7,7 +7,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectDefaultAiKey } from '#db/scoped/partnerCredentials'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectSealedStoreKey } from '#db/scoped/storeAiAccount'
-import { AiDeclined, anthropicChat, anthropicProvider, designerModel, openaiChat, openaiResponsesChat, capabilityOf, costOf, modelsOf, GatewayError, gatewayProviders, withRetry, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
+import { AiDeclined, anthropicChat, anthropicOAuthDesignerModel, anthropicOAuthDesignerProvider, anthropicProvider, designerModel, openaiChat, openaiResponsesChat, capabilityOf, costOf, modelsOf, GatewayError, gatewayProviders, withRetry, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
 import { allowanceFor } from '#saas/entitlements/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
 import type { AiOwner } from '#db/scoped/aiOauth'
@@ -22,15 +22,15 @@ export const maxBodyBytes = 400_000
 const ownKeyMode = 0
 const monthStart = (at: Date) => new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1))
 
-const message = z.strictObject({ role: z.enum(['user', 'assistant']), content: z.string().min(1).max(maxContentChars) })
+const message = z.strictObject({ role: z.enum(['system', 'user', 'assistant']), content: z.string().min(1).max(maxContentChars) })
 
 export const chatInput = z.strictObject({
   provider: z.enum(gatewayProviders),
   model: z.string().min(1).max(100),
-  system: z.string().max(maxContentChars).optional(),
+  system: z.union([z.string().max(maxContentChars), z.array(z.strictObject({ type: z.literal('text'), text: z.string().min(1).max(maxContentChars) }))]).optional(),
   messages: z.array(message).min(1).max(maxMessages),
   temperature: z.number().finite().optional(),
-  maxTokens: z.number().int().min(1).max(64_000).default(1024),
+  maxTokens: z.number().int().min(1).max(64_000).optional(),
   stream: z.boolean().default(false),
   /** Provider-specific parameters; the adapter refuses the ones it doesn't take. */
   options: z.record(z.string().max(40), z.unknown()).optional(),
@@ -160,7 +160,7 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
     ...(input.system !== undefined ? { system: input.system } : {}),
     messages: input.messages,
     ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
-    maxTokens: input.maxTokens,
+    maxTokens: input.maxTokens ?? capabilityOf(input.provider, input.model)?.maxOutputTokens ?? 64_000,
     ...(input.options !== undefined ? { options: input.options } : {}),
   })
 
@@ -169,7 +169,8 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
     const model = capabilityOf(input.provider, input.model)
     if (!model) return { ok: false as const, reason: 'MODEL_NOT_FOUND' as const }
     const [low, high] = model.temperature
-    if (input.maxTokens > model.maxOutputTokens || (input.temperature !== undefined && (input.temperature < low || input.temperature > high))) return { ok: false as const, reason: 'INVALID_INPUT' as const }
+    if (!input.messages.some((m) => m.role === 'user')) return { ok: false as const, reason: 'INVALID_INPUT' as const }
+    if ((input.maxTokens ?? 0) > model.maxOutputTokens || (input.temperature !== undefined && (input.temperature < low || input.temperature > high))) return { ok: false as const, reason: 'INVALID_INPUT' as const }
     return { ok: true as const, model }
   }
 
@@ -251,6 +252,7 @@ const credentialFor = async (deps: DesignerDeps, billed: Billed) => {
 /** The studio's models on the account that pays, the default first; none when no account can be used. */
 export const designerModelsFor = async (deps: DesignerDeps, billed: Billed): Promise<readonly string[]> => {
   const found = await credentialFor(deps, billed)
+  if (found?.provider === 'anthropic' && found.auth === 'oauth') return [anthropicOAuthDesignerModel, ...modelsOf('anthropic').filter((model) => model !== anthropicOAuthDesignerModel)]
   return found ? modelsOf(found.provider) : []
 }
 
@@ -261,8 +263,10 @@ export const designerModelsFor = async (deps: DesignerDeps, billed: Billed): Pro
 export const designerAiFor = async (deps: DesignerDeps, billed: Billed, requested: string | null = null): Promise<DesignerAi | null> => {
   const found = await credentialFor(deps, billed)
   if (!found) return null
-  const model = requested ?? (found.provider === 'anthropic' ? designerModel : openaiDesignerModel)
+  const anthropicOAuth = found.provider === 'anthropic' && found.auth === 'oauth'
+  const model = requested ?? (anthropicOAuth ? anthropicOAuthDesignerModel : found.provider === 'anthropic' ? designerModel : openaiDesignerModel)
   const capability = capabilityOf(found.provider, model)
+  if (anthropicOAuth) return capability ? anthropicOAuthDesignerProvider(found.key, model) : null
   if (!capability) return null
   if (found.provider === 'anthropic' && found.auth === 'api_key') return anthropicProvider(found.key, model)
   const chat = (deps.adapters ?? realAdapters)(found.provider, found.key, found.auth, found.accountId ?? null)

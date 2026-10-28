@@ -194,7 +194,8 @@ without notice. An API key is the supported way for both.
 - **Anthropic (Claude): Claude Code's public PKCE client** (`9d1c250a-…`). Authorize at `claude.ai/oauth/authorize` with
   `code=true`, redirect `https://platform.claude.com/oauth/code/callback` (it shows `code#state`), scopes
   `user:profile user:inference`; token at `api.anthropic.com/v1/oauth/token` as JSON; calls use the SDK with `authToken` and the
-  `anthropic-beta: oauth-2025-04-20` header. **Anthropic's terms do not allow this** (no Claude.ai login or Free, Pro or Max
+  `anthropic-beta: oauth-2025-04-20` header. The storefront designer lists `claude-haiku-4-5` first for a sign-in and streams a Messages
+  call at the model's maximum output, with reference images as standard image blocks. **Anthropic's terms do not allow this** (no Claude.ai login or Free, Pro or Max
   credentials in a third-party product: <https://code.claude.com/docs/en/legal-and-compliance>). It is built on the user's decision,
   not Anthropic's authorisation; revisit if Anthropic objects.
 - **OpenAI (ChatGPT): the Codex CLI's public PKCE client** (`app_EMoamEEZ…`), redirect `http://localhost:1455/auth/callback`

@@ -8,7 +8,7 @@ import { pgArray, withSystemScope } from '#db/scoped/index'
 import { upsertStoreAiAccount } from '#db/scoped/storeAiAccount'
 import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
 import { activityLog } from '#saas/activity/index'
-import { createAiGateway, designerAiFor, type ChatInput } from '#saas/aiGateway/index'
+import { chatInput, createAiGateway, designerAiFor, type ChatInput } from '#saas/aiGateway/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -201,8 +201,33 @@ describe('validation before any provider or budget', () => {
     const g = await gateway(t.storeA2)
     expect(g.validate(input({ model: 'claude-made-up' }))).toEqual({ ok: false, reason: 'MODEL_NOT_FOUND' })
     expect(g.validate(input({ maxTokens: 64_000, model: 'claude-haiku-5-5' }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    expect(g.validate(input({ messages: [{ role: 'system', content: 'Only a system turn' }] }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    expect(g.validate(input({ messages: [{ role: 'system', content: 'S' }, { role: 'assistant', content: 'A' }] }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    expect(g.validate({ ...input(), maxTokens: undefined, model: 'claude-haiku-5-5' }).ok).toBe(true)
+    expect(g.validate(input({ maxTokens: 32_001, model: 'claude-haiku-5-5' }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
     expect(g.validate(input({ temperature: 1.5 }))).toEqual({ ok: false, reason: 'INVALID_INPUT' })
     expect(g.validate(input({ provider: 'openai', model: 'gpt-5', temperature: 1.5 })).ok).toBe(true)
+  })
+})
+
+describe('the request body', () => {
+  it('refuses an empty system text block, which Anthropic would reject', () => {
+    const body = { provider: 'anthropic', model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'Hi' }] }
+    expect(chatInput.safeParse({ ...body, system: [{ type: 'text', text: '' }] }).success).toBe(false)
+    expect(chatInput.safeParse({ ...body, system: [{ type: 'text', text: 'ok' }] }).success).toBe(true)
+  })
+})
+
+describe('the request the provider receives', () => {
+  it("asks for the model's maximum output when maxTokens is omitted, and passes system blocks and system turns through", async () => {
+    await entitle(t.storeA1, 1, 5)
+    await partnerProfile(t.partnerA, 'anthropic', partnerKey)
+    calls.length = 0
+    const bare = { ...input(), maxTokens: undefined }
+    const system = [{ type: 'text' as const, text: 'Block' }]
+    const messages = [{ role: 'system' as const, content: 'Turn' }, { role: 'user' as const, content: 'Hi' }]
+    expect(await (await gateway()).complete({ ...bare, system, messages })).toMatchObject({ ok: true })
+    expect(calls[0]?.request).toMatchObject({ maxTokens: 64_000, system, messages })
   })
 })
 

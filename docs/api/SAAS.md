@@ -855,9 +855,16 @@ One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on th
 - **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
   id; the prompt column is empty and no answer is kept. The Store API's per-minute and per-month call limits (ACCESS §5.6)
   apply as to any key.
-- **Differences between the providers.** Both take a system message and turns; Claude takes the system apart from the
-  messages and caps temperature at 1, OpenAI at 2. Tool calling, structured outputs and images are **not** in the unified shape
-  yet: a provider-only feature goes through `options` where the adapter lists it, and is refused otherwise.
+- **Differences between the providers.** Both take a system message and turns; `system` may be text or native text blocks, and
+  a `role: system` turn is accepted. A request with no `user` turn is refused with `INVALID_INPUT`. Claude moves every system
+  turn into its top-level `system` field after any supplied system text or blocks, so a system turn placed after a user turn is
+  read before the conversation, not at its place in it; OpenAI-compatible Chat Completions keeps them as system messages in
+  order. Claude takes the system apart from the messages and caps temperature at 1, OpenAI at 2. Tool calling, structured
+  outputs and images are **not** in the unified shape yet: a provider-only feature goes through `options` where the adapter
+  lists it, and is refused otherwise.
+- **Output size:** `maxTokens` is optional and defaults to the model's maximum output; above the maximum it is refused with
+  `INVALID_INPUT`. The allowance counts calls, so a bare call with the default is not charged more against it; only its tokens
+  and cost are recorded.
 - **Streaming:** `text/event-stream` with `text` events (`{text}`) then one `end` (`{provider, model, finish, usage}`), or an
   `error` (`{code}`); closing the connection cancels the call and gives the plan's prompt back.
 - **Not OpenAI-compatible:** the path and body are DripFunnel's own. An OpenAI-compatible layer is a card of its own.

@@ -10,7 +10,7 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { anthropicOAuth, createOAuthProviders, GatewayError, OAuthError, type ChatAnswer, type ChatProvider, type OAuthProviders, type OAuthTokens } from '#integrations/ai/index'
 import { activityLog } from '#saas/activity/index'
-import { createAiGateway, designerAiFor } from '#saas/aiGateway/index'
+import { createAiGateway, designerAiFor, designerModelsFor } from '#saas/aiGateway/index'
 import { createAiOAuth, sealTokens } from '#saas/aiOAuth/index'
 import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -219,6 +219,14 @@ describe('using a signed-in account', () => {
     const { pasted } = await signIn('owner')
     await finish('owner', pasted)
   }
+  const connectedClaude = async () => {
+    const keyEnc = await sealTokens(box, { accessToken: 'claude-access', refreshToken: 'claude-refresh', expiresAt: now.getTime() + 3_600_000, accountLabel: null, accountId: null })
+    await withSystemScope(db.sql, async (tx) => {
+      await tx`delete from store_ai_account where store_id = ${t.storeA1}`
+      await tx`insert into store_ai_account (store_id, provider, key_enc, key_prefix, status, connected_by, auth_type)
+        values (${t.storeA1}, 'anthropic', ${keyEnc}, '', 'ok', ${people.owner}, 'oauth')`
+    })
+  }
   const expireTokens = async () => {
     const sealed = await sealTokens(box, { accessToken: 'stale', refreshToken: 'refresh-old', expiresAt: now.getTime() - 1000, accountLabel: null, accountId: null })
     await db.sql`update store_ai_account set key_enc = ${sealed}, status = 'ok' where store_id = ${t.storeA1}`
@@ -342,6 +350,7 @@ describe('using a signed-in account', () => {
     })
   const studio = (adapterToken: string[]) =>
     designerAiFor({ sql: db.sql, context: { caller: { kind: 'api-key', keyId: crypto.randomUUID(), createdByUserId: people.owner }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }, secrets: box, fallbackKey: undefined, oauth: oauth(), adapters: (_p, key, auth, accountId) => (adapterToken.push(`${auth}:${key}`), stubChat(key, accountId)) }, 'own_key')
+  const designerDeps = () => ({ sql: db.sql, context: { caller: { kind: 'api-key' as const, keyId: crypto.randomUUID(), createdByUserId: people.owner }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }, secrets: box, fallbackKey: undefined, oauth: oauth() })
   const ask = { system: 's', text: 'hi', images: [] }
   const ownKeyPlan = async () => {
     await db.sql`delete from plan_entitlement where plan_id = (select plan_id from store where id = ${t.storeA1}) and key in ('ai_mode', 'ai_prompts')`
@@ -358,6 +367,15 @@ describe('using a signed-in account', () => {
     expect(used[0]).toMatch(/^oauth:access-\d+$/)
     expect(await gateway(used).complete(call)).toEqual({ ok: false, reason: 'AI_NOT_CONNECTED' })
     expect(used).toHaveLength(1)
+  })
+
+  it('offers the reference Claude model for an Anthropic OAuth account', async () => {
+    await connectedClaude()
+    const models = await designerModelsFor(designerDeps(), 'own_key')
+    expect(models[0]).toBe('claude-haiku-4-5')
+    expect(models).toContain('claude-sonnet-5-5')
+    expect(await designerAiFor(designerDeps(), 'own_key', 'claude-sonnet-5-5')).not.toBeNull()
+    expect(await designerAiFor(designerDeps(), 'own_key', 'claude-made-up')).toBeNull()
   })
 
   it('gives the studio no model, without a model call, when the sign-in has expired or the provider is down', async () => {

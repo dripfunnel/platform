@@ -1,4 +1,4 @@
-export { AiDeclined, anthropicProvider, checkAnthropicKey, costCents, designerModel, localAiProvider, type AiAnswer, type AiCall, type AiImage, type AiProvider, type KeyCheck } from './provider'
+export { AiDeclined, anthropicOAuthDesignerModel, anthropicOAuthDesignerProvider, anthropicProvider, checkAnthropicKey, costCents, designerModel, localAiProvider, type AiAnswer, type AiCall, type AiImage, type AiProvider, type KeyCheck } from './provider'
 export { anthropicChat } from './anthropicChat'
 export { openaiChat, openaiOptions } from './openaiChat'
 export { gatewayProviders, gatewayErrorCodes, GatewayError, transientCodes, type ChatAnswer, type ChatChunk, type ChatMessage, type ChatProvider, type ChatRequest, type GatewayErrorCode, type GatewayProvider } from './gateway'
