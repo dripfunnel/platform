@@ -83,13 +83,16 @@ const provider: AiProvider = {
 let aiMode: 'plan' | 'none' = 'plan'
 /** The studio's RPC fails before it reaches the model (a Durable Object fault). */
 let studioDown = false
+let askedModel: string | null = null
 /** The world's design deps; a test sets the screenshotter, which sits behind the SSRF check (docs/ARCHITECTURE.md §7). */
 const design: {
-  ai: (billedTo: 'plan' | 'own_key') => AiProvider | null
+  ai: (billedTo: 'plan' | 'own_key', context: unknown, model: string | null) => AiProvider | null
+  models: () => readonly string[]
   screenshots: Screenshotter | null
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
 } = {
-  ai: (billedTo) => (aiMode === 'plan' && billedTo === 'plan' ? provider : null),
+  ai: (billedTo, _context, model) => ((askedModel = model), aiMode === 'plan' && billedTo === 'plan' ? provider : null),
+  models: () => ['claude-opus-5-5', 'claude-haiku-5-5'],
   screenshots: null,
   readAsset: null,
 }
@@ -101,7 +104,7 @@ const lead = (words: string) => ({ path: 'content/en/pages.json', content: enPag
 const refusedPage = { path: 'src/theme/pages/HomePage.tsx', content: "export const HomePage = () => { fetch('/x'); return null }\n" }
 
 const ask = (who: Who, text: string, extra: Record<string, unknown> = {}) =>
-  w.gql(who, 'mutation A($text: String!, $image: ID, $site: String) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $site, page: "home", device: "desktop") { outcome message { id role text changed page canUndo } } }', { text, ...extra })
+  w.gql(who, 'mutation A($text: String!, $image: ID, $site: String, $model: String) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $site, model: $model, page: "home", device: "desktop") { outcome message { id role text changed page canUndo } } }', { text, ...extra })
 const draft = async (storeId: string) => (await db.sql<{ head_commit: string; preview_deploy_ref: string; commits: string[] }[]>`select head_commit, preview_deploy_ref, commits from design_draft where store_id = ${storeId}`)[0] ?? null
 const usage = async (storeId: string) => (await db.sql<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = 'ai_prompts'`)[0]?.used ?? 0
 const texts = async (who: Who, locale = 'en-IN') => (await w.gql(who, 'query T($l: String!) { designText(page: "home", locale: $l) { key text } }', { l: locale })).data?.['designText'] as { key: string; text: string }[] | undefined
@@ -367,5 +370,17 @@ describe('the studio session', () => {
     expect(await sessions()).toBe(1)
     await db.sql`delete from user_session where user_id = ${w.people.manager}`
     expect(await sessions()).toBe(0)
+  })
+})
+
+describe('choosing the model', () => {
+  it("runs on the model the Owner picked from the account's list, and refuses one it doesn't list", async () => {
+    script.answers = [reply([], 'Nothing to change.')]
+    await ask('owner', 'Keep it as it is', { model: 'claude-haiku-5-5' })
+    expect(askedModel).toBe('claude-haiku-5-5')
+    const before = await usage(t.storeA1)
+    expect((await ask('owner', 'Keep it as it is', { model: 'gpt-5' })).code).toBe('INVALID_INPUT')
+    expect(await usage(t.storeA1)).toBe(before)
+    expect((await w.gql('owner', 'query { studioSession { models } }')).data?.['studioSession']).toMatchObject({ models: ['claude-opus-5-5', 'claude-haiku-5-5'] })
   })
 })

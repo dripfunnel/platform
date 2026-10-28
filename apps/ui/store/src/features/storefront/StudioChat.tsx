@@ -7,11 +7,28 @@ import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.studio.chat
 const imageTypes = ['image/png', 'image/jpeg', 'image/webp']
+const modelKey = 'df-studio-model'
+const readModel = (): string | null => {
+  try {
+    return localStorage.getItem(modelKey)
+  } catch {
+    return null
+  }
+}
+const writeModel = (model: string) => {
+  try {
+    localStorage.setItem(modelKey, model)
+  } catch {
+    // A private window keeps the choice for this visit only.
+  }
+}
 
 export interface ChatRequest {
   text: string
   imageAssetId: string | null
   sampleUrl: string | null
+  /** The model picked in the composer; null where there is no choice. */
+  model: string | null
 }
 
 export interface StudioChatProps {
@@ -36,6 +53,8 @@ export interface StudioChatProps {
   notice: ReactNode
   /** "AI requests: N left" or "On your own AI key". */
   aiLine: string | null
+  /** What the store's AI account can run, the default first; empty hides the picker. */
+  models: readonly string[]
 }
 
 interface Attached {
@@ -44,7 +63,7 @@ interface Attached {
 }
 
 /** "Design with AI" (PortalStorefront › studio): the conversation, suggestions and the composer with an image and a website. */
-export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, error, api, onEarlier, onUndo, onSend, notice, aiLine }: StudioChatProps) => {
+export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, error, api, onEarlier, onUndo, onSend, notice, aiLine, models }: StudioChatProps) => {
   const [prompt, setPrompt] = useState('')
   const [image, setImage] = useState<Attached | null>(null)
   const [site, setSite] = useState<string | null>(null)
@@ -84,10 +103,13 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
     setSiteIn('')
     setSiteErr(null)
   }
+  const [picked, setPicked] = useState(() => readModel())
+  const model = picked && models.includes(picked) ? picked : (models[0] ?? null)
+  const pick = (next: string) => (setPicked(next), writeModel(next))
   const ready = !locked && (image === null || image.assetId !== null) && (prompt.trim() !== '' || image !== null || site !== null)
   const send = (text: string, withAttached: boolean) => {
     if (locked) return
-    const request = { text: text || words.attachedOnly, imageAssetId: withAttached ? (image?.assetId ?? null) : null, sampleUrl: withAttached ? site : null }
+    const request = { text: text || words.attachedOnly, imageAssetId: withAttached ? (image?.assetId ?? null) : null, sampleUrl: withAttached ? site : null, model }
     void onSend(request).then((taken) => {
       if (!taken || !withAttached) return
       setPrompt('')
@@ -219,6 +241,15 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
                   <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
                 </svg>
               </button>
+              {models.length > 1 && (
+                <select className="df-studio-model" aria-label={words.model} value={model ?? ''} disabled={locked} onChange={(e) => pick(e.target.value)}>
+                  {models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              )}
               <span className="df-studio-hint">{words.hint}</span>
               <button type="button" className="df-button df-button--primary df-studio-send" disabled={!ready} onClick={() => send(prompt.trim(), true)}>
                 {locked && busyLine ? words.sending : words.send}

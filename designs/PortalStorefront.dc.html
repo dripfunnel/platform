@@ -232,6 +232,8 @@
     </div>
   </sc-if>
 
+  <sc-if value="{{ tabAi }}" hint-placeholder-val="{{ false }}"><dc-import name="SetAi" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+
   <sc-if value="{{ tabSettings }}" hint-placeholder-val="{{ false }}">
     <div style="display:grid;grid-template-columns:{{ setCols }};gap:16px;align-items:start;">
       <div style="display:flex;flex-direction:column;gap:16px;min-width:0;">
@@ -730,8 +732,8 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       roText: c.readOnly ? 'Your store is view-only until the payment goes through. Your site stays live.' : 'You can look, but only the store owner can change the storefront. Ask Farhan if something needs changing.',
       liveLine: hasSite ? `${host} · version ${sf.live} is live · ${sf.site.name} template` : 'Not published yet',
       studioBtn: sf.draft ? 'Continue in studio' : 'Open studio',
-      tabs: [['design', 'Design'], ['settings', 'Site settings']].map(([k, l]) => ({ label: l, on: s.tab === k, fw: s.tab === k ? '700' : '600', fg: s.tab === k ? '#0A2A4A' : '#5A6472', bd: s.tab === k ? '#0A2A4A' : 'transparent', onClick: () => this.setState({ tab: k }) })),
-      tabDesign: s.tab === 'design', tabSettings: s.tab === 'settings',
+      tabs: [['design', 'Design'], ['settings', 'Site settings'], ...(app.caps.isOwner ? [['ai', 'AI']] : [])].map(([k, l]) => ({ label: l, on: s.tab === k, fw: s.tab === k ? '700' : '600', fg: s.tab === k ? '#0A2A4A' : '#5A6472', bd: s.tab === k ? '#0A2A4A' : 'transparent', onClick: () => this.setState({ tab: k }) })),
+      tabDesign: s.tab === 'design', tabSettings: s.tab === 'settings', tabAi: s.tab === 'ai' && app.caps.isOwner,
       draftNotice: !!sf.draft && hasSite, draftText: 'You’ve changed the design in the studio. Shoppers still see the version below until you publish.',
       rollNotice: !!sf.rolledBack && hasSite, rollText: sf.rolledBack ? `We put version ${sf.rolledBack.back} back: your new version broke the checkout on phones. We’re fixing it.` : '',
       ovLabel: hasSite ? `Live now · version ${sf.live}` : '', ovDevs: [['desktop', 'Desktop'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, ...seg(s.ovDevice === k), onClick: () => this.setState({ ovDevice: k }) })), ov,

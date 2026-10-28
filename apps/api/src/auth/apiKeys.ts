@@ -58,7 +58,9 @@ export const hashApiKey = (secret: string): Promise<string> => hashSessionId(sec
  * What a key or an app may be granted: the permissions of the Store API fields open to them (`machine` in
  * apis/graphql/scope.ts), never a capability. The structural test holds this list to those fields.
  */
-export const machineScopes = ['catalog.read', 'stock.read', 'orders.read', 'customers.read'] as const satisfies readonly StorePermission[]
+export const machineScopes = ['catalog.read', 'stock.read', 'orders.read', 'customers.read', 'ai.run'] as const satisfies readonly StorePermission[]
+/** Scopes used by a REST endpoint on the portal host instead of a GraphQL field (ACCESS.md §5.6; `/api/v1/*`, #950). */
+export const restMachineScopes = ['ai.run'] as const satisfies readonly (typeof machineScopes)[number][]
 export type MachineScope = (typeof machineScopes)[number]
 
 export const isMachineScope = (value: string): value is MachineScope => (machineScopes as readonly string[]).includes(value)

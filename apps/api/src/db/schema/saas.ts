@@ -93,6 +93,8 @@ export interface PartnerCredentialRow {
   key_prefix: string
   status: 'untested' | 'ok' | 'rejected'
   last_tested_at: Date | null
+  auth_type: 'api_key' | 'oauth'
+  account_label: string | null
   created_by: string
   created_at: Date
 }

@@ -8,12 +8,12 @@ import { query } from './client'
 export const studioStates = ['starting', 'queued', 'ready', 'busy', 'unavailable'] as const
 export type StudioState = (typeof studioStates)[number]
 
-const sessionSchema = z.object({ state: z.enum(studioStates), place: z.number().int().nullable(), session: z.string(), frameUrl: z.string(), access: z.enum(['change', 'view']), expiresAt: z.string() })
+const sessionSchema = z.object({ state: z.enum(studioStates), place: z.number().int().nullable(), session: z.string(), models: z.array(z.string()), frameUrl: z.string(), access: z.enum(['change', 'view']), expiresAt: z.string() })
 export type StudioSession = z.infer<typeof sessionSchema>
 
 /** Opens the studio, or with a live `session` of the caller's renews it and reads where the sandbox stands. */
 export const loadStudioSession = async (session: string | null): Promise<StudioSession> =>
-  (await query('query S($s: String) { studioSession(session: $s) { state place session frameUrl access expiresAt } }', z.object({ studioSession: sessionSchema }), { s: session })).studioSession
+  (await query('query S($s: String) { studioSession(session: $s) { state place session models frameUrl access expiresAt } }', z.object({ studioSession: sessionSchema }), { s: session })).studioSession
 
 /** Refused with SESSION_ENDED once the seat no longer has the studio (AI-STUDIO §8). */
 export const renewStudioSession = async (session: string): Promise<void> => {
@@ -46,6 +46,8 @@ export interface DesignRequest {
   text: string
   imageAssetId: string | null
   sampleUrl: string | null
+  /** One of the studio session's `models`; null where the merchant has no choice. */
+  model: string | null
   page: string
   device: StudioDevice
 }
@@ -54,9 +56,9 @@ export interface DesignRequest {
 export const askDesign = async (input: DesignRequest): Promise<string> =>
   (
     await query(
-      'mutation A($text: String!, $image: ID, $sample: String, $page: String!, $device: String!) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $sample, page: $page, device: $device) { outcome } }',
+      'mutation A($text: String!, $image: ID, $sample: String, $model: String, $page: String!, $device: String!) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $sample, model: $model, page: $page, device: $device) { outcome } }',
       z.object({ askDesign: z.object({ outcome: z.string() }) }),
-      { text: input.text, image: input.imageAssetId, sample: input.sampleUrl, page: input.page, device: input.device },
+      { text: input.text, image: input.imageAssetId, sample: input.sampleUrl, model: input.model, page: input.page, device: input.device },
     )
   ).askDesign.outcome
 

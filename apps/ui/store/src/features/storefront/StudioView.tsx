@@ -5,7 +5,7 @@ import type { StorefrontMeters, StorefrontOverview, StorefrontTemplate } from '.
 import { studioDevices, type DesignMessage, type PublishRun, type StudioDevice, type StudioPages } from '../../api/studio'
 import { currentBrand } from '../../brand/current'
 import { fill, formatCount, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { refusalIn } from '../common/refusal'
 import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
@@ -53,6 +53,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const frameRef = useRef<HTMLIFrameElement>(null)
   const phone = usePhone()
   const [session, setSession] = useState<Session | null>(null)
+  const [models, setModels] = useState<readonly string[]>([])
   const [sandbox, setSandbox] = useState<Sandbox>({ kind: 'opening' })
   const [opened, setOpened] = useState(0)
   const [chat, setChat] = useState<DesignMessage[]>([])
@@ -116,6 +117,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
           if (!current) return
           const origin = frameOriginOf(s.frameUrl, window.location.origin)
           if (!origin) return setSandbox({ kind: 'failed', text: words.sandbox.unavailable })
+          setModels(s.models)
           setSession((was) => (was?.id === s.session ? was : { id: s.session, frameUrl: s.frameUrl, origin }))
           const next = sandboxOf(s.state, s.place)
           setSandbox(next)
@@ -448,6 +450,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             onUndo={undo}
             onSend={send}
             notice={notice}
+            models={models}
             aiLine={!usage ? null : usage.ownKey ? words.usageOwn : usage.aiPromptsAllowed === null ? null : fill(words.usageLine, { left: formatCount(Math.max(0, usage.aiPromptsAllowed - usage.aiPromptsUsed)) })}
           />
         </div>

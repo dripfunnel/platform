@@ -3,6 +3,7 @@ import type { StoreRole } from '#auth/storePermissions'
 import { isUuid } from '#core/ids'
 import { logEvent, failureCode } from '#core/log'
 import { toMajor } from '#core/money'
+import type { TenantContext } from '#core/tenancy'
 import { insertDesignMessage, markUndone, selectBriefStore, selectDesignChat, selectLatestChange, selectMessage, selectProductSample, selectRecentRequests, type MessageRow } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
@@ -26,7 +27,9 @@ import { designAudit, designErrors, designNotes } from './words'
 export interface StudioDeps extends DesignerDeps {
   role: StoreRole
   /** The designer's provider for who pays: the plan's (the partner's key) or the merchant's own; null when there is none. */
-  ai: (billedTo: 'plan' | 'own_key') => AiProvider | null | Promise<AiProvider | null>
+  ai: (billedTo: 'plan' | 'own_key', context: TenantContext, model: string | null) => AiProvider | null | Promise<AiProvider | null>
+  /** The models that account can run, the default first; empty where the model isn't the merchant's to pick. */
+  models: (billedTo: 'plan' | 'own_key', context: TenantContext) => readonly string[] | Promise<readonly string[]>
   screenshots: Screenshotter | null
   lookup: DnsLookup | null
   /** A merchant image's bytes from the assets bucket, by its row's key; null when the bucket isn't bound. */
@@ -35,9 +38,9 @@ export interface StudioDeps extends DesignerDeps {
   previewDomain: string | null
 }
 
-export type AskInput = { text: string; imageAssetId: string | null; sampleUrl: string | null; page: string; device: Device }
+export type AskInput = { text: string; model: string | null; imageAssetId: string | null; sampleUrl: string | null; page: string; device: Device }
 export type AskAnswer = { outcome: 'changed' | 'unchanged' | 'refused' | 'failed'; message: MessageRow }
-export type StudioSessionView = StudioState & { session: string; frameUrl: string; access: 'change' | 'view'; expiresAt: Date }
+export type StudioSessionView = StudioState & { session: string; models: readonly string[]; frameUrl: string; access: 'change' | 'view'; expiresAt: Date }
 export type TextEntry = { key: string; text: string }
 
 const maxRequest = 2000
@@ -91,7 +94,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const opened = existing && renewed ? { id: existing, access, expiresAt: renewed } : await openStudioSession(sql, context, deps.role, now())
     if (!opened) return { ok: false, reason: 'NOT_FOUND' }
     const state = await studio.status(storeId)
-    return { ok: true, value: { ...state, session: opened.id, frameUrl: `https://${key.slug}-preview.${deps.previewDomain}/__studio/${opened.id}/`, access: opened.access, expiresAt: opened.expiresAt } }
+    return { ok: true, value: { ...state, session: opened.id, models: await deps.models(await billing(), context), frameUrl: `https://${key.slug}-preview.${deps.previewDomain}/__studio/${opened.id}/`, access: opened.access, expiresAt: opened.expiresAt } }
   }
 
   /** `renewStudioSession`: the seat re-checked; a refused renewal ends the session (AI-STUDIO §3 step 6, §8). */
@@ -167,7 +170,8 @@ export const createStudioService = (deps: StudioDeps) => {
     if (text.length === 0 || text.length > maxRequest || input.page.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
     if (input.sampleUrl !== null && input.sampleUrl.length > maxUrl) return { ok: false, reason: 'INVALID_URL' }
     const billedTo = await billing()
-    const provider = await deps.ai(billedTo)
+    if (input.model !== null && !(await deps.models(billedTo, context)).includes(input.model)) return { ok: false, reason: 'INVALID_INPUT' }
+    const provider = await deps.ai(billedTo, context, input.model)
     if (!provider) return { ok: false, reason: 'AI_NOT_CONNECTED' }
     if (billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     const image = input.imageAssetId ? await imageOf(input.imageAssetId) : null

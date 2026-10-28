@@ -98,6 +98,8 @@ const configSchema = z.object({
   // The designer's model key on plans that include AI (THIRD-PARTY-ACCESS.md §2.6): a Worker secret standing in for the
   // partner's own key until partner credentials exist (#275). Unset, a request on the plan answers AI_NOT_CONNECTED.
   AI_PROVIDER_KEY: z.string().regex(/^sk-ant-[A-Za-z0-9_-]{20,}$/, 'AI_PROVIDER_KEY must be an Anthropic API key').optional(),
+  // Claude and ChatGPT sign-in (THIRD-PARTY-ACCESS §2.6): off unless 1, so it can be switched off without a deploy of code.
+  AI_SIGN_IN: z.literal('1').optional(),
   // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
   AI_LOCAL: z.literal('1').optional(),
   // A sample site's screenshot for the designer (storefront ARCHITECTURE §6.2): Cloudflare Browser Rendering, both or none.

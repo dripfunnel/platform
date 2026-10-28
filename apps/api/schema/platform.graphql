@@ -362,6 +362,7 @@ type Mutation {
   addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
   addPartnerAiKey(key: String!, name: String!, provider: String!): PartnerAiKeyResult
   addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
+  beginPartnerAiOauth(id: ID, provider: String!): PartnerAiKeyResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   changeTeamRole(id: ID!, role: String!): TeamResult
   createPlan(input: PlanInput!): PlanResult
@@ -371,6 +372,7 @@ type Mutation {
   exportReport(filter: ReportFilterInput, tab: String!): ReportExportResult
   exportStores(filter: StoreFilterInput): StoresExportResult
   extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
+  finishPartnerAiOauth(response: String!): PartnerAiKeyResult
   inviteTeamMember(email: String!, name: String!, role: String!): TeamResult
   makePlanLive(id: ID!): PlanResult
   publishBranding(input: BrandingInput!): PublishBrandingResult
@@ -497,6 +499,8 @@ type PartnerAddress {
 }
 
 type PartnerAiKey {
+  accountLabel: String
+  authType: String
   id: ID
   isDefault: Boolean
   keyPrefix: String
@@ -511,6 +515,13 @@ type PartnerAiKeyResult {
   ok: Boolean
   reason: String
   status: String
+  url: String
+}
+
+type PartnerAiSignIn {
+  available: Boolean
+  provider: String
+  reason: String
 }
 
 type PartnerCompany {
@@ -845,6 +856,7 @@ type Query {
   nextPayout: NextPayout
   onboarding: Onboarding
   partnerAiKeys: [PartnerAiKey!]
+  partnerAiSignIn: [PartnerAiSignIn!]
   partnerCompany: PartnerCompany
   partnerDomains: PartnerDomains
   partnerInvoices(after: String, before: String, first: Int): PartnerInvoicesPage
