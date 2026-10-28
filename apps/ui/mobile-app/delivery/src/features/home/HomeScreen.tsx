@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { acceptOffer, declineOffer, fetchCurrentDelivery, fetchOffers, type CurrentDelivery, type Offer } from '../../api/dispatch'
 import { retime } from '../../location/tracking'
@@ -68,6 +69,7 @@ export function HomeScreen() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [moreFailed, setMoreFailed] = useState(false)
   const lastPickedUp = useRef(pickedUp)
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   useFocusEffect(
     useCallback(() => {
@@ -76,6 +78,7 @@ export function HomeScreen() {
       pushPermission().then((permission) => setNotificationsOff(permission === 'denied'), () => undefined)
     }, [reload, online.recheck]),
   )
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
   useEffect(() => {
     if (refresh > 0) reload()
   }, [refresh, reload])
@@ -106,10 +109,10 @@ export function HomeScreen() {
 
   // Taken says so and goes; any other refusal stays on its card in words.
   const onRefused = (offer: Offer) => (error: unknown) => {
-    const code = error instanceof Error && 'code' in error ? String((error as { code: unknown }).code) : 'UNKNOWN'
+    const code = isApiError(error) ? error.code : 'UNKNOWN'
     if (code === 'TAKEN') {
       setTaken((now) => new Set(now).add(offer.id))
-      setTimeout(() => setGone((now) => new Set(now).add(offer.id)), takenStaysMs)
+      timers.current.push(setTimeout(() => setGone((now) => new Set(now).add(offer.id)), takenStaysMs))
     } else setRefused({ id: offer.id, code })
     throw error
   }
@@ -138,6 +141,8 @@ export function HomeScreen() {
     if (state.status === 'loading') return <Loading />
     if (state.status === 'offline') return <StateMessage title={t('states.offline.title')} body={t('home.offlineBody')} actionLabel={t('common.retry')} onAction={reload} />
     if (state.status === 'error') return <StateMessage title={t('home.errorTitle')} body={t('home.errorBody')} actionLabel={t('common.retry')} onAction={reload} />
+    // A delivery the API holds for this rider shows whether or not the task runs: a phone restarted mid-delivery is still on one.
+    if (current) return <CurrentCard delivery={current} onOpen={() => router.push({ pathname: '/delivery/[id]', params: { id: current.id } })} />
     if (!online.online) {
       return (
         <View style={styles.group}>
@@ -146,7 +151,6 @@ export function HomeScreen() {
         </View>
       )
     }
-    if (current) return <CurrentCard delivery={current} onOpen={() => router.push({ pathname: '/delivery/[id]', params: { id: current.id } })} />
     const offers = [...state.data.page.offers, ...(more?.offers ?? [])].filter((offer) => !gone.has(offer.id))
     const hasMore = more ? more.hasMore : state.data.page.hasNextPage
     if (offers.length === 0) return <StateMessage title={t('home.emptyTitle')} body={t('home.emptyBody')} />

@@ -231,6 +231,7 @@
     "accept": "Accept",
     "decline": "Decline",
     "taken": "Taken by another delivery partner. It’ll disappear in a moment.",
+    "warehouse": "Warehouse",
     "showMore": "Show more",
     "showMoreFailed": "Couldn’t load more offers. Check your signal and try again.",
     "emptyTitle": "No offers right now",

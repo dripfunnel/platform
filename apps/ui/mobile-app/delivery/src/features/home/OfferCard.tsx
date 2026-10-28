@@ -37,7 +37,7 @@ export function OfferCard({ offer, now, taken, busy, refusal, onAccept, onDeclin
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.tile }]}>
       <View style={styles.head}>
         <View style={styles.where}>
-          <Text style={[styles.warehouse, { color: colors.heading }]}>{offer.warehouse}</Text>
+          <Text style={[styles.warehouse, { color: colors.heading }]}>{offer.warehouse ?? t('home.warehouse')}</Text>
           {offer.distanceM !== null ? <Text style={{ color: colors.textStrong, fontSize: 14 }}>{t('home.distanceAway', { distance: formatDistance(offer.distanceM, locale) })}</Text> : null}
         </View>
         <View style={[styles.left, { backgroundColor: colors.warningSurface }]}>
@@ -49,10 +49,12 @@ export function OfferCard({ offer, now, taken, busy, refusal, onAccept, onDeclin
           <Text style={{ color: colors.muted, fontSize: 12 }}>{t('home.items')}</Text>
           <Text style={{ color: colors.text, fontWeight: '700' }}>{itemsText}</Text>
         </View>
-        <View>
-          <Text style={{ color: colors.muted, fontSize: 12 }}>{t('home.deliverTo')}</Text>
-          <Text style={{ color: colors.text, fontWeight: '700' }}>{offer.area}</Text>
-        </View>
+        {offer.area ? (
+          <View>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>{t('home.deliverTo')}</Text>
+            <Text style={{ color: colors.text, fontWeight: '700' }}>{offer.area}</Text>
+          </View>
+        ) : null}
       </View>
       {refusal ? (
         <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 13 }}>
