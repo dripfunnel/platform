@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '../../features/placeholder/PlaceholderScreen'
-import { t } from '../../messages'
+import { ProfileScreen } from '../../features/profile/ProfileScreen'
 
 export default function Profile() {
-  return <PlaceholderScreen title={t('tabs.profile')} />
+  return <ProfileScreen />
 }

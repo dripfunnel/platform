@@ -17,3 +17,9 @@ const fill = (text: string, values: Values): string => text.replace(/\{(\w+)\}/g
 
 /** The words for a key, with `{name}` filled from `values`. A placeholder with no value stays visible, never blank. */
 export const t = (key: MessageKey, values: Values = {}): string => fill(lookup(key), values)
+
+/** A refusal's words by its code, never the API's English: `errors.<context>.<CODE>`, then `errors.<CODE>`, then `errors.generic`. */
+export const errorText = (code: string, context?: string): string => {
+  const found = [context ? `errors.${context}.${code}` : null, `errors.${code}`].find((key) => key !== null && lookup(key) !== key)
+  return lookup(found ?? 'errors.generic')
+}

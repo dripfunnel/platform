@@ -4,9 +4,9 @@ How `apps/ui/mobile-app/delivery` is laid out and how it talks to the Delivery A
 [FIRST-RELEASE.md](FIRST-RELEASE.md); the API is [api/DELIVERY.md](../../api/DELIVERY.md) §4;
 builds and per-store configuration are [../README.md](../README.md) §3.
 
-**Status: the project is set up (#848): `app.config.ts` with its tests, `stores/dev.env`, `eas.json` with a `dev` profile (an internal APK), the Expo Router skeleton with placeholder screens, the brand (the store's name and logo from the Shop API, DripFunnel's palette until more is served), and the two API clients (`src/api/client.ts`). Everything else in this document is still specification.**
+**Status: the project is set up (#848): `app.config.ts` with its tests, `stores/dev.env`, `eas.json` with a `dev` profile (an internal APK), the Expo Router skeleton with placeholder screens, the brand (the store's name and logo from the Shop API, DripFunnel's palette until more is served), and the two API clients (`src/api/client.ts`); getting in and Profile are built (#849): number and code, the first-time profile, the session in secure storage, Profile with edit, sign out and delete my account. Everything else in this document is still specification.**
 
-Last updated: 2026-10-27 (#848: the project is set up, status, §2, §3). Before: 2026-10-22 (first version).
+Last updated: 2026-10-28 (#849: getting in and Profile, status, §2). Before: 2026-10-27 (#848: the project is set up, status, §2, §3). Before: 2026-10-22 (first version).
 
 ---
 
@@ -32,8 +32,10 @@ apps/ui/mobile-app/delivery/
   eas.json                  one build profile per store
   src/
     app/                    Expo Router routes
-      _layout.tsx           polyfills, brand, session, push
-      (auth)/               number, code, first-time profile
+      _layout.tsx           polyfills, brand, session (signed-in screens are `Stack.Protected`), push
+      index.tsx             where the app starts: getting in, the first-time profile, or Home
+      (auth)/sign-in        number, code
+      setup  profile-edit   first-time profile, Edit profile
       (tabs)/               home  history  profile
       delivery/[id]
     features/<area>/        screens per area
@@ -50,7 +52,7 @@ Android's `ACCESS_BACKGROUND_LOCATION` and a location foreground service, all fr
 notifications and the photo library for the profile photo; the words are in `src/messages/en.json`, with the store's
 name filled in. Only `STORE_HOST` reaches the running app. `src/api/client.ts` builds the Delivery API client for
 `https://<STORE_HOST>/delivery-api/` and a Shop API client used only to read the store's look (`src/brand/`).
-The session, `location/`, `pending/`, `push/` and `nav.ts` come with their cards (DL 12–DL 14).
+Built in #849: `session/` holds the token in secure storage (never anywhere else) and the one client, which drops the token when any call is answered `UNAUTHENTICATED`; `features/auth` is number then code (30 s before a resend, the API's 5 tries), `features/profile` is Profile and the profile form (name, photo from the camera or library uploaded to `POST /delivery-api/assets`, vehicle type and number), and `app.config.ts` also declares the camera for the photo. `location/`, `pending/`, `push/` and `nav.ts` come with their cards (DL 13–DL 14).
 
 ---
 

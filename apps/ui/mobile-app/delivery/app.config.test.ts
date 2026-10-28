@@ -61,11 +61,11 @@ describe('app.config.ts', () => {
     expect(options['locationWhenInUsePermission']).toContain(name)
   })
 
-  it('declares notifications, and the photo library but not the camera or microphone for the profile photo', () => {
+  it('declares notifications, and the photo library and camera but not the microphone for the profile photo', () => {
     const env = readStoreEnv(appRoot, 'dev')
     const config = buildConfig({}, env)
     expect(plugin(config, 'expo-notifications')).toBe('expo-notifications')
-    expect(plugin(config, 'expo-image-picker')).toEqual(['expo-image-picker', { photosPermission: messages.permissions.photos.replace('{name}', env.APP_NAME), cameraPermission: false, microphonePermission: false }])
+    expect(plugin(config, 'expo-image-picker')).toEqual(['expo-image-picker', { photosPermission: messages.permissions.photos.replace('{name}', env.APP_NAME), cameraPermission: messages.permissions.camera.replace('{name}', env.APP_NAME), microphonePermission: false }])
   })
 
   it('refuses the Maps key, which comes with the map screen', () => {
