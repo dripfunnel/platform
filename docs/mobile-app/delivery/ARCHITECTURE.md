@@ -4,9 +4,9 @@ How `apps/ui/mobile-app/delivery` is laid out and how it talks to the Delivery A
 [FIRST-RELEASE.md](FIRST-RELEASE.md); the API is [api/DELIVERY.md](../../api/DELIVERY.md) §4;
 builds and per-store configuration are [../README.md](../README.md) §3.
 
-**Status: the project is set up (#848): `app.config.ts` with its tests, `stores/dev.env`, `eas.json` with a `dev` profile (an internal APK), the Expo Router skeleton with placeholder screens, the brand (the store's name and logo from the Shop API, DripFunnel's palette until more is served), and the two API clients (`src/api/client.ts`); getting in and Profile are built (#849): number and code, the first-time profile, the session in secure storage, Profile with edit, sign out and delete my account. Everything else in this document is still specification.**
+**Status: the project is set up (#848): `app.config.ts` with its tests, `stores/dev.env`, `eas.json` with a `dev` profile (an internal APK), the Expo Router skeleton with placeholder screens, the brand (the store's name and logo from the Shop API, DripFunnel's palette until more is served), and the two API clients (`src/api/client.ts`); getting in and Profile are built (#849): number and code, the first-time profile, the session in secure storage, Profile with edit, sign out and delete my account; Online, background location, push and offers are built (#850): the Online switch with its permissions, one background position task, push registration and handling, and Home with offer cards. Everything else in this document is still specification.**
 
-Last updated: 2026-10-28 (#849: getting in and Profile, status, §2). Before: 2026-10-27 (#848: the project is set up, status, §2, §3). Before: 2026-10-22 (first version).
+Last updated: 2026-10-28 (#850: Online, location, push and offers, status, §2, §3). Before: 2026-10-28 (#849: getting in and Profile, status, §2). Before: 2026-10-27 (#848: the project is set up, status, §2, §3). Before: 2026-10-22 (first version).
 
 ---
 
@@ -52,7 +52,9 @@ Android's `ACCESS_BACKGROUND_LOCATION` and a location foreground service, all fr
 notifications and the photo library for the profile photo; the words are in `src/messages/en.json`, with the store's
 name filled in. Only `STORE_HOST` reaches the running app. `src/api/client.ts` builds the Delivery API client for
 `https://<STORE_HOST>/delivery-api/` and a Shop API client used only to read the store's look (`src/brand/`).
-Built in #849: `session/` holds the token in secure storage (never anywhere else) and the one client, which drops the token when any call is answered `UNAUTHENTICATED`; `features/auth` is number then code (30 s before a resend, the API's 5 tries), `features/profile` is Profile and the profile form (name, photo from the camera or library uploaded to `POST /delivery-api/assets`, vehicle type and number), and `app.config.ts` also declares the camera for the photo. `location/`, `pending/`, `push/` and `nav.ts` come with their cards (DL 13–DL 14).
+Built in #849: `session/` holds the token in secure storage (never anywhere else) and the one client, which drops the token when any call is answered `UNAUTHENTICATED`; `features/auth` is number then code (30 s before a resend, the API's 5 tries), `features/profile` is Profile and the profile form (name, photo from the camera or library uploaded to `POST /delivery-api/assets`, vehicle type and number), and `app.config.ts` also declares the camera for the photo.
+
+Built in #850: `location/` is one background task (`tracking.ts`, `task.ts`) that sends the latest point every 60 s while Online and every 15 s once a parcel is picked up, then forgets it (no trail, nothing logged or stored); Offline stops the task before `setOnline(false)`, and so do sign-out and an ended session. Online is not stored: the app asks whether the task runs. Location "while using" is required (a refusal shows the settings link), iOS also asks for "always", and Android runs the task as a foreground service with its notification. `push/` registers the Expo token when the store has an `EAS_PROJECT_ID` (README §3), asks for notifications once at the first sign-in (`app/notifications.tsx`), unregisters on sign-out and turns a push into a refresh or a screen: an offer opens Home, an assignment, cancellation or recall opens the delivery, `taken` refreshes Home silently. `features/home` is Home: the Online switch, the current delivery pinned above the offers (`offers` paged by 20 with Show more), Accept, Decline and the Taken state. Suspended shows only at sign-in: the API answers `RIDER_SUSPENDED` there and `UNAUTHENTICATED` afterwards. 
 
 ---
 
@@ -60,7 +62,7 @@ Built in #849: `session/` holds the token in secure storage (never anywhere else
 
 | Package | Why |
 |---|---|
-| `expo-location` (built in #848), `expo-task-manager` (with the background task, DL 13) | The position in the background while Online |
+| `expo-location` (built in #848), `expo-task-manager` (#850) | The position in the background while Online |
 | `expo-notifications` (built in #848) | Offers and assignments |
 | `expo-secure-store` | The session token |
 | `expo-image-picker` (built in #848) | The profile photo |

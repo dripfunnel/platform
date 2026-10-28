@@ -11,7 +11,7 @@ export default function Setup() {
   const { state, reload } = useLoad(useSession().fetchRider)
   return (
     <Resource state={state} onRetry={reload}>
-      {(rider) => <ProfileForm rider={rider} mode="first" storeName={brand?.name ?? null} onSaved={() => router.replace('/home')} />}
+      {(rider) => <ProfileForm rider={rider} mode="first" storeName={brand?.name ?? null} onSaved={() => router.replace('/')} />}
     </Resource>
   )
 }

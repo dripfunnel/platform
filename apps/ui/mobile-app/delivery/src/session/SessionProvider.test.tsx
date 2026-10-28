@@ -6,6 +6,11 @@ import { useSession, type Session } from './SessionContext'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 jest.mock('@dripfunnel/mobile-shared/brand', () => ({ storeHost: () => 'acme.my-store.one' }))
+jest.mock('../location/tracking', () => ({
+  isTracking: jest.fn().mockResolvedValue(false),
+  startTracking: jest.fn().mockResolvedValue(undefined),
+  stopTracking: jest.fn().mockResolvedValue(undefined),
+}))
 
 // The phone's keystore, in memory.
 const mockKeystore = new Map<string, string>()

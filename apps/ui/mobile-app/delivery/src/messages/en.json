@@ -132,6 +132,15 @@
     },
     "deleteAccount": {
       "RIDER_HAS_PARCEL": "Deliver or return your current parcel first."
+    },
+    "TAKEN": "Another delivery partner took this offer first.",
+    "ON_DELIVERY": "Finish your current delivery first.",
+    "OFFLINE": "Go online first.",
+    "offer": {
+      "NO_RESPONSE": "No signal. Accepting needs a connection, so try again when it’s back."
+    },
+    "online": {
+      "RIDER_HAS_PARCEL": "You can go offline after this delivery."
     }
   },
   "permissions": {
@@ -178,5 +187,77 @@
     "US": "United States",
     "VN": "Vietnam",
     "ZA": "South Africa"
+  },
+  "online": {
+    "on": "You’re online",
+    "off": "You’re offline",
+    "switch": "Online",
+    "subOffline": "Go online to get offers",
+    "subOnline": "Offers near you show below",
+    "subPaused": "Offers paused during a delivery",
+    "subLocationOff": "Location is off",
+    "offlineBody": "Go online to get delivery offers from the store’s warehouses near you.",
+    "offlineNote": "Your location is shared only while you’re online, and deleted when you go offline.",
+    "notification": {
+      "title": "You’re online",
+      "body": "Sharing your position with the store while you’re online. Go offline to stop."
+    },
+    "locationOff": {
+      "title": "Location is off for this app",
+      "body": "You can’t go online without it: the store only offers deliveries to partners near the warehouse.",
+      "openSettings": "Open settings"
+    },
+    "notificationsOff": {
+      "body": "Notifications are off, so you can miss offers.",
+      "turnOn": "Turn on"
+    },
+    "handBack": {
+      "title": "Go offline and hand back?",
+      "body": "You’ve accepted a delivery but haven’t picked it up. Going offline hands it back to other delivery partners.",
+      "confirm": "Go offline and hand back",
+      "stay": "Stay online"
+    },
+    "afterDelivery": "You can go offline after this delivery."
+  },
+  "home": {
+    "yourDelivery": "Your delivery",
+    "offers": "Offers near you",
+    "timeLeft": "{time} left",
+    "items": "Items",
+    "itemOne": "{count} item",
+    "itemOther": "{count} items",
+    "deliverTo": "Deliver to",
+    "distanceAway": "{distance} away",
+    "accept": "Accept",
+    "decline": "Decline",
+    "taken": "Taken by another delivery partner. It’ll disappear in a moment.",
+    "showMore": "Show more",
+    "emptyTitle": "No offers right now",
+    "emptyBody": "Stay online. We’ll notify you when an order near you is ready.",
+    "errorTitle": "Couldn’t load offers",
+    "errorBody": "Check your signal and try again. You’re still online.",
+    "offlineBody": "No signal. Check your connection and try again.",
+    "current": {
+      "goToPickup": "Go to pickup",
+      "onTheWay": "On the way",
+      "pickUpFrom": "Pick up from {warehouse} · {area}",
+      "pickUpFromWarehouse": "Pick up from {warehouse}",
+      "deliverTo": "Deliver to {area}",
+      "open": "Open",
+      "paused": "New offers pause until this delivery is done."
+    },
+    "ended": {
+      "cancelled": "The store cancelled this delivery. You don’t need to pick it up.",
+      "recalled": "The store has recalled this delivery. Bring the parcel back to the warehouse.",
+      "dismiss": "OK"
+    }
+  },
+  "notifications": {
+    "title": "Get offers as they come in",
+    "body": "The store tells you when an order near you needs a delivery partner, and when it gives you one. Offers go to whoever accepts first, so without notifications you can miss them.",
+    "continue": "Continue"
+  },
+  "push": {
+    "channel": "Delivery offers"
   }
 }
