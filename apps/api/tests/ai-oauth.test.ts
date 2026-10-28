@@ -375,6 +375,7 @@ describe('using a signed-in account', () => {
     expect(models[0]).toBe('claude-haiku-4-5')
     expect(models).toContain('claude-sonnet-5-5')
     expect(await designerAiFor(designerDeps(), 'own_key', 'claude-sonnet-5-5')).not.toBeNull()
+    expect(await designerAiFor(designerDeps(), 'own_key', 'claude-made-up')).toBeNull()
   })
 
   it('gives the studio no model, without a model call, when the sign-in has expired or the provider is down', async () => {

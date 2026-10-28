@@ -206,6 +206,19 @@ describe('validation before any provider or budget', () => {
   })
 })
 
+describe('the request the provider receives', () => {
+  it("asks for the model's maximum output when maxTokens is omitted, and passes system blocks and system turns through", async () => {
+    await entitle(t.storeA1, 1, 5)
+    await partnerProfile(t.partnerA, 'anthropic', partnerKey)
+    calls.length = 0
+    const bare = { ...input(), maxTokens: undefined }
+    const system = [{ type: 'text' as const, text: 'Block' }]
+    const messages = [{ role: 'system' as const, content: 'Turn' }, { role: 'user' as const, content: 'Hi' }]
+    expect(await (await gateway()).complete({ ...bare, system, messages })).toMatchObject({ ok: true })
+    expect(calls[0]?.request).toMatchObject({ maxTokens: 64_000, system, messages })
+  })
+})
+
 describe('transient failures and retries', () => {
   const failing = (code: ConstructorParameters<typeof GatewayError>[0]) => () => Promise.reject(new GatewayError(code))
 
