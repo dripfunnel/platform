@@ -13,6 +13,9 @@ import { CountryPicker } from './CountryPicker'
 import { countryOf, dialOf, toE164, type CountryIso } from './phone'
 import { useCooldown } from './useCooldown'
 
+/** Selected until the store answers with its own country, or the rider picks one. */
+const defaultCountry: CountryIso = 'IN'
+
 /** The wait before another code may be asked for, and the tries the API gives a code (docs/api/DELIVERY.md §4, §5). */
 export const resendSeconds = 30
 export const triesPerCode = 5
@@ -24,7 +27,7 @@ export function SignInScreen() {
   const { colors } = useTheme()
   const action = useAction()
   const cooldown = useCooldown()
-  const [country, setCountry] = useState<CountryIso | null>(null)
+  const [country, setCountry] = useState<CountryIso>(defaultCountry)
   const [national, setNational] = useState('')
   const [picked, setPicked] = useState(false)
   const [invalidPhone, setInvalidPhone] = useState(false)
@@ -36,7 +39,7 @@ export function SignInScreen() {
 
   useEffect(() => {
     let live = true
-    fetchStoreCountry(createBrandClient(host)).then((iso) => live && !picked && setCountry(countryOf(iso)))
+    fetchStoreCountry(createBrandClient(host)).then((iso) => live && !picked && setCountry(countryOf(iso) ?? defaultCountry))
     return () => {
       live = false
     }

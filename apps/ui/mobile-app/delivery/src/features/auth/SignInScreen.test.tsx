@@ -67,14 +67,19 @@ describe('getting in: the mobile number', () => {
     expect(hasText(screen, t('signIn.phone.noMatch'))).toBe(true)
   })
 
-  it('asks for a country when the store’s is not known, and sends nothing without one', async () => {
+  it('selects India when the store’s country is not known', async () => {
     jest.mocked(fetchStoreCountry).mockResolvedValueOnce(null)
     const session = fakeSession(() => ({ requestCode: true }), { signedIn: false })
     const screen = await render(<SignInScreen />, session)
-    expect(hasText(screen, t('signIn.phone.select'))).toBe(true)
+    expect(hasText(screen, '🇮🇳 +91')).toBe(true)
     await asksFor(screen)
-    expect(hasText(screen, t('signIn.phone.invalid'))).toBe(true)
-    expect(session.requests).toHaveLength(0)
+    expect(calls(session.requests, 'requestCode')[0]?.variables).toEqual({ phone: '+919876543210' })
+  })
+
+  it('selects the store’s own country over the default once it is known', async () => {
+    jest.mocked(fetchStoreCountry).mockResolvedValueOnce('GB')
+    const screen = await render(<SignInScreen />, fakeSession(() => ({}), { signedIn: false }))
+    expect(hasText(screen, '🇬🇧 +44')).toBe(true)
   })
 
   it('does not ask the API for a number that cannot be one', async () => {
