@@ -2,7 +2,7 @@ import { ConfirmDialog, ErrorState, LoadingState, PermissionDenied, StatusPill, 
 import { useEffect, useId, useState } from 'react'
 import { addAiKey, aiProviders, beginAiOauth, finishAiOauth, loadAiKeys, loadAiSignIn, removeAiKey, setDefaultAiKey, testAiKey, type AiKey, type AiKeyResult, type AiProvider } from '../../api/aiKeys'
 import { fill, locale, messages } from '../../messages'
-import { isHttps } from './aiSignInBack'
+import { isHttps } from '@dripfunnel/shared/format'
 const words = messages.settings.integrations
 const look: Record<AiKey['status'], [StatusTone, StatusIconName]> = { ok: ['success', 'ok'], untested: ['neutral', 'clock'], rejected: ['danger', 'cross'] }
 const when = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })

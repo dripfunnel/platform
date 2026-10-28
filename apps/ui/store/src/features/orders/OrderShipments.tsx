@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Order, OrderShipment } from '../../api/order'
 import { fill, formatCount, formatList, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { lineName } from './orderDetail'
 import { timeText } from './orderView'
 

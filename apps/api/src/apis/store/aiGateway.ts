@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { GatewayError, gatewayProviders, modelsOf, type GatewayErrorCode } from '#integrations/ai/index'
-import { chatInput, createAiGateway, maxBodyBytes, type GatewayRefusal } from '#saas/aiGateway/index'
+import { chatInput, createAiGateway, GatewayRefused, maxBodyBytes, type GatewayDeps, type GatewayRefusal } from '#saas/aiGateway/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
 import { storePolicy, tenantCaller, type StoreContext } from './access'
 
@@ -31,6 +31,8 @@ const authorise = async (ctx: StoreContext, name: string) => {
 export interface AiGatewayEnv {
   fallbackKey: string | undefined
   oauth?: AiOAuth | null
+  /** A stand-in for the model adapters, for tests; the real ones when absent. */
+  adapters?: GatewayDeps['adapters']
 }
 
 export const handleAiGateway = async (request: Request, ctx: StoreContext, env: AiGatewayEnv): Promise<Response> => {
@@ -65,13 +67,24 @@ export const handleAiGateway = async (request: Request, ctx: StoreContext, env: 
     secrets: ctx.secrets ?? null,
     fallbackKey: env.fallbackKey,
     oauth: env.oauth ?? null,
+    ...(env.adapters ? { adapters: env.adapters } : {}),
     actor: { keyId: caller.actor.kind === 'api_key' ? caller.actor.id : null, userId: caller.actor.kind === 'person' ? caller.actor.id : null },
     now: ctx.now,
   })
   const checked = gateway.validate(input.data)
   if (!checked.ok) return failure(checked.reason, refusalStatus[checked.reason])
   // `request.signal` ends the provider call when the caller goes away.
-  if (input.data.stream) return streamed(gateway.stream(input.data, request.signal), input.data.provider)
+  if (input.data.stream) {
+    // The first chunk is read before the 200 is sent, so a refusal or a provider failure answers with its own status and code.
+    const chunks = gateway.stream(input.data, request.signal)
+    try {
+      return streamed(chunks, await chunks.next(), input.data.provider)
+    } catch (error) {
+      if (error instanceof GatewayRefused) return failure(error.reason, refusalStatus[error.reason])
+      const code = error instanceof GatewayError ? error.code : 'PROVIDER_UNAVAILABLE'
+      return failure(code, errorStatus[code], error instanceof GatewayError && error.retryAfter ? { 'retry-after': String(error.retryAfter) } : {})
+    }
+  }
   try {
     const result = await gateway.complete(input.data, request.signal)
     if ('reason' in result) return failure(result.reason, refusalStatus[result.reason])
@@ -83,13 +96,16 @@ export const handleAiGateway = async (request: Request, ctx: StoreContext, env: 
   }
 }
 
-const streamed = (chunks: AsyncGenerator<import('#integrations/ai/index').ChatChunk>, provider: string): Response => {
+type Chunks = AsyncGenerator<import('#integrations/ai/index').ChatChunk>
+const streamed = (chunks: Chunks, first: IteratorResult<import('#integrations/ai/index').ChatChunk>, provider: string): Response => {
   const encoder = new TextEncoder()
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: string, data: unknown) => controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+      const emit = (chunk: import('#integrations/ai/index').ChatChunk) => send(chunk.kind, chunk.kind === 'text' ? { text: chunk.text } : { provider, model: chunk.model, finish: chunk.finish, usage: chunk.usage })
       try {
-        for await (const chunk of chunks) send(chunk.kind, chunk.kind === 'text' ? { text: chunk.text } : { provider, model: chunk.model, finish: chunk.finish, usage: chunk.usage })
+        if (!first.done) emit(first.value)
+        for await (const chunk of chunks) emit(chunk)
       } catch (error) {
         send('error', { code: error instanceof GatewayError ? error.code : 'PROVIDER_UNAVAILABLE' })
       }

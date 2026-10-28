@@ -5,7 +5,7 @@ import type { StorefrontMeters, StorefrontOverview, StorefrontTemplate } from '.
 import { studioDevices, type DesignMessage, type PublishRun, type StudioDevice, type StudioPages } from '../../api/studio'
 import { currentBrand } from '../../brand/current'
 import { fill, formatCount, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { refusalIn } from '../common/refusal'
 import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'

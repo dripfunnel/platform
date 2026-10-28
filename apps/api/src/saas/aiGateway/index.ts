@@ -37,6 +37,14 @@ export const chatInput = z.strictObject({
 })
 export type ChatInput = z.infer<typeof chatInput>
 
+/** A refusal before any model call, thrown by `stream` so the route can answer it with its own status, as `complete` does. */
+export class GatewayRefused extends Error {
+  override name = 'GatewayRefused'
+  constructor(readonly reason: GatewayRefusal) {
+    super(reason)
+  }
+}
+
 export type GatewayRefusal = 'INVALID_INPUT' | 'MODEL_NOT_FOUND' | 'AI_NOT_CONNECTED' | 'AI_BUDGET_REACHED' | 'NOT_CONFIGURED' | 'AI_ACCOUNT_EXPIRED' | 'AI_ACCOUNT_UNAVAILABLE'
 
 /** Who pays for a run: the partner's key on the plan, or the store's own account. */
@@ -195,11 +203,12 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
   /** The same, as a stream; the run is recorded when the stream ends or fails. */
   const stream = async function* (input: ChatInput, signal?: AbortSignal): AsyncGenerator<ChatChunk> {
     const checked = validate(input)
-    if (!checked.ok) throw new GatewayError('BAD_REQUEST')
+    if (!checked.ok) throw new GatewayRefused(checked.reason)
     const who = await resolve()
-    if (!who.ok || who.resolved.keyProvider !== input.provider) throw new GatewayError('BAD_REQUEST')
+    if (!who.ok) throw new GatewayRefused(who.reason)
+    if (who.resolved.keyProvider !== input.provider) throw new GatewayRefused('MODEL_NOT_FOUND')
     const { billed, key, auth, accountId } = who.resolved
-    if (billed === 'plan' && !(await reserve())) throw new GatewayError('RATE_LIMITED')
+    if (billed === 'plan' && !(await reserve())) throw new GatewayRefused('AI_BUDGET_REACHED')
     let ended = false
     try {
       for await (const chunk of adapters(input.provider, key, auth, accountId).streamResponse(requestOf(input), signal)) {

@@ -3,7 +3,7 @@ import { ConfirmDialog, ErrorState, LoadingState, type ConfirmDialogProps } from
 import { useCallback, useEffect, useId, useState } from 'react'
 import { aiProviders, beginStoreAiOauth, connectStoreAiAccount, finishStoreAiOauth, loadPlanRuns, loadStoreAiAccount, loadStoreAiSignIn, removeStoreAiAccount, setStoreAiSwitch, testStoreAiAccount, type AiProvider, type PlanRuns, type StoreAiAccount } from '../../api/aiAccount'
 import { fill, formatCount, formatTime, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { refusalIn } from '../common/refusal'
 import '../settings/developers.css'
 import '../settings/settings.css'

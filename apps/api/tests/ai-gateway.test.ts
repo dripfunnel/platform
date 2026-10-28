@@ -240,7 +240,7 @@ describe('/api/v1 over a store key', () => {
     return minted.secret
   }
   const post = (body: unknown, raw?: string) => new Request('https://store.example/api/v1/chat/completions', { method: 'POST', body: raw ?? JSON.stringify(body), headers: { 'content-type': 'application/json' } })
-  const call = async (secret: string | null, request: Request) => handleAiGateway(request, await context(secret), { fallbackKey: undefined })
+  const call = async (secret: string | null, request: Request) => handleAiGateway(request, await context(secret), { fallbackKey: undefined, adapters: (provider, key) => fake(provider, key) })
 
   it('refuses no key, a key without ai.run, and the listing too', async () => {
     const reader = await keyWith(['catalog.read'])
@@ -275,5 +275,25 @@ describe('/api/v1 over a store key', () => {
     expect(JSON.stringify(await r.json())).not.toContain(partnerKey)
     const other = await keyWith(['ai.run'], t.storeB1)
     expect((await handleAiGateway(post(input()), await context(other, t.partnerA), { fallbackKey: undefined })).status).toBe(401)
+  })
+
+  it('answers a streamed request with the same status and code as a plain one, and streams only after a success', async () => {
+    await entitle(t.storeA1, 1, 0)
+    await db.sql`delete from store_ai_account where store_id = ${t.storeA1}`
+    const key = await keyWith(['ai.run'], t.storeA1)
+    const refused = await call(key, post(input({ stream: true })))
+    expect(refused.status).toBe(429)
+    expect(refused.headers.get('content-type')).toContain('application/json')
+    expect(await refused.json()).toEqual({ error: { code: 'AI_BUDGET_REACHED' } })
+    expect((await call(key, post({ ...input({ stream: true }), model: 'nope' }))).status).toBe(404)
+
+    await entitle(t.storeA1, 1, 5)
+    const ok = await call(key, post(input({ stream: true })))
+    expect(ok.status).toBe(200)
+    expect(ok.headers.get('content-type')).toBe('text/event-stream')
+    const text = await ok.text()
+    expect(text).toContain('event: text')
+    expect(text).toContain('event: end')
+    expect(text).not.toContain('event: error')
   })
 })

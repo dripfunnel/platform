@@ -6,7 +6,7 @@ import { scratchTemplate, type StorefrontBrand, type StorefrontDomains, type Sto
 import { currentBrand } from '../../brand/current'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { tabKeyHandler } from '../common/tabKeys'
 import { AiTab, aiReads, sampleAiReads } from './AiTab'
 import { BrandStep } from './BrandStep'
