@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -285,7 +285,8 @@ src/
 content/{locale}/       AI-WRITTEN: every shopper-facing word, one file per page or area
 routes.json             AI-WRITTEN: core route → theme page; custom page path → theme page
 store.config.ts         LOCKED, generated: the public store key and the Shop API's path
-package.json            LOCKED: core pinned exactly; dependencies from the allowlist only
+package.json            LOCKED: core pinned exactly; dependencies from the allowlist only; `pnpm check` (§3.4)
+AGENTS.md, CLAUDE.md    LOCKED, from the template: run `pnpm check` before pushing to main (#974)
 .npmrc                  LOCKED, from the template: core's registry, no token (a clone's own install)
 .env.development        LOCKED, generated: SHOP_API_PROXY, the store's free address a clone's `next dev` proxies /shop-api to
 .github/workflows/build.yml  LOCKED, from the template: the only workflow (LIVE-SHOP §4)
@@ -486,6 +487,13 @@ takes the whole theme as it would be after the change, plus any other path the c
 the store's languages, content and post paths and brand fields from the platform, so it needs no
 network. Each problem names the file, the line, a rule id and a plain-words message for the repair
 loop (#480).
+
+**On a developer's machine** (#974): a store repo's `pnpm check` runs core's `dripfunnel-check`,
+then the typecheck, and exits 1 on any problem. It validates what a push would carry, the files git
+holds (staged changes included), and names theme files never added to git. It needs no network, so
+the rules that need the store's data are left to the build, and it says so: that `content/` holds
+exactly the store's languages (locally the languages are its folders), copying the brand's fields, a
+CSS `url()`'s media id (held only to a media id's shape) and a custom path already in use.
 
 **Files.** The AI may write only `src/theme/pages/**/*.tsx`, `src/theme/components/**/*.tsx`,
 `src/theme/styles/**/*.module.css`, `content/{locale}/*.json` and `routes.json`. Any other

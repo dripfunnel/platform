@@ -20,7 +20,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). On #968: a push to a store
 repo's `main` builds that commit and goes live (§4, "A push to `main`"). The rest is specification.
 
-Last updated: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -366,7 +366,9 @@ good for **2 hours from its dispatch** (`publish_run.started_at`; decided on #51
 runner), and only for the first run that uses it.
 
 **A push to `main`** (built on #968, `hooks/github.ts`, `saas/storefronts/repoPush.ts`). Anyone the org gives write
-access to a store repo may push to its `main` (decided 2026-10-28 with Kshitij), and the pushed commit goes live by itself:
+access to a store repo may push to its `main` (decided 2026-10-28 with Kshitij), and the pushed commit goes live by itself.
+Run `pnpm check` first: the store repo's `AGENTS.md` says so, and it runs the build's validator on the developer's machine
+(ARCHITECTURE §3.4, #974).
 
 1. **GitHub sends the App's push event** to `POST https://<hooks host>/github`, signed with the App's webhook secret
    (`GITHUB_WEBHOOK_SECRET`, THIRD-PARTY-ACCESS §2.3). An unsigned body is `401`; any other event, branch or

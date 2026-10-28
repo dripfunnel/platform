@@ -89,6 +89,7 @@ Run the gates before reporting a change as done.
 - **`templates/storefront/`** is copied into each new store repo when its merchant picks a
   template. Commerce logic belongs in `storefront-core`, never in the template or a theme.
   `themes/{key}/` holds the starting themes (#486), each gated by `apps/sandbox/src/themes.test.ts`.
+  Its `AGENTS.md` and `CLAUDE.md` are the store repo's (#974): they don't apply to work in this repo.
 - **`apps/sandbox`** is the container image that runs AI changes in Cloudflare Containers
   (docs/storefront/AI-STUDIO.md; #482) and, published on `ghcr.io`, every store repo's build on
   GitHub Actions (docs/storefront/LIVE-SHOP.md). It is Node, holds no secret and reaches no

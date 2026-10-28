@@ -1,5 +1,5 @@
 import { find, ident, parse, walk, type CssNode, type Declaration, type Selector, type WalkContext } from 'css-tree'
-import { problem, type GuardContext, type Problem, type RuleId } from './rules.js'
+import { mediaIdPattern, problem, type GuardContext, type Problem, type RuleId } from './rules.js'
 
 /** The highest z-index a theme may use, so core's own layers stay above it (ARCHITECTURE §3.4 "CSS"). */
 export const maxThemeZIndex = 99
@@ -92,10 +92,11 @@ const leavesModule = (selector: Selector) => {
 const startsWithClass = (selector: Selector) => selector.children.first?.type === 'ClassSelector'
 
 /** The CSS Module rules of ARCHITECTURE §3.4 for one file. */
-export const checkCss = (file: string, text: string, context: GuardContext): Problem[] => {
+export const checkCss = (file: string, text: string, context: GuardContext, storeData = true): Problem[] => {
   const problems: Problem[] = []
   const report = (node: CssNode | null, rule: RuleId, message: string) => problems.push(problem(file, node?.loc?.start.line ?? 1, rule, message))
-  const media = new Set(context.mediaIds)
+  // Without the store's data (a local check, #974) a url() is held only to a media id's shape; the build checks the id.
+  const media = storeData ? new Set(context.mediaIds) : { has: (value: string) => mediaIdPattern.test(value) }
   let ast: CssNode
   try {
     ast = parse(text, {
