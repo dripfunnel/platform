@@ -3,6 +3,7 @@ import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type 
 
 // Claude through the official SDK (#950). The key is the caller's, held here only for the call.
 const timeoutMs = 60_000
+export const anthropicOAuthHeaders = { 'anthropic-beta': 'oauth-2025-04-20' }
 
 const finishOf = (reason: string | null): FinishReason => (reason === 'end_turn' || reason === 'stop_sequence' ? 'stop' : reason === 'max_tokens' ? 'length' : reason === 'refusal' ? 'refusal' : 'other')
 
@@ -38,7 +39,7 @@ const paramsOf = (request: ChatRequest) => {
 /** A key, or the access token of a Claude sign-in (Bearer, with the OAuth beta header). */
 export const anthropicChat = (credential: string | { authToken: string }): ChatProvider => {
   const client = new Anthropic({
-    ...(typeof credential === 'string' ? { apiKey: credential } : { apiKey: null, authToken: credential.authToken, defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' } }),
+    ...(typeof credential === 'string' ? { apiKey: credential } : { apiKey: null, authToken: credential.authToken, defaultHeaders: anthropicOAuthHeaders }),
     timeout: timeoutMs,
     maxRetries: 0,
   })

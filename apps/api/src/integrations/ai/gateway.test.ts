@@ -37,6 +37,14 @@ describe('the OpenAI adapter', () => {
     ] })
   })
 
+  it('sends a system block array and a system turn as system messages, in order', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(reply(200, { model: 'gpt-5', choices: [] })))
+    vi.stubGlobal('fetch', fetchMock)
+    await openaiChat(key).generateResponse({ ...request, system: [{ type: 'text', text: 'Block' }], messages: [{ role: 'system', content: 'Turn' }, { role: 'user', content: 'Hi' }] })
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body)).messages).toEqual([{ role: 'system', content: [{ type: 'text', text: 'Block' }] }, { role: 'system', content: 'Turn' }, { role: 'user', content: 'Hi' }])
+  })
+
   it('sends no system message for an empty system string', async () => {
     const fetchMock = vi.fn(() => Promise.resolve(reply(200, { model: 'gpt-5', choices: [] })))
     vi.stubGlobal('fetch', fetchMock)

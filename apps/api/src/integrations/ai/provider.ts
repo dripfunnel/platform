@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { anthropicFailure } from './anthropicChat'
+import { anthropicFailure, anthropicOAuthHeaders } from './anthropicChat'
 import { capabilityOf, costOf } from './registry'
 
 // The designer's model provider (THIRD-PARTY-ACCESS §2.6, §3.3): called by the Worker only, with a key the caller
@@ -72,7 +72,7 @@ export const anthropicProvider = (apiKey: string, model: string = designerModel)
 }
 
 export const anthropicOAuthDesignerProvider = (authToken: string, model: string = anthropicOAuthDesignerModel): AiProvider => {
-  const client = new Anthropic({ apiKey: null, authToken, defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' }, timeout: timeoutMs })
+  const client = new Anthropic({ apiKey: null, authToken, defaultHeaders: anthropicOAuthHeaders, timeout: timeoutMs })
   return {
     complete: async (call) => {
       try {

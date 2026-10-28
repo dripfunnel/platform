@@ -858,7 +858,9 @@ One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on th
 - **Differences between the providers.** Both take a system message and turns; `system` may be text or native text blocks, and
   a `role: system` turn is accepted. Claude moves system turns into its top-level system field (merging them after supplied
   system text/blocks); OpenAI-compatible Chat Completions keeps them as system messages. Claude takes the system apart from the
-  messages and caps temperature at 1, OpenAI at 2. Tool calling, structured outputs and images are **not** in the unified shape
+  messages and caps temperature at 1, OpenAI at 2. A request with only `role: system` turns is refused with `INVALID_INPUT`.
+  `maxTokens` is optional and defaults to the model's maximum output (a bare call can use that many tokens; it is metered by tokens,
+  not by a smaller cap); above the maximum it is refused with `INVALID_INPUT`. Tool calling, structured outputs and images are **not** in the unified shape
   yet: a provider-only feature goes through `options` where the adapter lists it, and is refused otherwise.
 - **Streaming:** `text/event-stream` with `text` events (`{text}`) then one `end` (`{provider, model, finish, usage}`), or an
   `error` (`{code}`); closing the connection cancels the call and gives the plan's prompt back.

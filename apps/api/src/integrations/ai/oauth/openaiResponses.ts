@@ -5,12 +5,12 @@ import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type 
 const endpoint = 'https://chatgpt.com/backend-api/codex'
 const timeoutMs = 120_000
 
-/** `temperature` and every provider option are refused, never dropped: the route omits them and a caller must hear that. */
 const instructionsOf = (request: ChatRequest): string => {
   const given = typeof request.system === 'string' ? [request.system] : (request.system ?? []).map((block) => block.text)
   return [...given, ...request.messages.filter((m) => m.role === 'system').map((m) => m.content)].filter((text) => text !== '').join('\n')
 }
 
+/** `temperature` and every provider option are refused, never dropped: the route omits them and a caller must hear that. */
 const bodyOf = (request: ChatRequest): string => {
   const instructions = instructionsOf(request)
   if (request.temperature !== undefined || (request.options && Object.keys(request.options).length > 0)) throw new GatewayError('BAD_REQUEST')

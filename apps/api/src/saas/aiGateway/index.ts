@@ -169,6 +169,7 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
     const model = capabilityOf(input.provider, input.model)
     if (!model) return { ok: false as const, reason: 'MODEL_NOT_FOUND' as const }
     const [low, high] = model.temperature
+    if (input.messages.every((m) => m.role === 'system')) return { ok: false as const, reason: 'INVALID_INPUT' as const }
     if ((input.maxTokens ?? 0) > model.maxOutputTokens || (input.temperature !== undefined && (input.temperature < low || input.temperature > high))) return { ok: false as const, reason: 'INVALID_INPUT' as const }
     return { ok: true as const, model }
   }
