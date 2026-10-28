@@ -16,6 +16,14 @@ const placeSchema = z.object({
   address: addressSchema.nullable(),
   supplierId: z.string().nullable(),
   supplierName: z.string().nullable(),
+  // A supplier's location and a reply from before own delivery read none of these.
+  latitude: z.number().nullish(),
+  longitude: z.number().nullish(),
+  ownDelivery: z.boolean().nullish(),
+  deliveryRadiusM: z.number().int().nullish(),
+  riderRadiusM: z.number().int().nullish(),
+  deliveryFeeAmount: z.string().nullish(),
+  deliveryFeeCurrency: z.string().nullish(),
 })
 export type Place = z.infer<typeof placeSchema>
 
@@ -25,14 +33,22 @@ export const loadPlaces = (client: ApiClient): Promise<Place[]> =>
     async (after) =>
       (
         await typedQuery(client)(
-          'query Places($after: String) { warehouses(first: 50, after: $after) { nodes { id name isDefault units revision supplierId supplierName address { line1 line2 city region postalCode country } } pageInfo { hasNextPage hasPreviousPage startCursor endCursor } } }',
+          'query Places($after: String) { warehouses(first: 50, after: $after) { nodes { id name isDefault units revision supplierId supplierName latitude longitude ownDelivery deliveryRadiusM riderRadiusM deliveryFeeAmount deliveryFeeCurrency address { line1 line2 city region postalCode country } } pageInfo { hasNextPage hasPreviousPage startCursor endCursor } } }',
           z.object({ warehouses: z.object({ nodes: z.array(placeSchema), pageInfo: pageInfoSchema }) }),
           { after },
         )
       ).warehouses,
   )
 
-export type PlaceInput = { name: string; address: { line1?: string; line2?: string; city?: string; region?: string; postalCode?: string; country?: string } }
+export type PlaceInput = {
+  name: string
+  address: { line1?: string; line2?: string; city?: string; region?: string; postalCode?: string; country?: string }
+  /** The store's own locations only; left out, what is saved stays, and so does the map pin (DELIVERY.md §2). */
+  ownDelivery?: boolean
+  deliveryRadiusM?: number
+  riderRadiusM?: number
+  deliveryFeeAmount?: string
+}
 
 /** A new location (no id), or the next revision of one. */
 export const savePlace = async (client: ApiClient, id: string | null, revision: number | null, input: PlaceInput): Promise<void> => {

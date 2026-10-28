@@ -6,6 +6,7 @@ export { addressDraft, orderPath, useCheckout, type CheckoutPage, type CheckoutS
 export { type AddressDraft, type AddressField, type FieldProblem } from '../checkout/address'
 export { PlaceOrder } from '../checkout/place'
 export { useOrder, useOrders, type Order, type OrderLine, type OrderPage, type OrderPayment, type OrderRow, type OrdersPage } from '../orders/order'
+export type { OrderTracking, TrackingState, TrackingStep } from '../orders/tracking'
 export { useBlog, useBlogPost, useContentPage, useProductCards, type BlogPost, type BlogPostView, type BlogView, type ContentBlock, type ContentPage, type ContentPageView } from '../content/content'
 export { useCollection, useCollections, type CollectionCard, type CollectionPage } from '../collections/collections'
 export { useInView, useMediaQuery, usePointer, useReducedMotion, useScrollProgress } from '../platform/browser/hooks'

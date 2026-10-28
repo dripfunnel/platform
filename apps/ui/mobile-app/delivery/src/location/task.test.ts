@@ -1,0 +1,49 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { latestPosition, type Point } from './position'
+import { reportLatest } from './task'
+
+jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
+jest.mock('expo-task-manager', () => ({ defineTask: jest.fn() }))
+jest.mock('./tracking', () => ({ trackingTask: 'df-delivery-position', stopTracking: jest.fn().mockResolvedValue(undefined) }))
+jest.mock('@dripfunnel/mobile-shared/brand', () => ({ storeHost: () => 'acme.my-store.one' }))
+jest.mock('../session/token', () => ({ loadToken: jest.fn().mockResolvedValue('token-1') }))
+
+const sent: unknown[] = []
+jest.mock('../api/dispatch', () => ({
+  reportPosition: (_client: unknown, position: unknown) => {
+    sent.push(position)
+    return Promise.resolve()
+  },
+}))
+
+const points: [Point, Point] = [
+  { coords: { latitude: 1, longitude: 1, accuracy: 9 }, timestamp: Date.UTC(2026, 0, 1, 10, 0, 0) },
+  { coords: { latitude: 2, longitude: 3, accuracy: null }, timestamp: Date.UTC(2026, 0, 1, 10, 0, 30) },
+]
+
+describe('a position', () => {
+  it('is the latest point of the wake-up, and only that', () => {
+    const [first, second] = points
+    expect(latestPosition([first, { ...second, coords: { ...second.coords, accuracy: 4 } }])).toEqual({ lat: 2, lng: 3, accuracy: 4, at: '2026-01-01T10:00:30.000Z' })
+    expect(latestPosition([])).toBeNull()
+  })
+
+  it('never passes an unknown accuracy off as 0 m: that point is dropped', () => {
+    expect(latestPosition(points)).toEqual({ lat: 1, lng: 1, accuracy: 9, at: '2026-01-01T10:00:00.000Z' })
+    expect(latestPosition([points[1]])).toBeNull()
+  })
+
+  it('sends nothing when no point has an accuracy', async () => {
+    sent.length = 0
+    await reportLatest([points[1]])
+    expect(sent).toHaveLength(0)
+  })
+
+  it('is sent and forgotten: never written to storage or logged', async () => {
+    const writes = [jest.spyOn(AsyncStorage, 'setItem'), jest.spyOn(AsyncStorage, 'multiSet')]
+    const logs = [jest.spyOn(console, 'log'), jest.spyOn(console, 'info'), jest.spyOn(console, 'warn'), jest.spyOn(console, 'error')].map((spy) => spy.mockImplementation(() => undefined))
+    await reportLatest(points)
+    expect(sent).toHaveLength(1)
+    for (const spy of [...writes, ...logs]) expect(spy).not.toHaveBeenCalled()
+  })
+})

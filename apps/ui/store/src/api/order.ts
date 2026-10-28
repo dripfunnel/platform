@@ -75,6 +75,22 @@ export type OrderEvent = z.infer<typeof eventSchema>
 const addressSchema = z.object({ name: z.string(), line1: z.string(), line2: z.string().nullable(), city: z.string(), region: z.string().nullable(), postalCode: z.string().nullable(), country: z.string(), phone: z.string().nullable() })
 export type OrderAddress = z.infer<typeof addressSchema>
 
+export const deliveryStates = ['packing', 'searching', 'unassigned', 'assigned', 'picked_up', 'delivered', 'failed', 'cancelled'] as const
+
+// Own delivery (docs/api/DELIVERY.md §3, §8): the order's latest delivery as the Store API reads it, never the handover code.
+const deliverySchema = z.object({
+  id: z.string(),
+  state: z.enum(deliveryStates),
+  failedReason: z.string().nullable(),
+  failedNote: z.string().nullable(),
+  cashCollectedAt: z.string().nullable(),
+  codeLocked: z.boolean(),
+  codeUnconfirmedAt: z.string().nullable(),
+  rider: z.object({ name: z.string(), phone: z.string().nullable(), vehicleType: z.string().nullable(), vehicleNumber: z.string().nullable() }).nullable(),
+  steps: z.array(z.object({ deliveryId: z.string(), state: z.enum(deliveryStates), at: z.string() })),
+})
+export type OrderDelivery = z.infer<typeof deliverySchema>
+
 const orderSchema = z.object({
   id: z.string(),
   number: z.string(),
@@ -108,6 +124,7 @@ const orderSchema = z.object({
   shippingOption: z.string().nullable(),
   shippingMethodLabel: z.string().nullable(),
   shopperNote: z.string().nullable(),
+  delivery: deliverySchema.nullable(),
 })
 export type Order = z.infer<typeof orderSchema>
 
@@ -122,7 +139,8 @@ const orderFields = `id number state placedAt customerName
   refunds { id supplierId returnId amount ${money} lines ${quantities} }
   paymentState fulfilmentState paymentMethod test customerId email phone marketName taxInclusive
   subtotal ${money} discount ${money} shipping ${money} tax ${money} duties ${money} total ${money} refunded ${money}
-  shippingOption shippingMethodLabel shopperNote`
+  shippingOption shippingMethodLabel shopperNote
+  delivery { id state failedReason failedNote cashCollectedAt codeLocked codeUnconfirmedAt rider { name phone vehicleType vehicleNumber } steps { deliveryId state at } }`
 
 /** One order, or null when it isn't there or isn't the caller's to see. */
 export const loadOrder = async (id: string): Promise<Order | null> =>
@@ -152,6 +170,29 @@ export const addTracking = async (shipmentId: string, courierName: string | null
     t: trackingNumber,
     u: trackingUrl,
   })
+}
+
+/** Offers an own-delivery order to riders now, for a store that dispatches when ready (DELIVERY §3). */
+export const markReadyForPickup = async (orderId: string): Promise<void> => {
+  await query('mutation R($o: ID!) { markReadyForPickup(orderId: $o) }', z.object({ markReadyForPickup: z.boolean() }), { o: orderId })
+}
+
+export const assignDelivery = async (deliveryId: string, riderId: string): Promise<void> => {
+  await query('mutation A($d: ID!, $r: ID!) { assignDelivery(deliveryId: $d, riderId: $r) }', z.object({ assignDelivery: z.boolean() }), { d: deliveryId, r: riderId })
+}
+
+export const offerDeliveryAgain = async (deliveryId: string): Promise<void> => {
+  await query('mutation O($d: ID!) { offerDeliveryAgain(deliveryId: $d) }', z.object({ offerDeliveryAgain: z.boolean() }), { d: deliveryId })
+}
+
+/** Before pickup it cancels the delivery; after, it recalls it and the rider brings the parcel back. */
+export const cancelDelivery = async (deliveryId: string): Promise<void> => {
+  await query('mutation C($d: ID!) { cancelDelivery(deliveryId: $d) }', z.object({ cancelDelivery: z.boolean() }), { d: deliveryId })
+}
+
+/** Only for a locked or unconfirmed code; `cashReceived` only means something for cash on delivery. */
+export const markDeliveryDelivered = async (deliveryId: string, reason: string, cashReceived: boolean | null): Promise<void> => {
+  await query('mutation D($d: ID!, $r: String!, $c: Boolean) { markDeliveryDelivered(deliveryId: $d, reason: $r, cashReceived: $c) }', z.object({ markDeliveryDelivered: z.boolean() }), { d: deliveryId, r: reason, c: cashReceived })
 }
 
 export const markOrderPaid = async (orderId: string): Promise<void> => {

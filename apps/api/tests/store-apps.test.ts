@@ -88,6 +88,7 @@ describe('The registry', () => {
     expect((await admin('support', '{ registeredApps { items { id } } }')).code).toBe('FORBIDDEN')
     expect((await admin('support', 'mutation { registerApp(name: "x", developer: "y", siteUrl: "https://ledger.example", webhookUrl: "https://ledger.example/h", scopes: ["catalog.read"]) { id } }')).code).toBe('FORBIDDEN')
     expect((await register('Bad scope', ['settings'])).code).toBe('INVALID_SCOPES')
+    expect((await register('Spends AI', ['ai.run'])).code).toBe('INVALID_SCOPES')
     expect((await register('Inside', ['catalog.read'], 'https://inside.example/h')).code).toBe('PRIVATE_ADDRESS')
     expect((await register('Plain', ['catalog.read'], 'http://ledger.example/h')).code).toBe('BAD_URL')
     const { app: made, code } = await register('Ledger Sync', ['catalog.read', 'orders.read'])

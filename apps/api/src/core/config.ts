@@ -43,6 +43,8 @@ const configSchema = z.object({
   STRIPE_TEST_PUBLISHABLE_KEY: z.string().regex(/^pk_test_[A-Za-z0-9]+$/, 'STRIPE_TEST_PUBLISHABLE_KEY must be a test-mode publishable key').optional(),
   // The storefront's "Pin on map" (THIRD-PARTY-ACCESS.md §2.12), a Worker variable: a public browser key, restricted by API.
   GOOGLE_MAPS_BROWSER_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'GOOGLE_MAPS_BROWSER_KEY must be a Google API key').optional(),
+  // A delivery's arrival estimate (THIRD-PARTY-ACCESS.md §2.12), a Worker secret: a server key restricted to the Routes API. Absent, no estimate.
+  GOOGLE_MAPS_SERVER_KEY: z.string().regex(/^AIza[0-9A-Za-z_-]{35}$/, 'GOOGLE_MAPS_SERVER_KEY must be a Google API key').optional(),
   // DripFunnel's Amazon SES (THIRD-PARTY-ACCESS.md §2.4), Worker secrets. Without all four, email
   // waits in the outbox. The sender domain is verified in SES; partners' fallbacks are its subdomains.
   SES_REGION: z.string().regex(/^[a-z]{2}(-[a-z]+)+-\d$/, 'SES_REGION must be an AWS region such as eu-west-1').optional(),
@@ -70,6 +72,8 @@ const configSchema = z.object({
     .transform((value) => value.replaceAll('\\n', '\n').trim())
     .refine((value) => /^-----BEGIN (RSA )?PRIVATE KEY-----\n[\s\S]+\n-----END (RSA )?PRIVATE KEY-----$/.test(value), 'GITHUB_APP_PRIVATE_KEY must be the App’s PEM private key')
     .optional(),
+  // The App's webhook secret, a Worker secret (#968): without it a push to a store repo's `main` builds nothing.
+  GITHUB_WEBHOOK_SECRET: z.string().min(20, 'GITHUB_WEBHOOK_SECRET must be at least 20 characters').optional(),
   // The R2 storefront upload credential (THIRD-PARTY-ACCESS.md §2.1, §8): all six or none; without them a store build's
   // calls (storefront LIVE-SHOP.md §4 steps 5–9) don't exist. The account id and bucket names are variables.
   R2_STOREFRONT_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'R2_STOREFRONT_ACCOUNT_ID must be the 32-character account id').optional(),
@@ -94,6 +98,8 @@ const configSchema = z.object({
   // The designer's model key on plans that include AI (THIRD-PARTY-ACCESS.md §2.6): a Worker secret standing in for the
   // partner's own key until partner credentials exist (#275). Unset, a request on the plan answers AI_NOT_CONNECTED.
   AI_PROVIDER_KEY: z.string().regex(/^sk-ant-[A-Za-z0-9_-]{20,}$/, 'AI_PROVIDER_KEY must be an Anthropic API key').optional(),
+  // Claude and ChatGPT sign-in (THIRD-PARTY-ACCESS §2.6): off unless 1, so it can be switched off without a deploy of code.
+  AI_SIGN_IN: z.literal('1').optional(),
   // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
   AI_LOCAL: z.literal('1').optional(),
   // A sample site's screenshot for the designer (storefront ARCHITECTURE §6.2): Cloudflare Browser Rendering, both or none.

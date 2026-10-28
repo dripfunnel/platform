@@ -1,12 +1,17 @@
 import type { ActivityFilter, ActivityPage } from '../../api/activity'
+import type { PageOf } from '../../api/allPages'
+import type { MobileApps } from '../../api/mobileApps'
+import type { Rider, RiderPlan } from '../../api/riders'
 import type { InstalledApp } from '../../api/apps'
 import type { CustomerAccounts } from '../../api/customerAccounts'
 import type { ApiKey, ApiKeyChoices, WebhookDelivery, WebhookEndpoint } from '../../api/developers'
 import type { Gateway } from '../../api/payments'
 import type { ShippingSettings } from '../../api/shipping'
+import type { Place } from '../../api/stock'
 import type { StoreInfo, StoreLocale } from '../../api/settings'
 import type { SupportAccess } from '../../api/support'
 import { sampleRead } from '../activity/activitySample'
+import { placesSample } from '../warehouses/placesStates'
 import type { Market } from '../../api/markets'
 import type { ProductBasics } from '../../api/productEditor'
 import type { InvoiceSettings, TaxSetupFull } from '../../api/tax'
@@ -105,6 +110,10 @@ export interface SettingsReads {
   apps: () => Promise<InstalledApp[]>
   supportAccess: (after: string | null) => Promise<SupportAccess>
   activity: (filter: ActivityFilter, after: string | null) => Promise<ActivityPage>
+  riders: (after: string | null) => Promise<PageOf<Rider>>
+  riderPlan: () => Promise<RiderPlan>
+  mobileApps: () => Promise<MobileApps>
+  places: () => Promise<Place[]>
 }
 
 const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
@@ -175,6 +184,9 @@ const sampleShipping: ShippingSettings = {
   areaFileName: null,
   areaCount: 0,
   areaSample: [],
+  ownDelivery: false,
+  dispatchWhen: 'ready',
+  offerMinutes: 5,
   labelSizes: ['a6', 'a4'],
   couriers: [{ provider: 'shiprocket', status: 'pricing', offered: true, pickupMode: 'scheduled', labelSize: 'a6', trackingEmails: true, lastTestedAt: '2026-10-09T08:30:00Z', lastTestResult: 'ok' }],
 }
@@ -242,6 +254,13 @@ const sampleSupport: SupportAccess = {
   },
 }
 
+const sampleRiders: Rider[] = [
+  { id: 'r1', name: 'Ravi Kumar', phone: '+91 98290 11111', status: 'active', online: true, currentDeliveryId: 'd1', deliveriesDone: 42 },
+  { id: 'r2', name: 'Imran Shaikh', phone: '+91 98290 22222', status: 'active', online: false, currentDeliveryId: null, deliveriesDone: 17 },
+  { id: 'r3', name: 'Deepak Meena', phone: '+91 98290 33333', status: 'suspended', online: false, currentDeliveryId: null, deliveriesDone: 6 },
+  { id: 'r4', name: 'Sunil Yadav', phone: '+91 98290 44444', status: 'invited', online: false, currentDeliveryId: null, deliveriesDone: 0 },
+]
+
 /** The tabs' reads under ?state=: the samples above. */
 export const sampleReads: SettingsReads = {
   storeInfo: async () => sampleInfo,
@@ -256,13 +275,20 @@ export const sampleReads: SettingsReads = {
   shipping: async () => sampleShipping,
   customerAccounts: async () => ({ mode: 'both', customers: 1284, withEmail: 812, withPhone: 686, phoneOnly: 214 }),
   apiKeys: async () => sampleKeys,
-  apiKeyChoices: async () => ({ scopes: ['catalog.read', 'stock.read', 'orders.read', 'customers.read'], expiresInDays: [30, 90, 365], requestsPerMinute: 60, requestsPerMonth: 100000 }),
+  apiKeyChoices: async () => ({ scopes: ['catalog.read', 'stock.read', 'orders.read', 'customers.read', 'ai.run'], expiresInDays: [30, 90, 365], requestsPerMinute: 60, requestsPerMonth: 100000 }),
   webhooks: async () => sampleHooks,
   webhookEvents: async () => ['order.placed', 'order.paid', 'order.shipped', 'order.refunded', 'product.updated', 'stock.changed'],
   deliveries: async (endpointId) => sampleDeliveries(endpointId),
   apps: async () => sampleApps,
   supportAccess: async () => sampleSupport,
   activity: sampleRead,
+  riders: async () => ({ nodes: harness ? sampleRiders : [], pageInfo: { hasNextPage: false, endCursor: null } }),
+  riderPlan: async () => ({ ownDelivery: true, ownApps: true }),
+  mobileApps: async () => ({
+    available: true,
+    current: harness ? { version: 3, appIcon: null, appIconForeground: null, splash: null, appName: 'Kesari Threads', shortDescription: 'Handwoven sarees and stoles, delivered.', longDescription: 'Shop Kesari Threads’ handwoven collection and follow your order to your door.', savedAt: '2026-10-20T09:30:00Z' } : null,
+  }),
+  places: async () => (harness ? (placesSample('list') ?? []) : []),
   catalogue: async () => ({
     pricingCurrency: 'INR',
     unitSystem: 'metric',

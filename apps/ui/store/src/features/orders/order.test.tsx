@@ -75,6 +75,7 @@ const placed: Order = {
   shippingOption: 'flat',
   shippingMethodLabel: null,
   shopperNote: null,
+  delivery: null,
 }
 
 const owner: Acting = { store: { id: 's1', name: 'Kesari Threads' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['orders.read', 'orders.write', 'orders.fulfil', 'orders.refund', 'orders.mark_paid', 'exports'] }

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const pushMessages = ['rider.notifications_on', 'rider.offer', 'rider.assigned', 'rider.taken', 'rider.cancelled', 'rider.recalled', 'order.picked_up', 'order.delivered', 'order.not_delivered'] as const
+export const pushMessages = ['rider.notifications_on', 'rider.offer', 'rider.assigned', 'rider.taken', 'rider.cancelled', 'rider.recalled', 'order.rider_assigned', 'order.picked_up', 'order.delivered', 'order.not_delivered'] as const
 export type PushMessageCode = (typeof pushMessages)[number]
 
 /** The outbox payload: no free text, and ids only. */

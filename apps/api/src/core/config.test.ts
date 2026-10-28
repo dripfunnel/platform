@@ -29,6 +29,11 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, ...app, GITHUB_APP_ID: 'my-app' })).toThrow(/numeric id/)
   })
 
+  it('takes the App’s webhook secret only when it is long enough to guess at no faster than its signature', () => {
+    expect(parseConfig({ ...hosts, GITHUB_WEBHOOK_SECRET: 'a'.repeat(20) }).GITHUB_WEBHOOK_SECRET).toBe('a'.repeat(20))
+    expect(() => parseConfig({ ...hosts, GITHUB_WEBHOOK_SECRET: 'short' })).toThrow(/at least 20 characters/)
+  })
+
   it('takes CODE_CHECK=0 on any host', () => {
     expect(parseConfig({ ...hosts, CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'dev-hooks.actuateminds.com', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')

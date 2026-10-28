@@ -1,0 +1,94 @@
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { storeHost } from '@dripfunnel/mobile-shared/brand'
+import { ApiError, isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
+import { uploadPhoto } from '../api/photo'
+import { createDeliveryClient } from '../api/client'
+import { fetchMe, signOut as signOutOnServer } from '../api/rider'
+import { isTracking, startTracking, stopTracking } from '../location/tracking'
+import { registerIfGranted, unregisterThisPhone } from '../push/push'
+import { SessionContext, type Session } from './SessionContext'
+import { clearToken, loadToken, saveToken } from './token'
+
+// One client for the screens: it reads the token on every call, so a sign-in reaches it at once.
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<string | null>(null)
+  const [signedIn, setSignedIn] = useState(false)
+  const token = useRef<string | null>(null)
+
+  useEffect(() => {
+    let current = true
+    const own = storeHost()
+    loadToken(own).then((saved) => {
+      if (!current) return
+      token.current = saved
+      setSignedIn(saved !== null)
+      setHost(own)
+    })
+    return () => {
+      current = false
+    }
+  }, [])
+
+  const session = useMemo<Session | null>(() => {
+    if (host === null) return null
+    // The position task stops first, so no point is sent once the session is going (docs/mobile-app/delivery/FIRST-RELEASE.md §1).
+    const leave = async () => {
+      await stopTracking().catch(() => undefined)
+      token.current = null
+      setSignedIn(false)
+      await clearToken(host)
+    }
+    const base = createDeliveryClient(host, { token: () => token.current })
+    // Any call the API answers as signed out sends the rider back to getting in.
+    const request: ApiClient['request'] = async (query, variables, options) => {
+      try {
+        return await base.request(query, variables, options)
+      } catch (error) {
+        if (token.current && isApiError(error, 'UNAUTHENTICATED')) await leave()
+        throw error
+      }
+    }
+    const client: ApiClient = { request }
+    return {
+      host,
+      client,
+      signedIn,
+      startSession: async (value) => {
+        token.current = value
+        setSignedIn(true)
+        await saveToken(host, value)
+      },
+      signOut: async () => {
+        const wasTracking = await isTracking().catch(() => false)
+        await stopTracking().catch(() => undefined)
+        await unregisterThisPhone(client).catch(() => undefined)
+        // A phone with no signal must still be able to sign out; only a parcel in hand keeps the session, and its position goes on being sent.
+        await signOutOnServer(client).catch(async (error: unknown) => {
+          if (!isApiError(error, 'RIDER_HAS_PARCEL')) return
+          await registerIfGranted(client).catch(() => undefined)
+          if (wasTracking) await startTracking(true).catch(() => undefined)
+          throw error
+        })
+        await leave()
+      },
+      leave,
+      fetchRider: async () => {
+        const rider = await fetchMe(client)
+        if (rider) return rider
+        await leave()
+        throw new ApiError('UNAUTHENTICATED', 'The API reads this token as signed out.')
+      },
+      // The upload is not a GraphQL call, so a refusal as signed out is checked here as `request` checks it.
+      uploadPhoto: async (uri, mimeType) => {
+        try {
+          return await uploadPhoto({ host, token: token.current, uri, mimeType })
+        } catch (error) {
+          if (token.current && isApiError(error, 'UNAUTHENTICATED')) await leave()
+          throw error
+        }
+      },
+    }
+  }, [host, signedIn])
+
+  return session ? <SessionContext.Provider value={session}>{children}</SessionContext.Provider> : null
+}

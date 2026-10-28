@@ -33,7 +33,38 @@
     "offline": {
       "title": "You’re offline",
       "body": "Connect to the internet and try again. Nothing you’ve done is lost.",
-      "banner": "You’re offline. This is what we last loaded."
+      "banner": "You’re offline. This is what we last loaded.",
+      "strip": "You’re offline. You can keep browsing what’s loaded; prices and stock may have changed. Reconnect to check out.",
+      "writes": "Needs a connection. Reconnect to continue.",
+      "opens": "Needs a connection to open this page."
+    }
+  },
+  "crash": {
+    "title": "Something went wrong",
+    "body": "The app hit a problem. Try again, and if it keeps happening, close the app and open it again."
+  },
+  "legal": {
+    "title": "Legal",
+    "rowBody": "Terms, privacy, returns, delivery",
+    "terms": "Terms of sale",
+    "privacy": "Privacy policy",
+    "returns": "Returns and refunds",
+    "shipping": "Delivery",
+    "notice": "Legal notice",
+    "note": "These open {host} inside the app.",
+    "failed": "We couldn’t open that page. Try again."
+  },
+  "markets": {
+    "title": "Language and currency",
+    "language": "Language",
+    "currency": "Currency",
+    "thisShop": "This shop",
+    "languageNote": "Product names and descriptions show in the language you choose where {shop} has translated them.",
+    "currencyNote": "Your cart and checkout use the currency you choose here.",
+    "oneCurrency": "{shop} sells in {currency} only.",
+    "unavailable": {
+      "title": "Languages and currencies aren’t loaded yet",
+      "body": "They appear here once you’re back online."
     }
   },
   "errors": {
@@ -51,6 +82,23 @@
     "NOT_FOUND": "That is no longer here.",
     "SIGNED_OUT": "Your session ended. Sign in again.",
     "NOT_IN_PREVIEW": "Signing in isn’t available on a preview of the shop.",
+    "NO_CART": "Your cart has expired. Add something to start again.",
+    "TOO_MANY_CODES": "Your cart already holds five codes. Remove one to add another.",
+    "NOT_READY": "There’s something to finish before you can place the order.",
+    "OUT_OF_STOCK": "Something in your cart has just sold out. Check your cart and try again.",
+    "OFFER_CHANGED": "An offer in your cart has just ended or been used up. Check your cart and try again.",
+    "CART_CHANGED": "Your cart changed while you were placing the order. Check it and try again.",
+    "ALREADY_PLACED": "This order has already been placed.",
+    "METHOD_UNAVAILABLE": "This shop doesn’t take that payment any more. Choose another way to pay.",
+    "PHONE_REQUIRED": "Add your mobile number to pay this way.",
+    "SHIPPING_UNAVAILABLE": "We can no longer deliver this order to that address that way. Check the delivery step.",
+    "ALREADY_PAID": "This order is already paid.",
+    "PAYMENT_PENDING": "Your earlier payment is still going through. Check back in a few minutes; don’t pay again.",
+    "PAYMENT_MISMATCH": "The shop needs to check this payment before you pay again. Contact the shop.",
+    "PAYMENT_UNAVAILABLE": "We couldn’t reach the payment provider. Nothing was charged. Try again in a minute.",
+    "MODE_MISMATCH": "This order can’t be paid from here. Contact the shop.",
+    "NOT_PENDING": "This order isn’t waiting for a payment.",
+    "INVALID_APP_PAYMENT": "The app couldn’t start this payment. Update the app and try again.",
     "UNKNOWN": "Something went wrong. Try again in a moment."
   },
   "home": {
@@ -226,7 +274,9 @@
     "saveName": "Save name",
     "addressesTitle": "Addresses",
     "addresses": "{count} saved",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "ordersTitle": "Orders",
+    "ordersBody": "Your orders, and where a delivery is"
   },
   "addresses": {
     "title": "Addresses",
@@ -281,7 +331,302 @@
       "notFound": "We couldn’t find that address on the map. Check it, or move the pin by hand."
     }
   },
+  "cart": {
+    "title": "Your cart",
+    "empty": {
+      "title": "Your cart is empty",
+      "body": "Add something you like and it will be here.",
+      "browse": "Keep shopping"
+    },
+    "each": "{price} each",
+    "quantity": "Quantity {count}",
+    "more": "One more {name}",
+    "fewer": "One fewer {name}",
+    "remove": "Remove {name} from the cart",
+    "removeShort": "Remove",
+    "problem": {
+      "unavailable": "No longer available. Remove it to continue.",
+      "not_sold_here": "Not sold in your country. Remove it to continue.",
+      "not_priced": "Not priced in your currency. Remove it to continue.",
+      "short": "Only {count} left. Lower the quantity to continue.",
+      "soldOut": "Sold out since you added it. Remove it to continue."
+    },
+    "code": {
+      "label": "Offer code",
+      "apply": "Apply",
+      "remove": "Remove {code}",
+      "APPLIED": "{code} applied.",
+      "NOT_ELIGIBLE": "{code} doesn’t apply to what’s in your cart.",
+      "DOESNT_COMBINE": "{code} can’t be used with another offer in your cart.",
+      "INVALID": "{code} isn’t a code we recognise. Check it and try again.",
+      "EXPIRED": "{code} has ended.",
+      "USED_UP": "{code} has been used up.",
+      "ALREADY_USED": "You’ve already used {code}.",
+      "SIGN_IN_REQUIRED": "Sign in to use {code}."
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "delivery": "Delivery",
+      "free": "Free",
+      "later": "Chosen at checkout",
+      "next": "Next step",
+      "tax": "Tax",
+      "total": "Total",
+      "includes": "Includes {amount} in taxes."
+    },
+    "checkout": "Check out · {total}"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "steps": {
+      "contact": "Contact",
+      "address": "Address",
+      "delivery": "Delivery",
+      "payment": "Payment",
+      "review": "Review"
+    },
+    "progress": "Step {step} of {count}: {name}",
+    "continue": "Continue",
+    "change": "Change",
+    "summary": {
+      "show": "Show order summary",
+      "hide": "Hide order summary",
+      "line": "{name} × {count}"
+    },
+    "empty": {
+      "title": "Nothing to check out",
+      "body": "Your cart is empty. Add something to start an order.",
+      "action": "Go to your cart"
+    },
+    "contact": {
+      "title": "Contact",
+      "email": "Email",
+      "emailHelp": "For your receipt and order updates.",
+      "phone": "Mobile number",
+      "phoneHelp": "So the person delivering can call you."
+    },
+    "address": {
+      "title": "Delivery address",
+      "saved": "Saved addresses",
+      "pinSet": "Pin set",
+      "noPin": "No pin yet. Add it to use this address.",
+      "add": "Add a new address",
+      "useSaved": "Use a saved address"
+    },
+    "delivery": {
+      "title": "Delivery",
+      "intro": "How your order is delivered depends on your address.",
+      "own": "Our own delivery",
+      "ownNote": "Delivered by our own riders.",
+      "flat": "Standard delivery",
+      "courier": "Courier delivery",
+      "pickup": "Pick up in store",
+      "pickupHours": "Collect {hours}",
+      "days": "Arrives in {min}–{max} days",
+      "daysSame": "Arrives in {count} days",
+      "free": "Free",
+      "none": {
+        "title": "We can’t deliver to this address",
+        "body": "Choose another address, or pick the order up if the shop offers it."
+      }
+    },
+    "payment": {
+      "title": "Payment",
+      "cod": "Cash on delivery",
+      "bank_transfer": "Bank transfer",
+      "stripe": "Card or wallet",
+      "paypal": "PayPal",
+      "razorpay": "Razorpay",
+      "cashfree": "Cashfree",
+      "phonepe": "PhonePe",
+      "other": "Other",
+      "codNote": "Keep {total} ready in cash. You pay when it arrives.",
+      "bankNote": "We hold your items for 3 days. If your payment hasn’t reached us by then, the order is cancelled and you’re emailed.",
+      "soon": "Not available in the app yet.",
+      "none": {
+        "title": "You can’t pay for this in the app yet",
+        "body": "This shop takes payment only in ways the app doesn’t support yet. You can order on the shop’s website."
+      }
+    },
+    "review": {
+      "title": "Review and place order",
+      "contact": "Contact",
+      "deliverTo": "Deliver to",
+      "method": "Method",
+      "payment": "Payment",
+      "summary": "Order summary",
+      "place": "Place order",
+      "legal": "By placing your order you agree to our Terms and Returns policy. We use your details as our Privacy policy says."
+    },
+    "pay": {
+      "opening": "Opening {method}…",
+      "confirming": "Confirming your payment…",
+      "confirmingBody": "Don’t close the app. This usually takes a few seconds.",
+      "stoppedTitle": "Your payment didn’t go through",
+      "cancelled": "You closed the payment before it finished. Nothing was charged.",
+      "declined": "The payment was declined or could not be completed. Nothing was charged.",
+      "timeout": "The payment took too long and was stopped. Nothing was charged.",
+      "unavailable": "We couldn’t start the payment. Nothing was charged. Try again in a moment.",
+      "orderCancelled": "This order was cancelled. Nothing was charged.",
+      "orderNote": "Order {number} is placed and waiting for payment. It is cancelled if nothing is paid within a day.",
+      "retry": "Try again",
+      "leave": "Leave without paying",
+      "pendingTitle": "We’re still confirming your payment",
+      "pendingBody": "This can take a few minutes. Don’t pay again: if it goes through we’ll email you.",
+      "checkAgain": "Check again",
+      "done": "Done",
+      "method": {
+        "stripe": "the card payment",
+        "paypal": "PayPal",
+        "razorpay": "Razorpay",
+        "cashfree": "Cashfree",
+        "phonepe": "PhonePe"
+      }
+    },
+    "placed": {
+      "heading": "Thank you for your order",
+      "body": "Order {number} is placed. We’ll send the receipt to {email}.",
+      "bodyNoEmail": "Order {number} is placed.",
+      "pillPaid": "Paid",
+      "pillBank": "Waiting for payment",
+      "pillCod": "Cash on delivery",
+      "bankTitle": "Pay {total} by bank transfer",
+      "bankBody": "Use your order number {number} as the reference. If your payment hasn’t reached us in 3 days, we cancel the order and email you.",
+      "codBody": "Pay {total} in cash when your order arrives.",
+      "orderTitle": "Order {number}",
+      "done": "Continue shopping",
+      "viewOrder": "View order"
+    },
+    "refused": {
+      "toCart": "Back to your cart",
+      "toStep": "Go back and fix it"
+    }
+  },
   "permissions": {
     "location": "Allow {name} to use your location to put the pin on your address."
+  },
+  "orders": {
+    "title": "Orders",
+    "guest": {
+      "title": "Sign in to see your orders",
+      "body": "Orders you placed with this email or mobile number, in the app or on the website, show here.",
+      "action": "Sign in"
+    },
+    "empty": {
+      "title": "No orders yet",
+      "body": "Orders you place in the app or on the website show here.",
+      "action": "Start shopping"
+    },
+    "items": {
+      "one": "{count} item",
+      "other": "{count} items"
+    },
+    "row": "{date} · {items}",
+    "more": "Show more orders",
+    "order": "Order {number}",
+    "placedOn": "Placed {date}",
+    "notFound": {
+      "title": "We can’t find this order",
+      "body": "It may belong to another account, or to a phone this order was not placed on."
+    },
+    "itemsTitle": "Items",
+    "quantity": "Quantity {count}",
+    "summary": {
+      "title": "Order summary",
+      "subtotal": "Subtotal",
+      "shipping": "Delivery",
+      "tax": "Tax",
+      "taxIncluded": "Includes {tax} in taxes.",
+      "giftCard": "Gift card",
+      "total": "Total"
+    },
+    "details": {
+      "payment": "Payment",
+      "method": "Delivery method"
+    },
+    "status": {
+      "cancelled": "Cancelled",
+      "paid": "Paid",
+      "refunded": "Refunded",
+      "confirming": "Confirming payment",
+      "payOnDelivery": "Pay on delivery",
+      "bankWaiting": "Waiting for your transfer",
+      "awaiting": "Waiting for payment"
+    },
+    "payBy": "Pay by {date}, or the order is cancelled.",
+    "cancelledNote": "This order was cancelled.",
+    "delivery": {
+      "title": "Delivery",
+      "track": "Track delivery"
+    }
+  },
+  "tracking": {
+    "title": "Track delivery",
+    "stepsTitle": "Delivery steps",
+    "progress": {
+      "done": "Done",
+      "current": "Current step",
+      "todo": "Still to come",
+      "ended": "Ended here"
+    },
+    "state": {
+      "packing": "Being packed",
+      "searching": "Looking for a rider",
+      "assigned": "Rider assigned",
+      "picked_up": "On the way",
+      "delivered": "Delivered",
+      "failed": "Not delivered",
+      "cancelled": "Cancelled"
+    },
+    "lead": {
+      "packing": "We’re packing your order. Next, a delivery partner picks it up.",
+      "searching": "Your order is packed. We’re finding a delivery partner.",
+      "assigned": "{name} is on the way to collect your order.",
+      "picked_up": "{name} has your order and is bringing it to you.",
+      "delivered": "Your order has been delivered.",
+      "failed": "Our delivery partner couldn’t deliver your order. The store will be in touch.",
+      "cancelled": "This delivery was cancelled."
+    },
+    "rider": "Your delivery partner",
+    "call": "Call {name}",
+    "photo": "Photo of {name}",
+    "vehicle": {
+      "bike": "Bike",
+      "scooter": "Scooter",
+      "car": "Car",
+      "bicycle": "Bicycle",
+      "foot": "On foot"
+    },
+    "code": {
+      "title": "Your handover code",
+      "give": "Give this code to your rider",
+      "label": "Handover code {code}",
+      "hint": "Give this code to your rider when they hand you the parcel. They can’t mark it delivered without it, so only share it at your door."
+    },
+    "map": {
+      "label": "Map showing where {name} is",
+      "eta": "Arriving about {time}",
+      "updated": "Position updated {time}",
+      "waiting": "We’ll show {name} on the map once they’re on the way."
+    },
+    "none": {
+      "title": "Nothing to follow here",
+      "body": "This order has no live delivery. Open the order to see where it stands.",
+      "action": "View order"
+    },
+    "unknown": {
+      "title": "We can’t show this delivery yet",
+      "body": "Open it again in a moment."
+    }
+  },
+  "push": {
+    "title": "Know when your order is on its way",
+    "body": "{store} tells you when a delivery partner has your order, when it’s on the way and when it’s delivered. Notifications never show your handover code, address or amounts.",
+    "store": "The store",
+    "allow": "Turn on notifications",
+    "later": "Not now",
+    "failed": "We couldn’t turn notifications on. Try again in a moment.",
+    "channel": "Order updates"
   }
 }

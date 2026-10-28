@@ -35,9 +35,9 @@ export const ordersAccessOf = (acting: { permissions: readonly string[]; seller:
   }
 }
 
-/** The chips each side has: a supplier's are its part's, with no money to filter by. */
-export const chipsFor = (supplier: boolean): readonly OrderFilter[] =>
-  supplier ? ['ALL', 'TO_SHIP', 'PARTLY_SHIPPED', 'SHIPPED'] : ['ALL', 'TO_SHIP', 'PARTLY_SHIPPED', 'SHIPPED', 'CANCELLED_REFUNDED', 'PAYMENT_PENDING']
+/** The chips each side has: a supplier's are its part's, with no money to filter by; the delivery chips show once the store has an own delivery. */
+export const chipsFor = (supplier: boolean, delivery: boolean): readonly OrderFilter[] =>
+  supplier ? ['ALL', 'TO_SHIP', 'PARTLY_SHIPPED', 'SHIPPED'] : ['ALL', 'TO_SHIP', 'PARTLY_SHIPPED', 'SHIPPED', 'CANCELLED_REFUNDED', 'PAYMENT_PENDING', ...(delivery ? (['OWN_DELIVERY', 'DELIVERY_NEEDS_YOU'] as const) : [])]
 
 export const countKey: Record<OrderFilter, keyof OrderCounts> = {
   ALL: 'all',
@@ -46,6 +46,8 @@ export const countKey: Record<OrderFilter, keyof OrderCounts> = {
   SHIPPED: 'shipped',
   CANCELLED_REFUNDED: 'cancelledRefunded',
   PAYMENT_PENDING: 'paymentPending',
+  OWN_DELIVERY: 'ownDelivery',
+  DELIVERY_NEEDS_YOU: 'deliveryNeedsYou',
 }
 
 export type OrderStatus = 'toShip' | 'partly' | 'shipped' | 'refunded' | 'cancelled'

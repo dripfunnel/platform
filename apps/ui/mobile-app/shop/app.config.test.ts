@@ -52,6 +52,100 @@ describe('app.config.ts', () => {
     expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_MAPS_ANDROID_KEY/)
   })
 
+  it('switches on Stripe’s Payment Sheet and Google Pay, and Apple Pay only for a store that names a merchant identifier', () => {
+    const stripe = (config: ReturnType<typeof buildConfig>) => config.plugins?.find((p) => Array.isArray(p) && p[0] === '@stripe/stripe-react-native')
+    const plain = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    expect(stripe(plain)).toEqual(['@stripe/stripe-react-native', { enableGooglePay: true }])
+    expect(plain.extra).not.toHaveProperty('APPLE_PAY_MERCHANT_ID')
+
+    editDevEnv((lines) => [...lines, 'APPLE_PAY_MERCHANT_ID=merchant.com.juniper.shop'])
+    const apple = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(stripe(apple)).toEqual(['@stripe/stripe-react-native', { enableGooglePay: true, merchantIdentifier: 'merchant.com.juniper.shop' }])
+    expect(apple.extra).toMatchObject({ APPLE_PAY_MERCHANT_ID: 'merchant.com.juniper.shop' })
+  })
+
+  it('lets the app find PhonePe’s Android SDK and the UPI apps the Indian providers open', () => {
+    const config = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    const properties = config.plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-build-properties')
+    expect(properties).toEqual([
+      'expo-build-properties',
+      {
+        android: {
+          extraMavenRepos: ['https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android'],
+          manifestQueries: { intent: [{ action: 'android.intent.action.VIEW', data: { scheme: 'upi', host: 'pay' } }] },
+        },
+      },
+    ])
+    expect(config.ios?.infoPlist?.['LSApplicationQueriesSchemes']).toEqual(['phonepe', 'tez', 'paytmmp', 'paytm', 'bhim'])
+  })
+
+  it('sets up push only for a store that names its EAS project, and gives Android its Firebase file from the store’s own folder', () => {
+    const plain = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    expect(plain.extra).not.toHaveProperty('eas')
+    expect(plain.android).not.toHaveProperty('googleServicesFile')
+
+    writeFileSync(join(root, 'stores/dev/google-services.json'), '{}')
+    editDevEnv((lines) => [...lines, 'EAS_PROJECT_ID=0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    const push = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(push.extra).toMatchObject({ eas: { projectId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' } })
+    expect(push.android?.googleServicesFile).toBe('./stores/dev/google-services.json')
+    expect(push.plugins).toContain('expo-notifications')
+  })
+
+  it('refuses a push project that is not an id, and a Firebase file that is missing or another store’s', () => {
+    editDevEnv((lines) => [...lines, 'EAS_PROJECT_ID=my-project'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/EAS_PROJECT_ID/)
+
+    editDevEnv((lines) => [...lines.filter((l) => !l.startsWith('EAS_PROJECT_ID')), 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/does not exist/)
+
+    editDevEnv((lines) => [...lines.filter((l) => !l.startsWith('GOOGLE_SERVICES_FILE')), 'GOOGLE_SERVICES_FILE=stores/other/google-services.json'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/is not under stores\/dev\//)
+  })
+
+  it('switches Crashlytics on only for a store with both Firebase files, and builds the iOS pods as dynamic frameworks for it', () => {
+    const plain = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    expect(plain.plugins).not.toContain('@react-native-firebase/app')
+    expect(plain.extra).not.toHaveProperty('crashReporting')
+    expect(plain.ios).not.toHaveProperty('googleServicesFile')
+
+    writeFileSync(join(root, 'stores/dev/google-services.json'), '{}')
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    const pushOnly = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(pushOnly.plugins).not.toContain('@react-native-firebase/crashlytics')
+    expect(pushOnly.extra).not.toHaveProperty('crashReporting')
+
+    writeFileSync(join(root, 'stores/dev/GoogleService-Info.plist'), '<plist/>')
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICE_INFO_FILE=stores/dev/GoogleService-Info.plist'])
+    const crash = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(crash.plugins).toEqual(expect.arrayContaining(['@react-native-firebase/app', '@react-native-firebase/crashlytics']))
+    expect(crash.ios?.googleServicesFile).toBe('./stores/dev/GoogleService-Info.plist')
+    expect(crash.android?.googleServicesFile).toBe('./stores/dev/google-services.json')
+    expect(crash.extra).toMatchObject({ crashReporting: true })
+    const properties = crash.plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-build-properties')
+    expect(properties?.[1]).toMatchObject({ ios: { useFrameworks: 'dynamic' } })
+  })
+
+  it('refuses the iOS Firebase file without the Android one, and one that is missing, another store’s or misnamed', () => {
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICE_INFO_FILE=stores/dev/GoogleService-Info.plist'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_SERVICE_INFO_FILE.*GOOGLE_SERVICES_FILE/s)
+
+    writeFileSync(join(root, 'stores/dev/google-services.json'), '{}')
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow("GOOGLE_SERVICE_INFO_FILE: stores/dev/GoogleService-Info.plist does not exist")
+
+    editDevEnv((lines) => [...lines.filter((l) => !l.startsWith('GOOGLE_SERVICE_INFO_FILE')), 'GOOGLE_SERVICE_INFO_FILE=stores/other/GoogleService-Info.plist'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow("is not under stores/dev/")
+
+    editDevEnv((lines) => [...lines.filter((l) => !l.startsWith('GOOGLE_SERVICE_INFO_FILE')), 'GOOGLE_SERVICE_INFO_FILE=stores/dev/info.plist'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/GOOGLE_SERVICE_INFO_FILE/)
+  })
+
+  it('refuses an Apple merchant identifier that is not shaped like one', () => {
+    editDevEnv((lines) => [...lines, 'APPLE_PAY_MERCHANT_ID=juniper'])
+    expect(() => readStoreEnv(root, 'dev')).toThrow(/APPLE_PAY_MERCHANT_ID/)
+  })
+
   it('asks for the location only while the app is in use, naming the store', () => {
     const env = readStoreEnv(appRoot, 'dev')
     const plugin = buildConfig({}, env).plugins?.find((p) => Array.isArray(p) && p[0] === 'expo-location')

@@ -233,7 +233,7 @@ jobs:
 
   gates:
     needs: review
-    if: ${{ vars.GATES_CHECK != '0' && !cancelled() && (github.event_name == 'push' || (needs.review.result == 'success' && contains(fromJSON('["dev","main"]'), github.event.pull_request.base.ref))) }}
+    if: ${{ vars.GATES_CHECK != '0' && (vars.GATES_CHECK != 'pr' || github.event_name != 'pull_request') && !cancelled() && (github.event_name == 'push' || (needs.review.result == 'success' && contains(fromJSON('["dev","main"]'), github.event.pull_request.base.ref))) }}
     runs-on: ubuntu-latest
     services:
       postgres:

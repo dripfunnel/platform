@@ -31,6 +31,40 @@ export const errorKey = (code: string): MessageKey => {
       return 'errors.SIGNED_OUT'
     case 'NOT_IN_PREVIEW':
       return 'errors.NOT_IN_PREVIEW'
+    case 'NO_CART':
+      return 'errors.NO_CART'
+    case 'TOO_MANY_CODES':
+      return 'errors.TOO_MANY_CODES'
+    case 'NOT_READY':
+      return 'errors.NOT_READY'
+    case 'OUT_OF_STOCK':
+      return 'errors.OUT_OF_STOCK'
+    case 'OFFER_CHANGED':
+      return 'errors.OFFER_CHANGED'
+    case 'CART_CHANGED':
+      return 'errors.CART_CHANGED'
+    case 'ALREADY_PLACED':
+      return 'errors.ALREADY_PLACED'
+    case 'METHOD_UNAVAILABLE':
+      return 'errors.METHOD_UNAVAILABLE'
+    case 'PHONE_REQUIRED':
+      return 'errors.PHONE_REQUIRED'
+    case 'SHIPPING_UNAVAILABLE':
+      return 'errors.SHIPPING_UNAVAILABLE'
+    case 'ALREADY_PAID':
+      return 'errors.ALREADY_PAID'
+    case 'PAYMENT_PENDING':
+      return 'errors.PAYMENT_PENDING'
+    case 'PAYMENT_MISMATCH':
+      return 'errors.PAYMENT_MISMATCH'
+    case 'PAYMENT_UNAVAILABLE':
+      return 'errors.PAYMENT_UNAVAILABLE'
+    case 'MODE_MISMATCH':
+      return 'errors.MODE_MISMATCH'
+    case 'NOT_PENDING':
+      return 'errors.NOT_PENDING'
+    case 'INVALID_APP_PAYMENT':
+      return 'errors.INVALID_APP_PAYMENT'
     default:
       return 'errors.UNKNOWN'
   }

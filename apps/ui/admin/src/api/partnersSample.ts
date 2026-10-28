@@ -90,6 +90,7 @@ export const samplePartners: readonly SamplePartner[] = [
     checklist: allDone('Ravi', 'DripFunnel'),
     branding: { productName: 'DripFunnel', primaryColor: '#EC844F', accentColor: '#0A2A4A', poweredBy: 'house' },
     domains: domainsFor('dripfunnel.ai', 'store.dripfunnel.ai'),
+    aiKeys: [{ name: 'Production', provider: 'anthropic', status: 'ok', isDefault: true, lastTestedAt: '2026-09-28T09:10:00Z' }],
     plans: [
       plan('df-starter', 'Starter', 'live', 10, 1, 402),
       plan('df-growth', 'Growth', 'live', 100, 2, 511),
@@ -122,6 +123,7 @@ export const samplePartners: readonly SamplePartner[] = [
     checklist: allDone('Maya', 'Northstar Commerce'),
     branding: { productName: 'Northstar Stores', primaryColor: '#1B3A5B', accentColor: '#2BB673', poweredBy: 'on' },
     domains: domainsFor('northstar.com', 'store.northstar.com'),
+    aiKeys: [],
     plans: [
       plan('ns-launch', 'Launch', 'live', 250, 1, 31),
       plan('ns-scale', 'Scale', 'live', 2000, 3, 42),
@@ -159,6 +161,7 @@ export const samplePartners: readonly SamplePartner[] = [
     domains: [
       ...domainsFor('bazaarcloud.in', 'portal.bazaarcloud.in'),
     ],
+    aiKeys: [],
     plans: [
       plan('bz-starter', 'Starter', 'live', 250, 1, 120),
       plan('bz-growth', 'Growth', 'live', 2000, 3, 96),
@@ -204,6 +207,7 @@ export const samplePartners: readonly SamplePartner[] = [
     ],
     branding: { productName: 'Kaufladen Shop', primaryColor: '#2A2F8F', accentColor: '#FFCC00', poweredBy: 'on' },
     domains: domainsFor('kaufladen.de', 'shop.kaufladen.de', ['email']),
+    aiKeys: [],
     plans: [
       plan('kl-basis', 'Basis', 'live', 500, 2, 24),
       plan('kl-plus', 'Plus', 'live', 5000, 5, 16),
@@ -234,6 +238,7 @@ export const samplePartners: readonly SamplePartner[] = [
     checklist: allDone('Olivia', 'Loom & Thread'),
     branding: { productName: 'Loom & Thread Sellers', primaryColor: '#5B3A29', accentColor: '#D9A441', poweredBy: 'on' },
     domains: domainsFor('loomandthread.co.uk', 'sellers.loomandthread.co.uk'),
+    aiKeys: [],
     plans: [plan('lt-marketplace', 'Marketplace', 'live', null, null, 1)],
     team: [user('olivia', 'Olivia Grant', 'olivia@loomandthread.co.uk', 'owner', '2026-09-27T19:30:00Z')],
     checks: passing,
@@ -259,6 +264,7 @@ export const samplePartners: readonly SamplePartner[] = [
     ],
     branding: { productName: 'Tallis Shops', primaryColor: '#3D5A40', accentColor: '#E3B23C', poweredBy: 'on' },
     domains: domainsFor('tallis.studio', 'shops.tallis.studio', ['portal', 'email']),
+    aiKeys: [],
     plans: [],
     team: [],
     checks: { portalHost: false, emailDomain: false, pricedPlan: false, legalPages: false },
@@ -285,6 +291,7 @@ export const samplePartners: readonly SamplePartner[] = [
     ],
     branding: { productName: 'Nordlicht Shops', primaryColor: '#3B2F63', accentColor: '#7FD1C7', poweredBy: 'on' },
     domains: domainsFor('nordlicht.media', 'shops.nordlicht.media', ['email']),
+    aiKeys: [],
     plans: [],
     team: [],
     checks: { portalHost: true, emailDomain: false, pricedPlan: false, legalPages: false },

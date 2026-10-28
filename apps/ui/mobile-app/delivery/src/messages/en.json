@@ -1,0 +1,356 @@
+{
+  "tabs": {
+    "home": "Home",
+    "history": "History",
+    "profile": "Profile"
+  },
+  "placeholder": {
+    "body": "This screen isn’t built yet."
+  },
+  "startup": {
+    "failed": "The app couldn’t start. Try again in a moment.",
+    "retry": "Try again"
+  },
+  "brand": {
+    "logo": "{name} logo",
+    "logoUnnamed": "Store logo"
+  },
+  "common": {
+    "back": "Back",
+    "loading": "Loading",
+    "retry": "Try again",
+    "optional": "optional",
+    "close": "Close"
+  },
+  "states": {
+    "error": {
+      "title": "Couldn’t load this",
+      "body": "Something went wrong on our side. Try again in a moment."
+    },
+    "offline": {
+      "title": "No signal",
+      "body": "Check your connection and try again."
+    }
+  },
+  "signIn": {
+    "delivery": "Delivery",
+    "phone": {
+      "title": "Sign in with your mobile number",
+      "body": "Use the number the store invited. We’ll text you a code.",
+      "countryCode": "Country code",
+      "number": "Mobile number",
+      "numberHint": "Without the country code",
+      "send": "Send code",
+      "invalid": "Enter your mobile number with its country code.",
+      "chooseCountry": "Choose a country",
+      "select": "Select",
+      "search": "Search by country or code",
+      "noMatch": "No country matches that."
+    },
+    "code": {
+      "title": "Enter the code",
+      "body": "We texted a 6-digit code to {phone}.",
+      "change": "Change number",
+      "label": "6-digit code",
+      "submit": "Continue",
+      "invalid": "Enter the 6-digit code.",
+      "resend": "Resend code",
+      "resendIn": "Resend code in {seconds} s",
+      "resent": "A new code is on its way."
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "setupTitle": "Set up your profile",
+    "setupBody": "{name} and its customers see this while you’re delivering their order.",
+    "setupBodyUnnamed": "The store and its customers see this while you’re delivering their order.",
+    "editTitle": "Edit profile",
+    "edit": "Edit profile",
+    "name": "Your name",
+    "vehicleRequired": "Choose how you deliver.",
+    "nameRequired": "Add your name so the store and customers know who’s coming.",
+    "photo": {
+      "add": "Add a photo",
+      "change": "Change photo",
+      "camera": "Take a photo",
+      "library": "Choose from library",
+      "uploading": "Uploading the photo",
+      "cameraDenied": "Camera access is off. Allow it in Settings, or choose a photo from your library.",
+      "openSettings": "Open Settings",
+      "of": "Your profile photo",
+      "saved": "Your photo is saved."
+    },
+    "vehicle": "How do you deliver?",
+    "vehicles": {
+      "bike": "Motorbike",
+      "scooter": "Scooter",
+      "car": "Car",
+      "bicycle": "Bicycle",
+      "foot": "On foot"
+    },
+    "vehicleNumber": "Vehicle number",
+    "vehicleNumberHint": "As on the number plate. Customers see it so they know it’s you.",
+    "continue": "Continue",
+    "save": "Save",
+    "signOut": "Sign out",
+    "deleteAccount": "Delete account",
+    "version": "Version {version}",
+    "noVehicle": "No vehicle set",
+    "delete": {
+      "title": "Delete your account?",
+      "body": "You’ll be signed out and can’t take deliveries for this store. Any delivery you’ve accepted goes back to other delivery partners. Past deliveries show “Former delivery partner” instead of your name.",
+      "confirm": "Delete my account",
+      "keep": "Keep my account",
+      "refusedTitle": "You can’t delete your account yet",
+      "refusedBody": "Deliver or return your current parcel first.",
+      "toDelivery": "Go to the delivery",
+      "close": "Close"
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "NO_RESPONSE": "No signal. Check your connection and try again.",
+    "BAD_RESPONSE": "Something went wrong. Try again.",
+    "UNAUTHENTICATED": "Your session ended. Sign in again.",
+    "INVALID_INPUT": "Something here isn’t valid. Check it and try again.",
+    "RATE_LIMITED": "Too many tries. Wait a few minutes and try again.",
+    "CODE_REFUSED": "That code didn’t work. Check it, or ask the store to invite this number.",
+    "RIDER_SUSPENDED": "The store has paused your account. Ask the store to restore it.",
+    "STORE_UNAVAILABLE": "The store isn’t available right now. Try again later.",
+    "UNAVAILABLE": "The store isn’t available right now. Try again later.",
+    "PHOTO_NOT_FOUND": "Upload the photo again, then save.",
+    "TOO_LARGE": "That photo is too large. Choose a smaller one.",
+    "UNSUPPORTED_TYPE": "That file isn’t a photo we can use. Choose a JPEG or PNG.",
+    "EMPTY": "That photo is empty. Choose another one.",
+    "signIn": {
+      "RATE_LIMITED": "Too many tries. Wait 10 minutes, then ask for a new code.",
+      "INVALID_INPUT": "Enter your mobile number with its country code."
+    },
+    "signOut": {
+      "RIDER_HAS_PARCEL": "You can’t sign out while you’re carrying a parcel. Deliver or return it first."
+    },
+    "deleteAccount": {
+      "RIDER_HAS_PARCEL": "Deliver or return your current parcel first."
+    },
+    "TAKEN": "Another delivery partner took this offer first.",
+    "ON_DELIVERY": "Finish your current delivery first.",
+    "OFFLINE": "Go online first.",
+    "offer": {
+      "NO_RESPONSE": "No signal. Accepting needs a connection, so try again when it’s back."
+    },
+    "online": {
+      "RIDER_HAS_PARCEL": "You can go offline after this delivery."
+    },
+    "NOT_ASSIGNED": "This delivery isn’t waiting for pickup any more. Go back and check Home.",
+    "NOT_ENOUGH_STOCK": "The warehouse doesn’t have all of this order’s items. Ask the store.",
+    "NOT_HANDED_OVER": "The store hasn’t got every item for this order yet. Ask the store.",
+    "NOT_FOUND": "This delivery isn’t yours or no longer exists.",
+    "NOT_PICKED_UP": "Mark this delivery picked up first.",
+    "CASH_NOT_CONFIRMED": "Confirm you collected the cash first.",
+    "WRONG_CODE": "That code doesn’t match. Ask the customer to check their order. Too many wrong codes lock the delivery.",
+    "CODE_LOCKED": "Too many wrong codes. The store will mark this delivered.",
+    "CODE_UNCONFIRMED": "The code didn’t match: the store will confirm this delivery.",
+    "delivery": {
+      "NO_RESPONSE": "No signal. This step needs a connection, so try again when it’s back."
+    }
+  },
+  "permissions": {
+    "locationAlways": "{name} shares your position with the store while you are Online, so it can see where your deliveries are, even when the app is closed.",
+    "locationWhenInUse": "{name} uses your position to show you nearby deliveries.",
+    "photos": "Choose a profile photo from your photo library for {name}.",
+    "camera": "Take your profile photo for {name}."
+  },
+  "countries": {
+    "AE": "United Arab Emirates",
+    "AU": "Australia",
+    "BD": "Bangladesh",
+    "BH": "Bahrain",
+    "BR": "Brazil",
+    "CA": "Canada",
+    "CN": "China",
+    "DE": "Germany",
+    "EG": "Egypt",
+    "ES": "Spain",
+    "FR": "France",
+    "GB": "United Kingdom",
+    "ID": "Indonesia",
+    "IE": "Ireland",
+    "IN": "India",
+    "IT": "Italy",
+    "JP": "Japan",
+    "KE": "Kenya",
+    "KR": "South Korea",
+    "KW": "Kuwait",
+    "LK": "Sri Lanka",
+    "MX": "Mexico",
+    "MY": "Malaysia",
+    "NG": "Nigeria",
+    "NL": "Netherlands",
+    "NP": "Nepal",
+    "NZ": "New Zealand",
+    "OM": "Oman",
+    "PH": "Philippines",
+    "PK": "Pakistan",
+    "QA": "Qatar",
+    "SA": "Saudi Arabia",
+    "SG": "Singapore",
+    "TH": "Thailand",
+    "US": "United States",
+    "VN": "Vietnam",
+    "ZA": "South Africa"
+  },
+  "online": {
+    "on": "You’re online",
+    "off": "You’re offline",
+    "switch": "Online",
+    "subOffline": "Go online to get offers",
+    "subOnline": "Offers near you show below",
+    "subPaused": "Offers paused during a delivery",
+    "subLocationOff": "Location is off",
+    "offlineBody": "Go online to get delivery offers from the store’s warehouses near you.",
+    "offlineNote": "Your location is shared only while you’re online, and deleted when you go offline.",
+    "notification": {
+      "title": "You’re online",
+      "body": "Sharing your position with the store while you’re online. Go offline to stop."
+    },
+    "locationOff": {
+      "title": "Location is off for this app",
+      "body": "You can’t go online without it: the store only offers deliveries to partners near the warehouse.",
+      "openSettings": "Open settings"
+    },
+    "notificationsOff": {
+      "body": "Notifications are off, so you can miss offers.",
+      "turnOn": "Turn on"
+    },
+    "handBack": {
+      "title": "Go offline and hand back?",
+      "body": "You’ve accepted a delivery but haven’t picked it up. Going offline hands it back to other delivery partners.",
+      "confirm": "Go offline and hand back",
+      "stay": "Stay online"
+    },
+    "afterDelivery": "You can go offline after this delivery."
+  },
+  "home": {
+    "yourDelivery": "Your delivery",
+    "offers": "Offers near you",
+    "timeLeft": "{time} left",
+    "items": "Items",
+    "itemOne": "{count} item",
+    "itemOther": "{count} items",
+    "deliverTo": "Deliver to",
+    "distanceAway": "{distance} away",
+    "accept": "Accept",
+    "decline": "Decline",
+    "taken": "Taken by another delivery partner. It’ll disappear in a moment.",
+    "warehouse": "Warehouse",
+    "showMore": "Show more",
+    "showMoreFailed": "Couldn’t load more offers. Check your signal and try again.",
+    "emptyTitle": "No offers right now",
+    "emptyBody": "Stay online. We’ll notify you when an order near you is ready.",
+    "errorTitle": "Couldn’t load offers",
+    "errorBody": "Check your signal and try again. You’re still online.",
+    "offlineBody": "No signal. Check your connection and try again.",
+    "current": {
+      "goToPickup": "Go to pickup",
+      "onTheWay": "On the way",
+      "pickUpFrom": "Pick up from {warehouse} · {area}",
+      "pickUpFromWarehouse": "Pick up from {warehouse}",
+      "deliverTo": "Deliver to {area}",
+      "open": "Open",
+      "paused": "New offers pause until this delivery is done."
+    },
+    "ended": {
+      "cancelled": "The store cancelled this delivery. You don’t need to pick it up.",
+      "recalled": "The store has recalled this delivery. Bring the parcel back to the warehouse.",
+      "dismiss": "OK"
+    }
+  },
+  "notifications": {
+    "title": "Get offers as they come in",
+    "body": "The store tells you when an order near you needs a delivery partner, and when it gives you one. Offers go to whoever accepts first, so without notifications you can miss them.",
+    "continue": "Continue"
+  },
+  "push": {
+    "channel": "Delivery offers"
+  },
+  "delivery": {
+    "title": "Order delivery",
+    "pill": {
+      "pickUp": "Pick up",
+      "deliver": "Deliver",
+      "return": "Return",
+      "done": "Done"
+    },
+    "pickUpFrom": "Pick up from",
+    "navigate": "Navigate",
+    "call": "Call",
+    "items": "Items · {count}",
+    "quantity": "× {quantity}",
+    "deliverTo": "Deliver to",
+    "hiddenUntilPickup": "The customer’s name, phone and address show after you mark it picked up.",
+    "customer": "Customer",
+    "customerNote": "Note from the customer",
+    "cashToCollect": "Cash to collect",
+    "paid": "Paid online",
+    "noPin": "No map pin for this address.",
+    "mapLabel": "Map of the delivery address",
+    "pickedUp": "Picked up",
+    "handBack": "Hand back",
+    "handBackSheet": {
+      "title": "Hand back this delivery?",
+      "body": "It goes back to other delivery partners near {warehouse} straight away.",
+      "confirm": "Hand back",
+      "keep": "Keep it"
+    },
+    "delivered": "Delivered",
+    "notDelivered": "Not delivered",
+    "cashSheet": {
+      "title": "Did you collect {amount} in cash?",
+      "body": "Count it before you confirm. Next you’ll enter the customer’s handover code.",
+      "confirm": "Yes, I collected {amount}",
+      "notYet": "Not yet"
+    },
+    "code": {
+      "title": "Enter the handover code",
+      "body": "Ask the customer for the 4-digit code in their order.",
+      "label": "4-digit handover code",
+      "confirm": "Confirm delivered",
+      "lockedTitle": "Too many wrong codes. The store will mark this delivered.",
+      "lockedSteps": "What to do now",
+      "lockedStep1": "Call the store and say you’re at the door.",
+      "lockedStep2": "Wait while they check with the customer.",
+      "lockedStep3": "Hand over the parcel only when the store says so. Otherwise mark it not delivered and bring it back."
+    },
+    "failedSheet": {
+      "title": "Why wasn’t it delivered?",
+      "confirm": "Mark not delivered",
+      "cancel": "Cancel",
+      "reason": {
+        "no_one_home": "No one home",
+        "refused": "The customer refused it",
+        "wrong_address": "Wrong address"
+      }
+    },
+    "result": {
+      "title": "Delivered",
+      "cash": "Cash collected: {amount}",
+      "back": "Back to Home"
+    },
+    "returnParcel": {
+      "notDelivered": "Not delivered: {reason}.",
+      "recalled": "The store recalled this delivery.",
+      "titleReturn": "Return the parcel to {warehouse}",
+      "titleBring": "Bring the parcel back to {warehouse}",
+      "body": "The customer’s details are hidden now. Hand the parcel to the team at the warehouse; they’ll mark it as back.",
+      "backHome": "Back to Home"
+    },
+    "cancelled": {
+      "title": "The store cancelled this delivery",
+      "body": "You don’t need to pick it up, and there’s nothing else to do. New offers start coming in again."
+    },
+    "finished": {
+      "title": "This delivery is done",
+      "body": "Nothing more to do here."
+    }
+  }
+}

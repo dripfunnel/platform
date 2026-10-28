@@ -5,7 +5,7 @@ import { query } from './client'
 // Orders (FIRST-RELEASE §6, PortalOrders; apps/api/schema/store.graphql, src/apis/store/orders.ts): the list, its chips
 // and its export. A supplier's rows carry no total, payment or shopper.
 
-export const orderFilters = ['ALL', 'TO_SHIP', 'PARTLY_SHIPPED', 'SHIPPED', 'CANCELLED_REFUNDED', 'PAYMENT_PENDING'] as const
+export const orderFilters = ['ALL', 'TO_SHIP', 'PARTLY_SHIPPED', 'SHIPPED', 'CANCELLED_REFUNDED', 'PAYMENT_PENDING', 'OWN_DELIVERY', 'DELIVERY_NEEDS_YOU'] as const
 export type OrderFilter = (typeof orderFilters)[number]
 
 export const moneySchema = z.object({ amount: z.string(), currency: z.string() })
@@ -27,6 +27,8 @@ const summarySchema = z.object({
   // A supplier's own part: to_ship, sent_to_store, partly_shipped, shipped, delivered or cancelled.
   partState: z.string().nullable(),
   shippingMode: z.string().nullable(),
+  // The latest own delivery's state, code_locked or code_unconfirmed when the merchant must act; null for a supplier or none.
+  deliveryState: z.string().nullable(),
 })
 export type OrderSummary = z.infer<typeof summarySchema>
 
@@ -44,7 +46,7 @@ export const loadOrders = async (filter: OrderFilter, search: string, cursor: { 
   const { orders } = await query(
     `query Orders($filter: OrderFilter, $search: String, $first: Int, $after: String, $before: String) {
       orders(filter: $filter, search: $search, first: $first, after: $after, before: $before) {
-        nodes { id number placedAt state paymentState fulfilmentState paymentMethod total { amount currency } test customerName city items partState shippingMode }
+        nodes { id number placedAt state paymentState fulfilmentState paymentMethod total { amount currency } test customerName city items partState shippingMode deliveryState }
         pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
       }
     }`,
@@ -54,11 +56,11 @@ export const loadOrders = async (filter: OrderFilter, search: string, cursor: { 
   return { rows: orders.nodes, next: orders.pageInfo.hasNextPage ? orders.pageInfo.endCursor : null, previous: orders.pageInfo.hasPreviousPage ? orders.pageInfo.startCursor : null }
 }
 
-const countsSchema = z.object({ all: z.number(), toShip: z.number(), partlyShipped: z.number(), shipped: z.number(), cancelledRefunded: z.number(), paymentPending: z.number() })
+const countsSchema = z.object({ all: z.number(), toShip: z.number(), partlyShipped: z.number(), shipped: z.number(), cancelledRefunded: z.number(), paymentPending: z.number(), ownDelivery: z.number(), deliveryNeedsYou: z.number() })
 export type OrderCounts = z.infer<typeof countsSchema>
 
 export const loadOrderCounts = async (): Promise<OrderCounts> =>
-  (await query('{ orderCounts { all toShip partlyShipped shipped cancelledRefunded paymentPending } }', z.object({ orderCounts: countsSchema }))).orderCounts
+  (await query('{ orderCounts { all toShip partlyShipped shipped cancelledRefunded paymentPending ownDelivery deliveryNeedsYou } }', z.object({ orderCounts: countsSchema }))).orderCounts
 
 /** The store's own zone, the one the list's times are in (FIRST-RELEASE §6); a supplier reads no store settings. */
 export const loadStoreTimeZone = async (): Promise<string | null> =>

@@ -11,7 +11,7 @@ import { selectStoreEntitlement } from '#db/scoped/entitlements'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox, insertOutboxMany } from '#db/scoped/outbox'
 import * as queries from '#db/scoped/dispatch'
-import { lockDeliveryOrder, setFailed, setHandoverCode } from '#db/scoped/carry'
+import { carryNotice, lockDeliveryOrder, setFailed, setHandoverCode } from '#db/scoped/carry'
 import { sealHandoverCode } from './handoverCode'
 
 export const dispatchAudit = {
@@ -44,6 +44,15 @@ const close = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow, an
   const offers = await queries.closeOffers(tx, d, answer, f.now)
   await pushMany(tx, f, offers.map((o) => ({ riderId: o.rider_id, message: 'rider.taken', deliveryId: d.id, key: `taken:${o.id}` })))
 }
+// The customer hears through the outbox, ids only (DELIVERY §6); a guest's order is its own subject. A test order tells nobody.
+export const tellCustomer = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow, message: 'order.rider_assigned' | 'order.picked_up' | 'order.delivered' | 'order.not_delivered', key = `${message}:${d.id}`) => {
+  const n = await carryNotice(tx, d)
+  if (!n || n.test) return n
+  await insertOutbox(tx, { kind: 'push', partnerId: f.partnerId, storeId: f.storeId, idempotencyKey: key,
+    payload: pushPayloadSchema.parse({ subject: n.customer_id ? { kind: 'customer', id: n.customer_id } : { kind: 'order', id: n.order_id }, message, orderId: n.order_id }) })
+  return n
+}
+
 export const queueRound = (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow) =>
   insertOutbox(tx, { kind: offerKind, partnerId: f.partnerId, storeId: f.storeId, idempotencyKey: `${d.id}:${d.offer_round}`, payload: { deliveryId: d.id, round: d.offer_round, ...(f.offeredRecorded ? { offeredRecorded: true } : {}) } })
 
@@ -194,6 +203,7 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
         const sealed = await sealHandoverCode(secrets, d.id)
         if (!(await queries.assignRider(tx, d, riderId, f.now, false))) throw new DispatchRefused('TAKEN')
         await setHandoverCode(tx, d, sealed)
+        await tellCustomer(tx, f, d, 'order.rider_assigned', `order.rider_assigned:${d.id}:${d.offer_round}`)
       }
       await queries.answerOffer(tx, context.storeId, riderId, offer.id, accept ? 'accepted' : 'declined', f.now)
       if (accept) await close(tx, f, d, 'taken')
@@ -222,6 +232,7 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
       await setHandoverCode(tx, d, sealed)
       await close(tx, f, d, 'taken')
       await push(tx, f, to, 'rider.assigned', d.id, `assigned:${d.id}:${d.offer_round}`)
+      await tellCustomer(tx, f, d, 'order.rider_assigned', `order.rider_assigned:${d.id}:${d.offer_round}`)
       await record(tx, f, dispatchAudit.assigned, d.id)
       return true
     }, true),

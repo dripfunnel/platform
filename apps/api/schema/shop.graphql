@@ -12,6 +12,7 @@ type Mutation {
   deleteAddress(id: ID!): Boolean
   payOrder(app: ShopAppPaymentInput, orderId: ID!): ShopPaymentStart
   placeOrder(app: ShopAppPaymentInput, provider: String!): ShopPlacedOrder
+  registerPushDevice(orderId: ID, platform: ShopPushPlatform!, token: String!): Boolean
   removeCode(code: String!): ShopCartChange
   removeGiftCard: ShopCartChange
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
@@ -24,6 +25,7 @@ type Mutation {
   setShippingOption(option: String!): ShopCartChange
   signIn(email: String!, password: String!): ShopSession
   signOut: Boolean
+  unregisterPushDevice(orderId: ID, token: String!): Boolean
   unsubscribe(token: String!): Boolean
   updateAccount(name: String): Boolean
   verifySignInCode(channel: ShopSignInChannel!, code: String!, name: String, password: String, to: String!): ShopSession
@@ -265,6 +267,15 @@ type ShopCurrency {
   mode: String
 }
 
+type ShopDelivery {
+  etaAt: String
+  handoverCode: String
+  position: ShopDeliveryPosition
+  rider: ShopDeliveryRider
+  state: String
+  steps: [ShopDeliveryStep!]
+}
+
 type ShopDeliveryOption {
   amount: ShopMoney
   before: ShopMoney
@@ -274,6 +285,25 @@ type ShopDeliveryOption {
   minDays: Int
   provider: String
   service: String
+}
+
+type ShopDeliveryPosition {
+  latitude: Float
+  longitude: Float
+  reportedAt: String
+}
+
+type ShopDeliveryRider {
+  firstName: String
+  phone: String
+  photoUrl: String
+  vehicleNumber: String
+  vehicleType: String
+}
+
+type ShopDeliveryStep {
+  at: String
+  state: String
 }
 
 type ShopDownloadDetails {
@@ -370,6 +400,7 @@ type ShopOptionValue {
 }
 
 type ShopOrder {
+  delivery: ShopDelivery
   discount: ShopMoney
   discounts: [ShopOrderDiscount!]
   downloads: [ShopOrderDownload!]
@@ -539,6 +570,11 @@ type ShopProductSummary {
   price: ShopMoney
   productType: String
   slug: String
+}
+
+enum ShopPushPlatform {
+  android
+  ios
 }
 
 type ShopRestoredCart {

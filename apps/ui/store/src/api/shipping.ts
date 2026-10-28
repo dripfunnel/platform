@@ -17,6 +17,8 @@ const courierSchema = z.object({
 })
 export type Courier = z.infer<typeof courierSchema>
 
+export const dispatchTimes = ['placed', 'ready'] as const
+
 const settingsSchema = z.object({
   revision: z.number().int(),
   savedAt: z.string().nullable(),
@@ -33,13 +35,16 @@ const settingsSchema = z.object({
   areaFileName: z.string().nullable(),
   areaCount: z.number().int(),
   areaSample: z.array(z.string()),
+  ownDelivery: z.boolean(),
+  dispatchWhen: z.enum(dispatchTimes),
+  offerMinutes: z.number().int(),
   labelSizes: z.array(z.string()),
   couriers: z.array(courierSchema),
 })
 export type ShippingSettings = z.infer<typeof settingsSchema>
 
 const fields =
-  'revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample labelSizes couriers { provider status offered pickupMode labelSize trackingEmails lastTestedAt lastTestResult }'
+  'revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample ownDelivery dispatchWhen offerMinutes labelSizes couriers { provider status offered pickupMode labelSize trackingEmails lastTestedAt lastTestResult }'
 
 export const loadShipping = async (): Promise<ShippingSettings> => (await query(`{ shippingSettings { ${fields} } }`, z.object({ shippingSettings: settingsSchema }))).shippingSettings
 
@@ -52,6 +57,10 @@ export interface ShippingInput {
   freeMode: ShippingSettings['freeMode']
   freeThresholdAmount: string | null
   areaMode: ShippingSettings['areaMode']
+  /** Left out, the saved own-delivery settings stay (DELIVERY.md §2). */
+  ownDelivery?: boolean
+  dispatchWhen?: ShippingSettings['dispatchWhen']
+  offerMinutes?: number
 }
 
 /** Saved over `revision` (STALE when someone saved since); answers the new revision. */

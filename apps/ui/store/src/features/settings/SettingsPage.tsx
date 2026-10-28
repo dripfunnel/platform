@@ -10,7 +10,10 @@ import { loadApiKeyChoices, loadApiKeys, loadDeliveries, loadWebhookEvents, load
 import { loadAllMarkets } from '../../api/markets'
 import { loadGateways } from '../../api/payments'
 import { loadShipping } from '../../api/shipping'
+import { loadPlaces } from '../../api/stock'
 import { loadProductBasics } from '../../api/productEditor'
+import { loadRiderPlan, loadRiders, type RiderPlan } from '../../api/riders'
+import { loadMobileApps } from '../../api/mobileApps'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
 import { loadSupportAccess } from '../../api/support'
 import { loadInvoiceSettings, loadTax } from '../../api/tax'
@@ -33,6 +36,8 @@ import { ActivityTab } from '../activity/ActivityTab'
 import { MarketsTab } from './MarketsTab'
 import { TaxTab } from './TaxTab'
 import { PeopleTab, SupplierTab } from './TeamTabs'
+import { MobileAppsTab } from './MobileAppsTab'
+import { RidersTab } from './RidersTab'
 import { WarehousesView } from '../warehouses/WarehousesView'
 import './settings.css'
 
@@ -46,12 +51,22 @@ interface Done {
   reload: (text: string) => void
   /** Stripe's answer on the way back to Payment setup, until that tab has acted on it. */
   stripe: { back: StripeBack | null; seen: () => void }
+  goTab: (tab: SettingsTab) => void
 }
 /** What a tab shows once its reads are in. */
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries, apps: loadApps, supportAccess: loadSupportAccess, activity: loadActivity }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries, apps: loadApps, supportAccess: loadSupportAccess, activity: loadActivity, riders: loadRiders, riderPlan: loadRiderPlan, mobileApps: loadMobileApps, places: loadPlaces }
+
+/** What the Own delivery card checks against: the first page of riders and the locations. */
+const deliveryCurrency = async (reads: SettingsReads) => ((await reads.riderPlan()).ownDelivery ? (await reads.shipping()).currency : null)
+
+const ownDeliveryOf = async (reads: SettingsReads) => {
+  if (!(await reads.riderPlan()).ownDelivery) return null
+  const [riders, places] = await Promise.all([reads.riders(null), reads.places()])
+  return { riders: riders.nodes, moreRiders: riders.pageInfo.hasNextPage, places }
+}
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: boolean; forced: string | null }): Record<SettingsTab, () => Promise<Render>> => ({
@@ -76,10 +91,15 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
   // The form keeps its own draft over courier changes and uploads, so only a save's toast reaches the page.
   shipping: async () => {
     const [shipping, info] = await Promise.all([reads.shipping(), reads.storeInfo()])
-    return (done, canEdit) => <ShippingTab shipping={shipping} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} />
+    // Own delivery is extra to Shipping: if its reads fail, the rest of the tab still shows.
+    const own = seat.owner ? await ownDeliveryOf(reads).catch(() => null) : null
+    return (done, canEdit) => <ShippingTab shipping={shipping} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} own={own} goTab={done.goTab} />
   },
   // The store's locations, and its suppliers' named, read-only (SetOps "Warehouse").
-  warehouse: async () => (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" />,
+  warehouse: async () => {
+    const currency = seat.owner ? await deliveryCurrency(reads).catch(() => null) : null
+    return (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" delivery={currency ? { currency } : null} />
+  },
   tax: async () => {
     const [tax, invoice, info] = await Promise.all([reads.tax(), reads.invoice(), reads.storeInfo()])
     if (!tax || !invoice) throw new Error('tax setup missing')
@@ -114,6 +134,21 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
     const access = await reads.supportAccess(null)
     return (done) => <SupportAccessTab initial={access} read={reads.supportAccess} onToast={done.toast} />
   },
+  // Listed only when the plan has own_delivery; an address typed by hand gets the plain notice, no upsell (DELIVERY §9).
+  riders: async () => {
+    if (!seat.owner) return () => <EmptyState title={words.denied.title} body={words.denied.body} />
+    const plan = await reads.riderPlan()
+    if (!plan.ownDelivery) return () => <EmptyState title={words.riders.notAvailable.title} body={words.riders.notAvailable.body} />
+    const first = await reads.riders(null)
+    return (done, canEdit) => <RidersTab first={first} canEdit={canEdit} onChanged={done.reload} />
+  },
+  // Listed only when the plan has own_apps; the Owner's, as every tab here (SH 15).
+  'mobile-apps': async () => {
+    if (!seat.owner) return () => <EmptyState title={words.denied.title} body={words.denied.body} />
+    const apps = await reads.mobileApps()
+    if (!apps.available) return () => <EmptyState title={words.mobileApps.notAvailable.title} body={words.mobileApps.notAvailable.body} />
+    return (done, canEdit) => <MobileAppsTab current={apps.current} canEdit={canEdit} onSaved={done.toast} />
+  },
   // The log reads itself, by its filter in the address; a read-only store still reads and exports it.
   activity: async () => () => <ActivityTab read={reads.activity} canExport={seat.owner} forced={seat.forced} />,
 })
@@ -126,26 +161,54 @@ export const SettingsPage = () => {
   const [stripeBack, setStripeBack] = useState(() => stripeBackOf(stripe, key))
   const forced = useScreenState(settingsStates, harnessEnabled)
   const allowed = forced ? forced !== 'denied' : acting.permissions.includes('settings')
+  const owner = acting.role === 'owner'
   const readOnly = forced ? forced === 'readOnly' : (state?.readOnly ?? false)
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
+  const [listed, setListed] = useState({ riders: false, apps: false })
+  // One plan read per source serves the tab list and the Riders tab; a failed read is forgotten, and a change reads it again.
+  const planRead = useRef<{ reads: SettingsReads; read: Promise<RiderPlan> } | null>(null)
+  const riderPlan = useCallback(() => {
+    const reads = forced ? sampleReads : apiReads
+    let cached = planRead.current
+    if (cached?.reads !== reads) {
+      const read = reads.riderPlan().catch((error: unknown) => {
+        if (planRead.current?.read === read) planRead.current = null
+        throw error
+      })
+      cached = { reads, read }
+      planRead.current = cached
+    }
+    return cached.read
+  }, [forced])
+  useEffect(() => {
+    if (!allowed || !owner || forced === 'loading' || forced === 'error') return
+    let current = true
+    // A failed read keeps the tab listed: its own body then shows the error and a retry.
+    void riderPlan().then(
+      (plan) => current && setListed({ riders: plan.ownDelivery, apps: plan.ownApps }),
+      () => current && setListed({ riders: true, apps: true }),
+    )
+    return () => {
+      current = false
+    }
+  }, [allowed, owner, forced, riderPlan])
 
   // Only the newest read may land: a reload a tab started must not fill another tab opened since.
   const latest = useRef(0)
   const planName = acting.plan?.name ?? null
-  const owner = acting.role === 'owner'
   const load = useCallback(() => {
     const ask = ++latest.current
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
     if (!allowed) return
     setView({ kind: 'loading' })
-    void loaders(forced ? sampleReads : apiReads, { planName, owner, forced })[tab]().then(
+    void loaders({ ...(forced ? sampleReads : apiReads), riderPlan }, { planName, owner, forced })[tab]().then(
       (render) => ask === latest.current && setView({ kind: 'ready', render }),
       () => ask === latest.current && setView({ kind: 'error' }),
     )
     // The two values the loaders read, not the whole seat: a new `acting` object from the shell mustn't reload a tab.
-  }, [forced, allowed, tab, planName, owner])
+  }, [forced, allowed, tab, planName, owner, riderPlan])
   useEffect(load, [load])
   // The one-time key leaves the address bar and the history at once; the tab finishes with the copy kept above.
   useEffect(() => {
@@ -156,11 +219,13 @@ export const SettingsPage = () => {
   const reload = useCallback(
     (text: string) => {
       setToast(text)
+      planRead.current = null
       load()
     },
     [load],
   )
-  const done: Done = { toast: setToast, reload, stripe: { back: stripeBack, seen: stripeSeen } }
+  const goTab = useCallback((next: SettingsTab) => void navigate({ to: '/settings', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: next }) }), [navigate, forced])
+  const done: Done = { toast: setToast, reload, stripe: { back: stripeBack, seen: stripeSeen }, goTab }
 
   const body = () => {
     if (!allowed) return <EmptyState title={words.denied.title} body={words.denied.body} />
@@ -174,8 +239,8 @@ export const SettingsPage = () => {
       <div className="df-page-tabs">
         <DetailTabs
           label={words.tabs.label}
-          tabs={settingsTabs}
-          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers, developers: words.tabs.developers, apps: words.tabs.apps, support: words.tabs.support, activity: words.tabs.activity }}
+          tabs={settingsTabs.filter((t) => (t !== 'riders' || (owner && listed.riders)) && (t !== 'mobile-apps' || (owner && listed.apps)))}
+          labels={{ 'mobile-apps': words.tabs.mobileApps, riders: words.tabs.riders, store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers, developers: words.tabs.developers, apps: words.tabs.apps, support: words.tabs.support, activity: words.tabs.activity }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />

@@ -28,6 +28,9 @@ vi.mock('../../api/shipping', async (actual) => ({ ...(await actual<typeof impor
 const settings = vi.hoisted(() => ({ loadStoreInfo: vi.fn(), loadLocale: vi.fn() }))
 vi.mock('../../api/settings', () => settings)
 
+const riders = vi.hoisted(() => ({ loadRiderPlan: vi.fn(), loadRiders: vi.fn() }))
+vi.mock('../../api/riders', async (actual) => ({ ...(await actual<typeof import('../../api/riders')>()), ...riders }))
+
 const { SettingsPage } = await import('./SettingsPage')
 
 const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['settings', 'shipping.configure'] }
@@ -51,6 +54,9 @@ const us: ShippingSettings = {
   areaFileName: null,
   areaCount: 0,
   areaSample: [],
+  ownDelivery: false,
+  dispatchWhen: 'ready',
+  offerMinutes: 5,
   labelSizes: ['4x6', 'letter'],
   couriers: [courier({ provider: 'usps', status: 'pricing' }), courier({ provider: 'ups', status: 'standby' }), courier({ provider: 'fedex', status: 'off', offered: false })],
 }
@@ -75,6 +81,7 @@ const show = async ({ acting = owner, readOnly = false } = {}) => {
 }
 
 beforeEach(() => {
+  riders.loadRiderPlan.mockResolvedValue({ ownDelivery: false })
   ship.loadShipping.mockResolvedValue(us)
   settings.loadStoreInfo.mockResolvedValue({ country: 'US' })
   ship.saveShipping.mockResolvedValue(5)

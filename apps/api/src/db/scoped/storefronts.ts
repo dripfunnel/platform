@@ -49,6 +49,29 @@ export const finishPush = async (tx: ScopedSql, storeId: string, key: string, pa
   await tx`update storefront_push set state = 'done', commit_sha = ${commit}, finished_at = ${at} where store_id = ${storeId} and key = ${key}`
 }
 
+export interface PushedRepoRow extends StoreRepoRow {
+  store_id: string
+  partner_id: string
+  live_build_id: string | null
+}
+
+/** The store whose repo GitHub named, locked like a publish's start; null for a repo no store has (#968). */
+export const selectRepoByIdForUpdate = async (tx: ScopedSql, repoId: string): Promise<PushedRepoRow | null> =>
+  (
+    await tx<PushedRepoRow[]>`
+      select f.store_id, s.partner_id, f.repo, f.repo_state, f.repo_head, f.live_build_id
+      from storefront f join store s on s.id = f.store_id where f.repo_id = ${repoId} for update of f`
+  )[0] ?? null
+
+/** Whether the platform made `commit` itself, finished or not, so its own push never publishes again. */
+export const isPlatformCommit = async (tx: ScopedSql, storeId: string, commit: string): Promise<boolean> =>
+  (await tx<{ key: string }[]>`select key from storefront_push where store_id = ${storeId} and commit_sha = ${commit}`).length > 0
+
+/** A pushed commit went live: it is `main` as the platform knows it, so its next push fast-forwards from there. */
+export const adoptRepoHead = async (tx: ScopedSql, storeId: string, commit: string): Promise<void> => {
+  await tx`update storefront set repo_head = ${commit} where store_id = ${storeId}`
+}
+
 /** What the create-storefront Workflow reads at each step (SAAS §5 steps 4–8). */
 export interface CreationRow extends StoreRepoRow {
   partner_id: string

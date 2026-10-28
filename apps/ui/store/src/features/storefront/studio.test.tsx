@@ -15,7 +15,7 @@ const c = words.chat
 const [firstSuggestion = '', secondSuggestion = ''] = c.suggestions
 const origin = 'https://k7f3q9f2xa.webpreview.store'
 const frameUrl = `${origin}/__studio/abcdefghijklmnopqrstuv/`
-const ready: StudioSession = { state: 'ready', place: null, session: 'abcdefghijklmnopqrstuv', frameUrl, access: 'change', expiresAt: '2026-10-12T09:00:00Z' }
+const ready: StudioSession = { state: 'ready', place: null, session: 'abcdefghijklmnopqrstuv', models: [], frameUrl, access: 'change', expiresAt: '2026-10-12T09:00:00Z' }
 const overview: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }, draft: { template: 'linen', changedAt: null, previewReady: true }, lastPublish: null }
 const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: '2026-10-12T08:00:00Z', ...more })
 const chat = [line('m3', 'ai', 'I warmed it up.', { changed: ['Colours'], canUndo: true }), line('m2', 'user', 'Make it warmer'), line('m1', 'note', 'template:linen')]
@@ -141,9 +141,21 @@ describe('the studio’s frame', () => {
     fireEvent.change(prompt(), { target: { value: 'Add a reviews section' } })
     fireEvent.keyDown(prompt(), { key: 'Enter' })
     await settle()
-    expect(api.askDesign).toHaveBeenCalledWith({ text: 'Add a reviews section', imageAssetId: null, sampleUrl: null, page: '/', device: 'desktop' })
+    expect(api.askDesign).toHaveBeenCalledWith({ text: 'Add a reviews section', imageAssetId: null, sampleUrl: null, model: null, page: '/', device: 'desktop' })
     expect(frame()).toBe(before)
     expect(frame().getAttribute('src')).toBe(frameUrl)
+  })
+
+  it('sends the model picked in the composer, and shows no picker when there is no choice', async () => {
+    await show({ loadStudioSession: vi.fn().mockResolvedValue({ ...ready, models: ['claude-opus-5-5', 'claude-haiku-5-5'] }) })
+    fireEvent.change(screen.getByLabelText(c.model), { target: { value: 'claude-haiku-5-5' } })
+    fireEvent.change(prompt(), { target: { value: 'Add a reviews section' } })
+    fireEvent.keyDown(prompt(), { key: 'Enter' })
+    await settle()
+    expect(api.askDesign).toHaveBeenCalledWith(expect.objectContaining({ model: 'claude-haiku-5-5' }))
+    cleanup()
+    await show({ loadStudioSession: vi.fn().mockResolvedValue(ready) })
+    expect(screen.queryByLabelText(c.model)).toBeNull()
     expect(prompt().value).toBe('')
   })
 })

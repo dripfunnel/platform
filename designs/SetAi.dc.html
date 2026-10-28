@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;max-width:960px;">
+  <div><div style="{{ S.h }}">AI</div><div style="{{ S.sub }}">Your own AI account, for the AI features and for programs that call your store’s AI endpoint.</div></div>
+  <sc-if value="{{ ro }}" hint-placeholder-val="{{ false }}"><div style="{{ S.info }}">{{ roLine }}</div></sc-if>
+
+  <div style="{{ S.card }}">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;"><strong style="{{ S.t }}">Plan AI runs</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ planUsed }}</span></div>
+    <span style="font-size:13px;color:var(--text2,#434A55);">Your plan includes a number of AI runs each month. They are paid by your partner’s AI account, so you don’t need an account of your own.</span>
+  </div>
+
+  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+    <div role="status" aria-busy="true" aria-label="Loading your AI account" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="{{ S.card }}"><div style="height:18px;width:180px;border-radius:6px;background:var(--sunk,#F2F0EC);"></div><div style="height:12px;width:80%;border-radius:6px;background:var(--sunk,#F2F0EC);"></div><div style="height:40px;width:200px;border-radius:8px;background:var(--sunk,#F2F0EC);"></div></div>
+      <div style="{{ S.card }}"><div style="height:18px;width:140px;border-radius:6px;background:var(--sunk,#F2F0EC);"></div><div style="height:12px;width:60%;border-radius:6px;background:var(--sunk,#F2F0EC);"></div></div>
+    </div>
+  </sc-if>
+
+    <sc-if value="{{ paste.show }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ S.card }}" aria-busy="{{ paste.busy }}">
+        <strong style="{{ S.t }}">{{ paste.title }}</strong>
+        <span style="font-size:13px;color:var(--text2,#434A55);">A new tab opened. Sign in there, then copy the code it shows, or the whole address your browser ends on (it may say it can’t be reached), and paste it here within 10 minutes.</span>
+        <label style="{{ S.label }}">Code or address<input type="password" autocomplete="off" value="{{ pasteIn }}" onChange="{{ a.pasteIn }}" disabled="{{ paste.busy2 }}" aria-invalid="{{ paste.bad }}" style="{{ S.input }}"></label>
+        <sc-if value="{{ paste.err }}" hint-placeholder-val="{{ false }}"><div role="alert" style="{{ S.warn }}">{{ paste.errMsg }}</div></sc-if>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;"><button onClick="{{ a.finish }}" disabled="{{ paste.busy2 }}" style="{{ S.primary }}opacity:{{ paste.op }};">{{ paste.label }}</button><button onClick="{{ a.cancel }}" disabled="{{ paste.busy2 }}" style="{{ S.link }}">Cancel</button></div>
+      </div>
+    </sc-if>
+
+  <sc-if value="{{ none }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><strong style="{{ S.t }}">Connect your AI account</strong><div style="{{ S.sub }}">Sign in, or use an API key. A store connects one account at a time.</div></div>
+      <div style="display:grid;grid-template-columns:{{ twoCols }};gap:14px;align-items:stretch;">
+
+        <div style="{{ S.card }}" aria-busy="{{ gpt.busy }}">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span aria-hidden="true" style="{{ S.chip }}">C</span><strong style="{{ S.t }}flex:1;">Sign in with Claude</strong><sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><span style="{{ S.badge }}background:var(--sunk,#F2F0EC);color:var(--muted,#5A6472);">Not available</span></sc-if></div>
+          <sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--text2,#434A55);flex:1;">Sign-in isn’t available here right now. Use an API key.</span></sc-if>
+          <sc-if value="{{ gpt.ready }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--text2,#434A55);flex:1;">Sign in at Claude with your own account and paste the code it shows back here. DripFunnel never sees your password.</span></sc-if>
+          <sc-if value="{{ gpt.ready }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:var(--muted,#5A6472);flex:1;">This uses Claude Code’s sign-in, not an Anthropic registration for DripFunnel. Anthropic’s terms don’t allow it, so Anthropic may refuse it or restrict your account. An API key is the supported way.</span></sc-if>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;"><button onClick="{{ a.signinClaude }}" disabled="{{ gpt.dis }}" aria-disabled="{{ gpt.dis }}" style="{{ gpt.btnStyle }}">{{ gpt.labelClaude }}</button><sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.useKey }}" style="{{ S.link }}">Use an API key</button></sc-if></div>
+        </div>
+
+        <div style="{{ S.card }}" aria-busy="{{ gpt.busy }}">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span aria-hidden="true" style="{{ S.chip }}">G</span><strong style="{{ S.t }}flex:1;">Sign in with ChatGPT</strong><sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><span style="{{ S.badge }}background:var(--sunk,#F2F0EC);color:var(--muted,#5A6472);">Not set up</span></sc-if></div>
+          <sc-if value="{{ gpt.off }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--text2,#434A55);flex:1;">Sign-in isn’t available here right now. Use an API key.</span></sc-if>
+          <sc-if value="{{ gpt.ready }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--text2,#434A55);flex:1;">Sign in at ChatGPT with your own account and paste the address it ends on back here. DripFunnel never sees your password.</span></sc-if>
+          <sc-if value="{{ gpt.ready }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:var(--muted,#5A6472);flex:1;">This uses the Codex CLI’s sign-in, not an OpenAI registration for DripFunnel. OpenAI may refuse it or change it without notice. An API key is the dependable way.</span></sc-if>
+          <sc-if value="{{ gpt.btn }}" hint-placeholder-val="{{ true }}"><div><button onClick="{{ a.signin }}" disabled="{{ gpt.dis }}" aria-disabled="{{ gpt.dis }}" style="{{ gpt.btnStyle }}">{{ gpt.label }}</button></div></sc-if>
+        </div>
+      </div>
+
+      <div style="{{ S.card }}">
+        <strong style="{{ S.t }}">API key</strong>
+        <span style="font-size:13px;color:var(--text2,#434A55);">Add a key from Anthropic or OpenAI. We check it before we keep it, and never show it again. Only the first few characters are shown.</span>
+        <div style="display:grid;grid-template-columns:{{ twoCols }};gap:10px;">
+          <label style="{{ S.label }}">Provider<select value="{{ provider }}" onChange="{{ a.provider }}" disabled="{{ ro }}" style="{{ S.input }}"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI</option></select></label>
+          <label style="{{ S.label }}">API key<input id="ai-key-input" type="password" autocomplete="off" value="{{ keyIn }}" onChange="{{ a.keyIn }}" readOnly="{{ ro }}" placeholder="{{ keyHint }}" aria-invalid="{{ keyBad }}" style="{{ S.input }}"></label>
+        </div>
+        <sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:12px;color:var(--bfg,#A1261B);">{{ err }}</span></sc-if>
+        <button onClick="{{ a.connect }}" disabled="{{ ro }}" style="{{ S.primary }}align-self:flex-start;opacity:{{ btnOp }};">{{ connectLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasKey }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ S.card }}">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:15px;">{{ name }}</strong><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted,#5A6472);">{{ prefix }}…</span></span>
+        <span style="{{ S.badge }}background:{{ st.bg }};color:{{ st.fg }};">{{ st.label }}</span>
+        <button onClick="{{ a.test }}" disabled="{{ ro }}" style="{{ S.btn }}">{{ testLabel }}</button>
+        <button onClick="{{ a.remove }}" disabled="{{ ro }}" style="{{ S.btn }}color:var(--bfg,#A1261B);">Remove</button>
+      </div>
+      <span style="font-size:12px;color:var(--muted,#5A6472);">{{ tested }}</span>
+      <sc-if value="{{ rejected }}" hint-placeholder-val="{{ false }}"><div style="{{ S.warn }}">{{ name }} no longer accepts this key. AI runs that need it stop until you remove it and connect a new one.</div></sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasSignin }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ S.card }}" aria-busy="{{ gpt.busy }}">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span aria-hidden="true" style="{{ S.chip }}">G</span>
+        <span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:15px;overflow-wrap:anywhere;">{{ si.title }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">Sign in with ChatGPT · OpenAI</span></span>
+        <span style="{{ S.badge }}background:{{ st.bg }};color:{{ st.fg }};">{{ st.label }}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted,#5A6472);display:flex;flex-direction:column;gap:2px;"><span>{{ si.signed }}</span><span>{{ si.checked }}</span><span>Owned by your store.</span></div>
+      <sc-if value="{{ si.warnMsg }}" hint-placeholder-val="{{ false }}"><div style="{{ S.warn }}">{{ si.warnMsg }}</div></sc-if>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onClick="{{ a.signin }}" disabled="{{ si.recDis }}" aria-disabled="{{ si.recDis }}" style="{{ si.recStyle }}">{{ si.recLabel }}</button>
+        <button onClick="{{ a.test }}" disabled="{{ ro }}" style="{{ S.btn }}">Test</button>
+        <button onClick="{{ a.remove }}" disabled="{{ ro }}" style="{{ S.btn }}color:var(--bfg,#A1261B);">Disconnect</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ has }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ S.card }}">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button role="switch" aria-checked="{{ sw.on }}" aria-label="Use my own AI account when the plan’s runs are used up" aria-disabled="{{ ro }}" onClick="{{ a.toggle }}" style="width:44px;height:26px;border-radius:13px;border:0;background:{{ sw.trk }};position:relative;cursor:pointer;opacity:{{ sw.op }};padding:0;flex:none;"><span style="position:absolute;top:3px;left:{{ sw.kx }};width:20px;height:20px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 3px rgba(10,20,30,0.3);"></span></button>
+        <span style="display:flex;flex-direction:column;"><strong style="font-size:14px;">Use my own AI account when the plan’s runs are used up</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ sw.note }}</span></span>
+      </div>
+      <span style="font-size:13px;color:var(--text2,#434A55);">{{ sw.explain }}</span>
+    </div>
+  </sc-if>
+
+  <div style="{{ S.card }}">
+    <strong style="{{ S.t }}">Call it from your own program</strong>
+    <span style="font-size:13px;color:var(--text2,#434A55);">Create an API key in Developers with “Run AI requests” ticked, then send requests to your store at <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;">/api/v1/chat/completions</code>. A key reaches only the provider whose key pays for it.</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { provider: 'anthropic', keyIn: '', pasteIn: '', err: '', busy: false };
+  renderVals() {
+    const app = this.props.app; if (!app) return { S: {}, a: {} };
+    const c = app.caps, phone = app.phone, s = this.state;
+    const ro = !c.isOwner || !!c.readOnly;
+    const KEY = { kind: 'key', provider: 'anthropic', prefix: 'sk-ant-api03-Qx', status: 'ok', tested: 'Today, 10:44', sw: false };
+    const SIGNIN = { kind: 'signin', provider: 'openai', label: 'farhan@juniperandco.com', status: 'ok', signed: '3 Oct, 14:20', checked: 'Today, 10:44', sw: false };
+    const PRE = { key: { cfg: true, acct: KEY }, none: { cfg: true }, off: { cfg: false }, opening: { cfg: true, phase: 'opening', prov: 'openai' }, paste: { cfg: true, phase: 'paste', prov: 'openai' }, finish: { cfg: true, phase: 'finish', prov: 'openai' }, badcode: { cfg: true, phase: 'badcode', prov: 'openai' }, expiredcode: { cfg: true, phase: 'expiredcode', prov: 'claude' }, declined: { cfg: true, phase: 'declined', prov: 'openai' }, failed: { cfg: true, phase: 'failed', prov: 'openai' },
+      ok: { cfg: true, acct: SIGNIN }, nolabel: { cfg: true, acct: { ...SIGNIN, label: '' } }, expired: { cfg: true, acct: { ...SIGNIN, status: 'expired', checked: 'Today, 09:12' } }, rejected: { cfg: true, acct: { ...SIGNIN, status: 'rejected', checked: 'Today, 09:12' } }, loading: { cfg: true, loading: true } };
+    const o = app.data('aiS') || PRE[(app.st && app.st.aiDemo) || 'key'] || PRE.key;
+    const acct = o.acct || null, phase = o.phase || 'idle';
+    const put = p => app.set('aiS', { ...o, ...p });
+    const setAcct = p => put({ acct: { ...acct, ...p } });
+    const S = {
+      h: 'font-family:Manrope,sans-serif;font-weight:700;font-size:18px;', sub: 'font-size:13px;color:var(--muted,#5A6472);', t: 'font-family:Manrope,sans-serif;font-weight:700;font-size:15px;',
+      card: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;',
+      info: 'padding:12px 14px;border-radius:10px;background:var(--ibg,#F4F8FB);border:1px solid var(--ibd,#C9DAEC);color:var(--ifg,#00325F);font-size:13px;',
+      warn: 'padding:10px 12px;border-radius:8px;background:var(--wbg,#FFF6E5);border:1px solid var(--wbd,#F2D9A6);color:var(--wfg,#7A4B00);font-size:13px;',
+      btn: 'height:36px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;font-weight:600;white-space:nowrap;' + (ro ? 'opacity:0.55;cursor:not-allowed;' : 'cursor:pointer;'),
+      primary: 'height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;',
+      off: 'height:40px;padding:0 16px;border:1px solid var(--border,#E8E2DC);border-radius:8px;background:var(--sunk,#F2F0EC);color:var(--muted,#5A6472);font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:not-allowed;',
+      link: 'border:0;background:none;padding:0;color:var(--link,#B8541F);font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;',
+      badge: 'font-size:12px;font-weight:600;padding:2px 10px;border-radius:10px;white-space:nowrap;',
+      chip: 'width:34px;height:34px;border-radius:8px;background:var(--sunk,#F2F0EC);color:var(--text2,#434A55);display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:15px;flex:none;',
+      input: 'height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;background:var(--card,#FFFFFF);font-weight:400;width:100%;',
+      label: 'display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;'
+    };
+    const NAMES = { anthropic: 'Anthropic (Claude)', openai: 'OpenAI' };
+    const roLine = c.readOnly ? 'Your store is view-only until the payment goes through.' : 'Only the store owner can change this.';
+    const isKey = !!acct && acct.kind === 'key', isSi = !!acct && acct.kind === 'signin';
+    const ST = { ok: ['Working', 'var(--okbg,#EEF7F2)', 'var(--okfg,#1D6B47)'], rejected: ['Rejected', 'var(--bbg,#FDECEC)', 'var(--bfg,#A1261B)'], expired: ['Needs reconnecting', 'var(--wbg,#FFF6E5)', 'var(--wfg,#7A4B00)'], untested: ['Not tested', 'var(--sunk,#F2F0EC)', 'var(--muted,#5A6472)'] };
+    const st = acct ? ST[acct.status] : ST.untested; const swOn = !!(acct && acct.sw) && !ro;
+    const PN = { openai: 'ChatGPT', claude: 'Claude' }, pn = PN[o.prov || 'openai'];
+    const ERR = { badcode: 'That isn’t the code we expected. Copy it again from the new tab, or the whole address it ends on, and paste it here.', expiredcode: 'This sign-in took too long, so it was cancelled. Nothing was connected. Start again.', declined: 'You didn’t finish signing in at ' + pn + ', so nothing was connected. You can try again whenever you like.', failed: 'We couldn’t finish connecting your ' + pn + ' account. Nothing was changed. Try again, or use an API key.' };
+    const inFlow = ['opening', 'paste', 'finish', 'badcode', 'expiredcode', 'declined', 'failed'].includes(phase);
+    const busy = phase === 'opening' || phase === 'finish', err = !!ERR[phase];
+    const primaryStyle = S.primary + (busy || ro ? 'opacity:0.6;cursor:' + (ro ? 'not-allowed' : 'progress') + ';' : '');
+    const gpt = { off: !o.cfg, ready: o.cfg, busy: busy ? 'true' : 'false', dis: !o.cfg || busy || ro, btnStyle: o.cfg ? primaryStyle : S.off,
+      btn: true, label: !o.cfg ? 'Sign in with ChatGPT' : phase === 'opening' && o.prov === 'openai' ? 'Opening…' : 'Sign in with ChatGPT',
+      labelClaude: !o.cfg ? 'Sign in with Claude' : phase === 'opening' && o.prov === 'claude' ? 'Opening…' : 'Sign in with Claude' };
+    const paste = { show: inFlow && phase !== 'opening', title: 'Finish signing in with ' + pn, busy: busy ? 'true' : 'false', busy2: phase === 'finish' || ro, bad: phase === 'badcode' ? 'true' : 'false', err, errMsg: ERR[phase] || '', op: phase === 'finish' ? 0.6 : 1, label: phase === 'finish' ? 'Connecting…' : err && phase !== 'badcode' ? 'Try again' : 'Finish connection' };
+    const recPrimary = isSi && acct.status !== 'ok';
+    const via = isSi && acct.provider === 'anthropic' ? 'Claude' : 'ChatGPT';
+    const si = isSi ? { title: acct.label || via + ' account', signed: 'Signed in ' + acct.signed, checked: 'Last checked ' + acct.checked,
+      warnMsg: acct.status === 'expired' ? 'Your ' + via + ' sign-in has expired. AI runs that need it stop until you reconnect.' : acct.status === 'rejected' ? 'The provider no longer accepts this sign-in. AI runs that need it stop until you reconnect or disconnect it.' : '',
+      recLabel: phase === 'opening' ? 'Opening…' : 'Reconnect', recDis: ro || busy, recStyle: recPrimary ? primaryStyle : S.btn + (ro || busy ? 'opacity:0.6;cursor:' + (ro ? 'not-allowed' : 'progress') + ';' : '') } : { title: '', signed: '', checked: '', warnMsg: '', recLabel: '', recDis: true, recStyle: '' };
+    const startSignin = prov => {
+      if (ro || busy || !o.cfg) return;
+      put({ phase: 'opening', prov });
+      setTimeout(() => app.set('aiS', x => ({ ...(x || o), phase: 'paste' })), 1200);
+    };
+    const finishSignin = () => {
+      if (ro || phase === 'finish') return;
+      if (!s.pasteIn.trim()) { put({ phase: 'badcode' }); return; }
+      put({ phase: 'finish' });
+      setTimeout(() => { app.set('aiS', x => ({ ...(x || o), phase: 'idle', acct: { ...SIGNIN, provider: o.prov === 'claude' ? 'anthropic' : 'openai', label: '', signed: 'just now', checked: 'just now' } })); app.toast(pn + ' account connected'); }, 1600);
+    };
+    return { S, ro, roLine, pad: phone ? '14px' : '22px 28px', twoCols: phone ? '1fr' : '1fr 1fr', planUsed: '38 of 50 used this month',
+      loading: !!o.loading, none: !acct && !o.loading, has: !!acct && !o.loading, hasKey: isKey && !o.loading, hasSignin: isSi && !o.loading, gpt, si, paste, pasteIn: s.pasteIn,
+      provider: s.provider, keyIn: s.keyIn, err: s.err, keyBad: s.err ? 'true' : 'false', keyHint: s.provider === 'openai' ? 'sk-…' : 'sk-ant-…',
+      btnOp: s.busy ? 0.6 : 1, connectLabel: s.busy ? 'Checking the key…' : 'Check and connect',
+      name: acct ? NAMES[acct.provider] : '', prefix: isKey ? acct.prefix : '', st: { label: st[0], bg: st[1], fg: st[2] }, rejected: isKey && acct.status === 'rejected',
+      tested: isKey ? (acct.status === 'untested' ? 'Not tested yet.' : 'Last tested ' + acct.tested + '.') : '', testLabel: 'Test key',
+      sw: { on: swOn ? 'true' : 'false', trk: swOn ? '#1D6B47' : '#C9CDD3', kx: swOn ? '21px' : '3px', op: ro ? 0.55 : 1,
+        note: swOn ? 'On: runs after the plan’s use your account.' : 'Off: when the plan’s runs are used up, AI runs stop.',
+        explain: isSi ? 'It is off unless you turn it on. When it is on, runs after your plan’s use your ' + via + ' sign-in, and we show you each time it happens.' : 'It is off unless you turn it on. When it is on, runs after your plan’s are charged to your account by ' + (acct ? NAMES[acct.provider] : '') + ', and we show you each time it happens.' },
+      a: {
+        provider: e => this.setState({ provider: e.target.value, err: '' }), keyIn: e => this.setState({ keyIn: e.target.value, err: '' }),
+        useKey: () => { this.setState({ provider: 'anthropic', err: '' }); setTimeout(() => { const el = document.getElementById('ai-key-input'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } }, 50); },
+        signin: () => startSignin(isSi && acct.provider === 'anthropic' ? 'claude' : 'openai'), signinClaude: () => startSignin('claude'),
+        pasteIn: e => this.setState({ pasteIn: e.target.value }), finish: finishSignin, cancel: () => put({ phase: 'idle' }),
+        connect: () => { const k = s.keyIn.trim(); const ok = s.provider === 'openai' ? /^sk-/.test(k) : /^sk-ant-/.test(k); if (!k || !ok) { this.setState({ err: NAMES[s.provider] + ' did not accept that key. Check it and try again.' }); return; } this.setState({ busy: true }); setTimeout(() => { this.setState({ busy: false, keyIn: '' }); put({ phase: 'idle', acct: { kind: 'key', provider: s.provider, prefix: k.slice(0, 12), status: 'ok', tested: 'just now', sw: false } }); app.toast('AI account connected'); }, 600); },
+        test: () => {
+          if (isSi) { if (acct.status === 'ok') { setAcct({ checked: 'just now' }); app.toast('The ' + via + ' sign-in works'); } else app.toast(acct.status === 'expired' ? 'The ChatGPT sign-in has expired. Reconnect it.' : 'The provider no longer accepts this sign-in. Reconnect it.'); return; }
+          setAcct({ status: 'ok', tested: 'just now' }); app.toast('The key works');
+        },
+        remove: () => isSi
+          ? app.modal({ title: 'Disconnect your ' + via + ' account?', body: 'DripFunnel deletes the sign-in here. Revoke it in ' + via + ' too if you want it gone there. AI runs go back to using only your plan’s runs, and the switch is turned off. You can sign in again at any time.', confirm: 'Disconnect', danger: true, onConfirm: () => { put({ acct: null, phase: 'idle' }); app.toast('ChatGPT account disconnected'); } })
+          : app.modal({ title: 'Remove your AI account?', body: 'The key is deleted from DripFunnel. AI runs go back to using only your plan’s runs, and the switch is turned off.', confirm: 'Remove account', danger: true, onConfirm: () => { put({ acct: null }); app.toast('AI account removed'); } }),
+        toggle: () => { if (ro) return; setAcct({ sw: !acct.sw }); app.toast(acct.sw ? 'Switch off. AI runs stop when the plan’s are used up.' : 'Switch on. Your account covers runs after the plan’s.'); }
+      } };
+  }
+}
+</script>
+</body>
+</html>

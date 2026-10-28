@@ -1,6 +1,6 @@
 import { ActionControl, StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
 import type { StatusIconName } from '@dripfunnel/shared/ui'
-import type { HistoryEntry, Partner, SetupRow } from '../../api/partners'
+import type { HistoryEntry, Partner, PartnerAiKey, SetupRow } from '../../api/partners'
 import { fill, formatCountry, formatDate, formatCount, locale, messages } from '../../messages'
 import { currencyName } from './partnerCurrencies'
 import { refusalText } from './refusal'
@@ -60,6 +60,38 @@ const ContractPanel = ({ partner, onSetContract }: { partner: Partner; onSetCont
   )
 }
 
+const aiWords = words.aiKeys
+const aiLook: Record<PartnerAiKey['status'], { tone: StatusTone; icon: StatusIconName }> = {
+  ok: { tone: 'success', icon: 'ok' },
+  untested: { tone: 'neutral', icon: 'pen' },
+  rejected: { tone: 'danger', icon: 'cross' },
+}
+const tested = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
+const AiKeysPanel = ({ keys }: { keys: readonly PartnerAiKey[] }) => (
+  <section className="df-panel" aria-labelledby="partner-ai-keys">
+    <h2 id="partner-ai-keys">{aiWords.title}</h2>
+    {keys.length === 0 ? (
+      <p className="df-muted">{aiWords.none}</p>
+    ) : (
+      <ul className="df-checklist">
+        {keys.map((key) => (
+          <li key={key.name}>
+            <div>
+              <p>
+                {key.name} · {aiWords.providers[key.provider]}
+                {key.isDefault ? ` · ${aiWords.default}` : ''}
+              </p>
+              {key.lastTestedAt && <p className="df-muted">{fill(aiWords.lastTested, { when: tested.format(new Date(key.lastTestedAt)) })}</p>}
+            </div>
+            <StatusPill {...aiLook[key.status]} label={aiWords.statuses[key.status]} />
+          </li>
+        ))}
+      </ul>
+    )}
+    <p className="df-muted">{aiWords.note}</p>
+  </section>
+)
+
 export const OverviewTab = ({ partner, onSetContract }: { partner: Partner; onSetContract: () => void }) => {
   const { setup } = partner
   return (
@@ -91,6 +123,7 @@ export const OverviewTab = ({ partner, onSetContract }: { partner: Partner; onSe
         </ul>
       </section>
       <ContractPanel partner={partner} onSetContract={onSetContract} />
+      <AiKeysPanel keys={partner.aiKeys} />
       <section className="df-panel" aria-labelledby="partner-checklist">
         <div className="df-panel-head">
           <h2 id="partner-checklist">{words.checklist}</h2>

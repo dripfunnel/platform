@@ -21,6 +21,7 @@ import { registerStoreInfo } from './storeInfo'
 import { registerTax } from './tax'
 import { registerShipping } from './shipping'
 import { registerRiders } from './riders'
+import { registerStoreApps } from './storeApps'
 import { registerCustomerAccounts } from './customerAccounts'
 import { registerPayments } from './payments'
 import { registerOrders } from './orders'
@@ -35,6 +36,7 @@ import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
 import { registerSupport } from './support'
 import { registerActivity } from './activity'
+import { registerAiAccount } from './aiAccount'
 import { registerDevelopers } from './developers'
 import { registerWebhooks } from './webhooks'
 import { registerApps } from './apps'
@@ -77,6 +79,7 @@ registerShopify(builder)
 registerTax(builder)
 registerShipping(builder)
 registerRiders(builder)
+registerStoreApps(builder)
 registerCustomerAccounts(builder)
 registerPayments(builder)
 registerOrders(builder)
@@ -91,6 +94,7 @@ registerListing(builder)
 registerSupport(builder)
 registerActivity(builder)
 registerDevelopers(builder)
+registerAiAccount(builder)
 registerWebhooks(builder)
 registerApps(builder)
 registerBilling(builder)

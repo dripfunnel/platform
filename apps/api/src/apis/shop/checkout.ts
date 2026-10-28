@@ -1,10 +1,12 @@
 import { GraphQLError } from 'graphql'
+import { logEvent } from '#core/log'
 import type { Page } from '#core/paging'
 import type { PaymentStart } from '#core/payments'
 import { appPaymentInput, checkoutAudit, createCheckout, type AppPaymentInput, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow, type ShopOrderSummaryRow } from '#engine/modules/checkout/index'
 import { downloadUrl } from '#engine/modules/deliveries/index'
 import { paymentModeOf, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
+import { registerDelivery, trackingOf } from './delivery'
 
 // Paying for a cart (FIRST-RELEASE §19 Shop API `paymentOptions`, `checkout`, `order`): the ways the store takes payment,
 // placing the order with one, and the shopper's own order afterwards.
@@ -29,15 +31,23 @@ const words: Record<string, string> = {
   INVALID_CURSOR: 'That page cursor isn’t valid.',
 }
 
-const answered = <T>(result: CheckoutResult<T>): T => {
+/** One technical log line for a refused checkout call: the operation and its reason, with the request and the store, and nothing of the cart, the amount or the shopper (LOGGING §9). A payment provider's failure reaches here as its refusal's code. */
+const logRefusal = (ctx: ShopContext, operation: string, code: string): void =>
+  logEvent({ event: 'checkout_refused', api: 'shop', requestId: ctx.facts.requestId, storeId: ctx.shopper?.context.storeId ?? null, code: `${operation}:${code}` })
+
+const answered = <T>(ctx: ShopContext, operation: string, result: CheckoutResult<T>): T => {
   if (result.ok) return result.value
+  logRefusal(ctx, operation, result.reason)
   throw new GraphQLError(words[result.reason] ?? words['NOT_READY'] ?? '', { extensions: { code: result.reason, ...(result.problems ? { problems: result.problems } : {}) } })
 }
 
-const appPaymentOf = (input: { scheme: string; stripeApiVersion?: string | null | undefined } | null | undefined): AppPaymentInput | undefined => {
+const appPaymentOf = (ctx: ShopContext, operation: string, input: { scheme: string; stripeApiVersion?: string | null | undefined } | null | undefined): AppPaymentInput | undefined => {
   if (!input) return undefined
   const parsed = appPaymentInput.safeParse(input)
-  if (!parsed.success) throw new GraphQLError(words['INVALID_APP_PAYMENT'] ?? '', { extensions: { code: 'INVALID_APP_PAYMENT' } })
+  if (!parsed.success) {
+    logRefusal(ctx, operation, 'INVALID_APP_PAYMENT')
+    throw new GraphQLError(words['INVALID_APP_PAYMENT'] ?? '', { extensions: { code: 'INVALID_APP_PAYMENT' } })
+  }
   return parsed.data
 }
 
@@ -65,7 +75,9 @@ const checkoutOf = async (ctx: ShopContext) => {
   })
 }
 
-export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
+export const registerCheckout = (shop: ShopBuilder) => {
+  const { builder, money, pageInfo } = shop
+  const { Delivery } = registerDelivery(shop)
   const Option = builder.objectRef<PaymentOption>('ShopPaymentOption').implement({
     fields: (t) => ({
       // stripe, paypal, razorpay, cashfree, phonepe, cod or bank_transfer: what placeOrder takes.
@@ -178,6 +190,8 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
         },
       }),
       licenceKeys: t.field({ type: [Key], resolve: (o) => o.keys }),
+      // An own-delivery order's delivery, for its own customer or a guest with its token (DELIVERY §7); null for any other order.
+      delivery: t.field({ type: Delivery, nullable: true, resolve: (o, _, ctx) => trackingOf(ctx).read(o.id) }),
     }),
   })
   // A row of the account's order history: only what the list shows, never an order's lines, downloads or keys.
@@ -211,7 +225,10 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
       extensions: { access },
       resolve: async (_, args, ctx) => {
         const page = await (await checkoutOf(ctx)).orderHistory(args)
-        if (!page.ok) throw new GraphQLError(words[page.reason] ?? '', { extensions: { code: page.reason } })
+        if (!page.ok) {
+          logRefusal(ctx, 'orderHistory', page.reason)
+          throw new GraphQLError(words[page.reason] ?? '', { extensions: { code: page.reason } })
+        }
         return page.value
       },
     }),
@@ -223,8 +240,11 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
       args: { provider: t.arg.string({ required: true }), app: t.arg({ type: AppPayment }) },
       extensions: { access: { ...access, audit: checkoutAudit.placed } },
       resolve: async (_, args, ctx) => {
-        if (args.provider.length > 40) throw new GraphQLError(words['METHOD_UNAVAILABLE'] ?? '', { extensions: { code: 'METHOD_UNAVAILABLE' } })
-        return answered(await (await checkoutOf(ctx)).place(args.provider, appPaymentOf(args.app)))
+        if (args.provider.length > 40) {
+          logRefusal(ctx, 'placeOrder', 'METHOD_UNAVAILABLE')
+          throw new GraphQLError(words['METHOD_UNAVAILABLE'] ?? '', { extensions: { code: 'METHOD_UNAVAILABLE' } })
+        }
+        return answered(ctx, 'placeOrder', await (await checkoutOf(ctx)).place(args.provider, appPaymentOf(ctx, 'placeOrder', args.app)))
       },
     }),
     // Back from paying: the card payment read back from its provider, and the order as it is now.
@@ -240,7 +260,7 @@ export const registerCheckout = ({ builder, money, pageInfo }: ShopBuilder) => {
       type: Start,
       args: { orderId: t.arg.id({ required: true }), app: t.arg({ type: AppPayment }) },
       extensions: { access: { ...access, audit: checkoutAudit.retried } },
-      resolve: async (_, args, ctx) => answered(await (await checkoutOf(ctx)).pay(String(args.orderId), appPaymentOf(args.app))),
+      resolve: async (_, args, ctx) => answered(ctx, 'payOrder', await (await checkoutOf(ctx)).pay(String(args.orderId), appPaymentOf(ctx, 'payOrder', args.app))),
     }),
   }))
 }

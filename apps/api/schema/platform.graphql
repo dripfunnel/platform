@@ -360,7 +360,9 @@ type MrrRow {
 
 type Mutation {
   addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
+  addPartnerAiKey(key: String!, name: String!, provider: String!): PartnerAiKeyResult
   addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
+  beginPartnerAiOauth(id: ID, provider: String!): PartnerAiKeyResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   changeTeamRole(id: ID!, role: String!): TeamResult
   createPlan(input: PlanInput!): PlanResult
@@ -370,6 +372,7 @@ type Mutation {
   exportReport(filter: ReportFilterInput, tab: String!): ReportExportResult
   exportStores(filter: StoreFilterInput): StoresExportResult
   extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
+  finishPartnerAiOauth(response: String!): PartnerAiKeyResult
   inviteTeamMember(email: String!, name: String!, role: String!): TeamResult
   makePlanLive(id: ID!): PlanResult
   publishBranding(input: BrandingInput!): PublishBrandingResult
@@ -377,6 +380,7 @@ type Mutation {
   recheckMerchantDomain(storeId: ID!): PartnerDomainResult
   recheckPartnerDomain(kind: String!): PartnerDomainResult
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
+  removePartnerAiKey(id: ID!): PartnerAiKeyResult
   removePartnerDomain(kind: String!): PartnerDomainResult
   removeTeamMember(id: ID!): TeamResult
   resendStoreOwnerInvite(id: ID!): StoreActionResult
@@ -387,6 +391,7 @@ type Mutation {
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
   setBillingMode(mode: String!): BillingResult
+  setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setPaymentMethod(token: String!): BillingResult
   setPayoutAccount(token: String!): BillingResult
   setSecondFactorPolicy(required: Boolean!): TeamResult
@@ -394,6 +399,7 @@ type Mutation {
   startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
   submitForApproval: SubmitForApprovalResult
   suspendStore(id: ID!, reason: String!): StoreActionResult
+  testPartnerAiKey(id: ID!): PartnerAiKeyResult
   transferOwnership(toUserId: ID!): TeamResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
 }
@@ -490,6 +496,32 @@ type PartnerAddress {
   since: String
   status: String
   zone: String
+}
+
+type PartnerAiKey {
+  accountLabel: String
+  authType: String
+  id: ID
+  isDefault: Boolean
+  keyPrefix: String
+  lastTestedAt: String
+  name: String
+  provider: String
+  status: String
+}
+
+type PartnerAiKeyResult {
+  id: String
+  ok: Boolean
+  reason: String
+  status: String
+  url: String
+}
+
+type PartnerAiSignIn {
+  available: Boolean
+  provider: String
+  reason: String
 }
 
 type PartnerCompany {
@@ -823,6 +855,8 @@ type Query {
   navBadges: NavBadges
   nextPayout: NextPayout
   onboarding: Onboarding
+  partnerAiKeys: [PartnerAiKey!]
+  partnerAiSignIn: [PartnerAiSignIn!]
   partnerCompany: PartnerCompany
   partnerDomains: PartnerDomains
   partnerInvoices(after: String, before: String, first: Int): PartnerInvoicesPage

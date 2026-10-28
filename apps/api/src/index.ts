@@ -1,5 +1,5 @@
 import { deliveryOfferDeliverer } from '#jobs/queues/deliverers/deliveryOffer'
-import { sweepDispatch, offerKind } from '#engine/modules/ownDelivery/index'
+import { sweepDispatch, offerKind, etaKind } from '#engine/modules/ownDelivery/index'
 import type postgres from 'postgres'
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import { ZodError } from 'zod'
@@ -23,7 +23,11 @@ import { resolveRider } from '#auth/riderCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
+import { handleAppAssets, isAppAssetsPath } from '#apis/store/appAssets'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
+import { handleAiGateway, isAiGatewayPath } from '#apis/store/aiGateway'
+import { createAiOAuth, type AiOAuth } from '#saas/aiOAuth/index'
+import { createOAuthProviders } from '#integrations/ai/index'
 import { handleDocument, isDocumentsPath } from '#apis/store/documents'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema, type StoreContext } from '#apis/store/schema'
@@ -53,6 +57,8 @@ import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
 import { localCloudflare, localCouriers, localDns, localEmail, localPush, localSms, localWhatsApp } from '#integrations/local/index'
 import { expoPushClient, type ExpoPush } from '#integrations/expoPush/index'
+import { googleRoutesClient, type GoogleRoutes } from '#integrations/googleRoutes/index'
+import { deliveryEtaDeliverer } from '#jobs/queues/deliverers/deliveryEta'
 import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/push'
 import { pushKind, pushReceiptsKind } from '#saas/push/index'
 import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
@@ -62,6 +68,7 @@ import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
 import { storeBillingStripe, stripeClient, type StoreBillingStripe, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
+import { githubHookPath, handleGitHubHook } from '#hooks/github'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
 import { handleShopifyCallback, shopifyCallbackPath } from '#hooks/shopify'
 import { handleMapFrame, mapFramePath, mapFrameScriptPath } from '#hooks/mapFrame'
@@ -120,12 +127,13 @@ import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
 import { studioCapacityClass, studioSessionClass, type CapacityNamespace, type StudioSessionObject } from '#jobs/durable/studio'
 import { handleStudioFrame } from '#apis/studio/frame'
 import type { TenantContext } from '#core/tenancy'
-import { anthropicProvider, localAiProvider } from '#integrations/ai/index'
+import { localAiProvider } from '#integrations/ai/index'
+import { designerAiFor, designerModelsFor } from '#saas/aiGateway/index'
 import { browserScreenshots } from '#integrations/cloudflare/screenshot'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
-import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
+import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, storefrontRepoPushKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
@@ -134,6 +142,7 @@ import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type Upgrad
 import { advanceRollouts, createFleetService, defaultActionsJobs, retireCoreImages, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
+import { storefrontRepoPushDeliverer } from '#jobs/queues/deliverers/storefrontRepoPush'
 import { indexNowClient } from '#integrations/indexnow/client'
 import { githubConfigured, githubFor, storeRepos, type StoreRepos } from '#integrations/github/index'
 import { actionsKeys } from '#integrations/github/oidc'
@@ -264,6 +273,14 @@ const pushFor = (config: Config): ExpoPush | null => {
   return expoBuilt.api
 }
 
+// Google's Routes API for a delivery's arrival estimate (THIRD-PARTY-ACCESS §2.12): GOOGLE_MAPS_SERVER_KEY, else none.
+let routesBuilt: { key: string; api: GoogleRoutes } | undefined
+const routesFor = (config: Config): GoogleRoutes | null => {
+  if (!config.GOOGLE_MAPS_SERVER_KEY) return null
+  if (routesBuilt?.key !== config.GOOGLE_MAPS_SERVER_KEY) routesBuilt = { key: config.GOOGLE_MAPS_SERVER_KEY, api: googleRoutesClient({ key: config.GOOGLE_MAPS_SERVER_KEY }) }
+  return routesBuilt.api
+}
+
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
 // (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL; `push` until EXPO_PUSH_TOKEN or PUSH_LOCAL.
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
@@ -291,6 +308,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     'export.stores': storesExportDeliverer(sql),
     'export.catalog': catalogExportDeliverer(sql),
     [offerKind]: deliveryOfferDeliverer(sql, activityLog),
+    [etaKind]: deliveryEtaDeliverer(sql, routesFor(config)),
     [orderUpdateKind]: orderNotifyDeliverer(sql),
     'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
     'import.photos': importPhotosDeliverer(sql, assets, lookup),
@@ -309,6 +327,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
           [storefrontRenderPageKind]: storefrontPublishDeliverer(publishing.render),
           [storefrontRenderKind]: storefrontRenderDeliverer(sql, () => new Date()),
           [storefrontUpgradePushKind]: storefrontUpgradePushDeliverer(sql, publishing.repos, publishing.drafts),
+          [storefrontRepoPushKind]: storefrontRepoPushDeliverer(sql, publishing.repos),
           ...(publishing.upgrade ? { [storefrontUpgradeKind]: storefrontUpgradeDeliverer(publishing.upgrade) } : {}),
           [storefrontIndexNowKind]: indexNowDeliverer(sql, publishing.sites, indexNowClient(), config.SHOP_DOMAIN ?? null),
         }
@@ -465,6 +484,9 @@ const paymentsFor = (config: Config): PaymentWiring => {
   return wiring
 }
 
+/** The AI sign-in flow: each provider's own client, with the code pasted back (THIRD-PARTY-ACCESS §2.6). */
+const aiOauthFor = (sql: postgres.Sql, secrets: SecretBox | null, config: Config): AiOAuth => createAiOAuth({ sql, secrets, providers: createOAuthProviders(config.AI_SIGN_IN === '1'), now: () => new Date() })
+
 // Imported once per isolate, like the identity provider, and only from configuration.
 let box: { key: string; secrets: Promise<SecretBox> } | undefined
 
@@ -535,7 +557,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
   })
 }
 
@@ -586,12 +608,14 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
-      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
+      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env, sql, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
+    if (isAppAssetsPath(url.pathname)) return handleAppAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
+    if (isAiGatewayPath(url.pathname)) return handleAiGateway(request, context, { fallbackKey: config.AI_PROVIDER_KEY, oauth: context.aiOauth ?? null })
     return servers.store.fetch(request, context)
   })
 }
@@ -637,6 +661,12 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     const limiter = env.BUILD_RATE_LIMITER
     if (!limiter) return misconfigured('BUILD_RATE_LIMITER')
     return withConnection(config.HYPERDRIVE, ctx, (sql) => handleBuildCall(request, { ...deps, sql }, async (key) => (await limiter.limit({ key })).success))
+  }
+  if (url.pathname === githubHookPath) {
+    const secret = config.GITHUB_WEBHOOK_SECRET
+    if (!secret || !githubConfigured(config)) return notFound()
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleGitHubHook(request, { sql, secret, org: config.GITHUB_STORE_ORG }))
   }
   if (url.pathname === shopifyCallbackPath) {
     const shopify = shopifyFor(config)
@@ -713,7 +743,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname, config.SHOP_DOMAIN ?? null)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), estimates: config.GOOGLE_MAPS_SERVER_KEY !== undefined, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
     if (url.pathname === vitalsPath) return handleVitals(request, context)
@@ -745,13 +775,15 @@ const handleDelivery = async (request: Request, url: URL, config: Config, env: E
   }
 }
 
-// The designer's model, screenshots and pasted images (storefront ARCHITECTURE §6.2). The merchant's own key has nowhere to
-// be kept yet, so a store on its own key answers AI_NOT_CONNECTED; the plan's is AI_PROVIDER_KEY until #275.
-const designFor = (config: Config, env: Env): NonNullable<StoreContext['design']> => {
+// The designer's model, screenshots and pasted images (storefront ARCHITECTURE §6.2). The model runs on the account the gateway
+// resolves: the store's own when the plan is own-key, else the partner's default (#275), else AI_PROVIDER_KEY.
+const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretBox | null): NonNullable<StoreContext['design']> => {
   const { BROWSER_RENDERING_ACCOUNT_ID: accountId, BROWSER_RENDERING_TOKEN: token, AI_PROVIDER_KEY: key } = config
   const assets = env.ASSETS
+  const accounts = (context: TenantContext) => ({ sql, context, secrets, fallbackKey: key, oauth: aiOauthFor(sql, secrets, config) })
   return {
-    ai: (billedTo) => (config.AI_LOCAL === '1' ? localAiProvider() : billedTo === 'plan' && key ? anthropicProvider(key) : null),
+    ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
+    models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
     readAsset: assets
       ? async (r2Key) => {

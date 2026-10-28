@@ -30,6 +30,7 @@ const partner = {
   branding: { productName: null, primaryColor: null, accentColor: null, poweredBy: 'on' },
   domains: [{ id: 'd1', kind: 'email', host: 'mail.kaufladen.example', status: 'waiting', record: 'TXT', expected: 'v=spf1', found: null, checkedAt: null }],
   plans: [{ id: 'pl1', name: 'Basis', status: 'live', maxProducts: 500, maxStaff: 2, stores: 1 }],
+  aiKeys: [{ name: 'Production', provider: 'anthropic', status: 'rejected', isDefault: true, lastTestedAt: null }],
   team: [{ id: 'u1', name: 'Jonas', email: 'jonas@kaufladen.example', role: 'partner-owner', status: 'active', lastSignInAt: null }],
   contract: { feeCurrency: 'EUR', currencies: ['CHF'], poweredBy: 'firstYear' },
   actions: {
@@ -61,6 +62,7 @@ describe('loadPartner', () => {
   it('keeps the failing checks with the refusal and maps the team roles', async () => {
     stubApi({ data: { partner } })
     const loaded = await loadPartner('p1')
+    expect(loaded?.aiKeys).toEqual([{ name: 'Production', provider: 'anthropic', status: 'rejected', isDefault: true, lastTestedAt: null }])
     expect(loaded?.actions).toEqual({
       approve: { allowed: false, reason: 'GO_LIVE_CHECKS_FAILING', failingChecks: ['emailDomain'] },
       sendBack: { allowed: true },

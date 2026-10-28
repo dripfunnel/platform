@@ -179,8 +179,10 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    created by an org owner (#790). The token belongs to that person's account, so builds fail if they leave the org. The org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,
    500 Enterprise; main's protection needs Team, ARCHITECTURE §6). Create
    the *DripFunnel Provisioning* App with *Administration*, *Contents*, *Workflows* and *Actions*
-   write and *Metadata* read, **no webhook**; install it on the org → `GITHUB_APP_ID`,
+   write and *Metadata* read; install it on the org → `GITHUB_APP_ID`,
    `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`. Store repos need no package access.
+   For a push to a store repo's `main` to go live (#968), turn on the App's webhook with the URL
+   `https://dev-hooks.actuateminds.com/github` and a random secret → `GITHUB_WEBHOOK_SECRET`, and subscribe it to **Push**.
 5. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
    redirect `https://dev-hooks.actuateminds.com/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
    row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
@@ -252,6 +254,7 @@ Never reuse a value from local or production.
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `actuateminds.com` zone | Profile › API Tokens (§2.8 item 1). Read since #317 with `CF_SAAS_ZONE_ID`: purges the store proxy's cached host lookups after a publish, a domain or a state change; without it they expire within 60 seconds |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
+| `GITHUB_WEBHOOK_SECRET` | Secret | the App's webhook secret | §2.8 item 4. Read since #968: without it a push to a store repo's `main` builds nothing |
 | `SHOP_DOMAIN` | Text | `my-shop.dev` (§2.8 item 2) | Validated at boot; `my-store.localhost` locally. Replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Read since #317: seals "Open preview" links; without it, or without `SHOP_DOMAIN`, Open preview answers "not set up" |
 

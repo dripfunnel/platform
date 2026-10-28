@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { capabilityOf, costOf } from './registry'
 
 // The designer's model provider (THIRD-PARTY-ACCESS §2.6, §3.3): called by the Worker only, with a key the caller
 // passes in, never kept, logged or sent to a container. A call has a timeout and retries with backoff.
@@ -37,13 +38,18 @@ const timeoutMs = 180_000
 
 export const costCents = (tokensIn: number, tokensOut: number): number => Math.ceil((tokensIn * centsPerMillion.input + tokensOut * centsPerMillion.output) / 1_000_000)
 
-export const anthropicProvider = (apiKey: string): AiProvider => {
+const costFor = (model: string, tokensIn: number, tokensOut: number): number => {
+  const capability = capabilityOf('anthropic', model)
+  return capability ? costOf(capability, tokensIn, tokensOut) : costCents(tokensIn, tokensOut)
+}
+
+export const anthropicProvider = (apiKey: string, model: string = designerModel): AiProvider => {
   const client = new Anthropic({ apiKey, timeout: timeoutMs, maxRetries: 2 })
   return {
     complete: async (call) => {
       const stream = client.messages.stream({
-        model: designerModel,
-        max_tokens: 64_000,
+        model,
+        max_tokens: capabilityOf('anthropic', model)?.maxOutputTokens ?? 64_000,
         output_config: { effort: 'high' },
         system: call.system,
         messages: [
@@ -58,7 +64,7 @@ export const anthropicProvider = (apiKey: string): AiProvider => {
       const text = message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('')
       const tokensIn = message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0) + (message.usage.cache_creation_input_tokens ?? 0)
       const tokensOut = message.usage.output_tokens
-      return { text, model: message.model, tokensIn, tokensOut, costAmount: costCents(tokensIn, tokensOut), costCurrency: 'USD' }
+      return { text, model: message.model, tokensIn, tokensOut, costAmount: costFor(model, tokensIn, tokensOut), costCurrency: 'USD' }
     },
   }
 }
@@ -74,3 +80,15 @@ export const localAiProvider = (): AiProvider => ({
     costCurrency: 'USD',
   }),
 })
+
+export type KeyCheck = 'ok' | 'rejected' | 'unavailable'
+
+/** One cheap call that tells a live key from a dead one (#275): a refusal of the key is `rejected`, anything else `unavailable`. */
+export const checkAnthropicKey = async (apiKey: string): Promise<KeyCheck> => {
+  try {
+    await new Anthropic({ apiKey, timeout: 15_000, maxRetries: 0 }).models.list({ limit: 1 })
+    return 'ok'
+  } catch (error) {
+    return error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError ? 'rejected' : 'unavailable'
+  }
+}

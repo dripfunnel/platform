@@ -17,6 +17,8 @@ import {
 } from '../../api/shipping'
 import { fill, formatCount, formatTime, locale, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
+import { OwnDeliveryCard, type OwnDelivery, type OwnDeliveryCardProps } from './OwnDeliveryCard'
+import { inputOfSaved } from './ownDelivery'
 import { maxPostalCodes, readPostalCodes } from './postalCodes'
 
 const words = messages.settings.shipping
@@ -94,10 +96,13 @@ export interface ShippingTabProps {
   country: string | null
   canEdit: boolean
   onSaved: (toast: string) => void
+  /** Own delivery's card, shown only when the plan has it; `goTab` opens the Riders or Warehouse tab. */
+  own?: OwnDelivery | null
+  goTab?: OwnDeliveryCardProps['goTab']
 }
 
 /** Shipping (SetOps "shipping"): what delivery costs, when it's free, the couriers on the partner's accounts, and where the store delivers. */
-export const ShippingTab = ({ shipping, country, canEdit, onSaved }: ShippingTabProps) => {
+export const ShippingTab = ({ shipping, country, canEdit, onSaved, own = null, goTab }: ShippingTabProps) => {
   const id = useId()
   const file = useRef<HTMLInputElement>(null)
   const [server, setServer] = useState(shipping)
@@ -158,6 +163,12 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved }: ShippingTab
       },
       false,
     )
+  }
+
+  const saveOwn: OwnDeliveryCardProps['save'] = async (settings) => {
+    const revision = await saveShipping(base.current.revision, { ...inputOfSaved(base.current), ...settings })
+    adopt({ ...base.current, ...settings, revision })
+    onSaved(words.own.saved)
   }
 
   const upload = async (picked: File) => {
@@ -300,6 +311,7 @@ export const ShippingTab = ({ shipping, country, canEdit, onSaved }: ShippingTab
 
   return (
     <div className="df-set-store">
+      {own && goTab && <OwnDeliveryCard server={server} own={own} canEdit={canEdit} save={saveOwn} goTab={goTab} />}
       <section className="df-set-card" aria-labelledby={`${id}-charge`}>
         <h2 id={`${id}-charge`}>{words.chargeTitle}</h2>
         <p className="df-set-lede">{words.chargeSub}</p>

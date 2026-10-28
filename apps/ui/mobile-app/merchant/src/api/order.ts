@@ -68,6 +68,22 @@ export type OrderEvent = z.infer<typeof eventSchema>
 export const addressSchema = z.object({ name: z.string(), line1: z.string(), line2: z.string().nullable(), city: z.string(), region: z.string().nullable(), postalCode: z.string().nullable(), country: z.string() })
 export type OrderAddress = z.infer<typeof addressSchema>
 
+export const deliveryStates = ['packing', 'searching', 'unassigned', 'assigned', 'picked_up', 'delivered', 'failed', 'cancelled'] as const
+
+// Own delivery (docs/api/DELIVERY.md §3, §8): the order's latest delivery as the Store API reads it, never the handover code.
+const deliverySchema = z.object({
+  id: z.string(),
+  state: z.enum(deliveryStates),
+  failedReason: z.string().nullable(),
+  failedNote: z.string().nullable(),
+  cashCollectedAt: z.string().nullable(),
+  codeLocked: z.boolean(),
+  codeUnconfirmedAt: z.string().nullable(),
+  rider: z.object({ name: z.string(), phone: z.string().nullable(), vehicleType: z.string().nullable(), vehicleNumber: z.string().nullable() }).nullable(),
+  steps: z.array(z.object({ deliveryId: z.string(), state: z.enum(deliveryStates), at: z.string() })),
+})
+export type OrderDelivery = z.infer<typeof deliverySchema>
+
 const orderSchema = z.object({
   id: z.string(),
   number: z.string(),
@@ -99,6 +115,7 @@ const orderSchema = z.object({
   // courier, flat or pickup: a pickup is handed over, with no courier or tracking.
   shippingOption: z.string().nullable(),
   shopperNote: z.string().nullable(),
+  delivery: deliverySchema.nullable(),
 })
 export type Order = z.infer<typeof orderSchema>
 
@@ -113,7 +130,8 @@ const orderFields = `id number state placedAt customerName
   refunds { id returnId amount ${money} lines ${quantities} }
   paymentState fulfilmentState paymentMethod test customerId email phone marketName taxInclusive
   subtotal ${money} discount ${money} shipping ${money} tax ${money} duties ${money} total ${money} refunded ${money}
-  shippingOption shopperNote`
+  shippingOption shopperNote
+  delivery { id state failedReason failedNote cashCollectedAt codeLocked codeUnconfirmedAt rider { name phone vehicleType vehicleNumber } steps { deliveryId state at } }`
 
 /** The order, or null when it isn't there or isn't the caller's to see: the two look the same (ACCESS.md §11). */
 export const loadOrder = async (client: ApiClient, id: string): Promise<Order | null> =>
@@ -220,3 +238,29 @@ export const refund = async (client: ApiClient, input: RefundInput): Promise<str
       { o: input.orderId, ret: input.returnId, l: input.lines, x: input.extra, r: input.reason, s: input.restock, v: input.override },
     )
   ).refund
+
+export const markReadyForPickup = async (client: ApiClient, orderId: string): Promise<void> => {
+  await typedQuery(client)('mutation Ready($o: ID!) { markReadyForPickup(orderId: $o) }', z.object({ markReadyForPickup: z.boolean() }), { o: orderId })
+}
+
+export const assignDelivery = async (client: ApiClient, deliveryId: string, riderId: string): Promise<void> => {
+  await typedQuery(client)('mutation Assign($d: ID!, $r: ID!) { assignDelivery(deliveryId: $d, riderId: $r) }', z.object({ assignDelivery: z.boolean() }), { d: deliveryId, r: riderId })
+}
+
+export const offerDeliveryAgain = async (client: ApiClient, deliveryId: string): Promise<void> => {
+  await typedQuery(client)('mutation Again($d: ID!) { offerDeliveryAgain(deliveryId: $d) }', z.object({ offerDeliveryAgain: z.boolean() }), { d: deliveryId })
+}
+
+/** Before pickup it cancels the delivery; after, it recalls it and the rider brings the parcel back. */
+export const cancelDelivery = async (client: ApiClient, deliveryId: string): Promise<void> => {
+  await typedQuery(client)('mutation CancelDelivery($d: ID!) { cancelDelivery(deliveryId: $d) }', z.object({ cancelDelivery: z.boolean() }), { d: deliveryId })
+}
+
+/** Only for a locked or unconfirmed code; `cashReceived` only means something for cash on delivery. */
+export const markDeliveryDelivered = async (client: ApiClient, deliveryId: string, reason: string, cashReceived: boolean | null): Promise<void> => {
+  await typedQuery(client)(
+    'mutation Delivered($d: ID!, $r: String!, $c: Boolean) { markDeliveryDelivered(deliveryId: $d, reason: $r, cashReceived: $c) }',
+    z.object({ markDeliveryDelivered: z.boolean() }),
+    { d: deliveryId, r: reason, c: cashReceived },
+  )
+}

@@ -458,7 +458,7 @@ store and a vendor in another:
 | `approve` | The approval setting and queue (flows 18–19) |
 | `publish` | Storefront: the brand step and Site settings (brand, search and sharing, domains), choose a template, the AI studio (describe with words, images or a sample site, edit text, undo, discard, open preview), publish, publish everything before a change, go back (flows 48–52; redesigned 2026-10-08 on #470), **End all preview links** (2026-10-09, #520: storefront PREVIEW §5) and catalogue **Publish now**; a Manager sees the Storefront read-only |
 | `billing` | Plan, subscription, invoices, the subscription payment method (flows 59–64) |
-| `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access** (the On/Off switch; Allow/Deny is `support.allow_write`), and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
+| `settings` | Store info, payment, shipping and tax setup, **Settings › Mobile apps** (the store's apps' icon, splash and listing text; needs `own_apps`; built on #868), custom domain, **Support access** (the On/Off switch; Allow/Deny is `support.allow_write`), and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
 
 A Manager reaching an Owner-only screen gets the designed permission-denied state (flow 67);
 the resolver refuses regardless of the screen.
@@ -565,6 +565,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `team.manage` (invite, change role, remove; never an Owner unless the caller is one) | §14.2 | ✓ | ✓ | | | |
 | `team.transfer` | §14.2 | ✓ | | | | |
 | `security.manage` (the 2-factor switch) | §14.4 | ✓ | | | | |
+| `integrations.write` (add, test, default and remove an AI key; built on #275) | §14.5 | ✓ | ✓ | | | |
 
 The Billing menu is absent for Support and the Support menu for Finance and Read-only
 (FIRST-RELEASE §2.1): a role with no permission on a whole screen does not see its row,
@@ -682,6 +683,11 @@ test (§11.2).
   as gone (decided 2026-10-05 on #337). This is accepted because only an Owner creates keys and
   a vendor-bound key is re-capped on every request to the supplier's current tier, so it never
   outlives a narrowed tier, and stops with a removed or suspended supplier (§7.5).
+- **A scope may be used by a REST endpoint instead of a GraphQL field** (decided 2026-10-28 on #950): `ai.run`
+  (Owner-grantable, never a vendor's) lets a key call `/api/v1/*` on the portal host, which spends the plan's AI prompts
+  or the store's own AI account. It is the one scope no GraphQL field uses (`restMachineScopes` in `auth/apiKeys.ts`),
+  and the key, never a person's cookie, is the actor in `ai_run.api_key_id`. Every other scope still has a read-only
+  GraphQL field behind it (`machine.test.ts`).
 - **Vendors' own keys: later** (decided 2026-09-28). Until then only the merchant's Owner
   creates a vendor-bound key; when they come, a Supplier admin creates them within the
   supplier's access level.

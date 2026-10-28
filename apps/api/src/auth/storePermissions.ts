@@ -52,6 +52,7 @@ export const storePermissions = [
   'riders.manage',
   'supplier.team',
   'catalog.propose',
+  'ai.run',
 ] as const
 
 export type StorePermission = (typeof storePermissions)[number]

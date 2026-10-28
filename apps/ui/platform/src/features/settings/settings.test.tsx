@@ -219,7 +219,7 @@ describe('Security', () => {
 
 describe('Settings tabs', () => {
   it.each(settingsTabs)('marks only %s as the open tab', async (tab) => {
-    const html = await render(<Settings tab={tab} readOnly={false}>{null}</Settings>, tab === 'company' ? '/settings' : `/settings?tab=${tab}`)
+    const html = await render(<Settings tab={tab} tabs={settingsTabs} readOnly={false}>{null}</Settings>, tab === 'company' ? '/settings' : `/settings?tab=${tab}`)
     expect(currentTabs(html)).toEqual([words.tabs[tab]])
   })
 })

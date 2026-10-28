@@ -79,11 +79,11 @@ export const setStock = async (entries: { versionId: string; warehouseId: string
 const addressSchema = z.object({ line1: z.string().nullable(), line2: z.string().nullable(), city: z.string().nullable(), region: z.string().nullable(), postalCode: z.string().nullable(), country: z.string().nullable() })
 export type WarehouseAddress = z.infer<typeof addressSchema>
 
-const placeSchema = z.object({ id: z.string(), name: z.string(), isDefault: z.boolean(), units: z.number().int(), revision: z.number().int(), address: addressSchema.nullable(), latitude: z.number().nullable(), longitude: z.number().nullable(), supplierId: z.string().nullable(), supplierName: z.string().nullable() })
+const placeSchema = z.object({ id: z.string(), name: z.string(), isDefault: z.boolean(), units: z.number().int(), revision: z.number().int(), address: addressSchema.nullable(), latitude: z.number().nullable(), longitude: z.number().nullable(), supplierId: z.string().nullable(), supplierName: z.string().nullable(), ownDelivery: z.boolean().nullish(), deliveryRadiusM: z.number().int().nullish(), riderRadiusM: z.number().int().nullish(), deliveryFeeAmount: z.string().nullish(), deliveryFeeCurrency: z.string().nullish() })
 export type Place = z.infer<typeof placeSchema>
 
 /** The caller's locations in full, for the Warehouses list: the merchant's own, or a supplier's own (#337). */
-export const loadPlaces = (): Promise<Place[]> => loadWarehouseNodes('id name isDefault units revision supplierId supplierName latitude longitude address { line1 line2 city region postalCode country }', placeSchema)
+export const loadPlaces = (): Promise<Place[]> => loadWarehouseNodes('id name isDefault units revision supplierId supplierName latitude longitude ownDelivery deliveryRadiusM riderRadiusM deliveryFeeAmount deliveryFeeCurrency address { line1 line2 city region postalCode country }', placeSchema)
 
 export interface PlaceInput {
   name: string
@@ -91,6 +91,11 @@ export interface PlaceInput {
   /** Its map pin (#815): both or neither. */
   latitude: number | null
   longitude: number | null
+  /** The merchant's own locations only; left out, what is saved stays (DELIVERY.md §2). */
+  ownDelivery?: boolean
+  deliveryRadiusM?: number | null
+  riderRadiusM?: number
+  deliveryFeeAmount?: string | null
 }
 
 /** Where "Pin on map"'s frame is, for those who may change a location; null without a Maps key (#815). */

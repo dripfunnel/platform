@@ -75,6 +75,7 @@ export const problem = (file: string | null, line: number | null, rule: RuleId, 
 
 /** A language as the store lists it, such as "en", "hi" or "en-IN". */
 export const localePattern = /^[a-z]{2,3}(?:-[A-Z]{2})?$/
+export const mediaIdPattern = /^[A-Za-z0-9_-]{1,128}$/
 
 /** One file of the theme as it would be after the change; `symlink` when the caller found a link rather than a file. */
 export const themeFileSchema = z.strictObject({
@@ -94,7 +95,7 @@ export const guardContextSchema = z.strictObject({
   /** The paths the store's content pages and blog posts already use (SAPI 24). */
   usedPaths: z.array(z.string().max(512)).max(10_000),
   /** The store's media ids, the only values a CSS url() may name. */
-  mediaIds: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,128}$/)).max(10_000),
+  mediaIds: z.array(z.string().regex(mediaIdPattern)).max(10_000),
   /** Site settings the theme reads through useStorefront() and never copies (DESIGN §2). */
   brand: z.strictObject({
     name: z.string().trim().min(1).max(200),

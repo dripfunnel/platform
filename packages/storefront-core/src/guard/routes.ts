@@ -20,7 +20,7 @@ const comparable = (path: string): string => {
 }
 
 /** routes.json against core's schema, and the one namespace every path of a store shares (ARCHITECTURE §3.1). */
-export const checkRoutes = (files: ReadonlyMap<string, string>, context: GuardContext): Problem[] => {
+export const checkRoutes = (files: ReadonlyMap<string, string>, context: GuardContext, storeData = true): Problem[] => {
   const text = files.get(routesPath)
   if (text === undefined) return [problem(routesPath, null, 'routes/missing', 'routes.json is missing; it maps every core route to a page in src/theme/pages.')]
   const json = readJson(routesPath, text)
@@ -46,7 +46,7 @@ export const checkRoutes = (files: ReadonlyMap<string, string>, context: GuardCo
     const page = routes[route]
     if (page !== undefined) missingPage(page, json.lineOf(['routes', route]))
   }
-  const used = new Set(context.usedPaths.map(comparable))
+  const used = new Set(storeData ? context.usedPaths.map(comparable) : [])
   const reserved = new Set([...reservedPathSegments, ...context.locales.flatMap((l) => [l.toLowerCase(), l.split('-')[0] ?? l])])
   const commercePages = new Set(commerceRoutes.map((r) => routes[r]))
   for (const [path, page] of Object.entries(custom)) {

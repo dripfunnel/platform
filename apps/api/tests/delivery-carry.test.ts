@@ -111,7 +111,7 @@ describe('pickup', () => {
     expect(await db.sql`select fulfilment_state from "order" where id = ${orderId}`).toEqual([{ fulfilment_state: 'fulfilled' }])
     expect(await db.sql`select state from order_part where order_id = ${orderId}`).toEqual([{ state: 'shipped' }])
     expect(await db.sql`select payload->>'event' as event from outbox where kind = 'order.notify' and payload->>'orderId' = ${orderId}`).toEqual([{ event: 'shipped' }])
-    expect(await db.sql`select payload->>'message' as message from outbox where kind = 'push' and payload->>'orderId' = ${orderId}`).toEqual([{ message: 'order.picked_up' }])
+    expect(await db.sql`select payload->>'message' as message from outbox where kind = 'push' and payload->>'orderId' = ${orderId} order by created_at`).toEqual([{ message: 'order.rider_assigned' }, { message: 'order.picked_up' }])
     expect(await db.sql`select action,actor_kind,api from activity_log where target_id = ${deliveryId} and action = 'delivery.picked_up'`).toEqual([{ action: 'delivery.picked_up', actor_kind: 'rider', api: 'delivery' }])
   })
   it('refuses another rider’s delivery, a second pickup, and stock that isn’t there, changing nothing', async () => {
@@ -251,7 +251,7 @@ describe('not delivered, recall and retry', () => {
     expect(await carry(riders[0]).failed({ id: deliveryId, reason: 'no_one_home', note: null, at: clock.toISOString(), key: 'f1' })).toBe(true)
     expect(await latest(orderId)).toMatchObject({ state: 'failed', failed_reason: 'no_one_home', handover_code_enc: null })
     expect(await db.sql`select payload->>'template' as template from outbox where kind = 'email' and payload->>'orderId' = ${orderId}`).toEqual([{ template: 'order-not-delivered' }])
-    expect(await db.sql`select payload->>'message' as message from outbox where kind = 'push' and payload->>'orderId' = ${orderId} order by created_at`).toEqual([{ message: 'order.picked_up' }, { message: 'order.not_delivered' }])
+    expect(await db.sql`select payload->>'message' as message from outbox where kind = 'push' and payload->>'orderId' = ${orderId} order by created_at`).toEqual([{ message: 'order.rider_assigned' }, { message: 'order.picked_up' }, { message: 'order.not_delivered' }])
 
     tick(1000)
     await dispatch().again(deliveryId)
@@ -328,6 +328,73 @@ describe('not delivered, recall and retry', () => {
     expect(seen.data?.['delivery']).toEqual({ state: 'failed', customer: null, lines: [] })
     // The order still can't be cancelled while something left it; the return path takes over.
     expect((await world.gql('owner', `query { order(id: "${orderId}") { delivery { failedReason } } }`)).data?.['order']).toEqual({ delivery: { failedReason: 'recalled' } })
+  })
+})
+
+describe('the orders list', () => {
+  const listed = async (filter: string) => {
+    const r = await world.gql('owner', `query { orders(filter: ${filter}, first: 50) { nodes { id deliveryState } } }`)
+    return (r.data?.['orders'] as { nodes: { id: string; deliveryState: string | null }[] }).nodes
+  }
+
+  it('names each order’s latest delivery state, and filters to own delivery and to what needs the merchant', async () => {
+    const searching = await order()
+    const unassigned = await order()
+    await db.sql`update delivery set state = 'unassigned' where order_id = ${unassigned}`
+    const out = await pickedUp()
+    const locked = await pickedUp()
+    await db.sql`update delivery set step_result = 'CODE_LOCKED', code_attempts = 5 where id = ${locked.deliveryId}`
+    const unconfirmed = await pickedUp()
+    await db.sql`update delivery set code_unconfirmed_at = ${clock} where id = ${unconfirmed.deliveryId}`
+    const plain = await db.sql<{ id: string }[]>`select id from "order" where store_id = ${tenants.storeA1} and shipping_option is distinct from 'own_delivery' limit 1`
+
+    const own = new Map((await listed('OWN_DELIVERY')).map((n) => [n.id, n.deliveryState]))
+    expect(own.get(searching)).toBe('searching')
+    expect(own.get(unassigned)).toBe('unassigned')
+    expect(own.get(out.orderId)).toBe('picked_up')
+    expect(own.get(locked.orderId)).toBe('code_locked')
+    expect(own.get(unconfirmed.orderId)).toBe('code_unconfirmed')
+    for (const row of plain) expect(own.has(row.id)).toBe(false)
+
+    const needs = (await listed('DELIVERY_NEEDS_YOU')).map((n) => n.id).sort()
+    expect(needs).toEqual([unassigned, locked.orderId, unconfirmed.orderId].sort())
+    const counts = await world.gql('owner', 'query { orderCounts { ownDelivery deliveryNeedsYou } }')
+    const [own1] = await db.sql<{ n: number }[]>`select count(distinct order_id)::int as n from delivery where store_id = ${tenants.storeA1}`
+    expect(counts.data?.['orderCounts']).toEqual({ ownDelivery: own1?.n, deliveryNeedsYou: 3 })
+  })
+
+  it('keeps another store’s deliveries out of the list, the filters and the counts, and reads only the latest delivery for what needs the merchant', async () => {
+    const other = tenants.storeA2
+    const [w] = await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${other} and seller_id is null limit 1`
+    const foreign: string[] = []
+    for (const state of ['unassigned', 'picked_up']) {
+      const [o] = await db.sql<{ id: string }[]>`insert into "order"(store_id,state,number,currency,payment_method,payment_state,shipping_option,delivery_warehouse_id,total_amount,shipping_amount,placed_at,email)
+        values(${other},'placed',${crypto.randomUUID().slice(0, 8)},'INR','stripe','paid','own_delivery',${w?.id ?? ''},10000,0,${clock},'x@example.com') returning id`
+      foreign.push(o?.id ?? '')
+      await db.sql`insert into delivery(store_id,order_id,warehouse_id,state,currency,step_result) values(${other},${o?.id ?? ''},${w?.id ?? ''},${state},'INR',${state === 'picked_up' ? 'CODE_LOCKED' : null})`
+    }
+    const mine = new Set([...(await listed('OWN_DELIVERY')), ...(await listed('DELIVERY_NEEDS_YOU')), ...(await listed('ALL'))].map((n) => n.id))
+    for (const id of foreign) expect(mine.has(id)).toBe(false)
+    const [own1] = await db.sql<{ n: number }[]>`select count(distinct order_id)::int as n from delivery where store_id = ${tenants.storeA1}`
+    expect((await world.gql('owner', 'query { orderCounts { ownDelivery deliveryNeedsYou } }')).data?.['orderCounts']).toEqual({ ownDelivery: own1?.n, deliveryNeedsYou: 3 })
+    const theirs = await world.gql('a2Owner', 'query { orders(filter: DELIVERY_NEEDS_YOU, first: 50) { nodes { id } } orderCounts { ownDelivery deliveryNeedsYou } }')
+    expect((theirs.data?.['orders'] as { nodes: { id: string }[] }).nodes.map((n) => n.id).sort()).toEqual([...foreign].sort())
+    expect(theirs.data?.['orderCounts']).toEqual({ ownDelivery: 2, deliveryNeedsYou: 2 })
+
+    // An order whose earlier delivery failed and whose latest is searching is not a delivery that needs the merchant.
+    const [again] = await db.sql<{ id: string }[]>`insert into "order"(store_id,state,number,currency,payment_method,payment_state,shipping_option,delivery_warehouse_id,total_amount,shipping_amount,placed_at,email)
+      values(${other},'placed',${crypto.randomUUID().slice(0, 8)},'INR','stripe','paid','own_delivery',${w?.id ?? ''},10000,0,${clock},'x@example.com') returning id`
+    await db.sql`insert into delivery(store_id,order_id,warehouse_id,state,currency,created_at) values(${other},${again?.id ?? ''},${w?.id ?? ''},'failed','INR',${new Date(clock.getTime() - 60_000)})`
+    await db.sql`insert into delivery(store_id,order_id,warehouse_id,state,currency,created_at) values(${other},${again?.id ?? ''},${w?.id ?? ''},'searching','INR',${clock})`
+    const after = await world.gql('a2Owner', 'query { orderCounts { ownDelivery deliveryNeedsYou } }')
+    expect(after.data?.['orderCounts']).toEqual({ ownDelivery: 3, deliveryNeedsYou: 2 })
+  })
+
+  it('shows a delivery that has locked through the real wrong-code path as needing the merchant', async () => {
+    const { orderId, deliveryId } = await pickedUp()
+    const code = await codeOf(deliveryId)
+    for (let i = 1; i <= 5; i++) await carry(riders[0]).delivered({ id: deliveryId, code: wrong(code), cashCollected: true, at: clock.toISOString(), key: `l${i}` }).catch(() => undefined)
+    expect((await listed('DELIVERY_NEEDS_YOU')).find((n) => n.id === orderId)?.deliveryState).toBe('code_locked')
   })
 })
 

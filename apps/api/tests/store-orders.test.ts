@@ -195,6 +195,9 @@ describe('a supplier’s own part (ACCESS §7.3)', () => {
     const row = ((await gql('{ orders { nodes { number total { amount } paymentState paymentMethod test items partState shippingMode customerName city } } }', 'drop')).data?.['orders'] as { nodes: unknown[] }).nodes[0]
     expect(row).toEqual({ number: 'A-1001', total: null, paymentState: null, paymentMethod: null, test: null, items: 2, partState: 'to_ship', shippingMode: 'to-shopper', customerName: 'Priya Shah', city: 'Pune' })
     expect((await gql('{ orderCounts { all toShip cancelledRefunded paymentPending } }', 'drop')).data?.['orderCounts']).toEqual({ all: 1, toShip: 1, cancelledRefunded: 0, paymentPending: 0 })
+    // Own delivery is the merchant's: a supplier's list carries no delivery state, and the delivery chips are empty.
+    expect((await gql('{ orders { nodes { deliveryState } } orderCounts { ownDelivery deliveryNeedsYou } }', 'drop')).data).toEqual({ orders: { nodes: [{ deliveryState: null }] }, orderCounts: { ownDelivery: 0, deliveryNeedsYou: 0 } })
+    expect(((await gql('{ orders(filter: OWN_DELIVERY) { nodes { number } } }', 'drop')).data?.['orders'] as { nodes: unknown[] }).nodes).toEqual([])
     expect((await gql('{ navBadges { toShip } }', 'hub')).data?.['navBadges']).toEqual({ toShip: 1 })
     expect(await numbers('drop', '(filter: CANCELLED_REFUNDED)')).toEqual([])
     expect(await numbers('drop', '(search: "priya")')).toEqual([])

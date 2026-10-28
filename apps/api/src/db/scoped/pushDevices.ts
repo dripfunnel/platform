@@ -55,3 +55,21 @@ export interface PushStoreRow {
 
 export const selectPushStore = async (tx: ScopedSql, storeId: string): Promise<PushStoreRow | null> =>
   (await tx<PushStoreRow[]>`select partner_id, name, main_language as locale, unit_system from store where id = ${storeId}`)[0] ?? null
+
+/** In system scope: a token another subject of the store holds becomes this customer's or guest order's (DELIVERY §6). */
+export const upsertShopperDevice = async (tx: ScopedSql, d: { storeId: string; kind: 'customer' | 'order'; subjectId: string; token: string; platform: PushPlatform; now: Date }): Promise<DeviceChange> => {
+  const [before] = await tx<{ subject_kind: string; subject_id: string }[]>`
+    select subject_kind, subject_id from push_device where store_id = ${d.storeId} and expo_token = ${d.token} for update
+  `
+  await tx`
+    insert into push_device (store_id, subject_kind, subject_id, expo_token, platform, created_at, last_seen_at)
+    values (${d.storeId}, ${d.kind}, ${d.subjectId}, ${d.token}, ${d.platform}, ${d.now}, ${d.now})
+    on conflict (store_id, expo_token) do update set subject_kind = excluded.subject_kind, subject_id = excluded.subject_id, platform = excluded.platform, last_seen_at = excluded.last_seen_at
+  `
+  if (!before) return 'added'
+  return before.subject_kind === d.kind && before.subject_id === d.subjectId ? 'refreshed' : 'moved'
+}
+
+/** A customer's or guest order's own phone, by its token; false when it isn't theirs. */
+export const deleteShopperDevice = async (tx: ScopedSql, storeId: string, kind: 'customer' | 'order', subjectId: string, token: string): Promise<boolean> =>
+  (await tx`delete from push_device where store_id = ${storeId} and subject_kind = ${kind} and subject_id = ${subjectId} and expo_token = ${token}`).count > 0

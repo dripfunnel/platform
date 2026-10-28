@@ -2,7 +2,7 @@ import { EmptyState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useRef, useState } from 'react'
 import { scratchTemplate, type StorefrontStatus, type StorefrontTemplate } from '../../api/storefront'
 import { fill, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { chooseRefusal, hasSite } from './overviewView'
 import type { StorefrontApi } from './storefrontApi'
 

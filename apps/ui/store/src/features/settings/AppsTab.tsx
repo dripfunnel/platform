@@ -2,7 +2,7 @@ import { ConfirmDialog, initials, type ConfirmDialogProps } from '@dripfunnel/sh
 import { useState } from 'react'
 import { installApp, loadInstallableApp, uninstallApp, type InstallableApp, type InstalledApp } from '../../api/apps'
 import { fill, formatList, formatTime, messages } from '../../messages'
-import { isHttps } from '../common/https'
+import { isHttps } from '@dripfunnel/shared/format'
 import { refusalIn } from '../common/refusal'
 import './developers.css'
 import { useFreshList } from './useFreshList'

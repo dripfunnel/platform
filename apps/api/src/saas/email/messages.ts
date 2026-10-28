@@ -218,6 +218,8 @@ export const en = {
     line: (quantity: number, item: string) => `${quantity} × ${item}`,
     courier: (courier: string, tracking: string) => `With ${courier}, tracking number ${tracking}.`,
     tracking: (tracking: string) => `Tracking number ${tracking}.`,
+    // Never the code itself: an email is forwarded and read on lock screens (DELIVERY §3).
+    handoverCode: 'Our rider is bringing it. Open your order to see your handover code, and read it out to the rider when they arrive.',
     action: 'Track your parcel',
   },
   orderNotDelivered: {

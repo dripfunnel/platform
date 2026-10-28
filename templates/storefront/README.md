@@ -21,6 +21,7 @@ rows), and passes the validator, the preview bundle and the publish gate in
 **Running a store repo locally.** A store repo comes with `.npmrc` (core's registry) and a generated
 `.env.development` naming the store's own shop, which `next dev` proxies `/shop-api` to
 (`next.config.ts`). Once per machine, put a GitHub token with `read:packages` in your own `~/.npmrc`
-(`//npm.pkg.github.com/:_authToken=…`), never the repo's; then `pnpm install` and `pnpm dev`.
+(`//npm.pkg.github.com/:_authToken=…`), never the repo's; then `pnpm install` and `pnpm dev`. Before
+pushing to `main`, which goes live by itself, run `pnpm check` (the repo's `AGENTS.md`, #974).
 
 `src/app/Shell.tsx` wraps pages in `StorefrontProvider` so `next dev` can render a theme. It is for local development only: `poweredBy` is `null` there. Shipped builds render through the sandbox, which sets it from the store's snapshot (`apps/sandbox/src/publish/render.ts`).

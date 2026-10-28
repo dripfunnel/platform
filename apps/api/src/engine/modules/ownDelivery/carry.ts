@@ -5,15 +5,15 @@ import type { SecretBox } from '#auth/secretBox'
 import { DispatchRefused } from '#core/dispatch'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
-import { pushPayloadSchema } from '#core/push'
 import type { TenantContext } from '#core/tenancy'
 import * as carry from '#db/scoped/carry'
 import { lockDelivery, startRound, type DeliveryRow } from '#db/scoped/dispatch'
 import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
 import { insertOutbox } from '#db/scoped/outbox'
-import { dispatchAudit, queueRound, record, type Actor, type DispatchFacts } from './dispatch'
+import { dispatchAudit, queueRound, record, tellCustomer, type Actor, type DispatchFacts } from './dispatch'
 import { handoverCodeMatches, maxCodeAttempts } from './handoverCode'
+import { startEtaRefresh } from './tracking'
 
 export const carryAudit = {
   pickedUp: 'delivery.picked_up', delivered: 'delivery.delivered', failed: 'delivery.failed',
@@ -61,15 +61,6 @@ export const firstDayOfWeek = (locale: string): number => {
   } catch {
     return 1
   }
-}
-
-// The customer hears through the outbox, ids only (DELIVERY §6); a guest's order is its own subject.
-const tellCustomer = async (tx: ScopedSql, f: DispatchFacts, d: DeliveryRow, message: 'order.picked_up' | 'order.delivered' | 'order.not_delivered') => {
-  const n = await carry.carryNotice(tx, d)
-  if (!n || n.test) return n
-  await insertOutbox(tx, { kind: 'push', partnerId: f.partnerId, storeId: f.storeId, idempotencyKey: `${message}:${d.id}`,
-    payload: pushPayloadSchema.parse({ subject: n.customer_id ? { kind: 'customer', id: n.customer_id } : { kind: 'order', id: n.order_id }, message, orderId: n.order_id }) })
-  return n
 }
 
 type Refusal = { ok: false; reason: string }
@@ -186,6 +177,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
       }
       await carry.setPickedUp(tx, d, shipment, f.now)
       await tellCustomer(tx, f, d, 'order.picked_up')
+      await startEtaRefresh(tx, { partnerId: f.partnerId, storeId }, d.id, f.now, 0)
       await record(tx, f, carryAudit.pickedUp, d.id)
       return true
     }),

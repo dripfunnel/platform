@@ -3,6 +3,7 @@ import { typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 
 // Settings › Shipping (SetOps; FIRST-RELEASE (store) §15; apps/api src/apis/store/shipping.ts). Amounts are minor-unit digit strings of `currency`.
 
+export const dispatchTimes = ['placed', 'ready'] as const
 export const courierStatuses = ['pricing', 'standby', 'failed', 'off'] as const
 const courierSchema = z.object({
   provider: z.string(),
@@ -32,13 +33,16 @@ const settingsSchema = z.object({
   areaFileName: z.string().nullable(),
   areaCount: z.number().int(),
   areaSample: z.array(z.string()),
+  ownDelivery: z.boolean(),
+  dispatchWhen: z.enum(dispatchTimes),
+  offerMinutes: z.number().int(),
   labelSizes: z.array(z.string()),
   couriers: z.array(courierSchema),
 })
 export type ShippingSettings = z.infer<typeof settingsSchema>
 
 const fields =
-  'revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample labelSizes couriers { provider status offered pickupMode labelSize trackingEmails lastTestedAt lastTestResult }'
+  'revision savedAt currency courierRate flatRate flatAmount pickup pickupHours pickupAddress freeMode freeThresholdAmount areaMode areaFileName areaCount areaSample ownDelivery dispatchWhen offerMinutes labelSizes couriers { provider status offered pickupMode labelSize trackingEmails lastTestedAt lastTestResult }'
 
 export const loadShipping = async (client: ApiClient): Promise<ShippingSettings | null> =>
   (await typedQuery(client)(`{ shippingSettings { ${fields} } }`, z.object({ shippingSettings: settingsSchema.nullable() }))).shippingSettings
@@ -52,6 +56,10 @@ export type ShippingInput = {
   freeMode: ShippingSettings['freeMode']
   freeThresholdAmount: string | null
   areaMode: ShippingSettings['areaMode']
+  /** The three own-delivery settings (DELIVERY.md §2); left out, what is saved stays. */
+  ownDelivery?: boolean
+  dispatchWhen?: ShippingSettings['dispatchWhen']
+  offerMinutes?: number
 }
 
 /** Saved over `revision` (`STALE` when someone saved since); answers the new revision. */

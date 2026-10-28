@@ -168,6 +168,16 @@ const Actions = builder.objectRef<PartnerPermissions>('PartnerActions').implemen
   }),
 })
 
+const AiKey = builder.objectRef<PartnerDto['aiKeys'][number]>('PartnerAiKeyStatus').implement({
+  fields: (t) => ({
+    name: t.exposeString('name'),
+    provider: t.exposeString('provider'),
+    status: t.exposeString('status'),
+    isDefault: t.exposeBoolean('isDefault'),
+    lastTestedAt: t.string({ nullable: true, resolve: (k) => k.lastTestedAt?.toISOString() ?? null }),
+  }),
+})
+
 const PartnerType = builder.objectRef<PartnerDto>('Partner').implement({
   fields: (t) => ({
     id: t.exposeID('id'),
@@ -191,6 +201,7 @@ const PartnerType = builder.objectRef<PartnerDto>('Partner').implement({
     branding: t.field({ type: Branding, resolve: (p) => p.branding }),
     domains: t.field({ type: [Domain], resolve: (p) => p.domains }),
     plans: t.field({ type: [Plan], resolve: (p) => p.plans }),
+    aiKeys: t.field({ type: [AiKey], resolve: (p) => p.aiKeys }),
     team: t.field({ type: [TeamMember], resolve: (p) => p.team }),
     // Who is onboarding a partner, and why, is for the roles ACCESS.md §5.4 names; others read null (#14).
     setupSessions: t.field({

@@ -24,6 +24,7 @@ const studioFor = (ctx: StoreContext) => {
     studio: ctx.studio?.(caller.context) ?? null,
     role: caller.role,
     ai: design?.ai ?? (() => null),
+    models: design?.models ?? (() => []),
     screenshots: design?.screenshots ?? null,
     lookup: ctx.lookup ?? null,
     readAsset: design?.readAsset ?? null,
@@ -44,6 +45,8 @@ export const registerStudio = (builder: StoreBuilder) => {
       place: t.int({ nullable: true, resolve: (s) => (s.state === 'queued' ? s.place : null) }),
       // The studio-session id the frame's path carries; renewed with renewStudioSession.
       session: t.exposeString('session'),
+      // The models this store's AI account can run, the default first; empty when the merchant has no choice.
+      models: t.exposeStringList('models'),
       // https://{slug}-preview.<SHOP_DOMAIN>/__studio/{session}/, never the portal host.
       frameUrl: t.exposeString('frameUrl'),
       // change (the Owner) or view (a Manager).
@@ -117,11 +120,11 @@ export const registerStudio = (builder: StoreBuilder) => {
   builder.mutationFields((t) => ({
     askDesign: t.field({
       type: Answer,
-      args: { text: t.arg.string({ required: true }), imageAssetId: t.arg.id(), sampleUrl: t.arg.string(), page: t.arg.string({ required: true }), device: t.arg.string({ required: true }) },
+      args: { text: t.arg.string({ required: true }), model: t.arg.string(), imageAssetId: t.arg.id(), sampleUrl: t.arg.string(), page: t.arg.string({ required: true }), device: t.arg.string({ required: true }) },
       extensions: { access: designWrite(designAudit.designRequested) },
       resolve: async (_, args, ctx: StoreContext) => {
         const device = args.device === 'phone' || args.device === 'tablet' ? args.device : 'desktop'
-        return answered(await studioFor(ctx).ask({ text: args.text, imageAssetId: args.imageAssetId ?? null, sampleUrl: args.sampleUrl ?? null, page: args.page, device }))
+        return answered(await studioFor(ctx).ask({ text: args.text, model: args.model ?? null, imageAssetId: args.imageAssetId ?? null, sampleUrl: args.sampleUrl ?? null, page: args.page, device }))
       },
     }),
     saveDesignText: t.boolean({

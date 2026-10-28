@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -91,7 +91,7 @@ is (`account`, `authentication`, `cart`, `checkout`, `collections`, `currency`, 
 | `platform/analytics` | Commerce events (view item, add to cart, begin checkout, purchase), consent-aware, provider adapters: **GA4, Meta Pixel and Google Tag Manager**, loaded only after consent and after the page loads (decided 2026-10-05 on #337); Google Tag Manager needs both analytics and marketing consent, because a container may hold any tag (decided on #304); a withdrawal reaches each provider's own script (Google Consent Mode, Meta's consent call); and **real-user Core Web Vitals**, also only after consent (decided 2026-10-08 on #470, §9). |
 | `platform/consent` | Cookie and tracking consent (asked everywhere until the shopper chooses), and a **Cookie settings** button that reopens it with the saved choice, so consent is as easy to withdraw as to give; providers stop receiving events the moment it is withdrawn. |
 | `platform/media` | `<Image>` (Cloudflare image resizing, AVIF/WebP, `srcset` and `sizes`, width and height always set, lazy unless core chose it as the page's main image), `<Video>` (poster required, `preload="none"` on phones, paused off-screen and under reduced motion, a size cap) and the font loader (allowlisted, self-hosted, subset `woff2`, metric-matched fallbacks). |
-| `platform/browser` | The only browser access a theme gets: `useInView`, `useScrollProgress`, `usePointer`, `useMediaQuery`, `useReducedMotion`, `navigate()`, `<Link>` (internal routes and the store's listed external links; prefetch by Speculation Rules). |
+| `platform/browser` | The only browser access a theme gets: `useInView`, `useScrollProgress`, `usePointer`, `useMediaQuery`, `useReducedMotion`, `navigate()`, `<Link>` (internal routes, the store's listed external links and, since #859, `tel:` and a dialable number; prefetch by Speculation Rules). |
 | `cart` | The active order as the only cart state (the reference's rule), add, remove, adjust, apply and remove codes, buy now, optimistic UI with server reconciliation. |
 | `checkout` | The checkout controller: contact → shipping address → delivery → payment → review, with the engine deciding what each step needs, and express wallets where the provider offers them. When a store offers exactly one delivery option the controller applies it for the shopper and omits the delivery step, which returns only if that apply fails; with several the shopper chooses, and with none the step explains why it can't be delivered. Payment adapters (Stripe, Razorpay, Cashfree first), each loading its own provider SDK; asynchronous settlement with a "payment processing" state (the reference's `PaymentProcessingBanner` pattern). The theme skins its slots; an error in the theme's checkout switches that shopper to the baseline checkout. AI storefronts check out in the theme; own storefronts hand off to the engine's hosted checkout by default (decided 2026-10-05 on #337). |
 | `products`, `collections`, `search` | Hooks for product detail (versions, options, selection rules, live price and stock), collection listings with `fetchMore`, search with filters (OR within a filter, AND across filters), sorting and pagination as URL state. |
@@ -265,7 +265,9 @@ org (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md) §3), into which
 `apps/api/src/integrations/github` copies `templates/storefront/` with the chosen template's
 theme (§2.3) through the GitHub App, then writes the generated `store.config.ts` and pins the
 published `@dripfunnel/storefront-core` version (PLATFORM-PROMPT §5.7, `../ARCHITECTURE.md` §1;
-built on #316, SAAS §5 steps 4–8). Nothing in the repo is edited by hand: each change the AI makes becomes a commit in the
+built on #316, SAAS §5 steps 4–8). Someone the org gives write access may push to `main` by hand, and that commit
+builds and goes live by itself, unless it changed `.github/**` ([LIVE-SHOP.md](LIVE-SHOP.md) §4, "A push to `main`";
+#968). Otherwise each change the AI makes becomes a commit in the
 store's private draft once it passes the fast gate (§6.2), and **the platform pushes the published
 tree to the repo as one squashed commit once its publish is live** through the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6); the
 sandbox itself holds no credential (§6.1).
@@ -283,7 +285,8 @@ src/
 content/{locale}/       AI-WRITTEN: every shopper-facing word, one file per page or area
 routes.json             AI-WRITTEN: core route → theme page; custom page path → theme page
 store.config.ts         LOCKED, generated: the public store key and the Shop API's path
-package.json            LOCKED: core pinned exactly; dependencies from the allowlist only
+package.json            LOCKED: core pinned exactly; dependencies from the allowlist only; `pnpm check` (§3.4)
+AGENTS.md, CLAUDE.md    LOCKED, from the template: run `pnpm check` before pushing to main (#974)
 .npmrc                  LOCKED, from the template: core's registry, no token (a clone's own install)
 .env.development        LOCKED, generated: SHOP_API_PROXY, the store's free address a clone's `next dev` proxies /shop-api to
 .github/workflows/build.yml  LOCKED, from the template: the only workflow (LIVE-SHOP §4)
@@ -339,7 +342,17 @@ The six templates and "Start from scratch" live in this repo as complete startin
   you" and the order's number, what to do next (a bank transfer's reference, pay-by date and details; cash to the
   courier; a card still confirming with Check again, Try paying again and the sealed payment element), its delivery and way to pay, and the sealed summary beside them
   under "Order {number}"; loading, failed (Try again), not found and cancelled states. D1's "Thank you, {name}", receipt
-  email and "Create account" card wait for the Shop API's order to carry the contact (it doesn't yet).
+  email and "Create account" card wait for the Shop API's order to carry the contact (it doesn't yet). *Delivery, as built on #859
+  (SH 6)*: an own-delivery order's page adds a Delivery card, from `useOrder().order.tracking` (`orders/tracking.ts`): where the
+  delivery stands and one line on what happens next, the steps reached with their times in the store's time zone and those still
+  to come (Being packed, Looking for a rider, Rider assigned, On the way, then Delivered or Not delivered), and, only while a
+  rider is assigned or has the order, the rider's first name, vehicle and a Call link (`tel:`) and the handover code with "Give
+  this code to your rider…"; once it ends, the steps alone. Core words all of it (`order.delivery.*`), the page asks the Shop API
+  for `delivery { state steps rider handoverCode }` only, never the rider's position, the arrival estimate, a map or the rider's
+  photo (its link cannot be fetched by a browser's `<img>`: a Shop API card of its own), and a courier order is unchanged. It is
+  `order.tracking` data and the baseline's `DeliveryTracking`, not a sealed component: a theme that draws its own order page
+  shows it by rendering `tracking` (decided on #859; a sealed delivery block would be a major, since it would fail every
+  existing theme's gate).
 - *Baseline's sign-in and account as built on #313 (part 6)*, from D1's Sign in and Account: sign in by email and
   password or by a mobile code (tabs when the shop allows both), Keep me signed in, Forgot password; Create an account
   and Forgot password each by an emailed code, then the name and password or the new password; on a preview each says
@@ -474,6 +487,14 @@ takes the whole theme as it would be after the change, plus any other path the c
 the store's languages, content and post paths and brand fields from the platform, so it needs no
 network. Each problem names the file, the line, a rule id and a plain-words message for the repair
 loop (#480).
+
+**On a developer's machine** (#974): a store repo's `pnpm check` runs core's `dripfunnel-check`,
+then the typecheck, and exits 1 on any problem. It validates the theme files git holds, as they are on
+disk, and names any a commit would carry differently: files never added to git, and files changed since
+`git add`. It needs no network, so
+the rules that need the store's data are left to the build, and it says so: that `content/` holds
+exactly the store's languages (locally the languages are its folders), copying the brand's fields, a
+CSS `url()`'s media id (held only to a media id's shape) and a custom path already in use.
 
 **Files.** The AI may write only `src/theme/pages/**/*.tsx`, `src/theme/components/**/*.tsx`,
 `src/theme/styles/**/*.module.css`, `content/{locale}/*.json` and `routes.json`. Any other
