@@ -32,8 +32,11 @@ export const storeEnvSchema = z
     EAS_PROJECT_ID: z.uuid('an EAS project id, a UUID').optional(),
     // The Firebase file Android needs to get a push token, under stores/<store>/: a public client config, not a secret
     GOOGLE_SERVICES_FILE: z.string().regex(/^stores\/[a-z][a-z0-9-]*\/google-services\.json$/, 'a path such as stores/dev/google-services.json').optional(),
+    // The same project's iOS file. With the Android one it switches crash reporting on; push needs only the Android one (docs/mobile-app/README.md §3)
+    GOOGLE_SERVICE_INFO_FILE: z.string().regex(/^stores\/[a-z][a-z0-9-]*\/GoogleService-Info\.plist$/, 'a path such as stores/dev/GoogleService-Info.plist').optional(),
   })
   .refine((env) => env.UPDATES_CHANNEL === env.STORE_KEY, { path: ['UPDATES_CHANNEL'], message: 'must equal STORE_KEY' })
+  .refine((env) => !env.GOOGLE_SERVICE_INFO_FILE || env.GOOGLE_SERVICES_FILE, { path: ['GOOGLE_SERVICE_INFO_FILE'], message: 'needs GOOGLE_SERVICES_FILE too: crash reporting takes both Firebase files' })
 
 export type StoreEnv = z.infer<typeof storeEnvSchema>
 
@@ -58,7 +61,11 @@ export function readStoreEnv(root: string, key: string | undefined): StoreEnv {
   if (env.STORE_KEY !== keyResult.data) fail(file, [`STORE_KEY: is ${env.STORE_KEY}, but the file is for ${keyResult.data}`])
 
   // A store's build never ships another store's image or file.
-  const files = [...imageKeys.map((name) => [name, env[name]] as const), ...(env.GOOGLE_SERVICES_FILE ? [['GOOGLE_SERVICES_FILE', env.GOOGLE_SERVICES_FILE] as const] : [])]
+  const files = [
+    ...imageKeys.map((name) => [name, env[name]] as const),
+    ...(env.GOOGLE_SERVICES_FILE ? [['GOOGLE_SERVICES_FILE', env.GOOGLE_SERVICES_FILE] as const] : []),
+    ...(env.GOOGLE_SERVICE_INFO_FILE ? [['GOOGLE_SERVICE_INFO_FILE', env.GOOGLE_SERVICE_INFO_FILE] as const] : []),
+  ]
   const foreign = files.filter(([, path]) => !path.startsWith(`stores/${env.STORE_KEY}/`)).map(([name, path]) => `${name}: ${path} is not under stores/${env.STORE_KEY}/`)
   if (foreign.length > 0) fail(file, foreign)
   const missing = files.filter(([, path]) => !existsSync(join(root, path))).map(([name, path]) => `${name}: ${path} does not exist`)
@@ -69,6 +76,8 @@ export function readStoreEnv(root: string, key: string | undefined): StoreEnv {
 const phonePeMavenRepo = 'https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android'
 
 export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoConfig {
+  // Crashlytics needs the project's file on both platforms; a store with only the Android one has push and no crash reports.
+  const crashReporting = Boolean(env.GOOGLE_SERVICES_FILE && env.GOOGLE_SERVICE_INFO_FILE)
   return {
     ...config,
     name: env.APP_NAME,
@@ -81,7 +90,12 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
     userInterfaceStyle: 'automatic',
     runtimeVersion: { policy: 'appVersion' },
     // The UPI apps Razorpay, Cashfree and PhonePe look for on iOS: an app not named here is not found.
-    ios: { bundleIdentifier: env.IOS_BUNDLE_ID, supportsTablet: false, infoPlist: { LSApplicationQueriesSchemes: ['phonepe', 'tez', 'paytmmp', 'paytm', 'bhim'] } },
+    ios: {
+      bundleIdentifier: env.IOS_BUNDLE_ID,
+      supportsTablet: false,
+      infoPlist: { LSApplicationQueriesSchemes: ['phonepe', 'tez', 'paytmmp', 'paytm', 'bhim'] },
+      ...(env.GOOGLE_SERVICE_INFO_FILE ? { googleServicesFile: `./${env.GOOGLE_SERVICE_INFO_FILE}` } : {}),
+    },
     android: {
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
@@ -97,10 +111,16 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       // Stripe's Payment Sheet: Google Pay is switched on (the sheet shows it only where the device and the account allow it); Apple Pay only for a store with a merchant identifier.
       ['@stripe/stripe-react-native', { enableGooglePay: true, ...(env.APPLE_PAY_MERCHANT_ID ? { merchantIdentifier: env.APPLE_PAY_MERCHANT_ID } : {}) }],
       'expo-notifications',
+      // Firebase Crashlytics (shop/ARCHITECTURE.md §3): only for a store with both Firebase files.
+      ...(crashReporting ? ['@react-native-firebase/app', '@react-native-firebase/crashlytics'] : []),
       // PhonePe's Android SDK is served from PhonePe's own repository, not Maven Central; Android 11+ lists the UPI apps an app may open (shop/ARCHITECTURE.md §3).
       [
         'expo-build-properties',
-        { android: { extraMavenRepos: [phonePeMavenRepo], manifestQueries: { intent: [{ action: 'android.intent.action.VIEW', data: { scheme: 'upi', host: 'pay' } }] } } },
+        {
+          // The Firebase Apple SDK is Swift Package Manager only, so its pods build as dynamic frameworks.
+          ...(crashReporting ? { ios: { useFrameworks: 'dynamic' } } : {}),
+          android: { extraMavenRepos: [phonePeMavenRepo], manifestQueries: { intent: [{ action: 'android.intent.action.VIEW', data: { scheme: 'upi', host: 'pay' } }] } },
+        },
       ],
     ],
     extra: {
@@ -108,6 +128,7 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       APP_SCHEME: env.APP_SCHEME,
       ...(env.APPLE_PAY_MERCHANT_ID ? { APPLE_PAY_MERCHANT_ID: env.APPLE_PAY_MERCHANT_ID } : {}),
       ...(env.EAS_PROJECT_ID ? { eas: { projectId: env.EAS_PROJECT_ID } } : {}),
+      ...(crashReporting ? { crashReporting: true } : {}),
     },
   }
 }

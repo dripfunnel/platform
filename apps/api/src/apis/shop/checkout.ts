@@ -1,4 +1,5 @@
 import { GraphQLError } from 'graphql'
+import { logEvent } from '#core/log'
 import type { Page } from '#core/paging'
 import type { PaymentStart } from '#core/payments'
 import { appPaymentInput, checkoutAudit, createCheckout, type AppPaymentInput, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow, type ShopOrderSummaryRow } from '#engine/modules/checkout/index'
@@ -30,15 +31,23 @@ const words: Record<string, string> = {
   INVALID_CURSOR: 'That page cursor isn’t valid.',
 }
 
-const answered = <T>(result: CheckoutResult<T>): T => {
+/** One technical log line for a refused checkout call: the operation and its reason, with the request and the store, and nothing of the cart, the amount or the shopper (LOGGING §9). A payment provider's failure reaches here as its refusal's code. */
+const logRefusal = (ctx: ShopContext, operation: string, code: string): void =>
+  logEvent({ event: 'checkout_refused', api: 'shop', requestId: ctx.facts.requestId, storeId: ctx.shopper?.context.storeId ?? null, code: `${operation}:${code}` })
+
+const answered = <T>(ctx: ShopContext, operation: string, result: CheckoutResult<T>): T => {
   if (result.ok) return result.value
+  logRefusal(ctx, operation, result.reason)
   throw new GraphQLError(words[result.reason] ?? words['NOT_READY'] ?? '', { extensions: { code: result.reason, ...(result.problems ? { problems: result.problems } : {}) } })
 }
 
-const appPaymentOf = (input: { scheme: string; stripeApiVersion?: string | null | undefined } | null | undefined): AppPaymentInput | undefined => {
+const appPaymentOf = (ctx: ShopContext, operation: string, input: { scheme: string; stripeApiVersion?: string | null | undefined } | null | undefined): AppPaymentInput | undefined => {
   if (!input) return undefined
   const parsed = appPaymentInput.safeParse(input)
-  if (!parsed.success) throw new GraphQLError(words['INVALID_APP_PAYMENT'] ?? '', { extensions: { code: 'INVALID_APP_PAYMENT' } })
+  if (!parsed.success) {
+    logRefusal(ctx, operation, 'INVALID_APP_PAYMENT')
+    throw new GraphQLError(words['INVALID_APP_PAYMENT'] ?? '', { extensions: { code: 'INVALID_APP_PAYMENT' } })
+  }
   return parsed.data
 }
 
@@ -216,7 +225,10 @@ export const registerCheckout = (shop: ShopBuilder) => {
       extensions: { access },
       resolve: async (_, args, ctx) => {
         const page = await (await checkoutOf(ctx)).orderHistory(args)
-        if (!page.ok) throw new GraphQLError(words[page.reason] ?? '', { extensions: { code: page.reason } })
+        if (!page.ok) {
+          logRefusal(ctx, 'orderHistory', page.reason)
+          throw new GraphQLError(words[page.reason] ?? '', { extensions: { code: page.reason } })
+        }
         return page.value
       },
     }),
@@ -228,8 +240,11 @@ export const registerCheckout = (shop: ShopBuilder) => {
       args: { provider: t.arg.string({ required: true }), app: t.arg({ type: AppPayment }) },
       extensions: { access: { ...access, audit: checkoutAudit.placed } },
       resolve: async (_, args, ctx) => {
-        if (args.provider.length > 40) throw new GraphQLError(words['METHOD_UNAVAILABLE'] ?? '', { extensions: { code: 'METHOD_UNAVAILABLE' } })
-        return answered(await (await checkoutOf(ctx)).place(args.provider, appPaymentOf(args.app)))
+        if (args.provider.length > 40) {
+          logRefusal(ctx, 'placeOrder', 'METHOD_UNAVAILABLE')
+          throw new GraphQLError(words['METHOD_UNAVAILABLE'] ?? '', { extensions: { code: 'METHOD_UNAVAILABLE' } })
+        }
+        return answered(ctx, 'placeOrder', await (await checkoutOf(ctx)).place(args.provider, appPaymentOf(ctx, 'placeOrder', args.app)))
       },
     }),
     // Back from paying: the card payment read back from its provider, and the order as it is now.
@@ -245,7 +260,7 @@ export const registerCheckout = (shop: ShopBuilder) => {
       type: Start,
       args: { orderId: t.arg.id({ required: true }), app: t.arg({ type: AppPayment }) },
       extensions: { access: { ...access, audit: checkoutAudit.retried } },
-      resolve: async (_, args, ctx) => answered(await (await checkoutOf(ctx)).pay(String(args.orderId), appPaymentOf(args.app))),
+      resolve: async (_, args, ctx) => answered(ctx, 'payOrder', await (await checkoutOf(ctx)).pay(String(args.orderId), appPaymentOf(ctx, 'payOrder', args.app))),
     }),
   }))
 }
