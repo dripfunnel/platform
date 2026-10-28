@@ -23,7 +23,7 @@ const page = (nodes: unknown[], endCursor: string | null, hasNextPage: boolean) 
 const delivery = (state: 'assigned' | 'picked_up') => ({ id: 'd-9', state, area: 'Whitefield', warehouse: { name: 'Pune godown' } })
 
 let secondPage: () => unknown
-let current: unknown[]
+let current: unknown[] = []
 let onAccept: () => unknown
 const answer = ({ query, variables }: Request): unknown => {
   if (query.includes('deliveries(')) return { deliveries: { nodes: current } }
@@ -31,6 +31,12 @@ const answer = ({ query, variables }: Request): unknown => {
   if (variables?.['after']) return secondPage()
   return page([offer('o1', 'Indiranagar')], 'c1', true)
 }
+
+// The first render loads react-native's lazy modules cold: about 11 s here, over 30 s on a loaded CI runner (run 40674976346), so it is paid once, here.
+beforeAll(async () => {
+  mockTracking.mockResolvedValue(true)
+  await render(<HomeScreen />, fakeSession(answer))
+}, 120_000)
 
 beforeEach(() => {
   jest.clearAllMocks()
