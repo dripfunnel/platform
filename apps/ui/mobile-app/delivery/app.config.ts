@@ -81,7 +81,6 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
     ios: { bundleIdentifier: env.IOS_BUNDLE_ID, supportsTablet: false },
     android: {
       package: env.ANDROID_PACKAGE,
-      softwareKeyboardLayoutMode: 'resize',
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
       ...(env.GOOGLE_MAPS_ANDROID_KEY ? { config: { googleMaps: { apiKey: env.GOOGLE_MAPS_ANDROID_KEY } } } : {}),
       ...(env.GOOGLE_SERVICES_FILE ? { googleServicesFile: `./${env.GOOGLE_SERVICES_FILE}` } : {}),
