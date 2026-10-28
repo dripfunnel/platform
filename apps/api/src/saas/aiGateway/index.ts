@@ -110,10 +110,11 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
     return token.reason === 'EXPIRED' ? { unusable: 'EXPIRED' } : token.reason === 'NOT_FOUND' ? null : { unusable: 'UNAVAILABLE' }
   }
 
-  const ownKey = async (requireSwitch: boolean): Promise<Credential | { unusable: Unusable } | null> => {
+  const ownKey = async (requireSwitch: boolean, allowSignIn: boolean): Promise<Credential | { unusable: Unusable } | null> => {
     const row = await withSystemScope(sql, (tx) => selectSealedStoreKey(tx, storeId))
     if (!row || !secrets || (requireSwitch && !row.use_when_plan_used)) return null
-    if (row.auth_type === 'oauth') return row.status === 'rejected' ? { unusable: 'EXPIRED' } : signedIn({ kind: 'store', id: storeId, partnerId }, null)
+    // The same rule as a partner's: a sign-in is one person's subscription, for the studio and never `/api/v1`.
+    if (row.auth_type === 'oauth') return !allowSignIn ? null : row.status === 'rejected' ? { unusable: 'EXPIRED' } : signedIn({ kind: 'store', id: storeId, partnerId }, null)
     if (row.status === 'rejected') return null
     const key = await secrets.open(row.key_enc)
     return key ? { provider: row.provider, key, auth: 'api_key' } : null
@@ -133,9 +134,9 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
 
   const resolve = async (): Promise<Resolution> => {
     const { allowed, mode } = await allowance()
-    if (mode === ownKeyMode) return resolvedOf('own_key', await ownKey(false), 'AI_NOT_CONNECTED')
+    if (mode === ownKeyMode) return resolvedOf('own_key', await ownKey(false, false), 'AI_NOT_CONNECTED')
     if (await planLeft(allowed)) return resolvedOf('plan', await planKey(false), 'AI_NOT_CONNECTED')
-    return resolvedOf('own_key', await ownKey(true), 'AI_BUDGET_REACHED')
+    return resolvedOf('own_key', await ownKey(true, false), 'AI_BUDGET_REACHED')
   }
 
   const reserve = async (): Promise<boolean> => {
@@ -228,7 +229,7 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
   }
 
   /** The account that pays for `billed`, with no allowance check: the studio takes its own unit (SAAS §9.2). */
-  const credential = (billed: Billed) => (billed === 'plan' ? planKey(true) : ownKey(false))
+  const credential = (billed: Billed) => (billed === 'plan' ? planKey(true) : ownKey(false, true))
 
   return { validate, complete, stream, resolve, credential }
 }

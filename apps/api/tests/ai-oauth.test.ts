@@ -8,9 +8,9 @@ import { hashSessionId } from '#auth/session'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
-import { anthropicOAuth, GatewayError, OAuthError, type ChatAnswer, type ChatProvider, type OAuthProviders, type OAuthTokens } from '#integrations/ai/index'
+import { anthropicOAuth, createOAuthProviders, GatewayError, OAuthError, type ChatAnswer, type ChatProvider, type OAuthProviders, type OAuthTokens } from '#integrations/ai/index'
 import { activityLog } from '#saas/activity/index'
-import { createAiGateway } from '#saas/aiGateway/index'
+import { createAiGateway, designerAiFor } from '#saas/aiGateway/index'
 import { createAiOAuth, sealTokens } from '#saas/aiOAuth/index'
 import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -43,8 +43,10 @@ const stubChat = (token: string, accountId: string | null = null): ChatProvider 
     return Promise.resolve({ text: 'hi', model: 'gpt-5', finish: 'stop', usage: { tokensIn: 100, tokensOut: 50 } })
   },
   streamResponse: async function* () {
-    yield* []
-    throw new GatewayError('BAD_REQUEST')
+    if (chatFails) throw new GatewayError('INVALID_CREDENTIALS')
+    log.chatted.push({ token, accountId })
+    yield { kind: 'text' as const, text: 'hi' }
+    yield { kind: 'end' as const, finish: 'stop' as const, model: 'gpt-5', usage: { tokensIn: 100, tokensOut: 50 } }
   },
 })
 
@@ -274,11 +276,11 @@ describe('using a signed-in account', () => {
     expect(await held).toBe(true)
   })
 
-  it('refuses clearly when the provider turns a live token down', async () => {
+  it('fails the studio clearly when the provider turns a live token down', async () => {
     await connected()
     await ownKeyPlan()
     chatFails = true
-    expect(await gateway([]).complete(call)).toEqual({ ok: false, reason: 'AI_ACCOUNT_EXPIRED' })
+    await expect((await studio([]))?.complete(ask)).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' })
     chatFails = false
   })
 
@@ -321,34 +323,35 @@ describe('using a signed-in account', () => {
       now: () => now,
       sleep: () => Promise.resolve(),
     })
+  const studio = (adapterToken: string[]) =>
+    designerAiFor({ sql: db.sql, context: { caller: { kind: 'api-key', keyId: crypto.randomUUID(), createdByUserId: people.owner }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }, secrets: box, fallbackKey: undefined, oauth: oauth(), adapters: (_p, key, auth, accountId) => (adapterToken.push(`${auth}:${key}`), stubChat(key, accountId)) }, 'own_key')
+  const ask = { system: 's', text: 'hi', images: [] }
   const ownKeyPlan = async () => {
     await db.sql`delete from plan_entitlement where plan_id = (select plan_id from store where id = ${t.storeA1}) and key in ('ai_mode', 'ai_prompts')`
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) select plan_id, partner_id, 1, 'ai_mode', 0 from store where id = ${t.storeA1}`
   }
   const call = { provider: 'openai' as const, model: 'gpt-5', messages: [{ role: 'user' as const, content: 'hi' }], maxTokens: 100, stream: false }
 
-  it('runs the gateway on the sign-in\'s token, recording the method and no cost', async () => {
+  it("runs the studio on the sign-in's token at no cost, and refuses it for /v1", async () => {
     await connected()
     await ownKeyPlan()
     const used: string[] = []
-    const out = await gateway(used).complete(call)
-    expect(out).toMatchObject({ ok: true, billed: 'own_key' })
+    expect(await (await studio(used))?.complete(ask)).toMatchObject({ text: 'hi', costAmount: 0 })
     expect(used).toHaveLength(1)
     expect(used[0]).toMatch(/^oauth:access-\d+$/)
-    const [run1] = await db.sql<{ auth_method: string; cost_amount: number; provider: string; prompt: string }[]>`select auth_method, cost_amount, provider, prompt from ai_run where store_id = ${t.storeA1} and kind = 'gateway' order by created_at desc limit 1`
-    expect(run1).toEqual({ auth_method: 'oauth', cost_amount: '0', provider: 'openai', prompt: '' })
+    expect(await gateway(used).complete(call)).toEqual({ ok: false, reason: 'AI_NOT_CONNECTED' })
+    expect(used).toHaveLength(1)
   })
 
-  it('refuses clearly, without a model call, when the sign-in has expired or the provider is down', async () => {
+  it('gives the studio no model, without a model call, when the sign-in has expired or the provider is down', async () => {
     await connected()
     await ownKeyPlan()
     await expireTokens()
     const used: string[] = []
     refreshOutcome = 'down'
-    expect(await gateway(used).complete(call)).toEqual({ ok: false, reason: 'AI_ACCOUNT_UNAVAILABLE' })
+    expect(await studio(used)).toBeNull()
     refreshOutcome = 'rejected'
-    expect(await gateway(used).complete(call)).toEqual({ ok: false, reason: 'AI_ACCOUNT_EXPIRED' })
-    expect(await gateway(used).complete(call)).toEqual({ ok: false, reason: 'AI_ACCOUNT_EXPIRED' })
+    expect(await studio(used)).toBeNull()
     expect(used).toEqual([])
     refreshOutcome = 'ok'
   })
@@ -356,7 +359,7 @@ describe('using a signed-in account', () => {
   it('never lets Claude be served by a sign-in', async () => {
     await connected()
     await ownKeyPlan()
-    expect(await gateway([]).complete({ ...call, provider: 'anthropic', model: 'claude-sonnet-5-5' })).toEqual({ ok: false, reason: 'MODEL_NOT_FOUND' })
+    expect(await gateway([]).complete({ ...call, provider: 'anthropic', model: 'claude-sonnet-5-5' })).toEqual({ ok: false, reason: 'AI_NOT_CONNECTED' })
   })
 
   it('revokes at the provider when the account is removed or replaced by a key', async () => {
@@ -472,5 +475,13 @@ describe('a partner\'s sign-in', () => {
     const target = (await service(t.partnerA, a).aiKeys()).find((k) => k.name === 'ChatGPT sign-in 2')
     expect(await service(t.partnerA, a).removeAiKey(target?.id ?? '')).toEqual({ ok: true })
     expect(log.revoked).toHaveLength(1)
+  })
+})
+
+describe('the sign-in switch', () => {
+  it('is off unless AI_SIGN_IN turns it on', () => {
+    expect(createOAuthProviders(false).anthropic.availability()).toMatchObject({ available: false })
+    expect(createOAuthProviders(false).openai.availability()).toMatchObject({ available: false })
+    expect(createOAuthProviders(true).openai.availability()).toEqual({ available: true })
   })
 })

@@ -206,6 +206,8 @@ without notice. An API key is the supported way for both.
   address back; the Worker checks `state`, exchanges with PKCE and seals the tokens (SAAS §9.3). There is no hooks-host callback
   and no client id or secret in configuration. Neither provider has a revocation we call: Disconnect deletes the tokens here and
   the person revokes in the provider's own settings.
+- **Gated and studio-only:** the sign-ins exist only where `AI_SIGN_IN=1` (unset in every environment until an operator turns it on, and
+  switchable off without a code change), and serve the designer, never `/api/v1`.
 - **The one exception to the rule below** (Akshay, #950, 2026-10-28): these two sign-ins, which use another product's client id and,
   for OpenAI, an undocumented endpoint, are allowed because the person connecting their own account chose them knowingly. It covers
   nothing else and lapses if either provider objects. Local testing the same day: Claude answered 403

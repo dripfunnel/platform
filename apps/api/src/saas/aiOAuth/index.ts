@@ -141,6 +141,7 @@ export const createAiOAuth = ({ sql, secrets, providers, now }: AiOAuthDeps) => 
     type Read = { done: TokenResult } | { due: OAuthTokens; provider: AiProvider }
     const read = async (row: LockedCredential | null): Promise<Read> => {
       if (!row || row.auth_type !== 'oauth') return { done: { ok: false, reason: 'NOT_FOUND' } }
+      if (!providers[row.provider].availability().available) return { done: { ok: false, reason: 'UNAVAILABLE' } }
       if (row.status === 'rejected') return { done: { ok: false, reason: 'EXPIRED' } }
       const tokens = await openTokens(secrets, row.key_enc)
       if (!tokens) return { done: { ok: false, reason: 'UNAVAILABLE' } }

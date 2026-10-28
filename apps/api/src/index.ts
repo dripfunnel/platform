@@ -486,7 +486,7 @@ const paymentsFor = (config: Config): PaymentWiring => {
 
 // Imported once per isolate, like the identity provider, and only from configuration.
 /** The AI sign-in flow: each provider's own client, with the code pasted back (THIRD-PARTY-ACCESS §2.6). */
-const aiOauthFor = (sql: postgres.Sql, secrets: SecretBox | null): AiOAuth => createAiOAuth({ sql, secrets, providers: createOAuthProviders(), now: () => new Date() })
+const aiOauthFor = (sql: postgres.Sql, secrets: SecretBox | null, config: Config): AiOAuth => createAiOAuth({ sql, secrets, providers: createOAuthProviders(config.AI_SIGN_IN === '1'), now: () => new Date() })
 
 let box: { key: string; secrets: Promise<SecretBox> } | undefined
 
@@ -557,7 +557,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets), consoleHost: config.PLATFORM_HOST, now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), consoleHost: config.PLATFORM_HOST, now: () => new Date() }))
   })
 }
 
@@ -608,7 +608,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
       preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env, sql, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
@@ -780,7 +780,7 @@ const handleDelivery = async (request: Request, url: URL, config: Config, env: E
 const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretBox | null): NonNullable<StoreContext['design']> => {
   const { BROWSER_RENDERING_ACCOUNT_ID: accountId, BROWSER_RENDERING_TOKEN: token, AI_PROVIDER_KEY: key } = config
   const assets = env.ASSETS
-  const accounts = (context: TenantContext) => ({ sql, context, secrets, fallbackKey: key, oauth: aiOauthFor(sql, secrets) })
+  const accounts = (context: TenantContext) => ({ sql, context, secrets, fallbackKey: key, oauth: aiOauthFor(sql, secrets, config) })
   return {
     ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
     models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),

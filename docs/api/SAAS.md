@@ -875,8 +875,9 @@ One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on th
   gateway answers `AI_ACCOUNT_EXPIRED` (409), or `AI_ACCOUNT_UNAVAILABLE` (503) when the provider can't be reached for the renewal,
   with no model call. **Runs on a sign-in** are `ai_run` rows with `auth_method 'oauth'` and a cost of 0: the person's own plan pays.
   The ChatGPT route refuses `temperature` and every provider option and sends no output-token cap. Neither provider is asked to
-  revoke on Disconnect or replacement; the tokens are deleted here. A partner's sign-in serves the studio (§9.2) and never `/api/v1`
-  (one person's subscription is not a shared API: THIRD-PARTY-ACCESS §2.6); a store's own sign-in serves both.
+  revoke on Disconnect or replacement; the tokens are deleted here. A sign-in, a partner's or a store's, serves the studio (§9.2) and
+  never `/api/v1` (one person's subscription is not a shared API: THIRD-PARTY-ACCESS §2.6). Both sign-ins are off unless the Worker
+  variable `AI_SIGN_IN=1`; off, the console shows them unavailable and a connected one is not used.
 
 ---
 
