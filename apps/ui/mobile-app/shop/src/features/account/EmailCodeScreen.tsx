@@ -73,7 +73,7 @@ export function EmailCodeScreen({ mode }: { mode: 'register' | 'reset' }) {
             <Text style={{ color: colors.textStrong, fontSize: 15 }}>{t(register ? 'auth.register.intro' : 'auth.reset.intro')}</Text>
             <Field label={t('auth.email')} value={email} onChangeText={setEmail} error={text(problems.email, t('form.invalidEmail'))} autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="emailAddress" />
             {error}
-            <Button label={t('auth.sendCode')} busy={action.busy} onPress={() => void send()} />
+            <Button saves label={t('auth.sendCode')} busy={action.busy} onPress={() => void send()} />
           </>
         ) : (
           <>
@@ -92,8 +92,8 @@ export function EmailCodeScreen({ mode }: { mode: 'register' | 'reset' }) {
             />
             <Text style={{ color: colors.muted, fontSize: 13 }}>{t('auth.passwordHelp')}</Text>
             {error}
-            <Button label={t(register ? 'auth.register.button' : 'auth.reset.button')} busy={action.busy} onPress={() => void confirm()} />
-            <Button kind="secondary" label={t('auth.sendAgain')} disabled={action.busy} onPress={() => void send()} />
+            <Button saves label={t(register ? 'auth.register.button' : 'auth.reset.button')} busy={action.busy} onPress={() => void confirm()} />
+            <Button saves kind="secondary" label={t('auth.sendAgain')} disabled={action.busy} onPress={() => void send()} />
             <Pressable
               accessibilityRole="link"
               onPress={() => {

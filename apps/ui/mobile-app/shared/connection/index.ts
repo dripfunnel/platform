@@ -1,8 +1,8 @@
 import NetInfo from '@react-native-community/netinfo'
 import { useSyncExternalStore } from 'react'
 
-// Whether the phone has a connection. Writes need one (no offline queue in the first release, ARCHITECTURE.md §5), so
-// the offline banner shows and saves are disabled while it is false; reading carries on with what is already loaded.
+// Whether the phone has a connection. Writes need one (no offline queue: merchant/ARCHITECTURE.md §5, shop/FIRST-RELEASE.md §1),
+// so each app shows its offline banner and turns off what writes while it is false; reading carries on with what is already loaded.
 let online = true
 const listeners = new Set<() => void>()
 let watching = false

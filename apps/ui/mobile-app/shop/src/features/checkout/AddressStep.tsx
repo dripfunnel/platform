@@ -79,7 +79,7 @@ export function AddressStep({ cart, read, apply, next }: Props) {
           {t(errorKey(action.error))}
         </Text>
       ) : null}
-      <Button label={t('checkout.continue')} busy={action.busy} onPress={() => void (mode === 'pick' ? continueWithSaved() : continueWithForm())} />
+      <Button saves label={t('checkout.continue')} busy={action.busy} onPress={() => void (mode === 'pick' ? continueWithSaved() : continueWithForm())} />
     </View>
   )
 }

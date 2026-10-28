@@ -50,7 +50,7 @@ export function DeliveryStep({ cart, apply, next, changeAddress }: Props) {
           {t(errorKey(action.error))}
         </Text>
       ) : null}
-      <Button label={t('checkout.continue')} disabled={chosen === null || action.busy} onPress={next} />
+      <Button saves label={t('checkout.continue')} disabled={chosen === null || action.busy} onPress={next} />
     </View>
   )
 }

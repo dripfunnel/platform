@@ -81,7 +81,7 @@ function EmailSignIn() {
       <Field label={t('auth.email')} value={email} onChangeText={setEmail} error={problemText(problems.email, t('form.invalidEmail'))} autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="emailAddress" />
       <Field label={t('auth.password')} value={password} onChangeText={setPassword} error={problemText(problems.password, '')} secure autoCapitalize="none" autoComplete="current-password" textContentType="password" />
       <Refusal code={action.error} />
-      <Button label={t('auth.signInButton')} busy={action.busy} onPress={() => void submit()} />
+      <Button saves label={t('auth.signInButton')} busy={action.busy} onPress={() => void submit()} />
       <View style={styles.links}>
         <Pressable accessibilityRole="link" onPress={() => router.replace('/reset')} style={styles.link}>
           <Text style={{ color: colors.link, fontWeight: '700' }}>{t('auth.forgot')}</Text>
@@ -132,7 +132,7 @@ function PhoneSignIn() {
         <Field label={t('auth.phone')} value={phone} onChangeText={setPhone} error={problemText(problem, t('form.invalidPhone'))} autoComplete="tel" keyboardType="phone-pad" textContentType="telephoneNumber" />
         <Text style={{ color: colors.muted, fontSize: 13 }}>{t('auth.phoneHelp')}</Text>
         <Refusal code={action.error} />
-        <Button label={t('auth.sendCode')} busy={action.busy} onPress={() => void send()} />
+        <Button saves label={t('auth.sendCode')} busy={action.busy} onPress={() => void send()} />
         <Text style={{ color: colors.muted, fontSize: 13 }}>{t('auth.phoneNote')}</Text>
       </View>
     )
@@ -142,8 +142,8 @@ function PhoneSignIn() {
       <Text style={{ color: colors.textStrong, fontSize: 15 }}>{t('auth.codeSent', { to: sentTo })}</Text>
       <Field label={t('auth.code')} value={code} onChangeText={setCode} error={problemText(problem, t('form.invalidCode'))} autoComplete="sms-otp" keyboardType="number-pad" textContentType="oneTimeCode" maxLength={6} />
       <Refusal code={action.error} />
-      <Button label={t('auth.signInButton')} busy={action.busy} onPress={() => void confirm()} />
-      <Button kind="secondary" label={t('auth.sendAgain')} disabled={action.busy} onPress={() => void send()} />
+      <Button saves label={t('auth.signInButton')} busy={action.busy} onPress={() => void confirm()} />
+      <Button saves kind="secondary" label={t('auth.sendAgain')} disabled={action.busy} onPress={() => void send()} />
       <Pressable
         accessibilityRole="link"
         onPress={() => {

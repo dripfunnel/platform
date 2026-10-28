@@ -51,7 +51,7 @@ export function ContactStep({ cart, account, apply, next }: Props) {
           {t(errorKey(action.error))}
         </Text>
       ) : null}
-      <Button label={t('checkout.continue')} busy={action.busy} onPress={() => void save()} />
+      <Button saves label={t('checkout.continue')} busy={action.busy} onPress={() => void save()} />
     </View>
   )
 }
