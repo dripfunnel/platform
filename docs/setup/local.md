@@ -226,7 +226,8 @@ with the same secret.
   a store's first template choice runs the whole `create-storefront` Workflow without the App. The repos last until
   `pnpm dev` restarts. The templates come from the local `storefront-sites-local` bucket (bound with `storefront-assets-local` and
   `storefront-drafts-local`, storefront LIVE-SHOP.md §2), which stays empty until the release
-  uploads them (storefront ARCHITECTURE §2.3, #486): run `pnpm --filter ./apps/api seed:templates` (§6.3; add `--remote` to write the bucket named by `STOREFRONT_SITES_BUCKET` over R2's S3 API with the `R2_STOREFRONT_*` keys, as for dev, #730; `--released` names the newest `core_release` row in `DATABASE_URL`, or with `--core` requires that version's row (what prod's workflow uses); `--core <version>` names the core, defaulting to `packages/storefront-core`'s), or the run
+  uploads them (storefront ARCHITECTURE §2.3, #486). Nothing runs a workflow, and a push's publish (#968) fails as
+  `no_source`, since the stand-in's repos aren't on github.com. Run `pnpm --filter ./apps/api seed:templates` (§6.3; add `--remote` to write the bucket named by `STOREFRONT_SITES_BUCKET` over R2's S3 API with the `R2_STOREFRONT_*` keys, as for dev, #730; `--released` names the newest `core_release` row in `DATABASE_URL`, or with `--core` requires that version's row (what prod's workflow uses); `--core <version>` names the core, defaulting to `packages/storefront-core`'s), or the run
   stops at its first step and undoes itself.
   A store build's calls on `https://hooks.localhost/builds/*` (#517) take tokens from a local OIDC issuer whose key
   lives as long as the Worker, and answer with credentials and links that name nothing real: no runner reaches this

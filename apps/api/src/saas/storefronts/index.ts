@@ -1,5 +1,6 @@
 export { createFailedMessage, runCreateStorefront, runUndoStorefront, type CreateDeps, type CreateParams, type StepRunner } from './create'
 export { commitToMain, pushToRepo, type PushDeps, type PushReason, type PushResult, type RepoFile } from './push'
+export { acceptRepoPush, handleRepoPush, repoPushParams, sameWorkflow, storefrontRepoPushKind, type RepoPush, type RepoPushDeps, type RepoPushOutcome } from './repoPush'
 export { coreVersionPattern } from './paths'
 export { templateFiles, type SitesBucket } from './templates'
 export { draftBundle, previewFolder, publishedTheme, sourceBundle, upgradeBundle, upgradeFiles } from './layout'
