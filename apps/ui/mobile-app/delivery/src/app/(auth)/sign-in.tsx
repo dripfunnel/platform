@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '../../features/placeholder/PlaceholderScreen'
-import { t } from '../../messages'
+import { SignInScreen } from '../../features/auth/SignInScreen'
 
 export default function SignIn() {
-  return <PlaceholderScreen title={t('placeholder.signIn')} />
+  return <SignInScreen />
 }

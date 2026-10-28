@@ -94,8 +94,8 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       ],
       // Offers and assignments (delivery/ARCHITECTURE.md §3).
       'expo-notifications',
-      // The profile photo, from the photo library only.
-      ['expo-image-picker', { photosPermission: usage(messages.permissions.photos, env), cameraPermission: false, microphonePermission: false }],
+      // The profile photo, from the camera or the photo library; never the microphone.
+      ['expo-image-picker', { photosPermission: usage(messages.permissions.photos, env), cameraPermission: usage(messages.permissions.camera, env), microphonePermission: false }],
     ],
     extra: { STORE_HOST: env.STORE_HOST },
   }
