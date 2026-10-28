@@ -73,7 +73,7 @@ export const createStoreAiService = ({ sql, caller, facts, activity, secrets, ch
     if (checked === 'unavailable') return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
     const keyEnc = await secrets.seal(key)
     const at = now()
-    // A key replaces a sign-in: its grant is revoked rather than left live at the provider.
+    // A key replaces a sign-in: the tokens are deleted here; the provider's grant stays until the person revokes it.
     const before = await withSystemScope(sql, (tx) => selectSealedStoreKey(tx, storeId))
     if (before?.auth_type === 'oauth') await oauth?.revoke(before.provider, before.key_enc)
     await withSystemScope(sql, (tx) => upsertStoreAiAccount(tx, { storeId, provider, keyEnc, keyPrefix: prefixOf(key), status: 'ok', testedAt: at, connectedBy: caller.person.name, at }))
@@ -154,7 +154,7 @@ export const createStoreAiService = ({ sql, caller, facts, activity, secrets, ch
       return { before }
     })
     if (done === null) return { ok: false, reason: 'OAUTH_EXPIRED' }
-    // A sign-in it replaces is revoked at the provider rather than left live.
+    // A sign-in it replaces is deleted here; the provider's grant stays until the person revokes it.
     if (done.before?.auth_type === 'oauth') await oauth.revoke(done.before.provider, done.before.key_enc)
     return { ok: true }
   }

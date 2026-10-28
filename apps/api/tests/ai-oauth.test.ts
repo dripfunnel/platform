@@ -420,13 +420,14 @@ describe('a partner\'s sign-in', () => {
     expect(await service(t.partnerB, caller(t.partnerB)).beginOauth('openai', other)).toEqual({ ok: false, reason: 'NOT_FOUND' })
   })
 
-  it('serves plan runs on its default sign-in and says so when it expires', async () => {
+  it('serves the studio on its default sign-in, says so when it expires, and is refused for /v1', async () => {
     const [def] = await db.sql<{ id: string }[]>`select id from partner_credential where partner_id = ${t.partnerA} and is_default`
     await db.sql`update partner_credential set status = 'ok' where id = ${def?.id ?? ''}`
     await db.sql`delete from plan_entitlement where plan_id = (select plan_id from store where id = ${t.storeA1}) and key in ('ai_mode', 'ai_prompts')`
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) select plan_id, partner_id, 1, 'ai_mode', 1 from store where id = ${t.storeA1}`
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) select plan_id, partner_id, 1, 'ai_prompts', 5 from store where id = ${t.storeA1}`
     await db.sql`delete from store_usage where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    log.chatted.length = 0
     const gw = () =>
       createAiGateway({
         sql: db.sql,
@@ -439,13 +440,12 @@ describe('a partner\'s sign-in', () => {
         now: () => now,
         sleep: () => Promise.resolve(),
       })
-    log.chatted.length = 0
-    expect(await gw().complete({ provider: 'openai', model: 'gpt-5', messages: [{ role: 'user', content: 'hi' }], maxTokens: 100, stream: false })).toMatchObject({ ok: true, billed: 'plan' })
-    expect(log.chatted[0]?.token).toMatch(/^oauth:access-/)
-    const [metered] = await db.sql<{ billed_to: string; auth_method: string }[]>`select billed_to, auth_method from ai_run where store_id = ${t.storeA1} and billed_to = 'plan' order by created_at desc limit 1`
-    expect(metered).toEqual({ billed_to: 'plan', auth_method: 'oauth' })
+    // One person's subscription is not a shared API: /v1 never runs on it (THIRD-PARTY-ACCESS §2.6).
+    expect(await gw().complete({ provider: 'openai', model: 'gpt-5', messages: [{ role: 'user', content: 'hi' }], maxTokens: 100, stream: false })).toEqual({ ok: false, reason: 'AI_NOT_CONNECTED' })
+    expect(log.chatted).toHaveLength(0)
+    expect(await gw().credential('plan')).toMatchObject({ auth: 'oauth' })
     await db.sql`update partner_credential set status = 'rejected' where id = ${def?.id ?? ''}`
-    expect(await gw().complete({ provider: 'openai', model: 'gpt-5', messages: [{ role: 'user', content: 'hi' }], maxTokens: 100, stream: false })).toEqual({ ok: false, reason: 'AI_ACCOUNT_EXPIRED' })
+    expect(await gw().credential('plan')).toEqual({ unusable: 'EXPIRED' })
   })
 
   it('stores nothing when a finish is refused, and revokes that approval at the next sign-in', async () => {

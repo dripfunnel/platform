@@ -78,6 +78,11 @@ const partnerProfile = async (partnerId: string, provider: 'anthropic' | 'openai
   await db.sql`insert into partner_credential (partner_id, kind, provider, name, key_enc, key_prefix, status, is_default, created_by) values (${partnerId}, 'ai', ${provider}, 'Default', ${sealed}, 'x', ${status}, true, 'test')`
 }
 
+const partnerSignIn = async (partnerId: string) => {
+  await partnerProfile(t.partnerA, 'anthropic', partnerKey)
+  await db.sql`update partner_credential set auth_type = 'oauth' where partner_id = ${partnerId}`
+}
+
 const storeAccount = async (storeId: string, o: { switchOn?: boolean; status?: 'ok' | 'untested' } = {}) => {
   const sealed = await (await secretBox(kek)).seal(storeKey)
   await withSystemScope(db.sql, (tx) => upsertStoreAiAccount(tx, { storeId, provider: 'openai', keyEnc: sealed, keyPrefix: 'sk-…', status: o.status ?? 'ok', testedAt: now, connectedBy: 'test', at: now }))
@@ -120,6 +125,14 @@ describe("the studio's model", () => {
   it('answers null when nothing is connected', async () => {
     await db.sql`delete from partner_credential where partner_id = ${t.partnerA}`
     expect(await designerAiFor(await deps(), 'plan')).toBeNull()
+  })
+})
+
+describe("a partner's sign-in", () => {
+  it('is not the plan key for /v1, though the studio may use it', async () => {
+    await entitle(t.storeA1, 1, 5)
+    await partnerSignIn(t.partnerA)
+    expect(await (await gateway()).resolve()).toMatchObject({ ok: false, reason: 'AI_NOT_CONNECTED' })
   })
 })
 

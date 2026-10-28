@@ -61,7 +61,7 @@ export const createAiOAuth = ({ sql, secrets, providers, now }: AiOAuthDeps) => 
     const dropped = await withSystemScope(sql, (tx) =>
       replaceAttempt(tx, { owner: a.owner, provider: a.provider, credentialId: a.credentialId ?? null, stateHash, verifierEnc, returnHost: a.returnHost, startedBy: a.startedBy, expiresAt: new Date(now().getTime() + attemptMs) }),
     )
-    // A sign-in that was approved but never finished is replaced: its grant is revoked, not left live.
+    // A sign-in that was approved but never finished is replaced: revocation is attempted, but the adapters' `revoke` does nothing yet.
     for (const d of dropped) await revoke(d.provider, d.tokens_enc)
     return { ok: true, url }
   }
@@ -96,7 +96,7 @@ export const createAiOAuth = ({ sql, secrets, providers, now }: AiOAuthDeps) => 
     const sealed = await sealTokens(secrets, tokens)
     const approved = await withSystemScope(sql, async (tx) => approveAttempt(tx, attempt.id, { tokensEnc: sealed, accountLabel: tokens.accountLabel, finishHash: await hashSessionId(key), expiresAt: new Date(now().getTime() + finishMs) }))
     if (approved) return result('finish', key)
-    // The attempt was replaced or answered meanwhile: these tokens belong to no row, so the grant is revoked.
+    // The attempt was replaced or answered meanwhile: these tokens belong to no row; the grant itself stays until the person revokes it.
     await revoke(attempt.provider, sealed)
     return result('failed')
   }
@@ -175,7 +175,7 @@ export const createAiOAuth = ({ sql, secrets, providers, now }: AiOAuthDeps) => 
     }
   }
 
-  /** Revokes at the provider, best effort, before the caller deletes the account here. */
+  /** Asks the provider to revoke, best effort; the adapters' `revoke` is a no-op today, so the grant lives until the person revokes it. */
   const revoke = async (provider: AiProvider, sealed: string): Promise<void> => {
     if (!secrets) return
     const tokens = await openTokens(secrets, sealed)

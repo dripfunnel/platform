@@ -90,12 +90,13 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
   const planLeft = (allowed: number) => withSystemScope(sql, (tx) => hasUsageLeft(tx, storeId, 'ai_prompts', monthStart(now()), allowed))
 
   /** The partner's default account, else (a partner with none at all) the Worker's key; a default that can't be used answers null. */
-  const planKey = async (): Promise<Credential | { unusable: Unusable } | null> => {
+  const planKey = async (allowSignIn: boolean): Promise<Credential | { unusable: Unusable } | null> => {
     const row = await withSystemScope(sql, (tx) => selectDefaultAiKey(tx, partnerId))
     if (!row) return fallbackKey ? { provider: 'anthropic', key: fallbackKey, auth: 'api_key' } : null
-    if (row.status === 'rejected') return row.auth_type === 'oauth' ? { unusable: 'EXPIRED' } : null
+    if (row.status === 'rejected') return row.auth_type === 'oauth' && allowSignIn ? { unusable: 'EXPIRED' } : null
     if (!secrets) return null
-    if (row.auth_type === 'oauth') return signedIn({ kind: 'partner', id: partnerId, partnerId }, row.id)
+    // A partner's sign-in is one person's subscription: the studio may use it, `/api/v1` never (THIRD-PARTY-ACCESS §2.6).
+    if (row.auth_type === 'oauth') return allowSignIn ? signedIn({ kind: 'partner', id: partnerId, partnerId }, row.id) : null
     const key = await secrets.open(row.key_enc)
     return key ? { provider: row.provider, key, auth: 'api_key' } : null
   }
@@ -133,7 +134,7 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
   const resolve = async (): Promise<Resolution> => {
     const { allowed, mode } = await allowance()
     if (mode === ownKeyMode) return resolvedOf('own_key', await ownKey(false), 'AI_NOT_CONNECTED')
-    if (await planLeft(allowed)) return resolvedOf('plan', await planKey(), 'AI_NOT_CONNECTED')
+    if (await planLeft(allowed)) return resolvedOf('plan', await planKey(false), 'AI_NOT_CONNECTED')
     return resolvedOf('own_key', await ownKey(true), 'AI_BUDGET_REACHED')
   }
 
@@ -227,7 +228,7 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
   }
 
   /** The account that pays for `billed`, with no allowance check: the studio takes its own unit (SAAS §9.2). */
-  const credential = (billed: Billed) => (billed === 'plan' ? planKey() : ownKey(false))
+  const credential = (billed: Billed) => (billed === 'plan' ? planKey(true) : ownKey(false))
 
   return { validate, complete, stream, resolve, credential }
 }

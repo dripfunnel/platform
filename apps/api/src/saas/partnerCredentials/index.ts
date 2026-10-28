@@ -218,7 +218,7 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
       if (error instanceof Refused) return { result: { ok: false, reason: error.reason } as AddResult, replaced: null }
       throw error
     })
-    // A refused finish (the profile limit) rolled the attempt back, so it can be tried again; a replaced sign-in is revoked.
+    // A refused finish (the profile limit) rolled the attempt back, so it can be tried again; a replaced sign-in is deleted here.
     if (done.replaced) await oauth.revoke(done.replaced.provider, done.replaced.key_enc)
     return done.result
   }
