@@ -4,8 +4,23 @@
     "history": "History",
     "profile": "Profile"
   },
-  "placeholder": {
-    "body": "This screen isn’t built yet."
+  "history": {
+    "today": "Today",
+    "thisWeek": "This week",
+    "delivered": "delivered",
+    "past": "Past deliveries",
+    "route": "{warehouse} → {area}",
+    "fee": "Delivery fee the customer paid: {amount}",
+    "freeDelivery": "Free delivery for the customer",
+    "result": {
+      "delivered": "Delivered",
+      "notDelivered": "Not delivered",
+      "recalled": "Recalled"
+    },
+    "showMore": "Show more",
+    "showMoreFailed": "Couldn’t load more. Try again.",
+    "emptyTitle": "No deliveries yet",
+    "emptyBody": "Each delivery you finish shows here, newest first."
   },
   "startup": {
     "failed": "The app couldn’t start. Try again in a moment.",
