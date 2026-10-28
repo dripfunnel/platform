@@ -82,6 +82,8 @@ export const createPublishingService = (deps: DesignerDeps) => {
       return null
     })
     if (!push) return { ok: true, value: null }
+    // Refused, not skipped: a push too large to read would otherwise be passed over on every Publish.
+    if (push === 'too_large') return { ok: false, reason: 'HAND_PUSH_TOO_LARGE' }
     if (push.changes.length > 0) {
       const answer = await studio.importPush(storeId, { changes: push.changes, head: push.head, userId: actor.id })
       if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }

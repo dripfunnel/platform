@@ -29,8 +29,8 @@ export interface StoreRepos {
   head: (name: string) => Promise<string | null>
   treeOf: (name: string, commit: string) => Promise<string>
   paths: (name: string, tree: string) => Promise<string[]>
-  /** The files `keep` accepts that differ between two commits: each one's text at `to`, or null where `to` removed it. */
-  changes: (name: string, from: string, to: string, keep: (path: string) => boolean) => Promise<RepoChange[]>
+  /** The files `keep` accepts that differ between two commits: each one's text at `to`, or null where `to` removed it. Null when more than `max` differ, before any is read. */
+  changes: (name: string, from: string, to: string, keep: (path: string) => boolean, max: number) => Promise<RepoChange[] | null>
   /** A tree from `base` (or empty) with the changes applied. */
   writeTree: (name: string, base: string | null, changes: readonly RepoChange[]) => Promise<string>
   commit: (name: string, commit: NewCommit) => Promise<string>
@@ -51,6 +51,7 @@ const refSchema = z.object({ object: z.object({ sha }).loose() }).loose()
 const commitSchema = z.object({ sha, tree: z.object({ sha }).loose() }).loose()
 const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string(), sha: z.string().optional() }).loose()) }).loose()
 const blobSchema = z.object({ content: z.string(), encoding: z.literal('base64') }).loose()
+const blobReadsAtOnce = 10
 const created = z.object({ sha }).loose()
 const compareSchema = z.object({ status: z.string() }).loose()
 
@@ -113,11 +114,17 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
     },
     treeOf,
     paths: async (name, tree) => (await blobs(name, tree)).map((entry) => entry.path),
-    changes: async (name, from, to, keep) => {
+    changes: async (name, from, to, keep, max) => {
       const shas = async (commit: string) => new Map((await blobs(name, await treeOf(name, commit))).filter((e) => keep(e.path)).map((e) => [e.path, read(sha, e.sha)]))
       const [before, after] = await Promise.all([shas(from), shas(to)])
-      const removed = [...before.keys()].filter((path) => !after.has(path)).map((path) => ({ path, content: null }))
-      const written = await Promise.all([...after].filter(([path, blob]) => before.get(path) !== blob).map(async ([path, blob]) => ({ path, content: await text(name, blob) })))
+      const removed: RepoChange[] = [...before.keys()].filter((path) => !after.has(path)).map((path) => ({ path, content: null }))
+      const changed = [...after].filter(([path, blob]) => before.get(path) !== blob)
+      if (removed.length + changed.length > max) return null
+      // A few reads at a time keeps one Publish request well inside GitHub's and the Worker's limits.
+      const written: RepoChange[] = []
+      for (let at = 0; at < changed.length; at += blobReadsAtOnce) {
+        written.push(...(await Promise.all(changed.slice(at, at + blobReadsAtOnce).map(async ([path, blob]) => ({ path, content: await text(name, blob) })))))
+      }
       return [...removed, ...written]
     },
     writeTree: async (name, base, changes) => {

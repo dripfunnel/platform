@@ -38,6 +38,7 @@ const words: Record<DesignRefusal['reason'], string> = {
   NOTHING_WAITING: 'Your live site is already up to date.',
   NO_PRESSES_LEFT: 'You’ve used this month’s Publish now presses. Your changes go live with the next automatic publish.',
   SECURITY_RELEASE: 'That version predates a security fix to your storefront, so it can’t be restored.',
+  HAND_PUSH_TOO_LARGE: 'Your store’s repo changes more than 100 design files since the last publish. Publish after every 100 files or fewer.',
 }
 
 export const answered = <T>(result: DesignResult<T>): T => {

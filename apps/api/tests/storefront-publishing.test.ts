@@ -4,11 +4,11 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { recordGate } from '#db/scoped/builds'
 import { withSystemScope } from '#db/scoped/index'
-import { createGitHubApp, storeRepos, type StoreRepos } from '#integrations/github/index'
+import { createGitHubApp, GitHubUnavailable, noAnswer, storeRepos, type StoreRepos } from '#integrations/github/index'
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
 import { designModel, repairBrief } from '#saas/ai-designer/index'
-import { digestOf, pushToRepo, runPublish, type PublishDeps, type PublishRepair, type PublishSteps } from '#saas/storefronts/index'
+import { digestOf, maxHandPushFiles, pushToRepo, runPublish, type PublishDeps, type PublishRepair, type PublishSteps } from '#saas/storefronts/index'
 import { stagingFolder } from '#saas/storefronts/layout'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
 import { testProbe } from './support/edgeProbe'
@@ -51,6 +51,7 @@ let host: SandboxProcess
 let github: LocalGitHub
 let repos: StoreRepos
 let template: { path: string; content: string }[]
+let githubDown = false
 const dispatched: string[] = []
 
 /** The runner's view of the drafts bucket: the same objects the publish pipeline reads. */
@@ -142,7 +143,7 @@ beforeAll(async () => {
     secrets: null,
     lookup: null,
     studio: local.studio,
-    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design: { ai: () => provider, screenshots: null, readAsset: null }, repos: async () => repos },
+    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design: { ai: () => provider, screenshots: null, readAsset: null }, repos: async () => (githubDown ? { ...repos, head: () => Promise.reject(new GitHubUnavailable(noAnswer)) } : repos) },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -296,6 +297,50 @@ describe('publishing from the studio', () => {
     expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, workflow(new Set()))).toBe('live')
     expect(github.files(repo)?.get('content/en/pages.json')).toContain('Studio change kept.')
     expect(github.files(repo)?.get('README.md')).toBe('# notes\n')
+  })
+
+  /** Puts the stand-in's main back, so a push a test leaves untaken doesn't reach the next test's Publish. */
+  const resetMain = (to: string) => {
+    const r = github.repos.get(repo)
+    if (r) r.main = to
+  }
+  const takenCount = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${t.storeA1} and action = 'storefront.repo_push_taken'`)[0]?.n ?? 0
+
+  it('a push touching only non-theme files moves the repo head and changes nothing in the draft', async () => {
+    const taken = await takenCount()
+    const pushed = await pushByHand('Readme only', [{ path: 'README.md', content: '# readme\n' }])
+    expect((await publish()).code).toBe('NOTHING_TO_PUBLISH')
+    expect(await repoHead()).toBe(pushed)
+    expect(await takenCount()).toBe(taken + 1)
+  })
+
+  it('refuses a push that changes more theme files than the cap, and takes none of it', async () => {
+    const before = (await repoHead()) ?? ''
+    await pushByHand('Too many', Array.from({ length: maxHandPushFiles + 1 }, (_, i) => ({ path: `content/en/bulk${i}.json`, content: '{}\n' })))
+    expect((await publish()).code).toBe('HAND_PUSH_TOO_LARGE')
+    expect(await repoHead()).toBe(before)
+    resetMain(before)
+  })
+
+  it('never takes main as a hand push while a platform push is pending, nor when GitHub can’t be read', async () => {
+    const before = (await repoHead()) ?? ''
+    const pages = github.files(repo)?.get('content/en/pages.json') ?? ''
+    await pushByHand('Not yet', [{ path: 'content/en/pages.json', content: pages.replace(/"lead": "[^"]*"/, '"lead": "Not taken."') }])
+    await db.sql`insert into storefront_push (store_id, key, parent_sha, state, created_at) values (${t.storeA1}, 'test:pending', ${before}, 'pending', now())`
+    expect((await publish()).code).toBe('NOTHING_TO_PUBLISH')
+    expect(await repoHead()).toBe(before)
+    await db.sql`delete from storefront_push where store_id = ${t.storeA1} and key = 'test:pending'`
+    githubDown = true
+    const log = vi.spyOn(console, 'log')
+    try {
+      expect((await publish()).code).toBe('NOTHING_TO_PUBLISH')
+      expect(log.mock.calls.some(([line]) => String(line).includes('storefront_hand_push_unread'))).toBe(true)
+    } finally {
+      githubDown = false
+      log.mockRestore()
+    }
+    expect(await repoHead()).toBe(before)
+    resetMain(before)
   })
 
   it('never reads or takes another store’s hand push: store B’s Publish leaves store A’s repo head alone', async () => {
