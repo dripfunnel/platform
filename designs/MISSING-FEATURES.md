@@ -249,7 +249,7 @@ Drawn in the prototypes but not in the first release, or linked to something tha
 | Export a rider's data (a job, download when ready) | `SetRiders` › Manage | Proposed, built on #874 | #874 |
 | Erase a rider ("Former delivery partner" in past deliveries and the activity log) | `SetRiders` › Manage | Proposed, built on #874 | #874 |
 | iOS build of the delivery app | `DF Delivery App Prototype` (iOS permission wording) | First release is an Android APK only | — |
-| "Download the new version" for a build too old for the API | Delivery app › Account blocked › `tooOld` | Proposed in docs/mobile-app/delivery/FIRST-RELEASE.md §1 | — |
+| (built on #852) "Download the new version" for a build too old for the API | Delivery app › Account blocked › `tooOld` | Built as the Update required screen, shown before sign-in and not as part of Account | #852 |
 | The rider's photo, "offered to N riders", the alert countdown and the last-position map in an order's Delivery panel | `OrderDelivery` | The API answers a photo's asset id and no address, no offer count or timer, and the portal's first release has no map (#846) | — |
 | Setting a warehouse's map pin on a map | `SetOwnDelivery` › "Set the map pin" places the pin at the address | The map picker is #815's | #815 |
 | The delivery app’s download link with Copy link, on Settings › Riders | `SetRiders` | The API gives no app link until DL 15 | #852 |
