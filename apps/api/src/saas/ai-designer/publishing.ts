@@ -8,7 +8,6 @@ import { UNLIMITED } from '#db/scoped/planKeys'
 import { allowanceFor } from '#saas/entitlements/index'
 import { autoPublishIntervalMs } from '#saas/storefronts/index'
 import { publishBefore, startPublish, type GoBackActor } from '#saas/storefronts/index'
-import { takeHandPush } from './handPush'
 import type { DesignerDeps, DesignResult } from './service'
 import { designAudit } from './words'
 
@@ -74,8 +73,6 @@ export const createPublishingService = (deps: DesignerDeps) => {
 
   /** `publishDesign`: the draft's head through the full pipeline; nothing reaches the repo until it is live. */
   const publishDesign = async (): Promise<DesignResult<string>> => {
-    const taken = await takeHandPush(deps, entry)
-    if (!taken.ok) return taken
     const ready = await handOff(null)
     if (!ready.ok) return ready
     return withSystemScope(sql, async (tx) => {

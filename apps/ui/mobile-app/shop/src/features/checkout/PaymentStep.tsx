@@ -76,7 +76,7 @@ function Options({ cart, options, provider, onProvider, apply, next, onRefused }
           {t(errorKey(action.error))}
         </Text>
       ) : null}
-      <Button label={t('checkout.continue')} disabled={provider === null || !usable.some((o) => o.provider === provider)} busy={action.busy} onPress={() => void proceed()} />
+      <Button saves label={t('checkout.continue')} disabled={provider === null || !usable.some((o) => o.provider === provider)} busy={action.busy} onPress={() => void proceed()} />
     </>
   )
 }

@@ -6,7 +6,6 @@ export const designAudit = {
   designRequested: 'storefront.design_requested',
   changeUndone: 'storefront.change_undone',
   textEdited: 'storefront.text_edited',
-  repoPushTaken: 'storefront.repo_push_taken',
   discarded: 'storefront.discarded',
   reverted: 'storefront.reverted',
   publishStarted: 'storefront.publish_started',

@@ -5,6 +5,7 @@ import { useShop } from '../../api/ShopContext'
 import { t } from '../../messages'
 import { errorKey } from '../common/errors'
 import { Button } from '../common/ui'
+import { PolicyLinks } from '../legal/PolicyLinks'
 import { useAction } from '../common/useAction'
 import { OrderSummary } from './OrderSummary'
 import { appPaymentInput } from './payments/start'
@@ -53,12 +54,13 @@ export function ReviewStep({ cart, provider, onPlaced, onRefused }: Props) {
       <Details cart={cart} provider={provider} />
       <OrderSummary cart={cart} title={t('checkout.review.summary')} />
       <Text style={{ color: colors.textStrong, fontSize: 13, lineHeight: 19 }}>{t('checkout.review.legal')}</Text>
+      <PolicyLinks kinds={['terms', 'returns', 'privacy']} />
       {action.error ? (
         <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 14 }}>
           {t(errorKey(action.error))}
         </Text>
       ) : null}
-      <Button label={t('checkout.review.place')} busy={action.busy} onPress={() => void place()} />
+      <Button saves label={t('checkout.review.place')} busy={action.busy} onPress={() => void place()} />
     </View>
   )
 }

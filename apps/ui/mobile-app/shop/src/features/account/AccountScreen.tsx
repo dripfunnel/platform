@@ -12,6 +12,7 @@ import { Button, Resource, StateMessage } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { useOperation } from '../common/useOperation'
 import { useRefreshOnFocus } from '../common/useRefreshOnFocus'
+import { AccountLinks } from './AccountLinks'
 
 function SignedOut() {
   const router = useRouter()
@@ -54,7 +55,7 @@ function Details({ account, onRenamed }: { account: Account; onRenamed: () => vo
           {t(errorKey(action.error))}
         </Text>
       ) : null}
-      {changed ? <Button label={t('account.saveName')} busy={action.busy} onPress={() => void save()} /> : null}
+      {changed ? <Button saves label={t('account.saveName')} busy={action.busy} onPress={() => void save()} /> : null}
     </View>
   )
 }
@@ -98,6 +99,7 @@ function Profile() {
               <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }}>{t('account.ordersTitle')}</Text>
               <Text style={{ color: colors.muted, fontSize: 14 }}>{t('account.ordersBody')}</Text>
             </Pressable>
+            <AccountLinks />
             <Button kind="secondary" label={t('account.signOut')} busy={action.busy} onPress={() => void action.run(endSession)} />
           </View>
         ) : null
@@ -115,7 +117,14 @@ export function AccountScreen() {
       <Text accessibilityRole="header" style={[styles.title, { color: colors.heading }]}>
         {t('tabs.account')}
       </Text>
-      {signedIn ? <Profile /> : <SignedOut />}
+      {signedIn ? (
+        <Profile />
+      ) : (
+        <>
+          <SignedOut />
+          <AccountLinks />
+        </>
+      )}
     </ScrollView>
   )
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { storeHost } from '@dripfunnel/mobile-shared/brand'
+import { useMarkets } from '../features/markets/MarketsContext'
 import { unregisterThisPhone } from '../push/push'
 import { clearCartToken, clearSessionToken, keepOrderToken, loadOrderToken, loadTokens, saveCartToken, saveSessionToken, shopHeaders, type Tokens } from '../session/tokens'
 import { createShopClient } from './client'
@@ -7,8 +8,10 @@ import { ShopContext, type Shop } from './ShopContext'
 
 type Loaded = { host: string; tokens: Tokens; client: ReturnType<typeof createShopClient> }
 
-// One client for the screens: the tokens are read once, and the client reads the same object on every call.
+// One client for the screens: the tokens are read once, and the client reads the same object on every call. A new language or currency
+// remounts this provider (MarketsProvider), so the choice is read once as well.
 export function ShopProvider({ children }: { children: ReactNode }) {
+  const { choice } = useMarkets()
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [signedIn, setSignedIn] = useState(false)
 
@@ -17,7 +20,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     const host = storeHost()
     loadTokens(host).then((tokens) => {
       if (!current) return
-      setLoaded({ host, tokens, client: createShopClient(host, tokens) })
+      setLoaded({ host, tokens, client: createShopClient(host, tokens, undefined, choice) })
       setSignedIn(tokens.session !== null)
     })
     return () => {
@@ -55,10 +58,10 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         const kept = await loadOrderToken(host, orderId)
         if (!kept) return { client, headers: shopHeaders(tokens) }
         const own = { ...tokens, cart: kept }
-        return { client: createShopClient(host, own), headers: shopHeaders(own) }
+        return { client: createShopClient(host, own, undefined, choice), headers: shopHeaders(own) }
       },
     }
-  }, [loaded, signedIn])
+  }, [loaded, signedIn, choice])
 
   return shop ? <ShopContext.Provider value={shop}>{children}</ShopContext.Provider> : null
 }
