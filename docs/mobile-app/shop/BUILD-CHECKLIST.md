@@ -26,7 +26,7 @@ Last updated: 2026-10-28 (#869: first version).
 
 ## 2. Once per store
 
-Before the store's first build:
+Before the store's first build (the Android map key is the one step that has to wait for it: §2a):
 
 - [ ] The store's plan has `own_apps` (SAAS §6.1), and its Owner has uploaded the **app icon**, the **Android icon foreground** and the
       **splash**, and saved the **app name** and listing text, in Settings › Mobile apps (#868).
@@ -47,10 +47,15 @@ Before the store's first build:
 - [ ] **The store's website and its Shop API answer** on `STORE_HOST` (`{slug}.<SHOP_DOMAIN>`, which never changes), and the store has
       products, a payment method the app can complete (README: every provider's native SDK) and, for a rider's tracking, own delivery
       switched on if it sells that way.
-- [ ] **The Android map key** (`GOOGLE_MAPS_ANDROID_KEY`) is made after the first Android build, because it is restricted to the
-      package **and the signing certificate** (THIRD-PARTY-ACCESS §2.12): build once, read the certificate's SHA-1 (`eas credentials`),
-      and, once the app is in Play Console, add the SHA-1 of the **Play app signing key** too (Play Console › App integrity), since Google
-      signs what the store delivers. Until the key is in the file the map is blank on Android.
+
+## 2a. After the first Android build: the map key
+
+The Android map key (`GOOGLE_MAPS_ANDROID_KEY`) is restricted to the package **and the signing certificate** (THIRD-PARTY-ACCESS §2.12), and the certificate does not exist
+until EAS makes the Android keystore at the first Android build. So the first Android build has **no map**, and that is expected:
+
+- [ ] After the first Android build, read the keystore's SHA-1 (`eas credentials`), make the key restricted to the store's package and that SHA-1, and put it in `stores/<key>.env`.
+- [ ] Build the preview again (§5): **the Android map check is done on that second build**, not the first.
+- [ ] Once the app is in Play Console, add the SHA-1 of the **Play app signing key** to the same key (Play Console › App integrity), since Google signs what the store delivers; check the map on the internal-testing build.
 
 ---
 
@@ -109,7 +114,7 @@ bucket (they sit under `stores/{store id}/app/`), and saves them under the names
 
 ## 5. Try a preview build on a real phone
 
-Build the store's preview profile and install it on one iPhone and one Android phone. Three payment SDKs and the push module are native, so Expo Go cannot show them: a preview or development build is what proves every screen.
+Build the store's preview profile and install it on one iPhone and one Android phone. **The first preview build yields the Android signing certificate (§2a); the map check on Android is done on a second one.** Three payment SDKs and the push module are native, so Expo Go cannot show them: a preview or development build is what proves every screen.
 
 ```bash
 eas build --profile <key>-preview --platform all
@@ -119,7 +124,7 @@ eas build --profile <key>-preview --platform all
 - [ ] The store's name and logo load on the first screen; no DripFunnel name or logo appears anywhere (FIRST-RELEASE §1).
 - [ ] **Home, Browse, search and a product page** show the store's catalogue, its prices with the tax line and its stock wording.
 - [ ] **Sign-in, register and reset** work by the methods the store has chosen; **Account** shows the profile, addresses and orders.
-- [ ] **An address with a pin**: "Use my location" asks for permission only when tapped; the map shows on **both** phones (Android needs the key, §2).
+- [ ] **An address with a pin**: "Use my location" asks for permission only when tapped; the map shows on the iPhone (Apple Maps needs no key). **On Android the first preview build has no map** (its key waits for this build's signing certificate, §2a): check the map on the second preview build, after the key is in the store file.
 - [ ] **Cart and checkout** with an offer code, a delivery option and **every payment method the store offers**, each in the provider's sandbox: cash on delivery, bank transfer, Stripe, PayPal, Razorpay, Cashfree, PhonePe.
 - [ ] **Orders**: the list, an order, and **tracking** with a rider (position, handover code) if the store has own delivery.
 - [ ] **Push** (a store with `EAS_PROJECT_ID`): the offer appears after the first order, never at launch; a push opens that order's tracking.
