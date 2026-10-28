@@ -2,17 +2,29 @@ import { beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ options: vi.fn(), stream: vi.fn() }))
 
-vi.mock('@anthropic-ai/sdk', () => ({
-  default: class {
+vi.mock('@anthropic-ai/sdk', () => {
+  class APIError extends Error {
+    constructor(readonly status: number) {
+      super('api error')
+    }
+    headers = new Headers()
+  }
+  const Anthropic = class {
+    static APIError = APIError
+    static APIUserAbortError = class extends Error {}
+    static APIConnectionTimeoutError = class extends Error {}
+    static APIConnectionError = class extends Error {}
     messages = { stream: mocks.stream }
 
     constructor(options: unknown) {
       mocks.options(options)
     }
-  },
-}))
+  }
+  return { default: Anthropic }
+})
 
-import { anthropicOAuthDesignerProvider } from './provider'
+import { AiDeclined, anthropicOAuthDesignerProvider } from './provider'
+import Anthropic from '@anthropic-ai/sdk'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -60,4 +72,16 @@ it('counts cached input tokens in tokensIn, as the API-key provider does', async
   mocks.stream.mockReturnValue({ finalMessage: async () => ({ content: [{ type: 'text', text: 'ok' }], model: 'claude-haiku-4-5', stop_reason: 'end_turn', usage: { input_tokens: 10, cache_read_input_tokens: 20, cache_creation_input_tokens: 5, output_tokens: 3 } }) })
   const answer = await anthropicOAuthDesignerProvider('oauth-token').complete({ system: 's', text: 't', images: [] })
   expect(answer.tokensIn).toBe(35)
+})
+
+it('declines when the model refuses', async () => {
+  mocks.stream.mockReturnValue({ finalMessage: async () => ({ content: [], model: 'claude-haiku-4-5', stop_reason: 'refusal', usage: { input_tokens: 1, output_tokens: 0 } }) })
+  await expect(anthropicOAuthDesignerProvider('oauth-token').complete({ system: 's', text: 't', images: [] })).rejects.toBeInstanceOf(AiDeclined)
+})
+
+it('maps an Anthropic 429 to RATE_LIMITED and a 401 to INVALID_CREDENTIALS, without the provider body', async () => {
+  for (const [status, code] of [[429, 'RATE_LIMITED'], [401, 'INVALID_CREDENTIALS']] as const) {
+    mocks.stream.mockReturnValue({ finalMessage: async () => { throw new Anthropic.APIError(status, undefined, 'secret body', undefined) } })
+    await expect(anthropicOAuthDesignerProvider('oauth-token').complete({ system: 's', text: 't', images: [] })).rejects.toMatchObject({ code, message: expect.not.stringContaining('secret') })
+  }
 })
