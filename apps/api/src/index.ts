@@ -602,7 +602,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
-      preview: await previewFor(config), studio: studioFor(env), repos: () => reposFor(config), design: designFor(config, env, sql, partnerId, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
+      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env, sql, partnerId, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isAppAssetsPath(url.pathname)) return handleAppAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
@@ -776,12 +776,6 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, partnerId: strin
   }
 }
 
-// The store repos, made only when the studio or a design publish asks for a hand push to `main` (storefront LIVE-SHOP §4 step 2).
-const reposFor = async (config: Config): Promise<StoreRepos | null> => {
-  const app = await githubFor(config)
-  return app ? storeRepos(app.session(), config.GITHUB_STORE_ORG) : null
-}
-
 // The Store API's way to a store's StudioSession, named by the session's TenantContext (AI-STUDIO §3 step 2).
 const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => {
   const namespace = env.STUDIO_SESSION as DurableObjectNamespace<StudioSessionObject> | undefined
@@ -795,7 +789,6 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
       undo: async (storeId, input) => await stub.undo(storeId, input),
       texts: async (storeId, input) => await stub.texts(storeId, input),
       editText: async (storeId, input) => await stub.editText(storeId, input),
-      importPush: async (storeId, input) => await stub.importPush(storeId, input),
       discard: async (storeId) => await stub.discard(storeId),
       prepare: async (storeId, input) => await stub.prepare(storeId, input),
       goBack: async (storeId, input) => await stub.goBack(storeId, input),
