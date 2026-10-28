@@ -74,7 +74,7 @@ docs/
     shared/README.md        guide: @dripfunnel/shared, what belongs in it
   mobile-app/
     README.md               the three apps: who gives which to whom, builds per partner or per store
-    shop/                   the store's shopping app (apps/ui/mobile-app/shop): FIRST-RELEASE, ARCHITECTURE (proposed)
+    shop/                   the store's shopping app (apps/ui/mobile-app/shop): FIRST-RELEASE, ARCHITECTURE (proposed), BUILD-CHECKLIST (what to prepare and check before a store's build and submission)
     delivery/               the store's riders' app (apps/ui/mobile-app/delivery): FIRST-RELEASE, ARCHITECTURE (proposed)
     merchant/               the merchant mobile app (apps/ui/mobile-app/merchant, set up with placeholder screens):
       REACT-NATIVE.md         React Native with Expo, native sign-in, Intl on Hermes, the SDK policy
