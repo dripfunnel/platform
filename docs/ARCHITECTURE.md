@@ -263,7 +263,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   `dripfunnel` org is upgraded to GitHub Team and the `protect-main` ruleset is applied (pull
   requests only, the CI `gates` check must pass, no force-push or deletion), `prod.yml` runs its
   own `gates` job (build/typecheck/lint/test) before every deploy instead of relying on `main`
-  being protected. Drop that job from `prod.yml` once the ruleset exists. The repo variable `GATES_CHECK=0` skips the gates in `ci.yml`, `dev.yml`, `prod.yml`, `feature-env.yml` and `release.yml`, and `prod.yml`'s deploy still runs, so a push to `main` then migrates prod and uploads a Worker version untested (#870).
+  being protected. Drop that job from `prod.yml` once the ruleset exists. The repo variable `GATES_CHECK=0` skips the gates in `ci.yml`, `dev.yml`, `prod.yml`, `feature-env.yml` and `release.yml`, and `prod.yml`'s deploy still runs, so a push to `main` then migrates prod and uploads a Worker version untested (#870). `GATES_CHECK=pr` skips only `ci.yml`'s pull-request `gates`: every push-triggered gate still runs (#961).
 
 ---
 

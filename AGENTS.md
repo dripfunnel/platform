@@ -154,7 +154,7 @@ Run the gates before reporting a change as done.
 - Pushing `main` runs migrations against the real prod database and uploads a new Worker
   version — nothing goes live until `promote.yml` is run by hand (docs/ARCHITECTURE.md §6).
   Treat a push to `main` as a production action. The repo variable `GATES_CHECK=0` skips every
-  workflow's gates, prod's included; leave it unset or delete it as soon as the exception ends (#870).
+  workflow's gates, prod's included; `GATES_CHECK=pr` skips only the pull-request gates and leaves the dev and prod gates on. Leave it unset or delete it as soon as the exception ends (#870, #961).
 
 ## Rules
 
