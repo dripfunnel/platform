@@ -857,7 +857,7 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
   never reached). Once they are used up the store's own account takes over only if its Owner switched on *Use my own AI account
   when the plan's runs are used up* (`store_ai_account.use_when_plan_used`, off by default, audited); otherwise `AI_BUDGET_REACHED`.
   A key reaches only its own provider's models (`MODEL_NOT_FOUND` otherwise): no silent switch from Claude to ChatGPT.
-- **Connection health** (`saas/aiConnections`, migration 0372): each key profile and the store's account carries
+- **Connection health** (`saas/aiConnections`, migration 0373): each key profile and the store's account carries
   `last_validated_at`, `last_validation_status`, `cooldown_until` and `preferred_model` in the database, never in a Worker. A
   provider's `Retry-After` starts a cooldown (capped at 15 minutes, never shortened) on the model that was limited
   (`cooldown_models`, model to end time), so one model's 429 doesn't block the others on the same credential, and a cooled
@@ -904,12 +904,11 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
   studio could apply.
 - **Streaming:** `text/event-stream` with `text` events (`{text}`) then one `end` (`{provider, model, finish, usage}`), or an
   `error` (`{code}`); closing the connection cancels the call and gives the plan's prompt back.
-- **Deploying and rolling back.** Migration 0372 adds nullable or defaulted columns to `store_ai_account` and `partner_credential`, so
+- **Deploying and rolling back.** Migration 0373 adds nullable or defaulted columns to `store_ai_account` and `partner_credential`, so
   the previous Worker reads and writes both as before; roll the Worker back first and leave the columns. No new variable: the layers
   read the keys and tokens the gateway already resolves (`AI_SIGN_IN` still gates the sign-ins). Fallback is off for every store
-  until an Owner turns it on. The migrations folder has three `0369_*` files already; 0372 follows the highest number.
-  `cooldown_models` was added to 0372 before it was released: an environment that already ran 0372 needs the two
-  `add column if not exists cooldown_models` statements run by hand before this Worker deploys.
+  until an Owner turns it on. The migrations folder has three `0369_*` files already; 0373 follows the highest number (0372 is #874's).
+  Every statement is `add column if not exists`, so a database that ran this file under its earlier name, 0372, applies it again harmlessly.
 - **Not built.** Limits on concurrent calls per connection across Workers (a cooldown after a rate limit is the only shared state;
   a counter would need a table or a Durable Object); a third provider (the `provider` CHECK constraints name two); revoking a
   grant at the provider (Disconnect deletes the tokens here only); key-encryption-key rotation.

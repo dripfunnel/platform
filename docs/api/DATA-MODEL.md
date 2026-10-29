@@ -1140,7 +1140,7 @@ store_ai_account    (store_id PK, provider ('openai'|'anthropic'), key_enc, key_
                      fallback_authorized boolean default false, auth_type ('api_key'|'oauth'), account_label NULL,
                      last_validated_at NULL, last_validation_status NULL, cooldown_until NULL, cooldown_models jsonb default '{}', preferred_model NULL,
                      connected_by, connected_at, updated_at)
-                    -- built on #950 (0369, 0370, 0372: connection health, and the Owner's explicit fallback_authorized): key_enc and the rest written in system scope; app_request reads
+                    -- built on #950 (0369, 0370, 0373: connection health, and the Owner's explicit fallback_authorized): key_enc and the rest written in system scope; app_request reads
                     -- every column but key_enc. A sign-in (auth_type 'oauth') seals its tokens as JSON in key_enc, key_prefix ''
                     -- and account_label the account's email. ai_run gained kind 'gateway', api_key_id and provider (0369)
                     -- "connect your own AI account" on plans without AI included (Pricing,

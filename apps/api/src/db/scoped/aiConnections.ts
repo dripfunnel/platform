@@ -1,7 +1,7 @@
 import type { AiProvider } from '../schema/saas'
 import type { ScopedSql } from './index'
 
-// Health of an AI connection: a store's account or a partner's key profile (migration 0372). System scope only. Every statement is
+// Health of an AI connection: a store's account or a partner's key profile (migration 0373). System scope only. Every statement is
 // held to the owner named in the ref, so one tenant's helper can never touch another's row.
 export type ConnectionRef = { kind: 'store'; storeId: string } | { kind: 'partner'; partnerId: string; credentialId: string }
 export type ValidationStatus = 'ok' | 'rejected' | 'unavailable'
