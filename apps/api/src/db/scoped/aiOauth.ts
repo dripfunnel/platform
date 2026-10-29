@@ -74,6 +74,6 @@ export const saveTokens = async (tx: ScopedSql, owner: AiOwner, credentialId: st
 }
 
 export const markRejected = async (tx: ScopedSql, owner: AiOwner, credentialId: string | null, at: Date): Promise<void> => {
-  if (owner.kind === 'store') await tx`update store_ai_account set status = 'rejected', last_tested_at = ${at}, updated_at = ${at} where store_id = ${owner.id}`
-  else await tx`update partner_credential set status = 'rejected', last_tested_at = ${at}, updated_at = ${at} where id = ${credentialId} and partner_id = ${owner.id}`
+  if (owner.kind === 'store') await tx`update store_ai_account set status = 'rejected', last_tested_at = ${at}, last_validated_at = ${at}, last_validation_status = 'rejected', updated_at = ${at} where store_id = ${owner.id}`
+  else await tx`update partner_credential set status = 'rejected', last_tested_at = ${at}, last_validated_at = ${at}, last_validation_status = 'rejected', updated_at = ${at} where id = ${credentialId} and partner_id = ${owner.id}`
 }

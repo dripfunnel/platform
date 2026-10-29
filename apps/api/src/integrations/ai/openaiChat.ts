@@ -1,4 +1,6 @@
 import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type FinishReason } from './gateway'
+import { providerHeaders } from './headers'
+import { parseRetryAfter } from './retryAfter'
 
 // ChatGPT's models through OpenAI's documented Chat Completions API, API key only (#950; THIRD-PARTY-ACCESS §2.6).
 // The endpoint is fixed: nothing a caller sends picks a host (SSRF), and no header comes from a caller.
@@ -12,7 +14,7 @@ const finishOf = (reason: string | null | undefined): FinishReason => (reason ==
 const failureOf = (status: number, retryAfter: string | null): GatewayError => {
   if (status === 401 || status === 403) return new GatewayError('INVALID_CREDENTIALS')
   if (status === 404) return new GatewayError('MODEL_NOT_FOUND')
-  if (status === 429) return new GatewayError('RATE_LIMITED', Number(retryAfter) || null)
+  if (status === 429) return new GatewayError('RATE_LIMITED', parseRetryAfter(retryAfter, new Date()))
   if (status === 400 || status === 413 || status === 422) return new GatewayError('BAD_REQUEST')
   return new GatewayError('PROVIDER_UNAVAILABLE')
 }
@@ -34,12 +36,12 @@ const bodyOf = (request: ChatRequest, stream: boolean): string => {
   })
 }
 
-const send = async (apiKey: string, path: string, init: { method: string; body?: string | undefined; signal?: AbortSignal | undefined }): Promise<Response> => {
+const send = async (apiKey: string, path: string, init: { method: string; body?: string | undefined; stream?: boolean; signal?: AbortSignal | undefined }): Promise<Response> => {
   const deadline = AbortSignal.timeout(timeoutMs)
   const signal = init.signal ? AbortSignal.any([init.signal, deadline]) : deadline
   let response: Response
   try {
-    response = await fetch(`${endpoint}${path}`, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' } })
+    response = await fetch(`${endpoint}${path}`, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), signal, headers: providerHeaders({ provider: 'openai', auth: 'api_key', secret: apiKey, stream: init.stream === true, hasBody: init.body !== undefined }) })
   } catch {
     throw new GatewayError(init.signal?.aborted ? 'CANCELLED' : deadline.aborted ? 'TIMEOUT' : 'PROVIDER_UNAVAILABLE')
   }
@@ -81,7 +83,7 @@ export const openaiChat = (apiKey: string): ChatProvider => ({
     }
   },
   streamResponse: async function* (request, signal): AsyncGenerator<ChatChunk> {
-    const response = await send(apiKey, '/chat/completions', { method: 'POST', body: bodyOf(request, true), signal })
+    const response = await send(apiKey, '/chat/completions', { method: 'POST', body: bodyOf(request, true), stream: true, signal })
     if (!response.body) throw new GatewayError('PROVIDER_UNAVAILABLE')
     const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
     let buffer = ''

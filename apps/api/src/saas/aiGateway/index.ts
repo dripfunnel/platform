@@ -7,7 +7,9 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectDefaultAiKey } from '#db/scoped/partnerCredentials'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectSealedStoreKey } from '#db/scoped/storeAiAccount'
-import { AiDeclined, anthropicChat, anthropicOAuthDesignerModel, anthropicOAuthDesignerProvider, anthropicProvider, designerModel, openaiChat, openaiResponsesChat, capabilityOf, costOf, modelsOf, GatewayError, gatewayProviders, withRetry, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type GatewayProvider } from '#integrations/ai/index'
+import { logEvent } from '#core/log'
+import { anthropicChat, anthropicOAuthDesignerModel, buildRoute, chatgptSignInRoute, createRouter, designerModel, openaiChat, openaiResponsesChat, routedDesignerProvider, capabilityOf, costOf, modelsOf, GatewayError, gatewayProviders, withRetry, NoExecutorError, type AiProvider as DesignerAi, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type ExecutorOptions, type GatewayProvider, type ResolvedConnection, type Route } from '#integrations/ai/index'
+import { createAiConnections } from '#saas/aiConnections/index'
 import { allowanceFor } from '#saas/entitlements/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
 import type { AiOwner } from '#db/scoped/aiOauth'
@@ -62,6 +64,8 @@ export interface GatewayDeps {
   oauth?: AiOAuth | null
   /** Builds the adapter for a key or a sign-in's token; the real ones by default, a stand-in in tests. */
   adapters?: (provider: GatewayProvider, key: string, auth: AuthMethod, accountId: string | null) => ChatProvider
+  /** How the studio's executors reach providers (a stand-in `fetch` in tests); the studio's deadline is set here too. */
+  executor?: ExecutorOptions
   now: () => Date
   sleep?: (ms: number) => Promise<void>
 }
@@ -71,7 +75,8 @@ const realAdapters = (provider: GatewayProvider, key: string, auth: AuthMethod, 
   return provider === 'anthropic' ? anthropicChat(key) : openaiChat(key)
 }
 
-type Credential = { provider: AiProvider; key: string; auth: AuthMethod; accountId?: string | null }
+/** `connectionId` names the stored account (`partner:<id>` or `store:<id>`) for its health and refresh; the Worker's own key has none. */
+type Credential = { provider: AiProvider; key: string; auth: AuthMethod; accountId?: string | null; connectionId?: string }
 type Unusable = 'EXPIRED' | 'UNAVAILABLE'
 
 interface Resolved {
@@ -98,14 +103,14 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
     // A partner's sign-in is one person's subscription: the studio may use it, `/api/v1` never (THIRD-PARTY-ACCESS §2.6).
     if (row.auth_type === 'oauth') return allowSignIn ? signedIn({ kind: 'partner', id: partnerId, partnerId }, row.id) : null
     const key = await secrets.open(row.key_enc)
-    return key ? { provider: row.provider, key, auth: 'api_key' } : null
+    return key ? { provider: row.provider, key, auth: 'api_key', connectionId: `partner:${row.id}` } : null
   }
 
   /** A signed-in account's current token, renewed if due; the account the provider refuses answers EXPIRED. */
   const signedIn = async (owner: AiOwner, credentialId: string | null): Promise<Credential | { unusable: Unusable } | null> => {
     const token = await oauth?.accessToken(owner, credentialId)
     if (!token) return null
-    if (token.ok) return { provider: token.provider, key: token.token, auth: 'oauth', accountId: token.accountId }
+    if (token.ok) return { provider: token.provider, key: token.token, auth: 'oauth', accountId: token.accountId, connectionId: owner.kind === 'partner' ? `partner:${credentialId}` : `store:${storeId}` }
     // A sign-in whose token can't be read or renewed is the account's, not "nothing connected".
     return token.reason === 'EXPIRED' ? { unusable: 'EXPIRED' } : token.reason === 'NOT_FOUND' ? null : { unusable: 'UNAVAILABLE' }
   }
@@ -117,7 +122,7 @@ export const createAiGateway = ({ sql, context, secrets, fallbackKey, actor, oau
     if (row.auth_type === 'oauth') return !allowSignIn ? null : row.status === 'rejected' ? { unusable: 'EXPIRED' } : signedIn({ kind: 'store', id: storeId, partnerId }, null)
     if (row.status === 'rejected') return null
     const key = await secrets.open(row.key_enc)
-    return key ? { provider: row.provider, key, auth: 'api_key' } : null
+    return key ? { provider: row.provider, key, auth: 'api_key', connectionId: `store:${storeId}` } : null
   }
 
   /**
@@ -257,30 +262,40 @@ export const designerModelsFor = async (deps: DesignerDeps, billed: Billed): Pro
 }
 
 /**
- * The studio's model on the account that pays (#950): a Claude API key as before; a sign-in or a ChatGPT key through the chat
- * adapters, text only, so a pasted image is declined there. `model` is one of `designerModelsFor`; nothing usable answers null.
+ * The studio's model on the account that pays, through the router (SAAS.md §9.3): one retry loop, the account's cooldown, and a
+ * fallback only to a connection the store's Owner authorised. `model` is one of `designerModelsFor`; nothing usable answers null.
  */
 export const designerAiFor = async (deps: DesignerDeps, billed: Billed, requested: string | null = null): Promise<DesignerAi | null> => {
   const found = await credentialFor(deps, billed)
   if (!found) return null
   const anthropicOAuth = found.provider === 'anthropic' && found.auth === 'oauth'
-  const model = requested ?? (anthropicOAuth ? anthropicOAuthDesignerModel : found.provider === 'anthropic' ? designerModel : openaiDesignerModel)
-  const capability = capabilityOf(found.provider, model)
-  if (anthropicOAuth) return capability ? anthropicOAuthDesignerProvider(found.key, model) : null
-  if (!capability) return null
-  if (found.provider === 'anthropic' && found.auth === 'api_key') return anthropicProvider(found.key, model)
-  const chat = (deps.adapters ?? realAdapters)(found.provider, found.key, found.auth, found.accountId ?? null)
-  return {
-    complete: async (call) => {
-      if (call.images.length > 0) throw new AiDeclined('images need an API key')
-      let text = ''
-      let end: Extract<ChatChunk, { kind: 'end' }> | null = null
-      for await (const chunk of chat.streamResponse({ model, system: call.system, messages: [{ role: 'user', content: call.text }], maxTokens: capability.maxOutputTokens })) {
-        if (chunk.kind === 'text') text += chunk.text
-        else end = chunk
-      }
-      if (!end || end.finish === 'refusal') throw new AiDeclined('the model declined')
-      return { text, model: end.model, tokensIn: end.usage.tokensIn, tokensOut: end.usage.tokensOut, costAmount: found.auth === 'oauth' ? 0 : costOf(capability, end.usage.tokensIn, end.usage.tokensOut), costCurrency: 'USD' }
-    },
+  const model = requested ?? defaultModel(found.provider, anthropicOAuth)
+  if (!capabilityOf(found.provider, model)) return null
+
+  const connections = createAiConnections({ sql: deps.sql, context: deps.context, secrets: deps.secrets, oauth: deps.oauth ?? null, now: () => new Date() })
+  const executor: ExecutorOptions = { timeoutMs: 180_000, refresh: connections.refresher, ...deps.executor }
+  const adapters = deps.adapters ?? realAdapters
+  const routeOf = (connection: ResolvedConnection, routeModel: string, effort: boolean): Route => {
+    if (connection.provider === 'openai' && connection.authType === 'oauth') return chatgptSignInRoute(connection, routeModel, adapters('openai', connection.secret, 'oauth', connection.accountId ?? null))
+    return buildRoute(connection, routeModel, { executor, ...(effort ? { reasoningEffort: 'high' as const } : {}) })
   }
+  const primaryId = found.connectionId ?? 'platform:key'
+  const primaryConnection: ResolvedConnection = { connectionId: primaryId, provider: found.provider, authType: found.auth, secret: found.key, ...(found.accountId ? { accountId: found.accountId } : {}) }
+  const fallbacks = (await connections.resolveConnections(billed, true))
+    .filter((connection) => connection.connectionId !== primaryId)
+    .flatMap((connection) => {
+      try {
+        return [routeOf(connection, connection.preferredModel ?? defaultModel(connection.provider, connection.authType === 'oauth' && connection.provider === 'anthropic'), false)]
+      } catch (error) {
+        if (error instanceof NoExecutorError) return []
+        throw error
+      }
+    })
+  const router = createRouter({ primary: routeOf(primaryConnection, model, found.provider === 'anthropic' && found.auth === 'api_key'), fallbacks, retry: { attempts: 3, baseMs: 500, maxMs: 8_000 } }, { cooldown: connections, ...(deps.sleep ? { sleep: deps.sleep } : {}) })
+  return routedDesignerProvider(router, model, {
+    signIn: found.auth === 'oauth',
+    onRouted: (routed) => routed.fallbackUsed && logEvent({ event: 'ai_fallback_used', api: 'store', storeId: deps.context.storeId, code: routed.fallbackFrom ?? 'unknown' }),
+  })
 }
+
+const defaultModel = (provider: GatewayProvider, claudeSignIn: boolean): string => (claudeSignIn ? anthropicOAuthDesignerModel : provider === 'anthropic' ? designerModel : openaiDesignerModel)

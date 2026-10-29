@@ -1188,6 +1188,7 @@ type Mutation {
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
+  setStoreAiFallback(on: Boolean!): Boolean
   setStoreAiSwitch(on: Boolean!): Boolean
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
@@ -2774,6 +2775,7 @@ type StoreAiAccount {
   accountLabel: String
   authType: String
   connectedBy: String
+  fallbackAuthorized: Boolean
   keyPrefix: String
   lastTestedAt: String
   provider: String

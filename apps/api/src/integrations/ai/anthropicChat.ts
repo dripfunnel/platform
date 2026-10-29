@@ -1,9 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type FinishReason } from './gateway'
+import { anthropicOAuthBeta } from './headers'
+import { parseRetryAfter } from './retryAfter'
 
 // Claude through the official SDK (#950). The key is the caller's, held here only for the call.
 const timeoutMs = 60_000
-export const anthropicOAuthHeaders = { 'anthropic-beta': 'oauth-2025-04-20' }
+export const anthropicOAuthHeaders = { 'anthropic-beta': anthropicOAuthBeta }
 
 const finishOf = (reason: string | null): FinishReason => (reason === 'end_turn' || reason === 'stop_sequence' ? 'stop' : reason === 'max_tokens' ? 'length' : reason === 'refusal' ? 'refusal' : 'other')
 
@@ -17,7 +19,7 @@ export const anthropicFailure = (error: unknown): GatewayError => {
     const status = error.status ?? 0
     if (status === 401 || status === 403) return new GatewayError('INVALID_CREDENTIALS')
     if (status === 404) return new GatewayError('MODEL_NOT_FOUND')
-    if (status === 429) return new GatewayError('RATE_LIMITED', Number(error.headers?.get('retry-after')) || null)
+    if (status === 429) return new GatewayError('RATE_LIMITED', parseRetryAfter(error.headers?.get('retry-after'), new Date()))
     if (status === 400 || status === 413 || status === 422) return new GatewayError('BAD_REQUEST')
     return new GatewayError('PROVIDER_UNAVAILABLE')
   }
