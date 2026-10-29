@@ -1005,9 +1005,12 @@ Also: provisioning success rate and **time to first store**, failed builds after
 **changes refused after repairs, publishes refused, bisected or rolled back, and stores pinned
 or on the baseline theme** (storefront ARCHITECTURE §4.2, §7), studio queue waits, core version
 drift, "Publish now" presses against allowance, automatic publish volume, domain
-time to live, and **dispatch** (the time to accept, deliveries reaching unassigned, offers per delivery, failed push sends and late steps: DELIVERY §3, Measured, as log lines tagged with the store). Each is available per partner and per store (CONSOLE-DESIGN B2, K3, N1–N3), with
+time to live. Each is available per partner and per store (CONSOLE-DESIGN B2, K3, N1–N3), with
 outlier alerts ("AI cost 6× plan allowance this month"). Every log line carries request,
 partner, store and seller ids.
+
+**Dispatch** (the time to accept, deliveries reaching unassigned, offers per delivery, failed push sends and late steps) is measured **per store only**, as log lines that carry the store id and no
+partner id (DELIVERY §3, Measured); a partner's view joins each store to its partner.
 
 ---
 
