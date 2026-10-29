@@ -2988,6 +2988,10 @@
     "help": "Help",
     "activity": "Store activity"
   },
+  "crash": {
+    "title": "Something went wrong",
+    "body": "Nothing is lost — your store’s data is safe. Try again, and if it keeps happening, sign out and back in."
+  },
   "states": {
     "loading": "Loading",
     "slow": "This is taking longer than usual. Your data is safe — we’re still loading it.",

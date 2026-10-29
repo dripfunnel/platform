@@ -1,7 +1,7 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildConfig, readPartnerEnv } from './app.config'
+import { buildConfig, readFirebaseFiles, readPartnerEnv } from './app.config'
 
 const appRoot = __dirname
 let root: string
@@ -66,5 +66,44 @@ describe('app.config.ts', () => {
     expect(() => readPartnerEnv(root, undefined)).toThrow(/PARTNER_KEY must name a file in partners\//)
     expect(() => readPartnerEnv(root, '../secrets')).toThrow(/PARTNER_KEY must name a file in partners\//)
     expect(() => readPartnerEnv(root, 'northstar')).toThrow(/partners\/northstar\.env does not exist/)
+  })
+
+  describe('crash reporting', () => {
+    const files = { GOOGLE_SERVICES_JSON: () => join(root, 'google-services.json'), GOOGLE_SERVICE_INFO_PLIST: () => join(root, 'GoogleService-Info.plist') }
+    const writeFiles = () => Object.values(files).forEach((path) => writeFileSync(path(), '{}'))
+    const vars = () => ({ GOOGLE_SERVICES_JSON: files.GOOGLE_SERVICES_JSON(), GOOGLE_SERVICE_INFO_PLIST: files.GOOGLE_SERVICE_INFO_PLIST() })
+    const turnOn = () => editDevEnv((lines) => [...lines, 'CRASH_REPORTING=on'])
+
+    it('is off for the committed dev partner: no Firebase plugin, no file, no flag', () => {
+      const env = readPartnerEnv(root, 'dev')
+      expect(readFirebaseFiles(env, vars())).toBeNull()
+      const config = buildConfig({}, env, readFirebaseFiles(env, vars()))
+      expect(config.plugins).not.toContainEqual(expect.stringContaining('firebase'))
+      expect(JSON.stringify(config)).not.toMatch(/googleServicesFile|crashReporting|useFrameworks/)
+    })
+
+    it('adds the two Firebase plugins, both files, dynamic frameworks and the flag for a partner that turns it on', () => {
+      turnOn()
+      writeFiles()
+      const env = readPartnerEnv(root, 'dev')
+      const config = buildConfig({}, env, readFirebaseFiles(env, vars()))
+      expect(config.plugins).toEqual(expect.arrayContaining(['@react-native-firebase/app', '@react-native-firebase/crashlytics', ['expo-build-properties', { ios: { useFrameworks: 'dynamic' } }]]))
+      expect(config.ios?.googleServicesFile).toBe(files.GOOGLE_SERVICE_INFO_PLIST())
+      expect(config.android?.googleServicesFile).toBe(files.GOOGLE_SERVICES_JSON())
+      expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.actuateminds.com', crashReporting: true })
+    })
+
+    it('fails naming each Firebase file that EAS has not provided', () => {
+      turnOn()
+      const env = readPartnerEnv(root, 'dev')
+      expect(() => readFirebaseFiles(env, {})).toThrow(/CRASH_REPORTING=on[\s\S]*GOOGLE_SERVICES_JSON[\s\S]*GOOGLE_SERVICE_INFO_PLIST/)
+      writeFiles()
+      expect(() => readFirebaseFiles(env, { ...vars(), GOOGLE_SERVICE_INFO_PLIST: join(root, 'missing.plist') })).toThrow(/GOOGLE_SERVICE_INFO_PLIST/)
+    })
+
+    it('refuses a value other than on, so a typo never turns it off quietly', () => {
+      editDevEnv((lines) => [...lines, 'CRASH_REPORTING=yes'])
+      expect(() => readPartnerEnv(root, 'dev')).toThrow(/CRASH_REPORTING/)
+    })
   })
 })
