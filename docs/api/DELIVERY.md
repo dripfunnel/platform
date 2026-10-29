@@ -14,9 +14,10 @@ delivery areas and the checkout option (§2, §8; #841); dispatch: delivery crea
 accept and decline, assignment by hand, cancellation before pickup, online state, positions and the minute sweep
 (§3, §4, §8; #842); carrying it: pickup as a `local` shipment, the handover code, Delivered and Not delivered sent
 late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the portal's Settings › Riders (§5, §8; #844); the customer's
-side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858).
+side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858); the whole journey
+as a test and the load check (§10; #873).
 
-Last updated: 2026-10-29 (#872: what dispatch measures, §3). Before: 2026-10-28 (#852: the APK download and the Delivery API's `minimumBuild`, §4, §5). Before: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
+Last updated: 2026-10-29 (#873: the journey test and the load check, §10). Before: 2026-10-29 (#872: what dispatch measures, §3). Before: 2026-10-28 (#852: the APK download and the Delivery API's `minimumBuild`, §4, §5). Before: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
 events, §3, §4, §6, §8). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
@@ -539,6 +540,36 @@ console, and the admin console has no override. So a store can be given a riders
   while `picked_up`.
 - Two accepts of one offer at once: exactly one wins.
 - The hostname guard: `/delivery-api/` answers only on `{slug}.<SHOP_DOMAIN>`.
+- **The journey** (built on #873; `apps/api/tests/delivery-journey.test.ts`) runs through the Store, Delivery and Shop APIs' own
+  schemas, as the apps call them: the Owner's pinned location and riders, two riders signed in and online, a customer's
+  order, the offers and the lost race (`TAKEN`), pickup and its one stock movement, the wrong code and then the right one, and
+  what each side reads at each state. It runs for cash on delivery and for a bank transfer paid after, and for a store that
+  dispatches when ready; its branches are Not delivered then Offer again, hand back then Offer again, a late wrong code
+  confirmed by the merchant, a recall after pickup, and suspending a rider (assigned: handed on; carrying: `RIDER_HAS_PARCEL`).
+  It also checks that no push, email or text carries the code.
+- **Load** (built on #873; not part of any gate). `pnpm --filter ./apps/api load:delivery` makes a database of its own on the local
+  Postgres (it refuses any other host), puts one store's riders online reporting a position every 15 s, offers 20 orders a
+  minute to all of them (the broadcast of §3) and has each rider read their offers and a fifth of them accept, for 10 minutes;
+  `--riders`, `--orders-per-minute`, `--minutes` and `--interval-seconds` change the run. It prints each call's p50 and p95, the
+  statements it saw running over 100 ms and each table's scans. Result on 2026-10-29, 200 riders, one local Postgres 18 and
+  one Node process (the Worker and Hyperdrive are not in it, so this is the database's share of a call, not the whole):
+
+  | Call | Count | p50 | p95 |
+  |---|---|---|---|
+  | `reportPosition` | 8,181 | 5.4 ms | 12.9 ms |
+  | `offers` | 35,850 | 2.1 ms | 5.2 ms |
+  | `acceptOffer` (the winner) | 200 | 17.5 ms | 32.0 ms |
+  | `acceptOffer` (lost race, `TAKEN`) | 44 | 12.5 ms | 20.1 ms |
+  | The offer job and its pushes, one pass | 1,048 | 2.2 ms | 361.2 ms |
+  | The minute sweep | 10 | 8.0 ms | 15.7 ms |
+
+  200 deliveries made 35,850 offers (about 180 each, one per rider free at the time). The slowest statement seen running over
+  100 ms was Postgres's own autovacuum of `outbox`; no query of ours ran that long, so **no index was added** and there is no
+  before and after. The offer job's p95 is a pass that makes one delivery's offers and queues its pushes, one row each. The
+  database was busy 0.16 statements on average; a local Postgres does not report CPU, so the figure to read for the real
+  database is its CPU in the Neon dashboard during a run in a feature environment, which this run did not do. `rider` and
+  `delivery` show many sequential scans because they hold 200 rows, where the planner prefers one; they are worth another look
+  at a store with thousands of riders, not at this size.
 
 ---
 
