@@ -6,7 +6,7 @@ builds and per-store configuration are [../README.md](../README.md) §3.
 
 **Status: the project is set up (#848): `app.config.ts` with its tests, `stores/dev.env`, `eas.json` with a `dev` profile (an internal APK), the Expo Router skeleton with placeholder screens, the brand (the store's name and logo from the Shop API, DripFunnel's palette until more is served), and the two API clients (`src/api/client.ts`); getting in and Profile are built (#849): number and code, the first-time profile, the session in secure storage, Profile with edit, sign out and delete my account; Online, background location, push and offers are built (#850): the Online switch with its permissions, one background position task, push registration and handling, and Home with offer cards; the delivery screen is built (#851): a delivery from pickup to the door, with Delivered and Not delivered kept without signal, and History. Everything else in this document is still specification.**
 
-Last updated: 2026-10-28 (#852: the Update required gate, §2). Before: 2026-10-28 (#982: header and keyboard, §2). Before: 2026-10-28 (#851: History, status, §2). Before: 2026-10-28 (#851: steps kept without signal, status, §2, §3). Before: 2026-10-28 (#851: the delivery screen, status, §2, §3). Before: 2026-10-28 (#850: Online, location, push and offers, status, §2, §3). Before: 2026-10-28 (#849: getting in and Profile, status, §2). Before: 2026-10-27 (#848: the project is set up, status, §2, §3). Before: 2026-10-22 (first version).
+Last updated: 2026-10-29 (#872: `crash/`, §2, §3). Before: 2026-10-28 (#852: the Update required gate, §2). Before: 2026-10-28 (#982: header and keyboard, §2). Before: 2026-10-28 (#851: History, status, §2). Before: 2026-10-28 (#851: steps kept without signal, status, §2, §3). Before: 2026-10-28 (#851: the delivery screen, status, §2, §3). Before: 2026-10-28 (#850: Online, location, push and offers, status, §2, §3). Before: 2026-10-28 (#849: getting in and Profile, status, §2). Before: 2026-10-27 (#848: the project is set up, status, §2, §3). Before: 2026-10-22 (first version).
 
 ---
 
@@ -45,6 +45,7 @@ apps/ui/mobile-app/delivery/
                             its time and an idempotency key, sent in order when the connection returns
     session/  brand/  push/  nav.ts  messages/
     update/                 the Update required gate: a build below the store's minimum shows that screen
+    crash/                  crash reporting (#872): `CrashEffects` starts collection and gives the signed-in rider's opaque id, `CrashBoundary` reports a screen that throws; the wrapper is `mobile-shared/crash` (shop/ARCHITECTURE.md §2)
 ```
 
 Foundations come from `apps/ui/mobile-app/shared` (../README.md §2). Built in #848: `app.config.ts` declares the
@@ -77,6 +78,7 @@ Fixed in #982: `ScreenHeader` starts below the status bar (the top safe-area ins
 | `expo-notifications` (built in #848) | Offers and assignments |
 | `expo-secure-store` | The session token, and the steps kept without signal (#851) |
 | `expo-image-picker` (built in #848) | The profile photo |
+| `@react-native-firebase/app`, `@react-native-firebase/crashlytics` (#872, decided 2026-10-22) | Crash reports, in the store's own Firebase project (the one its Android push uses), through the packages' Expo config plugins, which need the store's `google-services.json` (`GOOGLE_SERVICES_FILE`): the packages are in the app for every store, their plugins only for a store with that file. The app is Android only, so there is no iOS file and no `useFrameworks`. Loaded on first use, and off in development builds |
 | `react-native-maps` (built in #851), with the optional `GOOGLE_MAPS_ANDROID_KEY` (mobile-app/README.md §3) | The warehouse's and the customer's pins |
 
 ---

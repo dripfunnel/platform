@@ -22,6 +22,8 @@ const api = vi.hoisted(() => ({
   suspendRider: vi.fn(),
   restoreRider: vi.fn(),
   removeRider: vi.fn(),
+  requestRiderExport: vi.fn(),
+  eraseRider: vi.fn(),
 }))
 vi.mock('../../api/riders', async (actual) => ({ ...(await actual<typeof import('../../api/riders')>()), ...api }))
 vi.mock('../../api/settings', () => ({ loadStoreInfo: vi.fn(), loadLocale: vi.fn() }))
@@ -267,6 +269,55 @@ describe('suspend, restore, remove and resend', () => {
     confirm(w.continue)
     await settle()
     expect(api.resendRiderInvitation).toHaveBeenCalledWith('r3')
+  })
+})
+
+describe('export and erase (#874)', () => {
+  it('starts an export of one rider’s data and says what is not in it', async () => {
+    api.requestRiderExport.mockResolvedValue({ id: 'job1', state: 'preparing', entries: null, url: null, expiresAt: null })
+    await show('riders')
+    manage('Ravi Kumar')
+    pick('export')
+    confirm(w.continue)
+    await settle()
+    expect(api.requestRiderExport).toHaveBeenCalledWith('r1')
+    expect(screen.getByText(w.exportStarted)).toBeTruthy()
+  })
+
+  it('erases only after its consequence is stated and a reason is given', async () => {
+    await show('riders')
+    manage('Ravi Kumar')
+    pick('erase')
+    confirm(w.continue)
+    expect(dialog().getByText(w.eraseBody)).toBeTruthy()
+    confirm(w.eraseConfirm)
+    await settle()
+    expect(api.eraseRider).not.toHaveBeenCalled()
+    fireEvent.change(dialog().getByLabelText(w.eraseReason), { target: { value: '  Asked to be deleted ' } })
+    confirm(w.eraseConfirm)
+    await settle()
+    expect(api.eraseRider).toHaveBeenCalledWith('r1', 'Asked to be deleted')
+    expect(screen.getByText('Ravi Kumar erased')).toBeTruthy()
+    expect(api.loadRiders).toHaveBeenCalledTimes(2)
+  })
+
+  it('words a rider carrying a parcel when erasing', async () => {
+    api.eraseRider.mockRejectedValue(new ApiError('RIDER_HAS_PARCEL', 'x'))
+    await show('riders')
+    manage('Ravi Kumar')
+    pick('erase')
+    confirm(w.continue)
+    fireEvent.change(dialog().getByLabelText(w.eraseReason), { target: { value: 'Left the store' } })
+    confirm(w.eraseConfirm)
+    await settle()
+    expect(screen.getByText(w.refused.RIDER_HAS_PARCEL)).toBeTruthy()
+  })
+
+  it('offers neither for an invitation that has not been taken', async () => {
+    await show('riders')
+    manage('Sunil Yadav')
+    const values = Array.from((dialog().getAllByRole('combobox')[0] as HTMLSelectElement).options).map((o) => o.value)
+    expect(values).toEqual(['resend', 'remove'])
   })
 })
 

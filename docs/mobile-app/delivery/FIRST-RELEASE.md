@@ -37,7 +37,10 @@ Last updated: 2026-10-22 (the handover code; Delivered and Not delivered kept wi
 
 **Permissions the app asks for, and when:** notifications at first sign-in; location "while using"
 when first going Online, then "always" (iOS) or a foreground service with its notification
-(Android), with the store's reason in words.
+(Android), with the store's reason in words. **Before that first request a full-screen disclosure** (built on #874; Google Play's
+prominent disclosure, Apple 5.1.1) says in the store's name what is collected (the position, only while Online, even with the app
+closed), why (offers near the warehouse, the customer's tracking) and that no trail is kept; Continue goes on to the permission,
+Not now leaves the rider Offline, and it comes again next time until they continue.
 
 ---
 

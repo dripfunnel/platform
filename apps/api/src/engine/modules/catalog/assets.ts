@@ -12,6 +12,8 @@ import { withScope, type ScopedSql } from '#db/scoped/index'
 export interface AssetStore {
   put: (key: string, value: Uint8Array, options: { httpMetadata: { contentType: string } }) => Promise<unknown>
   get: (key: string) => Promise<{ body: ReadableStream } | null>
+  /** The Worker's bucket has it; a test's stand-in may not. */
+  delete?: (keys: string[]) => Promise<unknown>
 }
 
 export const assetsAudit = { uploaded: 'asset.uploaded' } as const

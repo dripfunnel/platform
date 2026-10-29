@@ -5,6 +5,8 @@ import { StatusBar } from 'expo-status-bar'
 import { StyleSheet } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { BrandProvider } from '../brand/BrandProvider'
+import { CrashBoundary } from '../crash/CrashBoundary'
+import { CrashEffects } from '../crash/CrashEffects'
 import '../location/task'
 import { PendingProvider } from '../pending/PendingContext'
 import { PushProvider } from '../push/PushContext'
@@ -42,7 +44,10 @@ export default function RootLayout() {
             <PendingProvider>
               <GestureHandlerRootView style={styles.root}>
                 <StatusBar style="auto" />
-                <Screens />
+                <CrashEffects />
+                <CrashBoundary>
+                  <Screens />
+                </CrashBoundary>
               </GestureHandlerRootView>
             </PendingProvider>
           </PushProvider>

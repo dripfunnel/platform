@@ -5,13 +5,14 @@ import { loadCustomerExport } from '../../api/customers'
 import { loadCatalogExport } from '../../api/imports'
 import { loadOrderExport } from '../../api/orders'
 import { loadReportExport } from '../../api/reports'
+import { loadRiderExport } from '../../api/riders'
 
 // The shell follows one export at a time, whichever list started it (shared exportJob); each kind is read back by its
 // own query, and each list shows only its own kind's job.
 
-export type ExportKind = 'catalog' | 'orders' | 'customers' | 'reports' | 'activity'
+export type ExportKind = 'catalog' | 'orders' | 'customers' | 'reports' | 'activity' | 'riders'
 
-const readers: Record<ExportKind, (id: string) => Promise<ExportJob | null>> = { catalog: loadCatalogExport, orders: loadOrderExport, customers: loadCustomerExport, reports: loadReportExport, activity: loadActivityExport }
+const readers: Record<ExportKind, (id: string) => Promise<ExportJob | null>> = { catalog: loadCatalogExport, orders: loadOrderExport, customers: loadCustomerExport, reports: loadReportExport, activity: loadActivityExport, riders: loadRiderExport }
 const kinds = new Map<string, ExportKind>()
 
 export const startListExport = (kind: ExportKind, started: Promise<ExportJob>) =>

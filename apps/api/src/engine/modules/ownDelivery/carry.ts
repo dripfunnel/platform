@@ -4,6 +4,7 @@ import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
 import { DispatchRefused } from '#core/dispatch'
 import { isUuid } from '#core/ids'
+import { emitMeasurements, type Measurement } from '#core/metrics'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import * as carry from '#db/scoped/carry'
@@ -24,6 +25,11 @@ export const deliveryStates = ['packing', 'searching', 'unassigned', 'assigned',
 
 // A step whose time is this far behind the server's was kept on a phone without signal (DELIVERY §3).
 const lateMs = 2 * 60_000
+
+/** A step that reached us more than `lateMs` after its time counts once, when it is kept (DELIVERY §3). */
+const noteLate = (f: DispatchFacts, at: Date): void => {
+  if (f.now.getTime() - at.getTime() > lateMs) f.measured?.push({ storeId: f.storeId, metric: 'dispatch_late_step', value: 1 })
+}
 const skewMs = 30_000
 
 const step = { id: z.uuid(), at: z.iso.datetime(), key: z.string().min(1).max(100) }
@@ -103,13 +109,16 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
   const asRider = async (id: string, work: (tx: ScopedSql, f: DispatchFacts, d: DeliveryRow, rider: string) => Promise<Answer>) => {
     if (!riderId) throw new DispatchRefused('UNAUTHENTICATED')
     if (!isUuid(id)) throw new DispatchRefused('NOT_FOUND')
-    return answered(await withSystemScope(sql, async (tx) => {
+    const measured: Measurement[] = []
+    const result = await withSystemScope(sql, async (tx) => {
       await serialise(tx, `dispatch:${storeId}:${riderId}`)
       await carry.lockDeliveryOrder(tx, storeId, id)
       const d = await lockDelivery(tx, storeId, id)
       if (d?.rider_id !== riderId) throw new DispatchRefused('NOT_FOUND')
-      return work(tx, f(), d, riderId)
-    }))
+      return work(tx, { ...f(), measured }, d, riderId)
+    })
+    emitMeasurements(measured)
+    return answered(result)
   }
   const asMerchant = async (id: string, work: (tx: ScopedSql, f: DispatchFacts, d: DeliveryRow) => Promise<Answer>) => {
     if (riderId || context.sellerScope.kind === 'seller' || (caller.kind === 'support' && caller.access === 'read')) throw new DispatchRefused('FORBIDDEN')
@@ -198,6 +207,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
         if (held.code_attempts >= maxCodeAttempts) return { refused: 'CODE_LOCKED' }
         if (await handoverCodeMatches(deps.secrets, d.id, held.handover_code_enc, code)) {
           await deliver(tx, ports, f, d, { at, cashAt: cash ? at : null, key, reason: null, paidBy: cash ? { kind: 'rider', id: rider } : null })
+          noteLate(f, at)
           return true
         }
         const attempts = await carry.countWrongCode(tx, d, key, maxCodeAttempts)
@@ -206,6 +216,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
           await carry.setUnconfirmed(tx, d, { now: f.now, cashAt: cash ? at : null, key })
           await insertOutbox(tx, { kind: 'email', partnerId: f.partnerId, storeId, idempotencyKey: `delivery-code-unconfirmed:${d.id}`, payload: { template: 'delivery-code-unconfirmed', deliveryId: d.id } })
           await record(tx, f, carryAudit.codeUnconfirmed, d.id)
+          noteLate(f, at)
           return { refused: 'CODE_UNCONFIRMED' }
         }
         await record(tx, f, carryAudit.codeRefused, d.id, String(attempts))
@@ -226,6 +237,7 @@ export const createCarry = (deps: { sql: postgres.Sql; context: TenantContext; a
         const n = await tellCustomer(tx, f, d, 'order.not_delivered')
         if (n && !n.test) await insertOutbox(tx, { kind: 'email', partnerId: f.partnerId, storeId, idempotencyKey: `order-not-delivered:${d.id}`, payload: { template: 'order-not-delivered', orderId: d.order_id, deliveryId: d.id } })
         await record(tx, f, carryAudit.failed, d.id, reason)
+        noteLate(f, at)
         return true
       })
     },

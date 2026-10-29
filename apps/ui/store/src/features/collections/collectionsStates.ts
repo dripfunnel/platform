@@ -44,6 +44,7 @@ const summary = (c: Partial<CollectionSummary> & Pick<CollectionSummary, 'id' | 
   parentId: null,
   inheritParent: false,
   match: 'all',
+  imageAssetId: null,
   rules: [],
   products: 0,
   computedAt: '2026-10-05T09:00:00Z',

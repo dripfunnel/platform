@@ -246,22 +246,22 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
    * A cart's versions as the shopper would buy them now: each with its product, its price here and stock, and whether the
    * market sells it. A version shoppers can't see is missing from the answer.
    */
-  const cartItems = (versionIds: readonly string[]): Promise<Map<string, CartItem>> =>
-    inScope(async (tx) => {
-      const facts = await pricingIn(tx)
-      const versions = await selectCartVersions(tx, storeId, versionIds)
-      if (!facts || versions.length === 0) return new Map()
-      const productIds = [...new Set(versions.map((v) => v.product_id))]
-      const listed = await selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds)
-      const views = new Map((await viewsOf(tx, productIds, facts)).map((p) => [p.id, p]))
-      return new Map(
-        versions.flatMap((v) => {
-          const product = views.get(v.product_id)
-          const version = product?.versions.find((x) => x.id === v.id)
-          return product && version ? [[v.id, { product, version, taxClassId: v.tax_class_id, soldHere: listed.has(product.id) }] as const] : []
-        }),
-      )
-    })
+  const cartItemsIn = async (tx: ScopedSql, versionIds: readonly string[]): Promise<Map<string, CartItem>> => {
+    const facts = await pricingIn(tx)
+    const versions = await selectCartVersions(tx, storeId, versionIds)
+    if (!facts || versions.length === 0) return new Map()
+    const productIds = [...new Set(versions.map((v) => v.product_id))]
+    const listed = await selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds)
+    const views = new Map((await viewsOf(tx, productIds, facts)).map((p) => [p.id, p]))
+    return new Map(
+      versions.flatMap((v) => {
+        const product = views.get(v.product_id)
+        const version = product?.versions.find((x) => x.id === v.id)
+        return product && version ? [[v.id, { product, version, taxClassId: v.tax_class_id, soldHere: listed.has(product.id) }] as const] : []
+      }),
+    )
+  }
+  const cartItems = (versionIds: readonly string[]): Promise<Map<string, CartItem>> => inScope((tx) => cartItemsIn(tx, versionIds))
 
-  return { store, menu, collections, collection, asset, products, facets, product, cartItems }
+  return { store, menu, collections, collection, asset, products, facets, product, cartItems, cartItemsIn }
 }

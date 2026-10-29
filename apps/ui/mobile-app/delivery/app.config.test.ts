@@ -47,6 +47,20 @@ describe('app.config.ts', () => {
     expect(config.android?.googleServicesFile).toBe('./stores/dev/google-services.json')
   })
 
+  it('switches Crashlytics on only for a store with its Firebase file', () => {
+    const plain = buildConfig({}, readStoreEnv(appRoot, 'dev'))
+    expect(plugin(plain, '@react-native-firebase/app')).toBeUndefined()
+    expect(plugin(plain, '@react-native-firebase/crashlytics')).toBeUndefined()
+    expect(plain.extra).not.toHaveProperty('crashReporting')
+
+    writeFileSync(join(root, 'stores', 'dev', 'google-services.json'), '{}')
+    editDevEnv((lines) => [...lines, 'GOOGLE_SERVICES_FILE=stores/dev/google-services.json'])
+    const crash = buildConfig({}, readStoreEnv(root, 'dev'))
+    expect(plugin(crash, '@react-native-firebase/app')).toBeDefined()
+    expect(plugin(crash, '@react-native-firebase/crashlytics')).toBeDefined()
+    expect(crash.extra).toMatchObject({ crashReporting: true })
+  })
+
   it('builds without a Maps key, and with one gives it to Android only', () => {
     const key = 'AIza' + 'a'.repeat(35)
     expect(buildConfig({}, readStoreEnv(root, 'dev')).android?.config).toBeUndefined()

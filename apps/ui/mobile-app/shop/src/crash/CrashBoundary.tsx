@@ -1,7 +1,7 @@
 import { Component, type ReactNode } from 'react'
 import { StateMessage } from '../features/common/ui'
 import { t } from '../messages'
-import { reportError } from './report'
+import { reportError } from '@dripfunnel/mobile-shared/crash'
 
 type State = { failed: boolean }
 

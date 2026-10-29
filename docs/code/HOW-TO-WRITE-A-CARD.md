@@ -8,7 +8,7 @@ in `dripfunnel/platform`. [WORKFLOW.md](WORKFLOW.md) §3 lists a card's fields;
 Claude follows this page whenever someone asks for a card. The repo skill
 `.claude/skills/create-card` loads it.
 
-Last updated: 2026-10-07 (#466).
+Last updated: 2026-10-29 (#1000).
 
 ---
 
@@ -51,6 +51,7 @@ per card. Show them together with their order and their **Needs** chain.
 | The release's plan, e.g. [../ui/store/FIRST-RELEASE.md](../ui/store/FIRST-RELEASE.md) §19–§21 | Whether a card already covers this. If it does, the request is a change to that card, not a new one |
 | Open issues on the DF Platform board (search the title words) | Duplicates, and the cards this one **Needs** |
 | The code the change lands in | Which folders, which layer (docs/api/README.md §4), and what already exists to reuse |
+| For a bug with a screenshot: the screenshot, before anything else | The portal, host and screen it shows, any message word for word, and the prototype screen it matches. Questions then offer that reading to confirm |
 | For a bug: the code path, the tests around it, recent commits there | The likely cause, and whether a test should already have caught it |
 
 ---
@@ -97,6 +98,14 @@ person just said. Once they answer numbered points inline, act on the answers.
   (THIRD-PARTY-ACCESS).
 
 **A bug:**
+- **Is it a bug?** Compare what was reported with the prototype screen, the docs, `designs/MISSING-FEATURES.md`,
+  `INCOMPLETE-FEATURES.md`, the release plan and open cards, and say the verdict and what it was
+  compared with. If it is intended, not built yet or a duplicate, ask whether it becomes a task,
+  a feature, a change to the existing card, or no card.
+- **From a short description and a screenshot:** ask with your reading of the screenshot as the
+  recommended option ("dev, store portal, Owner: from the URL bar and the header"), so the person
+  confirms rather than writes. Ask for what an image can't show: what was done just before, the
+  role, the data, and whether it happens every time.
 - **Where:** the environment (local, dev, prod, a feature environment), the URL or host, the
   portal and the role signed in.
 - **Steps:** numbered, from a known starting state (seed data, which store or partner), to the
@@ -166,6 +175,10 @@ assignee** unless the request names one.
 - If it happens only sometimes, say how often, and what was different when it did.
 - If the cause isn't known, leave it out rather than guess. The prompt then starts by finding
   it.
+- A screenshot can't be attached through the GitHub tools. Describe what it shows under
+  **Actual** (the screen, the message word for word), and after creating the card ask the person
+  to drag it into the issue. If it shows a secret, a token or a customer's personal data, ask for
+  a cropped or blurred one first.
 
 ---
 
@@ -221,7 +234,8 @@ Only after the person says yes to the draft:
 2. **Update the body** with the real number in **Kind and branch**.
 3. **Add it to the DF Platform project** (org `dripfunnel`, project 1) in **BackLog**, with no
    assignee unless the request named one.
-4. **Reply with the link,** the column and anything left open.
+4. **Reply with the link,** the column and anything left open, and for a bug reported with a
+   screenshot, ask the person to attach it to the issue (§6).
 
 Nothing else: no branch, no code. Work starts when someone picks the card up
 (HOW-TO-WORK-A-CARD §3).
@@ -234,6 +248,7 @@ Nothing else: no branch, no code. Work starts when someone picks the card up
 - [ ] The kind is right, and the branch follows WORKFLOW §2.
 - [ ] **Read first** names the decisive sections, and the prototype and style guide for UI.
 - [ ] A bug has its environment, numbered steps, expected and actual results.
+- [ ] A bug says why it is one: what it was compared with (prototype, docs, open cards, code).
 - [ ] The prompt is complete and pasteable, and names the tests and gates.
 - [ ] Every acceptance criterion is a checkbox someone can verify.
 - [ ] **Not in this item** holds what was left out, and **Needs** the cards that come first.

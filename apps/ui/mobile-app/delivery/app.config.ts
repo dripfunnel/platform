@@ -67,6 +67,8 @@ export function readStoreEnv(root: string, key: string | undefined): StoreEnv {
 const usage = (text: string, env: StoreEnv): string => text.replace('{name}', () => env.APP_NAME)
 
 export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoConfig {
+  // The app is Android only (delivery/FIRST-RELEASE.md §1), so the project's one Android file switches crash reports on with push (delivery/BUILD-CHECKLIST.md §2).
+  const crashReporting = Boolean(env.GOOGLE_SERVICES_FILE)
   return {
     ...config,
     name: env.APP_NAME,
@@ -103,10 +105,12 @@ export function buildConfig(config: Partial<ExpoConfig>, env: StoreEnv): ExpoCon
       ],
       // Offers and assignments (delivery/ARCHITECTURE.md §3).
       'expo-notifications',
+      // Firebase Crashlytics, only for a store with its Firebase file (delivery/ARCHITECTURE.md §3).
+      ...(crashReporting ? ['@react-native-firebase/app', '@react-native-firebase/crashlytics'] : []),
       // The profile photo, from the camera or the photo library; never the microphone.
       ['expo-image-picker', { photosPermission: usage(messages.permissions.photos, env), cameraPermission: usage(messages.permissions.camera, env), microphonePermission: false }],
     ],
-    extra: { STORE_HOST: env.STORE_HOST, ...(env.EAS_PROJECT_ID ? { eas: { projectId: env.EAS_PROJECT_ID } } : {}) },
+    extra: { STORE_HOST: env.STORE_HOST, ...(env.EAS_PROJECT_ID ? { eas: { projectId: env.EAS_PROJECT_ID } } : {}), ...(crashReporting ? { crashReporting: true } : {}) },
   }
 }
 

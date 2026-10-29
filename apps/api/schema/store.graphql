@@ -423,6 +423,7 @@ input CollectionRuleInput {
 type CollectionSummary {
   computedAt: String
   id: ID
+  imageAssetId: ID
   inheritParent: Boolean
   kind: String
   match: String
@@ -1076,11 +1077,13 @@ type Mutation {
   duplicateProduct(id: ID!): SavedProduct
   endOffer(id: ID!): Boolean
   endPreviewLinks: Boolean
+  eraseRider(id: ID!, reason: String!): Boolean
   exportActivity(filter: StoreActivityFilter): ID
   exportCustomers(groupId: ID, search: String): ID
   exportOfferCodes(batchId: ID!): ID
   exportOrders(filter: OrderFilter, search: String): ID
   exportReport(currency: String, custom: CustomReportInput, days: Int!, panel: ReportPanel!): ID
+  exportRider(id: ID!): ID
   exportStoreData: ID
   finishShopifyConnect(key: String!): String
   finishStoreAiOauth(response: String!): Boolean
@@ -2217,6 +2220,7 @@ type Query {
   report(currency: String, days: Int!): StoreReport
   reportExport(id: ID!): ReportExport
   reportExports: [ReportExport!]
+  riderExport(id: ID!): RiderExport
   riders(after: String, before: String, first: Int): RiderPage
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   shippingSettings: ShippingSettings
@@ -2408,6 +2412,16 @@ type Rider {
   status: String
   vehicleNumber: String
   vehicleType: String
+}
+
+type RiderExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
 }
 
 type RiderPage {
