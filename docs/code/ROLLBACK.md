@@ -53,7 +53,7 @@ The store-proxy rolls back the same way, from `store-proxy/` (`--env prod`), whe
 The Delivery API is part of the API Worker, so it rolls back with it (above). If riders are mid-delivery:
 1. Roll the Worker back first. A rider's deliveries, offers and codes are in the database and survive the old version (migrations are backward-compatible).
 2. A bad **app** build is the other half: in the admin console › Stores › the store › Delivery app, set the minimum build back below the bad one, or upload the previous APK, so riders are not stopped at Update required.
-3. Check with the store's owner that no rider holds a parcel with no way to finish: the Owner can mark a delivery failed or hand it to another rider in the portal.
+3. Check with the store's owner that no rider holds a parcel with no way to finish. A parcel in transit is never reassigned (DELIVERY §3): the Owner can recall it (`cancelDelivery`, reason `recalled`), which tells the rider by push to bring it back, or, for an unconfirmed code, move it on.
 4. Then check the minute Cron still runs (Triggers in the dashboard) and a test delivery is offered.
 
 ## SPA (Pages)
