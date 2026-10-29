@@ -4,7 +4,7 @@ Production on `dripfunnel.ai`: how to set it up once, how values get onto it, an
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -141,6 +141,48 @@ One-off, done by a person; the repo already names the new zone. Emails stay `@dr
    from `*.edge.dripfunnel.com`.
 4. Update the callbacks: Stripe webhook and Connect redirect, SES/SNS subscription, the Entra redirect URIs.
 
+### 3.9 Own delivery for the pilot store (#875, DL 19) — **Not done yet**
+
+Production runs the same code as dev; own delivery needs configuration, the pilot store's production build and a checked walkthrough
+(DELIVERY.md; mobile-app/delivery/BUILD-CHECKLIST.md). It is on for **the pilot store only**; the shop app's release (SH 18) and other stores are not part of it.
+Gaurav applies the values and runs `promote.yml`; nobody pushes `main` for this. Every value below is named, never written down here or on the card.
+
+| # | Step | Done by | How to check |
+|---|---|---|---|
+| 1 | Worker secret `EXPO_PUSH_TOKEN` (§4), from an expo.dev robot user with Enhanced Security for Push Notifications on (THIRD-PARTY-ACCESS §2.13) | Gaurav | `wrangler secret list --env prod` names it; after the Worker's next start, `/api/health` is still green (a malformed value fails boot). Push is proved in step 8 |
+| 2 | The pilot store's own Firebase project: `google-services.json` as an EAS file secret and the Maps key (BUILD-CHECKLIST §2) | Gaurav / the pilot's owner | `eas env:list` for the pilot's EAS project names both |
+| 3 | store-proxy passes `/delivery-api/*` and `/app/delivery.apk` on the prod shop zone. It already does (`store-proxy/src/live.ts` `isApiPath`), so there is nothing to change: confirm the §3.5 routes `*.my-store.one/*` exist | Gaurav | `curl -s -o /dev/null -w "%{http_code}" https://<pilot slug>.my-store.one/delivery-api/` answers from the API (a JSON error, not the storefront's HTML) and the same path on `https://dripfunnel.ai/delivery-api/` answers 404 (the hostname guard, DELIVERY §10) |
+| 4 | The minute Cron runs in prod: the offer-round sweep (DELIVERY §3) is the `* * * * *` entry of the Worker's `triggers` | Gaurav | dashboard › Workers & Pages › `dripfunnel-api` › Settings › Triggers lists `* * * * *`, and Observability › Cron events shows a run in the last minute. If it is missing, ask before adding an `env.prod` triggers block |
+| 5 | The pilot store has `own_delivery` on and a riders limit (DELIVERY §9). **Not possible as decided yet:** `store_limit_override` holds amounts only and the admin console has no override, so there is no way to switch `own_delivery` on for one store. Until the follow-up card is built, the pilot's partner gives that one store a plan with `own_delivery` on and the riders limit set | DripFunnel staff | Settings › Riders in the pilot's portal lists the Invite button; `inviteRider` is not refused `PLAN_LIMIT`; another store still is |
+| 6 | The pilot's production APK (prod profile and store file: not in the repo yet, BUILD-CHECKLIST §7) uploaded in the admin console › Stores › the store › Delivery app, minimum build set | Staff, with the pilot's owner | the store's `/app/delivery.apk` link downloads it; two riders install it |
+| 7 | Two riders invited and signed in (Settings › Riders, then the app) | The pilot's owner | both show Active, and each reaches Home |
+| 8 | The walkthrough below | Staff and the two riders | the table, every row passing, recorded on the card |
+
+**Walkthrough on production** (real riders, real data: say it is a test; refund or cancel every test order). Record each row's result, who and when on #875.
+
+| # | Check | Pass when |
+|---|---|---|
+| W1 | A cash-on-delivery order, placed on the pilot's website, then a prepaid one | both reach Own delivery at checkout and are placed |
+| W2 | Both riders go Online | the location disclosure shows once, then Online |
+| W3 | The delivery is offered | both riders get the push and see the offer |
+| W4 | One accepts | the other's offer disappears (taken) |
+| W5 | Pickup, then the handover code, then delivered | each step moves the state; the code is asked for; cash is collected on the COD one |
+| W6 | The customer's tracking page on the website | it follows the state (no map, DELIVERY §3) |
+| W7 | A test crash from the app (BUILD-CHECKLIST §5) | it appears in Crashlytics for the pilot's project |
+| W8 | The measurements are visible (the alerts below) | `dispatch_accept_seconds` and `dispatch_offers_per_delivery` have values for these deliveries |
+| W9 | Both test orders refunded or cancelled | the order pages say so |
+
+**Alerts**, set once W8 shows the numbers (what DELIVERY §3 "Measured" emits):
+- `dispatch_unassigned` rising against deliveries created.
+- `dispatch_accept_seconds` over the store's own offer minutes.
+- `push_send_failed` with code `DeviceNotRegistered` rising.
+- `dispatch_late_step` for one store.
+- Any of the log lines `dispatch_offer_failed`, `push_failed`, `push_receipts_failed`, `dispatch_sweep_failed`.
+
+Thresholds come from what W8 and the first week show; write the chosen numbers on #875 and here.
+
+**Rolling back a bad Delivery API deploy:** ROLLBACK.md "A bad Delivery API deploy".
+
 ---
 
 ## 4. The Worker's values
@@ -177,6 +219,7 @@ moment you save.
 | `STRIPE_TEST_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys |
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.ai` zone | Purges the store proxy's cached host lookups (storefront LIVE-SHOP.md §5 step 1); read since #317 with `CF_SAAS_ZONE_ID`. The buckets `storefront-sites-prod`, `storefront-assets-prod` (custom domain `sf-assets.my-store.one`, CORS `GET` from any origin, its route excluded from the Worker) and `storefront-drafts-prod` are created and bound as on dev (dev.md §2.8 item 1), with `-prod` in place of `-dev` |
 | `SHOP_DOMAIN` | Text | `my-store.one` | Every store's free addresses, `{slug}.my-store.one` and `{slug}-preview.my-store.one` (PREVIEW.md §8). Validated at boot; replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
+| `EXPO_PUSH_TOKEN` | Secret | the Expo access token | expo.dev robot user, Enhanced Security on (THIRD-PARTY-ACCESS §2.13, §8.1). Pushes to the shop and delivery apps; without it they wait in the outbox. §3.9 step 1 |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Read since #317 ("Open preview" links). The store proxy (`dripfunnel-store-proxy-prod`) gets its own `PREVIEW_SESSION_KEY`, its value only (the `SITES` and `EDGE` bindings, routes and `SHOP_DOMAIN` are in its `env.prod`, §3.5) |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
@@ -220,6 +263,7 @@ version still running (AGENTS.md "Data").
 - [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any code on prod
 - [ ] SES production access granted
 - [ ] The first super admin can sign in (§7)
+- [ ] Own delivery for the pilot store, every row of §3.9 checked and its walkthrough recorded on #875
 - [ ] A first release promoted, with `/api/health` reporting `db: "ok"` (§5)
 
 ---

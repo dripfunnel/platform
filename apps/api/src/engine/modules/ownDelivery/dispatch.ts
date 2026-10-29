@@ -5,6 +5,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
 import { DispatchRefused } from '#core/dispatch'
 import { isUuid } from '#core/ids'
+import { emitMeasurements, type Measurement } from '#core/metrics'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { selectStoreEntitlement } from '#db/scoped/entitlements'
@@ -22,7 +23,9 @@ export const dispatchAudit = {
 } as const
 export const offerKind = 'delivery.offer'
 export type Actor = Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel'>
-export interface DispatchFacts { storeId: string; partnerId: string; activity: ActivityLog; now: Date; actor?: Actor; facts?: RequestFacts; api?: ActivityEntry['api']; offeredRecorded?: boolean }
+export interface DispatchFacts { storeId: string; partnerId: string; activity: ActivityLog; now: Date; actor?: Actor; facts?: RequestFacts; api?: ActivityEntry['api']; offeredRecorded?: boolean
+  /** Where a transaction collects what it measured; its owner emits them once it has committed. */
+  measured?: Measurement[] }
 export const record = (tx: ScopedSql, f: DispatchFacts, action: string, id: string, reason: string | null = null) => f.activity.record(tx, {
   category: f.actor ? 'write' : 'system', action, result: 'success',
   ...(f.actor ?? { actorKind: 'job', actorId: null, actorLabel: null }), storeId: f.storeId, partnerId: f.partnerId,
@@ -72,13 +75,20 @@ export const createOwnDelivery = async (tx: ScopedSql, activity: ActivityLog, st
 
 const unassign = async (tx: ScopedSql, f: DispatchFacts, d: queries.DeliveryRow, reason: string) => {
   await queries.setDeliveryState(tx, d, 'unassigned', f.now)
+  f.measured?.push({ storeId: f.storeId, metric: 'dispatch_unassigned', value: 1 }, { storeId: f.storeId, metric: 'dispatch_offers_per_delivery', value: await queries.countOffers(tx, d) })
   await close(tx, f, d, 'expired')
   await record(tx, f, dispatchAudit.unassigned, d.id, reason)
   await insertOutbox(tx, { kind: 'email', partnerId: f.partnerId, storeId: f.storeId,
     idempotencyKey: `delivery-unassigned:${d.id}:${d.offer_round}`, payload: { template: 'delivery-unassigned', deliveryId: d.id } })
 }
 
-export const broadcastDelivery = (sql: postgres.Sql, f: DispatchFacts, deliveryId: string, round: number) => withSystemScope(sql, async (tx) => {
+export const broadcastDelivery = async (sql: postgres.Sql, facts: DispatchFacts, deliveryId: string, round: number): Promise<void> => {
+  const measured: Measurement[] = []
+  await withSystemScope(sql, (tx) => broadcast(tx, { ...facts, measured }, deliveryId, round))
+  emitMeasurements(measured)
+}
+
+const broadcast = async (tx: ScopedSql, f: DispatchFacts, deliveryId: string, round: number): Promise<void> => {
   const d = await queries.lockDelivery(tx, f.storeId, deliveryId)
   if (!d || d.state !== 'searching' || d.offer_round !== round) return
   const notice = await queries.dispatchNotice(tx, f.storeId, d.id)
@@ -90,17 +100,23 @@ export const broadcastDelivery = (sql: postgres.Sql, f: DispatchFacts, deliveryI
   await queries.insertOffers(tx, d, riders, f.now)
   await pushMany(tx, f, riders.map((r) => ({ riderId: r.rider_id, message: 'rider.offer', deliveryId: d.id, key: `offer:${d.id}:${round}:${r.rider_id}` })))
   if (!f.offeredRecorded) await record(tx, f, dispatchAudit.offered, d.id)
-})
+}
 
-export const sweepDispatch = (sql: postgres.Sql, activity: ActivityLog, now: Date) => withSystemScope(sql, async (tx) => {
+export const sweepDispatch = async (sql: postgres.Sql, activity: ActivityLog, now: Date): Promise<void> => {
+  const measured: Measurement[] = []
+  await withSystemScope(sql, (tx) => sweep(tx, activity, now, measured))
+  emitMeasurements(measured)
+}
+
+const sweep = async (tx: ScopedSql, activity: ActivityLog, now: Date, measured: Measurement[]): Promise<void> => {
   for (const rider of await queries.expirePositions(tx, now)) {
     await record(tx, { storeId: rider.store_id, partnerId: rider.partner_id, activity, now }, dispatchAudit.offline, rider.id, 'stale')
   }
   for (const row of await queries.dueDeliveries(tx, now)) {
     const d = await queries.lockDelivery(tx, row.store_id, row.id)
-    if (d?.state === 'searching') await unassign(tx, { storeId: row.store_id, partnerId: row.partner_id, activity, now }, d, 'timeout')
+    if (d?.state === 'searching') await unassign(tx, { storeId: row.store_id, partnerId: row.partner_id, activity, now, measured }, d, 'timeout')
   }
-})
+}
 
 export const releaseRiderDeliveries = async (tx: ScopedSql, f: DispatchFacts, riderId: string, reason: string): Promise<void> => {
   await serialise(tx, `dispatch:${f.storeId}:${riderId}`)
@@ -158,7 +174,12 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
     if (context.sellerScope.kind === 'seller' || (context.caller.kind === 'support' && context.caller.access === 'read')) throw new DispatchRefused('FORBIDDEN')
     // An accept answers the other riders' offers too, so a rider runs as the system; a person runs under its own scope (DATA-MODEL §3.6),
     // but as the system where it writes the handover code, which no request role may (migration 0364), or locks the order.
-    return riderId || system ? withSystemScope(sql, (tx) => work(tx, f())) : withScope(sql, context, (tx) => work(tx, f()))
+    const measured: Measurement[] = []
+    const done = riderId || system ? withSystemScope(sql, (tx) => work(tx, { ...f(), measured })) : withScope(sql, context, (tx) => work(tx, { ...f(), measured }))
+    return done.then((result) => {
+      emitMeasurements(measured)
+      return result
+    })
   }
   const required = async (tx: ScopedSql, id: string) => {
     const d = isUuid(id) ? await queries.lockDelivery(tx, context.storeId, id) : null
@@ -204,6 +225,8 @@ export const createDispatch = (deps: { sql: postgres.Sql; context: TenantContext
         if (!(await queries.assignRider(tx, d, riderId, f.now, false))) throw new DispatchRefused('TAKEN')
         await setHandoverCode(tx, d, sealed)
         await tellCustomer(tx, f, d, 'order.rider_assigned', `order.rider_assigned:${d.id}:${d.offer_round}`)
+        if (d.searching_at) f.measured?.push({ storeId: f.storeId, metric: 'dispatch_accept_seconds', value: Math.max(0, Math.round((f.now.getTime() - d.searching_at.getTime()) / 1000)) })
+        f.measured?.push({ storeId: f.storeId, metric: 'dispatch_offers_per_delivery', value: await queries.countOffers(tx, d) })
       }
       await queries.answerOffer(tx, context.storeId, riderId, offer.id, accept ? 'accepted' : 'declined', f.now)
       if (accept) await close(tx, f, d, 'taken')

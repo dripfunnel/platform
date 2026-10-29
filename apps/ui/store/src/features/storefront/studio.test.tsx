@@ -386,6 +386,28 @@ describe('Edit text', () => {
   })
 })
 
+describe('where Edit text sits', () => {
+  const inHeader = () => screen.getByRole('button', { name: words.edit.button }).closest('header') !== null
+  const toolbar = () => document.querySelector('.df-studio-toolbar')
+
+  it('is in the top bar on desktop, with no preview toolbar until Edit text is on, then only the hint', async () => {
+    await show()
+    expect(inHeader()).toBe(true)
+    expect(toolbar()).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.edit.button }))
+    expect(toolbar()?.textContent).toBe(words.edit.hint)
+    expect(inHeader()).toBe(true)
+  })
+
+  it('stays in the preview toolbar on a phone', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('max-width: 639px'), addEventListener: () => undefined, removeEventListener: () => undefined }))
+    await show()
+    fireEvent.click(screen.getByRole('tab', { name: words.panes.preview }))
+    expect(inHeader()).toBe(false)
+    expect(screen.getByRole('button', { name: words.edit.button }).closest('.df-studio-toolbar')).not.toBeNull()
+  })
+})
+
 describe('the studio on a phone', () => {
   it('has Chat and Preview tabs, and asks for the phone layout', async () => {
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('max-width: 639px'), addEventListener: () => undefined, removeEventListener: () => undefined }))

@@ -57,7 +57,7 @@ describe('a collection being edited', () => {
 })
 
 describe('the list', () => {
-  const c = (id: string, parentId: string | null = null): CollectionSummary => ({ id, name: id, kind: 'manual', visible: true, parentId, inheritParent: false, match: 'all', rules: [], products: 0, computedAt: null })
+  const c = (id: string, parentId: string | null = null): CollectionSummary => ({ id, name: id, kind: 'manual', visible: true, parentId, inheritParent: false, match: 'all', imageAssetId: null, rules: [], products: 0, computedAt: null })
 
   it('puts each collection under its parent, however deep, and an orphan at the top', () => {
     expect(nested([c('a'), c('b', 'a'), c('c', 'b'), c('d', 'gone'), c('e')]).map(({ c: x, depth }) => `${x.id}${depth}`)).toEqual(['a0', 'b1', 'c2', 'd0', 'e0'])

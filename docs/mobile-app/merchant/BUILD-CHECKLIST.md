@@ -6,7 +6,7 @@ right. The variables are explained in [CONFIGURATION.md](CONFIGURATION.md).
 
 **Status: proposed, not built.** The commands assume the app's setup in ARCHITECTURE.md §3.
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-28 (#878: crash reports, §1, §3, §4). Before: 2026-10-08.
 
 ---
 
@@ -23,6 +23,10 @@ Before the partner's first build:
       App Store Connect and in Play Console.
 - [ ] The partner's secrets are in EAS's credential store (CONFIGURATION.md §3), never in the
       repo.
+- [ ] **Crash reports** (optional): the partner's own Firebase project has an Android and an iOS app under the
+      bundle id and package, Crashlytics is on, and its two client files are EAS file variables
+      (`GOOGLE_SERVICES_JSON`, `GOOGLE_SERVICE_INFO_PLIST`) for the partner. Then `CRASH_REPORTING=on` goes in
+      the partner's file (CONFIGURATION.md §2, §3).
 
 ---
 
@@ -64,6 +68,8 @@ above and make a new build: the stores read those before the app runs.
        requirements (REACT-NATIVE.md §3). Before a partner's first submission, re-check the
        guideline text in BUILDS-AND-STORE-ACCOUNTS.md §3.
 7. [ ] **After an Expo SDK change**: the `Intl` check on Hermes has passed (REACT-NATIVE.md §6).
+8. [ ] **Crash reports**: for a partner with `CRASH_REPORTING=on`, `expo config` shows both `googleServicesFile` paths and
+       `extra.crashReporting`, and fails if a Firebase file is missing. A partner without it shows neither.
 
 ---
 
@@ -78,6 +84,10 @@ Build a preview with the partner's profile and install it on one iPhone and one 
 - [ ] Help opens the partner's help centre; "Best on the web" opens the partner's portal in the
       browser (DESIGN.md §5).
 - [ ] Money, dates and counts are formatted in the store's settings.
+- [ ] **Crash reports** (a partner with `CRASH_REPORTING=on`): the build links with the other native modules (the Firebase
+      Apple SDK makes its pods dynamic frameworks, `ios.useFrameworks`, which is **not yet proven on a device**). A forced
+      crash on each phone appears in the partner's Crashlytics with only the person's opaque user id and the acting
+      store id, no name, email or message text. A `dev` build reports nothing.
 
 ---
 

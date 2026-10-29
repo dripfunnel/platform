@@ -25,6 +25,7 @@
     "schema": "tsx --env-file-if-exists=.env.local scripts/print-schema.ts",
     "migrate": "tsx --env-file-if-exists=.env.local scripts/migrate/main.ts",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed/main.ts",
+    "load:delivery": "tsx --env-file-if-exists=.env.local scripts/load/delivery.ts",
     "seed:live-shop": "tsx --env-file-if-exists=.env.local scripts/local/seed-live-shop.ts",
     "seed:templates": "tsx --env-file-if-exists=.env.local scripts/local/seed-templates.ts",
     "dev-env:attach": "tsx --env-file-if-exists=.env.local scripts/dev-env/main.ts",

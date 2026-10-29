@@ -72,6 +72,9 @@ describe('resolveArea', () => {
     expect(throughEdge('https://kesari.my-store.one/delivery-api')).toBe('delivery')
     expect(throughEdge('https://kesari.my-store.one/delivery-api/')).toBe('delivery')
     expect(throughEdge('https://kesari.my-store.one/delivery-apix')).toBeUndefined()
+    expect(throughEdge('https://kesari.my-store.one/app/delivery.apk')).toBe('delivery')
+    expect(throughEdge('https://kesari.my-store.one/app/delivery.apk/x')).toBeUndefined()
+    expect(throughEdge('https://kesari-preview.my-store.one/app/delivery.apk')).toBeUndefined()
     // Never a preview host, a merchant's own domain, a deeper name, our hosts or the other entries.
     expect(throughEdge('https://kesari-preview.my-store.one/delivery-api/')).toBeUndefined()
     expect(throughEdge('https://www.kesari.com/delivery-api/')).toBeUndefined()

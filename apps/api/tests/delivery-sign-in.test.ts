@@ -435,8 +435,8 @@ describe('the rider’s phones for push (DELIVERY §4, §6)', () => {
   })
 })
 
-describe('deleting the account (DELIVERY §5, as removal)', () => {
-  it('signs the rider out everywhere, erases phone and photo, keeps the name, and frees the number', async () => {
+describe('deleting the account (DELIVERY §5, as the Owner’s erasure)', () => {
+  it('signs the rider out everywhere, erases phone, photo and name, and frees the number', async () => {
     const token = await signedIn(sunil)
     const other = await signedIn(sunil)
     const id = (await riderRow(sunil))?.id ?? ''
@@ -447,13 +447,15 @@ describe('deleting the account (DELIVERY §5, as removal)', () => {
     expect(keys.length).toBeGreaterThanOrEqual(2)
     expect((await delivery('mutation { deleteMyAccount }', { token })).data).toEqual({ deleteMyAccount: true })
     expect(await riderRow(null, id)).toMatchObject({ status: 'removed', phone: null, photo_asset_id: null })
+    expect(await db.sql`select name from rider where id = ${id}`).toEqual([{ name: 'Former rider' }])
+    expect(await db.sql`select 1 from rider_session where rider_id = ${id}`).toHaveLength(0)
     // Every photo the rider uploaded goes, the replaced one too: rows and files (DELIVERY §5).
     expect(await db.sql`select 1 from asset where id in (${replaced}, ${current}) or created_by = ${id}`).toHaveLength(0)
     expect(deletedKeys).toEqual(expect.arrayContaining(keys))
     for (const key of keys) expect(bucket.has(key)).toBe(false)
     expect(await me(other)).toBeNull()
     const [entry] = await db.sql<{ actor_kind: string; actor_id: string; target_label: string }[]>`select actor_kind, actor_id, target_label from activity_log where action = 'rider.account_deleted'`
-    expect(entry).toEqual({ actor_kind: 'rider', actor_id: id, target_label: 'Sunil D.' })
+    expect(entry).toEqual({ actor_kind: 'rider', actor_id: id, target_label: 'Former rider' })
     expect(JSON.stringify(await db.sql`select * from activity_log where target_type = 'rider'`)).not.toContain(sunil)
     await invite('owner', 'Sunil D.', sunil)
   })

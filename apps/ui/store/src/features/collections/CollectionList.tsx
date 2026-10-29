@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import type { CollectionSummary } from '../../api/collections'
 import type { Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { AssetImage } from '../common/AssetImage'
 import { nested, rowsOf, sentenceOf } from './collectionDraft'
 import type { SeasonKey } from './seasonal'
 
@@ -76,7 +77,7 @@ export const CollectionList = ({ collections, facets, canEdit, seasonal, giftPri
               <li key={c.id}>
                 <Link to="/collections" search={{ edit: c.id }} className="df-colls-row" aria-label={fill(words.list.open, { name: c.name })}>
                   <span className="df-colls-name" style={{ '--df-colls-depth': depth } as CSSProperties}>
-                    <span className="df-colls-thumb" aria-hidden="true" />
+                    {c.imageAssetId ? <AssetImage url={`/api/assets/${c.imageAssetId}`} alt="" className="df-colls-thumb" placeholder="" /> : <span className="df-colls-thumb" aria-hidden="true" />}
                     <span>
                       <strong>{c.name}</strong>
                       <span>{subOf(c, collections, facets)}</span>

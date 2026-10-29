@@ -2,8 +2,9 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, initials, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useRef, useState } from 'react'
 import type { PageOf } from '../../api/allPages'
-import { inviteRider, loadRiders, removeRider, restoreRider, resendRiderInvitation, suspendRider, type Rider, type RiderStatus } from '../../api/riders'
+import { eraseRider, inviteRider, loadRiders, removeRider, requestRiderExport, restoreRider, resendRiderInvitation, suspendRider, type Rider, type RiderStatus } from '../../api/riders'
 import { fill, formatCount, messages } from '../../messages'
+import { startListExport } from '../common/listExport'
 import { refusalIn } from '../common/refusal'
 import '../common/teamRow.css'
 import { isMobile, toE164 } from './riderPhone'
@@ -33,7 +34,7 @@ export interface RidersTabProps {
   onChanged: (toast: string) => void
 }
 
-/** SetRiders: the Owner's own delivery people, with invite, resend, suspend, restore and remove (#844). */
+/** SetRiders: the Owner's own delivery people, with invite, resend, suspend, restore, remove (#844), export and erase (#874). */
 export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
   const [page, setPage] = useState(first)
   const [more, setMore] = useState<'idle' | 'busy' | 'failed'>('idle')
@@ -118,12 +119,32 @@ export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
       }),
   })
 
+  /** The reason is kept in the activity log with the erasure. */
+  const eraseAsk = (rider: Rider): Ask => ({
+    title: fill(words.eraseTitle, { name: rider.name }),
+    target: rider.name,
+    consequence: words.eraseBody,
+    confirmLabel: words.eraseConfirm,
+    danger: true,
+    input: { label: words.eraseReason, type: 'text', initial: '', placeholder: words.eraseReasonPlaceholder, error: (v) => (v.trim() === '' ? words.eraseReasonMissing : null) },
+    onConfirm: (_, value) =>
+      void run(async () => {
+        await eraseRider(rider.id, (value ?? '').trim())
+        return fill(words.erased, { name: rider.name })
+      }),
+  })
+
   const manage = (rider: Rider): Ask => {
     const sub = [words.statuses[rider.status], rider.phone].filter(Boolean).join(' · ')
     const options =
       rider.status === 'invited'
         ? [{ value: 'resend', label: words.resend }, { value: 'remove', label: words.cancelInvitation }]
-        : [rider.status === 'suspended' ? { value: 'restore', label: words.restore } : { value: 'suspend', label: words.suspend }, { value: 'remove', label: words.remove }]
+        : [
+            rider.status === 'suspended' ? { value: 'restore', label: words.restore } : { value: 'suspend', label: words.suspend },
+            { value: 'remove', label: words.remove },
+            { value: 'export', label: words.exportData },
+            { value: 'erase', label: words.erase },
+          ]
     return {
       title: rider.name,
       target: sub,
@@ -134,6 +155,8 @@ export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
         const what = picks['what']
         if (what === 'resend') return void run(async () => (await resendRiderInvitation(rider.id), fill(words.resent, { name: rider.name })))
         if (what === 'restore') return void run(async () => (await restoreRider(rider.id), fill(words.restored, { name: rider.name })))
+        if (what === 'export') return void run(async () => (await startListExport('riders', requestRiderExport(rider.id)), words.exportStarted))
+        if (what === 'erase') return setAsk(eraseAsk(rider))
         setAsk(confirmed(rider, what === 'suspend' ? 'suspend' : 'remove'))
       },
     }

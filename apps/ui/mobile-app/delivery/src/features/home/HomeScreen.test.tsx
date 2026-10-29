@@ -8,9 +8,14 @@ jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react')
   return { useRouter: () => ({ push: jest.fn(), navigate: jest.fn() }), useFocusEffect: (effect: () => void) => useEffect(effect, []) }
 })
+jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 jest.mock('expo-location', () => ({ getForegroundPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }) }))
 const mockGoOffline = jest.fn()
-jest.mock('../../location/online', () => ({ goOnline: jest.fn(), goOffline: (...args: unknown[]) => mockGoOffline(...args) }))
+const mockGoOnline = jest.fn()
+jest.mock('../../location/online', () => ({ goOnline: (...args: unknown[]) => mockGoOnline(...args), goOffline: (...args: unknown[]) => mockGoOffline(...args) }))
+const mockAccepted = jest.fn()
+const mockAccept = jest.fn()
+jest.mock('../../location/disclosure', () => ({ disclosureAccepted: () => mockAccepted(), acceptDisclosure: (...args: unknown[]) => mockAccept(...args) }))
 jest.mock('../../push/PushContext', () => ({ usePush: () => ({ refresh: 0, ended: null, dismissEnded: jest.fn() }) }))
 jest.mock('../../push/push', () => ({ pushPermission: jest.fn().mockResolvedValue('granted') }))
 const mockDismiss = jest.fn()
@@ -47,6 +52,9 @@ beforeEach(() => {
   mockTracking.mockResolvedValue(true)
   mockGoOffline.mockResolvedValue(undefined)
   mockRetime.mockResolvedValue(undefined)
+  mockAccepted.mockResolvedValue(true)
+  mockAccept.mockResolvedValue(undefined)
+  mockGoOnline.mockResolvedValue('online')
   current = []
   mockPending = noPending
   onAccept = () => ({ acceptOffer: true })
@@ -147,6 +155,55 @@ describe('Home: going offline', () => {
     const screen = await render(<HomeScreen />, fakeSession(answer))
     await press(screen, t('online.switch'))
     expect(mockGoOffline).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Home: the location disclosure', () => {
+  const title = t('online.disclosure.title', { name: t('online.disclosure.thisApp') })
+  const offline = async () => {
+    mockTracking.mockResolvedValue(false)
+    return render(<HomeScreen />, fakeSession(answer))
+  }
+
+  it('is shown before location is asked for, which happens only once the rider continues', async () => {
+    mockAccepted.mockResolvedValue(false)
+    const screen = await offline()
+    await press(screen, t('online.switch'))
+    expect(hasText(screen, title)).toBe(true)
+    expect(hasText(screen, t('online.disclosure.whatTitle'))).toBe(true)
+    expect(mockGoOnline).not.toHaveBeenCalled()
+
+    await press(screen, t('online.disclosure.continue'))
+    expect(mockAccept).toHaveBeenCalledTimes(1)
+    expect(mockGoOnline).toHaveBeenCalledTimes(1)
+    expect(mockAccept.mock.invocationCallOrder[0]).toBeLessThan(mockGoOnline.mock.invocationCallOrder[0] ?? 0)
+    expect(hasText(screen, title)).toBe(false)
+  })
+
+  it('leaves the rider offline, and asks for nothing, on Not now', async () => {
+    mockAccepted.mockResolvedValue(false)
+    const screen = await offline()
+    await press(screen, t('online.switch'))
+    await press(screen, t('online.disclosure.notNow'))
+    expect(mockAccept).not.toHaveBeenCalled()
+    expect(mockGoOnline).not.toHaveBeenCalled()
+    expect(hasText(screen, title)).toBe(false)
+    expect(hasText(screen, t('online.off'))).toBe(true)
+  })
+
+  it('says what is collected, why, and that no trail is kept', async () => {
+    mockAccepted.mockResolvedValue(false)
+    const screen = await offline()
+    await press(screen, t('online.switch'))
+    for (const point of ['what', 'why', 'noTrail'] as const) expect(hasText(screen, t(`online.disclosure.${point}`, { name: t('online.disclosure.thisApp') }))).toBe(true)
+    expect(hasText(screen, t('online.disclosure.offlineNote'))).toBe(true)
+  })
+
+  it('is not shown again once the rider has accepted it', async () => {
+    const screen = await offline()
+    await press(screen, t('online.switch'))
+    expect(hasText(screen, title)).toBe(false)
+    expect(mockGoOnline).toHaveBeenCalledTimes(1)
   })
 })
 

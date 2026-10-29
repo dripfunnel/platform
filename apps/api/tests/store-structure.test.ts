@@ -387,7 +387,13 @@ describe('collections', () => {
       return (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${key}, ${kind}, ${kind === 'image' ? 'image/png' : 'video/mp4'}, 1, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
     }
     const mine = await file(t.storeA1, 'image')
-    expect((await save({ name: 'Pictured', kind: 'manual', imageAssetId: mine })).code).toBeUndefined()
+    const pictured = await save({ name: 'Pictured', kind: 'manual', imageAssetId: mine })
+    expect(pictured.code).toBeUndefined()
+    // The list carries it too, for each row's thumbnail.
+    const listed = ((await gql('{ collections(first: 50) { nodes { id imageAssetId } } }', 'owner')).data?.['collections'] as { nodes: { id: string; imageAssetId: string | null }[] }).nodes
+    expect(listed.find((c) => c.id === pictured.saved?.id)?.imageAssetId).toBe(mine)
+    expect((await save({ name: 'Pictured', kind: 'manual', imageAssetId: null }, pictured.saved?.id, pictured.saved?.revision)).code).toBeUndefined()
+    expect((await gql('{ collections(first: 50) { nodes { id imageAssetId } } }', 'owner')).data?.['collections']).toMatchObject({ nodes: expect.arrayContaining([{ id: pictured.saved?.id, imageAssetId: null }]) })
     for (const imageAssetId of [await file(t.storeB1, 'image'), await file(t.storeA1, 'video'), '00000000-0000-4000-8000-0000000000ee']) {
       expect((await save({ name: 'Wrong picture', kind: 'manual', imageAssetId })).code).toBe('INVALID_INPUT')
     }

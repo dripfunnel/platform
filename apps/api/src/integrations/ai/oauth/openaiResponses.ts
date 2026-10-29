@@ -5,13 +5,19 @@ import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type 
 const endpoint = 'https://chatgpt.com/backend-api/codex'
 const timeoutMs = 120_000
 
+const instructionsOf = (request: ChatRequest): string => {
+  const given = typeof request.system === 'string' ? [request.system] : (request.system ?? []).map((block) => block.text)
+  return [...given, ...request.messages.filter((m) => m.role === 'system').map((m) => m.content)].filter((text) => text !== '').join('\n')
+}
+
 /** `temperature` and every provider option are refused, never dropped: the route omits them and a caller must hear that. */
 const bodyOf = (request: ChatRequest): string => {
+  const instructions = instructionsOf(request)
   if (request.temperature !== undefined || (request.options && Object.keys(request.options).length > 0)) throw new GatewayError('BAD_REQUEST')
   return JSON.stringify({
     model: request.model,
-    ...(request.system ? { instructions: request.system } : {}),
-    input: request.messages.map((m) => ({ role: m.role, content: [{ type: m.role === 'user' ? 'input_text' : 'output_text', text: m.content }] })),
+    ...(instructions !== '' ? { instructions } : {}),
+    input: request.messages.flatMap((m) => (m.role === 'system' ? [] : [{ role: m.role, content: [{ type: m.role === 'user' ? 'input_text' : 'output_text', text: m.content }] }])),
     store: false,
     stream: true,
   })

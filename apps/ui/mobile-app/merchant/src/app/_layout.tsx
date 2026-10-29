@@ -4,6 +4,8 @@ import { Stack } from 'expo-router'
 import type { ReactNode } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { BrandProvider } from '../brand/BrandProvider'
+import { CrashBoundary } from '../crash/CrashBoundary'
+import { CrashEffects } from '../crash/CrashEffects'
 import { FeedbackProvider } from '../features/shell/Feedback'
 import { ShellDataProvider } from '../features/shell/ShellData'
 import { t } from '../messages'
@@ -54,8 +56,11 @@ export default function RootLayout() {
     <BrandProvider>
       <StatusBar style="auto" />
       <SessionProvider>
+        <CrashEffects />
         <InShell>
-          <Routes />
+          <CrashBoundary>
+            <Routes />
+          </CrashBoundary>
         </InShell>
       </SessionProvider>
     </BrandProvider>

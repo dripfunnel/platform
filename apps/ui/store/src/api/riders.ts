@@ -1,3 +1,4 @@
+import { exportJobFields, exportJobSchema, readExportJob, type ExportJob } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import type { PageOf } from './allPages'
 import { query } from './client'
@@ -52,6 +53,20 @@ export const restoreRider = async (id: string): Promise<void> => {
 /** The row stays for past deliveries; the phone is erased. Refused RIDER_HAS_PARCEL like suspend. */
 export const removeRider = async (id: string): Promise<void> => {
   await query('mutation R($id: ID!) { removeRider(id: $id) }', z.object({ removeRider: z.boolean() }), { id })
+}
+
+/** Removal, then their name, photo, number, sessions, devices and position are gone; refused RIDER_HAS_PARCEL like suspend. */
+export const eraseRider = async (id: string, reason: string): Promise<void> => {
+  await query('mutation E($id: ID!, $reason: String!) { eraseRider(id: $id, reason: $reason) }', z.object({ eraseRider: z.boolean() }), { id, reason })
+}
+
+export const loadRiderExport = async (id: string): Promise<ExportJob | null> =>
+  readExportJob((await query(`query E($id: ID!) { riderExport(id: $id) { ${exportJobFields} } }`, z.object({ riderExport: exportJobSchema.nullable() }), { id })).riderExport)
+
+/** One rider's data as a job the shell's watcher follows. */
+export const requestRiderExport = async (id: string): Promise<ExportJob> => {
+  const { exportRider: job } = await query('mutation E($id: ID!) { exportRider(id: $id) }', z.object({ exportRider: z.string() }), { id })
+  return { id: job, state: 'preparing', entries: null, url: null, expiresAt: null }
 }
 
 const planSchema = z.object({

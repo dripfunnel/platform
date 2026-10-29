@@ -3,7 +3,7 @@
 export const gatewayProviders = ['anthropic', 'openai'] as const
 export type GatewayProvider = (typeof gatewayProviders)[number]
 
-export type ChatRole = 'user' | 'assistant'
+export type ChatRole = 'system' | 'user' | 'assistant'
 export interface ChatMessage {
   role: ChatRole
   content: string
@@ -12,7 +12,7 @@ export interface ChatMessage {
 export interface ChatRequest {
   model: string
   /** Anthropic takes it apart from the messages, OpenAI as a first message; the adapters do each. */
-  system?: string
+  system?: string | { type: 'text'; text: string }[]
   messages: readonly ChatMessage[]
   temperature?: number
   maxTokens: number

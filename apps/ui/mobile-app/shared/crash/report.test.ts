@@ -1,12 +1,12 @@
-import { ApiError } from '@dripfunnel/mobile-shared/graphql'
-import { reportError, setReportingUser, startReporting } from './report'
+import { ApiError } from '../graphql'
+import { reportError, setReportingStore, setReportingUser, startReporting } from './report'
 
-// The reporting wrapper (card #876), with Firebase stood in for: what it sends, and that a build without the files sends nothing.
+// The reporting wrapper (cards #876 and #878), with Firebase stood in for: what it sends, and that a build without the files sends nothing.
 
 const mockSetup = { on: true }
 jest.mock('./config', () => ({ crashReportingIsSetUp: () => mockSetup.on }))
 
-const mockSent = { enabled: [] as boolean[], errors: [] as Error[], users: [] as string[] }
+const mockSent = { enabled: [] as boolean[], errors: [] as Error[], users: [] as string[], attributes: [] as [string, string][] }
 const mockOrder: string[] = []
 type MockTracking = { allRejections?: boolean; onUnhandled?: (id: number, error: unknown) => void }
 const mockTracking: { options: MockTracking | null } = { options: null }
@@ -16,6 +16,7 @@ jest.mock('./sdk', () => ({
     setCrashlyticsCollectionEnabled: async (_: unknown, on: boolean) => void mockSent.enabled.push(on),
     recordError: (_: unknown, error: Error) => void mockSent.errors.push(error),
     setUserId: async (_: unknown, id: string) => void mockSent.users.push(id),
+    setAttribute: async (_: unknown, name: string, value: string) => void mockSent.attributes.push([name, value]),
   }),
   loadRejectionTracking: () => ({
     enable: (options: MockTracking) => {
@@ -29,7 +30,7 @@ type Handler = (error: unknown, fatal?: boolean) => void
 let handler: Handler = () => undefined
 const chained: Error[] = []
 beforeEach(() => {
-  mockSent.enabled.length = mockSent.errors.length = mockSent.users.length = chained.length = mockOrder.length = 0
+  mockSent.enabled.length = mockSent.errors.length = mockSent.users.length = mockSent.attributes.length = chained.length = mockOrder.length = 0
   mockTracking.options = null
   mockSetup.on = true
   handler = (error) => void chained.push(error as Error)
@@ -41,7 +42,7 @@ const startFresh = (): typeof ApiError => {
   let Refusal: typeof ApiError = ApiError
   jest.isolateModules(() => {
     /* eslint-disable @typescript-eslint/no-require-imports -- one registry of its own, with the mocks above */
-    Refusal = (require('@dripfunnel/mobile-shared/graphql') as typeof import('@dripfunnel/mobile-shared/graphql')).ApiError
+    Refusal = (require('../graphql') as typeof import('@dripfunnel/mobile-shared/graphql')).ApiError
     ;(require('./report') as typeof import('./report')).startReporting()
     /* eslint-enable @typescript-eslint/no-require-imports */
   })
@@ -54,7 +55,8 @@ describe('crash reports', () => {
     startReporting()
     reportError(new Error('boom'))
     setReportingUser('c-1')
-    expect(mockSent).toEqual({ enabled: [], errors: [], users: [] })
+    setReportingStore('s-1')
+    expect(mockSent).toEqual({ enabled: [], errors: [], users: [], attributes: [] })
   })
 
   it('switch collection on once, and clean an uncaught error before Crashlytics’ own handler records it', () => {
@@ -90,7 +92,16 @@ describe('crash reports', () => {
     expect(mockSent.errors.map((e) => e.message)).toEqual(['NO_RESPONSE', 'RangeError'])
   })
 
-  it('know the customer by an opaque id when signed in, and by none as a guest', () => {
+  it('know the acting store by its opaque id as the one custom key, and by none when no store is acting', () => {
+    setReportingStore('store-7a1')
+    setReportingStore(null)
+    expect(mockSent.attributes).toEqual([
+      ['storeId', 'store-7a1'],
+      ['storeId', ''],
+    ])
+  })
+
+  it('know the person by an opaque id when signed in, and by none when not', () => {
     setReportingUser('c-9f2')
     setReportingUser(null)
     expect(mockSent.users).toEqual(['c-9f2', ''])

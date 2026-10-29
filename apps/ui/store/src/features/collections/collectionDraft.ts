@@ -22,12 +22,13 @@ export interface CollectionDraft {
   parentId: string | null
   inheritParent: boolean
   visible: boolean
+  imageAssetId: string | null
   rows: RuleRow[]
   /** Rules this screen doesn't draw (a product, a version, a price range): kept as they are on save. */
   others: CollectionRule[]
   productIds: string[]
-  /** What this screen doesn't draw (its image, sort, SEO): sent back as loaded, so a save never clears it. Null when new. */
-  kept: Pick<Collection, 'imageAssetId' | 'sort' | 'seoTitle' | 'seoDescription'> | null
+  /** What this screen doesn't draw (its sort, SEO): sent back as loaded, so a save never clears it. Null when new. */
+  kept: Pick<Collection, 'sort' | 'seoTitle' | 'seoDescription'> | null
 }
 
 let rowKey = 0
@@ -46,6 +47,7 @@ export const blankDraft = (facets: readonly Facet[]): CollectionDraft => ({
   parentId: null,
   inheritParent: false,
   visible: true,
+  imageAssetId: null,
   rows: [newRow(facets.find((f) => f.shopperVisible)?.id ?? nameField)],
   others: [],
   productIds: [],
@@ -83,10 +85,11 @@ export const draftOf = (c: Collection, facets: readonly Facet[], productIds: rea
     parentId: c.parentId,
     inheritParent: c.inheritParent,
     visible: c.visible,
+    imageAssetId: c.imageAssetId,
     rows: rows.length > 0 || others.length > 0 ? rows : [newRow(facets.find((f) => f.shopperVisible)?.id ?? nameField)],
     others,
     productIds: [...productIds],
-    kept: { imageAssetId: c.imageAssetId, sort: c.sort, seoTitle: c.seoTitle, seoDescription: c.seoDescription },
+    kept: { sort: c.sort, seoTitle: c.seoTitle, seoDescription: c.seoDescription },
   }
 }
 

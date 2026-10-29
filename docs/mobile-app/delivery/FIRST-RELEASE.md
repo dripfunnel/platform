@@ -16,7 +16,7 @@ Last updated: 2026-10-22 (the handover code; Delivered and Not delivered kept wi
 | Decision | Rejected | Why |
 |---|---|---|
 | **A separate app, one per store, in the store's brand** (decided 2026-10-22) | A rider mode in the merchant app; one delivery app per partner | The merchant gives it to its own people (../README.md §2). |
-| **Android first, installable as an APK** from a link in the invitation text, with no app store needed (decided 2026-10-22; ../README.md §2). The APK is kept in R2 under the store; an over-the-air update (EAS Update) reaches it like any build, and a build too old for the API is told to download the new APK *(proposed)* | Google Play or the App Store first | Own delivery can start the day the merchant invites its riders. |
+| **Android first, installable as an APK** from a link in the invitation text, with no app store needed (decided 2026-10-22; ../README.md §2). The APK is kept in R2 under the store; an over-the-air update (EAS Update) reaches it like any build, and a build below the store's minimum build is told to download the new APK (**Update required**, built on #852; BUILD-CHECKLIST.md) | Google Play or the App Store first | Own delivery can start the day the merchant invites its riders. |
 | **Riders sign in with their mobile number and a texted code**; the merchant's invitation is matched by the number (api/DELIVERY.md §5) | Email and password; an invitation link | Riders have a phone, not necessarily an email, and a link needs the app installed first. |
 | **No earnings or pay in the app**: delivery counts only (decided 2026-10-22) | Per-delivery pay set by the merchant, with earnings and payout summaries | Riders are the merchant's own people, paid outside the platform. |
 | **Location in the background only while Online** *(proposed)* | Location whenever the app runs | Dispatch and tracking need it only then (api/DELIVERY.md §3, §7), and both stores ask apps to justify background location. Going Offline stops it and deletes the position. |
@@ -37,7 +37,10 @@ Last updated: 2026-10-22 (the handover code; Delivered and Not delivered kept wi
 
 **Permissions the app asks for, and when:** notifications at first sign-in; location "while using"
 when first going Online, then "always" (iOS) or a foreground service with its notification
-(Android), with the store's reason in words.
+(Android), with the store's reason in words. **Before that first request a full-screen disclosure** (built on #874; Google Play's
+prominent disclosure, Apple 5.1.1) says in the store's name what is collected (the position, only while Online, even with the app
+closed), why (offers near the warehouse, the customer's tracking) and that no trail is kept; Continue goes on to the permission,
+Not now leaves the rider Offline, and it comes again next time until they continue.
 
 ---
 

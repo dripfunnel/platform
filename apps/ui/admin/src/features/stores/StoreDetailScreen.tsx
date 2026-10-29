@@ -13,6 +13,7 @@ import { RouteError } from '../common/RouteError'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
 import { jobFailureWords, useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
+import { canChangeDeliveryApp } from './deliveryAppRoles'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
 import { phoneAction, PhoneStore } from './PhoneStore'
@@ -137,6 +138,8 @@ export const StoreDetailScreen = () => {
           onFilterChange: (filter) => void navigate({ to: '.', search: { tab, ...filter }, replace: true }),
         }}
         onReload={() => void router.invalidate()}
+        canChangeDeliveryApp={canChangeDeliveryApp(me.role)}
+        onToast={setToast}
         activity={
           store && (
             <ActivityTab

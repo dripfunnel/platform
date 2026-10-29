@@ -14,9 +14,10 @@ delivery areas and the checkout option (§2, §8; #841); dispatch: delivery crea
 accept and decline, assignment by hand, cancellation before pickup, online state, positions and the minute sweep
 (§3, §4, §8; #842); carrying it: pickup as a `local` shipment, the handover code, Delivered and Not delivered sent
 late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the portal's Settings › Riders (§5, §8; #844); the customer's
-side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858).
+side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858); the whole journey
+as a test and the load check (§10; #873).
 
-Last updated: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
+Last updated: 2026-10-29 (#874: export and erase of a rider, the location disclosure, §5, §7, §10). Before: 2026-10-29 (#873: the journey test and the load check, §10). Before: 2026-10-29 (#872: what dispatch measures, §3). Before: 2026-10-28 (#852: the APK download and the Delivery API's `minimumBuild`, §4, §5). Before: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
 events, §3, §4, §6, §8). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
@@ -220,6 +221,23 @@ Closed offers receive a silent taken update. Manual assignment and cancellation 
 A person with orders.read (a member, or staff impersonating one) sees the rider's phone on the order; a support session, an API key and an app grant get the
 rider's name and vehicle only (decided 2026-10-26 on #920, replacing #842's decision 6).
 
+**Measured** (built on #872; decided 2026-10-29). Dispatch is measured where it happens, one technical log line each (`event: "metric"`,
+LOGGING §9) on Workers Logs and Logpush, tagged with the store id and nothing else: never a rider, a customer, a delivery or a partner.
+A measurement is collected inside the transaction and written once it has committed, so a rolled-back step counts nothing.
+
+| `metric` | `value` | When |
+|---|---|---|
+| `dispatch_accept_seconds` | Seconds from the delivery entering `searching` to a rider accepting | One per accepted delivery |
+| `dispatch_unassigned` | 1 | Each time a delivery reaches `unassigned` (timeout or no riders; a re-offered one can reach it again) |
+| `dispatch_offers_per_delivery` | Offers made for the delivery, over all its rounds | When it is accepted, and when it reaches `unassigned` |
+| `push_send_failed` (with `code`) | 1 | Each send Expo refused, by its error code: at the ticket, or at the receipt once its last pass reads it (a pass that asks again counts nothing). Every push of the store counts, not only dispatch's |
+| `dispatch_late_step` | 1 | A Delivered or Not delivered kept more than 2 minutes after its `at`, including the unconfirmed code (Delivered without signal, above); a resend under the same key counts nothing |
+
+Every dispatch failure is a line with an error code, never a message: `dispatch_offer_failed` (the offer job), `push_failed` and
+`push_receipts_failed` (a send or a receipt read that failed outright, then retried by the relay) and `dispatch_sweep_failed` (the timeout sweep).
+What to alert on belongs to DL 19: `dispatch_unassigned` rising against deliveries created, `dispatch_accept_seconds` over the store's offer minutes,
+`push_send_failed` with `DeviceNotRegistered` rising (phones the app no longer reaches), and `dispatch_late_step` for one store.
+
 ---
 
 ## 4. The Delivery API
@@ -229,7 +247,8 @@ code in `src/apis/delivery`. Store-proxy's `StorefrontEdge` passes `/delivery-ap
 does `/shop-api/*`. It answers only on the store's `{slug}.<SHOP_DOMAIN>` host: never on a
 preview host, a merchant's own domain or any of our hosts, and every other API answers 404 on
 it (ARCHITECTURE §2). The caller is the rider's bearer token; there is no cookie, so no `Origin`
-check.
+check. Its one plain route is `GET /app/delivery.apk` (§5), passed on the same way. The public query
+`minimumBuild: Int` answers the build below which the app says "Update required", null when staff set none (#852).
 
 | Operation | Does |
 |---|---|
@@ -312,8 +331,17 @@ dispatch is built on #842 (DL 5); pickup, proof and completion on #843 (DL 6), b
   merchant app. The rider gets a text through the outbox, sent through the
   partner's SMS account (MSG91 or Twilio) like every code, with the store's name and the store's
   delivery app link (the fixed message `rider.invited`, in English, THIRD-PARTY-ACCESS §4). Until the
-  app links exist (DL 15, #852) the link is `https://{slug}.{SHOP_DOMAIN}/app/delivery.apk`, made only
-  by `deliveryAppLink`; without a shop domain the invitation is refused `UNAVAILABLE`. A number
+  link is `https://{slug}.{SHOP_DOMAIN}/app/delivery.apk`, made only by `deliveryAppLink`; without a shop
+  domain the invitation is refused `UNAVAILABLE`. That address streams the store's newest APK from R2 (public,
+  `GET` only, `no-store`, `nosniff`) on the store's free address only, and answers 404 for a store with no app or one
+  that isn't delivering (built on #852, second part). **The APK itself** (built on #852,
+  first part; DATA-MODEL §3.8) is uploaded by staff with `stores.deliveryApp.write` (Super admin, Engineer on call), plain
+  HTTP on the Admin API because a GraphQL mutation can't carry a file: `POST /api/stores/{id}/delivery-app` with the file as
+  the body, `versionName` and `buildNumber` in the query and the reason in `x-reason`, percent-encoded when `x-reason-encoding: uri` says so, never in the URL (at most 100 MB, a ZIP, a build above
+  the live one), `POST /api/stores/{id}/delivery-app/minimum-build` with `{ minimumBuild, reason }` (null removes it, never
+  above the build uploaded) and `GET` for the newest version. Each write is in the activity log with its reason; a refusal
+  is `FORBIDDEN`, `NOT_FOUND`, `INVALID_INPUT`, `TOO_LARGE`, `NOT_AN_APK`, `BUILD_NOT_NEWER`, `NO_APP`,
+  `MINIMUM_ABOVE_BUILD` or `UNAVAILABLE`. A number
   already among the store's riders is refused `PHONE_TAKEN`; a removed rider's number is free again.
   `resendRiderInvitation` texts an invited rider again while the plan has own delivery: at most 3
   texts in 24 hours, the invitation included (counted from the activity log), then `RATE_LIMITED`.
@@ -328,13 +356,18 @@ dispatch is built on #842 (DL 5); pickup, proof and completion on #843 (DL 6), b
   is handed back to the other riders; refused `RIDER_HAS_PARCEL` while they carry a `picked_up` one,
   which the merchant recalls first) or **remove** (the same rules; the row
   stays, so past deliveries keep their rider; the phone is erased, AGENTS.md "Data").
-- **Export and erase** *(proposed, built on #874)*: the Owner can export one rider's data (profile,
-  deliveries with dates, states, warehouse and the customer's area name only, sign-in times) as an
-  export job, and **erase** a rider: removal, then "Former rider" in place of their name in past
-  deliveries and the activity log's labels (LOGGING §8), with their sessions, devices and position
-  deleted. A rider's own Delete my account does the same, under the same rules as suspension:
-  their `assigned` deliveries are handed back, and it is refused `RIDER_HAS_PARCEL` while they
-  carry a `picked_up` one, so a parcel in transit always keeps its rider.
+- **Export and erase** (built on #874, migration 0372): a rider's data is the store's, and only the Owner (`riders.manage`,
+  never a support session) reaches it. **`exportRider(id)`** makes one of the store's export jobs (`catalog_export` kind `rider`,
+  DATA-MODEL §3.6), read back by `riderExport(id)` for an hour: a CSV of the rider's profile, their deliveries (dates, state,
+  location, the customer's **area name only**, cash collected yes or no) and their sign-in times, never a customer's name,
+  address or phone (cut at 10,000 rows of each list); it is logged as `rider.data_exported`. **`eraseRider(id, reason)`**
+  (`rider.erased`, with the reason) is removal and then everything that names or reaches them: the name becomes
+  "Former rider" on the rider's row, which past deliveries keep, and in the log's `target_label` and `actor_label` entries
+  that name them (the one function that may change those two columns, LOGGING §8); the number, photo (the rows, and the files
+  once the erasure has committed), vehicle, sessions, devices, position, sign-in codes, earlier exports, and queued texts and
+  pushes that name them are deleted or emptied. It works on a rider already removed. A rider's own **Delete my account** is the
+  same erasure, under the same rules as suspension: their `assigned` deliveries are handed back, and it is refused
+  `RIDER_HAS_PARCEL` while they carry a `picked_up` one, so a parcel in transit always keeps its rider.
 - **Sessions** last 30 days from last use, like customers' (DATA-MODEL §3.4), one per phone.
 - **A rider belongs to one store.** The same person delivering for two stores has two accounts
   and two apps, as a customer does.
@@ -416,7 +449,11 @@ failed or cancelled); the state history stays.
 seconds, otherwise every 60 seconds while online. `rider_position` keeps one row per rider
 (the latest point), overwritten, and deleted when the rider goes offline, when the sweep finds it
 older than 10 minutes, and when the rider signs out, is suspended, removed or erased. No trail is kept, and
-positions never enter the activity log or technical logs.
+positions never enter the activity log or technical logs. Before the app first asks for location it shows a full-screen
+disclosure in the store's name (Google Play's prominent disclosure; Apple 5.1.1): what is collected (the position, only while
+online, even with the app closed), why (offers near the warehouse, and the customer's tracking once picked up) and that only
+the latest point is kept, deleted when they go offline. Continue goes on to the permission; Not now leaves them Offline,
+and the disclosure comes again the next time they try (built on #874; delivery/FIRST-RELEASE.md §2).
 
 **Arrival estimate** (built on #858): from Google's Routes API (`computeRoutes`, traffic-aware, duration only), server-side, from the rider's latest point to the order's pin,
 with a server key restricted to that API (THIRD-PARTY-ACCESS §2.12; `GOOGLE_MAPS_SERVER_KEY`, validated at boot). Without the key, `etaAt` stays empty. The call has a 5-second timeout
@@ -480,6 +517,7 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
 **Not yet possible** (#838): `store_limit_override` holds amounts only and is set from the partner
 console, and the admin console has no override. So a store can be given a riders limit, but
 `own_delivery` and `own_apps` can't yet be switched on for one store; that needs a follow-up card.
+The pilot store's production setup (#875) works round it with a plan that has them on, for that store only: setup/prod.md §3.9 step 5.
 
 ---
 
@@ -511,7 +549,41 @@ console, and the admin console has no override. So a store can be given a riders
 - The customer reads the rider's details only while `assigned` or `picked_up`, and the position only
   while `picked_up`.
 - Two accepts of one offer at once: exactly one wins.
+- **Erasure** (built on #874): after `eraseRider` and after a rider's Delete my account, no table holds the rider's name, number, photo,
+  sessions, devices, position or codes (the test reads every table); `exportRider` and `eraseRider` are refused for every seat but the
+  Owner, and answer another store's rider as one that doesn't exist; an `assigned` delivery is offered to the others in a new round,
+  and a `picked_up` one refuses `RIDER_HAS_PARCEL` with nothing changed.
 - The hostname guard: `/delivery-api/` answers only on `{slug}.<SHOP_DOMAIN>`.
+- **The journey** (built on #873; `apps/api/tests/delivery-journey.test.ts`) runs through the Store, Delivery and Shop APIs' own
+  schemas, as the apps call them: the Owner's pinned location and riders, two riders signed in and online, a customer's
+  order, the offers and the lost race (`TAKEN`), pickup and its one stock movement, the wrong code and then the right one, and
+  what each side reads at each state. It runs for cash on delivery and for a bank transfer paid after, and for a store that
+  dispatches when ready; its branches are Not delivered then Offer again, hand back then Offer again, a late wrong code
+  confirmed by the merchant, a recall after pickup, and suspending a rider (assigned: handed on; carrying: `RIDER_HAS_PARCEL`).
+  It also checks that no push, email or text carries the code.
+- **Load** (built on #873; not part of any gate). `pnpm --filter ./apps/api load:delivery` makes a database of its own on the local
+  Postgres (it refuses any other host), puts one store's riders online reporting a position every 15 s, offers 20 orders a
+  minute to all of them (the broadcast of §3) and has each rider read their offers and a fifth of them accept, for 10 minutes;
+  `--riders`, `--orders-per-minute`, `--minutes` and `--interval-seconds` change the run. It prints each call's p50 and p95, the
+  statements it saw running over 100 ms and each table's scans. Result on 2026-10-29, 200 riders, one local Postgres 18 and
+  one Node process (the Worker and Hyperdrive are not in it, so this is the database's share of a call, not the whole):
+
+  | Call | Count | p50 | p95 |
+  |---|---|---|---|
+  | `reportPosition` | 8,181 | 5.4 ms | 12.9 ms |
+  | `offers` | 35,850 | 2.1 ms | 5.2 ms |
+  | `acceptOffer` (the winner) | 200 | 17.5 ms | 32.0 ms |
+  | `acceptOffer` (lost race, `TAKEN`) | 44 | 12.5 ms | 20.1 ms |
+  | The offer job and its pushes, one pass | 1,048 | 2.2 ms | 361.2 ms |
+  | The minute sweep | 10 | 8.0 ms | 15.7 ms |
+
+  200 deliveries made 35,850 offers (about 180 each, one per rider free at the time). The slowest statement seen running over
+  100 ms was Postgres's own autovacuum of `outbox`; no query of ours ran that long, so **no index was added** and there is no
+  before and after. The offer job's p95 is a pass that makes one delivery's offers and queues its pushes, one row each. The
+  database was busy 0.16 statements on average; a local Postgres does not report CPU, so the figure to read for the real
+  database is its CPU in the Neon dashboard during a run in a feature environment, which this run did not do. `rider` and
+  `delivery` show many sequential scans because they hold 200 rows, where the planner prefers one; they are worth another look
+  at a store with thousands of riders, not at this size.
 
 ---
 

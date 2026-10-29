@@ -145,6 +145,20 @@ describe('the catalogue a shopper reads', () => {
     expect((await gql('store-a1.shop.example', '{ collection(slug: "secret") { name } }')).data?.['collection']).toBeNull()
   })
 
+  it('gives a collection its image, though it holds no products, and a shopper may fetch the file; none once removed', async () => {
+    const picture = await asset(t.storeA1)
+    await db.sql`update collection set image_asset_id = ${picture} where id = ${ids.shirts}`
+    try {
+      const url = `https://store-a1.shop.example/shop-api/assets/${picture}`
+      expect((await gql('store-a1.shop.example', '{ collections(first: 50) { nodes { slug image { url } } } }')).data?.['collections']).toEqual({ nodes: [{ slug: 'shirts', image: { url } }] })
+      expect((await gql('store-a1.shop.example', '{ collection(slug: "shirts") { image { url } } }')).data?.['collection']).toEqual({ image: { url } })
+      expect(await withScope(db.sql, asShopper(t.storeA1), async (tx) => (await tx<{ id: string }[]>`select id from asset where id = ${picture}`).length)).toBe(1)
+    } finally {
+      await db.sql`update collection set image_asset_id = null where id = ${ids.shirts}`
+    }
+    expect((await gql('store-a1.shop.example', '{ collection(slug: "shirts") { image { url } } }')).data?.['collection']).toEqual({ image: null })
+  })
+
   it('builds the menu, leaving out a link to a hidden collection with everything under it', async () => {
     const { data } = await gql('store-a1.shop.example', '{ menu { label kind collectionSlug children { label kind url } } }', { 'x-shop-language': 'hi-IN' })
     expect(data?.['menu']).toEqual([{ label: 'Shirts', kind: 'collection', collectionSlug: 'kameez', children: [{ label: 'About', kind: 'page', url: '/about' }] }])
