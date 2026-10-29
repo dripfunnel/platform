@@ -19,4 +19,8 @@ export const designNotes = {
 } as const
 
 /** FIRST-RELEASE §14: "I couldn't make that change — nothing on your site changed." for both. */
-export const designErrors = { refused: 'change_refused', failed: 'change_failed' } as const
+export const designErrors = { refused: 'change_refused', failed: 'change_failed', failedFor: (reason: DesignFailureReason | null) => (reason ? `change_failed:${reason}` : 'change_failed') } as const
+
+/** Why the provider failed, kept in the stored error as `change_failed:{reason}` so the portal words it (SAAS.md §9.3). */
+export const designFailureReasons = ['RATE_LIMITED', 'PROVIDER_UNAVAILABLE', 'TIMEOUT', 'SIGN_IN_EXPIRED', 'CREDENTIALS_REJECTED', 'BAD_REQUEST', 'DECLINED'] as const
+export type DesignFailureReason = (typeof designFailureReasons)[number]

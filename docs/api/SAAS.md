@@ -836,11 +836,36 @@ One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on th
 `integrations/ai` (`gateway.ts` the interface and error codes, `anthropicChat.ts`, `openaiChat.ts`, `registry.ts`, `retry.ts`),
 `saas/aiGateway` (whose key pays, the budget, metering), `apis/store/aiGateway.ts` (the REST path), `saas/storeAiAccount`.
 
+**Layers (the studio's path).** `/api/v1` still goes through the chat adapters above. The studio's model call is built from
+separate layers in `integrations/ai`, each knowing one thing:
+
+| Layer | Folder | Does | Never does |
+|---|---|---|---|
+| Canonical format | `canonical.ts` | One internal request, response and stream-event shape: text and image parts, tools, reasoning effort, structured output | Knows no provider |
+| Request and response translators | `translators/` | Canonical ↔ Anthropic Messages, OpenAI Chat, OpenAI Responses; registered by format id. A feature a provider lacks is `UnsupportedFeature`, never dropped; a stream that ends with no terminal event yields an `error` event | Touch a credential or the network |
+| Executors | `executors/` | Fixed host, headers (only through `headers.ts`), the credential, the deadline and the caller's abort, SSE parsing, upstream status → `GatewayError` with `Retry-After` read as seconds or an HTTP date; one renewal and one retry after a 401 on a sign-in | Translate, retry on their own, or pick a route |
+| Credential connections | `saas/aiConnections` | Which connections a store may use now, their health and cooldown, the refresher that calls `saas/aiOAuth` (which locks the row and rotates the refresh token) | Reach another tenant's connection |
+| Router | `routing/` | Primary route, authorised fallbacks, the one retry loop (`withRetry`, three tries, full jitter, honours `Retry-After`; a 429 is not retried), cooldown, cancellation | Fall back after the first streamed byte, on a refused key, a bad request, a refusal or a cancel |
+
+Outbound headers: `headers.ts` is the only place. Defaults first, then the credential's, then the call's; each name is set once.
+A Claude key is `x-api-key` with `anthropic-version`; a Claude sign-in is `Authorization: Bearer` with
+`anthropic-beta: oauth-2025-04-20` and no `x-api-key`; an OpenAI key is a Bearer alone. `originator` and `chatgpt-account-id` go only
+to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
+
 - **Whose key.** A plan whose `ai_mode` is own key always runs on the store's own account. Otherwise the partner's default
   profile (#275) while the month's `ai_prompts` last, one prompt a call (taken before the call, given back if the provider was
   never reached). Once they are used up the store's own account takes over only if its Owner switched on *Use my own AI account
   when the plan's runs are used up* (`store_ai_account.use_when_plan_used`, off by default, audited); otherwise `AI_BUDGET_REACHED`.
   A key reaches only its own provider's models (`MODEL_NOT_FOUND` otherwise): no silent switch from Claude to ChatGPT.
+- **Connection health** (`saas/aiConnections`, migration 0373): each key profile and the store's account carries
+  `last_validated_at`, `last_validation_status`, `cooldown_until` and `preferred_model` in the database, never in a Worker. A
+  provider's `Retry-After` starts a cooldown (capped at 15 minutes, never shortened) on the model that was limited
+  (`cooldown_models`, model to end time), so one model's 429 doesn't block the others on the same credential, and a cooled
+  connection or model is skipped; a
+  rejected sign-in shows as *needs reconnect*. Behind the partner's default only the store's own account can follow, and only
+  when its Owner turned on `store_ai_account.fallback_authorized` (off by default, audited, `setStoreAiFallback`): a fallback
+  changes who pays, so it is never silent and never another tenant's credential. Connecting a different key or sign-in turns it
+  off again: the Owner's yes was for the account they authorised.
 - **Rejected or unreadable partner default:** the gateway pauses (`AI_NOT_CONNECTED`); only a partner with no key at all uses
   `AI_PROVIDER_KEY`.
 - **Validation before any provider or budget:** `.strict()` zod schema, 50 messages, 100,000 characters each, 400 kB a body,
@@ -848,8 +873,13 @@ One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on th
   parameters go in `options`; the OpenAI adapter takes `top_p`, `presence_penalty`, `frequency_penalty`, `seed`, `stop`,
   `response_format` and refuses the rest. Endpoints are fixed: no caller picks a host or a header.
 - **Retries:** rate limits, an unreachable provider and a timeout are tried up to three times with exponential backoff and full
-  jitter, honouring `retry-after`; a refused key, a bad request or an unknown model never. Calls carry a 60 s deadline and the
-  caller's abort. Fallback to another provider or profile is **off** and is not built: nothing switches silently.
+  jitter, honouring `retry-after`; a refused key, a bad request or an unknown model never. The router (the studio's path) never
+  resends a rate-limited call: it records the cooldown from the first 429's `Retry-After` and goes to the next authorised route,
+  or fails at once when there is none. Calls carry the caller's abort and a deadline: 60 s on `/api/v1`, and on the studio's path 180 s a try
+  (the executors' own default is 120 s). The SDK clients retry nothing (`maxRetries: 0`), so there is one loop. `Retry-After` is read as seconds or an HTTP date.
+  **Fallback is off unless the store's Owner authorised it** (`fallback_authorized`, below) and then goes only to that account, on a
+  rate limit, an unreachable provider or a timeout, before any streamed byte; the call says it was used (`ai_fallback_used` in the
+  technical log). It never rotates credentials to get round a limit, and never switches silently.
 - **Errors** are codes only (`INVALID_CREDENTIALS`, `RATE_LIMITED`, `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `CANCELLED`, `BAD_REQUEST`,
   `MODEL_NOT_FOUND`, `CONTENT_REFUSED`) with no upstream text, header or key.
 - **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
@@ -860,13 +890,28 @@ One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on th
   turn into its top-level `system` field after any supplied system text or blocks, so a system turn placed after a user turn is
   read before the conversation, not at its place in it; OpenAI-compatible Chat Completions keeps them as system messages in
   order. Claude takes the system apart from the messages and caps temperature at 1, OpenAI at 2. Tool calling, structured
-  outputs and images are **not** in the unified shape yet: a provider-only feature goes through `options` where the adapter
-  lists it, and is refused otherwise.
+  outputs and images are **not** in `/api/v1`'s shape yet: a provider-only feature goes through `options` where the adapter
+  lists it, and is refused otherwise. The studio's translators do take images (all three formats), tools, reasoning effort and
+  structured output where the model allows them, and refuse the rest with `UnsupportedFeature`. The ChatGPT sign-in is text only.
 - **Output size:** `maxTokens` is optional and defaults to the model's maximum output; above the maximum it is refused with
   `INVALID_INPUT`. The allowance counts calls, so a bare call with the default is not charged more against it; only its tokens
   and cost are recorded.
+- **Studio failures (HTTP stays 200).** A provider failure leaves the draft untouched, records the chat's error line as
+  `change_failed:{reason}` and the technical log's `code` as the error class and code. Reasons: `RATE_LIMITED`,
+  `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `SIGN_IN_EXPIRED`, `CREDENTIALS_REJECTED`, `BAD_REQUEST`, `DECLINED`; the portal words each, and any
+  other reads as the plain "I couldn't make that change". The month's request is **still counted** after a provider failure (as before this change); only a studio that never reached the model gives it back. The code is read on the Worker's side, because
+  an error's class and code do not survive the studio's RPC. A refusal, a cut-off answer or a stream error never returns text the
+  studio could apply.
 - **Streaming:** `text/event-stream` with `text` events (`{text}`) then one `end` (`{provider, model, finish, usage}`), or an
   `error` (`{code}`); closing the connection cancels the call and gives the plan's prompt back.
+- **Deploying and rolling back.** Migration 0373 adds nullable or defaulted columns to `store_ai_account` and `partner_credential`, so
+  the previous Worker reads and writes both as before; roll the Worker back first and leave the columns. No new variable: the layers
+  read the keys and tokens the gateway already resolves (`AI_SIGN_IN` still gates the sign-ins). Fallback is off for every store
+  until an Owner turns it on. The migrations folder has three `0369_*` files already; 0373 follows the highest number (0372 is #874's).
+  Every statement is `add column if not exists`, so a database that ran this file under its earlier name, 0372, applies it again harmlessly.
+- **Not built.** Limits on concurrent calls per connection across Workers (a cooldown after a rate limit is the only shared state;
+  a counter would need a table or a Durable Object); a third provider (the `provider` CHECK constraints name two); revoking a
+  grant at the provider (Disconnect deletes the tokens here only); key-encryption-key rotation.
 - **Not OpenAI-compatible:** the path and body are DripFunnel's own. An OpenAI-compatible layer is a card of its own.
 - **Signing in instead of pasting a key (#950; THIRD-PARTY-ACCESS §2.6).** A store's Owner (Storefront › AI) and a partner's
   console (Integrations) may connect a Claude or ChatGPT account, each on the provider's own CLI client and with the code pasted

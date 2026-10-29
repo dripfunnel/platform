@@ -256,6 +256,16 @@ describe('the chat', () => {
     expect(screen.queryByText(c.empty)).toBeNull()
   })
 
+  it('words each provider failure reason in the error line, and an unknown one as the plain error', async () => {
+    for (const [reason, text] of Object.entries(c.errorReasons)) {
+      await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('e1', 'error', `change_failed:${reason}`), ...chat], next: null }) })
+      expect(screen.getByText(text)).toBeTruthy()
+      cleanup()
+    }
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('e1', 'error', 'change_failed:SOMETHING_NEW'), ...chat], next: null }) })
+    expect(screen.getByText(c.error)).toBeTruthy()
+  })
+
   it('says a change failed in the error line, and keeps the words when the request was refused', async () => {
     await show({ askDesign: vi.fn().mockRejectedValue(new ApiError('AI_BUDGET_REACHED', 'No.')), loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('e1', 'error', 'change_failed'), ...chat], next: null }) })
     expect(screen.getByText(c.error)).toBeTruthy()

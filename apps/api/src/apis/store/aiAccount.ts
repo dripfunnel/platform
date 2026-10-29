@@ -33,6 +33,7 @@ export const registerAiAccount = (builder: StoreBuilder) => {
       status: t.exposeString('status'),
       lastTestedAt: t.string({ nullable: true, resolve: (a) => a.last_tested_at?.toISOString() ?? null }),
       useWhenPlanUsed: t.exposeBoolean('use_when_plan_used'),
+      fallbackAuthorized: t.exposeBoolean('fallback_authorized'),
       authType: t.exposeString('auth_type'),
       accountLabel: t.string({ nullable: true, resolve: (a) => a.account_label }),
       connectedBy: t.exposeString('connected_by'),
@@ -86,6 +87,12 @@ export const registerAiAccount = (builder: StoreBuilder) => {
       args: { on: t.arg.boolean({ required: true }) },
       extensions: { access: { ...access, audit: storeAiAudit.switched, blockedFor: ['support'] } },
       resolve: async (_, { on }, ctx) => answered(await service(ctx).setSwitch(on)).ok,
+    }),
+    setStoreAiFallback: t.field({
+      type: 'Boolean',
+      args: { on: t.arg.boolean({ required: true }) },
+      extensions: { access: { ...access, audit: storeAiAudit.fallback, blockedFor: ['support'] } },
+      resolve: async (_, { on }, ctx) => answered(await service(ctx).setFallback(on)).ok,
     }),
     removeStoreAiAccount: t.field({
       type: 'Boolean',

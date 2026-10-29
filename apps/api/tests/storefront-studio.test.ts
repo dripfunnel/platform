@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { AiAnswer, AiProvider } from '#integrations/ai/index'
+import { AiDeclined, GatewayError, SignInExpired, type AiAnswer, type AiProvider } from '#integrations/ai/index'
 import type { Screenshotter } from '#integrations/cloudflare/screenshot'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { draftBundle, previewFolder, sourceBundle } from '#saas/storefronts/index'
@@ -76,11 +76,14 @@ const reply = (files: { path: string; content: string | null }[], words = 'I mad
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => {
     script.sent.push(call.text)
+    if (providerFails) throw providerFails
     const text = script.answers.shift() ?? reply([])
     return { text, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
 }
 let aiMode: 'plan' | 'none' = 'plan'
+/** When set, the next model call throws it (a provider failure). */
+let providerFails: Error | null = null
 /** The studio's RPC fails before it reaches the model (a Durable Object fault). */
 let studioDown = false
 let askedModel: string | null = null
@@ -221,12 +224,45 @@ describe('asking for a change', () => {
     const sent = script.sent.length
     studioDown = true
     try {
-      const lost = await ask('owner', 'Lost on the way'); console.log('LOST', JSON.stringify(lost)); expect(lost.data?.['askDesign']).toMatchObject({ outcome: 'failed', message: { role: 'error' } })
+      const lost = await ask('owner', 'Lost on the way')
+      expect(lost.data?.['askDesign']).toMatchObject({ outcome: 'failed', message: { role: 'error' } })
     } finally {
         studioDown = false
     }
     expect(script.sent.length).toBe(sent)
     expect(await usage(t.storeA1)).toBe(used)
+  })
+
+  it('words a provider failure by reason, changes nothing, logs the code and still counts the request', async () => {
+    const cases: [Error, string][] = [
+      [new GatewayError('RATE_LIMITED', 30), 'change_failed:RATE_LIMITED'],
+      [new GatewayError('PROVIDER_UNAVAILABLE'), 'change_failed:PROVIDER_UNAVAILABLE'],
+      [new GatewayError('TIMEOUT'), 'change_failed:TIMEOUT'],
+      [new GatewayError('INVALID_CREDENTIALS'), 'change_failed:CREDENTIALS_REJECTED'],
+      [new SignInExpired(), 'change_failed:SIGN_IN_EXPIRED'],
+      [new AiDeclined('the model declined'), 'change_failed:DECLINED'],
+    ]
+    const lines: string[] = []
+    const log = vi.spyOn(console, 'log').mockImplementation((line: unknown) => void lines.push(String(line)))
+    try {
+      for (const [error, text] of cases) {
+        const before = await draft(t.storeA1)
+        const used = await usage(t.storeA1)
+        providerFails = error
+        try {
+          expect((await ask('owner', 'Fails upstream')).data?.['askDesign']).toMatchObject({ outcome: 'failed', message: { role: 'error', text } })
+        } finally {
+          providerFails = null
+        }
+        expect(await draft(t.storeA1)).toEqual(before)
+        expect(await usage(t.storeA1)).toBe(used + 1)
+        await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
+      }
+    } finally {
+      log.mockRestore()
+    }
+    const failed = lines.filter((l) => l.includes('storefront_design_failed')).map((l) => (JSON.parse(l) as { code: string }).code)
+    expect(failed).toEqual(['GatewayError:RATE_LIMITED', 'GatewayError:PROVIDER_UNAVAILABLE', 'GatewayError:TIMEOUT', 'GatewayError:INVALID_CREDENTIALS', 'SignInExpired:INVALID_CREDENTIALS', 'AiDeclined'])
   })
 
   it('takes only the store’s own merchant image: another store’s, a supplier’s or a non-id is refused before the model or a unit', async () => {

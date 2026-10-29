@@ -7579,6 +7579,15 @@
           "discarded": "Changes discarded"
         },
         "error": "I couldn’t make that change — nothing on your site changed. Try again, or say it a different way.",
+        "errorReasons": {
+          "RATE_LIMITED": "The AI service is busy right now — nothing on your site changed. Wait a minute and try again.",
+          "PROVIDER_UNAVAILABLE": "The AI service isn’t answering — nothing on your site changed. Try again in a few minutes.",
+          "TIMEOUT": "That took too long — nothing on your site changed. Try a smaller request.",
+          "SIGN_IN_EXPIRED": "Your AI sign-in has expired — nothing on your site changed. Sign in again under Storefront › AI.",
+          "CREDENTIALS_REJECTED": "The AI provider refused the key — nothing on your site changed. Check the key under Storefront › AI.",
+          "BAD_REQUEST": "The AI provider couldn’t take that request — nothing on your site changed. Say it a different way.",
+          "DECLINED": "The AI declined that request — nothing on your site changed. Say it a different way."
+        },
         "loadFailed": "We couldn’t load the conversation. Reopen the studio to try again.",
         "refused": {
           "AI_BUDGET_REACHED": "You’ve used this month’s AI requests.",
