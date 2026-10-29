@@ -18,6 +18,7 @@ const words: Record<Exclude<PeopleResult, { ok: true }>['reason'], string> = {
   INVALID_INPUT: 'Choose Owner, Manager or Staff.',
   RATE_LIMITED: 'Too many invitations for now. Try again later.',
   PLAN_LIMIT: 'Your plan has no more staff seats.',
+  BLOCKED_WHILE_IMPERSONATING: 'Only the user can change this.',
 }
 
 /** True, or the refusal as a stable code with its facts (FIRST-RELEASE §19). */

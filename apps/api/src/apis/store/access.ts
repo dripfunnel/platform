@@ -16,7 +16,7 @@ import type { TenantContext } from '#core/tenancy'
 import type { StudioApi } from '#saas/studio/index'
 import type { StudioDeps } from '#saas/ai-designer/index'
 import type { DnsLookup } from '#integrations/dns/doh'
-import { accessErrorCode, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
+import { accessErrorCode, blockedIn, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
 import type { CourierDirectory } from '#core/couriers'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
 import type { StoreBillingStripe, StripeApi } from '#integrations/stripe/index'
@@ -104,7 +104,7 @@ const admitSupport = (access: Access, seat: SupportSeat, permission: StorePermis
 }
 
 // The shell's poll reads only the banner and the store's status (ACCESS.md §8.3), not a page support opened.
-const unloggedSupportReads = new Set(['storeState'])
+const unloggedSupportReads = new Set(['storeState', 'staffSessionNotice'])
 
 /** LOGGING.md §3: a support session's reads are logged, by field and the id it named, never its other arguments. */
 const logSupportRead = async (ctx: StoreContext, caller: StoreCaller, seat: SupportSeat, field: string, args: Record<string, unknown>) => {
@@ -144,6 +144,8 @@ export const storePolicy: AccessPolicy<StoreContext> = {
     if (standing.kind === 'limited') throw rateLimited(standing.retryAfterSeconds)
     if (standing.kind === 'machine') return authorizeMachine(access, standing.caller, operation)
     const support = standing.kind === 'acting' ? standing.caller.support : undefined
+    // ACCESS.md §8.1, §8.3: the blocked list is refused before the role is looked at.
+    if (standing.kind === 'acting' && standing.caller.staff && access.blockedFor?.includes('impersonation')) throw blockedIn('impersonation')
     // A support session is not a person: nothing of the account it acts as is its own (ACCESS.md §8).
     if (access.scope === 'session') {
       if (support) throw supportBlocked()

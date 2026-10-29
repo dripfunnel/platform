@@ -9,6 +9,7 @@ import { sendsStoreCookie, storeSessionId } from './storeCredential'
 import { hashSessionId } from './session'
 import { readUserSession } from './storeSession'
 import { storeRoleOf, type StoreRole } from './storePermissions'
+import { resolveStaffCaller, staffAttributed, staffCookieName, type StaffSeat } from './storeStaff'
 import { resolveSupportCaller, supportActor, supportCookieName, type SupportSeat } from './storeSupport'
 import { isUuid } from '#core/ids'
 import { machineCredentialOf } from './apiKeys'
@@ -40,6 +41,8 @@ export interface StoreCaller {
   plan: { id: string; name: string } | null
   /** Set for a partner support session acting as this seat's user (ACCESS.md §8). */
   support?: SupportSeat
+  /** Set for staff impersonating this seat's user (ACCESS.md §8.1). */
+  staff?: StaffSeat
 }
 
 /**
@@ -150,8 +153,17 @@ export const resolveStoreStanding = async (
   }
   const sessionId = storeSessionId(request)
   const supportCookie = readCookie(request.headers.get('cookie'), supportCookieName)
-  if (!sessionId && !supportCookie) return { kind: 'signed-out' }
+  const staffCookie = readCookie(request.headers.get('cookie'), staffCookieName)
+  if (!sessionId && !supportCookie && !staffCookie) return { kind: 'signed-out' }
   return withSystemScope(sql, async (tx) => {
+    // Staff impersonating a user on this host first, as on the partner console (#243); bound to one seat.
+    const staff = staffCookie ? await resolveStaffCaller(tx, partnerId, staffCookie, { now, activity, facts }) : null
+    if (staff) {
+      const asked = request.headers.get(storeHeader)
+      if (!asked || asked === staff.store.id) return { kind: 'acting', person: staff.person, caller: staff }
+      await recordCrossing(tx, staff.person, asked, staffAttributed(activity, staff.staff), facts, now)
+      return { kind: 'crossing', person: staff.person }
+    }
     // A support session on this host first, as a staff session is on the partner console's (#243).
     const support = supportCookie ? await resolveSupportCaller(tx, partnerId, supportCookie, now, activity, facts) : null
     if (support?.support) {

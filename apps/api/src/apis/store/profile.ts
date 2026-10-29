@@ -272,7 +272,7 @@ export const registerProfile = (builder: StoreBuilder) => {
     changeEmail: t.field({
       type: 'Boolean',
       args: { email: t.arg.string({ required: true }), password: t.arg.string({ required: true }) },
-      extensions: { access: { ...session, audit: 'person.email_change_requested', whileReadOnly: true } },
+      extensions: { access: { ...session, audit: 'person.email_change_requested', whileReadOnly: true, blockedFor: ['impersonation'] } },
       resolve: async (_, args, ctx) => {
         const person = personOf(ctx)
         const email = args.email.trim()
@@ -299,7 +299,7 @@ export const registerProfile = (builder: StoreBuilder) => {
     changePassword: t.field({
       type: 'Boolean',
       args: { current: t.arg.string({ required: true }), next: t.arg.string({ required: true }) },
-      extensions: { access: { ...session, audit: 'person.password_changed', whileReadOnly: true } },
+      extensions: { access: { ...session, audit: 'person.password_changed', whileReadOnly: true, blockedFor: ['impersonation'] } },
       resolve: async (_, args, ctx) => {
         const person = personOf(ctx)
         if (args.next.length < minPasswordLength || args.next.length > 1024) throw refused('WEAK_PASSWORD', 'Use at least 10 characters.')
@@ -318,7 +318,7 @@ export const registerProfile = (builder: StoreBuilder) => {
     setSecondFactor: t.field({
       type: StepType,
       args: { method: t.arg.string({ required: true }), code: t.arg.string(), password: t.arg.string() },
-      extensions: { access: { ...session, audit: 'two_factor.method_changed', whileReadOnly: true } },
+      extensions: { access: { ...session, audit: 'two_factor.method_changed', whileReadOnly: true, blockedFor: ['impersonation'] } },
       resolve: async (_, args, ctx) => {
         const person = personOf(ctx)
         const now = ctx.now()

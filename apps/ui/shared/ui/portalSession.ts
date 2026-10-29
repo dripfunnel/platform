@@ -3,8 +3,7 @@ import { createSharedSessionReads } from './sharedSessionReads'
 import type { PortalStaffSession } from './staffSession'
 import { createPortalSessionFixture, isFixtureHandoff, type PortalHarnessState, type PortalSessionFixtureOptions } from './staffSessionFixture'
 
-// The portal's own API for its staff sessions (ACCESS.md §8.3): the partner console's is #243;
-// the store portal has none until the Store API.
+// The portal's own API for its staff sessions (ACCESS.md §8.3), on its own host.
 export interface PortalSessionApi {
   exchange: (token: string) => Promise<PortalStaffSession | null>
   current: () => Promise<PortalStaffSession | null>
