@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { anthropicFailure, anthropicOAuthHeaders } from './anthropicChat'
 import { capabilityOf, costOf } from './registry'
 
 // The designer's model provider (THIRD-PARTY-ACCESS §2.6, §3.3): called by the Worker only, with a key the caller
@@ -32,6 +33,7 @@ export class AiDeclined extends Error {
 }
 
 export const designerModel = 'claude-opus-5-5'
+export const anthropicOAuthDesignerModel = 'claude-haiku-4-5'
 /** US cents per million tokens, input and output, for the designer's model (ai_run.cost_amount). */
 const centsPerMillion = { input: 400, output: 2000 } as const
 const timeoutMs = 180_000
@@ -65,6 +67,31 @@ export const anthropicProvider = (apiKey: string, model: string = designerModel)
       const tokensIn = message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0) + (message.usage.cache_creation_input_tokens ?? 0)
       const tokensOut = message.usage.output_tokens
       return { text, model: message.model, tokensIn, tokensOut, costAmount: costFor(model, tokensIn, tokensOut), costCurrency: 'USD' }
+    },
+  }
+}
+
+export const anthropicOAuthDesignerProvider = (authToken: string, model: string = anthropicOAuthDesignerModel): AiProvider => {
+  const client = new Anthropic({ apiKey: null, authToken, defaultHeaders: anthropicOAuthHeaders, timeout: timeoutMs })
+  return {
+    complete: async (call) => {
+      try {
+        const message = await client.messages.stream({
+          model,
+          max_tokens: capabilityOf('anthropic', model)?.maxOutputTokens ?? 64_000,
+          system: call.system,
+          messages: [{
+            role: 'user',
+            content: [...call.images.map((image) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType, data: image.base64 } })), { type: 'text' as const, text: call.text }],
+          }],
+        }).finalMessage()
+        if (message.stop_reason === 'refusal') throw new AiDeclined('the model declined')
+        const text = message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
+        return { text, model: message.model, tokensIn: message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0) + (message.usage.cache_creation_input_tokens ?? 0), tokensOut: message.usage.output_tokens, costAmount: 0, costCurrency: 'USD' }
+      } catch (error) {
+        if (error instanceof AiDeclined) throw error
+        throw anthropicFailure(error)
+      }
     },
   }
 }

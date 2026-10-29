@@ -32,7 +32,22 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  * One entry per release that changes anything for themes, added by its release card (docs/code/ARCHITECTURE.md §5
  * "Releases"); a release with no entry needs no codemod.
  */
-export const coreUpgradeNotes: readonly UpgradeNote[] = []
+export const coreUpgradeNotes: readonly UpgradeNote[] = [
+  {
+    version: '0.2.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every addition is optional, except that a theme must not assume the delivery step is always present (below).',
+      'useOrder().order.tracking is new (OrderTracking, TrackingStep, TrackingState from ./theme): an own-delivery order\'s steps, the rider while assigned, and the handover code, all in core\'s words. It is null for other orders; a theme may show it on the order page, as the baseline\'s DeliveryTracking does.',
+      'Link now renders a tel: address with a dialable number as a link; any other tel: address is still refused.',
+      'useCheckout skips the delivery step when a store offers exactly one shipping method and applies it for the shopper. A theme that renders the steps useCheckout gives needs no change; one that assumes a delivery step always comes between address and payment must follow the steps instead.',
+      'AddressFields can end with a map pin (AddressDraft.pin, CartAddress.pin), shown only when the store has a map set up.',
+      'storeCsp takes the page path, and pageHeaders passes it to the csp callback; both are used by core\'s build, not by themes.',
+    ].join('\n'),
+    codemods: [],
+  },
+]
 
 const parts = (version: string) => version.split('-')[0]?.split('.').map(Number) ?? []
 const devRun = (version: string) => Number(version.split('-dev.')[1] ?? Number.POSITIVE_INFINITY)

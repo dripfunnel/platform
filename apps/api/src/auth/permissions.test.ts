@@ -21,6 +21,7 @@ const table: Record<StaffPermission, string> = {
   'stores.trial.extend': 'SA',
   'stores.invite.resend': 'SA SU',
   'stores.notes.write': 'SA PM SU EN',
+  'stores.deliveryApp.write': 'SA EN',
   'domains.recheck': 'SA EN',
   'provisioning.read': 'SA SU EN',
   'provisioning.retry': 'SA SU EN',

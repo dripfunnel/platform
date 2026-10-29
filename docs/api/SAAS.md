@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -855,9 +855,16 @@ One request shape for Claude and ChatGPT, for a store's API key (`ai.run`) on th
 - **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
   id; the prompt column is empty and no answer is kept. The Store API's per-minute and per-month call limits (ACCESS §5.6)
   apply as to any key.
-- **Differences between the providers.** Both take a system message and turns; Claude takes the system apart from the
-  messages and caps temperature at 1, OpenAI at 2. Tool calling, structured outputs and images are **not** in the unified shape
-  yet: a provider-only feature goes through `options` where the adapter lists it, and is refused otherwise.
+- **Differences between the providers.** Both take a system message and turns; `system` may be text or native text blocks, and
+  a `role: system` turn is accepted. A request with no `user` turn is refused with `INVALID_INPUT`. Claude moves every system
+  turn into its top-level `system` field after any supplied system text or blocks, so a system turn placed after a user turn is
+  read before the conversation, not at its place in it; OpenAI-compatible Chat Completions keeps them as system messages in
+  order. Claude takes the system apart from the messages and caps temperature at 1, OpenAI at 2. Tool calling, structured
+  outputs and images are **not** in the unified shape yet: a provider-only feature goes through `options` where the adapter
+  lists it, and is refused otherwise.
+- **Output size:** `maxTokens` is optional and defaults to the model's maximum output; above the maximum it is refused with
+  `INVALID_INPUT`. The allowance counts calls, so a bare call with the default is not charged more against it; only its tokens
+  and cost are recorded.
 - **Streaming:** `text/event-stream` with `text` events (`{text}`) then one `end` (`{provider, model, finish, usage}`), or an
   `error` (`{code}`); closing the connection cancels the call and gives the plan's prompt back.
 - **Not OpenAI-compatible:** the path and body are DripFunnel's own. An OpenAI-compatible layer is a card of its own.
@@ -1001,6 +1008,9 @@ drift, "Publish now" presses against allowance, automatic publish volume, domain
 time to live. Each is available per partner and per store (CONSOLE-DESIGN B2, K3, N1–N3), with
 outlier alerts ("AI cost 6× plan allowance this month"). Every log line carries request,
 partner, store and seller ids.
+
+**Dispatch** (the time to accept, deliveries reaching unassigned, offers per delivery, failed push sends and late steps) is measured **per store only**, as log lines that carry the store id and no
+partner id (DELIVERY §3, Measured); a partner's view joins each store to its partner.
 
 ---
 

@@ -42,7 +42,7 @@ const startFresh = (): typeof ApiError => {
   let Refusal: typeof ApiError = ApiError
   jest.isolateModules(() => {
     /* eslint-disable @typescript-eslint/no-require-imports -- one registry of its own, with the mocks above */
-    Refusal = (require('../graphql') as typeof import('../graphql')).ApiError
+    Refusal = (require('../graphql') as typeof import('@dripfunnel/mobile-shared/graphql')).ApiError
     ;(require('./report') as typeof import('./report')).startReporting()
     /* eslint-enable @typescript-eslint/no-require-imports */
   })

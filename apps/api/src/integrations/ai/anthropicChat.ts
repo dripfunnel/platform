@@ -3,6 +3,7 @@ import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type 
 
 // Claude through the official SDK (#950). The key is the caller's, held here only for the call.
 const timeoutMs = 60_000
+export const anthropicOAuthHeaders = { 'anthropic-beta': 'oauth-2025-04-20' }
 
 const finishOf = (reason: string | null): FinishReason => (reason === 'end_turn' || reason === 'stop_sequence' ? 'stop' : reason === 'max_tokens' ? 'length' : reason === 'refusal' ? 'refusal' : 'other')
 
@@ -23,18 +24,22 @@ export const anthropicFailure = (error: unknown): GatewayError => {
   return new GatewayError('PROVIDER_UNAVAILABLE')
 }
 
-const paramsOf = (request: ChatRequest) => ({
-  model: request.model,
-  max_tokens: request.maxTokens,
-  ...(request.system ? { system: request.system } : {}),
-  ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
-  messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
-})
+const paramsOf = (request: ChatRequest) => {
+  const blocks = typeof request.system === 'string' ? (request.system === '' ? [] : [{ type: 'text' as const, text: request.system }]) : (request.system ?? [])
+  const system = [...blocks, ...request.messages.filter((m) => m.role === 'system').map(({ content }) => ({ type: 'text' as const, text: content }))]
+  return {
+    model: request.model,
+    max_tokens: request.maxTokens,
+    ...(system.length > 0 ? { system } : {}),
+    ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+    messages: request.messages.flatMap((m) => (m.role === 'system' ? [] : [{ role: m.role, content: m.content }])),
+  }
+}
 
 /** A key, or the access token of a Claude sign-in (Bearer, with the OAuth beta header). */
 export const anthropicChat = (credential: string | { authToken: string }): ChatProvider => {
   const client = new Anthropic({
-    ...(typeof credential === 'string' ? { apiKey: credential } : { apiKey: null, authToken: credential.authToken, defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' } }),
+    ...(typeof credential === 'string' ? { apiKey: credential } : { apiKey: null, authToken: credential.authToken, defaultHeaders: anthropicOAuthHeaders }),
     timeout: timeoutMs,
     maxRetries: 0,
   })
@@ -57,7 +62,7 @@ export const anthropicChat = (credential: string | { authToken: string }): ChatP
     },
     generateResponse: async (request, signal): Promise<ChatAnswer> => {
       try {
-        const message = await client.messages.create(paramsOf(request), { signal })
+        const message = await client.messages.stream(paramsOf(request), { signal }).finalMessage()
         return {
           text: message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join(''),
           model: message.model,

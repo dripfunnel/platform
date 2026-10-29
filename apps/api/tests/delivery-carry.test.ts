@@ -9,6 +9,7 @@ import { activityLog } from '#saas/activity/index'
 import { carryPorts } from '#apis/graphql/carryPorts'
 import { seedStoreWorld, type StoreWorld } from './support/storeWorld'
 import { createTestDatabase, type TestDatabase } from './support/database'
+import { captureLogs, metricKeys } from './support/metrics'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 // DL 6 (#843): pickup as a local shipment, the handover code, cash on delivery and steps sent late (DELIVERY §3, §4, §8).
@@ -532,5 +533,50 @@ describe('who may act, and without the key', () => {
     const carried = await pickedUp()
     await expect(createCarry({ ...keyless(riders[0]), ports: carryPorts }).delivered({ id: carried.deliveryId, code: await codeOf(carried.deliveryId), cashCollected: true, at: clock.toISOString(), key: 'nokey-1' })).rejects.toMatchObject({ code: 'UNAVAILABLE' })
     expect(await latest(carried.orderId)).toMatchObject({ state: 'picked_up', code_attempts: 0 })
+  })
+})
+
+describe('late steps, measured (DELIVERY §3)', () => {
+  it('counts a step kept more than two minutes after its time once, by the store alone, and an on-time one not at all', async () => {
+    const logs = captureLogs()
+    const onTime = await pickedUp()
+    expect(await carry(riders[0]).delivered({ id: onTime.deliveryId, code: await codeOf(onTime.deliveryId), cashCollected: true, at: clock.toISOString(), key: 'm-1' })).toBe(true)
+    expect(logs.metrics()).toEqual([])
+
+    const late = await pickedUp()
+    const lateCode = await codeOf(late.deliveryId)
+    const pickedAt = clock
+    tick(5 * 60_000)
+    const lateAt = new Date(pickedAt.getTime() + 60_000).toISOString()
+    expect(await carry(riders[0]).delivered({ id: late.deliveryId, code: lateCode, cashCollected: true, at: lateAt, key: 'm-2' })).toBe(true)
+    // A resend under the same key is answered from the first and counts no second.
+    expect(await carry(riders[0]).delivered({ id: late.deliveryId, code: lateCode, cashCollected: true, at: lateAt, key: 'm-2' })).toBe(true)
+    expect(logs.metrics()).toHaveLength(1)
+
+    const missed = await pickedUp()
+    const missedAt = clock
+    tick(5 * 60_000)
+    expect(await carry(riders[0]).failed({ id: missed.deliveryId, reason: 'refused', note: null, at: new Date(missedAt.getTime() + 60_000).toISOString(), key: 'm-3' })).toBe(true)
+    expect(logs.metrics()).toHaveLength(2)
+
+    const unsure = await pickedUp()
+    const unsureAt = clock
+    tick(5 * 60_000)
+    await expect(carry(riders[0]).delivered({ id: unsure.deliveryId, code: wrong(await codeOf(unsure.deliveryId)), cashCollected: true, at: unsureAt.toISOString(), key: 'm-4' })).rejects.toMatchObject({ code: 'CODE_UNCONFIRMED' })
+    const measured = logs.metrics()
+    logs.restore()
+    expect(measured.map((m) => [m.metric, m.value, m.storeId])).toEqual(Array(3).fill(['dispatch_late_step', 1, tenants.storeA1]))
+    expect(measured.every((m) => Object.keys(m).every((key) => metricKeys.includes(key)))).toBe(true)
+  })
+
+  it('counts nothing for a late step that was refused and rolled back', async () => {
+    const { deliveryId } = await pickedUp()
+    const pickedAt = clock
+    tick(5 * 60_000)
+    const logs = captureLogs()
+    await expect(carry(riders[0]).delivered({ id: deliveryId, code: await codeOf(deliveryId), cashCollected: null, at: new Date(pickedAt.getTime() + 60_000).toISOString(), key: 'm-5' })).rejects.toMatchObject({ code: 'CASH_NOT_CONFIRMED' })
+    const measured = logs.metrics()
+    logs.restore()
+    expect(measured).toEqual([])
   })
 })

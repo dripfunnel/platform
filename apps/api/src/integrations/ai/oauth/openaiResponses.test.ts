@@ -28,6 +28,14 @@ describe('ChatGPT plan inference', () => {
     expect((body['input'] as { content: { type: string }[] }[]).map((m) => m.content[0]?.type)).toEqual(['input_text', 'output_text', 'input_text'])
   })
 
+  it('folds system turns and blocks into instructions, never into the input', async () => {
+    const send = stub(sse({ type: 'response.completed', response: { model: 'gpt-5', usage: { input_tokens: 1, output_tokens: 1 } } }))
+    await openaiResponsesChat('tok', 'ws-1').generateResponse({ model: 'gpt-5', system: [{ type: 'text', text: 'Block' }], messages: [{ role: 'system', content: 'Turn' }, { role: 'user', content: 'Hi' }], maxTokens: 50 })
+    const body = JSON.parse(String((send.mock.calls[0] as [string, RequestInit])[1].body)) as { instructions: string; input: { role: string }[] }
+    expect(body.instructions).toBe('Block\nTurn')
+    expect(body.input.map((m) => m.role)).toEqual(['user'])
+  })
+
   it('refuses temperature and provider options instead of dropping them', async () => {
     stub(sse())
     const adapter = openaiResponsesChat('tok')

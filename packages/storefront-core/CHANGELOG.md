@@ -1,5 +1,20 @@
 # @dripfunnel/storefront-core
 
+## 0.2.0
+
+### Minor Changes
+
+- bab5352: "Pin on map" (#814): `AddressFields` ends with an optional map pin, saved on the address as `latitude` and `longitude` (`AddressDraft.pin`, `CartAddress.pin`, a saved address's `pin`). It shows only when the Shop API's `store.mapFrame` is set, and loads the map only when the shopper taps it, in a sandboxed frame on the hooks host (`ui/headless/pinFrame.ts`) so Google never runs under the store's CSP; it works by keyboard with its point as text, moves to the shopper's own location on "Use my location" (the browser asks permission only then), stays open after Confirm, fills the address fields still empty from what Google finds at the pin (`fillFromPlace`, never replacing what was typed), hides when the map fails or says nothing in 15 s, and asks Google for nothing on a preview or in the studio frame. `storeCsp` takes the page's path, and `pageHeaders` hands it over; `storeCspSchema` takes an optional `mapsFrameOrigin`, which only the `checkout/` and `account/` pages add, to `frame-src` alone (storefront ARCHITECTURE §3.5). Core's messages add `address.map.*`.
+- 168dead: The order page shows an own-delivery order's delivery (#859, api/DELIVERY.md §7): `useOrder().order.tracking` (`OrderTracking`, with `TrackingStep` and `TrackingState`, exported from `/theme`) gives the steps reached with their times in the store's time zone and the steps still to come, and, only while a rider is assigned or has the order, the rider's first name, vehicle and a `tel:` link to call, and the handover code ("Give this code to your rider…"); once the delivery ends, the steps alone. Each step carries its progress in words (`TrackingStep.progressLabel`: Done, Current step, Still to come, or Ended here), so no step is told apart by colour alone. Core words all of it (`order.delivery.*` in its messages), so every theme says the same, and asks the Shop API for `delivery { state steps rider handoverCode }` only: never the rider's position, the arrival estimate or a map, and not the rider's photo, which the website cannot load yet. `tracking` is optional on `Order` and null for any other order, so a theme that does not show it, and a courier order, read as before. The baseline theme lays it out in `DeliveryTracking`.
+  
+  `Link` now also takes `tel:` and a dialable number (an optional `+` and 6 to 15 digits) so the rider can be called; any other `tel:` address, `sms:`, `mailto:` and every other scheme are still rendered as text, as before.
+- c00a0e1: Checkout applies the sole delivery option for the shopper and omits the delivery step when a store offers exactly one shipping method (the step returns only if applying it fails); with several the shopper still chooses, and with none the step explains it can't be delivered. The decision lives in the checkout controller, so every theme and the baseline fallback behave the same.
+- 206c6ab: `dripfunnel-check` (#974), a store repo's `pnpm check`: the validator over the theme files git holds, as they are on disk, on a developer's machine, before a push to `main` goes live. It prints each problem as `file:line  rule  message`, names theme files never added to git and files changed since `git add`, exits 1 on any problem, and names what only the build checks: that `content/` holds exactly the store's languages, copying the brand's fields, a CSS `url()`'s media id and a custom path already in use. The validator now finds its own files with `fileURLToPath`, so it runs on Windows as well as in the build image. `./guard`'s exports are unchanged.
+
+### Patch Changes
+
+- a55ec8e: Test fixtures use the new zone names (#907); no change to the package's behaviour or exports.
+
 ## 0.1.0
 
 ### Minor Changes

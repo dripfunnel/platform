@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router'
 import { useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useOnline as useConnection } from '@dripfunnel/mobile-shared/connection'
 import { formatDateTime } from '@dripfunnel/mobile-shared/format'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
@@ -159,7 +159,8 @@ export function DeliveryScreen({ id }: { id: string }) {
   const stepError = step.error ?? (refusal && refusal !== 'WRONG_CODE' && refusal !== 'CODE_LOCKED' ? refusal : null)
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.page }]}>
+    // Edge-to-edge windows are not resized by the keyboard, so the footer is lifted by padding on both platforms.
+    <KeyboardAvoidingView behavior="padding" style={[styles.screen, { backgroundColor: colors.page }]}>
       <ScreenHeader title={t('delivery.title')} onBack={home} />
       <ScrollView contentContainerStyle={styles.body}>
         <Resource state={state} onRetry={reload}>
@@ -206,7 +207,7 @@ export function DeliveryScreen({ id }: { id: string }) {
         <Button label={t('delivery.failedSheet.confirm')} disabled={!reason} busy={sending} onPress={() => void notDelivered()} />
         <Button kind="secondary" label={t('delivery.failedSheet.cancel')} onPress={() => setSheet(null)} />
       </Sheet>
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 

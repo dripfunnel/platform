@@ -124,6 +124,10 @@ export const candidates = (tx: ScopedSql, d: DeliveryRow, now: Date): Promise<{ 
       and (${d.excluded_rider_id}::uuid is null or r.id <> ${d.excluded_rider_id}) and x.distance_m <= w.rider_radius_m
       and not exists(select 1 from delivery busy where busy.rider_id = r.id and busy.state in ('assigned','picked_up'))`
 
+/** Every offer made for the delivery, over all its rounds. */
+export const countOffers = async (tx: ScopedSql, d: DeliveryRow): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from delivery_offer where delivery_id = ${d.id} and store_id = ${d.store_id}`)[0]?.n ?? 0
+
 export const insertOffers = (tx: ScopedSql, d: DeliveryRow, riders: { rider_id: string; distance_m: number }[], now: Date) =>
   riders.length === 0 ? Promise.resolve() : tx`insert into delivery_offer(delivery_id, store_id, offer_round, rider_id, distance_m, sent_at)
     select ${d.id}, ${d.store_id}, ${d.offer_round}, x.rider, x.distance, ${now}

@@ -8,7 +8,11 @@ jest.setTimeout(120_000)
 const mockSetup = { on: true }
 const mockStart = jest.fn()
 const mockUser = jest.fn()
-jest.mock('@dripfunnel/mobile-shared/crash', () => ({ crashReportingIsSetUp: () => mockSetup.on, startReporting: () => mockStart(), setReportingUser: (id: string | null) => mockUser(id) }))
+jest.mock('@dripfunnel/mobile-shared/crash', () => ({
+  crashReportingIsSetUp: () => mockSetup.on,
+  startReporting: () => mockStart(),
+  setReportingUser: (id: string | null) => mockUser(id),
+}))
 
 beforeEach(() => {
   mockSetup.on = true
