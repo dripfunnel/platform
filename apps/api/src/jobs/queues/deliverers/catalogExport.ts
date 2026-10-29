@@ -4,12 +4,13 @@ import { withScope } from '#db/scoped/index'
 import { buildCustomerExport } from '#engine/modules/customers/index'
 import { buildCatalogExport, catalogExportLifetimeMs, catalogJobPayload, jobContextOf } from '#engine/modules/catalog/index'
 import { buildOrderExport } from '#engine/modules/orders/index'
+import { buildRiderExport } from '#engine/modules/ownDelivery/index'
 import { buildOfferCodesExport } from '#engine/modules/promotions/index'
 import { buildReportExport } from '#engine/modules/reports/index'
 import { buildActivityExport } from '#saas/storeActivity/index'
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
 
-/** `export.catalog`: a store's products, stock, orders, customers, an offer's codes, reports or the activity log as CSV, read in the asker's own scope, so a supplier's holds only its rows. */
+/** `export.catalog`: a store's products, stock, orders, customers, an offer's codes, reports or the activity log or a rider's data as CSV, read in the asker's own scope, so a supplier's holds only its rows. */
 export const catalogExportDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect) => {
     const parsed = catalogJobPayload.safeParse(effect.payload)
@@ -26,6 +27,7 @@ export const catalogExportDeliverer = (sql: postgres.Sql, now: () => Date = () =
           : job.kind === 'offer_codes' ? await buildOfferCodesExport(tx, job)
           : job.kind === 'report' ? await buildReportExport(tx, job)
           : job.kind === 'activity' ? await buildActivityExport(tx, job)
+          : job.kind === 'rider' ? await buildRiderExport(tx, job)
           : await buildCatalogExport(tx, job)
         const at = now()
         await completeCatalogExport(tx, jobId, { ...built, at, expiresAt: new Date(at.getTime() + catalogExportLifetimeMs) })

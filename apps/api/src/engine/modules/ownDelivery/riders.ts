@@ -1,14 +1,19 @@
 import { DispatchRefused } from '#core/dispatch'
 import { releaseRiderDeliveries } from './dispatch'
+import { eraseRiderData } from './riderData'
 import { withSystemScope } from '#db/scoped/index'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isUuid } from '#core/ids'
+import { logEvent } from '#core/log'
 import type { PageWindow } from '#core/paging'
 import { isE164 } from '#core/sms'
 import type { TenantContext } from '#core/tenancy'
+import { insertCatalogExport, selectCatalogExport } from '#db/scoped/catalogExports'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
+import { exportDtoOf, type CatalogExportDto } from '#engine/modules/catalog/index'
+import { jobPayloadOf, type CatalogJobPayload } from '#engine/modules/catalog/jobScope'
 import {
   countCountedRiders,
   countRiderTextsSince,
@@ -16,7 +21,9 @@ import {
   insertRider,
   lockRider,
   markRiderRemoved,
+  formerRiderName,
   riderPhoneTaken,
+  selectRiderForExport,
   selectRiders,
   setRiderStatus,
   type RiderRow,
@@ -33,6 +40,8 @@ export const ridersAudit = {
   suspended: 'rider.suspended',
   restored: 'rider.restored',
   removed: 'rider.removed',
+  exported: 'rider.data_exported',
+  erased: 'rider.erased',
 } as const
 
 /** Invitation texts a rider can get in 24 hours, the first one included (#838). */
@@ -65,19 +74,24 @@ export type SendInvitation = (tx: ScopedSql, invitation: { riderId: string; phon
 export interface RidersDeps {
   sql: postgres.Sql
   context: TenantContext
-  actor: { id: string; partnerId: string }
+  actor: { id: string; label: string; partnerId: string }
   activity: ActivityLog
   facts: RequestFacts
   plan: RidersPlan
   /** The store's free addresses' domain (SHOP_DOMAIN); without it there is no app to link to. */
   shopDomain: string | null
   send: SendInvitation
+  /** Queues the export job's outbox row in the same transaction. */
+  queueExport: (tx: ScopedSql, payload: CatalogJobPayload) => Promise<unknown>
+  /** The assets bucket, where an erased rider's photos are deleted from once the erasure has committed; null where it isn't bound. */
+  deleteFiles: ((keys: string[]) => Promise<unknown>) | null
   now: () => Date
 }
 
 const inviteInput = z.strictObject({ name: z.string().trim().min(1).max(120), phone: z.string().trim() })
+const eraseReason = z.string().trim().min(1).max(500)
 
-export const createRiders = ({ sql, context, actor, activity, facts, plan, shopDomain, send, now }: RidersDeps) => {
+export const createRiders = ({ sql, context, actor, activity, facts, plan, shopDomain, send, queueExport, deleteFiles, now }: RidersDeps) => {
   const { storeId } = context
 
   const entry = (action: string, rider: { id: string; name: string }): ActivityEntry => ({
@@ -193,5 +207,47 @@ export const createRiders = ({ sql, context, actor, activity, facts, plan, shopD
       return true as const
     })
 
-  return { list, invite, resend, suspend, restore, remove }
+  /** The Owner's file of one rider's data, built after commit in their own scope; read back by its id (DELIVERY §5). */
+  const exportData = (id: string): Promise<RidersResult<string>> =>
+    run(async (tx) => {
+      const profile = isUuid(id) ? await selectRiderForExport(tx, storeId, id) : null
+      if (!profile) throw new Refused({ reason: 'NOT_FOUND' })
+      const jobId = await insertCatalogExport(tx, { storeId, sellerId: null, kind: 'rider', filter: { riderId: id }, byId: actor.id, byLabel: actor.label })
+      const payload = jobPayloadOf(context, jobId)
+      if (!payload) throw new Refused({ reason: 'FORBIDDEN' })
+      await queueExport(tx, payload)
+      await activity.record(tx, entry(ridersAudit.exported, { id, name: profile.name }))
+      return jobId
+    })
+
+  /** The export's state and its file until it expires; null for an id the caller didn't ask for. */
+  const exportJob = (id: string): Promise<CatalogExportDto | null> =>
+    isUuid(id)
+      ? withScope(sql, context, async (tx) => {
+          const job = await selectCatalogExport(tx, storeId, id)
+          return job?.kind === 'rider' && job.requested_by_id === actor.id ? exportDtoOf(job, now()) : null
+        })
+      : Promise.resolve(null)
+
+  /** Removal, then the rider is gone from everything that names or reaches them (riderData.ts); the reason is kept in the log. */
+  const erase = async (id: string, reason: string): Promise<RidersResult<true>> => {
+    const done = await runAsSystem(async (tx) => {
+      const why = eraseReason.safeParse(reason)
+      if (!why.success) throw new Refused({ reason: 'INVALID_INPUT' })
+      if (!isUuid(id)) throw new Refused({ reason: 'NOT_FOUND' })
+      await serialise(tx, `dispatch:${storeId}:${id}`)
+      const erased = await eraseRiderData(tx, { storeId, partnerId: actor.partnerId, activity, facts, now: now(), actor: { actorKind: 'person', actorId: actor.id, actorLabel: null } }, id, 'erased')
+      if (!erased) throw new Refused({ reason: 'NOT_FOUND' })
+      await activity.record(tx, { ...entry(ridersAudit.erased, { id, name: formerRiderName }), reason: why.data })
+      return erased.keys
+    })
+    if (!done.ok) return done
+    // After the commit, so a rolled-back erasure never loses a file; a failed delete leaves only an object no row names.
+    if (deleteFiles && done.value.length > 0) {
+      await deleteFiles(done.value).catch((error: unknown) => logEvent({ event: 'rider_photos_delete_failed', api: 'store', storeId, code: error instanceof Error ? error.name : 'unknown' }))
+    }
+    return { ok: true, value: true }
+  }
+
+  return { list, invite, resend, suspend, restore, remove, exportData, exportJob, erase }
 }

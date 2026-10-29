@@ -17,7 +17,7 @@ late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the por
 side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858); the whole journey
 as a test and the load check (§10; #873).
 
-Last updated: 2026-10-29 (#873: the journey test and the load check, §10). Before: 2026-10-29 (#872: what dispatch measures, §3). Before: 2026-10-28 (#852: the APK download and the Delivery API's `minimumBuild`, §4, §5). Before: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
+Last updated: 2026-10-29 (#874: export and erase of a rider, the location disclosure, §5, §7, §10). Before: 2026-10-29 (#873: the journey test and the load check, §10). Before: 2026-10-29 (#872: what dispatch measures, §3). Before: 2026-10-28 (#852: the APK download and the Delivery API's `minimumBuild`, §4, §5). Before: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
 events, §3, §4, §6, §8). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
@@ -356,13 +356,18 @@ dispatch is built on #842 (DL 5); pickup, proof and completion on #843 (DL 6), b
   is handed back to the other riders; refused `RIDER_HAS_PARCEL` while they carry a `picked_up` one,
   which the merchant recalls first) or **remove** (the same rules; the row
   stays, so past deliveries keep their rider; the phone is erased, AGENTS.md "Data").
-- **Export and erase** *(proposed, built on #874)*: the Owner can export one rider's data (profile,
-  deliveries with dates, states, warehouse and the customer's area name only, sign-in times) as an
-  export job, and **erase** a rider: removal, then "Former rider" in place of their name in past
-  deliveries and the activity log's labels (LOGGING §8), with their sessions, devices and position
-  deleted. A rider's own Delete my account does the same, under the same rules as suspension:
-  their `assigned` deliveries are handed back, and it is refused `RIDER_HAS_PARCEL` while they
-  carry a `picked_up` one, so a parcel in transit always keeps its rider.
+- **Export and erase** (built on #874, migration 0372): a rider's data is the store's, and only the Owner (`riders.manage`,
+  never a support session) reaches it. **`exportRider(id)`** makes one of the store's export jobs (`catalog_export` kind `rider`,
+  DATA-MODEL §3.6), read back by `riderExport(id)` for an hour: a CSV of the rider's profile, their deliveries (dates, state,
+  location, the customer's **area name only**, cash collected yes or no) and their sign-in times, never a customer's name,
+  address or phone (cut at 10,000 rows of each list); it is logged as `rider.data_exported`. **`eraseRider(id, reason)`**
+  (`rider.erased`, with the reason) is removal and then everything that names or reaches them: the name becomes
+  "Former rider" on the rider's row, which past deliveries keep, and in the log's `target_label` and `actor_label` entries
+  that name them (the one function that may change those two columns, LOGGING §8); the number, photo (the rows, and the files
+  once the erasure has committed), vehicle, sessions, devices, position, sign-in codes, earlier exports, and queued texts and
+  pushes that name them are deleted or emptied. It works on a rider already removed. A rider's own **Delete my account** is the
+  same erasure, under the same rules as suspension: their `assigned` deliveries are handed back, and it is refused
+  `RIDER_HAS_PARCEL` while they carry a `picked_up` one, so a parcel in transit always keeps its rider.
 - **Sessions** last 30 days from last use, like customers' (DATA-MODEL §3.4), one per phone.
 - **A rider belongs to one store.** The same person delivering for two stores has two accounts
   and two apps, as a customer does.
@@ -444,7 +449,11 @@ failed or cancelled); the state history stays.
 seconds, otherwise every 60 seconds while online. `rider_position` keeps one row per rider
 (the latest point), overwritten, and deleted when the rider goes offline, when the sweep finds it
 older than 10 minutes, and when the rider signs out, is suspended, removed or erased. No trail is kept, and
-positions never enter the activity log or technical logs.
+positions never enter the activity log or technical logs. Before the app first asks for location it shows a full-screen
+disclosure in the store's name (Google Play's prominent disclosure; Apple 5.1.1): what is collected (the position, only while
+online, even with the app closed), why (offers near the warehouse, and the customer's tracking once picked up) and that only
+the latest point is kept, deleted when they go offline. Continue goes on to the permission; Not now leaves them Offline,
+and the disclosure comes again the next time they try (built on #874; delivery/FIRST-RELEASE.md §2).
 
 **Arrival estimate** (built on #858): from Google's Routes API (`computeRoutes`, traffic-aware, duration only), server-side, from the rider's latest point to the order's pin,
 with a server key restricted to that API (THIRD-PARTY-ACCESS §2.12; `GOOGLE_MAPS_SERVER_KEY`, validated at boot). Without the key, `etaAt` stays empty. The call has a 5-second timeout
@@ -539,6 +548,10 @@ console, and the admin console has no override. So a store can be given a riders
 - The customer reads the rider's details only while `assigned` or `picked_up`, and the position only
   while `picked_up`.
 - Two accepts of one offer at once: exactly one wins.
+- **Erasure** (built on #874): after `eraseRider` and after a rider's Delete my account, no table holds the rider's name, number, photo,
+  sessions, devices, position or codes (the test reads every table); `exportRider` and `eraseRider` are refused for every seat but the
+  Owner, and answer another store's rider as one that doesn't exist; an `assigned` delivery is offered to the others in a new round,
+  and a `picked_up` one refuses `RIDER_HAS_PARCEL` with nothing changed.
 - The hostname guard: `/delivery-api/` answers only on `{slug}.<SHOP_DOMAIN>`.
 - **The journey** (built on #873; `apps/api/tests/delivery-journey.test.ts`) runs through the Store, Delivery and Shop APIs' own
   schemas, as the apps call them: the Owner's pinned location and riders, two riders signed in and online, a customer's

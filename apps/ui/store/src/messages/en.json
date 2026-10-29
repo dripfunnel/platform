@@ -3020,6 +3020,16 @@
       "removeBody": "They can’t sign in again; past deliveries keep their name. Their phone number is erased.",
       "removeInvitedBody": "The invitation is cancelled and their phone number is erased.",
       "removed": "{name} removed",
+      "exportData": "Export their data: profile, deliveries and sign-in times, as a file",
+      "exportStarted": "Export started. It’ll be ready to download in a moment. No customer names, phone numbers or addresses are in it.",
+      "erase": "Erase: removes them and their name everywhere",
+      "eraseConfirm": "Erase",
+      "eraseTitle": "Erase {name}?",
+      "eraseBody": "Their name becomes ‘Former rider’ in past deliveries and the activity log. Their profile, photo, sign-ins, devices, position and mobile number are deleted, and a delivery they’ve accepted goes back to the other riders. This can’t be undone.",
+      "eraseReason": "Reason",
+      "eraseReasonPlaceholder": "e.g. They asked us to delete their data",
+      "eraseReasonMissing": "Say why they’re being erased",
+      "erased": "{name} erased",
       "notAvailable": {
         "title": "Own delivery isn’t part of your plan",
         "body": "DripFunnel switches it on for Enterprise stores once it’s agreed."
