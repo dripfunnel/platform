@@ -28,6 +28,7 @@ const summarySchema = z.object({
   parentId: z.string().nullable(),
   inheritParent: z.boolean(),
   match: z.enum(['all', 'any']),
+  imageAssetId: z.string().nullable(),
   rules: z.array(ruleSchema),
   products: z.number().int(),
   computedAt: z.string().nullable(),
@@ -40,7 +41,7 @@ export const loadCollections = (): Promise<CollectionSummary[]> =>
     async (after) =>
       (
         await query(
-          `query C($after: String) { collections(first: 50, after: $after) { nodes { id name kind visible parentId inheritParent match rules { ${ruleFields} } products computedAt } pageInfo { hasNextPage endCursor } } }`,
+          `query C($after: String) { collections(first: 50, after: $after) { nodes { id name kind visible parentId inheritParent match imageAssetId rules { ${ruleFields} } products computedAt } pageInfo { hasNextPage endCursor } } }`,
           z.object({ collections: z.object({ nodes: z.array(summarySchema), pageInfo: pageInfoSchema }) }),
           { after },
         )

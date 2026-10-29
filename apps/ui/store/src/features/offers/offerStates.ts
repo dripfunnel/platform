@@ -84,7 +84,7 @@ export const editorSample = (state: EditorState | null): EditorSample | null => 
   const facts: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }
   const lists: FormLists = {
     filters: [{ id: 'f1', name: 'Fabric', position: 0, revision: 1, shopperVisible: true, values: [{ id: 'fv-linen', name: 'Linen', products: 12 }, { id: 'fv-cotton', name: 'Cotton', products: 30 }] }],
-    collections: [{ id: 'c1', name: 'Festive edit', kind: 'manual', visible: true, parentId: null, inheritParent: false, match: 'all', rules: [], products: 24, computedAt: null }],
+    collections: [{ id: 'c1', name: 'Festive edit', kind: 'manual', visible: true, parentId: null, inheritParent: false, match: 'all', imageAssetId: null, rules: [], products: 24, computedAt: null }],
     groups: [{ id: 'g1', name: 'VIP', description: null, members: 12 }, { id: 'g2', name: 'Wholesale', description: null, members: 5 }],
     markets: [],
   }

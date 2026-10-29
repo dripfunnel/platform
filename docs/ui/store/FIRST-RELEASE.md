@@ -562,7 +562,10 @@ Staff view only.
 **Built on #299**: Collections is a screen with its tabs (`/collections`; `?edit=` opens one, `new`
 starts one). The rule builder writes a filter's values as one sentence, sent as one rule per value,
 and the API reads them as alternatives under "all" (CATALOG H4). Rules the screen doesn't draw (a
-product, a version, a price range) are kept as they are on save. The live preview is
+product, a version, a price range) are kept as they are on save. A collection's one image is uploaded as
+a product photo is (`POST /api/assets`), with Upload, Replace and Remove under its description, and is the
+list's thumbnail (`imageAssetId` on `collections`); the prototype doesn't draw it (designs/INCOMPLETE-FEATURES.md).
+Its sort and SEO, also not drawn, are kept as they are. The live preview is
 `collectionPreview`. Seasonal ideas come from a dated table of occasions in the app, matched to the
 countries the store's markets sell to (CATALOG H13); if markets don't load, the ideas are left out
 and nothing else changes. Filters (`?tab=filters`): values are added, renamed and deleted through
