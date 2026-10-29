@@ -56,7 +56,6 @@ export const pushDeliverer = (sql: postgres.Sql, sender: ExpoPush, now: () => Da
       log('push_failed', failureCode(error))
       throw error
     }
-    emitMeasurements(failedSends(storeId, tickets.map((t) => t.error)))
     const dead = found.devices.filter((_, i) => tickets[i]?.error === notRegistered).map((d) => d.id)
     const sent = found.devices.flatMap((d, i) => {
       const ticketId = tickets[i]?.id
@@ -66,6 +65,8 @@ export const pushDeliverer = (sql: postgres.Sql, sender: ExpoPush, now: () => Da
       await deleteDevicesByIds(tx, storeId, dead)
       if (sent.length > 0) await queuePushReceipts(tx, { partnerId, storeId, idempotencyKey: `${effect.id}:${effect.attempt}`, payload: { tickets: sent, sentAt: now().toISOString() } })
     })
+    // After the rows are kept: a retry of this push, after a failure above, would count the same refused sends twice.
+    emitMeasurements(failedSends(storeId, tickets.map((t) => t.error)))
     log('push_sent', dead.length > 0 ? 'some_unregistered' : 'sent')
   },
 })

@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
 import { ExpoPushRefused, ExpoPushUnavailable, type ExpoPush, type PushMessage } from '#integrations/expoPush/index'
@@ -67,9 +68,9 @@ const dbNow = async (): Promise<Date> => {
 }
 
 /** The relay `aheadMs` from the database's now, its deliverers running by the same clock. */
-const relay = async (expo: ExpoPush, o: { aheadMs?: number; maxAttempts?: number; kinds?: 'both' | 'none' } = {}) => {
+const relay = async (expo: ExpoPush, o: { aheadMs?: number; maxAttempts?: number; kinds?: 'both' | 'none'; sql?: postgres.Sql } = {}) => {
   const at = new Date((await dbNow()).getTime() + 1000 + (o.aheadMs ?? 0))
-  const deliverers: Deliverers = o.kinds === 'none' ? { unrelated: { deliver: async () => undefined } } : { [pushKind]: pushDeliverer(db.sql, expo, () => at), [pushReceiptsKind]: pushReceiptsDeliverer(db.sql, expo, () => at) }
+  const deliverers: Deliverers = o.kinds === 'none' ? { unrelated: { deliver: async () => undefined } } : { [pushKind]: pushDeliverer(o.sql ?? db.sql, expo, () => at), [pushReceiptsKind]: pushReceiptsDeliverer(db.sql, expo, () => at) }
   return relayDue(db.sql, deliverers, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0, maxAttempts: o.maxAttempts ?? defaultRelayOptions.maxAttempts })
 }
 
@@ -210,6 +211,27 @@ describe('push failures, measured and logged (DELIVERY §3)', () => {
     logs.restore()
     expect(sent).toEqual([{ event: 'metric', api: 'system', storeId: t.storeA1, metric: 'push_send_failed', value: 1, code: 'DeviceNotRegistered' }])
     expect(Object.keys(sent[0] ?? {}).every((key) => metricKeys.includes(key))).toBe(true)
+  })
+
+  it('counts a refused send once even when the rows after it fail and the relay sends the push again', async () => {
+    const logs = captureLogs()
+    const { expo, deadTokens } = fakeExpo()
+    const riderId = crypto.randomUUID()
+    await device(riderId, 25)
+    deadTokens.add(token(25))
+    const id = await queue(notice(riderId))
+    // The first transaction reads the phones; the second deletes the dead one and queues the receipts, and it fails here.
+    let transactions = 0
+    const flaky = new Proxy(db.sql, {
+      get: (target, key, receiver) => (key === 'begin' && ++transactions === 2 ? () => Promise.reject(new Error('connection lost')) : Reflect.get(target, key, receiver) as unknown),
+    })
+    expect((await relay(expo, { sql: flaky })).retry).toBe(1)
+    expect(logs.metrics('push_send_failed')).toEqual([])
+    expect((await relay(expo)).delivered).toBe(1)
+    const counted = logs.metrics('push_send_failed')
+    logs.restore()
+    expect(counted.map((m) => m.code)).toEqual(['DeviceNotRegistered'])
+    expect((await row(id))?.delivered_at).not.toBeNull()
   })
 
   it('counts the receipt errors once, on the last pass, not on each time Expo is asked again', async () => {
