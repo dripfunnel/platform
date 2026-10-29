@@ -134,7 +134,7 @@ the missing backend.
 ### Collections, Filters and Menus (CatCollections, CatSizeCharts)
 - Price-range rules "aren't possible yet" (:79).
 - Filters can't be deleted, only their values.
-- Collections have no image, no SEO fields and no product sort order.
+- Collections have no image, no SEO fields and no product sort order. (The image is built without a drawing: docs/ui/store/FIRST-RELEASE.md §12.)
 - Menus:
   - one main menu only;
   - items can only be collections;

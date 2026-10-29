@@ -26,7 +26,7 @@ const api = vi.hoisted(() => ({
   loadMarketCountries: vi.fn(),
 }))
 vi.mock('../../api/collections', () => api)
-const editorApi = vi.hoisted(() => ({ loadProductBasics: vi.fn() }))
+const editorApi = vi.hoisted(() => ({ loadProductBasics: vi.fn(), uploadPhoto: vi.fn() }))
 const filtersApi = vi.hoisted(() => ({ loadFilters: vi.fn(), saveFilter: vi.fn(), mergeValues: vi.fn() }))
 vi.mock('../../api/filters', () => filtersApi)
 vi.mock('../../api/productEditor', () => editorApi)
@@ -43,7 +43,7 @@ const facets: Facet[] = [
   { id: 'occasion', name: 'Occasion', shopperVisible: true, values: [{ id: 'wedding', name: 'Wedding' }] },
 ]
 const filterRule = (valueId: string) => ({ kind: 'filter_value', valueId, text: null, productId: null, versionId: null, currency: null, min: null, max: null })
-const summary = (c: Partial<CollectionSummary> & Pick<CollectionSummary, 'id' | 'name'>): CollectionSummary => ({ kind: 'manual', visible: true, parentId: null, inheritParent: false, match: 'all', rules: [], products: 0, computedAt: '2026-10-05T09:00:00Z', ...c })
+const summary = (c: Partial<CollectionSummary> & Pick<CollectionSummary, 'id' | 'name'>): CollectionSummary => ({ kind: 'manual', visible: true, parentId: null, inheritParent: false, match: 'all', imageAssetId: null, rules: [], products: 0, computedAt: '2026-10-05T09:00:00Z', ...c })
 const summer = summary({ id: 'c1', name: 'Summer edit', kind: 'automatic', rules: [filterRule('linen'), filterRule('cotton')], products: 18 })
 const men = summary({ id: 'c2', name: 'Men', products: 42 })
 const shirts = summary({ id: 'c3', name: 'Shirts', parentId: 'c2', inheritParent: true, kind: 'automatic', rules: [filterRule('linen')], products: 7, computedAt: null })
@@ -79,7 +79,15 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+  vi.unstubAllGlobals()
 })
+
+// AssetImage reads a store file with the acting headers; here every file is a tiny PNG.
+const serveAssets = () => {
+  const fetch = vi.fn(async () => new Response(new Blob(['png'], { type: 'image/png' })))
+  vi.stubGlobal('fetch', fetch)
+  return fetch
+}
 
 const row = (name: string) => screen.getByRole('link', { name: `Open ${name}` })
 
@@ -94,6 +102,17 @@ describe('the collections list', () => {
     expect(within(row('Shirts')).getByText('Inside Men · only products also there')).toBeTruthy()
     expect(within(row('Shirts')).getByText('Updating… 7 so far')).toBeTruthy()
     expect(within(row('Staff picks')).getByText(words.list.hidden)).toBeTruthy()
+  })
+
+  it('shows a collection’s image as its thumbnail, and the placeholder where it has none', async () => {
+    const fetch = serveAssets()
+    api.loadCollections.mockResolvedValue([{ ...men, imageAssetId: 'a9' }, summer])
+    await show()
+    await settle()
+    expect(fetch).toHaveBeenCalledWith('/api/assets/a9', expect.anything())
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(row('Men').querySelector('img.df-colls-thumb')).toBeTruthy()
+    expect(row('Summer edit').querySelector('img')).toBeNull()
   })
 
   it('suggests what is coming up in the store’s markets, and starts a hand-picked one from it', async () => {
@@ -212,6 +231,7 @@ describe('a collection being made or changed', () => {
   })
 
   it('edits a hand-picked collection at the revision read, adding a product found by search', async () => {
+    serveAssets()
     api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men', revision: 3, imageAssetId: 'a7', sort: 'price_asc', seoTitle: 'Men’s edit', seoDescription: 'Shirts and kurtas' }))
     api.loadMembers.mockResolvedValue([{ id: 'p1', name: 'Mara Linen Shirt' }])
     api.searchPickable.mockResolvedValue([{ id: 'p1', name: 'Mara Linen Shirt', visible: true, approval: null }, { id: 'p2', name: 'Indigo Kurta', visible: false, approval: null }])
@@ -227,8 +247,56 @@ describe('a collection being made or changed', () => {
     fireEvent.click(screen.getByRole('button', { name: e.save }))
     await settle()
     expect(api.saveCollection).toHaveBeenCalledWith('c2', 3, expect.objectContaining({ kind: 'manual', productIds: ['p1', 'p2'], rules: [] }))
-    // What this screen doesn't draw goes back as it was read, so a save never clears its image, sort or SEO.
+    // An untouched image and what this screen doesn't draw go back as read, so a save never clears them.
     expect(api.saveCollection.mock.calls[0]?.[2]).toMatchObject({ imageAssetId: 'a7', sort: 'price_asc', seoTitle: 'Men’s edit', seoDescription: 'Shirts and kurtas' })
+  })
+
+  it('uploads an image for a new collection and saves it with it', async () => {
+    serveAssets()
+    editorApi.uploadPhoto.mockResolvedValue({ ok: true, assetId: 'a1' })
+    api.saveCollection.mockResolvedValue({ id: 'c9', revision: 1 })
+    await show(owner, '/collections?edit=new')
+    expect(screen.getByText(e.noImage)).toBeTruthy()
+    fireEvent.change(screen.getByLabelText(e.name), { target: { value: 'Festive' } })
+    const file = new File(['png'], 'festive.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText(e.image, { selector: 'input' }), { target: { files: [file] } })
+    await settle()
+    expect(editorApi.uploadPhoto).toHaveBeenCalledWith(file)
+    expect(screen.getByRole('img', { name: e.imageAlt })).toBeTruthy()
+    expect(screen.getByText(e.replaceImage)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: e.save }))
+    await settle()
+    expect(api.saveCollection).toHaveBeenCalledWith(null, null, expect.objectContaining({ name: 'Festive', imageAssetId: 'a1' }))
+  })
+
+  it('removes a collection’s image, saving none', async () => {
+    serveAssets()
+    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men', imageAssetId: 'a7' }))
+    api.saveCollection.mockResolvedValue({ id: 'c2', revision: 4 })
+    await show(owner, '/collections?edit=c2')
+    await settle()
+    expect(screen.getByRole('img', { name: e.imageAlt })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: e.removeImage }))
+    expect(document.activeElement).toBe(screen.getByLabelText(e.image, { selector: 'input' }))
+    expect(screen.getByText(e.noImage)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: e.save }))
+    await settle()
+    expect(api.saveCollection.mock.calls[0]?.[2]).toMatchObject({ imageAssetId: null })
+  })
+
+  it('says why an image was refused, keeping the one there, and won’t save mid-upload', async () => {
+    serveAssets()
+    let finish: (r: { ok: false; code: 'TOO_LARGE' }) => void = () => undefined
+    editorApi.uploadPhoto.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men', imageAssetId: 'a7' }))
+    await show(owner, '/collections?edit=c2')
+    fireEvent.change(screen.getByLabelText(e.image, { selector: 'input' }), { target: { files: [new File(['x'], 'big.png', { type: 'image/png' })] } })
+    expect(screen.getByText(e.uploadingImage)).toBeTruthy()
+    expect((screen.getByRole('button', { name: e.save }) as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => finish({ ok: false, code: 'TOO_LARGE' }))
+    expect(screen.getByRole('alert').textContent).toBe(e.imageRefused.TOO_LARGE)
+    expect(screen.getByRole('img', { name: e.imageAlt })).toBeTruthy()
+    expect((screen.getByRole('button', { name: e.save }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('keeps the form and says why when the save is refused', async () => {

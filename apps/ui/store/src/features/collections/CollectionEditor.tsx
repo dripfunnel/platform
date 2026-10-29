@@ -4,14 +4,16 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { deleteCollection, loadCollection, loadMembers, previewCollection, saveCollection, searchPickable, type Collection, type CollectionSummary, type Member, type Pickable, type Preview, type RuleInput } from '../../api/collections'
 import { loadMenu } from '../../api/menu'
-import type { Facet } from '../../api/productEditor'
+import { uploadPhoto, type Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { ImageField } from '../common/ImageField'
 import { RadioCards } from '../common/RadioCards'
 import '../common/switch.css'
 import { slugOf } from '../common/slug'
 import { blankDraft, draftOf, nameField, newRow, ruleFields, ruleInputs, type CollectionDraft, type RuleRow } from './collectionDraft'
 
 const words = messages.collections.editor
+const imageWords = { upload: words.uploadImage, replace: words.replaceImage, uploading: words.uploadingImage, remove: words.removeImage }
 
 const refusalOf = (error: unknown): string => (isApiError(error) ? ((messages.collections.refused as Record<string, string>)[error.code] ?? messages.collections.refused.other) : messages.collections.refused.other)
 
@@ -91,6 +93,8 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
   const [saving, setSaving] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [asking, setAsking] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [imageProblem, setImageProblem] = useState<string | null>(null)
   const [preview, setPreview] = useState<PreviewView>({ kind: 'idle' })
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState<Search>({ kind: 'loading' })
@@ -207,6 +211,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
         parentId: draft.parentId,
         inheritParent: draft.parentId !== null && draft.inheritParent,
         visible: draft.visible,
+        imageAssetId: draft.imageAssetId,
         rules: draft.kind === 'automatic' ? rules : [],
         productIds: draft.kind === 'manual' ? draft.productIds : [],
         ...draft.kept,
@@ -229,6 +234,16 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
       setFailure(refusalOf(error))
       setSaving(false)
     }
+  }
+
+  const upload = (file: File) => {
+    setUploading(true)
+    setImageProblem(null)
+    void uploadPhoto(file).then((result) => {
+      setUploading(false)
+      if (result.ok) set({ imageAssetId: result.assetId })
+      else setImageProblem(words.imageRefused[result.code])
+    })
   }
 
   const setRow = (key: string, row: RuleRow) => set({ rows: draft.rows.map((r) => (r.key === key ? row : r)) })
@@ -275,6 +290,22 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
             </label>
             <textarea id={`${formId}-desc`} rows={2} value={draft.description} readOnly={ro} maxLength={5000} onChange={(e) => set({ description: e.target.value })} />
           </div>
+          <ImageField
+            label={words.image}
+            help={words.imageHint}
+            alt={words.imageAlt}
+            none={words.noImage}
+            assetId={draft.imageAssetId}
+            words={imageWords}
+            readOnly={ro}
+            busy={uploading}
+            problem={imageProblem}
+            onFile={upload}
+            onRemove={() => {
+              set({ imageAssetId: null })
+              setImageProblem(null)
+            }}
+          />
         </section>
 
         <section className="df-coll-card" aria-labelledby={`${formId}-fill`}>
@@ -369,7 +400,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
                   {words.delete}
                 </button>
               )}
-              <button type="button" className="df-button df-button--primary" disabled={saving} onClick={() => void save()}>
+              <button type="button" className="df-button df-button--primary" disabled={saving || uploading} onClick={() => void save()}>
                 {saving ? words.saving : words.save}
               </button>
             </span>

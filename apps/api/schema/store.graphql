@@ -423,6 +423,7 @@ input CollectionRuleInput {
 type CollectionSummary {
   computedAt: String
   id: ID
+  imageAssetId: ID
   inheritParent: Boolean
   kind: String
   match: String
