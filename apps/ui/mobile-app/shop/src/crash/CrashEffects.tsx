@@ -2,8 +2,7 @@ import { useEffect } from 'react'
 import { z } from 'zod'
 import { decode } from '@dripfunnel/mobile-shared/graphql'
 import { useShop } from '../api/ShopContext'
-import { crashReportingIsSetUp } from './config'
-import { setReportingUser, startReporting } from './report'
+import { crashReportingIsSetUp, setReportingUser, startReporting } from '@dripfunnel/mobile-shared/crash'
 
 const idAnswer = z.object({ account: z.object({ id: z.string().nullable() }).nullable() })
 

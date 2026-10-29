@@ -1,4 +1,4 @@
-import { ApiError } from '@dripfunnel/mobile-shared/graphql'
+import { ApiError } from '../graphql'
 import { scrubbed } from './scrub'
 
 // What a crash report may say (card #876): a code or a class and the frames, never a message.
