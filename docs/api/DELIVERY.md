@@ -517,6 +517,7 @@ agreed. There is no Enterprise plan on the pricing page and nothing to buy in th
 **Not yet possible** (#838): `store_limit_override` holds amounts only and is set from the partner
 console, and the admin console has no override. So a store can be given a riders limit, but
 `own_delivery` and `own_apps` can't yet be switched on for one store; that needs a follow-up card.
+The pilot store's production setup (#875) works round it with a plan that has them on, for that store only: setup/prod.md §3.9 step 5.
 
 ---
 

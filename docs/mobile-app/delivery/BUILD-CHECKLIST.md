@@ -98,3 +98,9 @@ Do this on the pilot store before inviting riders, and attach a screenshot of ea
 
 A JavaScript-only change may go to one store's channel (`eas update --channel <key> --message "..."`; the rules are in ../merchant/REACT-NATIVE.md §3). `runtimeVersion` follows `version`, so a
 native change needs a new build and an upload (§4), and a build too old for the API needs a minimum build (§4 step 5).
+
+## 7. The pilot store in production (#875)
+
+Not done yet: the pilot's store file and EAS profile (the store's key, slug, production host, app name, package, scheme and images) are not in the repo, and
+are added in a small card once they are known. Build it with the same steps as §4 against the production host, upload it on production, and
+walk through [setup/prod.md §3.9](../../setup/prod.md) with two riders.
