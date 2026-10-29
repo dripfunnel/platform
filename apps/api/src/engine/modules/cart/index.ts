@@ -328,6 +328,11 @@ export const createCartService = (deps: CartDeps) => {
     const addIn = async (context: TenantContext, token: string | null, known: ReadonlyMap<string, CartItem> | null): Promise<CartResult<CartChange> | null> => {
       const done = await withScope(sql, context, async (tx) => {
         let found = await selectCart(tx, storeId, now())
+        // Read again under the row's lock, as change() does, so two quick adds of one item both count.
+        if (found) {
+          await lockCartRow(tx, storeId, found.id)
+          found = await selectCart(tx, storeId, now())
+        }
         if (!found) {
           if (customerId === null && token === null) return null
           const tokenHash = context.caller.kind === 'shopper' ? (context.caller.orderTokenHash ?? null) : null

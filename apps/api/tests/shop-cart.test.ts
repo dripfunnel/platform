@@ -6,7 +6,9 @@ import { resolveShopper } from '#auth/shopCaller'
 import { hashSessionId } from '#auth/session'
 import type { TenantContext } from '#core/tenancy'
 import { deleteExpiredCarts } from '#db/scoped/cart'
+import { defaultFeatures } from '#db/scoped/catalogListing'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { createCartService } from '#engine/modules/cart/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -241,7 +243,13 @@ describe('adding to a cart', () => {
     expect(change.cartToken).not.toBe(stale)
   })
 
-  // Every statement is a round trip to the database, which is what made adding slow on a live shop.
+  it('counts every add of one item made at once, one after the other', async () => {
+    const held = ((await add()).data?.['addToCart'] as { cartToken: string }).cartToken
+    await Promise.all([1, 2, 3, 4].map(() => add({ token: held })))
+    expect(await cart(held)).toMatchObject({ lines: [{ quantity: 5 }] })
+  })
+
+  // Every statement is a round trip to the database, which made adding slow on a live shop (#1009: 55 before, 37 now).
   it('looks the cart and its items up once, in one transaction', async () => {
     const held = ((await add()).data?.['addToCart'] as { cartToken: string }).cartToken
     let statements = 0
@@ -249,9 +257,47 @@ describe('adding to a cart', () => {
     try {
       const again = await add({ token: held, sql: counted })
       expect(again.data?.['addToCart']).toEqual({ cartToken: null, cart: { lines: [{ quantity: 2 }] } })
-      expect(statements).toBeLessThanOrEqual(35)
+      expect(statements).toBeLessThanOrEqual(37)
     } finally {
       await counted.end()
     }
+  })
+
+  const stale = 'd'.repeat(64)
+  const carts = async () => Number((await db.sql<{ n: string }[]>`select count(*)::text as n from "order" where store_id = ${stores.india}`)[0]?.n)
+  const refusal = (versionId: string, token: string | null, gift = '') =>
+    gql(`mutation { addToCart(versionId: "${versionId}", quantity: 1${gift}) { cartToken } }`, { token }).then((r) => r.code)
+
+  it('refuses an item shoppers can’t buy before the limiter counts a new cart, with no token or a stale one', async () => {
+    allow = false
+    try {
+      expect(await refusal(ids.hidden, null)).toBe('UNAVAILABLE')
+      expect(await refusal(ids.theirs, stale)).toBe('UNAVAILABLE')
+      expect(await refusal(ids.kurta, null)).toBe('RATE_LIMITED')
+      expect(await refusal(ids.kurta, stale)).toBe('RATE_LIMITED')
+    } finally {
+      allow = true
+    }
+  })
+
+  it('refuses a recipient on an item that isn’t a gift card, leaving no cart behind', async () => {
+    const before = await carts()
+    const gift = ', gift: { recipientName: "Asha", recipientEmail: "asha@example.com" }'
+    expect(await refusal(ids.kurta, null, gift)).toBe('INVALID_INPUT')
+    expect(await refusal(ids.kurta, stale, gift)).toBe('INVALID_INPUT')
+    expect(await carts()).toBe(before)
+  })
+
+  // A signed-in shopper's first add inserts its cart inside the transaction, so a refusal there must roll it back.
+  it('rolls a signed-in shopper’s new cart back when the add is refused', async () => {
+    const customerId = (await db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status) values (${stores.india}, 'rollback@example.com', 'Rollback', 'active') returning id`)[0]?.id ?? ''
+    const context: TenantContext = { caller: { kind: 'shopper', customerId, orderTokenHash: null }, partnerId: t.partnerA, storeId: stores.india, sellerScope: { kind: 'all' }, subscription: 'active' }
+    const service = createCartService({ sql: db.sql, context, language: 'en', currency: 'INR', marketId: null, features: defaultFeatures, couriers: null, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, allowNewCart: async () => true, now: () => new Date() })
+    const before = await carts()
+    expect(await service.add(ids.hidden, 1)).toEqual({ ok: false, reason: 'UNAVAILABLE' })
+    expect(await service.add(ids.kurta, 1, { recipientName: 'Asha', recipientEmail: 'asha@example.com' })).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    expect(await carts()).toBe(before)
+    expect((await service.add(ids.kurta, 1)).ok).toBe(true)
+    expect(await carts()).toBe(before + 1)
   })
 })
