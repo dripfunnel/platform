@@ -181,8 +181,9 @@ export const createCartService = (deps: CartDeps) => {
     }
   }
 
-  const view = async (context: TenantContext, row: CartRow): Promise<CartView> => {
-    const items = await catalog(context).cartItems(row.lines.map((l) => l.version_id))
+  /** `known`: the lines' items when the caller already looked them up in this request. */
+  const view = async (context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null): Promise<CartView> => {
+    const items = known ?? (await catalog(context).cartItems(row.lines.map((l) => l.version_id)))
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
@@ -316,38 +317,51 @@ export const createCartService = (deps: CartDeps) => {
   const add = async (versionId: string, quantity: number, giftInput: GiftInput | null = null): Promise<CartResult<CartChange>> => {
     const id = versionId.toLowerCase()
     if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity) return { ok: false, reason: 'INVALID_INPUT' }
-    const item = (await catalog(deps.context).cartItems([id])).get(id)
-    if (!item) return { ok: false, reason: 'UNAVAILABLE' }
-    // A gift card is one card a line, for the recipient chosen last; nothing else takes a recipient (decided on #323).
-    const isGiftCard = item.product.productType === 'gift_card'
     const gift = giftInput ? cleanGift(giftInput, now()) : null
-    if (isGiftCard !== (gift !== null) || (isGiftCard && quantity !== 1)) return { ok: false, reason: 'INVALID_INPUT' }
-    let context = deps.context
-    let token: string | null = null
-    const existing = await withScope(sql, context, (tx) => selectCart(tx, storeId, now()))
-    if (!existing && customerId === null) {
-      if (!(await deps.allowNewCart())) return { ok: false, reason: 'RATE_LIMITED' }
-      token = newSessionId()
-      context = { ...context, caller: { kind: 'shopper', customerId: null, orderTokenHash: await hashSessionId(token) } }
+    // A gift card is one card a line, for the recipient chosen last; nothing else takes a recipient (decided on #323).
+    const accept = (item: CartItem | undefined) => {
+      if (!item) throw new Refused('UNAVAILABLE')
+      const isGiftCard = item.product.productType === 'gift_card'
+      if (isGiftCard !== (gift !== null) || (isGiftCard && quantity !== 1)) throw new Refused('INVALID_INPUT')
     }
-    try {
-      const row = await withScope(sql, context, async (tx) => {
+    // One transaction finds the cart, looks up its items and writes the line; null when a guest's token opens no cart.
+    const addIn = async (context: TenantContext, token: string | null, known: ReadonlyMap<string, CartItem> | null): Promise<CartResult<CartChange> | null> => {
+      const done = await withScope(sql, context, async (tx) => {
         let found = await selectCart(tx, storeId, now())
         if (!found) {
+          if (customerId === null && token === null) return null
           const tokenHash = context.caller.kind === 'shopper' ? (context.caller.orderTokenHash ?? null) : null
           await insertCart(tx, storeId, { customerId, tokenHash: customerId === null ? tokenHash : null, currency, marketId, language, expiresAt: expiry() })
           found = await selectCart(tx, storeId, now())
           if (!found) throw new Refused('NO_CART')
         }
+        const ids = [...new Set([...found.lines.map((l) => l.version_id), id])]
+        const items = known && ids.every((v) => known.has(v)) ? known : await catalog(context).cartItemsIn(tx, ids)
+        accept(items.get(id))
         const held = found.lines.find((l) => l.version_id === id)?.quantity ?? 0
         if (!held && found.lines.length >= maxCartLines) throw new Refused('TOO_MANY_LINES')
         await setCartLine(tx, storeId, found.id, id, gift ? 1 : Math.min(held + quantity, maxQuantity))
         if (gift) await setCartGift(tx, found.id, id, gift)
         await write(tx, found, {})
-        return selectCart(tx, storeId, now())
+        const row = await selectCart(tx, storeId, now())
+        if (!row) throw new Refused('NO_CART')
+        return { row, items }
       })
-      if (!row) return { ok: false, reason: 'NO_CART' }
-      return { ok: true, value: { cart: await view(context, row), token } }
+      return done && { ok: true, value: { cart: await view(context, done.row, done.items), token } }
+    }
+    // A new guest cart, behind a new token: the item is checked before the limiter counts it.
+    const startGuestCart = async (): Promise<CartResult<CartChange>> => {
+      const items = await catalog(deps.context).cartItems([id])
+      accept(items.get(id))
+      if (!(await deps.allowNewCart())) return { ok: false, reason: 'RATE_LIMITED' }
+      const token = newSessionId()
+      const context: TenantContext = { ...deps.context, caller: { kind: 'shopper', customerId: null, orderTokenHash: await hashSessionId(token) } }
+      return (await addIn(context, token, items)) ?? { ok: false, reason: 'NO_CART' }
+    }
+    try {
+      // A guest that presented no token holds no cart (migration 0066's policy), so none is looked for.
+      if (customerId === null && !shopper?.orderTokenHash) return await startGuestCart()
+      return (await addIn(deps.context, null, null)) ?? (await startGuestCart())
     } catch (error) {
       if (error instanceof Refused) return { ok: false, reason: error.reason }
       throw error

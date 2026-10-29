@@ -1,4 +1,5 @@
 import { graphql, type GraphQLSchema } from 'graphql'
+import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { resolveShopper } from '#auth/shopCaller'
@@ -51,12 +52,12 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const gql = async (source: string, who: { host?: string; token?: string | null } = {}, variables: Record<string, unknown> = {}) => {
+const gql = async (source: string, who: { host?: string; token?: string | null; sql?: postgres.Sql } = {}, variables: Record<string, unknown> = {}) => {
   const host = who.host ?? hostOf.india
   const headers: Record<string, string> = who.token ? { 'x-shop-cart': who.token } : {}
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, allowNewCart: async () => allow, now: () => new Date() }
+  const contextValue: ShopContext = { sql: who.sql ?? db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, allowNewCart: async () => allow, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, problems: result.errors?.[0]?.extensions['problems'] as string[] | undefined }
 }
@@ -225,5 +226,32 @@ describe('limits and expiry', () => {
     const removed = await withSystemScope(db.sql, (tx) => deleteExpiredCarts(tx, new Date(Date.now() + 31 * 86_400_000), 500))
     expect(removed).toBe(before + 1)
     expect(Number((await db.sql<{ n: string }[]>`select count(*)::text as n from cart_line`)[0]?.n)).toBe(0)
+  })
+})
+
+describe('adding to a cart', () => {
+  const add = (who: { token?: string | null; sql?: postgres.Sql } = {}) =>
+    gql(`mutation { addToCart(versionId: "${ids.kurta}", quantity: 1) { cartToken cart { lines { quantity } } } }`, who)
+
+  it('starts a new cart behind a new token when the token presented opens none', async () => {
+    const stale = 'e'.repeat(64)
+    const change = (await add({ token: stale })).data?.['addToCart'] as { cartToken: string | null; cart: unknown }
+    expect(change.cart).toEqual({ lines: [{ quantity: 1 }] })
+    expect(change.cartToken).toMatch(/^[0-9a-f]{64}$/)
+    expect(change.cartToken).not.toBe(stale)
+  })
+
+  // Every statement is a round trip to the database, which is what made adding slow on a live shop.
+  it('looks the cart and its items up once, in one transaction', async () => {
+    const held = ((await add()).data?.['addToCart'] as { cartToken: string }).cartToken
+    let statements = 0
+    const counted = postgres(db.url, { max: 1, fetch_types: false, debug: () => (statements += 1) })
+    try {
+      const again = await add({ token: held, sql: counted })
+      expect(again.data?.['addToCart']).toEqual({ cartToken: null, cart: { lines: [{ quantity: 2 }] } })
+      expect(statements).toBeLessThanOrEqual(35)
+    } finally {
+      await counted.end()
+    }
   })
 })
