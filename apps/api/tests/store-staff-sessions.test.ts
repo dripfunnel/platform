@@ -170,11 +170,13 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   const blocked = (kind: 'impersonation') => fields().filter(({ field }) => field.extensions.access?.blockedFor?.includes(kind)).map(({ field }) => field.name).sort()
   const signIn = ['changeEmail', 'changePassword', 'regenerateBackupCodes', 'setSecondFactor', 'signOutOtherSessions']
   const moneyDetails = ['connectGateway', 'connectStripe', 'finishStripeConnect', 'setPaymentMethod']
+  // The store's own AI account and the Owner's consent to bill it, as the partner console's AI keys (#275).
+  const aiAccount = ['beginStoreAiOauth', 'connectStoreAiAccount', 'finishStoreAiOauth', 'removeStoreAiAccount', 'setStoreAiFallback', 'setStoreAiSwitch']
   // The storefront's design, studio and preview links were declared before #1012.
   const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioSession', 'undoDesignChange']
 
-  it('declares the user’s sign-in and sessions, money details, the store switch and the storefront’s design', () => {
-    expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, 'switchStore', ...storefront].sort())
+  it('declares the user’s sign-in and sessions, money details, the store’s AI account, the store switch and the storefront’s design', () => {
+    expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, ...aiAccount, 'switchStore', ...storefront].sort())
   })
 
   it('leaves no mutation on the user’s own account open but their name and theme', () => {
@@ -196,6 +198,12 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
       `mutation { connectGateway(provider: "cod") }`,
       `mutation { connectStripe }`,
       `mutation { finishStripeConnect(key: "k") }`,
+      `mutation { connectStoreAiAccount(provider: "anthropic", key: "k") }`,
+      `mutation { beginStoreAiOauth(provider: "anthropic") }`,
+      `mutation { finishStoreAiOauth(response: "r") }`,
+      `mutation { setStoreAiSwitch(on: true) }`,
+      `mutation { setStoreAiFallback(on: true) }`,
+      `mutation { removeStoreAiAccount }`,
       `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
       `mutation { removeMember(membershipId: "${seats.owner}") }`,
       `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,

@@ -1225,7 +1225,10 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     as above.
   - **The blocked lists** add `changeEmail`, `changePassword`, `setSecondFactor`,
     `regenerateBackupCodes`, `signOutOtherSessions`, `switchStore`, `setPaymentMethod`,
-    `connectGateway`, `connectStripe` and `finishStripeConnect` to the fields already declared
+    `connectGateway`, `connectStripe`, `finishStripeConnect`, and the store's AI account
+    (`connectStoreAiAccount`, `beginStoreAiOauth`, `finishStoreAiOauth`, `setStoreAiSwitch`,
+    `setStoreAiFallback`, `removeStoreAiAccount`: its key and the Owner's consent to bill it, as
+    the partner console's AI keys) to the fields already declared
     (preview links, the studio, storefront design writes). A structural test lists them, and
     leaves only `updateProfile` and `setTheme` open on the user's own account. In the people
     service, inviting an Owner, changing a role to or from Owner, or removing an Owner answers
