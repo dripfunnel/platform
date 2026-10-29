@@ -1223,9 +1223,11 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
   - **Ends.** Every read ends a session whose partner has closed (`partner_closed`), or whose
     user, seat or supplier is no longer active or whose store has closed (`target_gone`), logged
     as above.
-  - **The blocked lists** add `changeEmail`, `changePassword`, `setSecondFactor`, `switchStore`,
-    `setPaymentMethod`, `connectGateway`, `connectStripe` and `finishStripeConnect` to the fields
-    already declared (preview links, the studio, storefront design writes). In the people
+  - **The blocked lists** add `changeEmail`, `changePassword`, `setSecondFactor`,
+    `regenerateBackupCodes`, `signOutOtherSessions`, `switchStore`, `setPaymentMethod`,
+    `connectGateway`, `connectStripe` and `finishStripeConnect` to the fields already declared
+    (preview links, the studio, storefront design writes). A structural test lists them, and
+    leaves only `updateProfile` and `setTheme` open on the user's own account. In the people
     service, inviting an Owner, changing a role to or from Owner, or removing an Owner answers
     `BLOCKED_WHILE_IMPERSONATING`. The person's `/api/auth/*` routes read only their own cookie.
 

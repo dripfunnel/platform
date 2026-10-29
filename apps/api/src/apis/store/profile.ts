@@ -394,7 +394,7 @@ export const registerProfile = (builder: StoreBuilder) => {
       },
     }),
     regenerateBackupCodes: t.stringList({
-      extensions: { access: { ...session, audit: 'backup_codes.generated', whileReadOnly: true } },
+      extensions: { access: { ...session, audit: 'backup_codes.generated', whileReadOnly: true, blockedFor: ['impersonation'] } },
       resolve: async (_, __, ctx) => {
         const person = personOf(ctx)
         return withSystemScope(sqlOf(ctx), async (tx) => {
@@ -408,7 +408,7 @@ export const registerProfile = (builder: StoreBuilder) => {
       },
     }),
     signOutOtherSessions: t.int({
-      extensions: { access: { ...session, audit: 'sessions.others_ended', whileReadOnly: true } },
+      extensions: { access: { ...session, audit: 'sessions.others_ended', whileReadOnly: true, blockedFor: ['impersonation'] } },
       resolve: async (_, __, ctx) => {
         const person = personOf(ctx)
         return withSystemScope(sqlOf(ctx), async (tx) => {

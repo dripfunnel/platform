@@ -1,4 +1,4 @@
-import { graphql, type GraphQLSchema } from 'graphql'
+import { graphql, isObjectType, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { handleStoreAuth } from '#apis/store/auth'
@@ -22,17 +22,18 @@ let t: Tenants
 const start = new Date('2026-10-30T09:00:00Z')
 let clock = start
 const hosts = { a: 'store.partner-a.example', b: 'store.partner-b.example' }
-const people = { owner: '', manager: '', supplier: '' }
-const seats = { owner: '', manager: '', supplier: '' }
-const cookies = { owner: '', manager: '', supplier: '' }
+const people = { owner: '', manager: '', supplier: '', a2Owner: '' }
+const seats = { owner: '', manager: '', supplier: '', a2Owner: '' }
+const cookies = { owner: '', manager: '', supplier: '', a2Owner: '' }
 let neha = ''
 
 type Who = keyof typeof people
+const storeOf = (who: Who) => (who === 'a2Owner' ? t.storeA2 : t.storeA1)
 
 const user = async (email: string, name: string) =>
   (await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, ${email}, ${name}, 'active') returning id`)[0]?.id ?? ''
-const seat = async (userId: string, role: string, sellerId: string | null = null) =>
-  (await db.sql<{ id: string }[]>`insert into membership (user_id, store_id, seller_id, role_key, status) values (${userId}, ${t.storeA1}, ${sellerId}, ${role}, 'active') returning id`)[0]?.id ?? ''
+const seat = async (userId: string, role: string, sellerId: string | null = null, storeId = t.storeA1) =>
+  (await db.sql<{ id: string }[]>`insert into membership (user_id, store_id, seller_id, role_key, status) values (${userId}, ${storeId}, ${sellerId}, ${role}, 'active') returning id`)[0]?.id ?? ''
 
 /** An impersonation as the Admin API's start leaves it (#40), with a handoff token the test knows. */
 const started = async (who: Who, token: string) => {
@@ -65,7 +66,7 @@ type Caller = { person: Who } | { staff: string; store?: string }
 const contextFor = async (caller: Caller): Promise<StoreContext> => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers: Record<string, string> =
-    'person' in caller ? { cookie: `${storeCookieName}=${cookies[caller.person]}`, [storeHeader]: t.storeA1 } : { cookie: `${staffCookieName}=${caller.staff}`, ...(caller.store ? { [storeHeader]: caller.store } : {}) }
+    'person' in caller ? { cookie: `${storeCookieName}=${cookies[caller.person]}`, [storeHeader]: storeOf(caller.person) } : { cookie: `${staffCookieName}=${caller.staff}`, ...(caller.store ? { [storeHeader]: caller.store } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, clock, activityLog, facts)
   return { standing, partnerId: t.partnerA, sql: db.sql, activity: storeActivityFor(standing, activityLog), facts, now: () => clock }
 }
@@ -93,6 +94,8 @@ beforeAll(async () => {
   seats.owner = await seat(people.owner, 'owner')
   seats.manager = await seat(people.manager, 'manager')
   seats.supplier = await seat(people.supplier, 'supplier-admin', t.sellerA1First)
+  people.a2Owner = await user('owner@a2.example', 'Ada Owner')
+  seats.a2Owner = await seat(people.a2Owner, 'owner', null, t.storeA2)
   neha = (await db.sql<{ id: string }[]>`insert into staff_user (sso_subject, email, name, role_key, status) values ('sso-neha', 'neha@dripfunnel.example', 'Neha Rao', 'staff-support', 'active') returning id`)[0]?.id ?? ''
 }, 120_000)
 
@@ -159,16 +162,45 @@ describe('the caller', () => {
 })
 
 describe('the blocked list (ACCESS.md §8.1)', () => {
-  it('refuses the password, the store switch, a payment method and an Owner change, whatever the role', async () => {
+  const fields = () => {
+    const schema = storeSchema as GraphQLSchema
+    const mutations = schema.getMutationType()
+    return [schema.getQueryType(), mutations].flatMap((type) => (type && isObjectType(type) ? Object.values(type.getFields()).map((field) => ({ field, mutation: type === mutations })) : []))
+  }
+  const blocked = (kind: 'impersonation') => fields().filter(({ field }) => field.extensions.access?.blockedFor?.includes(kind)).map(({ field }) => field.name).sort()
+  const signIn = ['changeEmail', 'changePassword', 'regenerateBackupCodes', 'setSecondFactor', 'signOutOtherSessions']
+  const moneyDetails = ['connectGateway', 'connectStripe', 'finishStripeConnect', 'setPaymentMethod']
+  // The storefront's design, studio and preview links were declared before #1012.
+  const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioSession', 'undoDesignChange']
+
+  it('declares the user’s sign-in and sessions, money details, the store switch and the storefront’s design', () => {
+    expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, 'switchStore', ...storefront].sort())
+  })
+
+  it('leaves no mutation on the user’s own account open but their name and theme', () => {
+    const open = fields().filter(({ field, mutation }) => mutation && field.extensions.access?.scope === 'session' && !field.extensions.access.blockedFor?.includes('impersonation'))
+    expect(open.map(({ field }) => field.name).sort()).toEqual(['setTheme', 'updateProfile'])
+  })
+
+  it('refuses every declared field and every Owner change, whatever the role', async () => {
     await started('owner', 'tok-blocked')
     const staff = await enter('tok-blocked')
-    const blocked = [
+    const refused = [
+      `mutation { changeEmail(email: "new@a.example", password: "a") }`,
       `mutation { changePassword(current: "a", next: "b") }`,
+      `mutation { setSecondFactor(method: "app") { __typename } }`,
+      `mutation { regenerateBackupCodes }`,
+      `mutation { signOutOtherSessions }`,
       `mutation { switchStore(storeId: "${t.storeA1}") { membershipId } }`,
       `mutation { setPaymentMethod(token: "pm_x") { asOf } }`,
+      `mutation { connectGateway(provider: "cod") }`,
+      `mutation { connectStripe }`,
+      `mutation { finishStripeConnect(key: "k") }`,
+      `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
+      `mutation { removeMember(membershipId: "${seats.owner}") }`,
+      `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,
     ]
-    for (const source of blocked) expect((await gql(source, { staff })).code, source).toBe('BLOCKED_WHILE_IMPERSONATING')
-    expect((await gql(`mutation($m: ID!) { changeRole(membershipId: $m, role: "owner") }`, { staff }, { m: seats.manager })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    for (const source of refused) expect((await gql(source, { staff })).code, source).toBe('BLOCKED_WHILE_IMPERSONATING')
     expect((await gql(`mutation($m: ID!) { changeRole(membershipId: $m, role: "staff") }`, { staff }, { m: seats.manager })).code).toBeUndefined()
   })
 })
@@ -180,6 +212,12 @@ describe('the notice', () => {
     expect((await gql<{ staffSessionNotice: unknown }>(notice, { person: 'owner' })).data?.staffSessionNotice).toMatchObject({ kind: 'impersonation', staffName: 'Neha Rao', actingAs: 'Mo Manager' })
     expect((await gql<{ staffSessionNotice: unknown }>(notice, { person: 'supplier' })).data?.staffSessionNotice).toBeNull()
     expect((await gql<{ staffSessionNotice: unknown }>(notice, { staff })).data?.staffSessionNotice).toBeNull()
+  })
+
+  it('never tells another store, which reads its own store from the session, not the client', async () => {
+    await started('manager', 'tok-other')
+    await enter('tok-other')
+    expect((await gql<{ staffSessionNotice: unknown }>(notice, { person: 'a2Owner' })).data?.staffSessionNotice).toBeNull()
   })
 })
 
