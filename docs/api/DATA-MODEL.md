@@ -564,8 +564,9 @@ impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, 
                  -- extended_at records the single permitted 30-minute extension, so
                  -- "once" is enforced by the row, not by counting log entries;
                  -- platform scope: written and listed by the Admin API only;
-                 -- portal_session_hash (#243): the partner console's staff cookie, set when
-                 -- the handoff is spent and replaced by a return's; app_system reads it alone
+                 -- portal_session_hash (#243): the portal's staff cookie (the partner console's,
+                 -- or the store portal's for a store user), set when the handoff is spent and
+                 -- replaced by a return's; app_system reads it alone
 
 partner_setup_session
                 (id, staff_user_id, partner_id, reason, ticket NULL, started_at, expires_at,

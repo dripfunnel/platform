@@ -24,6 +24,7 @@ import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { resolveRider } from '#auth/riderCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { handleStaffSession, isStaffSessionPath } from '#apis/store/staffSession'
 import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
 import { handleAppAssets, isAppAssetsPath } from '#apis/store/appAssets'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
@@ -589,12 +590,13 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (!partnerId) return notFound()
     const brandFile = brandFileOf(url.pathname)
     if (brandFile) return request.method === 'GET' ? serveBrandFile(sql, env.ASSETS ?? null, env.IMAGES ?? null, partnerId, brandFile, new Date()) : notFound()
-    if (isSupportSessionPath(url.pathname)) {
+    if (isSupportSessionPath(url.pathname) || isStaffSessionPath(url.pathname)) {
       const exchangeLimiter = env.SIGN_IN_RATE_LIMITER
       const readLimiter = env.STAFF_SESSION_RATE_LIMITER
       if (!exchangeLimiter) return misconfigured('SIGN_IN_RATE_LIMITER')
       if (!readLimiter) return misconfigured('STAFF_SESSION_RATE_LIMITER')
-      return handleSupportSession(request, url, {
+      const handle = isStaffSessionPath(url.pathname) ? handleStaffSession : handleSupportSession
+      return handle(request, url, {
         sql,
         partnerId,
         activity: activityLog,

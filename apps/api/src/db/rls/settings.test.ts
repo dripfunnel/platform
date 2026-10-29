@@ -22,6 +22,14 @@ describe('a Platform API caller’s database settings (DATA-MODEL.md §5.1, §5.
   })
 })
 
+describe('a Store API impersonation’s database settings (DATA-MODEL.md §5.3)', () => {
+  it('runs as the user acted as, in their store and seat, with the impersonation named', () => {
+    const context = { caller: { kind: 'impersonation' as const, impersonationId: 'imp', staffId: 'st', userId: 'u' }, partnerId, storeId: 's', sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    expect(roleFor(context)).toBe('app_request')
+    expect(settingsFor(context)).toMatchObject({ 'app.scope': 'store', 'app.store_id': 's', 'app.user_id': 'u', 'app.impersonation_id': 'imp', 'app.staff_id': '' })
+  })
+})
+
 describe('a Shop API caller’s database settings (DATA-MODEL.md §5.3, #306)', () => {
   it('runs a shopper as app_shop in shop scope, signed in or not, and a store’s people as before', () => {
     const shopper = { caller: { kind: 'shopper' as const, customerId: null }, partnerId, storeId: 's', sellerScope: { kind: 'all' as const }, subscription: 'active' as const }

@@ -64,7 +64,8 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
       'app.support': caller.kind === 'support' ? caller.access : '',
       // Grants nothing; it attributes the write (LOGGING.md §4).
       'app.impersonation_id': caller.kind === 'impersonation' ? caller.impersonationId : '',
-      'app.user_id': caller.kind === 'person' ? caller.userId : '',
+      // An impersonation runs as the user it acts as (DATA-MODEL.md §5.3).
+      'app.user_id': caller.kind === 'person' || caller.kind === 'impersonation' ? caller.userId : '',
       'app.order_token_hash': caller.kind === 'shopper' ? (caller.orderTokenHash ?? '') : '',
       'app.rider_id': caller.kind === 'rider' ? caller.riderId : '',
     }
