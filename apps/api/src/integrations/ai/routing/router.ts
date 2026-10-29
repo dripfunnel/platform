@@ -74,8 +74,10 @@ export const createRouter = (policy: RoutingPolicy, deps: RouterDeps = {}) => {
   const { primary, fallbacks, retry } = policy
   const { cooldown } = deps
 
+  // A 429 is not resent: the cooldown records its Retry-After on the first one and the next route is tried.
   const retryOptions = (signal: AbortSignal | undefined) => ({
     ...retry,
+    retryable: (error: GatewayError) => transientCodes.has(error.code) && error.code !== 'RATE_LIMITED',
     ...(signal ? { signal } : {}),
     ...(deps.sleep ? { sleep: deps.sleep } : {}),
     ...(deps.random ? { random: deps.random } : {}),

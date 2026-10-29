@@ -82,11 +82,11 @@ describe('routing choice', () => {
 })
 
 describe('fallback', () => {
-  it.each(['RATE_LIMITED', 'PROVIDER_UNAVAILABLE', 'TIMEOUT'] as const)('moves to an authorized route after %s once the retries are spent, and says so', async (code) => {
+  it.each(['RATE_LIMITED', 'PROVIDER_UNAVAILABLE', 'TIMEOUT'] as const)('moves to an authorized route after %s, once the retries are spent (a 429 is not retried), and says so', async (code) => {
     const a = fake('a', [new GatewayError(code), new GatewayError(code), new GatewayError(code)])
     const b = fake('b', [])
     const routed = await createRouter({ primary: a.route(), fallbacks: [b.route('claude-sonnet-5-5')], retry }, deps).complete(request)
-    expect(a.calls.execute).toBe(3)
+    expect(a.calls.execute).toBe(code === 'RATE_LIMITED' ? 1 : 3)
     expect(routed).toMatchObject({ fallbackUsed: true, fallbackFrom: code, route: { connection: { connectionId: 'b' } } })
     expect(b.calls.models).toEqual(['claude-sonnet-5-5'])
   })
@@ -135,14 +135,14 @@ describe('retries and Retry-After', () => {
 
   it('waits at least the provider’s Retry-After, within the cap', async () => {
     sleeps.length = 0
-    const a = fake('a', [new GatewayError('RATE_LIMITED', 1)])
+    const a = fake('a', [new GatewayError('PROVIDER_UNAVAILABLE', 1)])
     await createRouter({ primary: a.route(), fallbacks: [], retry }, deps).complete(request)
     expect(sleeps).toEqual([1000])
   })
 
   it('stops at the attempt limit with the last error', async () => {
-    const a = fake('a', Array.from({ length: 5 }, () => new GatewayError('RATE_LIMITED')))
-    await expect(createRouter({ primary: a.route(), fallbacks: [], retry: { ...retry, attempts: 2 } }, deps).complete(request)).rejects.toMatchObject({ code: 'RATE_LIMITED' })
+    const a = fake('a', Array.from({ length: 5 }, () => new GatewayError('PROVIDER_UNAVAILABLE')))
+    await expect(createRouter({ primary: a.route(), fallbacks: [], retry: { ...retry, attempts: 2 } }, deps).complete(request)).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE' })
     expect(a.calls.execute).toBe(2)
   })
 })
@@ -174,11 +174,14 @@ describe('cooldown', () => {
     expect(a.calls.models).toEqual(['claude-haiku-4-5'])
   })
 
-  it('starts a cooldown with the provider’s Retry-After when the retries end rate limited, and for no other code', async () => {
+  it('starts a cooldown with the provider’s Retry-After on the first 429, which is not sent again, and for no other code', async () => {
     const limited = store()
-    const a = fake('a', [new GatewayError('RATE_LIMITED', 30), new GatewayError('RATE_LIMITED', 30), new GatewayError('RATE_LIMITED', 30)])
+    sleeps.length = 0
+    const a = fake('a', [new GatewayError('RATE_LIMITED', 600), new GatewayError('RATE_LIMITED', 600), new GatewayError('RATE_LIMITED', 600)])
     await expect(createRouter({ primary: a.route(), fallbacks: [], retry }, { ...deps, cooldown: limited.cooldown }).complete(request)).rejects.toMatchObject({ code: 'RATE_LIMITED' })
-    expect(limited.started.at(-1)).toEqual(['a', 30, 'claude-opus-5-5'])
+    expect(a.calls.execute).toBe(1)
+    expect(sleeps).toEqual([])
+    expect(limited.started).toEqual([['a', 600, 'claude-opus-5-5']])
     const down = store()
     const b = fake('b', [new GatewayError('PROVIDER_UNAVAILABLE'), new GatewayError('PROVIDER_UNAVAILABLE'), new GatewayError('PROVIDER_UNAVAILABLE')])
     await expect(createRouter({ primary: b.route(), fallbacks: [], retry }, { ...deps, cooldown: down.cooldown }).complete(request)).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE' })

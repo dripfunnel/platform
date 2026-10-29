@@ -845,7 +845,7 @@ separate layers in `integrations/ai`, each knowing one thing:
 | Request and response translators | `translators/` | Canonical ↔ Anthropic Messages, OpenAI Chat, OpenAI Responses; registered by format id. A feature a provider lacks is `UnsupportedFeature`, never dropped; a stream that ends with no terminal event yields an `error` event | Touch a credential or the network |
 | Executors | `executors/` | Fixed host, headers (only through `headers.ts`), the credential, the deadline and the caller's abort, SSE parsing, upstream status → `GatewayError` with `Retry-After` read as seconds or an HTTP date; one renewal and one retry after a 401 on a sign-in | Translate, retry on their own, or pick a route |
 | Credential connections | `saas/aiConnections` | Which connections a store may use now, their health and cooldown, the refresher that calls `saas/aiOAuth` (which locks the row and rotates the refresh token) | Reach another tenant's connection |
-| Router | `routing/` | Primary route, authorised fallbacks, the one retry loop (`withRetry`, three tries, full jitter, honours `Retry-After`), cooldown, cancellation | Fall back after the first streamed byte, on a refused key, a bad request, a refusal or a cancel |
+| Router | `routing/` | Primary route, authorised fallbacks, the one retry loop (`withRetry`, three tries, full jitter, honours `Retry-After`; a 429 is not retried), cooldown, cancellation | Fall back after the first streamed byte, on a refused key, a bad request, a refusal or a cancel |
 
 Outbound headers: `headers.ts` is the only place. Defaults first, then the credential's, then the call's; each name is set once.
 A Claude key is `x-api-key` with `anthropic-version`; a Claude sign-in is `Authorization: Bearer` with
@@ -872,7 +872,9 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
   parameters go in `options`; the OpenAI adapter takes `top_p`, `presence_penalty`, `frequency_penalty`, `seed`, `stop`,
   `response_format` and refuses the rest. Endpoints are fixed: no caller picks a host or a header.
 - **Retries:** rate limits, an unreachable provider and a timeout are tried up to three times with exponential backoff and full
-  jitter, honouring `retry-after`; a refused key, a bad request or an unknown model never. Calls carry a 60 s deadline and the
+  jitter, honouring `retry-after`; a refused key, a bad request or an unknown model never. The router (the studio's path) never
+  resends a rate-limited call: it records the cooldown from the first 429's `Retry-After` and goes to the next authorised route,
+  or fails at once when there is none. Calls carry a 60 s deadline and the
   caller's abort. The SDK clients retry nothing (`maxRetries: 0`), so there is one loop. `Retry-After` is read as seconds or an HTTP date.
   **Fallback is off unless the store's Owner authorised it** (`fallback_authorized`, below) and then goes only to that account, on a
   rate limit, an unreachable provider or a timeout, before any streamed byte; the call says it was used (`ai_fallback_used` in the
