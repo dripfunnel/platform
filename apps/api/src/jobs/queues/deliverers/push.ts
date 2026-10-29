@@ -1,6 +1,7 @@
 import { selectOfferDistance } from '#db/scoped/dispatch'
 import type postgres from 'postgres'
-import { logEvent } from '#core/log'
+import { failureCode, logEvent } from '#core/log'
+import { emitMeasurements, type Measurement } from '#core/metrics'
 import { withSystemScope } from '#db/scoped/index'
 import { deleteDevicesByIds, selectPushStore, selectSubjectDevices } from '#db/scoped/pushDevices'
 import { ExpoPushRefused, notRegistered, type ExpoPush } from '#integrations/expoPush/index'
@@ -10,6 +11,10 @@ import { GiveUp, type Deliverer } from '../outbox-relay'
 
 // `push` and `push.receipts` (DELIVERY §6; decided on #840). One row is one subject's phones in one store, so one Expo
 // project; a retry after a partial send can push twice, as Expo's own delivery is at least once.
+
+/** One measurement per send Expo refused, by its error code (DELIVERY §3): at the ticket, or later at the receipt. */
+const failedSends = (storeId: string, codes: readonly (string | null | undefined)[]): Measurement[] =>
+  codes.flatMap((code) => (code ? [{ storeId, metric: 'push_send_failed' as const, value: 1, code }] : []))
 
 const dropper = (effect: { partnerId: string | null; storeId: string | null }) => {
   const log = (event: string, code: string) => logEvent({ event, api: 'system', partnerId: effect.partnerId, storeId: effect.storeId, code })
@@ -48,6 +53,7 @@ export const pushDeliverer = (sql: postgres.Sql, sender: ExpoPush, now: () => Da
       tickets = await sender.send(found.devices.map((d) => ({ to: d.expo_token, subject, ...words })), signal)
     } catch (error) {
       if (error instanceof ExpoPushRefused) return drop('push_refused', error.code)
+      log('push_failed', failureCode(error))
       throw error
     }
     const dead = found.devices.filter((_, i) => tickets[i]?.error === notRegistered).map((d) => d.id)
@@ -59,6 +65,8 @@ export const pushDeliverer = (sql: postgres.Sql, sender: ExpoPush, now: () => Da
       await deleteDevicesByIds(tx, storeId, dead)
       if (sent.length > 0) await queuePushReceipts(tx, { partnerId, storeId, idempotencyKey: `${effect.id}:${effect.attempt}`, payload: { tickets: sent, sentAt: now().toISOString() } })
     })
+    // After the rows are kept: a retry of this push, after a failure above, would count the same refused sends twice.
+    emitMeasurements(failedSends(storeId, tickets.map((t) => t.error)))
     log('push_sent', dead.length > 0 ? 'some_unregistered' : 'sent')
   },
 })
@@ -75,6 +83,7 @@ export const pushReceiptsDeliverer = (sql: postgres.Sql, sender: ExpoPush, now: 
       receipts = await sender.receipts(tickets.map((t) => t.ticketId), signal)
     } catch (error) {
       if (error instanceof ExpoPushRefused) return drop('push_receipts_refused', error.code)
+      log('push_receipts_failed', failureCode(error))
       throw error
     }
     const dead = tickets.filter((t) => receipts.get(t.ticketId) === notRegistered).map((t) => t.deviceId)
@@ -83,6 +92,8 @@ export const pushReceiptsDeliverer = (sql: postgres.Sql, sender: ExpoPush, now: 
     // Receipts Expo hasn't made yet are asked again until it clears them, a day after the send.
     const pending = tickets.some((t) => !receipts.has(t.ticketId))
     if (pending && now().getTime() - new Date(sentAt).getTime() < receiptsKeptMs) throw new NotYet('receipts_pending', receiptsAfterMs)
+    // Only the last pass counts them: an earlier one is asked again, and would count the same failures twice.
+    emitMeasurements(failedSends(storeId, tickets.map((t) => receipts.get(t.ticketId) ?? null)))
     log('push_receipts_read', dead.length > 0 ? 'some_unregistered' : pending ? 'some_unanswered' : 'read')
   },
 })

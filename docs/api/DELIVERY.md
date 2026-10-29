@@ -16,7 +16,7 @@ accept and decline, assignment by hand, cancellation before pickup, online state
 late, recall and the merchant's confirmation (§3, §4, §6, §8; #843); the portal's Settings › Riders (§5, §8; #844); the customer's
 side: `order(id).delivery`, the arrival estimate and the customer's and guest orders' push devices (§6, §7; #858).
 
-Last updated: 2026-10-28 (#852: the APK download and the Delivery API's `minimumBuild`, §4, §5). Before: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
+Last updated: 2026-10-29 (#872: what dispatch measures, §3). Before: 2026-10-28 (#852: the APK download and the Delivery API's `minimumBuild`, §4, §5). Before: 2026-10-28 (#852: the delivery app APK uploaded by staff, §5). Before: 2026-10-27 (#858: `order(id).delivery` on the Shop API, the arrival estimate from the Routes API and its refresh rule, customer and guest-order push devices, the rider-assigned push and the "on the way" wording, §6, §7). Before: 2026-10-27 (#844: the portal's Settings › Riders, §5, §8). Before: 2026-10-26 (#843: pickup, the handover code, cash on delivery, steps sent late, recall, the customer's
 events, §3, §4, §6, §8). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; a rider's phone on an order only to a person, §3, §8). Before: 2026-10-26 (#841: own delivery in Shipping and Warehouse, the checkout rule and placement built, haversine decided, §2, §8, §11). Before: 2026-10-26 (#840: push through Expo, `registerPushDevice` and `unregisterPushDevice`, §4, §6). Before: 2026-10-23 (#839: the Delivery API's sign-in, profile and account deletion, §4, §5). Before: 2026-10-23 (#838: riders, invitations, suspension and removal in the Store API, the plan keys, §5, §8, §9). Before: 2026-10-22 (PR #836 later reviews: customer details only after pickup, suspension and removal hand back, a new delivery after a cancel, §3–§5, §10). Before: 2026-10-22 (PR #836 fifth review: positions purged by the sweep, a new code per assignment, rider export and erase, §3, §5, §7, §8, §10). Before: 2026-10-22 (PR #836 fourth review: offer rounds, §3). Before: 2026-10-22 (PR #836 third review: offers paged, recalling a parcel in transit, the permissions in ACCESS §5). Before: 2026-10-22 (PR #836 second review: every state transition and retries, the rider's view of a customer ends with the delivery, code requests, isolation rows, fee currency, §3–§5, §10). Before: 2026-10-22 (PR #836 review: Owner-only invitations, placement re-checks own delivery, page sizes, no code in push or email, a late wrong code, §2–§8). Before: 2026-10-22 (Gaurav's answers: Enterprise by hand, dispatch when placed or ready, last steps sent late without signal, tracking on the website without the map, a handover code, §1, §3, §7, §9). Before: 2026-10-22 (first version).
 
 **Words.** These documents call the store's delivery people **riders**, because "partner" already
@@ -219,6 +219,23 @@ partner's look: "Nobody took order {number}", with the portal order link. It wai
 Closed offers receive a silent taken update. Manual assignment and cancellation notify the rider.
 A person with orders.read (a member, or staff impersonating one) sees the rider's phone on the order; a support session, an API key and an app grant get the
 rider's name and vehicle only (decided 2026-10-26 on #920, replacing #842's decision 6).
+
+**Measured** (built on #872; decided 2026-10-29). Dispatch is measured where it happens, one technical log line each (`event: "metric"`,
+LOGGING §9) on Workers Logs and Logpush, tagged with the store id and nothing else: never a rider, a customer, a delivery or a partner.
+A measurement is collected inside the transaction and written once it has committed, so a rolled-back step counts nothing.
+
+| `metric` | `value` | When |
+|---|---|---|
+| `dispatch_accept_seconds` | Seconds from the delivery entering `searching` to a rider accepting | One per accepted delivery |
+| `dispatch_unassigned` | 1 | Each time a delivery reaches `unassigned` (timeout or no riders; a re-offered one can reach it again) |
+| `dispatch_offers_per_delivery` | Offers made for the delivery, over all its rounds | When it is accepted, and when it reaches `unassigned` |
+| `push_send_failed` (with `code`) | 1 | Each send Expo refused, by its error code: at the ticket, or at the receipt once its last pass reads it (a pass that asks again counts nothing). Every push of the store counts, not only dispatch's |
+| `dispatch_late_step` | 1 | A Delivered or Not delivered kept more than 2 minutes after its `at`, including the unconfirmed code (Delivered without signal, above); a resend under the same key counts nothing |
+
+Every dispatch failure is a line with an error code, never a message: `dispatch_offer_failed` (the offer job), `push_failed` and
+`push_receipts_failed` (a send or a receipt read that failed outright, then retried by the relay) and `dispatch_sweep_failed` (the timeout sweep).
+What to alert on belongs to DL 19: `dispatch_unassigned` rising against deliveries created, `dispatch_accept_seconds` over the store's offer minutes,
+`push_send_failed` with `DeviceNotRegistered` rising (phones the app no longer reaches), and `dispatch_late_step` for one store.
 
 ---
 

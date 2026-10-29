@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import { graphql, type GraphQLSchema } from 'graphql'
 import { deliverySchema, type DeliveryContext } from '#apis/delivery/schema'
 import { createServer } from '#apis/graphql/server'
@@ -18,6 +19,7 @@ import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { queueSideEffect } from '#saas/outbox/index'
 import type { ActivityEntry } from '#auth/activity'
 import { createTestDatabase, type TestDatabase } from './support/database'
+import { captureLogs, metricKeys } from './support/metrics'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
@@ -474,5 +476,70 @@ describe('position and isolation', () => {
     expect(await withScope(db.sql, context(riders[0], tenants.storeA2), (tx) => tx`select id from delivery_offer`)).toHaveLength(0)
     const own = await withScope(db.sql, context(riders[0]), (tx) => tx<{ rider_id: string }[]>`select rider_id from delivery_offer`)
     expect(own.every((row) => row.rider_id === riders[0])).toBe(true)
+  })
+})
+
+describe('dispatch measurements (DELIVERY §3)', () => {
+  it('measures a won accept once, in seconds from searching and offers made, tagged with the store alone', async () => {
+    await available()
+    const id = await order()
+    await broadcast(id)
+    const offers = await db.sql<{ id: string; rider_id: string }[]>`select id,rider_id from delivery_offer where delivery_id = ${(await delivery(id)).id} order by rider_id`
+    clock = new Date(clock.getTime() + 45_000)
+    const logs = captureLogs()
+    const results = await Promise.allSettled(offers.map((o) => service(o.rider_id).answer(o.id, true)))
+    const measured = logs.metrics()
+    logs.restore()
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    expect(measured.map((m) => [m.metric, m.value, m.storeId])).toEqual([
+      ['dispatch_accept_seconds', 45, tenants.storeA1],
+      ['dispatch_offers_per_delivery', offers.length, tenants.storeA1],
+    ])
+    expect(measured.every((m) => Object.keys(m).every((key) => metricKeys.includes(key)))).toBe(true)
+    expect(JSON.stringify(measured)).not.toContain(offers[0]?.rider_id ?? 'none')
+  })
+
+  it('measures a delivery reaching unassigned when nobody accepts, with the offers it made', async () => {
+    await available()
+    const id = await order()
+    await broadcast(id)
+    clock = new Date(clock.getTime() + 61_000)
+    const logs = captureLogs()
+    await sweepDispatch(db.sql, activityLog, clock)
+    const measured = logs.metrics()
+    logs.restore()
+    expect((await delivery(id)).state).toBe('unassigned')
+    expect(measured.map((m) => [m.metric, m.value, m.storeId])).toEqual([
+      ['dispatch_unassigned', 1, tenants.storeA1],
+      ['dispatch_offers_per_delivery', riders.length, tenants.storeA1],
+    ])
+  })
+
+  it('measures a delivery with no riders in range as unassigned with no offers, and a decline or a refused accept as nothing', async () => {
+    await available()
+    const waiting = await order()
+    await broadcast(waiting)
+    const [offer] = await db.sql<{ id: string; rider_id: string }[]>`select id,rider_id from delivery_offer where delivery_id = ${(await delivery(waiting)).id} limit 1`
+    const logs = captureLogs()
+    await service(offer?.rider_id).answer(offer?.id ?? '', false)
+    await expect(service(offer?.rider_id).answer(offer?.id ?? '', true)).rejects.toMatchObject({ code: 'TAKEN' })
+    expect(logs.metrics()).toEqual([])
+    for (const r of riders) await service(r).online(false)
+    const none = await order()
+    logs.clear()
+    await broadcast(none)
+    const measured = logs.metrics()
+    logs.restore()
+    expect(measured.map((m) => [m.metric, m.value])).toEqual([['dispatch_unassigned', 1], ['dispatch_offers_per_delivery', 0]])
+  })
+
+  it('logs an offer job that fails under its class and store, never its message, and still lets the relay retry it', async () => {
+    const logs = captureLogs()
+    const broken = {} as postgres.Sql
+    const job = deliveryOfferDeliverer(broken, activityLog, () => clock)
+    await expect(job.deliver({ payload: { deliveryId: crypto.randomUUID(), round: 1 }, partnerId: tenants.partnerA, storeId: tenants.storeA1 } as never, new AbortController().signal)).rejects.toThrow()
+    const lines = logs.lines()
+    logs.restore()
+    expect(lines).toContainEqual({ event: 'dispatch_offer_failed', api: 'system', partnerId: tenants.partnerA, storeId: tenants.storeA1, code: 'TypeError' })
   })
 })
