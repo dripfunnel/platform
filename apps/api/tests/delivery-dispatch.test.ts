@@ -316,8 +316,8 @@ describe('position and isolation', () => {
     if (!rider) throw new Error('no rider')
     expect((await world.gql('a2Owner', `mutation { suspendRider(id: "${rider.id}") { id } }`)).code).toBe('NOT_FOUND')
     const as = (caller: TenantContext['caller'], sellerScope: TenantContext['sellerScope'] = { kind: 'all' }) => createRiders({
-      sql: db.sql, context: { ...context(), caller, sellerScope }, actor: { id: world.people.owner, partnerId: tenants.partnerA }, activity: activityLog, facts,
-      plan: { ownDelivery: async () => true, allowance: async () => 10 }, shopDomain: null, send: async () => undefined, now: () => clock,
+      sql: db.sql, context: { ...context(), caller, sellerScope }, actor: { id: world.people.owner, label: 'Olivia', partnerId: tenants.partnerA }, activity: activityLog, facts,
+      plan: { ownDelivery: async () => true, allowance: async () => 10 }, shopDomain: null, send: async () => undefined, queueExport: async () => undefined, deleteFiles: null, now: () => clock,
     })
     const refused = { ok: false, reason: 'FORBIDDEN' }
     expect(await as(context().caller, { kind: 'seller', sellerId: tenants.sellerA1First }).suspend(rider.id)).toEqual(refused)

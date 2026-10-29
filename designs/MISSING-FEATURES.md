@@ -246,8 +246,8 @@ Drawn in the prototypes but not in the first release, or linked to something tha
 
 | What | Where it's drawn | Why it's missing | Card |
 | --- | --- | --- | --- |
-| Export a rider's data (a job, download when ready) | `SetRiders` › Manage | Proposed, built on #874 | #874 |
-| Erase a rider ("Former delivery partner" in past deliveries and the activity log) | `SetRiders` › Manage | Proposed, built on #874 | #874 |
+| Export a rider's data (a job, download when ready) | `SetRiders` › Manage | Built on #874: the shell's export banner carries the download | #874 |
+| Erase a rider ("Former delivery partner" in past deliveries and the activity log) | `SetRiders` › Manage | Built on #874, as "Former rider" (the name stored), with a reason asked for the log | #874 |
 | iOS build of the delivery app | `DF Delivery App Prototype` (iOS permission wording) | First release is an Android APK only | — |
 | (built on #852) "Download the new version" for a build too old for the API | Delivery app › Account blocked › `tooOld` | Built as the Update required screen, shown before sign-in and not as part of Account | #852 |
 | The rider's photo, "offered to N riders", the alert countdown and the last-position map in an order's Delivery panel | `OrderDelivery` | The API answers a photo's asset id and no address, no offer count or timer, and the portal's first release has no map (#846) | — |

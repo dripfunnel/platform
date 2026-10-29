@@ -441,7 +441,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `offers.export`: `exportOfferCodes`, a batch's codes as a file; Staff reads offers but may not export their codes (decided 2026-10-05) | ✓ | ✓ | |
 | `store.export`: `exportStoreData`, everything the store holds, for leaving or a data request | ✓ | | |
 | `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
-| `riders.manage`: the store's riders, Settings › Riders: invite, resend, suspend, restore, remove (built on #838; never a support session's), export and erase *(proposed, #874)* ([DELIVERY.md](DELIVERY.md) §5, §8) | ✓ | | |
+| `riders.manage`: the store's riders, Settings › Riders: invite, resend, suspend, restore, remove (built on #838; never a support session's), export and erase (built on #874) ([DELIVERY.md](DELIVERY.md) §5, §8) | ✓ | | |
 | Own-delivery actions ([DELIVERY.md](DELIVERY.md) §8): Ready for pickup, assign, offer again and cancel (built on #842); recall and mark delivered with a reason (built on #843; cash received also needs `orders.mark_paid`): the merchant side's `orders.fulfil`; refused to a supplier, to an API key or app grant (their scopes are read-only, `machineScopes`) and to a read-only support session | ✓ | ✓ | ✓ |
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |

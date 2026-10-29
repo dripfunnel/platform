@@ -1,4 +1,4 @@
-import { releaseRiderDeliveries } from './dispatch'
+import { eraseRiderData } from './riderData'
 import { withSystemScope } from '#db/scoped/index'
 import type postgres from 'postgres'
 import { z } from 'zod'
@@ -6,12 +6,11 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { logEvent } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
-import { deleteRiderDevices } from '#db/scoped/pushDevices'
-import { countOwnUploadsSince, deleteOwnUploads, endRiderSessions, markRiderRemoved, ownPhotoExists, selectOwnRider, updateOwnRider, type OwnRiderRow } from '#db/scoped/riders'
+import { countOwnUploadsSince, formerRiderName, ownPhotoExists, selectOwnRider, updateOwnRider, type OwnRiderRow } from '#db/scoped/riders'
 import { createAssetService, type AssetStore, type UploadResult } from '#engine/modules/catalog/index'
 
 // A signed-in rider's own account on the Delivery API (DELIVERY §4, §5): its profile, and deleting it, which is the
-// Owner's removal (decided on #839; erasure's "Former rider" comes with #874). Always as app_rider, on its own row.
+// Owner's erasure (riderData.ts; #874). Always as app_rider, on its own row.
 
 export const riderProfileAudit = { profileSaved: 'rider.profile_saved', accountDeleted: 'rider.account_deleted' } as const
 
@@ -97,18 +96,15 @@ export const createRiderProfile = ({ sql, context, activity, facts, files, now }
     return createAssetService({ sql, context, actor: { id: riderId, partnerId, kind: 'rider' }, activity, facts, store: files }).uploadImage(bytes, admit)
   }
 
-  /** Signed out everywhere, phone and photos erased, the name kept for past deliveries (DELIVERY §5). */
+  /** The erasure of the rider's own data, under the rules of suspension: "Former rider" in their place on past deliveries (DELIVERY §5). */
   const deleteAccount = async (): Promise<ProfileResult<true>> => {
     const done = await withSystemScope(sql, async (tx): Promise<{ ok: false; reason: 'UNAUTHENTICATED' } | { ok: true; keys: string[] }> => {
       const rider = await selectOwnRider(tx, storeId, riderId)
       if (!rider) return { ok: false, reason: 'UNAUTHENTICATED' }
-      await releaseRiderDeliveries(tx, { storeId, partnerId, activity, facts, now: now(), actor: { actorKind: 'rider', actorId: riderId, actorLabel: null } }, riderId, 'deleted')
-      await endRiderSessions(tx, storeId, riderId, now())
-      await deleteRiderDevices(tx, storeId, riderId)
-      await markRiderRemoved(tx, storeId, riderId, now())
-      const keys = await deleteOwnUploads(tx, storeId, riderId)
-      await activity.record(tx, entry(riderProfileAudit.accountDeleted, rider))
-      return { ok: true, keys }
+      const erased = await eraseRiderData(tx, { storeId, partnerId, activity, facts, now: now(), actor: { actorKind: 'rider', actorId: riderId, actorLabel: null } }, riderId, 'deleted')
+      if (!erased) return { ok: false, reason: 'UNAUTHENTICATED' }
+      await activity.record(tx, { ...entry(riderProfileAudit.accountDeleted, { id: rider.id, name: formerRiderName }), actorLabel: formerRiderName })
+      return { ok: true, keys: erased.keys }
     })
     if (!done.ok) return done
     // After the commit, so a rolled-back deletion never loses a file; a failed delete leaves only an object no row names.

@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useBrand } from '@dripfunnel/mobile-shared/brand'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { acceptOffer, declineOffer, fetchCurrentDelivery, fetchOffers, type CurrentDelivery, type Offer } from '../../api/dispatch'
@@ -13,6 +14,7 @@ import { useSession } from '../../session/SessionContext'
 import { Button, Loading, Refusal, StateMessage, TextButton } from '../common/ui'
 import { useAction } from '../common/useAction'
 import { useLoad } from '../common/useLoad'
+import { LocationDisclosure } from './LocationDisclosure'
 import { OfferCard } from './OfferCard'
 import { OnlineCard } from './OnlineCard'
 import { useNow } from './useNow'
@@ -59,6 +61,7 @@ export function HomeScreen() {
   const current = state.status === 'ready' ? state.data.current : null
   const pickedUp = current?.state === 'picked_up'
   const online = useOnline(pickedUp)
+  const { brand } = useBrand()
   const answer = useAction()
   const [more, setMore] = useState<{ offers: Offer[]; cursor: string | null; hasMore: boolean } | null>(null)
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set())
@@ -227,6 +230,8 @@ export function HomeScreen() {
       <Refusal message={online.error ? errorText(online.error, 'online') : afterDelivery ? t('online.afterDelivery') : null} />
 
       {body()}
+
+      <LocationDisclosure visible={online.disclosing} storeName={brand?.name ?? null} busy={online.busy} onContinue={() => void online.continueDisclosure().then(reload)} onNotNow={online.declineDisclosure} />
 
       <Modal transparent animationType="fade" visible={asking} onRequestClose={() => setAsking(false)}>
         <View style={[styles.backdrop, { backgroundColor: colors.backdrop }]}>

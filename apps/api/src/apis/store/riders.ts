@@ -1,8 +1,10 @@
 import { GraphQLError } from 'graphql'
+import { catalogExportKind, type CatalogExportDto } from '#engine/modules/catalog/index'
 import { pageOf, pageWindow } from '#core/paging'
 import type { RiderRow } from '#db/scoped/riders'
 import { createRiders, ridersAudit, type RidersResult } from '#engine/modules/ownDelivery/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
+import { queueSideEffect } from '#saas/outbox/index'
 import { queueSms } from '#saas/sms/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -15,7 +17,7 @@ const words: Record<Exclude<RidersResult<unknown>, { ok: true }>['reason'], stri
   FORBIDDEN: 'You can’t change riders.',
   RIDER_HAS_PARCEL: 'This rider is carrying a parcel. Finish or reassign the delivery first.',
   NOT_FOUND: 'That rider is no longer here.',
-  INVALID_INPUT: 'Enter the rider’s name.',
+  INVALID_INPUT: 'Enter the rider’s name, or the reason for erasing.',
   INVALID_PHONE: 'Enter the mobile number with its country code, such as +91 98765 43210.',
   PHONE_TAKEN: 'That number is already one of your riders.',
   NOT_INVITED: 'That rider has already joined.',
@@ -39,7 +41,7 @@ export const registerRiders = (builder: StoreBuilder) => {
     return createRiders({
       sql,
       context: caller.context,
-      actor: { id: caller.person.id, partnerId: caller.person.partnerId },
+      actor: { id: caller.person.id, label: caller.person.name || caller.person.email, partnerId: caller.person.partnerId },
       activity: ctx.activity,
       facts: ctx.facts,
       plan: {
@@ -47,6 +49,8 @@ export const registerRiders = (builder: StoreBuilder) => {
         allowance: () => allowanceFor(sql, caller.context, 'riders', ctx.now()),
       },
       shopDomain: ctx.domains?.shopDomain ?? null,
+      queueExport: (tx, payload) => queueSideEffect(tx, { kind: catalogExportKind, idempotencyKey: payload.jobId, payload, partnerId: payload.partnerId, storeId: payload.storeId }),
+      deleteFiles: ctx.files?.delete ? (keys) => ctx.files?.delete?.(keys) ?? Promise.resolve() : null,
       send: async (tx, invitation) => {
         await queueSms(tx, {
           partnerId: caller.person.partnerId,
@@ -90,6 +94,19 @@ export const registerRiders = (builder: StoreBuilder) => {
     fields: (t) => ({ nodes: t.field({ type: [RiderType], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
 
+  const RiderExport = builder.objectRef<CatalogExportDto>('RiderExport').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // queued, done, failed or expired
+      state: t.exposeString('state'),
+      rows: t.exposeInt('rows', { nullable: true }),
+      truncated: t.exposeBoolean('truncated'),
+      csv: t.exposeString('csv', { nullable: true }),
+      requestedAt: t.string({ resolve: (e) => e.requestedAt.toISOString() }),
+      expiresAt: t.string({ nullable: true, resolve: (e) => e.expiresAt?.toISOString() ?? null }),
+    }),
+  })
+
   const riders = { api: 'store', scope: 'store', permission: 'riders.manage', target: 'none', blockedFor: ['support'] } as const
 
   builder.queryFields((t) => ({
@@ -102,6 +119,31 @@ export const registerRiders = (builder: StoreBuilder) => {
         if (!page.ok) throw new GraphQLError('That page link has expired. Start again.', { extensions: { code: page.code } })
         return pageOf(await service(ctx).list(page.window), page.window, (r) => ({ occurredAt: r.created_at, id: r.id }))
       },
+    }),
+  }))
+
+  // An export is a read, so a read-only store allows it; both are the Owner's, never a support session's.
+  builder.queryFields((t) => ({
+    riderExport: t.field({
+      type: RiderExport,
+      nullable: true,
+      args: { id: t.arg.id({ required: true }) },
+      extensions: { access: riders },
+      resolve: (_, args, ctx) => service(ctx).exportJob(String(args.id)),
+    }),
+  }))
+
+  builder.mutationFields((t) => ({
+    exportRider: t.id({
+      args: { id: t.arg.id({ required: true }) },
+      extensions: { access: { ...riders, whileReadOnly: true, audit: ridersAudit.exported } },
+      resolve: async (_, args, ctx) => answered(ctx, await service(ctx).exportData(String(args.id))),
+    }),
+    // Removal, then the rider's name, number, photo, sessions, devices and position are gone (DELIVERY §5).
+    eraseRider: t.boolean({
+      args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
+      extensions: { access: { ...riders, audit: ridersAudit.erased } },
+      resolve: async (_, args, ctx) => answered(ctx, await service(ctx).erase(String(args.id), args.reason)),
     }),
   }))
 

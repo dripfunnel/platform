@@ -148,3 +148,95 @@ const refusedIfInUse = <T,>(statement: Promise<T>): Promise<T | null> =>
     if (error instanceof Error && 'code' in error && error.code === '23503') return null
     throw error
   })
+
+/** The rider named by an erasure, a removed one included, locked. */
+export const lockRiderToErase = async (tx: ScopedSql, storeId: string, id: string): Promise<{ id: string; name: string; phone: string | null } | null> =>
+  (await tx<{ id: string; name: string; phone: string | null }[]>`select id, name, phone from rider where id = ${id} and store_id = ${storeId} for update`)[0] ?? null
+
+export const formerRiderName = 'Former rider'
+
+/** The row stays for the deliveries the rider made; nothing on it names or reaches them (DELIVERY §5). */
+export const eraseRiderRow = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<void> => {
+  await tx`
+    update rider set name = ${formerRiderName}, status = 'removed', phone = null, photo_asset_id = null, vehicle_type = null, vehicle_number = null,
+      online_at = null, updated_at = ${now}, removed_at = coalesce(removed_at, ${now})
+    where id = ${id} and store_id = ${storeId}
+  `
+}
+
+export const deleteRiderSessions = async (tx: ScopedSql, storeId: string, riderId: string): Promise<void> => {
+  await tx`delete from rider_session where store_id = ${storeId} and rider_id = ${riderId}`
+}
+
+export const deleteRiderCodes = async (tx: ScopedSql, storeId: string, phone: string): Promise<void> => {
+  await tx`delete from rider_code where store_id = ${storeId} and phone = ${phone}`
+}
+
+export const deleteRiderPosition = async (tx: ScopedSql, storeId: string, riderId: string): Promise<void> => {
+  await tx`delete from rider_position where store_id = ${storeId} and rider_id = ${riderId}`
+}
+
+/** The rider's earlier exports hold their name and number, so they go with them. */
+export const deleteRiderExports = async (tx: ScopedSql, storeId: string, riderId: string): Promise<void> => {
+  await tx`delete from catalog_export where store_id = ${storeId} and kind = 'rider' and filter->>'riderId' = ${riderId}`
+}
+
+/** Queued and kept texts and pushes that name the rider lose their payload, and what is not yet sent is not sent (LOGGING §8). */
+export const scrubRiderOutbox = async (tx: ScopedSql, storeId: string, riderId: string, phone: string | null): Promise<void> => {
+  await tx`
+    update outbox set payload = '{"erased":true}'::jsonb, failed_at = case when delivered_at is null then coalesce(failed_at, now()) else failed_at end,
+      last_error = case when delivered_at is null then 'erased' else last_error end
+    where store_id = ${storeId} and payload <> '{"erased":true}'::jsonb
+      and (payload->'subject'->>'id' = ${riderId} or payload->>'riderId' = ${riderId} or ${phone === null ? tx`false` : tx`payload->>'to' = ${phone}`})
+  `
+}
+
+/** Their name on the log's entries, by the one function that may change the log's labels (migration 0372). */
+export const eraseRiderLabels = async (tx: ScopedSql, storeId: string, riderId: string): Promise<void> => {
+  await tx`select erase_rider_labels(${storeId}, ${riderId})`
+}
+
+export interface RiderExportProfile {
+  name: string
+  phone: string | null
+  status: RiderStatus
+  vehicle_type: string | null
+  vehicle_number: string | null
+  created_at: Date
+}
+
+export const selectRiderForExport = async (tx: ScopedSql, storeId: string, id: string): Promise<RiderExportProfile | null> =>
+  (await tx<RiderExportProfile[]>`select name, phone, status, vehicle_type, vehicle_number, created_at from rider where id = ${id} and store_id = ${storeId}`)[0] ?? null
+
+export interface RiderExportDelivery {
+  created_at: Date
+  state: string
+  warehouse: string
+  area: string | null
+  cash_collected: boolean
+  assigned_at: Date | null
+  picked_up_at: Date | null
+  delivered_at: Date | null
+  failed_at: Date | null
+  failed_reason: string | null
+}
+
+/** The rider's deliveries, oldest first, never the customer's name, address or phone: the area only (DELIVERY §5). */
+export const selectRiderDeliveriesForExport = (tx: ScopedSql, storeId: string, riderId: string, limit: number): Promise<RiderExportDelivery[]> =>
+  tx<RiderExportDelivery[]>`
+    select d.created_at, d.state, w.name as warehouse, d.area, d.cash_collected_at is not null as cash_collected,
+      d.assigned_at, d.picked_up_at, d.delivered_at, d.failed_at, d.failed_reason
+    from delivery d join warehouse w on w.id = d.warehouse_id and w.store_id = d.store_id
+    where d.store_id = ${storeId} and d.rider_id = ${riderId}
+    order by d.created_at, d.id
+    limit ${limit}
+  `
+
+export interface RiderExportSession {
+  created_at: Date
+  last_seen_at: Date
+  ended_at: Date | null
+}
+
+export const selectRiderSessionsForExport = (tx: ScopedSql, storeId: string, riderId: string, limit: number): Promise<RiderExportSession[]> =>
+  tx<RiderExportSession[]>`select created_at, last_seen_at, ended_at from rider_session where store_id = ${storeId} and rider_id = ${riderId} order by created_at limit ${limit}`

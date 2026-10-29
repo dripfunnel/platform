@@ -253,7 +253,21 @@
       "confirm": "Go offline and hand back",
       "stay": "Stay online"
     },
-    "afterDelivery": "You can go offline after this delivery."
+    "afterDelivery": "You can go offline after this delivery.",
+    "disclosure": {
+      "thisApp": "this app",
+      "title": "How {name} uses your location",
+      "intro": "Before {name} asks your phone for your location, here is what it does with it.",
+      "whatTitle": "What is collected",
+      "what": "Your phone’s position, only while you’re online. It is collected even when the app is closed or the screen is off, so the store can see where its deliveries are.",
+      "whyTitle": "Why",
+      "why": "To offer you deliveries from the warehouses near you, and to show the customer where their order is once you’ve picked it up.",
+      "noTrailTitle": "What isn’t kept",
+      "noTrail": "Only your latest position is kept, and it is deleted when you go offline. {name} never keeps a trail of where you’ve been.",
+      "offlineNote": "Nothing is collected while you’re offline.",
+      "continue": "Continue",
+      "notNow": "Not now"
+    }
   },
   "home": {
     "yourDelivery": "Your delivery",
