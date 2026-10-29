@@ -25,20 +25,22 @@ let warehouse = ''
 let version = ''
 let clock = new Date('2026-10-29T09:00:00Z')
 const host = 'store-a1.shop.example'
+const hostB = 'store-b1.shop.example'
 const shopDomain = 'shop.example'
 const pin = { latitude: 26.9124, longitude: 75.7873 }
 const door = { latitude: 26.915, longitude: 75.79 }
 const phones = ['+919811100001', '+919811100002']
 const tokens: string[] = []
 const riderIds: string[] = []
+let tokenB = ''
 const tick = (ms: number) => { clock = new Date(clock.getTime() + ms) }
 const now = () => clock
 
 const store = (source: string, variables: Record<string, unknown> = {}) => world.gql('owner', source, variables)
 const refused = async (call: Promise<Answer>) => (await call).code
 
-const asRider = async (token: string | null, source: string, variables: Record<string, unknown> = {}): Promise<Answer> => {
-  const caller = await resolveRider(db.sql, new Request(`https://${host}/delivery-api/`, { headers: token ? { authorization: `Bearer ${token}` } : {} }), host, shopDomain, clock)
+const asRider = async (token: string | null, source: string, variables: Record<string, unknown> = {}, at = host): Promise<Answer> => {
+  const caller = await resolveRider(db.sql, new Request(`https://${at}/delivery-api/`, { headers: token ? { authorization: `Bearer ${token}` } : {} }), at, shopDomain, clock)
   if (!caller) throw new Error('no store on that host')
   const deferred: Promise<unknown>[] = []
   const contextValue: DeliveryContext = { sql: db.sql, caller, activity: activityLog, facts: { requestId: 'journey', ip: '203.0.113.7', userAgent: null }, allowAttempt: async () => true, defer: (work) => deferred.push(work), secrets, now }
@@ -46,18 +48,18 @@ const asRider = async (token: string | null, source: string, variables: Record<s
   await Promise.all(deferred)
   return { data: result.data as Answer['data'], code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
-const asShopper = async (cart: string | null, source: string): Promise<Answer> => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host, shopDomain)
+const asShopper = async (cart: string | null, source: string, at = host): Promise<Answer> => {
+  const found = await resolveShopper(db.sql, new Request(`https://${at}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), at, shopDomain)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'journey', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, secrets, now }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${at}`, activity: activityLog, facts: { requestId: 'journey', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, secrets, now }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Answer['data'], code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
 
-const signIn = async (phone: string) => {
-  await asRider(null, 'mutation R($phone: String!) { requestCode(phone: $phone) }', { phone })
+const signIn = async (phone: string, at = host) => {
+  await asRider(null, 'mutation R($phone: String!) { requestCode(phone: $phone) }', { phone }, at)
   const [sms] = await db.sql<{ payload: { vars: { code: string } } }[]>`select payload from outbox where kind = 'sms' and payload->>'to' = ${phone} order by created_at desc limit 1`
-  const session = await asRider(null, 'mutation S($phone: String!, $code: String!) { signIn(phone: $phone, code: $code) { sessionToken } }', { phone, code: sms?.payload.vars.code ?? '' })
+  const session = await asRider(null, 'mutation S($phone: String!, $code: String!) { signIn(phone: $phone, code: $code) { sessionToken } }', { phone, code: sms?.payload.vars.code ?? '' }, at)
   const token = (session.data?.['signIn'] as { sessionToken: string } | null | undefined)?.sessionToken
   if (!token) throw new Error(`sign-in refused: ${session.code ?? ''}`)
   return token
@@ -159,6 +161,13 @@ beforeAll(async () => {
     riderIds.push((invited.data?.['inviteRider'] as { id: string }).id)
     tokens.push(await signIn(phone))
   }
+  // Another partner's store, with a rider of its own, for the isolation case.
+  await db.sql`update partner set state = 'live' where id = ${tenants.partnerB}`
+  await db.sql`update store set status = 'active', country = 'IN', pricing_currency = 'INR' where id = ${tenants.storeB1}`
+  const [subB] = await db.sql<{ plan_id: string; plan_version: number }[]>`select plan_id, plan_version from store_subscription where store_id = ${tenants.storeB1}`
+  await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled, amount) values (${subB?.plan_id ?? ''}, ${tenants.partnerB}, ${subB?.plan_version ?? 1}, 'own_delivery', true, null), (${subB?.plan_id ?? ''}, ${tenants.partnerB}, ${subB?.plan_version ?? 1}, 'riders', null, 20)`
+  await world.gql('bOwner', 'mutation I($name: String!, $phone: String!) { inviteRider(name: $name, phone: $phone) { id } }', { name: 'Rider B', phone: '+919811100009' })
+  tokenB = await signIn('+919811100009', hostB)
   const revision = (await db.sql<{ revision: number }[]>`select revision from warehouse where id = ${warehouse}`)[0]?.revision ?? 0
   const saved = await store('mutation W($id: ID, $r: Int, $i: WarehouseInput!) { saveWarehouse(id: $id, revision: $r, input: $i) }', { id: warehouse, r: revision, i: { name: 'Depot', ...pin, ownDelivery: true, deliveryRadiusM: 10000, deliveryFeeAmount: '4000' } })
   expect(saved.code).toBeUndefined()
@@ -231,6 +240,30 @@ describe('when the store dispatches when ready', () => {
   })
 })
 
+describe('another store', () => {
+  it('reads and changes nothing of this store’s delivery, and answers as it would for one that does not exist', async () => {
+    const { cart, orderId, deliveryId } = await accepted()
+    const [offerId] = (await db.sql<{ id: string }[]>`select id from delivery_offer where delivery_id = ${deliveryId} limit 1`).map((o) => o.id)
+    const nobody = crypto.randomUUID()
+    const asB = (source: string) => asRider(tokenB, source, {}, hostB)
+
+    expect((await asB(`{ delivery(id: "${deliveryId}") { state } }`)).data?.['delivery']).toBeNull()
+    expect((await asB('{ offers { nodes { id } } }')).data?.['offers']).toMatchObject({ nodes: [] })
+    for (const step of ['acceptOffer', 'declineOffer', 'markPickedUp', 'handBack']) {
+      const real = await asB(`mutation { ${step}(id: "${step.endsWith('Offer') ? offerId ?? '' : deliveryId}") }`)
+      const none = await asB(`mutation { ${step}(id: "${nobody}") }`)
+      expect(real.code).toBeDefined()
+      expect(real.code).toBe(none.code)
+    }
+    expect((await deliveryOf(orderId)).state).toBe('assigned')
+
+    // The customer's order is not readable from another store's shop, by its own token either.
+    expect((await asShopper(cart, `{ order(id: "${orderId}") { delivery { state } } }`, hostB)).data?.['order'] ?? null).toBeNull()
+    expect((await customerRead(cart, orderId)).delivery?.state).toBe('assigned')
+    await db.sql`update delivery set state = 'cancelled' where id = ${deliveryId}`
+  })
+})
+
 /** Whoever has an open offer takes it; the index of the rider who got the delivery. */
 const claim = async () => {
   await relay()
@@ -254,12 +287,14 @@ describe('the branches', () => {
 
   it('Not delivered, then Offer again: a new delivery with a new code, and no second stock movement', async () => {
     const { cart, orderId, deliveryId } = await accepted()
-    const firstCode = await codeOf(deliveryId)
+    expect(await codeOf(deliveryId)).toMatch(/^\d{4}$/)
     await pickUp(tokens[0] ?? '', deliveryId)
     tick(60_000)
     expect(await refused(asRider(tokens[0] ?? null, `mutation { markFailed(id: "${deliveryId}", reason: refused, at: "${clock.toISOString()}", key: "k-failed") }`))).toBeUndefined()
     expect((await deliveryOf(orderId)).state).toBe('failed')
     expect((await riderRead(tokens[0] ?? '', deliveryId))?.customer).toBeNull()
+    // The ended delivery's code is gone; the next one is sealed afresh (a 1-in-10,000 repeat of the digits is not a failure).
+    expect(await codeOf(deliveryId)).toBe('')
     expect(await refused(store(`mutation { offerDeliveryAgain(deliveryId: "${deliveryId}") }`))).toBeUndefined()
 
     const again = await deliveryOf(orderId)
@@ -271,6 +306,7 @@ describe('the branches', () => {
     expect(second.state).toBe('assigned')
     const secondCode = await codeOf(second.id)
     expect(secondCode).toMatch(/^\d{4}$/)
+    expect(await codeOf(deliveryId)).toBe('')
     expect((await customerRead(cart, orderId)).delivery?.steps.length).toBeGreaterThan(1)
     const onHand = (await stock())?.on_hand
     await pickUp(tokens[winner] ?? '', second.id)
@@ -279,7 +315,6 @@ describe('the branches', () => {
     tick(30_000)
     await asRider(tokens[winner] ?? null, `mutation { markDelivered(id: "${second.id}", code: "${secondCode}", cashCollected: true, at: "${clock.toISOString()}", key: "k-second") }`)
     expect((await deliveryOf(orderId)).state).toBe('delivered')
-    expect(firstCode).toMatch(/^\d{4}$/)
   })
 
   it('hand back, then Offer again: the same riders are offered it again in a new round', async () => {
