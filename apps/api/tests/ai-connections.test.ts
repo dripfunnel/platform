@@ -6,6 +6,7 @@ import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
+import { upsertStoreAiAccount } from '#db/scoped/storeAiAccount'
 import { activityLog } from '#saas/activity/index'
 import { createAiConnections } from '#saas/aiConnections/index'
 import { createAiOAuth, sealTokens } from '#saas/aiOAuth/index'
@@ -199,6 +200,12 @@ describe('fallback', () => {
     await a().startCooldown(`partner:${cred?.id}`, 60)
     expect((await a().resolveConnections('plan')).map((c) => c.connectionId.split(':')[0])).toEqual(['store'])
     expect((await b().resolveConnections('plan')).filter((c) => c.secret.includes('A-secret'))).toEqual([])
+  })
+
+  it('is switched off when the store connects a different account, so consent never carries to a new payer', async () => {
+    await putStoreKey(t.storeA1, 'sk-ant-storeA-secret-0000000', { fallback: true })
+    await withSystemScope(db.sql, (tx) => upsertStoreAiAccount(tx, { storeId: t.storeA1, provider: 'openai', keyEnc: 'sealed', keyPrefix: 'sk-…', status: 'ok', testedAt: null, connectedBy: 'Olivia', at: now }))
+    expect(await db.sql`select fallback_authorized from store_ai_account where store_id = ${t.storeA1}`).toEqual([{ fallback_authorized: false }])
   })
 
   it('is set by the Owner only through the store API, audited once, and never on another store\'s account', async () => {

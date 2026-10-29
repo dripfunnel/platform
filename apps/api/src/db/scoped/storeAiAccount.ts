@@ -31,7 +31,7 @@ export const upsertStoreAiAccount = async (tx: ScopedSql, a: { storeId: string; 
     values (${a.storeId}, ${a.provider}, ${a.keyEnc}, ${a.keyPrefix}, ${a.status}, ${a.testedAt}, ${a.connectedBy}, ${a.at}, ${a.at}, ${a.authType ?? 'api_key'}, ${a.accountLabel ?? null})
     on conflict (store_id) do update set provider = excluded.provider, key_enc = excluded.key_enc, key_prefix = excluded.key_prefix, status = excluded.status,
       last_tested_at = excluded.last_tested_at, connected_by = excluded.connected_by, connected_at = excluded.connected_at, updated_at = excluded.updated_at, auth_type = excluded.auth_type, account_label = excluded.account_label,
-      last_validated_at = null, last_validation_status = null, cooldown_until = null, cooldown_models = '{}'::jsonb, preferred_model = null`
+      last_validated_at = null, last_validation_status = null, cooldown_until = null, cooldown_models = '{}'::jsonb, preferred_model = null, fallback_authorized = false`
 }
 
 export const updateStoreAiAccountTest = async (tx: ScopedSql, storeId: string, status: 'ok' | 'rejected', at: Date): Promise<void> => {

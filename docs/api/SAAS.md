@@ -864,7 +864,8 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
   connection or model is skipped; a
   rejected sign-in shows as *needs reconnect*. Behind the partner's default only the store's own account can follow, and only
   when its Owner turned on `store_ai_account.fallback_authorized` (off by default, audited, `setStoreAiFallback`): a fallback
-  changes who pays, so it is never silent and never another tenant's credential.
+  changes who pays, so it is never silent and never another tenant's credential. Connecting a different key or sign-in turns it
+  off again: the Owner's yes was for the account they authorised.
 - **Rejected or unreadable partner default:** the gateway pauses (`AI_NOT_CONNECTED`); only a partner with no key at all uses
   `AI_PROVIDER_KEY`.
 - **Validation before any provider or budget:** `.strict()` zod schema, 50 messages, 100,000 characters each, 400 kB a body,
@@ -874,8 +875,8 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
 - **Retries:** rate limits, an unreachable provider and a timeout are tried up to three times with exponential backoff and full
   jitter, honouring `retry-after`; a refused key, a bad request or an unknown model never. The router (the studio's path) never
   resends a rate-limited call: it records the cooldown from the first 429's `Retry-After` and goes to the next authorised route,
-  or fails at once when there is none. Calls carry a 60 s deadline and the
-  caller's abort. The SDK clients retry nothing (`maxRetries: 0`), so there is one loop. `Retry-After` is read as seconds or an HTTP date.
+  or fails at once when there is none. Calls carry the caller's abort and a deadline: 60 s on `/api/v1`, and on the studio's path 180 s a try
+  (the executors' own default is 120 s). The SDK clients retry nothing (`maxRetries: 0`), so there is one loop. `Retry-After` is read as seconds or an HTTP date.
   **Fallback is off unless the store's Owner authorised it** (`fallback_authorized`, below) and then goes only to that account, on a
   rate limit, an unreachable provider or a timeout, before any streamed byte; the call says it was used (`ai_fallback_used` in the
   technical log). It never rotates credentials to get round a limit, and never switches silently.
@@ -898,8 +899,7 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
 - **Studio failures (HTTP stays 200).** A provider failure leaves the draft untouched, records the chat's error line as
   `change_failed:{reason}` and the technical log's `code` as the error class and code. Reasons: `RATE_LIMITED`,
   `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `SIGN_IN_EXPIRED`, `CREDENTIALS_REJECTED`, `BAD_REQUEST`, `DECLINED`; the portal words each, and any
-  other reads as the plain "I couldn't make that change". The month's request is **still counted** after a provider failure (decided
-  2026-10-29 on this change); only a studio that never reached the model gives it back. The code is read on the Worker's side, because
+  other reads as the plain "I couldn't make that change". The month's request is **still counted** after a provider failure (as before this change); only a studio that never reached the model gives it back. The code is read on the Worker's side, because
   an error's class and code do not survive the studio's RPC. A refusal, a cut-off answer or a stream error never returns text the
   studio could apply.
 - **Streaming:** `text/event-stream` with `text` events (`{text}`) then one `end` (`{provider, model, finish, usage}`), or an
