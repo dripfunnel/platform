@@ -8,7 +8,7 @@ one store at a time. The variables are in [../README.md](../README.md) §3, the 
 **Status: written on #852 (DL 15) before the first build. Nothing here has been run against a real store yet; the pilot store's first build and its install
 on a phone confirm or correct it, and each step that does is noted on the card.**
 
-Last updated: 2026-10-28 (#852: first version).
+Last updated: 2026-10-29 (#872: the Firebase step and the test crash). Before: 2026-10-28 (#852: first version).
 
 ---
 
@@ -35,7 +35,7 @@ and its id is the store file's `EAS_PROJECT_ID`. *(Proposed for the delivery app
 - [ ] The store's **EAS project** exists and its id is in `stores/<key>.env` (`EAS_PROJECT_ID`, only if the store wants push; without it the app never asks).
 - [ ] **Android signing**: EAS makes the keystore at the first Android build. **Keep the same keystore for every later build**: an APK signed with another key cannot be installed over the old one,
       and a rider would have to uninstall first.
-- [ ] **Push** (only if the store wants it): its Firebase project, `stores/<key>/google-services.json` (public client config) and the FCM v1 key in EAS (api/DELIVERY.md §6).
+- [ ] **Push and crash reports** (only if the store wants them; one Firebase file switches on both): its Firebase project with an Android app (the package) and **Crashlytics switched on**, `stores/<key>/google-services.json` (public client config, committed under the store's folder like the images, named by `GOOGLE_SERVICES_FILE`) and, for push, the FCM v1 key in EAS (api/DELIVERY.md §6). There is no iOS file: the app is Android only. Without the file the app reports nothing and runs as before (mobile-app/README.md §3).
 - [ ] **Maps** (the customer's pin): `GOOGLE_MAPS_ANDROID_KEY` restricted to the package and the keystore's SHA-1. As for the shop app, the certificate exists only after the first build, so the
       **first build has no map**; read the SHA-1 with `eas credentials`, restrict the key, put it in the store file and build again (../shop/BUILD-CHECKLIST.md §2a).
 
@@ -90,6 +90,7 @@ Do this on the pilot store before inviting riders, and attach a screenshot of ea
 - [ ] **Update required**: set the minimum build **above** the installed one (the tab refuses above the *uploaded* build, so first upload a build one higher), open the app: it shows Update required, and **Download the new version** opens the link.
       Install the new APK **over** the old one (no uninstall: same keystore, §2), open it, and confirm Home. Then set the minimum back to none.
 - [ ] With the phone offline, the app still opens (an unreachable API never blocks it).
+- [ ] **Crash reports** (a store with its Firebase file): force a crash in this build (Firebase's "test crash" in the console, or a throw from a screen on a scratch branch) and see it appear in the store's Crashlytics **with no name, phone, address, position, handover code or token in it**, and the rider's opaque id as the user. Reports are off in a development build, so this is the preview build's check.
 
 ---
 

@@ -23,6 +23,8 @@
   "dependencies": {
     "@dripfunnel/mobile-shared": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-firebase/app": "27.1.0",
+    "@react-native-firebase/crashlytics": "27.1.0",
     "expo": "57.0.27",
     "expo-application": "~57.0.3",
     "expo-constants": "~57.0.21",

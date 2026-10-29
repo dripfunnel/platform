@@ -37,6 +37,10 @@
     "optional": "optional",
     "close": "Close"
   },
+  "crash": {
+    "title": "Something went wrong",
+    "body": "The app hit a problem. Try again, and if it keeps happening, close the app and open it again."
+  },
   "update": {
     "title": "Update required",
     "body": "This version of the app is too old to work with the shop. Download the new version, install it, and open the app again.",

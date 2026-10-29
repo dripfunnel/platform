@@ -1,4 +1,4 @@
-import { ApiError } from '@dripfunnel/mobile-shared/graphql'
+import { ApiError } from '../graphql'
 import { reportError, setReportingUser, startReporting } from './report'
 
 // The reporting wrapper (card #876), with Firebase stood in for: what it sends, and that a build without the files sends nothing.
@@ -41,7 +41,7 @@ const startFresh = (): typeof ApiError => {
   let Refusal: typeof ApiError = ApiError
   jest.isolateModules(() => {
     /* eslint-disable @typescript-eslint/no-require-imports -- one registry of its own, with the mocks above */
-    Refusal = (require('@dripfunnel/mobile-shared/graphql') as typeof import('@dripfunnel/mobile-shared/graphql')).ApiError
+    Refusal = (require('../graphql') as typeof import('@dripfunnel/mobile-shared/graphql')).ApiError
     ;(require('./report') as typeof import('./report')).startReporting()
     /* eslint-enable @typescript-eslint/no-require-imports */
   })
