@@ -23,6 +23,8 @@ export const partnerEnvSchema = z
     SPLASH_IMAGE: image,
     SPLASH_BACKGROUND: colour,
     UPDATES_CHANNEL: partnerKey,
+    // 'on' for a partner whose own Firebase project receives crash reports; the two files come from EAS (CONFIGURATION.md §3).
+    CRASH_REPORTING: z.literal('on').optional(),
   })
   .refine((env) => env.UPDATES_CHANNEL === env.PARTNER_KEY, { path: ['UPDATES_CHANNEL'], message: 'must equal PARTNER_KEY' })
 
@@ -53,7 +55,18 @@ export function readPartnerEnv(root: string, key: string | undefined): PartnerEn
   return env
 }
 
-export function buildConfig(config: Partial<ExpoConfig>, env: PartnerEnv): ExpoConfig {
+/** The paths of the partner's two Firebase files, which EAS writes to disk for a build from its file variables: never in the repo. */
+export type FirebaseFiles = { android: string; ios: string }
+
+export function readFirebaseFiles(env: PartnerEnv, vars: Record<string, string | undefined>): FirebaseFiles | null {
+  if (env.CRASH_REPORTING !== 'on') return null
+  const wanted = { GOOGLE_SERVICES_JSON: vars.GOOGLE_SERVICES_JSON, GOOGLE_SERVICE_INFO_PLIST: vars.GOOGLE_SERVICE_INFO_PLIST }
+  const missing = Object.entries(wanted).filter(([, path]) => !path || !existsSync(path)).map(([name]) => `${name}: no file; add it as an EAS file variable for ${env.PARTNER_KEY} (CONFIGURATION.md §3)`)
+  if (missing.length > 0) fail(`partners/${env.PARTNER_KEY}.env`, ['CRASH_REPORTING=on needs the two Firebase files', ...missing])
+  return { android: wanted.GOOGLE_SERVICES_JSON ?? '', ios: wanted.GOOGLE_SERVICE_INFO_PLIST ?? '' }
+}
+
+export function buildConfig(config: Partial<ExpoConfig>, env: PartnerEnv, firebase: FirebaseFiles | null = null): ExpoConfig {
   return {
     ...config,
     name: env.APP_NAME,
@@ -65,14 +78,25 @@ export function buildConfig(config: Partial<ExpoConfig>, env: PartnerEnv): ExpoC
     icon: env.ICON_IMAGE,
     userInterfaceStyle: 'automatic',
     runtimeVersion: { policy: 'appVersion' },
-    ios: { bundleIdentifier: env.IOS_BUNDLE_ID, supportsTablet: false },
+    ios: { bundleIdentifier: env.IOS_BUNDLE_ID, supportsTablet: false, ...(firebase ? { googleServicesFile: firebase.ios } : {}) },
     android: {
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
+      ...(firebase ? { googleServicesFile: firebase.android } : {}),
     },
-    plugins: ['expo-router', ['expo-splash-screen', { image: env.SPLASH_IMAGE, backgroundColor: env.SPLASH_BACKGROUND, imageWidth: 200 }], 'expo-updates', ['expo-image-picker', { microphonePermission: false }]],
-    extra: { PARTNER_DOMAIN: env.PARTNER_DOMAIN },
+    plugins: [
+      'expo-router',
+      ['expo-splash-screen', { image: env.SPLASH_IMAGE, backgroundColor: env.SPLASH_BACKGROUND, imageWidth: 200 }],
+      'expo-updates',
+      ['expo-image-picker', { microphonePermission: false }],
+      // Firebase Crashlytics (CONFIGURATION.md §3). The Firebase Apple SDK is Swift Package Manager only, so its pods build as dynamic frameworks.
+      ...(firebase ? ['@react-native-firebase/app', '@react-native-firebase/crashlytics', ['expo-build-properties', { ios: { useFrameworks: 'dynamic' } }] as [string, object]] : []),
+    ],
+    extra: { PARTNER_DOMAIN: env.PARTNER_DOMAIN, ...(firebase ? { crashReporting: true } : {}) },
   }
 }
 
-export default ({ config }: ConfigContext): ExpoConfig => buildConfig(config, readPartnerEnv(__dirname, process.env.PARTNER_KEY))
+export default ({ config }: ConfigContext): ExpoConfig => {
+  const env = readPartnerEnv(__dirname, process.env.PARTNER_KEY)
+  return buildConfig(config, env, readFirebaseFiles(env, process.env))
+}

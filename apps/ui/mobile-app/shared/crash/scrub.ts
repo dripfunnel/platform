@@ -1,4 +1,4 @@
-import { isApiError } from '@dripfunnel/mobile-shared/graphql'
+import { isApiError } from '../graphql'
 
 /** What a report says about a failure: the API's code, else the error's class. Never its message, which can carry anything a person typed or a server said. */
 const labelOf = (error: unknown): string => (isApiError(error) ? error.code : error instanceof Error ? error.name : typeof error)

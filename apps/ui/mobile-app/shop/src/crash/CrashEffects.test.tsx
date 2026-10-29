@@ -6,10 +6,9 @@ import { CrashEffects } from './CrashEffects'
 jest.setTimeout(120_000)
 
 const mockSetup = { on: true }
-jest.mock('./config', () => ({ crashReportingIsSetUp: () => mockSetup.on }))
 const mockStart = jest.fn()
 const mockUser = jest.fn()
-jest.mock('./report', () => ({ startReporting: () => mockStart(), setReportingUser: (id: string | null) => mockUser(id) }))
+jest.mock('@dripfunnel/mobile-shared/crash', () => ({ crashReportingIsSetUp: () => mockSetup.on, startReporting: () => mockStart(), setReportingUser: (id: string | null) => mockUser(id) }))
 
 beforeEach(() => {
   mockSetup.on = true

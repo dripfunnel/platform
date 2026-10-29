@@ -10,7 +10,7 @@ import { CrashBoundary } from './CrashBoundary'
 jest.setTimeout(120_000)
 
 const mockReport = jest.fn()
-jest.mock('./report', () => ({ reportError: (error: unknown) => mockReport(error) }))
+jest.mock('@dripfunnel/mobile-shared/crash', () => ({ reportError: (error: unknown) => mockReport(error) }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 
 let broken = true

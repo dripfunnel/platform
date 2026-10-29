@@ -2,7 +2,7 @@ import { crashReportingIsSetUp } from './config'
 import { loadCrashlytics, loadRejectionTracking } from './sdk'
 import { scrubbed } from './scrub'
 
-// Crash reports (shop/ARCHITECTURE.md §2): off unless the build has its store's Firebase files, and what they hold is only a code or a class, the frames and an opaque customer id.
+// Crash reports (mobile-app/README.md §3): off unless the build has its Firebase files, and what they hold is only a code or a class, the frames and opaque ids.
 
 let started = false
 
@@ -29,9 +29,16 @@ export const reportError = (error: unknown): void => {
   recordError(getCrashlytics(), scrubbed(error))
 }
 
-/** The signed-in customer's opaque id, or none for a guest. No name, email or phone, ever. */
+/** The signed-in person's opaque id, or none when nobody is. No name, email or phone, ever. */
 export const setReportingUser = (id: string | null): void => {
   if (!crashReportingIsSetUp()) return
   const { getCrashlytics, setUserId } = loadCrashlytics()
   void setUserId(getCrashlytics(), id ?? '')
+}
+
+/** The store the person is acting in, by its opaque id, as the one custom key a report carries; none when no store is acting. */
+export const setReportingStore = (id: string | null): void => {
+  if (!crashReportingIsSetUp()) return
+  const { getCrashlytics, setAttribute } = loadCrashlytics()
+  void setAttribute(getCrashlytics(), 'storeId', id ?? '')
 }

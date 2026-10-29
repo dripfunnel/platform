@@ -7,7 +7,7 @@ the code that reads these values is in [ARCHITECTURE.md](ARCHITECTURE.md).
 **Status: built for the `dev` partner (#496).** `app.config.ts`, `partners/dev.env`, `.env.example` and
 `eas.json`'s `dev` profile exist. Other partners' files and profiles are added when their apps are set up.
 
-Last updated: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
+Last updated: 2026-10-28 (#878: crash reports, §2, §3). Before: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
 
 ---
 
@@ -49,6 +49,7 @@ Last updated: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493:
 | `SPLASH_IMAGE` | `partners/northstar/splash.png` | Splash screen image | The splash upload on the branding screen |
 | `SPLASH_BACKGROUND` | `#FDFAF7` | Splash background colour | `partner_branding` |
 | `UPDATES_CHANNEL` | `northstar` | The EAS Update channel, so an over-the-air update reaches only this partner's app | Equal to `PARTNER_KEY` |
+| `CRASH_REPORTING` | `on` | *Optional.* Sends the app's crashes to the partner's own Firebase project (Crashlytics). It adds the two Firebase plugins and files to the build and the `crashReporting` flag the app reads; the build **fails** if it is `on` and the two files (§3) are not there. Absent in `dev`, and development builds report nothing either way | Set once the partner's Firebase project exists (BUILD-CHECKLIST.md §1) |
 
 **The development target is a `dev` partner profile**, `partners/dev.env` with
 `PARTNER_DOMAIN=dev-store.actuateminds.com`, the dev environment's portal host (docs/setup/dev.md)
@@ -78,6 +79,7 @@ those at runtime from the brand query, so a rebrand needs no new build
 | Android upload keystore | Signing the Android app | Made by EAS, one per partner; kept for the app's life |
 | Google Play service account key (JSON) | Submitting to the partner's Play Console | The partner, from its Google Cloud project, with only the Play permissions needed |
 | Push credentials (APNs key; Firebase `google-services.json`) | Push notifications, when the app adds them | The partner's Apple account and Firebase project |
+| Firebase client files, `google-services.json` and `GoogleService-Info.plist`, as **EAS file variables** named `GOOGLE_SERVICES_JSON` and `GOOGLE_SERVICE_INFO_PLIST` | Crash reports (Crashlytics) when the partner's file says `CRASH_REPORTING=on`. EAS writes each to disk for the build and `app.config.ts` reads its path, so neither file is in the repo | The partner's own Firebase project, with its Android and iOS apps registered under the bundle id and package (BUILD-CHECKLIST.md §1) |
 
 Each secret is recorded by name, owner and partner in THIRD-PARTY-ACCESS.md, never by value
 (AGENTS.md "Security").
