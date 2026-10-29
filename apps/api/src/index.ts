@@ -939,7 +939,7 @@ const sweepOutbox = (env: Env): Promise<void> => relayWith(env, (sql, config) =>
 // The cron's jobs (api/README.md §5.1). Each catches and logs its own failure, so one never stops the rest of its group.
 const sweepDeliveries: CronJob = async (sql) => {
   await sweepDispatch(sql, activityLog, new Date()).catch((error: unknown) => {
-    logEvent({ event: 'dispatch_sweep_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    logEvent({ event: 'dispatch_sweep_failed', api: 'system', code: failureCode(error) })
   })
 }
 type CronJob = (sql: postgres.Sql, config: Config, env: Env) => Promise<void>

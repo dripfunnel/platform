@@ -5,6 +5,7 @@ import { pushDeliverer, pushReceiptsDeliverer } from '#jobs/queues/deliverers/pu
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { pushKind, pushReceiptsKind, queuePush, receiptsAfterMs, receiptsKeptMs, type PushPayload } from '#saas/push/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
+import { captureLogs, metricKeys } from './support/metrics'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 // Card #840 (DL 3): pushes through the outbox to a subject's phones by Expo, and the receipts read after (DELIVERY §6).
@@ -192,6 +193,58 @@ describe('pushes through the outbox (DELIVERY §6)', () => {
     expect((await row(nobody))?.delivered_at).not.toBeNull()
     expect((await row(crossed))?.last_error).toBe('no_store')
     expect(sends).toHaveLength(0)
+  })
+})
+
+describe('push failures, measured and logged (DELIVERY §3)', () => {
+  it('counts a send Expo refuses once, by its error code and the store alone', async () => {
+    const logs = captureLogs()
+    const { expo, deadTokens } = fakeExpo()
+    const riderId = crypto.randomUUID()
+    await device(riderId, 20)
+    await device(riderId, 21)
+    deadTokens.add(token(20))
+    await queue(notice(riderId))
+    await relay(expo)
+    const sent = logs.metrics('push_send_failed')
+    logs.restore()
+    expect(sent).toEqual([{ event: 'metric', api: 'system', storeId: t.storeA1, metric: 'push_send_failed', value: 1, code: 'DeviceNotRegistered' }])
+    expect(Object.keys(sent[0] ?? {}).every((key) => metricKeys.includes(key))).toBe(true)
+  })
+
+  it('counts the receipt errors once, on the last pass, not on each time Expo is asked again', async () => {
+    const logs = captureLogs()
+    const { expo, receipts } = fakeExpo()
+    const riderId = crypto.randomUUID()
+    await device(riderId, 22)
+    await device(riderId, 23)
+    await queue(notice(riderId))
+    await relay(expo)
+    const [pending] = await receiptsRows()
+    const [first, second] = pending?.payload.tickets.map((x) => x.ticketId) ?? []
+    receipts.set(first ?? '', 'MessageRateExceeded')
+    expect((await relay(expo, { aheadMs: receiptsAfterMs })).retry).toBe(1)
+    expect(logs.metrics('push_send_failed')).toEqual([])
+    receipts.set(second ?? '', null)
+    expect((await relay(expo, { aheadMs: 2 * receiptsAfterMs })).delivered).toBe(1)
+    const counted = logs.metrics('push_send_failed')
+    logs.restore()
+    expect(counted.map((m) => [m.code, m.value, m.storeId])).toEqual([['MessageRateExceeded', 1, t.storeA1]])
+  })
+
+  it('logs a send that failed outright under its class, never its message, and counts nothing', async () => {
+    const logs = captureLogs()
+    const { expo, failNext } = fakeExpo()
+    const riderId = crypto.randomUUID()
+    await device(riderId, 24)
+    await queue(notice(riderId))
+    failNext(new ExpoPushUnavailable('answered 503 for ExponentPushToken[phone-24]'))
+    await relay(expo)
+    const lines = logs.lines()
+    logs.restore()
+    expect(lines).toContainEqual(expect.objectContaining({ event: 'push_failed', storeId: t.storeA1, code: 'ExpoPushUnavailable' }))
+    expect(JSON.stringify(lines)).not.toContain('phone-24')
+    expect(lines.filter((line) => line['event'] === 'metric')).toEqual([])
   })
 })
 
