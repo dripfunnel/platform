@@ -60,6 +60,7 @@ export const AppHeader = ({ me, menuOpen, onOpenMenu }: AppHeaderProps) => {
         themeStorageKey="df-platform-theme"
         // My activity is the signed-in user's own timeline (FIRST-RELEASE.md §13).
         items={[
+          { key: 'profile', label: words.userMenu.myProfile, to: '/profile' },
           ...(setup ? [] : [{ key: 'activity', label: words.userMenu.myActivity, to: '/activity', search: { person: `team:${me.id}` } }]),
           { key: 'signOut', label: words.userMenu.signOut, to: '/sign-in', onSelect: signOut },
         ]}
