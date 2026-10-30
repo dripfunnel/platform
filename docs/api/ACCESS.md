@@ -426,6 +426,10 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
   A2). **Support sessions** have their own cookie and bounds (§8).
+- **A partner user's own name and password** (My profile, built on #1053; ui/platform/FIRST-RELEASE.md §14.6):
+  `updateMyName` and `changeMyPassword` act only on the caller's own `partner_user`, any role, and are refused to
+  both staff sessions. A password change needs the current one (a wrong one counts toward the sign-in lock, §4) and
+  ends every other `partner_session` of the user, keeping the one it came from.
 - **Past due** blocks writes in that store but never signs anyone out (PLATFORM-PROMPT §2
   item 7); the gate is evaluated per acting store, from `subscription` on the context,
   invalidated by the billing webhook.
