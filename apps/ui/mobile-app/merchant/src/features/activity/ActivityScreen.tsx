@@ -12,7 +12,7 @@ import { activityAccessOf } from './access'
 import { ActivityView } from './ActivityView'
 
 // Store activity (StoreActivity; FIRST-RELEASE (store) §15): the Manager's way to the log, since Settings is the Owner's. Anyone without
-// `activity.read` is told so before anything is asked for; the Manager reads the same log as the Owner.
+// `activity.read` is told so before anything is asked for; the Manager reads the same log as the Owner, without the export.
 export function ActivityScreen() {
   const client = sessionClient()
   const { state } = useShell()
@@ -31,7 +31,7 @@ export function ActivityScreen() {
       {ready?.access.canRead ? (
         <View style={styles.content}>
           {state?.readOnly ? <Notice text={t('activity.readOnly')} /> : null}
-          <ActivityView title={t('activity.managerTitle')} client={client} timeZone={ready.timeZone} />
+          <ActivityView title={t('activity.managerTitle')} client={client} timeZone={ready.timeZone} canExport={ready.access.canExport} />
         </View>
       ) : (
         <Skeleton />

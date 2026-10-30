@@ -16,6 +16,11 @@ describe('loadCustomers', () => {
     expect(page.items[0]?.email).toBe('a***@example.com')
   })
 
+  it('reads a customer whose orders the API does not count yet', async () => {
+    stubApi({ data: { customers: { items: [{ ...account, orders: null }], pageInfo, match: null, partners: [], stores: [] } } })
+    expect((await loadCustomers({}, {}, null)).items[0]?.orders).toBeNull()
+  })
+
   it('refuses a status it was never promised', async () => {
     stubApi({ data: { customers: { items: [{ ...account, status: 'banned' }], pageInfo, match: null, partners: [], stores: [] } } })
     await expect(loadCustomers({}, {}, null)).rejects.toMatchObject({ code: 'BAD_RESPONSE' })

@@ -7,7 +7,7 @@ the code that reads these values is in [ARCHITECTURE.md](ARCHITECTURE.md).
 **Status: built for the `dev` partner (#496).** `app.config.ts`, `partners/dev.env`, `.env.example` and
 `eas.json`'s `dev` profile exist. Other partners' files and profiles are added when their apps are set up.
 
-Last updated: 2026-10-28 (#878: crash reports, §2, §3). Before: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
+Last updated: 2026-10-29 (#878: `CRASH_REPORTING` from a build profile, §2). Before: 2026-10-28 (#878: crash reports, §2, §3). Before: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
 
 ---
 
@@ -49,7 +49,7 @@ Last updated: 2026-10-28 (#878: crash reports, §2, §3). Before: 2026-10-12 (#4
 | `SPLASH_IMAGE` | `partners/northstar/splash.png` | Splash screen image | The splash upload on the branding screen |
 | `SPLASH_BACKGROUND` | `#FDFAF7` | Splash background colour | `partner_branding` |
 | `UPDATES_CHANNEL` | `northstar` | The EAS Update channel, so an over-the-air update reaches only this partner's app | Equal to `PARTNER_KEY` |
-| `CRASH_REPORTING` | `on` | *Optional.* Sends the app's crashes to the partner's own Firebase project (Crashlytics). It adds the two Firebase plugins and files to the build and the `crashReporting` flag the app reads; the build **fails** if it is `on` and the two files (§3) are not there. Absent in `dev`, and development builds report nothing either way | Set once the partner's Firebase project exists (BUILD-CHECKLIST.md §1) |
+| `CRASH_REPORTING` | `on` | *Optional.* Sends the app's crashes to the partner's own Firebase project (Crashlytics). It adds the two Firebase plugins and files to the build and the `crashReporting` flag the app reads; the build **fails** if it is `on` and the two files (§3) are not there. Absent in `dev`, and development builds report nothing either way. A build profile's `env` in `eas.json` can set it too (the `preview` profile does, for the `dev` partner's test build), so a partner file that stays silent keeps local runs working without the files | Set once the partner's Firebase project exists (BUILD-CHECKLIST.md §1) |
 
 **The development target is a `dev` partner profile**, `partners/dev.env` with
 `PARTNER_DOMAIN=dev-store.actuateminds.com`, the dev environment's portal host (docs/setup/dev.md)

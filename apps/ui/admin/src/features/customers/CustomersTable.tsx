@@ -51,7 +51,7 @@ const Row = ({ customer, inStore, showPhoneRegion }: { customer: CustomerRow } &
     <td>
       <CustomerStatusPill status={customer.status} />
     </td>
-    <td className="df-number">{formatCount(customer.orders)}</td>
+    <td className="df-number">{customer.orders === null ? words.none : formatCount(customer.orders)}</td>
     <td className="df-muted df-nowrap">{formatDate(customer.createdAt)}</td>
     <td className="df-muted df-nowrap">{customer.lastSignInAt ? formatDate(customer.lastSignInAt) : words.none}</td>
   </ClickableRow>

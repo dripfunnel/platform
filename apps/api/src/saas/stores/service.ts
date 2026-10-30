@@ -360,8 +360,9 @@ export const createStoresService = (deps: StoresServiceDeps) => {
         // Never a secret in either (decided on #43), as on the Provisioning list.
         provisioning: { error: redactSecretsInText(row.job_last_error), details: redactSecretsInText(detail?.details ?? null) },
         records: recordsFor(domain, liveHostOf(row)),
+        // A row is a seat: Impersonate starts from its membership (ACCESS.md §8.1).
         users: people.map((p) => ({
-          id: p.user_id,
+          id: p.id,
           name: p.name,
           email: p.email,
           role: p.role_key,

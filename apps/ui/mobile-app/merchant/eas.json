@@ -3,6 +3,14 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "preview": {
+      "distribution": "internal",
+      "channel": "dev",
+      "env": {
+        "PARTNER_KEY": "dev",
+        "CRASH_REPORTING": "on"
+      }
+    },
     "dev": {
       "developmentClient": true,
       "distribution": "internal",
