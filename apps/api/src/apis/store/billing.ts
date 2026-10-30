@@ -218,7 +218,7 @@ export const registerBilling = (builder: StoreBuilder) => {
     setPaymentMethod: t.field({
       type: Subscription,
       args: { token: t.arg.string({ required: true }) },
-      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.setPaymentMethod } },
+      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.setPaymentMethod, blockedFor: ['impersonation'] } },
       resolve: async (_, { token }, ctx) => answered(await service(ctx, true).setPaymentMethod(token)),
     }),
     saveBillingDetails: t.field({

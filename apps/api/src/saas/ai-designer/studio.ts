@@ -10,7 +10,7 @@ import { selectPreviewKey } from '#db/scoped/previewAccess'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectMerchantImageKey } from '#db/scoped/storefrontSettings'
 import { selectGuardContext, selectStudioStart } from '#db/scoped/studio'
-import type { AiImage, AiProvider } from '#integrations/ai/index'
+import { AiDeclined, GatewayError, SignInExpired, type AiImage, type AiProvider } from '#integrations/ai/index'
 import { maxScreenshotBytes, type Screenshotter } from '#integrations/cloudflare/screenshot'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { checkedUrl } from '#integrations/http/publicFetch'
@@ -19,7 +19,7 @@ import { guardContextFor } from '#saas/storefronts/index'
 import { openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
 import { designModel, type DesignBrief, type Device } from './model'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
-import { designAudit, designErrors, designNotes } from './words'
+import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
 
 // The studio through the Store API (storefront AI-STUDIO §3–§5; SAAS §9.2): the Worker builds the model's context and
 // calls the model; the store's StudioSession runs the diff through the fast gate. The request's words are never logged.
@@ -39,6 +39,15 @@ export interface StudioDeps extends DesignerDeps {
 }
 
 export type AskInput = { text: string; model: string | null; imageAssetId: string | null; sampleUrl: string | null; page: string; device: Device }
+/** The reason a model call failed; the error's class and code don't survive the studio's RPC, so the Worker's own side reads them. */
+const reasonOf = (error: unknown): DesignFailureReason | null => {
+  if (error instanceof SignInExpired) return 'SIGN_IN_EXPIRED'
+  if (error instanceof AiDeclined) return 'DECLINED'
+  if (!(error instanceof GatewayError)) return null
+  if (error.code === 'RATE_LIMITED' || error.code === 'PROVIDER_UNAVAILABLE' || error.code === 'TIMEOUT') return error.code
+  return error.code === 'INVALID_CREDENTIALS' ? 'CREDENTIALS_REJECTED' : error.code === 'CANCELLED' ? null : 'BAD_REQUEST'
+}
+
 export type AskAnswer = { outcome: 'changed' | 'unchanged' | 'refused' | 'failed'; message: MessageRow }
 export type StudioSessionView = StudioState & { session: string; models: readonly string[]; frameUrl: string; access: 'change' | 'view'; expiresAt: Date }
 export type TextEntry = { key: string; text: string }
@@ -182,7 +191,18 @@ export const createStudioService = (deps: StudioDeps) => {
     const before = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? null))
     let modelAsked = false
-    const model: DesignModel = { propose: (proposal) => ((modelAsked = true), designer.propose(proposal)) }
+    let modelFailure: unknown = null
+    const model: DesignModel = {
+      propose: async (proposal) => {
+        modelAsked = true
+        try {
+          return await designer.propose(proposal)
+        } catch (error) {
+          modelFailure = error
+          throw error
+        }
+      },
+    }
     // The unit is taken last, so only the studio's own answer stands between it and the model.
     if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     // The model was never asked (the sandbox didn't take it, or the studio failed first): the request gives its unit back.
@@ -191,7 +211,7 @@ export const createStudioService = (deps: StudioDeps) => {
     try {
       answer = await studio.change(storeId, { request: text, userId: actor.id, billedTo }, model)
     } catch (error) {
-      logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: failureCode(error) })
+      logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: modelFailure instanceof GatewayError ? `${modelFailure.name}:${modelFailure.code}` : failureCode(modelFailure ?? error) })
       answer = { outcome: 'failed' }
     }
     if (answer.outcome === 'queued' || answer.outcome === 'unavailable' || (answer.outcome === 'failed' && !modelAsked)) await giveBack()
@@ -205,7 +225,7 @@ export const createStudioService = (deps: StudioDeps) => {
       const id =
         (outcome === 'changed' || outcome === 'unchanged') && summary
           ? await record(tx, { role: 'ai', text: summary.reply, changed: outcome === 'changed' ? summary.changed : [], page: summary.page, commit: answer.outcome === 'changed' ? answer.commit : null, beforeCommit: outcome === 'changed' ? before : null, aiRunId: runId })
-          : await record(tx, { role: 'error', text: outcome === 'refused' ? designErrors.refused : designErrors.failed, aiRunId: runId })
+          : await record(tx, { role: 'error', text: outcome === 'refused' ? designErrors.refused : designErrors.failedFor(reasonOf(modelFailure)), aiRunId: runId })
       await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: outcome }]))
       return selectMessage(tx, storeId, id)
     })

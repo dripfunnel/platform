@@ -5,7 +5,7 @@ import type { SecretBox } from '#auth/secretBox'
 import type { StoreCaller } from '#auth/storeCaller'
 import { aiProviders, type AiProvider } from '#db/schema/saas'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { deleteStoreAiAccount, selectSealedStoreKey, selectStoreAiAccount, setStoreAiSwitch, updateStoreAiAccountTest, upsertStoreAiAccount, type StoreAiAccountRow } from '#db/scoped/storeAiAccount'
+import { deleteStoreAiAccount, selectSealedStoreKey, selectStoreAiAccount, setStoreAiFallback, setStoreAiSwitch, updateStoreAiAccountTest, upsertStoreAiAccount, type StoreAiAccountRow } from '#db/scoped/storeAiAccount'
 import type { KeyCheck } from '#integrations/ai/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
 
@@ -16,6 +16,7 @@ export const storeAiAudit = {
   oauthStarted: 'store.ai_oauth_started',
   tested: 'store.ai_account_tested',
   switched: 'store.ai_switch_changed',
+  fallback: 'store.ai_fallback_changed',
   removed: 'store.ai_account_removed',
 } as const
 
@@ -115,6 +116,17 @@ export const createStoreAiService = ({ sql, caller, facts, activity, secrets, ch
       return { ok: true }
     })
 
+  /** The Owner's explicit yes to running on this account when the partner's default can't (off by default; SAAS.md §9.3). */
+  const setFallback = async (on: boolean): Promise<StoreAiResult> =>
+    withSystemScope(sql, async (tx) => {
+      const before = await selectStoreAiAccount(tx, storeId)
+      if (!before) return { ok: false, reason: 'NOT_FOUND' }
+      if (before.fallback_authorized === on) return { ok: true }
+      await setStoreAiFallback(tx, storeId, on, now())
+      await activity.record(tx, entry(storeAiAudit.fallback, [{ field: 'fallback_authorized', before: String(before.fallback_authorized), after: String(on) }]))
+      return { ok: true }
+    })
+
   const remove = async (): Promise<StoreAiResult> =>
     withSystemScope(sql, async (tx) => {
       const before = await selectSealedStoreKey(tx, storeId)
@@ -157,7 +169,7 @@ export const createStoreAiService = ({ sql, caller, facts, activity, secrets, ch
     return { ok: true }
   }
 
-  return { account, connect, test, setSwitch, remove, providers, beginOauth, finishOauth }
+  return { account, connect, test, setSwitch, setFallback, remove, providers, beginOauth, finishOauth }
 }
 
 export type StoreAiService = ReturnType<typeof createStoreAiService>

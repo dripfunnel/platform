@@ -41,7 +41,7 @@ beforeEach(() => {
 it('uses the reference OAuth auth, model and streaming Messages request at the maximum output of the model', async () => {
   const answer = await anthropicOAuthDesignerProvider('oauth-token').complete({ system: 'Design a shop', text: 'Warm colours', images: [] })
 
-  expect(mocks.options).toHaveBeenCalledWith({ apiKey: null, authToken: 'oauth-token', defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' }, timeout: 180_000 })
+  expect(mocks.options).toHaveBeenCalledWith({ apiKey: null, authToken: 'oauth-token', defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' }, timeout: 180_000, maxRetries: 0 })
   expect(mocks.stream).toHaveBeenCalledWith({
     model: 'claude-haiku-4-5',
     max_tokens: 64_000,

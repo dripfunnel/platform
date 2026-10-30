@@ -1191,6 +1191,7 @@ type Mutation {
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
+  setStoreAiFallback(on: Boolean!): Boolean
   setStoreAiSwitch(on: Boolean!): Boolean
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
@@ -2227,6 +2228,7 @@ type Query {
   shopifyProducts(after: String, search: String): ShopifyProductPage
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
+  staffSessionNotice: StaffSessionNotice
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
   storeAiAccount: StoreAiAccount
   storeAiSignIn: [StoreAiSignIn!]
@@ -2651,6 +2653,13 @@ type SizeChartSummary {
   updatedAt: String
 }
 
+type StaffSessionNotice {
+  actingAs: String
+  endsAt: String
+  kind: String
+  staffName: String
+}
+
 type StockLevel {
   isDefault: Boolean
   lowStockThreshold: Int
@@ -2788,6 +2797,7 @@ type StoreAiAccount {
   accountLabel: String
   authType: String
   connectedBy: String
+  fallbackAuthorized: Boolean
   keyPrefix: String
   lastTestedAt: String
   provider: String

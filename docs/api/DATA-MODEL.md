@@ -564,8 +564,9 @@ impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, 
                  -- extended_at records the single permitted 30-minute extension, so
                  -- "once" is enforced by the row, not by counting log entries;
                  -- platform scope: written and listed by the Admin API only;
-                 -- portal_session_hash (#243): the partner console's staff cookie, set when
-                 -- the handoff is spent and replaced by a return's; app_system reads it alone
+                 -- portal_session_hash (#243): the portal's staff cookie (the partner console's,
+                 -- or the store portal's for a store user), set when the handoff is spent and
+                 -- replaced by a return's; app_system reads it alone
 
 partner_setup_session
                 (id, staff_user_id, partner_id, reason, ticket NULL, started_at, expires_at,
@@ -1129,14 +1130,18 @@ invoice_settings    (store_id PK, legal_name, tax_per_line boolean, email_with_d
                     -- (Store info writes legal_name), the address being the store row's
 partner_credential  (id, partner_id, kind ('ai'), provider ('anthropic'|'openai'), name, is_default boolean,
                      key_enc, key_prefix, status ('untested'|'ok'|'rejected'), last_tested_at,
-                     auth_type ('api_key'|'oauth'), account_label NULL, created_by, created_at, updated_at)
+                     auth_type ('api_key'|'oauth'), account_label NULL, last_validated_at NULL,
+                     last_validation_status NULL ('ok'|'rejected'|'unavailable'), cooldown_until NULL, cooldown_models jsonb default '{}', preferred_model NULL,
+                     created_by, created_at, updated_at)
                     -- built on #275 (0368): a partner's AI key profiles; unique (partner_id, kind, lower(name))
                     -- and one default per (partner_id, kind); key_enc readable by app_system only (§5.3),
                     -- never returned: the consoles see key_prefix ("sk-ant-…x7Qd")
 store_ai_account    (store_id PK, provider ('openai'|'anthropic'), key_enc, key_prefix,
                      status ('untested'|'ok'|'rejected'), last_tested_at, use_when_plan_used boolean,
-                     auth_type ('api_key'|'oauth'), account_label NULL, connected_by, connected_at, updated_at)
-                    -- built on #950 (0369, 0370): key_enc and the rest written in system scope; app_request reads
+                     fallback_authorized boolean default false, auth_type ('api_key'|'oauth'), account_label NULL,
+                     last_validated_at NULL, last_validation_status NULL, cooldown_until NULL, cooldown_models jsonb default '{}', preferred_model NULL,
+                     connected_by, connected_at, updated_at)
+                    -- built on #950 (0369, 0370, 0373: connection health, and the Owner's explicit fallback_authorized): key_enc and the rest written in system scope; app_request reads
                     -- every column but key_enc. A sign-in (auth_type 'oauth') seals its tokens as JSON in key_enc, key_prefix ''
                     -- and account_label the account's email. ai_run gained kind 'gateway', api_key_id and provider (0369)
                     -- "connect your own AI account" on plans without AI included (Pricing,

@@ -22,7 +22,7 @@ export const insertAiProfile = async (
   )[0]?.id ?? ''
 
 export const updateAiProfileTest = async (tx: ScopedSql, id: string, status: 'ok' | 'rejected', at: Date): Promise<void> => {
-  await tx`update partner_credential set status = ${status}, last_tested_at = ${at}, updated_at = ${at} where id = ${id}`
+  await tx`update partner_credential set status = ${status}, last_tested_at = ${at}, last_validated_at = ${at}, last_validation_status = ${status}, updated_at = ${at} where id = ${id}`
 }
 
 export const setDefaultAiProfile = async (tx: ScopedSql, partnerId: string, id: string, at: Date): Promise<void> => {

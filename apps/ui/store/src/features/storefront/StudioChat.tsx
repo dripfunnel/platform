@@ -6,6 +6,10 @@ import { noteText, sampleAddress } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.studio.chat
+const errorText = (code: string): string => {
+  const reason = code.startsWith('change_failed:') ? code.slice('change_failed:'.length) : ''
+  return Object.hasOwn(words.errorReasons, reason) ? words.errorReasons[reason as keyof typeof words.errorReasons] : words.error
+}
 const imageTypes = ['image/png', 'image/jpeg', 'image/webp']
 const modelKey = 'df-studio-model'
 const readModel = (): string | null => {
@@ -292,9 +296,7 @@ const ChatLine = ({ message: m, assistant, templateName, canUndo, onUndo }: { me
   }
   if (m.role === 'error')
     return (
-      <li className="df-sf-failure">
-        {words.error}
-      </li>
+      <li className="df-sf-failure">{errorText(m.text)}</li>
     )
   return (
     <li className="df-studio-ai">

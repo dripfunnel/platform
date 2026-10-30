@@ -286,7 +286,7 @@ opening Settings › Store info; and a Manager's note names "the store owner", s
 while not done, for the Owner only (the steps are the Owner's already). A skipped step shows **Skipped** with **Undo**
 and leaves the "X of Y" count and the bar; the list still goes at the first order. `home.setup` adds `paymentsSkipped`
 and `shippingSkipped` (null for a seat without the step), and `skipSetupStep(step: payments | shipping, skipped)` saves
-it (`settings`, so the Owner; refused to a partner support session). Staff impersonating the Owner waits for the Store API's impersonation, which brings its own audit actor. The activity
+it (`settings`, so the Owner; refused to a partner support session). Staff impersonating the Owner may skip it too, logged as the Owner on their behalf (ACCESS.md §8.3). The activity
 entry `store.setup_step_skipped` names the step and `skipped` or `undone`, nothing else. The merchant mobile app's
 `PortalHome` keeps its old list.
 

@@ -1092,7 +1092,7 @@ Browser → target's host: the partner console (platform.dripfunnel.ai) or the s
   console offers to return to the open one, or to end it first.
 - **Ending and extending** (decided 2026-10-01, #46): the staff member who started it or any
   Super admin may end it; only the staff member who started it may extend it.
-- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3). These resolvers
+- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3); in a store, also the store's AI account, and making or rotating an API key, installing an app or saving a webhook, credentials and addresses that would outlive the session (decided 2026-10-30 on #1012). These resolvers
   refuse any `impersonation` caller with a clear message ("Only Priya can change this"),
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
@@ -1103,8 +1103,8 @@ Browser → target's host: the partner console (platform.dripfunnel.ai) or the s
   entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
   in `access_ref`). Impersonating a supplier user is still refused
   (`SUPPLIER_NOT_SUPPORTED`): `app_supplier` exists since #295, and the impersonation path for it isn't built. In the partner console, the exchange, the `impersonation` caller
-  and the blocked list's structural test are built on #243 (§8.3). The store portal's half waits
-  for the Store API.
+  and the blocked list's structural test are built on #243 (§8.3), and on the store's portal host
+  too (§8.3, "The store portal's half").
 
 ### 8.2 Staff setup session (decided 2026-09-29, USERS-AND-DOMAINS §3)
 
@@ -1206,6 +1206,35 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
   - **Not yet.** The password, second factor and sign-in methods are `/api/auth/*` routes that
     read only a partner user's cookie, so no staff session reaches them. Payment method and
     payout details declare `blockedFor` when billing arrives (#201).
+- **The store portal's half** (a store user's impersonation), the same contract on the partner's
+  portal host:
+  - **The exchange.** `/impersonate/enter` posts the token to the Store API's
+    `POST /api/auth/handoff`, which spends only a store user's link, and only on its own partner's
+    host. It sets `__Host-portal_staff` (white label, beside any person's cookie), whose hash is
+    kept on the row as above. `staff-session` and `end-staff-session` answer and end it as the
+    console's do, in the same limiters, and signing out of the portal ends it too.
+  - **The caller** is the user acted as, in the one seat the session was started in, with their
+    role and RLS settings (`app.user_id`, `app.impersonation_id`). `myStores` gives only that seat,
+    and naming another store is a logged crossing. Every entry keeps the user as `actor`, with the
+    staff member in `on_behalf_of` and the impersonation in `access_ref` (LOGGING.md §4).
+  - **The member notice.** The Store API's `staffSessionNotice` tells the store's people who is
+    in as whom. A supplier hears only of its own company's seats, and staff and a support session
+    hear of none.
+  - **Ends.** Every read ends a session whose partner has closed (`partner_closed`), or whose
+    user, seat or supplier is no longer active or whose store has closed (`target_gone`), logged
+    as above.
+  - **The blocked lists** add `changeEmail`, `changePassword`, `setSecondFactor`,
+    `regenerateBackupCodes`, `signOutOtherSessions`, `switchStore`, `setPaymentMethod`,
+    `connectGateway`, `connectStripe`, `finishStripeConnect`, and the store's AI account
+    (`connectStoreAiAccount`, `beginStoreAiOauth`, `finishStoreAiOauth`, `setStoreAiSwitch`,
+    `setStoreAiFallback`, `removeStoreAiAccount`: its key and the Owner's consent to bill it, as
+    the partner console's AI keys), `createApiKey`, `rotateApiKey`, `installApp` and `saveWebhook`
+    (revoking a key, uninstalling an app, and removing, turning on or replaying a saved webhook stay
+    open: they take access away or act on an endpoint the store already has) to the fields already declared
+    (preview links, the studio, storefront design writes). A structural test lists them, and
+    leaves only `updateProfile` and `setTheme` open on the user's own account. In the people
+    service, inviting an Owner, changing a role to or from Owner, or removing an Owner answers
+    `BLOCKED_WHILE_IMPERSONATING`. The person's `/api/auth/*` routes read only their own cookie.
 
 ---
 

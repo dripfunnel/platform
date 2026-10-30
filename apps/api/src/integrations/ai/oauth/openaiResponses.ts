@@ -1,4 +1,6 @@
 import { GatewayError, type ChatAnswer, type ChatChunk, type ChatProvider, type ChatRequest, type FinishReason } from '../gateway'
+import { providerHeaders } from '../headers'
+import { parseRetryAfter } from '../retryAfter'
 
 // ChatGPT-plan usage through the Codex Responses endpoint (THIRD-PARTY-ACCESS §2.6): store false, stream true. Private to
 // OpenAI's own clients and unversioned, so it can change without notice.
@@ -26,7 +28,7 @@ const bodyOf = (request: ChatRequest): string => {
 const failureOf = (status: number, retryAfter: string | null): GatewayError => {
   if (status === 401 || status === 403) return new GatewayError('INVALID_CREDENTIALS')
   if (status === 404) return new GatewayError('MODEL_NOT_FOUND')
-  if (status === 429) return new GatewayError('RATE_LIMITED', Number(retryAfter) || null)
+  if (status === 429) return new GatewayError('RATE_LIMITED', parseRetryAfter(retryAfter, new Date()))
   if (status === 400 || status === 413 || status === 422) return new GatewayError('BAD_REQUEST')
   return new GatewayError('PROVIDER_UNAVAILABLE')
 }
@@ -36,7 +38,7 @@ const send = async (token: string, accountId: string | null, path: string, init:
   const signal = init.signal ? AbortSignal.any([init.signal, deadline]) : deadline
   let response: Response
   try {
-    response = await fetch(`${endpoint}${path}`, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), signal, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', accept: 'text/event-stream', originator: 'codex_cli_rs', ...(accountId ? { 'chatgpt-account-id': accountId } : {}) } })
+    response = await fetch(`${endpoint}${path}`, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), signal, headers: providerHeaders({ provider: 'openai', auth: 'oauth', secret: token, accountId, stream: true, hasBody: init.body !== undefined, codex: true }) })
   } catch {
     throw new GatewayError(init.signal?.aborted ? 'CANCELLED' : deadline.aborted ? 'TIMEOUT' : 'PROVIDER_UNAVAILABLE')
   }

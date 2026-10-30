@@ -109,17 +109,31 @@ afterAll(async () => {
 })
 
 describe("the studio's model", () => {
-  const deps = async () => ({ sql: db.sql, context: { caller: { kind: 'api-key' as const, keyId: crypto.randomUUID(), createdByUserId: owner }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }, secrets: await secretBox(kek), fallbackKey: undefined, adapters: (provider: GatewayProvider, key: string) => fake(provider, key) })
+  const sent: { url: string; headers: Record<string, string>; body: { model: string; messages: { role: string; content: unknown }[] } }[] = []
+  const chatStream = () => {
+    const chunks = [
+      { choices: [{ delta: { content: 'hel' }, finish_reason: null }] },
+      { choices: [{ delta: { content: 'lo' }, finish_reason: 'stop' }] },
+      { choices: [], usage: { prompt_tokens: 10, completion_tokens: 5 } },
+    ]
+    return new Response(`${chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('')}data: [DONE]\n\n`, { headers: { 'content-type': 'text/event-stream' } })
+  }
+  const standIn = (async (url: string, init: RequestInit) => {
+    sent.push({ url, headers: init.headers as Record<string, string>, body: JSON.parse(String(init.body)) })
+    return chatStream()
+  }) as unknown as typeof fetch
+  const deps = async () => ({ sql: db.sql, context: { caller: { kind: 'api-key' as const, keyId: crypto.randomUUID(), createdByUserId: owner }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }, secrets: await secretBox(kek), fallbackKey: undefined, adapters: (provider: GatewayProvider, key: string) => fake(provider, key), executor: { fetch: standIn }, sleep: () => Promise.resolve() })
 
-  it("runs on the store's own ChatGPT key when the plan is own-key, text only", async () => {
+  it("runs on the store's own ChatGPT key when the plan is own-key, with an image sent as an image", async () => {
     await entitle(t.storeA1, 0, 0)
     await storeAccount(t.storeA1)
-    calls.length = 0
+    sent.length = 0
     const model = await designerAiFor(await deps(), 'own_key')
     const done = await model?.complete({ system: 'sys', text: 'make it warmer', images: [] })
-    expect(done?.text).toBe('hello')
-    expect(calls).toMatchObject([{ provider: 'openai', key: storeKey, request: { model: 'gpt-5', system: 'sys' } }])
-    await expect(model?.complete({ system: 's', text: 't', images: [{ mediaType: 'image/png', base64: 'AA==' }] })).rejects.toThrow('images need an API key')
+    expect(done).toMatchObject({ text: 'hello', tokensIn: 10, tokensOut: 5 })
+    expect(sent).toMatchObject([{ url: 'https://api.openai.com/v1/chat/completions', headers: { authorization: `Bearer ${storeKey}`, accept: 'text/event-stream' }, body: { model: 'gpt-5' } }])
+    await model?.complete({ system: 's', text: 't', images: [{ mediaType: 'image/png', base64: 'AA==' }] })
+    expect(JSON.stringify(sent[1]?.body.messages)).toContain('data:image/png;base64,AA==')
   })
 
   it('answers null when nothing is connected', async () => {

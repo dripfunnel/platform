@@ -2,6 +2,7 @@ import type { ScopedSql } from '#db/scoped/index'
 import { endGoneSupportSession, selectSupportPortalSession, type SupportEnd, type SupportPortalRow } from '#db/scoped/storeSupport'
 import type { ActivityEntry, ActivityLog, RequestFacts } from './activity'
 import { hashSessionId } from './session'
+import { staffAttributed } from './storeStaff'
 import type { StoreCaller, StoreStanding } from './storeCaller'
 import { storeRoleOf } from './storePermissions'
 
@@ -64,9 +65,12 @@ export const supportAttributed = (log: ActivityLog, seat: SupportSeat): Activity
   return { record: (tx, entry) => log.record(tx, attribute(entry)), recordAll: (tx, entries) => log.recordAll(tx, entries.map(attribute)) }
 }
 
-/** The request's writer for this standing: a support caller's entries are the session's. */
-export const storeActivityFor = (standing: StoreStanding, log: ActivityLog): ActivityLog =>
-  standing.kind === 'acting' && standing.caller.support ? supportAttributed(log, standing.caller.support) : log
+/** The request's writer for this standing: a support caller's entries are the session's, an impersonation's name the staff member. */
+export const storeActivityFor = (standing: StoreStanding, log: ActivityLog): ActivityLog => {
+  if (standing.kind !== 'acting') return log
+  if (standing.caller.support) return supportAttributed(log, standing.caller.support)
+  return standing.caller.staff ? staffAttributed(log, standing.caller.staff) : log
+}
 
 /** Why an open session can't be used any more (ACCESS.md §9 check 1), or null while it can. */
 const goneReason = (row: SupportPortalRow): SupportEnd | null => {
