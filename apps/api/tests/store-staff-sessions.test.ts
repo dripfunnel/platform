@@ -26,6 +26,7 @@ const people = { owner: '', manager: '', supplier: '', a2Owner: '' }
 const seats = { owner: '', manager: '', supplier: '', a2Owner: '' }
 const cookies = { owner: '', manager: '', supplier: '', a2Owner: '' }
 let neha = ''
+let maya = ''
 
 type Who = keyof typeof people
 const storeOf = (who: Who) => (who === 'a2Owner' ? t.storeA2 : t.storeA1)
@@ -36,10 +37,10 @@ const seat = async (userId: string, role: string, sellerId: string | null = null
   (await db.sql<{ id: string }[]>`insert into membership (user_id, store_id, seller_id, role_key, status) values (${userId}, ${storeId}, ${sellerId}, ${role}, 'active') returning id`)[0]?.id ?? ''
 
 /** An impersonation as the Admin API's start leaves it (#40), with a handoff token the test knows. */
-const started = async (who: Who, token: string) => {
+const started = async (who: Who, token: string, staffId = neha) => {
   const [row] = await db.sql<{ id: string }[]>`
     insert into impersonation (staff_user_id, target_kind, target_id, membership_id, partner_id, store_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at)
-    values (${neha}, 'person', ${people[who]}, ${seats[who]}, ${t.partnerA}, ${t.storeA1}, 'Checking a refund', ${clock}, ${new Date(clock.getTime() + 30 * 60_000)}, ${await hashSessionId(token)}, ${new Date(clock.getTime() + 5 * 60_000)})
+    values (${staffId}, 'person', ${people[who]}, ${seats[who]}, ${t.partnerA}, ${t.storeA1}, 'Checking a refund', ${clock}, ${new Date(clock.getTime() + 30 * 60_000)}, ${await hashSessionId(token)}, ${new Date(clock.getTime() + 5 * 60_000)})
     returning id
   `
   return row?.id ?? ''
@@ -97,6 +98,7 @@ beforeAll(async () => {
   people.a2Owner = await user('owner@a2.example', 'Ada Owner')
   seats.a2Owner = await seat(people.a2Owner, 'owner', null, t.storeA2)
   neha = (await db.sql<{ id: string }[]>`insert into staff_user (sso_subject, email, name, role_key, status) values ('sso-neha', 'neha@dripfunnel.example', 'Neha Rao', 'staff-support', 'active') returning id`)[0]?.id ?? ''
+  maya = (await db.sql<{ id: string }[]>`insert into staff_user (sso_subject, email, name, role_key, status) values ('sso-maya', 'maya@dripfunnel.example', 'Maya Ortiz', 'staff-support', 'active') returning id`)[0]?.id ?? ''
 }, 120_000)
 
 afterAll(async () => {
@@ -171,12 +173,14 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   const signIn = ['changeEmail', 'changePassword', 'regenerateBackupCodes', 'setSecondFactor', 'signOutOtherSessions']
   const moneyDetails = ['connectGateway', 'connectStripe', 'finishStripeConnect', 'setPaymentMethod']
   // The store's own AI account and the Owner's consent to bill it, as the partner console's AI keys (#275).
+  // Credentials and data channels that outlive the session; revoking and removing them stay open.
+  const outlasting = ['createApiKey', 'rotateApiKey', 'saveWebhook']
   const aiAccount = ['beginStoreAiOauth', 'connectStoreAiAccount', 'finishStoreAiOauth', 'removeStoreAiAccount', 'setStoreAiFallback', 'setStoreAiSwitch']
   // The storefront's design, studio and preview links were declared before #1012.
   const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioSession', 'undoDesignChange']
 
   it('declares the user’s sign-in and sessions, money details, the store’s AI account, the store switch and the storefront’s design', () => {
-    expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, ...aiAccount, 'switchStore', ...storefront].sort())
+    expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, ...aiAccount, ...outlasting, 'switchStore', ...storefront].sort())
   })
 
   it('leaves no mutation on the user’s own account open but their name and theme', () => {
@@ -204,6 +208,9 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
       `mutation { setStoreAiSwitch(on: true) }`,
       `mutation { setStoreAiFallback(on: true) }`,
       `mutation { removeStoreAiAccount }`,
+      `mutation { createApiKey(name: "Feed", scopes: ["catalog.read"]) { __typename } }`,
+      `mutation { rotateApiKey(id: "${seats.owner}") { __typename } }`,
+      `mutation { saveWebhook(url: "https://hooks.example/x", events: ["order.created"]) { id } }`,
       `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
       `mutation { removeMember(membershipId: "${seats.owner}") }`,
       `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,
@@ -220,6 +227,16 @@ describe('the notice', () => {
     expect((await gql<{ staffSessionNotice: unknown }>(notice, { person: 'owner' })).data?.staffSessionNotice).toMatchObject({ kind: 'impersonation', staffName: 'Neha Rao', actingAs: 'Mo Manager' })
     expect((await gql<{ staffSessionNotice: unknown }>(notice, { person: 'supplier' })).data?.staffSessionNotice).toBeNull()
     expect((await gql<{ staffSessionNotice: unknown }>(notice, { staff })).data?.staffSessionNotice).toBeNull()
+  })
+
+  it('tells a supplier of its own seat even when a newer session is on the merchant side', async () => {
+    await started('supplier', 'tok-supplier')
+    await enter('tok-supplier')
+    clock = new Date(clock.getTime() + 60_000)
+    await started('manager', 'tok-newer', maya)
+    await enter('tok-newer')
+    expect((await gql<{ staffSessionNotice: unknown }>(notice, { person: 'supplier' })).data?.staffSessionNotice).toMatchObject({ staffName: 'Neha Rao', actingAs: 'Nadia Tran' })
+    expect((await gql<{ staffSessionNotice: unknown }>(notice, { person: 'owner' })).data?.staffSessionNotice).toMatchObject({ staffName: 'Maya Ortiz', actingAs: 'Mo Manager' })
   })
 
   it('never tells another store, which reads its own store from the session, not the client', async () => {

@@ -1092,7 +1092,7 @@ Browser → target's host: the partner console (platform.dripfunnel.ai) or the s
   console offers to return to the open one, or to end it first.
 - **Ending and extending** (decided 2026-10-01, #46): the staff member who started it or any
   Super admin may end it; only the staff member who started it may extend it.
-- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3). These resolvers
+- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3); in a store, also the store's AI account, and making or rotating an API key or saving a webhook, credentials that would outlive the session (decided 2026-10-30 on #1012). These resolvers
   refuse any `impersonation` caller with a clear message ("Only Priya can change this"),
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
@@ -1228,7 +1228,8 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     `connectGateway`, `connectStripe`, `finishStripeConnect`, and the store's AI account
     (`connectStoreAiAccount`, `beginStoreAiOauth`, `finishStoreAiOauth`, `setStoreAiSwitch`,
     `setStoreAiFallback`, `removeStoreAiAccount`: its key and the Owner's consent to bill it, as
-    the partner console's AI keys) to the fields already declared
+    the partner console's AI keys), `createApiKey`, `rotateApiKey` and `saveWebhook` (revoking a
+    key and removing a webhook stay open) to the fields already declared
     (preview links, the studio, storefront design writes). A structural test lists them, and
     leaves only `updateProfile` and `setTheme` open on the user's own account. In the people
     service, inviting an Owner, changing a role to or from Owner, or removing an Owner answers

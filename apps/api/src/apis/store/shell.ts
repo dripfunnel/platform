@@ -330,8 +330,8 @@ export const registerShell = (builder: StoreBuilder) => {
       resolve: async (_, __, ctx) => {
         const caller = actingCaller(ctx)
         if (caller.staff || caller.support) return null
-        const row = await withSystemScope(sqlOf(ctx), (tx) => selectOpenStoreImpersonation(tx, caller.store.id, ctx.now()))
-        if (!row || (caller.seller && row.seller_id !== caller.seller.id)) return null
+        const row = await withSystemScope(sqlOf(ctx), (tx) => selectOpenStoreImpersonation(tx, caller.store.id, caller.seller?.id ?? null, ctx.now()))
+        if (!row) return null
         return { staffName: row.staff_name, actingAs: row.user_name, endsAt: row.expires_at }
       },
     }),
