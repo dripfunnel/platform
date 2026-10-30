@@ -3,6 +3,13 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "dev-preview": {
+      "distribution": "internal",
+      "channel": "dev",
+      "env": {
+        "STORE_KEY": "dev"
+      }
+    },
     "dev": {
       "developmentClient": true,
       "distribution": "internal",
