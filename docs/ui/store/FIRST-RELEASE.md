@@ -1074,6 +1074,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |
 | The sandbox's stock-reason values | The list #183 settled is what DATA-MODEL stores | behaviour, decided |
 | Home shows Staff the returning customers, and a Manager the approval queue | Staff get no returning customers and a Manager no approval queue, withheld by the API (§20 SAPI 18, ACCESS §5.1 `reports.read`, `approve`; #322) | rule |
+| The sign-in and sign-up footer reads Privacy · Help, and every Terms and Privacy link goes to DripFunnel's pages | The partner's Privacy, Terms and Help pages from its brand (SAAS §3.4), Terms added to the footer; a page the partner hasn't set is left out, and named without a link in the sign-up and invitation agreement | rule |
 
 ---
 

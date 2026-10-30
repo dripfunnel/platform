@@ -1,5 +1,5 @@
 import { Icon, initials, type IconName } from '@dripfunnel/shared/ui'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, type ReactNode } from 'react'
 import logoInverse from '../../assets/dripfunnel-logo-inverse.svg'
 import logo from '../../assets/dripfunnel-logo.svg'
 import { currentBrand } from '../../brand/current'
@@ -11,26 +11,34 @@ const words = messages.auth
 
 export type Panel = keyof typeof words.panels
 
-const Legal = () => {
-  const helpUrl = currentBrand()?.helpUrl
-  return (
-    <>
-      <a href={words.privacyUrl} target="_blank" rel="noopener noreferrer">
-        {words.privacy}
-        <span className="df-visually-hidden"> {words.opensInNewTab}</span>
-      </a>
-      {helpUrl && (
-        <>
-          {' · '}
-          <a href={helpUrl} target="_blank" rel="noopener noreferrer">
-            {words.help}
-            <span className="df-visually-hidden"> {words.opensInNewTab}</span>
-          </a>
-        </>
-      )}
-    </>
-  )
+interface LegalLink {
+  label: string
+  url: string
 }
+
+// The partner's own pages (SAAS §3.4); one it hasn't set is left out, never DripFunnel's.
+const legalLinks = (): LegalLink[] => {
+  const brand = currentBrand()
+  return [
+    { label: words.privacy, url: brand?.privacyUrl },
+    { label: words.terms.terms, url: brand?.termsUrl },
+    { label: words.help, url: brand?.helpUrl },
+  ].filter((link): link is LegalLink => Boolean(link.url))
+}
+
+const Legal = ({ links }: { links: LegalLink[] }) => (
+  <>
+    {links.map((link, i) => (
+      <Fragment key={link.label}>
+        {i > 0 && ' · '}
+        <a href={link.url} target="_blank" rel="noopener noreferrer">
+          {link.label}
+          <span className="df-visually-hidden"> {words.opensInNewTab}</span>
+        </a>
+      </Fragment>
+    ))}
+  </>
+)
 
 export interface AuthFrameProps {
   panel: Panel
@@ -58,6 +66,7 @@ export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, childre
     heading.current?.focus()
   }, [title])
   const copy = words.panels[panel]
+  const legal = legalLinks()
   return (
     <div className="df-portal-auth">
       <div className="df-banners">
@@ -99,7 +108,9 @@ export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, childre
             </ul>
           </div>
           <span className="df-portal-auth-foot">
-            {brand ? (brand.supportEmail ?? brand.supportUrl ?? brand.productName) : words.footBrand} · <Legal />
+            {brand ? (brand.supportEmail ?? brand.supportUrl ?? brand.productName) : words.footBrand}
+            {legal.length > 0 && ' · '}
+            <Legal links={legal} />
           </span>
         </aside>
         <main className="df-portal-auth-main">
@@ -160,7 +171,7 @@ export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, childre
         </main>
       </div>
       <footer className="df-portal-auth-legal">
-        <Legal />
+        <Legal links={legal} />
       </footer>
     </div>
   )
