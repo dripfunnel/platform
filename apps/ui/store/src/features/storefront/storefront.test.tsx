@@ -245,7 +245,7 @@ describe('the brand step', () => {
 
 describe('the overview', () => {
   const onPlan: Acting = { ...owner, plan: { id: 'p1', name: 'Starter' } }
-  const brandWith = (poweredBy: boolean) => setBrand({ productName: 'Northstar', primaryColor: null, accentColor: null, font: null, corner: null, background: null, files: { logoLight: null, logoDark: null, mark: null, favicon: null }, supportEmail: null, supportUrl: null, helpUrl: null, poweredBy })
+  const brandWith = (poweredBy: boolean) => setBrand({ productName: 'Northstar', primaryColor: null, accentColor: null, font: null, corner: null, background: null, files: { logoLight: null, logoDark: null, mark: null, favicon: null }, supportEmail: null, supportUrl: null, helpUrl: null, termsUrl: null, privacyUrl: null, poweredBy })
   afterEach(() => setBrand(null))
 
   it('gives the Owner the live line, View live site, Change template and the live version', async () => {
