@@ -4,9 +4,7 @@
     "title": "Welcome to {store}",
     "lead": "Take a look around and find something you love.",
     "shop": "Shop now",
-    "story": "Our story",
-    "image": "none",
-    "imageAlt": "A picture of our shop"
+    "story": "Our story"
   },
   "story": {
     "eyebrow": "Our story",
