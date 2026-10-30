@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { currentBrand } from '../../brand/current'
 import { fill, messages } from '../../messages'
 import { Field as CommonField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
 
@@ -101,18 +102,26 @@ export const Foot = ({ text, link, onClick }: { text: string; link: string; onCl
 
 const NewTab = () => <span className="df-visually-hidden"> {words.opensInNewTab}</span>
 
-export const Terms = ({ before, after }: { before: string; after: string }) => (
-  <p className="df-auth-terms">
-    {before}
-    <a href={words.termsUrl} target="_blank" rel="noopener noreferrer">
-      {words.terms.terms}
+// The partner's own pages (SAAS §3.4); one it hasn't set is named without a link.
+const Policy = ({ label, url }: { label: string; url: string | null | undefined }) =>
+  url ? (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      {label}
       <NewTab />
     </a>
-    {words.terms.middle}
-    <a href={words.privacyUrl} target="_blank" rel="noopener noreferrer">
-      {words.terms.privacy}
-      <NewTab />
-    </a>
-    {after}
-  </p>
-)
+  ) : (
+    label
+  )
+
+export const Terms = ({ before, after }: { before: string; after: string }) => {
+  const brand = currentBrand()
+  return (
+    <p className="df-auth-terms">
+      {before}
+      <Policy label={words.terms.terms} url={brand?.termsUrl} />
+      {words.terms.middle}
+      <Policy label={words.terms.privacy} url={brand?.privacyUrl} />
+      {after}
+    </p>
+  )
+}

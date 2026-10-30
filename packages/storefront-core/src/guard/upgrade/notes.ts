@@ -34,6 +34,16 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.3.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every addition is optional; no theme has to change.',
+      'MerchantImage (from ./theme) draws a picture the merchant chose in Storefront › Assets. Give it the asset id as `asset`, written as a value in the theme\'s content (never an address), plus `alt` and `ratio`; it renders nothing for the content value `none`. Core fetches the file, so a theme still never writes an address.',
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.2.0',
     kind: 'minor',
     security: false,

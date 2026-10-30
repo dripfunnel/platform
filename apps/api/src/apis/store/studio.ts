@@ -1,5 +1,6 @@
 import { createStudioService, designAudit, type AskAnswer, type StudioSessionView, type TextEntry } from '#saas/ai-designer/index'
 import type { MessageRow } from '#db/scoped/design'
+import type { StockPhoto } from '#integrations/stockImages/pixabay'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import { standingPerson } from '#auth/storeCaller'
 import { endStudioSession } from '#saas/studio/index'
@@ -27,7 +28,11 @@ const studioFor = (ctx: StoreContext) => {
     models: design?.models ?? (() => []),
     screenshots: design?.screenshots ?? null,
     lookup: ctx.lookup ?? null,
+    assets: ctx.files ?? null,
     readAsset: design?.readAsset ?? null,
+    stock: design?.stock ?? null,
+    aiPhotos: design?.aiPhotos ?? false,
+    allowStock: ctx.allowStock ?? (async () => false),
     previewDomain: ctx.preview?.domain ?? null,
     shopDomain: ctx.domains?.shopDomain ?? null,
     now: ctx.now,
@@ -85,6 +90,9 @@ export const registerStudio = (builder: StoreBuilder) => {
       message: t.field({ type: Message, resolve: (a) => a.message }),
     }),
   })
+  const StockPhotoRef = builder.objectRef<StockPhoto>('StockPhoto').implement({
+    fields: (t) => ({ id: t.exposeString('id'), thumb: t.exposeString('thumb'), user: t.exposeString('user'), pageUrl: t.exposeString('pageUrl'), tags: t.exposeString('tags') }),
+  })
   const Text = builder.objectRef<TextEntry>('DesignText').implement({
     fields: (t) => ({ key: t.exposeString('key'), text: t.exposeString('text') }),
   })
@@ -109,6 +117,16 @@ export const registerStudio = (builder: StoreBuilder) => {
         return { messages: page, next: messages.length > chatPage && last ? encodeCursor({ occurredAt: last.created_at, id: last.id }) : null }
       },
     }),
+    stockImagesAvailable: t.boolean({
+      extensions: { access: read },
+      resolve: async (_, __, ctx: StoreContext) => ctx.design?.stock != null,
+    }),
+    searchStockImages: t.field({
+      type: [StockPhotoRef],
+      args: { query: t.arg.string({ required: true }), page: t.arg.int({ required: true }) },
+      extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none', blockedFor: ['support', 'impersonation'] } },
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).stockSearch(args.query, args.page)).photos,
+    }),
     designText: t.field({
       type: [Text],
       args: { page: t.arg.string({ required: true }), locale: t.arg.string({ required: true }) },
@@ -120,12 +138,26 @@ export const registerStudio = (builder: StoreBuilder) => {
   builder.mutationFields((t) => ({
     askDesign: t.field({
       type: Answer,
-      args: { text: t.arg.string({ required: true }), model: t.arg.string(), imageAssetId: t.arg.id(), sampleUrl: t.arg.string(), page: t.arg.string({ required: true }), device: t.arg.string({ required: true }) },
+      args: { text: t.arg.string({ required: true }), model: t.arg.string(), imageAssetId: t.arg.id(), sampleUrl: t.arg.string(), page: t.arg.string({ required: true }), device: t.arg.string({ required: true }), mode: t.arg.string() },
       extensions: { access: designWrite(designAudit.designRequested) },
       resolve: async (_, args, ctx: StoreContext) => {
         const device = args.device === 'phone' || args.device === 'tablet' ? args.device : 'desktop'
-        return answered(await studioFor(ctx).ask({ text: args.text, model: args.model ?? null, imageAssetId: args.imageAssetId ?? null, sampleUrl: args.sampleUrl ?? null, page: args.page, device }))
+        return answered(await studioFor(ctx).ask({ text: args.text, model: args.model ?? null, imageAssetId: args.imageAssetId ?? null, sampleUrl: args.sampleUrl ?? null, page: args.page, device, mode: args.mode === 'chat' ? 'chat' : 'change' }))
       },
+    }),
+    cancelDesign: t.boolean({
+      extensions: { access: designWrite(designAudit.designStopped) },
+      resolve: async (_, __, ctx: StoreContext) => answered(await studioFor(ctx).cancel()),
+    }),
+    useStockImage: t.id({
+      args: { id: t.arg.string({ required: true }) },
+      extensions: { access: designWrite(designAudit.imageImported) },
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).stockUse(args.id)),
+    }),
+    importDesignImage: t.id({
+      args: { url: t.arg.string({ required: true }) },
+      extensions: { access: designWrite(designAudit.imageImported) },
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).importImage(args.url)),
     }),
     saveDesignText: t.boolean({
       args: { locale: t.arg.string({ required: true }), key: t.arg.string({ required: true }), text: t.arg.string({ required: true }) },

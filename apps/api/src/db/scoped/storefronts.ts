@@ -55,6 +55,12 @@ export interface PushedRepoRow extends StoreRepoRow {
   live_build_id: string | null
 }
 
+/** The store's repo and the commit `main` is at, or null before it has one. */
+export const selectRepoHead = async (tx: ScopedSql, storeId: string): Promise<{ repo: string; head: string } | null> => {
+  const row = (await tx<{ repo: string | null; repo_head: string | null }[]>`select repo, repo_head from storefront where store_id = ${storeId}`)[0]
+  return row?.repo && row.repo_head ? { repo: row.repo, head: row.repo_head } : null
+}
+
 /** The store whose repo GitHub named, locked like a publish's start; null for a repo no store has (#968). */
 export const selectRepoByIdForUpdate = async (tx: ScopedSql, repoId: string): Promise<PushedRepoRow | null> =>
   (

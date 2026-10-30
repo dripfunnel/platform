@@ -131,7 +131,12 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     const treePath = /^\/git\/trees\/([0-9a-f]{40})\?recursive=1$/.exec(rest)
     if (method === 'GET' && treePath) {
       const files = repo.trees.get(treePath[1] ?? '')
-      return files ? reply(200, { sha: treePath[1], truncated: false, tree: [...files.keys()].map((p) => ({ path: p, type: 'blob', mode: '100644' })) }) : reply(404, { message: 'Not Found' })
+      return files ? reply(200, { sha: treePath[1], truncated: false, tree: await Promise.all([...files].map(async ([p, content]) => ({ path: p, type: 'blob', mode: '100644', sha: await hash(content) }))) }) : reply(404, { message: 'Not Found' })
+    }
+    const blobPath = /^\/git\/blobs\/([0-9a-f]{40})$/.exec(rest)
+    if (method === 'GET' && blobPath) {
+      for (const files of repo.trees.values()) for (const content of files.values()) if ((await hash(content)) === blobPath[1]) return reply(200, { sha: blobPath[1], encoding: 'base64', content: btoa(String.fromCharCode(...new TextEncoder().encode(content))) })
+      return reply(404, { message: 'Not Found' })
     }
     // The top level only, as GitHub lists it: a folder's id is the hash of what is under it.
     const topPath = /^\/git\/trees\/([0-9a-f]{40})$/.exec(rest)

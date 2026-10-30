@@ -29,6 +29,8 @@ export interface StoreRepos {
   head: (name: string) => Promise<string | null>
   treeOf: (name: string, commit: string) => Promise<string>
   paths: (name: string, tree: string) => Promise<string[]>
+  /** The text of the theme's files at `commit` (the only files a design reads a merchant's image from, AI-STUDIO §8). */
+  themeText: (name: string, commit: string) => Promise<string>
   /** A tree from `base` (or empty) with the changes applied. */
   writeTree: (name: string, base: string | null, changes: readonly RepoChange[]) => Promise<string>
   commit: (name: string, commit: NewCommit) => Promise<string>
@@ -49,7 +51,8 @@ const sha = z.string().regex(/^[0-9a-f]{40}$/)
 const repoSchema = z.object({ id: z.number() }).loose()
 const refSchema = z.object({ object: z.object({ sha }).loose() }).loose()
 const commitSchema = z.object({ sha, tree: z.object({ sha }).loose() }).loose()
-const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string() }).loose()) }).loose()
+const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string(), sha: sha.optional() }).loose()) }).loose()
+const blobSchema = z.object({ content: z.string() }).loose()
 const created = z.object({ sha }).loose()
 const compareSchema = z.object({ status: z.string() }).loose()
 const entriesSchema = z.object({ tree: z.array(z.object({ path: z.string(), type: z.string(), sha }).loose()) }).loose()
@@ -105,6 +108,14 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
       const listed = read(treeSchema, (await call('GET', `${repo(name)}/git/trees/${tree}?recursive=1`)).body)
       if (listed.truncated) throw new GitHubUnavailable('GitHub listed the tree in part')
       return listed.tree.filter((entry) => entry.type === 'blob').map((entry) => entry.path)
+    },
+    themeText: async (name, commit) => {
+      const tree = read(commitSchema, (await call('GET', `${repo(name)}/git/commits/${commit}`)).body).tree.sha
+      const listed = read(treeSchema, (await call('GET', `${repo(name)}/git/trees/${tree}?recursive=1`)).body)
+      if (listed.truncated) throw new GitHubUnavailable('GitHub listed the tree in part')
+      const theme = listed.tree.filter((e) => e.type === 'blob' && e.sha && (e.path.startsWith('src/theme/') || e.path.startsWith('content/') || e.path === 'routes.json'))
+      const texts = await Promise.all(theme.map(async (e) => new TextDecoder().decode(Uint8Array.from(atob(read(blobSchema, (await call('GET', `${repo(name)}/git/blobs/${e.sha}`)).body).content.replaceAll('\n', '')), (c) => c.charCodeAt(0)))))
+      return texts.join('\n')
     },
     writeTree: async (name, base, changes) => {
       const tree = changes.map((c) => (c.content === null ? { path: c.path, mode: '100644', type: 'blob', sha: null } : { path: c.path, mode: '100644', type: 'blob', content: c.content }))

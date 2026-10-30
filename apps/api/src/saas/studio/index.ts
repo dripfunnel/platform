@@ -1,7 +1,7 @@
 export { alarmStep, studioIdleMs, type AlarmStep } from './alarm'
 export { capacityLedger, defaultStudioCapacity, leaseMs, queueMs, type Grant, type LedgerStorage } from './capacity'
 export { maxRepairs, type DesignModel, type Proposal, type ProposalInput } from './model'
-export { baselineTemplate, StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type ChangeRequest, type DraftsBucket, type StudioCapacity, type StudioDeps, type MigrationAnswer, type MigrationAsk, type PublishReady, type UpgradeAnswer, type UpgradeAsk } from './runner'
+export { baselineTemplate, StudioCancelled, StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type ChangeRequest, type DraftsBucket, type StudioCapacity, type StudioDeps, type MigrationAnswer, type MigrationAsk, type PublishReady, type UpgradeAnswer, type UpgradeAsk } from './runner'
 export { closeEndedSockets, dressFrameResponse, frameClosed, frameOpening, serveFrame, studioFrameOf, studioStoreHeader, type FrameServer, type FrameSocket } from './frame'
 export { endStudioSession, hashStudioSession, liveStudioSession, liveStudioSessionHash, openStudioSession, renewStudio, studioAccess, studioRenewEveryMs, studioSessionMs, studioSessionPattern, type OpenedStudioSession, type StudioAccess } from './sessions'
 export { studioForJob, studioOf } from './stub'

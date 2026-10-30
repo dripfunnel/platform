@@ -18,6 +18,8 @@ const brandSchema = z.object({
       supportEmail: z.string().nullable(),
       supportUrl: z.string().nullable(),
       helpUrl: z.string().nullable(),
+      termsUrl: z.string().nullable(),
+      privacyUrl: z.string().nullable(),
       poweredBy: z.boolean(),
     })
     .nullable(),
@@ -26,4 +28,4 @@ const brandSchema = z.object({
 export type Brand = NonNullable<z.infer<typeof brandSchema>['brand']>
 
 export const loadBrand = async (): Promise<Brand | null> =>
-  (await query(`{ brand { productName primaryColor accentColor font corner background files { logoLight logoDark mark favicon } supportEmail supportUrl helpUrl poweredBy } }`, brandSchema)).brand
+  (await query(`{ brand { productName primaryColor accentColor font corner background files { logoLight logoDark mark favicon } supportEmail supportUrl helpUrl termsUrl privacyUrl poweredBy } }`, brandSchema)).brand

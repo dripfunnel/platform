@@ -1167,3 +1167,120 @@
 .df-sf .df-sf-history-retry {
   align-self: flex-start;
 }
+
+/* Storefront › Assets (designs/PortalStorefront.dc.html). */
+.df-assets {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.df-assets-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.df-assets-head > div {
+  flex: 1;
+  min-width: 200px;
+}
+
+.df-assets-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 18px;
+}
+
+.df-assets-head p {
+  margin: 0;
+}
+
+.df-assets-head input[type='search'] {
+  width: 220px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-assets-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-dialog);
+  background: var(--df-color-surface);
+}
+
+.df-assets-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.df-assets-thumb--none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-assets-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-assets-meta strong {
+  overflow: hidden;
+  color: var(--df-color-text);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-assets-meta form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.df-assets-meta input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  font: inherit;
+}
+
+.df-assets-actions {
+  display: flex;
+  gap: 12px;
+  padding: 0 12px 10px;
+}
+
+.df-assets-delete {
+  color: var(--df-color-danger);
+}

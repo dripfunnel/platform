@@ -2,12 +2,24 @@
 
 import { useEffect, useRef } from 'react'
 import { useInView, useReducedMotion } from '../browser/hooks'
+import { studioBasePath } from '../render/studio'
 import { useStorefront } from '../store/context'
 import type { Photo, VideoFile } from './photo'
 
 const widths = [320, 480, 640, 960, 1280, 1920] as const
 // Cloudflare image resizing on the live site (decided 2026-10-05 on #337); a preview shows the original.
 const resized = (source: string, width: number) => `/cdn-cgi/image/width=${width},quality=82,format=auto/${source}`
+
+/** In the studio frame the shop's files are asked for under `/__studio/{session}/`, since the frame carries no cookie (AI-STUDIO §3 step 6). */
+export const frameAddress = (address: string, base: string | null): string => {
+  if (!base) return address
+  try {
+    const { pathname } = new URL(address, 'https://frame.invalid')
+    return pathname.startsWith('/shop-api/') ? `${base}${pathname.slice(1)}` : address
+  } catch {
+    return address
+  }
+}
 
 export type ImageProps = {
   image: Photo
@@ -23,10 +35,11 @@ export type ImageProps = {
 export const Image = ({ image, alt, ratio, sizes = '100vw', className }: ImageProps) => {
   const { mode } = useStorefront()
   const live = mode === 'live'
+  const source = mode === 'studio' ? frameAddress(image.url, studioBasePath(import.meta.url)) : image.url
   const height = Math.round(1200 / (ratio > 0 ? ratio : 1))
   return (
     <img
-      src={live ? resized(image.url, 960) : image.url}
+      src={live ? resized(image.url, 960) : source}
       srcSet={live ? widths.map((w) => `${resized(image.url, w)} ${w}w`).join(', ') : undefined}
       sizes={live ? sizes : undefined}
       width={1200}

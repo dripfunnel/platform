@@ -56,6 +56,7 @@ type Query {
   product(slug: String!): ShopProduct
   products(after: String, before: String, collection: String, filters: [ID!], first: Int, search: String, sort: ShopProductSort): ShopProductPage
   search(after: String, before: String, first: Int, query: String!): ShopProductPage
+  shopAsset(id: ID!): Image
   signInOptions: ShopSignInOptions
   store: ShopStore
 }
