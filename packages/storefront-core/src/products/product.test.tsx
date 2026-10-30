@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Provided, shopAnswering } from '../../test/shop'
 import { formatMoney } from '../pricing/money'
@@ -93,7 +93,8 @@ describe('useProduct', () => {
     expect(screen.getByTestId('missing').textContent).toBe('Colour,Size')
     expect(screen.getByTestId('photos').textContent).toBe('Front*,Sage')
     expect(screen.getByTestId('badges').textContent).toBe('Bestseller')
-    expect(document.title).toBe('Organic Cotton Tee')
+    // The head follows in an effect, which a loaded runner can run after the name shows.
+    await waitFor(() => expect(document.title).toBe('Organic Cotton Tee'))
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe('A tee for every day.')
   })
 
