@@ -55,6 +55,33 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', EMAIL_LOCAL: '1' })).toThrow(/EMAIL_LOCAL needs EMAIL_SUPPRESSION_KEY/)
   })
 
+  it('takes DripFunnel’s MSG91 and Twilio accounts, each with all of its values or none (THIRD-PARTY-ACCESS §2.8)', () => {
+    const kinds = ['code.second_factor', 'code.verify_phone', 'code.shopper_sign_in', 'order.confirmed', 'order.shipped', 'order.delivered', 'rider.invited']
+    const templates = JSON.stringify(Object.fromEntries(kinds.map((k, i) => [k, `tmpl${i}abcdef`])))
+    const msg91 = { MSG91_AUTH_KEY: 'A'.repeat(24), MSG91_TEMPLATES: templates }
+    const twilio = { TWILIO_ACCOUNT_SID: `AC${'a'.repeat(32)}`, TWILIO_AUTH_TOKEN: 'b'.repeat(32), TWILIO_MESSAGING_SERVICE_SID: `MG${'c'.repeat(32)}` }
+    const parsed = parseConfig({ ...hosts, ...msg91, ...twilio })
+    expect(parsed.MSG91_TEMPLATES?.['code.second_factor']).toBe('tmpl0abcdef')
+    expect(parsed.TWILIO_MESSAGING_SERVICE_SID).toBe(twilio.TWILIO_MESSAGING_SERVICE_SID)
+    expect(parseConfig(hosts).MSG91_AUTH_KEY).toBeUndefined()
+    expect(() => parseConfig({ ...hosts, MSG91_AUTH_KEY: msg91.MSG91_AUTH_KEY })).toThrow(/MSG91_AUTH_KEY goes with MSG91_TEMPLATES or MSG91_TEMPLATE_ID/)
+    expect(() => parseConfig({ ...hosts, MSG91_TEMPLATES: templates })).toThrow(/MSG91_AUTH_KEY goes with MSG91_TEMPLATES or MSG91_TEMPLATE_ID/)
+    expect(parseConfig({ ...hosts, MSG91_AUTH_KEY: msg91.MSG91_AUTH_KEY, MSG91_TEMPLATE_ID: 'signin01abc' }).MSG91_TEMPLATE_ID).toBe('signin01abc')
+    expect(() => parseConfig({ ...hosts, TWILIO_ACCOUNT_SID: twilio.TWILIO_ACCOUNT_SID })).toThrow(/TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_MESSAGING_SERVICE_SID go together/)
+  })
+
+  it('refuses an MSG91 template set that is not JSON, misses a message kind or names another, and malformed Twilio values', () => {
+    const key = { MSG91_AUTH_KEY: 'A'.repeat(24) }
+    const full = Object.fromEntries(['code.second_factor', 'code.verify_phone', 'code.shopper_sign_in', 'order.confirmed', 'order.shipped', 'order.delivered', 'rider.invited'].map((k) => [k, 'tmplabcdef']))
+    expect(() => parseConfig({ ...hosts, ...key, MSG91_TEMPLATES: 'not json' })).toThrow(/MSG91_TEMPLATES must be JSON/)
+    expect(() => parseConfig({ ...hosts, ...key, MSG91_TEMPLATES: JSON.stringify({ 'code.second_factor': 'tmplabcdef' }) })).toThrow()
+    expect(() => parseConfig({ ...hosts, ...key, MSG91_TEMPLATES: JSON.stringify({ ...full, 'cart.reminder': 'tmplabcdef' }) })).toThrow()
+    expect(() => parseConfig({ ...hosts, ...key, MSG91_TEMPLATES: JSON.stringify({ ...full, 'rider.invited': 'x' }) })).toThrow(/an MSG91 template id/)
+    const twilio = { TWILIO_ACCOUNT_SID: `AC${'a'.repeat(32)}`, TWILIO_AUTH_TOKEN: 'b'.repeat(32), TWILIO_MESSAGING_SERVICE_SID: `MG${'c'.repeat(32)}` }
+    expect(() => parseConfig({ ...hosts, ...twilio, TWILIO_ACCOUNT_SID: 'ACxyz' })).toThrow(/a Twilio account SID/)
+    expect(() => parseConfig({ ...hosts, ...twilio, TWILIO_MESSAGING_SERVICE_SID: `AC${'c'.repeat(32)}` })).toThrow(/a Twilio messaging service SID/)
+  })
+
   it('takes an Expo access token, and refuses anything else at boot (THIRD-PARTY-ACCESS §2.13)', () => {
     expect(parseConfig({ ...hosts, EXPO_PUSH_TOKEN: 'aB3_dE5-fG7hI9jK1lM3nO5pQ7rS9tU1' }).EXPO_PUSH_TOKEN).toBe('aB3_dE5-fG7hI9jK1lM3nO5pQ7rS9tU1')
     expect(parseConfig(hosts).EXPO_PUSH_TOKEN).toBeUndefined()

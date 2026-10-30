@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-30 (#1017: SMS accounts under `integrations.write`, blocked while impersonating, §5.1, §8.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -565,7 +565,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `team.manage` (invite, change role, remove; never an Owner unless the caller is one) | §14.2 | ✓ | ✓ | | | |
 | `team.transfer` | §14.2 | ✓ | | | | |
 | `security.manage` (the 2-factor switch) | §14.4 | ✓ | | | | |
-| `integrations.write` (add, test, default and remove an AI key; built on #275) | §14.5 | ✓ | ✓ | | | |
+| `integrations.write` (add, test, default and remove an AI key, built on #275; save, test and remove an SMS account, built on #1017) | §14.5 | ✓ | ✓ | | | |
 
 The Billing menu is absent for Support and the Support menu for Finance and Read-only
 (FIRST-RELEASE §2.1): a role with no permission on a whole screen does not see its row,
@@ -1228,7 +1228,8 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     `connectGateway`, `connectStripe`, `finishStripeConnect`, and the store's AI account
     (`connectStoreAiAccount`, `beginStoreAiOauth`, `finishStoreAiOauth`, `setStoreAiSwitch`,
     `setStoreAiFallback`, `removeStoreAiAccount`: its key and the Owner's consent to bill it, as
-    the partner console's AI keys), `createApiKey`, `rotateApiKey`, `installApp` and `saveWebhook`
+    the partner console's AI keys), `createApiKey`, `rotateApiKey`, `installApp`, `saveWebhook` and, in the partner console, `saveSmsAccount`, `testSmsAccount` and `removeSmsAccount` (a partner's SMS credentials, as its AI keys;
+    unlike `testPartnerAiKey`, testing one is blocked too)
     (revoking a key, uninstalling an app, and removing, turning on or replaying a saved webhook stay
     open: they take access away or act on an endpoint the store already has) to the fields already declared
     (preview links, the studio, storefront design writes). A structural test lists them, and

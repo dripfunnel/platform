@@ -11,6 +11,7 @@ import { anthropicProvider, type AiProvider as AiModel } from '#integrations/ai/
 import type { KeyCheck } from '#integrations/ai/index'
 import { partnerEntry } from '#saas/activity/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
+import { createSmsAccountsService, smsAudit, type SmsAccountCheckers } from './sms'
 
 // Settings › Integrations, AI provider keys (ui/platform/FIRST-RELEASE.md §14.5; card #275). A key is sealed on the way in and
 // never read back: the console sees its first characters and last four.
@@ -21,6 +22,9 @@ export const credentialAudit = {
   setDefaultAiKey: 'partner.ai_key_default_set',
   removeAiKey: 'partner.ai_key_removed',
   oauthStarted: 'partner.ai_oauth_started',
+  saveSmsAccount: smsAudit.saved,
+  testSmsAccount: smsAudit.tested,
+  removeSmsAccount: smsAudit.removed,
 } as const
 
 const keyShape: Record<AiProvider, RegExp> = { anthropic: /^sk-ant-[A-Za-z0-9_-]{20,200}$/, openai: /^sk-[A-Za-z0-9_-]{20,200}$/ }
@@ -47,6 +51,8 @@ export interface PartnerCredentialsDeps {
   secrets: SecretBox | null
   /** Asks the provider whether a key works; null means there is no check. */
   checkKey: (provider: AiProvider, key: string) => Promise<KeyCheck | null>
+  /** Asks MSG91 or Twilio whether a saved SMS account works, sending nothing (card #1017). */
+  checkSms?: SmsAccountCheckers | null
   /** The sign-in flow; null where the Worker has none. */
   oauth?: AiOAuth | null
   now: () => Date
@@ -57,7 +63,7 @@ const dto = (r: PartnerCredentialRow) => ({ id: r.id, provider: r.provider, name
 // What the console shows of a key: enough to tell two apart, never enough to use one.
 const prefixOf = (key: string): string => `${key.slice(0, key.startsWith('sk-ant-') ? 7 : 3)}…${key.slice(-4)}`
 
-export const createPartnerCredentialsService = ({ sql, caller, facts, activity, secrets, checkKey, oauth = null, now }: PartnerCredentialsDeps) => {
+export const createPartnerCredentialsService = ({ sql, caller, facts, activity, secrets, checkKey, checkSms = null, oauth = null, now }: PartnerCredentialsDeps) => {
   const partnerId = caller.partner.id
   const owner = { kind: 'partner', id: partnerId, partnerId } as const
   const context = partnerContextOf(caller)
@@ -222,7 +228,7 @@ export const createPartnerCredentialsService = ({ sql, caller, facts, activity, 
     return done.result
   }
 
-  return { aiKeys, addAiKey, testAiKey, setDefaultAiKey, removeAiKey, providers, beginOauth, finishOauth }
+  return { aiKeys, addAiKey, testAiKey, setDefaultAiKey, removeAiKey, providers, beginOauth, finishOauth, ...createSmsAccountsService({ sql, caller, facts, activity, secrets, checkSms, now }) }
 }
 
 /**

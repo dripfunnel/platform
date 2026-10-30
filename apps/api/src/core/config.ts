@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { msg91AuthKey, msg91TemplateId, msg91Templates, twilioAccountSid, twilioAuthToken, twilioMessagingServiceSid } from './sms'
 
 const configSchema = z.object({
   ADMIN_HOST: z.string().min(1),
@@ -86,6 +87,27 @@ const configSchema = z.object({
   GITHUB_STORE_ORG: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/, 'GITHUB_STORE_ORG must be a GitHub organisation name').default('dripfunnel'),
   // Local stand-ins for the last step of email, SMS, push, couriers and DNS (docs/setup/local.md §6.1): the outbox, templates,
   // quotes and checks run as on dev, and the message is printed, the rate made up, or the record answered, on this machine.
+  // DripFunnel's own SMS accounts (THIRD-PARTY-ACCESS §2.8, #1017): they send for every partner without a complete account of its own,
+  // MSG91 (DLT) to +91 numbers and Twilio to the rest. All or none per provider; the auth key and the auth token are Worker secrets.
+  MSG91_AUTH_KEY: msg91AuthKey.optional(),
+  // JSON of the seven message kinds to their MSG91 template ids.
+  MSG91_TEMPLATES: z
+    .string()
+    .transform((value, ctx) => {
+      try {
+        return JSON.parse(value) as unknown
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'MSG91_TEMPLATES must be JSON' })
+        return z.NEVER
+      }
+    })
+    .pipe(msg91Templates)
+    .optional(),
+  // Only the sign-in code's template id, for a Worker that has not registered the other six: it serves the shopper and 2-factor codes.
+  MSG91_TEMPLATE_ID: msg91TemplateId.optional(),
+  TWILIO_ACCOUNT_SID: twilioAccountSid.optional(),
+  TWILIO_AUTH_TOKEN: twilioAuthToken.optional(),
+  TWILIO_MESSAGING_SERVICE_SID: twilioMessagingServiceSid.optional(),
   EMAIL_LOCAL: z.literal('1').optional(),
   SMS_LOCAL: z.literal('1').optional(),
   PUSH_LOCAL: z.literal('1').optional(),
@@ -131,6 +153,9 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   if (github !== 0 && github !== 3) ctx.addIssue({ code: 'custom', message: 'GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID and GITHUB_APP_PRIVATE_KEY go together', path: ['GITHUB_APP_ID'] })
   const r2 = [c.R2_STOREFRONT_ACCOUNT_ID, c.R2_STOREFRONT_ACCESS_KEY_ID, c.R2_STOREFRONT_SECRET_ACCESS_KEY, c.R2_STOREFRONT_API_TOKEN, c.STOREFRONT_SITES_BUCKET, c.STOREFRONT_DRAFTS_BUCKET].filter((v) => v !== undefined).length
   if (r2 !== 0 && r2 !== 6) ctx.addIssue({ code: 'custom', message: 'The four R2_STOREFRONT_* values and the two STOREFRONT_*_BUCKET names go together', path: ['R2_STOREFRONT_ACCOUNT_ID'] })
+  if ((c.MSG91_AUTH_KEY === undefined) !== (c.MSG91_TEMPLATES === undefined && c.MSG91_TEMPLATE_ID === undefined)) ctx.addIssue({ code: 'custom', message: 'MSG91_AUTH_KEY goes with MSG91_TEMPLATES or MSG91_TEMPLATE_ID', path: ['MSG91_AUTH_KEY'] })
+  const twilio = [c.TWILIO_ACCOUNT_SID, c.TWILIO_AUTH_TOKEN, c.TWILIO_MESSAGING_SERVICE_SID].filter((v) => v !== undefined).length
+  if (twilio !== 0 && twilio !== 3) ctx.addIssue({ code: 'custom', message: 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_MESSAGING_SERVICE_SID go together', path: ['TWILIO_ACCOUNT_SID'] })
   if ((c.BROWSER_RENDERING_ACCOUNT_ID === undefined) !== (c.BROWSER_RENDERING_TOKEN === undefined)) ctx.addIssue({ code: 'custom', message: 'BROWSER_RENDERING_ACCOUNT_ID and BROWSER_RENDERING_TOKEN go together', path: ['BROWSER_RENDERING_ACCOUNT_ID'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
   if (c.SHOP_DOMAIN !== undefined && ourHosts.some((h) => h === c.SHOP_DOMAIN || h.endsWith(`.${c.SHOP_DOMAIN}`) || c.SHOP_DOMAIN?.endsWith(`.${h}`)))

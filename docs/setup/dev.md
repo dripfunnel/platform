@@ -3,7 +3,7 @@
 The shared, long-lived environment on `actuateminds.com` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-10-30 (#1017: DripFunnel's own SMS accounts, §6). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -186,8 +186,9 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 5. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
    redirect `https://dev-hooks.actuateminds.com/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
    row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
-6. **SMS**: test accounts for the house partner. These are partner credentials, entered in the
-   partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
+6. **SMS**: test accounts. DripFunnel's own are Worker values (`MSG91_*`, `TWILIO_*`, THIRD-PARTY-ACCESS §8.1)
+   and serve every partner without its own; a partner's own are entered in the partner console, never
+   Worker values (§8.3), and win per provider when complete (#1017).
    - **Twilio** (US, no wait): sign up and verify, keep the trial account's Account SID, Auth Token
      and phone number. A trial texts only verified numbers: verify the team's.
    - **MSG91** (India): sign up and verify the account. Delivery to Indian numbers waits for DLT.

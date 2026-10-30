@@ -4,7 +4,7 @@ Production on `dripfunnel.ai`: how to set it up once, how values get onto it, an
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-30 (#1017: the MSG91 and Twilio values, §4, §6). Before: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -204,6 +204,8 @@ moment you save.
 | `HOOKS_HOST` | Text | `hooks.dripfunnel.ai` | fixed |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | in the same release as the binding (§3.4) |
 | `CODE_CHECK` | Text | unset (codes are checked) | `0` accepts any email or text code, so anyone who knows an email or phone can sign in to that account, 2-factor included; set it on prod only knowingly |
+| `MSG91_AUTH_KEY`, `MSG91_TEMPLATES` | Secret | DripFunnel's MSG91 authkey, and the JSON of its seven flow ids | THIRD-PARTY-ACCESS.md §8.1 gives the shape. Set both or neither. MSG91 has IP security on for an authkey by default: allow the Worker's outbound addresses or switch it off for this key, or every send is refused. Needs DLT approval of the seven templates first (dev.md §6) |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID` | Secret | DripFunnel's production Twilio account and its Messaging Service (`MG…`) | Twilio Console › Account info; Messaging › Services with at least one sender. Set all three or none. A text for a provider with neither a partner's account nor these values is dropped |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Store it in the password manager **before** saving it. Losing it makes every encrypted 2-factor secret and partner or merchant credential unreadable for good; it carries a version for rotation (THIRD-PARTY-ACCESS.md §5) |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center (THIRD-PARTY-ACCESS.md §2.5). Redirect URI `https://admin.dripfunnel.ai/api/auth/callback`. The client secret expires (24 months at most): note the date |
 | `STRIPE_SECRET_KEY` | Secret | **live** restricted key `rk_live_…` | Stripe (live mode) › Developers › API keys › *Create restricted key*, with only the permissions in THIRD-PARTY-ACCESS.md §8 |
@@ -262,6 +264,7 @@ version still running (AGENTS.md "Data").
 - [ ] `main` protected (§3.7)
 - [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any code on prod
 - [ ] SES production access granted
+- [ ] Real SMS: the MSG91 and Twilio values in §4 set, MSG91 IP security handled, `CODE_CHECK` unset (#1017)
 - [ ] The first super admin can sign in (§7)
 - [ ] Own delivery for the pilot store, every row of §3.9 checked and its walkthrough recorded on #875
 - [ ] A first release promoted, with `/api/health` reporting `db: "ok"` (§5)

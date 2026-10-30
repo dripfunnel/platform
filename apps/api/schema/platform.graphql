@@ -382,6 +382,7 @@ type Mutation {
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
   removePartnerAiKey(id: ID!): PartnerAiKeyResult
   removePartnerDomain(kind: String!): PartnerDomainResult
+  removeSmsAccount(provider: String!): PartnerSmsAccountResult
   removeTeamMember(id: ID!): TeamResult
   resendStoreOwnerInvite(id: ID!): StoreActionResult
   resendTeamInvite(id: ID!): TeamResult
@@ -390,6 +391,7 @@ type Mutation {
   retryProvisioningStep(id: ID!): StoreActionResult
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
+  saveSmsAccount(input: PartnerSmsAccountInput!): PartnerSmsAccountResult
   setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setPaymentMethod(token: String!): BillingResult
@@ -400,6 +402,7 @@ type Mutation {
   submitForApproval: SubmitForApprovalResult
   suspendStore(id: ID!, reason: String!): StoreActionResult
   testPartnerAiKey(id: ID!): PartnerAiKeyResult
+  testSmsAccount(provider: String!): PartnerSmsAccountResult
   transferOwnership(toUserId: ID!): TeamResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
 }
@@ -622,6 +625,34 @@ type PartnerPayoutsPage {
 type PartnerPlanFee {
   fee: Money
   plan: String
+}
+
+type PartnerSmsAccount {
+  hint: String
+  lastTestedAt: String
+  provider: String
+  status: String
+  templatesComplete: Boolean
+}
+
+input PartnerSmsAccountInput {
+  accountSid: String
+  authKey: String
+  authToken: String
+  messagingServiceSid: String
+  provider: String!
+  templates: [PartnerSmsTemplateInput!]
+}
+
+type PartnerSmsAccountResult {
+  ok: Boolean
+  reason: String
+  status: String
+}
+
+input PartnerSmsTemplateInput {
+  message: String!
+  templateId: String!
 }
 
 type PartnerState {
@@ -878,6 +909,7 @@ type Query {
   reportStorePerformance(filter: ReportFilterInput): StorePerformanceReport
   reportUsage(filter: ReportFilterInput): UsageReport
   search(query: String!): [StoreSearchMatch!]
+  smsAccounts: [PartnerSmsAccount!]
   staffSessionNotice: StaffSessionNotice
   store(id: ID!): PartnerStore
   stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage

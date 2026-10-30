@@ -1,3 +1,5 @@
+import type { SmsProvider } from '#core/sms'
+
 // The partner and store rows of migrations/0007 (SAAS.md §3.1, §4.2, §5; DATA-MODEL.md §3.2, §3.3).
 
 export const partnerStates = ['draft', 'awaiting', 'live', 'paused', 'offboarding', 'closed'] as const
@@ -95,6 +97,20 @@ export interface PartnerCredentialRow {
   last_tested_at: Date | null
   auth_type: 'api_key' | 'oauth'
   account_label: string | null
+  created_by: string
+  created_at: Date
+}
+
+/** One partner SMS account (#1017). The sealed auth key or token is never in this row: only app_system reads it. */
+export interface PartnerSmsCredentialRow {
+  id: string
+  partner_id: string
+  provider: SmsProvider
+  key_prefix: string
+  status: 'untested' | 'ok' | 'rejected'
+  last_tested_at: Date | null
+  /** What isn't secret: Twilio's account and messaging service sids, MSG91's template ids by message kind. */
+  settings: Record<string, unknown>
   created_by: string
   created_at: Date
 }

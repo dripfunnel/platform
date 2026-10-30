@@ -6,7 +6,7 @@ import { signedIn } from './fields'
 // Settings › Integrations on the Platform API (ui/platform/FIRST-RELEASE.md §14.5; card #275). Thin:
 // saas/partnerCredentials decides. A key goes in once and comes back as its first and last characters.
 type AiKey = Awaited<ReturnType<PartnerCredentialsService['aiKeys']>>[number]
-const writes = { api: 'platform', scope: 'partner', permission: 'integrations.write', target: 'none' } as const
+export const writes = { api: 'platform', scope: 'partner', permission: 'integrations.write', target: 'none' } as const
 
 const AiKeyType = builder.objectRef<AiKey>('PartnerAiKey').implement({
   fields: (t) => ({

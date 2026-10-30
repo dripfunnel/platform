@@ -10,8 +10,11 @@ import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
 import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
+import type { SmsAccountCheckers } from '#saas/partnerCredentials/sms'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { checkAnthropicKey, type KeyCheck } from '#integrations/ai/index'
+import { checkMsg91Account } from '#integrations/msg91/index'
+import { checkTwilioAccount } from '#integrations/twilio/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
 import { createPartnerReportsService } from '#saas/partnerReports/index'
@@ -39,6 +42,9 @@ export interface PlatformContextDeps {
   now: () => Date
 }
 
+/** The one read-only call each provider answers about an account, with nothing sent (card #1017). */
+const checkSms: SmsAccountCheckers = { msg91: checkMsg91Account, twilio: checkTwilioAccount }
+
 /** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
 
@@ -57,7 +63,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     storeActions: createPartnerStoreActions(deps),
     dashboard: createPartnerDashboardService(deps),
     domains: createPartnerDomainsService({ ...deps, localHosts }),
-    credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey, oauth: aiOauth }),
+    credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey, checkSms, oauth: aiOauth }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),
     reports: createPartnerReportsService(deps),
