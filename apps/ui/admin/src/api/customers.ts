@@ -37,7 +37,8 @@ export interface CustomerRow {
   partner: { id: string; name: string }
   signsInWith: SignInMethod | null
   status: CustomerStatus
-  orders: number
+  // Null until the API counts orders (FIRST-RELEASE.md §12 Customers).
+  orders: number | null
   createdAt: string
   lastSignInAt: string | null
 }
@@ -83,7 +84,7 @@ const account = {
   partner: refSchema,
   signsInWith: z.enum(signInMethods).nullable(),
   status: z.enum(customerStatuses),
-  orders: z.number().int().nonnegative(),
+  orders: z.number().int().nonnegative().nullable(),
   createdAt: isoString,
   lastSignInAt: isoString.nullable(),
 }
