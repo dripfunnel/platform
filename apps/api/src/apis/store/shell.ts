@@ -6,6 +6,7 @@ import { pageOf } from '#core/paging'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { selectPortalBrand } from '#db/scoped/portalBrand'
 import { selectMyMemberships, selectOpenSupportSession, selectStoreState, type MembershipChoiceRow } from '#db/scoped/storeShell'
+import { selectOpenStoreImpersonation } from '#db/scoped/storeStaff'
 import { selectOpenStoreSupportSession, type StoreSupportRow } from '#db/scoped/storeSupport'
 import { writeRequestOf } from '#saas/storeSupport/index'
 import type { SupportSeat } from '#auth/storeSupport'
@@ -218,6 +219,14 @@ export const registerShell = (builder: StoreBuilder) => {
       support: t.field({ type: Support, nullable: true, resolve: (s) => s.support }),
     }),
   })
+  const StaffNotice = builder.objectRef<{ staffName: string; actingAs: string | null; endsAt: Date }>('StaffSessionNotice').implement({
+    fields: (t) => ({
+      kind: t.string({ resolve: () => 'impersonation' }),
+      staffName: t.exposeString('staffName'),
+      actingAs: t.exposeString('actingAs', { nullable: true }),
+      endsAt: t.string({ resolve: (n) => n.endsAt.toISOString() }),
+    }),
+  })
 
   const sqlOf = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
@@ -273,6 +282,11 @@ export const registerShell = (builder: StoreBuilder) => {
         const person = standingPerson(ctx.standing)
         if (!person) throw forbidden()
         const window = storePage(args)
+        // An impersonation is bound to the one seat it was started in (ACCESS.md §8.1).
+        if (ctx.standing.kind === 'acting' && ctx.standing.caller.staff) {
+          const { membershipId, store, role, seller } = ctx.standing.caller
+          return { nodes: [{ membershipId, storeId: store.id, storeName: store.name, role, sellerId: seller?.id ?? null, sellerName: seller?.name ?? null }], pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null } }
+        }
         const rows = await withSystemScope(sqlOf(ctx), (tx) => selectMyMemberships(tx, person.id, person.partnerId, window))
         const page = pageOf(rows, window, (r) => ({ occurredAt: r.created_at, id: r.membership_id }))
         return { nodes: page.nodes.map(choiceOf).filter((c): c is Choice => c !== null), pageInfo: page.pageInfo }
@@ -307,6 +321,20 @@ export const registerShell = (builder: StoreBuilder) => {
         }
       },
     }),
+    // Staff in the store as one of its people, read every 15 seconds and on focus (ACCESS.md §8.1, §8.3).
+    // Staff see their own bar instead; a supplier hears only of its own company's seats.
+    staffSessionNotice: t.field({
+      type: StaffNotice,
+      nullable: true,
+      extensions: { access: { api: 'store', scope: 'store-seller', permission: 'catalog.read', target: 'none' } },
+      resolve: async (_, __, ctx) => {
+        const caller = actingCaller(ctx)
+        if (caller.staff || caller.support) return null
+        const row = await withSystemScope(sqlOf(ctx), (tx) => selectOpenStoreImpersonation(tx, caller.store.id, caller.seller?.id ?? null, ctx.now()))
+        if (!row) return null
+        return { staffName: row.staff_name, actingAs: row.user_name, endsAt: row.expires_at }
+      },
+    }),
   }))
 
   builder.mutationFields((t) => ({
@@ -315,7 +343,7 @@ export const registerShell = (builder: StoreBuilder) => {
     switchStore: t.field({
       type: ChoiceType,
       args: { storeId: t.arg.id({ required: true }), supplierId: t.arg.id() },
-      extensions: { access: { api: 'store', scope: 'session', permission: null, audit: 'person.switched_store', whileReadOnly: true } },
+      extensions: { access: { api: 'store', scope: 'session', permission: null, audit: 'person.switched_store', whileReadOnly: true, blockedFor: ['impersonation'] } },
       resolve: async (_, { storeId, supplierId }, ctx) => {
         const person = standingPerson(ctx.standing)
         if (!person) throw forbidden()

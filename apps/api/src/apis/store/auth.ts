@@ -11,6 +11,7 @@ import {
   type RequestFacts,
 } from '#auth/activity'
 import { originAllowed, readCookie } from '#auth/cookie'
+import { clearStaffCookie, endStoreStaffSession, staffCookieName } from '#auth/storeStaff'
 import { storeOriginAllowed, storeSessionId, wantsBodySession } from '#auth/storeCredential'
 import { lockMs, minutesUntil } from '#auth/partnerCode'
 import { verifyPassword } from '#auth/password'
@@ -92,13 +93,19 @@ export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Pr
   const sessionId = storeSessionId(request)
 
   if (url.pathname === paths.signOut) {
-    if (sessionId) {
+    const staffCookie = readCookie(request.headers.get('cookie'), staffCookieName)
+    if (sessionId || staffCookie) {
       await withSystemScope(deps.sql, async (tx) => {
-        const ended = await endUserSession(tx, sessionId)
+        // A staff member signing out of a session ends it (ACCESS.md §8.3), as End session does.
+        if (staffCookie) await endStoreStaffSession(tx, deps.partnerId, staffCookie, null, { now: deps.now(), activity: deps.activity, facts })
+        const ended = sessionId ? await endUserSession(tx, sessionId) : null
         if (ended) await deps.activity.record(tx, personSignedOut({ id: ended.userId, partnerId: ended.partnerId }, facts))
       })
     }
-    return new Response(null, { status: 302, headers: { location: '/', 'set-cookie': clearStoreCookie() } })
+    const headers = new Headers({ location: '/' })
+    headers.append('set-cookie', clearStoreCookie())
+    headers.append('set-cookie', clearStaffCookie())
+    return new Response(null, { status: 302, headers })
   }
 
   // Per address, per host: one partner's portal never spends another's attempts.

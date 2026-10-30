@@ -60,12 +60,12 @@ export const registerAiAccount = (builder: StoreBuilder) => {
     connectStoreAiAccount: t.field({
       type: 'Boolean',
       args: { provider: t.arg.string({ required: true }), key: t.arg.string({ required: true }) },
-      extensions: { access: { ...access, audit: storeAiAudit.connected, whileReadOnly: true, blockedFor: ['support'] } },
+      extensions: { access: { ...access, audit: storeAiAudit.connected, whileReadOnly: true, blockedFor: ['support', 'impersonation'] } },
       resolve: async (_, args, ctx) => answered(await service(ctx).connect(args)).ok,
     }),
     beginStoreAiOauth: t.string({
       args: { provider: t.arg.string({ required: true }) },
-      extensions: { access: { ...access, audit: storeAiAudit.oauthStarted, whileReadOnly: true, blockedFor: ['support'] } },
+      extensions: { access: { ...access, audit: storeAiAudit.oauthStarted, whileReadOnly: true, blockedFor: ['support', 'impersonation'] } },
       resolve: async (_, { provider }, ctx) => {
         if (!aiProviders.includes(provider as AiProvider)) throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
         return answered(await service(ctx).beginOauth(provider as AiProvider)).url
@@ -74,7 +74,7 @@ export const registerAiAccount = (builder: StoreBuilder) => {
     finishStoreAiOauth: t.field({
       type: 'Boolean',
       args: { response: t.arg.string({ required: true }) },
-      extensions: { access: { ...access, audit: storeAiAudit.connected, whileReadOnly: true, blockedFor: ['support'] } },
+      extensions: { access: { ...access, audit: storeAiAudit.connected, whileReadOnly: true, blockedFor: ['support', 'impersonation'] } },
       resolve: async (_, { response }, ctx) => answered(await service(ctx).finishOauth(response)).ok,
     }),
     testStoreAiAccount: t.field({
@@ -85,18 +85,18 @@ export const registerAiAccount = (builder: StoreBuilder) => {
     setStoreAiSwitch: t.field({
       type: 'Boolean',
       args: { on: t.arg.boolean({ required: true }) },
-      extensions: { access: { ...access, audit: storeAiAudit.switched, blockedFor: ['support'] } },
+      extensions: { access: { ...access, audit: storeAiAudit.switched, blockedFor: ['support', 'impersonation'] } },
       resolve: async (_, { on }, ctx) => answered(await service(ctx).setSwitch(on)).ok,
     }),
     setStoreAiFallback: t.field({
       type: 'Boolean',
       args: { on: t.arg.boolean({ required: true }) },
-      extensions: { access: { ...access, audit: storeAiAudit.fallback, blockedFor: ['support'] } },
+      extensions: { access: { ...access, audit: storeAiAudit.fallback, blockedFor: ['support', 'impersonation'] } },
       resolve: async (_, { on }, ctx) => answered(await service(ctx).setFallback(on)).ok,
     }),
     removeStoreAiAccount: t.field({
       type: 'Boolean',
-      extensions: { access: { ...access, audit: storeAiAudit.removed, blockedFor: ['support'] } },
+      extensions: { access: { ...access, audit: storeAiAudit.removed, blockedFor: ['support', 'impersonation'] } },
       resolve: async (_, __, ctx) => answered(await service(ctx).remove()).ok,
     }),
   }))

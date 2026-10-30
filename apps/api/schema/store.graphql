@@ -2252,6 +2252,7 @@ type Query {
   shopifyProducts(after: String, search: String): ShopifyProductPage
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
+  staffSessionNotice: StaffSessionNotice
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
   stockImagesAvailable: Boolean
   storeAiAccount: StoreAiAccount
@@ -2675,6 +2676,13 @@ type SizeChartSummary {
   supplierId: ID
   unit: String
   updatedAt: String
+}
+
+type StaffSessionNotice {
+  actingAs: String
+  endsAt: String
+  kind: String
+  staffName: String
 }
 
 type StockLevel {

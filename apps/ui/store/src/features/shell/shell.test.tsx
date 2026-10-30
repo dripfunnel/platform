@@ -3,9 +3,11 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { Acting, StoreState } from '../../api/shell'
+import type { Brand } from '../../api/brand'
+import type { Acting, Me, StoreChoice, StoreState } from '../../api/shell'
 import type { Seat } from '../../nav'
 import { importRun } from '../imports/importRun'
+import { AppHeader } from './AppHeader'
 import { navRowsFor } from './navWords'
 import { StoreBanners } from './StoreBanners'
 import { trialDaysLeft } from './trial'
@@ -101,6 +103,43 @@ describe('the shell’s banners', () => {
 
   it('shows a supplier none of the plan, trial or billing banners', async () => {
     expect(text(await banners(supplier, state({ status: null, trialEndsAt: null }))).trim()).toBe('')
+  })
+})
+
+describe('the header’s Help link', () => {
+  const me: Me = { id: 'u1', name: 'Priya Mehta', email: 'priya@example.com', acting: null }
+  const choice: StoreChoice = { membershipId: 'm1', store: { id: 's1', name: 'Kesari Threads' }, role: 'owner', tier: null, seller: null }
+  const brand = (helpUrl: string | null): Brand => ({
+    productName: 'Northstar Shops',
+    primaryColor: '#1B3A5B',
+    accentColor: null,
+    font: null,
+    corner: null,
+    background: null,
+    files: { logoLight: null, logoDark: null, mark: null, favicon: null },
+    supportEmail: 'help@northstar.shop',
+    supportUrl: 'https://northstar.shop/support',
+    helpUrl,
+    poweredBy: true,
+  })
+  const header = (b: Brand | null) => render(<AppHeader me={me} seat={owner} current={choice} stores={[choice]} brand={b} menuOpen={false} onOpenMenu={() => undefined} />)
+
+  it('opens the partner’s help-centre link in a new tab', async () => {
+    const html = await header(brand('https://help.northstar.shop/shops'))
+    expect(html).toContain('<a class="df-help" href="https://help.northstar.shop/shops" target="_blank" rel="noopener noreferrer">')
+    expect(text(html)).toContain('Help (opens in a new tab)')
+  })
+
+  it('leaves Help out when the partner set no link, and never falls back to its support link or email', async () => {
+    const html = await header(brand(null))
+    expect(html).not.toContain('df-help')
+    expect(html).not.toContain('northstar.shop/support')
+    expect(html).not.toContain('help@northstar.shop')
+    expect(html).not.toContain('help.dripfunnel')
+  })
+
+  it('leaves Help out when there is no partner look at all', async () => {
+    expect(await header(null)).not.toContain('df-help')
   })
 })
 

@@ -40,7 +40,7 @@ export const peopleAudit = {
 } as const
 
 export type PeopleRefusal =
-  | { reason: 'ALREADY_MEMBER' | 'NOT_FOUND' | 'LAST_OWNER' | 'INVALID_EMAIL' | 'INVALID_INPUT' }
+  | { reason: 'ALREADY_MEMBER' | 'NOT_FOUND' | 'LAST_OWNER' | 'INVALID_EMAIL' | 'INVALID_INPUT' | 'BLOCKED_WHILE_IMPERSONATING' }
   | { reason: 'RATE_LIMITED'; per: 'inviter' | 'address' }
   | { reason: 'PLAN_LIMIT'; limit: PlanLimit }
 
@@ -72,6 +72,8 @@ type Write = { ok: true } | { ok: false; refusal: PeopleRefusal } | { ok: false;
 
 export const createStorePeopleService = ({ sql, caller, activity, facts, now }: StorePeopleDeps) => {
   const storeId = caller.store.id
+  // ACCESS.md §8.1: staff acting as a user never change who owns the store.
+  const ownersBlocked = caller.context.caller.kind === 'impersonation'
   const inStore = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, caller.context, work)
 
   const entry = (action: string, target: { type: string; id: string; label: string }, reason: string | null): ActivityEntry => ({
@@ -131,6 +133,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
     const role = merchantRoleOf(rawRole)
     if (!email) return { ok: false, reason: 'INVALID_EMAIL' }
     if (!role) return { ok: false, reason: 'INVALID_INPUT' }
+    if (role === 'owner' && ownersBlocked) return { ok: false, reason: 'BLOCKED_WHILE_IMPERSONATING' }
     const allowance = role === 'owner' ? null : await allowanceFor(sql, caller.context, 'staff', now())
     return settle(
       await inStore(async (tx): Promise<Write> => {
@@ -191,6 +194,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
         const member = await selectMember(tx, membershipId)
         if (!member) return { ok: false, refusal: { reason: 'NOT_FOUND' } }
         if (member.role_key === role) return { ok: true }
+        if ((role === 'owner' || member.role_key === 'owner') && ownersBlocked) return { ok: false, refusal: { reason: 'BLOCKED_WHILE_IMPERSONATING' } }
         if (member.role_key === 'owner') {
           if ((await countOtherOwners(tx, storeId, member.id)) === 0) return { ok: false, refusal: { reason: 'LAST_OWNER' } }
           // An Owner becoming a Manager or Staff takes a seat.
@@ -212,6 +216,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
         await lockStorePeople(tx, storeId)
         const member = await selectMember(tx, membershipId)
         if (!member) return { ok: false, refusal: { reason: 'NOT_FOUND' } }
+        if (member.role_key === 'owner' && ownersBlocked) return { ok: false, refusal: { reason: 'BLOCKED_WHILE_IMPERSONATING' } }
         if (member.role_key === 'owner' && (await countOtherOwners(tx, storeId, member.id)) === 0) return { ok: false, refusal: { reason: 'LAST_OWNER' } }
         await removeMember(tx, member.id)
         if (member.role_key === 'owner') await tellOwnersOfKeys(tx, member)

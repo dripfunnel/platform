@@ -334,7 +334,6 @@
     "productLabel": "Store",
     "logoAlt": "DripFunnel",
     "help": "Help",
-    "helpUrl": "https://help.dripfunnel.ai/store",
     "opensInNewTab": "(opens in a new tab)",
     "groups": {
       "catalogue": "Catalogue",
@@ -486,7 +485,6 @@
     "privacy": "Privacy",
     "privacyUrl": "https://dripfunnel.ai/privacy",
     "help": "Help",
-    "helpUrl": "https://help.dripfunnel.ai/store",
     "termsUrl": "https://dripfunnel.ai/terms",
     "footBrand": "One sign-in for every store you belong to",
     "opensInNewTab": "(opens in a new tab)",
@@ -3292,6 +3290,7 @@
         "ALREADY_MEMBER": "They’re already in this store.",
         "NOT_FOUND": "That isn’t here any more. It may have changed elsewhere.",
         "LAST_OWNER": "The last owner can’t be demoted or removed — make someone else an owner first.",
+        "BLOCKED_WHILE_IMPERSONATING": "Support can’t change who owns the store. Only an owner can.",
         "INVALID_EMAIL": "That doesn’t look like an email address.",
         "INVALID_INPUT": "Something here isn’t valid.",
         "RATE_LIMITED": "Too many invitations for now. Try again later.",
