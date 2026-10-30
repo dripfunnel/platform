@@ -10,7 +10,7 @@ export interface SignupRow {
   stage: 'email' | 'store' | 'phone' | 'provisioning'
   name: string
   email: string
-  password_hash: string
+  password_hash: string | null
   email_code_hash: string | null
   email_code_expires_at: Date | null
   email_code_attempts: number
@@ -25,10 +25,11 @@ export interface SignupRow {
   expires_at: Date
 }
 
-export const insertSignup = async (tx: ScopedSql, s: { partnerId: string; tokenHash: string; name: string; email: string; passwordHash: string; expiresAt: Date; now: Date }): Promise<string> => {
+// A Google sign-up starts at the store step with no password: Google proved the address (ACCESS.md §2).
+export const insertSignup = async (tx: ScopedSql, s: { partnerId: string; tokenHash: string; name: string; email: string; passwordHash: string | null; stage?: 'email' | 'store'; expiresAt: Date; now: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into signup (partner_id, token_hash, stage, name, email, password_hash, expires_at, created_at)
-    values (${s.partnerId}, ${s.tokenHash}, 'email', ${s.name}, ${s.email}, ${s.passwordHash}, ${s.expiresAt}, ${s.now}) returning id
+    values (${s.partnerId}, ${s.tokenHash}, ${s.stage ?? 'email'}, ${s.name}, ${s.email}, ${s.passwordHash}, ${s.expiresAt}, ${s.now}) returning id
   `
   if (!row) throw new Error('signup: insert returned no row')
   return row.id
@@ -127,10 +128,10 @@ export const selectPartnerState = async (tx: ScopedSql, partnerId: string): Prom
 
 // SAAS.md §5 step 1, inside provisioning's one transaction.
 
-export const insertSignupUser = async (tx: ScopedSql, u: { partnerId: string; email: string; name: string; passwordHash: string; phone: string; now: Date }): Promise<string> => {
+export const insertSignupUser = async (tx: ScopedSql, u: { partnerId: string; email: string; name: string; passwordHash: string | null; phone: string; now: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into "user" (partner_id, email, name, status, password_hash, phone, email_verified_at, password_changed_at)
-    values (${u.partnerId}, ${u.email}, ${u.name}, 'active', ${u.passwordHash}, ${u.phone}, ${u.now}, ${u.now}) returning id
+    values (${u.partnerId}, ${u.email}, ${u.name}, 'active', ${u.passwordHash}, ${u.phone}, ${u.now}, ${u.passwordHash === null ? null : u.now}) returning id
   `
   if (!row) throw new Error('user: insert returned no row')
   return row.id

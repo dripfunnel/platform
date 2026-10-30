@@ -24,6 +24,7 @@ import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { resolveRider } from '#auth/riderCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { handleStoreGoogle, isStoreGooglePath } from '#apis/store/google'
 import { handleStaffSession, isStaffSessionPath } from '#apis/store/staffSession'
 import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
 import { handleAppAssets, isAppAssetsPath } from '#apis/store/appAssets'
@@ -69,6 +70,8 @@ import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#s
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
+import { localGoogleSignIn } from '#integrations/google/local'
+import { googleSignIn, type GoogleSignIn } from '#integrations/google/provider'
 import { storeBillingStripe, stripeClient, type StoreBillingStripe, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { githubHookPath, handleGitHubHook } from '#hooks/github'
@@ -376,6 +379,10 @@ const providerFor = (config: Config): IdentityProvider => {
   return built.provider
 }
 
+// Once per isolate, so Google's key set is fetched once (integrations/google/provider.ts).
+let googleBuilt: GoogleSignIn | undefined
+const googleFor = (config: Config): GoogleSignIn => (config.GOOGLE_SIGN_IN_LOCAL ? localGoogleSignIn() : (googleBuilt ??= googleSignIn()))
+
 const withConnection = async (
   hyperdrive: NonNullable<Config['HYPERDRIVE']>,
   ctx: ExecutionContext,
@@ -584,7 +591,7 @@ const tooManyRequests = (retryAfterSeconds: number) =>
 // A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
 // caller is the session's person acting in the store the request names (ACCESS.md §4).
 const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext, entry: Entry): Promise<Response> => {
-  if (!isStoreAuthPath(url.pathname) && !storeOriginAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
+  if (!isStoreAuthPath(url.pathname) && !isStoreGooglePath(url.pathname) && !storeOriginAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
   const hyperdrive = config.HYPERDRIVE
   if (!hyperdrive) return entry === 'portal' ? notFound() : servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
   const secrets = await secretsFor(config)
@@ -607,6 +614,11 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
         allowExchange: async (key) => (await exchangeLimiter.limit({ key })).success,
         allowRead: async (key) => (await readLimiter.limit({ key })).success,
       })
+    }
+    if (isStoreGooglePath(url.pathname)) {
+      const limiter = env.SIGN_IN_RATE_LIMITER
+      if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+      return handleStoreGoogle(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, google: googleFor(config), local: config.GOOGLE_SIGN_IN_LOCAL === '1' })
     }
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER

@@ -168,8 +168,9 @@ describe('email delivery', () => {
     const live = await db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${store.partnerId} and kind = 'portal' and status = 'live'`
     await db.sql`update partner_domain set status = 'verifying' where id = any(${pgArray(live.map((d) => d.id))}::uuid[])`
     const portal = live[0]?.host ?? 'store.invite-test.example'
-    const invite = async (email: string, withPassword: boolean) => {
-      await db.sql`insert into "user" (partner_id, email, name, status, password_hash) values (${store.partnerId}, ${email}, 'Invitee', ${withPassword ? 'active' : 'invited'}, ${withPassword ? 'pbkdf2-sha256$1$AA==$AA==' : null})`
+    // `google`: an account made by signing up with Google, active with no password (#1046).
+    const invite = async (email: string, withPassword: boolean, google = false) => {
+      await db.sql`insert into "user" (partner_id, email, name, status, password_hash) values (${store.partnerId}, ${email}, 'Invitee', ${withPassword || google ? 'active' : 'invited'}, ${withPassword ? 'pbkdf2-sha256$1$AA==$AA==' : null})`
       const [row] = await db.sql<{ id: string }[]>`insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${store.id}, ${email}, 'manager', ${new Date(now.getTime() + 7 * 86_400_000)}, 'Priya Shah') returning id`
       await queue('store-owner-invitation', { invitationId: row?.id, to: email, storeId: store.id }, { partnerId: store.partnerId, storeId: store.id })
       return row?.id ?? ''
@@ -196,6 +197,9 @@ describe('email delivery', () => {
     await invite('known.person@shop.example', true)
     await relay(ses.api, 22 * 3_600_000)
     expect(ses.sent.find((m) => m.to.includes('known.person@shop.example'))?.text).toContain(`https://${portal}/join?token=`)
+    await invite('google.person@shop.example', false, true)
+    await relay(ses.api, 23 * 3_600_000)
+    expect(ses.sent.find((m) => m.to.includes('google.person@shop.example'))?.text).toContain(`https://${portal}/join?token=`)
   })
 
   it('sends an email change’s link to the new address only, and a notice without one to the old', async () => {

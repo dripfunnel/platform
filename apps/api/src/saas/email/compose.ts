@@ -259,7 +259,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!token) return { send: false, reason: 'link_closed' }
       const w = en.storeInvitation
       const role = invitation.seller_name ? w.roles.supplier(invitation.seller_name) : (w.roles[invitation.role_key as 'owner' | 'manager' | 'staff'] ?? w.roles.staff)
-      const content: EmailContent = invitation.has_password
+      const content: EmailContent = invitation.has_account
         ? { subject: w.subject(invitation.store_name), heading: w.heading(invitation.store_name), paragraphs: [w.existingPerson(invitation.invited_by_label, invitation.store_name, role)], action: { label: w.actionJoin, url: link(host, '/join', token) }, note: w.note }
         : { subject: w.subject(invitation.store_name), heading: w.heading(invitation.store_name), paragraphs: [w.newPerson(invitation.invited_by_label, invitation.store_name, role)], action: { label: w.actionNew, url: link(host, '/accept-invite', token) }, note: w.note }
       return { send: true, accountSecurity: true, to: [p.to], voice: look.voice, brand: look.brand, content }

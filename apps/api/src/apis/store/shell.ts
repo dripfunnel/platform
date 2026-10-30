@@ -36,6 +36,7 @@ interface Brand {
   termsUrl: string | null
   privacyUrl: string | null
   poweredBy: boolean
+  googleSignIn: boolean
 }
 
 interface Choice {
@@ -132,6 +133,8 @@ export const registerShell = (builder: StoreBuilder) => {
       termsUrl: t.exposeString('termsUrl', { nullable: true }),
       privacyUrl: t.exposeString('privacyUrl', { nullable: true }),
       poweredBy: t.exposeBoolean('poweredBy'),
+      // Whether Sign in and Create your store offer Google: the partner's own client is on (#1046).
+      googleSignIn: t.exposeBoolean('googleSignIn'),
     }),
   })
 
@@ -259,6 +262,7 @@ export const registerShell = (builder: StoreBuilder) => {
           termsUrl: row.terms_url,
           privacyUrl: row.privacy_url,
           poweredBy: row.powered_by,
+          googleSignIn: row.google_sign_in,
         }
       },
     }),

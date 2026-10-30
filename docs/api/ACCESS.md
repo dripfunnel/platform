@@ -68,10 +68,34 @@ Rules for the **people** pool:
 
 - `user(id, partner_id, email, email_verified_at, password_hash null, status, created_at)`,
   unique `(partner_id, email)`. `password_hash`
-  is null for an invited person who hasn't accepted yet (§6). Email and phone verification
+  is null for an invited person who hasn't accepted yet (§6), and for an account made by signing
+  up with Google until its owner sets one; `status`, not the password, tells the two apart. Email and phone verification
   codes are stored hashed with an attempt counter (PLATFORM-PROMPT §5.2).
 - Google sign-in authenticates an existing account whose email matches Google's verified
-  email. It never skips signup or accepts an invitation on its own.
+  email. It never accepts an invitation on its own: an invited person who hasn't joined has no
+  account to match. **Built on #1046**, on the partner's own Google client (THIRD-PARTY-ACCESS §2.9),
+  only while it is on (`brand.googleSignIn`):
+  - `GET /api/auth/google/start?intent=sign-in|sign-up&next=` sends the browser to Google with PKCE,
+    a state and a nonce held in the `__Host-df_google` cookie, with the intent and the page to return
+    to, for 10 minutes. `GET /api/auth/google/callback` checks the state, exchanges the code with the
+    partner's secret and checks the ID token (Google's keys, issuer, audience, expiry, nonce,
+    `email_verified`).
+  - A matching account then goes exactly as a password sign-in does: the lock, the second factor
+    when it's on, and enrolment for an Owner without one (§4). The browser lands on the page it
+    came from, or `/sign-in?step=second-factor&method=…` or `?step=enrol`.
+  - With no account, sign-in answers `/sign-in?outcome=no-account`: only the address's owner can
+    reach that answer, so it tells no one else whether an account exists. Other answers are
+    `cancelled`, `unavailable`, `refused`, `locked` and `busy`.
+  - **Signing up with Google** (decided 2026-10-30 on #1046, following PortalAuth `su1`): Google's
+    name and verified email start the sign-up at the store step, with no email code and no
+    password (`/sign-up?step=store`; `POST /api/auth/sign-up/resume` tells the portal where it
+    stands). The phone code stays. The account has no password until the person sets one through
+    Forgot password, so the profile's password checks need one first. An address that already has
+    an account is signed into it. Closed while the partner isn't Live (`outcome=closed`).
+  - The merchant app sends the ID token from Google's native sign-in to
+    `POST /api/auth/google/token`, issued for the partner's web client; the session comes back as
+    `token`, as on the other bearer routes (§4). Refusals: `NO_ACCOUNT`, `GOOGLE_REFUSED`,
+    `GOOGLE_UNAVAILABLE`, `LOCKED`.
 - **The portal resolves the partner from the hostname before sign-in**; sign-in, signup,
   reset and invitation pages and emails are in that partner's look and from its sender
   domain (PLATFORM-PROMPT §5.3).
