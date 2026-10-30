@@ -582,6 +582,7 @@
         "noHost": "Add your portal address under Domains first: Google needs it as the redirect URI.",
         "copy": "Copy",
         "copied": "Copied.",
+        "copyFailed": "Couldn’t copy. Select the address and copy it yourself.",
         "setUp": "Set up Google sign-in",
         "replace": "Replace client",
         "turnOff": "Turn off",

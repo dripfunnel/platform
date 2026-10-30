@@ -49,6 +49,23 @@ describe('Google sign-in on Integrations', () => {
     expect(screen.getByRole('button', { name: words.setUp })).toBeTruthy()
   })
 
+  it('says when the address was copied, and when it couldn’t be, with or without a clipboard', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    render(<GoogleSignInPanel mayChange onToast={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: words.copy }))
+    expect(writeText).toHaveBeenCalledWith(off.redirectUri)
+    expect(await screen.findByText(words.copied)).toBeTruthy()
+    writeText.mockImplementation(() => Promise.reject(new Error('denied')))
+    await userEvent.click(screen.getByRole('button', { name: words.copy }))
+    expect(await screen.findByText(words.copyFailed)).toBeTruthy()
+    cleanup()
+    vi.stubGlobal('navigator', {})
+    render(<GoogleSignInPanel mayChange onToast={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: words.copy }))
+    expect(await screen.findByText(words.copyFailed)).toBeTruthy()
+  })
+
   it('saves a client in Google’s shape and turns it on, and holds back one that isn’t', async () => {
     const toast = vi.fn()
     render(<GoogleSignInPanel mayChange onToast={toast} />)

@@ -53,7 +53,7 @@ export const GoogleSignInPanel = ({ mayChange, onToast }: { mayChange: boolean; 
   const [attempt, setAttempt] = useState(0)
   const [open, setOpen] = useState<'save' | 'off' | null>(null)
   const [offError, setOffError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null)
   useEffect(() => {
     let current = true
     loadGoogleSignIn().then(
@@ -65,6 +65,15 @@ export const GoogleSignInPanel = ({ mayChange, onToast }: { mayChange: boolean; 
     }
   }, [attempt])
   const reload = () => setAttempt((n) => n + 1)
+  // No Clipboard API outside a secure context, and a write can be refused: either way the partner is told to copy it by hand.
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied('ok')
+    } catch {
+      setCopied('failed')
+    }
+  }
   if (loaded.state === 'loading') return <LoadingState label={words.loading} rows={2} />
   if (loaded.state === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: () => (setLoaded({ state: 'loading' }), reload()) }} />
   const { status } = loaded
@@ -80,11 +89,11 @@ export const GoogleSignInPanel = ({ mayChange, onToast }: { mayChange: boolean; 
         {status.redirectUri ? (
           <div className="df-settings-onfile">
             <code>{status.redirectUri}</code>
-            <button type="button" className="df-button df-button--small" onClick={() => void navigator.clipboard?.writeText(status.redirectUri ?? '').then(() => setCopied(true))}>
+            <button type="button" className="df-button df-button--small" onClick={() => void copy(status.redirectUri ?? '')}>
               {words.copy}
             </button>
-            <span role="status" className="df-visually-hidden">
-              {copied ? words.copied : ''}
+            <span role="status" className={copied === 'failed' ? 'df-muted' : 'df-visually-hidden'}>
+              {copied === 'ok' ? words.copied : copied === 'failed' ? words.copyFailed : ''}
             </span>
           </div>
         ) : (
