@@ -669,10 +669,10 @@ export const renameAsset = async (tx: ScopedSql, storeId: string, id: string, na
   (await tx`update asset set name = ${name} where id = ${id} and store_id = ${storeId} and seller_id is null and kind in ('image', 'video') returning id`).length > 0
 
 /** A library file's R2 key and how often it is used, the row locked for the delete that follows; null for one that isn't the merchant's library's. */
-export const selectLibraryUse = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; uses: number; storefront_visible: boolean } | null> =>
+export const selectLibraryUse = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; uses: number; storefront_visible: boolean; in_draft: boolean } | null> =>
   (
-    await tx<{ r2_key: string; uses: number; storefront_visible: boolean }[]>`
-      select a.r2_key, a.storefront_visible, ${usesOf(tx)} as uses from asset a
+    await tx<{ r2_key: string; uses: number; storefront_visible: boolean; in_draft: boolean }[]>`
+      select a.r2_key, a.storefront_visible, exists (select 1 from design_draft d where d.store_id = a.store_id) as in_draft, ${usesOf(tx)} as uses from asset a
       where a.id = ${id} and a.store_id = ${storeId} and a.seller_id is null and a.kind in ('image', 'video')
         and not exists (select 1 from rider r where r.photo_asset_id = a.id)
       for update of a`

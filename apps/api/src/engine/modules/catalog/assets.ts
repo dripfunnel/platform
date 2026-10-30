@@ -146,11 +146,12 @@ export const createAssetService = (deps: AssetDeps) => {
       return true
     })
 
-  /** Only a file nothing uses goes; a file a design attached counts as used while the theme names its id. The object follows the row (a leftover object is the sweep's, #293). */
+  /** Only a file nothing uses goes; a file a design attached counts as used while the draft exists or the theme at `main` names its id. The object follows the row (a leftover object is the sweep's, #293). */
   const remove = async (id: string): Promise<'deleted' | 'in_use' | 'missing'> => {
     const found = await withScope(sql, context, (tx) => selectLibraryUse(tx, storeId, id))
     if (!found) return 'missing'
     if (found.uses > 0) return 'in_use'
+    if (found.storefront_visible && found.in_draft) return 'in_use'
     if (found.storefront_visible) {
       const text = (await deps.siteText?.()) ?? null
       if (text === null || text.includes(id)) return 'in_use'
@@ -158,7 +159,7 @@ export const createAssetService = (deps: AssetDeps) => {
     const result = await withScope(sql, context, async (tx) => {
       const again = await selectLibraryUse(tx, storeId, id)
       if (!again) return 'missing' as const
-      if (again.uses > 0) return 'in_use' as const
+      if (again.uses > 0 || (again.storefront_visible && again.in_draft)) return 'in_use' as const
       await deleteAsset(tx, storeId, id)
       await activity.record(tx, entry(assetsAudit.deleted, id))
       return again.r2_key

@@ -73,7 +73,7 @@ const runnerOf = (storeId: string): StudioRunner => {
 const local = localStudio(() => db.sql, runnerOf)
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
-const script: { answers: string[]; sent: string[] } = { answers: [], sent: [] }
+const script: { answers: string[]; sent: string[]; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], turns: [] }
 const reply = (files: { path: string; content: string | null }[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => {
@@ -86,8 +86,11 @@ const provider: AiProvider = {
     const text = script.answers.shift() ?? reply([])
     return { text, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
-  converse: async () => {
+  converse: async (call) => {
     script.sent.push('converse')
+    const next = script.turns.shift()
+    if (next) return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
+    void call
     if (hold) {
       held?.()
       await hold
@@ -318,6 +321,32 @@ describe('asking for a change', () => {
     }
   })
 
+  it('lets the AI add only a photo its own search returned', async () => {
+    const downloaded: string[] = []
+    design.stock = {
+      search: async () => ({ total: 1, photos: [{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }] }),
+      download: async (id) => (downloaded.push(id), 'https://pixabay.com/get/42.png'),
+    }
+    dns['pixabay.com A'] = ['93.184.216.34']
+    vi.stubGlobal('fetch', async () => new Response(png, { headers: { 'content-type': 'image/png' } }))
+    const used = await usage(t.storeA1)
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    const before = stored.length
+    const call = (id: string, name: string, args: object) => ({ id, name, arguments: JSON.stringify(args) })
+    script.turns = [[call('1', 'add_stock_image', { id: '999' })], [call('2', 'search_stock_images', { query: 'linen' })], [call('3', 'add_stock_image', { id: '42' })]]
+    script.answers = [reply([])]
+    try {
+      expect((await ask('owner', 'A linen hero photo')).code).toBeUndefined()
+      expect(downloaded).toEqual(['42'])
+      expect(stored.length).toBe(before + 1)
+    } finally {
+      script.turns = []
+      vi.unstubAllGlobals()
+      design.stock = null
+      await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    }
+  })
+
   it('answers in chat mode with words only: no change, no draft move, one prompt taken, the reply in the chat', async () => {
     const before = await draft(t.storeA1)
     const used = await usage(t.storeA1)
@@ -427,10 +456,13 @@ describe('asking for a change', () => {
     siteText = `url(${own})`
     expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')
     siteText = 'no pictures here'
+    expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code, 'a studio draft exists').toBe('ASSET_IN_USE')
+    const [kept] = await db.sql<Record<string, unknown>[]>`delete from design_draft where store_id = ${t.storeA1} returning *`
     expect((await list('owner', '(search: "%")'))?.assets).toEqual([])
     for (const h of hidden) expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: h })).code, h).toBe('NOT_FOUND')
     expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).data?.['deleteLibraryAsset']).toBe(true)
     expect((await db.sql`select 1 from asset where id = ${own}`).length).toBe(0)
+    if (kept) await db.sql`insert into design_draft ${db.sql(kept)}`
     const theirs = ((await w.gql('bOwner', 'query { libraryAssets { assets { id } } }')).data?.['libraryAssets'] as { assets: { id: string }[] }).assets.map((x) => x.id)
     expect(theirs).toContain(hidden[2])
     expect(theirs).not.toContain(video)
