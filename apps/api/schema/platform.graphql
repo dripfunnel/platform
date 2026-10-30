@@ -363,6 +363,7 @@ type Mutation {
   addPartnerAiKey(key: String!, name: String!, provider: String!): PartnerAiKeyResult
   addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
   beginPartnerAiOauth(id: ID, provider: String!): PartnerAiKeyResult
+  changeMyPassword(current: String!, password: String!): MyProfileResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   changeTeamRole(id: ID!, role: String!): TeamResult
   createPlan(input: PlanInput!): PlanResult
@@ -403,7 +404,15 @@ type Mutation {
   testPartnerAiKey(id: ID!): PartnerAiKeyResult
   transferOwnership(toUserId: ID!): TeamResult
   turnOffPartnerGoogleSignIn: PartnerGoogleSignInResult
+  updateMyName(name: String!): MyProfileResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
+}
+
+type MyProfileResult {
+  minutes: Int
+  ok: Boolean
+  reason: String
+  triesLeft: Int
 }
 
 type NavBadges {

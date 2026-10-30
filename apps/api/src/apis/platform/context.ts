@@ -11,6 +11,7 @@ import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
 import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
+import { createPartnerProfileService } from '#saas/partnerProfile/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { checkAnthropicKey, type KeyCheck } from '#integrations/ai/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
@@ -38,15 +39,17 @@ export interface PlatformContextDeps {
   /** The AI sign-in flow (SAAS §9.3); absent where the Worker has none. */
   aiOauth?: AiOAuth | null
   now: () => Date
+  /** This request's partner session cookie; My profile's password change keeps it (#1053). */
+  sessionId?: string | null
 }
 
 /** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
 
-export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, activity: null, team: null, reports: null, support: null, billing: null }
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, profile: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, sessionId = null, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -60,6 +63,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     domains: createPartnerDomainsService({ ...deps, localHosts }),
     credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey, oauth: aiOauth }),
     googleSignIn: createGoogleSignInService({ ...deps, secrets }),
+    profile: createPartnerProfileService({ ...deps, sessionId }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),
     reports: createPartnerReportsService(deps),

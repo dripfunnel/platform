@@ -147,6 +147,7 @@
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
+      "myProfile": "My profile",
       "myActivity": "My activity",
       "signOut": "Sign out",
       "theme": {
@@ -362,6 +363,32 @@
       "confirm": "Suspend store",
       "cancel": "Cancel"
     }
+  },
+  "profile": {
+    "title": "My profile",
+    "sub": "Your own name and password. Your email and two-step sign-in stay as they are.",
+    "name": { "title": "Name", "label": "Your name", "hint": "Shown to your team and in the activity log.", "save": "Save name", "saved": "Name saved." },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "hint": "At least 10 characters.",
+      "signsOut": "Changing it signs you out everywhere else. This session stays signed in.",
+      "show": "Show",
+      "hide": "Hide",
+      "save": "Change password",
+      "saved": "Password changed. You’re signed out everywhere else."
+    },
+    "refusals": {
+      "INVALID_INPUT": "Enter a name of 1 to 80 characters.",
+      "WEAK_PASSWORD": "Use at least 10 characters.",
+      "WRONG_PASSWORD": "That isn’t your current password.",
+      "WRONG_PASSWORD_TRIES": "That isn’t your current password. {tries} left before sign-in pauses for 15 minutes.",
+      "LOCKED": "Too many wrong tries. Try again in {minutes} minutes; we’ve emailed you about it.",
+      "NOT_FOUND": "Your account couldn’t be found. Sign in again."
+    },
+    "tries": { "one": "1 try", "other": "{count} tries" },
+    "failed": "That didn’t go through. Nothing was changed. Try again."
   },
   "settings": {
     "account": "Your account",

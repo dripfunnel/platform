@@ -227,13 +227,15 @@ describe('the blocked lists', () => {
   // An AI key is set by the partner, or by staff in a setup session (#275), never while acting as a partner user.
   const aiKeyWrites = ['addPartnerAiKey', 'beginPartnerAiOauth', 'finishPartnerAiOauth', 'removePartnerAiKey', 'setDefaultPartnerAiKey']
   const googleSignInWrites = ['savePartnerGoogleSignIn', 'turnOffPartnerGoogleSignIn']
+  // A user's own name and password are theirs alone (My profile, #1053): neither staff session changes them.
+  const ownAccount = ['changeMyPassword', 'updateMyName']
 
   it('refuses an impersonation ownership, the team’s sign-in rule, and the user’s own second factor and support access', () => {
-    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, ...aiKeyWrites, ...googleSignInWrites, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
+    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, ...aiKeyWrites, ...googleSignInWrites, ...ownAccount, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
   })
 
   it('refuses a setup session ownership and support access, which need a partner user', () => {
-    expect(blockedFields('setup')).toEqual([...support, ...moneyDetails, 'transferOwnership'].sort())
+    expect(blockedFields('setup')).toEqual([...support, ...moneyDetails, ...ownAccount, 'transferOwnership'].sort())
   })
 
   it('keeps who is Owner the partner’s own decision: no staff session makes, demotes or removes one', async () => {
