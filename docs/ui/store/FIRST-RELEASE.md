@@ -225,7 +225,8 @@ import banner is built on #302 from the caller's own `catalogImports`, not `stor
 - **Sign-in**: email and password, then the second factor **when the person has it on**. An
   Owner without it is sent to turn it on before the store opens (the `enrol` view, #183); every
   other role may skip it. Five wrong passwords or codes (one count) pause sign-in for 15 minutes and email the account's own address, the prototype's "we've emailed the account owner" (built on #290).
-  Backup codes work once each. Google sign-in authenticates an existing account only (ACCESS §2).
+  Backup codes work once each. Google signs in an existing account only, and Create your store can start from
+  Google, carrying on at the store step with no emailed code and no password (ACCESS §2; built below).
 - **Choose a store / switch store**: the portal never picks; a person who belongs to no store is
   refused, not shown an empty portal. "Create another store" starts sign-up step 3.
 - **Reset password**: a link valid for 30 minutes; signs out everywhere else.
