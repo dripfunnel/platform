@@ -3,7 +3,7 @@ import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { checkDownload, checkMedia, type MediaCheck } from '#core/media'
 import type { TenantContext } from '#core/tenancy'
 import { deleteAsset, insertAsset, renameAsset, selectAsset, selectLibrary, selectLibraryUse, type LibraryAsset } from '#db/scoped/catalog'
-import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
+import { withScope, type ScopedSql } from '#db/scoped/index'
 
 // Catalogue files (DATA-MODEL §7.3 `asset`; FIRST-RELEASE §19 `uploadAsset`): checked by their bytes,
 // stored under the store's own R2 prefix, owned by the uploader's scope until a product links them.
@@ -30,6 +30,8 @@ export interface AssetDeps {
   activity: ActivityLog
   facts: RequestFacts
   store: AssetStore
+  /** The text of the store's theme at its repo's `main`; null when it can't be read, which keeps every design's file. */
+  siteText?: () => Promise<string | null>
 }
 
 class NotAdmitted extends Error {}
@@ -144,15 +146,22 @@ export const createAssetService = (deps: AssetDeps) => {
       return true
     })
 
-  /** Only a file nothing uses goes; the object follows the row (a leftover object is the sweep's, #293). */
+  /** Only a file nothing uses goes; a file a design attached counts as used while the theme names its id. The object follows the row (a leftover object is the sweep's, #293). */
   const remove = async (id: string): Promise<'deleted' | 'in_use' | 'missing'> => {
-    const result = await withSystemScope(sql, async (tx) => {
-      const found = await selectLibraryUse(tx, storeId, id)
-      if (!found) return 'missing' as const
-      if (found.uses > 0) return 'in_use' as const
+    const found = await withScope(sql, context, (tx) => selectLibraryUse(tx, storeId, id))
+    if (!found) return 'missing'
+    if (found.uses > 0) return 'in_use'
+    if (found.storefront_visible) {
+      const text = (await deps.siteText?.()) ?? null
+      if (text === null || text.includes(id)) return 'in_use'
+    }
+    const result = await withScope(sql, context, async (tx) => {
+      const again = await selectLibraryUse(tx, storeId, id)
+      if (!again) return 'missing' as const
+      if (again.uses > 0) return 'in_use' as const
       await deleteAsset(tx, storeId, id)
       await activity.record(tx, entry(assetsAudit.deleted, id))
-      return found.r2_key
+      return again.r2_key
     })
     if (result === 'missing' || result === 'in_use') return result
     await deps.store.delete?.([result]).catch(() => undefined)

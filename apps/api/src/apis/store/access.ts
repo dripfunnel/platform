@@ -15,6 +15,7 @@ import type { MachineCaller } from '#auth/machineCaller'
 import type { TenantContext } from '#core/tenancy'
 import type { StudioApi } from '#saas/studio/index'
 import type { StudioDeps } from '#saas/ai-designer/index'
+import type { StoreRepos } from '#integrations/github/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { accessErrorCode, blockedIn, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
 import type { CourierDirectory } from '#core/couriers'
@@ -56,6 +57,8 @@ export interface StoreContext extends Record<string, unknown> {
   preview?: { domain: string; links: PreviewLinks } | null
   /** Site settings › Domains: the zone domains point at (EDGE_ZONE), whether `*.localhost` names are taken (DNS_LOCAL), and the free address's domain (SHOP_DOMAIN). */
   domains?: { edgeZone: string; localHosts: boolean; shopDomain: string | null } | null
+  /** The store repos through the GitHub App, asked for only when a file's use in the theme is checked; null where there is no App. */
+  siteRepos?: (() => Promise<StoreRepos | null>) | null
   /** The store's StudioSession, by the session's TenantContext only (AI-STUDIO §3 step 2); null where none is bound. */
   studio?: ((context: TenantContext) => StudioApi) | null
   /** Asks a provider whether an AI key works (Storefront › AI); the real providers where unset. */

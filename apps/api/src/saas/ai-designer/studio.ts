@@ -232,7 +232,6 @@ export const createStudioService = (deps: StudioDeps) => {
     if (billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     const image = input.imageAssetId ? await imageOf(input.imageAssetId) : null
     if (image && !image.ok) return image
-    if (input.imageAssetId) await withSystemScope(sql, (tx) => makeVisible(tx, storeId, input.imageAssetId ?? ''))
     const shot = input.sampleUrl ? await screenshotOf(input.sampleUrl, input.device) : null
     if (shot && !shot.ok) return shot
     const asked = now()
@@ -249,7 +248,6 @@ export const createStudioService = (deps: StudioDeps) => {
               if (!found || !isPixabayUrl(found)) return null
               const stored = await importImage(found, true)
               if (!stored.ok) return null
-              await withSystemScope(sql, (tx) => makeVisible(tx, storeId, stored.value))
               const record = { assetId: stored.value, user: seen.get(id) ?? '' }
               added.push(record)
               return record
@@ -301,6 +299,12 @@ export const createStudioService = (deps: StudioDeps) => {
       })
       if (!stopped) throw new Error('design_message: written and not found')
       return { ok: true, value: { outcome: 'cancelled', message: stopped } }
+    }
+    if (answer.outcome === 'changed') {
+      const used = [...(input.imageAssetId ? [input.imageAssetId] : []), ...added.map((a) => a.assetId)]
+      await withScope(sql, context, async (tx) => {
+        for (const id of used) await makeVisible(tx, storeId, id)
+      })
     }
     const summary = 'summary' in answer ? answer.summary : null
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome

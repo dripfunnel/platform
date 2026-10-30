@@ -309,8 +309,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   and image or video; a supplier's files, a rider's photo and private files never show. `storefront.read` looks, the Owner
   uploads (`POST /api/assets`), renames (`asset.name`, migration 0374) and deletes, and a file anything uses can't be deleted;
   its use is counted over the same references the shop policy lists (migration 0290). The studio's composer picks an image
-  from it, or uploads one, and sends it as `imageAssetId`. A file nothing references is not served to shoppers (0290); attaching it to a
-  design request marks it `storefront_visible` (migration 0375), and core's `MerchantImage` then reads it with the Shop API's
+  from it, or uploads one, and sends it as `imageAssetId`. A file nothing references is not served to shoppers (0290); a design
+  request that changes the theme with it attached (or adds it) marks it `storefront_visible` (migration 0375), and Assets › Delete
+  keeps such a file while the theme at `main` names its id (and when the repo can't be read), and core's `MerchantImage` then reads it with the Shop API's
   `shopAsset(id)`. The model is told the attached image's asset id and writes it into the content key the theme reads
   (the baseline hero's `home.hero.image`, `none` until one is chosen); the theme never writes an address. In CSS the model
   writes `url(<asset id>)`: the validator holds the id to the store's media, and both bundlers (the gate's and the publish

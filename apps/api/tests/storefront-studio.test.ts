@@ -110,6 +110,7 @@ const design: {
   readAsset: null,
   stock: null,
 }
+let siteText: string | null = null
 const stored: string[] = []
 const bucket: AssetStore = { put: async (key) => void stored.push(key), get: async () => null }
 const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))
@@ -138,7 +139,7 @@ beforeAll(async () => {
       const studio = local.studio(context)
       return { ...studio, change: (storeId, input, model) => (studioDown ? Promise.reject(new Error('the studio is unreachable')) : studio.change(storeId, input, model)) }
     },
-    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design, files: bucket },
+    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design, files: bucket, siteRepos: async () => (siteText === null ? null : ({ themeText: async () => siteText }) as never) },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -284,7 +285,9 @@ describe('asking for a change', () => {
     const asset = async (storeId: string, sellerId: string | null = null) =>
       (await db.sql<{ id: string }[]>`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${sellerId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
     const own = await asset(t.storeA1)
-    const others = [await asset(t.storeB1), await asset(t.storeA1, t.sellerA1First), 'https://evil.example/x.png', crypto.randomUUID()]
+    const riderPhoto = await asset(t.storeA1)
+    await db.sql`insert into rider (store_id, name, phone, photo_asset_id) values (${t.storeA1}, 'Rae', '+919800000301', ${riderPhoto})`
+    const others = [await asset(t.storeB1), await asset(t.storeA1, t.sellerA1First), 'https://evil.example/x.png', crypto.randomUUID(), riderPhoto]
     const read: string[] = []
     design.readAsset = async (key) => (read.push(key), { bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), mime: 'image/png' })
     try {
@@ -297,7 +300,7 @@ describe('asking for a change', () => {
       // The model changes nothing here, so the draft the later tests build on stays as it was.
       script.answers = [reply([])]
       expect((await ask('owner', 'Like this', { image: own })).code).toBeUndefined()
-      expect((await db.sql<{ v: boolean }[]>`select storefront_visible as v from asset where id = ${own}`)[0]?.v).toBe(true)
+      expect((await db.sql<{ v: boolean }[]>`select storefront_visible as v from asset where id = ${own}`)[0]?.v).toBe(false)
       expect((await db.sql<{ v: boolean }[]>`select storefront_visible as v from asset where id = ${others[0] ?? ''}`)[0]?.v).toBe(false)
       expect(read).toHaveLength(1)
       expect(script.sent.length).toBe(sent + 1)
@@ -412,7 +415,9 @@ describe('asking for a change', () => {
     await db.sql`update store set logo_asset_id = null where id = ${t.storeA1}`
     await db.sql`update asset set storefront_visible = true where id = ${own}`
     expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')
-    await db.sql`update asset set storefront_visible = false where id = ${own}`
+    siteText = `url(${own})`
+    expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')
+    siteText = 'no pictures here'
     expect((await list('owner', '(search: "%")'))?.assets).toEqual([])
     for (const h of hidden) expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: h })).code, h).toBe('NOT_FOUND')
     expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).data?.['deleteLibraryAsset']).toBe(true)

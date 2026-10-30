@@ -650,7 +650,6 @@ const usesOf = (tx: ScopedSql) => tx`(
   + (select count(*) from storefront_content_translation x where a.id = any (x.asset_ids))
   + (select count(*) from storefront_brand x where a.id in (x.logo_asset_id, x.favicon_asset_id))
   + (select count(*) from storefront_seo x where x.share_asset_id = a.id)
-  + (case when a.storefront_visible then 1 else 0 end)
 )::int`
 
 /** The merchant's own images and videos for Storefront › Assets, newest first; never a supplier's, a rider's or a private file. */
@@ -669,18 +668,19 @@ export const selectLibrary = async (tx: ScopedSql, storeId: string, o: { limit: 
 export const renameAsset = async (tx: ScopedSql, storeId: string, id: string, name: string | null): Promise<boolean> =>
   (await tx`update asset set name = ${name} where id = ${id} and store_id = ${storeId} and seller_id is null and kind in ('image', 'video') returning id`).length > 0
 
-/** A library file's R2 key and how often it is used; null for one that isn't the merchant's library's (system scope: the caller names the store). */
-export const selectLibraryUse = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; uses: number } | null> =>
+/** A library file's R2 key and how often it is used; null for one that isn't the merchant's library's . */
+export const selectLibraryUse = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; uses: number; storefront_visible: boolean } | null> =>
   (
-    await tx<{ r2_key: string; uses: number }[]>`
-      select a.r2_key, ${usesOf(tx)} as uses from asset a
+    await tx<{ r2_key: string; uses: number; storefront_visible: boolean }[]>`
+      select a.r2_key, a.storefront_visible, ${usesOf(tx)} as uses from asset a
       where a.id = ${id} and a.store_id = ${storeId} and a.seller_id is null and a.kind in ('image', 'video')
         and not exists (select 1 from rider r where r.photo_asset_id = a.id)`
   )[0] ?? null
 
 /** A file a design uses is readable by shoppers (migration 0375); another store's id changes nothing. */
 export const makeVisible = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
-  await tx`update asset set storefront_visible = true where id = ${id} and store_id = ${storeId} and seller_id is null and kind = 'image'`
+  await tx`update asset set storefront_visible = true where id = ${id} and store_id = ${storeId} and seller_id is null and kind = 'image'
+    and not exists (select 1 from rider r where r.photo_asset_id = asset.id)`
 }
 
 /** The studio's chat keeps its words and shows no picture for a file that goes. */

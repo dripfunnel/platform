@@ -106,7 +106,7 @@ const toolDefs: readonly CanonicalTool[] = [
   { name: 'add_stock_image', description: 'Add one search result to the merchant\'s Assets and get its asset id, to place with MerchantImage or url(). Use an id from the last search only.', parameters: { type: 'object', properties: { id: { type: 'string', pattern: '^[0-9]{1,12}$' } }, required: ['id'], additionalProperties: false } },
 ]
 
-const clean = (text: string, max: number) => text.replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, max)
+const clean = (text: string, max: number) => text.replace(/\p{Cc}/gu, ' ').slice(0, max)
 
 type Spent = { tokensIn: number; tokensOut: number; costAmount: number; costCurrency: string; model: string }
 

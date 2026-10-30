@@ -2,6 +2,8 @@ import { GraphQLError } from 'graphql'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import { createAssetService } from '#engine/modules/catalog/index'
 import type { LibraryAsset } from '#db/scoped/catalog'
+import { withSystemScope } from '#db/scoped/index'
+import { selectRepoHead } from '#db/scoped/storefronts'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
@@ -18,7 +20,16 @@ const reads = { api: 'store', scope: 'store', permission: 'storefront.read', tar
 const assetsFor = (ctx: StoreContext) => {
   if (!ctx.sql || !ctx.files) throw forbidden()
   const caller = actingCaller(ctx)
-  return createAssetService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, store: ctx.files })
+  return createAssetService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, store: ctx.files, siteText: siteTextOf(ctx) })
+}
+
+const siteTextOf = (ctx: StoreContext) => async (): Promise<string | null> => {
+  const sql = ctx.sql
+  const repos = (await ctx.siteRepos?.()) ?? null
+  const caller = actingCaller(ctx)
+  if (!sql || !repos) return null
+  const at = await withSystemScope(sql, (tx) => selectRepoHead(tx, caller.context.storeId))
+  return at ? repos.themeText(at.repo, at.head).catch(() => null) : null
 }
 
 const refuse = (code: string, message: string) => new GraphQLError(message, { extensions: { code } })
