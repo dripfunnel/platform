@@ -491,6 +491,18 @@
     "hide": "Hide",
     "notConnected": "We couldn’t reach the store service. Nothing was changed. Try again in a moment.",
     "rateLimited": "Too many tries in a short time. Wait a few minutes, then try again.",
+    "google": {
+      "button": "Continue with Google",
+      "or": "or with email",
+      "retry": "Try again",
+      "resuming": "Picking up your sign-up from Google…",
+      "outcomes": {
+        "noAccount": "There’s no account for that Google address on {product}. Create your store, or sign in with your email and password.",
+        "cancelled": "You cancelled the Google sign-in. Nothing changed.",
+        "unavailable": "Google sign-in isn’t working right now. Nothing changed. Try again, or use your email.",
+        "refused": "Google’s answer couldn’t be checked, so you weren’t signed in. Try again."
+      }
+    },
     "panels": {
       "in": {
         "tag": "Welcome back",

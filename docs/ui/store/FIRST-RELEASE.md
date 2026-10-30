@@ -225,7 +225,8 @@ import banner is built on #302 from the caller's own `catalogImports`, not `stor
 - **Sign-in**: email and password, then the second factor **when the person has it on**. An
   Owner without it is sent to turn it on before the store opens (the `enrol` view, #183); every
   other role may skip it. Five wrong passwords or codes (one count) pause sign-in for 15 minutes and email the account's own address, the prototype's "we've emailed the account owner" (built on #290).
-  Backup codes work once each. Google sign-in authenticates an existing account only (ACCESS §2).
+  Backup codes work once each. Google signs in an existing account only, and Create your store can start from
+  Google, carrying on at the store step with no emailed code and no password (ACCESS §2; built below).
 - **Choose a store / switch store**: the portal never picks; a person who belongs to no store is
   refused, not shown an empty portal. "Create another store" starts sign-up step 3.
 - **Reset password**: a link valid for 30 minutes; signs out everywhere else.
@@ -234,10 +235,18 @@ import banner is built on #302 from the caller's own `catalogImports`, not `stor
 - **Built on #292, part 1** (`apps/ui/store/src/features/auth/`): sign-in with its code, backup-code
   and SMS set-up steps, the lock, reset, sign-up `su1`–`su4` and its building view, invitations
   (`/accept-invite`, `/join`), the confirm-email link and the chooser in the same frame, each view
-  under `?state=` (`authStates.ts`). Not built, for want of an API: Google sign-in; setting up an
+  under `?state=` (`authStates.ts`). Not built, for want of an API: setting up an
   authenticator app at sign-in (SMS only); "Create another store", since sign-up starts only for a
   new account; and the web address's suffix, which needs the partner's storefront domain. Country
   is asked on the store step, where the API takes it.
+- **Google sign-in, built on #1047** (API #1046, ACCESS §2): "Continue with Google" and its "or with email" rule head
+  Sign in and Create your store as PortalAuth `login` and `su1` draw them, only while the partner's Google client is on
+  (`brand.googleSignIn`). Sign in comes back to the store chooser, or to the second-factor or enrol step
+  (`?step=`); Create your store comes back at the store step with Google's name and email (`?step=store`, read with
+  `sign-up/resume`), no emailed code and no password. Coming back without a session is worded by `?outcome=`: no
+  account (naming the partner, with Create your store below), cancelled, unavailable, refused, too many tries, locked
+  (the locked view) and, on sign-up, closed; each has a `?state=`. The rule's words use the muted colour, not the
+  prototype's faint one, which is under AA at 12px.
 - **Built on #292, part 2** (`apps/ui/store/src/features/profile/`): My profile as `PortalProfile`
   draws it, plus "Your activity" (own entries, a page at a time, in StoreActivity's rows). The API
   asks for the password where the prototype doesn't: a new email, every two-step start or switch,

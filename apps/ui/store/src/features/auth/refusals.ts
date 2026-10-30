@@ -5,6 +5,27 @@ const words = messages.auth
 const su = words.signup
 const iv = words.invite
 
+/** Where Google sent the person back without signing them in (ACCESS.md §2; the API's google.ts). */
+export const googleOutcomes = ['no-account', 'cancelled', 'unavailable', 'refused', 'busy', 'closed'] as const
+export type GoogleOutcome = (typeof googleOutcomes)[number]
+
+export const googleOutcomeText = (outcome: GoogleOutcome, product: string): string => {
+  switch (outcome) {
+    case 'no-account':
+      return fill(words.google.outcomes.noAccount, { product })
+    case 'cancelled':
+      return words.google.outcomes.cancelled
+    case 'unavailable':
+      return words.google.outcomes.unavailable
+    case 'refused':
+      return words.google.outcomes.refused
+    case 'busy':
+      return words.rateLimited
+    case 'closed':
+      return su.su1.closed
+  }
+}
+
 /** The words for a refusal on these screens, by its code; tries left where the API counts them. */
 export const refusalText = (refusal: AuthRefusal): string => {
   switch (refusal.code) {

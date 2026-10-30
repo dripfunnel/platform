@@ -134,6 +134,10 @@ export const startSignup = (name: string, email: string, password: string) => po
 
 export const verifySignupEmail = (code: string) => post('sign-up/verify-email', { code }, z.object({ ok: z.literal(true), step: z.literal('store'), countries: z.array(countrySchema), shopDomain: z.string().nullable().optional() }))
 
+/** Where a sign-up stands, for a portal coming back from Google: who it's for and what step 3 offers. */
+export const resumeSignup = () =>
+  post('sign-up/resume', {}, z.object({ ok: z.literal(true), step: z.enum(['verify-email', 'store', 'phone']), name: z.string(), email: z.string(), countries: z.array(countrySchema), shopDomain: z.string().nullable() }))
+
 export const signupStore = (storeName: string, subdomain: string, country: string) => post('sign-up/store', { storeName, subdomain, country }, z.object({ ok: z.literal(true), step: z.literal('phone') }))
 
 export const sendSignupPhone = (phone: string) => post('sign-up/send-phone', { phone }, z.object({ ok: z.literal(true), hint: z.string() }))

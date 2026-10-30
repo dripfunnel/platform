@@ -7,9 +7,9 @@ import { fill, messages } from '../../messages'
 import { sampleCodes, sampleEmail, sampleHint, signInStates, type SignInState } from './authStates'
 import { AuthFrame } from './AuthFrame'
 import { BackupCodes } from './BackupCodes'
-import { CodeField, Field, Foot, PasswordField, Primary, Secondary, useResendWait } from './fields'
+import { CodeField, Field, Foot, GoogleButton, PasswordField, Primary, Secondary, useResendWait } from './fields'
 import { productName } from '../common/productName'
-import { refusalText } from './refusals'
+import { googleOutcomeText, refusalText, type GoogleOutcome } from './refusals'
 import { looksLikeEmail } from '@dripfunnel/shared/format'
 
 const words = messages.auth
@@ -33,6 +33,8 @@ export interface SignInProps {
   note?: 'signedOut' | 'expired' | undefined
   /** Opens on "Forgot password", as a dead reset link's "Ask for a new link" does. */
   start?: 'forgot' | undefined
+  /** Back from Google without a session: why, or the lock Google's account is under. */
+  google?: GoogleOutcome | { locked: number } | undefined
 }
 
 
@@ -70,15 +72,26 @@ const forcedStart = (state: SignInState): { view: View; error: string | null } =
       return { view: { kind: 'login' }, error: refusalText({ ok: false, code: 'NOT_CONNECTED' }) }
     case 'rateLimited':
       return { view: { kind: 'login' }, error: refusalText({ ok: false, code: 'RATE_LIMITED' }) }
+    case 'googleNoAccount':
+      return { view: { kind: 'login' }, error: googleOutcomeText('no-account', productName()) }
+    case 'googleCancelled':
+      return { view: { kind: 'login' }, error: googleOutcomeText('cancelled', productName()) }
+    case 'googleUnavailable':
+      return { view: { kind: 'login' }, error: googleOutcomeText('unavailable', productName()) }
+    case 'googleRefused':
+      return { view: { kind: 'login' }, error: googleOutcomeText('refused', productName()) }
   }
 }
 
+const googleStart = (google: SignInProps['google']): { view: View; error: string | null } | null =>
+  !google ? null : typeof google === 'object' ? { view: { kind: 'locked', minutes: google.locked }, error: null } : { view: { kind: 'login' }, error: googleOutcomeText(google, productName()) }
+
 // PortalAuth's login, tfa, backup, enrol, locked and forgot views (FIRST-RELEASE §4; ACCESS.md §4; ?state=
 // per authStates.ts). Admitted, the person goes to the store chooser, which opens their one store or asks which.
-export const SignIn = ({ next, note, resume, start: opening }: SignInProps) => {
+export const SignIn = ({ next, note, resume, start: opening, google }: SignInProps) => {
   const navigate = useNavigate()
   const forced = useScreenState(signInStates, harnessEnabled)
-  const start = forced ? forcedStart(forced) : null
+  const start = forced ? forcedStart(forced) : googleStart(google)
   const [view, setView] = useState<View>(start?.view ?? (opening === 'forgot' ? { kind: 'forgot' } : resume?.step === 'enrol' ? { kind: 'enrol', hint: null } : resume?.step === 'second-factor' ? { kind: 'code', method: resume.method, hint: null } : { kind: 'login' }))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -196,6 +209,7 @@ export const SignIn = ({ next, note, resume, start: opening }: SignInProps) => {
     case 'login':
       return (
         <AuthFrame panel="in" title={words.signIn.title} sub={words.signIn.sub} notice={notice}>
+          <GoogleButton intent="sign-in" next={next} />
           <form className="df-portal-auth-form" onSubmit={submit} noValidate>
             <Field label={words.fields.email} type="email" autoComplete="email" placeholder={words.fields.emailPlaceholder} value={email} onValue={setEmail} invalid={error !== null} />
             <PasswordField label={words.fields.password} autoComplete="current-password" value={password} onValue={setPassword} invalid={error !== null} aside={{ label: words.signIn.forgot, onClick: () => go({ kind: 'forgot' }) }} />

@@ -133,6 +133,7 @@ describe('the partner’s logos', () => {
     termsUrl: null,
     privacyUrl: null,
     poweredBy: true,
+    googleSignIn: false,
   })
   const frame = async (b: Brand) => {
     setBrand(b)
@@ -174,6 +175,7 @@ describe('the legal links', () => {
     termsUrl: null,
     privacyUrl: null,
     poweredBy: true,
+    googleSignIn: false,
     ...urls,
   })
   const show = async (b: Brand | null, view = <AuthFrame panel="in" title="t" sub="s" />) => {
