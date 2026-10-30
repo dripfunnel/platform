@@ -50,10 +50,12 @@ export const AppHeader = ({ me, seat, current, stores, brand, menuOpen, onOpenMe
         )}
       </Link>
       <StoreSwitcher current={current} stores={stores} />
-      <a className="df-help" href={brand?.helpUrl ?? words.helpUrl} target="_blank" rel="noopener noreferrer">
-        {words.help}
-        <span className="df-visually-hidden"> {words.opensInNewTab}</span>
-      </a>
+      {brand?.helpUrl && (
+        <a className="df-help" href={brand.helpUrl} target="_blank" rel="noopener noreferrer">
+          {words.help}
+          <span className="df-visually-hidden"> {words.opensInNewTab}</span>
+        </a>
+      )}
       <UserMenu
         name={me.name}
         email={me.email}

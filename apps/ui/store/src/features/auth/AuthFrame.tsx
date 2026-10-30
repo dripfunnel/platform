@@ -11,19 +11,26 @@ const words = messages.auth
 
 export type Panel = keyof typeof words.panels
 
-const Legal = () => (
-  <>
-    <a href={words.privacyUrl} target="_blank" rel="noopener noreferrer">
-      {words.privacy}
-      <span className="df-visually-hidden"> {words.opensInNewTab}</span>
-    </a>
-    {' · '}
-    <a href={currentBrand()?.helpUrl ?? words.helpUrl} target="_blank" rel="noopener noreferrer">
-      {words.help}
-      <span className="df-visually-hidden"> {words.opensInNewTab}</span>
-    </a>
-  </>
-)
+const Legal = () => {
+  const helpUrl = currentBrand()?.helpUrl
+  return (
+    <>
+      <a href={words.privacyUrl} target="_blank" rel="noopener noreferrer">
+        {words.privacy}
+        <span className="df-visually-hidden"> {words.opensInNewTab}</span>
+      </a>
+      {helpUrl && (
+        <>
+          {' · '}
+          <a href={helpUrl} target="_blank" rel="noopener noreferrer">
+            {words.help}
+            <span className="df-visually-hidden"> {words.opensInNewTab}</span>
+          </a>
+        </>
+      )}
+    </>
+  )
+}
 
 export interface AuthFrameProps {
   panel: Panel
