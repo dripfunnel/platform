@@ -364,6 +364,16 @@ describe('Activity log (the Owner’s Settings tab)', () => {
     expect(hasText(await run({ state: 'expired' }), 'That export’s link has expired.')).toBe(true)
   })
 
+  it('says so when the export cannot be read back, instead of preparing for ever', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="activity" />, log(owner, [entry()], { 'mutation ExportActivity': () => ({ exportActivity: 'x1' }), 'query ActivityExport': () => { throw new ApiError('NO_RESPONSE', 'x') } }))
+
+    await click(renderer, 'Export CSV')
+
+    expect(hasText(renderer, 'We couldn’t reach the server. Check your connection and try again.')).toBe(true)
+    expect(hasText(renderer, 'Preparing your CSV…')).toBe(false)
+    expect(shareCsv).not.toHaveBeenCalled()
+  })
+
   it('shows a refusal of the export by its code', async () => {
     const { renderer } = await show(<SettingsTabScreen tab="activity" />, log(owner, [entry()], { 'mutation ExportActivity': () => { throw new ApiError('FORBIDDEN', 'x') } }))
 

@@ -71,6 +71,8 @@ export function ActivityView({ title, client, timeZone, canExport }: Props) {
     exported.begin(log.filter).catch((error: unknown) => setExportFailure(errorMessage(error, 'activity')))
   }
 
+  const exportNotice = exportFailure ?? (exported.error !== null ? errorMessage(exported.error, 'activity') : null)
+
   const filtered = log.person !== null || log.what !== null || log.filter.search !== ''
   const body = () => {
     if (log.status === 'loading') return <Text style={[styles.sub, { color: colors.muted }]}>{t('activity.loading')}</Text>
@@ -123,8 +125,8 @@ export function ActivityView({ title, client, timeZone, canExport }: Props) {
           <Text style={[styles.sub, { color: colors.muted }]}>{t('activity.exportOwner')}</Text>
         </>
       )}
-      {exportFailure ? <Notice kind="error" text={exportFailure} /> : null}
-      {exported.job ? <ActivityExportStatus job={exported.job} onShare={() => void exported.share(exported.job as NonNullable<typeof exported.job>)} /> : null}
+      {exportNotice !== null ? <Notice kind="error" text={exportNotice} /> : null}
+      {exported.job && exported.error === null ? <ActivityExportStatus job={exported.job} onShare={() => void exported.share(exported.job as NonNullable<typeof exported.job>)} /> : null}
       <PickerField
         label={t('activity.person')}
         value={personKey}
