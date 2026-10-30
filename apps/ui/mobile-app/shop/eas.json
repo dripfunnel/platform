@@ -5,7 +5,10 @@
   "build": {
     "dev-preview": {
       "distribution": "internal",
-      "channel": "dev",
+      "channel": "dev-preview",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "STORE_KEY": "dev"
       }
