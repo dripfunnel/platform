@@ -36,11 +36,11 @@ export interface StudioDeps extends DesignerDeps {
   models: (billedTo: 'plan' | 'own_key', context: TenantContext) => readonly string[] | Promise<readonly string[]>
   screenshots: Screenshotter | null
   lookup: DnsLookup | null
-  /** A merchant image's bytes from the assets bucket, by its row's key; null when the bucket isn't bound. */
   /** Stock image search (Pixabay); null where no key is set, which hides the picker. */
   stock: StockImages | null
   /** The assets bucket an imported image is stored in; null where it isn't bound. */
   assets: AssetStore | null
+  /** A merchant image's bytes from the assets bucket, by its row's key; null when the bucket isn't bound. */
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
   /** `my-store.one` (SHOP_DOMAIN); the studio frame opens only on `{slug}-preview.` of it. */
   previewDomain: string | null
@@ -202,7 +202,7 @@ export const createStudioService = (deps: StudioDeps) => {
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: error instanceof GatewayError ? `${error.name}:${error.code}` : failureCode(error) })
     }
     if (!reply?.text) {
-      if (billedTo === 'plan' && !failure) await withSystemScope(sql, (tx) => releaseUsage(tx, storeId, 'ai_prompts', monthStart(now()), now()))
+      if (billedTo === 'plan' && (!failure || failure instanceof SignInExpired || (failure instanceof GatewayError && failure.code === 'INVALID_CREDENTIALS'))) await withSystemScope(sql, (tx) => releaseUsage(tx, storeId, 'ai_prompts', monthStart(now()), now()))
     }
     const outcome: AskAnswer['outcome'] = reply?.text ? 'unchanged' : 'failed'
     const message = await recordAfter(sql, storeId, async (tx) => {

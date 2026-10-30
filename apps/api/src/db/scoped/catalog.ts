@@ -650,6 +650,7 @@ const usesOf = (tx: ScopedSql) => tx`(
   + (select count(*) from storefront_content_translation x where a.id = any (x.asset_ids))
   + (select count(*) from storefront_brand x where a.id in (x.logo_asset_id, x.favicon_asset_id))
   + (select count(*) from storefront_seo x where x.share_asset_id = a.id)
+  + (case when a.storefront_visible then 1 else 0 end)
 )::int`
 
 /** The merchant's own images and videos for Storefront › Assets, newest first; never a supplier's, a rider's or a private file. */
@@ -660,7 +661,7 @@ export const selectLibrary = async (tx: ScopedSql, storeId: string, o: { limit: 
     where a.store_id = ${storeId} and a.seller_id is null and a.kind in ('image', 'video')
       and not exists (select 1 from rider r where r.photo_asset_id = a.id)
       and (${o.kind}::text is null or a.kind = ${o.kind})
-      and (${o.search}::text is null or a.name ilike '%' || ${o.search} || '%')
+      and (${o.search}::text is null or a.name ilike ${o.search === null ? null : `%${o.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`})
       and (${o.before?.at ?? null}::timestamptz is null or (a.created_at, a.id) < (${o.before?.at ?? null}::timestamptz, ${o.before?.id ?? null}::uuid))
     order by a.created_at desc, a.id desc
     limit ${o.limit}`

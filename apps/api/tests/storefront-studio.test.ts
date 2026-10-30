@@ -320,6 +320,20 @@ describe('asking for a change', () => {
     expect((await ask('manager', 'Hi', { })).code).toBeDefined()
   })
 
+  it('gives the chat prompt back when the sign-in failed before the model was asked, and keeps it when the provider failed', async () => {
+    const used = await usage(t.storeA1)
+    try {
+      providerFails = new SignInExpired()
+      expect((await w.gql('owner', 'mutation A { askDesign(text: "Hi", page: "home", device: "desktop", mode: "chat") { outcome } }')).data?.['askDesign']).toEqual({ outcome: 'failed' })
+      expect(await usage(t.storeA1)).toBe(used)
+      providerFails = new GatewayError('TIMEOUT')
+      await w.gql('owner', 'mutation A { askDesign(text: "Hi", page: "home", device: "desktop", mode: "chat") { outcome } }')
+      expect(await usage(t.storeA1)).toBe(used + 1)
+    } finally {
+      providerFails = null
+    }
+  })
+
   it('stops a change while the model is thinking: nothing changes, the chat says so, the unit stays spent', async () => {
     const before = await draft(t.storeA1)
     const used = await usage(t.storeA1)
@@ -396,6 +410,10 @@ describe('asking for a change', () => {
     expect((await list('owner', '(search: "hero")'))?.assets[0]?.uses).toBe(1)
     expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')
     await db.sql`update store set logo_asset_id = null where id = ${t.storeA1}`
+    await db.sql`update asset set storefront_visible = true where id = ${own}`
+    expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')
+    await db.sql`update asset set storefront_visible = false where id = ${own}`
+    expect((await list('owner', '(search: "%")'))?.assets).toEqual([])
     for (const h of hidden) expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: h })).code, h).toBe('NOT_FOUND')
     expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).data?.['deleteLibraryAsset']).toBe(true)
     expect((await db.sql`select 1 from asset where id = ${own}`).length).toBe(0)
