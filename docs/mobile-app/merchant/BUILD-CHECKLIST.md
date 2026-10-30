@@ -6,7 +6,7 @@ right. The variables are explained in [CONFIGURATION.md](CONFIGURATION.md).
 
 **Status: proposed, not built.** The commands assume the app's setup in ARCHITECTURE.md §3.
 
-Last updated: 2026-10-28 (#878: crash reports, §1, §3, §4). Before: 2026-10-08.
+Last updated: 2026-10-30 (#878: the local files `eas build` needs for the crash test, §4). Before: 2026-10-29 (#878: the `preview` profile for the crash test, §4). Before: 2026-10-28 (#878: crash reports, §1, §3, §4). Before: 2026-10-08.
 
 ---
 
@@ -87,7 +87,12 @@ Build a preview with the partner's profile and install it on one iPhone and one 
 - [ ] **Crash reports** (a partner with `CRASH_REPORTING=on`): the build links with the other native modules (the Firebase
       Apple SDK makes its pods dynamic frameworks, `ios.useFrameworks`, which is **not yet proven on a device**). A forced
       crash on each phone appears in the partner's Crashlytics with only the person's opaque user id and the acting
-      store id, no name, email or message text. A `dev` build reports nothing.
+      store id, no name, email or message text. A `dev` build reports nothing. For the `dev` partner's test, build with
+      `eas build --profile preview --platform all`: it is a release build (a development-client build never reports) and
+      its profile sets `CRASH_REPORTING=on`, so the two Firebase files must be EAS file variables first, in the **`preview`**
+      environment. `eas build` also reads the config on your own PC, where those variables are not set: in that shell, set
+      `GOOGLE_SERVICES_JSON` and `GOOGLE_SERVICE_INFO_PLIST` to local copies of the two files (outside the repo) for the command; the
+      cloud build uses the EAS ones.
 
 ---
 
