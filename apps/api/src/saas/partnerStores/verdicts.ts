@@ -1,10 +1,12 @@
 import { partnerRoleHas, type PartnerPermission, type PartnerRole } from '#auth/partnerPermissions'
 import type { StoreListRow } from '#db/scoped/stores'
 import { setupStateOf } from '#saas/provisioning/index'
+import { archivable } from '#saas/stores/archive'
 
-export type ActionRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'FINANCE_TRIAL_ONLY' | 'BILLING_ROLES_ONLY'
+// CANCEL_OR_SUSPEND_FIRST: Archive is offered on every store not archived, and only a Cancelled or Suspended one goes (#1056).
+export type ActionRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'FINANCE_TRIAL_ONLY' | 'BILLING_ROLES_ONLY' | 'CANCEL_OR_SUSPEND_FIRST'
 export type ActionPermission = { allowed: true } | { allowed: false; reason: ActionRefusal }
-export const storeActions = ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'restore', 'suspend', 'retryStep'] as const
+export const storeActions = ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'restore', 'suspend', 'archive', 'retryStep'] as const
 export type StoreAction = (typeof storeActions)[number]
 
 // FIRST-RELEASE §6.4 "Offered when", then the permission each needs (ACCESS.md §5.3): an action
@@ -16,6 +18,7 @@ export const storeActionPermission: Record<StoreAction, PartnerPermission> = {
   resendInvite: 'stores.invite.resend',
   restore: 'stores.suspend',
   suspend: 'stores.suspend',
+  archive: 'stores.archive',
   retryStep: 'setup.retry',
 }
 
@@ -30,9 +33,15 @@ export const actionsFor = (row: StoreListRow, role: PartnerRole, now: Date): Par
     ...(row.status === 'trial' ? (['extendTrial'] as const) : []),
     ...(row.status === 'active' || row.status === 'trial' || row.status === 'past_due' ? (['suspend'] as const) : []),
     ...(row.status === 'suspended' ? (['restore'] as const) : []),
+    ...(row.status !== 'closed' ? (['archive'] as const) : []),
     'resendInvite' as const,
     ...(setup === 'stuck' || setup === 'failed' ? (['retryStep'] as const) : []),
   ]
-  return Object.fromEntries(offered.map((action) => [action, permissionFor(action, role)]))
+  return Object.fromEntries(
+    offered.map((action) => {
+      const verdict = permissionFor(action, role)
+      return [action, action === 'archive' && verdict.allowed && !archivable(row.status) ? { allowed: false, reason: 'CANCEL_OR_SUSPEND_FIRST' } : verdict]
+    }),
+  )
 }
 

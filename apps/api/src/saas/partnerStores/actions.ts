@@ -18,6 +18,7 @@ import {
   selectSubscriptionForUpdate,
   type SubscriptionRow,
 } from '#db/scoped/storeAccount'
+import { partnerEndSubscription } from '#db/scoped/storeBilling'
 import {
   restartJobStep,
   selectLatestJobForUpdate,
@@ -31,6 +32,8 @@ import { setupStateOf } from '#saas/provisioning/index'
 import { reasonText } from '#saas/staff/index'
 import { extendTrial as extendStoreTrial, reissueOwnerInvitation, transitionStore } from '#saas/stores/index'
 import { actionsFor, type ActionRefusal, type StoreAction } from './verdicts'
+import type { StoreBillingStripe } from '#integrations/stripe/subscriptions'
+import { closeStore, endStripeSubscription } from '#saas/stores/archive'
 import { prorate, signed, type Proration } from './proration'
 import { trialChoices, trialEndAfter } from './trial'
 
@@ -44,12 +47,13 @@ export const storeActionAudit = {
   removeLimitOverride: 'store.limit_override_removed',
   suspendStore: 'store.suspended',
   restoreStore: 'store.restored',
+  archiveStore: 'store.archived',
   resendStoreOwnerInvite: 'store.invitation_resent',
   retryProvisioningStep: 'store.setup_step_retried',
 } as const
 
 export type StateRefusal = 'NOT_ON_TRIAL' | 'ALREADY_SUSPENDED' | 'NOT_SUSPENDED' | 'CANCELLED' | 'NOT_STUCK' | 'NO_PENDING_INVITATION'
-export type InputRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'PLAN_NOT_LIVE' | 'SAME_PLAN' | 'UNPRICED_CURRENCY' | 'NO_BILLING_DATE'
+export type InputRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'PLAN_NOT_LIVE' | 'SAME_PLAN' | 'UNPRICED_CURRENCY' | 'NO_BILLING_DATE' | 'PROVIDER_UNAVAILABLE'
 export type StoreActionRefusal = ActionRefusal | StateRefusal | InputRefusal
 export type StoreActionResult<T = object> = ({ ok: true } & T) | { ok: false; reason: StoreActionRefusal }
 
@@ -101,10 +105,12 @@ export interface PartnerStoreActionsDeps {
   caller: PartnerCaller
   facts: RequestFacts
   activity: ActivityLog
+  /** Ends an archived store's live subscription (#1056); null where billing isn't connected. */
+  billingStripe?: Pick<StoreBillingStripe, 'cancelNow'> | null
   now: () => Date
 }
 
-export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }: PartnerStoreActionsDeps) => {
+export const createPartnerStoreActions = ({ sql, caller, facts, activity, billingStripe = null, now }: PartnerStoreActionsDeps) => {
   const partnerId = caller.partner.id
   const context = partnerContextOf(caller)
   const by = agentOf(caller)
@@ -274,6 +280,22 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
     })
   }
 
+  // Archive (#1056): SAAS §4.2's Closed. The store is checked as this partner's and archivable before Stripe is asked to end
+  // its subscription, and again under the lock that closes it.
+  const archiveStore = async (storeId: string, rawReason: unknown): Promise<StoreActionResult> => {
+    const parsed = reasonText.safeParse(rawReason)
+    if (!parsed.success) return { ok: false, reason: 'INVALID_INPUT' }
+    const reason = parsed.data
+    const allowed = await act<object>(storeId, 'archive', async () => ({ ok: true }))
+    if (!allowed.ok) return allowed
+    if ((await endStripeSubscription(sql, billingStripe, storeId)) !== 'ok') return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
+    return act<object>(storeId, 'archive', async (tx, store, _row, at) => {
+      if (!(await closeStore(tx, store, caller.partner.name, at, partnerEndSubscription))) return { ok: false, reason: 'CANCEL_OR_SUSPEND_FIRST' }
+      await activity.record(tx, entry(store, storeActionAudit.archiveStore, reason, { changes: [{ field: 'status', before: store.status, after: 'closed' }] }))
+      return { ok: true }
+    })
+  }
+
   const restoreStore = (storeId: string, rawReason: unknown): Promise<StoreActionResult<{ status: StoreStatus }>> => {
     const parsed = reasonText.safeParse(rawReason)
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
@@ -330,7 +352,7 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
       return { ok: true }
     })
 
-  return { changePlanOptions, changeStorePlan, extendTrial, addLimitOverride, removeLimitOverride: removeOverride, suspendStore, restoreStore, resendStoreOwnerInvite, retryProvisioningStep }
+  return { changePlanOptions, changeStorePlan, extendTrial, addLimitOverride, removeLimitOverride: removeOverride, suspendStore, restoreStore, archiveStore, resendStoreOwnerInvite, retryProvisioningStep }
 }
 
 export type PartnerStoreActions = ReturnType<typeof createPartnerStoreActions>

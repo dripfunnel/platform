@@ -242,7 +242,7 @@ DATA-MODEL §2).
 | **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner); the store's suppliers keep their stock and shipping going and aren't told (below) | **Keeps selling** as normal (decided 2026-10-05 on #284) |
 | **Suspended** | A person: Admin, or the partner (confirmed 2026-09-30: a partner's Owner and Admin may suspend and restore their own merchants, ACCESS §5.3), with a required reason; or dunning, **after 14 days past due** (decided 2026-10-05 on #284) | Sign-in shows why and whom to contact: **the partner's support, never DripFunnel's** (decided 2026-09-30), so white label holds; no writes | A degraded page served by an edge rule, without a rebuild. It tells shoppers to contact the store and carries no DripFunnel contact route |
 | **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Live until the paid period ends, then offline; kept 90 days (decided 2026-10-05 on #337) |
-| **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept **90 days**, then deleted (decided 2026-10-05 on #337) |
+| **Closed**, shown as **Archived** | Staff or the partner, after export is offered: **Archive store** (built on #1056) | Gone | Gone; repo and assets kept **90 days**, then deleted (decided 2026-10-05 on #337) |
 
 The row keeps the facts of each state (DATA-MODEL.md §2.1, built on #32); a suspended store
 remembers the status it had, so Restore returns to it exactly (decided on #20).
@@ -268,6 +268,17 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
   transaction, and one that fails goes behind the others in the next run. *Decided here*: that past-due
   store may still choose a plan while read-only, since paying is how it leaves (ui/store
   FIRST-RELEASE.md §3.3). The 90-day deletion is Closed's, not built here.
+- **Archive, built on #1056** (decided 2026-10-31): a Super admin, or the partner's Owner or Admin for its own
+  stores (never in an impersonation), archives a **Cancelled or Suspended** store with a reason and its name typed.
+  A suspended store passes through Cancelled; either way it becomes **Closed**, with `closed_at` and `closed_by_label`.
+  Any live Stripe subscription (a suspended store's, or a cancelled one still in its paid period) is cancelled at
+  Stripe **first and at once, with no refund**, so a refusal there leaves the store as it was; then the subscription
+  row ends. At once the store leaves its people's store lists, a session acting in it is refused, and its storefront
+  and Shop API answer 404 (they already refuse Closed). The Owner gets `store-archived` in the partner's voice
+  (archived, data kept 90 days, ask the partner's support for a copy); the storefront's lookups are purged; the
+  activity log has `store.archived` with the reason. Both consoles keep listing the store as **Archived**. There is
+  no way back. "After export is offered": a cancelled store's Owner had the export while read-only; a suspended
+  store's asks the partner's support.
 
 ### 4.3 What the partner can do to an account
 

@@ -74,6 +74,20 @@ export const storeDialog = (action: DialogAction, store: Store): StoreDialog => 
         reason: reasonField(spec.reason, spec.reasonPlaceholder),
       }
     }
+    // Archive (#1056): SAAS §4.2's Closed, no way back; worded as Suspend's, since it ends the store for everyone.
+    case 'archive': {
+      const spec = words.dialogs.archive
+      return {
+        ...base,
+        title: fill(spec.title, values),
+        consequence: fill(spec.consequence, values),
+        confirmLabel: spec.confirm,
+        notes: spec.notes.map((note) => fill(note, values)),
+        reason: reasonField(spec.reason, spec.reasonPlaceholder, spec.reasonHint),
+        typeToConfirm: { label: fill(spec.typeLabel, values), hint: spec.typeHint, expected: store.name },
+        danger: true,
+      }
+    }
     case 'extendTrial': {
       const spec = words.dialogs.extendTrial
       const trialEndsAt = store.state.kind === 'trial' ? store.state.trialEndsAt : store.createdAt

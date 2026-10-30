@@ -388,6 +388,7 @@ type JobProgress {
 type Mutation {
   addStoreNote(id: ID!, text: String!): StoreMutationOutcome
   approvePartner(id: ID!, reason: String!): PartnerMutationOutcome
+  archiveStore(id: ID!, reason: String!): StoreMutationOutcome
   assignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
   changeStaffRole(id: ID!, role: String!): StaffResult
   createPartner(input: CreatePartnerInput!): PartnerMutationOutcome
@@ -906,6 +907,7 @@ type Store {
 
 type StoreActions {
   addNote: ActionPermission
+  archive: ActionPermission
   extendTrial: ActionPermission
   resendInvite: ActionPermission
   restore: ActionPermission

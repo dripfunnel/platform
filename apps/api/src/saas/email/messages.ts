@@ -178,6 +178,14 @@ export const en = {
     // Decided on #337: data, assets and the repo are kept 90 days, with the export offered.
     data: 'Your products, orders and customers are kept for 90 days. Download them from Billing before then.',
   },
+  // #1056: archived by the partner or DripFunnel (SAAS §4.2 Closed); the Owner can't sign in to it any more.
+  storeArchived: {
+    subject: (store: string) => `${store} is archived`,
+    heading: 'Your store is archived',
+    body: (store: string) => `${store} has been archived. It no longer appears when you sign in, and shoppers can no longer see its storefront.`,
+    data: 'Its products, orders and customers are kept for 90 days, then deleted.',
+    contact: (contact: string) => `For a copy of them before then, or with any question, contact ${contact}.`,
+  },
   storefrontBaseline: {
     subject: (store: string) => `${store}'s storefront is showing a simpler design for now`,
     heading: 'Your storefront is showing a simpler design',

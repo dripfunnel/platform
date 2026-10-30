@@ -27,6 +27,8 @@ export interface StoreBillingStripe {
   releaseSchedule: (scheduleId: string) => Promise<void>
   /** Ends the subscription at its period's end; nothing more is charged. */
   cancelAtPeriodEnd: (subscriptionId: string, idempotencyKey: string) => Promise<StripeSubscription>
+  /** Ends it now, no refund (#1056); one already ended is left as it is. */
+  cancelNow: (subscriptionId: string) => Promise<void>
   /** Tries the open invoice again with the customer's card; the key is per card, so a new card tries once more. */
   payInvoice: (invoiceId: string, idempotencyKey: string) => Promise<StripeInvoice>
 }
@@ -122,6 +124,15 @@ export const storeBillingStripe = ({ secretKey, fetchImpl = fetch }: { secretKey
     },
     cancelAtPeriodEnd: (subscriptionId, idempotencyKey) =>
       call(subscription, 'POST', `/subscriptions/${encodeURIComponent(subscriptionId)}`, { body: form({ cancel_at_period_end: 'true' }), idempotencyKey }),
+    cancelNow: async (subscriptionId) => {
+      try {
+        // A DELETE is idempotent at Stripe, so it takes no key.
+        await call(z.object({ id: z.string() }).loose(), 'DELETE', `/subscriptions/${encodeURIComponent(subscriptionId)}`)
+      } catch (error) {
+        // Ended already, or gone: nothing is left to charge, which is what was asked.
+        if (!(error instanceof StripeRefused)) throw error
+      }
+    },
     payInvoice: (invoiceId, idempotencyKey) => call(invoiceSchema.loose(), 'POST', `/invoices/${encodeURIComponent(invoiceId)}/pay`, { idempotencyKey }),
   }
 }

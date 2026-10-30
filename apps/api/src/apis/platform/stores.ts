@@ -17,7 +17,8 @@ const State = builder.objectRef<StoreState>('StoreState').implement({
     daysLeft: t.int({ nullable: true, resolve: (s) => (s.kind === 'trial' ? s.daysLeft : null) }),
     daysPastDue: t.int({ nullable: true, resolve: (s) => (s.kind === 'pastdue' ? s.daysPastDue : null) }),
     reason: t.string({ nullable: true, resolve: (s) => (s.kind === 'suspended' ? s.reason : null) }),
-    since: t.string({ nullable: true, resolve: (s) => (s.kind === 'cancelled' ? iso(s.since) : null) }),
+    since: t.string({ nullable: true, resolve: (s) => (s.kind === 'cancelled' || s.kind === 'closed' ? iso(s.since) : null) }),
+    by: t.string({ nullable: true, resolve: (s) => (s.kind === 'closed' ? s.by : null) }),
   }),
 })
 
@@ -143,6 +144,7 @@ const Actions = builder.objectRef<Detail['actions']>('StoreActions').implement({
     resendInvite: t.field({ type: Permission, nullable: true, resolve: (a) => a.resendInvite ?? null }),
     restore: t.field({ type: Permission, nullable: true, resolve: (a) => a.restore ?? null }),
     suspend: t.field({ type: Permission, nullable: true, resolve: (a) => a.suspend ?? null }),
+    archive: t.field({ type: Permission, nullable: true, resolve: (a) => a.archive ?? null }),
     retryStep: t.field({ type: Permission, nullable: true, resolve: (a) => a.retryStep ?? null }),
   }),
 })

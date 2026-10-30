@@ -70,7 +70,7 @@ export const statusSub = (state: StoreState): { text: string; tone: 'muted' | 'w
     case 'cancelled':
       return { text: fill(words.statusSub.cancelled, { date: formatDate(state.since) }), tone: 'muted' }
     case 'closed':
-      return { text: fill(words.statusSub.closed, { date: formatDate(state.since) }), tone: 'muted' }
+      return { text: state.by ? fill(words.statusSub.closedBy, { date: formatDate(state.since), by: state.by }) : fill(words.statusSub.closed, { date: formatDate(state.since) }), tone: 'muted' }
     case 'active':
       return null
   }

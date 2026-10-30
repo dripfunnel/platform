@@ -142,7 +142,7 @@ export const form = (params: Record<string, string | Record<string, string> | un
   return body.toString()
 }
 
-export type StripeCall = <S extends z.ZodType>(schema: S, method: 'GET' | 'POST', path: string, opts?: { body?: string; account?: string; idempotencyKey?: string }) => Promise<z.infer<S>>
+export type StripeCall = <S extends z.ZodType>(schema: S, method: 'GET' | 'POST' | 'DELETE', path: string, opts?: { body?: string; account?: string; idempotencyKey?: string }) => Promise<z.infer<S>>
 
 /** One request to Stripe with the key, a timeout, and its answer read through `schema`. */
 export const stripeRequester = ({ secretKey, fetchImpl = fetch }: { secretKey: string; fetchImpl?: typeof fetch }): StripeCall => async (schema, method, path, opts = {}) => {

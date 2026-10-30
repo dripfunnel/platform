@@ -99,6 +99,7 @@ const payloads = {
   'store-plan-changed': z.object({ storeId: id, planId: id, when: z.enum(['next', 'now']) }),
   'store-suspended': z.object({ storeId: id, reason: z.string().max(500) }),
   'store-restored': z.object({ storeId: id }),
+  'store-archived': z.object({ storeId: id }),
   'storefront-baseline': z.object({ storeId: id }),
   'support-session-started': z.object({ supportSessionId: id }),
   'support-write-allowed': z.object({ supportSessionId: id }),
@@ -404,6 +405,17 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       // The partner's support, never DripFunnel's (SAAS §4.2): without one, no contact line.
       const contact = m.brand.supportEmail ?? m.brand.supportUrl
       const paragraphs = [w.body(m.store.name), w.reason(p.reason), ...(contact ? [w.contact(contact)] : [])]
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
+    }
+    case 'store-archived': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const w = en.storeArchived
+      // The partner's support, never DripFunnel's (SAAS §4.2): without one, no contact line.
+      const contact = m.brand.supportEmail ?? m.brand.supportUrl
+      const paragraphs = [w.body(m.store.name), w.data, ...(contact ? [w.contact(contact)] : [])]
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
     }
     case 'order-downloads': {

@@ -15,6 +15,7 @@ const table: Record<PartnerPermission, string> = {
   'stores.plan': 'OW AD',
   'stores.trial': 'OW AD FI',
   'stores.suspend': 'OW AD',
+  'stores.archive': 'OW AD',
   'stores.invite.resend': 'OW AD',
   'setup.retry': 'OW AD',
   'stores.billingStatus': 'OW AD FI',

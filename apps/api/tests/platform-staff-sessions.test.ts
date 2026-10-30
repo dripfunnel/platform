@@ -229,9 +229,11 @@ describe('the blocked lists', () => {
   const googleSignInWrites = ['savePartnerGoogleSignIn', 'turnOffPartnerGoogleSignIn']
   // A user's own name and password are theirs alone (My profile, #1053): neither staff session changes them.
   const ownAccount = ['changeMyPassword', 'updateMyName']
+  // Archiving a store is the partner's own decision, never staff acting as a partner user (#1056).
+  const archive = ['archiveStore']
 
   it('refuses an impersonation ownership, the team’s sign-in rule, and the user’s own second factor and support access', () => {
-    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, ...aiKeyWrites, ...googleSignInWrites, ...ownAccount, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
+    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, ...aiKeyWrites, ...googleSignInWrites, ...ownAccount, ...archive, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
   })
 
   it('refuses a setup session ownership and support access, which need a partner user', () => {

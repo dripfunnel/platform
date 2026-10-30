@@ -1,6 +1,8 @@
 import { redactSecretsInText } from '#core/secretText'
 import type postgres from 'postgres'
 import { z } from 'zod'
+import type { StoreBillingStripe } from '#integrations/stripe/subscriptions'
+import { archivable, closeStore, endStripeSubscription } from './archive'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { AccessTarget } from '#auth/assignment'
 import { partnerScopedRoles, type StaffPermission } from '#auth/permissions'
@@ -10,6 +12,7 @@ import type { StaffContext } from '#core/tenancy'
 import type { BuildState, CustomDomainRow, HostStatus, StoreRow, StoreStatus } from '#db/schema/saas'
 import { selectActivity } from '#db/scoped/activity'
 import { withScope, type ScopedSql } from '#db/scoped/index'
+import { endSubscriptionNow } from '#db/scoped/storeBilling'
 import {
   insertStoreNote,
   selectCustomDomains,
@@ -42,6 +45,7 @@ export const storeAudit = {
   suspendStore: 'store.suspended',
   emergencyFlagged: 'store.suspension_flagged_for_review',
   restoreStore: 'store.restored',
+  archiveStore: 'store.archived',
   extendTrial: 'store.trial_extended',
   resendStoreOwnerInvite: 'store.invitation_resent',
   addStoreNote: 'store.note_added',
@@ -50,7 +54,7 @@ export const storeAudit = {
 
 export type StoreAuditAction = (typeof storeAudit)[keyof typeof storeAudit]
 
-export type StoreActionName = 'suspend' | 'restore' | 'extendTrial' | 'resendInvite' | 'addNote'
+export type StoreActionName = 'suspend' | 'restore' | 'archive' | 'extendTrial' | 'resendInvite' | 'addNote'
 export type JobActionName = 'retry' | 'undo'
 
 export type RefusalCode =
@@ -72,6 +76,9 @@ export type RefusalCode =
   | 'NO_PENDING_INVITATION'
   | 'TARGET_NOT_ACTIVE'
   | 'PARTNER_CLOSED'
+  // Archive (#1056): only a Cancelled or Suspended store; a live subscription Stripe couldn't end leaves it as it was.
+  | 'NOT_ARCHIVABLE'
+  | 'PROVIDER_UNAVAILABLE'
 
 /** `emergency` marks an Engineer on call's suspension, which a Super admin reviews (FIRST-RELEASE §5.3). */
 export type ActionPermission = { allowed: true; emergency?: true } | { allowed: false; reason: RefusalCode }
@@ -85,7 +92,7 @@ export type StoreState =
   | { kind: 'past_due'; daysPastDue: number }
   | { kind: 'suspended'; reason: string; by: string; since: Date; previous: 'trial' | 'active' | 'past_due' }
   | { kind: 'cancelled'; since: Date }
-  | { kind: 'closed'; since: Date }
+  | { kind: 'closed'; since: Date; by: string | null }
 
 export interface StoreRowDto {
   id: string
@@ -165,6 +172,8 @@ export interface StoresServiceDeps {
   isAssigned: (staffId: string, target: AccessTarget) => Promise<boolean>
   /** The domain of every store's free address, `{slug}.<SHOP_DOMAIN>`; null where none is set. */
   shopDomain: string | null
+  /** Ends an archived store's live subscription (#1056); null where billing isn't connected. */
+  stripe?: Pick<StoreBillingStripe, 'cancelNow'> | null
   now: () => Date
 }
 
@@ -173,6 +182,7 @@ const noteText = z.string().trim().min(1).max(storeNoteMaxLength)
 const roleRefusals: Partial<Record<StaffPermission, RefusalCode>> = {
   'stores.suspend': 'SUSPENDERS_ONLY',
   'stores.restore': 'SUPER_ADMIN_ONLY',
+  'stores.archive': 'SUPER_ADMIN_ONLY',
   'stores.trial.extend': 'SUPER_ADMIN_ONLY',
   'stores.invite.resend': 'INVITERS_ONLY',
   'stores.notes.write': 'NOTERS_ONLY',
@@ -197,7 +207,7 @@ const stateOf = (row: StoreRow, now: Date): StoreState => {
     case 'cancelled':
       return { kind: 'cancelled', since: row.cancelled_at ?? now }
     case 'closed':
-      return { kind: 'closed', since: row.closed_at ?? now }
+      return { kind: 'closed', since: row.closed_at ?? now, by: row.closed_by_label }
   }
 }
 
@@ -288,6 +298,9 @@ export const createStoresService = (deps: StoresServiceDeps) => {
       actions.suspend = suspend.allowed && staff.role === 'staff-engineer' ? { allowed: true, emergency: true } : suspend
     }
     if (row.status === 'suspended') actions.restore = may('stores.restore')
+    // Offered on every store not yet archived, off with the reason until it is Cancelled or Suspended (#1056).
+    const archive = may('stores.archive')
+    actions.archive = archive.allowed && !archivable(row.status) ? { allowed: false, reason: 'NOT_ARCHIVABLE' } : archive
     if (row.status === 'trial') actions.extendTrial = may('stores.trial.extend')
     // Offered while the Owner's invitation is open, the same fact the mutation checks.
     if (row.owner_invitation_open) actions.resendInvite = may('stores.invite.resend')
@@ -449,6 +462,21 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     })
   }
 
+  const archiveStore = async (id: string, reason: string | null): Promise<Result<{ status: StoreStatus }>> => {
+    const refused = refusedBy('stores.archive')
+    if (refused) return refused
+    const parsed = reasonText.safeParse(reason ?? '')
+    if (!parsed.success) return { ok: false, code: 'REASON_REQUIRED' }
+    if (!(await visible(id))) return { ok: false, code: 'NOT_FOUND' }
+    const ended = await endStripeSubscription(sql, deps.stripe ?? null, id)
+    if (ended !== 'ok') return { ok: false, code: 'PROVIDER_UNAVAILABLE' }
+    return locked(id, async (tx, store): Promise<Result<{ status: StoreStatus }>> => {
+      if (!(await closeStore(tx, store, staff.name, now(), endSubscriptionNow))) return { ok: false, code: 'NOT_ARCHIVABLE' }
+      await activity.record(tx, entry(store, storeAudit.archiveStore, parsed.data, { changes: [{ field: 'status', before: store.status, after: 'closed' }] }))
+      return { ok: true, status: 'closed' }
+    })
+  }
+
   const extendTrial = async (id: string, trialEndsAt: string): Promise<Result<{ trialEndsAt: Date }>> => {
     const refused = refusedBy('stores.trial.extend')
     if (refused) return refused
@@ -509,7 +537,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     })
   }
 
-  return { list, get, suspendStore, restoreStore, extendTrial, resendStoreOwnerInvite, addStoreNote, recheckStoreDomain }
+  return { list, get, suspendStore, restoreStore, archiveStore, extendTrial, resendStoreOwnerInvite, addStoreNote, recheckStoreDomain }
 }
 
 export type StoresService = ReturnType<typeof createStoresService>

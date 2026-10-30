@@ -38,7 +38,7 @@ const StoreStateType = builder.objectRef<StoreState>('StoreState').implement({
     daysLeft: t.int({ nullable: true, resolve: (s) => (s.kind === 'trial' ? s.daysLeft : null) }),
     daysPastDue: t.int({ nullable: true, resolve: (s) => (s.kind === 'past_due' ? s.daysPastDue : null) }),
     reason: t.string({ nullable: true, resolve: (s) => (s.kind === 'suspended' ? s.reason : null) }),
-    by: t.string({ nullable: true, resolve: (s) => (s.kind === 'suspended' ? s.by : null) }),
+    by: t.string({ nullable: true, resolve: (s) => (s.kind === 'suspended' || s.kind === 'closed' ? s.by : null) }),
     previous: t.string({ nullable: true, resolve: (s) => (s.kind === 'suspended' ? s.previous : null) }),
     since: t.string({ nullable: true, resolve: (s) => (s.kind === 'suspended' || s.kind === 'cancelled' || s.kind === 'closed' ? s.since.toISOString() : null) }),
   }),
@@ -152,6 +152,7 @@ const StoreActions = builder.objectRef<StorePermissions>('StoreActions').impleme
   fields: (t) => ({
     suspend: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.suspend) }),
     restore: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.restore) }),
+    archive: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.archive) }),
     extendTrial: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.extendTrial) }),
     resendInvite: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.resendInvite) }),
     addNote: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.addNote) }),
@@ -260,6 +261,13 @@ builder.mutationFields((t) => ({
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.restore', target: byId, audit: storeAudit.restoreStore } },
     resolve: async (_, args, ctx) => outcome(await signedIn(ctx.stores).restoreStore(String(args.id), args.reason)),
+  }),
+  // Archive (#1056): SAAS §4.2's Closed, from Cancelled or Suspended only; no way back.
+  archiveStore: t.field({
+    type: OutcomeType,
+    args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
+    extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.archive', target: byId, audit: storeAudit.archiveStore } },
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.stores).archiveStore(String(args.id), args.reason)),
   }),
   extendTrial: t.field({
     type: OutcomeType,

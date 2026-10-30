@@ -1025,7 +1025,7 @@
       "pastdue": "Past due",
       "suspended": "Suspended",
       "cancelled": "Cancelled",
-      "closed": "Closed"
+      "closed": "Archived"
     },
     "statusSub": {
       "trialDays": {
@@ -1038,7 +1038,9 @@
         "one": "{count} day · changes blocked, still selling",
         "other": "{count} days · changes blocked, still selling"
       },
-      "cancelled": "Since {date}"
+      "cancelled": "Since {date}",
+      "closed": "Archived {date}",
+      "closedBy": "Archived {date} · by {by}"
     },
     "storefronts": {
       "live": "Live",
@@ -1240,6 +1242,7 @@
       "addOverride": "Add a limit override",
       "suspend": "Suspend",
       "restore": "Restore",
+      "archive": "Archive store",
       "resendInvite": "Resend owner invitation",
       "retryStep": "Retry this step"
     },
@@ -1248,6 +1251,8 @@
       "FINANCE_TRIAL_ONLY": "Your role can’t {verb}. Owners, Admins and Finance can.",
       "ALREADY_SUSPENDED": "{name} is already suspended.",
       "NOT_SUSPENDED": "{name} is not suspended.",
+      "CANCEL_OR_SUSPEND_FIRST": "Only a cancelled or suspended store can be archived. Suspend {name} first.",
+      "PROVIDER_UNAVAILABLE": "Its subscription couldn’t be ended just now, so nothing was changed. Try again in a moment.",
       "NOT_ON_TRIAL": "{name} is not on a trial.",
       "NO_PENDING_INVITATION": "The owner has already set a password.",
       "READ_ONLY": "The console is read-only, so nothing here can change.",
@@ -1268,6 +1273,7 @@
       "addOverride": "add limit overrides",
       "suspend": "suspend stores",
       "restore": "restore stores",
+      "archive": "archive stores",
       "resendInvite": "resend invitations",
       "retryStep": "retry a setup step",
       "billingStatus": "set billing status",
@@ -1504,6 +1510,15 @@
         "forAlways": "Until removed",
         "confirm": "Add override"
       },
+      "archive": {
+        "title": "Archive {name}?",
+        "consequence": "{name} disappears at once for its team and its shoppers: it’s gone from their store list, anyone signed in is signed out of it, and its shop goes offline. Any subscription it still has ends now, with no refund. Its data is kept for 90 days, then deleted. {owner} gets an email saying so. This can’t be undone.",
+        "reason": "Reason",
+        "reasonHint": "Required. Kept in the activity log.",
+        "typeLabel": "Type the store name to confirm",
+        "typeHint": "Type {name} exactly to confirm.",
+        "confirm": "Archive store"
+      },
       "suspend": {
         "title": "Suspend {name}?",
         "consequence": "Its shop stops taking orders and its team can’t make changes until you restore it. {owner} gets the “Store suspended” email. Billing pauses.",
@@ -1536,6 +1551,7 @@
       "addOverride": "Override added.",
       "suspend": "{name} is suspended.",
       "restore": "{name} is restored.",
+      "archive": "{name} is archived.",
       "resendInvite": "Invitation sent to {email}.",
       "retryStep": "Retried. {name}’s storefront is live.",
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",

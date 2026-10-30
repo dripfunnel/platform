@@ -17,6 +17,7 @@ const statusLook: Record<StoreState['kind'], Look> = {
   pastdue: { tone: 'warning', icon: 'alert' },
   suspended: { tone: 'solid', icon: 'ban' },
   cancelled: { tone: 'neutral', icon: 'cross' },
+  closed: { tone: 'neutral', icon: 'ban' },
 }
 
 const storefrontLook: Record<StorefrontState, Look> = {
@@ -50,6 +51,9 @@ export const statusSub = (state: StoreState): { text: string; tone: 'muted' | 'w
       return { text: state.reason, tone: 'danger' }
     case 'cancelled':
       return state.since ? { text: fill(words.statusSub.cancelled, { date: formatDate(state.since) }), tone: 'muted' } : null
+    case 'closed':
+      if (!state.since) return null
+      return { text: state.by ? fill(words.statusSub.closedBy, { date: formatDate(state.since), by: state.by }) : fill(words.statusSub.closed, { date: formatDate(state.since) }), tone: 'muted' }
     case 'active':
       return null
   }
