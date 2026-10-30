@@ -115,6 +115,18 @@ describe('signing in by a texted code', () => {
       await db.sql`delete from customer where phone = '+919855555555'`
     }
   })
+  it('still checks an EMAIL code when CODE_CHECK is 0, which skips text codes only (#1002)', async () => {
+    await gql('mutation { requestSignInCode(channel: EMAIL, to: "mina@example.com") }')
+    const code = await emailedCode()
+    expect((await verify('EMAIL', 'mina@example.com', code === '000000' ? '111111' : '000000', '', { codeCheck: '0' })).code).toBe('CODE_REFUSED')
+    try {
+      expect(((await verify('EMAIL', 'mina@example.com', code, '', { codeCheck: '0' })).data?.['verifySignInCode'] as { created: boolean }).created).toBe(true)
+    } finally {
+      await db.sql`delete from customer_session where customer_id in (select id from customer where email = 'mina@example.com')`
+      await db.sql`delete from customer where email = 'mina@example.com'`
+    }
+  })
+
   it('still refuses an expired code and one out of tries when CODE_CHECK is 0', async () => {
     const spoiled = [
       (target: string) => db.sql`update customer_code set expires_at = '2000-01-01' where target = ${target} and used_at is null`,
