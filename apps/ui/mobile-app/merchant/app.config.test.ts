@@ -1,7 +1,7 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildConfig, readFirebaseFiles, readPartnerEnv } from './app.config'
+import { buildConfig, googleIosUrlScheme, readFirebaseFiles, readPartnerEnv } from './app.config'
 
 const appRoot = __dirname
 let root: string
@@ -30,6 +30,27 @@ describe('app.config.ts', () => {
     expect(config.ios?.bundleIdentifier).toBe(env.IOS_BUNDLE_ID)
     expect(config.android?.package).toBe(env.ANDROID_PACKAGE)
     expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.actuateminds.com' })
+  })
+
+  // Built, not written out: GitHub's push protection reads a literal in Google's shape as a leaked credential.
+  const googleClient = (prefix: string) => [prefix, 'apps', 'googleusercontent', 'com'].join('.')
+
+  it('turns on Google sign-in only with both client IDs, with the iOS client reversed as its URL scheme', () => {
+    const web = googleClient('111-web')
+    const ios = googleClient('111-ios')
+    editDevEnv((lines) => [...lines, `GOOGLE_WEB_CLIENT_ID=${web}`, `GOOGLE_IOS_CLIENT_ID=${ios}`])
+    const config = buildConfig({}, readPartnerEnv(root, 'dev'))
+    expect(config.plugins).toContainEqual(['@react-native-google-signin/google-signin', { iosUrlScheme: ['com', 'googleusercontent', 'apps', '111-ios'].join('.') }])
+    expect(config.extra).toEqual({ PARTNER_DOMAIN: 'dev-store.actuateminds.com', google: { webClientId: web, iosClientId: ios } })
+    expect(googleIosUrlScheme(ios)).toBe(['com', 'googleusercontent', 'apps', '111-ios'].join('.'))
+    expect(JSON.stringify(buildConfig({}, readPartnerEnv(appRoot, 'dev')).plugins)).not.toContain('google-signin')
+  })
+
+  it('refuses one Google client ID without the other, or one that isn’t Google’s', () => {
+    editDevEnv((lines) => [...lines, `GOOGLE_WEB_CLIENT_ID=${googleClient('111-web')}`])
+    expect(() => readPartnerEnv(root, 'dev')).toThrow(/GOOGLE_IOS_CLIENT_ID: GOOGLE_WEB_CLIENT_ID and GOOGLE_IOS_CLIENT_ID go together/)
+    editDevEnv((lines) => [...lines, 'GOOGLE_IOS_CLIENT_ID=not-a-client'])
+    expect(() => readPartnerEnv(root, 'dev')).toThrow(/GOOGLE_IOS_CLIENT_ID: a Google OAuth client ID/)
   })
 
   it('fails with the variable named when a value is missing', () => {

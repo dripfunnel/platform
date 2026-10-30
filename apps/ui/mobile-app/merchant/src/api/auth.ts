@@ -15,6 +15,10 @@ export type SignInStep = z.infer<typeof signInAnswer>
 export const signIn = async (rest: RestOptions, email: string, password: string): Promise<SignInStep> =>
   decode(signInAnswer, await postJson(rest, '/api/auth/sign-in', { email: email.trim(), password }))
 
+/** Google's native sign-in: its ID token, issued for the partner's web client, opens a session as a password does (ACCESS.md §2). */
+export const signInWithGoogle = async (rest: RestOptions, idToken: string): Promise<SignInStep> =>
+  decode(signInAnswer, await postJson(rest, '/api/auth/google/token', { idToken }))
+
 /** Texts the code to the person's own number; answers a hint of the number ("ending 0142"). */
 export const sendCode = async (rest: RestOptions, pendingToken: string): Promise<string> =>
   decode(hintAnswer, await postJson(rest, '/api/auth/send-code', {}, pendingToken)).hint

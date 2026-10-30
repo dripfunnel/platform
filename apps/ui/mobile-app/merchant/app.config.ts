@@ -8,6 +8,7 @@ import { z } from 'zod'
 const colour = z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'a quoted colour such as "#0A2A4A" (an unquoted # starts a comment in an env file)')
 const image = z.string().regex(/^partners\/[a-z][a-z0-9-]*\/[A-Za-z0-9._-]+\.png$/, 'a PNG under partners/<partner>/, such as partners/dev/icon.png')
 const partnerKey = z.string().regex(/^[a-z][a-z0-9-]*$/, 'lower-case letters, digits and hyphens, starting with a letter')
+const googleClient = z.string().regex(/^[0-9A-Za-z-]+\.apps\.googleusercontent\.com$/, 'a Google OAuth client ID ending in .apps.googleusercontent.com')
 
 export const partnerEnvSchema = z
   .strictObject({
@@ -25,8 +26,12 @@ export const partnerEnvSchema = z
     UPDATES_CHANNEL: partnerKey,
     // 'on' for a partner whose own Firebase project receives crash reports; the two files come from EAS (CONFIGURATION.md §3).
     CRASH_REPORTING: z.literal('on').optional(),
+    // Google sign-in (#1048): the partner's web client, whose ID tokens the API checks, and its iOS client. Public IDs, both or neither.
+    GOOGLE_WEB_CLIENT_ID: googleClient.optional(),
+    GOOGLE_IOS_CLIENT_ID: googleClient.optional(),
   })
   .refine((env) => env.UPDATES_CHANNEL === env.PARTNER_KEY, { path: ['UPDATES_CHANNEL'], message: 'must equal PARTNER_KEY' })
+  .refine((env) => (env.GOOGLE_WEB_CLIENT_ID === undefined) === (env.GOOGLE_IOS_CLIENT_ID === undefined), { path: ['GOOGLE_IOS_CLIENT_ID'], message: 'GOOGLE_WEB_CLIENT_ID and GOOGLE_IOS_CLIENT_ID go together' })
 
 export type PartnerEnv = z.infer<typeof partnerEnvSchema>
 
@@ -66,7 +71,11 @@ export function readFirebaseFiles(env: PartnerEnv, vars: Record<string, string |
   return { android: wanted.GOOGLE_SERVICES_JSON ?? '', ios: wanted.GOOGLE_SERVICE_INFO_PLIST ?? '' }
 }
 
+/** Google's iOS callback scheme: the iOS client ID reversed (com.googleusercontent.apps.<number>-<id>). */
+export const googleIosUrlScheme = (iosClientId: string): string => iosClientId.split('.').reverse().join('.')
+
 export function buildConfig(config: Partial<ExpoConfig>, env: PartnerEnv, firebase: FirebaseFiles | null = null): ExpoConfig {
+  const google = env.GOOGLE_WEB_CLIENT_ID && env.GOOGLE_IOS_CLIENT_ID ? { webClientId: env.GOOGLE_WEB_CLIENT_ID, iosClientId: env.GOOGLE_IOS_CLIENT_ID } : null
   return {
     ...config,
     name: env.APP_NAME,
@@ -91,8 +100,9 @@ export function buildConfig(config: Partial<ExpoConfig>, env: PartnerEnv, fireba
       ['expo-image-picker', { microphonePermission: false }],
       // Firebase Crashlytics (CONFIGURATION.md §3). The Firebase Apple SDK is Swift Package Manager only, so its pods build as dynamic frameworks.
       ...(firebase ? ['@react-native-firebase/app', '@react-native-firebase/crashlytics', ['expo-build-properties', { ios: { useFrameworks: 'dynamic' } }] as [string, object]] : []),
+      ...(google ? [['@react-native-google-signin/google-signin', { iosUrlScheme: googleIosUrlScheme(google.iosClientId) }] as [string, object]] : []),
     ],
-    extra: { PARTNER_DOMAIN: env.PARTNER_DOMAIN, ...(firebase ? { crashReporting: true } : {}) },
+    extra: { PARTNER_DOMAIN: env.PARTNER_DOMAIN, ...(firebase ? { crashReporting: true } : {}), ...(google ? { google } : {}) },
   }
 }
 

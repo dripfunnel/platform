@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
+import { useBrand } from '../../brand/BrandContext'
 import { t } from '../../messages'
 import { useSession } from '../../session'
 import { Button } from '../common/Button'
@@ -8,7 +9,9 @@ import { Notice } from '../common/Notice'
 import { TextField } from '../common/TextField'
 import { AuthFrame } from './AuthFrame'
 import { flowDeps } from './deps'
-import { failureOf, startSignIn } from './signInFlow'
+import { GoogleButton, OrWithEmail } from './GoogleButton'
+import { GoogleCancelled, googleClients, googleIdToken, GoogleUnavailable } from './google'
+import { failureOf, startGoogleSignIn, startSignIn, type NextScreen } from './signInFlow'
 
 export function SignInScreen() {
   const router = useRouter()
@@ -17,7 +20,35 @@ export function SignInScreen() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
   const notice = state.status === 'signedOut' && state.notice ? t(`auth.notice.${state.notice}`) : null
+  // Only while the partner's Google client is on and this build carries its clients (CONFIGURATION.md §2).
+  const { brand } = useBrand()
+  const clients = brand?.googleSignIn ? googleClients() : null
+
+  const go = (next: NextScreen) => {
+    if (next === 'second-factor') router.push('/two-step')
+    if (next === 'enrol') router.push('/enrol')
+  }
+
+  const withGoogle = async () => {
+    if (!clients) return
+    setGoogleBusy(true)
+    setError(null)
+    try {
+      go(await startGoogleSignIn(flowDeps(), await googleIdToken(clients)))
+    } catch (failed) {
+      if (failed instanceof GoogleCancelled) setError(t('auth.googleCancelled'))
+      else if (failed instanceof GoogleUnavailable) setError(t('auth.googleUnavailable'))
+      else {
+        const failure = failureOf(failed, 'google')
+        if (failure.locked !== null) router.push({ pathname: '/locked', params: { minutes: String(failure.locked) } })
+        else setError(failure.message)
+      }
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
 
   const submit = async () => {
     if (!email.trim() || !password) {
@@ -27,9 +58,7 @@ export function SignInScreen() {
     setBusy(true)
     setError(null)
     try {
-      const next = await startSignIn(flowDeps(), email, password)
-      if (next === 'second-factor') router.push('/two-step')
-      if (next === 'enrol') router.push('/enrol')
+      go(await startSignIn(flowDeps(), email, password))
     } catch (failed) {
       const failure = failureOf(failed, 'signIn')
       if (failure.locked !== null) router.push({ pathname: '/locked', params: { minutes: String(failure.locked) } })
@@ -42,6 +71,12 @@ export function SignInScreen() {
   return (
     <AuthFrame title={t('auth.signInTitle')} sub={t('auth.signInSub')}>
       {error ? <Notice kind="error" text={error} /> : notice ? <Notice text={notice} /> : null}
+      {clients && (
+        <>
+          <GoogleButton onPress={() => void withGoogle()} busy={googleBusy} />
+          <OrWithEmail />
+        </>
+      )}
       <TextField label={t('auth.email')} value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder={t('auth.emailPlaceholder')} invalid={error !== null} returnKeyType="next" />
       <TextField label={t('auth.password')} value={password} onChangeText={setPassword} secret autoComplete="current-password" textContentType="password" invalid={error !== null} returnKeyType="go" onSubmitEditing={() => void submit()} />
       <LinkButton label={t('auth.forgotLink')} onPress={() => router.push('/forgot-password')} />
