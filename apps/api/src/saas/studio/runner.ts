@@ -118,8 +118,8 @@ export class StudioRunner {
   private start: { template: string; coreVersion: string } | null = null
   private tail: Promise<unknown> = Promise.resolve()
   private waiting = 0
-  /** The running change's stop; null between changes. A stop reaches only a change whose sandbox step hasn't begun. */
-  private running: { stop: () => void; stopped: boolean } | null = null
+  /** The running change's stop; null between changes. A stop reaches only a change whose sandbox step isn't running; `cancel` answers false once it is. */
+  private running: { stop: () => void; stopped: boolean; sandboxed: boolean } | null = null
 
   constructor(private readonly deps: StudioDeps) {}
 
@@ -139,7 +139,7 @@ export class StudioRunner {
 
   /** Not in the turn, or it would wait behind the change it stops; false when nothing is running. */
   cancel(): boolean {
-    if (!this.running) return false
+    if (!this.running || this.running.sandboxed) return false
     this.running.stopped = true
     this.running.stop()
     return true
@@ -497,7 +497,7 @@ export class StudioRunner {
       stop = () => reject(new StudioCancelled('studio: stopped'))
     })
     stopping.catch(() => undefined)
-    const run = { stop, stopped: false }
+    const run = { stop, stopped: false, sandboxed: false }
     this.running = run
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
@@ -505,6 +505,7 @@ export class StudioRunner {
         const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems }), stopping])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         const startedAt = this.deps.now().getTime()
+        run.sandboxed = true
         const made: Attempt = { proposal, ms: 0, result: null }
         attempts.push(made)
         const done = await this.recovering(async (client) => {
@@ -519,6 +520,7 @@ export class StudioRunner {
           break
         }
         problems = done.result.problems
+        run.sandboxed = false
       }
     } catch (error) {
       // The asks already made cost tokens and repairs are the platform's (SAAS §9.2), so they're metered as `failed`.

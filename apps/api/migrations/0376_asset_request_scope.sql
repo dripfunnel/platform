@@ -1,5 +1,5 @@
--- The merchant's own request scope deletes a library file and marks one for the storefront, instead of system scope (#1022 review).
--- The row-level policies and read-only support blocks on asset are 0042's; design_message gets the same pair for the chat's picture.
+-- Deleting a library file, marking one for the storefront and clearing the chat's picture happen in the merchant's own request scope,
+-- under 0042's row-level and read-only-support policies on asset; design_message gets the same update pair.
 grant delete, update (storefront_visible) on asset to app_request;
 grant update (image_asset_id) on design_message to app_request;
 create policy design_message_merchant_update on design_message for update to app_request
