@@ -32,7 +32,7 @@ export const CustomerOverview = ({ customer }: { customer: Customer }) => {
     ],
     [overview.created, formatDate(customer.createdAt), null],
     [overview.lastSignIn, customer.lastSignInAt ? formatTime(customer.lastSignInAt) : none, null],
-    [overview.orders, fill(plural(overview.orderCount, customer.orders), { count: formatCount(customer.orders) }), null],
+    [overview.orders, customer.orders === null ? none : fill(plural(overview.orderCount, customer.orders), { count: formatCount(customer.orders) }), null],
   ] as const
   return (
     <div className="df-customer-overview">
