@@ -86,6 +86,15 @@ const provider: AiProvider = {
     const text = script.answers.shift() ?? reply([])
     return { text, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
+  converse: async () => {
+    script.sent.push('converse')
+    if (hold) {
+      held?.()
+      await hold
+    }
+    const text = script.answers.shift() ?? reply([])
+    return { text, toolCalls: [], wantsTools: false, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
+  },
 }
 let aiMode: 'plan' | 'none' = 'plan'
 /** When set, the next model call throws it (a provider failure). */
@@ -536,6 +545,36 @@ describe('editing, undoing and discarding', () => {
     expect((await db.sql<{ folder: string | null }[]>`select d.preview_deploy_ref as folder from storefront f left join design_draft d on d.store_id = f.store_id where f.store_id = ${t.storeA1}`)[0]?.folder).toBeNull()
     expect((await texts('owner'))?.find((e) => e.key === 'pages:home.lead')?.text).toBe('Warm linen, cut slowly.')
     expect((await db.sql<{ text: string }[]>`select text from design_message where store_id = ${t.storeA1} and role = 'note' order by created_at desc limit 1`)[0]?.text).toBe('discarded')
+  })
+
+  it('marks an attached image for shoppers only when the change lands, not for a stopped or unchanged one', async () => {
+    const [made] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`
+    const id = made?.id ?? ''
+    const used = await usage(t.storeA1)
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    const visible = async () => (await db.sql<{ v: boolean }[]>`select storefront_visible as v from asset where id = ${id}`)[0]?.v
+    design.readAsset = async () => ({ bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), mime: 'image/png' })
+    let release: () => void = () => undefined
+    try {
+      hold = new Promise<void>((resolve) => (release = resolve))
+      const reached = new Promise<void>((resolve) => (held = resolve))
+      const asking = ask('owner', 'Use this', { image: id })
+      await reached
+      await w.gql('owner', 'mutation { cancelDesign }')
+      expect((await asking).data?.['askDesign']).toMatchObject({ outcome: 'cancelled' })
+      expect(await visible()).toBe(false)
+    } finally {
+      release()
+      hold = null
+      held = null
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    script.answers = [reply([lead('Linen, with a hero photo.')])]
+    const landed = await ask('owner', 'Use this', { image: id })
+    expect(landed.data?.['askDesign'], JSON.stringify(landed)).toMatchObject({ outcome: 'changed' })
+    expect(await visible()).toBe(true)
+    design.readAsset = null
+    await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
   })
 })
 

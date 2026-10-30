@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-// Pixabay's image search for the studio's picker (docs/storefront/AI-STUDIO.md §8). Results are cached 24 hours as its API
-// terms require, and a chosen image is downloaded into the store's own files, never hotlinked.
+// Pixabay's image search for the studio's picker (docs/storefront/AI-STUDIO.md §8). Nothing is cached: the Worker keeps no
+// state between requests. A chosen image is downloaded into the store's own files, never hotlinked.
 
 export interface StockPhoto {
   id: string
@@ -23,7 +23,6 @@ const hits = z.object({
 })
 
 const perPage = 24
-const dayMs = 24 * 60 * 60 * 1000
 const api = 'https://pixabay.com/api/'
 const hosts = /^(?:[a-z0-9-]+\.)*pixabay\.com$/
 
@@ -36,19 +35,14 @@ export const isPixabayUrl = (raw: string): boolean => {
   }
 }
 
-export const pixabayImages = ({ key, fetchImpl = fetch, now = () => Date.now() }: { key: string; fetchImpl?: typeof fetch; now?: () => number }): StockImages => {
-  const cache = new Map<string, { at: number; value: z.infer<typeof hits> }>()
+export const pixabayImages = ({ key, fetchImpl = fetch }: { key: string; fetchImpl?: typeof fetch }): StockImages => {
   const ask = async (params: Record<string, string>): Promise<z.infer<typeof hits> | null> => {
     const url = `${api}?${new URLSearchParams({ key, safesearch: 'true', image_type: 'photo', ...params })}`
-    const cacheKey = url.replace(key, '')
-    const kept = cache.get(cacheKey)
-    if (kept && now() - kept.at < dayMs) return kept.value
     try {
       const response = await fetchImpl(url, { signal: AbortSignal.timeout(8_000) })
       if (!response.ok) return null
       const parsed = hits.safeParse(await response.json())
       if (!parsed.success) return null
-      cache.set(cacheKey, { at: now(), value: parsed.data })
       return parsed.data
     } catch {
       return null
