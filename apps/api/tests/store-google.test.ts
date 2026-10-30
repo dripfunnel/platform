@@ -6,11 +6,14 @@ import { handleStoreAuth } from '#apis/store/auth'
 import { handleStoreGoogle, type StoreGoogleDeps } from '#apis/store/google'
 import { storeSchema } from '#apis/store/schema'
 import { SignInFailed } from '#auth/oidc'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { partnerContextOf, type PartnerCaller } from '#auth/partnerCaller'
+import type { PartnerRole } from '#auth/partnerPermissions'
 import { hashPassword } from '#auth/password'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding } from '#auth/storeCaller'
 import type { GoogleClaims, GoogleSignIn } from '#integrations/google/provider'
+import { selectGoogleSignIn } from '#db/scoped/googleSignIn'
+import { withScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createGoogleSignInService } from '#saas/googleSignIn/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -49,20 +52,23 @@ const google: GoogleSignIn = {
   },
 }
 
-const callerOf = (partnerId: string): PartnerCaller => ({
-  role: 'partner-owner',
+const callerOf = (partnerId: string, role: PartnerRole = 'partner-owner', impersonating = false): PartnerCaller => ({
+  role,
   user: { id: crypto.randomUUID(), name: 'Maya Chen', email: 'maya@northstar.example' },
-  staff: null,
+  staff: impersonating ? { id: crypto.randomUUID(), name: 'Priya Shah', email: 'priya@dripfunnel.example', session: { kind: 'impersonation', id: crypto.randomUUID(), expiresAt: new Date('2026-10-30T11:00:00Z') } } : null,
   partner: { id: partnerId, name: 'Northstar Commerce', product: 'Northstar Shops', host: null, state: 'live' },
 })
 
-const platform = async <T,>(source: string, partnerId: string, variables: Record<string, unknown> = {}) => {
-  const caller = callerOf(partnerId)
+/** Through the Platform API's own access checks, as the given caller: the answer, or the refusal's code. */
+const platformAs = async <T,>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
   const googleSignIn = createGoogleSignInService({ sql: db.sql, caller, facts, activity: activityLog, secrets, now: () => now })
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue: { caller, googleSignIn } })
-  if (result.errors?.[0] && result.errors[0].extensions['code'] === undefined) throw result.errors[0]
-  return result.data as T
+  const error = result.errors?.[0]
+  if (error && error.extensions['code'] === undefined) throw error
+  return { data: (result.data ?? null) as T | null, code: error?.extensions['code'] as string | undefined }
 }
+
+const platform = async <T,>(source: string, partnerId: string, variables: Record<string, unknown> = {}) => (await platformAs<T>(source, callerOf(partnerId), variables)).data as T
 
 const save = `mutation($clientId: String!, $clientSecret: String!) { savePartnerGoogleSignIn(clientId: $clientId, clientSecret: $clientSecret) { ok reason } }`
 const status = `{ partnerGoogleSignIn { enabled clientId secretHint redirectUri } }`
@@ -257,5 +263,47 @@ describe('the merchant app’s Google token', () => {
     expect(await exchange('token-nobody')).toEqual({ status: 401, body: { ok: false, code: 'NO_ACCOUNT' } })
     const browser = await handleStoreGoogle(new Request(`https://${host}/api/auth/google/token`, { method: 'POST', headers: { origin: `https://${host}`, 'cf-connecting-ip': '203.0.113.7' }, body: '{}' }), deps())
     expect(browser.status).toBe(403)
+  })
+})
+
+describe('who may change Google sign-in', () => {
+  const turnOff = `mutation { turnOffPartnerGoogleSignIn { ok reason } }`
+  const rowOf = async (partnerId: string) => (await db.sql<{ client_id: string; enabled: boolean; set_at: Date }[]>`select client_id, enabled, set_at from partner_google_sign_in where partner_id = ${partnerId}`)[0]
+  const audits = async (partnerId: string) => (await db.sql`select 1 from activity_log where partner_id = ${partnerId} and action like 'partner.google_sign_in_%'`).length
+
+  it('refuses Support, Finance and Read-only on the server, and their refused calls write nothing', async () => {
+    const before = { row: await rowOf(t.partnerA), audits: await audits(t.partnerA) }
+    for (const role of ['partner-support', 'partner-finance', 'partner-read-only'] as const) {
+      const caller = callerOf(t.partnerA, role)
+      expect((await platformAs(status, caller)).code).toBe('FORBIDDEN')
+      expect((await platformAs(save, caller, { clientId: clientB, clientSecret: secretA })).code).toBe('FORBIDDEN')
+      expect((await platformAs(turnOff, caller)).code).toBe('FORBIDDEN')
+    }
+    expect({ row: await rowOf(t.partnerA), audits: await audits(t.partnerA) }).toEqual(before)
+  })
+
+  it('lets an Admin change it', async () => {
+    const caller = callerOf(t.partnerA, 'partner-admin')
+    expect((await platformAs<{ savePartnerGoogleSignIn: unknown }>(save, caller, { clientId: clientA, clientSecret: secretA })).data?.savePartnerGoogleSignIn).toEqual({ ok: true, reason: null })
+  })
+
+  it('refuses both writes to an impersonation, which writes nothing, and still lets it read', async () => {
+    const caller = callerOf(t.partnerA, 'partner-owner', true)
+    const before = { row: await rowOf(t.partnerA), audits: await audits(t.partnerA) }
+    expect((await platformAs(save, caller, { clientId: clientB, clientSecret: secretA })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    expect((await platformAs(turnOff, caller)).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    expect({ row: await rowOf(t.partnerA), audits: await audits(t.partnerA) }).toEqual(before)
+    expect((await platformAs<{ partnerGoogleSignIn: { clientId: string } }>(status, caller)).data?.partnerGoogleSignIn.clientId).toBe(clientA)
+  })
+
+  it('keeps each partner to its own client: one never reads or overwrites the other’s', async () => {
+    expect((await platform<{ partnerGoogleSignIn: { clientId: string } }>(status, t.partnerB)).partnerGoogleSignIn.clientId).toBe(clientB)
+    const a = await rowOf(t.partnerA)
+    await platform(save, t.partnerB, { clientId: googleClient('333-c'), clientSecret: secretA })
+    expect(await rowOf(t.partnerA)).toEqual(a)
+    await platform(turnOff, t.partnerB)
+    expect((await rowOf(t.partnerA))?.enabled).toBe(true)
+    // Below the service too: partner A's scope sees no row but its own (row-level security, migration 0377).
+    expect(await withScope(db.sql, partnerContextOf(callerOf(t.partnerA)), (tx) => selectGoogleSignIn(tx, t.partnerB))).toBeNull()
   })
 })
