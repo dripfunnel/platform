@@ -7665,6 +7665,7 @@
           "INVALID_IMAGE": "Use a PNG, JPEG or WebP image you added here.",
           "INVALID_URL": "Use a public website address starting with https://.",
           "SAMPLE_UNAVAILABLE": "We couldn’t open that website. Try another address.",
+          "STOCK_BUSY": "Photo search is busy. Try again in a minute.",
           "STUDIO_QUEUED": "The studio is waiting for room. Try again in a moment.",
           "STUDIO_UNAVAILABLE": "The studio couldn’t start. Try again in a minute.",
           "NOT_LATEST": "Only your latest change can be undone.",

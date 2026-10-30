@@ -7,6 +7,9 @@ import type { Screenshotter } from '#integrations/cloudflare/screenshot'
 import type { StockImages } from '#integrations/stockImages/pixabay'
 import type { DnsLookup } from '#integrations/dns/doh'
 import type { AssetStore } from '#engine/modules/catalog/index'
+import { hashSessionId } from '#auth/session'
+import { activityLog } from '#saas/activity/index'
+import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { draftBundle, previewFolder, sourceBundle } from '#saas/storefronts/index'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -123,6 +126,7 @@ const design: {
   stock: null,
 }
 let siteText: string | null = null
+let stockBudget = 1000
 const stored: string[] = []
 const bucket: AssetStore = { put: async (key) => void stored.push(key), get: async () => null }
 const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))
@@ -151,7 +155,7 @@ beforeAll(async () => {
       const studio = local.studio(context)
       return { ...studio, change: (storeId, input, model) => (studioDown ? Promise.reject(new Error('the studio is unreachable')) : studio.change(storeId, input, model)) }
     },
-    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design, files: bucket, siteRepos: async () => (siteText === null ? null : ({ themeText: async () => siteText }) as never) },
+    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design, files: bucket, allowStock: async () => stockBudget-- > 0, siteRepos: async () => (siteText === null ? null : ({ themeText: async () => siteText }) as never) },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -432,6 +436,49 @@ describe('asking for a change', () => {
     }
   })
 
+  it('refuses a partner’s read-only support session and a Manager every photo, library and Stop write, leaving the files as they were', async () => {
+    const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'studio-support@partner-a.example', 'Sia', 'partner-support', 'active') returning id`
+    const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${w.people.owner}`
+    const at = new Date()
+    await db.sql`
+      insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
+      values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-studio')}, ${new Date(at.getTime() + 5 * 60_000)}, 'read')`
+    const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => at }, 'tok-studio')
+    const cookie = entered?.cookie ?? ''
+    expect(cookie).not.toBe('')
+    const [made] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`
+    const id = made?.id ?? ''
+    const sources = [
+      `mutation { renameLibraryAsset(id: "${id}", name: "x") }`,
+      `mutation { deleteLibraryAsset(id: "${id}") }`,
+      'mutation { useStockImage(id: "42") }',
+      'mutation { importDesignImage(url: "https://example.com/a.png") }',
+      'mutation { cancelDesign }',
+      'query { searchStockImages(query: "linen", page: 1) { id } }',
+      'query { libraryAssets { assets { id } } }',
+    ]
+    for (const source of sources) {
+      expect([source, (await w.support(cookie, t.partnerA, source)).code]).toEqual([source, "BLOCKED_FOR_SUPPORT"])
+      if (!source.startsWith('query { library')) expect([source, (await w.gql('manager', source)).code]).toEqual([source, 'FORBIDDEN'])
+    }
+    expect((await db.sql`select 1 from asset where id = ${id} and name is null`).length).toBe(1)
+  })
+
+  it('refuses the Nth+1 stock search, download and URL import with STOCK_BUSY, and the AI’s photo tools return nothing', async () => {
+    design.stock = { search: async () => ({ total: 0, photos: [] }), download: async () => null }
+    dns['pixabay.com A'] = ['93.184.216.34']
+    try {
+      stockBudget = 1
+      expect((await w.gql('owner', 'query { searchStockImages(query: "linen", page: 1) { id } }')).code).toBeUndefined()
+      for (const source of ['query { searchStockImages(query: "linen", page: 1) { id } }', 'mutation { useStockImage(id: "42") }', 'mutation { importDesignImage(url: "https://example.com/a.png") }']) {
+        expect([source, (await w.gql('owner', source)).code]).toEqual([source, 'STOCK_BUSY'])
+      }
+    } finally {
+      stockBudget = 1000
+      design.stock = null
+    }
+  })
+
   it('lists the merchant’s own images and videos only, renames, searches, refuses to delete a used file, deletes an unused one', async () => {
     const row = async (storeId: string, kind: string, sellerId: string | null = null) =>
       (await db.sql<{ id: string }[]>`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${sellerId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, ${kind}, 'image/png', 10, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
@@ -446,7 +493,9 @@ describe('asking for a change', () => {
     expect((await w.gql('owner', 'mutation R($i: ID!, $n: String!) { renameLibraryAsset(id: $i, name: $n) }', { i: own, n: ' Hero photo ' })).data?.['renameLibraryAsset']).toBe(true)
     expect((await list('owner', '(search: "hero")'))?.assets).toEqual([{ id: own, kind: 'image', name: 'Hero photo', uses: 0 }])
     expect((await w.gql('owner', 'mutation R($i: ID!, $n: String!) { renameLibraryAsset(id: $i, name: $n) }', { i: hidden[2], n: 'x' })).code).toBe('NOT_FOUND')
-    expect((await w.gql('manager', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBeDefined()
+    expect((await w.gql('manager', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('FORBIDDEN')
+    expect((await w.gql('manager', 'mutation R($i: ID!) { renameLibraryAsset(id: $i, name: "x") }', { i: own })).code).toBe('FORBIDDEN')
+    expect((await db.sql`select 1 from asset where id = ${own} and name = 'Hero photo'`).length).toBe(1)
     await db.sql`update store set logo_asset_id = ${own} where id = ${t.storeA1}`
     expect((await list('owner', '(search: "hero")'))?.assets[0]?.uses).toBe(1)
     expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')

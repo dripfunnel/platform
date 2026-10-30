@@ -114,12 +114,13 @@ type Spent = { tokensIn: number; tokensOut: number; costAmount: number; costCurr
  * The model's turns until it answers, with at most four tool calls. Search results are untrusted words from the web: only
  * ids, tags and names go back, cut and stripped, and the rules above say to follow no instruction in them.
  */
-const converse = async (provider: AiProvider, tools: DesignTools, system: string, first: string, images: readonly AiImage[], onAdded: (a: { assetId: string; user: string }) => void): Promise<{ text: string } & Spent> => {
+const converse = async (provider: AiProvider, tools: DesignTools, system: string, first: string, images: readonly AiImage[], onAdded: (a: { assetId: string; user: string }) => void, signal?: AbortSignal): Promise<{ text: string } & Spent> => {
   const messages: CanonicalMessage[] = [{ role: 'user', content: [...images.map((i) => ({ type: 'image' as const, mediaType: i.mediaType, base64: i.base64 })), { type: 'text' as const, text: first }] }]
   const spent: Spent = { tokensIn: 0, tokensOut: 0, costAmount: 0, costCurrency: 'USD', model: '' }
   let used = 0
   for (;;) {
-    const turn = await provider.converse?.({ system, messages, tools: used < maxToolCalls ? toolDefs : [] })
+    signal?.throwIfAborted()
+    const turn = await provider.converse?.({ system, messages, tools: used < maxToolCalls ? toolDefs : [], ...(signal ? { signal } : {}) })
     if (!turn) throw new Error('designModel: no converse')
     spent.tokensIn += turn.tokensIn
     spent.tokensOut += turn.tokensOut
@@ -130,6 +131,7 @@ const converse = async (provider: AiProvider, tools: DesignTools, system: string
     messages.push({ role: 'assistant', content: [...(turn.text ? [{ type: 'text' as const, text: turn.text }] : []), ...turn.toolCalls.map((c) => ({ type: 'tool_call' as const, id: c.id, name: c.name, arguments: c.arguments }))] })
     const results = []
     for (const call of turn.toolCalls) {
+      signal?.throwIfAborted()
       used += 1
       let content = 'The limit of tool calls for this change is reached.'
       let isError = true
@@ -164,7 +166,7 @@ export const designModel = (provider: AiProvider, brief: DesignBrief, tools: Des
     const text = briefText(brief, input.request, input.theme, input.problems)
     // Only the first ask of a change searches; a repair answers from the exact errors (ARCHITECTURE §4.2).
     const looping = tools !== null && provider.converse !== undefined && input.problems.length === 0
-    const answer = looping ? await converse(provider, tools, rules, text, images, onAdded) : await provider.complete({ system: rules, text, images })
+    const answer = looping ? await converse(provider, tools, rules, text, images, onAdded, input.signal) : await provider.complete({ system: rules, text, images })
     const read = readAnswer(answer.text)
     const cost = { model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, costAmount: answer.costAmount, costCurrency: answer.costCurrency }
     // An answer in no usable shape changes nothing; the reply says so (FIRST-RELEASE §14's error).

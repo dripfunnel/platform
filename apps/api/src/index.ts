@@ -198,6 +198,8 @@ interface Env extends Record<string, unknown> {
   API_RATE_LIMITER?: RateLimit | undefined
   // A store build's calls, per address, before the token is checked (storefront LIVE-SHOP.md §9); unbound, they answer 500.
   BUILD_RATE_LIMITER?: RateLimit | undefined
+  /** Per store: the stock photo search, download and import (AI-STUDIO §8). */
+  STOCK_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
   IMAGES?: ImagesBinding | undefined
@@ -622,6 +624,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
+      allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
       preview: await previewFor(config), siteRepos: async () => { const app = await githubFor(config); return app ? storeRepos(app.session(), config.GITHUB_STORE_ORG) : null }, studio: studioFor(env), design: designFor(config, env, sql, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)

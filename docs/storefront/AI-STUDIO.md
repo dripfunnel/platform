@@ -317,7 +317,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   writes `url(<asset id>)`: the validator holds the id to the store's media, and both bundlers (the gate's and the publish
   build's) turn it into `/shop-api/assets/{id}`, so the shop serves it under the shop policy and `img-src 'self'`.
 - **Free photos** (`searchStockImages`, `useStockImage`): Pixabay's search, shown only where `PIXABAY_API_KEY` is set. Its
-  terms: results cached 24 hours (not kept yet: the Worker holds no state, so each search asks Pixabay), requests made by a person (the merchant types the words; the model never searches),
+  terms: results cached 24 hours (not kept yet: the Worker holds no state, so each search asks Pixabay; `STOCK_RATE_LIMITER` caps a store's searches, downloads and imports at 30 a minute and answers `STOCK_BUSY`), requests made by a person (the merchant types the words; the model never searches),
   its source named wherever results show, and a chosen photo downloaded into the store's files, never hotlinked. The
   attribution isn't required on the live shop (Pixabay's licence summary); read its full terms before widening use.
 - **Chat mode** (`askDesign` with `mode: chat`) is a question answered in words from the same brief: no diff, no

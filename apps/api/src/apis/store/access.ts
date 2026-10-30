@@ -51,6 +51,8 @@ export interface StoreContext extends Record<string, unknown> {
   lookup?: DnsLookup | null
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */
   allowCodeCheck?: (key: string) => Promise<boolean>
+  /** The stock-photo limiter (STOCK_RATE_LIMITER) by key; those calls are refused everywhere it isn't bound. */
+  allowStock?: (key: string) => Promise<boolean>
   /** The public-read limiter (SHOP_RATE_LIMITER) by key; `pricing` refuses everything where it isn't bound. */
   allowPublicRead?: (key: string) => Promise<boolean>
   /** "Open preview" (storefront PREVIEW.md §5 step 1): the preview domain and the link's key; null where either isn't set. */
