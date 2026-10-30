@@ -244,6 +244,7 @@ export const createStudioService = (deps: StudioDeps) => {
         ? {
             search: async (words) => (await deps.stock?.search(words, 1))?.photos.map((p) => ({ id: p.id, tags: p.tags, user: p.user })) ?? null,
             add: async (id) => {
+              if (!seen.has(id)) return null
               const found = await deps.stock?.download(id)
               if (!found || !isPixabayUrl(found)) return null
               const stored = await importImage(found, true)
