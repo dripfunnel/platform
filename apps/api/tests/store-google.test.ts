@@ -307,3 +307,14 @@ describe('who may change Google sign-in', () => {
     expect(await withScope(db.sql, partnerContextOf(callerOf(t.partnerA)), (tx) => selectGoogleSignIn(tx, t.partnerB))).toBeNull()
   })
 })
+
+describe('the secret’s hint', () => {
+  it('shows only Google’s fixed prefix and the last 4, and the last 4 alone for a legacy secret', async () => {
+    const legacy = 'L'.repeat(20) + 'wxyz'
+    await platform(save, t.partnerB, { clientId: clientB, clientSecret: legacy })
+    expect((await platform<{ partnerGoogleSignIn: { secretHint: string } }>(status, t.partnerB)).partnerGoogleSignIn.secretHint).toBe('…wxyz')
+    await platform(save, t.partnerB, { clientId: clientB, clientSecret: secretA })
+    expect((await platform<{ partnerGoogleSignIn: { secretHint: string } }>(status, t.partnerB)).partnerGoogleSignIn.secretHint).toBe('GOCSPX-…aaaa')
+    await platform(`mutation { turnOffPartnerGoogleSignIn { ok } }`, t.partnerB)
+  })
+})

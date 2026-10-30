@@ -24,7 +24,8 @@ const saveInput = z.strictObject({
 
 export type GoogleSignInRefusal = 'INVALID_INPUT' | 'NOT_CONFIGURED' | 'NOT_FOUND'
 
-const hintOf = (secret: string) => `${secret.slice(0, 7)}…${secret.slice(-4)}`
+// Only Google's fixed prefix and the last 4: a legacy secret has no prefix, and its start is secret too.
+const hintOf = (secret: string) => `${secret.startsWith('GOCSPX-') ? 'GOCSPX-' : ''}…${secret.slice(-4)}`
 
 export interface GoogleSignInDeps {
   sql: postgres.Sql
