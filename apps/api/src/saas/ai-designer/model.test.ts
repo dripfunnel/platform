@@ -23,7 +23,7 @@ const run = async (turns: AiTurn[], tools: Partial<DesignTools> = {}, problems: 
     add: async (id) => (attempted.push(id), { assetId: `asset-${id}`, user: 'Ana' }),
     ...tools,
   }
-  const proposal = await designModel(provider, brief, all, (a) => added.push(a)).propose({ request: 'a car hero', theme: [], problems: problems as never, ...(signal ? { signal } : {}) })
+  const proposal = await designModel(provider, brief, all, (a) => added.push(a), signal).propose({ request: 'a car hero', theme: [], problems: problems as never })
   return { proposal, seen, completed, added, searched, attempted }
 }
 

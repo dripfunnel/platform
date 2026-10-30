@@ -22,8 +22,6 @@ export type ProposalInput = {
   theme: { path: string; content: string }[]
   /** The gate's exact problems with the previous answer; empty on the first ask (ARCHITECTURE §6.2). */
   problems: GateProblem[]
-  /** Aborted when the merchant presses Stop: the model's loop stops asking and stops calling tools. */
-  signal?: AbortSignal
 }
 
 export interface DesignModel {

@@ -493,12 +493,8 @@ export class StudioRunner {
     let problems: GateProblem[] = []
     let saved: Awaited<ReturnType<StudioRunner['collect']>> | null = null
     let stop: () => void = () => undefined
-    const aborter = new AbortController()
     const stopping = new Promise<never>((_, reject) => {
-      stop = () => {
-        aborter.abort()
-        reject(new StudioCancelled('studio: stopped'))
-      }
+      stop = () => reject(new StudioCancelled('studio: stopped'))
     })
     stopping.catch(() => undefined)
     const run = { stop, stopped: false, sandboxed: false }
@@ -506,7 +502,7 @@ export class StudioRunner {
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
-        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, signal: aborter.signal }), stopping])
+        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems }), stopping])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         const startedAt = this.deps.now().getTime()
         run.sandboxed = true

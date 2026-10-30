@@ -160,13 +160,13 @@ const converse = async (provider: AiProvider, tools: DesignTools, system: string
   }
 }
 
-export const designModel = (provider: AiProvider, brief: DesignBrief, tools: DesignTools | null = null, onAdded: (a: { assetId: string; user: string }) => void = () => undefined): DesignModel => ({
+export const designModel = (provider: AiProvider, brief: DesignBrief, tools: DesignTools | null = null, onAdded: (a: { assetId: string; user: string }) => void = () => undefined, signal?: AbortSignal): DesignModel => ({
   propose: async (input): Promise<Proposal> => {
     const images = [brief.image, brief.screenshot].filter((i) => i !== null)
     const text = briefText(brief, input.request, input.theme, input.problems)
     // Only the first ask of a change searches; a repair answers from the exact errors (ARCHITECTURE §4.2).
     const looping = tools !== null && provider.converse !== undefined && input.problems.length === 0
-    const answer = looping ? await converse(provider, tools, rules, text, images, onAdded, input.signal) : await provider.complete({ system: rules, text, images })
+    const answer = looping ? await converse(provider, tools, rules, text, images, onAdded, signal) : await provider.complete({ system: rules, text, images })
     const read = readAnswer(answer.text)
     const cost = { model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, costAmount: answer.costAmount, costCurrency: answer.costCurrency }
     // An answer in no usable shape changes nothing; the reply says so (FIRST-RELEASE §14's error).

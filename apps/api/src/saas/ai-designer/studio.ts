@@ -261,11 +261,13 @@ export const createStudioService = (deps: StudioDeps) => {
           }
         : null
     const seen = new Map<string, string>()
+    const stopLoop = new AbortController()
     const designer = designModel(
       provider,
       await briefOf(input, image?.value ?? null, shot?.value ?? null),
       tools && { ...tools, search: async (words) => (await tools.search(words))?.map((p) => (seen.set(p.id, p.user), p)) ?? null },
       () => undefined,
+      stopLoop.signal,
     )
     let modelAsked = false
     let modelFailure: unknown = null
@@ -298,6 +300,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'cancelled') {
+      stopLoop.abort()
       // The unit goes back only when the model was never asked (it bills tokens once asked).
       if (!modelAsked) await giveBack()
       const stopped = await recordAfter(sql, storeId, async (tx) => {

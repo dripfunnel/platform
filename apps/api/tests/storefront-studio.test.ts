@@ -448,6 +448,9 @@ describe('asking for a change', () => {
     expect(cookie).not.toBe('')
     const [made] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`
     const id = made?.id ?? ''
+    const assets = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from asset`)[0]?.n
+    const putsBefore = stored.length
+    const rows = await assets()
     const sources = [
       `mutation { renameLibraryAsset(id: "${id}", name: "x") }`,
       `mutation { deleteLibraryAsset(id: "${id}") }`,
@@ -461,6 +464,11 @@ describe('asking for a change', () => {
       expect([source, (await w.support(cookie, t.partnerA, source)).code]).toEqual([source, "BLOCKED_FOR_SUPPORT"])
       if (!source.startsWith('query { library')) expect([source, (await w.gql('manager', source)).code]).toEqual([source, 'FORBIDDEN'])
     }
+    expect((await db.sql`select 1 from asset where id = ${id} and name is null`).length).toBe(1)
+    expect(await assets()).toBe(rows)
+    expect(stored.length).toBe(putsBefore)
+    expect((await w.gql('bOwner', `mutation { renameLibraryAsset(id: "${id}", name: "x") }`)).code).toBe('NOT_FOUND')
+    expect((await w.gql('bOwner', `mutation { deleteLibraryAsset(id: "${id}") }`)).code).toBe('NOT_FOUND')
     expect((await db.sql`select 1 from asset where id = ${id} and name is null`).length).toBe(1)
   })
 
