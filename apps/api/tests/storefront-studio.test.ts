@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { AiDeclined, GatewayError, SignInExpired, type AiAnswer, type AiProvider } from '#integrations/ai/index'
 import type { Screenshotter } from '#integrations/cloudflare/screenshot'
+import type { StockImages } from '#integrations/stockImages/pixabay'
 import type { DnsLookup } from '#integrations/dns/doh'
+import type { AssetStore } from '#engine/modules/catalog/index'
+import { hashSessionId } from '#auth/session'
+import { activityLog } from '#saas/activity/index'
+import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { draftBundle, previewFolder, sourceBundle } from '#saas/storefronts/index'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -71,14 +76,30 @@ const runnerOf = (storeId: string): StudioRunner => {
 const local = localStudio(() => db.sql, runnerOf)
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
-const script: { answers: string[]; sent: string[] } = { answers: [], sent: [] }
+const script: { answers: string[]; sent: string[]; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], turns: [] }
 const reply = (files: { path: string; content: string | null }[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => {
     script.sent.push(call.text)
+    if (hold) {
+      held?.()
+      await hold
+    }
     if (providerFails) throw providerFails
     const text = script.answers.shift() ?? reply([])
     return { text, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
+  },
+  converse: async (call) => {
+    script.sent.push('converse')
+    const next = script.turns.shift()
+    if (next) return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
+    void call
+    if (hold) {
+      held?.()
+      await hold
+    }
+    const text = script.answers.shift() ?? reply([])
+    return { text, toolCalls: [], wantsTools: false, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
 }
 let aiMode: 'plan' | 'none' = 'plan'
@@ -87,18 +108,31 @@ let providerFails: Error | null = null
 /** The studio's RPC fails before it reaches the model (a Durable Object fault). */
 let studioDown = false
 let askedModel: string | null = null
+/** When set, the next model call waits on it, so a test can stop a change mid-thought. */
+let hold: Promise<void> | null = null
+let held: (() => void) | null = null
 /** The world's design deps; a test sets the screenshotter, which sits behind the SSRF check (docs/ARCHITECTURE.md §7). */
 const design: {
   ai: (billedTo: 'plan' | 'own_key', context: unknown, model: string | null) => AiProvider | null
   models: () => readonly string[]
   screenshots: Screenshotter | null
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
+  stock: StockImages | null
+  aiPhotos: boolean
 } = {
   ai: (billedTo, _context, model) => ((askedModel = model), aiMode === 'plan' && billedTo === 'plan' ? provider : null),
   models: () => ['claude-opus-5-5', 'claude-haiku-5-5'],
   screenshots: null,
   readAsset: null,
+  stock: null,
+  aiPhotos: false,
 }
+let siteText: string | null = null
+let stockBudget = 1000
+const stored: string[] = []
+const bucket: AssetStore = { put: async (key) => void stored.push(key), get: async () => null }
+const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))
+const importImage = (who: Who, url: string) => w.gql(who, 'mutation I($u: String!) { importDesignImage(url: $u) }', { u: url })
 const dns: Record<string, string[]> = { 'shop.example.com A': ['93.184.216.34'], 'inside.example.com A': ['10.1.2.3'] }
 const lookup: DnsLookup = { resolve: async (name, type) => dns[`${name} ${type}`] ?? [] }
 
@@ -123,7 +157,7 @@ beforeAll(async () => {
       const studio = local.studio(context)
       return { ...studio, change: (storeId, input, model) => (studioDown ? Promise.reject(new Error('the studio is unreachable')) : studio.change(storeId, input, model)) }
     },
-    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design },
+    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design, files: bucket, allowStock: async () => stockBudget-- > 0, siteRepos: async () => (siteText === null ? null : ({ themeText: async () => siteText }) as never) },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -269,7 +303,9 @@ describe('asking for a change', () => {
     const asset = async (storeId: string, sellerId: string | null = null) =>
       (await db.sql<{ id: string }[]>`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${sellerId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
     const own = await asset(t.storeA1)
-    const others = [await asset(t.storeB1), await asset(t.storeA1, t.sellerA1First), 'https://evil.example/x.png', crypto.randomUUID()]
+    const riderPhoto = await asset(t.storeA1)
+    await db.sql`insert into rider (store_id, name, phone, photo_asset_id) values (${t.storeA1}, 'Rae', '+919800000301', ${riderPhoto})`
+    const others = [await asset(t.storeB1), await asset(t.storeA1, t.sellerA1First), 'https://evil.example/x.png', crypto.randomUUID(), riderPhoto]
     const read: string[] = []
     design.readAsset = async (key) => (read.push(key), { bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), mime: 'image/png' })
     try {
@@ -282,10 +318,256 @@ describe('asking for a change', () => {
       // The model changes nothing here, so the draft the later tests build on stays as it was.
       script.answers = [reply([])]
       expect((await ask('owner', 'Like this', { image: own })).code).toBeUndefined()
+      expect((await db.sql<{ v: boolean }[]>`select storefront_visible as v from asset where id = ${own}`)[0]?.v).toBe(false)
+      expect((await db.sql<{ v: boolean }[]>`select storefront_visible as v from asset where id = ${others[0] ?? ''}`)[0]?.v).toBe(false)
       expect(read).toHaveLength(1)
       expect(script.sent.length).toBe(sent + 1)
     } finally {
       design.readAsset = null
+    }
+  })
+
+  it('gives the model no photo tools while the AI search is off, even with a key', async () => {
+    design.stock = { search: async () => ({ total: 0, photos: [] }), download: async () => null }
+    const used = await usage(t.storeA1)
+    const sent = script.sent.length
+    script.turns = [[{ id: '1', name: 'search_stock_images', arguments: '{"query":"x"}' }]]
+    script.answers = [reply([])]
+    try {
+      expect((await ask('owner', 'A linen hero')).code).toBeUndefined()
+      expect(script.sent.slice(sent)).toEqual([expect.not.stringContaining('converse')])
+      expect(script.turns).toHaveLength(1)
+    } finally {
+      script.turns = []
+      design.stock = null
+      await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    }
+  })
+
+  it('lets the AI add only a photo its own search returned', async () => {
+    const downloaded: string[] = []
+    design.aiPhotos = true
+    design.stock = {
+      search: async () => ({ total: 1, photos: [{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }] }),
+      download: async (id) => (downloaded.push(id), 'https://pixabay.com/get/42.png'),
+    }
+    dns['pixabay.com A'] = ['93.184.216.34']
+    vi.stubGlobal('fetch', async () => new Response(png, { headers: { 'content-type': 'image/png' } }))
+    const used = await usage(t.storeA1)
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    const before = stored.length
+    const call = (id: string, name: string, args: object) => ({ id, name, arguments: JSON.stringify(args) })
+    script.turns = [[call('1', 'add_stock_image', { id: '999' })], [call('2', 'search_stock_images', { query: 'linen' })], [call('3', 'add_stock_image', { id: '42' })]]
+    script.answers = [reply([])]
+    try {
+      expect((await ask('owner', 'A linen hero photo')).code).toBeUndefined()
+      expect(downloaded).toEqual(['42'])
+      expect(stored.length).toBe(before + 1)
+    } finally {
+      script.turns = []
+      vi.unstubAllGlobals()
+      design.aiPhotos = false
+      design.stock = null
+      await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    }
+  })
+
+  it('answers in chat mode with words only: no change, no draft move, one prompt taken, the reply in the chat', async () => {
+    const before = await draft(t.storeA1)
+    const used = await usage(t.storeA1)
+    const sent = script.sent.length
+    script.answers = ['Warmer colours would suit linen. Switch to Change mode to apply them.']
+    const said = await w.gql('owner', 'mutation A($text: String!) { askDesign(text: $text, page: "home", device: "desktop", mode: "chat") { outcome message { role text changed canUndo } } }', { text: 'What would suit linen?' })
+    expect(said.code).toBeUndefined()
+    expect(said.data?.['askDesign']).toEqual({ outcome: 'unchanged', message: { role: 'ai', text: 'Warmer colours would suit linen. Switch to Change mode to apply them.', changed: [], canUndo: false } })
+    expect(script.sent.length).toBe(sent + 1)
+    expect(await draft(t.storeA1)).toEqual(before)
+    expect(await usage(t.storeA1)).toBe(used + 1)
+    expect((await ask('manager', 'Hi', { })).code).toBeDefined()
+  })
+
+  it('gives the chat prompt back when the sign-in failed before the model was asked, and keeps it when the provider failed', async () => {
+    const used = await usage(t.storeA1)
+    try {
+      providerFails = new SignInExpired()
+      expect((await w.gql('owner', 'mutation A { askDesign(text: "Hi", page: "home", device: "desktop", mode: "chat") { outcome } }')).data?.['askDesign']).toEqual({ outcome: 'failed' })
+      expect(await usage(t.storeA1)).toBe(used)
+      providerFails = new GatewayError('TIMEOUT')
+      await w.gql('owner', 'mutation A { askDesign(text: "Hi", page: "home", device: "desktop", mode: "chat") { outcome } }')
+      expect(await usage(t.storeA1)).toBe(used + 1)
+    } finally {
+      providerFails = null
+    }
+  })
+
+  it('stops a change while the model is thinking: nothing changes, the chat says so, the unit stays spent', async () => {
+    const before = await draft(t.storeA1)
+    const used = await usage(t.storeA1)
+    let release: () => void = () => undefined
+    hold = new Promise<void>((resolve) => (release = resolve))
+    const reached = new Promise<void>((resolve) => (held = resolve))
+    script.answers = [reply([lead('Never lands.')])]
+    try {
+      const asking = ask('owner', 'Slow one')
+      await reached
+      const stopped = await w.gql('owner', 'mutation { cancelDesign }')
+      expect(stopped.data?.['cancelDesign']).toBe(true)
+      const done = await asking
+      expect(done.data?.['askDesign']).toMatchObject({ outcome: 'cancelled', message: { role: 'note', text: 'stopped' } })
+    } finally {
+      release()
+      hold = null
+      held = null
+    }
+    expect(await draft(t.storeA1)).toEqual(before)
+    expect(await usage(t.storeA1)).toBe(used + 1)
+    expect((await w.gql('owner', 'mutation { cancelDesign }')).data?.['cancelDesign']).toBe(false)
+    expect((await w.gql('manager', 'mutation { cancelDesign }')).code).toBeDefined()
+  })
+
+  it('searches stock images and downloads a chosen one into the store’s files, never hotlinking; hidden without a key', async () => {
+    const stockQuery = 'query { stockImagesAvailable }'
+    expect((await w.gql('owner', stockQuery)).data?.['stockImagesAvailable']).toBe(false)
+    expect((await w.gql('owner', 'query { searchStockImages(query: "linen", page: 1) { id } }')).code).toBe('NOT_CONNECTED')
+    design.stock = {
+      search: async (query) => (query === 'down' ? null : { total: 1, photos: [{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }] }),
+      download: async (id) => (id === '42' ? 'https://pixabay.com/get/42.png' : null),
+    }
+    dns['pixabay.com A'] = ['93.184.216.34']
+    vi.stubGlobal('fetch', async () => new Response(png, { headers: { 'content-type': 'image/png' } }))
+    try {
+      expect((await w.gql('owner', stockQuery)).data?.['stockImagesAvailable']).toBe(true)
+      const found = await w.gql('owner', 'query { searchStockImages(query: "linen", page: 1) { id thumb user pageUrl } }')
+      expect(found.data?.['searchStockImages']).toEqual([{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42' }])
+      expect((await w.gql('owner', 'query { searchStockImages(query: "down", page: 1) { id } }')).code).toBe('SAMPLE_UNAVAILABLE')
+      expect((await w.gql('owner', 'query { searchStockImages(query: "", page: 1) { id } }')).code).toBe('INVALID_INPUT')
+      expect((await w.gql('manager', 'query { searchStockImages(query: "linen", page: 1) { id } }')).code).toBeDefined()
+      const used = async (id: string) => w.gql('owner', 'mutation U($i: String!) { useStockImage(id: $i) }', { i: id })
+      expect((await used('../etc')).code).toBe('INVALID_INPUT')
+      expect((await used('7')).code).toBe('SAMPLE_UNAVAILABLE')
+      const before = stored.length
+      const asset = (await used('42')).data?.['useStockImage'] as string
+      expect(asset).toMatch(/^[0-9a-f-]{36}$/)
+      expect(stored.length).toBe(before + 1)
+      const [row] = await db.sql<{ store_id: string }[]>`select store_id from asset where id = ${asset}`
+      expect(row?.store_id).toBe(t.storeA1)
+    } finally {
+      vi.unstubAllGlobals()
+      design.stock = null
+    }
+  })
+
+  it('refuses a partner’s read-only support session and a Manager every photo, library and Stop write, leaving the files as they were', async () => {
+    const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'studio-support@partner-a.example', 'Sia', 'partner-support', 'active') returning id`
+    const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${w.people.owner}`
+    const at = new Date()
+    await db.sql`
+      insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
+      values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-studio')}, ${new Date(at.getTime() + 5 * 60_000)}, 'read')`
+    const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => at }, 'tok-studio')
+    const cookie = entered?.cookie ?? ''
+    expect(cookie).not.toBe('')
+    const [made] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`
+    const id = made?.id ?? ''
+    const assets = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from asset`)[0]?.n
+    const putsBefore = stored.length
+    const rows = await assets()
+    const sources = [
+      `mutation { renameLibraryAsset(id: "${id}", name: "x") }`,
+      `mutation { deleteLibraryAsset(id: "${id}") }`,
+      'mutation { useStockImage(id: "42") }',
+      'mutation { importDesignImage(url: "https://example.com/a.png") }',
+      'mutation { cancelDesign }',
+      'query { searchStockImages(query: "linen", page: 1) { id } }',
+      'query { libraryAssets { assets { id } } }',
+    ]
+    for (const source of sources) {
+      expect([source, (await w.support(cookie, t.partnerA, source)).code]).toEqual([source, "BLOCKED_FOR_SUPPORT"])
+      if (!source.startsWith('query { library')) expect([source, (await w.gql('manager', source)).code]).toEqual([source, 'FORBIDDEN'])
+    }
+    expect((await db.sql`select 1 from asset where id = ${id} and name is null`).length).toBe(1)
+    expect(await assets()).toBe(rows)
+    expect(stored.length).toBe(putsBefore)
+    expect((await w.gql('bOwner', `mutation { renameLibraryAsset(id: "${id}", name: "x") }`)).code).toBe('NOT_FOUND')
+    expect((await w.gql('bOwner', `mutation { deleteLibraryAsset(id: "${id}") }`)).code).toBe('NOT_FOUND')
+    expect((await db.sql`select 1 from asset where id = ${id} and name is null`).length).toBe(1)
+  })
+
+  it('refuses the Nth+1 stock search, download and URL import with STOCK_BUSY, and the AI’s photo tools return nothing', async () => {
+    design.stock = { search: async () => ({ total: 0, photos: [] }), download: async () => null }
+    dns['pixabay.com A'] = ['93.184.216.34']
+    try {
+      stockBudget = 1
+      expect((await w.gql('owner', 'query { searchStockImages(query: "linen", page: 1) { id } }')).code).toBeUndefined()
+      for (const source of ['query { searchStockImages(query: "linen", page: 1) { id } }', 'mutation { useStockImage(id: "42") }', 'mutation { importDesignImage(url: "https://example.com/a.png") }']) {
+        expect([source, (await w.gql('owner', source)).code]).toEqual([source, 'STOCK_BUSY'])
+      }
+    } finally {
+      stockBudget = 1000
+      design.stock = null
+    }
+  })
+
+  it('lists the merchant’s own images and videos only, renames, searches, refuses to delete a used file, deletes an unused one', async () => {
+    const row = async (storeId: string, kind: string, sellerId: string | null = null) =>
+      (await db.sql<{ id: string }[]>`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${sellerId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, ${kind}, 'image/png', 10, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    const own = await row(t.storeA1, 'image')
+    const video = await row(t.storeA1, 'video')
+    const hidden = [await row(t.storeA1, 'file'), await row(t.storeA1, 'image', t.sellerA1First), await row(t.storeB1, 'image')]
+    const list = async (who: Who, args = '') => (await w.gql(who, `query { libraryAssets${args} { assets { id kind name uses } next } }`)).data?.['libraryAssets'] as { assets: { id: string; kind: string; name: string | null; uses: number }[]; next: string | null } | undefined
+    const ids = (await list('owner'))?.assets.map((a) => a.id) ?? []
+    expect(ids).toEqual(expect.arrayContaining([own, video]))
+    for (const h of hidden) expect(ids).not.toContain(h)
+    expect((await list('owner', '(kind: "video")'))?.assets.map((a) => a.id)).toEqual([video])
+    expect((await w.gql('owner', 'mutation R($i: ID!, $n: String!) { renameLibraryAsset(id: $i, name: $n) }', { i: own, n: ' Hero photo ' })).data?.['renameLibraryAsset']).toBe(true)
+    expect((await list('owner', '(search: "hero")'))?.assets).toEqual([{ id: own, kind: 'image', name: 'Hero photo', uses: 0 }])
+    expect((await w.gql('owner', 'mutation R($i: ID!, $n: String!) { renameLibraryAsset(id: $i, name: $n) }', { i: hidden[2], n: 'x' })).code).toBe('NOT_FOUND')
+    expect((await w.gql('manager', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('FORBIDDEN')
+    expect((await w.gql('manager', 'mutation R($i: ID!) { renameLibraryAsset(id: $i, name: "x") }', { i: own })).code).toBe('FORBIDDEN')
+    expect((await db.sql`select 1 from asset where id = ${own} and name = 'Hero photo'`).length).toBe(1)
+    await db.sql`update store set logo_asset_id = ${own} where id = ${t.storeA1}`
+    expect((await list('owner', '(search: "hero")'))?.assets[0]?.uses).toBe(1)
+    expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')
+    await db.sql`update store set logo_asset_id = null where id = ${t.storeA1}`
+    await db.sql`update asset set storefront_visible = true where id = ${own}`
+    expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')
+    siteText = `url(${own})`
+    expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code).toBe('ASSET_IN_USE')
+    siteText = 'no pictures here'
+    expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).code, 'a studio draft exists').toBe('ASSET_IN_USE')
+    const [kept] = await db.sql<Record<string, unknown>[]>`delete from design_draft where store_id = ${t.storeA1} returning *`
+    expect((await list('owner', '(search: "%")'))?.assets).toEqual([])
+    for (const h of hidden) expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: h })).code, h).toBe('NOT_FOUND')
+    expect((await w.gql('owner', 'mutation D($i: ID!) { deleteLibraryAsset(id: $i) }', { i: own })).data?.['deleteLibraryAsset']).toBe(true)
+    expect((await db.sql`select 1 from asset where id = ${own}`).length).toBe(0)
+    if (kept) await db.sql`insert into design_draft ${db.sql(kept)}`
+    const theirs = ((await w.gql('bOwner', 'query { libraryAssets { assets { id } } }')).data?.['libraryAssets'] as { assets: { id: string }[] }).assets.map((x) => x.id)
+    expect(theirs).toContain(hidden[2])
+    expect(theirs).not.toContain(video)
+  })
+
+  it('imports an image from a public https address into the store’s own files, and refuses private, non-image and other addresses', async () => {
+    const fetched: string[] = []
+    vi.stubGlobal('fetch', async (url: string | URL) => {
+      fetched.push(String(url))
+      return String(url).endsWith('.png') ? new Response(png, { headers: { 'content-type': 'image/png' } }) : new Response('<html>', { status: 200 })
+    })
+    try {
+      for (const url of ['http://shop.example.com/a.png', 'https://10.0.0.1/a.png', 'https://inside.example.com/a.png', 'https://localhost/a.png']) expect((await importImage('owner', url)).code, url).toBe('INVALID_URL')
+      expect(fetched).toEqual([])
+      expect((await importImage('owner', 'https://shop.example.com/page.html')).code).toBe('INVALID_IMAGE')
+      const kept = stored.length
+      const done = await importImage('owner', 'https://shop.example.com/a.png')
+      const id = done.data?.['importDesignImage'] as string
+      expect(id).toMatch(/^[0-9a-f-]{36}$/)
+      expect(stored).toHaveLength(kept + 1)
+      const [row] = await db.sql<{ store_id: string; kind: string }[]>`select store_id, kind from asset where id = ${id}`
+      expect(row).toEqual({ store_id: t.storeA1, kind: 'image' })
+      const [logged] = await db.sql<{ n: string }[]>`select count(*)::text as n from activity_log where store_id = ${t.storeA1} and action = 'storefront.image_imported'`
+      expect(Number(logged?.n)).toBeGreaterThanOrEqual(1)
+      expect((await importImage('manager', 'https://shop.example.com/a.png')).code).toBeDefined()
+    } finally {
+      vi.unstubAllGlobals()
     }
   })
 
@@ -373,6 +655,40 @@ describe('editing, undoing and discarding', () => {
     expect((await db.sql<{ folder: string | null }[]>`select d.preview_deploy_ref as folder from storefront f left join design_draft d on d.store_id = f.store_id where f.store_id = ${t.storeA1}`)[0]?.folder).toBeNull()
     expect((await texts('owner'))?.find((e) => e.key === 'pages:home.lead')?.text).toBe('Warm linen, cut slowly.')
     expect((await db.sql<{ text: string }[]>`select text from design_message where store_id = ${t.storeA1} and role = 'note' order by created_at desc limit 1`)[0]?.text).toBe('discarded')
+  })
+
+  it('marks an attached image for shoppers only when the change lands, not for a stopped or unchanged one', async () => {
+    const [made] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`
+    const id = made?.id ?? ''
+    const used = await usage(t.storeA1)
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    const visible = async () => (await db.sql<{ v: boolean }[]>`select storefront_visible as v from asset where id = ${id}`)[0]?.v
+    design.readAsset = async () => ({ bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), mime: 'image/png' })
+    let release: () => void = () => undefined
+    try {
+      hold = new Promise<void>((resolve) => (release = resolve))
+      const reached = new Promise<void>((resolve) => (held = resolve))
+      const asking = ask('owner', 'Use this', { image: id })
+      await reached
+      await w.gql('owner', 'mutation { cancelDesign }')
+      expect((await asking).data?.['askDesign']).toMatchObject({ outcome: 'cancelled' })
+      expect(await visible()).toBe(false)
+    } finally {
+      release()
+      hold = null
+      held = null
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    script.answers = [reply([lead('Linen, no photo.')])]
+    expect((await ask('owner', 'Like this', { image: id })).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    expect(await visible(), 'attached but unused').toBe(false)
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    script.answers = [reply([lead(`Linen, with ${id}.`)])]
+    const landed = await ask('owner', 'Use this', { image: id })
+    expect(landed.data?.['askDesign'], JSON.stringify(landed)).toMatchObject({ outcome: 'changed' })
+    expect(await visible(), 'named by the change').toBe(true)
+    design.readAsset = null
+    await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
   })
 })
 

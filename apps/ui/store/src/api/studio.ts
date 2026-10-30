@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { allPages } from './allPages'
+import { createApiClient, typedQuery } from '@dripfunnel/shared/graphql'
+import { actingHeaders } from '../acting'
 import { query } from './client'
+
+// A change waits on the model, up to 180 s a try (SAAS §9.3); the 15 s default would show a failure while it still runs.
+const slowQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 200_000 }))
 
 // The AI studio (PortalStorefront › studio; FIRST-RELEASE §14, §19 "Built on #318 (part 2)"; storefront AI-STUDIO §3–§5):
 // `storefront.read` reads, `publish` (the Owner) changes.
@@ -50,17 +55,38 @@ export interface DesignRequest {
   model: string | null
   page: string
   device: StudioDevice
+  /** `chat` asks a question and changes nothing; the default is a change. */
+  mode?: 'change' | 'chat'
 }
 
 /** One change, checked and repaired in the store's sandbox before it answers: changed, unchanged, refused or failed. */
 export const askDesign = async (input: DesignRequest): Promise<string> =>
   (
-    await query(
-      'mutation A($text: String!, $image: ID, $sample: String, $model: String, $page: String!, $device: String!) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $sample, model: $model, page: $page, device: $device) { outcome } }',
+    await slowQuery(
+      'mutation A($text: String!, $image: ID, $sample: String, $model: String, $page: String!, $device: String!, $mode: String) { askDesign(text: $text, imageAssetId: $image, sampleUrl: $sample, model: $model, page: $page, device: $device, mode: $mode) { outcome } }',
       z.object({ askDesign: z.object({ outcome: z.string() }) }),
-      { text: input.text, image: input.imageAssetId, sample: input.sampleUrl, model: input.model, page: input.page, device: input.device },
+      { text: input.text, image: input.imageAssetId, sample: input.sampleUrl, model: input.model, page: input.page, device: input.device, mode: input.mode ?? 'change' },
     )
   ).askDesign.outcome
+
+/** The platform fetches a public https image into the store's own files; resolves its asset id (AI-STUDIO §8). */
+export const importDesignImage = async (url: string): Promise<string> =>
+  (await query('mutation I($u: String!) { importDesignImage(url: $u) }', z.object({ importDesignImage: z.string() }), { u: url })).importDesignImage
+
+/** Stops the change running for this store; the pending askDesign then answers `cancelled`. */
+export const cancelDesign = async (): Promise<boolean> => (await query('mutation { cancelDesign }', z.object({ cancelDesign: z.boolean() }), {})).cancelDesign
+
+const stockPhoto = z.object({ id: z.string(), thumb: z.string(), user: z.string(), pageUrl: z.string(), tags: z.string() })
+export type StockPhoto = z.infer<typeof stockPhoto>
+
+/** Whether the platform has a stock photo source set up; the picker is hidden without one. */
+export const loadStockAvailable = async (): Promise<boolean> => (await query('query { stockImagesAvailable }', z.object({ stockImagesAvailable: z.boolean() }), {})).stockImagesAvailable
+
+export const searchStockImages = async (words: string, page: number): Promise<StockPhoto[]> =>
+  (await query('query S($q: String!, $p: Int!) { searchStockImages(query: $q, page: $p) { id thumb user pageUrl tags } }', z.object({ searchStockImages: z.array(stockPhoto) }), { q: words, p: page })).searchStockImages
+
+/** The chosen photo is downloaded into the store's own files; resolves its asset id. */
+export const useStockImage = async (id: string): Promise<string> => (await query('mutation U($i: String!) { useStockImage(id: $i) }', z.object({ useStockImage: z.string() }), { i: id })).useStockImage
 
 export const undoDesignChange = async (messageId: string): Promise<void> => {
   await query('mutation U($id: ID!) { undoDesignChange(messageId: $id) { id } }', z.object({ undoDesignChange: z.object({ id: z.string() }) }), { id: messageId })

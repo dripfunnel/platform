@@ -26,6 +26,12 @@ const fakeApi = () =>
     renewStudioSession: vi.fn().mockResolvedValue(undefined),
     loadDesignChat: vi.fn().mockResolvedValue({ messages: chat, next: null }),
     askDesign: vi.fn().mockResolvedValue('changed'),
+    importDesignImage: vi.fn().mockResolvedValue('a-web'),
+    cancelDesign: vi.fn().mockResolvedValue(true),
+    loadLibrary: vi.fn().mockResolvedValue({ assets: [{ id: 'a-own', kind: 'image', mime: 'image/png', bytes: 1000, width: 10, height: 10, name: 'Hero photo', uses: 0, createdAt: '2026-10-29T10:00:00Z' }], next: null }),
+    loadStockAvailable: vi.fn().mockResolvedValue(false),
+    searchStockImages: vi.fn().mockResolvedValue([{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }]),
+    useStockImage: vi.fn().mockResolvedValue('a-stock'),
     undoDesignChange: vi.fn().mockResolvedValue(undefined),
     loadDesignText: vi.fn().mockImplementation((_page: string, l: string) => Promise.resolve([{ key: 'pages:home.lead', text: l === 'en' ? 'Warm layers' : '' }])),
     saveDesignText: vi.fn().mockResolvedValue(undefined),
@@ -141,7 +147,7 @@ describe('the studio’s frame', () => {
     fireEvent.change(prompt(), { target: { value: 'Add a reviews section' } })
     fireEvent.keyDown(prompt(), { key: 'Enter' })
     await settle()
-    expect(api.askDesign).toHaveBeenCalledWith({ text: 'Add a reviews section', imageAssetId: null, sampleUrl: null, model: null, page: '/', device: 'desktop' })
+    expect(api.askDesign).toHaveBeenCalledWith({ text: 'Add a reviews section', imageAssetId: null, sampleUrl: null, model: null, mode: 'change', page: '/', device: 'desktop' })
     expect(frame()).toBe(before)
     expect(frame().getAttribute('src')).toBe(frameUrl)
   })
@@ -266,6 +272,18 @@ describe('the chat', () => {
     expect(screen.getByText(c.error)).toBeTruthy()
   })
 
+  it('offers Try again on a failed change, sending the same request again', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('e1', 'error', 'change_failed'), ...chat], next: null }) })
+    expect(screen.queryByRole('button', { name: c.retry })).toBeNull()
+    fireEvent.change(prompt(), { target: { value: 'Bigger logo' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    fireEvent.click(screen.getByRole('button', { name: c.retry }))
+    await settle()
+    expect(api.askDesign).toHaveBeenCalledTimes(2)
+    expect(api.askDesign).toHaveBeenLastCalledWith(expect.objectContaining({ text: 'Bigger logo' }))
+  })
+
   it('says a change failed in the error line, and keeps the words when the request was refused', async () => {
     await show({ askDesign: vi.fn().mockRejectedValue(new ApiError('AI_BUDGET_REACHED', 'No.')), loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('e1', 'error', 'change_failed'), ...chat], next: null }) })
     expect(screen.getByText(c.error)).toBeTruthy()
@@ -303,6 +321,104 @@ describe('the chat', () => {
     fireEvent.click(screen.getByRole('button', { name: c.send }))
     await settle()
     expect(api.askDesign).toHaveBeenCalledWith(expect.objectContaining({ text: c.attachedOnly, imageAssetId: 'a-photo', sampleUrl: 'https://www.example.com/shop' }))
+  })
+
+  it('imports an image from a web address and sends it with the words, and says why one was refused', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: c.addImageUrl }))
+    fireEvent.change(screen.getByLabelText(c.imageUrlLabel), { target: { value: 'not an address' } })
+    fireEvent.click(screen.getByRole('button', { name: c.add }))
+    expect(screen.getByRole('alert').textContent).toBe(c.imageUrlInvalid)
+    fireEvent.change(screen.getByLabelText(c.imageUrlLabel), { target: { value: 'https://cdn.example.com/a.png' } })
+    fireEvent.click(screen.getByRole('button', { name: c.add }))
+    await settle()
+    expect(api.importDesignImage).toHaveBeenCalledWith('https://cdn.example.com/a.png')
+    fireEvent.change(prompt(), { target: { value: 'Use this' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenCalledWith(expect.objectContaining({ text: 'Use this', imageAssetId: 'a-web' }))
+    api.importDesignImage.mockRejectedValueOnce(new ApiError('INVALID_URL', 'No.'))
+    fireEvent.click(screen.getByRole('button', { name: c.addImageUrl }))
+    fireEvent.change(screen.getByLabelText(c.imageUrlLabel), { target: { value: 'https://10.0.0.1/a.png' } })
+    fireEvent.click(screen.getByRole('button', { name: c.add }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(c.refused.INVALID_URL)
+  })
+
+  it('asks a question in Chat mode, sending mode chat, and changes back to Change', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: c.modeChat }))
+    expect(prompt().placeholder).toBe(c.placeholderChat)
+    fireEvent.change(prompt(), { target: { value: 'What suits linen?' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'chat' }))
+    fireEvent.click(screen.getByRole('button', { name: c.modeChange }))
+    fireEvent.change(prompt(), { target: { value: 'Bigger logo' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'change' }))
+  })
+
+  it('swaps Send for Stop while a change runs, and Stop asks the server to stop it', async () => {
+    let finish: (outcome: string) => void = () => undefined
+    await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>((resolve) => (finish = resolve))) })
+    fireEvent.change(prompt(), { target: { value: 'Slow one' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(screen.queryByRole('button', { name: c.send })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(c.stop) }))
+    await settle()
+    expect(api.cancelDesign).toHaveBeenCalledTimes(1)
+    finish('cancelled')
+    await settle()
+    expect(screen.getByRole('button', { name: c.send })).toBeTruthy()
+  })
+
+  it('hides the free photo search without a source, and with one searches and attaches the pick', async () => {
+    await show()
+    expect(screen.queryByRole('button', { name: c.stock })).toBeNull()
+    cleanup()
+    api = fakeApi()
+    api.loadStockAvailable.mockResolvedValue(true)
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: c.stock }))
+    fireEvent.change(screen.getByLabelText(c.stockSearch), { target: { value: 'linen' } })
+    fireEvent.click(screen.getByRole('button', { name: c.stockGo }))
+    await settle()
+    expect(api.searchStockImages).toHaveBeenCalledWith('linen', 1)
+    expect(screen.getByText(c.stockCredit)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: fill(c.stockUse, { user: 'Ana' }) }))
+    await settle()
+    expect(api.useStockImage).toHaveBeenCalledWith('42')
+    fireEvent.change(prompt(), { target: { value: 'Use it' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenCalledWith(expect.objectContaining({ imageAssetId: 'a-stock' }))
+  })
+
+  it('chooses an image from the store’s assets and sends it with the words', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: c.assets }))
+    await settle()
+    expect(screen.queryByRole('button', { name: c.addImage })).toBeNull()
+    expect(screen.getByRole('button', { name: c.assetsUpload })).toBeTruthy()
+    expect(api.loadLibrary).toHaveBeenCalledWith({ after: null, kind: 'image', search: '' })
+    fireEvent.click(screen.getByRole('button', { name: fill(c.assetsUse, { name: 'Hero photo' }) }))
+    fireEvent.change(prompt(), { target: { value: 'Put this in the hero' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenCalledWith(expect.objectContaining({ imageAssetId: 'a-own' }))
+  })
+
+  it('shows the picked image as a thumbnail in its chip at once, and the same file once it is uploaded', async () => {
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:picked', revokeObjectURL: () => undefined }))
+    await show()
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await act(async () => void fireEvent.change(input, { target: { files: [new File(['x'], 'hero.png', { type: 'image/png' })] } }))
+    await settle()
+    const chip = screen.getByText('hero.png').closest('.df-studio-chip') as HTMLElement
+    expect(chip.querySelector('img.df-studio-thumb')?.getAttribute('src')).toBe('blob:picked')
   })
 
   it('takes a pasted image, and refuses one of another kind', async () => {

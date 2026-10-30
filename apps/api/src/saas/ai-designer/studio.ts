@@ -9,15 +9,19 @@ import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectMerchantImageKey } from '#db/scoped/storefrontSettings'
-import { selectGuardContext, selectStudioStart } from '#db/scoped/studio'
+import { makeVisible } from '#db/scoped/catalog'
+import { insertAiRun, selectGuardContext, selectStudioStart } from '#db/scoped/studio'
 import { AiDeclined, GatewayError, SignInExpired, type AiImage, type AiProvider } from '#integrations/ai/index'
 import { maxScreenshotBytes, type Screenshotter } from '#integrations/cloudflare/screenshot'
 import type { DnsLookup } from '#integrations/dns/doh'
-import { checkedUrl } from '#integrations/http/publicFetch'
+import { checkedUrl, fetchPublic } from '#integrations/http/publicFetch'
+import { maxImageBytes } from '#core/media'
+import { createAssetService, type AssetStore } from '#engine/modules/catalog/index'
+import { isPixabayUrl, type StockImages, type StockPhoto } from '#integrations/stockImages/pixabay'
 import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
-import { designModel, type DesignBrief, type Device } from './model'
+import { chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
 
@@ -32,13 +36,21 @@ export interface StudioDeps extends DesignerDeps {
   models: (billedTo: 'plan' | 'own_key', context: TenantContext) => readonly string[] | Promise<readonly string[]>
   screenshots: Screenshotter | null
   lookup: DnsLookup | null
+  /** Stock image search (Pixabay); null where no key is set, which hides the picker. */
+  stock: StockImages | null
+  /** Whether the AI may search and add photos itself; off, because Pixabay's API is for human requests (AI-STUDIO §8). */
+  aiPhotos?: boolean
+  /** Per-store limit on the photo search, download and import; false refuses. */
+  allowStock: (key: string) => Promise<boolean>
+  /** The assets bucket an imported image is stored in; null where it isn't bound. */
+  assets: AssetStore | null
   /** A merchant image's bytes from the assets bucket, by its row's key; null when the bucket isn't bound. */
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
   /** `my-store.one` (SHOP_DOMAIN); the studio frame opens only on `{slug}-preview.` of it. */
   previewDomain: string | null
 }
 
-export type AskInput = { text: string; model: string | null; imageAssetId: string | null; sampleUrl: string | null; page: string; device: Device }
+export type AskInput = { text: string; model: string | null; imageAssetId: string | null; sampleUrl: string | null; page: string; device: Device; mode?: 'change' | 'chat' }
 /** The reason a model call failed; the error's class and code don't survive the studio's RPC, so the Worker's own side reads them. */
 const reasonOf = (error: unknown): DesignFailureReason | null => {
   if (error instanceof SignInExpired) return 'SIGN_IN_EXPIRED'
@@ -48,7 +60,7 @@ const reasonOf = (error: unknown): DesignFailureReason | null => {
   return error.code === 'INVALID_CREDENTIALS' ? 'CREDENTIALS_REJECTED' : error.code === 'CANCELLED' ? null : 'BAD_REQUEST'
 }
 
-export type AskAnswer = { outcome: 'changed' | 'unchanged' | 'refused' | 'failed'; message: MessageRow }
+export type AskAnswer = { outcome: 'changed' | 'unchanged' | 'refused' | 'failed' | 'cancelled'; message: MessageRow }
 export type StudioSessionView = StudioState & { session: string; models: readonly string[]; frameUrl: string; access: 'change' | 'view'; expiresAt: Date }
 export type TextEntry = { key: string; text: string }
 
@@ -149,6 +161,21 @@ export const createStudioService = (deps: StudioDeps) => {
     return bytes ? { ok: true, value: { mediaType: 'image/jpeg', base64: toBase64(bytes) } } : { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
   }
 
+  const stockAllowed = () => deps.allowStock(`stock:${storeId}`)
+
+  /** `importDesignImage`: a public https address fetched by the platform and stored as the store's own image (AI-STUDIO §8). */
+  const importImage = async (raw: string, fromStock = false): Promise<DesignResult<string>> => {
+    if (!deps.lookup || !deps.assets) return { ok: false, reason: 'NOT_CONNECTED' }
+    if (raw.length > maxUrl) return { ok: false, reason: 'INVALID_URL' }
+    if (!fromStock && !(await stockAllowed())) return { ok: false, reason: 'STOCK_BUSY' }
+    const got = await fetchPublic(raw, { lookup: deps.lookup, maxBytes: maxImageBytes, timeoutMs: 8_000, tries: 2 })
+    if (!got.ok) return { ok: false, reason: got.code === 'BAD_URL' || got.code === 'PRIVATE_ADDRESS' ? 'INVALID_URL' : got.code === 'TOO_LARGE' ? 'INVALID_IMAGE' : 'SAMPLE_UNAVAILABLE' }
+    const stored = await createAssetService({ sql, context, actor, activity, facts, store: deps.assets }).upload(got.bytes)
+    if (!stored.ok || stored.asset.kind !== 'image') return { ok: false, reason: 'INVALID_IMAGE' }
+    await recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.imageImported, fromStock ? [{ field: 'source', before: null, after: 'pixabay' }] : [])))
+    return { ok: true, value: stored.asset.id }
+  }
+
   const briefOf = (input: AskInput, image: AiImage | null, screenshot: AiImage | null): Promise<DesignBrief> =>
     withScope(sql, context, async (tx) => {
       const store = await selectBriefStore(tx, storeId)
@@ -162,12 +189,39 @@ export const createStudioService = (deps: StudioDeps) => {
         brand: { tagline: store?.tagline ?? null, description: store?.description ?? null, voice: store?.voice ?? null, colours: [store?.primary_colour, store?.secondary_colour].filter((c): c is string => !!c) },
         products: products.map((p) => ({ name: p.name, price: p.amount && p.currency ? `${p.currency} ${toMajor({ amount: BigInt(p.amount), currency: p.currency })}` : null })),
         image,
+        imageAssetId: image ? input.imageAssetId : null,
         screenshot,
       }
     })
 
   const record = (tx: ScopedSql, m: Omit<Parameters<typeof insertDesignMessage>[1], 'storeId' | 'createdBy' | 'at'> & { at?: Date }) =>
     insertDesignMessage(tx, { storeId, createdBy: actor.id, at: now(), ...m })
+
+  /** Chat mode: a reply with no change and no sandbox; it takes a prompt like a change (SAAS §9.2) and is metered as a `design` run. */
+  const chat_ = async (input: AskInput, text: string, provider: AiProvider, billedTo: 'plan' | 'own_key', image: AiImage | null, shot: AiImage | null, asked: Date): Promise<DesignResult<AskAnswer>> => {
+    if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
+    let reply: Awaited<ReturnType<typeof chatReply>> | null = null
+    let failure: unknown = null
+    try {
+      reply = await chatReply(provider, await briefOf(input, image, shot), text)
+    } catch (error) {
+      failure = error
+      logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: error instanceof GatewayError ? `${error.name}:${error.code}` : failureCode(error) })
+    }
+    if (!reply?.text) {
+      if (billedTo === 'plan' && (!failure || failure instanceof SignInExpired || (failure instanceof GatewayError && failure.code === 'INVALID_CREDENTIALS'))) await withSystemScope(sql, (tx) => releaseUsage(tx, storeId, 'ai_prompts', monthStart(now()), now()))
+    }
+    const outcome: AskAnswer['outcome'] = reply?.text ? 'unchanged' : 'failed'
+    const message = await recordAfter(sql, storeId, async (tx) => {
+      await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
+      const runId = reply ? await insertAiRun(tx, { storeId, kind: 'design', requestedBy: actor.id, prompt: text.slice(0, 4000), model: reply.model, tokensIn: reply.tokensIn, tokensOut: reply.tokensOut, costAmount: reply.costAmount, costCurrency: reply.costCurrency, billedTo, sandboxMs: 0, repairAttempts: 0, parentRunId: null, outcome }) : null
+      const id = reply?.text ? await record(tx, { role: 'ai', text: reply.text, changed: [], page: null, commit: null, beforeCommit: null, aiRunId: runId }) : await record(tx, { role: 'error', text: designErrors.failedFor(reasonOf(failure)), aiRunId: runId })
+      await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: `chat ${outcome}` }]))
+      return selectMessage(tx, storeId, id)
+    })
+    if (!message) throw new Error('design_message: written and not found')
+    return { ok: true, value: { outcome, message } }
+  }
 
   /**
    * `askDesign` (SAAS §9.2): budget, then the model through the store's studio (fast gate, up to three repairs), then the
@@ -188,15 +242,45 @@ export const createStudioService = (deps: StudioDeps) => {
     const shot = input.sampleUrl ? await screenshotOf(input.sampleUrl, input.device) : null
     if (shot && !shot.ok) return shot
     const asked = now()
+    if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? null, asked)
     const before = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
-    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? null))
+    // The photos the model added this request, each in Assets and credited in the chat once the change is recorded.
+    const added: { assetId: string; user: string }[] = []
+    const tools: DesignTools | null =
+      deps.aiPhotos && deps.stock && deps.assets && deps.lookup
+        ? {
+            search: async (words) => (!(await stockAllowed()) ? null : (await deps.stock?.search(words, 1))?.photos.map((p) => ({ id: p.id, tags: p.tags, user: p.user })) ?? null),
+            add: async (id) => {
+              if (!seen.has(id) || !(await stockAllowed())) return null
+              const found = await deps.stock?.download(id)
+              if (!found || !isPixabayUrl(found)) return null
+              const stored = await importImage(found, true)
+              if (!stored.ok) return null
+              const record = { assetId: stored.value, user: seen.get(id) ?? '' }
+              added.push(record)
+              return record
+            },
+          }
+        : null
+    const seen = new Map<string, string>()
+    const stopLoop = new AbortController()
+    const designer = designModel(
+      provider,
+      await briefOf(input, image?.value ?? null, shot?.value ?? null),
+      tools && { ...tools, search: async (words) => (await tools.search(words))?.map((p) => (seen.set(p.id, p.user), p)) ?? null },
+      () => undefined,
+      stopLoop.signal,
+    )
     let modelAsked = false
     let modelFailure: unknown = null
+    let proposed = ''
     const model: DesignModel = {
       propose: async (proposal) => {
         modelAsked = true
         try {
-          return await designer.propose(proposal)
+          const made = await designer.propose(proposal)
+          proposed = made.files.map((f) => f.content ?? '').join('\n')
+          return made
         } catch (error) {
           modelFailure = error
           throw error
@@ -217,10 +301,31 @@ export const createStudioService = (deps: StudioDeps) => {
     if (answer.outcome === 'queued' || answer.outcome === 'unavailable' || (answer.outcome === 'failed' && !modelAsked)) await giveBack()
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+    if (answer.outcome === 'cancelled') {
+      stopLoop.abort()
+      // The unit goes back only when the model was never asked (it bills tokens once asked).
+      if (!modelAsked) await giveBack()
+      const stopped = await recordAfter(sql, storeId, async (tx) => {
+        await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
+        for (const photo of added) await record(tx, { role: 'note', text: designNotes.photoAdded(photo.user), imageAssetId: photo.assetId })
+        const id = await record(tx, { role: 'note', text: designNotes.stopped })
+        await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: 'cancelled' }]))
+        return selectMessage(tx, storeId, id)
+      })
+      if (!stopped) throw new Error('design_message: written and not found')
+      return { ok: true, value: { outcome: 'cancelled', message: stopped } }
+    }
+    if (answer.outcome === 'changed') {
+      const used = [...(input.imageAssetId ? [input.imageAssetId] : []), ...added.map((a) => a.assetId)].filter((id) => proposed.includes(id))
+      await withScope(sql, context, async (tx) => {
+        for (const id of used) await makeVisible(tx, storeId, id)
+      })
+    }
     const summary = 'summary' in answer ? answer.summary : null
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
     const message = await recordAfter(sql, storeId, async (tx) => {
       await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
+      for (const photo of added) await record(tx, { role: 'note', text: designNotes.photoAdded(photo.user), imageAssetId: photo.assetId })
       const runId = 'runId' in answer ? answer.runId : null
       const id =
         (outcome === 'changed' || outcome === 'unchanged') && summary
@@ -232,6 +337,29 @@ export const createStudioService = (deps: StudioDeps) => {
     if (!message) throw new Error('design_message: written and not found')
     return { ok: true, value: { outcome, message } }
   }
+
+  /** `searchStockImages`: Pixabay's results for words the merchant typed; page 1 to 20. */
+  const stockSearch = async (query: string, page: number): Promise<DesignResult<{ photos: StockPhoto[]; total: number }>> => {
+    if (!deps.stock) return { ok: false, reason: 'NOT_CONNECTED' }
+    const words = query.trim()
+    if (words.length === 0 || words.length > 100 || !Number.isInteger(page) || page < 1 || page > 20) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!(await stockAllowed())) return { ok: false, reason: 'STOCK_BUSY' }
+    const found = await deps.stock.search(words, page)
+    return found ? { ok: true, value: found } : { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
+  }
+
+  /** `useStockImage`: the chosen result is downloaded into the store's own files (Pixabay's terms: never hotlinked). */
+  const stockUse = async (id: string): Promise<DesignResult<string>> => {
+    if (!deps.stock) return { ok: false, reason: 'NOT_CONNECTED' }
+    if (!/^\d{1,12}$/.test(id)) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!(await stockAllowed())) return { ok: false, reason: 'STOCK_BUSY' }
+    const address = await deps.stock.download(id)
+    if (!address || !isPixabayUrl(address)) return { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
+    return importImage(address, true)
+  }
+
+  /** `cancelDesign`: stops the store's running change; the pending `askDesign` answers `cancelled`. */
+  const cancel = async (): Promise<DesignResult<boolean>> => (studio ? { ok: true, value: await studio.cancel(storeId) } : { ok: false, reason: 'NOT_CONNECTED' })
 
   /** "Undo this change" on the latest change only (AI-STUDIO §5): a new change, with its own preview. */
   const undo = async (messageId: string): Promise<DesignResult<MessageRow>> => {
@@ -297,5 +425,5 @@ export const createStudioService = (deps: StudioDeps) => {
     return offered.includes(language) ? (language.split('-')[0] ?? null) : null
   }
 
-  return { session, renew, chat, ask, undo, discard, texts, saveText }
+  return { session, renew, chat, ask, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
 }

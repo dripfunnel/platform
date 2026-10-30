@@ -86,8 +86,10 @@ export const pageGroups = (pages: StudioPages): PageGroup[] => {
 export const noteText = (code: string, templateName: (key: string) => string): string | null => {
   const n = words.chat.notes
   const template = /^template:(.+)$/.exec(code)?.[1]
+  const photo = /^photo:(.*)$/.exec(code)
+  if (photo) return photo[1] ? fill(n.photoBy, { name: photo[1] }) : n.photo
   if (template) return template === scratchTemplate ? n.scratch : fill(n.template, { name: templateName(template) })
-  return code === 'undone' ? n.undone : code === 'discarded' ? n.discarded : null
+  return code === 'stopped' ? n.stopped : code === 'undone' ? n.undone : code === 'discarded' ? n.discarded : null
 }
 
 export const askRefusal = refusalIn(words.chat.refused)

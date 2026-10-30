@@ -4,6 +4,8 @@
 export const designAudit = {
   templateChosen: 'storefront.template_chosen',
   designRequested: 'storefront.design_requested',
+  designStopped: 'storefront.design_stopped',
+  imageImported: 'storefront.image_imported',
   changeUndone: 'storefront.change_undone',
   textEdited: 'storefront.text_edited',
   discarded: 'storefront.discarded',
@@ -16,6 +18,9 @@ export const designNotes = {
   templateChosen: (key: string) => `template:${key}`,
   undone: 'undone',
   discarded: 'discarded',
+  stopped: 'stopped',
+  /** A photo the AI added to Assets; the photographer's name follows, never a web address. */
+  photoAdded: (user: string) => `photo:${user.replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 40)}`,
 } as const
 
 /** FIRST-RELEASE §14: "I couldn't make that change — nothing on your site changed." for both. */

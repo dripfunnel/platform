@@ -148,6 +148,11 @@ export const studioSessionClass = (connect: Connect) =>
       return studioAnswer(() => runner.change({ ...input, model }))
     }
 
+    /** Stop: reaches the running change without waiting in its turn. */
+    async cancel(storeId: string): Promise<boolean> {
+      return (await this.runnerFor(storeId)).cancel()
+    }
+
     /** The upgrade bot's commit (storefront ARCHITECTURE §7.1), asked by the core-upgrade Workflow with the store id it read. */
     async prepareUpgrade(storeId: string, ask: UpgradeAsk): Promise<UpgradeAnswer> {
       return (await this.runnerFor(storeId)).prepareUpgrade(ask)

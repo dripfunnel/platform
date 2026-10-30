@@ -62,7 +62,7 @@ const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
   const site = join(out, 'site')
   await rm(site, { recursive: true, force: true })
   await rm(join(out, 'edge'), { recursive: true, force: true })
-  const client = await bundle(input.repo, site)
+  const client = await bundle(input.repo, site, s.origin)
   if (!client.ok) return failed(client.problems.map((p) => `${p.file ?? 'The theme'}: ${p.message}`))
   // The fast gate's page is the studio's; the live site's pages are written below.
   await rm(join(site, 'index.html'))

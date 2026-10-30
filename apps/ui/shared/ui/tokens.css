@@ -67,6 +67,7 @@
   --df-color-qr: #14181f;
   --df-color-qr-ground: #ffffff;
   --df-shadow-floating: 0 18px 44px -20px rgb(10 42 74 / 0.5);
+  --df-shadow-raised: 0 1px 2px rgb(10 42 74 / 0.08);
   --df-radius-small: 6px;
   --df-radius: 8px;
   --df-radius-card: 12px;
@@ -128,4 +129,5 @@ body {
   --df-color-hover: #16293a;
   --df-color-side: #050d14;
   --df-shadow-floating: 0 18px 44px -20px rgb(0 0 0 / 0.7);
+  --df-shadow-raised: 0 1px 2px rgb(0 0 0 / 0.4);
 }

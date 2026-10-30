@@ -49,6 +49,21 @@ const entrySource = (routesJson: string, content: Content): string => {
   ].join('\n')
 }
 
+const mediaId = /^[A-Za-z0-9_-]{1,128}$/
+
+/**
+ * A theme's `url(<media id>)` becomes the shop's own `/shop-api/assets/{id}`; the validator has already held the id to the
+ * store's media (AI-STUDIO §8). The studio frame and a preview serve the stylesheet from `…/assets/`, so `../shop-api/…`
+ * lands under the frame's session prefix or at the host's root; the live site's stylesheet is on the asset origin, so
+ * its build names the shop's `origin`. First in the plugin list, or the bare-name rule below refuses the id.
+ */
+export const mediaUrlPlugin = (origin: string | null = null): Plugin => ({
+  name: 'df-media-url',
+  setup(b) {
+    b.onResolve({ filter: mediaId }, (args) => (args.kind === 'url-token' ? { path: `${origin ?? '..'}/shop-api/assets/${args.path}`, external: true } : undefined))
+  },
+})
+
 const runtimePlugin = (entry: string): Plugin => ({
   name: 'df-runtime',
   setup(b) {
@@ -93,7 +108,7 @@ const html = (entry: string, css: readonly string[]) =>
   ].join('\n')
 
 /** Bundles the working copy at `repo` into `out` (replaced whole); the paths in the result are relative to `out`. */
-export const bundle = async (repo: string, out: string): Promise<{ ok: true; bundle: ClientBundle } | { ok: false; problems: GateProblem[] }> => {
+export const bundle = async (repo: string, out: string, mediaOrigin: string | null = null): Promise<{ ok: true; bundle: ClientBundle } | { ok: false; problems: GateProblem[] }> => {
   await rm(out, { recursive: true, force: true })
   await mkdir(out, { recursive: true })
   let source: string
@@ -119,7 +134,7 @@ export const bundle = async (repo: string, out: string): Promise<{ ok: true; bun
     metafile: true,
     write: true,
     logLevel: 'silent',
-    plugins: [runtimePlugin(source)],
+    plugins: [mediaUrlPlugin(mediaOrigin), runtimePlugin(source)],
   }).catch((error: { errors?: Message[] }) => ({ errors: error.errors ?? [{ text: String(error) } as Message], metafile: undefined }))
   if (result.errors.length > 0 || !result.metafile) return { ok: false, problems: result.errors.map(problemOf) }
 

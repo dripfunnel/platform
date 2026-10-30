@@ -3,13 +3,30 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { Provided } from '../../../test/shop'
 import type { RenderMode } from '../store/context'
-import { Image, Video } from './media'
+import { frameAddress, Image, Video } from './media'
 import { asMain, photoSchema, videoSchema } from './photo'
 
 const photo = photoSchema.parse({ alt: 'Front', image: { url: 'https://shop.example/shop-api/assets/a' } })
 const video = videoSchema.parse({ file: { url: 'https://shop.example/shop-api/assets/v' } })
 
 const html = (mode: RenderMode, node: React.ReactNode) => renderToStaticMarkup(<Provided mode={mode}>{node}</Provided>)
+
+describe('frameAddress', () => {
+  const base = '/__studio/abcdefghijklmnopqrstuv/'
+  it('moves a shop file under the frame’s session path, whatever origin it was written with, and leaves other addresses alone', () => {
+    expect(frameAddress('https://test-preview.my-store.localhost/shop-api/assets/a1', base)).toBe(`${base}shop-api/assets/a1`)
+    expect(frameAddress('/shop-api/assets/a1', base)).toBe(`${base}shop-api/assets/a1`)
+    expect(frameAddress('https://cdn.example/x.png', base)).toBe('https://cdn.example/x.png')
+    expect(frameAddress('https://shop.example/shop-api/assets/a1', null)).toBe('https://shop.example/shop-api/assets/a1')
+  })
+})
+
+describe('Image in the studio frame', () => {
+  it('asks for the shop’s files at the host root outside the frame’s session path, since the frame carries no cookie', () => {
+    if (!photo) throw new Error('no photo')
+    expect(html('studio', <Image image={photo} alt="Front" ratio={1} />)).toContain('src="https://shop.example/shop-api/assets/a"')
+  })
+})
 
 describe('Image', () => {
   it('is resized in modern formats on the live site, with its width and height always set', () => {

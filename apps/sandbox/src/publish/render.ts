@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import type { ComponentType } from 'react'
 import { build, type Plugin } from 'esbuild'
 import type { ShopStoreSettings, ThemeRoute } from '@dripfunnel/storefront-core'
-import { readContent, routesSchema, runtimeModules } from '../gate/bundle'
+import { mediaUrlPlugin, readContent, routesSchema, runtimeModules } from '../gate/bundle'
 
 // The static build's renderer (storefront ARCHITECTURE §4.2 "Live"): the theme's pages bundled for Node with the same
 // core and libraries the client bundle loads, then rendered to HTML once per page from the frozen snapshot.
@@ -77,6 +77,7 @@ export const serverTheme = async (repo: string, work: string): Promise<ServerThe
     define: { 'process.env.NODE_ENV': '"production"' },
     logLevel: 'silent',
     plugins: [
+      mediaUrlPlugin(),
       resolveOwn(),
       { name: 'df-server-entry', setup: (b) => void b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: source, loader: 'js', resolveDir: repo })) },
     ],

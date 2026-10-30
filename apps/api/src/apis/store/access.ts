@@ -15,6 +15,7 @@ import type { MachineCaller } from '#auth/machineCaller'
 import type { TenantContext } from '#core/tenancy'
 import type { StudioApi } from '#saas/studio/index'
 import type { StudioDeps } from '#saas/ai-designer/index'
+import type { StoreRepos } from '#integrations/github/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { accessErrorCode, blockedIn, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
 import type { CourierDirectory } from '#core/couriers'
@@ -50,12 +51,16 @@ export interface StoreContext extends Record<string, unknown> {
   lookup?: DnsLookup | null
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */
   allowCodeCheck?: (key: string) => Promise<boolean>
+  /** The stock-photo limiter (STOCK_RATE_LIMITER) by key; those calls are refused everywhere it isn't bound. */
+  allowStock?: (key: string) => Promise<boolean>
   /** The public-read limiter (SHOP_RATE_LIMITER) by key; `pricing` refuses everything where it isn't bound. */
   allowPublicRead?: (key: string) => Promise<boolean>
   /** "Open preview" (storefront PREVIEW.md §5 step 1): the preview domain and the link's key; null where either isn't set. */
   preview?: { domain: string; links: PreviewLinks } | null
   /** Site settings › Domains: the zone domains point at (EDGE_ZONE), whether `*.localhost` names are taken (DNS_LOCAL), and the free address's domain (SHOP_DOMAIN). */
   domains?: { edgeZone: string; localHosts: boolean; shopDomain: string | null } | null
+  /** The store repos through the GitHub App, asked for only when a file's use in the theme is checked; null where there is no App. */
+  siteRepos?: (() => Promise<StoreRepos | null>) | null
   /** The store's StudioSession, by the session's TenantContext only (AI-STUDIO §3 step 2); null where none is bound. */
   studio?: ((context: TenantContext) => StudioApi) | null
   /** Asks a provider whether an AI key works (Storefront › AI); the real providers where unset. */
@@ -63,7 +68,7 @@ export interface StoreContext extends Record<string, unknown> {
   /** The AI sign-in flow (SAAS §9.3); null where the Worker has none. */
   aiOauth?: AiOAuth | null
   /** The designer's model, a sample site's screenshot and a pasted image's bytes (storefront ARCHITECTURE §6.2). */
-  design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'readAsset'> | null
+  design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'readAsset'> & { stock?: StudioDeps['stock']; aiPhotos?: boolean } | null
   /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
   mapFrame?: string | null
   now: () => Date

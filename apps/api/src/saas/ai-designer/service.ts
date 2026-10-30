@@ -42,6 +42,7 @@ export type DesignRefusal =
         | 'INVALID_URL'
         | 'INVALID_LANGUAGE'
         | 'SAMPLE_UNAVAILABLE'
+        | 'STOCK_BUSY'
         | 'AI_BUDGET_REACHED'
         | 'AI_NOT_CONNECTED'
         | 'SESSION_ENDED'

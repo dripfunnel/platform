@@ -9,6 +9,7 @@ import { isHttps } from '@dripfunnel/shared/format'
 import { refusalIn } from '../common/refusal'
 import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
+import { useChatWidth } from './useChatWidth'
 import { EditTextDialog } from './EditTextDialog'
 import { StudioChat, type ChatRequest } from './StudioChat'
 import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishProgress, failedWords, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
@@ -52,6 +53,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const dialogRef = useRef<HTMLDialogElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const phone = usePhone()
+  const { bodyRef, ...chatWidth } = useChatWidth()
   const [session, setSession] = useState<Session | null>(null)
   const [models, setModels] = useState<readonly string[]>([])
   const [sandbox, setSandbox] = useState<Sandbox>({ kind: 'opening' })
@@ -258,6 +260,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   }
   // An accepted change reaches the frame by its own hot reload, so the frame's address never changes here (AI-STUDIO §4 step 5).
   const send = (request: ChatRequest) => perform(() => api.askDesign({ ...request, page: shownPath, device: shownDevice }), askRefusal)
+  const stop = () => void api.cancelDesign().catch(() => undefined)
   const undo = (message: DesignMessage) => void perform(() => api.undoDesignChange(message.id), askRefusal)
   const discard = () => {
     setDiscarding(false)
@@ -439,7 +442,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         </div>
       )}
       {/* On a phone both panes stay mounted, so the frame keeps its page while the chat shows. */}
-      <div className="df-studio-body">
+      <div className={chatWidth.dragging ? 'df-studio-body df-studio-body--dragging' : 'df-studio-body'} ref={bodyRef} style={phone ? undefined : ({ '--df-studio-chat-w': `${chatWidth.width}px` } as React.CSSProperties)}>
         <div className="df-studio-pane" {...paneProps('chat')}>
           <StudioChat
             chat={chat}
@@ -455,11 +458,25 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             onEarlier={more}
             onUndo={undo}
             onSend={send}
+            onStop={stop}
             notice={notice}
             models={models}
             aiLine={!usage ? null : usage.ownKey ? words.usageOwn : usage.aiPromptsAllowed === null ? null : fill(words.usageLine, { left: formatCount(Math.max(0, usage.aiPromptsAllowed - usage.aiPromptsUsed)) })}
           />
         </div>
+        {!phone && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={words.resize}
+            aria-valuemin={chatWidth.min}
+            aria-valuemax={chatWidth.max}
+            aria-valuenow={chatWidth.width}
+            tabIndex={0}
+            className="df-studio-resizer"
+            {...chatWidth.handle}
+          />
+        )}
         <div className="df-studio-pane df-studio-pane--preview" {...paneProps('preview')}>
           <div className={`df-studio-preview df-studio-preview--${shownDevice}`}>
             {(phone || editing) && <div className="df-studio-toolbar">

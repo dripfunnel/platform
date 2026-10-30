@@ -24,6 +24,7 @@ const words: Record<DesignRefusal['reason'], string> = {
   INVALID_URL: 'Use a public website address starting with https://.',
   INVALID_LANGUAGE: 'Your shop doesn’t offer that language.',
   SAMPLE_UNAVAILABLE: 'We couldn’t open that website. Try another address.',
+  STOCK_BUSY: 'Photo search is busy. Try again in a minute.',
   AI_BUDGET_REACHED: 'You’ve used this month’s AI requests.',
   AI_NOT_CONNECTED: 'Add your AI key to design with AI.',
   SESSION_ENDED: 'Your studio session ended. Reopen the studio to keep designing.',

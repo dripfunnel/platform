@@ -105,6 +105,8 @@ const configSchema = z.object({
   // A sample site's screenshot for the designer (storefront ARCHITECTURE §6.2): Cloudflare Browser Rendering, both or none.
   BROWSER_RENDERING_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'BROWSER_RENDERING_ACCOUNT_ID must be the 32-character account id').optional(),
   BROWSER_RENDERING_TOKEN: z.string().min(20).optional(),
+  /** Pixabay's API key for the studio's stock image picker; unset hides the picker. */
+  PIXABAY_API_KEY: z.string().min(10).optional(),
   // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue. Unset: 5,000.
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),
   // The org's Actions jobs at once, which a core rollout's waves are sized to (storefront LIVE-SHOP §10). Unset: 20 (Free).

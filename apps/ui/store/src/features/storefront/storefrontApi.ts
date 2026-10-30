@@ -4,7 +4,9 @@ import { uploadPhoto } from '../../api/productEditor'
 import { checkDomain, chooseTemplate, connectDomain, discardDraft, endPreviewLinks, goBackToVersion, loadBrand, loadDomains, loadHistory, loadMeters, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, previewLink, publishNow, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
 import { ApiError } from '@dripfunnel/shared/graphql'
 import type { StorefrontDomains, StorefrontMeters, StorefrontVersion } from '../../api/storefront'
-import { askDesign, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
+import { postAsset } from '../../api/productEditor'
+import { deleteLibraryAsset, loadLibrary, renameLibraryAsset } from '../../api/assetLibrary'
+import { askDesign, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
 import type { DesignMessage, PublishRun } from '../../api/studio'
 import { sampleContent } from './contentSample'
 import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
@@ -31,6 +33,15 @@ export interface StorefrontApi {
   renewStudioSession: typeof renewStudioSession
   loadDesignChat: typeof loadDesignChat
   askDesign: typeof askDesign
+  loadLibrary: typeof loadLibrary
+  uploadAsset: typeof postAsset
+  renameLibraryAsset: typeof renameLibraryAsset
+  deleteLibraryAsset: typeof deleteLibraryAsset
+  cancelDesign: typeof cancelDesign
+  loadStockAvailable: typeof loadStockAvailable
+  searchStockImages: typeof searchStockImages
+  useStockImage: typeof useStockImage
+  importDesignImage: typeof importDesignImage
   undoDesignChange: typeof undoDesignChange
   loadDesignText: typeof loadDesignText
   saveDesignText: typeof saveDesignText
@@ -55,7 +66,7 @@ export interface StorefrontApi {
   saveContentTranslation: typeof saveContentTranslation
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadCustomPaths, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadCustomPaths, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -145,6 +156,15 @@ const sampleStudio = (state: StorefrontState) => {
       chat = [line(`m${n}`, 'ai', 'Done — the preview shows it now.', { changed: ['Layout'], canUndo: true }), line(`m${n - 1}`, 'user', input.text, { imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl }), ...chat.map((m) => ({ ...m, canUndo: false }))]
       return Promise.resolve('changed')
     },
+    importDesignImage: () => Promise.resolve('sample-import-1'),
+    cancelDesign: () => Promise.resolve(true),
+    loadLibrary: () => Promise.resolve({ assets: ['Hero photo', 'Linen close-up', 'Studio', 'Banner'].map((name, i) => ({ id: `sample-asset-${i}`, kind: 'image' as const, mime: 'image/png', bytes: 180_000 + i * 37_000, width: 1200, height: 900, name, uses: i % 3 === 0 ? 1 : 0, createdAt: '2026-10-29T10:00:00Z' })), next: null }),
+    uploadAsset: () => Promise.resolve({ ok: true as const, asset: { id: 'sample-upload', kind: 'image', mime: 'image/png', bytes: 1000 } }),
+    renameLibraryAsset: () => Promise.resolve(),
+    deleteLibraryAsset: () => Promise.resolve(),
+    loadStockAvailable: () => Promise.resolve(true),
+    searchStockImages: () => Promise.resolve([1, 2, 3, 4, 5, 6].map((n) => ({ id: String(n), thumb: '', user: 'A contributor', pageUrl: 'https://pixabay.com/', tags: 'sample' }))),
+    useStockImage: () => Promise.resolve('sample-stock-1'),
     undoDesignChange: (id: string) => {
       chat = [line(`m${(n += 1)}`, 'note', 'undone'), ...chat.map((m) => (m.id === id ? { ...m, undone: true, canUndo: false } : m))]
       return Promise.resolve()

@@ -877,6 +877,23 @@ type IssuedGiftCardPage {
   pageInfo: PageInfo
 }
 
+type LibraryAsset {
+  bytes: Int
+  createdAt: String
+  height: Int
+  id: ID
+  kind: String
+  mime: String
+  name: String
+  uses: Int
+  width: Int
+}
+
+type LibraryPage {
+  assets: [LibraryAsset!]
+  next: String
+}
+
 type Market {
   active: Boolean
   countries: [String!]
@@ -1029,11 +1046,12 @@ type Mutation {
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
-  askDesign(device: String!, imageAssetId: ID, model: String, page: String!, sampleUrl: String, text: String!): DesignAnswer
+  askDesign(device: String!, imageAssetId: ID, mode: String, model: String, page: String!, sampleUrl: String, text: String!): DesignAnswer
   assignDelivery(deliveryId: ID!, riderId: ID!): Boolean
   beginStoreAiOauth(provider: String!): String
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelDelivery(deliveryId: ID!): Boolean
+  cancelDesign: Boolean
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   cancelStore: BillingSubscription
@@ -1060,6 +1078,7 @@ type Mutation {
   deleteContentPage(id: ID!): Boolean
   deleteFacet(id: ID!): Boolean
   deleteGroup(id: ID!): Boolean
+  deleteLibraryAsset(id: ID!): Boolean
   deleteMarket(id: ID!): Boolean
   deleteOffer(id: ID!): Boolean
   deleteProducts(ids: [ID!]!): Int
@@ -1090,6 +1109,7 @@ type Mutation {
   finishStripeConnect(key: String!): Boolean
   generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
   goBackToVersion(number: Int!): Boolean
+  importDesignImage(url: String!): ID
   installApp(appId: ID!, scopes: [String!]!): ID
   inviteMember(email: String!, role: String!): Boolean
   inviteRider(name: String!, phone: String!): Rider
@@ -1122,6 +1142,7 @@ type Mutation {
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
   removeWebhook(id: ID!): Boolean
+  renameLibraryAsset(id: ID!, name: String!): Boolean
   renewStudioSession(session: String!): String
   replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
   replayDelivery(id: ID!): ID
@@ -1217,6 +1238,7 @@ type Mutation {
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
   updateProfile(name: String!, phone: String): Profile
   useCourierForPricing(provider: String!): Boolean
+  useStockImage(id: String!): ID
 }
 
 type MyActivity {
@@ -2178,6 +2200,7 @@ type Query {
   installableApp(id: ID!): InstallableApp
   invoiceSettings: InvoiceSettings
   invoices(after: String, before: String, first: Int): StoreInvoicePage
+  libraryAssets(after: String, kind: String, search: String): LibraryPage
   market(id: ID!): Market
   markets(after: String, before: String, first: Int): MarketPage
   me: Me
@@ -2222,6 +2245,7 @@ type Query {
   reportExports: [ReportExport!]
   riderExport(id: ID!): RiderExport
   riders(after: String, before: String, first: Int): RiderPage
+  searchStockImages(page: Int!, query: String!): [StockPhoto!]
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   shippingSettings: ShippingSettings
   shopifyConnection: ShopifyConnection
@@ -2230,6 +2254,7 @@ type Query {
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   staffSessionNotice: StaffSessionNotice
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  stockImagesAvailable: Boolean
   storeAiAccount: StoreAiAccount
   storeAiSignIn: [StoreAiSignIn!]
   storeDataExport(id: ID!): [StoreDataPart!]
@@ -2685,6 +2710,14 @@ type StockMovement {
 type StockMovementPage {
   nodes: [StockMovement!]
   pageInfo: PageInfo
+}
+
+type StockPhoto {
+  id: String
+  pageUrl: String
+  tags: String
+  thumb: String
+  user: String
 }
 
 type StockQuantity {

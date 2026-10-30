@@ -17,7 +17,8 @@
     { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
     { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
     { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
-    { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
+    { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } },
+    { "name": "STOCK_RATE_LIMITER", "namespace_id": "1050", "simple": { "limit": 30, "period": 60 } }
   ],
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "images": { "binding": "IMAGES" },
@@ -40,7 +41,8 @@
         { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
         { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
         { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
-        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
+        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } },
+        { "name": "STOCK_RATE_LIMITER", "namespace_id": "1050", "simple": { "limit": 30, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "images": { "binding": "IMAGES" },
@@ -100,7 +102,8 @@
         { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
         { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
         { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
-        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
+        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } },
+        { "name": "STOCK_RATE_LIMITER", "namespace_id": "1050", "simple": { "limit": 30, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
@@ -153,7 +156,8 @@
         { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
         { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
         { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
-        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
+        { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } },
+        { "name": "STOCK_RATE_LIMITER", "namespace_id": "1050", "simple": { "limit": 30, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
