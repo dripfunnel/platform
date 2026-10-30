@@ -1,4 +1,6 @@
+import { safeNext } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import googleMark from '../../assets/google-mark.svg'
 import { currentBrand } from '../../brand/current'
 import { fill, messages } from '../../messages'
 import { Field as CommonField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
@@ -125,3 +127,22 @@ export const Terms = ({ before, after }: { before: string; after: string }) => {
     </p>
   )
 }
+
+/** PortalAuth's "Continue with Google" and its divider, only while the partner's Google client is on (ACCESS.md §2). */
+export const GoogleButton = ({ intent, next }: { intent: 'sign-in' | 'sign-up'; next?: string | undefined }) => {
+  if (!currentBrand()?.googleSignIn) return null
+  // A sign-in lands on the store chooser, as a password one does (SignIn `enter`); a sign-up comes back to its store step.
+  const after = intent === 'sign-in' ? { next: `/stores?${new URLSearchParams({ next: safeNext(next, window.location.origin, '/home') }).toString()}` } : {}
+  const href = `/api/auth/google/start?${new URLSearchParams({ intent, ...after }).toString()}`
+  return (
+    <>
+      <a className="df-auth-secondary df-auth-google" href={href}>
+        {/* Google's own mark in its own colours, as its branding requires: an asset, not tokens. */}
+        <img src={googleMark} alt="" width={18} height={18} />
+        {words.google.button}
+      </a>
+      <p className="df-auth-or">{words.google.or}</p>
+    </>
+  )
+}
+

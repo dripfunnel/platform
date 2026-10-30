@@ -175,8 +175,10 @@ loading the partner's look don't.
   held shows "its owner removed you".
 - **Forgot password** asks for the email and says "check your email"; the link in it opens the web portal in the
   browser, where the new password is chosen, and the person then signs in here. Sign-up is not in the app.
-  **Google sign-in is not built**: the Store API has no route for it (FIRST-RELEASE.md §4, "Not built, for want of
-  an API"). The prototype's "Create a store" and "Create another store" are left out with sign-up.
+  **Continue with Google** is on Sign in only (built on #1048): Google's native sign-in gives an ID token for the
+  partner's web client, which `/api/auth/google/token` turns into a session (ACCESS.md §2), while the partner's
+  Google sign-in is on and the build has its client IDs (CONFIGURATION.md §2). The prototype's "Create a store"
+  and "Create another store" are left out with sign-up.
 - **The prototype's expired-session message** says "after 12 hours without activity"; the idle limit is 2 hours
   (ACCESS.md §4), so the app says "after a while without activity".
 - **Left out, each for a reason:** My profile's Appearance (light or dark: the app stays light until a card adds

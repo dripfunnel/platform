@@ -21,6 +21,8 @@ const brandSchema = z.object({
       termsUrl: z.string().nullable(),
       privacyUrl: z.string().nullable(),
       poweredBy: z.boolean(),
+      // Whether Sign in and Create your store offer Google: the partner's own client is on (#1046).
+      googleSignIn: z.boolean(),
     })
     .nullable(),
 })
@@ -28,4 +30,4 @@ const brandSchema = z.object({
 export type Brand = NonNullable<z.infer<typeof brandSchema>['brand']>
 
 export const loadBrand = async (): Promise<Brand | null> =>
-  (await query(`{ brand { productName primaryColor accentColor font corner background files { logoLight logoDark mark favicon } supportEmail supportUrl helpUrl termsUrl privacyUrl poweredBy } }`, brandSchema)).brand
+  (await query(`{ brand { productName primaryColor accentColor font corner background files { logoLight logoDark mark favicon } supportEmail supportUrl helpUrl termsUrl privacyUrl poweredBy googleSignIn } }`, brandSchema)).brand

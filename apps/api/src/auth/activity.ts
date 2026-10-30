@@ -213,7 +213,8 @@ const personEntry = (action: string, category: 'auth' | 'security', user: { id: 
   ...request,
 })
 
-export const personSignedIn = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.signed_in', 'auth', user, request)
+// `google` when Google opened the session (#1046); a password sign-in carries no reason.
+export const personSignedIn = (user: { id: string; partnerId: string }, request: RequestFacts, via: 'google' | null = null) => personEntry('person.signed_in', 'auth', user, request, via)
 export const personSignedOut = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.signed_out', 'auth', user, request)
 // LOGGING.md §3 names these three for the merchant portal.
 export const personSecondFactorEnrolled = (user: { id: string; partnerId: string }, request: RequestFacts, method: 'app' | 'sms') =>
@@ -224,7 +225,7 @@ export const personLocked = (user: { id: string; partnerId: string }, request: R
 export const personCodeRefused = (user: { id: string; partnerId: string }, request: RequestFacts, code: string) => ({ ...personEntry('person.second_factor_refused', 'security', user, request, code), result: 'denied' as const })
 
 /** No account is named: the same entry whether the email exists or not (ACCESS.md §2). */
-export const personSignInRefused = (partnerId: string, request: RequestFacts, reason: 'invalid_credentials' | 'locked'): ActivityEntry => ({
+export const personSignInRefused = (partnerId: string, request: RequestFacts, reason: 'invalid_credentials' | 'locked' | 'google_no_account' | 'google_refused'): ActivityEntry => ({
   category: 'auth',
   action: 'person.sign_in_refused',
   result: 'denied',

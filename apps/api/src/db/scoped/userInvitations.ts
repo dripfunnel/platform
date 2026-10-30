@@ -54,11 +54,12 @@ export const issueStoreInvitationToken = async (tx: ScopedSql, invitationId: str
 export const selectStoreInvitationForEmail = async (
   tx: ScopedSql,
   invitationId: string,
-): Promise<{ partner_id: string; store_name: string; role_key: string; seller_name: string | null; invited_by_label: string; has_password: boolean } | null> =>
+): Promise<{ partner_id: string; store_name: string; role_key: string; seller_name: string | null; invited_by_label: string; has_account: boolean } | null> =>
   (
-    await tx<{ partner_id: string; store_name: string; role_key: string; seller_name: string | null; invited_by_label: string; has_password: boolean }[]>`
+    await tx<{ partner_id: string; store_name: string; role_key: string; seller_name: string | null; invited_by_label: string; has_account: boolean }[]>`
       select s.partner_id, s.name as store_name, i.role_key, sel.name as seller_name, i.invited_by_label,
-        coalesce((select u.password_hash is not null from "user" u where u.partner_id = s.partner_id and lower(u.email) = lower(i.email)), false) as has_password
+        -- Joined, not "has a password": an account made with Google has none (ACCESS.md §2).
+        coalesce((select u.status <> 'invited' from "user" u where u.partner_id = s.partner_id and lower(u.email) = lower(i.email)), false) as has_account
       from invitation i join store s on s.id = i.store_id left join seller sel on sel.id = i.seller_id
       where i.id = ${invitationId}
     `

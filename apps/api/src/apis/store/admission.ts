@@ -33,12 +33,12 @@ export interface Admission {
 }
 
 /** A proven password opens a session as far as the person's second factor allows (ACCESS.md §4): reset and invitations too. */
-export const admit = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFacts, candidate: SignInCandidate, remember: boolean, now: Date): Promise<Admission> => {
+export const admit = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFacts, candidate: SignInCandidate, remember: boolean, now: Date, via: 'google' | null = null): Promise<Admission> => {
   const user = { id: candidate.id, partnerId: candidate.partner_id }
   const stage: UserSessionStage = candidate.two_factor_method ? 'second-factor' : candidate.is_owner ? 'enrol' : 'full'
   if (stage === 'full') {
     await markUserSignedIn(tx, user.id, now)
-    await deps.activity.record(tx, personSignedIn(user, facts))
+    await deps.activity.record(tx, personSignedIn(user, facts, via))
   }
   const session = await createUserSession(tx, user, now, { stage, remember, userAgent: facts.userAgent })
   return { session, stage, remember, method: candidate.two_factor_method }

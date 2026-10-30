@@ -3,6 +3,7 @@ import type { PartnerConsoleService } from '#saas/partnerConsole/index'
 import type { PartnerDashboardService } from '#saas/partnerDashboard/index'
 import type { PartnerDomainsService } from '#saas/partnerDomains/index'
 import type { PartnerCredentialsService } from '#saas/partnerCredentials/index'
+import type { GoogleSignInService } from '#saas/googleSignIn/index'
 import type { PartnerActivityService } from '#saas/partnerActivity/index'
 import type { PartnerTeamService } from '#saas/partnerTeam/index'
 import type { PartnerReportsService } from '#saas/partnerReports/index'
@@ -27,6 +28,7 @@ export interface PlatformContext extends Record<string, unknown> {
   dashboard: PartnerDashboardService | null
   domains: PartnerDomainsService | null
   credentials: PartnerCredentialsService | null
+  googleSignIn: GoogleSignInService | null
   activity: PartnerActivityService | null
   team: PartnerTeamService | null
   reports: PartnerReportsService | null

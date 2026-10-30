@@ -1136,6 +1136,10 @@ partner_credential  (id, partner_id, kind ('ai'), provider ('anthropic'|'openai'
                     -- built on #275 (0368): a partner's AI key profiles; unique (partner_id, kind, lower(name))
                     -- and one default per (partner_id, kind); key_enc readable by app_system only (§5.3),
                     -- never returned: the consoles see key_prefix ("sk-ant-…x7Qd")
+partner_google_sign_in (partner_id PK, client_id, secret_enc, secret_hint, enabled boolean,
+                     set_by, set_at, updated_at)
+                    -- built on #1046 (0377): the partner's Google client for "Continue with Google" on its
+                    -- portal (ACCESS §2); secret_enc readable by app_system only, the consoles see secret_hint
 store_ai_account    (store_id PK, provider ('openai'|'anthropic'), key_enc, key_prefix,
                      status ('untested'|'ok'|'rejected'), last_tested_at, use_when_plan_used boolean,
                      fallback_authorized boolean default false, auth_type ('api_key'|'oauth'), account_label NULL,

@@ -147,7 +147,9 @@ or CH, built on #162), and the **"Powered by DripFunnel"** line: on, off, or by 
 partner's plan with DripFunnel (fact 18). Whether a partner may hide DripFunnel everywhere is
 open (§14). Email templates (verification code, invitation, password reset, trial ending,
 payment failed, store suspended, receipts) are editable in subject and a small set of blocks,
-per language *(ask which languages)*, with variables shown as chips (F6).
+per language *(ask which languages)*, with variables shown as chips (F6). "Continue with Google" on
+the portal uses the partner's own Google client, set on Settings › Integrations, and shows only
+while it is on (THIRD-PARTY-ACCESS §2.9, ACCESS §2; #1046).
 
 ### 3.5 Domains
 

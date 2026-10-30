@@ -19,6 +19,10 @@ export const knownErrorCodes = [
   // The sign-in routes' refusals and My profile's (ACCESS.md §4); the sign-in ones carry `minutes` or `triesLeft` in details.
   'INVALID_CREDENTIALS',
   'LOCKED',
+  // Google sign-in's token route (ACCESS.md §2, #1048).
+  'NO_ACCOUNT',
+  'GOOGLE_REFUSED',
+  'GOOGLE_UNAVAILABLE',
   'WRONG_CODE',
   'CODE_EXPIRED',
   'INVALID_PHONE',

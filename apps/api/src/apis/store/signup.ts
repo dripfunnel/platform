@@ -79,6 +79,33 @@ export const startSignup = async (request: Request, deps: StoreAuthDeps): Promis
   return json(200, { ok: true, step: 'verify-email' }, setSignupCookie(token))
 }
 
+/** Google proved the address, so the sign-up starts at the store step with no password (ACCESS.md §2; #1046). */
+export const openGoogleSignup = async (deps: StoreAuthDeps, google: { name: string; email: string }): Promise<{ ok: true; cookie: string } | { ok: false; code: 'SIGNUP_CLOSED' | 'RATE_LIMITED' }> => {
+  if (!(await deps.allowAttempt(`store:${deps.host}:signup:${google.email.toLowerCase()}`))) return { ok: false, code: 'RATE_LIMITED' }
+  const token = newSessionId()
+  const now = deps.now()
+  const open = await withSystemScope(deps.sql, async (tx) => {
+    if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return 'SIGNUP_CLOSED' as const
+    if ((await countSignupsSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000))) >= startsPerPartnerPerHour) return 'RATE_LIMITED' as const
+    const name = google.name.trim() || (google.email.split('@')[0] ?? '')
+    await insertSignup(tx, { partnerId: deps.partnerId, tokenHash: await hashSessionId(token), name, email: google.email, passwordHash: null, stage: 'store', expiresAt: new Date(now.getTime() + signupMs), now })
+    return null
+  })
+  return open ? { ok: false, code: open } : { ok: true, cookie: setSignupCookie(token) }
+}
+
+/** Where a sign-up stands, for a portal coming back from Google: the step, who it is for, and what step 3 offers. */
+export const resumeSignup = async (deps: StoreAuthDeps, cookie: string | null): Promise<Response> => {
+  const outcome = await withSignup(deps, cookie, ['email', 'store', 'phone'], async (tx, s) => ({
+    step: s.stage === 'email' ? 'verify-email' : s.stage,
+    name: s.name,
+    email: s.email,
+    countries: await offeredCountries(tx, deps.partnerId),
+    shopDomain: deps.shopDomain ?? null,
+  }))
+  return answer(outcome, isRefusal(outcome) ? {} : outcome)
+}
+
 const withSignup = async <T>(deps: StoreAuthDeps, cookie: string | null, stages: readonly SignupRow['stage'][], work: (tx: ScopedSql, s: SignupRow) => Promise<T | SignupRefusal>): Promise<T | SignupRefusal> => {
   if (!cookie) return { code: 'SIGNUP_EXPIRED' }
   const tokenHash = await hashSessionId(cookie)

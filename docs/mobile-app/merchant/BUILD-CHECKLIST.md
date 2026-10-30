@@ -27,6 +27,11 @@ Before the partner's first build:
       bundle id and package, Crashlytics is on, and its two client files are EAS file variables
       (`GOOGLE_SERVICES_JSON`, `GOOGLE_SERVICE_INFO_PLIST`) for the partner. Then `CRASH_REPORTING=on` goes in
       the partner's file (CONFIGURATION.md §2, §3).
+- [ ] **Google sign-in** (optional, #1048): in the Google Cloud project whose web client is on the partner
+      console's Settings › Integrations, an **iOS** OAuth client for the bundle id and an **Android** one for the
+      package with the SHA-1 of the build's signing key (EAS's, `eas credentials`). The web and iOS client IDs go
+      in the partner's file as `GOOGLE_WEB_CLIENT_ID` and `GOOGLE_IOS_CLIENT_ID` (CONFIGURATION.md §2); the
+      Android client needs no value in the app. A development or store build is needed to try it, never Expo Go.
 
 ---
 

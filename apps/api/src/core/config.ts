@@ -102,6 +102,8 @@ const configSchema = z.object({
   AI_SIGN_IN: z.literal('1').optional(),
   // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
   AI_LOCAL: z.literal('1').optional(),
+  // A page on the portal host stands in for Google's sign-in (#1046; integrations/google/local.ts).
+  GOOGLE_SIGN_IN_LOCAL: z.literal('1').optional(),
   // A sample site's screenshot for the designer (storefront ARCHITECTURE §6.2): Cloudflare Browser Rendering, both or none.
   BROWSER_RENDERING_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'BROWSER_RENDERING_ACCOUNT_ID must be the 32-character account id').optional(),
   BROWSER_RENDERING_TOKEN: z.string().min(20).optional(),
@@ -119,7 +121,7 @@ const configSchema = z.object({
 
 const devHooksHost = 'dev-hooks.actuateminds.com'
 export const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
-const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'PUSH_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL'] as const
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'PUSH_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL', 'GOOGLE_SIGN_IN_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
 const checkedConfig = configSchema.superRefine((c, ctx) => {

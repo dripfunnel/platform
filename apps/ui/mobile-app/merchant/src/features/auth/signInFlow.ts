@@ -1,4 +1,4 @@
-import { enrolConfirm, enrolSendCode, sendCode, signIn, signInWithBackupCode, verifyCode } from '../../api/auth'
+import { enrolConfirm, enrolSendCode, sendCode, signIn, signInWithBackupCode, signInWithGoogle, verifyCode, type SignInStep } from '../../api/auth'
 import { ApiError, isApiError, postSignOut, type RestOptions } from '@dripfunnel/mobile-shared/graphql'
 import { errorMessage, type ErrorContext } from '../../messages/errorMessage'
 import type { SessionStore } from '../../session'
@@ -10,8 +10,12 @@ export type NextScreen = 'done' | 'second-factor' | 'enrol'
 
 // ACCESS.md §4: a proven password opens a session as far as the person's second factor allows. A person with no
 // second factor is signed in; one with it must give a code; an Owner without it is held at set-up.
-export const startSignIn = async ({ rest, session, pending }: FlowDeps, email: string, password: string): Promise<NextScreen> => {
-  const step = await signIn(rest, email, password)
+export const startSignIn = async (deps: FlowDeps, email: string, password: string): Promise<NextScreen> => opened(deps, await signIn(deps.rest, email, password))
+
+/** Google proves the address; what opens is what a password would open, second factor included (ACCESS.md §2). */
+export const startGoogleSignIn = async (deps: FlowDeps, idToken: string): Promise<NextScreen> => opened(deps, await signInWithGoogle(deps.rest, idToken))
+
+const opened = async ({ rest, session, pending }: FlowDeps, step: SignInStep): Promise<NextScreen> => {
   if (step.step === 'done') {
     pending.clear()
     await session.open(step.token)

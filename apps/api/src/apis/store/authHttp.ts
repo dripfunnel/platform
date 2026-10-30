@@ -8,6 +8,8 @@ export type Refusal =
   | { code: 'WRONG_CODE'; triesLeft?: number }
   | { code: 'LOCKED'; minutes: number }
   | { code: 'INVALID_PHONE' }
+  // Google sign-in (#1046): no account for Google's address, Google's answer refused, or no Google here.
+  | { code: 'NO_ACCOUNT' | 'GOOGLE_REFUSED' | 'GOOGLE_UNAVAILABLE' }
   | { code: 'INVALID_INPUT' | 'INVALID_EMAIL' | 'INVALID_SUBDOMAIN' | 'COUNTRY_UNAVAILABLE' | 'SIGNUP_CLOSED' | 'SIGNUP_EXPIRED' }
   | { code: 'NAME_REQUIRED' | 'WEAK_PASSWORD' | 'RESET_INVALID' | 'INVITATION_USED' | 'INVITATION_REPLACED' | 'INVITATION_INVALID' | 'EMAIL_CHANGE_INVALID' }
   // The prototype's expired screen asks the inviter by name (PortalAuth `inviteBad`).

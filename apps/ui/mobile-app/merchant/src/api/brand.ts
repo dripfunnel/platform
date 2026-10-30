@@ -17,6 +17,8 @@ export const brandSchema = z.object({
   supportUrl: z.string().nullable().default(null),
   supportEmail: z.string().nullable().default(null),
   files: z.object({ logoLight: z.string().nullable(), logoDark: z.string().nullable(), mark: z.string().nullable() }),
+  // Whether Sign in offers Google: the partner's own client is on (ACCESS.md §2, #1048).
+  googleSignIn: z.boolean().default(false),
 })
 
 export type Brand = z.infer<typeof brandSchema>
@@ -24,4 +26,4 @@ export type Brand = z.infer<typeof brandSchema>
 const brandAnswer = z.object({ brand: brandSchema.nullable() })
 
 export const fetchBrand = async (client: ApiClient): Promise<Brand | null> =>
-  decode(brandAnswer, await client.request<unknown>(`{ brand { productName primaryColor accentColor font corner helpUrl supportUrl supportEmail files { logoLight logoDark mark } } }`, undefined, { get: true })).brand
+  decode(brandAnswer, await client.request<unknown>(`{ brand { productName primaryColor accentColor font corner helpUrl supportUrl supportEmail googleSignIn files { logoLight logoDark mark } } }`, undefined, { get: true })).brand
