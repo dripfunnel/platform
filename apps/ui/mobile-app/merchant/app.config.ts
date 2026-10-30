@@ -59,10 +59,10 @@ export function readPartnerEnv(root: string, key: string | undefined): PartnerEn
 export type FirebaseFiles = { android: string; ios: string }
 
 export function readFirebaseFiles(env: PartnerEnv, vars: Record<string, string | undefined>): FirebaseFiles | null {
-  if (env.CRASH_REPORTING !== 'on') return null
+  if ((env.CRASH_REPORTING ?? vars.CRASH_REPORTING) !== 'on') return null
   const wanted = { GOOGLE_SERVICES_JSON: vars.GOOGLE_SERVICES_JSON, GOOGLE_SERVICE_INFO_PLIST: vars.GOOGLE_SERVICE_INFO_PLIST }
   const missing = Object.entries(wanted).filter(([, path]) => !path || !existsSync(path)).map(([name]) => `${name}: no file; add it as an EAS file variable for ${env.PARTNER_KEY} (CONFIGURATION.md §3)`)
-  if (missing.length > 0) fail(`partners/${env.PARTNER_KEY}.env`, ['CRASH_REPORTING=on needs the two Firebase files', ...missing])
+  if (missing.length > 0) throw new Error(`CRASH_REPORTING=on needs the two Firebase files (CONFIGURATION.md §3):\n${missing.map((problem) => `  - ${problem}`).join('\n')}`)
   return { android: wanted.GOOGLE_SERVICES_JSON ?? '', ios: wanted.GOOGLE_SERVICE_INFO_PLIST ?? '' }
 }
 

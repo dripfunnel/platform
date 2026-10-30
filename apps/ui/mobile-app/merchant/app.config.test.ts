@@ -101,6 +101,14 @@ describe('app.config.ts', () => {
       expect(() => readFirebaseFiles(env, { ...vars(), GOOGLE_SERVICE_INFO_PLIST: join(root, 'missing.plist') })).toThrow(/GOOGLE_SERVICE_INFO_PLIST/)
     })
 
+    it('is switched on by the build profile for a partner file that says nothing, and by nothing else', () => {
+      writeFiles()
+      const env = readPartnerEnv(root, 'dev')
+      expect(readFirebaseFiles(env, { ...vars(), CRASH_REPORTING: 'on' })).toEqual({ android: files.GOOGLE_SERVICES_JSON(), ios: files.GOOGLE_SERVICE_INFO_PLIST() })
+      expect(readFirebaseFiles(env, { ...vars(), CRASH_REPORTING: 'yes' })).toBeNull()
+      expect(() => readFirebaseFiles(env, { CRASH_REPORTING: 'on' })).toThrow(/GOOGLE_SERVICES_JSON/)
+    })
+
     it('refuses a value other than on, so a typo never turns it off quietly', () => {
       editDevEnv((lines) => [...lines, 'CRASH_REPORTING=yes'])
       expect(() => readPartnerEnv(root, 'dev')).toThrow(/CRASH_REPORTING/)
