@@ -38,6 +38,7 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
         const r = runner(storeId)
         return studioAnswer(() => r.change({ ...input, model }))
       },
+      cancel: async (storeId) => runner(storeId).cancel(),
       undo: async (storeId, input) => {
         const r = runner(storeId)
         return studioAnswer(() => r.undo(input.commit, input.userId))

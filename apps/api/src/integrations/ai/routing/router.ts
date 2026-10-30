@@ -61,11 +61,16 @@ async function* eventsOf(route: Route, request: CanonicalRequest, signal: AbortS
 export const collectStream = async (events: AsyncIterable<CanonicalStreamEvent>): Promise<CanonicalResponse> => {
   let text = ''
   let usage: CanonicalResponse['usage'] = { tokensIn: 0, tokensOut: 0, cachedTokensIn: 0 }
+  const calls = new Map<number, { id: string; name: string; arguments: string }>()
   for await (const event of events) {
     if (event.kind === 'text') text += event.text
-    else if (event.kind === 'usage') usage = event.usage
+    else if (event.kind === 'tool_call_start') calls.set(event.index, { id: event.id, name: event.name, arguments: '' })
+    else if (event.kind === 'tool_call_delta') {
+      const call = calls.get(event.index)
+      if (call) call.arguments += event.arguments
+    } else if (event.kind === 'usage') usage = event.usage
     else if (event.kind === 'error') throw new GatewayError(event.code, event.retryAfter)
-    else if (event.kind === 'end') return { text, toolCalls: [], finish: event.finish, usage, model: event.model }
+    else if (event.kind === 'end') return { text, toolCalls: [...calls.entries()].sort(([a], [b]) => a - b).map(([, call]) => call), finish: event.finish, usage, model: event.model }
   }
   throw new GatewayError('PROVIDER_UNAVAILABLE')
 }

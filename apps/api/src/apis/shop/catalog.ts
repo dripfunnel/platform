@@ -121,6 +121,17 @@ export const registerCatalog = ({ builder, pageInfo, image }: ShopBuilder) => {
   builder.queryFields((t) => ({
     store: t.field({ type: Store, nullable: true, extensions: { access }, resolve: (_, __, ctx) => catalogOf(ctx).store() }),
     menu: t.field({ type: [MenuItem], extensions: { access }, resolve: (_, __, ctx) => catalogOf(ctx).menu() }),
+    // A merchant image a design uses (core's MerchantImage); a rider's photo and any file the shop policy hides are null.
+    shopAsset: t.field({
+      type: image,
+      nullable: true,
+      args: { id: t.arg.id({ required: true }) },
+      extensions: { access },
+      resolve: async (_, args, ctx) => {
+        const row = await catalogOf(ctx).asset(String(args.id))
+        return row && !row.rider_photo && row.mime.startsWith('image/') ? imageOf(ctx, String(args.id).toLowerCase()) : null
+      },
+    }),
     collections: t.field({
       type: CollectionPage,
       args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },

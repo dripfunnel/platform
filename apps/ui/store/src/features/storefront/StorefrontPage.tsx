@@ -9,6 +9,7 @@ import { fill, messages } from '../../messages'
 import { isHttps } from '@dripfunnel/shared/format'
 import { tabKeyHandler } from '../common/tabKeys'
 import { AiTab, aiReads, sampleAiReads } from './AiTab'
+import { AssetsTab } from './AssetsTab'
 import { BrandStep } from './BrandStep'
 import { ContentTab } from './ContentTab'
 import { DesignTab, type PoweredLine } from './DesignTab'
@@ -230,6 +231,7 @@ export const StorefrontPage = () => {
       )
     if (tab === 'journal')
       return <ContentTab kind="post" api={api} canEdit={access.canEdit} onStudio={null} entry={entry} onEntry={goEntry} host={host} shopName={brand?.shopName ?? acting.store.name} contactEmail={null} onToast={setToast} />
+    if (tab === 'assets') return <AssetsTab api={api} canEdit={access.canEdit} onToast={setToast} />
     if (tab === 'ai')
       return aiListed ? <AiTab reads={forced ? sampleAiReads : aiReads} canEdit={access.canEdit} onToast={setToast} /> : <EmptyState title={words.ai.denied.title} body={words.ai.denied.body} />
     if (tab === 'settings')

@@ -159,6 +159,19 @@ describe('the catalogue a shopper reads', () => {
     expect((await gql('store-a1.shop.example', '{ collection(slug: "shirts") { image { url } } }')).data?.['collection']).toEqual({ image: null })
   })
 
+  it('serves a merchant image to shoppers only once a design uses it (storefront_visible), and never another store’s', async () => {
+    const mine = await asset(t.storeA1)
+    const theirs = await asset(t.storeB1)
+    const one = (id: string) => gql('store-a1.shop.example', 'query A($id: ID!) { shopAsset(id: $id) { url } }', {}, { id })
+    expect((await one(mine)).data?.['shopAsset']).toBeNull()
+    await db.sql`update asset set storefront_visible = true where id in (${mine}, ${theirs})`
+    expect((await one(mine)).data?.['shopAsset']).toEqual({ url: `https://store-a1.shop.example/shop-api/assets/${mine}` })
+    expect((await one(theirs)).data?.['shopAsset']).toBeNull()
+    expect((await one('not-an-id')).data?.['shopAsset']).toBeNull()
+    await db.sql`update asset set storefront_visible = false where id in (${mine}, ${theirs})`
+    expect((await one(mine)).data?.['shopAsset']).toBeNull()
+  })
+
   it('builds the menu, leaving out a link to a hidden collection with everything under it', async () => {
     const { data } = await gql('store-a1.shop.example', '{ menu { label kind collectionSlug children { label kind url } } }', { 'x-shop-language': 'hi-IN' })
     expect(data?.['menu']).toEqual([{ label: 'Shirts', kind: 'collection', collectionSlug: 'kameez', children: [{ label: 'About', kind: 'page', url: '/about' }] }])

@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { anthropicFailure, anthropicOAuthHeaders } from './anthropicChat'
-import { UnsupportedFeature, type CanonicalRequest } from './canonical'
+import { UnsupportedFeature, type CanonicalMessage, type CanonicalRequest, type CanonicalTool, type CanonicalToolCall } from './canonical'
 import { GatewayError } from './gateway'
 import { capabilityOf, costOf } from './registry'
 import { collectStream, type Router } from './routing/router'
@@ -28,8 +28,17 @@ export interface AiAnswer {
   costCurrency: string
 }
 
+/** One turn of a conversation that may call tools; the caller runs the tools and sends their results back (AI-STUDIO §4). */
+export interface AiTurn extends AiAnswer {
+  toolCalls: readonly CanonicalToolCall[]
+  /** True when the model stopped to call a tool rather than to answer. */
+  wantsTools: boolean
+}
+
 export interface AiProvider {
   complete: (call: AiCall) => Promise<AiAnswer>
+  /** Only a provider that reaches the router carries tools; without it the designer makes its one call and no more. */
+  converse?: (call: { system: string; messages: readonly CanonicalMessage[]; tools: readonly CanonicalTool[]; signal?: AbortSignal }) => Promise<AiTurn>
 }
 
 /** The model refused, or answered nothing usable: the change is refused and nothing changes. */
@@ -95,6 +104,24 @@ export const anthropicProvider = (apiKey: string, model: string = designerModel)
  * answer is whole or the call fails: a refusal, a cut-off or an error event never returns text the studio could apply.
  */
 export const routedDesignerProvider = (router: Router, model: string, options: { signIn: boolean; onRouted?: (routed: Pick<Routed<unknown>, 'route' | 'fallbackUsed' | 'fallbackFrom'>) => void }): AiProvider => ({
+  converse: async (call) => {
+    const request: CanonicalRequest = { model, system: call.system, maxTokens: 64_000, messages: call.messages, tools: call.tools, toolChoice: 'auto' }
+    try {
+      const routed = await router.stream(request, call.signal)
+      options.onRouted?.(routed)
+      const answer = await collectStream(routed.value)
+      const wantsTools = answer.finish === 'tool_use' && answer.toolCalls.length > 0
+      if (!wantsTools && answer.finish !== 'stop') throw new AiDeclined(answer.finish === 'refusal' ? 'the model declined' : 'the answer was cut short')
+      const { route } = routed
+      const capability = capabilityOf(route.provider, route.model)
+      const free = route.connection.authType === 'oauth' || !capability
+      return { text: answer.text, model: answer.model, tokensIn: answer.usage.tokensIn, tokensOut: answer.usage.tokensOut, costAmount: free ? 0 : costOf(capability, answer.usage.tokensIn, answer.usage.tokensOut), costCurrency: 'USD', toolCalls: answer.toolCalls, wantsTools }
+    } catch (error) {
+      if (error instanceof UnsupportedFeature) throw new AiDeclined(error.message)
+      if (error instanceof GatewayError && error.code === 'INVALID_CREDENTIALS' && options.signIn) throw new SignInExpired()
+      throw error
+    }
+  },
   complete: async (call) => {
     const request: CanonicalRequest = {
       model,

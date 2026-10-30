@@ -1,7 +1,7 @@
 // Who may do what in Storefront (FIRST-RELEASE §14; ACCESS §5.1): `storefront.read` looks (Owner and Manager),
 // `publish` changes (the Owner). The server decides every write again; this only shapes the screen.
 
-export const storefrontTabs = ['design', 'pages', 'journal', 'settings', 'ai'] as const
+export const storefrontTabs = ['design', 'pages', 'journal', 'assets', 'settings', 'ai'] as const
 export type StorefrontTab = (typeof storefrontTabs)[number]
 
 /** Full-page views over the tabs: the gallery (Change template) and the studio. */

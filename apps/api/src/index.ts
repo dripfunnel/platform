@@ -132,6 +132,7 @@ import type { TenantContext } from '#core/tenancy'
 import { localAiProvider } from '#integrations/ai/index'
 import { designerAiFor, designerModelsFor } from '#saas/aiGateway/index'
 import { browserScreenshots } from '#integrations/cloudflare/screenshot'
+import { pixabayImages } from '#integrations/stockImages/pixabay'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
@@ -795,6 +796,7 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
     models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
+    stock: config.PIXABAY_API_KEY ? pixabayImages({ key: config.PIXABAY_API_KEY }) : null,
     readAsset: assets
       ? async (r2Key) => {
           const object = await assets.get(r2Key)
@@ -814,6 +816,7 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
       status: async (storeId) => await stub.status(storeId),
       useTemplate: async (storeId, input) => await stub.useTemplate(storeId, input),
       change: async (storeId, input, model) => await stub.change(storeId, input, model),
+      cancel: async (storeId) => await stub.cancel(storeId),
       undo: async (storeId, input) => await stub.undo(storeId, input),
       texts: async (storeId, input) => await stub.texts(storeId, input),
       editText: async (storeId, input) => await stub.editText(storeId, input),

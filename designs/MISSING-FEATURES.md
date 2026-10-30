@@ -30,7 +30,7 @@ Compared with Shopify and Wix, the biggest gaps are:
 1. **What the shopper sees.** ~~There is no store-level design, pages or blog, no checkout
    settings, and no customer accounts.~~ The shopper's pages, content pages, blog, checkout
    and accounts are drawn in `DF Storefront Prototype` (#285, 2026-10-05). The merchant side
-   still lacks checkout settings, and the AI designer only edits the hero section.
+   still lacks checkout settings, and the AI designer, since #470's Plan A, writes the whole theme.
 2. **Order operations after the sale.** There are no returns, no order editing, no draft or
    manual orders, and no shipping labels.
 3. **Customers and marketing.** There are no customer groups or segments, no email

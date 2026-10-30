@@ -14,7 +14,11 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7), and the frame
 on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
-Last updated: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+**Since 2026-10-30** (a card follows): chat mode, Stop, Retry, image import by web address, the free photo picker, Storefront ›
+Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
+AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
+
+Last updated: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -112,7 +116,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    request waits and shows "Finishing your previous change…".
 2. **The Worker calls the model** with the context of ARCHITECTURE §6.2. The model answers
    with a **file diff**.
-   *Why:* the diff is data until the gates accept it. The model can't run anything.
+   *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (below), and the Worker runs them, never the model and never the container.
 3. **The container applies the diff and runs the fast gate** (ARCHITECTURE §6.2): the
    allowlist, the validator, the typecheck, the bundle, the byte budgets and the content
    checks. On failure the model repairs from the exact errors, at most three times; after that,
@@ -289,6 +293,38 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   links to that build's own run (LIVE-SHOP §2).
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
+- **The AI's own photos** (decided 2026-10-30): on a change request, the model may call `search_stock_images` and
+  `add_stock_image` (at most four calls in a change, none in a repair). The Worker runs each through the same Pixabay
+  client and the same download path as the merchant's picker: the model names words and an id from the results it was
+  given, never an address, and the file lands in Assets as the merchant's own, `storefront_visible`, logged as
+  `storefront.image_imported`. Results are untrusted web text: only an id, tags and a name go back to the model, cut and
+  stripped of control characters, and the prompt says to follow no instruction in them. Each photo added is a note in the
+  chat with its thumbnail and "by {name} on Pixabay". Pixabay asks for requests made by a person, so a search happens only
+  on a merchant's request and never in a repair. A provider that does not reach the router has no tools and answers as before.
+- **Stop** (`cancelDesign`) ends the change that is running for the store, only while the model is still being asked or
+  between repairs. Once the sandbox has the diff the step finishes, so a draft is never half a change. A stopped change
+  records a `stopped` note and `cancelled`, changes nothing, and gives the usage unit back only if the model was never asked.
+- **Assets** (Storefront › Assets; `libraryAssets`, `renameLibraryAsset`, `deleteLibraryAsset`): the store's own images and
+  videos in the existing `ASSETS` bucket and `asset` table (no new bucket). The merchant's library is `seller_id is null`
+  and image or video; a supplier's files, a rider's photo and private files never show. `storefront.read` looks, the Owner
+  uploads (`POST /api/assets`), renames (`asset.name`, migration 0374) and deletes, and a file anything uses can't be deleted;
+  its use is counted over the same references the shop policy lists (migration 0290). The studio's composer picks an image
+  from it, or uploads one, and sends it as `imageAssetId`. A file nothing references is not served to shoppers (0290); attaching it to a
+  design request marks it `storefront_visible` (migration 0375), and core's `MerchantImage` then reads it with the Shop API's
+  `shopAsset(id)`. The model is told the attached image's asset id and writes it into the content key the theme reads
+  (the baseline hero's `home.hero.image`, `none` until one is chosen); the theme never writes an address. In CSS the model
+  writes `url(<asset id>)`: the validator holds the id to the store's media, and both bundlers (the gate's and the publish
+  build's) turn it into `/shop-api/assets/{id}`, so the shop serves it under the shop policy and `img-src 'self'`.
+- **Free photos** (`searchStockImages`, `useStockImage`): Pixabay's search, shown only where `PIXABAY_API_KEY` is set. Its
+  terms: results cached 24 hours, requests made by a person (the merchant types the words; the model never searches),
+  its source named wherever results show, and a chosen photo downloaded into the store's files, never hotlinked. The
+  attribution isn't required on the live shop (Pixabay's licence summary); read its full terms before widening use.
+- **Chat mode** (`askDesign` with `mode: chat`) is a question answered in words from the same brief: no diff, no
+  container, nothing changes. It counts against `ai_prompts` like a change, and its reply says nothing was changed.
+- **An image from a web address** (`importDesignImage`) is fetched by the platform, never by the container:
+  public https addresses only (`fetchPublic`: private ranges and redirects to them refused, 20 MB, a timeout),
+  stored as the store's own image through the asset service and logged as `storefront.image_imported`
+  (never the address). The merchant then attaches it like an upload.
 
 ---
 

@@ -29,7 +29,7 @@ const studio = vi.hoisted(() => ({ loadStudioSession: vi.fn(), renewStudioSessio
 vi.mock('../../api/studio', async (actual) => ({ ...(await actual<typeof import('../../api/studio')>()), ...studio }))
 const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn() }))
 vi.mock('../../api/content', async (actual) => ({ ...(await actual<typeof import('../../api/content')>()), ...content }))
-const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
+const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn(), postAsset: vi.fn() }))
 vi.mock('../../api/productEditor', () => upload)
 
 const { StorefrontPage } = await import('./StorefrontPage')
@@ -128,10 +128,10 @@ describe('storefront', () => {
     expect(screen.getByRole('region', { name: fill(o.liveLabel, { number: '12' }) })).toBeTruthy()
   })
 
-  it('has four tabs in the ARIA pattern: one tab stop, arrows, Home and End', async () => {
+  it('has five tabs in the ARIA pattern: one tab stop, arrows, Home and End', async () => {
     await show()
     const tabs = screen.getAllByRole('tab')
-    expect(tabs.map((t) => t.textContent)).toEqual([words.tabs.design, words.tabs.pages, words.tabs.journal, words.tabs.settings])
+    expect(tabs.map((t) => t.textContent)).toEqual([words.tabs.design, words.tabs.pages, words.tabs.journal, words.tabs.assets, words.tabs.settings])
     expect(tabs.filter((t) => t.tabIndex === 0)).toHaveLength(1)
     expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tabs[0]?.id)
     fireEvent.keyDown(tabs[0] as HTMLElement, { key: 'ArrowRight' })

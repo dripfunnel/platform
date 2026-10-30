@@ -626,6 +626,68 @@ export const insertAsset = async (tx: ScopedSql, a: NewAsset): Promise<string> =
 export const selectAsset = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; mime: string; bytes: number } | null> =>
   (await tx<{ r2_key: string; mime: string; bytes: number }[]>`select r2_key, mime, bytes from asset where id = ${id} and store_id = ${storeId}`)[0] ?? null
 
+export interface LibraryAsset {
+  id: string
+  kind: 'image' | 'video'
+  mime: string
+  bytes: number
+  width: number | null
+  height: number | null
+  name: string | null
+  created_at: Date
+  uses: number
+}
+
+/** Where a file is used, counted: the same references the shop policy lists (0290), plus the studio's chat and a rider's photo. */
+const usesOf = (tx: ScopedSql) => tx`(
+  (select count(*) from product_photo x where x.asset_id = a.id)
+  + (select count(*) from product_video x where x.asset_id = a.id)
+  + (select count(*) from collection x where x.image_asset_id = a.id)
+  + (select count(*) from product_story x where a.id = any (x.asset_ids))
+  + (select count(*) from story_block x where a.id = any (x.asset_ids))
+  + (select count(*) from store x where x.logo_asset_id = a.id)
+  + (select count(*) from storefront_content x where a.id = any (x.asset_ids) or x.cover_asset_id = a.id)
+  + (select count(*) from storefront_content_translation x where a.id = any (x.asset_ids))
+  + (select count(*) from storefront_brand x where a.id in (x.logo_asset_id, x.favicon_asset_id))
+  + (select count(*) from storefront_seo x where x.share_asset_id = a.id)
+)::int`
+
+/** The merchant's own images and videos for Storefront › Assets, newest first; never a supplier's, a rider's or a private file. */
+export const selectLibrary = async (tx: ScopedSql, storeId: string, o: { limit: number; before: { at: Date; id: string } | null; kind: 'image' | 'video' | null; search: string | null }): Promise<LibraryAsset[]> =>
+  tx<LibraryAsset[]>`
+    select a.id, a.kind, a.mime, a.bytes, a.width, a.height, a.name, a.created_at, ${usesOf(tx)} as uses
+    from asset a
+    where a.store_id = ${storeId} and a.seller_id is null and a.kind in ('image', 'video')
+      and not exists (select 1 from rider r where r.photo_asset_id = a.id)
+      and (${o.kind}::text is null or a.kind = ${o.kind})
+      and (${o.search}::text is null or a.name ilike '%' || ${o.search} || '%')
+      and (${o.before?.at ?? null}::timestamptz is null or (a.created_at, a.id) < (${o.before?.at ?? null}::timestamptz, ${o.before?.id ?? null}::uuid))
+    order by a.created_at desc, a.id desc
+    limit ${o.limit}`
+
+export const renameAsset = async (tx: ScopedSql, storeId: string, id: string, name: string | null): Promise<boolean> =>
+  (await tx`update asset set name = ${name} where id = ${id} and store_id = ${storeId} and seller_id is null and kind in ('image', 'video') returning id`).length > 0
+
+/** A library file's R2 key and how often it is used; null for one that isn't the merchant's library's (system scope: the caller names the store). */
+export const selectLibraryUse = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; uses: number } | null> =>
+  (
+    await tx<{ r2_key: string; uses: number }[]>`
+      select a.r2_key, ${usesOf(tx)} as uses from asset a
+      where a.id = ${id} and a.store_id = ${storeId} and a.seller_id is null and a.kind in ('image', 'video')
+        and not exists (select 1 from rider r where r.photo_asset_id = a.id)`
+  )[0] ?? null
+
+/** A file a design uses is readable by shoppers (migration 0375); another store's id changes nothing. */
+export const makeVisible = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
+  await tx`update asset set storefront_visible = true where id = ${id} and store_id = ${storeId} and seller_id is null and kind = 'image'`
+}
+
+/** The studio's chat keeps its words and shows no picture for a file that goes. */
+export const deleteAsset = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
+  await tx`update design_message set image_asset_id = null where store_id = ${storeId} and image_asset_id = ${id}`
+  await tx`delete from asset where id = ${id} and store_id = ${storeId}`
+}
+
 /** The product's photos in order, replacing what it had; each names a file the caller can read (migration 0042). */
 export const setProductPhotos = async (tx: ScopedSql, storeId: string, productId: string, photos: readonly { assetId: string; alt: string | null; versionId: string | null }[]): Promise<void> => {
   await tx`delete from product_photo where product_id = ${productId}`

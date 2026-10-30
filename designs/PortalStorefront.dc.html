@@ -71,7 +71,7 @@
               </div>
             </sc-if>
             <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5A6472;"><span style="flex:1;height:1px;background:#E8E2DC;"></span><span>{{ m.text }}</span><span style="flex:1;height:1px;background:#E8E2DC;"></span></div></sc-if>
-            <sc-if value="{{ m.isErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:13px;color:#A1261B;background:#FDECEC;border:1px solid #F3C7C2;border-radius:8px;padding:8px 10px;">{{ m.text }}</div></sc-if>
+            <sc-if value="{{ m.isErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:13px;color:#A1261B;background:#FDECEC;border:1px solid #F3C7C2;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;"><span>{{ m.text }}</span><sc-if value="{{ m.canRetry }}" hint-placeholder-val="{{ false }}"><button onClick="{{ m.retry }}" style="min-height:28px;padding:0;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;">Try again</button></sc-if></div></sc-if>
             <sc-if value="{{ m.isRefused }}" hint-placeholder-val="{{ false }}">
               <div role="alert" style="display:flex;flex-direction:column;gap:8px;background:#FDECEC;border:1px solid #F3C7C2;border-radius:10px;padding:12px 14px;">
                 <strong style="font-size:14px;color:#A1261B;">{{ m.title }}</strong>
@@ -88,7 +88,7 @@
           <div style="border:1px solid #D7D3CD;border-radius:10px;display:flex;flex-direction:column;background:#FFFFFF;">
             <sc-if value="{{ hasAtt }}" hint-placeholder-val="{{ false }}">
               <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0;">
-                <sc-if value="{{ att.hasImg }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:8px;height:40px;max-width:100%;padding:0 4px;border:1px solid #E8E2DC;border-radius:8px;background:#F7F4F0;font-size:12px;color:#434A55;"><sc-if value="{{ att.hasSrc }}" hint-placeholder-val="{{ false }}"><img src="{{ att.imgSrc }}" alt="{{ att.imgAlt }}" style="flex:none;display:block;width:32px;height:32px;object-fit:cover;border-radius:6px;"></sc-if><sc-if value="{{ att.noSrc }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="{{ att.imgAlt }}" style="flex:none;width:32px;height:32px;border-radius:6px;background:{{ att.imgBg }};"></span></sc-if><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">{{ att.imgName }}</span><button aria-label="Remove the image" onClick="{{ a.rmImg }}" style="flex:none;width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#5A6472;font-size:16px;cursor:pointer;">×</button></span></sc-if>
+                <sc-if value="{{ att.hasImg }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:8px;height:40px;max-width:100%;padding:0 4px;border:1px solid #E8E2DC;border-radius:8px;background:#F7F4F0;font-size:12px;color:#434A55;"><sc-if value="{{ att.hasSrc }}" hint-placeholder-val="{{ false }}"><img src="{{ att.imgSrc }}" alt="{{ att.imgAlt }}" style="flex:none;display:block;width:40px;height:40px;object-fit:cover;border-radius:8px;"></sc-if><sc-if value="{{ att.noSrc }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="{{ att.imgAlt }}" style="flex:none;width:40px;height:40px;border-radius:8px;background:{{ att.imgBg }};"></span></sc-if><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">{{ att.imgName }}</span><button aria-label="Remove the image" onClick="{{ a.rmImg }}" style="flex:none;width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#5A6472;font-size:16px;cursor:pointer;">×</button></span></sc-if>
                 <sc-if value="{{ att.hasSite }}" hint-placeholder-val="{{ false }}"><span title="{{ att.site }}" style="display:flex;align-items:center;gap:6px;height:40px;max-width:100%;padding:0 4px 0 10px;border:1px solid #E8E2DC;border-radius:8px;background:#F7F4F0;font-size:12px;color:#434A55;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;">{{ att.siteHost }}</span><button aria-label="Remove the website" onClick="{{ a.rmSite }}" style="flex:none;width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#5A6472;font-size:16px;cursor:pointer;">×</button></span></sc-if>
               </div>
             </sc-if>
@@ -99,13 +99,38 @@
                 <sc-if value="{{ siteErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:12px;color:#A1261B;">{{ siteErr }}</span></sc-if>
               </div>
             </sc-if>
-            <textarea aria-label="Describe a change" value="{{ prompt }}" onChange="{{ on.prompt }}" onKeyDown="{{ on.key }}" onPaste="{{ on.paste }}" readOnly="{{ locked }}" rows="3" placeholder="Describe a change — e.g. “Make it feel warmer and add a reviews section”" style="border:0;outline:none;resize:none;padding:10px 12px;font-size:14px;background:transparent;color:#14181F;border-radius:10px;"></textarea>
-            <div style="display:flex;align-items:center;gap:4px;padding:4px 6px 6px 6px;">
+            <sc-if value="{{ assetsOpen }}" hint-placeholder-val="{{ false }}">
+              <div role="dialog" aria-label="Your assets" style="display:flex;flex-direction:column;gap:8px;padding:10px 10px 0;">
+                <span style="font-size:12px;font-weight:600;color:#434A55;">Your assets</span>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"><sc-for list="{{ assetPics }}" as="ap" hint-placeholder-count="6"><button onClick="{{ ap.pick }}" aria-label="Use {{ ap.name }}" title="{{ ap.name }}" style="aspect-ratio:1;border:1px solid #E8E2DC;border-radius:8px;background:{{ ap.bg }};cursor:pointer;padding:0;"></button></sc-for></div>
+                <button onClick="{{ a.pickImg }}" style="align-self:flex-start;min-height:30px;padding:0 12px;border:1px solid #0A2A4A;border-radius:8px;background:#FFFFFF;color:#0A2A4A;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Upload from your computer</button>
+                <button onClick="{{ a.assetsClose }}" style="align-self:flex-start;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;padding:0;">Cancel</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ stockOpen }}" hint-placeholder-val="{{ false }}">
+              <div role="dialog" aria-label="Find a free photo" style="display:flex;flex-direction:column;gap:8px;padding:10px 10px 0;">
+                <span style="font-size:12px;font-weight:600;color:#434A55;">Find a free photo</span>
+                <div style="display:flex;gap:6px;"><input aria-label="Search photos" value="{{ stockQ }}" onChange="{{ on.stockQ }}" onKeyDown="{{ on.stockKey }}" placeholder="e.g. linen, handloom, studio" style="flex:1;min-width:0;height:34px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;"><button onClick="{{ a.stockGo }}" style="flex:none;height:34px;padding:0 12px;border:1px solid #0A2A4A;border-radius:8px;background:#FFFFFF;color:#0A2A4A;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Search</button><button onClick="{{ a.stockClose }}" style="flex:none;height:34px;padding:0 6px;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button></div>
+                <sc-if value="{{ stockRan }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"><sc-for list="{{ stockPics }}" as="pc" hint-placeholder-count="6"><button onClick="{{ pc.pick }}" aria-label="Use photo by {{ pc.user }}" style="aspect-ratio:1;border:1px solid #E8E2DC;border-radius:8px;background:{{ pc.bg }};cursor:pointer;padding:0;"></button></sc-for></div></sc-if>
+                <span style="font-size:11px;color:#5A6472;">Photos from Pixabay, free to use. The one you pick is copied into your store’s files.</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ urlOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:4px;padding:10px 10px 0;">
+                <span style="font-size:12px;font-weight:600;color:#434A55;">An image on the web</span>
+                <div style="display:flex;gap:6px;"><input aria-label="Image address" value="{{ urlIn }}" onChange="{{ on.urlIn }}" onKeyDown="{{ on.urlKey }}" placeholder="https://" style="flex:1;min-width:0;height:34px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;"><button onClick="{{ a.addUrl }}" style="flex:none;height:34px;padding:0 12px;border:1px solid #0A2A4A;border-radius:8px;background:#FFFFFF;color:#0A2A4A;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Add</button><button onClick="{{ a.cancelUrl }}" style="flex:none;height:34px;padding:0 6px;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button></div>
+                <sc-if value="{{ urlErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:12px;color:#A1261B;">{{ urlErr }}</span></sc-if>
+              </div>
+            </sc-if>
+            <textarea aria-label="Describe a change" value="{{ prompt }}" onChange="{{ on.prompt }}" onKeyDown="{{ on.key }}" onPaste="{{ on.paste }}" readOnly="{{ locked }}" rows="3" placeholder="{{ promptHint }}" style="border:0;outline:none;resize:none;padding:10px 12px;font-size:14px;background:transparent;color:#14181F;border-radius:10px;"></textarea>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px 10px;flex-wrap:wrap;padding:4px 10px 10px;"><div style="display:flex;align-items:center;gap:4px;">
               <input data-sf-file="1" type="file" accept="image/png,image/jpeg,image/webp" onChange="{{ on.file }}" tabIndex="-1" aria-hidden="true" style="display:none;">
-              <button aria-label="Add an image" title="Add an image — or paste one" onClick="{{ a.pickImg }}" disabled="{{ locked }}" style="flex:none;width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#5A6472;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4z M4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17 M15.5 9.5h.01"></path></svg></button>
+              <button aria-label="Choose from your assets" title="Add an image — choose from your assets, or upload one" onClick="{{ a.assetsOpen }}" disabled="{{ locked }}" style="flex:none;width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#5A6472;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4z M4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17 M15.5 9.5h.01"></path></svg></button>
+              <button aria-label="Find a free photo" title="Find a free photo" onClick="{{ a.stockOpen }}" disabled="{{ locked }}" style="flex:none;width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#5A6472;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.2-4.2"></path></svg></button>
+              <button aria-label="Add an image from a web address" title="Add an image from a web address" onClick="{{ a.openUrl }}" disabled="{{ locked }}" style="flex:none;width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#5A6472;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="M4 12h16 M12 4c2.5 2.2 2.5 13.8 0 16 M12 4c-2.5 2.2-2.5 13.8 0 16"></path></svg></button>
               <button aria-label="Add a website" title="Add a website to take inspiration from" onClick="{{ a.openSite }}" disabled="{{ locked }}" style="flex:none;width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#5A6472;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg></button>
-              <span style="flex:1;min-width:0;padding-left:4px;font-size:12px;color:#5A6472;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Enter to send · Shift+Enter for a new line</span>
-              <button onClick="{{ a.send }}" style="flex:none;height:34px;padding:0 16px;border:0;border-radius:8px;background:{{ sendBg }};color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ sendLabel }}</button>
+              <div role="group" aria-label="Mode" style="display:inline-flex;margin-left:4px;padding:2px;border-radius:999px;background:#EFEAE4;"><button aria-pressed="{{ modeChange }}" onClick="{{ a.modeChange }}" style="min-height:26px;padding:0 12px;border:0;border-radius:999px;background:{{ modeChangeBg }};color:#14181F;font-size:12px;font-weight:600;cursor:pointer;">Change</button><button aria-pressed="{{ modeChat }}" onClick="{{ a.modeChat }}" style="min-height:26px;padding:0 12px;border:0;border-radius:999px;background:{{ modeChatBg }};color:#14181F;font-size:12px;font-weight:600;cursor:pointer;">Chat</button></div></div>
+              <sc-if value="{{ isWorking }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.stop }}" style="flex:none;height:36px;padding:0 18px;border:0;border-radius:999px;background:#0A2A4A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:2px;background:#FFFFFF;"></span>Stop</button></sc-if><sc-if value="{{ notWorking }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.send }}" style="flex:none;height:36px;padding:0 18px;border:0;border-radius:999px;background:{{ sendBg }};color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">&#8593;</button></sc-if>
             </div>
           </div>
         </div>
@@ -232,6 +257,26 @@
     </div>
   </sc-if>
 
+  <sc-if value="{{ tabAssets }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:18px;color:#0A2A4A;">Assets</div><div style="font-size:13px;color:#5A6472;">Your images and videos. Pick them in the AI studio, or upload from your computer.</div></div>
+        <input aria-label="Search assets" placeholder="Search by name" style="height:36px;width:220px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;">
+        <input data-sf-assets="1" type="file" accept="image/png,image/jpeg,image/webp,video/mp4" multiple tabIndex="-1" aria-hidden="true" style="display:none;">
+        <button onClick="{{ a.pickAsset }}" style="height:36px;padding:0 16px;border:0;border-radius:999px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Upload</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;">
+        <sc-for list="{{ assetCards }}" as="ac" hint-placeholder-count="8">
+          <div style="display:flex;flex-direction:column;border:1px solid #E8E2DC;border-radius:12px;background:#FFFFFF;overflow:hidden;">
+            <div role="img" aria-label="{{ ac.name }}" style="aspect-ratio:4/3;background:{{ ac.bg }};"></div>
+            <div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;"><span style="font-size:14px;font-weight:600;color:#14181F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ac.name }}</span><span style="font-size:12px;color:#5A6472;">{{ ac.meta }}</span><span style="font-size:12px;color:#5A6472;">{{ ac.used }}</span></div>
+            <div style="display:flex;gap:8px;padding:0 12px 10px;"><sc-if value="{{ ac.canDelete }}" hint-placeholder-val="{{ true }}"><button onClick="{{ ac.del }}" style="border:0;background:transparent;color:#A1261B;font-size:13px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline;">Delete</button></sc-if></div>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size:12px;color:#5A6472;">A file that is used on your site can’t be deleted until you remove it from there.</span>
+    </div>
+  </sc-if>
   <sc-if value="{{ tabAi }}" hint-placeholder-val="{{ false }}"><dc-import name="SetAi" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
 
   <sc-if value="{{ tabSettings }}" hint-placeholder-val="{{ false }}">
@@ -313,7 +358,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;app&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}">
 class Component extends DCLogic {
   state = { lib: !!window.DFSite, tab: 'design', device: 'desktop', page: 'home', ovDevice: 'desktop', prompt: '', phase: '', sbx: 'ready', queueSecs: 20, pub: 0, w: 0, pane: 'chat', domIn: '', domErr: '', checking: false, checks: 0, checkMsg: '', seo: null, changed: [],
-    attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '', pageMenu: false, prevMenu: false, menuPos: null, editMode: false, edit: null };
+    attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '', urlOpen: false, urlIn: '', urlErr: '', chatMode: false, assetsOpen: false, stockOpen: false, stockQ: '', stockRan: false, pageMenu: false, prevMenu: false, menuPos: null, editMode: false, edit: null };
   chatRef = React.createRef();
   // Edit text takes the click before the preview acts on it, so a click edits instead of navigating.
   bindFrame(off) { const el = off ? null : document.querySelector('[data-sf-frame]'); if (el === this._frameEl) return; if (this._frameEl) this._frameEl.removeEventListener('click', this._onFrameClick, true); this._frameEl = el; if (el) el.addEventListener('click', this._onFrameClick, true); }
@@ -426,7 +471,13 @@ class Component extends DCLogic {
     const before = sf.draft || sf.site; const uid = Date.now();
     const earlier = (sf.chat || []).filter(m => m.role === 'user' && m.text).slice(-4).map(m => '- ' + m.text).join('\n');
     app.set('storefront', x => ({ ...x, prompts: (x.prompts || 0) + 1, chat: [...(x.chat || []), { id: uid, role: 'user', text: msg, img, site, at: uid }] }));
+    this._stopped = false;
     this.setState({ phase: 'working', prompt: '', attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '' });
+    if (s.chatMode && text == null) {
+      this.setState({ phase: '' });
+      app.set('storefront', x => ({ ...x, chat: [...x.chat, { id: uid + 1, role: 'ai', text: 'Warmer colours and a serif heading would suit that. Switch to Change and I’ll apply them.', changed: [], before: null, at: Date.now() }] }));
+      return;
+    }
     const asked = (msg || 'Take inspiration from what I attached.') + (site ? '\nA website to take inspiration from: ' + site : '') + (img ? '\nI attached an image to take inspiration from: ' + img.name + '.' : '');
     const names = this.prods(app).map(p => p.name).join(', ');
     const sys = `You are the design assistant inside DripFunnel, an online-shop builder. You edit one storefront, described as JSON.
@@ -438,6 +489,7 @@ Rules: do what is asked and keep everything else exactly the same. Write shop co
 Reply with ONLY minified JSON and nothing else: {"site":{...the full updated site...},"reply":"one or two short first-person sentences saying what you changed","changed":["2-5 short labels, e.g. Colours, Hero headline, New reviews section"]}`;
     try {
       const txt = await window.claude.complete({ system: sys, messages: [{ role: 'user', content: asked }], max_tokens: 4000 });
+      if (this._stopped) { this._stopped = false; return; }
       const j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
       const next = L.normalize({ ...(j.site || {}), tpl: before.tpl, name: before.name }, before);
       const keys = L.changedKeys(before, next); const themeCh = JSON.stringify(before.theme) !== JSON.stringify(next.theme);
@@ -448,6 +500,7 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       // An accepted change updates the frame in place: same page, scroll and width (AI-STUDIO §4 step 5).
       this.setState({ phase: '', changed: keys, pane: app.phone && !nothing ? 'preview' : this.state.pane });
     } catch (e) {
+      if (this._stopped) return;
       app.set('storefront', x => ({ ...x, chat: [...x.chat, { id: uid + 1, role: 'err', text: 'I couldn’t make that change — nothing on your site changed. Try again, or say it a different way.' }] }));
       this.setState({ phase: '' });
     }
@@ -553,6 +606,23 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
     this.setState({ attSite: u.href, siteOpen: false, siteIn: '', siteErr: '' });
   }
 
+  stockPick(i) {
+    this.setState({ attImg: { name: 'Pixabay photo ' + (i + 1), hue: 30 + i * 40 }, stockOpen: false, stockQ: '', stockRan: false });
+  }
+
+  stopAsk() {
+    clearTimeout(this._ph); this._stopped = true;
+    const app = this.props.app; const uid = Date.now();
+    app.set('storefront', x => ({ ...x, chat: [...x.chat, { id: uid, role: 'note', text: 'You stopped this change — nothing on your site changed.' }] }));
+    this.setState({ phase: '' });
+  }
+
+  addUrl() {
+    let u = null; try { u = new URL(this.state.urlIn.trim()); } catch (e) { u = null; }
+    if (!u || u.protocol !== 'https:' || !u.hostname.includes('.')) { this.setState({ urlErr: 'Type the full address of the image, starting with https://' }); return; }
+    this.setState({ attImg: { name: u.hostname, hue: 30 }, urlOpen: false, urlIn: '', urlErr: '' });
+  }
+
   // ?state= and the Storefront control open one state of the studio or the publish gate (design.md §2).
   takeState() {
     const app = this.props.app; if (!app || !this.state.lib) return;
@@ -645,7 +715,7 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
     const locked = !!s.phase || s.sbx !== 'ready';
     const tile = h => `linear-gradient(135deg,hsl(${h},35%,80%),hsl(${h},30%,62%))`;
     const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } };
-    const msgs = chat.map((m, i) => ({ text: m.text, hasText: !!m.text, isUser: m.role === 'user', isAi: m.role === 'ai', isNote: m.role === 'note', isErr: m.role === 'err', changed: (m.changed || []).map(t => ({ t })), hasChanged: !!(m.changed && m.changed.length) && !m.undone, canUndo: i === undoIdx && !locked, undone: !!m.undone, undo: () => this.undo(i),
+    const msgs = chat.map((m, i) => ({ text: m.text, hasText: !!m.text, isUser: m.role === 'user', isAi: m.role === 'ai', isNote: m.role === 'note', isErr: m.role === 'err', canRetry: m.role === 'err' && i === chat.length - 1 && !locked, retry: () => { const q = chat.slice(0, i).reverse().find(x => x.role === 'user'); if (q) this.ask(q.text); }, changed: (m.changed || []).map(t => ({ t })), hasChanged: !!(m.changed && m.changed.length) && !m.undone, canUndo: i === undoIdx && !locked, undone: !!m.undone, undo: () => this.undo(i),
       hasSrc: !!(m.img && m.img.src), noSrc: !!(m.img && !m.img.src), imgSrc: m.img && m.img.src || '', imgBg: tile(m.img && m.img.hue || 30), imgAlt: m.img ? 'Image you added: ' + m.img.name : '', hasSite: !!m.site, site: m.site || '', siteHost: m.site ? hostOf(m.site) : '',
       isRefused: m.role === 'refused', title: m.title || '', culprit: m.culprit || '', hasCulprit: !!m.culprit, canPartial: !!m.partialSite && !m.done && !s.pub, partial: () => this.publishBefore(i) }));
 
@@ -732,8 +802,8 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       roText: c.readOnly ? 'Your store is view-only until the payment goes through. Your site stays live.' : 'You can look, but only the store owner can change the storefront. Ask Farhan if something needs changing.',
       liveLine: hasSite ? `${host} · version ${sf.live} is live · ${sf.site.name} template` : 'Not published yet',
       studioBtn: sf.draft ? 'Continue in studio' : 'Open studio',
-      tabs: [['design', 'Design'], ['settings', 'Site settings'], ...(app.caps.isOwner ? [['ai', 'AI']] : [])].map(([k, l]) => ({ label: l, on: s.tab === k, fw: s.tab === k ? '700' : '600', fg: s.tab === k ? '#0A2A4A' : '#5A6472', bd: s.tab === k ? '#0A2A4A' : 'transparent', onClick: () => this.setState({ tab: k }) })),
-      tabDesign: s.tab === 'design', tabSettings: s.tab === 'settings', tabAi: s.tab === 'ai' && app.caps.isOwner,
+      tabs: [['design', 'Design'], ['assets', 'Assets'], ['settings', 'Site settings'], ...(app.caps.isOwner ? [['ai', 'AI']] : [])].map(([k, l]) => ({ label: l, on: s.tab === k, fw: s.tab === k ? '700' : '600', fg: s.tab === k ? '#0A2A4A' : '#5A6472', bd: s.tab === k ? '#0A2A4A' : 'transparent', onClick: () => this.setState({ tab: k }) })),
+      tabDesign: s.tab === 'design', tabAssets: s.tab === 'assets', assetCards: [0,1,2,3,4,5,6,7].map(i => ({ bg: tile(30 + i * 40), name: ['Hero photo','Linen close-up','Studio','Banner','Lookbook 1','Lookbook 2','Packaging','Team'][i], meta: 'Image · ' + (180 + i * 37) + ' KB', used: i % 3 === 0 ? 'Used on your site' : 'Not used', canDelete: i % 3 !== 0, del: () => app.toast('Deleted ' + ['Hero photo','Linen close-up','Studio','Banner','Lookbook 1','Lookbook 2','Packaging','Team'][i]) })), pickAsset: () => { const f = document.querySelector('[data-sf-assets]'); if (f) f.click(); }, tabSettings: s.tab === 'settings', tabAi: s.tab === 'ai' && app.caps.isOwner,
       draftNotice: !!sf.draft && hasSite, draftText: 'You’ve changed the design in the studio. Shoppers still see the version below until you publish.',
       rollNotice: !!sf.rolledBack && hasSite, rollText: sf.rolledBack ? `We put version ${sf.rolledBack.back} back: your new version broke the checkout on phones. We’re fixing it.` : '',
       ovLabel: hasSite ? `Live now · version ${sf.live}` : '', ovDevs: [['desktop', 'Desktop'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, ...seg(s.ovDevice === k), onClick: () => this.setState({ ovDevice: k }) })), ov,
@@ -749,7 +819,7 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
         fields: [main, ...ls.filter(l => l !== main)].map(l => { const v = s.edit.vals[l.code] || ''; return { label: l === main ? l.name + ' · main language' : l.name, v, note: l !== main && !v.trim() ? 'Not translated yet. Shoppers see your ' + main.name + ' text instead.' : '',
           on: e => this.setState({ edit: { ...s.edit, err: '', vals: { ...s.edit.vals, [l.code]: e.target.value } } }) }; }) }; })() : { fields: [] },
       sbxOn: s.sbx !== 'ready', sbx: s.sbx === 'ended' ? { text: 'Your studio session ended. Reopen the studio to keep designing.', spin: false, ended: true } : { text: s.sbx === 'queued' ? `You’re next — about ${s.queueSecs} seconds` : 'Opening your studio…', spin: true, ended: false },
-      locked, hasAtt: !!(s.attImg || s.attSite), siteOpen: s.siteOpen, siteIn: s.siteIn, siteErr: s.siteErr,
+      locked, hasAtt: !!(s.attImg || s.attSite), promptHint: s.chatMode ? 'Ask a question — e.g. “What would suit a linen shop?”' : 'Describe a change — e.g. “Make it feel warmer and add a reviews section”', modeChange: !s.chatMode, modeChat: s.chatMode, modeChangeBd: s.chatMode ? '#D7D3CD' : '#0A2A4A', modeChatBd: s.chatMode ? '#0A2A4A' : '#D7D3CD', modeChangeBg: s.chatMode ? '#FFFFFF' : '#F7F2ED', modeChatBg: s.chatMode ? '#F7F2ED' : '#FFFFFF', siteOpen: s.siteOpen, siteIn: s.siteIn, siteErr: s.siteErr, assetsOpen: s.assetsOpen, assetPics: ['Hero photo','Linen close-up','Studio','Banner','Lookbook 1','Lookbook 2'].map((name, i) => ({ name, bg: tile(30 + i * 40), pick: () => this.setState({ attImg: { name, hue: 30 + i * 40 }, assetsOpen: false }) })), stockOpen: s.stockOpen, stockQ: s.stockQ, stockRan: s.stockRan, stockPics: [0,1,2,3,4,5].map(i => ({ user: 'a Pixabay contributor', bg: tile(30 + i * 40), pick: () => this.stockPick(i) })), urlOpen: s.urlOpen, urlIn: s.urlIn, urlErr: s.urlErr,
       att: { hasImg: !!s.attImg, hasSrc: !!(s.attImg && s.attImg.src), noSrc: !!(s.attImg && !s.attImg.src), imgSrc: s.attImg && s.attImg.src || '', imgBg: tile(s.attImg && s.attImg.hue || 30), imgName: s.attImg ? s.attImg.name : '', imgAlt: s.attImg ? 'Image you added: ' + s.attImg.name : '', hasSite: !!s.attSite, site: s.attSite, siteHost: s.attSite ? hostOf(s.attSite) : '' },
       devOpts: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ k, l })),
       devTabs: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, ...seg(s.device === k), onClick: () => this.setState({ device: k }) })),
@@ -758,7 +828,7 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       msgs, prompt: s.prompt, showSugs: !locked && sugPool.length > 0, sugs: sugPool.map(t => ({ t, onClick: () => this.ask(t) })),
       busyLine: !!s.phase || (phone && s.sbx !== 'ready'), busyReopen: phone && !s.phase && s.sbx === 'ended',
       busyText: { working: 'Working on it — the preview updates as soon as it’s ready.', checking: 'Checking your change…', finishing: 'Finishing your previous change…' }[s.phase] || (s.sbx === 'ended' ? 'Your studio session ended. Reopen the studio to keep designing.' : s.sbx === 'queued' ? `You’re next — about ${s.queueSecs} seconds` : 'Opening your studio…'),
-      sendLabel: s.phase ? 'Working…' : 'Send', sendBg: locked || !(s.prompt.trim() || s.attImg || s.attSite) ? '#F3D3BF' : '#EC844F',
+      isWorking: !!s.phase, notWorking: !s.phase, sendLabel: s.phase ? 'Working…' : 'Send', sendBg: locked || !(s.prompt.trim() || s.attImg || s.attSite) ? '#F3D3BF' : '#EC844F',
       aiLine: P.ai === 'key' ? (app.st.aiKey ? 'On your own AI key' : 'Needs your AI key') : 'AI tokens: ' + app.aiLeft(),
       publishing: s.pub > 0, notPublishing: !s.pub, pubPct: s.pub + '%', pubText: s.pub < 40 ? 'Building your site…' : s.pub < 75 ? 'Checking your site…' : s.pub < 100 ? 'Checking it went live…' : 'Done',
       setCols: phone || cw < 820 ? '1fr' : 'minmax(0,1.15fr) minmax(0,1fr)', seoCols: phone || cw < 1000 ? '1fr' : 'repeat(2,minmax(0,1fr))',
@@ -770,19 +840,19 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
         prompt: e => this.setState({ prompt: e.target.value }), devSel: e => this.setState({ device: e.target.value }),
         paste: e => { const it = Array.from((e.clipboardData && e.clipboardData.items) || []).find(x => x.kind === 'file' && /^image\//.test(x.type)); if (it) { e.preventDefault(); this.takeImg(it.getAsFile()); } },
         file: e => { this.takeImg(e.target.files && e.target.files[0]); e.target.value = ''; },
-        siteIn: e => this.setState({ siteIn: e.target.value, siteErr: '' }), siteKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.addSite(); } },
+        siteIn: e => this.setState({ siteIn: e.target.value, siteErr: '' }), urlIn: e => this.setState({ urlIn: e.target.value, urlErr: '' }), stockQ: e => this.setState({ stockQ: e.target.value }), stockKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.setState({ stockRan: !!this.state.stockQ.trim() }); } }, urlKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.addUrl(); } }, siteKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.addSite(); } },
         key: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.ask(); } },
         domIn: e => this.setState({ domIn: e.target.value, domErr: '' }),
         seoTitle: e => this.setState({ seo: { ...sd, title: e.target.value } }), seoDesc: e => this.setState({ seo: { ...sd, desc: e.target.value } })
       },
       a: {
-        send: () => this.ask(), nav: pg => this.setState({ page: pg }), publish: () => this.publish(), discard: () => this.discard(),
+        send: () => this.ask(), stop: () => this.stopAsk(), nav: pg => this.setState({ page: pg }), publish: () => this.publish(), discard: () => this.discard(),
         exitStudio: () => { clearTimeout(this._sb); this.setStudio(false); this.setState({ tab: 'design', changed: [], sbx: 'ready', editMode: false, edit: null, pageMenu: false, prevMenu: false }); },
         reopen: () => this.startSandbox(), togglePages: e => s.pageMenu ? this.closeMenus() : this.openMenu('page', e && e.currentTarget), togglePrevMenu: e => s.prevMenu ? this.closeMenus() : this.openMenu('prev', e && e.currentTarget),
         closeMenus: () => this.closeMenus(), openPreview: () => this.openPreview(), endLinks: () => this.endLinks(),
         toggleEdit: () => this.setState({ editMode: !s.editMode, edit: null }), editCancel: () => this.setState({ edit: null }), editSave: () => this.saveEdit(),
         pickImg: () => { const f = document.querySelector('[data-sf-file]'); if (f) f.click(); }, rmImg: () => this.setState({ attImg: null }), rmSite: () => this.setState({ attSite: '' }),
-        openSite: () => this.setState({ siteOpen: true, siteIn: '', siteErr: '' }), cancelSite: () => this.setState({ siteOpen: false, siteIn: '', siteErr: '' }), addSite: () => this.addSite(),
+        modeChange: () => this.setState({ chatMode: false }), modeChat: () => this.setState({ chatMode: true }), openSite: () => this.setState({ siteOpen: true, urlOpen: false, siteIn: '', siteErr: '' }), assetsOpen: () => this.setState({ assetsOpen: true, stockOpen: false, urlOpen: false, siteOpen: false }), assetsClose: () => this.setState({ assetsOpen: false }), stockOpen: () => this.setState({ stockOpen: true, assetsOpen: false, urlOpen: false, siteOpen: false, stockQ: '', stockRan: false }), stockClose: () => this.setState({ stockOpen: false, stockQ: '', stockRan: false }), stockGo: () => this.setState({ stockRan: !!this.state.stockQ.trim() }), openUrl: () => this.setState({ urlOpen: true, siteOpen: false, urlIn: '', urlErr: '' }), cancelUrl: () => this.setState({ urlOpen: false, urlIn: '', urlErr: '' }), addUrl: () => this.addUrl(), cancelSite: () => this.setState({ siteOpen: false, siteIn: '', siteErr: '' }), addSite: () => this.addSite(),
         openStudio: () => this.openStudio(), openGallery: () => this.setGallery(true), closeGallery: () => this.setGallery(false),
         viewLive: () => app.toast('Opens ' + host + ' in a new tab'), powered: () => app.upgradeTo('Removing “Powered by DripFunnel”', 'starter'),
         connect: () => this.connect(), check: () => this.check(),

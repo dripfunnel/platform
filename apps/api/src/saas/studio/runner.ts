@@ -47,6 +47,11 @@ export class StudioQueued extends Error {
   }
 }
 
+/** Stop was pressed while a change ran; nothing the sandbox applied is kept (AI-STUDIO §4). */
+export class StudioCancelled extends Error {
+  override name = 'StudioCancelled'
+}
+
 /** The store has no storefront to design yet (no template chosen), or the sandbox failed twice in a row. */
 export class StudioUnavailable extends Error {
   override name = 'StudioUnavailable'
@@ -113,6 +118,8 @@ export class StudioRunner {
   private start: { template: string; coreVersion: string } | null = null
   private tail: Promise<unknown> = Promise.resolve()
   private waiting = 0
+  /** The running change's stop; null between changes. A stop reaches only a change whose sandbox step hasn't begun. */
+  private running: { stop: () => void; stopped: boolean } | null = null
 
   constructor(private readonly deps: StudioDeps) {}
 
@@ -128,6 +135,14 @@ export class StudioRunner {
   /** Starts the store's sandbox from its saved draft, or says where it stands in the queue. */
   open(): Promise<ClientBundle | null> {
     return this.inTurn(async () => (await this.ensureLoaded()).bundle)
+  }
+
+  /** Not in the turn, or it would wait behind the change it stops; false when nothing is running. */
+  cancel(): boolean {
+    if (!this.running) return false
+    this.running.stopped = true
+    this.running.stop()
+    return true
   }
 
   change(input: ChangeRequest): Promise<ChangeOutcome> {
@@ -477,9 +492,18 @@ export class StudioRunner {
     const attempts: Attempt[] = []
     let problems: GateProblem[] = []
     let saved: Awaited<ReturnType<StudioRunner['collect']>> | null = null
+    let stop: () => void = () => undefined
+    const stopping = new Promise<never>((_, reject) => {
+      stop = () => reject(new StudioCancelled('studio: stopped'))
+    })
+    stopping.catch(() => undefined)
+    const run = { stop, stopped: false }
+    this.running = run
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
-        const proposal = await input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems })
+        if (run.stopped) throw new StudioCancelled('studio: stopped')
+        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems }), stopping])
+        if (run.stopped) throw new StudioCancelled('studio: stopped')
         const startedAt = this.deps.now().getTime()
         const made: Attempt = { proposal, ms: 0, result: null }
         attempts.push(made)
@@ -500,6 +524,8 @@ export class StudioRunner {
       // The asks already made cost tokens and repairs are the platform's (SAAS §9.2), so they're metered as `failed`.
       await this.record(input, attempts, 'failed')
       throw error
+    } finally {
+      this.running = null
     }
     const last = attempts.at(-1)?.result
     const repairs = attempts.length - 1

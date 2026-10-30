@@ -63,7 +63,7 @@ export interface StoreContext extends Record<string, unknown> {
   /** The AI sign-in flow (SAAS §9.3); null where the Worker has none. */
   aiOauth?: AiOAuth | null
   /** The designer's model, a sample site's screenshot and a pasted image's bytes (storefront ARCHITECTURE §6.2). */
-  design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'readAsset'> | null
+  design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'readAsset'> & { stock?: StudioDeps['stock'] } | null
   /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
   mapFrame?: string | null
   now: () => Date

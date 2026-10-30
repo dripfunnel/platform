@@ -2,8 +2,8 @@ import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { checkDownload, checkMedia, type MediaCheck } from '#core/media'
 import type { TenantContext } from '#core/tenancy'
-import { insertAsset, selectAsset } from '#db/scoped/catalog'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { deleteAsset, insertAsset, renameAsset, selectAsset, selectLibrary, selectLibraryUse, type LibraryAsset } from '#db/scoped/catalog'
+import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 
 // Catalogue files (DATA-MODEL §7.3 `asset`; FIRST-RELEASE §19 `uploadAsset`): checked by their bytes,
 // stored under the store's own R2 prefix, owned by the uploader's scope until a product links them.
@@ -16,7 +16,7 @@ export interface AssetStore {
   delete?: (keys: string[]) => Promise<unknown>
 }
 
-export const assetsAudit = { uploaded: 'asset.uploaded' } as const
+export const assetsAudit = { uploaded: 'asset.uploaded', renamed: 'asset.renamed', deleted: 'asset.deleted' } as const
 
 export type UploadResult =
   | { ok: true; asset: { id: string; kind: 'image' | 'video' | 'file'; mime: string; bytes: number; width: number | null; height: number | null } }
@@ -36,7 +36,8 @@ class NotAdmitted extends Error {}
 
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
-export const createAssetService = ({ sql, context, actor, activity, facts, store }: AssetDeps) => {
+export const createAssetService = (deps: AssetDeps) => {
+  const { sql, context, actor, activity, facts, store } = deps
   const { storeId } = context
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
 
@@ -114,5 +115,49 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
     return object ? { body: object.body, mime: row.mime, bytes: row.bytes } : null
   }
 
-  return { upload, uploadImage, uploadDownload, open }
+  const entry = (action: string, target: string) => ({
+    category: 'write' as const,
+    action,
+    result: 'success' as const,
+    actorKind: 'person' as const,
+    actorId: actor.id,
+    actorLabel: null,
+    partnerId: actor.partnerId,
+    storeId,
+    sellerId: null,
+    target: { type: 'file', id: target, label: 'file' },
+    reason: null,
+    api: 'store' as const,
+    visibility: 'store' as const,
+    ...facts,
+  })
+
+  /** Storefront › Assets: the merchant's own images and videos, newest first, with how often each is used. */
+  const library = (o: { limit: number; before: { at: Date; id: string } | null; kind: 'image' | 'video' | null; search: string | null }): Promise<LibraryAsset[]> =>
+    withScope(sql, context, (tx) => selectLibrary(tx, storeId, o))
+
+  /** An empty name clears it. False for a file that isn't in the library. */
+  const rename = async (id: string, name: string | null): Promise<boolean> =>
+    withScope(sql, context, async (tx) => {
+      if (!(await renameAsset(tx, storeId, id, name))) return false
+      await activity.record(tx, entry(assetsAudit.renamed, id))
+      return true
+    })
+
+  /** Only a file nothing uses goes; the object follows the row (a leftover object is the sweep's, #293). */
+  const remove = async (id: string): Promise<'deleted' | 'in_use' | 'missing'> => {
+    const result = await withSystemScope(sql, async (tx) => {
+      const found = await selectLibraryUse(tx, storeId, id)
+      if (!found) return 'missing' as const
+      if (found.uses > 0) return 'in_use' as const
+      await deleteAsset(tx, storeId, id)
+      await activity.record(tx, entry(assetsAudit.deleted, id))
+      return found.r2_key
+    })
+    if (result === 'missing' || result === 'in_use') return result
+    await deps.store.delete?.([result]).catch(() => undefined)
+    return 'deleted'
+  }
+
+  return { upload, uploadImage, uploadDownload, open, library, rename, remove }
 }
