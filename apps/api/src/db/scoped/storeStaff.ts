@@ -65,6 +65,12 @@ const storeSessions = (tx: ScopedSql) => tx`
 export const selectStoreStaffSession = async (tx: ScopedSql, partnerId: string, portalHash: string): Promise<StoreStaffRow | null> =>
   (await tx<StoreStaffRow[]>`${storeSessions(tx)} where i.portal_session_hash = ${portalHash} and i.partner_id = ${partnerId} and i.target_kind = 'person'`)[0] ?? null
 
-/** The newest open impersonation in a store, for the notice its own people see (ACCESS.md §8.1 "Visible"). */
-export const selectOpenStoreImpersonation = async (tx: ScopedSql, storeId: string, now: Date): Promise<StoreStaffRow | null> =>
-  (await tx<StoreStaffRow[]>`${storeSessions(tx)} where i.store_id = ${storeId} and i.ended_at is null and i.expires_at > ${now} order by i.started_at desc limit 1`)[0] ?? null
+/** The newest open impersonation a store's people hear of (ACCESS.md §8.1 "Visible"): any in the store, or a supplier's own seats'. */
+export const selectOpenStoreImpersonation = async (tx: ScopedSql, storeId: string, sellerId: string | null, now: Date): Promise<StoreStaffRow | null> =>
+  (
+    await tx<StoreStaffRow[]>`
+      ${storeSessions(tx)} where i.store_id = ${storeId} and i.ended_at is null and i.expires_at > ${now}
+        ${sellerId !== null ? tx`and m.seller_id = ${sellerId}` : tx``}
+      order by i.started_at desc limit 1
+    `
+  )[0] ?? null
