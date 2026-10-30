@@ -15,7 +15,7 @@ image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4
 on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
 **Since 2026-10-30** (a card follows): chat mode, Stop, Retry, image import by web address, the free photo picker, Storefront ›
-Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
+Assets, `MerchantImage` in core (next release) with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
 Last updated: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
