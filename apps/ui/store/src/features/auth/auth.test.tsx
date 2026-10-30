@@ -156,3 +156,53 @@ describe('the partner’s logos', () => {
     expect(plain).toContain('>N</span>')
   })
 })
+
+describe('the Help link', () => {
+  const brand = (helpUrl: string | null): Brand => ({
+    productName: 'Northstar Shops',
+    primaryColor: '#1B3A5B',
+    accentColor: '#2BB673',
+    font: null,
+    corner: null,
+    background: null,
+    files: { logoLight: null, logoDark: null, mark: null, favicon: null },
+    supportEmail: 'help@northstar.shop',
+    supportUrl: 'https://northstar.shop/support',
+    helpUrl,
+    poweredBy: true,
+  })
+  const frame = async (b: Brand | null) => {
+    setBrand(b)
+    vi.stubGlobal('window', { location: { hostname: 'store.example.com' } })
+    try {
+      return await render(<AuthFrame panel="in" title="t" sub="s" />)
+    } finally {
+      vi.unstubAllGlobals()
+      setBrand(null)
+    }
+  }
+  const footer = (html: string) => /<footer class="df-portal-auth-legal">(.*?)<\/footer>/s.exec(html)?.[1] ?? ''
+
+  it('opens the partner’s help-centre link in a new tab, on the panel and in the footer', async () => {
+    const html = await frame(brand('https://help.northstar.shop/shops'))
+    expect(footer(html)).toContain('<a href="https://help.northstar.shop/shops" target="_blank" rel="noopener noreferrer">Help')
+    expect(html.split('href="https://help.northstar.shop/shops"')).toHaveLength(3)
+  })
+
+  it('leaves Help and its separator out when the partner set no link, so the footer reads only Privacy', async () => {
+    const html = await frame(brand(null))
+    const legal = footer(html)
+    expect(legal).toContain('Privacy')
+    expect(legal).not.toContain('Help')
+    expect(legal).not.toContain('·')
+    expect(html).not.toContain('northstar.shop/support')
+    expect(html).not.toContain('help.dripfunnel')
+  })
+
+  it('leaves Help out when there is no partner look at all', async () => {
+    const legal = footer(await frame(null))
+    expect(legal).toContain('Privacy')
+    expect(legal).not.toContain('Help')
+    expect(legal).not.toContain('·')
+  })
+})

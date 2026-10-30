@@ -334,7 +334,6 @@
     "productLabel": "Store",
     "logoAlt": "DripFunnel",
     "help": "Help",
-    "helpUrl": "https://help.dripfunnel.ai/store",
     "opensInNewTab": "(opens in a new tab)",
     "groups": {
       "catalogue": "Catalogue",
@@ -486,7 +485,6 @@
     "privacy": "Privacy",
     "privacyUrl": "https://dripfunnel.ai/privacy",
     "help": "Help",
-    "helpUrl": "https://help.dripfunnel.ai/store",
     "termsUrl": "https://dripfunnel.ai/terms",
     "footBrand": "One sign-in for every store you belong to",
     "opensInNewTab": "(opens in a new tab)",
