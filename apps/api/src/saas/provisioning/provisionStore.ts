@@ -10,7 +10,7 @@ import { stepsFor } from './stuck'
 
 export interface ProvisionInput {
   partnerId: string
-  owner: { name: string; email: string; passwordHash: string; phone: string }
+  owner: { name: string; email: string; passwordHash: string | null; phone: string }
   store: { name: string; code: string; country: string; currency: string }
 }
 

@@ -27,7 +27,9 @@ beforeEach(() => {
   vi.stubGlobal('fetch', (_: string, init: RequestInit) => {
     const body = String(init.body)
     sent.push(body)
-    const data = body.includes('addPartnerAiKey')
+    const data = body.includes('partnerGoogleSignIn')
+      ? { partnerGoogleSignIn: { enabled: false, clientId: null, secretHint: null, setBy: null, setAt: null, redirectUri: null } }
+      : body.includes('addPartnerAiKey')
       ? { addPartnerAiKey: { ok: true, reason: null } }
       : body.includes('beginPartnerAiOauth')
         ? { beginPartnerAiOauth: begun }

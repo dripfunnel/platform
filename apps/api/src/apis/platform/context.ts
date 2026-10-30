@@ -10,6 +10,7 @@ import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
 import { createPartnerCredentialsService } from '#saas/partnerCredentials/index'
+import { createGoogleSignInService } from '#saas/googleSignIn/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { checkAnthropicKey, type KeyCheck } from '#integrations/ai/index'
 import type { AiOAuth } from '#saas/aiOAuth/index'
@@ -42,7 +43,7 @@ export interface PlatformContextDeps {
 /** OpenAI has no check until its adapter (#950): such a key is saved "Not tested". */
 const checkAiKey = (provider: AiProvider, key: string): Promise<KeyCheck | null> => (provider === 'anthropic' ? checkAnthropicKey(key) : Promise.resolve(null))
 
-export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, activity: null, team: null, reports: null, support: null, billing: null }
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, credentials: null, googleSignIn: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
 export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, aiOauth = null, ...base }: PlatformContextDeps): PlatformContext => {
@@ -58,6 +59,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     dashboard: createPartnerDashboardService(deps),
     domains: createPartnerDomainsService({ ...deps, localHosts }),
     credentials: createPartnerCredentialsService({ ...deps, secrets, checkKey: checkAiKey, oauth: aiOauth }),
+    googleSignIn: createGoogleSignInService({ ...deps, secrets }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),
     reports: createPartnerReportsService(deps),

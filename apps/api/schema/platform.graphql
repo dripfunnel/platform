@@ -390,6 +390,7 @@ type Mutation {
   retryProvisioningStep(id: ID!): StoreActionResult
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
+  savePartnerGoogleSignIn(clientId: String!, clientSecret: String!): PartnerGoogleSignInResult
   setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setPaymentMethod(token: String!): BillingResult
@@ -401,6 +402,7 @@ type Mutation {
   suspendStore(id: ID!, reason: String!): StoreActionResult
   testPartnerAiKey(id: ID!): PartnerAiKeyResult
   transferOwnership(toUserId: ID!): TeamResult
+  turnOffPartnerGoogleSignIn: PartnerGoogleSignInResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
 }
 
@@ -586,6 +588,20 @@ type PartnerDomains {
   addresses: [PartnerAddress!]
   fallbackAddress: String
   fallbackSender: String
+}
+
+type PartnerGoogleSignIn {
+  clientId: String
+  enabled: Boolean
+  redirectUri: String
+  secretHint: String
+  setAt: String
+  setBy: String
+}
+
+type PartnerGoogleSignInResult {
+  ok: Boolean
+  reason: String
 }
 
 type PartnerInvoice {
@@ -859,6 +875,7 @@ type Query {
   partnerAiSignIn: [PartnerAiSignIn!]
   partnerCompany: PartnerCompany
   partnerDomains: PartnerDomains
+  partnerGoogleSignIn: PartnerGoogleSignIn
   partnerInvoices(after: String, before: String, first: Int): PartnerInvoicesPage
   partnerState: PartnerState
   paymentMethod: PaymentMethod

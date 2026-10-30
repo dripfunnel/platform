@@ -219,6 +219,7 @@ type Brand {
   corner: String
   files: BrandFiles
   font: String
+  googleSignIn: Boolean
   helpUrl: String
   poweredBy: Boolean
   primaryColor: String

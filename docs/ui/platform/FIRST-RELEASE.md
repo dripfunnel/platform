@@ -751,7 +751,7 @@ at most 20 keys per partner. In a staff setup session the tab works as the partn
 (ACCESS §8.2). **Built on #275** (migration 0368; `partnerAiKeys`, `addPartnerAiKey`, `testPartnerAiKey`,
 `setDefaultPartnerAiKey`, `removePartnerAiKey`; permission `integrations.write`). Add and Test check an
 Anthropic key with one `models.list` call; OpenAI keys save as Not tested. Add, Make default and Remove are
-refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, Google sign-in, support chat.
+refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, support chat. Google sign-in is built below.
 
 **Built on #193, straight onto #199's API.**
 - **Invite** is a form on the Team tab, because it needs a name, an email and a role, and the
@@ -766,6 +766,15 @@ refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, Goo
   `notconnected`, `verifying` and `declined` on this tab.
 - **The 2-factor-off list** names the team members loaded so far.
 - **"Your account"** (what a staff session can't change, #46) sits under Security.
+
+**Google sign-in** (#1046), a panel under the AI accounts, drawn from the tab's own parts since no
+prototype has it: the portal's redirect URI to register in Google Cloud (with Copy; "add your portal
+address under Domains first" before there is one), On or Off, the client ID, the secret as
+"GOCSPX-…aaaa", who set it and when, **Set up Google sign-in** or **Replace client** (client ID and
+secret, checked for Google's shapes before sending) and **Turn off**, which restates that merchants who
+signed up with Google and never set a password will need Forgot password. Owner and Admin only, as the
+tab; never in an impersonation. Built on #1046 (migration 0377; `partnerGoogleSignIn`,
+`savePartnerGoogleSignIn`, `turnOffPartnerGoogleSignIn`; `integrations.write`).
 
 ---
 

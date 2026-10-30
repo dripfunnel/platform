@@ -566,6 +566,47 @@
       "staffSession": "Payment method and payout details stay with {partner}. {partner} enters these itself."
     },
     "integrations": {
+      "google": {
+        "title": "Google sign-in",
+        "note": "Lets your merchants sign in and create their store with their Google account on your portal. It uses your own Google client, so Google shows your name. The secret is stored encrypted and never shown again; only its start and last 4 characters are.",
+        "loading": "Loading Google sign-in",
+        "error": { "title": "Google sign-in couldn’t be loaded", "body": "Nothing was changed. Try again.", "retry": "Try again" },
+        "off": "Off. Merchants sign in with their email and password.",
+        "on": "On",
+        "turnedOff": "Off",
+        "clientLabel": "Client ID",
+        "secretLabel": "Client secret",
+        "setBy": "Set by {name}, {when}",
+        "redirectLabel": "Authorised redirect URI",
+        "redirectHint": "In Google Cloud, create an OAuth client of type “Web application” and add this address to its authorised redirect URIs.",
+        "noHost": "Add your portal address under Domains first: Google needs it as the redirect URI.",
+        "copy": "Copy",
+        "copied": "Copied.",
+        "setUp": "Set up Google sign-in",
+        "replace": "Replace client",
+        "turnOff": "Turn off",
+        "dialog": {
+          "title": "Google sign-in",
+          "target": "Your Google OAuth client",
+          "consequence": "Merchants on your portal can sign in and create their store with Google from now on. A secret you replace stops working here at once.",
+          "save": "Save and turn on",
+          "clientHint": "Ends in .apps.googleusercontent.com",
+          "secretHint": "Starts with GOCSPX-. Google Cloud shows it once; we never show it again.",
+          "incomplete": "Enter the client ID and secret from Google Cloud."
+        },
+        "offDialog": {
+          "title": "Turn off Google sign-in?",
+          "target": "Google sign-in on your portal",
+          "consequence": "“Continue with Google” goes away from sign-in and sign-up at once. Merchants who signed up with Google and never set a password will need “Forgot password?” to get in. The client stays saved: set it up again to turn it back on.",
+          "confirm": "Turn off Google sign-in"
+        },
+        "refusals": {
+          "INVALID_INPUT": "That isn’t a Google client ID and secret. Copy both from the OAuth client in Google Cloud.",
+          "NOT_CONFIGURED": "Secrets can’t be stored on this server yet. Ask DripFunnel support.",
+          "NOT_FOUND": "Google sign-in is already off."
+        },
+        "toasts": { "saved": "Google sign-in is on.", "off": "Google sign-in is off.", "failed": "That didn’t go through. Nothing was changed. Try again." }
+      },
       "title": "AI accounts",
       "note": "Pays for the AI designer on your plans that include AI. DripFunnel holds no AI account of its own. Keys are stored encrypted and never shown again; only the start and last 4 characters are. A sign-in is kept only as long as you stay connected, and your merchants’ own accounts are separate from yours. The default account is the one used; if it is rejected, the designer pauses until you fix it.",
       "loading": "Loading your AI accounts",

@@ -21,6 +21,7 @@ export interface PortalBrandRow {
   terms_url: string | null
   privacy_url: string | null
   powered_by: boolean
+  google_sign_in: boolean
 }
 
 /** The partner's live version: the newest published one whose time has come; the partner's name alone before any. */
@@ -28,7 +29,8 @@ export const selectPortalBrand = async (tx: ScopedSql, partnerId: string, now: D
   const rows = await tx<PortalBrandRow[]>`
     select p.name as partner_name, b.product_name, b.primary_color, b.accent_color, b.font, b.corner, b.background,
       b.logo_light_key, b.logo_dark_key, b.mark_key, b.favicon_key,
-      b.support_email, b.support_url, b.help_url, b.terms_url, b.privacy_url, coalesce(b.powered_by, true) as powered_by
+      b.support_email, b.support_url, b.help_url, b.terms_url, b.privacy_url, coalesce(b.powered_by, true) as powered_by,
+      exists (select 1 from partner_google_sign_in g where g.partner_id = p.id and g.enabled) as google_sign_in
     from partner p
     left join lateral (
       select * from partner_branding
