@@ -58,6 +58,12 @@ describe('the Google button', () => {
     expect(screen.getByText(words.google.or)).toBeTruthy()
   })
 
+  it('never sends Google’s return to another site', async () => {
+    await show(<SignIn next="//evil.example/steal" />)
+    const href = new URL(googleLink()?.getAttribute('href') ?? '', 'https://store.example')
+    expect(href.searchParams.get('next')).toBe('/stores?next=%2Fhome')
+  })
+
   it('starts Google sign-up from Create your store', async () => {
     await show(<SignUp />)
     expect(googleLink()?.getAttribute('href')).toBe('/api/auth/google/start?intent=sign-up')
@@ -105,6 +111,17 @@ describe('back from Google', () => {
     expect(asked).toEqual(['/api/auth/sign-up/resume'])
     expect(screen.getByRole('heading', { name: words.signup.su3.title })).toBeTruthy()
     expect(screen.getByRole('option', { name: 'United States · USD' })).toBeTruthy()
+  })
+
+  it('says it is picking the sign-up up while it reads it, and goes on to the step the sign-up is at', async () => {
+    let answer: (value: Response) => void = () => undefined
+    vi.stubGlobal('fetch', () => new Promise<Response>((resolve) => (answer = resolve)))
+    await show(<SignUp fromGoogle />)
+    expect(screen.getByRole('status').textContent).toBe(words.google.resuming)
+    await act(async () => answer(new Response(JSON.stringify({ ok: true, step: 'phone', name: 'Zoë New', email: 'zoe@gmail.example', countries: [], shopDomain: null }))))
+    await settle()
+    expect(screen.getByRole('heading', { name: words.signup.su4.title })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: words.signup.su3.title })).toBeNull()
   })
 
   it('keeps a Google sign-up that is still there when reading it back fails, and reads it again when asked', async () => {

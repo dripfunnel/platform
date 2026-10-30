@@ -495,6 +495,7 @@
       "button": "Continue with Google",
       "or": "or with email",
       "retry": "Try again",
+      "resuming": "Picking up your sign-up from Google…",
       "outcomes": {
         "noAccount": "There’s no account for that Google address on {product}. Create your store, or sign in with your email and password.",
         "cancelled": "You cancelled the Google sign-in. Nothing changed.",

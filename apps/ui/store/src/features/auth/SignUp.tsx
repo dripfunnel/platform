@@ -99,7 +99,8 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
       setName(answer.name)
       setEmail(answer.email)
       setCountry(answer.countries[0]?.code ?? '')
-      go({ kind: 'store', countries: answer.countries, shopDomain: answer.shopDomain })
+      // Where the sign-up stands, not where Google left it: a reload after the store step goes on to the phone.
+      go(answer.step === 'phone' ? { kind: 'phone', hint: null } : answer.step === 'verify-email' ? { kind: 'email' } : { kind: 'store', countries: answer.countries, shopDomain: answer.shopDomain })
     })
     return () => {
       current = false
@@ -178,6 +179,11 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
     case 'resuming':
       return (
         <AuthFrame panel="up" step={2} title={su.su3.title} sub={su.su3.sub} notice={notice}>
+          {!error && (
+            <p role="status" className="df-auth-help">
+              {words.google.resuming}
+            </p>
+          )}
           {error && (
             <form className="df-portal-auth-form" onSubmit={(event) => (event.preventDefault(), setError(null), setResumeTry((n) => n + 1))} noValidate>
               <Primary>{words.google.retry}</Primary>
