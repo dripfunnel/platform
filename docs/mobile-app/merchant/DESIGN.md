@@ -104,6 +104,10 @@ A brand-new store gets the main prototype's `PortalHome` instead: no order, and 
 
 ## 4. Mobile patterns
 
+- **Continue with Google** heads Sign in with an "or with email" rule, as PortalAuth `login` draws it, while the
+  partner's Google sign-in is on and the build has its clients (#1048). Google's "G" keeps Google's four colours,
+  which its branding fixes: the one place a colour isn't a theme token (`features/auth/googleMark.ts`).
+
 - **Dialogs are bottom sheets**: top corners 24 px, a grab handle, full-width buttons 50 px
   tall, stacked with the confirm button on top. They follow design.md §4's modal spec (title,
   body, choices, one input, `danger`).

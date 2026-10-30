@@ -188,6 +188,11 @@
       "INVALID_CREDENTIALS": "That email and password don’t match. Check them, or reset your password.",
       "UNAUTHENTICATED": "Your sign-in timed out. Start again."
     },
+    "google": {
+      "NO_ACCOUNT": "There’s no account for that Google address here. Sign in with your email and password instead.",
+      "GOOGLE_REFUSED": "Google’s answer couldn’t be checked, so you weren’t signed in. Try again.",
+      "GOOGLE_UNAVAILABLE": "Google sign-in is off for this app right now. Sign in with your email and password."
+    },
     "password": {
       "INVALID_CREDENTIALS": "That isn’t your current password."
     },
@@ -503,6 +508,10 @@
     "signInTitle": "Sign in",
     "signInSub": "Welcome back. Sign in to manage your store.",
     "signInButton": "Sign in",
+    "googleButton": "Continue with Google",
+    "googleOr": "or with email",
+    "googleCancelled": "You cancelled the Google sign-in. Nothing changed.",
+    "googleUnavailable": "Google sign-in isn’t working on this phone right now. Try again, or sign in with your email.",
     "forgotLink": "Forgot password?",
     "missingFields": "Type your email and password.",
     "notice": {
