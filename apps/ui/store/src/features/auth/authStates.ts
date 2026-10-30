@@ -2,11 +2,11 @@ import type { AuthRefusal, Country, Invitation } from '../../api/auth'
 
 // The views each getting-in screen designs (designs/PortalAuth.dc.html), reachable with ?state= in a
 // harness build (ui/README.md §6), named apart from StaffSessionRoot's, which every screen also reads.
-export const signInStates = ['wrong', 'code', 'codeApp', 'wrongCode', 'backup', 'enrol', 'enrolCode', 'codes', 'locked', 'forgot', 'sent', 'sessionExpired', 'signedOut', 'notConnected', 'rateLimited'] as const
+export const signInStates = ['wrong', 'code', 'codeApp', 'wrongCode', 'backup', 'enrol', 'enrolCode', 'codes', 'locked', 'forgot', 'sent', 'sessionExpired', 'signedOut', 'notConnected', 'rateLimited', 'googleNoAccount', 'googleCancelled', 'googleUnavailable', 'googleRefused'] as const
 
 export type SignInState = (typeof signInStates)[number]
 
-export const signUpStates = ['email', 'store', 'taken', 'phone', 'phoneCode', 'building', 'closed'] as const
+export const signUpStates = ['email', 'store', 'taken', 'phone', 'phoneCode', 'building', 'closed', 'googleCancelled', 'googleUnavailable', 'googleRefused'] as const
 
 export type SignUpState = (typeof signUpStates)[number]
 

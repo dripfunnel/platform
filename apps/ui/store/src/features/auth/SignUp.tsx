@@ -1,19 +1,20 @@
 import { useScreenState } from '@dripfunnel/shared/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
-import { isRefusal, sendSignupPhone, signupStore, startSignup, subdomainFrom, verifySignupEmail, verifySignupPhone, type AuthRefusal, type Country } from '../../api/auth'
+import { isRefusal, resumeSignup, sendSignupPhone, signupStore, startSignup, subdomainFrom, verifySignupEmail, verifySignupPhone, type AuthRefusal, type Country } from '../../api/auth'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { sampleCountries, sampleEmail, sampleHint, sampleSuggestions, signUpStates, type SignUpState } from './authStates'
 import { AuthFrame } from './AuthFrame'
-import { CodeField, Field, Foot, NewPasswordField, Primary, Terms, useResendWait } from './fields'
-import { signupText } from './refusals'
+import { productName } from '../common/productName'
+import { CodeField, Field, Foot, GoogleButton, NewPasswordField, Primary, Terms, useResendWait } from './fields'
+import { googleOutcomeText, signupText, type GoogleOutcome } from './refusals'
 import { looksLikeEmail } from '@dripfunnel/shared/format'
 
 const words = messages.auth
 const su = words.signup
 
-type View = { kind: 'account' } | { kind: 'email' } | { kind: 'store'; countries: Country[]; shopDomain: string | null } | { kind: 'phone'; hint: string | null } | { kind: 'building'; enrol: boolean }
+type View = { kind: 'account' } | { kind: 'resuming' } | { kind: 'email' } | { kind: 'store'; countries: Country[]; shopDomain: string | null } | { kind: 'phone'; hint: string | null } | { kind: 'building'; enrol: boolean }
 
 
 const forcedStart = (state: SignUpState): { view: View; error: string | null } => {
@@ -32,16 +33,29 @@ const forcedStart = (state: SignUpState): { view: View; error: string | null } =
       return { view: { kind: 'building', enrol: false }, error: null }
     case 'closed':
       return { view: { kind: 'account' }, error: signupText({ ok: false, code: 'SIGNUP_CLOSED' }) }
+    case 'googleCancelled':
+      return { view: { kind: 'account' }, error: googleOutcomeText('cancelled', productName()) }
+    case 'googleUnavailable':
+      return { view: { kind: 'account' }, error: googleOutcomeText('unavailable', productName()) }
+    case 'googleRefused':
+      return { view: { kind: 'account' }, error: googleOutcomeText('refused', productName()) }
   }
+}
+
+export interface SignUpProps {
+  /** Back from Google at the store step: the sign-up's cookie is set, and the API says who it's for. */
+  fromGoogle?: boolean | undefined
+  /** Back from Google without a sign-up, and why. */
+  google?: GoogleOutcome | undefined
 }
 
 // PortalAuth's su1–su4 and building views (FIRST-RELEASE §4; SAAS.md §4.1, §5): account, emailed code,
 // store, texted code, then the store is made and an Owner sets up two-step sign-in; ?state= per authStates.ts.
-export const SignUp = () => {
+export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
   const navigate = useNavigate()
   const forced = useScreenState(signUpStates, harnessEnabled)
-  const start = forced ? forcedStart(forced) : null
-  const [view, setView] = useState<View>(start?.view ?? { kind: 'account' })
+  const start = forced ? forcedStart(forced) : google ? { view: { kind: 'account' } as View, error: googleOutcomeText(google, productName()) } : null
+  const [view, setView] = useState<View>(start?.view ?? (fromGoogle ? { kind: 'resuming' } : { kind: 'account' }))
   const [name, setName] = useState('')
   const [email, setEmail] = useState(start ? sampleEmail : '')
   const [password, setPassword] = useState('')
@@ -72,6 +86,23 @@ export const SignUp = () => {
     setView(next.view)
     setError(next.error)
   }, [forced])
+
+  // Google proved the address, so the sign-up carries on at the store step with Google's name and email.
+  useEffect(() => {
+    if (!fromGoogle || forced) return
+    let current = true
+    void resumeSignup().then((answer) => {
+      if (!current) return
+      if (isRefusal(answer)) return refused(answer.code === 'SIGNUP_EXPIRED' ? answer : { ok: false, code: 'SIGNUP_EXPIRED' })
+      setName(answer.name)
+      setEmail(answer.email)
+      setCountry(answer.countries[0]?.code ?? '')
+      go({ kind: 'store', countries: answer.countries, shopDomain: answer.shopDomain })
+    })
+    return () => {
+      current = false
+    }
+  }, [fromGoogle, forced])
 
   // The building view stays up while the API makes the store; it answers in the same request.
   useEffect(() => {
@@ -131,6 +162,7 @@ export const SignUp = () => {
     case 'account':
       return (
         <AuthFrame panel="up" step={0} title={su.su1.title} sub={su.su1.sub} notice={notice}>
+          <GoogleButton intent="sign-up" />
           <form className="df-portal-auth-form" onSubmit={submit} noValidate>
             <Field label={words.fields.name} autoComplete="name" placeholder={words.fields.namePlaceholder} value={name} onValue={setName} />
             <Field label={words.fields.email} type="email" autoComplete="email" placeholder={words.fields.emailPlaceholder} value={email} onValue={setEmail} />
@@ -141,6 +173,8 @@ export const SignUp = () => {
           <Foot text={su.su1.foot} link={su.su1.footLink} onClick={() => void navigate({ to: '/sign-in' })} />
         </AuthFrame>
       )
+    case 'resuming':
+      return <AuthFrame panel="up" step={2} title={su.su3.title} sub={su.su3.sub} />
     case 'email':
       return (
         <AuthFrame panel="up" step={1} title={su.su2.title} sub={fill(su.su2.sub, { email: email.trim() })} back={{ label: su.su2.back, onBack: () => go({ kind: 'account' }) }} icon={{ name: 'mail', tone: 'info' }} notice={notice}>
