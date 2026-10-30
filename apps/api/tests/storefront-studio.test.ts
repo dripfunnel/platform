@@ -650,10 +650,14 @@ describe('editing, undoing and discarding', () => {
       held = null
     }
     await new Promise((resolve) => setTimeout(resolve, 100))
-    script.answers = [reply([lead('Linen, with a hero photo.')])]
+    script.answers = [reply([lead('Linen, no photo.')])]
+    expect((await ask('owner', 'Like this', { image: id })).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    expect(await visible(), 'attached but unused').toBe(false)
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    script.answers = [reply([lead(`Linen, with ${id}.`)])]
     const landed = await ask('owner', 'Use this', { image: id })
     expect(landed.data?.['askDesign'], JSON.stringify(landed)).toMatchObject({ outcome: 'changed' })
-    expect(await visible()).toBe(true)
+    expect(await visible(), 'named by the change').toBe(true)
     design.readAsset = null
     await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
   })

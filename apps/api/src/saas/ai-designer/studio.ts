@@ -269,11 +269,14 @@ export const createStudioService = (deps: StudioDeps) => {
     )
     let modelAsked = false
     let modelFailure: unknown = null
+    let proposed = ''
     const model: DesignModel = {
       propose: async (proposal) => {
         modelAsked = true
         try {
-          return await designer.propose(proposal)
+          const made = await designer.propose(proposal)
+          proposed = made.files.map((f) => f.content ?? '').join('\n')
+          return made
         } catch (error) {
           modelFailure = error
           throw error
@@ -308,7 +311,7 @@ export const createStudioService = (deps: StudioDeps) => {
       return { ok: true, value: { outcome: 'cancelled', message: stopped } }
     }
     if (answer.outcome === 'changed') {
-      const used = [...(input.imageAssetId ? [input.imageAssetId] : []), ...added.map((a) => a.assetId)]
+      const used = [...(input.imageAssetId ? [input.imageAssetId] : []), ...added.map((a) => a.assetId)].filter((id) => proposed.includes(id))
       await withScope(sql, context, async (tx) => {
         for (const id of used) await makeVisible(tx, storeId, id)
       })
