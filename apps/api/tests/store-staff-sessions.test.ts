@@ -173,8 +173,8 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   const signIn = ['changeEmail', 'changePassword', 'regenerateBackupCodes', 'setSecondFactor', 'signOutOtherSessions']
   const moneyDetails = ['connectGateway', 'connectStripe', 'finishStripeConnect', 'setPaymentMethod']
   // The store's own AI account and the Owner's consent to bill it, as the partner console's AI keys (#275).
-  // Credentials and data channels that outlive the session; revoking and removing them stay open.
-  const outlasting = ['createApiKey', 'rotateApiKey', 'saveWebhook']
+  // Credentials and data channels that outlive the session; revoking, removing and uninstalling stay open.
+  const outlasting = ['createApiKey', 'installApp', 'rotateApiKey', 'saveWebhook']
   const aiAccount = ['beginStoreAiOauth', 'connectStoreAiAccount', 'finishStoreAiOauth', 'removeStoreAiAccount', 'setStoreAiFallback', 'setStoreAiSwitch']
   // The storefront's design, studio and preview links were declared before #1012.
   const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioSession', 'undoDesignChange']
@@ -211,6 +211,7 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
       `mutation { createApiKey(name: "Feed", scopes: ["catalog.read"]) { __typename } }`,
       `mutation { rotateApiKey(id: "${seats.owner}") { __typename } }`,
       `mutation { saveWebhook(url: "https://hooks.example/x", events: ["order.created"]) { id } }`,
+      `mutation { installApp(appId: "${seats.owner}", scopes: ["catalog.read"]) }`,
       `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
       `mutation { removeMember(membershipId: "${seats.owner}") }`,
       `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,
