@@ -668,13 +668,14 @@ export const selectLibrary = async (tx: ScopedSql, storeId: string, o: { limit: 
 export const renameAsset = async (tx: ScopedSql, storeId: string, id: string, name: string | null): Promise<boolean> =>
   (await tx`update asset set name = ${name} where id = ${id} and store_id = ${storeId} and seller_id is null and kind in ('image', 'video') returning id`).length > 0
 
-/** A library file's R2 key and how often it is used; null for one that isn't the merchant's library's . */
+/** A library file's R2 key and how often it is used, the row locked for the delete that follows; null for one that isn't the merchant's library's. */
 export const selectLibraryUse = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; uses: number; storefront_visible: boolean } | null> =>
   (
     await tx<{ r2_key: string; uses: number; storefront_visible: boolean }[]>`
       select a.r2_key, a.storefront_visible, ${usesOf(tx)} as uses from asset a
       where a.id = ${id} and a.store_id = ${storeId} and a.seller_id is null and a.kind in ('image', 'video')
-        and not exists (select 1 from rider r where r.photo_asset_id = a.id)`
+        and not exists (select 1 from rider r where r.photo_asset_id = a.id)
+      for update of a`
   )[0] ?? null
 
 /** A file a design uses is readable by shoppers (migration 0375); another store's id changes nothing. */
@@ -686,7 +687,7 @@ export const makeVisible = async (tx: ScopedSql, storeId: string, id: string): P
 /** The studio's chat keeps its words and shows no picture for a file that goes. */
 export const deleteAsset = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
   await tx`update design_message set image_asset_id = null where store_id = ${storeId} and image_asset_id = ${id}`
-  await tx`delete from asset where id = ${id} and store_id = ${storeId}`
+  await tx`delete from asset where id = ${id} and store_id = ${storeId} and seller_id is null and kind in ('image', 'video') and not exists (select 1 from rider r where r.photo_asset_id = asset.id)`
 }
 
 /** The product's photos in order, replacing what it had; each names a file the caller can read (migration 0042). */
