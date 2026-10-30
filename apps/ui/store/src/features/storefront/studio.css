@@ -350,7 +350,7 @@
   border: 1px solid var(--df-color-border);
   border-radius: 18px 18px 18px 6px;
   background: var(--df-color-surface);
-  box-shadow: 0 1px 2px rgb(10 42 74 / 0.06);
+  box-shadow: var(--df-shadow-raised);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -644,7 +644,7 @@
 
 .df-studio-modes button[aria-pressed='true'] {
   background: var(--df-color-surface);
-  box-shadow: 0 1px 2px rgb(10 42 74 / 0.12);
+  box-shadow: var(--df-shadow-raised);
   color: var(--df-color-heading);
 }
 
