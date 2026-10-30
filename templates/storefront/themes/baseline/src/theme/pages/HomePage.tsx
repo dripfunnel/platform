@@ -1,4 +1,4 @@
-import { Image, Link, useCollections, useProducts, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { Image, Link, MerchantImage, useCollections, useProducts, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
 import { GridPlaceholder, ProductGrid } from '../components/ProductCard'
 import shop from '../styles/shop.module.css'
@@ -24,7 +24,9 @@ export const HomePage = () => {
             </Link>
           </div>
         </div>
-        <div className={styles.picture} />
+        <div className={styles.picture}>
+          <MerchantImage asset={t('home.hero.image')} alt={t('home.hero.imageAlt')} ratio={1} sizes="(min-width: 900px) 50vw, 100vw" className={styles.pictureImage} />
+        </div>
       </section>
       <section className={styles.story}>
         <div className={styles.storyPicture} />
