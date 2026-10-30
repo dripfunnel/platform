@@ -168,7 +168,7 @@ describe('stores(filter, after, before) (§5.1)', () => {
 describe('store(id) (§5.2, §5.3)', () => {
   const detail = `query($id: ID!) { store(id: $id) {
     name country history { action by note } counts { owners managers staff suppliers } site { version repo lastBuildAt liveHost }
-    provisioning { error details } records { kind host record expected found status } users { name role supplier status impersonate { allowed reason } }
+    provisioning { error details } records { kind host record expected found status } users { id name role supplier status impersonate { allowed reason } }
     supportAccess notes { by text } job { id actions { retry { allowed reason } undo { allowed reason } } }
     actions { suspend { allowed reason } restore { allowed reason } extendTrial { allowed reason } resendInvite { allowed reason } addNote { allowed reason } } } }`
   interface Detail {
@@ -189,8 +189,11 @@ describe('store(id) (§5.2, §5.3)', () => {
     expect((await run<{ store: { domain: { host: string; custom: boolean; status: string } } }>(`query($id: ID!) { store(id: $id) { domain { host custom status } } }`, as('staff-super-admin'), { id: await storeIdOf('Maple & Pine Home') })).data?.store.domain).toEqual({ host: 'shop.mapleandpine.example', custom: true, status: 'waiting' })
     expect((await run<Detail>(detail, as('staff-super-admin'), { id: 'not-an-id' })).data?.store).toBeNull()
     expect((s?.['records'] as { kind: string; record: string | null }[]).map((r) => [r.kind, r.record])).toEqual([['custom', 'CNAME'], ['ownership', 'TXT']])
-    const users = s?.['users'] as { name: string; role: string; supplier: string | null; impersonate: { allowed: boolean; reason: string | null } }[]
+    const users = s?.['users'] as { id: string; name: string; role: string; supplier: string | null; impersonate: { allowed: boolean; reason: string | null } }[]
     expect(users.find((u) => u.name === 'Lakshmi Iyer')).toMatchObject({ role: 'supplier-admin', supplier: 'Kaveri Weaves', impersonate: { allowed: true } })
+    // Impersonate passes the row's id as the membership startImpersonation takes.
+    const [lakshmi] = await db.sql<{ id: string }[]>`select m.id from membership m join "user" u on u.id = m.user_id where u.name = 'Lakshmi Iyer' and m.store_id = ${id}`
+    expect(users.find((u) => u.name === 'Lakshmi Iyer')?.id).toBe(lakshmi?.id)
     expect(users.find((u) => u.name === 'Aisha Khan')?.impersonate).toEqual({ allowed: false, reason: 'TARGET_NOT_ACTIVE' })
     expect(s?.['job']).toBeNull()
 
