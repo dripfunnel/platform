@@ -68,6 +68,7 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
   const [error, setError] = useState<string | null>(start?.error ?? null)
   const [busy, setBusy] = useState(false)
   const [wait, startWait] = useResendWait()
+  const [resumeTry, setResumeTry] = useState(0)
 
   const go = (to: View) => {
     setView(to)
@@ -93,7 +94,8 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
     let current = true
     void resumeSignup().then((answer) => {
       if (!current) return
-      if (isRefusal(answer)) return refused(answer.code === 'SIGNUP_EXPIRED' ? answer : { ok: false, code: 'SIGNUP_EXPIRED' })
+      // Only a sign-up that has gone starts again; anything else is worded and can be tried again from here.
+      if (isRefusal(answer)) return answer.code === 'SIGNUP_EXPIRED' ? refused(answer) : setError(signupText(answer))
       setName(answer.name)
       setEmail(answer.email)
       setCountry(answer.countries[0]?.code ?? '')
@@ -102,7 +104,7 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
     return () => {
       current = false
     }
-  }, [fromGoogle, forced])
+  }, [fromGoogle, forced, resumeTry])
 
   // The building view stays up while the API makes the store; it answers in the same request.
   useEffect(() => {
@@ -174,7 +176,15 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
         </AuthFrame>
       )
     case 'resuming':
-      return <AuthFrame panel="up" step={2} title={su.su3.title} sub={su.su3.sub} />
+      return (
+        <AuthFrame panel="up" step={2} title={su.su3.title} sub={su.su3.sub} notice={notice}>
+          {error && (
+            <form className="df-portal-auth-form" onSubmit={(event) => (event.preventDefault(), setError(null), setResumeTry((n) => n + 1))} noValidate>
+              <Primary>{words.google.retry}</Primary>
+            </form>
+          )}
+        </AuthFrame>
+      )
     case 'email':
       return (
         <AuthFrame panel="up" step={1} title={su.su2.title} sub={fill(su.su2.sub, { email: email.trim() })} back={{ label: su.su2.back, onBack: () => go({ kind: 'account' }) }} icon={{ name: 'mail', tone: 'info' }} notice={notice}>

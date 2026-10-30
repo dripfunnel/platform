@@ -107,6 +107,23 @@ describe('back from Google', () => {
     expect(screen.getByRole('option', { name: 'United States · USD' })).toBeTruthy()
   })
 
+  it('keeps a Google sign-up that is still there when reading it back fails, and reads it again when asked', async () => {
+    const answers = [{ status: 429, body: { ok: false, code: 'RATE_LIMITED' } }, { status: 200, body: { ok: true, step: 'store', name: 'Zoë New', email: 'zoe@gmail.example', countries: [{ code: 'US', name: 'United States', currency: 'USD' }], shopDomain: null } }]
+    vi.stubGlobal('fetch', async () => {
+      const next = answers.shift()
+      return new Response(JSON.stringify(next?.body), { status: next?.status ?? 500 })
+    })
+    await show(<SignUp fromGoogle />)
+    await settle()
+    expect(screen.getByText(words.rateLimited)).toBeTruthy()
+    expect(screen.queryByText(words.signup.expired)).toBeNull()
+    expect(screen.queryByRole('heading', { name: words.signup.su1.title })).toBeNull()
+    await act(async () => screen.getByRole('button', { name: words.google.retry }).click())
+    await settle()
+    expect(screen.getByRole('option', { name: 'United States · USD' })).toBeTruthy()
+    expect(screen.queryByText(words.rateLimited)).toBeNull()
+  })
+
   it('starts again when the sign-up Google opened has gone, and says why it couldn’t start', async () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ ok: false, code: 'SIGNUP_EXPIRED' }), { status: 400 }))
     await show(<SignUp fromGoogle />)
