@@ -118,12 +118,14 @@ const design: {
   screenshots: Screenshotter | null
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
   stock: StockImages | null
+  aiPhotos: boolean
 } = {
   ai: (billedTo, _context, model) => ((askedModel = model), aiMode === 'plan' && billedTo === 'plan' ? provider : null),
   models: () => ['claude-opus-5-5', 'claude-haiku-5-5'],
   screenshots: null,
   readAsset: null,
   stock: null,
+  aiPhotos: false,
 }
 let siteText: string | null = null
 let stockBudget = 1000
@@ -325,8 +327,26 @@ describe('asking for a change', () => {
     }
   })
 
+  it('gives the model no photo tools while the AI search is off, even with a key', async () => {
+    design.stock = { search: async () => ({ total: 0, photos: [] }), download: async () => null }
+    const used = await usage(t.storeA1)
+    const sent = script.sent.length
+    script.turns = [[{ id: '1', name: 'search_stock_images', arguments: '{"query":"x"}' }]]
+    script.answers = [reply([])]
+    try {
+      expect((await ask('owner', 'A linen hero')).code).toBeUndefined()
+      expect(script.sent.slice(sent)).toEqual([expect.not.stringContaining('converse')])
+      expect(script.turns).toHaveLength(1)
+    } finally {
+      script.turns = []
+      design.stock = null
+      await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    }
+  })
+
   it('lets the AI add only a photo its own search returned', async () => {
     const downloaded: string[] = []
+    design.aiPhotos = true
     design.stock = {
       search: async () => ({ total: 1, photos: [{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }] }),
       download: async (id) => (downloaded.push(id), 'https://pixabay.com/get/42.png'),
@@ -346,6 +366,7 @@ describe('asking for a change', () => {
     } finally {
       script.turns = []
       vi.unstubAllGlobals()
+      design.aiPhotos = false
       design.stock = null
       await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
     }

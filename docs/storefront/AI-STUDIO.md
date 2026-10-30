@@ -116,7 +116,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    request waits and shows "Finishing your previous change…".
 2. **The Worker calls the model** with the context of ARCHITECTURE §6.2. The model answers
    with a **file diff**.
-   *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (below), and the Worker runs them, never the model and never the container.
+   *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (below, off for now), and the Worker runs them, never the model and never the container.
 3. **The container applies the diff and runs the fast gate** (ARCHITECTURE §6.2): the
    allowlist, the validator, the typecheck, the bundle, the byte budgets and the content
    checks. On failure the model repairs from the exact errors, at most three times; after that,
@@ -293,7 +293,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   links to that build's own run (LIVE-SHOP §2).
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
-- **The AI's own photos** (decided 2026-10-30): on a change request, the model may call `search_stock_images` and
+- **The AI's own photos** (built, switched off 2026-10-30: Pixabay's API docs say "the API is made for real human requests; do not send lots of automated queries", so `StudioDeps.aiPhotos` stays false and the Worker never sets it; turn it on only with Pixabay's written permission): on a change request, the model may call `search_stock_images` and
   `add_stock_image` (at most four calls in a change, none in a repair). The Worker runs each through the same Pixabay
   client and the same download path as the merchant's picker: the model names words and an id from the results it was
   given, never an address, and the file lands in Assets as the merchant's own, `storefront_visible`, logged as
@@ -317,9 +317,12 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   writes `url(<asset id>)`: the validator holds the id to the store's media, and both bundlers (the gate's and the publish
   build's) turn it into `/shop-api/assets/{id}`, so the shop serves it under the shop policy and `img-src 'self'`.
 - **Free photos** (`searchStockImages`, `useStockImage`): Pixabay's search, shown only where `PIXABAY_API_KEY` is set. Its
-  terms: results cached 24 hours (not kept yet: the Worker holds no state, so each search asks Pixabay; `STOCK_RATE_LIMITER` caps a store's searches, downloads and imports at 30 a minute and answers `STOCK_BUSY`), requests made by a person (the merchant types the words; the model never searches),
-  its source named wherever results show, and a chosen photo downloaded into the store's files, never hotlinked. The
-  attribution isn't required on the live shop (Pixabay's licence summary); read its full terms before widening use.
+  terms (API docs, read 2026-10-30): requests cached 24 hours (not kept yet: the Worker holds no state, so each search asks
+  Pixabay; `STOCK_RATE_LIMITER` caps a store's searches, downloads and imports at 30 a minute and answers `STOCK_BUSY`, under
+  Pixabay's 100 requests a minute per key), requests made by a person (the merchant types the words; the model never
+  searches while `aiPhotos` is off), no systematic mass downloads, the source shown wherever results show, result URLs used only
+  to display results temporarily, and a chosen photo downloaded into the store's files, never hotlinked. Its terms of service also
+  forbid automated collection and bulk copying without permission. The attribution isn't required on the live shop.
 - **Chat mode** (`askDesign` with `mode: chat`) is a question answered in words from the same brief: no diff, no
   container, nothing changes. It counts against `ai_prompts` like a change, and its reply says nothing was changed.
 - **An image from a web address** (`importDesignImage`) is fetched by the platform, never by the container:

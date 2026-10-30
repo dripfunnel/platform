@@ -38,6 +38,8 @@ export interface StudioDeps extends DesignerDeps {
   lookup: DnsLookup | null
   /** Stock image search (Pixabay); null where no key is set, which hides the picker. */
   stock: StockImages | null
+  /** Whether the AI may search and add photos itself; off, because Pixabay's API is for human requests (AI-STUDIO §8). */
+  aiPhotos?: boolean
   /** Per-store limit on the photo search, download and import; false refuses. */
   allowStock: (key: string) => Promise<boolean>
   /** The assets bucket an imported image is stored in; null where it isn't bound. */
@@ -245,7 +247,7 @@ export const createStudioService = (deps: StudioDeps) => {
     // The photos the model added this request, each in Assets and credited in the chat once the change is recorded.
     const added: { assetId: string; user: string }[] = []
     const tools: DesignTools | null =
-      deps.stock && deps.assets && deps.lookup
+      deps.aiPhotos && deps.stock && deps.assets && deps.lookup
         ? {
             search: async (words) => (!(await stockAllowed()) ? null : (await deps.stock?.search(words, 1))?.photos.map((p) => ({ id: p.id, tags: p.tags, user: p.user })) ?? null),
             add: async (id) => {

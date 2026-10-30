@@ -31,6 +31,7 @@ const studioFor = (ctx: StoreContext) => {
     assets: ctx.files ?? null,
     readAsset: design?.readAsset ?? null,
     stock: design?.stock ?? null,
+    aiPhotos: design?.aiPhotos ?? false,
     allowStock: ctx.allowStock ?? (async () => false),
     previewDomain: ctx.preview?.domain ?? null,
     shopDomain: ctx.domains?.shopDomain ?? null,
