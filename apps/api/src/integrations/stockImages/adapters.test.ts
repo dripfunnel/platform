@@ -77,3 +77,30 @@ describe('unsplash', () => {
     expect(await unsplashImages({ key: 'abc', fetchImpl: serve(() => json(photo('evil.example'))).fetchImpl }).download('u1')).toBeNull()
   })
 })
+
+describe('every adapter', () => {
+  const broken = [() => json({}, 500), () => json({ query: 'x' }), () => new Response('not json')]
+  const adapters = (fetchImpl: typeof fetch) => [pexelsImages({ key: 'k', fetchImpl }), openverseImages({ fetchImpl }), commonsImages({ fetchImpl }), unsplashImages({ key: 'k', fetchImpl })]
+  it('gives null for a failed, malformed or unreadable search answer, and for a thrown fetch', async () => {
+    for (const answer of broken) for (const images of adapters(serve(answer).fetchImpl)) expect(await images.search('linen', 1)).toBeNull()
+    const thrown = (async () => { throw new Error('down') }) as unknown as typeof fetch
+    for (const images of adapters(thrown)) expect(await images.search('linen', 1)).toBeNull()
+  })
+  it('gives null for a failed or malformed download answer', async () => {
+    for (const answer of broken) for (const images of adapters(serve(answer).fetchImpl)) expect(await images.download('9')).toBeNull()
+  })
+  it('refuses an http address on the right host', async () => {
+    const pexels = { id: 5, url: 'u', photographer: 'a', src: { medium: 'http://images.pexels.com/m.jpg', large2x: 'http://images.pexels.com/l.jpg' } }
+    expect(await pexelsImages({ key: 'k', fetchImpl: serve(() => json(pexels)).fetchImpl }).download('5')).toBeNull()
+    const unsplash = { id: 'u1', urls: { small: 'http://images.unsplash.com/s.jpg', regular: 'http://images.unsplash.com/r.jpg' }, links: { html: 'h', download_location: 'https://api.unsplash.com/photos/u1/download' }, user: { name: 'Cy' } }
+    expect(await unsplashImages({ key: 'k', fetchImpl: serve(() => json(unsplash)).fetchImpl }).download('u1')).toBeNull()
+    const commons = { query: { pages: { a: { pageid: 9, title: 'File:x.jpg', imageinfo: [{ thumburl: 'http://upload.wikimedia.org/t.jpg', descriptionurl: 'd', extmetadata: { LicenseShortName: { value: 'CC0' } } }] } } } }
+    expect(await commonsImages({ fetchImpl: serve(() => json(commons)).fetchImpl }).download('9')).toBeNull()
+  })
+  it('refuses a bad id before asking anyone', async () => {
+    const { fetchImpl, seen } = serve(() => json({}))
+    expect(await openverseImages({ fetchImpl }).download('not-a-uuid')).toBeNull()
+    expect(await commonsImages({ fetchImpl }).download('1 or 1')).toBeNull()
+    expect(seen).toHaveLength(0)
+  })
+})
