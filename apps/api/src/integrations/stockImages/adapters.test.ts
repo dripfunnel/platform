@@ -51,6 +51,12 @@ describe('commons', () => {
     expect(found?.photos[0]).toMatchObject({ id: '9', source: 'commons', user: 'Bo', tags: expect.stringContaining('Red linen') })
     expect(JSON.stringify(seen[0]?.headers)).toContain('User-Agent')
   })
+  it('returns results in the search ranking and the search’s total hits', async () => {
+    const ranked = { query: { searchinfo: { totalhits: 500 }, pages: { 1: { ...page('CC0'), pageid: 1, index: 2 }, 2: { ...page('CC0'), pageid: 2, index: 1 } } } }
+    const found = await commonsImages({ fetchImpl: serve(() => json(ranked)).fetchImpl }).search('linen', 1)
+    expect(found?.photos.map((p) => p.id)).toEqual(['2', '1'])
+    expect(found?.total).toBe(500)
+  })
   it('downloads only a numeric page id whose file is free', async () => {
     const free = commonsImages({ fetchImpl: serve(() => json({ query: { pages: { a: page('CC0') } } })).fetchImpl })
     expect(await free.download('9')).toBe('https://upload.wikimedia.org/t.jpg')

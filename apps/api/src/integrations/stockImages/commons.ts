@@ -9,7 +9,7 @@ const info = z.object({
   descriptionurl: z.string(),
   extmetadata: z.object({ LicenseShortName: z.object({ value: z.string() }).optional(), Artist: z.object({ value: z.string() }).optional(), ImageDescription: z.object({ value: z.string() }).optional() }).optional(),
 })
-const found = z.object({ query: z.object({ pages: z.record(z.string(), z.object({ pageid: z.number().int(), title: z.string(), imageinfo: z.array(info).min(1) })) }).optional() })
+const found = z.object({ query: z.object({ searchinfo: z.object({ totalhits: z.number().int() }).optional(), pages: z.record(z.string(), z.object({ pageid: z.number().int(), index: z.number().int().optional(), title: z.string(), imageinfo: z.array(info).min(1) })) }).optional() })
 
 const api = 'https://commons.wikimedia.org/w/api.php'
 const agent = 'DripFunnel/1.0 (https://dripfunnel.ai; stock image picker)'
@@ -40,13 +40,13 @@ export const commonsImages = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch 
     }
   }
   const usable = (pages: NonNullable<z.infer<typeof found>['query']>['pages']) =>
-    Object.values(pages).flatMap((p) => {
+    Object.values(pages).sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).flatMap((p) => {
       const file = p.imageinfo[0]
       return file && free.test(file.extmetadata?.LicenseShortName?.value ?? '') && isCommonsUrl(file.thumburl) ? [{ page: p, file }] : []
     })
   return {
     search: async (query, page) => {
-      const got = await ask({ generator: 'search', gsrsearch: `${query.slice(0, 100)} filetype:bitmap`, gsrnamespace: '6', gsrlimit: String(perPage), gsroffset: String((page - 1) * perPage) })
+      const got = await ask({ generator: 'search', gsrsearch: `${query.slice(0, 100)} filetype:bitmap`, gsrnamespace: '6', gsrlimit: String(perPage), gsrinfo: 'totalhits', gsroffset: String((page - 1) * perPage) })
       if (!got) return null
       const photos = usable(got.query?.pages ?? {}).map(({ page: p, file }) => ({
         id: String(p.pageid),
@@ -56,7 +56,7 @@ export const commonsImages = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch 
         pageUrl: file.descriptionurl,
         tags: `${p.title.replace(/^File:/, '').replace(/\.[a-z]+$/i, '')} ${text(file.extmetadata?.ImageDescription?.value)}`,
       }))
-      return { total: photos.length, photos }
+      return { total: got.query?.searchinfo?.totalhits ?? photos.length, photos }
     },
     download: async (id) => {
       if (!/^\d{1,12}$/.test(id)) return null

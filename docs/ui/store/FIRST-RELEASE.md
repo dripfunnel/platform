@@ -681,7 +681,7 @@ through. Your site stays live."), as is a support session.
   anything uses can't have. `storefront.read` looks, the Owner changes. API: `libraryAssets`, `renameLibraryAsset`,
   `deleteLibraryAsset`; files stay in the `ASSETS` bucket and `asset` table (`asset.name`, migration 0374).
 - **The studio's composer** (2026-10-30): one card with the text box and one action bar. The picture button opens the store's
-  assets with "Upload from your computer" inside it (pasting still works); then free photos (Unsplash, Pexels, Pixabay, Openverse and Wikimedia Commons, shown when at least one is on), an image's web address and a sample website. A **Change / Chat** switch (Chat answers a question and changes nothing,
+  assets with "Upload from your computer" inside it (pasting still works); then free photos (Pexels, Pixabay, Openverse and Wikimedia Commons, shown when at least one is on), an image's web address and a sample website. A **Change / Chat** switch (Chat answers a question and changes nothing,
   and takes one `ai_prompts` unit like a change), the model picker and a round **Send** that becomes **Stop** while a change
   runs. A picked image shows as a thumbnail in its chip. A failed change offers **Try again**. The divider between chat and
   preview can be dragged, or moved with the arrow keys, between 320 and 760 px.

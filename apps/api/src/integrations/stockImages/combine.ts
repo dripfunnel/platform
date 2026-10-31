@@ -7,6 +7,9 @@ import { isPixabayUrl, type StockImages, type StockPhoto } from './pixabay'
 // One search over every enabled source (docs/storefront/AI-STUDIO.md §8). Ids are `source:id`, so a chosen result is
 // re-asked from its own source and a client never names a file address.
 
+/** The most one source adds to a page, so a merged page holds at most this times the sources on. */
+export const maxPerSource = 24
+
 export const isStockUrl = (raw: string): boolean => [isPixabayUrl, isPexelsUrl, isOpenverseUrl, isCommonsUrl, isUnsplashUrl].some((check) => check(raw))
 
 const words = (query: string): string[] => query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
@@ -31,7 +34,7 @@ export const stockImages = (sources: Record<string, StockImages>): StockImages |
       const answers = await Promise.all(entries.map(async ([name, source]) => ({ name, answer: await source.search(query, page) })))
       const live = answers.filter((a) => a.answer !== null)
       if (live.length === 0) return null
-      const lists = live.map(({ name, answer }) => (answer?.photos ?? []).filter((p) => matches(query, p)).map((p) => ({ ...p, source: name, id: `${name}:${p.id}` })))
+      const lists = live.map(({ name, answer }) => (answer?.photos ?? []).filter((p) => matches(query, p)).slice(0, maxPerSource).map((p) => ({ ...p, source: name, id: `${name}:${p.id}` })))
       // `total` adds each source's own count before the word filter, so it is an upper bound; a page holds up to 24 per source.
       return { total: live.reduce((sum, a) => sum + (a.answer?.total ?? 0), 0), photos: interleave(lists) }
     },

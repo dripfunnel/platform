@@ -137,7 +137,6 @@ import { commonsImages } from '#integrations/stockImages/commons'
 import { stockImages } from '#integrations/stockImages/combine'
 import { openverseImages } from '#integrations/stockImages/openverse'
 import { pexelsImages } from '#integrations/stockImages/pexels'
-import { unsplashImages } from '#integrations/stockImages/unsplash'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
@@ -810,7 +809,6 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     stock: stockImages({
       ...(config.PIXABAY_API_KEY ? { pixabay: pixabayImages({ key: config.PIXABAY_API_KEY }) } : {}),
       ...(config.PEXELS_API_KEY ? { pexels: pexelsImages({ key: config.PEXELS_API_KEY }) } : {}),
-      ...(config.UNSPLASH_ACCESS_KEY ? { unsplash: unsplashImages({ key: config.UNSPLASH_ACCESS_KEY }) } : {}),
       openverse: openverseImages(),
       commons: commonsImages(),
     }),

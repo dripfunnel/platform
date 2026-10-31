@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stockImages } from './combine'
+import { maxPerSource, stockImages } from './combine'
 import type { StockImages } from './pixabay'
 
 const photo = (id: string, tags: string) => ({ id, source: 'x', thumb: 't', user: 'u', pageUrl: 'p', tags })
@@ -11,6 +11,11 @@ describe('stockImages', () => {
     const found = await all?.search('red linen', 1)
     expect(found?.photos.map((p) => p.id)).toEqual(['a:1', 'b:9'])
     expect(found?.photos.map((p) => p.source)).toEqual(['a', 'b'])
+  })
+  it('caps one source’s share of a page', async () => {
+    const many = Array.from({ length: 40 }, (_, i) => photo(String(i), 'red'))
+    const found = await stockImages({ a: source(many) })?.search('red', 1)
+    expect(found?.photos).toHaveLength(maxPerSource)
   })
   it('survives a failing source, fails when all fail, and is off with none', async () => {
     expect((await stockImages({ a: source(null), b: source([photo('1', 'red')]) })?.search('red', 1))?.photos).toHaveLength(1)

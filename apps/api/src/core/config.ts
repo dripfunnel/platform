@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /** The stock photo sources (`integrations/stockImages`), and the ones the AI uses when `AI_PHOTO_SOURCES` is unset: those whose terms allow it. */
-export const photoSources = ['unsplash', 'pexels', 'pixabay', 'openverse', 'commons'] as const
+export const photoSources = ['pexels', 'pixabay', 'openverse', 'commons'] as const
 export const aiPhotoSourcesDefault: readonly string[] = ['openverse', 'commons']
 
 const configSchema = z.object({
@@ -106,7 +106,7 @@ const configSchema = z.object({
   AI_SIGN_IN: z.literal('1').optional(),
   /** 1 lets the studio's AI search and add photos itself, from `AI_PHOTO_SOURCES`; unset leaves it to the merchant's picker. */
   AI_PHOTOS: z.literal('1').optional(),
-  /** With AI_PHOTOS, the sources the AI may use, comma separated; unset or empty is `aiPhotoSourcesDefault`. Pixabay and Unsplash only when named: read their terms first. */
+  /** With AI_PHOTOS, the sources the AI may use, comma separated; unset or empty is `aiPhotoSourcesDefault`. Pixabay only when named: read its terms first. */
   AI_PHOTO_SOURCES: z.string().transform((v) => v.split(',').map((n) => n.trim()).filter(Boolean)).pipe(z.array(z.enum(photoSources))).transform((l) => (l.length ? l : undefined)).optional(),
   // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
   AI_LOCAL: z.literal('1').optional(),
@@ -117,8 +117,6 @@ const configSchema = z.object({
   PIXABAY_API_KEY: z.string().min(10).optional(),
   /** Pexels' API key for the same picker; unset leaves Pexels out. */
   PEXELS_API_KEY: z.string().min(10).optional(),
-  /** Unsplash's Access Key for the same picker, and the AI if `AI_PHOTO_SOURCES` names it; unset leaves Unsplash out. */
-  UNSPLASH_ACCESS_KEY: z.string().min(10).optional(),
   // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue. Unset: 5,000.
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),
   // The org's Actions jobs at once, which a core rollout's waves are sized to (storefront LIVE-SHOP §10). Unset: 20 (Free).
