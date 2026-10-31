@@ -11,7 +11,7 @@ It is deployed on every push and deleted when the branch goes. The workflow is
 [`.github/workflows/feature-env.yml`](../../.github/workflows/feature-env.yml). The tooling is in
 [`apps/api/scripts/feature-env/`](../../apps/api/scripts/feature-env/).
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-31 (#1071: the default branch is frozen, kept for feature environments). Before: 2026-09-29.
 
 ---
 
@@ -21,7 +21,7 @@ Last updated: 2026-09-29.
 |---|---|---|
 | **An environment only for `#<issue>/feature/<short-name>` branches**, which [WORKFLOW.md](WORKFLOW.md) §2 reserves for **new feature development**. Tasks (`#<issue>/task/…`) and bugs (`#<issue>/bug/…`) run the gates only | A preview for every pull request (the earlier ARCHITECTURE §6 plan) | Fewer environments and lower cost; only a new feature needs clicking through before it merges |
 | **A separate Cloudflare account ("DripFunnel Dev") holds every feature environment**, with the `actuateminds.com` zone | The production account | Cloudflare tokens can't be narrowed to certain Workers or projects. On the production account, code from any feature branch would run with a token that can change production. A separate account also gives feature environments their own 25 Hyperdrive slots |
-| **A separate Neon project (`dripfunnel-dev`)**; each environment is a branch of its default branch, which holds seeded dummy data | Branching production; an empty database each time | No real personal data ever reaches a feature environment. A key scoped to that project can't reach production |
+| **A separate Neon project (`dripfunnel-dev`)**; each environment is a branch of its default branch (`production`), which holds seeded dummy data. It held the dev database until 2026-10-31 and is kept, frozen at that day's data, as every feature environment's starting copy (#1071) | Branching production; an empty database each time | No real personal data ever reaches a feature environment. A key scoped to that project can't reach production |
 | **Same shape as production**: three Cloudflare Pages projects for the SPAs, and one Worker serving `/api/*` on each SPA's hostname plus the hooks host | One Worker serving the SPAs as static assets | Feature environments exercise the production setup. This includes the unverified "Worker route on a Pages custom hostname" check in [../ARCHITECTURE.md](../ARCHITECTURE.md) §2, which the first deploy answers |
 | **Flat hostnames on a dev domain**: `<slug>-store.actuateminds.com` and so on | Nested names (`admin.<slug>.dev…`); the production domain | Cloudflare's free certificate covers one level below the zone. Test cookies, email and search engines stay off the production domain |
 | **Cloudflare Access** in front of every feature hostname, for anyone `@softobotics.com` | Open links | Unfinished work and test data stay private |
@@ -40,7 +40,7 @@ For branch `#12/feature/offers` (slug `12-offers`):
 | Partner console | `https://12-offers-platform.actuateminds.com` | Pages project `dripfunnel-feature-platform` |
 | Admin console | `https://12-offers-admin.actuateminds.com` | Pages project `dripfunnel-feature-admin` |
 | API | `/api/*` on the three hosts above; all of `12-offers-hooks.actuateminds.com` | Worker `dripfunnel-feature-12-offers`. Its `ADMIN_HOST`, `PLATFORM_HOST` and `HOOKS_HOST` point at the feature hosts, so the router behaves as in production |
-| Database | Neon branch `feature/12-offers` in `dripfunnel-dev` | Copied from the seeded default branch; the branch's own migrations are applied on each deploy |
+| Database | Neon branch `feature/12-offers` in `dripfunnel-dev` | Copied from the default branch (frozen since 2026-10-31, #1071); the branch's own migrations are applied on each deploy |
 | Pooling | Hyperdrive config `feature-12-offers`, bound as `HYPERDRIVE`, with `HYPERDRIVE_REQUIRED` set to `"1"` | Uses Neon's direct connection string, as Cloudflare advises for Hyperdrive. The flag makes `/health` answer 503 if the binding goes missing (docs/api/README.md §7). Production adds the same binding name and flag when the API gets its database (PLATFORM-PROMPT §8 slice 3) |
 
 **Slug rules** (`names.ts`, tested). The branch name is read by the shared rules in
@@ -109,12 +109,14 @@ removal starts only once this workflow is merged to `main`.
       public.
 4. **Neon.**
    1. Create a project `dripfunnel-dev`, on **Postgres 18.x** (confirmed 2026-09-30). Every
-      branch of this project — feature, `dev`, and the CI test branch — inherits the
+      branch of this project — feature and the CI test branch — inherits the
       project's major, so this is the version `REQUIRED_POSTGRES_MAJOR`
       (`apps/api/scripts/migrate/version-check.ts`, [docs/api/README.md](../api/README.md) §7)
       must match. Bump both together if it ever changes.
    2. Its default branch holds the seeded dummy data (partners, stores and products for US,
       DE and IN, as in the prototypes). The seed script comes with the database, in slice 3.
+      Since 2026-10-31 the dev database is on PlanetScale (#1071): the default branch is no longer
+      written to, and is kept because feature environments branch from it. Never delete it.
    3. Create a **project-scoped** API key.
 5. **GitHub environment `feature`** in `dripfunnel/platform`:
    - Deployment branches: `main` (for delete and nightly runs) and the pattern

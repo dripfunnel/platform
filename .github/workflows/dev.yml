@@ -1,7 +1,7 @@
 name: dev
 
-# The persistent dev environment (ARCHITECTURE.md §6): the `dev` wrangler env, a Neon branch
-# that is not created per push, and fixed Pages project names.
+# The persistent dev environment (ARCHITECTURE.md §6): the `dev` wrangler env, a PlanetScale
+# database that is not created per push (docs/setup/dev.md §2.3), and fixed Pages project names.
 
 on:
   push:
