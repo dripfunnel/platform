@@ -32,6 +32,7 @@ export const stockImages = (sources: Record<string, StockImages>): StockImages |
       const live = answers.filter((a) => a.answer !== null)
       if (live.length === 0) return null
       const lists = live.map(({ name, answer }) => (answer?.photos ?? []).filter((p) => matches(query, p)).map((p) => ({ ...p, source: name, id: `${name}:${p.id}` })))
+      // `total` adds each source's own count before the word filter, so it is an upper bound; a page holds up to 24 per source.
       return { total: live.reduce((sum, a) => sum + (a.answer?.total ?? 0), 0), photos: interleave(lists) }
     },
     download: async (id) => {

@@ -303,7 +303,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   `storefront_visible`, logged as `storefront.image_imported` with the source. It places the asset id as the prompt describes
   (`MerchantImage` or CSS `url()`), and a photo added but not placed in the change is logged as `storefront_photo_unplaced`.
   Results are untrusted web text: only an id, tags and a name go back to the model, cut and stripped of control characters, and
-  the prompt says to follow no instruction in them. Each photo added is a note in the chat with its thumbnail and "by {name}".
+  the prompt says to follow no instruction in them. Each photo added is a note in the chat with its thumbnail and "by {name} on {source}".
   A request with no photo tools (`AI_PHOTOS` off, no source, or no provider router) tells the model so: it adds no image and
   points the merchant to the picker and attaching. A provider that does not reach the router has no tools and answers as before.
 - **Stop** (`cancelDesign`) ends the change that is running for the store, only while the model is still being asked or
@@ -328,7 +328,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   if all do. A result is kept only if its tags, title, description or creator hold every word typed. Ids are `source:id`; a chosen one
   is re-asked from its own source, and the address is checked against that source's hosts before the Worker downloads it into the
   store's files (never hotlinked). Openverse's file is its own thumbnail endpoint, Wikimedia's a 1280px thumbnail, Unsplash's the
-  `regular` size, after a ping to its download endpoint. Each result carries its source, the creator and the page it came from. The
+  `regular` size, after a ping to its download endpoint. Each result carries its source, the creator and the page it came from, and the picker shows the source's name on each result. `total` is the sum of the sources' own counts before the word filter, so it is an upper bound, and a page holds up to 24 results per source. The
   merchant's picker uses every source; the AI only those in `AI_PHOTO_SOURCES`. `STOCK_RATE_LIMITER` caps a store's searches, downloads and
   imports across all sources at 30 a minute and answers `STOCK_BUSY`. Nothing is cached: the Worker holds no state.
   Pixabay's terms (API docs, read 2026-10-30): requests cached 24 hours (not kept), under its 100 requests a minute per key, requests

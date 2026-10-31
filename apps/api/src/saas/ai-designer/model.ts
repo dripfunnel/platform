@@ -102,7 +102,7 @@ export interface DesignTools {
 export const maxToolCalls = 4
 
 const toolDefs: readonly CanonicalTool[] = [
-  { name: 'search_stock_images', description: 'Search free stock photos (Unsplash, Pexels, Pixabay and others) for words such as "BMW car, wide". Returns up to six results with an id, tags and the photographer. Use it only when the merchant asks for a picture and attached none; choose words from their request and the page.', parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 100 } }, required: ['query'], additionalProperties: false } },
+  { name: 'search_stock_images', description: 'Search free stock photos for words such as "BMW car, wide". Returns up to six results with an id, tags and the photographer. Use it only when the merchant asks for a picture and attached none; choose words from their request and the page.', parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 100 } }, required: ['query'], additionalProperties: false } },
   { name: 'add_stock_image', description: 'Add one search result to the merchant\'s Assets and get its asset id, to place with MerchantImage or url(). Use an id from the last search only.', parameters: { type: 'object', properties: { id: { type: 'string', pattern: '^[\\w:-]{1,60}$' } }, required: ['id'], additionalProperties: false } },
 ]
 

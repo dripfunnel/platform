@@ -16,6 +16,8 @@ describe('parseConfig', () => {
     expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pexels,commons' }).AI_PHOTO_SOURCES).toEqual(['pexels', 'commons'])
     expect(parseConfig(hosts).AI_PHOTO_SOURCES).toBeUndefined()
     expect(() => parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pexels,foo' })).toThrow()
+    expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'openverse, commons,' }).AI_PHOTO_SOURCES).toEqual(['openverse', 'commons'])
+    expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: '' }).AI_PHOTO_SOURCES).toBeUndefined()
   })
 
   it('refuses the email, SMS, push and DNS stand-ins anywhere but on localhost', () => {

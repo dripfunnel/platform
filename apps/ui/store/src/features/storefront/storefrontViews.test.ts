@@ -169,6 +169,9 @@ describe('the studio’s rules', () => {
 
   it('lists empty groups out, and names notes it knows only', () => {
     expect(pageGroups({ product: null, content: [], custom: [] }).map((g) => g.label)).toEqual([words.studio.groups.shop, words.studio.groups.policies])
+    expect(noteText('photo:pexels:Ana', (k) => k)).toBe(fill(words.studio.chat.notes.photoFrom, { name: 'Ana', source: 'Pexels' }))
+    expect(noteText('photo:Ana', (k) => k)).toBe(fill(words.studio.chat.notes.photoBy, { name: 'Ana' }))
+    expect(noteText('photo:', (k) => k)).toBe(words.studio.chat.notes.photo)
     expect(noteText('template:baseline', (k) => k)).toBe(words.studio.chat.notes.scratch)
     expect(noteText('template:bloom', () => 'Bloom')).toBe(fill(words.studio.chat.notes.template, { name: 'Bloom' }))
     expect(noteText('something:new', (k) => k)).toBeNull()

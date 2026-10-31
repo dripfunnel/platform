@@ -76,14 +76,14 @@ export const importDesignImage = async (url: string): Promise<string> =>
 /** Stops the change running for this store; the pending askDesign then answers `cancelled`. */
 export const cancelDesign = async (): Promise<boolean> => (await query('mutation { cancelDesign }', z.object({ cancelDesign: z.boolean() }), {})).cancelDesign
 
-const stockPhoto = z.object({ id: z.string(), thumb: z.string(), user: z.string(), pageUrl: z.string(), tags: z.string() })
+const stockPhoto = z.object({ id: z.string(), source: z.string(), thumb: z.string(), user: z.string(), pageUrl: z.string(), tags: z.string() })
 export type StockPhoto = z.infer<typeof stockPhoto>
 
 /** Whether the platform has a stock photo source set up; the picker is hidden without one. */
 export const loadStockAvailable = async (): Promise<boolean> => (await query('query { stockImagesAvailable }', z.object({ stockImagesAvailable: z.boolean() }), {})).stockImagesAvailable
 
 export const searchStockImages = async (words: string, page: number): Promise<StockPhoto[]> =>
-  (await query('query S($q: String!, $p: Int!) { searchStockImages(query: $q, page: $p) { id thumb user pageUrl tags } }', z.object({ searchStockImages: z.array(stockPhoto) }), { q: words, p: page })).searchStockImages
+  (await query('query S($q: String!, $p: Int!) { searchStockImages(query: $q, page: $p) { id source thumb user pageUrl tags } }', z.object({ searchStockImages: z.array(stockPhoto) }), { q: words, p: page })).searchStockImages
 
 /** The chosen photo is downloaded into the store's own files; resolves its asset id. */
 export const useStockImage = async (id: string): Promise<string> => (await query('mutation U($i: String!) { useStockImage(id: $i) }', z.object({ useStockImage: z.string() }), { i: id })).useStockImage

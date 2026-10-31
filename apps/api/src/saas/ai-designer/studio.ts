@@ -308,7 +308,7 @@ export const createStudioService = (deps: StudioDeps) => {
       if (!modelAsked) await giveBack()
       const stopped = await recordAfter(sql, storeId, async (tx) => {
         await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
-        for (const photo of added) await record(tx, { role: 'note', text: designNotes.photoAdded(photo.user), imageAssetId: photo.assetId })
+        for (const photo of added) await record(tx, { role: 'note', text: designNotes.photoAdded(photo.user, photo.source), imageAssetId: photo.assetId })
         const id = await record(tx, { role: 'note', text: designNotes.stopped })
         await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: 'cancelled' }]))
         return selectMessage(tx, storeId, id)
@@ -327,7 +327,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
     const message = await recordAfter(sql, storeId, async (tx) => {
       await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
-      for (const photo of added) await record(tx, { role: 'note', text: designNotes.photoAdded(photo.user), imageAssetId: photo.assetId })
+      for (const photo of added) await record(tx, { role: 'note', text: designNotes.photoAdded(photo.user, photo.source), imageAssetId: photo.assetId })
       const runId = 'runId' in answer ? answer.runId : null
       const id =
         (outcome === 'changed' || outcome === 'unchanged') && summary

@@ -104,10 +104,10 @@ const configSchema = z.object({
   AI_PROVIDER_KEY: z.string().regex(/^sk-ant-[A-Za-z0-9_-]{20,}$/, 'AI_PROVIDER_KEY must be an Anthropic API key').optional(),
   // Claude and ChatGPT sign-in (THIRD-PARTY-ACCESS §2.6): off unless 1, so it can be switched off without a deploy of code.
   AI_SIGN_IN: z.literal('1').optional(),
-  /** 1 lets the studio's AI search and add photos itself (never from Pixabay); unset leaves it to the merchant's picker. */
+  /** 1 lets the studio's AI search and add photos itself, from `AI_PHOTO_SOURCES`; unset leaves it to the merchant's picker. */
   AI_PHOTOS: z.literal('1').optional(),
-  /** With AI_PHOTOS, the sources the AI may use, comma separated; unset is `aiPhotoSourcesDefault`. Pixabay and Unsplash only when named. */
-  AI_PHOTO_SOURCES: z.string().transform((v) => v.split(',')).pipe(z.array(z.enum(photoSources))).optional(),
+  /** With AI_PHOTOS, the sources the AI may use, comma separated; unset or empty is `aiPhotoSourcesDefault`. Pixabay and Unsplash only when named: read their terms first. */
+  AI_PHOTO_SOURCES: z.string().transform((v) => v.split(',').map((n) => n.trim()).filter(Boolean)).pipe(z.array(z.enum(photoSources))).transform((l) => (l.length ? l : undefined)).optional(),
   // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
   AI_LOCAL: z.literal('1').optional(),
   // A sample site's screenshot for the designer (storefront ARCHITECTURE §6.2): Cloudflare Browser Rendering, both or none.

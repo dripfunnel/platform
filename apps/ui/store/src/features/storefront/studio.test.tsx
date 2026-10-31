@@ -30,7 +30,7 @@ const fakeApi = () =>
     cancelDesign: vi.fn().mockResolvedValue(true),
     loadLibrary: vi.fn().mockResolvedValue({ assets: [{ id: 'a-own', kind: 'image', mime: 'image/png', bytes: 1000, width: 10, height: 10, name: 'Hero photo', uses: 0, createdAt: '2026-10-29T10:00:00Z' }], next: null }),
     loadStockAvailable: vi.fn().mockResolvedValue(false),
-    searchStockImages: vi.fn().mockResolvedValue([{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }]),
+    searchStockImages: vi.fn().mockResolvedValue([{ id: '42', source: 'pixabay', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }]),
     useStockImage: vi.fn().mockResolvedValue('a-stock'),
     undoDesignChange: vi.fn().mockResolvedValue(undefined),
     loadDesignText: vi.fn().mockImplementation((_page: string, l: string) => Promise.resolve([{ key: 'pages:home.lead', text: l === 'en' ? 'Warm layers' : '' }])),
@@ -388,7 +388,8 @@ describe('the chat', () => {
     await settle()
     expect(api.searchStockImages).toHaveBeenCalledWith('linen', 1)
     expect(screen.getByText(c.stockCredit)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: fill(c.stockUse, { user: 'Ana' }) }))
+    expect(screen.getByText('Pixabay')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: fill(c.stockUse, { user: 'Ana', source: 'Pixabay' }) }))
     await settle()
     expect(api.useStockImage).toHaveBeenCalledWith('42')
     fireEvent.change(prompt(), { target: { value: 'Use it' } })

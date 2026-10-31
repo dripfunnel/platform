@@ -1093,6 +1093,20 @@
   list-style: none;
 }
 
+.df-studio-stock-grid li {
+  position: relative;
+}
+
+.df-studio-stock-source {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 2px 6px;
+  font-size: var(--df-font-size-xs, 11px);
+  text-align: left;
+  color: #fff;
+  background: rgb(0 0 0 / 0.6);
+}
+
 .df-studio-stock-grid button {
   display: block;
   width: 100%;

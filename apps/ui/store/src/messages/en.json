@@ -7621,7 +7621,8 @@
         "stockGo": "Search",
         "stockNone": "No photos found. Try other words.",
         "stockCredit": "Free photos from Unsplash, Pexels, Pixabay, Openverse and Wikimedia Commons. The one you pick is copied into your store’s files.",
-        "stockUse": "Use photo by {user}",
+        "stockUse": "Use photo by {user} from {source}",
+        "stockSources": { "unsplash": "Unsplash", "pexels": "Pexels", "pixabay": "Pixabay", "openverse": "Openverse", "commons": "Wikimedia Commons" },
         "stockLoading": "Searching…",
         "stop": "Stop",
         "mode": "Mode",
@@ -7646,6 +7647,7 @@
           "stopped": "You stopped this change — nothing on your site changed.",
           "photo": "Added a photo to your Assets",
           "photoBy": "Added a photo to your Assets · by {name}",
+          "photoFrom": "Added a photo to your Assets · by {name} on {source}",
           "discarded": "Changes discarded"
         },
         "error": "I couldn’t make that change — nothing on your site changed. Try again, or say it a different way.",
