@@ -266,7 +266,10 @@ describe('the blocked lists', () => {
     clock = start
     const transfer = `mutation($id: ID!) { transferOwnership(toUserId: $id) { ok reason } }`
     const imp = await impersonate(ids.maya)
-    expect((await platformRun(transfer, await signedIn((await enter(imp.token)).cookie), { id: ids.diego })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    const acting = await signedIn((await enter(imp.token)).cookie)
+    expect((await platformRun(transfer, acting, { id: ids.diego })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    const archiveStore = `mutation($id: ID!) { archiveStore(id: $id, reason: "Merchant left") { ok reason } }`
+    expect((await platformRun(archiveStore, acting, { id: crypto.randomUUID() })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
     await endFromAdmin(imp.id)
     const setup = await setUp(ids.northstar)
     const caller = await signedIn((await enter(setup.token)).cookie)
