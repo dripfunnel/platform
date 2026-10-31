@@ -34,6 +34,16 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.5.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every addition is optional; no theme has to change.',
+      'SearchField takes `suggest`, how many products (up to 4) to list under the box while the shopper types, each with its picture, name and sealed <Price>, then "See all results". Core renders the list (<ul role="listbox">) and a <p role="status"> for "No products match" inside the form; style them through the form\'s class, and keep the list\'s `hidden` working (never set `display` on the <ul>).',
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.4.0',
     kind: 'minor',
     security: false,
