@@ -22,6 +22,8 @@ export type ProposalInput = {
   theme: { path: string; content: string }[]
   /** The gate's exact problems with the previous answer; empty on the first ask (ARCHITECTURE §6.2). */
   problems: GateProblem[]
+  /** The files of that previous answer, so a repair edits them rather than rewriting blind. */
+  previous?: { path: string; content: string }[]
 }
 
 export interface DesignModel {

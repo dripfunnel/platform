@@ -207,6 +207,20 @@ describe('asking for a change', () => {
     expect(await usage(t.storeA1)).toBe(2)
   })
 
+  it('shows each repair the files of the attempt before it, and the first ask none', async () => {
+    const second = { path: 'src/theme/pages/AboutPage.tsx', content: "export const AboutPage = () => { fetch('/y'); return null }\n" }
+    const deletion = { path: 'src/theme/components/Gone.tsx', content: null }
+    script.answers = [reply([refusedPage, deletion]), reply([second]), reply([lead('Third time.')])]
+    expect((await ask('owner', 'Three attempts')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    const [first, repair, again] = script.sent.slice(-3)
+    const marker = "Your last answer's files, which failed:"
+    expect(first).not.toContain(marker)
+    expect(repair).toContain(`${marker}\n--- ${refusedPage.path}\n${refusedPage.content}`)
+    expect(repair).not.toContain(deletion.path)
+    expect(again).toContain(`${marker}\n--- ${second.path}\n${second.content}`)
+    expect(again).not.toContain(`${marker}\n--- ${refusedPage.path}`)
+  })
+
   it('refuses a change still failing after three repairs and leaves the draft as it was', async () => {
     const before = await draft(t.storeA1)
     script.answers = [reply([refusedPage]), reply([refusedPage]), reply([refusedPage]), reply([refusedPage])]
