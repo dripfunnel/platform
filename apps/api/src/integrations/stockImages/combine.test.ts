@@ -22,5 +22,6 @@ describe('stockImages', () => {
     expect(await all?.download('b:77')).toBe('https://b/1.jpg')
     expect(await all?.download('nope:1')).toBeNull()
     expect(await all?.download('77')).toBeNull()
+    for (const name of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) expect(await all?.download(`${name}:1`)).toBeNull()
   })
 })

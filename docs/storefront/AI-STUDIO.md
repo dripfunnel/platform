@@ -295,7 +295,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
 - **The AI's own photos** (on where `AI_PHOTOS=1`; off otherwise): on a change request, the model may call `search_stock_images` and
   `add_stock_image` (at most four calls in a change, none in a repair). It may use only the sources `AI_PHOTO_SOURCES` names (a comma
-  list of `unsplash,pexels,pixabay,openverse,commons`; unset is every source that is on); a result or an id from any other source is
+  list of `unsplash,pexels,pixabay,openverse,commons`; unset is `openverse,commons`, the two whose terms allow it; an unknown name stops the Worker at boot); a result or an id from any other source is
   dropped or refused. Pixabay's API docs say "the API is made for real human requests; do not send lots of automated queries", and
   Unsplash's and Pexels' terms for automated use are not yet checked, so name only the sources whose terms allow it. The Worker
   runs each call through the same combined search and the same download path as the merchant's picker: the model names words and

@@ -76,7 +76,7 @@ const runnerOf = (storeId: string): StudioRunner => {
 const local = localStudio(() => db.sql, runnerOf)
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
-const script: { answers: string[]; sent: string[]; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], turns: [] }
+const script: { answers: string[]; sent: string[]; lastTurn: string; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], lastTurn: '', turns: [] }
 const reply = (files: { path: string; content: string | null }[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => {
@@ -93,7 +93,7 @@ const provider: AiProvider = {
     script.sent.push('converse')
     const next = script.turns.shift()
     if (next) return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
-    void call
+    script.lastTurn = JSON.stringify(call.messages.filter((m) => m.role === 'tool'))
     if (hold) {
       held?.()
       await hold
@@ -362,6 +362,8 @@ describe('asking for a change', () => {
     try {
       expect((await ask('owner', 'A linen hero photo')).code).toBeUndefined()
       expect(downloaded).toEqual(['pexels:42'])
+      expect(script.lastTurn).toContain('pexels:42')
+      expect(script.lastTurn).not.toContain('pixabay:7')
       expect(stored.length).toBe(before + 1)
     } finally {
       script.turns = []

@@ -222,7 +222,7 @@ to `https://hooks.localhost/couriers/shiprocket/<partner id>` with `x-api-key: l
 with the same secret.
 - **The designer's model** (`AI_LOCAL`): every studio request answers "nothing changed" without calling a provider
   (#318), so the studio's chat, metering and gate run end to end; set `AI_PROVIDER_KEY` instead to use a real model.
-- **The AI's own photos** (`AI_PHOTOS=1`): the designer may search and add photos from the sources in `AI_PHOTO_SOURCES` (default every source with a key); leave it out to keep the picker human-only.
+- **The AI's own photos** (`AI_PHOTOS=1`): the designer may search and add photos from the sources in `AI_PHOTO_SOURCES` (default `openverse,commons`); leave it out to keep the picker human-only.
 - **GitHub** (`GITHUB_LOCAL`): store repos are made in an in-memory GitHub that the App's real client talks to (#316), so
   a store's first template choice runs the whole `create-storefront` Workflow without the App. The repos last until
   `pnpm dev` restarts. The templates come from the local `storefront-sites-local` bucket (bound with `storefront-assets-local` and

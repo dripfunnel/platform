@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+/** The stock photo sources (`integrations/stockImages`), and the ones the AI uses when `AI_PHOTO_SOURCES` is unset: those whose terms allow it. */
+export const photoSources = ['unsplash', 'pexels', 'pixabay', 'openverse', 'commons'] as const
+export const aiPhotoSourcesDefault: readonly string[] = ['openverse', 'commons']
+
 const configSchema = z.object({
   ADMIN_HOST: z.string().min(1),
   PLATFORM_HOST: z.string().min(1),
@@ -102,8 +106,8 @@ const configSchema = z.object({
   AI_SIGN_IN: z.literal('1').optional(),
   /** 1 lets the studio's AI search and add photos itself (never from Pixabay); unset leaves it to the merchant's picker. */
   AI_PHOTOS: z.literal('1').optional(),
-  /** With AI_PHOTOS, the sources the AI may use, comma separated; unset is all of them. */
-  AI_PHOTO_SOURCES: z.string().regex(/^[a-z]+(,[a-z]+)*$/).optional(),
+  /** With AI_PHOTOS, the sources the AI may use, comma separated; unset is `aiPhotoSourcesDefault`. Pixabay and Unsplash only when named. */
+  AI_PHOTO_SOURCES: z.string().transform((v) => v.split(',')).pipe(z.array(z.enum(photoSources))).optional(),
   // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
   AI_LOCAL: z.literal('1').optional(),
   // A sample site's screenshot for the designer (storefront ARCHITECTURE §6.2): Cloudflare Browser Rendering, both or none.

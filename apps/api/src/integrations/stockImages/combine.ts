@@ -7,9 +7,6 @@ import { isPixabayUrl, type StockImages, type StockPhoto } from './pixabay'
 // One search over every enabled source (docs/storefront/AI-STUDIO.md §8). Ids are `source:id`, so a chosen result is
 // re-asked from its own source and a client never names a file address.
 
-/** Every source name; `AI_PHOTO_SOURCES` narrows which of them the AI may search. */
-export const sourceNames = ['unsplash', 'pexels', 'pixabay', 'openverse', 'commons']
-
 export const isStockUrl = (raw: string): boolean => [isPixabayUrl, isPexelsUrl, isOpenverseUrl, isCommonsUrl, isUnsplashUrl].some((check) => check(raw))
 
 const words = (query: string): string[] => query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
@@ -39,8 +36,8 @@ export const stockImages = (sources: Record<string, StockImages>): StockImages |
     },
     download: async (id) => {
       const cut = id.indexOf(':')
-      const source = sources[id.slice(0, cut)]
-      return cut > 0 && source ? source.download(id.slice(cut + 1)) : null
+      const name = id.slice(0, cut)
+      return cut > 0 && Object.hasOwn(sources, name) ? (sources[name] as StockImages).download(id.slice(cut + 1)) : null
     },
   }
 }
