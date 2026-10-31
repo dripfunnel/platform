@@ -24,14 +24,14 @@ import { StudioFrame } from './StudioFrame'
 import { nextVersionOf, overlayText, pageOptions } from './studioRules'
 import { useStudioSession } from './useStudioSession'
 
-type Props = { client: ApiClient; designClient: ApiClient; data: StudioData; initialPage: string; refresh: () => Promise<void> }
+type Props = { client: ApiClient; designClient: ApiClient; data: StudioData; refresh: () => Promise<void> }
 type Pane = 'chat' | 'preview'
 type Sheet = { kind: 'publish' | 'discard' } | { kind: 'before'; messageId: string }
 
 const statusOf = (status: StudioData['overview']['status']) => (status === 'unpublished_changes' || status === 'same_as_live' ? status : 'not_published')
 
 // The studio at phone width (PortalStorefront › studio): the top bar's facts and actions, and Chat | Preview as two views of one session. Edit text is not on the phone (decided on #513).
-export function StudioView({ client, designClient, data, initialPage, refresh }: Props) {
+export function StudioView({ client, designClient, data, refresh }: Props) {
   const { overview, host, templates, pages } = data
   const { colors } = useTheme()
   const feedback = useFeedback()
@@ -40,7 +40,7 @@ export function StudioView({ client, designClient, data, initialPage, refresh }:
   const { frame, sandbox, reopen, end } = useStudioSession(client, partnerDomain())
   const chat = useLoad(() => loadDesignChat(client), [client])
   const [pane, setPane] = useState<Pane>('chat')
-  const [path, setPath] = useState(initialPage)
+  const [path, setPath] = useState('/')
   const [visit, setVisit] = useState(0)
   const [asking, setAsking] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)

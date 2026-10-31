@@ -1,4 +1,4 @@
-/* Storefront › Pages and Journal (designs/StorefrontContent.dc.html): the list and the editor. */
+/* Storefront › Journal (designs/StorefrontContent.dc.html): the list and the editor. */
 .df-sfc,
 .df-sfc-editor,
 .df-sfc-main {
@@ -79,7 +79,7 @@ button.df-sfc-row:hover {
   background: var(--df-color-hover);
 }
 
-.df-sfc-row > :is(.df-pill, .df-sf-tag) {
+.df-sfc-row > .df-pill {
   justify-self: start;
 }
 
@@ -98,11 +98,6 @@ button.df-sfc-row:hover {
   font-family: var(--df-font-mono);
   font-size: 12px;
   overflow-wrap: anywhere;
-}
-
-strong.df-sfc-path {
-  color: var(--df-color-text);
-  font-size: 13px;
 }
 
 .df-sfc-meta,
@@ -141,19 +136,6 @@ strong.df-sfc-path {
 .df-sfc-status {
   color: var(--df-color-text);
   font-size: 13px;
-}
-
-.df-sfc-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.df-sfc-check input {
-  width: 18px;
-  height: 18px;
-  margin: 0;
 }
 
 .df-sfc-delete {
@@ -409,12 +391,6 @@ strong.df-sfc-path {
   width: 22px;
   height: 22px;
   border-radius: 11px;
-}
-
-.df-sfc-form {
-  margin: 0;
-  color: var(--df-color-text);
-  font-size: 13px;
 }
 
 .df-sfc-google {

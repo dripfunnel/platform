@@ -3,4 +3,5 @@ export { createFleetService, fleetAudit, type FleetRefusal, type FleetResult, ty
 export { advanceRollouts, defaultActionsJobs, revertBatch, rolloutCapacity } from './rollout'
 export { canaryStores, wavePercents } from './waves'
 export { imageBudget, keptImages, recordImageDeleted, retireCoreImages, type Retirement } from './retire'
+export { startReleaseRollout } from './release'
 export { pushUpgrade, upgradePushParams, type UpgradePushParams } from './push'

@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { blockKinds, contentLimits, type BlockKind, type ContentKind } from '../../api/content'
+import { blockKinds, contentLimits, type BlockKind } from '../../api/content'
 import { fill, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { ProductSearch } from '../common/ProductSearch'
@@ -8,10 +8,9 @@ import type { StorefrontApi } from './storefrontApi'
 import { usePhotoUpload } from './usePhotoUpload'
 
 const words = messages.storefront.content.editor
-const toolMarks: Record<BlockKind, string> = { heading: 'H', text: '¶', image: '▣', faq: '?', products: '◫', form: '✉' }
+const toolMarks: Record<BlockKind, string> = { heading: 'H', text: '¶', image: '▣', faq: '?', products: '◫' }
 
 export interface ContentBlocksProps {
-  kind: ContentKind
   title: string
   body: DraftBlock[]
   /** Each change is made to the blocks as they are then, so one an upload brings lands on edits made meanwhile. */
@@ -23,17 +22,15 @@ export interface ContentBlocksProps {
   /** The names couldn't be read, so one still unknown is shown as such rather than as loading. */
   namesFailed: boolean
   onName: (id: string, name: string) => void
-  contactEmail: string | null
   /** Told when a photo starts and stops uploading, so the editor's saves wait for it. */
   onUploading: (busy: boolean) => void
 }
 
-/** The page's blocks (StorefrontContent's block editor): add, move, remove and fill each kind. */
-export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, namesFailed, onName, contactEmail, onUploading }: ContentBlocksProps) => {
+/** The post's blocks (StorefrontContent's block editor): add, move, remove and fill each kind. */
+export const ContentBlocks = ({ title, body, onBody, canEdit, api, names, namesFailed, onName, onUploading }: ContentBlocksProps) => {
   const id = useId()
   const { uploading, problem, upload: send } = usePhotoUpload(api, onUploading)
   const set = (index: number, patch: Partial<DraftBlock>) => onBody((was) => was.map((b, i) => (i === index ? { ...b, ...patch } : b)))
-  const tools = blockKinds.filter((k) => k !== 'form' || kind === 'page')
   const full = body.length >= contentLimits.blocks
 
   // Tools wait while a photo uploads, so it takes the place counted when it was picked.
@@ -45,7 +42,7 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
         <h2 id={`${id}-title`}>{title}</h2>
         {canEdit && (
           <span className="df-sfc-tools" role="group" aria-label={words.toolsLabel}>
-            {tools.map((k) =>
+            {blockKinds.map((k) =>
               k === 'image' ? (
                 <label key={k} className="df-sfc-tool" title={words.tools.image} data-disabled={full || uploading || undefined}>
                   <span aria-hidden="true">{toolMarks.image}</span>
@@ -172,7 +169,6 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
                 <span className="df-sf-help">{words.productsHelp}</span>
               </div>
             )}
-            {b.kind === 'form' && <p className="df-sfc-form">{fill(words.form, { email: contactEmail ?? words.formNoEmail })}</p>}
           </div>
         )
       })}

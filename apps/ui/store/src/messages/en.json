@@ -6869,7 +6869,6 @@
     "tabs": {
       "label": "Storefront",
       "design": "Design",
-      "pages": "Pages",
       "journal": "Journal",
       "assets": "Assets",
       "settings": "Site settings",
@@ -7048,7 +7047,7 @@
       "noSiteBody": "The store owner picks a template and publishes the site. You’ll see it here once it’s live."
     },
     "content": {
-      "loading": "Loading your pages",
+      "loading": "Loading your posts",
       "error": {
         "title": "We couldn’t load this list",
         "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
@@ -7060,26 +7059,6 @@
         "draft": "Draft",
         "scheduled": "Scheduled",
         "published": "Published"
-      },
-      "pages": {
-        "title": "Pages",
-        "sub": "About, FAQ, contact and lookbook pages on your storefront.",
-        "add": "Add a page",
-        "empty": "No pages yet.",
-        "foot": "Your menus can link to these pages (Collections › Menus).",
-        "edited": "Edited {date}",
-        "inMenu": "{meta} · in the footer",
-        "ai": "Made by AI",
-        "aiMeta": "Change it in the studio",
-        "aiOpen": "Open {path} in the studio",
-        "back": "All pages",
-        "untitled": "Untitled page",
-        "body": "The page",
-        "delete": "Delete page",
-        "deleteTitle": "Delete the page “{title}”?",
-        "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
-        "deleteBodyMenu": "It comes off your shop with the next publish. Links to it show “page not found”, and it leaves the footer menu.",
-        "notFound": "This page isn’t here any more."
       },
       "journal": {
         "title": "Journal",
@@ -7099,7 +7078,7 @@
         "planLimit": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts."
       },
       "editor": {
-        "loading": "Loading the page",
+        "loading": "Loading the post",
         "title": "Title",
         "slug": "Web address",
         "kinds": {
@@ -7107,16 +7086,14 @@
           "text": "Text",
           "image": "Photo",
           "faq": "Questions and answers",
-          "products": "Products",
-          "form": "Contact form"
+          "products": "Products"
         },
         "tools": {
           "heading": "Add a heading",
           "text": "Add text",
           "image": "Add a photo",
           "faq": "Add questions",
-          "products": "Add products",
-          "form": "Add a contact form"
+          "products": "Add products"
         },
         "toolsLabel": "Add a block",
         "blockText": "{kind}, block {number}",
@@ -7137,8 +7114,6 @@
         "unknownProduct": "A product whose name didn’t load",
         "namesFailed": "We couldn’t load these products’ names. They stay on the page as they are; open the page again to see them.",
         "productsHelp": "Shown with their live price and stock. A sold-out product shows as sold out, never removed.",
-        "form": "Name, email, order number (optional) and message. Messages go to {email} and a copy goes to the shopper.",
-        "formNoEmail": "your store email",
         "search": "How it looks in search",
         "seoTitle": "Title in search",
         "seoTitleHelp": "Leave it empty to use the title.",
@@ -7148,7 +7123,6 @@
         "now": "Now: {status}",
         "nowEdited": "Now: {status} · edited {date}",
         "waiting": "Your last save goes live with your shop’s next publish.",
-        "inMenu": "Show in the footer menu",
         "publish": "Publish",
         "update": "Update",
         "publishOn": "Publish on",
@@ -7190,27 +7164,7 @@
         }
       },
       "taken": {
-        "coreLine": "{path} is your shop’s {what}. Choose another web address.",
-        "core": {
-          "cart": "cart",
-          "checkout": "checkout",
-          "orders": "order pages",
-          "accounts": "shoppers’ account pages",
-          "signIn": "sign-in pages",
-          "search": "search page",
-          "products": "product pages",
-          "collections": "collection pages",
-          "policies": "policy pages",
-          "journal": "Journal"
-        },
-        "coreOther": "{path} is kept for how your shop works behind the scenes. Choose another web address.",
         "custom": "{path} is a page your AI designer made. Choose another web address, or change that page in the studio.",
-        "language": "{path} is your shop in {language}. Choose another web address.",
-        "market": "{path} is where one of your markets lives (Settings › Markets). Choose another web address.",
-        "page": {
-          "named": "Your page “{title}” already uses {path}. Choose another web address.",
-          "unnamed": "Another of your pages already uses {path}. Choose another web address."
-        },
         "post": {
           "named": "Your post “{title}” already uses {path}. Choose another web address.",
           "unnamed": "Another of your posts already uses {path}. Choose another web address."

@@ -5,7 +5,7 @@ import type { StorefrontBrand, StorefrontDomains, StorefrontOverview, Storefront
 // frames), rolledBackLive (the last publish rolled back), draft (unpublished changes), manager and readOnly (past due)
 // look only, noSite (a Manager before any publish),
 // waiting and failed (an own domain on its way or refused by DNS), free (a plan without an own domain), contentEmpty (no
-// pages or posts); the studio's:
+// posts); the studio's:
 // studio (ready), opening, queued, finishing (another tab's change) and ended (the session refused); a publish checking,
 // refused (with a change to publish before) or rolled back.
 export const studioHarnessStates = ['studio', 'opening', 'queued', 'finishing', 'ended', 'pubChecking', 'pubRefused', 'rolledBack'] as const

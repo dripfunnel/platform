@@ -34,6 +34,17 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.6.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only accepts more; no theme has to change.',
+      "The theme guard accepts a t() key typed as a list of written names (['hero.one', 'hero.two'] as const), each checked against every language, and CSS transitions and keyframes on colours, backgrounds, box-shadow, fill and stroke as well as transform, opacity and filter.",
+      "The publish gate's visual diff gives the live page the same shop data as the new build (#1087), so an upgrade is refused only for a real change of look.",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.5.0',
     kind: 'minor',
     security: false,

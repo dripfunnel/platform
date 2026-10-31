@@ -2,7 +2,7 @@ import { Linking } from 'react-native'
 import { act, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { ApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { fakeApi, type Call } from '../../../testing/fakeApi'
-import { actingAs, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../../testing/harness'
+import { actingAs, byRole, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../../testing/harness'
 import { resetScenario } from '../../states/scenario'
 import { DesignerScreen } from './DesignerScreen'
 
@@ -398,6 +398,13 @@ describe('the template gallery', () => {
 })
 
 describe('the Design tab', () => {
+  it('sits first of the designer’s tabs: Design, Journal and Site settings, with no Pages', async () => {
+    const { renderer } = await show(base())
+
+    expect(byRole(renderer, 'tab').map((tab) => tab.findAll((node) => (node.type as unknown) === 'Text').map((node) => String(node.props.children)).join(''))).toEqual(['Design', 'Journal', 'Site settings'])
+    expect(byRole(renderer, 'tab').map((tab) => tab.props.accessibilityState.selected)).toEqual([true, false, false])
+  })
+
   it('says what is live, and opens the studio, the live site and the gallery', async () => {
     const { renderer } = await show(base())
 

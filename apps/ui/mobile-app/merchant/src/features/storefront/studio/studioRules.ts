@@ -22,9 +22,6 @@ export const frameOriginOf = (frameUrl: string, portalHost: string): string | nu
   return origin !== undefined && origin !== `https://${portalHost.toLowerCase()}` ? origin : null
 }
 
-/** A path on the shop, as the page picker is opened on one (`?page=`). */
-export const studioPathPattern = /^\/[^\s\\]{0,500}$/
-
 // No `%`: an encoded dot or slash is never taken for a path segment, so no later decoding can move the frame out of its session.
 const storePath = /^\/(?:[A-Za-z0-9._~-]+\/)*[A-Za-z0-9._~-]*$/
 

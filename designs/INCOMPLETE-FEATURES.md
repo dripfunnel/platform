@@ -157,7 +157,7 @@ the missing backend.
 - ~~There is no page, header or footer editing.~~ Redrawn 2026-10-08.
 - Decided 2026-10-08 on #470 and not drawn yet (FIRST-RELEASE §14 gives the wording):
   - the **"Your brand"** step before the gallery, and Site settings › **Brand**;
-  - the **Pages** and **Journal** tabs (the new file has only Design and Site settings; `StorefrontContent` holds their drawing);
+  - the **Journal** tab (the new file has only Design and Site settings; `StorefrontContent` holds its drawing; the **Pages** tab was removed on #1078);
   - the catalogue **Publish now** bar on the Design tab;
   - ~~**Open preview ↗** in the studio's top bar.~~ Drawn on #487, with **End all preview links** in its menu.
 - Decided 2026-10-08 on #470 ("Plan A": the AI writes theme code), drawn on #487 (FIRST-RELEASE §14; each under `?state=`, design.md §2):

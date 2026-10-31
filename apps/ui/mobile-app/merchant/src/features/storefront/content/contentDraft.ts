@@ -1,7 +1,7 @@
-import { contentLimits, type BlockKind, type ContentBlockInput, type ContentEntry, type ContentInput, type ContentKind } from '../../../api/storefrontContent'
+import { contentLimits, type BlockKind, type ContentBlockInput, type ContentEntry, type ContentInput } from '../../../api/storefrontContent'
 import { t } from '../../../messages'
 
-// Pages and Journal's editor before it is saved (StorefrontContent; FIRST-RELEASE (store) §14): pure.
+// Journal's editor before it is saved (StorefrontContent; FIRST-RELEASE (store) §14): pure.
 
 export type DraftBlock = {
   /** The list's key: stable while blocks move. */
@@ -20,7 +20,6 @@ export type ContentDraft = {
   body: DraftBlock[]
   seoTitle: string
   seoDescription: string
-  inMenu: boolean
   /** Kept as read: the phone draws no cover, date, author or tags, and a save without them would clear them (decided on #513). */
   publishAt: string | null
   author: string
@@ -31,8 +30,8 @@ export type ContentDraft = {
 let made = 0
 export const newBlock = (kind: BlockKind, more: Partial<DraftBlock> = {}): DraftBlock => ({ key: `b${(made += 1)}`, kind, text: '', assetId: null, alt: '', items: [], productIds: [], ...more })
 
-/** A new page starts with a heading and a paragraph, a new post with a paragraph, as StorefrontContent's do. */
-export const draftOf = (entry: ContentEntry | null, kind: ContentKind): ContentDraft =>
+/** A new post starts with a paragraph, as StorefrontContent's does. */
+export const draftOf = (entry: ContentEntry | null): ContentDraft =>
   entry
     ? {
         title: entry.title,
@@ -40,13 +39,12 @@ export const draftOf = (entry: ContentEntry | null, kind: ContentKind): ContentD
         body: entry.body.map((block) => newBlock(block.kind, { text: block.text ?? '', assetId: block.assetId, alt: block.alt ?? '', items: block.items ?? [], productIds: block.productIds ?? [] })),
         seoTitle: entry.seoTitle ?? '',
         seoDescription: entry.seoDescription ?? '',
-        inMenu: entry.inMenu,
         publishAt: entry.publishAt,
         author: entry.author ?? '',
         coverAssetId: entry.coverAssetId,
         tags: entry.tags,
       }
-    : { title: '', slug: '', body: kind === 'page' ? [newBlock('heading'), newBlock('text')] : [newBlock('text')], seoTitle: '', seoDescription: '', inMenu: false, publishAt: null, author: '', coverAssetId: null, tags: [] }
+    : { title: '', slug: '', body: [newBlock('text')], seoTitle: '', seoDescription: '', publishAt: null, author: '', coverAssetId: null, tags: [] }
 
 const shapeOf = (draft: ContentDraft): string =>
   JSON.stringify({ ...draft, body: draft.body.map(({ kind, text, assetId, alt, items, productIds }) => ({ kind, text, assetId, alt, items, productIds })) })
@@ -63,28 +61,30 @@ export const cleanSlug = (typed: string): string =>
 
 const slugOf = (title: string): string => cleanSlug(title.trim().toLowerCase().replace(/\s+/g, '-')).replace(/^-+|-+$/g, '')
 
-/** The address the page will have: the one typed, else the title's, as the API makes it. */
+/** The address the post will have: the one typed, else the title's, as the API makes it. */
 export const slugShown = (draft: Pick<ContentDraft, 'title' | 'slug'>): string => draft.slug.replace(/^-+|-+$/g, '') || slugOf(draft.title)
 
-/** Where a page or post lives on the shop (storefront ARCHITECTURE §3.1). */
-export const pathOf = (kind: ContentKind, slug: string): string => (kind === 'page' ? `/${slug}` : `/blog/${slug}`)
+/** Where a post lives on the shop (storefront ARCHITECTURE §3.1). */
+export const pathOf = (slug: string): string => `/blog/${slug}`
 
 const blockInput = (block: DraftBlock): ContentBlockInput | null => {
   if (block.kind === 'heading' || block.kind === 'text') return { kind: block.kind, text: block.text }
   if (block.kind === 'image') return block.assetId ? { kind: 'image', assetId: block.assetId, alt: block.alt } : null
   if (block.kind === 'faq') return { kind: 'faq', items: block.items }
-  if (block.kind === 'products') return { kind: 'products', productIds: block.productIds }
-  return { kind: 'form' }
+  return { kind: 'products', productIds: block.productIds }
 }
 
-export const inputOf = (kind: ContentKind, draft: ContentDraft, publish: boolean): ContentInput => ({
+export const inputOf = (draft: ContentDraft, publish: boolean): ContentInput => ({
   title: draft.title.trim(),
   slug: slugShown(draft),
   body: draft.body.flatMap((block) => blockInput(block) ?? []),
   seoTitle: draft.seoTitle.trim() || null,
   seoDescription: draft.seoDescription.trim() || null,
   publish,
-  ...(kind === 'page' ? { inMenu: draft.inMenu } : { ...(draft.publishAt ? { publishAt: draft.publishAt } : {}), author: draft.author.trim() || null, tags: draft.tags, coverAssetId: draft.coverAssetId }),
+  ...(draft.publishAt ? { publishAt: draft.publishAt } : {}),
+  author: draft.author.trim() || null,
+  tags: draft.tags,
+  coverAssetId: draft.coverAssetId,
 })
 
 /** Why a save can't go yet, before asking the API: a title, an address, and nothing past its limit. */
@@ -102,34 +102,6 @@ export const moveBlock = (body: readonly DraftBlock[], index: number, by: -1 | 1
   return next
 }
 
-// The first path segments core holds (engine/modules/content/rules.ts reservedPathSegments), in the merchant's words.
-const coreNames: Record<string, 'cart' | 'checkout' | 'orders' | 'accounts' | 'signIn' | 'search' | 'products' | 'collections' | 'policies' | 'journal'> = {
-  cart: 'cart',
-  checkout: 'checkout',
-  order: 'orders',
-  orders: 'orders',
-  account: 'accounts',
-  'sign-in': 'signIn',
-  register: 'signIn',
-  verify: 'signIn',
-  'forgot-password': 'signIn',
-  'reset-password': 'signIn',
-  search: 'search',
-  products: 'products',
-  collections: 'collections',
-  policies: 'policies',
-  blog: 'journal',
-}
-
-/** The `PATH_TAKEN` refusal in words that name what holds the address (storefront ARCHITECTURE §3.1). */
-export const pathTakenText = (path: string, heldBy: string): string => {
-  const segment = path.replace(/^\/+/, '').split('/')[0] ?? ''
-  if (heldBy === 'core') {
-    const what = coreNames[segment]
-    return what ? t('storefront.content.taken.coreLine', { path, what: t(`storefront.content.taken.core.${what}`) }) : t('storefront.content.taken.coreOther', { path })
-  }
-  if (heldBy === 'custom_page') return t('storefront.content.taken.custom', { path })
-  if (heldBy === 'language') return t('storefront.content.taken.language', { path })
-  if (heldBy === 'market') return t('storefront.content.taken.market', { path })
-  return t(heldBy === 'blog_post' ? 'storefront.content.taken.post' : 'storefront.content.taken.page', { path })
-}
+/** The `PATH_TAKEN` refusal naming what holds a post's address: an AI page or another post (content rules.ts pathHolder). */
+export const pathTakenText = (path: string, heldBy: string): string =>
+  t(heldBy === 'custom_page' ? 'storefront.content.taken.custom' : 'storefront.content.taken.post', { path })
