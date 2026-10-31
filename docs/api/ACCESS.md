@@ -581,6 +581,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `stores.plan` (change plan, limit overrides) | §6.4 | ✓ | ✓ | | | |
 | `stores.trial` | §6.4 | ✓ | ✓ | | ✓ | |
 | `stores.suspend` (suspend and restore) | §6.4 | ✓ | ✓ | | | |
+| `stores.archive` (archive a Cancelled or Suspended store; never in an impersonation; #1056) | §6.4 | ✓ | ✓ | | | |
 | `stores.invite.resend` | §6.4 | ✓ | ✓ | | | |
 | `setup.retry` (retry a stuck signup step) | §6.3, §5 | ✓ | ✓ | | | |
 | `stores.billingStatus` (only when the partner bills its merchants) | §6.1, §6.3 | ✓ | ✓ | | ✓ | |
@@ -627,6 +628,7 @@ SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call,
 | `partners.pause` (and resume) | ✓ | | | | | |
 | `stores.suspend` | ✓ | | | | ✓ | |
 | `stores.restore`, `stores.trial.extend` | ✓ | | | | | |
+| `stores.archive` (archive a Cancelled or Suspended store; #1056) | ✓ | | | | | |
 | `stores.invite.resend` | ✓ | | ✓ | | | |
 | `stores.notes.write` | ✓ | ✓ | ✓ | | ✓ | |
 | `stores.deliveryApp.write` (upload a store's delivery app APK, set its minimum build; #852) | ✓ | | | | ✓ | |

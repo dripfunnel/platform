@@ -822,6 +822,7 @@ describe('the backstop itself', () => {
       'new_store_slug',
       'open_support_banner',
       'partner_domain_record_owner',
+      'partner_end_subscription',
       'partner_host_claimed',
       'partner_may_add_owner',
       'partner_move_subscription',

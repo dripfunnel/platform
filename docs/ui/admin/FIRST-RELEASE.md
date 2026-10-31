@@ -191,6 +191,7 @@ store's customers are listed in Customers (§5.4), pre-filtered to this store.
 |---|---|---|---|
 | **Suspend** | Super admin; Engineer on call (emergency: the dialog adds "Engineer on call: emergency suspensions are reviewed by a Super admin.") | Reason (shown to the Owner); the store name typed | "Mehta Textiles can't make changes; its storefront shows a notice telling shoppers to contact the store, and the Owner is told to contact **their partner's** support." |
 | **Restore** | Super admin | Reason | Back to its previous status |
+| **Archive store** (#1056) | Super admin; offered on every store not yet archived, refused unless Cancelled or Suspended | Reason (kept in the log); the store name typed | "{name} disappears at once for everyone who works in it and for its shoppers… This can't be undone." Notes: any subscription is cancelled now with no refund; the data is kept 90 days, and the Owner is told to ask the partner's support for a copy. The store stays listed as **Archived {date} · by {who}** (SAAS §4.2 Closed) |
 | **Extend trial** | Super admin | New end date | New trial end date |
 | **Retry provisioning** | Super admin, Support, Engineer on call | A failed or stuck step; offered in the store header and on that step in the Provisioning tab | Runs the failed step again |
 | **Undo and clean up** | Super admin, Engineer on call | A failed signup, from the Provisioning tab; reason; the store code typed | "Removes everything setup made for {store} (store, hostnames, repo) so {owner} can sign up again. This can't be undone." Returns to the Stores list |
@@ -394,7 +395,7 @@ From CONSOLE-DESIGN §6, deliberately left out; each stays specified there:
 |---|---|
 | F, G | Editing a partner's branding or plans inside the admin console (staff do it in the partner console through **Set up for partner** instead) |
 | H | Billing: partner invoices, merchant billing, dunning, refunds, payouts |
-| I3 | Change plan, move a store between partners, transfer ownership, close |
+| I3 | Change plan, move a store between partners, transfer ownership (closing a store is built as Archive, §5.3, #1056) |
 | D (Offboarding, Closed) | Offboarding and closing a partner |
 | L | Fleet: core versions, rollouts, publishing |
 | M | A separate Domains menu (domains are tabs on partner and store pages) |

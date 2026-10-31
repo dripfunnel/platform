@@ -10,7 +10,7 @@ const words = messages.store
 
 // Retry sits in the header only while setup has failed or is stuck; Undo and clean up lives on
 // the Provisioning tab (decided on #20). The rest go behind "More actions".
-const menuActions = ['suspend', 'restore', 'extendTrial', 'resendInvite'] as const
+const menuActions = ['suspend', 'restore', 'extendTrial', 'resendInvite', 'archive'] as const
 
 export interface StoreActionsProps {
   store: Store

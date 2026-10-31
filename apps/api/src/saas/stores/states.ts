@@ -22,7 +22,7 @@ export type StoreTransition =
   | { to: 'suspended'; reason: string; by: string }
   | { to: 'restored' }
   | { to: 'cancelled' }
-  | { to: 'closed' }
+  | { to: 'closed'; by: string }
 
 export type StoreTransitionRefusal = 'INVALID_TRANSITION' | 'REASON_REQUIRED' | 'NOT_SUSPENDED'
 
@@ -59,7 +59,7 @@ export const transitionStore = async (tx: ScopedSql, store: StoreRow, change: St
       await updateStoreStatus(tx, store.id, { status: 'cancelled', cancelledAt: now, suspendedAt: null, suspendedReason: null, suspendedByLabel: null, suspendedPreviousStatus: null })
       break
     case 'closed':
-      await updateStoreStatus(tx, store.id, { status: 'closed', closedAt: now })
+      await updateStoreStatus(tx, store.id, { status: 'closed', closedAt: now, closedByLabel: change.by })
       break
   }
   return { ok: true, status: change.to }

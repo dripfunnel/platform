@@ -153,6 +153,8 @@ export interface StoreRow {
   suspended_previous_status: Extract<StoreStatus, 'trial' | 'active' | 'past_due'> | null
   cancelled_at: Date | null
   closed_at: Date | null
+  /** Who archived it (#1056). */
+  closed_by_label: string | null
   storefront_kind: 'ai' | 'own'
   build_state: BuildState | null
   core_version: string | null

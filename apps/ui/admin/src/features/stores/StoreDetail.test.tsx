@@ -157,6 +157,15 @@ describe('store dialogs', () => {
     expect(dialog.typeToConfirm?.expected).toBe('Kiko Kids')
   })
 
+  it('restates that archiving can’t be undone, needs a reason and the store name, and names the partner’s support', () => {
+    const dialog = storeDialog('archive', storeOf('s3'))
+    expect(dialog.danger).toBe(true)
+    expect(dialog.consequence).toContain('This can’t be undone.')
+    expect(dialog.notes).toContain('Its data is kept for 90 days, then deleted. The owner is told to ask Bazaar Cloud support for a copy.')
+    expect(dialog.reason?.label).toBe(words.dialogs.archive.reason)
+    expect(dialog.typeToConfirm?.expected).toBe('Kiko Kids')
+  })
+
   it('restores to the status the store had before', () => {
     expect(storeDialog('restore', storeOf('s4')).consequence).toBe('Back to Active.')
   })
