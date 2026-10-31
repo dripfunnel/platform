@@ -52,7 +52,7 @@ describe.skipIf(!chrome)('the baseline theme’s content pages and blog', () => 
     try {
       const page = await context.newPage()
       await page.goto(`${previewOrigin}/blog/`)
-      await page.getByRole('heading', { level: 1, name: 'From the journal' }).waitFor()
+      await page.getByRole('heading', { level: 1, name: 'From the blog' }).waitFor()
       await page.getByRole('heading', { name: 'Why linen, part 2' }).waitFor()
       await page.getByRole('button', { name: 'Older posts' }).click()
       await page.getByRole('heading', { name: 'Why linen, part 3' }).waitFor()

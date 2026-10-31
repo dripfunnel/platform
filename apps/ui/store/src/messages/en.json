@@ -6869,7 +6869,7 @@
     "tabs": {
       "label": "Storefront",
       "design": "Design",
-      "journal": "Journal",
+      "journal": "Blog",
       "assets": "Assets",
       "settings": "Site settings",
       "ai": "AI"
@@ -7061,8 +7061,8 @@
         "published": "Published"
       },
       "journal": {
-        "title": "Journal",
-        "sub": "Posts for your shop’s blog, newest first. Shoppers find them under Journal.",
+        "title": "Blog",
+        "sub": "Posts for your shop’s blog, newest first. Shoppers find them under Blog.",
         "add": "Write a post",
         "empty": "No posts yet. Write about how you make things, care tips or new arrivals.",
         "foot": "Posts can mention products; shoppers see their live price.",
@@ -7075,7 +7075,7 @@
         "deleteTitle": "Delete “{title}”?",
         "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
         "notFound": "This post isn’t here any more.",
-        "planLimit": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts."
+        "planLimit": "Your plan doesn’t include the Blog. Change plans in Billing to publish posts."
       },
       "editor": {
         "loading": "Loading the post",
@@ -7203,7 +7203,7 @@
           "READ_ONLY": "Your store is view-only until the payment goes through.",
           "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
           "FORBIDDEN": "Only the store owner can change the storefront.",
-          "PLAN_LIMIT": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts.",
+          "PLAN_LIMIT": "Your plan doesn’t include the Blog. Change plans in Billing to publish posts.",
           "other": "That didn’t save. Your words are still here; try again."
         }
       }

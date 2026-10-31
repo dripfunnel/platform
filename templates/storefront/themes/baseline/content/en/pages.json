@@ -83,8 +83,8 @@
     "phone": "Or call {phone}."
   },
   "blog": {
-    "eyebrow": "Journal",
-    "title": "From the journal",
+    "eyebrow": "Blog",
+    "title": "From the blog",
     "tagged": "Posts about {tag}",
     "all": "All posts",
     "loading": "Loading the posts",
@@ -94,7 +94,7 @@
     "older": "Older posts",
     "loadingPost": "Loading the post",
     "failedPost": "We couldn't load this post",
-    "back": "← Journal",
+    "back": "← Blog",
     "by": "by {author}",
     "tags": "Tags",
     "olderFailed": "We couldn't load older posts. Try again."

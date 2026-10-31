@@ -173,7 +173,7 @@ describe('the Journal list', () => {
         },
       }),
     )
-    expect(hasText(limited.renderer, 'Your plan doesn’t include the Journal.')).toBe(true)
+    expect(hasText(limited.renderer, 'Your plan doesn’t include the Blog.')).toBe(true)
     expect(hasButton(limited.renderer, 'Try again')).toBe(false)
     expect(hasButton(limited.renderer, 'See plans')).toBe(false)
   })

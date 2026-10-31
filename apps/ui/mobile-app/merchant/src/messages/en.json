@@ -5362,7 +5362,7 @@
     "tabs": {
       "label": "Storefront",
       "design": "Design",
-      "journal": "Journal",
+      "journal": "Blog",
       "settings": "Site settings"
     },
     "notice": {
@@ -5642,8 +5642,8 @@
         "published": "Published"
       },
       "journal": {
-        "title": "Journal",
-        "sub": "Posts for your shop’s blog, newest first. Shoppers find them under Journal.",
+        "title": "Blog",
+        "sub": "Posts for your shop’s blog, newest first. Shoppers find them under Blog.",
         "add": "Write a post",
         "empty": "No posts yet. Write about how you make things, care tips or new arrivals.",
         "foot": "Posts can mention products; shoppers see their live price.",
@@ -5653,7 +5653,7 @@
         "delete": "Delete post",
         "deleteTitle": "Delete “{title}”?",
         "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
-        "planLimit": "Your plan doesn’t include the Journal."
+        "planLimit": "Your plan doesn’t include the Blog."
       },
       "editor": {
         "title": "Title",
