@@ -708,7 +708,7 @@ through. Your site stays live."), as is a support session.
   **Version history** (kept for the plan's days, Live, **Go back to this**, which uses no build
   minutes and makes the draft that version).
 - **Built on #319 (part 1, on #471's Store API)**: the page with its tabs (ARIA tabs, `?tab=`), the read-only
-  notices, Your brand and Site settings › Brand, and the Pages and Journal tabs as empty states until #339; the
+  notices, Your brand and Site settings › Brand, and the Pages (removed on #1078) and Journal tabs as empty states until #339; the
   Design tab says what comes next until #318's gallery and studio (later parts), and shows a Manager "No storefront
   yet". *Decided there:* Your brand replaces the whole page for the Owner while `brandReady` is false, and never
   shows to a reader; its home page title and description are Search and sharing's, saved before the brand, so Site
