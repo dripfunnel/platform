@@ -53,12 +53,12 @@ let api: Fake
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 const usageOf = (over: Partial<StorefrontMeters['usage']> = {}): StorefrontMeters['usage'] => ({ ownKey: false, aiRequests: 40, aiPromptsUsed: 40, aiPromptsAllowed: 1000, buildMinutes: 12, publishesLast30Days: 2, recent: [], ...over })
 let usage = usageOf()
-const show = async (over: Partial<Fake> = {}, run: string | null = null, startPath = '/') => {
+const show = async (over: Partial<Fake> = {}, run: string | null = null) => {
   Object.assign(api, over)
   const onOverview = vi.fn()
   const onRun = vi.fn()
   await act(async () => {
-    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} usage={usage} run={run} onRun={onRun} startPath={startPath} />)
+    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} usage={usage} run={run} onRun={onRun} />)
   })
   await settle()
   return { onOverview, onRun }
@@ -114,12 +114,6 @@ describe('the studio’s frame', () => {
     post({ type: 'df-studio:page', path: '/faq' })
     expect(picker.value).toBe('/faq')
     expect(frame().getAttribute('src')).toBe(`${frameUrl}products/kurta/`)
-  })
-
-  it('opens on the page Storefront › Pages picked', async () => {
-    await show({}, null, '/about')
-    expect(frame().getAttribute('src')).toBe(`${frameUrl}about`)
-    expect((screen.getByRole('combobox', { name: words.page }) as HTMLSelectElement).value).toBe('/about')
   })
 
   it('takes the frame back to a page it left by itself', async () => {
@@ -717,7 +711,7 @@ describe('publishing from the studio', () => {
     cleanup()
     api.loadOverview.mockResolvedValue(overview)
     await act(async () => {
-      render(<StudioView overview={{ ...overview, status: 'same_as_live', draft: null }} templates={[]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} startPath="/" />)
+      render(<StudioView overview={{ ...overview, status: 'same_as_live', draft: null }} templates={[]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} />)
     })
     await settle()
     expect((screen.getByRole('button', { name: p.button }) as HTMLButtonElement).disabled).toBe(true)
@@ -785,7 +779,7 @@ describe('the studio’s AI line and preview links', () => {
   it('offers no preview before the draft has one', async () => {
     cleanup()
     await act(async () => {
-      render(<StudioView overview={{ ...overview, draft: { template: 'linen', changedAt: null, previewReady: false } }} templates={[]} storeName="Kesari" host={null} api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} startPath="/" />)
+      render(<StudioView overview={{ ...overview, draft: { template: 'linen', changedAt: null, previewReady: false } }} templates={[]} storeName="Kesari" host={null} api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} />)
     })
     await settle()
     expect(screen.queryByRole('button', { name: pv.open })).toBeNull()

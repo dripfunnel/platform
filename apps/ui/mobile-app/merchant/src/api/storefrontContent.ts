@@ -35,8 +35,13 @@ export const loadContentList = async (client: ApiClient, after: string | null): 
   return { rows: page?.nodes ?? [], next: page?.pageInfo.hasNextPage ? page.pageInfo.endCursor : null }
 }
 
-export const loadContentEntry = async (client: ApiClient, id: string): Promise<ContentEntry | null> =>
-  (await typedQuery(client)(`query Entry($id: ID!) { contentEntry(id: $id) { ${entryFields} } }`, z.object({ contentEntry: entrySchema.nullable() }), { id })).contentEntry
+// contentEntry answers any kind; a page reads as missing, since only posts are edited here (#1078).
+const entryAnswer = z.union([entrySchema.extend({ kind: z.literal('post') }), z.object({ kind: z.literal('page') })]).nullable()
+
+export const loadContentEntry = async (client: ApiClient, id: string): Promise<ContentEntry | null> => {
+  const entry = (await typedQuery(client)(`query Entry($id: ID!) { contentEntry(id: $id) { kind ${entryFields} } }`, z.object({ contentEntry: entryAnswer }), { id })).contentEntry
+  return entry?.kind === 'post' ? entry : null
+}
 
 export type ContentBlockInput = { kind: BlockKind; text?: string; assetId?: string; alt?: string; items?: { question: string; answer: string }[]; productIds?: string[] }
 

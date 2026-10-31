@@ -156,13 +156,6 @@ describe('the Journal list', () => {
   })
 })
 
-describe('the studio’s page in the address', () => {
-  it('takes a path on the shop and drops anything else, so the studio opens on the home page', () => {
-    expect(storefrontSearch.parse({ view: 'studio', page: '/about' }).page).toBe('/about')
-    for (const page of ['about', '/a b', '/a\\b', `/${'a'.repeat(501)}`]) expect(storefrontSearch.parse({ view: 'studio', page }).page).toBeUndefined()
-  })
-})
-
 describe('the post editor', () => {
   it('publishes a new post at the address its title makes, then goes back to the list', async () => {
     await show()

@@ -31,7 +31,7 @@ export const frameAddress = (frameUrl: string, path: string): string => {
   return frameUrl.endsWith('/') && address.startsWith(frameUrl) ? address : frameUrl
 }
 
-/** A path on the shop, as the frame reports one and the studio opens on one (`?page=`). */
+/** A path on the shop, as the frame reports one. */
 export const studioPathPattern = /^\/[^\s\\]{0,500}$/
 
 // The studio–frame messages (AI-STUDIO §8, "Built on #319"): the frame reports the page it shows and the words picked for Edit text.

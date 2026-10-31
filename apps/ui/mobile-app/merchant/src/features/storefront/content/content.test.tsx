@@ -42,6 +42,7 @@ const access = (permissions: string[]) => ({ me: { acting: { permissions, seller
 const row = (id: string, over: Record<string, unknown> = {}) => ({ id, title: `Post ${id}`, path: `/blog/post-${id}`, status: 'published', publishAt: null, waitingForPublish: false, ...over })
 const entryOf = (over: Record<string, unknown> = {}) => ({
   ...row('e1', { title: 'Our story', path: '/blog/our-story', status: 'draft' }),
+  kind: 'post',
   slug: 'our-story',
   body: [
     { kind: 'heading', text: 'Who we are', assetId: null, alt: null, items: null, productIds: null },
@@ -450,9 +451,13 @@ describe('the Journal editor', () => {
     expect(hasField(renderer, 'Title')).toBe(false)
   })
 
-  it('says a post that is not there is not found, and a failed read can be tried again', async () => {
+  it('says a post that is not there, or a content page’s id, is not found, and a failed read can be tried again', async () => {
     const missing = await showEditor(base({ 'query Entry(': () => ({ contentEntry: null }) }))
     expect(hasField(missing.renderer, 'Title')).toBe(false)
+    expect(hasText(missing.renderer, 'This page isn’t here any more')).toBe(true)
+    const page = await showEditor(base({ 'query Entry(': () => ({ contentEntry: entryOf({ kind: 'page', path: '/contact', body: [{ kind: 'form', text: null, assetId: null, alt: null, items: null, productIds: null }] }) }) }))
+    expect(hasField(page.renderer, 'Title')).toBe(false)
+    expect(hasText(page.renderer, 'This page isn’t here any more')).toBe(true)
 
     const failed = await showEditor(
       base({
