@@ -38,7 +38,7 @@ export const coreUpgradeNotes: readonly UpgradeNote[] = [
     kind: 'minor',
     security: false,
     notes: [
-      'No theme code has to change, and every addition is optional.',
+      'Every addition is optional, except that a product page must keep the sealed <Price> and <LegalNotices> placed when its product gives them, and stay whole with very long names and no photo (below); the publish gate refuses one that doesn\'t.',
       'The live site now builds a page for each product, version and collection, with the catalogue already in it (ARCHITECTURE §4.2): useProduct, useCollection, useListing, useProducts, useCollections and useMenu return their data on the first render there, and the browser refreshes it from the Shop API after load. The studio and the preview load as before.',
       'The publish gate checks those pages: a product page must place the sealed <Price> when the product (or the version its address names) has a price, and <LegalNotices> when the product has compliance details for the store\'s market or everywhere. A theme that shows product.legal through LegalNotices and the chosen price through Price already passes; one that hides either must place it.',
       'The long-names edge case now also stretches product and collection names and descriptions and removes their pictures, so a product page must stay whole with a 200-character name and no photo.',
