@@ -398,10 +398,10 @@ describe('the template gallery', () => {
 })
 
 describe('the Design tab', () => {
-  it('sits first of the designer’s tabs: Design, Journal and Site settings, with no Pages', async () => {
+  it('sits first of the designer’s tabs: Design, Blog and Site settings, with no Pages', async () => {
     const { renderer } = await show(base())
 
-    expect(byRole(renderer, 'tab').map((tab) => tab.findAll((node) => (node.type as unknown) === 'Text').map((node) => String(node.props.children)).join(''))).toEqual(['Design', 'Journal', 'Site settings'])
+    expect(byRole(renderer, 'tab').map((tab) => tab.findAll((node) => (node.type as unknown) === 'Text').map((node) => String(node.props.children)).join(''))).toEqual(['Design', 'Blog', 'Site settings'])
     expect(byRole(renderer, 'tab').map((tab) => tab.props.accessibilityState.selected)).toEqual([true, false, false])
   })
 

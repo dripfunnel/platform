@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-31 (#1078: Storefront's Pages tab removed; content pages already made stay live, §14). Before: 2026-10-30 (#811: Help opens the partner's help-centre link and is hidden when none is set, §3.2). Before: 2026-10-30 (the AI studio's Assets tab, chat mode, Stop, Retry, free photos and the AI's own photos, §14). Before: 2026-10-28 (#868: Settings › Mobile apps built, §15). Before: 2026-10-28 (#950: Storefront › AI, §14). Before: 2026-10-27 (#846: an order’s Delivery panel and the Orders list’s delivery chips built, §6). Before: 2026-10-27 (#845: own delivery in Shipping and Warehouse built, §15). Before: 2026-10-27 (#844: Settings › Riders built, §15). Before: 2026-10-26 (#841: own delivery's API in Shipping and Warehouse, and `own_delivery` among the cart's options, §15, §19). Before: 2026-10-22 (with Gaurav: Riders and own delivery pointed to api/DELIVERY.md in §15, proposed). Before: 2026-10-22 (#815: a location's optional map pin, Warehouse). Before: 2026-10-15 (#744, #745: the Shop API's store hosts are `{slug}.<SHOP_DOMAIN>` and `{slug}-preview.<SHOP_DOMAIN>`, the partner shops wildcard and `storefront.preview_key` read removed, SAPI 8 note). Before: 2026-10-15 (with Gaurav: the Shop API's store hosts move to `my-store.one`, SAPI 8 note). Before: 2026-10-13 (#339: Storefront › Pages and Journal, §14; #682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts). Before: 2026-10-30 (the AI studio's Assets tab, chat mode, Stop, Retry, free photos and the AI's own photos, §14).
+Last updated: 2026-10-31 (#1079: Storefront's Journal tab reads Blog, §14). Before: 2026-10-31 (#1078: Storefront's Pages tab removed; content pages already made stay live, §14). Before: 2026-10-30 (#811: Help opens the partner's help-centre link and is hidden when none is set, §3.2). Before: 2026-10-30 (the AI studio's Assets tab, chat mode, Stop, Retry, free photos and the AI's own photos, §14). Before: 2026-10-28 (#868: Settings › Mobile apps built, §15). Before: 2026-10-28 (#950: Storefront › AI, §14). Before: 2026-10-27 (#846: an order’s Delivery panel and the Orders list’s delivery chips built, §6). Before: 2026-10-27 (#845: own delivery in Shipping and Warehouse built, §15). Before: 2026-10-27 (#844: Settings › Riders built, §15). Before: 2026-10-26 (#841: own delivery's API in Shipping and Warehouse, and `own_delivery` among the cart's options, §15, §19). Before: 2026-10-22 (with Gaurav: Riders and own delivery pointed to api/DELIVERY.md in §15, proposed). Before: 2026-10-22 (#815: a location's optional map pin, Warehouse). Before: 2026-10-15 (#744, #745: the Shop API's store hosts are `{slug}.<SHOP_DOMAIN>` and `{slug}-preview.<SHOP_DOMAIN>`, the partner shops wildcard and `storefront.preview_key` read removed, SAPI 8 note). Before: 2026-10-15 (with Gaurav: the Shop API's store hosts move to `my-store.one`, SAPI 8 note). Before: 2026-10-13 (#339: Storefront › Pages and Journal, §14; #682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts). Before: 2026-10-30 (the AI studio's Assets tab, chat mode, Stop, Retry, free photos and the AI's own photos, §14).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -96,7 +96,7 @@ document it belongs to, and in the card's "Decided" section):
 | Live hosting | A static build per store, ~~on its Pages project, built in Cloudflare Containers~~ in R2 behind the edge Worker, built by its public repo's GitHub Actions (2026-10-09, storefront LIVE-SHOP) |
 | How a design starts | A required **"Your brand"** step, then a **template gallery** (six presets and "Start from scratch", each with a demo), replacing the three AI directions |
 | Brand colours | Only a hint for the AI; templates keep their own |
-| Content pages and blog | Kept, as Storefront's **Journal** tab (`StorefrontContent`); the **Pages** tab was removed on #1078, and content pages already made stay live |
+| Content pages and blog | Kept, as Storefront's **Blog** tab (`StorefrontContent`; Journal until #1079); the **Pages** tab was removed on #1078, and content pages already made stay live |
 | Catalogue "Publish now" | Kept with its allowance, in a bar on the Design tab; the automatic publish too |
 | The preview host | Kept: **"Open preview"** in the studio opens the draft by a signed link, with test-mode checkout; every change that passes is deployed there (below) |
 | The own storefront | Not in the first release |
@@ -694,7 +694,8 @@ through. Your site stays live."), as is a support session.
   and takes one `ai_prompts` unit like a change), the model picker and a round **Send** that becomes **Stop** while a change
   runs. A picked image shows as a thumbnail in its chip. A failed change offers **Try again**. The divider between chat and
   preview can be dragged, or moved with the arrow keys, between 320 and 760 px.
-- **Journal** tab (not drawn in the new file; `StorefrontContent`'s drawing): the blog, SUI 17 on SAPI 24.
+- **Blog** tab (not drawn in the new file; `StorefrontContent`'s drawing, where it is Journal): the blog, SUI 17 on SAPI 24.
+  *Decided on #1079:* named **Blog** wherever merchants or shoppers read it; `?tab=journal` and code names stay.
   *Decided on #1078:* the **Pages** tab is removed from the portal and the merchant app. Content pages already made
   stay live and in the footer, but neither app can edit, delete or take them out of the footer any more; the AI's
   own pages open from the studio's page picker, and an entry that is a page's id reads as not found.
@@ -708,7 +709,7 @@ through. Your site stays live."), as is a support session.
   **Version history** (kept for the plan's days, Live, **Go back to this**, which uses no build
   minutes and makes the draft that version).
 - **Built on #319 (part 1, on #471's Store API)**: the page with its tabs (ARIA tabs, `?tab=`), the read-only
-  notices, Your brand and Site settings › Brand, and the Pages (removed on #1078) and Journal tabs as empty states until #339; the
+  notices, Your brand and Site settings › Brand, and the Pages (removed on #1078) and Journal (Blog since #1079) tabs as empty states until #339; the
   Design tab says what comes next until #318's gallery and studio (later parts), and shows a Manager "No storefront
   yet". *Decided there:* Your brand replaces the whole page for the Owner while `brandReady` is false, and never
   shows to a reader; its home page title and description are Search and sharing's, saved before the brand, so Site
@@ -817,12 +818,12 @@ through. Your site stays live."), as is a support session.
   since) and, on a page, the contact form, which says where messages go (the brand's public email). *Decided there:*
   product names are read as Offers reads them (`loadProductNames`, aliased `product(id)` reads fifty at a time), since
   the Store API has no read by ids.
-- **Built on #339 (part 4)**: the Journal tab: posts by their date ("Goes live {date}" while scheduled) and who wrote
+- **Built on #339 (part 4)**: the Journal tab (Blog since #1079): posts by their date ("Goes live {date}" while scheduled) and who wrote
   them, **Write a post**, and the editor as for a page with a cover photo (the drawing's dashed box), **Publish on**
   and **Written by** in Publishing, no contact form and no footer menu, and **Schedule** in place of Publish for a later
   day. *Decided there:* the day is in UTC and said so; left empty, a post is dated when it's published (#338), but a
   post that has a date keeps one (#338 can't clear it); an unchanged day keeps the post's own instant, a picked one starts at midnight UTC; tags, which the drawing doesn't show,
-  are kept as read; a plan without `blog` shows the refusal on save ("Your plan doesn’t include the Journal…"), since
+  are kept as read; a plan without `blog` shows the refusal on save ("Your plan doesn’t include the Blog…"), since
   no read says so first; Publish and Save wait while a photo or the cover uploads.
 - **Built on #339 (part 5)**: other languages: a saved page or post in a store with more than one language has the
   language tabs over its editor (the product editor's, now shared in `features/common`); another language shows the
