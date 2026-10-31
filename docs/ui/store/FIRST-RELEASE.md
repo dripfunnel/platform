@@ -709,7 +709,7 @@ through. Your site stays live."), as is a support session.
   **Version history** (kept for the plan's days, Live, **Go back to this**, which uses no build
   minutes and makes the draft that version).
 - **Built on #319 (part 1, on #471's Store API)**: the page with its tabs (ARIA tabs, `?tab=`), the read-only
-  notices, Your brand and Site settings › Brand, and the Pages (removed on #1078) and Journal tabs as empty states until #339; the
+  notices, Your brand and Site settings › Brand, and the Pages (removed on #1078) and Journal (Blog since #1079) tabs as empty states until #339; the
   Design tab says what comes next until #318's gallery and studio (later parts), and shows a Manager "No storefront
   yet". *Decided there:* Your brand replaces the whole page for the Owner while `brandReady` is false, and never
   shows to a reader; its home page title and description are Search and sharing's, saved before the brand, so Site
@@ -818,12 +818,12 @@ through. Your site stays live."), as is a support session.
   since) and, on a page, the contact form, which says where messages go (the brand's public email). *Decided there:*
   product names are read as Offers reads them (`loadProductNames`, aliased `product(id)` reads fifty at a time), since
   the Store API has no read by ids.
-- **Built on #339 (part 4)**: the Journal tab: posts by their date ("Goes live {date}" while scheduled) and who wrote
+- **Built on #339 (part 4)**: the Journal tab (Blog since #1079): posts by their date ("Goes live {date}" while scheduled) and who wrote
   them, **Write a post**, and the editor as for a page with a cover photo (the drawing's dashed box), **Publish on**
   and **Written by** in Publishing, no contact form and no footer menu, and **Schedule** in place of Publish for a later
   day. *Decided there:* the day is in UTC and said so; left empty, a post is dated when it's published (#338), but a
   post that has a date keeps one (#338 can't clear it); an unchanged day keeps the post's own instant, a picked one starts at midnight UTC; tags, which the drawing doesn't show,
-  are kept as read; a plan without `blog` shows the refusal on save ("Your plan doesn’t include the Journal…"), since
+  are kept as read; a plan without `blog` shows the refusal on save ("Your plan doesn’t include the Blog…"), since
   no read says so first; Publish and Save wait while a photo or the cover uploads.
 - **Built on #339 (part 5)**: other languages: a saved page or post in a store with more than one language has the
   language tabs over its editor (the product editor's, now shared in `features/common`); another language shows the
