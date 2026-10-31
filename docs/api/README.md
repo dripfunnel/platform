@@ -393,8 +393,8 @@ feature branch's host is new per branch and no fixed variable could name it
 
 The `dev` and `prod` workflows' Gates step (`build typecheck lint test`) is a second,
 separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,
-disposable Neon branch kept only for CI test runs, not the persistent `dev`
-branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same
+disposable Neon branch kept only for CI test runs, not the persistent dev
+database above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same
 guard**, pinned by the `ALLOWED_TEST_HOST` variable instead of
 `ALLOWED_MIGRATION_HOST`, because `scripts/migrate/runner.test.ts` applies the
 migrations and that is the same privileged operation as the deploy step. The

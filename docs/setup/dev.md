@@ -21,7 +21,7 @@ Feature environments (one per `feature` branch) are a separate setup:
 | API Worker | `dripfunnel-api-dev` (`wrangler.jsonc` › `env.dev`) |
 | Hosts | `dev-admin.actuateminds.com`, `dev-platform.actuateminds.com`, `dev-store.actuateminds.com` (each `/api/*` routes to the Worker), `dev-hooks.actuateminds.com` (the Worker's own custom domain) |
 | Consoles | Pages projects `dripfunnel-admin-dev`, `dripfunnel-platform-dev`, `dripfunnel-store-dev` |
-| Database | PlanetScale Postgres `dripfunnel-dev` (Mumbai, `ap-south-1`), database `dripfunnel`, through Hyperdrive; on Neon until 2026-10-31 (#1071) |
+| Database | PlanetScale Postgres `dripfunnel-dev` (Mumbai, AWS `ap-south-1`), database `dripfunnel`, through Hyperdrive; on Neon until 2026-10-31 (#1071) |
 | Gate | Cloudflare Access: `*.actuateminds.com` allows `@softobotics.com`; `*-hooks.actuateminds.com` is bypassed so providers' test webhooks arrive |
 | Merchant mobile app | Its `dev` profile points at `dev-store.actuateminds.com` ([mobile-app/merchant/CONFIGURATION.md §2](../mobile-app/merchant/CONFIGURATION.md), #493); the Access gate above refuses the app's API calls until its own card solves that |
 | Deploys | `.github/workflows/dev.yml`, on every push to `dev`, or by hand |
@@ -71,7 +71,7 @@ checked off.
 The dev database moved from Neon's `DripFunnel-Dev` project (branch `production`) to PlanetScale
 on 2026-10-31 with `pg_dump` and `pg_restore`; how, and the checks it passed, are on #1071.
 
-1. In PlanetScale, a Postgres **18** database `dripfunnel-dev`, region Mumbai (`ap-south`),
+1. In PlanetScale, a Postgres **18** database `dripfunnel-dev`, region Mumbai (AWS `ap-south-1`),
    PS-10, single node. Create its **default role** (*Connect* › default role); it sets up the
    roles below and nothing else, never the Worker.
 2. As that default role (it has `CREATEROLE` and `BYPASSRLS`), the **migration role** and the
