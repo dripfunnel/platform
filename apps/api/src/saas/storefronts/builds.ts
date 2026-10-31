@@ -170,8 +170,11 @@ const liveFiles = async (sites: SitesBucket, key: string): Promise<string[]> => 
   const json: unknown = object ? await object.text().then((text) => JSON.parse(text) as unknown).catch(() => null) : null
   const parsed = manifestSchema.safeParse(json)
   if (!parsed.success) throw new BuildUnavailable('live_manifest')
-  return parsed.data.files.map((f) => f.path)
+  return parsed.data.files.map((f) => f.path).filter((path) => !itemPage.test(path))
 }
+
+// A product's or collection's own page (#1011): the check compares only a sample, which then has no live page to diff.
+const itemPage = /^(?:[a-z-]+\/)?(?:products|collections)\/[^/]+\/(?:[^/]+\/)?index\.html$/
 
 const checkName = /^[a-z0-9][a-z0-9_.-]{0,63}$/
 

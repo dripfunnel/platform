@@ -4,17 +4,18 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ComponentType } from 'react'
 import { build, type Plugin } from 'esbuild'
-import type { ShopStoreSettings, ThemeRoute } from '@dripfunnel/storefront-core'
+import type { AnsweredPage, RecordedAnswer, ShopStoreSettings, ThemeRoute } from '@dripfunnel/storefront-core'
 import { mediaUrlPlugin, readContent, routesSchema, runtimeModules } from '../gate/bundle'
 
 // The static build's renderer (storefront ARCHITECTURE §4.2 "Live"): the theme's pages bundled for Node with the same
 // core and libraries the client bundle loads, then rendered to HTML once per page from the frozen snapshot.
 
-export type PageValue = { store: ShopStoreSettings; poweredBy: string | null; path: string }
+/** `answers`: the snapshot's catalogue (version 2), or null for one without it, which renders each page once as before. */
+export type PageValue = { store: ShopStoreSettings; poweredBy: string | null; path: string; answers: readonly RecordedAnswer[] | null }
 
 export interface ServerTheme {
   page: (route: ThemeRoute | null, custom: string | null) => ComponentType | undefined
-  render: (page: ComponentType, value: PageValue) => string
+  render: (page: ComponentType, value: PageValue) => Promise<AnsweredPage>
 }
 
 const ownPackages = fileURLToPath(new URL('.', import.meta.url))
@@ -46,14 +47,16 @@ const entrySource = (routesJson: string, content: unknown): string => {
   return [
     `import { renderToString } from 'react-dom/server'`,
     `import { jsx } from 'react/jsx-runtime'`,
-    `import { createI18n, createShopClient, StorefrontProvider } from '@dripfunnel/storefront-core'`,
+    `import { answeredRender, createI18n, createShopClient, PrefilledProvider, StorefrontProvider } from '@dripfunnel/storefront-core'`,
     ...pages.map((page) => `import { ${page.split('/').at(-1) ?? page} as ${ref(page)} } from './src/theme/pages/${page}.tsx'`),
     `const routes = { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} }`,
     `const custom = { ${Object.entries(routes.custom ?? {}).map(([path, page]) => `${JSON.stringify(path)}: ${ref(page)}`).join(', ')} }`,
     `const content = ${JSON.stringify(content)}`,
     `export const page = (route, path) => (path ? custom[path] : routes[route])`,
     // The same provider value the page's script hydrates with (runtime/boot.tsx); no request is made while rendering.
-    `export const render = (Page, { store, poweredBy, path }) => renderToString(jsx(StorefrontProvider, { value: { client: createShopClient({}), store, locale: store.language, t: createI18n(store.language, content).t, mode: 'live', poweredBy }, address: path, children: jsx(Page, {}) }))`,
+    `const tree = (Page, { store, poweredBy, path }, client, prefilled) => jsx(StorefrontProvider, { value: { client, store, locale: store.language, t: createI18n(store.language, content).t, mode: 'live', poweredBy }, address: path, children: prefilled ? jsx(PrefilledProvider, { value: prefilled, children: jsx(Page, {}) }) : jsx(Page, {}) })`,
+    // A catalogue snapshot's page is rendered from its recorded answers (core's answeredRender); one without, once.
+    `export const render = async (Page, value) => value.answers ? answeredRender(value.answers, (client, prefilled) => renderToString(tree(Page, value, client, prefilled))) : { html: renderToString(tree(Page, value, createShopClient({}), null)), answers: {}, unexpected: [] }`,
   ].join('\n')
 }
 

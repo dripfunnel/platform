@@ -44,6 +44,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260926.1",
+    "@dripfunnel/storefront-core": "workspace:*",
     "@types/node": "^26.6.3",
     "tsx": "^4.23.15",
     "wrangler": "^4.141.0"

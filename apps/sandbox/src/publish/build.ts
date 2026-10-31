@@ -1,10 +1,10 @@
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { themeRoutesSchema } from '@dripfunnel/storefront-core'
+import { themeRoutesSchema, type AnsweredPage } from '@dripfunnel/storefront-core'
 import { checkValidator, edgeCases, gateCheck, gateReport, pageName, validateChange, type CatalogueSnapshot, type GateCheckName, type GateReport, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { bundle, runtimeFolder } from '../gate/bundle'
 import { typecheck } from '../gate/typecheck'
-import { directionOf, edgeRules, fileOf, pageDocument, plan, robots, sitemap, type PlannedPage } from './pages'
+import { checkedPages, directionOf, edgeRules, fileOf, pageDocument, plan, robots, sitemap, type PlannedPage } from './pages'
 import { serverTheme, type ServerTheme } from './render'
 
 // Step `build` (storefront LIVE-SHOP §4 step 6): the validator over the whole theme, then the static build from the
@@ -29,14 +29,16 @@ const renderPages = async (server: ServerTheme, pages: readonly PlannedPage[], s
     const store = { ...s.store, language: page.language }
     const Page = server.page(page.route === 'custom' ? null : page.route, page.custom)
     if (!Page) continue
-    let body: string
+    let rendered: AnsweredPage
     try {
-      body = server.render(Page, { store, poweredBy: s.poweredBy, path: page.path })
+      rendered = await server.render(Page, { store, poweredBy: s.poweredBy, path: page.path, answers: s.catalogue?.answers ?? null })
     } catch {
       thrown.push(`The ${pageName(page)} (${page.path}) failed while rendering.`)
       continue
     }
-    await write(join(into, fileOf(page.path)), pageDocument(page, s, { body, assets, dir: dir ?? directionOf(page.language), store }))
+    // A recorded answer core can't use is the platform's fault, not the theme's: said, never refused.
+    if (rendered.unexpected.length > 0) console.warn(`The ${pageName(page)} (${page.path}) couldn't use the snapshot's answer: ${[...new Set(rendered.unexpected)].join(', ')}.`)
+    await write(join(into, fileOf(page.path)), pageDocument(page, s, { body: rendered.html, answers: rendered.answers, assets, dir: dir ?? directionOf(page.language), store }))
   }
   return thrown
 }
@@ -75,14 +77,14 @@ const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
     throw error
   })
   if (!server) return failed(["The theme's pages can't be bundled for the static build."], 'contracts')
-  const pages = plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path))
+  const pages = plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path), s.catalogue)
   const thrown = await renderPages(server, pages, s, site, assets)
   if (thrown.length > 0) return failed(thrown, 'contracts')
   await write(join(site, 'sitemap.xml'), sitemap(pages, s.origin))
   await write(join(site, 'robots.txt'), robots(s.origin))
   await write(join(site, '_edge.json'), `${JSON.stringify(edgeRules(pages, s.store))}\n`)
 
-  const main = pages.filter((p) => p.language === s.store.mainLanguage)
+  const main = checkedPages(pages.filter((p) => p.language === s.store.mainLanguage))
   for (const [n, edge] of edgeCases(s).entries()) {
     const language = edge.snapshot.store.language
     const edgeThrown = await renderPages(server, main.map((p) => ({ ...p, language })), edge.snapshot, join(out, edgeFolder(n)), assets, edge.dir)

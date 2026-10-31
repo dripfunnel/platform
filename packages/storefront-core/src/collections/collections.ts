@@ -34,6 +34,8 @@ export const itemSlug = (path: string, prefix: string): string | null => {
 }
 
 const oneSchema = z.object({ collection: collectionSchema.nullable() })
+export const collectionQuery = `query Collection($slug: String!) { collection(slug: $slug) { ${fields} } }`
+export const collectionsQuery = `query Collections($first: Int) { collections(first: $first) { nodes { ${fields} } } }`
 
 /** `/collections/all/` lists every product unless the store has a collection of its own at that address. */
 export const allSlug = 'all'
@@ -50,7 +52,7 @@ export type CollectionPage = Listing & {
 export const useCollection = (): CollectionPage => {
   const { path } = useLocation()
   const slug = itemSlug(path, '/collections/')
-  const meta = useShopData(slug ? JSON.stringify(['collection', slug]) : null, async (client) => (await client.query(`query Collection($slug: String!) { collection(slug: $slug) { ${fields} } }`, oneSchema, { slug })).collection)
+  const meta = useShopData(slug ? JSON.stringify(['collection', slug]) : null, async (client) => (await client.query(collectionQuery, oneSchema, { slug })).collection)
   const decoded = meta.data ?? null
   const collection = decoded ? card(decoded) : null
   const all = slug === allSlug && meta.status === 'ready' && !collection
@@ -67,7 +69,7 @@ const listSchema = z.object({ collections: z.object({ nodes: z.array(collectionS
 export const useCollections = ({ first = 12 }: { first?: number } = {}) => {
   const count = Math.min(Math.max(Math.floor(first), 1), 50)
   const list = useShopData(JSON.stringify(['collections', count]), async (client) => {
-    const { collections } = await client.query(`query Collections($first: Int) { collections(first: $first) { nodes { ${fields} } } }`, listSchema, { first: count })
+    const { collections } = await client.query(collectionsQuery, listSchema, { first: count })
     return (collections?.nodes ?? []).flatMap((c) => card(c) ?? [])
   })
   return { status: list.status, retry: list.retry, collections: list.data ?? [] }

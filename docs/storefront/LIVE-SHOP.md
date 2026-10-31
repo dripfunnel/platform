@@ -20,7 +20,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). On #968: a push to a store
 repo's `main` builds that commit and goes live (§4, "A push to `main`"). The rest is specification.
 
-Last updated: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-31 (#1011: the version 2 snapshot carries the catalogue, §4 steps 3 and 6). Before: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -159,7 +159,15 @@ checking, deploying, live, failed, rolled back).
    "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
    `sf-assets.<SHOP_DOMAIN>`, and *since #324* the store's published, due posts, newest first, at most 500 (none while
    the plan has no blog): each one's address, title, search title and description, author, date and cover, so the
-   build writes its page with its head and Article data (storefront ARCHITECTURE §8). *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
+   build writes its page with its head and Article data (storefront ARCHITECTURE §8). *Since #1011*, for a build whose
+   core reads it (0.4.0 on), the snapshot is version 2 and adds the catalogue: the Shop API's answers to core's catalogue
+   questions, asked in-process as a shopper on the live host (`apis/shop/record.ts`; at most 1,000 products and 200
+   collections), with each product's and collection's address (ARCHITECTURE §4.2). It is recorded after the freeze, in
+   steps of its own (`saas/storefronts/catalogue.ts`: the listings, then a hundred products a step, then the snapshot
+   made whole), so a refused freeze records nothing and no one step holds the whole catalogue; questions that failed
+   are counted in the technical log (`storefront_catalogue_unanswered`). A page run (§7) keeps the live build's
+   answers and records only its own products, so it republishes no other item and uses no allowance for one. The
+   live build's files the run fetches for the visual diff leave out its product and collection pages. *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
    it stays as private as the draft it copies.
 4. **The platform starts the workflow** with `workflow_dispatch`, passing a **single-use build
    id**, through the GitHub App.
@@ -198,8 +206,9 @@ checking, deploying, live, failed, rolled back).
    bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
    sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
    `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
-   failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
-   same tree. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
+   failing report instead. Each page carries its route and the store it was built with, and *since #1011* the
+   catalogue answers it was rendered with, so the client hydrates the same tree; a version 2 snapshot also gives each
+   product, version and collection it holds a page of its own (ARCHITECTURE §4.2). *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
    and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
 7. **Step `check`:** the gate suite of ARCHITECTURE §4.2 step 3 runs **inside the workflow**
    (decided 2026-10-09 with Gaurav), in a fresh container of the same image with the browser and
@@ -498,6 +507,8 @@ What the edge Worker does on each request to a storefront host.
   2026-10-08 on #470: page, sitemap, redirect, IndexNow, no allowance). **Where it runs: the store's workflow with a
   one-page input** (decided on #484): about a minute, free, and through the same checks as every publish (§4 steps 5–10),
   rather than a container render in seconds that is billed and would need its own gate path.
+- **A product that leaves the storefront** (hidden or deleted) loses its pages the same way, a page run that only
+  drops its addresses (#1011, migration 0378), since a live build prerenders each product's page.
 - **Saving the home page's search and sharing** re-renders the home page the same way (SAAS
   §9.2).
 - Either way, the new files go into a **new build folder**, the API copies the live build's

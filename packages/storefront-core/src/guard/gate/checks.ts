@@ -61,6 +61,8 @@ export type GateInput = {
   priced?: ReadonlySet<PageRoute>
   /** The store's markets require legal and compliance notices, which product, checkout and policy pages then place. */
   legal: boolean
+  /** An item page built from the catalogue, by path: whether core gave it a price, and legal notices, to show (#1011). */
+  items?: ReadonlyMap<string, { priced: boolean; legal: boolean }>
   /** A publish that mustn't change the look (a core patch or minor, ARCHITECTURE §7): any page that looks different fails. */
   strictLook: boolean
   /** The theme rendered against the edge-case catalogue (§10), by case, and the cases `edgeCases` gave, all of which must be. */
@@ -70,6 +72,9 @@ export type GateInput = {
 
 /** The pages search engines are told about (ARCHITECTURE §8): content a shopper lands on, never a cart or an account. */
 export const indexable = (route: PageRoute): boolean => route === 'home' || route === 'custom' || route === 'product' || route === 'collection' || route === 'policy' || route === 'contentPage' || route === 'blog' || route === 'blogPost'
+
+/** A product version's own address, canonical to its product's (ARCHITECTURE §4.3), so never one the sitemap lists. */
+export const isVersionPath = (path: string) => /\/products\/[^/]+\/[^/]+\/$/.test(path)
 
 /** Where a route's client-rendered page is kept, for addresses that have no file of their own (LIVE-SHOP §5 step 6). */
 export const fallbackPath = (route: ThemeRoute) => `/_fallback/${route}/`
@@ -82,11 +87,15 @@ const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 const pricedRoutes: ReadonlySet<PageRoute> = new Set<PageRoute>(['product', 'cart', 'checkout'])
 
-type Shape = { poweredBy: boolean; legal: boolean; priced: ReadonlySet<PageRoute> }
-const shapeOf = (input: Pick<GateInput, 'poweredBy' | 'priced' | 'legal'>): Shape => ({ poweredBy: input.poweredBy, legal: input.legal, priced: input.priced ?? pricedRoutes })
+type Shape = { poweredBy: boolean; legal: boolean; priced: ReadonlySet<PageRoute>; items: NonNullable<GateInput['items']> }
+const shapeOf = (input: Pick<GateInput, 'poweredBy' | 'priced' | 'legal' | 'items'>): Shape => ({ poweredBy: input.poweredBy, legal: input.legal, priced: input.priced ?? pricedRoutes, items: input.items ?? new Map() })
 
-const partsFor = (route: PageRoute, shape: Shape) =>
-  requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy: shape.poweredBy, legal: shape.legal, priced: shape.priced.has(route) })
+// An item page shows what its item gave it; a route's client-rendered page is written without one, so it has no price.
+const partsFor = ({ route, path }: { route: PageRoute; path: string }, shape: Shape) => {
+  const item = shape.items.get(path)
+  const priced = item ? item.priced : shape.priced.has(route) && !path.includes('/_fallback/')
+  return requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy: shape.poweredBy, legal: shape.legal || (item?.legal ?? false), priced })
+}
 
 /** ARCHITECTURE §9 budgets these page types. */
 export const budgetedRoutes: ReadonlySet<PageRoute> = new Set<PageRoute>(['home', 'collection', 'product', 'custom', 'cart'])
@@ -102,7 +111,7 @@ export const checkValidator = (problems: readonly Problem[]): GateCheck =>
   gateCheck('validator', problems.map((p) => `${p.file ?? 'The theme'}${p.line ? `:${p.line}` : ''}: ${p.message}`))
 
 /** ARCHITECTURE §3.1–§3.2: every route has its page, each page has its required parts, one h1 and a main, and none crashes. */
-export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visits' | 'poweredBy' | 'priced' | 'legal'>): GateCheck => {
+export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visits' | 'poweredBy' | 'priced' | 'legal' | 'items'>): GateCheck => {
   const built = new Set(input.pages.map((p) => p.path))
   const problems: string[] = []
   for (const route of coreRoutes) {
@@ -128,7 +137,7 @@ export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visi
 
 const pageShape = (page: PageRead, shape: Shape): string[] => [
   ...(page.errors.length > 0 ? [`The ${pageName(page)} failed to load without JavaScript.`] : []),
-  ...partsFor(page.route, shape)
+  ...partsFor(page, shape)
     .filter((part) => !page.html.includes(`data-df-sealed="${part}"`))
     .map((part) => `The ${pageName(page)} doesn't place the required "${part}" component.`),
   ...(page.h1s.length === 1 ? [] : [`The ${pageName(page)} has ${page.h1s.length} main headings (h1); it needs exactly one.`]),
@@ -216,7 +225,7 @@ export const checkCrawl = (input: Pick<GateInput, 'pages' | 'site'>): GateCheck 
   if (input.site.sitemap === null) problems.push('The build has no sitemap.xml.')
   else {
     const listed = new Set(sitemapLocs(input.site.sitemap))
-    const wanted = input.pages.filter((p) => indexable(p.route) && !p.path.includes('/_fallback/')).map((p) => `${input.site.origin}${p.path}`)
+    const wanted = input.pages.filter((p) => indexable(p.route) && !p.path.includes('/_fallback/') && !isVersionPath(p.path)).map((p) => `${input.site.origin}${p.path}`)
     for (const url of wanted) if (!listed.has(url)) problems.push(`The sitemap leaves out ${url}.`)
     // An item of an indexable route (a product, a collection, a policy) may be listed, in any of the store's languages.
     const itemPrefixes = [...coreRoutes.map((r) => [r, routeAddresses[r]] as const), ...(['blogPost'] as const).map((r) => [r, contentAddresses[r]] as const)].flatMap(([r, a]) => (indexable(r) && 'prefix' in a ? [a.prefix] : []))
@@ -249,7 +258,7 @@ export const checkVisualDiff = (visits: readonly PageVisit[], strict: boolean): 
 }
 
 /** ARCHITECTURE §10: the theme against the edge-case catalogue renders whole, fits the screen and keeps its required parts. */
-export const checkEdgeCases = (input: Pick<GateInput, 'edge' | 'edgeNames' | 'poweredBy' | 'priced' | 'legal' | 'pages' | 'site'>): GateCheck => {
+export const checkEdgeCases = (input: Pick<GateInput, 'edge' | 'edgeNames' | 'poweredBy' | 'priced' | 'legal' | 'items' | 'pages' | 'site'>): GateCheck => {
   const { edge } = input
   const expected = mainPages(input)
   // Every case renders every page of the main build, each read and seen at phone width.

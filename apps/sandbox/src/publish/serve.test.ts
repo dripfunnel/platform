@@ -48,6 +48,15 @@ describe('fileFor', () => {
   })
 })
 
+describe('the offline Shop API', () => {
+  it('answers a catalogue snapshot’s recorded questions as the build did, and anything else as an outage', () => {
+    const snapshot = { store: {}, catalogue: { answers: [{ operation: 'Product', variables: { slug: 'kurta' }, data: { product: { name: 'Kurta' } } }], products: [], collections: [] } } as never
+    const answer = shopFixture(snapshot, [])
+    expect(answer(JSON.stringify({ query: 'query Product($slug: String!) { product(slug: $slug) { name } }', variables: { slug: 'kurta' } }))).toEqual({ data: { product: { name: 'Kurta' } } })
+    expect(answer(JSON.stringify({ query: 'query Product($slug: String!) { product(slug: $slug) { name } }', variables: { slug: 'other' } }))).toMatchObject({ errors: [{ extensions: { code: 'UNAVAILABLE' } }] })
+  })
+})
+
 describe('a page’s sealed reports', () => {
   it('reach the gate only in core’s words: a theme posting its own subject gets neither its text nor an error in', () => {
     const reports: ShopReport[] = []
