@@ -22,9 +22,9 @@ const rowSchema = z.object({ id: z.string(), title: z.string(), path: z.string()
 export type ContentRow = z.infer<typeof rowSchema>
 const rowFields = 'id title path status publishAt author waitingForPublish updatedAt'
 
-const entrySchema = rowSchema.extend({ kind: z.literal('post'), slug: z.string(), body: z.array(blockSchema), seoTitle: text, seoDescription: text, tags: z.array(z.string()), coverAssetId: text, revision: z.number().int() })
+const entrySchema = rowSchema.extend({ slug: z.string(), body: z.array(blockSchema), seoTitle: text, seoDescription: text, tags: z.array(z.string()), coverAssetId: text, revision: z.number().int() })
 export type ContentEntry = z.infer<typeof entrySchema>
-const entryFields = `${rowFields} kind slug body { kind text assetId alt items { question answer } productIds } seoTitle seoDescription tags coverAssetId revision`
+const entryFields = `${rowFields} slug body { kind text assetId alt items { question answer } productIds } seoTitle seoDescription tags coverAssetId revision`
 
 const pageSchema = z.object({ nodes: z.array(rowSchema), pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: text }) })
 
@@ -34,11 +34,8 @@ export const loadContentList = async (after: string | null): Promise<{ rows: Con
   return { rows: page?.nodes ?? [], next: page?.pageInfo.hasNextPage ? page.pageInfo.endCursor : null }
 }
 
-// A content page's id reads as missing: the portal edits posts only (#1078).
-const entryAnswer = z.union([entrySchema, z.object({ kind: z.literal('page') }).transform(() => null)]).nullable()
-
 export const loadContentEntry = async (id: string): Promise<ContentEntry | null> =>
-  (await query(`query E($id: ID!) { contentEntry(id: $id) { ${entryFields} } }`, z.object({ contentEntry: entryAnswer }), { id })).contentEntry
+  (await query(`query E($id: ID!) { contentEntry(id: $id) { ${entryFields} } }`, z.object({ contentEntry: entrySchema.nullable() }), { id })).contentEntry
 
 export interface ContentBlockInput {
   kind: BlockKind

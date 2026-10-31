@@ -56,12 +56,8 @@ export type ContentInput = {
 }
 
 /** Creates (no id) or updates at the revision read; `PATH_TAKEN` carries `path` and `heldBy` (storefront ARCHITECTURE §3.1), `INVALID_INPUT` its `field`. */
-export const saveContent = async (client: ApiClient, id: string | null, revision: number | null, input: ContentInput): Promise<ContentEntry> => {
-  const answer = await typedQuery(client)(`mutation Save($id: ID, $revision: Int, $input: BlogPostInput!) { saveBlogPost(id: $id, revision: $revision, input: $input) { ${entryFields} } }`, z.object({ saveBlogPost: entrySchema }), { id, revision, input })
-  const saved = answer.saveBlogPost
-  if (!saved) throw new Error('no answer')
-  return saved
-}
+export const saveContent = async (client: ApiClient, id: string | null, revision: number | null, input: ContentInput): Promise<ContentEntry> =>
+  (await typedQuery(client)(`mutation Save($id: ID, $revision: Int, $input: BlogPostInput!) { saveBlogPost(id: $id, revision: $revision, input: $input) { ${entryFields} } }`, z.object({ saveBlogPost: entrySchema }), { id, revision, input })).saveBlogPost
 
 export const deleteContent = async (client: ApiClient, id: string): Promise<void> => {
   await typedQuery(client)('mutation Delete($id: ID!) { deleteBlogPost(id: $id) }', z.object({ deleteBlogPost: z.boolean().nullable() }), { id })

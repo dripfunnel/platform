@@ -102,34 +102,6 @@ export const moveBlock = (body: readonly DraftBlock[], index: number, by: -1 | 1
   return next
 }
 
-// The first path segments core holds (engine/modules/content/rules.ts reservedPathSegments), in the merchant's words.
-const coreNames: Record<string, 'cart' | 'checkout' | 'orders' | 'accounts' | 'signIn' | 'search' | 'products' | 'collections' | 'policies' | 'journal'> = {
-  cart: 'cart',
-  checkout: 'checkout',
-  order: 'orders',
-  orders: 'orders',
-  account: 'accounts',
-  'sign-in': 'signIn',
-  register: 'signIn',
-  verify: 'signIn',
-  'forgot-password': 'signIn',
-  'reset-password': 'signIn',
-  search: 'search',
-  products: 'products',
-  collections: 'collections',
-  policies: 'policies',
-  blog: 'journal',
-}
-
-/** The `PATH_TAKEN` refusal in words that name what holds the address (storefront ARCHITECTURE §3.1). */
-export const pathTakenText = (path: string, heldBy: string): string => {
-  const segment = path.replace(/^\/+/, '').split('/')[0] ?? ''
-  if (heldBy === 'core') {
-    const what = coreNames[segment]
-    return what ? t('storefront.content.taken.coreLine', { path, what: t(`storefront.content.taken.core.${what}`) }) : t('storefront.content.taken.coreOther', { path })
-  }
-  if (heldBy === 'custom_page') return t('storefront.content.taken.custom', { path })
-  if (heldBy === 'language') return t('storefront.content.taken.language', { path })
-  if (heldBy === 'market') return t('storefront.content.taken.market', { path })
-  return t(heldBy === 'blog_post' ? 'storefront.content.taken.post' : 'storefront.content.taken.page', { path })
-}
+/** The `PATH_TAKEN` refusal naming what holds a post's address: an AI page or another post (content rules.ts pathHolder). */
+export const pathTakenText = (path: string, heldBy: string): string =>
+  t(heldBy === 'custom_page' ? 'storefront.content.taken.custom' : 'storefront.content.taken.post', { path })

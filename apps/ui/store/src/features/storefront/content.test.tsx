@@ -40,7 +40,6 @@ const overview: StorefrontOverview = { status: 'same_as_live', template: 'linen'
 const row = (over: Partial<ContentRow> = {}): ContentRow => ({ id: '11111111-1111-4111-8111-111111111111', title: 'Questions we get asked', path: '/blog/faq', status: 'published', publishAt: '2026-09-14T09:00:00.000Z', author: 'Priya Shah', waitingForPublish: false, updatedAt: '2026-10-09T10:40:00Z', ...over })
 const faq: ContentEntry = {
   ...row(),
-  kind: 'post',
   slug: 'faq',
   body: [
     { kind: 'heading', text: 'Questions', assetId: null, alt: null, items: null, productIds: null },

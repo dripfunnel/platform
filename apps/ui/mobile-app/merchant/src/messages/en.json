@@ -5718,24 +5718,7 @@
         }
       },
       "taken": {
-        "coreLine": "{path} is your shop’s {what}. Choose another web address.",
-        "core": {
-          "cart": "cart",
-          "checkout": "checkout",
-          "orders": "order pages",
-          "accounts": "shoppers’ account pages",
-          "signIn": "sign-in pages",
-          "search": "search page",
-          "products": "product pages",
-          "collections": "collection pages",
-          "policies": "policy pages",
-          "journal": "Journal"
-        },
-        "coreOther": "{path} is kept for how your shop works behind the scenes. Choose another web address.",
         "custom": "{path} is a page your AI designer made. Choose another web address, or change that page in the studio.",
-        "language": "{path} is your shop in another language. Choose another web address.",
-        "market": "{path} is where one of your markets lives (Settings › Markets). Choose another web address.",
-        "page": "Another of your pages already uses {path}. Choose another web address.",
         "post": "Another of your posts already uses {path}. Choose another web address."
       }
     }

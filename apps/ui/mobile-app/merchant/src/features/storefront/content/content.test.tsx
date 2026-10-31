@@ -347,14 +347,8 @@ describe('the Journal editor', () => {
   })
 
   it.each([
-    ['core', '/cart', '/cart is your shop’s cart. Choose another web address.'],
-    ['core', '/blog', '/blog is your shop’s Journal. Choose another web address.'],
-    ['core', '/api', '/api is kept for how your shop works behind the scenes. Choose another web address.'],
     ['custom_page', '/lookbook', '/lookbook is a page your AI designer made. Choose another web address, or change that page in the studio.'],
-    ['content_page', '/about', 'Another of your pages already uses /about. Choose another web address.'],
     ['blog_post', '/blog/autumn', 'Another of your posts already uses /blog/autumn. Choose another web address.'],
-    ['market', '/in', '/in is where one of your markets lives (Settings › Markets). Choose another web address.'],
-    ['language', '/hi', '/hi is your shop in another language. Choose another web address.'],
   ])('says what holds the address when it is taken (%s)', async (heldBy, path, words) => {
     const { renderer } = await showEditor(
       base({

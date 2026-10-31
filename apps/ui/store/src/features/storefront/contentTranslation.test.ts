@@ -5,7 +5,6 @@ import { translationDraftOf, translationInputOf, writtenOf } from './contentTran
 const block = (kind: ContentEntry['body'][number]['kind'], more: Partial<ContentEntry['body'][number]> = {}) => ({ kind, text: null, assetId: null, alt: null, items: null, productIds: null, ...more })
 const main: ContentEntry = {
   id: 'p',
-  kind: 'post',
   title: 'About',
   slug: 'about',
   path: '/blog/about',

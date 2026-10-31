@@ -11,7 +11,7 @@ const at = '2026-10-09T10:40:00Z'
 const blank = { publishAt: null, author: null, waitingForPublish: false, updatedAt: at, seoTitle: null, seoDescription: null, tags: [], coverAssetId: null, revision: 1 }
 const block = (kind: ContentEntry['body'][number]['kind'], more: Partial<ContentEntry['body'][number]> = {}) => ({ kind, text: null, assetId: null, alt: null, items: null, productIds: null, ...more })
 
-const post = (id: string, title: string, slug: string, status: ContentEntry['status'], publishAt: string, author: string, text: string): ContentEntry => ({ ...blank, id, kind: 'post', title, slug, path: pathOf(slug), status, publishAt, author, body: [block('text', { text })] })
+const post = (id: string, title: string, slug: string, status: ContentEntry['status'], publishAt: string, author: string, text: string): ContentEntry => ({ ...blank, id, title, slug, path: pathOf(slug), status, publishAt, author, body: [block('text', { text })] })
 const posts = (): ContentEntry[] =>
   harness
     ? [
@@ -34,7 +34,7 @@ export const sampleContent = (state: StorefrontState) => {
       if (entries.some((e) => e.id !== id && e.path === path)) return Promise.reject(new ApiError('PATH_TAKEN', 'That web address is already used on your shop.', { path, heldBy: 'blog_post' }))
       const was = entries.find((e) => e.id === id)
       const body = input.body.map((b) => block(b.kind, b))
-      const saved: ContentEntry = { ...blank, ...was, id: id ?? `sample-new-${(made += 1)}`, kind: 'post', path, title: input.title, slug: input.slug, body, seoTitle: input.seoTitle, seoDescription: input.seoDescription, status: !input.publish ? 'draft' : input.publishAt && input.publishAt > new Date().toISOString() ? 'scheduled' : 'published', publishAt: input.publishAt ?? was?.publishAt ?? new Date().toISOString(), author: input.author, coverAssetId: input.coverAssetId, waitingForPublish: true, updatedAt: new Date().toISOString(), revision: (was?.revision ?? 0) + 1 }
+      const saved: ContentEntry = { ...blank, ...was, id: id ?? `sample-new-${(made += 1)}`, path, title: input.title, slug: input.slug, body, seoTitle: input.seoTitle, seoDescription: input.seoDescription, status: !input.publish ? 'draft' : input.publishAt && input.publishAt > new Date().toISOString() ? 'scheduled' : 'published', publishAt: input.publishAt ?? was?.publishAt ?? new Date().toISOString(), author: input.author, coverAssetId: input.coverAssetId, waitingForPublish: true, updatedAt: new Date().toISOString(), revision: (was?.revision ?? 0) + 1 }
       entries = was ? entries.map((e) => (e.id === id ? saved : e)) : [saved, ...entries]
       return Promise.resolve(saved)
     },

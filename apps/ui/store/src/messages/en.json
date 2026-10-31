@@ -7047,7 +7047,7 @@
       "noSiteBody": "The store owner picks a template and publishes the site. You’ll see it here once it’s live."
     },
     "content": {
-      "loading": "Loading your pages",
+      "loading": "Loading your posts",
       "error": {
         "title": "We couldn’t load this list",
         "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
@@ -7078,7 +7078,7 @@
         "planLimit": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts."
       },
       "editor": {
-        "loading": "Loading the page",
+        "loading": "Loading the post",
         "title": "Title",
         "slug": "Web address",
         "kinds": {
