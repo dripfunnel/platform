@@ -34,6 +34,16 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.6.1',
+    kind: 'patch',
+    security: false,
+    notes: [
+      'No theme has to change.',
+      "The publish gate's visual diff runs the live site's own scripts from the asset host (#1092), so an upgrade is compared with the live site as shoppers see it and refused only for a real change of look.",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.6.0',
     kind: 'minor',
     security: false,
