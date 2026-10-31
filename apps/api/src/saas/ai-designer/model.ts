@@ -102,8 +102,8 @@ export interface DesignTools {
 export const maxToolCalls = 4
 
 const toolDefs: readonly CanonicalTool[] = [
-  { name: 'search_stock_images', description: 'Search free stock photos for words such as "BMW car, wide". Returns up to six results with an id and tags. Use it only when the merchant asks for a picture and attached none.', parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 100 } }, required: ['query'], additionalProperties: false } },
-  { name: 'add_stock_image', description: 'Add one search result to the merchant\'s Assets and get its asset id, to place with MerchantImage or url(). Use an id from the last search only.', parameters: { type: 'object', properties: { id: { type: 'string', pattern: '^[0-9]{1,12}$' } }, required: ['id'], additionalProperties: false } },
+  { name: 'search_stock_images', description: 'Search free stock photos (Unsplash, Pexels, Pixabay and others) for words such as "BMW car, wide". Returns up to six results with an id, tags and the photographer. Use it only when the merchant asks for a picture and attached none; choose words from their request and the page.', parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 100 } }, required: ['query'], additionalProperties: false } },
+  { name: 'add_stock_image', description: 'Add one search result to the merchant\'s Assets and get its asset id, to place with MerchantImage or url(). Use an id from the last search only.', parameters: { type: 'object', properties: { id: { type: 'string', pattern: '^[\\w:-]{1,60}$' } }, required: ['id'], additionalProperties: false } },
 ]
 
 const clean = (text: string, max: number) => text.replace(/\p{Cc}/gu, ' ').slice(0, max)
@@ -147,7 +147,7 @@ const converse = async (provider: AiProvider, tools: DesignTools, system: string
           const found = await tools.search(args['query'].slice(0, 100))
           isError = found === null
           content = found === null ? 'The photo source is not answering. Go on without a picture.' : JSON.stringify(found.slice(0, 6).map((p) => ({ id: p.id, tags: clean(p.tags, 80), by: clean(p.user, 40) })))
-        } else if (call.name === 'add_stock_image' && typeof args['id'] === 'string' && /^[0-9]{1,12}$/.test(args['id'])) {
+        } else if (call.name === 'add_stock_image' && typeof args['id'] === 'string' && /^[\w:-]{1,60}$/.test(args['id'])) {
           const added = await tools.add(args['id'])
           isError = added === null
           if (added) onAdded(added)
@@ -166,7 +166,8 @@ export const designModel = (provider: AiProvider, brief: DesignBrief, tools: Des
     const text = briefText(brief, input.request, input.theme, input.problems)
     // Only the first ask of a change searches; a repair answers from the exact errors (ARCHITECTURE §4.2).
     const looping = tools !== null && provider.converse !== undefined && input.problems.length === 0
-    const answer = looping ? await converse(provider, tools, rules, text, images, onAdded, signal) : await provider.complete({ system: rules, text, images })
+    const system = tools ? rules : `${rules}\nYou have no photo tools in this request. If the merchant asks for a picture and attached none, add no image, and say they can attach one or pick a free photo in the chat box.`
+    const answer = looping ? await converse(provider, tools, system, text, images, onAdded, signal) : await provider.complete({ system, text, images })
     const read = readAnswer(answer.text)
     const cost = { model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, costAmount: answer.costAmount, costCurrency: answer.costCurrency }
     // An answer in no usable shape changes nothing; the reply says so (FIRST-RELEASE §14's error).

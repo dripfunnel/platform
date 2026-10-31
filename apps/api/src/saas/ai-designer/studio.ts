@@ -17,7 +17,8 @@ import type { DnsLookup } from '#integrations/dns/doh'
 import { checkedUrl, fetchPublic } from '#integrations/http/publicFetch'
 import { maxImageBytes } from '#core/media'
 import { createAssetService, type AssetStore } from '#engine/modules/catalog/index'
-import { isPixabayUrl, type StockImages, type StockPhoto } from '#integrations/stockImages/pixabay'
+import { isStockUrl } from '#integrations/stockImages/combine'
+import type { StockImages, StockPhoto } from '#integrations/stockImages/pixabay'
 import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
@@ -36,10 +37,10 @@ export interface StudioDeps extends DesignerDeps {
   models: (billedTo: 'plan' | 'own_key', context: TenantContext) => readonly string[] | Promise<readonly string[]>
   screenshots: Screenshotter | null
   lookup: DnsLookup | null
-  /** Stock image search (Pixabay); null where no key is set, which hides the picker. */
+  /** Stock image search (Pixabay, Pexels, Openverse, Wikimedia Commons); null where no key is set, which hides the picker. */
   stock: StockImages | null
-  /** Whether the AI may search and add photos itself; off, because Pixabay's API is for human requests (AI-STUDIO §8). */
-  aiPhotos?: boolean
+  /** The sources the AI may search and add photos from itself; empty or unset is off (AI-STUDIO §8). */
+  aiPhotos?: readonly string[]
   /** Per-store limit on the photo search, download and import; false refuses. */
   allowStock: (key: string) => Promise<boolean>
   /** The assets bucket an imported image is stored in; null where it isn't bound. */
@@ -164,15 +165,15 @@ export const createStudioService = (deps: StudioDeps) => {
   const stockAllowed = () => deps.allowStock(`stock:${storeId}`)
 
   /** `importDesignImage`: a public https address fetched by the platform and stored as the store's own image (AI-STUDIO §8). */
-  const importImage = async (raw: string, fromStock = false): Promise<DesignResult<string>> => {
+  const importImage = async (raw: string, fromStock: string | null = null): Promise<DesignResult<string>> => {
     if (!deps.lookup || !deps.assets) return { ok: false, reason: 'NOT_CONNECTED' }
     if (raw.length > maxUrl) return { ok: false, reason: 'INVALID_URL' }
-    if (!fromStock && !(await stockAllowed())) return { ok: false, reason: 'STOCK_BUSY' }
+    if (fromStock === null && !(await stockAllowed())) return { ok: false, reason: 'STOCK_BUSY' }
     const got = await fetchPublic(raw, { lookup: deps.lookup, maxBytes: maxImageBytes, timeoutMs: 8_000, tries: 2 })
     if (!got.ok) return { ok: false, reason: got.code === 'BAD_URL' || got.code === 'PRIVATE_ADDRESS' ? 'INVALID_URL' : got.code === 'TOO_LARGE' ? 'INVALID_IMAGE' : 'SAMPLE_UNAVAILABLE' }
     const stored = await createAssetService({ sql, context, actor, activity, facts, store: deps.assets }).upload(got.bytes)
     if (!stored.ok || stored.asset.kind !== 'image') return { ok: false, reason: 'INVALID_IMAGE' }
-    await recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.imageImported, fromStock ? [{ field: 'source', before: null, after: 'pixabay' }] : [])))
+    await recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.imageImported, fromStock ? [{ field: 'source', before: null, after: fromStock }] : [])))
     return { ok: true, value: stored.asset.id }
   }
 
@@ -245,18 +246,18 @@ export const createStudioService = (deps: StudioDeps) => {
     if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? null, asked)
     const before = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     // The photos the model added this request, each in Assets and credited in the chat once the change is recorded.
-    const added: { assetId: string; user: string }[] = []
+    const added: { assetId: string; user: string; source: string }[] = []
     const tools: DesignTools | null =
-      deps.aiPhotos && deps.stock && deps.assets && deps.lookup
+      deps.aiPhotos?.length && deps.stock && deps.assets && deps.lookup
         ? {
-            search: async (words) => (!(await stockAllowed()) ? null : (await deps.stock?.search(words, 1))?.photos.map((p) => ({ id: p.id, tags: p.tags, user: p.user })) ?? null),
+            search: async (words) => (!(await stockAllowed()) ? null : (await deps.stock?.search(words, 1))?.photos.filter((p) => deps.aiPhotos?.includes(p.source)).map((p) => ({ id: p.id, tags: p.tags, user: p.user })) ?? null),
             add: async (id) => {
-              if (!seen.has(id) || !(await stockAllowed())) return null
+              if (!seen.has(id) || !deps.aiPhotos?.includes(id.split(':')[0] ?? '') || !(await stockAllowed())) return null
               const found = await deps.stock?.download(id)
-              if (!found || !isPixabayUrl(found)) return null
-              const stored = await importImage(found, true)
+              if (!found || !isStockUrl(found)) return null
+              const stored = await importImage(found, id.split(':')[0] ?? null)
               if (!stored.ok) return null
-              const record = { assetId: stored.value, user: seen.get(id) ?? '' }
+              const record = { assetId: stored.value, user: seen.get(id) ?? '', source: id.split(':')[0] ?? '' }
               added.push(record)
               return record
             },
@@ -320,6 +321,7 @@ export const createStudioService = (deps: StudioDeps) => {
       await withScope(sql, context, async (tx) => {
         for (const id of used) await makeVisible(tx, storeId, id)
       })
+      for (const photo of added) if (!proposed.includes(photo.assetId)) logEvent({ event: 'storefront_photo_unplaced', api: 'store', storeId, code: photo.source })
     }
     const summary = 'summary' in answer ? answer.summary : null
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
@@ -338,7 +340,7 @@ export const createStudioService = (deps: StudioDeps) => {
     return { ok: true, value: { outcome, message } }
   }
 
-  /** `searchStockImages`: Pixabay's results for words the merchant typed; page 1 to 20. */
+  /** `searchStockImages`: every source's results for words the merchant typed; page 1 to 20. */
   const stockSearch = async (query: string, page: number): Promise<DesignResult<{ photos: StockPhoto[]; total: number }>> => {
     if (!deps.stock) return { ok: false, reason: 'NOT_CONNECTED' }
     const words = query.trim()
@@ -348,14 +350,14 @@ export const createStudioService = (deps: StudioDeps) => {
     return found ? { ok: true, value: found } : { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
   }
 
-  /** `useStockImage`: the chosen result is downloaded into the store's own files (Pixabay's terms: never hotlinked). */
+  /** `useStockImage`: the chosen result is downloaded into the store's own files (never hotlinked). */
   const stockUse = async (id: string): Promise<DesignResult<string>> => {
     if (!deps.stock) return { ok: false, reason: 'NOT_CONNECTED' }
-    if (!/^\d{1,12}$/.test(id)) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!/^[\w:-]{1,60}$/.test(id)) return { ok: false, reason: 'INVALID_INPUT' }
     if (!(await stockAllowed())) return { ok: false, reason: 'STOCK_BUSY' }
     const address = await deps.stock.download(id)
-    if (!address || !isPixabayUrl(address)) return { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
-    return importImage(address, true)
+    if (!address || !isStockUrl(address)) return { ok: false, reason: 'SAMPLE_UNAVAILABLE' }
+    return importImage(address, id.split(':')[0] ?? null)
   }
 
   /** `cancelDesign`: stops the store's running change; the pending `askDesign` answers `cancelled`. */

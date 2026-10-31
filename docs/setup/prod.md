@@ -221,6 +221,10 @@ moment you save.
 | `SHOP_DOMAIN` | Text | `my-store.one` | Every store's free addresses, `{slug}.my-store.one` and `{slug}-preview.my-store.one` (PREVIEW.md §8). Validated at boot; replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
 | `EXPO_PUSH_TOKEN` | Secret | the Expo access token | expo.dev robot user, Enhanced Security on (THIRD-PARTY-ACCESS §2.13, §8.1). Pushes to the shop and delivery apps; without it they wait in the outbox. §3.9 step 1 |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Read since #317 ("Open preview" links). The store proxy (`dripfunnel-store-proxy-prod`) gets its own `PREVIEW_SESSION_KEY`, its value only (the `SITES` and `EDGE` bindings, routes and `SHOP_DOMAIN` are in its `env.prod`, §3.5) |
+| `PEXELS_API_KEY` | Secret | a free key from pexels.com/api | Optional. Adds Pexels to the studio's free photo search (AI-STUDIO §8); unset leaves it out. Openverse and Wikimedia Commons need no key |
+| `UNSPLASH_ACCESS_KEY` | Secret | the app's Access Key from unsplash.com/developers | Optional. Adds Unsplash to the picker, and to the AI if `AI_PHOTO_SOURCES` allows (AI-STUDIO §8); unset leaves it out. A demo key allows 50 requests an hour; production needs Unsplash's approval |
+| `AI_PHOTOS` | Text | `1` | Optional, default off. Lets the studio's AI search and add photos itself, from the sources in `AI_PHOTO_SOURCES` (AI-STUDIO §8). Only `1` is accepted; read at boot, so it needs a new version |
+| `AI_PHOTO_SOURCES` | Text | e.g. `pexels,openverse,commons` | Optional, with `AI_PHOTOS`: the sources the AI may use, from `unsplash,pexels,pixabay,openverse,commons`; unset is every source with a key. Check each one's terms for automated use first |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
 harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.ai`.
