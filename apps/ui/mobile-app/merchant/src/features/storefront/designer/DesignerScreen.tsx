@@ -25,7 +25,7 @@ import { TemplateGallery } from './TemplateGallery'
 const creatingPollMs = 5000
 
 // The full designer (More › Storefront › Open here anyway; PortalStorefront at phone width): "Your brand" first for the Owner, the template gallery until a template is picked,
-// then Design, Pages, Journal and Site settings, with the studio on its own screen. A Manager sees every part and changes none (FIRST-RELEASE (store) §14).
+// then Design, Journal and Site settings, with the studio on its own screen. A Manager sees every part and changes none (FIRST-RELEASE (store) §14).
 export function DesignerScreen() {
   const client = sessionClient()
   const router = useRouter()
@@ -78,7 +78,6 @@ export function DesignerScreen() {
     )
   }
   const site = siteOf(data.overview.status)
-  const openStudio = (page?: string) => router.push((page ? `/more/storefront/studio?page=${encodeURIComponent(page)}` : '/more/storefront/studio') as never)
 
   // "Your brand" replaces the whole page for the Owner until the shop name and logo are saved, and never shows to a reader.
   if (access.canEdit && data.brand?.brandReady !== true) {
@@ -116,9 +115,8 @@ export function DesignerScreen() {
       <DesignerTabs value={tab} onChange={setTab} />
       <View style={styles.body}>
         {site === 'none' ? <Notice text={t('storefront.design.noStorefront')} /> : null}
-        {site !== 'none' && tab === 'design' ? <DesignTab client={client} access={access} data={data} refresh={refresh} onChangeTemplate={() => setGallery(true)} onOpenStudio={() => openStudio()} /> : null}
-        {site !== 'none' && tab === 'pages' ? <ContentTab client={client} kind="page" canEdit={access.canEdit} onOpenStudio={openStudio} /> : null}
-        {site !== 'none' && tab === 'journal' ? <ContentTab client={client} kind="post" canEdit={access.canEdit} onOpenStudio={openStudio} /> : null}
+        {site !== 'none' && tab === 'design' ? <DesignTab client={client} access={access} data={data} refresh={refresh} onChangeTemplate={() => setGallery(true)} onOpenStudio={() => router.push('/more/storefront/studio' as never)} /> : null}
+        {site !== 'none' && tab === 'journal' ? <ContentTab client={client} canEdit={access.canEdit} /> : null}
         {site !== 'none' && tab === 'settings' ? <SiteSettingsTab client={client} canEdit={access.canEdit} /> : null}
       </View>
     </ShellScreen>

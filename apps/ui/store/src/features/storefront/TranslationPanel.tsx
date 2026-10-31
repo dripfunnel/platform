@@ -1,6 +1,6 @@
 import { ConfirmDialog, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useState } from 'react'
-import { contentLimits, type ContentEntry, type ContentKind } from '../../api/content'
+import { contentLimits, type ContentEntry } from '../../api/content'
 import { fill, messages } from '../../messages'
 import { languageName } from '../common/languageName'
 import { refusalIn } from '../common/refusal'
@@ -14,7 +14,6 @@ const kinds = messages.storefront.content.editor.kinds
 type Read = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; written: boolean; changed: boolean }
 
 export interface TranslationPanelProps {
-  kind: ContentKind
   entry: ContentEntry
   language: string
   mainLanguage: string
@@ -25,8 +24,8 @@ export interface TranslationPanelProps {
   onToast: (text: string) => void
 }
 
-/** A page or post in another language the store offers: its title, each block's words and search words. */
-export const TranslationPanel = ({ kind, entry, language, mainLanguage, canEdit, api, onDirty, onToast }: TranslationPanelProps) => {
+/** A post in another language the store offers: its title, each block's words and search words. */
+export const TranslationPanel = ({ entry, language, mainLanguage, canEdit, api, onDirty, onToast }: TranslationPanelProps) => {
   const id = useId()
   const [read, setRead] = useState<Read>({ kind: 'loading' })
   const [attempt, setAttempt] = useState(0)
@@ -66,7 +65,7 @@ export const TranslationPanel = ({ kind, entry, language, mainLanguage, canEdit,
     setProblem(null)
     try {
       const input = remove ? null : translationInputOf(entry, draft)
-      await api.saveContentTranslation(kind, entry.id, language, input)
+      await api.saveContentTranslation(entry.id, language, input)
       const next = translationDraftOf(entry, input ? writtenOf(language, input) : null)
       setSaved(next)
       setDraft(next)
@@ -126,7 +125,7 @@ export const TranslationPanel = ({ kind, entry, language, mainLanguage, canEdit,
                     field(`b${i}a${n}`, fill(messages.storefront.content.editor.answer, { number: at }), item.answer, q.answer, (answer) => change({ answer }), contentLimits.answer, true),
                   ]
                 })}
-              {(b.kind === 'products' || b.kind === 'form') && <span className="df-sf-help">{words.same}</span>}
+              {b.kind === 'products' && <span className="df-sf-help">{words.same}</span>}
             </div>
           )
         })}

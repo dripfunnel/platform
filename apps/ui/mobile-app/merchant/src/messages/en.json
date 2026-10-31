@@ -5362,7 +5362,6 @@
     "tabs": {
       "label": "Storefront",
       "design": "Design",
-      "pages": "Pages",
       "journal": "Journal",
       "settings": "Site settings"
     },
@@ -5642,23 +5641,6 @@
         "scheduled": "Scheduled",
         "published": "Published"
       },
-      "pages": {
-        "title": "Pages",
-        "sub": "About, FAQ, contact and lookbook pages on your storefront.",
-        "add": "Add a page",
-        "empty": "No pages yet.",
-        "foot": "Your menus can link to these pages (Collections › Menus).",
-        "inMenu": "{meta} · in the footer",
-        "ai": "Made by AI",
-        "aiMeta": "Change it in the studio",
-        "aiOpen": "Open {path} in the studio",
-        "untitled": "Untitled page",
-        "body": "The page",
-        "delete": "Delete page",
-        "deleteTitle": "Delete the page “{title}”?",
-        "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
-        "deleteBodyMenu": "It comes off your shop with the next publish. Links to it show “page not found”, and it leaves the footer menu."
-      },
       "journal": {
         "title": "Journal",
         "sub": "Posts for your shop’s blog, newest first. Shoppers find them under Journal.",
@@ -5681,15 +5663,13 @@
           "text": "Text",
           "image": "Photo",
           "faq": "Questions and answers",
-          "products": "Products",
-          "form": "Contact form"
+          "products": "Products"
         },
         "tools": {
           "heading": "Add a heading",
           "text": "Add text",
           "faq": "Add questions",
-          "products": "Add products",
-          "form": "Add a contact form"
+          "products": "Add products"
         },
         "toolsLabel": "Add a block",
         "blockText": "{kind}, block {number}",
@@ -5707,7 +5687,6 @@
         "unknownProduct": "A product whose name didn’t load",
         "namesFailed": "We couldn’t load these products’ names. They stay on the page as they are; open the page again to see them.",
         "productsHelp": "Shown with their live price and stock. A sold-out product shows as sold out, never removed.",
-        "form": "Name, email, order number (optional) and message. Messages go to your store email and a copy goes to the shopper.",
         "search": "How it looks in search",
         "seoTitle": "Title in search",
         "seoTitleHelp": "Leave it empty to use the title.",
@@ -5715,7 +5694,6 @@
         "seoPlaceholder": "Add a description so search engines show something better than the first line.",
         "publishing": "Publishing",
         "now": "Now: {status}",
-        "inMenu": "Show in the footer menu",
         "publish": "Publish",
         "update": "Update",
         "draft": "Save as draft",

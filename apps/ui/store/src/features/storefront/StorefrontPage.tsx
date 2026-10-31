@@ -40,7 +40,7 @@ type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; reads: Re
 // How often a site being made is read again until it is ready.
 const creatingPollMs = 5_000
 
-/** Storefront (PortalStorefront, FIRST-RELEASE §14): the brand step, the gallery, then Design · Pages · Journal · Site settings. ?state= per storefrontStates.ts. */
+/** Storefront (PortalStorefront, FIRST-RELEASE §14): the brand step, the gallery, then Design · Journal · Assets · Site settings. ?state= per storefrontStates.ts. */
 export const StorefrontPage = () => {
   const { acting, state } = shellRoute.useLoaderData()
   const { tab = 'design', view: shown, run, page, entry } = pageRoute.useSearch()
@@ -214,23 +214,7 @@ export const StorefrontPage = () => {
     )
 
   const panel = () => {
-    if (tab === 'pages')
-      return (
-        <ContentTab
-          kind="page"
-          api={api}
-          canEdit={access.canEdit}
-          onStudio={access.canEdit && hasSite(overview.status) ? (path) => goView('studio', path) : null}
-          entry={entry}
-          onEntry={goEntry}
-          host={host}
-          shopName={brand?.shopName ?? acting.store.name}
-          contactEmail={brand?.contactEmail ?? null}
-          onToast={setToast}
-        />
-      )
-    if (tab === 'journal')
-      return <ContentTab kind="post" api={api} canEdit={access.canEdit} onStudio={null} entry={entry} onEntry={goEntry} host={host} shopName={brand?.shopName ?? acting.store.name} contactEmail={null} onToast={setToast} />
+    if (tab === 'journal') return <ContentTab api={api} canEdit={access.canEdit} entry={entry} onEntry={goEntry} host={host} shopName={brand?.shopName ?? acting.store.name} onToast={setToast} />
     if (tab === 'assets') return <AssetsTab api={api} canEdit={access.canEdit} onToast={setToast} />
     if (tab === 'ai')
       return aiListed ? <AiTab reads={forced ? sampleAiReads : aiReads} canEdit={access.canEdit} onToast={setToast} /> : <EmptyState title={words.ai.denied.title} body={words.ai.denied.body} />

@@ -39,10 +39,9 @@ const owner = ['storefront.read', 'publish']
 const manager = ['storefront.read']
 const access = (permissions: string[]) => ({ me: { acting: { permissions, seller: null } } })
 
-const row = (id: string, over: Record<string, unknown> = {}) => ({ id, title: `Page ${id}`, path: `/page-${id}`, status: 'published', inMenu: false, publishAt: null, waitingForPublish: false, ...over })
+const row = (id: string, over: Record<string, unknown> = {}) => ({ id, title: `Post ${id}`, path: `/blog/post-${id}`, status: 'published', publishAt: null, waitingForPublish: false, ...over })
 const entryOf = (over: Record<string, unknown> = {}) => ({
-  ...row('e1', { title: 'Our story', path: '/our-story', status: 'draft' }),
-  kind: 'page',
+  ...row('e1', { title: 'Our story', path: '/blog/our-story', status: 'draft' }),
   slug: 'our-story',
   body: [
     { kind: 'heading', text: 'Who we are', assetId: null, alt: null, items: null, productIds: null },
@@ -84,83 +83,64 @@ beforeEach(() => {
   resetScenario()
 })
 
-describe('Pages and Journal lists', () => {
+describe('the Journal list', () => {
   const baseList = (over: Handlers = {}): Handlers => ({
-    'contentPages(first': () => ({ contentPages: list([row('1', { title: 'About us', path: '/about-us', inMenu: true }), row('2', { title: 'Lookbook', path: '/lookbook', status: 'draft', waitingForPublish: true })]) }),
-    'blogPosts(first': () => ({ blogPosts: list([row('7', { title: 'Autumn arrivals', path: '/blog/autumn', status: 'scheduled', publishAt: '2026-11-02T00:00:00.000Z' })]) }),
-    customPagePaths: () => ({ customPagePaths: ['/size-guide'] }),
+    'blogPosts(first': () => ({
+      blogPosts: list([row('7', { title: 'Autumn arrivals', path: '/blog/autumn', status: 'scheduled', publishAt: '2026-11-02T00:00:00.000Z' }), row('8', { title: 'Care tips', path: '/blog/care', status: 'draft', waitingForPublish: true })]),
+    }),
     ...over,
   })
-  const showList = async (kind: 'page' | 'post', handlers: Handlers, canEdit = true, onOpenStudio: (path: string) => void = jest.fn()) => {
+  const showList = async (handlers: Handlers, canEdit = true) => {
     const { client, calls } = fakeApi(handlers)
     mockSession.client = client
-    const renderer = await renderShell(<ContentTab client={client} kind={kind} canEdit={canEdit} onOpenStudio={onOpenStudio} />, { acting: actingAs('owner') })
+    const renderer = await renderShell(<ContentTab client={client} canEdit={canEdit} />, { acting: actingAs('owner') })
     await settle()
-    return { renderer, calls, onOpenStudio }
+    return { renderer, calls }
   }
 
-  it('lists the pages with where they stand, in the footer or waiting for the next publish', async () => {
-    const { renderer } = await showList('page', baseList())
+  it('lists the posts with where they stand or waiting for the next publish, and reads no pages', async () => {
+    const { renderer, calls } = await showList(baseList())
 
-    expect(texts(renderer)).toEqual(expect.arrayContaining(['About us', 'Published · /about-us · in the footer', 'Lookbook', 'Draft · /lookbook', 'Your last save goes live with your shop’s next publish.']))
+    expect(texts(renderer)).toEqual(expect.arrayContaining(['Autumn arrivals', 'Care tips', 'Draft · /blog/care', 'Your last save goes live with your shop’s next publish.']))
+    expect(calls.filter((call) => call.query.includes('contentPages') || call.query.includes('customPagePaths'))).toHaveLength(0)
   })
 
-  it('lists the AI’s own pages, which open in the studio at their path', async () => {
-    const { renderer, onOpenStudio } = await showList('page', baseList())
+  it('opens a post on its own screen, and starts a new one', async () => {
+    const { renderer } = await showList(baseList())
 
-    expect(hasText(renderer, '/size-guide')).toBe(true)
-    expect(hasText(renderer, 'Made by AI · Change it in the studio')).toBe(true)
-    await click(renderer, 'Open /size-guide in the studio')
-    expect(onOpenStudio).toHaveBeenCalledWith('/size-guide')
-  })
-
-  it('opens a page or a post on its own screen, and starts a new one', async () => {
-    const pages = await showList('page', baseList())
-    await click(pages.renderer, 'About us')
-    expect(mockPush).toHaveBeenCalledWith('/more/storefront/page/1')
-    await click(pages.renderer, 'Add a page')
-    expect(mockPush).toHaveBeenCalledWith('/more/storefront/page/new')
-
-    const posts = await showList('post', baseList())
-    await click(posts.renderer, 'Autumn arrivals')
+    await click(renderer, 'Autumn arrivals')
     expect(mockPush).toHaveBeenCalledWith('/more/storefront/post/7')
-    await click(posts.renderer, 'Write a post')
+    await click(renderer, 'Write a post')
     expect(mockPush).toHaveBeenCalledWith('/more/storefront/post/new')
   })
 
   it('says when a post goes live, in UTC', async () => {
-    const { renderer } = await showList('post', baseList())
+    const { renderer } = await showList(baseList())
 
     expect(hasText(renderer, 'Goes live Nov 2, 2026 · /blog/autumn')).toBe(true)
   })
 
-  it('shows no AI pages in the Journal, and no add button or studio link to a Manager', async () => {
-    const posts = await showList('post', baseList())
-    expect(hasText(posts.renderer, 'Made by AI')).toBe(false)
+  it('shows no add button to a Manager', async () => {
+    const { renderer } = await showList(baseList(), false)
 
-    const readOnly = await showList('page', baseList(), false)
-    expect(hasButton(readOnly.renderer, 'Add a page')).toBe(false)
-    expect(hasButton(readOnly.renderer, 'Open /size-guide in the studio')).toBe(false)
-    expect(hasText(readOnly.renderer, 'Made by AI')).toBe(true)
+    expect(hasText(renderer, 'Autumn arrivals')).toBe(true)
+    expect(hasButton(renderer, 'Write a post')).toBe(false)
   })
 
   it('says so when there is nothing yet', async () => {
-    const pages = await showList('page', baseList({ 'contentPages(first': () => ({ contentPages: list([]) }), customPagePaths: () => ({ customPagePaths: [] }) }))
-    expect(hasText(pages.renderer, 'No pages yet.')).toBe(true)
+    const { renderer } = await showList(baseList({ 'blogPosts(first': () => ({ blogPosts: list([]) }) }))
 
-    const posts = await showList('post', baseList({ 'blogPosts(first': () => ({ blogPosts: list([]) }) }))
-    expect(hasText(posts.renderer, 'No posts yet.')).toBe(true)
+    expect(hasText(renderer, 'No posts yet.')).toBe(true)
   })
 
   it('shows more from the cursor, and says when it could not', async () => {
     let fail = true
     const { renderer, calls } = await showList(
-      'page',
       baseList({
-        'contentPages(first': (variables) => {
-          if (variables['after'] === null) return { contentPages: list([row('1')], 'cursor-1') }
+        'blogPosts(first': (variables) => {
+          if (variables['after'] === null) return { blogPosts: list([row('1')], 'cursor-1') }
           if (fail) throw new ApiError('NO_RESPONSE', 'x')
-          return { contentPages: list([row('3', { title: 'Third' })]) }
+          return { blogPosts: list([row('3', { title: 'Third' })]) }
         },
       }),
     )
@@ -170,16 +150,15 @@ describe('Pages and Journal lists', () => {
     fail = false
     await click(renderer, 'Show more')
 
-    expect(asked(calls, 'contentPages(first').map((call) => call.variables['after'])).toEqual([null, 'cursor-1', 'cursor-1'])
+    expect(asked(calls, 'blogPosts(first').map((call) => call.variables['after'])).toEqual([null, 'cursor-1', 'cursor-1'])
     expect(hasText(renderer, 'Third')).toBe(true)
     expect(hasButton(renderer, 'Show more')).toBe(false)
   })
 
   it('shows a failed read with a way to try again, and a plan without the Journal in words with no upgrade', async () => {
     const failed = await showList(
-      'page',
       baseList({
-        'contentPages(first': () => {
+        'blogPosts(first': () => {
           throw new ApiError('NO_RESPONSE', 'x')
         },
       }),
@@ -187,7 +166,6 @@ describe('Pages and Journal lists', () => {
     expect(hasButton(failed.renderer, 'Try again')).toBe(true)
 
     const limited = await showList(
-      'post',
       baseList({
         'blogPosts(first': () => {
           throw new ApiError('PLAN_LIMIT', 'x')
@@ -200,58 +178,51 @@ describe('Pages and Journal lists', () => {
   })
 })
 
-describe('the Pages and Journal editor', () => {
+describe('the Journal editor', () => {
   const base = (over: Handlers = {}): Handlers => ({
     'acting { permissions': () => access(owner),
     'query Entry(': () => ({ contentEntry: entryOf() }),
     'query Names(': () => ({ n0: { name: 'Indigo kurta' } }),
     ...over,
   })
-  const showEditor = async (handlers: Handlers, kind: 'page' | 'post' = 'page', id = 'e1', role = 'owner') => {
+  const showEditor = async (handlers: Handlers, id = 'e1', role = 'owner') => {
     const { client, calls } = fakeApi(handlers)
     mockSession.client = client
-    const renderer = await renderShell(<ContentEditorScreen kind={kind} id={id} />, { acting: actingAs(role) })
+    const renderer = await renderShell(<ContentEditorScreen id={id} />, { acting: actingAs(role) })
     await settle()
     return { renderer, calls }
   }
-  const saved = (over: Record<string, unknown> = {}) => ({ saveContentPage: entryOf({ revision: 5, ...over }) })
+  const saved = (over: Record<string, unknown> = {}) => ({ saveBlogPost: entryOf({ revision: 5, ...over }) })
 
-  it('opens a new page with a heading and a paragraph, and makes its address from the title', async () => {
-    const { renderer } = await showEditor(base(), 'page', 'new')
-
-    expect(field(renderer, 'Heading, block 1').props.value).toBe('')
-    expect(hasField(renderer, 'Text, block 2')).toBe(true)
-    await type(renderer, 'Title', 'Our  Story & more')
-    expect(texts(renderer)).toContain('/our-story-more')
-  })
-
-  it('opens a new post with a paragraph, and no footer switch or contact form', async () => {
-    const { renderer } = await showEditor(base(), 'post', 'new')
+  it('opens a new post with a paragraph and no footer switch or contact form, and makes its address from the title', async () => {
+    const { renderer } = await showEditor(base(), 'new')
 
     expect(hasField(renderer, 'Text, block 1')).toBe(true)
     expect(hasField(renderer, 'Heading, block 1')).toBe(false)
     expect(hasButton(renderer, 'Add a contact form')).toBe(false)
     expect(renderer.root.findAll((node) => node.props.accessibilityRole === 'switch')).toHaveLength(0)
+    await type(renderer, 'Title', 'Our  Story & more')
+    expect(texts(renderer)).toContain('/blog/our-story-more')
   })
 
-  it('saves a new page as a draft, keeping it off the shop, and names what the next save does', async () => {
-    const { renderer, calls } = await showEditor(base({ 'mutation Save(': () => ({ saveContentPage: entryOf({ status: 'draft', revision: 1 }) }) }), 'page', 'new')
+  it('saves a new post as a draft, keeping it off the shop, and names what the next save does', async () => {
+    const { renderer, calls } = await showEditor(base({ 'mutation Save(': () => ({ saveBlogPost: entryOf({ status: 'draft', revision: 1 }) }) }), 'new')
 
     await type(renderer, 'Title', 'Our story')
-    await type(renderer, 'Heading, block 1', 'Who we are')
-    await type(renderer, 'Text, block 2', 'We make cloth.')
+    await type(renderer, 'Text, block 1', 'We make cloth.')
     await click(renderer, 'Save as draft')
 
+    expect(asked(calls, 'mutation Save(')[0]?.query).toContain('saveBlogPost')
     expect(asked(calls, 'mutation Save(')[0]?.variables).toEqual({
       id: null,
       revision: null,
-      input: { title: 'Our story', slug: 'our-story', body: [{ kind: 'heading', text: 'Who we are' }, { kind: 'text', text: 'We make cloth.' }], seoTitle: null, seoDescription: null, publish: false, inMenu: false },
+      input: { title: 'Our story', slug: 'our-story', body: [{ kind: 'text', text: 'We make cloth.' }], seoTitle: null, seoDescription: null, publish: false, author: null, tags: [], coverAssetId: null },
     })
     expect(hasText(renderer, 'Saved as a draft — not on your shop yet')).toBe(true)
     expect(hasText(renderer, 'Now: Draft')).toBe(true)
   })
 
-  it('publishes at the revision it read, then says Update, and a second save changes the same page', async () => {
+  it('publishes at the revision it read, then says Update, and a second save changes the same post', async () => {
     const { renderer, calls } = await showEditor(base({ 'mutation Save(': () => saved({ status: 'published' }) }))
 
     await type(renderer, 'Title', 'Our story, retold')
@@ -264,8 +235,8 @@ describe('the Pages and Journal editor', () => {
     expect(asked(calls, 'mutation Save(')[1]?.variables).toMatchObject({ id: 'e1', revision: 5 })
   })
 
-  it('will not send a page with no title or a search listing past its limit, and says why', async () => {
-    const { renderer, calls } = await showEditor(base(), 'page', 'new')
+  it('will not send a post with no title or a search listing past its limit, and says why', async () => {
+    const { renderer, calls } = await showEditor(base(), 'new')
 
     await click(renderer, 'Publish')
     expect(hasText(renderer, 'Give it a title.')).toBe(true)
@@ -278,30 +249,30 @@ describe('the Pages and Journal editor', () => {
   })
 
   it('keeps a web address to what the API takes', async () => {
-    const { renderer } = await showEditor(base(), 'page', 'new')
+    const { renderer } = await showEditor(base(), 'new')
 
     await type(renderer, 'Web address', 'My Page!! 1--2')
 
     expect(field(renderer, 'Web address').props.value).toBe('mypage1-2')
   })
 
-  it('adds, moves and removes blocks, and a page can take a contact form', async () => {
+  it('adds, moves and removes blocks', async () => {
     const { renderer, calls } = await showEditor(base({ 'mutation Save(': () => saved() }))
 
     await click(renderer, 'Add a heading')
-    await click(renderer, 'Add a contact form')
+    await click(renderer, 'Add questions')
     await click(renderer, 'Move block 4 up')
     await click(renderer, 'Remove block 1')
     expect(hasField(renderer, 'Text, block 1')).toBe(true)
-    expect(hasText(renderer, 'Contact form, block 2')).toBe(true)
+    expect(hasText(renderer, 'Questions and answers, block 2')).toBe(true)
     expect(pressableNamed(renderer, 'Move block 1 up').findAll((node) => typeof node.props.accessibilityState?.disabled === 'boolean')[0]?.props.accessibilityState.disabled).toBe(true)
 
     await click(renderer, 'Publish')
-    expect((asked(calls, 'mutation Save(')[0]?.variables as { input: { body: unknown[] } }).input.body).toEqual([{ kind: 'text', text: 'We make cloth.' }, { kind: 'form' }, { kind: 'heading', text: '' }])
+    expect((asked(calls, 'mutation Save(')[0]?.variables as { input: { body: unknown[] } }).input.body).toEqual([{ kind: 'text', text: 'We make cloth.' }, { kind: 'faq', items: [] }, { kind: 'heading', text: '' }])
   })
 
   it('edits questions and answers, and removes a question', async () => {
-    const { renderer, calls } = await showEditor(base({ 'mutation Save(': () => saved() }), 'page', 'new')
+    const { renderer, calls } = await showEditor(base({ 'mutation Save(': () => saved() }), 'new')
 
     await click(renderer, 'Add questions')
     await click(renderer, '+ Add a question')
@@ -335,7 +306,7 @@ describe('the Pages and Journal editor', () => {
     expect((asked(calls, 'mutation Save(')[0]?.variables as { input: { body: unknown[] } }).input.body).toEqual([{ kind: 'products', productIds: ['p2', 'p9'] }])
   })
 
-  it('says when the products’ names could not be read, and keeps them on the page', async () => {
+  it('says when the products’ names could not be read, and keeps them on the post', async () => {
     const withProducts = entryOf({ body: [{ kind: 'products', text: null, assetId: null, alt: null, items: null, productIds: ['p1'] }] })
     const { renderer, calls } = await showEditor(
       base({
@@ -353,7 +324,7 @@ describe('the Pages and Journal editor', () => {
     expect((asked(calls, 'mutation Save(')[0]?.variables as { input: { body: unknown[] } }).input.body).toEqual([{ kind: 'products', productIds: ['p1'] }])
   })
 
-  it('keeps a photo the page already has, says it is changed on the web, and offers no way to add one', async () => {
+  it('keeps a photo the post already has, says it is changed on the web, and offers no way to add one', async () => {
     const withPhoto = entryOf({ body: [{ kind: 'image', text: null, assetId: 'img-1', alt: 'Loom at dawn', items: null, productIds: null }] })
     const { renderer, calls } = await showEditor(base({ 'query Entry(': () => ({ contentEntry: withPhoto }), 'mutation Save(': () => saved() }))
 
@@ -365,23 +336,14 @@ describe('the Pages and Journal editor', () => {
   })
 
   it('sends back what a post has that the phone draws no control for, so a save clears none of it', async () => {
-    const post = entryOf({ kind: 'post', slug: 'autumn', path: '/blog/autumn', status: 'scheduled', publishAt: '2026-11-02T00:00:00.000Z', author: 'Meera', tags: ['care', 'cotton'], coverAssetId: 'cover-1' })
-    const { renderer, calls } = await showEditor(base({ 'query Entry(': () => ({ contentEntry: post }), 'mutation Save(': () => ({ saveBlogPost: { ...post, revision: 5 } }) }), 'post', 'e1')
+    const post = entryOf({ slug: 'autumn', path: '/blog/autumn', status: 'scheduled', publishAt: '2026-11-02T00:00:00.000Z', author: 'Meera', tags: ['care', 'cotton'], coverAssetId: 'cover-1' })
+    const { renderer, calls } = await showEditor(base({ 'query Entry(': () => ({ contentEntry: post }), 'mutation Save(': () => ({ saveBlogPost: { ...post, revision: 5 } }) }))
 
     await type(renderer, 'Title', 'Autumn, again')
     await click(renderer, 'Save as draft')
 
     expect(asked(calls, 'mutation Save(')[0]?.query).toContain('saveBlogPost')
     expect(asked(calls, 'mutation Save(')[0]?.variables).toMatchObject({ id: 'e1', revision: 4, input: { publish: false, publishAt: '2026-11-02T00:00:00.000Z', author: 'Meera', tags: ['care', 'cotton'], coverAssetId: 'cover-1' } })
-  })
-
-  it('sends the footer switch with a page', async () => {
-    const { renderer, calls } = await showEditor(base({ 'mutation Save(': () => saved() }))
-
-    await act(async () => (renderer.root.findAll((node) => node.props.accessibilityRole === 'switch')[0]?.props.onPress as () => void)())
-    await click(renderer, 'Publish')
-
-    expect(asked(calls, 'mutation Save(')[0]?.variables).toMatchObject({ input: { inMenu: true } })
   })
 
   it.each([
@@ -442,28 +404,18 @@ describe('the Pages and Journal editor', () => {
     expect(mockPrevent).toHaveBeenLastCalledWith(true, expect.anything())
   })
 
-  it('asks before it deletes, says what follows, and goes back when it is done', async () => {
-    const { renderer, calls } = await showEditor(base({ 'mutation Delete(': () => ({ deleteContentPage: true }) }))
+  it('asks before it deletes, says what follows, deletes by the post’s own mutation and goes back when it is done', async () => {
+    const { renderer, calls } = await showEditor(base({ 'mutation Delete(': () => ({ deleteBlogPost: true }) }))
 
-    await click(renderer, 'Delete page')
-    expect(hasText(renderer, 'Delete the page “Our story”?')).toBe(true)
+    await click(renderer, 'Delete post')
+    expect(hasText(renderer, 'Delete “Our story”?')).toBe(true)
     expect(hasText(renderer, 'It comes off your shop with the next publish.')).toBe(true)
     expect(asked(calls, 'mutation Delete(')).toHaveLength(0)
-    await clickLast(renderer, 'Delete page')
+    await clickLast(renderer, 'Delete post')
 
+    expect(asked(calls, 'mutation Delete(')[0]?.query).toContain('deleteBlogPost')
     expect(asked(calls, 'mutation Delete(')[0]?.variables).toEqual({ id: 'e1' })
     expect(hasText(renderer, 'Deleted')).toBe(true)
-  })
-
-  it('says the footer menu is left when a page in it is deleted, and deletes a post by its own mutation', async () => {
-    const inMenu = await showEditor(base({ 'query Entry(': () => ({ contentEntry: entryOf({ inMenu: true }) }) }))
-    await click(inMenu.renderer, 'Delete page')
-    expect(hasText(inMenu.renderer, 'it leaves the footer menu.')).toBe(true)
-
-    const post = await showEditor(base({ 'query Entry(': () => ({ contentEntry: entryOf({ kind: 'post' }) }), 'mutation Delete(': () => ({ deleteBlogPost: true }) }), 'post')
-    await click(post.renderer, 'Delete post')
-    await clickLast(post.renderer, 'Delete post')
-    expect(asked(post.calls, 'mutation Delete(')[0]?.query).toContain('deleteBlogPost')
   })
 
   it('says a refused delete by its code, in the sheet', async () => {
@@ -475,36 +427,36 @@ describe('the Pages and Journal editor', () => {
       }),
     )
 
-    await click(renderer, 'Delete page')
-    await clickLast(renderer, 'Delete page')
+    await click(renderer, 'Delete post')
+    await clickLast(renderer, 'Delete post')
 
     expect(hasText(renderer, 'This isn’t here any more. Go back to the list.')).toBe(true)
-    expect(hasText(renderer, 'Delete the page “Our story”?')).toBe(true)
+    expect(hasText(renderer, 'Delete “Our story”?')).toBe(true)
   })
 
-  it('offers no delete for a page that is not saved yet', async () => {
-    const { renderer } = await showEditor(base(), 'page', 'new')
+  it('offers no delete for a post that is not saved yet', async () => {
+    const { renderer } = await showEditor(base(), 'new')
 
-    expect(hasButton(renderer, 'Delete page')).toBe(false)
+    expect(hasButton(renderer, 'Delete post')).toBe(false)
   })
 
-  it('lets a Manager look at a page and change nothing', async () => {
-    const { renderer } = await showEditor(base({ 'acting { permissions': () => access(manager) }), 'page', 'e1', 'manager')
+  it('lets a Manager look at a post and change nothing', async () => {
+    const { renderer } = await showEditor(base({ 'acting { permissions': () => access(manager) }), 'e1', 'manager')
 
     expect(hasText(renderer, 'You can look, but only the store owner can change the storefront.')).toBe(true)
     expect(field(renderer, 'Title').props.editable).toBe(false)
     expect(field(renderer, 'Heading, block 1').props.editable).toBe(false)
-    for (const label of ['Publish', 'Update', 'Save as draft', 'Delete page', 'Add a heading', 'Add text', 'Remove block 1', 'Move block 2 up']) expect(hasButton(renderer, label)).toBe(false)
+    for (const label of ['Publish', 'Update', 'Save as draft', 'Delete post', 'Add a heading', 'Add text', 'Remove block 1', 'Move block 2 up']) expect(hasButton(renderer, label)).toBe(false)
   })
 
-  it('tells a seat without a storefront it has no access, before it reads the page', async () => {
-    const { renderer, calls } = await showEditor(base({ 'acting { permissions': () => access([]) }), 'page', 'e1', 'staff')
+  it('tells a seat without a storefront it has no access, before it reads the post', async () => {
+    const { renderer, calls } = await showEditor(base({ 'acting { permissions': () => access([]) }), 'e1', 'staff')
 
     expect(asked(calls, 'query Entry(')).toHaveLength(0)
     expect(hasField(renderer, 'Title')).toBe(false)
   })
 
-  it('says a page that is not there is not found, and a failed read can be tried again', async () => {
+  it('says a post that is not there is not found, and a failed read can be tried again', async () => {
     const missing = await showEditor(base({ 'query Entry(': () => ({ contentEntry: null }) }))
     expect(hasField(missing.renderer, 'Title')).toBe(false)
 

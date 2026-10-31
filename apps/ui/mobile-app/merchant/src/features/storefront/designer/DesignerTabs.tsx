@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text } from 'react-native'
 import { t } from '../../../messages'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 
-export const designerTabs = ['design', 'pages', 'journal', 'settings'] as const
+export const designerTabs = ['design', 'journal', 'settings'] as const
 export type DesignerTab = (typeof designerTabs)[number]
 
 // PortalStorefront's tab bar at phone width: an underline under the open one, scrolling if the labels don't fit.
