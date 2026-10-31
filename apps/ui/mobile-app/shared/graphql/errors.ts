@@ -190,7 +190,7 @@ export const knownErrorCodes = [
   'ALREADY_LIVE',
   'BUILD_GONE',
   'SECURITY_RELEASE',
-  // The studio's session, its changes and publishes, the template gallery, and the Pages and Journal editor (apps/api src/saas/ai-designer, src/apis/store/studio.ts, content.ts).
+  // The studio's session, its changes and publishes, the template gallery, and the Journal editor (apps/api src/saas/ai-designer, src/apis/store/studio.ts, content.ts).
   'SESSION_ENDED',
   'NOT_BISECTED',
   'INVALID_URL',

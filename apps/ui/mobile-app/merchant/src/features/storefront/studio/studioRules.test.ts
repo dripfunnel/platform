@@ -1,4 +1,4 @@
-import { frameAddress, frameMayLoad, frameOriginOf, nextVersionOf, noteText, overlayText, pageOptions, sampleAddress, sandboxOf, studioPathPattern } from './studioRules'
+import { frameAddress, frameMayLoad, frameOriginOf, nextVersionOf, noteText, overlayText, pageOptions, sampleAddress, sandboxOf } from './studioRules'
 
 const frame = 'https://juniper.webpreview.store/__studio/AbC123_-xyz/'
 
@@ -90,12 +90,6 @@ describe('the page picker', () => {
     expect(pageOptions({ product: null, content: [], custom: [] }).some((option) => option.value.startsWith('/products/'))).toBe(false)
   })
 
-  it('opens on a path only when it is one', () => {
-    expect(studioPathPattern.test('/faq')).toBe(true)
-    expect(studioPathPattern.test('faq')).toBe(false)
-    expect(studioPathPattern.test('/a b')).toBe(false)
-    expect(studioPathPattern.test('/a\\b')).toBe(false)
-  })
 })
 
 describe('a website to take inspiration from', () => {

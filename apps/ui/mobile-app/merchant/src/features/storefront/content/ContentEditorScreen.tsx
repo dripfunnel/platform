@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { loadProductNames } from '../../../api/offers'
 import { loadAccess } from '../../../api/products'
-import { contentLimits, deleteContent, loadContentEntry, saveContent, type ContentEntry, type ContentKind } from '../../../api/storefrontContent'
+import { contentLimits, deleteContent, loadContentEntry, saveContent, type ContentEntry } from '../../../api/storefrontContent'
 import { isApiError, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../../messages'
 import { sessionClient } from '../../../session'
@@ -11,7 +11,6 @@ import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { Button } from '../../common/Button'
 import { Notice } from '../../common/Notice'
 import { SectionCard } from '../../common/SectionCard'
-import { Switch } from '../../common/Switch'
 import { TextArea } from '../../common/TextArea'
 import { TextField } from '../../common/TextField'
 import { useLeaveGuard } from '../../collections/useLeaveGuard'
@@ -26,7 +25,7 @@ import { storefrontAccessOf } from '../access'
 import { BlocksEditor } from './BlocksEditor'
 import { cleanSlug, draftOf, draftProblem, inputOf, isDraftDirty, pathOf, pathTakenText, slugShown, type ContentDraft, type DraftBlock } from './contentDraft'
 
-export type EditorProps = { kind: ContentKind; id: string }
+export type EditorProps = { id: string }
 
 const load = async (client: ApiClient, readOnly: boolean, id: string) => {
   const access = storefrontAccessOf(await loadAccess(client), readOnly)
@@ -39,13 +38,13 @@ const load = async (client: ApiClient, readOnly: boolean, id: string) => {
   return { access, entry, names: found === null ? {} : Object.fromEntries(ids.map((product) => [product, found.get(product) ?? null])), namesFailed: found === null }
 }
 
-// One page or post (StorefrontContent's editor at phone width), on its own screen with the shell's Back. A page or post saves as a draft or published; either goes live
+// One post (StorefrontContent's editor at phone width), on its own screen with the shell's Back. A post saves as a draft or published; either goes live
 // with the shop's next publish, and a save keeps the fields the phone draws no control for.
-export function ContentEditorScreen({ kind, id }: EditorProps) {
+export function ContentEditorScreen({ id }: EditorProps) {
   const client = sessionClient()
   const { state, online } = useShell()
   const readOnly = state?.readOnly === true
-  const label = t(kind === 'page' ? 'storefront.content.pages.title' : 'storefront.content.journal.title')
+  const label = t('storefront.content.journal.title')
   const loaded = useLoad(() => load(client, readOnly, id), [client, readOnly, id])
 
   if (loaded.state.status === 'error') {
@@ -73,19 +72,18 @@ export function ContentEditorScreen({ kind, id }: EditorProps) {
   }
   return (
     <ShellScreen label={label}>
-      <ContentEditor client={client} kind={kind} entry={entry} names={names} namesFailed={namesFailed} canEdit={access.canEdit} viewOnly={access.viewOnly} readOnly={access.readOnly} />
+      <ContentEditor client={client} entry={entry} names={names} namesFailed={namesFailed} canEdit={access.canEdit} viewOnly={access.viewOnly} readOnly={access.readOnly} />
     </ShellScreen>
   )
 }
 
-type Props = { client: ApiClient; kind: ContentKind; entry: ContentEntry | null; names: Record<string, string | null>; namesFailed: boolean; canEdit: boolean; viewOnly: boolean; readOnly: boolean }
+type Props = { client: ApiClient; entry: ContentEntry | null; names: Record<string, string | null>; namesFailed: boolean; canEdit: boolean; viewOnly: boolean; readOnly: boolean }
 
-function ContentEditor({ client, kind, entry, names: known, namesFailed, canEdit, viewOnly, readOnly }: Props) {
+function ContentEditor({ client, entry, names: known, namesFailed, canEdit, viewOnly, readOnly }: Props) {
   const { colors } = useTheme()
   const router = useRouter()
   const feedback = useFeedback()
-  const words = kind === 'page' ? 'pages' : 'journal'
-  const [saved, setSaved] = useState(() => draftOf(entry, kind))
+  const [saved, setSaved] = useState(() => draftOf(entry))
   const [draft, setDraft] = useState<ContentDraft>(saved)
   const [current, setCurrent] = useState<{ id: string | null; revision: number | null; status: ContentEntry['status'] | null }>({ id: entry?.id ?? null, revision: entry?.revision ?? null, status: entry?.status ?? null })
   const [names, setNames] = useState(known)
@@ -111,8 +109,8 @@ function ContentEditor({ client, kind, entry, names: known, namesFailed, canEdit
     setBusy(publish ? 'publish' : 'draft')
     setProblem(null)
     try {
-      const answer = await saveContent(client, kind, current.id, current.revision, inputOf(kind, draft, publish))
-      const next = draftOf(answer, kind)
+      const answer = await saveContent(client, current.id, current.revision, inputOf(draft, publish))
+      const next = draftOf(answer)
       setSaved(next)
       setDraft(next)
       setCurrent({ id: answer.id, revision: answer.revision, status: answer.status })
@@ -131,22 +129,21 @@ function ContentEditor({ client, kind, entry, names: known, namesFailed, canEdit
   return (
     <View style={styles.page}>
       <Text accessibilityRole="header" style={[styles.title, { color: colors.heading }]}>
-        {draft.title.trim() || t(kind === 'page' ? 'storefront.content.pages.untitled' : 'storefront.content.journal.untitled')}
+        {draft.title.trim() || t('storefront.content.journal.untitled')}
       </Text>
       {viewOnly ? <Notice text={t('storefront.notice.manager')} /> : null}
       {readOnly ? <Notice text={t('storefront.readOnly')} /> : null}
       {problem && problem.field === null ? <Notice kind="error" text={problem.text} /> : null}
-      <SectionCard title={t(`storefront.content.${words}.body`)}>
+      <SectionCard title={t('storefront.content.journal.body')}>
         <TextField label={t('storefront.content.editor.title')} value={draft.title} onChangeText={(title) => set({ title })} editable={edit} maxLength={contentLimits.title} autoCapitalize="sentences" invalid={mark('title') !== undefined} help={mark('title')} />
-        <TextField label={t('storefront.content.editor.slug')} value={draft.slug} onChangeText={(slug) => set({ slug: cleanSlug(slug) })} editable={edit} maxLength={contentLimits.slug} invalid={mark('slug') !== undefined} help={mark('slug') ?? pathOf(kind, slugShown(draft))} />
+        <TextField label={t('storefront.content.editor.slug')} value={draft.slug} onChangeText={(slug) => set({ slug: cleanSlug(slug) })} editable={edit} maxLength={contentLimits.slug} invalid={mark('slug') !== undefined} help={mark('slug') ?? pathOf(slugShown(draft))} />
       </SectionCard>
-      <BlocksEditor client={client} kind={kind} body={draft.body} onBody={setBody} canEdit={edit} names={names} namesFailed={namesFailed} onName={(productId, name) => setNames((now) => ({ ...now, [productId]: name }))} />
+      <BlocksEditor client={client} body={draft.body} onBody={setBody} canEdit={edit} names={names} namesFailed={namesFailed} onName={(productId, name) => setNames((now) => ({ ...now, [productId]: name }))} />
       <SectionCard title={t('storefront.content.editor.search')}>
         <TextField label={t('storefront.content.editor.seoTitle')} value={draft.seoTitle} onChangeText={(seoTitle) => set({ seoTitle })} editable={edit} autoCapitalize="sentences" invalid={mark('seo') !== undefined} help={mark('seo') ?? t('storefront.content.editor.seoTitleHelp')} />
         <TextArea label={t('storefront.content.editor.seoDescription')} value={draft.seoDescription} onChangeText={(seoDescription) => set({ seoDescription })} editable={edit} placeholder={t('storefront.content.editor.seoPlaceholder')} lines={3} />
       </SectionCard>
       <SectionCard title={t('storefront.content.editor.publishing')} sub={current.status ? t('storefront.content.editor.now', { status: t(`storefront.content.status.${current.status}`) }) : undefined}>
-        {kind === 'page' ? <Switch label={t('storefront.content.editor.inMenu')} value={draft.inMenu} onChange={(inMenu) => set({ inMenu })} disabled={!edit} /> : null}
         <Text style={[styles.note, { color: colors.muted }]}>{t('storefront.content.editor.note')}</Text>
         {edit ? (
           <>
@@ -155,17 +152,17 @@ function ContentEditor({ client, kind, entry, names: known, namesFailed, canEdit
           </>
         ) : null}
       </SectionCard>
-      {edit && remove ? <Button kind="secondary" label={t(`storefront.content.${words}.delete`)} saves onPress={() => setAsking(true)} /> : null}
+      {edit && remove ? <Button kind="secondary" label={t('storefront.content.journal.delete')} saves onPress={() => setAsking(true)} /> : null}
       {asking && remove ? (
         <FormSheet
-          title={t(kind === 'page' ? 'storefront.content.pages.deleteTitle' : 'storefront.content.journal.deleteTitle', { title: saved.title })}
-          body={kind === 'page' ? t(draft.inMenu ? 'storefront.content.pages.deleteBodyMenu' : 'storefront.content.pages.deleteBody') : t('storefront.content.journal.deleteBody')}
-          confirm={t(`storefront.content.${words}.delete`)}
+          title={t('storefront.content.journal.deleteTitle', { title: saved.title })}
+          body={t('storefront.content.journal.deleteBody')}
+          confirm={t('storefront.content.journal.delete')}
           danger
           context="storefrontContent"
           onClose={() => setAsking(false)}
           onSubmit={async () => {
-            await deleteContent(client, kind, remove)
+            await deleteContent(client, remove)
             guard.go(() => router.back())
             return t('storefront.content.editor.deleted')
           }}

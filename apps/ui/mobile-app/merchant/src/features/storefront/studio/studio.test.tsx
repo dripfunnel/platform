@@ -9,13 +9,11 @@ import { StudioScreen } from './StudioScreen'
 jest.setTimeout(120_000)
 
 const mockSession: { client: ApiClient | null } = { client: null }
-const mockParams: { page?: string } = {}
 const mockMounts = { count: 0 }
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn(), navigate: jest.fn() }),
   useNavigation: () => ({ dispatch: jest.fn() }),
-  useLocalSearchParams: () => mockParams,
 }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('@react-native-community/netinfo', () => ({ __esModule: true, default: { addEventListener: () => () => undefined } }))
@@ -114,7 +112,6 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockMounts.count = 0
   openURL.mockResolvedValue(true)
-  delete mockParams.page
   resetScenario()
 })
 
@@ -188,25 +185,18 @@ describe('the studio’s frame (AI-STUDIO §1, §8)', () => {
     expect(everyLabel(renderer)).not.toContain(sessionId)
   })
 
-  it('opens on the page asked for and moves the frame under the session when another is picked', async () => {
-    mockParams.page = '/faq'
+  it('opens on the home page and moves the frame under the session when another is picked', async () => {
     const { renderer } = await show(base())
-    expect(frameProps(renderer).source.uri).toBe(`${frameUrl}faq`)
+    expect(frameProps(renderer).source.uri).toBe(frameUrl)
 
     await click(renderer, 'Preview')
-    await click(renderer, 'Page: Questions')
+    await click(renderer, 'Page: Home')
     // An option's name is its label and its group, as the sheet draws them.
     await clickLast(renderer, 'CartShop')
 
     expect(frameProps(renderer).source.uri).toBe(`${frameUrl}cart/`)
   })
 
-  it('goes to the home page for a path that is not one', async () => {
-    mockParams.page = 'https://evil.example/'
-    const { renderer } = await show(base())
-
-    expect(frameProps(renderer).source.uri).toBe(frameUrl)
-  })
 })
 
 describe('the studio’s session', () => {

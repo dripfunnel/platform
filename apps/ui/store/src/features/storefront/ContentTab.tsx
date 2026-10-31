@@ -1,6 +1,6 @@
 import { ErrorState, LoadingState, StatusPill } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ContentKind, ContentRow, ContentStatus } from '../../api/content'
+import type { ContentRow, ContentStatus } from '../../api/content'
 import { fill, formatTime, messages } from '../../messages'
 import { ContentEditor } from './ContentEditor'
 import type { StorefrontApi } from './storefrontApi'
@@ -8,7 +8,7 @@ import './content.css'
 
 const words = messages.storefront.content
 
-type List = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; rows: ContentRow[]; custom: string[]; next: string | null; more: 'idle' | 'loading' | 'failed' }
+type List = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; rows: ContentRow[]; next: string | null; more: 'idle' | 'loading' | 'failed' }
 
 const pills: Record<ContentStatus, { tone: 'success' | 'neutral' | 'info'; icon: 'ok' | 'pen' | 'clock' }> = {
   published: { tone: 'success', icon: 'ok' },
@@ -17,66 +17,56 @@ const pills: Record<ContentStatus, { tone: 'success' | 'neutral' | 'info'; icon:
 }
 
 export interface ContentTabProps {
-  kind: ContentKind
   api: StorefrontApi
   canEdit: boolean
-  /** Opens the studio on one of the AI's pages; null when this seat has no studio (a reader, or no site yet). */
-  onStudio: ((path: string) => void) | null
-  /** The page or post open in the editor ('new' for one not saved yet), kept in the address. */
+  /** The post open in the editor ('new' for one not saved yet), kept in the address. */
   entry: string | undefined
   onEntry: (entry: string | undefined) => void
   host: string | null
   shopName: string
-  contactEmail: string | null
   onToast: (text: string) => void
 }
 
-/** Storefront › Pages and Journal (StorefrontContent; FIRST-RELEASE §14): content pages with the AI's own, or posts. */
-export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host, shopName, contactEmail, onToast }: ContentTabProps) => {
+/** Storefront › Journal (StorefrontContent; FIRST-RELEASE §14): the store's posts. */
+export const ContentTab = ({ api, canEdit, entry, onEntry, host, shopName, onToast }: ContentTabProps) => {
   const [list, setList] = useState<List>({ kind: 'loading' })
   const latest = useRef(0)
   const load = useCallback(() => {
     const ask = ++latest.current
     setList({ kind: 'loading' })
-    void Promise.all([api.loadContentList(kind, null), kind === 'page' ? api.loadCustomPaths() : Promise.resolve([])]).then(
-      ([page, custom]) => ask === latest.current && setList({ kind: 'ready', rows: page.rows, custom, next: page.next, more: 'idle' }),
+    api.loadContentList(null).then(
+      (page) => ask === latest.current && setList({ kind: 'ready', rows: page.rows, next: page.next, more: 'idle' }),
       () => ask === latest.current && setList({ kind: 'error' }),
     )
-  }, [api, kind])
+  }, [api])
   useEffect(load, [load])
 
   const more = () => {
     if (list.kind !== 'ready' || !list.next) return
     const ask = latest.current
     setList({ ...list, more: 'loading' })
-    api.loadContentList(kind, list.next).then(
+    api.loadContentList(list.next).then(
       (page) => ask === latest.current && setList((was) => (was.kind === 'ready' ? { ...was, rows: [...was.rows, ...page.rows], next: page.next, more: 'idle' } : was)),
       () => ask === latest.current && setList((was) => (was.kind === 'ready' ? { ...was, more: 'failed' } : was)),
     )
   }
 
-  const w = kind === 'page' ? words.pages : words.journal
+  const w = words.journal
   const metaOf = (r: ContentRow) => {
-    if (kind === 'post') {
-      const date = formatTime(r.publishAt ?? r.updatedAt)
-      const when = r.status === 'scheduled' ? fill(words.journal.goesLive, { date }) : date
-      return r.author ? fill(words.journal.byline, { when, author: r.author }) : when
-    }
-    const edited = fill(words.pages.edited, { date: formatTime(r.updatedAt) })
-    return r.inMenu ? fill(words.pages.inMenu, { meta: edited }) : edited
+    const date = formatTime(r.publishAt ?? r.updatedAt)
+    const when = r.status === 'scheduled' ? fill(w.goesLive, { date }) : date
+    return r.author ? fill(w.byline, { when, author: r.author }) : when
   }
   // A reader has nothing to write, so `new` shows them the list.
   if (entry !== undefined && (canEdit || entry !== 'new')) {
     const rows = list.kind === 'ready' ? list.rows : []
     return (
       <ContentEditor
-        kind={kind}
         id={entry === 'new' ? null : entry}
         api={api}
         canEdit={canEdit}
         host={host}
         shopName={shopName}
-        contactEmail={contactEmail}
         titleAt={(path) => rows.find((r) => r.path === path)?.title ?? null}
         onBack={() => onEntry(undefined)}
         onToast={onToast}
@@ -92,7 +82,6 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
   if (list.kind === 'loading') return <LoadingState label={words.loading} />
   if (list.kind === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
 
-  const empty = list.rows.length === 0 && list.custom.length === 0
   return (
     <div className="df-sfc">
       <div className="df-sfc-head">
@@ -106,7 +95,7 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
           </button>
         )}
       </div>
-      {empty ? (
+      {list.rows.length === 0 ? (
         <p className="df-sfc-empty">{w.empty}</p>
       ) : (
         <ul className="df-sfc-rows">
@@ -122,28 +111,6 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
               </button>
             </li>
           ))}
-          {list.custom.map((path) => {
-            const inside = (
-              <>
-                <span className="df-sfc-name">
-                  <strong className="df-sfc-path">{path}</strong>
-                </span>
-                <span className="df-sf-tag">{words.pages.ai}</span>
-                <span className="df-sfc-meta">{onStudio ? words.pages.aiMeta : ''}</span>
-              </>
-            )
-            return (
-              <li key={path}>
-                {onStudio ? (
-                  <button type="button" className="df-sfc-row" aria-label={fill(words.pages.aiOpen, { path })} onClick={() => onStudio(path)}>
-                    {inside}
-                  </button>
-                ) : (
-                  <div className="df-sfc-row">{inside}</div>
-                )}
-              </li>
-            )
-          })}
         </ul>
       )}
       {list.next && (

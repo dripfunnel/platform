@@ -3,5 +3,5 @@ import { ContentEditorScreen } from '../../../../../features/storefront/content/
 
 export default function PostRoute() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  return <ContentEditorScreen kind="post" id={id ?? 'new'} />
+  return <ContentEditorScreen id={id ?? 'new'} />
 }
