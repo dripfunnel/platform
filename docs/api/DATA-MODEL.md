@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-29 (#874: rider export and erasure, `erase_rider_labels()`, §3.6, §5.3). Before: 2026-10-28 (#852: `store_delivery_app`, migration 0371, §3.8). Before: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
+Last updated: 2026-10-31 (#1061: the role and settings in one statement, §5.1, §5.3). Before: 2026-10-29 (#874: rider export and erasure, `erase_rider_labels()`, §3.6, §5.3). Before: 2026-10-28 (#852: `store_delivery_app`, migration 0371, §3.8). Before: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
 and step key (0365), what `app_rider` reads of a delivery's warehouse, lines and customer, §7.6, §7.12). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the merchant role's column grants on delivery and offers, no request role reads the handover code). Before: 2026-10-26 (#841: own delivery's settings and checkout option built (0363): the `store_shipping` and `warehouse` columns, `"order".delivery_warehouse_id` and `shipping_option` `own_delivery`, `shop_delivering_warehouse()`, §5.3, §7.2, §7.6, §7.11, §7.12). Before: 2026-10-26 (#840: `push_device` built (0362), the rider's own phones as `app_rider` and the merchant deleting its riders' with suspension and removal, §3.6, §5.3). Before: 2026-10-24 (#897: `storefront_changed()` and `storefront_store_changed()` listed in the `app_definer` row, §5.3). Before: 2026-10-23 (#839: the `app_rider` role and the activity log's `rider` actor and `delivery` API (0360), §3.6, §5.3). Before: 2026-10-23 (#838: `rider`, `rider_session` and `rider_code` built (0359), §3.6). Before: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
@@ -727,7 +727,8 @@ A test checks every set against the matrices in ACCESS.md §5.
 
 ### 5.1 Per-transaction settings
 
-Every transaction opens with `SET LOCAL`, set by `db/` from the caller's context, never from
+Every transaction opens with one statement, `set_config(name, value, true)` (`SET LOCAL`), setting the
+caller kind's role (§5.3) and the settings below, by `db/` from the caller's context, never from
 request input, with one exception: the guest cart or order token, hashed before it reaches
 `db/`, which admits only rows already holding that hash (§7.11):
 
@@ -805,7 +806,7 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 Row policies cannot tell a supplier from the merchant or a shopper from either (all three were
 `app_request` with different settings), and column grants are per role, so every "this column
 never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
-(`db/scoped/index.ts`) issues `set local role <role>` from the caller kind. **Built on #205**: staff requests
+(`db/scoped/index.ts`) sets the caller kind's role in the one `set_config` statement of §5.1 (#1061). **Built on #205**: staff requests
 run as `app_platform`, partner users and staff setup sessions as `app_partner` (#155; it updates its own `partner`
 row by column only, and a trigger lets it change `state` only from Draft to Awaiting approval,
 #214), every
