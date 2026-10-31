@@ -13,7 +13,7 @@ export const archivable = (status: StoreRow['status']): boolean => status === 'c
 
 /**
  * Ends a live Stripe subscription now, before the store's row changes, as Close my store calls Stripe first: a refusal
- * there leaves everything as it was. A store with nothing to end, or one that can't be archived, has nothing to do here.
+ * there leaves everything as it was. Callers hold the store's row lock. A store with nothing to end has nothing to do here.
  */
 export const endStripeSubscription = async (sql: postgres.Sql, stripe: Pick<StoreBillingStripe, 'cancelNow'> | null, storeId: string): Promise<'ok' | 'NOT_CONNECTED' | 'PROVIDER_UNAVAILABLE'> => {
   const sub = await withSystemScope(sql, (tx) => selectBillingSubscription(tx, storeId))
@@ -37,7 +37,7 @@ export const closeStore = async (tx: ScopedSql, store: StoreRow, by: string, at:
   await queueSideEffect(tx, {
     kind: 'email',
     idempotencyKey: `store-archived:${store.id}`,
-    payload: { template: 'store-archived', storeId: store.id, contact: 'partner-support' },
+    payload: { template: 'store-archived', storeId: store.id },
     partnerId: store.partner_id,
     storeId: store.id,
   })

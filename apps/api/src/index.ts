@@ -577,7 +577,8 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe: stripeFor(config), billingStripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
+    const stripe = stripeFor(config)
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
   })
 }
 

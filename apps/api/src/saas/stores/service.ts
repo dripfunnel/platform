@@ -467,10 +467,10 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     if (refused) return refused
     const parsed = reasonText.safeParse(reason ?? '')
     if (!parsed.success) return { ok: false, code: 'REASON_REQUIRED' }
-    if (!(await visible(id))) return { ok: false, code: 'NOT_FOUND' }
-    const ended = await endStripeSubscription(sql, deps.stripe ?? null, id)
-    if (ended !== 'ok') return { ok: false, code: 'PROVIDER_UNAVAILABLE' }
     return locked(id, async (tx, store): Promise<Result<{ status: StoreStatus }>> => {
+      if (!archivable(store.status)) return { ok: false, code: 'NOT_ARCHIVABLE' }
+      // Stripe under the store's lock, so nothing restores the store between the cancellation and the close.
+      if ((await endStripeSubscription(sql, deps.stripe ?? null, id)) !== 'ok') return { ok: false, code: 'PROVIDER_UNAVAILABLE' }
       if (!(await closeStore(tx, store, staff.name, now(), endSubscriptionNow))) return { ok: false, code: 'NOT_ARCHIVABLE' }
       await activity.record(tx, entry(store, storeAudit.archiveStore, parsed.data, { changes: [{ field: 'status', before: store.status, after: 'closed' }] }))
       return { ok: true, status: 'closed' }

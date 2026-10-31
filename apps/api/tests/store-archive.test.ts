@@ -3,7 +3,7 @@ import { factsOf } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { PartnerRole } from '#auth/partnerPermissions'
 import type { StaffMember, StaffRole } from '#auth/staff'
-import { withSystemScope } from '#db/scoped/index'
+import { withScope, withSystemScope } from '#db/scoped/index'
 import { selectMemberships } from '#db/scoped/storeCaller'
 import { selectMyMemberships } from '#db/scoped/storeShell'
 import { StripeRefused } from '#integrations/stripe/api'
@@ -132,5 +132,45 @@ describe('archiving from the partner console', () => {
     const page = await createPartnerStoresService({ sql: db.sql, caller: partnerCaller(t.partnerA), facts, activity: activityLog, shopDomain: 'shop.example', now: () => now }).store(t.storeA2)
     expect(page?.actions.archive).toEqual({ allowed: false, reason: 'CANCEL_OR_SUSPEND_FIRST' })
     expect(await partner(t.partnerA).archiveStore(t.storeA2, 'x')).toEqual({ ok: false, reason: 'CANCEL_OR_SUSPEND_FIRST' })
+  })
+
+  it('leaves a suspended store as it was when Stripe can’t end its subscription, or refuses to', async () => {
+    await suspend(t.storeA2)
+    for (const failure of [new Error('no answer'), new StripeRefused('api_key_expired')]) {
+      stripeFails = failure
+      expect(await partner(t.partnerA).archiveStore(t.storeA2, 'Merchant left')).toEqual({ ok: false, reason: 'PROVIDER_UNAVAILABLE' })
+      expect((await statusOf(t.storeA2))?.status).toBe('suspended')
+      expect((await subOf(t.storeA2))?.status).toBe('active')
+    }
+  })
+
+  it('archives a suspended store, through Cancelled to Closed', async () => {
+    expect(await partner(t.partnerA).archiveStore(t.storeA2, 'Merchant left')).toEqual({ ok: true })
+    expect(await statusOf(t.storeA2)).toEqual({ status: 'closed', closed_at: now, closed_by_label: 'Partner A' })
+    expect(await subOf(t.storeA2)).toEqual({ status: 'cancelled', cancel_at: now })
+    expect(ended).toEqual([`sub_${t.storeA2.slice(0, 8)}`])
+  })
+})
+
+describe('partner_end_subscription, as the partner itself', () => {
+  const asPartner = (partnerId: string, query: string) => withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId }, (tx) => tx.unsafe(query))
+  const end = (partnerId: string, storeId: string) => asPartner(partnerId, `select partner_end_subscription('${storeId}', now())`)
+  const live = (storeId: string) => db.sql`update store_subscription set status = 'active', cancel_at = null where store_id = ${storeId}`
+
+  it('ends only its own store’s subscription, only once Closed, and never lets it write the status itself', async () => {
+    await live(t.storeB1)
+    await end(t.partnerA, t.storeB1)
+    expect((await subOf(t.storeB1))?.status).toBe('active')
+
+    await db.sql`update store set status = 'cancelled' where id = ${t.storeA2}`
+    await live(t.storeA2)
+    await end(t.partnerA, t.storeA2)
+    expect((await subOf(t.storeA2))?.status).toBe('active')
+
+    await expect(asPartner(t.partnerA, `update store_subscription set status = 'cancelled' where store_id = '${t.storeA2}'`)).rejects.toThrow(/permission denied/i)
+
+    await db.sql`update store set status = 'closed' where id = ${t.storeA2}`
+    await end(t.partnerA, t.storeA2)
+    expect((await subOf(t.storeA2))?.status).toBe('cancelled')
   })
 })

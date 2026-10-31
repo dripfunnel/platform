@@ -286,10 +286,9 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, billin
     const parsed = reasonText.safeParse(rawReason)
     if (!parsed.success) return { ok: false, reason: 'INVALID_INPUT' }
     const reason = parsed.data
-    const allowed = await act<object>(storeId, 'archive', async () => ({ ok: true }))
-    if (!allowed.ok) return allowed
-    if ((await endStripeSubscription(sql, billingStripe, storeId)) !== 'ok') return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
     return act<object>(storeId, 'archive', async (tx, store, _row, at) => {
+      // Stripe under the store's lock, so nothing restores the store between the cancellation and the close.
+      if ((await endStripeSubscription(sql, billingStripe, storeId)) !== 'ok') return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
       if (!(await closeStore(tx, store, caller.partner.name, at, partnerEndSubscription))) return { ok: false, reason: 'CANCEL_OR_SUSPEND_FIRST' }
       await activity.record(tx, entry(store, storeActionAudit.archiveStore, reason, { changes: [{ field: 'status', before: store.status, after: 'closed' }] }))
       return { ok: true }
