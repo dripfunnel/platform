@@ -376,9 +376,9 @@ install it (`postgresql-contrib` / `postgresql-contrib-18`) rather than partiall
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
 `.env.example` or `wrangler.jsonc` ever points at
 `dbpg01.softobotics.org`. The exceptions are the deploy workflows, each of
-which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply migrations to its own Neon
-branch: `dev.yml` (the persistent `dev` branch), `prod.yml` (production) and
-`feature-env.yml` (the feature environment's branch). The guard
+which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply migrations to its own
+database: `dev.yml` (the persistent dev database, on PlanetScale), `prod.yml`
+(production's Neon branch) and `feature-env.yml` (the feature environment's Neon branch). The guard
 (`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
 by GitHub Actions) so the override can't be tripped by an env var left in a
 shell profile or `.env` on a developer machine, and requires the connection
