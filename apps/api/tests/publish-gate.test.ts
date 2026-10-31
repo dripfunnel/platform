@@ -8,7 +8,7 @@ import { allowanceUsed } from '#db/scoped/publishing'
 import { recordGate } from '#db/scoped/builds'
 import { createGitHubApp, GitHubRefused, GitHubUnavailable, noAnswer, storeRepos } from '#integrations/github/index'
 import { localGitHub } from '#integrations/local/github'
-import { digestOf, dispatchBuild, runPublish, startPublish, type PublishDeps } from '#saas/storefronts/index'
+import { attachCatalogue, digestOf, dispatchBuild, freezeBuild, maxCatalogueVersionPages, recordCatalogueBase, recordCatalogueProducts, runPublish, startPublish, type CatalogueRecorder, type PublishDeps } from '#saas/storefronts/index'
 import { draftBundle, snapshotFile, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
 import { testProbe } from './support/edgeProbe'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -105,6 +105,79 @@ describe('a publish’s build', () => {
     // No report within the build id's 2 hours: the publish fails and the live site is as it was.
     expect(await runOf(runId)).toMatchObject({ state: 'failed', error: 'report_timed_out' })
     expect((await runOf(runId))?.dispatched_at).not.toBeNull()
+  })
+
+  describe('the catalogue (#1011)', () => {
+    const asked: string[] = []
+    const recorder = (base: { answers: { operation: string; variables: Record<string, unknown>; data: Record<string, unknown> }[]; slugs: string[]; collections: { slug: string }[] }): CatalogueRecorder => ({
+      base: async (host) => (asked.push(`base ${host}`), { ...base, store: { marketId: null, markets: [] }, failed: 0 }),
+      store: async (host) => (asked.push(`store ${host}`), { marketId: null, markets: [] }),
+      products: async (_, slugs) => (asked.push(`products ${slugs.join(',')}`), { answers: slugs.map((slug) => ({ operation: 'Product', variables: { slug }, data: { product: { slug } } })), products: slugs.map((slug) => ({ slug, versions: ['v1', 'v2'] })), failed: 0 }),
+    })
+    const startRun = (coreVersion: string, n: number, kind: 'design' | 'page' = 'design', render?: { pages: string[]; drop: string[] }) =>
+      withSystemScope(db.sql, (tx) => startPublish(tx, { storeId: t.storeA1, kind, commit: commit(n), template: 'linen', coreVersion, usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date(), ...(render ? { render } : {}) })).then((r) => (r.ok ? r.runId : ''))
+    const snapshotOf = async (runId: string) =>
+      JSON.parse((await (await drafts.get(snapshotFile(t.storeA1, runId)))?.text()) ?? '{}') as Record<string, unknown> & { catalogue?: { answers: { operation: string }[]; products: { slug: string; versions: string[] }[]; collections: unknown[] } }
+    const record = async (d: PublishDeps, runId: string) => {
+      await freezeBuild(d, t.storeA1, runId)
+      const parts = (await recordCatalogueBase(d, t.storeA1, runId)) ?? -1
+      for (let n = 0; n < parts; n += 1) await recordCatalogueProducts(d, t.storeA1, runId, n)
+      if (parts >= 0) await attachCatalogue(d, t.storeA1, runId, parts)
+      await db.sql`update publish_run set state = 'failed' where id = ${runId}`
+      return snapshotOf(runId)
+    }
+
+    it('makes the snapshot version 2 with the recorded catalogue for a core that reads it, and never for an older one', async () => {
+      asked.length = 0
+      const d = { ...deps(), catalogue: recorder({ answers: [{ operation: 'Menu', variables: {}, data: { menu: [] } }], slugs: ['kurta'], collections: [{ slug: 'summer' }] }) }
+      const [store] = await db.sql<{ code: string }[]>`select code from store where id = ${t.storeA1}`
+      for (const [core, n] of [['0.4.0', 11], ['0.4.0-dev.3', 12]] as const) {
+        expect(await record(d, await startRun(core, n))).toMatchObject({ version: 2, catalogue: { answers: [{ operation: 'Menu' }, { operation: 'Product' }], products: [{ slug: 'kurta', versions: ['v1', 'v2'] }], collections: [{ slug: 'summer' }] } })
+      }
+      const host = `${store?.code ?? ''}.shop.example`
+      expect(asked).toEqual([`base ${host}`, 'products kurta', `base ${host}`, 'products kurta'])
+      const older = await record(d, await startRun('0.3.0', 13))
+      expect(older).toMatchObject({ version: 1 })
+      expect(older).not.toHaveProperty('catalogue')
+      expect(asked).toHaveLength(4)
+      // The parts are gone once the snapshot holds them.
+      expect(drafts.keys(`snapshots/${t.storeA1}/`).filter((k) => k.includes('.catalogue/'))).toEqual([])
+    })
+
+    it('records nothing for a build its freeze refused', async () => {
+      asked.length = 0
+      const runId = await startRun('1.0.0', 14)
+      await drafts.delete([draftBundle(t.storeA1)])
+      expect(await runPublish({ ...deps(), catalogue: recorder({ answers: [], slugs: [], collections: [] }) }, { runId, storeId: t.storeA1 }, noReport)).toBe('failed')
+      expect(await runOf(runId)).toMatchObject({ error: 'no_source' })
+      expect(asked).toEqual([])
+    })
+
+    it('gives a page run the live build’s answers and only its own products, so nothing else is republished', async () => {
+      asked.length = 0
+      const live = await startRun('1.0.0', 15)
+      const liveSnapshot = JSON.stringify({ version: 2, catalogue: { answers: [{ operation: 'Menu', variables: {}, data: { menu: [] } }, { operation: 'Product', variables: { slug: 'old' }, data: {} }], products: [{ slug: 'old', versions: [] }], collections: [] } })
+      await drafts.put(snapshotFile(t.storeA1, live), bundleBytes(liveSnapshot), { sha256: await hexOf(liveSnapshot) })
+      await drafts.put(sourceBundle(t.storeA1, live), bundleBytes('live source'), { sha256: await hexOf('live source') })
+      await db.sql`update publish_run set state = 'live', finished_at = now() where id = ${live}`
+      await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA1}`
+      const d = { ...deps(), catalogue: recorder({ answers: [], slugs: [], collections: [] }) }
+      const page = await record(d, await startRun('1.0.0', 16, 'page', { pages: ['/products/new-mug', '/hi-in/products/new-mug', '/'], drop: ['/products/gone'] }))
+      expect(page.catalogue).toEqual({
+        answers: [{ operation: 'Menu', variables: {}, data: { menu: [] } }, { operation: 'Product', variables: { slug: 'new-mug' }, data: { product: { slug: 'new-mug' } } }],
+        products: [{ slug: 'new-mug', versions: ['v1', 'v2'] }],
+        collections: [],
+      })
+      expect(asked.filter((a) => a.startsWith('base'))).toEqual([])
+    })
+
+    it('keeps version pages within the build’s budget, in the products’ order', async () => {
+      const slugs = Array.from({ length: maxCatalogueVersionPages / 2 + 1 }, (_, i) => `p${i}`)
+      const snapshot = await record({ ...deps(), catalogue: recorder({ answers: [], slugs, collections: [] }) }, await startRun('1.0.0', 17))
+      const products = snapshot.catalogue?.products ?? []
+      expect(products.reduce((n, p) => n + p.versions.length, 0)).toBe(maxCatalogueVersionPages)
+      expect(products.at(-1)).toEqual({ slug: slugs.at(-1), versions: [] })
+    })
   })
 
   it('refuses a failing report: checking, then failed, with nothing uploaded, pushed or made live, and the next publish starts', async () => {

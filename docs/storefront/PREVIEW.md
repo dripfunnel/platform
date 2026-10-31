@@ -5,7 +5,8 @@ files come from, where they are kept, how the link is served and protected. Each
 works that way.
 
 [ARCHITECTURE.md](ARCHITECTURE.md) §4.1 says what the preview is: a client-rendered SPA of the
-draft theme, with live catalogue data, `noindex`, a signed link and test-mode checkout. This
+draft theme, with live catalogue data, `noindex`, a signed link and test-mode checkout. It never gets the live
+build's recorded catalogue answers (#1011): every page loads its data from the Shop API, so a catalogue change shows at once. This
 document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files, and
 [LIVE-SHOP.md](LIVE-SHOP.md) runs the same edge Worker for live sites.
 
@@ -13,7 +14,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+Last updated: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
 replacing the preview key, §1, §2, §8; built on #744, store-proxy and dev included). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the

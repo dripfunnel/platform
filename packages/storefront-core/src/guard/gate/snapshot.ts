@@ -36,8 +36,36 @@ const origin = z.string().regex(/^(?:https:\/\/[a-z0-9.-]+|http:\/\/(?:127\.0\.0
 /** The posts a build writes pages for: the newest, past which a post is still served by the blog's client-rendered page. */
 export const maxSnapshotPosts = 500
 
+/** The products and collections a build writes pages for; past them an item is served by its route's client-rendered page. */
+export const maxSnapshotProducts = 1000
+export const maxSnapshotCollections = 200
+/** Version addresses across all products, so a build stays well inside the platform's 5,000 files (saas/storefronts/manifest.ts). */
+export const maxSnapshotVersionPages = 2000
+
+const itemSlug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(200)
+
+/**
+ * The Shop API's own answers to core's catalogue questions (version 2, ARCHITECTURE §4.2), which the build's offline
+ * client gives the page (`recordedShopClient`), and the items the build writes a page for.
+ */
+export const snapshotCatalogueSchema = z.strictObject({
+  answers: z
+    .array(z.strictObject({ operation: z.string().regex(/^[A-Za-z_]\w{0,63}$/), variables: z.record(z.string(), z.unknown()), data: z.record(z.string(), z.unknown()) }))
+    .max(maxSnapshotProducts + maxSnapshotCollections * 2 + 20),
+  /** Each product's slug and, when it has more than one, its versions' ids, which have their own addresses. */
+  products: z
+    .array(z.strictObject({ slug: itemSlug, versions: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)).max(250) }))
+    .max(maxSnapshotProducts)
+    .refine((products) => products.reduce((n, p) => n + p.versions.length, 0) <= maxSnapshotVersionPages, 'too many version pages'),
+  collections: z.array(z.strictObject({ slug: itemSlug })).max(maxSnapshotCollections),
+})
+
+export type SnapshotCatalogue = z.infer<typeof snapshotCatalogueSchema>
+
 export const catalogueSnapshotSchema = z.strictObject({
-  version: z.literal(1),
+  /** 2 carries the catalogue; a build image before it refuses one, so the platform sends it only to a core that reads it. */
+  version: z.union([z.literal(1), z.literal(2)]),
+  catalogue: snapshotCatalogueSchema.nullable().default(null),
   /** The store's live address, which the sitemap, canonical links and robots.txt name (ARCHITECTURE §8). */
   origin,
   store: snapshotStoreSchema,
