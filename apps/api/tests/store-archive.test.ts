@@ -6,6 +6,7 @@ import type { StaffMember, StaffRole } from '#auth/staff'
 import { withSystemScope } from '#db/scoped/index'
 import { selectMemberships } from '#db/scoped/storeCaller'
 import { selectMyMemberships } from '#db/scoped/storeShell'
+import { StripeRefused } from '#integrations/stripe/api'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/service'
@@ -22,10 +23,10 @@ const facts = factsOf(request)
 let owner = ''
 
 const ended: string[] = []
-let stripeDown = false
+let stripeFails: Error | null = null
 const stripe = {
   cancelNow: async (id: string) => {
-    if (stripeDown) throw new Error('no answer')
+    if (stripeFails) throw stripeFails
     ended.push(id)
   },
 }
@@ -66,7 +67,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   ended.length = 0
-  stripeDown = false
+  stripeFails = null
 })
 
 describe('archiving from the admin console', () => {
@@ -84,10 +85,13 @@ describe('archiving from the admin console', () => {
     expect(await admin().archiveStore(t.storeA1, '   ')).toMatchObject({ ok: false, code: 'REASON_REQUIRED' })
   })
 
-  it('leaves a suspended store as it was when Stripe can’t end its subscription', async () => {
-    stripeDown = true
-    expect(await admin().archiveStore(t.storeA1, 'Fraud')).toMatchObject({ ok: false, code: 'PROVIDER_UNAVAILABLE' })
-    expect((await statusOf(t.storeA1))?.status).toBe('suspended')
+  it('leaves a suspended store as it was when Stripe can’t end its subscription, or refuses to', async () => {
+    for (const failure of [new Error('no answer'), new StripeRefused('api_key_expired')]) {
+      stripeFails = failure
+      expect(await admin().archiveStore(t.storeA1, 'Fraud')).toMatchObject({ ok: false, code: 'PROVIDER_UNAVAILABLE' })
+      expect((await statusOf(t.storeA1))?.status).toBe('suspended')
+      expect((await subOf(t.storeA1))?.status).toBe('active')
+    }
   })
 
   it('archives a suspended store: its subscription ended now, gone for its people, the Owner told, logged with the reason', async () => {

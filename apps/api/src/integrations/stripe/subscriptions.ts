@@ -27,7 +27,7 @@ export interface StoreBillingStripe {
   releaseSchedule: (scheduleId: string) => Promise<void>
   /** Ends the subscription at its period's end; nothing more is charged. */
   cancelAtPeriodEnd: (subscriptionId: string, idempotencyKey: string) => Promise<StripeSubscription>
-  /** Ends it now, no refund (#1056); one already ended is left as it is. */
+  /** Ends it now, no refund (#1056); one already ended or gone is left as it is, and any other refusal is thrown. */
   cancelNow: (subscriptionId: string) => Promise<void>
   /** Tries the open invoice again with the customer's card; the key is per card, so a new card tries once more. */
   payInvoice: (invoiceId: string, idempotencyKey: string) => Promise<StripeInvoice>
@@ -125,12 +125,16 @@ export const storeBillingStripe = ({ secretKey, fetchImpl = fetch }: { secretKey
     cancelAtPeriodEnd: (subscriptionId, idempotencyKey) =>
       call(subscription, 'POST', `/subscriptions/${encodeURIComponent(subscriptionId)}`, { body: form({ cancel_at_period_end: 'true' }), idempotencyKey }),
     cancelNow: async (subscriptionId) => {
+      const path = `/subscriptions/${encodeURIComponent(subscriptionId)}`
       try {
         // A DELETE is idempotent at Stripe, so it takes no key.
-        await call(z.object({ id: z.string() }).loose(), 'DELETE', `/subscriptions/${encodeURIComponent(subscriptionId)}`)
+        await call(z.object({ id: z.string() }).loose(), 'DELETE', path)
       } catch (error) {
-        // Ended already, or gone: nothing is left to charge, which is what was asked.
         if (!(error instanceof StripeRefused)) throw error
+        if (error.code === 'resource_missing') return
+        // Any other refusal (a revoked key, say) counts as done only if Stripe shows it ended.
+        const current = await call(z.object({ status: subscriptionSchema.shape.status }).loose(), 'GET', path)
+        if (current.status !== 'canceled') throw error
       }
     },
     payInvoice: (invoiceId, idempotencyKey) => call(invoiceSchema.loose(), 'POST', `/invoices/${encodeURIComponent(invoiceId)}/pay`, { idempotencyKey }),
