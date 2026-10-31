@@ -18,8 +18,10 @@ export const inheritBatch = 500
 // Plain names only: no `.` or `..` segment, no `//host` (LIVE-SHOP §5 step 6).
 const address = z.string().max(2048).regex(/^\/(?:(?!\.{1,2}(?:\/|$))[A-Za-z0-9._~@+,=-]+\/?)*$/)
 
-/** `storefront.render`: what the product triggers (migration 0287) and #471's home page save queue. */
-export const renderRequest = z.strictObject({ storeId: z.uuid(), pages: z.array(address).min(1).max(maxRenderPages), drop: z.array(address).max(maxRenderPages) })
+/** `storefront.render`: what the product triggers (migrations 0287, 0378: a hidden product's drop alone) and #471's home page save queue. */
+export const renderRequest = z
+  .strictObject({ storeId: z.uuid(), pages: z.array(address).max(maxRenderPages), drop: z.array(address).max(maxRenderPages) })
+  .refine((r) => r.pages.length + r.drop.length > 0, 'nothing to render')
 export type RenderRequest = z.infer<typeof renderRequest>
 
 /** Two renders waiting together render both; the later one wins where they disagree (a page asked for, then moved). */

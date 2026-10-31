@@ -9,6 +9,7 @@ import {
   createTextKeys,
   createShopClient,
   loadStore,
+  PrefilledProvider,
   previewClosedCode,
   PreviewClosed,
   setRouterBase,
@@ -85,7 +86,7 @@ const render = async (pages: ThemePages): Promise<void> => {
 }
 
 /** A live page carries the store it was built with and its route (publish/pages.ts), so it hydrates the same tree. */
-const livePage = (): { route: ThemeRoute | null; custom: string | null; path: string; store: ShopStoreSettings; poweredBy: string | null } | null => {
+const livePage = (): { route: ThemeRoute | null; custom: string | null; path: string; store: ShopStoreSettings; poweredBy: string | null; answers?: Record<string, unknown> } | null => {
   const text = document.getElementById('df-page')?.textContent
   return text ? (JSON.parse(text) as ReturnType<typeof livePage>) : null
 }
@@ -97,7 +98,7 @@ const hydrate = (pages: ThemePages, live: NonNullable<ReturnType<typeof livePage
   const { t } = createI18n(live.store.language, pages.content as Record<string, Catalogue>)
   const tree = (
     <StorefrontProvider value={{ client, store: live.store, locale: live.store.language, t, mode: 'live', poweredBy: live.poweredBy }} address={live.path}>
-      {routed(Page, live.route)}
+      {live.answers ? <PrefilledProvider value={{ answers: new Map(Object.entries(live.answers)) }}>{routed(Page, live.route)}</PrefilledProvider> : routed(Page, live.route)}
     </StorefrontProvider>
   )
   // The built checkout is the theme's for a visit without JavaScript; with it, the switch is the browser's, so it renders afresh.

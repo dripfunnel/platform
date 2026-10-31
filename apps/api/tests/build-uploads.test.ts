@@ -139,16 +139,18 @@ describe('the OIDC check on every call', () => {
     expect((await run(id))?.github_run_id).toBe('5001')
   })
 
-  it('links every file of the live build for the visual diff', async () => {
+  it('links every file of the live build for the visual diff but its product and collection pages (#1011)', async () => {
     const live = await newBuild(t.storeA2, { state: 'live' })
     await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA2}`
-    const files = [{ path: 'index.html', sha256: 'e'.repeat(64), size: 10 }, { path: 'assets/app.js', sha256: 'f'.repeat(64), size: 5 }]
+    const item = (path: string) => ({ path, sha256: 'a'.repeat(64), size: 1 })
+    const files = [{ path: 'index.html', sha256: 'e'.repeat(64), size: 10 }, { path: 'assets/app.js', sha256: 'f'.repeat(64), size: 5 }, item('products/kurta/index.html'), item('products/kurta/v1/index.html'), item('hi/collections/summer/index.html'), item('_fallback/product/index.html')]
     await putText(sites, `stores/${t.storeA2}/builds/${live}/_manifest.json`, JSON.stringify({ files }))
     const id = await newBuild(t.storeA2)
     const answer = await startBuild(deps, await token(claimsFor(repos.a2, '6001')), id)
     expect(answer.live?.map((f) => [f.path, new URL(f.url).pathname])).toEqual([
       ['index.html', `/storefront-sites/stores/${t.storeA2}/builds/${live}/index.html`],
       ['assets/app.js', `/storefront-sites/stores/${t.storeA2}/builds/${live}/assets/app.js`],
+      ['_fallback/product/index.html', `/storefront-sites/stores/${t.storeA2}/builds/${live}/_fallback/product/index.html`],
     ])
     await db.sql`update storefront set live_build_id = null where store_id = ${t.storeA2}`
   })

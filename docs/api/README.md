@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -321,8 +321,8 @@ the owner nor a member it stops before the first statement and names both roles 
 that fixes it, rather than failing on Postgres's bare "must be owner".
 
 **Which role a request runs as** (DATA-MODEL.md §5.3, built on #205). `withScope`
-(`src/db/scoped/index.ts`) issues `set local role` with what `roleFor`
-(`src/db/rls/settings.ts`) returns for the caller kind: staff on the Admin API run as
+(`src/db/scoped/index.ts`) sets the role, as `set_config('role', …, true)` in the same statement as the
+settings (#1061), to what `roleFor` (`src/db/rls/settings.ts`) returns for the caller kind: staff on the Admin API run as
 `app_platform`; partner users and staff setup sessions run as `app_partner` (#155);
 merchant-side people and support sessions run as `app_request`; supplier users as `app_supplier`
 (#295); shoppers as `app_shop` (#306), which `request_scope` holds to `shop` scope on the tables it reads;

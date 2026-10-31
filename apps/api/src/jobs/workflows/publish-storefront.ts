@@ -8,6 +8,7 @@ import { anthropicProvider, localAiProvider } from '#integrations/ai/index'
 import { designModel, repairBrief } from '#saas/ai-designer/index'
 import { lookupLiveHost, pushToRepo, runPublish, sameWorkflow, type PublishParams, type RepoFile } from '#saas/storefronts/index'
 import type { StudioSessionObject } from '#jobs/durable/studio'
+import { shopCatalogueRecorder } from '#apis/shop/record'
 
 export interface PublishStorefrontEnv extends Record<string, unknown> {
   STOREFRONT_SITES?: R2Bucket | undefined
@@ -68,6 +69,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
         const main = await repos.head(repo)
         return main !== null && sameWorkflow(repos, repo, known, main)
       },
+      catalogue: shopCatalogueRecorder(sql, shopDomain, () => new Date()),
       now: () => new Date(),
       probe,
       assetHost: `sf-assets.${shopDomain}`,

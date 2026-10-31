@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -126,9 +126,10 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   (`platform/seo`); and the headless `Checkbox`, `Select` and `SearchField` (`ui/headless`).
 - **Loading, in both render modes**: a hook renders its loading state in the static build and in the browser's first
   render alike, so hydration matches, then asks the Shop API (`platform/render`'s `useShopData`). A question is asked once
-  per page however many components ask it, and only the latest question's answer is kept. The static build doesn't
-  prerender catalogue pages yet, since the snapshot carries only the store (§4.2): products and collections reach a live
-  page in the browser.
+  per page however many components ask it, and only the latest question's answer is kept. *Since #1011* a live page
+  built from a catalogue snapshot (§4.2) starts from the answers it was built with (`PrefilledProvider`): it renders
+  them in the static HTML and at hydration, then asks the Shop API again and shows the newer answer, keeping the built
+  one if that fails. The preview and the studio get no answers and load as before.
 - **The address is the state**: `filter` (each chosen facet value's id, repeated), `sort` (`featured`, `newest`,
   `price-low`, `price-high`, `name`), `after` or `before` (the page's cursor) and `q` (search words, at most 200
   characters). A new filter or sort goes back to the first page; the canonical link keeps only the cursor. 24 products a
@@ -820,12 +821,25 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
 - `edge-cases`: the theme rendered against the edge-case catalogue (§10) at phone width: whole, no wider than the
   screen, its required parts seen, its heading and words there without JavaScript.
 
-*Decided on #483:* until the snapshot carries the catalogue (core's product hooks exist since #307, and load in the browser), the static build prerenders the routes core can
-fill today (home, search, cart, checkout, the account and sign-in pages, 404, the degraded page and the custom pages),
-and each item route's client-rendered page. `runGate` requires the sealed price on the routes core gave a price to show
-(`priced`; product, cart and checkout when the input leaves it out), and the check step names none until core's
-product and cart hooks put a price on a built page: a static cart has no lines. Legal notices are required the same way when the
-input says the store's markets need them (`legal`). A page or width the check step skipped, an unweighed budgeted page
+*Decided on #483:* the static build prerenders the routes core can fill (home, search, cart, checkout, the account and
+sign-in pages, 404, the degraded page and the custom pages), and each item route's client-rendered page. *Built on
+#1011:* a version 2 snapshot carries the catalogue as the Shop API's own answers to core's questions (`catalogue`:
+each product, the store's collections and each one's first 24, `/collections/all/`, the four sorts' first 24, the
+collections list and the menu, recorded in-process by `apis/shop/record.ts` on the store's live host), and the build
+answers the page from them offline (`recordedShopClient`), rendering each page until it asks nothing new. It writes a
+page for each product (newest first, at most 1,000), each of its versions when it has more than one (canonical to the
+product, so not in the sitemap; at most 2,000 across the catalogue, within the build's 5,000 files), and each
+collection (at most 200), in the main language only, with the item's head (its own title, as `useHead` sets it) and
+Product data; any other item, another language's and one added later keep their route's client-rendered page. Each
+page carries the answers it was built with, which its hydration starts from. The platform sends version 2 only to a
+build whose core reads it (0.4.0 on), so an older store builds as before. The check step reads, visits and weighs
+every page but the items past each item route's first two, which the edge cases render too, the long-names case with
+the catalogue's names and words stretched and its pictures gone; the build has already rendered every item without
+throwing. `runGate` requires the sealed price on the routes core gave a price to show (`priced`; product, cart and
+checkout when the input leaves it out), never on a route's client-rendered page, which is written without its item; a
+page built from the catalogue (`items`) needs the price only when its product (or the version its address names) has
+one, and the legal notices when the product has compliance details for the store's market or everywhere: a static cart
+has no lines. Legal notices are required the same way when the input says the store's markets need them (`legal`). A page or width the check step skipped, an unweighed budgeted page
 or an edge case it didn't render fails the check that needed it, and an address with `..`, an encoded character, a
 query or an empty segment never passes for a page or an item.
 

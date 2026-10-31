@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 export interface StockPhoto {
   id: string
+  source: string
   thumb: string
   user: string
   pageUrl: string
@@ -13,7 +14,7 @@ export interface StockPhoto {
 
 export interface StockImages {
   search: (query: string, page: number) => Promise<{ photos: StockPhoto[]; total: number } | null>
-  /** The 1280px file's address for one result id, re-asked from Pixabay so a client never names the address. */
+  /** The file's address for one result id, re-asked from its source so a client never names the address. */
   download: (id: string) => Promise<string | null>
 }
 
@@ -52,7 +53,7 @@ export const pixabayImages = ({ key, fetchImpl = fetch }: { key: string; fetchIm
     search: async (query, page) => {
       const found = await ask({ q: query.slice(0, 100), page: String(page), per_page: String(perPage) })
       if (!found) return null
-      return { total: found.totalHits, photos: found.hits.filter((h) => isPixabayUrl(h.webformatURL)).map((h) => ({ id: String(h.id), thumb: h.webformatURL, user: h.user, pageUrl: h.pageURL, tags: h.tags })) }
+      return { total: found.totalHits, photos: found.hits.filter((h) => isPixabayUrl(h.webformatURL)).map((h) => ({ id: String(h.id), source: 'pixabay', thumb: h.webformatURL, user: h.user, pageUrl: h.pageURL, tags: h.tags })) }
     },
     download: async (id) => {
       const found = await ask({ id })

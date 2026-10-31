@@ -55,7 +55,7 @@ import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
-import { isLocalhost, parseConfig, type Config } from '#core/config'
+import { aiPhotoSourcesDefault, isLocalhost, parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
@@ -136,6 +136,10 @@ import type { TenantContext } from '#core/tenancy'
 import { localAiProvider } from '#integrations/ai/index'
 import { designerAiFor, designerModelsFor } from '#saas/aiGateway/index'
 import { browserScreenshots } from '#integrations/cloudflare/screenshot'
+import { commonsImages } from '#integrations/stockImages/commons'
+import { stockImages } from '#integrations/stockImages/combine'
+import { openverseImages } from '#integrations/stockImages/openverse'
+import { pexelsImages } from '#integrations/stockImages/pexels'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
@@ -814,7 +818,13 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
     models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
-    stock: config.PIXABAY_API_KEY ? pixabayImages({ key: config.PIXABAY_API_KEY }) : null,
+    aiPhotos: config.AI_PHOTOS === '1' ? (config.AI_PHOTO_SOURCES ?? aiPhotoSourcesDefault) : [],
+    stock: stockImages({
+      ...(config.PIXABAY_API_KEY ? { pixabay: pixabayImages({ key: config.PIXABAY_API_KEY }) } : {}),
+      ...(config.PEXELS_API_KEY ? { pexels: pexelsImages({ key: config.PEXELS_API_KEY }) } : {}),
+      openverse: openverseImages(),
+      commons: commonsImages(),
+    }),
     readAsset: assets
       ? async (r2Key) => {
           const object = await assets.get(r2Key)

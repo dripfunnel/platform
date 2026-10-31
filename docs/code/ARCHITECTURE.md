@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-10-27 (the template's token-free `.npmrc` for a store repo's local install, §5). Before: 2026-10-22 (five APIs with the Delivery API, proposed). Before: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
+Last updated: 2026-10-31 (#1065: dev builds are `0.4.0-dev.<run>` since core 0.4.0, §5). Before: 2026-10-27 (the template's token-free `.npmrc` for a store repo's local install, §5). Before: 2026-10-22 (five APIs with the Delivery API, proposed). Before: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
 Before: 2026-10-09 (the sandbox image published on `ghcr.io` for store builds, public then; private with a pull token since #790).
 
 ---
@@ -98,8 +98,8 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   card, is never published.
 - **Dev channel** (#761): every push to `dev` publishes `<version>-dev.<run number>` under the `dev` dist-tag
   (`main` publishes under `latest`). The stamp is written inside the run only; a dev build gets no git tag,
-  no `core_release` row, only its ghcr.io build image (store repos' builds pull it, LIVE-SHOP §4 step 5) and a tag in dev's Cloudflare registry, whose newest digest dev.yml writes into `env.dev`'s `containers` entry at deploy (#790). Dev builds are the one exception to the `0.0.0` rule: they
-  publish as `0.0.0-dev.<run>` so the channel works before the first release card.
+  no `core_release` row, only its ghcr.io build image (store repos' builds pull it, LIVE-SHOP §4 step 5) and a tag in dev's Cloudflare registry, whose newest digest dev.yml writes into `env.dev`'s `containers` entry at deploy (#790). Dev builds are the one exception to the `0.0.0` rule: the tag is
+  `<version>-dev.<run>` (`0.0.0-dev.<run>` until the first release card, `0.4.0-dev.<run>` since core 0.4.0).
 - CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
   `packages/storefront-core` (its changelog aside) without adding a changeset naming the
   package. Two kinds pass without one: a release PR (a new version, the changelog heading

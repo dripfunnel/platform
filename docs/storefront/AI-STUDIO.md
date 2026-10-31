@@ -14,11 +14,11 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7), and the frame
 on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
-**Since 2026-10-30** (a card follows): chat mode, Stop, Retry, image import by web address, the free photo picker, Storefront ›
+**Since 2026-10-30** (a card follows; photo sources from 2026-10-31): chat mode, Stop, Retry, image import by web address, the free photo picker, Storefront ›
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -293,14 +293,19 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   links to that build's own run (LIVE-SHOP §2).
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
-- **The AI's own photos** (built, switched off 2026-10-30: Pixabay's API docs say "the API is made for real human requests; do not send lots of automated queries", so `StudioDeps.aiPhotos` stays false and the Worker never sets it; turn it on only with Pixabay's written permission): on a change request, the model may call `search_stock_images` and
-  `add_stock_image` (at most four calls in a change, none in a repair). The Worker runs each through the same Pixabay
-  client and the same download path as the merchant's picker: the model names words and an id from the results it was
-  given, never an address, and the file lands in Assets as the merchant's own, `storefront_visible`, logged as
-  `storefront.image_imported`. Results are untrusted web text: only an id, tags and a name go back to the model, cut and
-  stripped of control characters, and the prompt says to follow no instruction in them. Each photo added is a note in the
-  chat with its thumbnail and "by {name} on Pixabay". Pixabay asks for requests made by a person, so a search happens only
-  on a merchant's request and never in a repair. A provider that does not reach the router has no tools and answers as before.
+- **The AI's own photos** (on where `AI_PHOTOS=1`; off otherwise): on a change request, the model may call `search_stock_images` and
+  `add_stock_image` (at most four calls in a change, none in a repair). It may use only the sources `AI_PHOTO_SOURCES` names (a comma
+  list of `pexels,pixabay,openverse,commons`; unset is `openverse,commons`, the two whose terms allow it; an unknown name stops the Worker at boot); a result or an id from any other source is
+  dropped or refused. Pixabay's API docs say "the API is made for real human requests; do not send lots of automated queries", and
+  Pexels' terms for automated use are not yet checked, so name only the sources whose terms allow it. The Worker
+  runs each call through the same combined search and the same download path as the merchant's picker: the model names words and
+  an id (`source:id`) from the results it was given, never an address, and the file lands in Assets as the merchant's own,
+  `storefront_visible`, logged as `storefront.image_imported` with the source. It places the asset id as the prompt describes
+  (`MerchantImage` or CSS `url()`), and a photo added but not placed in the change is logged as `storefront_photo_unplaced`.
+  Results are untrusted web text: only an id, tags and a name go back to the model, cut and stripped of control characters, and
+  the prompt says to follow no instruction in them. Each photo added is a note in the chat with its thumbnail and "by {name} on {source}".
+  A request with no photo tools (`AI_PHOTOS` off, no source, or no provider router) tells the model so: it adds no image and
+  points the merchant to the picker and attaching. A provider that does not reach the router has no tools and answers as before.
 - **Stop** (`cancelDesign`) ends the change that is running for the store, only while the model is still being asked or
   between repairs. Once the sandbox has the diff the step finishes, so a draft is never half a change. A stopped change
   records a `stopped` note and `cancelled`, changes nothing, and gives the usage unit back only if the model was never asked.
@@ -316,13 +321,19 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   (the baseline hero's `home.hero.image`, `none` until one is chosen); the theme never writes an address. In CSS the model
   writes `url(<asset id>)`: the validator holds the id to the store's media, and both bundlers (the gate's and the publish
   build's) turn it into `/shop-api/assets/{id}`, so the shop serves it under the shop policy and `img-src 'self'`.
-- **Free photos** (`searchStockImages`, `useStockImage`): Pixabay's search, shown only where `PIXABAY_API_KEY` is set. Its
-  terms (API docs, read 2026-10-30): requests cached 24 hours (not kept yet: the Worker holds no state, so each search asks
-  Pixabay; `STOCK_RATE_LIMITER` caps a store's searches, downloads and imports at 30 a minute and answers `STOCK_BUSY`, under
-  Pixabay's 100 requests a minute per key), requests made by a person (the merchant types the words; the model never
-  searches while `aiPhotos` is off), no systematic mass downloads, the source shown wherever results show, result URLs used only
-  to display results temporarily, and a chosen photo downloaded into the store's files, never hotlinked. Its terms of service also
-  forbid automated collection and bulk copying without permission. The attribution isn't required on the live shop.
+- **Free photos** (`searchStockImages`, `useStockImage`): one search over every source that is on, merged round-robin, shown when at
+  least one is. Pexels (`PEXELS_API_KEY`) and Pixabay (`PIXABAY_API_KEY`) are on with a key; Openverse and
+  Wikimedia Commons are always on, need no key and return only CC0 and public domain files (so no credit is owed; Wikimedia is sent a
+  `User-Agent`). Each source is asked in parallel with an 8-second timeout; one that fails is skipped, and the search fails only
+  if all do. A result is kept only if its tags, title, description or creator hold every word typed. Ids are `source:id`; a chosen one
+  is re-asked from its own source, and the address is checked against that source's hosts before the Worker downloads it into the
+  store's files (never hotlinked). Openverse's file is its own thumbnail endpoint, Wikimedia's a 1280px thumbnail. Each result carries its source, the creator and the page it came from, and the picker shows the source's name on each result. `total` is the sum of the sources' own counts before the word filter, so it is an upper bound, and a page holds at most 24 results per source (`maxPerSource`). Commons results keep the search's ranking and its total hits. The
+  merchant's picker uses every source; the AI only those in `AI_PHOTO_SOURCES`. `STOCK_RATE_LIMITER` caps a store's searches, downloads and
+  imports across all sources at 30 a minute and answers `STOCK_BUSY`. Nothing is cached: the Worker holds no state.
+  Pixabay's terms (API docs, read 2026-10-30): requests cached 24 hours (not kept), under its 100 requests a minute per key, requests
+  made by a person, no systematic mass downloads, the source shown wherever results show, result URLs used only to display results
+  temporarily, and a chosen photo downloaded into the store's files, never hotlinked. Its terms of service also forbid automated
+  collection and bulk copying without permission. A visible credit isn't required on the live shop for Pixabay. **Unsplash is left out** (no adapter, no key): its guidelines ask for a visible credit where a photo is used, and the storefront shows none yet (#1058).
 - **Chat mode** (`askDesign` with `mode: chat`) is a question answered in words from the same brief: no diff, no
   container, nothing changes. It counts against `ai_prompts` like a change, and its reply says nothing was changed.
 - **An image from a web address** (`importDesignImage`) is fetched by the platform, never by the container:

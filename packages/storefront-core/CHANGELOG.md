@@ -1,5 +1,15 @@
 # @dripfunnel/storefront-core
 
+## 0.4.0
+
+### Minor Changes
+
+- 894c7b1: Live catalogue pages (#1011): the catalogue snapshot's version 2 carries the Shop API's recorded answers (`catalogue`, `snapshotCatalogueSchema`, `maxSnapshotProducts`, `maxSnapshotCollections` in `./guard`), `recordedShopClient` and `recordedAnswer` answer core's questions from them offline (`catalogueQueries` names those questions, `productPath` and `collectionPath` their addresses), `answeredRender` renders a page from them, answering each question once per build, and `PrefilledProvider` lets `useShopData` start from a built page's answers and refresh them from the Shop API. The snapshot caps version pages at `maxSnapshotVersionPages`, the long-names edge case stretches the catalogue too, and the gate takes each item page's own price and legal notices (`items`). A route's client-rendered page no longer needs the sealed price, and the crawl check leaves product version addresses out of the sitemap (`isVersionPath`). The theme API is unchanged; the publish gate asks a product page for the sealed price and legal notices when its product has them.
+
+### Patch Changes
+
+- 018d45d: Tests only: the product page test waits for the page title, which the head sets in an effect after the product's name shows. No change to what the package ships.
+
 ## 0.3.0
 
 ### Minor Changes
