@@ -1039,8 +1039,7 @@
         "other": "{count} days · changes blocked, still selling"
       },
       "cancelled": "Since {date}",
-      "closed": "Archived {date}",
-      "closedBy": "Archived {date} · by {by}"
+      "closed": "Archived {date}"
     },
     "storefronts": {
       "live": "Live",

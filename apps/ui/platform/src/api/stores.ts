@@ -33,7 +33,7 @@ export type StoreState =
   | { kind: 'suspended'; reason: string }
   | { kind: 'cancelled'; since: string | null }
   // Archived (#1056): SAAS §4.2's Closed, with when and who. Not a filter of its own: Cancelled lists it.
-  | { kind: 'closed'; since: string | null; by: string | null }
+  | { kind: 'closed'; since: string | null }
 
 export interface StoreDomain {
   host: string
@@ -289,9 +289,9 @@ const money = z.object({ amount: z.number().int(), currency: z.string() })
 const ref = z.object({ id: z.string(), name: z.string() })
 
 const stateSchema = z
-  .object({ kind: z.enum([...storeStatuses, 'closed']), trialEndsAt: z.string().nullable(), daysLeft: z.number().int().nullable(), daysPastDue: z.number().int().nullable(), reason: z.string().nullable(), since: z.string().nullable(), by: z.string().nullable().optional() })
+  .object({ kind: z.enum([...storeStatuses, 'closed']), trialEndsAt: z.string().nullable(), daysLeft: z.number().int().nullable(), daysPastDue: z.number().int().nullable(), reason: z.string().nullable(), since: z.string().nullable() })
   .transform((s): StoreState => {
-    if (s.kind === 'closed') return { kind: 'closed', since: s.since, by: s.by ?? null }
+    if (s.kind === 'closed') return { kind: 'closed', since: s.since }
     if (s.kind === 'active') return { kind: 'active' }
     if (s.kind === 'pastdue') return { kind: 'pastdue', daysPastDue: s.daysPastDue ?? 0 }
     if (s.kind === 'suspended') return { kind: 'suspended', reason: s.reason ?? '' }
@@ -325,7 +325,7 @@ const rowSchema = z.object({
   billingStatus: z.enum(['active', 'past_due', 'suspended']).nullable(),
 })
 const rowFields = `id name code owner { name email } plan { id name } near { percent limit }
-  state { kind trialEndsAt daysLeft daysPastDue reason since by } storefront domain { host custom status } createdAt billingStatus`
+  state { kind trialEndsAt daysLeft daysPastDue reason since } storefront domain { host custom status } createdAt billingStatus`
 
 // The list has no sales figure from the API yet (#166's findings).
 const rowOf = (row: z.infer<typeof rowSchema>): StoreRow => ({ ...row, salesLastMonth: null, billingStatus: row.billingStatus === 'past_due' ? 'pastdue' : row.billingStatus })

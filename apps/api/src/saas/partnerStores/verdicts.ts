@@ -1,7 +1,7 @@
 import { partnerRoleHas, type PartnerPermission, type PartnerRole } from '#auth/partnerPermissions'
 import type { StoreListRow } from '#db/scoped/stores'
 import { setupStateOf } from '#saas/provisioning/index'
-import { archivable } from '#saas/stores/archive'
+import { archivable } from '#saas/stores/index'
 
 // CANCEL_OR_SUSPEND_FIRST: Archive is offered on every store not archived, and only a Cancelled or Suspended one goes (#1056).
 export type ActionRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'FINANCE_TRIAL_ONLY' | 'BILLING_ROLES_ONLY' | 'CANCEL_OR_SUSPEND_FIRST'

@@ -131,6 +131,9 @@ describe('archiving from the partner console', () => {
   it('shows Archive off with the reason on a live store, and refuses it there', async () => {
     const page = await createPartnerStoresService({ sql: db.sql, caller: partnerCaller(t.partnerA), facts, activity: activityLog, shopDomain: 'shop.example', now: () => now }).store(t.storeA2)
     expect(page?.actions.archive).toEqual({ allowed: false, reason: 'CANCEL_OR_SUSPEND_FIRST' })
+    // Archived by staff: when, never the staff member's name.
+    const archivedByStaff = await createPartnerStoresService({ sql: db.sql, caller: partnerCaller(t.partnerA), facts, activity: activityLog, shopDomain: 'shop.example', now: () => now }).store(t.storeA1)
+    expect(archivedByStaff?.state).toEqual({ kind: 'closed', since: now })
     expect(await partner(t.partnerA).archiveStore(t.storeA2, 'x')).toEqual({ ok: false, reason: 'CANCEL_OR_SUSPEND_FIRST' })
   })
 

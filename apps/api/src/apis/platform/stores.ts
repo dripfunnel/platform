@@ -18,7 +18,6 @@ const State = builder.objectRef<StoreState>('StoreState').implement({
     daysPastDue: t.int({ nullable: true, resolve: (s) => (s.kind === 'pastdue' ? s.daysPastDue : null) }),
     reason: t.string({ nullable: true, resolve: (s) => (s.kind === 'suspended' ? s.reason : null) }),
     since: t.string({ nullable: true, resolve: (s) => (s.kind === 'cancelled' || s.kind === 'closed' ? iso(s.since) : null) }),
-    by: t.string({ nullable: true, resolve: (s) => (s.kind === 'closed' ? s.by : null) }),
   }),
 })
 

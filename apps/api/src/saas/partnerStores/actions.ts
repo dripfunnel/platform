@@ -30,10 +30,9 @@ import {
 import { queueSideEffect } from '#saas/outbox/index'
 import { setupStateOf } from '#saas/provisioning/index'
 import { reasonText } from '#saas/staff/index'
-import { extendTrial as extendStoreTrial, reissueOwnerInvitation, transitionStore } from '#saas/stores/index'
+import { closeStore, endStripeSubscription, extendTrial as extendStoreTrial, reissueOwnerInvitation, transitionStore } from '#saas/stores/index'
 import { actionsFor, type ActionRefusal, type StoreAction } from './verdicts'
 import type { StoreBillingStripe } from '#integrations/stripe/subscriptions'
-import { closeStore, endStripeSubscription } from '#saas/stores/archive'
 import { prorate, signed, type Proration } from './proration'
 import { trialChoices, trialEndAfter } from './trial'
 

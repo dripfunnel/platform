@@ -40,7 +40,7 @@ export type StoreState =
   | { kind: 'suspended'; reason: string }
   | { kind: 'cancelled'; since: Date | null }
   // Archived (#1056): SAAS §4.2's Closed, with when and who.
-  | { kind: 'closed'; since: Date | null; by: string | null }
+  | { kind: 'closed'; since: Date | null }
 
 export interface StoreRowDto {
   id: string
@@ -64,7 +64,7 @@ export interface StorePageDto {
   actions: { create: CreatePermission; export: ActionPermission; billingStatus: ActionPermission | null }
 }
 
-export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'past_due_since' | 'suspended_reason' | 'cancelled_at' | 'closed_at' | 'closed_by_label'>, now: Date): StoreState => {
+export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'past_due_since' | 'suspended_reason' | 'cancelled_at' | 'closed_at'>, now: Date): StoreState => {
   switch (row.status) {
     case 'trial':
       return { kind: 'trial', trialEndsAt: row.trial_ends_at, daysLeft: row.trial_ends_at ? trialDaysLeft(row.trial_ends_at, now) : null }
@@ -75,7 +75,7 @@ export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'pa
     case 'cancelled':
       return { kind: 'cancelled', since: row.cancelled_at }
     case 'closed':
-      return { kind: 'closed', since: row.closed_at, by: row.closed_by_label }
+      return { kind: 'closed', since: row.closed_at }
     default:
       return { kind: 'active' }
   }

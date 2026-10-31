@@ -1240,7 +1240,6 @@ type StoreSite {
 }
 
 type StoreState {
-  by: String
   daysLeft: Int
   daysPastDue: Int
   kind: String
