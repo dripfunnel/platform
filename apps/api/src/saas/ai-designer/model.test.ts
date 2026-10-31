@@ -175,11 +175,14 @@ const exampleFiles = (): ThemeFile[] => {
   return files
 }
 
+// The whole validator over the baseline theme takes up to 16 s on a CI runner, past Vitest's 5 s default.
+const validatorMs = 60_000
+
 describe('the worked carousel against the validator', () => {
   it('passes with no problem, so the prompt never teaches what the gate refuses', () => {
     expect(exampleFiles().map((f) => f.path)).toEqual(['src/theme/components/interactive/HeroCarousel.tsx', 'src/theme/styles/carousel.module.css', 'content/en/carousel.json', 'content/hi/carousel.json'])
     expect(validateChange([...baseline, ...exampleFiles()], guardContext).problems).toEqual([])
-  })
+  }, validatorMs)
 })
 
 describe('the rules the prompt states against the validator', () => {
@@ -213,5 +216,5 @@ describe('the rules the prompt states against the validator', () => {
     const { problems } = validateChange([...baseline, ...refused.map(([f]) => f), ...allowed], guardContext)
     for (const [file, rule] of refused) expect(problems.filter((p) => p.file === file.path).map((p) => p.rule), file.path).toContain(rule)
     for (const file of allowed) expect(problems.filter((p) => p.file === file.path), file.path).toEqual([])
-  })
+  }, validatorMs)
 })
