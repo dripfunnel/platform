@@ -154,6 +154,8 @@ export const en = {
   'address.map.remove': 'Remove the pin',
   'address.map.loading': 'Loading the map…',
   'address.map.liveOnly': 'Pinning on a map works on the live shop, not on a preview.',
+  'search.suggest.all': 'See all results for “{query}”',
+  'search.suggest.none': 'No products match “{query}”.',
 } as const
 
 export type MessageKey = keyof typeof en
