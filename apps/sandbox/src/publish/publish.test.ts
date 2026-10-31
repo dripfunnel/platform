@@ -72,6 +72,12 @@ const pricedProductPage = [
   '',
 ].join('\n')
 
+/** That page over the baseline, its title wrapping a long product name as every starting theme's does (product.module.css). */
+const pricedProduct = {
+  'src/theme/pages/ProductPage.tsx': pricedProductPage,
+  'src/theme/styles/shell.module.css': `${readFileSync(join(baselineDir, 'src/theme/styles/shell.module.css'), 'utf8')}\n.title {\n  overflow-wrap: anywhere;\n}\n`,
+}
+
 let root: string
 let runtime: string
 
@@ -155,7 +161,7 @@ describe('step build', () => {
 
   it('writes each product, version and collection of a catalogue snapshot as its own page, rendered from the recorded answers', async () => {
     writeFileSync(join(root, 'catalogue.json'), JSON.stringify(catalogueSnapshot))
-    const source = await sourceOf('catalogue', { 'src/theme/pages/ProductPage.tsx': pricedProductPage })
+    const source = await sourceOf('catalogue', pricedProduct)
     await cli(['build', ...stepArgs(source, join(root, 'catalogue.json')), '--out', join(root, 'catalogue')])
     expect(existsSync(join(root, 'catalogue/report.json'))).toBe(false)
     const site = (path: string) => readFileSync(join(root, 'catalogue/site', path), 'utf8')
@@ -175,7 +181,7 @@ describe('step build', () => {
   })
 
   it('builds a version 1 snapshot exactly as before: no item pages, no answers in a page', async () => {
-    const source = await sourceOf('plain', { 'src/theme/pages/ProductPage.tsx': pricedProductPage })
+    const source = await sourceOf('plain', pricedProduct)
     await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', join(root, 'plain')])
     expect(existsSync(join(root, 'plain/site/products'))).toBe(false)
     expect(readFileSync(join(root, 'plain/site/_fallback/product/index.html'), 'utf8')).not.toContain('"answers"')
@@ -312,7 +318,7 @@ describe.skipIf(!chrome)('step check', () => {
 
   it('passes a catalogue snapshot’s product and collection pages through the whole gate, hydrated from their answers (#1011)', async () => {
     writeFileSync(join(root, 'catalogue-check.json'), JSON.stringify(catalogueSnapshot))
-    const source = await sourceOf('catalogue-check', { 'src/theme/pages/ProductPage.tsx': pricedProductPage })
+    const source = await sourceOf('catalogue-check', pricedProduct)
     const built = join(root, 'catalogue-check-built')
     await cli(['build', ...stepArgs(source, join(root, 'catalogue-check.json')), '--out', built])
     const checkArgs = ['check', ...stepArgs(source, join(root, 'catalogue-check.json')), '--built', built, '--out', join(root, 'catalogue-check-checked')]
