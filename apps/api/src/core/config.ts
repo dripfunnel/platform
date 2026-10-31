@@ -117,7 +117,7 @@ const configSchema = z.object({
   PIXABAY_API_KEY: z.string().min(10).optional(),
   /** Pexels' API key for the same picker; unset leaves Pexels out. */
   PEXELS_API_KEY: z.string().min(10).optional(),
-  /** Unsplash's Access Key for the same picker (human-only); unset leaves Unsplash out. */
+  /** Unsplash's Access Key for the same picker, and the AI if `AI_PHOTO_SOURCES` names it; unset leaves Unsplash out. */
   UNSPLASH_ACCESS_KEY: z.string().min(10).optional(),
   // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue. Unset: 5,000.
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),

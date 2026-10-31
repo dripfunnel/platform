@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { StockImages } from './pixabay'
 
-// Unsplash photo search for the studio's picker, human-only (docs/storefront/AI-STUDIO.md §8). Using a photo pings Unsplash's
+// Unsplash photo search for the studio's picker and, where `AI_PHOTO_SOURCES` names it, the AI (docs/storefront/AI-STUDIO.md §8). Using a photo pings Unsplash's
 // download endpoint, as its API guidelines ask.
 
 const photo = z.object({
