@@ -58,14 +58,14 @@ describe('withScope', () => {
     expect(await inScope(context)).toEqual({ role: roleFor(context), settings: settingsFor(context) })
   })
 
-  it('sends the settings in one statement, between the role and the work', async () => {
+  it('sends the role and the settings in one statement, before the work', async () => {
     const context = person
     sent.length = 0
     await withScope(counted, context, async (tx) => tx`select 'work'`)
     const queries = sent.map(({ query }) => query.replaceAll(/\s+/g, ' '))
-    expect(queries).toHaveLength(5)
-    expect([queries[0], queries[1], queries[3], queries[4]]).toEqual(['begin', `set local role ${roleFor(context)}`, "select 'work'", 'commit'])
-    expect(queries[2]).toMatch(/^select set_config\(name, value, true\) from unnest\(\$1::text\[\], \$2::text\[\]\)/)
+    expect(queries).toHaveLength(4)
+    expect([queries[0], queries[2], queries[3]]).toEqual(['begin', "select 'work'", 'commit'])
+    expect(queries[1]).toMatch(/^select set_config\(name, value, true\) from unnest\(\$1::text\[\], \$2::text\[\]\)/)
   })
 
   it('passes every name and value as a parameter, never in the SQL text', async () => {
@@ -73,8 +73,9 @@ describe('withScope', () => {
     sent.length = 0
     await withScope(counted, context, async () => undefined)
     const statement = sent.find(({ query }) => query.includes('set_config'))
-    for (const value of ['partner-1', 'store-1', 'user-1', 'app.scope']) expect(statement?.query).not.toContain(value)
+    for (const value of ['partner-1', 'store-1', 'user-1', 'app.scope', roleFor(context)]) expect(statement?.query).not.toContain(value)
     expect(statement?.parameters.join(' ')).toContain('user-1')
+    expect(statement?.parameters.join(' ')).toContain(roleFor(context))
   })
 
   it('round-trips values with quotes, commas, backslashes, braces and the word NULL', async () => {
@@ -84,9 +85,11 @@ describe('withScope', () => {
     expect(settings).toMatchObject({ 'app.store_id': awkward, 'app.customer_id': 'NULL', 'app.order_token_hash': '' } satisfies Partial<RlsSettings>)
   })
 
-  it('keeps the settings to the transaction, on the same connection', async () => {
+  it('keeps the role and the settings to the transaction, on the same connection', async () => {
+    const [before] = await counted<{ role: string }[]>`select current_user::text as role`
     await inScope(person, counted)
-    const [row] = await counted<{ scope: string | null }[]>`select current_setting('app.scope', true) as scope`
+    const [row] = await counted<{ scope: string | null; role: string }[]>`select current_setting('app.scope', true) as scope, current_user::text as role`
     expect(row?.scope ?? '').toBe('')
+    expect(row?.role).toBe(before?.role)
   })
 })
