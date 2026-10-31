@@ -79,7 +79,7 @@ export const cancelDesign = async (): Promise<boolean> => (await query('mutation
 const stockPhoto = z.object({ id: z.string(), source: z.string(), thumb: z.string(), user: z.string(), pageUrl: z.string(), tags: z.string() })
 export type StockPhoto = z.infer<typeof stockPhoto>
 
-/** Whether the platform has a stock photo source set up; the picker is hidden without one. */
+/** Whether any stock photo source is on; the picker is hidden without one. */
 export const loadStockAvailable = async (): Promise<boolean> => (await query('query { stockImagesAvailable }', z.object({ stockImagesAvailable: z.boolean() }), {})).stockImagesAvailable
 
 export const searchStockImages = async (words: string, page: number): Promise<StockPhoto[]> =>

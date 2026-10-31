@@ -333,7 +333,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   Pixabay's terms (API docs, read 2026-10-30): requests cached 24 hours (not kept), under its 100 requests a minute per key, requests
   made by a person, no systematic mass downloads, the source shown wherever results show, result URLs used only to display results
   temporarily, and a chosen photo downloaded into the store's files, never hotlinked. Its terms of service also forbid automated
-  collection and bulk copying without permission. A visible credit isn't required on the live shop for Pixabay. **Unsplash is not wired in** (an adapter exists, `UNSPLASH_ACCESS_KEY` does nothing): its guidelines ask for a visible credit where a photo is used, and the storefront shows none yet (#1058).
+  collection and bulk copying without permission. A visible credit isn't required on the live shop for Pixabay. **Unsplash is left out** (no adapter, no key): its guidelines ask for a visible credit where a photo is used, and the storefront shows none yet (#1058).
 - **Chat mode** (`askDesign` with `mode: chat`) is a question answered in words from the same brief: no diff, no
   container, nothing changes. It counts against `ai_prompts` like a change, and its reply says nothing was changed.
 - **An image from a web address** (`importDesignImage`) is fetched by the platform, never by the container:

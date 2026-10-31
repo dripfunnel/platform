@@ -37,7 +37,7 @@ export interface StudioDeps extends DesignerDeps {
   models: (billedTo: 'plan' | 'own_key', context: TenantContext) => readonly string[] | Promise<readonly string[]>
   screenshots: Screenshotter | null
   lookup: DnsLookup | null
-  /** Stock image search (Pixabay, Pexels, Openverse, Wikimedia Commons); null where no key is set, which hides the picker. */
+  /** Stock image search (Pixabay, Pexels, Openverse, Wikimedia Commons); null when no source is on, which hides the picker. */
   stock: StockImages | null
   /** The sources the AI may search and add photos from itself; empty or unset is off (AI-STUDIO §8). */
   aiPhotos?: readonly string[]

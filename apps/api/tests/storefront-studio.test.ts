@@ -447,6 +447,7 @@ describe('asking for a change', () => {
       const used = async (id: string) => w.gql('owner', 'mutation U($i: String!) { useStockImage(id: $i) }', { i: id })
       expect((await used('../etc')).code).toBe('INVALID_INPUT')
       expect((await used('7')).code).toBe('SAMPLE_UNAVAILABLE')
+      for (const id of ['foo:1', 'unsplash:abc', 'pexels:1', 'constructor:1', '__proto__:1']) expect((await used(id)).code, id).toBe('SAMPLE_UNAVAILABLE')
       const before = stored.length
       const asset = (await used('42')).data?.['useStockImage'] as string
       expect(asset).toMatch(/^[0-9a-f-]{36}$/)
