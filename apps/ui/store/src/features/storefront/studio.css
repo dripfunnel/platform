@@ -1103,8 +1103,9 @@
   padding: 2px 6px;
   font-size: var(--df-font-size-xs, 11px);
   text-align: left;
-  color: #fff;
-  background: rgb(0 0 0 / 0.6);
+  color: var(--df-color-text-strong);
+  background: var(--df-color-surface);
+  border-top: 1px solid var(--df-color-border);
 }
 
 .df-studio-stock-grid button {
