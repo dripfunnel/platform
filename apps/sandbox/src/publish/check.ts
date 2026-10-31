@@ -82,6 +82,8 @@ type Network = { errors: string[]; reports: ShopReport[]; js: { url: string; gzi
 const network = (): Network => ({ errors: [], reports: [], js: [], css: 0, bytes: 0, reading: [] })
 
 const answerShop = (route: Route, fixture: ReturnType<typeof shopFixture>) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture(route.request().postData() ?? '')) })
+// The browser runs a module script only when it is served as JavaScript.
+const answerAsset = (route: Route, found: { rel: string; bytes: Buffer }) => route.fulfill({ status: 200, body: found.bytes, contentType: found.rel.endsWith('.css') ? 'text/css' : 'text/javascript' })
 
 /** Requests stay on this machine: the page's own server, the build's assets and the offline Shop API; anything else fails. */
 const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { assets: string }, net: Network) => {
@@ -93,7 +95,7 @@ const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { a
     const base = s.assetBase ? new URL(s.assetBase) : null
     if (base && url.origin === base.origin && url.pathname.startsWith(base.pathname)) {
       const found = await fileFor([roots.assets], url.pathname.slice(base.pathname.length))
-      return found ? route.fulfill({ status: 200, body: found.bytes, contentType: found.rel.endsWith('.css') ? 'text/css' : 'text/javascript' }) : route.fulfill({ status: 404 })
+      return found ? answerAsset(route, found) : route.fulfill({ status: 404 })
     }
     net.errors.push(`It tried to reach ${url.origin}, outside the store.`)
     return route.abort('blockedbyclient')
@@ -331,10 +333,10 @@ const liveShot = async (browser: Browser, served: Served, live: string, s: Catal
       const url = new URL(route.request().url())
       if (url.origin === served.origin && url.pathname === '/shop-api') return answerShop(route, fixture)
       if (url.origin === served.origin) return route.fallback()
-      // A live page names its own build's asset folder; the runner fetched those files into `live` by their paths.
-      const asset = /\/assets\/(.*)$/.exec(url.pathname)?.[0]
+      // A live page names its own build's asset folder (`…/builds/{id}/assets/`); the runner fetched its files into `live` by their paths.
+      const asset = /\/builds\/[^/]+\/assets\/(.+)$/.exec(url.pathname)?.[1]
       const found = asset ? await fileFor([live], asset) : null
-      return found ? route.fulfill({ status: 200, body: found.bytes }) : route.abort('blockedbyclient')
+      return found ? answerAsset(route, found) : route.abort('blockedbyclient')
     })
     await open(page, `${served.origin}${path}`, network())
     await settled(page, network())

@@ -54,6 +54,9 @@ const catalogueSnapshot = catalogueSnapshotSchema.parse({
   },
 })
 
+/** A live store's: its pages load their JS and CSS from the asset host. */
+const hosted = catalogueSnapshotSchema.parse({ ...snapshot, csp: { ...snapshot.csp, assetOrigin: 'https://sf-assets.example.com', portalOrigin: 'https://store.partner-a.example' }, assetBase: 'https://sf-assets.example.com/stores/s1/builds/b1/assets/' })
+
 /** The baseline's product page showing the product's name and core's sealed price. */
 const pricedProductPage = [
   "import { Price, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'",
@@ -406,7 +409,6 @@ describe.skipIf(!chrome)('step check', () => {
 
   it('fails a page that reaches outside the store, with JavaScript on or off, and serves the build’s assets from its asset host', async () => {
     // The pages load their JS and CSS from the asset host, which the check step answers from the build's own files.
-    const hosted = catalogueSnapshotSchema.parse({ ...snapshot, csp: { ...snapshot.csp, assetOrigin: 'https://sf-assets.example.com', portalOrigin: 'https://store.partner-a.example' }, assetBase: 'https://sf-assets.example.com/stores/s1/builds/b1/assets/' })
     const source = await sourceOf('reaching')
     const out = join(root, 'reaching-built')
     const theme = await checkout(source.bundle, source.commit, join(root, 'reaching-src'))
@@ -452,7 +454,7 @@ describe.skipIf(!chrome)('step check', () => {
     expect(check('contracts')?.detail).toContain('The search page at 390 px failed while loading.')
   })
 
-  it('answers the live page’s Shop API from the snapshot too, so a page that loads its data in the browser keeps its look', async () => {
+  it('runs the live page’s scripts from its asset host and answers its Shop API from the snapshot, so a page that loads its data in the browser keeps its look', async () => {
     // The home page shows the menu only once the Shop API answers, as a page of a store built before #1011 does.
     const source = await sourceOf('shop-look', {
       'src/theme/pages/HomePage.tsx': [
@@ -471,10 +473,10 @@ describe.skipIf(!chrome)('step check', () => {
     })
     const out = join(root, 'shop-look-built')
     const theme = await checkout(source.bundle, source.commit, join(root, 'shop-look-src'))
-    await buildSite({ repo: join(root, 'shop-look-src'), theme, snapshot, runtimeDir: runtime, out, work: join(root, 'shop-look-work') })
+    await buildSite({ repo: join(root, 'shop-look-src'), theme, snapshot: hosted, runtimeDir: runtime, out, work: join(root, 'shop-look-work') })
     const live = join(root, 'shop-look-live')
     cpSync(join(out, 'site'), live, { recursive: true })
-    const { report } = await checkSite({ site: join(out, 'site'), out, live, snapshot, theme, strictLook: true, browser })
+    const { report } = await checkSite({ site: join(out, 'site'), out, live, snapshot: hosted, theme, strictLook: true, browser })
     expect(report.checks.find((c) => c.name === 'visual-diff')).toEqual({ name: 'visual-diff', passed: true })
   })
 
