@@ -15,6 +15,7 @@ export const staffPermissions = [
   'partners.pause',
   'stores.suspend',
   'stores.restore',
+  'stores.archive',
   'stores.trial.extend',
   'stores.invite.resend',
   'stores.notes.write',

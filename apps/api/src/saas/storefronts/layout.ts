@@ -19,6 +19,8 @@ export const sourceBundle = (storeId: string, buildId: string) => `${sourcesPref
 export const publishedTheme = (storeId: string, commit: string) => `${sourcesPrefix(storeId)}themes/${commit}.json`
 export const snapshotsPrefix = (storeId: string) => `snapshots/${storeId}/`
 export const snapshotFile = (storeId: string, buildId: string) => `${snapshotsPrefix(storeId)}${buildId}.json`
+/** The catalogue's parts while its steps record them (saas/storefronts/catalogue.ts), deleted once the snapshot holds them. */
+export const catalogueFolder = (storeId: string, buildId: string) => `${snapshotsPrefix(storeId)}${buildId}.catalogue/`
 /** The upgrade bot's private commits (LIVE-SHOP §8): each as a bundle, with the files it changed for the push once live. */
 export const upgradesPrefix = (storeId: string) => `upgrades/${storeId}/`
 export const upgradeBundle = (storeId: string, commit: string) => `${upgradesPrefix(storeId)}${commit}.bundle`

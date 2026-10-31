@@ -171,7 +171,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Object bindings, their `studio-v1` migration, and a
    `containers` entry `{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { … } }`
    naming the image. A Durable Object starts only an image its config names, so on dev the entry's image is a placeholder that
-   dev.yml's *Studio image* step swaps for the newest `storefront-build:0.0.0-dev.<n>` tag's digest in dev's Cloudflare registry
+   dev.yml's *Studio image* step swaps for the newest `storefront-build:<version>-dev.<n>` tag's digest in dev's Cloudflare registry
    (pushed by release.yml's `sandbox-image-dev` job) before it deploys: commit no digest (#790). The deploy token needs
    *Containers: Edit*. `STUDIO_MAX_RUNNING` (a Worker variable, default 5000) caps studios running at once.
 4. **GitHub**: store builds pull the private `storefront-build` image with the organisation secret `GHCR_PULL_TOKEN`: a *classic*
@@ -257,6 +257,9 @@ Never reuse a value from local or production.
 | `GITHUB_WEBHOOK_SECRET` | Secret | the App's webhook secret | §2.8 item 4. Read since #968: without it a push to a store repo's `main` builds nothing |
 | `SHOP_DOMAIN` | Text | `my-shop.dev` (§2.8 item 2) | Validated at boot; `my-store.localhost` locally. Replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Read since #317: seals "Open preview" links; without it, or without `SHOP_DOMAIN`, Open preview answers "not set up" |
+| `PEXELS_API_KEY` | Secret | a free key from pexels.com/api | Optional. Adds Pexels to the studio's free photo search (AI-STUDIO §8); unset leaves it out. Openverse and Wikimedia Commons need no key |
+| `AI_PHOTOS` | Text | `1` | Optional, default off. Lets the studio's AI search and add photos itself, from the sources in `AI_PHOTO_SOURCES` (AI-STUDIO §8). Only `1` is accepted; read at boot, so it needs a new version |
+| `AI_PHOTO_SOURCES` | Text | e.g. `openverse,commons` | Optional, with `AI_PHOTOS`: the sources the AI may use, from `pexels,pixabay,openverse,commons`; unset is `openverse,commons`; an unknown name stops the Worker at boot. Read each source's terms for automated use before naming it |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
 "not connected" instead of failing. Leaving out part of a group does the same, so set each

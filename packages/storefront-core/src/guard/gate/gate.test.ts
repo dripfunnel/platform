@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sealedProblemWords } from '../../testing/index'
 import { routeAddresses, type ThemeRoutes } from '../../contracts/routes'
 import { coreRoutes, requiredParts, type CoreRoute } from '../../contracts/theme'
-import { advisoryChecks, blocksPublish, catalogueSnapshotSchema, edgeCases, fallbackPath, gateChecks, gateReport, gateWidths, maxDetail, pageBudgets, runGate, type CatalogueSnapshot, type GateCheckName, type GateInput, type PageRead, type PageVisit, type PageWeight } from '../index'
+import { advisoryChecks, blocksPublish, catalogueSnapshotSchema, edgeCases, fallbackPath, gateChecks, gateReport, gateWidths, maxDetail, maxSnapshotProducts, maxSnapshotVersionPages, pageBudgets, runGate, type CatalogueSnapshot, type GateCheckName, type GateInput, type PageRead, type PageRoute, type PageVisit, type PageWeight } from '../index'
 
 const origin = 'https://shop.example.com'
 const routes: ThemeRoutes = { routes: Object.fromEntries(coreRoutes.map((r) => [r, 'HomePage'])), custom: { '/our-story': 'AboutPage' } }
@@ -125,6 +125,21 @@ describe('the full gate', () => {
     expect(failing({ ...good, pages: noPrice, priced: new Set(['cart']) })).toEqual(['contracts'])
   })
 
+  it('requires no price on a route’s client-rendered page, which is written without its item (#1011)', () => {
+    const fallbackNoPrice = onPage(pages, '/_fallback/product/', (p) => ({ ...p, html: p.html.replace('data-df-sealed="price"', '') }))
+    expect(failing({ ...good, pages: fallbackNoPrice, priced: new Set(['product']) })).toEqual([])
+    const itemNoPrice = [...pages, { ...read('/products/kurta/', 'product'), html: html('product').replace('data-df-sealed="price"', '') }]
+    expect(detail({ ...good, pages: itemNoPrice, visits: [...visits, ...gateWidths.map((w) => visit(read('/products/kurta/', 'product'), w))], weights: [...good.weights, weight(read('/products/kurta/', 'product'))], priced: new Set(['product']) }, 'contracts')).toBe('The product page doesn\'t place the required "price" component.')
+  })
+
+  it('asks an item page for what its own item gave it: no price for an unpriced product, legal notices for one with them', () => {
+    const kurta = read('/products/kurta/', 'product')
+    const unpriced = { ...kurta, html: html('product').replace('data-df-sealed="price"', '') }
+    const withItem = (page: PageRead, item: { priced: boolean; legal: boolean }) => ({ ...good, pages: [...pages, page], visits: [...visits, ...gateWidths.map((w) => visit(page, w))], weights: [...good.weights, weight(page)], priced: new Set<PageRoute>(['product']), items: new Map([[page.path, item]]) })
+    expect(failing(withItem(unpriced, { priced: false, legal: false }))).not.toContain('contracts')
+    expect(detail(withItem(kurta, { priced: true, legal: true }), 'contracts')).toBe('The product page doesn\'t place the required "legal" component.')
+  })
+
   it('names a page with a missing required part, two h1s or a crash as a contract failure', () => {
     const noConsent = onPage(pages, '/cart/', (p) => ({ ...p, html: p.html.replace('data-df-sealed="consent"', '') }))
     expect(detail({ ...good, pages: noConsent }, 'contracts')).toBe('The cart page doesn\'t place the required "consent" component.')
@@ -224,6 +239,33 @@ describe('the edge-case catalogue', () => {
     expect(long?.store.name.length).toBe(200)
     expect([long?.store.logo, long?.store.contactEmail, long?.poweredBy === null]).toEqual([null, null, false])
     for (const c of cases) expect(catalogueSnapshotSchema.safeParse(c.snapshot).success).toBe(true)
+  })
+})
+
+describe('the catalogue snapshot (#1011)', () => {
+  const base = { version: 1, origin, store: { name: 'Northstar Linen', description: null, language: 'en', mainLanguage: 'en', languages: ['en'], currency: 'INR', pricingCurrency: 'INR', currencies: [{ code: 'INR' }], pricesIncludeTax: true, timeZone: 'Asia/Kolkata', contactEmail: null, contactPhone: null, logo: null, address: null }, poweredBy: null, guard: { locales: ['en'], usedPaths: [], mediaIds: [], brand: { name: 'Northstar Linen', tagline: null, email: null, phone: null, address: [], socialLinks: [] } }, csp: { assetOrigin: null, mediaOrigins: [], analytics: [], payments: [] }, assetBase: null }
+  const catalogue = { answers: [{ operation: 'Product', variables: { slug: 'kurta' }, data: { product: null } }], products: [{ slug: 'kurta', versions: ['v1'] }], collections: [{ slug: 'summer' }] }
+
+  it('reads version 1 without a catalogue and version 2 with one', () => {
+    expect(catalogueSnapshotSchema.parse(base).catalogue).toBeNull()
+    expect(catalogueSnapshotSchema.parse({ ...base, version: 2, catalogue }).catalogue).toEqual(catalogue)
+  })
+
+  it('refuses an item address the build couldn’t write a file at, and more products than the cap', () => {
+    expect(catalogueSnapshotSchema.safeParse({ ...base, version: 2, catalogue: { ...catalogue, products: [{ slug: '../etc', versions: [] }] } }).success).toBe(false)
+    expect(catalogueSnapshotSchema.safeParse({ ...base, version: 2, catalogue: { ...catalogue, products: [{ slug: 'kurta', versions: ['a/b'] }] } }).success).toBe(false)
+    const many = Array.from({ length: maxSnapshotProducts + 1 }, (_, i) => ({ slug: `p${i}`, versions: [] }))
+    expect(catalogueSnapshotSchema.safeParse({ ...base, version: 2, catalogue: { ...catalogue, products: many } }).success).toBe(false)
+    const versions = (n: number) => Array.from({ length: n }, (_, i) => ({ slug: `p${i}`, versions: Array.from({ length: 250 }, (__, v) => `v${v}`) }))
+    expect(catalogueSnapshotSchema.safeParse({ ...base, version: 2, catalogue: { ...catalogue, products: versions(maxSnapshotVersionPages / 250) } }).success).toBe(true)
+    expect(catalogueSnapshotSchema.safeParse({ ...base, version: 2, catalogue: { ...catalogue, products: versions(maxSnapshotVersionPages / 250 + 1) } }).success).toBe(false)
+  })
+
+  it('stretches the catalogue in the long-names edge case: long product names and words, no pictures', () => {
+    const answers = [{ operation: 'Product', variables: { slug: 'kurta' }, data: { product: { name: 'Kurta', description: 'Soft.', photos: [{ image: { url: '/a' } }], related: [{ name: 'Shirt', photo: { image: { url: '/b' } } }] } } }]
+    const long = edgeCases(catalogueSnapshotSchema.parse({ ...base, version: 2, catalogue: { ...catalogue, answers } }))[0]?.snapshot.catalogue?.answers[0]?.data
+    expect(long).toMatchObject({ product: { photos: [], related: [{ photo: null }] } })
+    expect(JSON.stringify(long)).not.toMatch(/"Kurta"|"Shirt"|Soft\./)
   })
 })
 

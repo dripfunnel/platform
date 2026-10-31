@@ -55,7 +55,7 @@ import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
-import { isLocalhost, parseConfig, type Config } from '#core/config'
+import { aiPhotoSourcesDefault, isLocalhost, parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
@@ -136,6 +136,10 @@ import type { TenantContext } from '#core/tenancy'
 import { localAiProvider } from '#integrations/ai/index'
 import { designerAiFor, designerModelsFor } from '#saas/aiGateway/index'
 import { browserScreenshots } from '#integrations/cloudflare/screenshot'
+import { commonsImages } from '#integrations/stockImages/commons'
+import { stockImages } from '#integrations/stockImages/combine'
+import { openverseImages } from '#integrations/stockImages/openverse'
+import { pexelsImages } from '#integrations/stockImages/pexels'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
@@ -452,7 +456,7 @@ const handleAdmin = async (
       partners: caller
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: config.PLATFORM_HOST, localHosts: config.DNS_LOCAL === '1', now: () => new Date() })
         : null,
-      stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, shopDomain: config.SHOP_DOMAIN ?? null, now: () => new Date() }) : null,
+      stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, shopDomain: config.SHOP_DOMAIN ?? null, stripe: stripeFor(config), now: () => new Date() }) : null,
       provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffSessions: caller
         ? createStaffSessionsService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, reauthFresh: caller.reauthFresh, platformHost: config.PLATFORM_HOST, now: () => new Date() })
@@ -577,7 +581,8 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
+    const stripe = stripeFor(config)
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
   })
 }
 
@@ -813,7 +818,13 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
     models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
-    stock: config.PIXABAY_API_KEY ? pixabayImages({ key: config.PIXABAY_API_KEY }) : null,
+    aiPhotos: config.AI_PHOTOS === '1' ? (config.AI_PHOTO_SOURCES ?? aiPhotoSourcesDefault) : [],
+    stock: stockImages({
+      ...(config.PIXABAY_API_KEY ? { pixabay: pixabayImages({ key: config.PIXABAY_API_KEY }) } : {}),
+      ...(config.PEXELS_API_KEY ? { pexels: pexelsImages({ key: config.PEXELS_API_KEY }) } : {}),
+      openverse: openverseImages(),
+      commons: commonsImages(),
+    }),
     readAsset: assets
       ? async (r2Key) => {
           const object = await assets.get(r2Key)

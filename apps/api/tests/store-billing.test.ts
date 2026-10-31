@@ -119,6 +119,9 @@ const stripe: StripeApi & StoreBillingStripe = {
       calls.push(`pay:${id}`)
       return invoices.get(id) ?? missing()
     }),
+  cancelNow: async (id) => {
+    calls.push(`end:${id}`)
+  },
 }
 
 // A plan change's entry that fails once: its transaction rolls back after Stripe has answered, as a lost commit would.

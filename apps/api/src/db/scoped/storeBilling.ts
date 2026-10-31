@@ -329,6 +329,20 @@ export const applyProductKeep = async (tx: ScopedSql, storeId: string, picks: re
 
 // ---- Closing the store, and the trials that ended (SAAS §4.2) ----
 
+/** An archived store's subscription, ended now with nothing after it (#1056); one already cancelled is left. */
+export const endSubscriptionNow = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
+  await tx`
+    update store_subscription set status = 'cancelled', cancel_at = least(coalesce(cancel_at, ${at}), ${at}),
+      next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null, billing_revision = billing_revision + 1
+    where store_id = ${storeId} and status <> 'cancelled'
+  `
+}
+
+/** The same, from the partner's own request: only on its own store, once Closed (migration 0378). */
+export const partnerEndSubscription = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
+  await tx`select partner_end_subscription(${storeId}, ${at})`
+}
+
 /** Cancelled from `at`: a trial at once, a paid plan at its period's end, with nothing scheduled after it. */
 export const setCancelAt = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
   await tx`

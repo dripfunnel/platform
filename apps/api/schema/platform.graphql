@@ -362,6 +362,7 @@ type Mutation {
   addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
   addPartnerAiKey(key: String!, name: String!, provider: String!): PartnerAiKeyResult
   addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
+  archiveStore(id: ID!, reason: String!): StoreActionResult
   beginPartnerAiOauth(id: ID, provider: String!): PartnerAiKeyResult
   changeMyPassword(current: String!, password: String!): MyProfileResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
@@ -1049,6 +1050,7 @@ type StoreActionResult {
 
 type StoreActions {
   addOverride: StoreActionPermission
+  archive: StoreActionPermission
   changePlan: StoreActionPermission
   extendTrial: StoreActionPermission
   resendInvite: StoreActionPermission

@@ -8,7 +8,7 @@ import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
 import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
 import { edgeFolder } from './build'
-import { fileOf, languagePrefix, plan, type PlannedPage } from './pages'
+import { checkedPages, fileOf, itemFacts, languagePrefix, plan, type PlannedPage } from './pages'
 import { fileFor, serveFolders, shopFixture, type Served, type ShopReport } from './serve'
 
 // Step `check` (storefront LIVE-SHOP §4 step 7): a fresh process serves the built files to its own headless browser and
@@ -346,7 +346,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
   const { snapshot: s, browser, site } = input
   const validator = validateChange(input.theme, s.guard).problems
   const routes = routesOf(input.theme)
-  const pages = plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path))
+  const pages = checkedPages(plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path), s.catalogue))
   const main = pages.filter((p) => p.language === s.store.mainLanguage)
   const headers = await headersOf(site, s)
   const served = await serveFolders([site], (rel) => headers[rel]?.['content-security-policy'] ?? null)
@@ -410,9 +410,10 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
       poweredBy: s.poweredBy !== null,
       strictLook: input.strictLook,
       edge,
-      // A static cart has no lines, and core's product hooks don't reach a built page yet (ARCHITECTURE §4.2).
+      // A static cart has no lines; a product page built from the catalogue shows what its product gave it (ARCHITECTURE §4.2).
       priced: new Set(),
-      // The snapshot carries no legal notices yet: core's LegalNotices has no data source in the Shop API.
+      items: itemFacts(pages, s),
+      // Beyond each product page's own (`items`), the snapshot doesn't say whether the store's markets require notices.
       legal: false,
       edgeNames: cases.map((c) => c.name),
     })

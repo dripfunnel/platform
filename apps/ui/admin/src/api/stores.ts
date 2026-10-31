@@ -36,7 +36,8 @@ export type StoreState =
   | { kind: 'pastdue'; daysPastDue: number }
   | { kind: 'suspended'; reason: string; by: string; since: string; previous: 'trial' | 'active' | 'pastdue' }
   | { kind: 'cancelled'; since: string }
-  | { kind: 'closed'; since: string }
+  // Shown as Archived (#1056): SAAS §4.2's Closed, with who archived it.
+  | { kind: 'closed'; since: string; by: string | null }
 
 export interface StoreDomain {
   host: string
@@ -63,11 +64,11 @@ export interface StoreRow {
 }
 
 // Retry and Undo and clean up are the signup job's, in provisioning.ts (decided on #43).
-export const storeActions = ['suspend', 'restore', 'extendTrial', 'resendInvite', 'addNote'] as const
+export const storeActions = ['suspend', 'restore', 'archive', 'extendTrial', 'resendInvite', 'addNote'] as const
 export type StoreAction = (typeof storeActions)[number]
 
 // Stable codes the API gives for a refusal (apps/api/src/saas/stores/service.ts).
-export const storeRefusals = ['SUPER_ADMIN_ONLY', 'SUSPENDERS_ONLY', 'INVITERS_ONLY', 'NOTERS_ONLY', 'STAFF_ROLE_NOT_ALLOWED', 'NOT_ASSIGNED'] as const
+export const storeRefusals = ['SUPER_ADMIN_ONLY', 'SUSPENDERS_ONLY', 'INVITERS_ONLY', 'NOTERS_ONLY', 'STAFF_ROLE_NOT_ALLOWED', 'NOT_ASSIGNED', 'NOT_ARCHIVABLE'] as const
 export type StoreRefusal = (typeof storeRefusals)[number]
 
 // `emergency` marks a suspension an Engineer on call may make, which a Super admin reviews:
@@ -185,8 +186,10 @@ const state = z
         }
         break
       case 'cancelled':
+        if (s.since) return { kind: 'cancelled', since: s.since }
+        break
       case 'closed':
-        if (s.since) return { kind: s.kind, since: s.since }
+        if (s.since) return { kind: 'closed', since: s.since, by: s.by }
         break
     }
     ctx.addIssue({ code: 'custom', message: `incomplete store state ${s.kind}` })
@@ -282,6 +285,7 @@ const storeSchema = z.object({
   actions: z.object({
     suspend: storePermission.nullable(),
     restore: storePermission.nullable(),
+    archive: storePermission.nullable(),
     extendTrial: storePermission.nullable(),
     resendInvite: storePermission.nullable(),
     addNote: storePermission.nullable(),
@@ -315,7 +319,7 @@ const storeQuery = `query Store($id: ID!) {
     users { id name email role supplier status lastSignInAt impersonate ${permissionSelection} }
     supportAccess notes { id by at text }
     job { id actions { retry ${permissionSelection} undo ${permissionSelection} } }
-    actions { suspend ${permissionSelection} restore ${permissionSelection} extendTrial ${permissionSelection} resendInvite ${permissionSelection} addNote ${permissionSelection} }
+    actions { suspend ${permissionSelection} restore ${permissionSelection} archive ${permissionSelection} extendTrial ${permissionSelection} resendInvite ${permissionSelection} addNote ${permissionSelection} }
   }
 }`
 
@@ -353,6 +357,9 @@ export const runStoreAction = async (id: string, action: StoreAction, reason: st
       return
     case 'restore':
       await mutate('restoreStore', 'restoreStore(id: $id, reason: $reason)', '($id: ID!, $reason: String!)', { id, reason: reason ?? '' })
+      return
+    case 'archive':
+      await mutate('archiveStore', 'archiveStore(id: $id, reason: $reason)', '($id: ID!, $reason: String!)', { id, reason: reason ?? '' })
       return
     case 'extendTrial':
       // The dialog picks a day; the trial ends at the start of it in UTC, as the screens show days.

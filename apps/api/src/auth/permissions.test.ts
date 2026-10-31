@@ -18,6 +18,7 @@ const table: Record<StaffPermission, string> = {
   'partners.pause': 'SA',
   'stores.suspend': 'SA EN',
   'stores.restore': 'SA',
+  'stores.archive': 'SA',
   'stores.trial.extend': 'SA',
   'stores.invite.resend': 'SA SU',
   'stores.notes.write': 'SA PM SU EN',

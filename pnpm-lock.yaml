@@ -60,6 +60,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20260926.1
         version: 5.20260926.1
+      '@dripfunnel/storefront-core':
+        specifier: workspace:*
+        version: link:../../packages/storefront-core
       '@types/node':
         specifier: ^26.6.3
         version: 26.6.3
@@ -8130,7 +8133,7 @@ snapshots:
       ws: 8.21.0
       zod: 3.25.76
     optionalDependencies:
-      expo-router: 57.0.25(1effb3a80468aa09268601830140e6cc)
+      expo-router: 57.0.25(1da2d1639555c5f176992ef686475cfd)
       react-native: 0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/jest-preset@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2))(@react-native/metro-config@0.87.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.3)(supports-color@10.2.2)
     transitivePeerDependencies:
       - '@expo/dom-webview'
@@ -8406,7 +8409,7 @@ snapshots:
       react: 19.2.3
     optionalDependencies:
       '@expo/metro-runtime': 57.0.16(@expo/log-box@57.0.4)(expo@57.0.27)(react-dom@19.3.0(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/jest-preset@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2))(@react-native/metro-config@0.87.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)
-      expo-router: 57.0.25(1effb3a80468aa09268601830140e6cc)
+      expo-router: 57.0.25(1da2d1639555c5f176992ef686475cfd)
       react-dom: 19.3.0(react@19.2.3)
     transitivePeerDependencies:
       - supports-color

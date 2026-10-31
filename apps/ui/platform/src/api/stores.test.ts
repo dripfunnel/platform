@@ -52,7 +52,7 @@ const storeDetail = {
     trialOffers: [{ days: 3, endsAt: '2026-10-13T00:00:00.000Z' }],
     support: { allowed: true, people: [{ id: 'u1', name: 'Ana', email: 'ana@x.example', role: 'supplier-admin', supplier: 'Loomcraft', status: 'active', lastSignInAt: null }] },
     activity: [{ id: 'a1', at: '2026-03-01T12:00:00.000Z', who: 'Diego', action: 'store.plan_changed', result: 'success' }],
-    actions: { changePlan: permission(true), extendTrial: permission(false, 'FINANCE_TRIAL_ONLY'), addOverride: null, resendInvite: null, restore: null, suspend: permission(true), retryStep: permission(true) },
+    actions: { changePlan: permission(true), extendTrial: permission(false, 'FINANCE_TRIAL_ONLY'), addOverride: null, resendInvite: null, restore: null, suspend: permission(true), archive: permission(false, 'CANCEL_OR_SUSPEND_FIRST'), retryStep: permission(true) },
 }
 
 describe('loadStore', () => {
@@ -68,7 +68,8 @@ describe('loadStore', () => {
     expect(store?.setup.steps).toEqual([{ key: 'account', state: 'done', detail: null }, { key: 'store', state: 'slow', detail: null }])
     expect(store?.overrides[0]).toMatchObject({ limit: 'publish', amount: 10 })
     expect(store?.support.people[0]).toMatchObject({ role: 'supplier-admin', supplier: 'Loomcraft' })
-    expect(Object.keys(store?.actions ?? {})).toEqual(['changePlan', 'extendTrial', 'suspend', 'retryStep'])
+    expect(Object.keys(store?.actions ?? {})).toEqual(['changePlan', 'extendTrial', 'suspend', 'archive', 'retryStep'])
+    expect(store?.actions.archive).toEqual({ allowed: false, reason: 'CANCEL_OR_SUSPEND_FIRST' })
   })
 
   it('reads a store that isn’t the partner’s as null', async () => {
@@ -84,6 +85,12 @@ describe('the store actions', () => {
     expect(answer.mock.calls[0]?.[0]).toMatchObject({ variables: { id: 's1', limit: 'ai_prompts', amount: 50, duration: 'month', reason: 'Launch' } })
     answer.mockReturnValueOnce({ data: { changeStorePlan: { ok: false, reason: 'NO_BILLING_DATE' } } })
     expect(await runStoreAction('s1', { action: 'changePlan', planId: 'p2', when: 'next', reason: 'Upgrade' })).toEqual({ ok: false, reason: 'NO_BILLING_DATE' })
+  })
+
+  it('archives with the reason, and reads Stripe being down as its own refusal', async () => {
+    answer.mockReturnValueOnce({ data: { archiveStore: { ok: false, reason: 'PROVIDER_UNAVAILABLE' } } })
+    expect(await runStoreAction('s1', { action: 'archive', reason: 'Merchant left' })).toEqual({ ok: false, reason: 'PROVIDER_UNAVAILABLE' })
+    expect(answer.mock.calls[0]?.[0]).toMatchObject({ variables: { id: 's1', reason: 'Merchant left' } })
   })
 
   it('reads the plan options with each proration as Money', async () => {

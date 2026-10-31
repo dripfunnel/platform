@@ -7,7 +7,7 @@ import { storeActions, storeTabs, type Store, type StoreAction, type StoreTab } 
 import { messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { StoreDetail } from './StoreDetail'
-import { storeDialog } from './storeDialog'
+import { actionInput, storeDialog } from './storeDialog'
 import { harborPlanOptions, storeAs } from './storesTestData'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
@@ -142,6 +142,13 @@ describe('the partner Store detail', () => {
     expect(consequenceOf('extendTrial', { days: '7' })).toBe('The trial ends Oct 1, 2026. It will end Oct 8, 2026 instead. Nothing is charged until then.')
     expect(consequenceOf('addOverride', { limit: 'publish', duration: 'month' }, '10')).toBe('Harbor Coffee Co. gets +10 “publish now” presses this month only. Its plan and price stay the same.')
     expect(storeDialog('restore', get('st-redline'), null).consequence).toBe(words.dialogs.restore.consequence)
+    const archive = storeDialog('archive', store, null)
+    expect(archive.consequence).toContain('This can’t be undone.')
+    expect(archive.consequence).toContain('Jenna gets an email saying so.')
+    expect(archive.typeToConfirm?.expected).toBe('Harbor Coffee Co.')
+    expect(archive.danger).toBe(true)
+    expect(actionInput('archive', 'Merchant left', null, {})).toEqual({ action: 'archive', reason: 'Merchant left' })
+    expect(actionInput('archive', null, null, {})).toBeNull()
     expect(storeDialog('resendInvite', store, null).consequence).toBe('Jenna Park (jenna@harborcoffee.co) gets a new invitation to set their password. The old link stops working.')
     for (const action of storeActions) expect(storeDialog(action, store, options).target).toBe(store.name)
   })

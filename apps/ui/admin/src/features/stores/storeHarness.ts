@@ -11,6 +11,7 @@ export type StoreScreenState = (typeof storeStates)[number]
 const roleRefusal: Record<StoreAction, StorePermission> = {
   suspend: { allowed: false, reason: 'SUSPENDERS_ONLY' },
   restore: { allowed: false, reason: 'SUPER_ADMIN_ONLY' },
+  archive: { allowed: false, reason: 'SUPER_ADMIN_ONLY' },
   extendTrial: { allowed: false, reason: 'SUPER_ADMIN_ONLY' },
   resendInvite: { allowed: false, reason: 'INVITERS_ONLY' },
   addNote: { allowed: false, reason: 'NOTERS_ONLY' },

@@ -32,6 +32,8 @@ export type StoreState =
   | { kind: 'pastdue'; daysPastDue: number }
   | { kind: 'suspended'; reason: string }
   | { kind: 'cancelled'; since: string | null }
+  // Archived (#1056): SAAS §4.2's Closed, with when and who. Not a filter of its own: Cancelled lists it.
+  | { kind: 'closed'; since: string | null }
 
 export interface StoreDomain {
   host: string
@@ -88,6 +90,9 @@ export const actionRefusals = [
   'UNPRICED_CURRENCY',
   'NOT_SELF_BILLING',
   'CANCELLED',
+  // Archive (#1056).
+  'CANCEL_OR_SUSPEND_FIRST',
+  'PROVIDER_UNAVAILABLE',
   'NOT_FOUND',
   'INVALID_INPUT',
   'READ_ONLY',
@@ -142,7 +147,7 @@ export const storeTabs = ['overview', 'plan', 'billing', 'storefront', 'domains'
 export type StoreTab = (typeof storeTabs)[number]
 
 // In the prototype's menu order, Suspend last.
-export const storeActions = ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'restore', 'suspend', 'retryStep'] as const
+export const storeActions = ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'restore', 'suspend', 'archive', 'retryStep'] as const
 export type StoreAction = (typeof storeActions)[number]
 
 export type StorePermissions = Partial<Record<StoreAction, ActionPermission>>
@@ -259,6 +264,7 @@ export type StoreActionInput =
   | { action: 'addOverride'; limit: LimitKey; amount: number; duration: 'month' | 'always'; reason: string }
   | { action: 'suspend'; reason: string }
   | { action: 'restore'; reason: string }
+  | { action: 'archive'; reason: string }
   | { action: 'resendInvite' }
   | { action: 'retryStep' }
 
@@ -283,8 +289,9 @@ const money = z.object({ amount: z.number().int(), currency: z.string() })
 const ref = z.object({ id: z.string(), name: z.string() })
 
 const stateSchema = z
-  .object({ kind: z.enum(storeStatuses), trialEndsAt: z.string().nullable(), daysLeft: z.number().int().nullable(), daysPastDue: z.number().int().nullable(), reason: z.string().nullable(), since: z.string().nullable() })
+  .object({ kind: z.enum([...storeStatuses, 'closed']), trialEndsAt: z.string().nullable(), daysLeft: z.number().int().nullable(), daysPastDue: z.number().int().nullable(), reason: z.string().nullable(), since: z.string().nullable() })
   .transform((s): StoreState => {
+    if (s.kind === 'closed') return { kind: 'closed', since: s.since }
     if (s.kind === 'active') return { kind: 'active' }
     if (s.kind === 'pastdue') return { kind: 'pastdue', daysPastDue: s.daysPastDue ?? 0 }
     if (s.kind === 'suspended') return { kind: 'suspended', reason: s.reason ?? '' }
@@ -548,6 +555,7 @@ const actionCalls: Record<StoreActionInput['action'], { field: string; args: str
   addOverride: { field: 'addLimitOverride', args: '($id: ID!, $limit: String!, $amount: Int!, $duration: String!, $reason: String!)', call: 'addLimitOverride(id: $id, limit: $limit, amount: $amount, duration: $duration, reason: $reason)' },
   suspend: { field: 'suspendStore', args: '($id: ID!, $reason: String!)', call: 'suspendStore(id: $id, reason: $reason)' },
   restore: { field: 'restoreStore', args: '($id: ID!, $reason: String!)', call: 'restoreStore(id: $id, reason: $reason)' },
+  archive: { field: 'archiveStore', args: '($id: ID!, $reason: String!)', call: 'archiveStore(id: $id, reason: $reason)' },
   resendInvite: { field: 'resendStoreOwnerInvite', args: '($id: ID!)', call: 'resendStoreOwnerInvite(id: $id)' },
   retryStep: { field: 'retryProvisioningStep', args: '($id: ID!)', call: 'retryProvisioningStep(id: $id)' },
 }

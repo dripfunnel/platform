@@ -1,5 +1,6 @@
 import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { shopCatalogueRecorder } from '#apis/shop/record'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import type { TenantContext } from '#core/tenancy'
@@ -266,5 +267,41 @@ describe('limits and isolation', () => {
     expect(page.data?.['products']).toEqual({ nodes: [], facets: [] })
     expect(((await gql('{ products(collection: "summer") { nodes { slug } } }', {}, {}, theirs)).data?.['products'] as { nodes: unknown[] }).nodes).toEqual([])
     expect((await gql('{ store { marketId currency } }', { 'x-shop-market': ids.usa }, {}, theirs)).data?.['store']).toEqual({ marketId: null, currency: 'INR' })
+  })
+})
+
+// Card #1011: the catalogue snapshot records this Shop API's answers, as a shopper on the store's live host would get them.
+describe('recording the catalogue for a live build', () => {
+  const recorder = () => shopCatalogueRecorder(db.sql, 'shop.example', () => new Date())
+  const record = async (on: string) => {
+    const base = await recorder().base(on)
+    if (!base) return null
+    const batch = await recorder().products(on, base.slugs, base.store)
+    return { answers: [...base.answers, ...batch.answers], products: batch.products, collections: base.collections, failed: base.failed + batch.failed }
+  }
+
+  it('records only what this store’s shoppers see, each product with its versions’ addresses, prices in minor units', async () => {
+    const recorded = await record(host)
+    expect(recorded?.failed).toBe(0)
+    const slugs = recorded?.products.map((p) => p.slug) ?? []
+    expect(slugs).toContain('kurta')
+    expect(slugs).toContain('dress')
+    expect(slugs).not.toContain('hidden-kurta')
+    expect(recorded?.products.find((p) => p.slug === 'kurta')?.versions.sort()).toEqual([ids.red, ids.blue].sort())
+    expect(recorded?.products.find((p) => p.slug === 'dress')?.versions).toEqual([])
+    expect(recorded?.collections).toEqual([{ slug: 'summer' }])
+    const answer = (operation: string, variables: Record<string, unknown>) => recorded?.answers.find((a) => a.operation === operation && JSON.stringify(a.variables) === JSON.stringify(variables))?.data
+    expect(answer('Product', { slug: 'kurta' })).toMatchObject({ product: { slug: 'kurta', price: { amount: '99900', currency: 'INR' } }, store: { marketId: null } })
+    expect(answer('Listing', { collection: 'summer', sort: 'COLLECTION', first: 24 })).toMatchObject({ products: { nodes: expect.arrayContaining([expect.objectContaining({ slug: 'dress' })]) } })
+    expect(answer('Collection', { slug: 'all' })).toEqual({ collection: null })
+    expect(answer('Listing', { sort: 'NEWEST', first: 24 })).toBeDefined()
+    // Store B’s product shares the slug, never its id or its price.
+    expect(JSON.stringify(recorded)).not.toContain(ids.other)
+    expect(JSON.stringify(recorded)).not.toContain(ids.hidden)
+  })
+
+  it('records nothing for a host that serves no open store', async () => {
+    expect(await record('nobody.shop.example')).toBeNull()
+    expect(await recorder().store('nobody.shop.example')).toBeNull()
   })
 })

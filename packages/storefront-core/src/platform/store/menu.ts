@@ -11,6 +11,8 @@ type Row = { id?: string | null | undefined; label?: string | null | undefined; 
 const rowSchema: z.ZodType<Row> = z.lazy(() => z.object({ id: text, label: text, kind: text, collectionSlug: text, url: text, children: z.array(rowSchema).nullable().optional() }))
 const menuSchema = z.object({ menu: z.array(rowSchema).nullable() })
 
+export const menuQuery = 'query Menu { menu { id label kind collectionSlug url children { id label kind collectionSlug url } } }'
+
 export type MenuItem = { id: string; label: string; href: string; children: MenuItem[] }
 
 // The engine's own rule for a page link (catalog/structure.ts cleanMenu): a path of plain characters, so no `//`, `\`,
@@ -40,6 +42,6 @@ const items = (rows: readonly Row[] | null | undefined): MenuItem[] =>
 
 /** The menu's links, one level of children; an item whose link no longer resolves (a hidden collection) is left out. */
 export const useMenu = () => {
-  const menu = useShopData('menu', async (client) => items((await client.query('query Menu { menu { id label kind collectionSlug url children { id label kind collectionSlug url } } }', menuSchema)).menu))
+  const menu = useShopData('menu', async (client) => items((await client.query(menuQuery, menuSchema)).menu))
   return { status: menu.status, items: menu.data ?? [] }
 }

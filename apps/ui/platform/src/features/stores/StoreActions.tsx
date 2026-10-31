@@ -21,7 +21,7 @@ export const StoreActionButton = ({ store, action, onAction, close, label, prima
       label={label ?? words.actions[action]}
       refusal={refusalText(permission, action, store)}
       primary={primary}
-      danger={action === 'suspend' && permission.allowed}
+      danger={(action === 'suspend' || action === 'archive') && permission.allowed}
       onRun={() => {
         close?.()
         onAction(action)

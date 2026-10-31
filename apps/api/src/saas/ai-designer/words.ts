@@ -19,8 +19,8 @@ export const designNotes = {
   undone: 'undone',
   discarded: 'discarded',
   stopped: 'stopped',
-  /** A photo the AI added to Assets; the photographer's name follows, never a web address. */
-  photoAdded: (user: string) => `photo:${user.replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 40)}`,
+  /** A photo the AI added to Assets; its source and the photographer's name follow, never a web address. */
+  photoAdded: (user: string, source: string) => `photo:${source.replace(/[^a-z]/g, '')}:${user.replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 40)}`,
 } as const
 
 /** FIRST-RELEASE §14: "I couldn't make that change — nothing on your site changed." for both. */
