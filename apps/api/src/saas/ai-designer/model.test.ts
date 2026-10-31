@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AiAnswer, AiProvider, AiTurn, CanonicalMessage, CanonicalTool } from '#integrations/ai/index'
-import { designModel, maxToolCalls, type DesignBrief, type DesignTools } from './model'
+import { carouselExample, designModel, maxToolCalls, rules, type DesignBrief, type DesignTools } from './model'
 
 const brief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: 'S', city: null, languages: [] }, brand: { tagline: null, description: null, voice: null, colours: [] }, products: [], image: null, screenshot: null }
 const spent = { tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD', model: 'fake' }
@@ -98,5 +98,57 @@ describe('the designer’s tool loop', () => {
     const answer = await designModel(provider, brief, { search: async () => [], add: async () => null }).propose({ request: 'x', theme: [], problems: [] })
     expect(completed).toHaveLength(1)
     expect(answer.summary?.reply).toBe('Done.')
+  })
+})
+
+describe('a repair', () => {
+  const ask = async (input: { problems: never[]; previous?: { path: string; content: string }[] }) => {
+    const completed: string[] = []
+    const provider: AiProvider = { complete: async (c) => (completed.push(c.text), { text: final, ...spent }) }
+    await designModel(provider, brief, { search: async () => [], add: async () => null }).propose({ request: 'x', theme: [], ...input })
+    return completed[0] ?? ''
+  }
+  const failed = [{ step: 'validator', rule: 'content/missing-key', file: 'a.tsx', line: 1, message: 'no words' }] as never[]
+
+  it('shows the model the files of its last answer beside the errors', async () => {
+    const text = await ask({ problems: failed, previous: [{ path: 'src/theme/A.tsx', content: 'MARKER-CODE' }] })
+    expect(text).toMatch(/Your last answer's files, which failed:\n--- src\/theme\/A\.tsx\nMARKER-CODE/)
+    expect(text).toMatch(/Your last answer failed these checks/)
+  })
+
+  it('shows no previous files on the first ask', async () => {
+    expect(await ask({ problems: [], previous: [{ path: 'src/theme/A.tsx', content: 'MARKER-CODE' }] })).not.toMatch(/MARKER-CODE/)
+  })
+})
+
+describe('the rules the AI is given', () => {
+  it('state the two checks a carousel kept failing: words only through t() keys, and named transitions of layout-free properties', () => {
+    expect(rules).toMatch(/no words in the values passed to t\(\)/)
+    expect(rules).toMatch(/t\('file\.key'\)/)
+    expect(rules).toMatch(/transform, opacity, filter and colours/)
+    expect(rules).toMatch(/Never\s+transition: all/)
+  })
+
+  it('refuse next/* imports, keep use client under components/interactive/, and keep every existing content key', () => {
+    expect(rules).toMatch(/Never import from next/)
+    expect(rules).toMatch(/src\/theme\/components\/interactive\/ that starts with 'use client'/)
+    expect(rules).toMatch(/every existing key still in it/)
+  })
+})
+
+describe('the worked carousel', () => {
+  const system = async (request: string) => {
+    const seen: string[] = []
+    const provider: AiProvider = { complete: async (c) => (seen.push(c.system), { text: final, ...spent }) }
+    await designModel(provider, brief, null).propose({ request, theme: [], problems: [] })
+    return seen[0] ?? ''
+  }
+
+  it.each(['turn the hero into a rotating carousel of three slides', 'add a Slider of reviews', 'make the FAQ tabs'])('goes with "%s"', async (request) => {
+    expect(await system(request)).toContain(carouselExample)
+  })
+
+  it.each(['make the colours warmer', 'add a customer reviews section', 'use a more elegant font for headings'])('stays out of "%s"', async (request) => {
+    expect(await system(request)).not.toContain(carouselExample)
   })
 })
