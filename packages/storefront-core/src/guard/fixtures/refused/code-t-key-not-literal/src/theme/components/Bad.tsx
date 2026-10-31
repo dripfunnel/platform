@@ -1,7 +1,6 @@
 import { useStorefront } from '@dripfunnel/storefront-core/theme'
 
-export const Bad = () => {
+export const Bad = ({ key }: { key: string }) => {
   const { t } = useStorefront()
-  const key = 'pages.home.title'
   return <p>{t(key)}</p>
 }

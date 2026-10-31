@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { AiAnswer, AiProvider, AiTurn, CanonicalMessage, CanonicalTool } from '#integrations/ai/index'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { validateChange, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { carouselExample, designModel, maxToolCalls, rules, type DesignBrief, type DesignTools } from './model'
 
 const brief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: 'S', city: null, languages: [] }, brand: { tagline: null, description: null, voice: null, colours: [] }, products: [], image: null, screenshot: null }
@@ -150,5 +154,64 @@ describe('the worked carousel', () => {
 
   it.each(['make the colours warmer', 'add a customer reviews section', 'use a more elegant font for headings'])('stays out of "%s"', async (request) => {
     expect(await system(request)).not.toContain(carouselExample)
+  })
+})
+
+// The prompt teaches rules, so each one it states is held against the real validator (the typecheck is the sandbox's, apps/sandbox/src/gate).
+const baselineDir = fileURLToPath(new URL('../../../../../packages/storefront-core/src/guard/fixtures/baseline/', import.meta.url))
+const walk = (dir: string, rel = ''): string[] => readdirSync(join(dir, rel)).flatMap((n) => (statSync(join(dir, rel, n)).isDirectory() ? walk(dir, `${rel}${n}/`) : [`${rel}${n}`]))
+const baseline: ThemeFile[] = walk(baselineDir).map((path) => ({ path, content: readFileSync(join(baselineDir, path), 'utf8') }))
+const guardContext: GuardContext = { locales: ['en', 'hi'], usedPaths: [], mediaIds: [], brand: { name: 'Northstar Linen', tagline: 'Slow-made linen for warm days', email: 'hello@northstar.example', phone: '+91 98765 43210', address: ['12 Residency Road', 'Bengaluru 560025'], socialLinks: [] } }
+
+const exampleFiles = (): ThemeFile[] => {
+  const parts = carouselExample.split(/^--- (\S+).*$/m)
+  const files: ThemeFile[] = []
+  for (let i = 1; i < parts.length; i += 2) {
+    const path = parts[i] ?? ''
+    const content = (parts[i + 1] ?? '').trim() + '\n'
+    if (path.includes('{language}')) for (const l of ['en', 'hi']) files.push({ path: path.replace('{language}', l), content })
+    else files.push({ path, content })
+  }
+  return files
+}
+
+describe('the worked carousel against the validator', () => {
+  it('passes with no problem, so the prompt never teaches what the gate refuses', () => {
+    expect(exampleFiles().map((f) => f.path)).toEqual(['src/theme/components/interactive/HeroCarousel.tsx', 'src/theme/styles/carousel.module.css', 'content/en/carousel.json', 'content/hi/carousel.json'])
+    expect(validateChange([...baseline, ...exampleFiles()], guardContext).problems).toEqual([])
+  })
+})
+
+describe('the rules the prompt states against the validator', () => {
+  const component = (name: string, body: string, interactive = true): ThemeFile => ({ path: `src/theme/components/${interactive ? 'interactive/' : ''}${name}.tsx`, content: (interactive ? "'use client'\n" : '') + body })
+  const styles = (name: string, body: string): ThemeFile => ({ path: `src/theme/styles/${name}.module.css`, content: body })
+  const keys = "const slides = [{ title: 'pages.home.title' }, { title: 'pages.home.lead' }]"
+  const refused: [file: ThemeFile, rule: string][] = [
+    [component('NextImage', "import Image from 'next/image'\nexport const X = () => <Image src=\"/a\" alt=\"\" />\n"), 'code/import-not-allowed'],
+    [component('DefaultReact', "import React from 'react'\nexport const X = () => <div />\n"), 'code/import-not-allowed'],
+    [component('Anchor', "export const X = () => <div><a href=\"/a\">x</a></div>\n"), 'jsx/element-not-allowed'],
+    [component('Label', "export const X = () => <label>x</label>\n"), 'jsx/element-not-allowed'],
+    [component('OnChange', "export const X = () => <div onChange={() => undefined} />\n"), 'jsx/attribute-not-allowed'],
+    [component('StyleAttr', "export const X = () => <div style={{ opacity: 1 }} />\n"), 'jsx/attribute-not-allowed'],
+    [component('Untyped', "export function f(x) { return x }\n"), 'code/dom-walking'],
+    [component('Clock', "export const f = () => Date.now()\n"), 'code/browser-global'],
+    [component('ClientInPage', "'use client'\nexport const X = () => <div />\n", false), 'code/use-client-outside-interactive'],
+    [component('OpenKeys', `${"import { useStorefront } from '@dripfunnel/storefront-core/theme'"}\n${keys}\nexport const X = () => { const { t } = useStorefront(); return <div>{slides.map((s) => <p key={s.title}>{t(s.title)}</p>)}</div> }\n`), 'code/t-key-not-literal'],
+    [styles('Width', '.a { transition: width 1s; }\n'), 'css/animated-property'],
+    [styles('All', '.a { transition: all 1s; }\n'), 'css/animated-property'],
+    [styles('Bare', '.a { opacity: 1; }\nh2 { margin: 0; }\n'), 'css/selector-not-scoped'],
+    [styles('Layer', '.a { z-index: 100; }\n'), 'css/z-index'],
+    [styles('Import', '@import "x.css";\n.a { opacity: 1; }\n'), 'css/at-rule-not-allowed'],
+    [styles('Words', '.a::after { content: "Next"; }\n'), 'css/text'],
+  ]
+  const allowed: ThemeFile[] = [
+    component('Slides', `${"import { useStorefront } from '@dripfunnel/storefront-core/theme'"}\n${keys} as const\nexport const X = () => { const { t } = useStorefront(); return <div>{slides.map((s) => <p key={s.title}>{t(s.title)}</p>)}</div> }\n`),
+    styles('Colours', '.a { transition: transform 300ms, opacity 300ms, background-color 300ms, box-shadow 300ms; }\n.a:hover { opacity: .9; }\n.a::before { content: ""; }\n@media (min-width: 900px) { .a > h2 { margin: 0; } }\n.b { z-index: 99; }\n'),
+  ]
+
+  it('refuses each thing the prompt says is refused, and allows each thing it says is allowed', () => {
+    const { problems } = validateChange([...baseline, ...refused.map(([f]) => f), ...allowed], guardContext)
+    for (const [file, rule] of refused) expect(problems.filter((p) => p.file === file.path).map((p) => p.rule), file.path).toContain(rule)
+    for (const file of allowed) expect(problems.filter((p) => p.file === file.path), file.path).toEqual([])
   })
 })

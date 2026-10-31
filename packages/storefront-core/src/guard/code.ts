@@ -315,9 +315,12 @@ const checkCall = (w: Walk, call: ts.CallExpression) => {
   }
   if (!isTranslate(w, w.checker.getTypeAtLocation(callee))) return
   const [key, values] = call.arguments
+  const names = key && !ts.isStringLiteral(key) ? literalStrings(w.checker.getTypeAtLocation(key)) : undefined
   if (key && ts.isStringLiteral(key)) {
     w.quiet.add(key)
     w.keys.push({ file: w.file, line: lineOf(key), key: key.text })
+  } else if (key && names) {
+    for (const name of names) w.keys.push({ file: w.file, line: lineOf(key), key: name })
   } else {
     w.report(call, 'code/t-key-not-literal', "t() takes its key written out, such as t('pages.home.title'), so every language can be checked for it.")
   }
