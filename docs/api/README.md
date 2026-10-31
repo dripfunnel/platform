@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-10-31 (#1071: the dev database on PlanetScale, §7). Before: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -299,10 +299,10 @@ own migration file with no other statements. Applied migrations are recorded in 
 ## 7. Local Postgres
 
 This project requires Postgres 18.x; `pnpm migrate` refuses to run against any other major
-(`scripts/migrate/version-check.ts`). This matches the Neon projects `dripfunnel-dev` and the
+(`scripts/migrate/version-check.ts`). This matches the dev database (PlanetScale) and Neon's
 test branch (`REQUIRED_POSTGRES_MAJOR` — confirmed 2026-09-30, [FEATURE-ENVIRONMENTS.md](../code/FEATURE-ENVIRONMENTS.md)
 §4), so a version-specific issue is caught locally and in CI before it reaches a real
-deploy. If Neon's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
+deploy. If either's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
 together. Install it natively — no Docker required.
 
 **Installing it, creating the database, `apps/api/.env.local`, `pnpm setup:local`, `pnpm dev`

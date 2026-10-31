@@ -112,7 +112,7 @@
         "traces": { "enabled": false }
       },
       "images": { "binding": "IMAGES" },
-      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "c3b583f2cfbf4cf4a11268fc78d6bb7a" }],
       "r2_buckets": [
         { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-dev" },
         // The buckets must exist first: a binding to a missing bucket fails the deploy (docs/setup/dev.md §2.8 item 1).

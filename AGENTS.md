@@ -4,7 +4,7 @@ The whole DripFunnel platform in one repo: one API Worker (`apps/api`: the comme
 the Store, Platform, Admin and Shop APIs (and the proposed Delivery API), webhooks and background jobs on Queues, Workflows and
 Cron), three static SPAs on Cloudflare Pages in `apps/ui/` (`store` for merchants and
 vendors, `platform` for Partners, `admin` for DripFunnel staff), the one published package (`storefront-core`) and
-the storefront template every store's own repo is created from. Postgres on Neon via
+the storefront template every store's own repo is created from. Postgres on Neon (dev on PlanetScale) via
 Hyperdrive; files on R2.
 
 **Status: skeleton.** The apps, `apps/ui/shared/`, `storefront-core` and the template build and pass
