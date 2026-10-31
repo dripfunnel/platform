@@ -81,12 +81,14 @@ export const headersOf = async (root: string, snapshot: CatalogueSnapshot) => {
 type Network = { errors: string[]; reports: ShopReport[]; js: { url: string; gzip: number }[]; css: number; bytes: number; reading: Promise<void>[] }
 const network = (): Network => ({ errors: [], reports: [], js: [], css: 0, bytes: 0, reading: [] })
 
+const answerShop = (route: Route, fixture: ReturnType<typeof shopFixture>) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture(route.request().postData() ?? '')) })
+
 /** Requests stay on this machine: the page's own server, the build's assets and the offline Shop API; anything else fails. */
 const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { assets: string }, net: Network) => {
   const fixture = shopFixture(s, net.reports)
   await page.route('**/*', async (route: Route) => {
     const url = new URL(route.request().url())
-    if (url.origin === served.origin && url.pathname === '/shop-api') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture(route.request().postData() ?? '')) })
+    if (url.origin === served.origin && url.pathname === '/shop-api') return answerShop(route, fixture)
     if (url.origin === served.origin) return route.fallback()
     const base = s.assetBase ? new URL(s.assetBase) : null
     if (base && url.origin === base.origin && url.pathname.startsWith(base.pathname)) {
@@ -317,15 +319,17 @@ export const difference = async (page: Page, a: Buffer, b: Buffer): Promise<numb
     return changed / (p.length / 4 || 1)
   })()`)) as number
 
-/** The live site's page at the same width, its JS and CSS served from the live build's own files. */
+/** The live site's page at the same width, its JS and CSS served from the live build's own files, its data from the same snapshot. */
 const liveShot = async (browser: Browser, served: Served, live: string, s: CatalogueSnapshot, path: string, width: number): Promise<Buffer | null> => {
   if (!(await fileFor([live], path))) return null
   const context = await browser.newContext({ viewport: { width, height } })
   await returningShopper(context)
   const page = await context.newPage()
+  const fixture = shopFixture(s, [])
   try {
     await page.route('**/*', async (route) => {
       const url = new URL(route.request().url())
+      if (url.origin === served.origin && url.pathname === '/shop-api') return answerShop(route, fixture)
       if (url.origin === served.origin) return route.fallback()
       // A live page names its own build's asset folder; the runner fetched those files into `live` by their paths.
       const asset = /\/assets\/(.*)$/.exec(url.pathname)?.[0]

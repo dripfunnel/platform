@@ -452,6 +452,32 @@ describe.skipIf(!chrome)('step check', () => {
     expect(check('contracts')?.detail).toContain('The search page at 390 px failed while loading.')
   })
 
+  it('answers the live page’s Shop API from the snapshot too, so a page that loads its data in the browser keeps its look', async () => {
+    // The home page shows the menu only once the Shop API answers, as a page of a store built before #1011 does.
+    const source = await sourceOf('shop-look', {
+      'src/theme/pages/HomePage.tsx': [
+        "import { useMenu, useStorefront } from '@dripfunnel/storefront-core/theme'",
+        "import { Shell } from '../components/Shell'",
+        "import styles from '../styles/page.module.css'",
+        '',
+        'export const HomePage = () => {',
+        '  const { t } = useStorefront()',
+        '  const menu = useMenu()',
+        "  return <Shell title={t('pages.home.title')}>{menu.items.length > 0 && <ul className={styles.menu}>{menu.items.map((i) => <li key={i.id}>{i.label}</li>)}</ul>}</Shell>",
+        '}',
+        '',
+      ].join('\n'),
+      'src/theme/styles/page.module.css': `${readFileSync(join(baselineDir, 'src/theme/styles/page.module.css'), 'utf8')}\n.menu {\n  min-height: 400px;\n  background: currentColor;\n}\n`,
+    })
+    const out = join(root, 'shop-look-built')
+    const theme = await checkout(source.bundle, source.commit, join(root, 'shop-look-src'))
+    await buildSite({ repo: join(root, 'shop-look-src'), theme, snapshot, runtimeDir: runtime, out, work: join(root, 'shop-look-work') })
+    const live = join(root, 'shop-look-live')
+    cpSync(join(out, 'site'), live, { recursive: true })
+    const { report } = await checkSite({ site: join(out, 'site'), out, live, snapshot, theme, strictLook: true, browser })
+    expect(report.checks.find((c) => c.name === 'visual-diff')).toEqual({ name: 'visual-diff', passed: true })
+  })
+
   it('counts every pixel when two screenshots differ in size', async () => {
     const page = await browser.newPage()
     try {

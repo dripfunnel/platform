@@ -24,7 +24,8 @@ prints the digest. `promote.yml` does this itself, and refuses a `studio_digest`
 
 Nothing serves the new code until this is run — a failed or skipped promotion just leaves the
 previous version live. If you promote by hand, deploy the SPAs by hand too (see below) — skipping
-`promote.yml` means nothing enforces that they come from the same commit as the Worker.
+`promote.yml` means nothing enforces that they come from the same commit as the Worker. It also
+skips the core rollout `promote.yml` starts last (`api/SAAS.md` §10): start it from the Admin API, or nothing upgrades.
 
 Run `promote.yml` shortly after the `prod.yml` run it follows: it checks out `commit_sha` to
 build the SPAs *and* to run the deploy actions themselves, so promoting a stale commit runs old
