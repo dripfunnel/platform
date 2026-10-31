@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2, §6). Before: 2026-10-23 (#839: the Delivery API built, answering only on a store's free address through `StorefrontEdge`, §1, §2). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, one build per store, and the Delivery API on `{slug}.<SHOP_DOMAIN>`, §1–§3, proposed: api/DELIVERY.md, mobile-app/README.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (#744, #745: every store's free addresses on `SHOP_DOMAIN`, `{slug}.` live and
+Last updated: 2026-10-31 (promote.yml starts the promoted core's rollout, §6). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2, §6). Before: 2026-10-23 (#839: the Delivery API built, answering only on a store's free address through `StorefrontEdge`, §1, §2). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, one build per store, and the Delivery API on `{slug}.<SHOP_DOMAIN>`, §1–§3, proposed: api/DELIVERY.md, mobile-app/README.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (#744, #745: every store's free addresses on `SHOP_DOMAIN`, `{slug}.` live and
 `{slug}-preview.` preview, §1 and §8; no per-store Cloudflare hostnames). Before: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
@@ -255,6 +255,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   healthy: it promotes the Worker, runs one `wrangler deploy` of the same commit to apply the studio's
   container image (`versions deploy` can't, #881), health-checks the live prod host, and — only then — builds and
   deploys all three SPAs from that same commit, so the SPAs are never ahead of the API they call.
+  Last, it starts the rollout of that commit's storefront-core version to every store (`api/SAAS.md` §10).
   See `docs/code/ROLLBACK.md`.
 - **Pushing `main` is a production action**: it runs migrations against the real prod database
   and uploads a new Worker version, though nothing new goes live until `promote.yml` is run by

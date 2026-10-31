@@ -10,6 +10,10 @@ export type StoreUpgradeState = 'pending' | 'running' | 'passed' | 'migrated' | 
 export const hasRolloutActiveOrTo = async (tx: ScopedSql, version: string): Promise<boolean> =>
   (await tx`select 1 from core_rollout where state in ('canary', 'waves', 'paused') or version = ${version} limit 1`).length > 0
 
+/** The version of the one rollout running or paused, if any. */
+export const selectActiveRolloutVersion = async (tx: ScopedSql): Promise<string | null> =>
+  (await tx<{ version: string }[]>`select version from core_rollout where state in ('canary', 'waves', 'paused') limit 1`)[0]?.version ?? null
+
 export const insertRollout = async (tx: ScopedSql, r: { version: string; security: boolean; by: string | null; reason: string; at: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into core_rollout (version, security, started_by, reason, started_at) values (${r.version}, ${r.security}, ${r.by}, ${r.reason}, ${r.at}) returning id`
