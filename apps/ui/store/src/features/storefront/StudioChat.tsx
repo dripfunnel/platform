@@ -145,6 +145,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
     setStockState('loading')
     api.searchStockImages(stockIn.trim(), 1).then(setStockState, (e: unknown) => (setStockState('failed'), setUploadErr(askRefusal(e))))
   }
+  const sourceName = (source: string) => (words.stockSources as Record<string, string>)[source] ?? source
   const pickStock = (photo: StockPhoto) => {
     const mine = ++uploads.current
     setStockOpen(false)
@@ -340,8 +341,9 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
                   <ul className="df-studio-stock-grid">
                     {stockState.map((p) => (
                       <li key={p.id}>
-                        <button type="button" aria-label={fill(words.stockUse, { user: p.user })} title={p.tags} onClick={() => pickStock(p)}>
+                        <button type="button" aria-label={fill(words.stockUse, { user: p.user, source: sourceName(p.source) })} title={p.tags} onClick={() => pickStock(p)}>
                           <img src={p.thumb} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                          <span className="df-studio-stock-source">{sourceName(p.source)}</span>
                         </button>
                       </li>
                     ))}

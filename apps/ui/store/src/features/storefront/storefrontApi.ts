@@ -163,7 +163,7 @@ const sampleStudio = (state: StorefrontState) => {
     renameLibraryAsset: () => Promise.resolve(),
     deleteLibraryAsset: () => Promise.resolve(),
     loadStockAvailable: () => Promise.resolve(true),
-    searchStockImages: () => Promise.resolve([1, 2, 3, 4, 5, 6].map((n) => ({ id: String(n), thumb: '', user: 'A contributor', pageUrl: 'https://pixabay.com/', tags: 'sample' }))),
+    searchStockImages: () => Promise.resolve([1, 2, 3, 4, 5, 6].map((n) => ({ id: String(n), source: 'pixabay', thumb: '', user: 'A contributor', pageUrl: 'https://pixabay.com/', tags: 'sample' }))),
     useStockImage: () => Promise.resolve('sample-stock-1'),
     undoDesignChange: (id: string) => {
       chat = [line(`m${(n += 1)}`, 'note', 'undone'), ...chat.map((m) => (m.id === id ? { ...m, undone: true, canUndo: false } : m))]

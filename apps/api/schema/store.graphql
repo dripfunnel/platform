@@ -2716,6 +2716,7 @@ type StockMovementPage {
 type StockPhoto {
   id: String
   pageUrl: String
+  source: String
   tags: String
   thumb: String
   user: String

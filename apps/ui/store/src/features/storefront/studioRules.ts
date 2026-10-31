@@ -86,8 +86,9 @@ export const pageGroups = (pages: StudioPages): PageGroup[] => {
 export const noteText = (code: string, templateName: (key: string) => string): string | null => {
   const n = words.chat.notes
   const template = /^template:(.+)$/.exec(code)?.[1]
-  const photo = /^photo:(.*)$/.exec(code)
-  if (photo) return photo[1] ? fill(n.photoBy, { name: photo[1] }) : n.photo
+  const photo = /^photo:(?:([a-z]+):)?(.*)$/.exec(code)
+  const from = photo?.[1] ? (words.chat.stockSources as Record<string, string>)[photo[1]] : undefined
+  if (photo) return photo[2] ? (from ? fill(n.photoFrom, { name: photo[2], source: from }) : fill(n.photoBy, { name: photo[2] })) : n.photo
   if (template) return template === scratchTemplate ? n.scratch : fill(n.template, { name: templateName(template) })
   return code === 'stopped' ? n.stopped : code === 'undone' ? n.undone : code === 'discarded' ? n.discarded : null
 }
