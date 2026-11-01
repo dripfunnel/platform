@@ -85,8 +85,8 @@ describe('creating another store', () => {
     expect(router.state.location.search).toEqual({ step: 'enrol', next: '/home' })
   })
 
-  it('words a taken address and a support session, and checks the name before asking', async () => {
-    serve({ 'new-store/options': [options, options], 'new-store': [{ ok: false, code: 'SUBDOMAIN_TAKEN', suggestions: ['kesari-co'] }, { ok: false, code: 'FORBIDDEN' }] })
+  it('words a taken address, a support session and the day’s limit, and checks the name before asking', async () => {
+    serve({ 'new-store/options': [options, options], 'new-store': [{ ok: false, code: 'SUBDOMAIN_TAKEN', suggestions: ['kesari-co'] }, { ok: false, code: 'FORBIDDEN' }, { ok: false, code: 'DAILY_LIMIT' }] })
     const { NewStore } = await import('./NewStore')
     await show(<NewStore />)
     await settle()
@@ -99,7 +99,10 @@ describe('creating another store', () => {
     fillIn('Kesari')
     await settle()
     expect(screen.getByText(words.forbidden)).toBeTruthy()
-    expect(calls.filter((c) => c.route === 'new-store')).toHaveLength(2)
+    fillIn('Kesari')
+    await settle()
+    expect(screen.getByText(words.dailyLimit)).toBeTruthy()
+    expect(calls.filter((c) => c.route === 'new-store')).toHaveLength(3)
   })
 
   it('says when the partner takes no new stores, sends a signed-out person to sign in, and goes back to the stores', async () => {

@@ -15,7 +15,7 @@ const su = messages.auth.signup
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'refused'; text: string } | { kind: 'store'; countries: Country[]; shopDomain: string | null } | { kind: 'building'; storeId: string; enrol: boolean }
 
-const refusedText = (refusal: AuthRefusal): string => (refusal.code === 'FORBIDDEN' ? words.create.forbidden : signupText(refusal))
+const refusedText = (refusal: AuthRefusal): string => (refusal.code === 'FORBIDDEN' ? words.create.forbidden : refusal.code === 'DAILY_LIMIT' ? words.create.dailyLimit : signupText(refusal))
 
 // "Create another store" (FIRST-RELEASE §4; PortalAuth `pick` → su3, then the building view; #1136): a
 // signed-in person's next store, with no account step and no texted code, opened as the acting store.

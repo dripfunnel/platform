@@ -230,8 +230,8 @@ import banner is built on #302 from the caller's own `catalogImports`, not `stor
 - **Choose a store / switch store**: the portal never picks; a person who belongs to no store is
   refused, not shown an empty portal. "Create another store" starts sign-up step 3.
   **Built on #1136** (`/stores/new`, `features/choose-store/NewStore.tsx`): on the chooser and as the switcher's last
-  item; su3's fields (`auth/StoreFields.tsx`, shared with sign-up), then the building view, with no texted code and no
-  limit on stores. The new store becomes the acting one; an Owner without two-step sign-in sets it up first.
+  item; su3's fields (`auth/StoreFields.tsx`, shared with sign-up), then the building view, with no texted code and at
+  most one new store a day per person. The new store becomes the acting one; an Owner without two-step sign-in sets it up first.
 - **Reset password**: a link valid for 30 minutes; signs out everywhere else.
 - **Invitations**: a new person sets a name and password; an existing account joins without one;
   an expired link (7 days) says so and asks the inviter for a new one.

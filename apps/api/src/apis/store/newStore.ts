@@ -2,7 +2,7 @@ import type { RequestFacts } from '#auth/activity'
 import { holdForEnrolment, readUserSession } from '#auth/storeSession'
 import { countryOf } from '#core/countries'
 import { withSystemScope } from '#db/scoped/index'
-import { countStoresCreatedSince, selectOwnNewStore, selectPartnerState } from '#db/scoped/signup'
+import { countOwnStoresSince, countStoresCreatedSince, selectOwnNewStore, selectPartnerState } from '#db/scoped/signup'
 import { selectUserSecondFactor } from '#db/scoped/userSignIn'
 import { provisionStore, type FailAt } from '#saas/provisioning/index'
 import { withSession, type StoreAuthDeps } from './admission'
@@ -14,6 +14,8 @@ import { checkStoreStep, isRefusal, offeredCountries, refuseSignup, startsPerPar
 
 /** A retry within this long answers the store it already made instead of "taken". */
 const retryMs = 10 * 60_000
+
+const dayMs = 24 * 60 * 60_000
 
 /** What the store step offers a signed-in person: the partner's countries and the free address's domain. */
 export const newStoreOptions = async (deps: StoreAuthDeps, sessionId: string | null, inSupport: boolean): Promise<Response> => {
@@ -40,6 +42,7 @@ export const createAnotherStore = async (request: Request, deps: StoreAuthDeps, 
     if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return { code: 'SIGNUP_CLOSED' }
     const again = await selectOwnNewStore(tx, deps.partnerId, user.userId, input.subdomain.trim(), new Date(now.getTime() - retryMs))
     if (again) return { storeId: again, enrol: false }
+    if ((await countOwnStoresSince(tx, user.userId, new Date(now.getTime() - dayMs))) > 0) return { code: 'DAILY_LIMIT' }
     if ((await countStoresCreatedSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000))) >= startsPerPartnerPerHour) return { code: 'RATE_LIMITED' }
     const store = await checkStoreStep(tx, deps.partnerId, input, null)
     if (isRefusal(store)) return store

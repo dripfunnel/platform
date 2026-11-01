@@ -226,8 +226,9 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 (Owner, Manager, Staff or supplier), opens another store under that partner as its Owner. `POST /api/auth/new-store/options`
 answers step 3's countries; `POST /api/auth/new-store` takes step 3's store name, web address and country, checked as
 sign-up checks them, and provisions the store for the existing account in one transaction, with no texted code. Each
-store starts its own trial as a sign-up does, with no limit on how many. Refused `SIGNUP_CLOSED` while the partner isn't
-Live, `FORBIDDEN` in a support session, `RATE_LIMITED` per person and past 500 new stores under the partner in an hour.
+store starts its own trial as a sign-up does, at most one a day per person: `DAILY_LIMIT` while the person owns a store
+made in the last 24 hours (decided 2026-11-01, Gaurav, on the review of #1139). Refused `SIGNUP_CLOSED` while the partner
+isn't Live, `FORBIDDEN` in a support session, `RATE_LIMITED` per person and past 500 new stores under the partner in an hour.
 A retry within 10 minutes answers the store it already made. An Owner without 2-factor is then held at enrolment
 (ACCESS.md §4).
 

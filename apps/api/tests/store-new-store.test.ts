@@ -20,6 +20,8 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
   await db.sql`update partner set state = 'awaiting' where id = ${t.partnerB}`
+  // The seeded stores are old: only stores made here count toward a person's one a day.
+  await db.sql`update store set created_at = ${new Date(now.getTime() - 30 * 24 * 60 * 60_000)}`
   for (const [name, inr, usd, trial] of [['Basic', 99900, 1900, 0], ['Grow', 249900, 4900, 30]] as const) {
     const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${t.partnerA}, ${name}, 'live') returning id`
     const id = plan?.id ?? ''
@@ -108,6 +110,16 @@ describe('creating another store', () => {
     expect(again.body).toEqual({ ok: true, step: 'done', storeId: first.body['storeId'] })
     expect(await db.sql`select 1 from store where slug = 'kesari-retry'`).toHaveLength(1)
     expect(await membershipsOf(id)).toHaveLength(2)
+  })
+
+  it('allows one new store a day per person, then another once the day has passed', async () => {
+    const { session } = await person('daily@a.example', { storeId: t.storeA1, role: 'owner' }, true)
+    const first = await create(session, 'kesari-daily-1')
+    expect(first.body).toMatchObject({ ok: true, step: 'done' })
+    const second = await create(session, 'kesari-daily-2')
+    expect([second.status, second.body]).toEqual([429, { ok: false, code: 'DAILY_LIMIT' }])
+    await db.sql`update store set created_at = ${new Date(now.getTime() - 25 * 60 * 60_000)} where id = ${first.body['storeId'] as string}`
+    expect((await create(session, 'kesari-daily-2')).body).toMatchObject({ ok: true, step: 'done' })
   })
 
   it('refuses a taken, reserved or malformed address and a country the partner doesn’t sell in', async () => {

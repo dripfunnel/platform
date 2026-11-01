@@ -491,7 +491,8 @@
       "primary": "Create store",
       "back": "Back to your stores",
       "loading": "Loading the store form",
-      "forbidden": "A support session can’t create a store."
+      "forbidden": "A support session can’t create a store.",
+      "dailyLimit": "You can create one new store a day. Try again 24 hours after your last one."
     }
   },
   "auth": {
