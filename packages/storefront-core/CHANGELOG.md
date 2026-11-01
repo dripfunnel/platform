@@ -1,5 +1,16 @@
 # @dripfunnel/storefront-core
 
+## 0.8.0
+
+### Minor Changes
+
+- f39f1dd: Adds `PhoneField`: a country code dropdown and the number, handed back as E.164 with no spaces (`+919876543210`), the form every Shop API phone input checks. `AddressFields` and the baseline checkout use it; a theme's own contact or sign-in phone field may switch from `TextField` to `PhoneField` (it needs `codeLabel`, `country` and `locale`). The phone error now reads "Check the country code and the number."
+
+### Patch Changes
+
+- 20a4abf: No theme has to change (#1145). `useCheckout` leaves the delivery step out of `steps` until the cart has a delivery address, so a store with one delivery option no longer shows the step before the address and then drops it.
+- d3ce20b: No theme has to change (#1134). While a listing loads after a filter or sort changes, `useListing` (and so `useCollection` and `useSearch`) keeps the last facets of the same collection or search, so a theme's filter panel stays on screen and only the products reload.
+
 ## 0.7.0
 
 ### Minor Changes
