@@ -1,5 +1,5 @@
-export { ApiError, createApiClient, type ApiClient } from './client'
-export { isApiError, outcome, typedQuery } from './typed'
+export { ApiError, createApiClient, type ApiClient, type FieldError } from './client'
+export { isApiError, outcome, typedPartialQuery, typedQuery } from './typed'
 export type { PageInfo, PageRequest } from './pageInfo'
 export { pageByCursor } from './pageByCursor'
 export { exportJobFields, exportJobSchema, readExportJob, type ExportJob, type ExportState } from './exportJob'
