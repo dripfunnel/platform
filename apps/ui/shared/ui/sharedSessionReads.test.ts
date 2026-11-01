@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createSharedSessionReads, identityChanged, sessionFreshMs, type SessionChannel } from './sharedSessionReads'
 import type { PortalStaffSession } from './staffSession'
 
@@ -109,8 +109,8 @@ describe('shared staff-session reads', () => {
     let told = 0
     reads.onChanged(() => (told += 1))
     identityChanged()
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(told).toBe(1)
+    // A BroadcastChannel delivers when the runner gets to it, so wait for the message rather than a fixed time.
+    await vi.waitFor(() => expect(told).toBe(1))
     const next = counting(null)
     expect(await reads.read('notice', next.load)).toBeNull()
     expect(next.calls.n).toBe(1)
