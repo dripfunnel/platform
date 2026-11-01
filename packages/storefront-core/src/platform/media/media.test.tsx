@@ -2,9 +2,10 @@
 import { cleanup, render } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Provided } from '../../../test/shop'
-import type { RenderMode } from '../store/context'
-import { frameAddress, Image, Video } from './media'
+import { Provided, store } from '../../../test/shop'
+import { createShopClient } from '../api/client'
+import { StorefrontProvider, type RenderMode } from '../store/context'
+import { frameAddress, Image, StoreLogo, Video } from './media'
 import { asMain, photoSchema, videoSchema } from './photo'
 
 const photo = photoSchema.parse({ alt: 'Front', image: { url: 'https://shop.example/shop-api/assets/a' } })
@@ -104,5 +105,27 @@ describe('Image after a fresh answer', () => {
       rerender(<Provided mode="preview"><Image image={photo} alt="" ratio={1} /></Provided>)
       expect(shown(container)).toBe(steps[n])
     }
+  })
+})
+
+describe('StoreLogo', () => {
+  const withLogo = { ...store, logo: { url: 'https://shop.example/shop-api/assets/l' } }
+  const logo = (mode: RenderMode, value: typeof store) =>
+    renderToStaticMarkup(
+      <StorefrontProvider value={{ client: createShopClient(), store: value, locale: 'en-US', mode, poweredBy: null }}>
+        <StoreLogo className="logo" />
+      </StorefrontProvider>,
+    )
+
+  it('shows the logo as it is, named by the store, loaded at once and never resized', () => {
+    const live = logo('live', withLogo)
+    expect(live).toContain('src="https://shop.example/shop-api/assets/l"')
+    expect(live).toContain('alt="Juniper &amp; Co."')
+    expect(live).not.toContain('loading=')
+    expect(live).not.toContain('cdn-cgi')
+  })
+
+  it('shows the store’s name while it has no logo', () => {
+    expect(logo('live', store)).toBe('Juniper &amp; Co.')
   })
 })

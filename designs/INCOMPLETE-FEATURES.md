@@ -169,6 +169,8 @@ the missing backend.
   - ~~**End all preview links**, its confirmation and "Preview links ended".~~
   - the drawing still renders site JSON (`storefront-lib.js`); that is how it draws, not what is built.
 - The queue, "Finishing your previous change…", a refused publish and a rollback are reached only through `?state=`; nothing in the drawing makes them happen.
+- Decided 2026-11-01, not drawn: Your brand and Site settings › Brand no longer ask for primary and secondary colours
+  (the look is changed in the studio), and the Journal tab is called **Blog** (FIRST-RELEASE §14).
 - "View live site" is still toast only.
 
 ### Settings

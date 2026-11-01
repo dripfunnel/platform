@@ -155,6 +155,7 @@ export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body:
     `<html lang="${escapeHtml(page.language)}" dir="${o.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">`,
     `<title>${escapeHtml(head.title ?? o.store.name)}</title>`,
     head.description ? `<meta name="description" content="${escapeHtml(head.description)}">` : '',
+    o.store.favicon ? `<link rel="icon" href="${escapeHtml(o.store.favicon.url)}">` : '',
     head.image ? `<meta property="og:image" content="${escapeHtml(head.image)}">` : '',
     ogType && ogType !== 'website' ? `<meta property="og:type" content="${ogType}">` : '',
     ...(seo?.jsonLd ?? []).map((data) => `<script type="application/ld+json">${jsonLdText(data)}</script>`),

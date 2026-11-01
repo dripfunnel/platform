@@ -9,7 +9,7 @@ shoppers (theme code written by the AI, fenced by walls, rendered with core); th
 same theme with different colours. The AI has full freedom over the look and the front-end
 behaviour; the core package and the engine guarantee the commerce.
 
-Last updated: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
+Last updated: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
 
 ---
 
@@ -89,14 +89,14 @@ can't, and offers what it can (for example, showing real stock when the store tr
 Decided 2026-10-08 on #470, as `designs/PortalStorefront` draws it:
 
 1. **Your brand** (first time only, required before anything else): the shop name and logo
-   (required), favicon, primary and secondary colours, the home page's title and description,
+   (required), favicon, the home page's title and description,
    a tagline and short description, social links, the public email, phone and address, and a
    tone of voice. The same fields are later in Storefront › Site settings › Brand.
 2. **A template**: six (Linen, minimal fashion; Concrete, bold streetwear; Bloom, beauty and
    wellness; Circuit, electronics; Market, food and grocery; Atelier, luxury editorial) and
    **Start from scratch**, each a complete starting theme (ARCHITECTURE §2.3), previewed with
-   the store's own products and openable as a demo. A template keeps its own colours: the
-   brand colours are a hint the AI uses when asked, never applied automatically. Changing
+   the store's own products and openable as a demo. A template keeps its own colours; the
+   merchant changes them by asking the AI in the studio (colours saved before 2026-11-01 stay a hint it uses when asked). Changing
    template later asks whether to keep the merchant's words or take the template's.
 3. **The studio**: the merchant describes changes; each one is checked, then updates the draft
    and the preview (desktop, tablet, phone; any page of the store) and can be undone. Nothing

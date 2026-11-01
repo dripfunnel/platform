@@ -67,6 +67,17 @@ export const Image = ({ image, alt, ratio, sizes = '100vw', className }: ImagePr
   )
 }
 
+/**
+ * The store's logo from Site settings › Brand, or its name while it has none. Loaded at once and never resized (a logo
+ * may be an SVG); the theme's CSS sets its height.
+ */
+export const StoreLogo = ({ className }: { className?: string }) => {
+  const { store, mode } = useStorefront()
+  if (!store.logo) return <>{store.name}</>
+  const source = mode === 'studio' ? frameAddress(store.logo.url, studioBasePath(import.meta.url)) : store.logo.url
+  return <img src={source} alt={store.name} decoding="async" className={className} />
+}
+
 export type VideoProps = {
   video: VideoFile
   poster: Photo

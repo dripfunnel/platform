@@ -4,7 +4,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectBuildInput } from '#db/scoped/publishing'
 import type { SitesBucket } from './templates'
 import { catalogueFolder, snapshotFile } from './layout'
-import { copiedIds, deleteCopies, pictureIds } from './media'
+import { copiedIds, deleteCopies, pictureIds, withBrandCopies } from './media'
 
 // The catalogue a version 2 snapshot carries (storefront ARCHITECTURE §4.2), recorded after the freeze in steps of their
 // own (LIVE-SHOP §4 step 3), so no one Workflow step holds the whole catalogue or asks every question.
@@ -155,7 +155,8 @@ export const attachCatalogue = async (deps: CatalogueDeps, storeId: string, buil
   const gone = await prunable(deps, storeId, base.prune, named, complete)
   if (gone.length > 0) await put(deps, pruneFile(storeId, buildId), encode(gone))
   const catalogue = `{"answers":[${answers.filter((a) => a !== '').join(',')}],"products":${JSON.stringify(products)},"collections":${JSON.stringify(base.collections)}}`
-  const text = `${JSON.stringify({ ...snapshot, version: 2 }).slice(0, -1)},"catalogue":${catalogue}}`
+  const store = snapshot['store'] as Record<string, unknown>
+  const text = `${JSON.stringify({ ...snapshot, version: 2, store: withBrandCopies(store, base.answers) }).slice(0, -1)},"catalogue":${catalogue}}`
   await put(deps, snapshotFile(storeId, buildId), new TextEncoder().encode(text).buffer)
   await deps.drafts.delete([`${folder}base.json`, ...Array.from({ length: steps }, (_, n) => `${folder}products-${n}.json`)])
 }
