@@ -1,7 +1,10 @@
+import { previewsState, redirectSignedIn } from '@dripfunnel/shared/ui'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { loadMe } from '../../api/shell'
 import { SignIn } from '../../features/auth/SignIn'
 import { googleOutcomes } from '../../features/auth/refusals'
+import { harnessEnabled } from '../../harness'
 
 const search = z.object({
   next: z.string().optional(),
@@ -20,4 +23,8 @@ const Screen = () => {
   return <SignIn next={next} note={note} resume={resume} start={view} google={outcome === 'locked' ? { locked: minutes ?? 15 } : outcome} />
 }
 
-export const Route = createFileRoute('/_auth/sign-in')({ validateSearch: search, component: Screen })
+export const Route = createFileRoute('/_auth/sign-in')({
+  validateSearch: search,
+  beforeLoad: ({ search, location }) => redirectSignedIn({ loadMe, next: search.next, home: '/home', skip: previewsState(harnessEnabled, location.searchStr) }),
+  component: Screen,
+})
