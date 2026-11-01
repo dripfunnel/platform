@@ -34,7 +34,8 @@ const toSession = (s: z.infer<typeof sessionSchema>): PortalStaffSession => ({
   actingAs: { name: s.actingAs.name, role: roleWords[s.actingAs.role] ?? s.actingAs.role, where: s.actingAs.supplier ? `${s.actingAs.supplier} · ${s.actingAs.store}` : s.actingAs.store },
 })
 
-const post = async (route: string, body: Record<string, unknown>): Promise<unknown> => {
+/** A Store API auth route's JSON answer (`/api/auth/<route>`); no answer, or one that isn't JSON, throws. */
+export const postAuth = async (route: string, body: Record<string, unknown>): Promise<unknown> => {
   const response = await fetch(`/api/auth/${route}`, {
     method: 'POST',
     credentials: 'same-origin',
@@ -53,7 +54,7 @@ const noticeSchema = z.object({
 
 const api: PortalSessionApi = {
   exchange: async (token) => {
-    const parsed = answer.safeParse(await post('handoff', { token }))
+    const parsed = answer.safeParse(await postAuth('handoff', { token }))
     if (!parsed.success || !parsed.data.session) return null
     // The session names its own store; one remembered from before would read as a crossing.
     rememberActing(null)
@@ -61,7 +62,7 @@ const api: PortalSessionApi = {
   },
   // A refused poll rejects: the bar keeps its last answer (usePolling), never "no session".
   current: async () => {
-    const parsed = answer.safeParse(await post('staff-session', {}))
+    const parsed = answer.safeParse(await postAuth('staff-session', {}))
     if (!parsed.success) throw new Error('The staff-session poll was refused.')
     return parsed.data.session && toSession(parsed.data.session)
   },
@@ -72,7 +73,7 @@ const api: PortalSessionApi = {
   },
   // A refused end throws, so the bar says it didn't end (StaffSessionLayer's endFailed).
   end: async (id) => {
-    if (!z.object({ ok: z.literal(true) }).safeParse(await post('end-staff-session', { id })).success) throw new Error('The session did not end.')
+    if (!z.object({ ok: z.literal(true) }).safeParse(await postAuth('end-staff-session', { id })).success) throw new Error('The session did not end.')
   },
 }
 

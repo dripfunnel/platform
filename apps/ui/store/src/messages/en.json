@@ -325,6 +325,14 @@
       "body": "Staff session links work once, from the DripFunnel admin console. Start a new session there."
     }
   },
+  "supportSession": {
+    "pending": "Opening the store…",
+    "action": "Back to the partner console",
+    "invalid": {
+      "title": "This link no longer works",
+      "body": "Support links work once, from the partner console. Open a new support session there."
+    }
+  },
   "shell": {
     "skipToContent": "Skip to content",
     "navLabel": "Store",

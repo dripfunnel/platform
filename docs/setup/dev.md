@@ -3,7 +3,7 @@
 The shared, long-lived environment on `actuateminds.com` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -277,10 +277,11 @@ Leaving out a whole group (all of Entra, Stripe or SES) switches that feature of
 "not connected" instead of failing. Leaving out part of a group does the same, so set each
 group whole.
 
-The consoles' two build flags (`VITE_STATE_HARNESS=1` and `VITE_ADMIN_URL=https://dev-admin.actuateminds.com`)
-are meant to be set in the dev build (THIRD-PARTY-ACCESS.md §8), but **`dev.yml` doesn't set
-them yet**. Until it does, dev bundles have no `?state=` harness, and the portals' staff-session
-links point at production's admin console.
+The consoles' build flags (`VITE_STATE_HARNESS=1`, `VITE_ADMIN_URL=https://dev-admin.actuateminds.com`
+and the store portal's `VITE_PLATFORM_URL=https://dev-platform.actuateminds.com`) are meant to be set in the
+dev build (THIRD-PARTY-ACCESS.md §8), but **`dev.yml` doesn't set them yet**. Until it does, dev bundles
+have no `?state=` harness, the portals' staff-session links point at production's admin console, and a
+spent support link's "Back to the partner console" points at production's partner console.
 
 ---
 

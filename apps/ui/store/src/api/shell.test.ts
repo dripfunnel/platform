@@ -16,14 +16,30 @@ describe('seatOf', () => {
   })
 })
 
-describe('loadNavBadges', () => {
-  it('reads the orders to ship and the products to approve, and draws no badge for a count the API leaves out', async () => {
+describe('badgesOf', () => {
+  it('reads the orders to ship and the products to approve, and draws no badge for a count left out or refused', async () => {
+    const { badgesOf } = await import('./shell')
+    expect(badgesOf({ products: 2, toShip: 5 })).toEqual({ ordersToShip: 5, productsToApprove: 2 })
+    expect(badgesOf({ products: null, toShip: null })).toEqual({ ordersToShip: 0, productsToApprove: 0 })
+    expect(badgesOf(null)).toEqual({ ordersToShip: 0, productsToApprove: 0 })
+  })
+})
+
+describe('readShell', () => {
+  it('asks for me, the first page of stores, the store’s state and the badges in one request, and reports refused fields beside the rest', async () => {
     const { vi } = await import('vitest')
-    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ data: { navBadges: { products: 2, toShip: 5 } } })))
-    const { loadNavBadges } = await import('./shell')
-    expect(await loadNavBadges()).toEqual({ ordersToShip: 5, productsToApprove: 2 })
-    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ data: { navBadges: { products: null, toShip: null } } })))
-    expect(await loadNavBadges()).toEqual({ ordersToShip: 0, productsToApprove: 0 })
+    const sent: string[] = []
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+      sent.push((JSON.parse(String(init.body)) as { query: string }).query)
+      const me = { id: 'u1', name: 'Farhan', email: 'f@example.com', acting: null }
+      return new Response(JSON.stringify({ data: { me, myStores: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }, storeState: null, navBadges: null }, errors: [{ message: 'no store', path: ['storeState'], extensions: { code: 'STORE_REQUIRED' } }] }))
+    })
+    const { readShell } = await import('./shell')
+    const { data, errors } = await readShell()
+    expect(sent).toHaveLength(1)
+    for (const field of ['me {', 'myStores(first: 50)', 'storeState {', 'navBadges {']) expect(sent[0]).toContain(field)
+    expect(data.me?.acting).toBeNull()
+    expect(errors).toEqual([{ path: ['storeState'], error: expect.objectContaining({ code: 'STORE_REQUIRED' }) }])
     vi.unstubAllGlobals()
   })
 })

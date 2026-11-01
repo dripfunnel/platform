@@ -66,8 +66,8 @@ export type PortalSession = ReturnType<typeof createPortalSession>
 export type HandoffResult = 'pending' | 'entered' | 'invalid'
 
 // Exchanges the link's one-time token once, even under StrictMode's second effect, then calls
-// `clearUrl` so the token never stays in the address bar or the history.
-export const useHandoff = (token: string | undefined, exchange: PortalSession['exchange'], clearUrl: () => void): HandoffResult => {
+// `clearUrl` so the token never stays in the address bar or the history. A falsy answer is a spent link.
+export const useHandoff = (token: string | undefined, exchange: (token: string) => Promise<unknown>, clearUrl: () => void): HandoffResult => {
   const [result, setResult] = useState<HandoffResult>(token ? 'pending' : 'invalid')
   const tried = useRef(false)
   useEffect(() => {

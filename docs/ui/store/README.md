@@ -21,7 +21,7 @@ controls reach the states. `designs/DF Store Pricing.dc.html` says what each pla
 which is what the portal's plan gates and upgrade prompts follow. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-10-05.
+Last updated: 2026-11-01 (#1112: `/support/enter`, §6). Before: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
 
 | Document | Covers |
 |---|---|
@@ -187,7 +187,8 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
   Store API request as `X-Store` (and `X-Supplier` for a supplier seat), read by the shared
   client's `headers` option, and the server checks it against the session. It is remembered in
   `localStorage` (`df-store-acting`) as a convenience only. Built on #291: the shell reads `me`,
-  `myStores` and `storeState` once before any screen; no acting store, or one no longer held,
+  `myStores`, `storeState` and `navBadges` once before any screen, in one request since #1111
+  (`readShell`; a refused badge count only draws no badge); no acting store, or one no longer held,
   opens the chooser at `/stores`, which refuses none, opens one and lists several.
 - **Partner look, built on #291**: the primary colour paints the header and side bar
   (`--df-color-side`, white text) and the accent is the brand colour (`--df-color-brand`, dark
@@ -206,7 +207,9 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
 - **Support session banner**: while a **partner** support session is open, every person
   signed in to that store sees "[Partner] support (name) is viewing your store. Read-only.
   Ends in 28 min." (USERS-AND-DOMAINS.md §4.1). DripFunnel staff never open one; when a staff
-  member is impersonating, the banner says "Support (name) is signed in as …" (§4.2).
+  member is impersonating, the banner says "Support (name) is signed in as …" (§4.2). The agent
+  arrives through `/support/enter` (built on #1112, ACCESS.md §8.3), which exchanges the console's
+  one-time link; the shell gives a support session no store list, since `myStores` is refused to it.
 - **Regional by default**: every screen that differs by region is designed for a US, an EU
   and an Indian store; tax words, units and formats come from the store's settings.
 - **Phone first**: every screen works at 360 px, with camera upload for photos.

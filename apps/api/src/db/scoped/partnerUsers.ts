@@ -14,15 +14,55 @@ export interface PartnerCallerRow {
   portal_host: string | null
 }
 
+// One shape and one rule for both readers of a partner user (#1124): active, of a partner that is not closed.
+const partnerCallerColumns = (tx: ScopedSql) => tx`
+  u.id, u.name, u.email, u.role_key, p.id as partner_id, p.name as partner_name, p.product_name,
+  p.state, p.sent_back_reason, d.host as portal_host
+`
+const partnerCallerJoins = (tx: ScopedSql) => tx`
+  join partner p on p.id = u.partner_id
+  left join partner_domain d on d.partner_id = p.id and d.kind = 'portal'
+`
+const activePartnerUser = (tx: ScopedSql) => tx`u.status = 'active' and p.state <> 'closed'`
+
 /** An active partner user of a partner that is not closed, with what `me` shows of the partner. */
 export const selectPartnerCaller = async (tx: ScopedSql, partnerUserId: string): Promise<PartnerCallerRow | null> => {
   const rows = await tx<PartnerCallerRow[]>`
-    select u.id, u.name, u.email, u.role_key, p.id as partner_id, p.name as partner_name, p.product_name,
-           p.state, p.sent_back_reason, d.host as portal_host
-    from partner_user u
-    join partner p on p.id = u.partner_id
-    left join partner_domain d on d.partner_id = p.id and d.kind = 'portal'
-    where u.id = ${partnerUserId} and u.status = 'active' and p.state <> 'closed'
+    select ${partnerCallerColumns(tx)}
+    from partner_user u ${partnerCallerJoins(tx)}
+    where u.id = ${partnerUserId} and ${activePartnerUser(tx)}
+  `
+  return rows[0] ?? null
+}
+
+/** What makes a partner session live (ACCESS.md §4): past every sign-in step, unexpired, seen since `idleSince`. */
+export interface PartnerSessionWindow {
+  idHash: string
+  now: Date
+  idleSince: Date
+}
+
+/** One condition for `readPartnerSession` and the console's one query (#1124). */
+export const livePartnerSession = (tx: ScopedSql, w: PartnerSessionWindow) => tx`
+  id_hash = ${w.idHash}
+  and stage = 'full'
+  and absolute_expires_at > ${w.now}
+  and last_seen_at > ${w.idleSince}
+`
+
+export interface PartnerStandingRow extends PartnerCallerRow {
+  last_seen_at: Date
+}
+
+/** The live session's partner user, as `selectPartnerCaller` reads one, in one statement (#1124); no row otherwise. */
+export const selectPartnerStanding = async (tx: ScopedSql, w: PartnerSessionWindow): Promise<PartnerStandingRow | null> => {
+  const rows = await tx<PartnerStandingRow[]>`
+    with session as (select partner_user_id, last_seen_at from partner_session where ${livePartnerSession(tx, w)})
+    select ${partnerCallerColumns(tx)}, session.last_seen_at
+    from session
+    join partner_user u on u.id = session.partner_user_id
+    ${partnerCallerJoins(tx)}
+    where ${activePartnerUser(tx)}
   `
   return rows[0] ?? null
 }

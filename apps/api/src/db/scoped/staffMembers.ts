@@ -143,3 +143,38 @@ export const issueStaffInvitationToken = async (tx: ScopedSql, invitationId: str
     update staff_invitation set token_hash = ${tokenHash}
     where id = ${invitationId} and accepted_at is null and revoked_at is null and expires_at > ${now}
   `).count > 0
+
+/** What makes a staff session live (ACCESS.md §4): unexpired and seen since `idleSince`. */
+export interface StaffSessionWindow {
+  idHash: string
+  now: Date
+  idleSince: Date
+}
+
+/** One condition for `readSession` and the Admin API's one query (#1124). */
+export const liveStaffSession = (tx: ScopedSql, w: StaffSessionWindow) => tx`
+  id_hash = ${w.idHash}
+  and expires_at > ${w.now}
+  and last_seen_at > ${w.idleSince}
+`
+
+export interface StaffStandingRow<Role extends string> {
+  id: string
+  email: string
+  name: string
+  role_key: Role
+  reauth_at: Date | null
+  last_seen_at: Date
+}
+
+/** The live session's active staff member, as `staffById` reads one, in one statement (#1124); no row otherwise. */
+export const selectStaffStanding = async <Role extends string>(tx: ScopedSql, w: StaffSessionWindow): Promise<StaffStandingRow<Role> | null> => {
+  const rows = await tx<StaffStandingRow<Role>[]>`
+    with session as (select staff_user_id, reauth_at, last_seen_at from staff_session where ${liveStaffSession(tx, w)})
+    select u.id, u.email, u.name, u.role_key, session.reauth_at, session.last_seen_at
+    from session
+    join staff_user u on u.id = session.staff_user_id
+    where u.status = 'active'
+  `
+  return rows[0] ?? null
+}
