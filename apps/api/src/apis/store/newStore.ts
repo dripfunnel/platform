@@ -1,7 +1,7 @@
 import type { RequestFacts } from '#auth/activity'
 import { holdForEnrolment, readUserSession } from '#auth/storeSession'
 import { countryOf } from '#core/countries'
-import { withSystemScope } from '#db/scoped/index'
+import { serialise, withSystemScope } from '#db/scoped/index'
 import { countOwnStoresSince, countStoresCreatedSince, selectOwnNewStore, selectPartnerState } from '#db/scoped/signup'
 import { selectUserSecondFactor } from '#db/scoped/userSignIn'
 import { provisionStore, type FailAt } from '#saas/provisioning/index'
@@ -40,6 +40,8 @@ export const createAnotherStore = async (request: Request, deps: StoreAuthDeps, 
   const outcome = await withSystemScope(deps.sql, async (tx): Promise<SignupRefusal | { storeId: string; enrol: boolean }> => {
     if (!(await readUserSession(tx, sessionId, deps.partnerId, now))) return { code: 'INVALID_CREDENTIALS' }
     if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return { code: 'SIGNUP_CLOSED' }
+    // Before the retry and the day's count, so parallel requests from one person see each other's store.
+    await serialise(tx, `new_store:${user.userId}`)
     const again = await selectOwnNewStore(tx, deps.partnerId, user.userId, input.subdomain.trim(), new Date(now.getTime() - retryMs))
     if (again) return { storeId: again, enrol: false }
     if ((await countOwnStoresSince(tx, user.userId, new Date(now.getTime() - dayMs))) > 0) return { code: 'DAILY_LIMIT' }

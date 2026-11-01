@@ -122,6 +122,23 @@ describe('creating another store', () => {
     expect((await create(session, 'kesari-daily-2')).body).toMatchObject({ ok: true, step: 'done' })
   })
 
+  it('makes one store between parallel requests from one person', async () => {
+    const { id, session } = await person('parallel@a.example', { storeId: t.storeA1, role: 'owner' }, true)
+    const answers = await Promise.all(['kesari-par-1', 'kesari-par-2', 'kesari-par-3'].map((slug) => create(session, slug)))
+    expect(answers.filter((a) => a.body['ok'] === true)).toHaveLength(1)
+    expect(answers.filter((a) => a.body['code'] === 'DAILY_LIMIT')).toHaveLength(2)
+    expect(await membershipsOf(id)).toHaveLength(2)
+  })
+
+  it('counts a store the person signed up with today, and never another person’s', async () => {
+    const [fresh] = await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, created_at) values (${t.partnerA}, 'Signed up today', 'signed-up-today', ${new Date(now.getTime() - 60 * 60_000)}) returning id`
+    const freshId = fresh?.id ?? ''
+    const owner = await person('signed.up@a.example', { storeId: freshId, role: 'owner' }, true)
+    expect((await create(owner.session, 'kesari-after-signup')).body).toEqual({ ok: false, code: 'DAILY_LIMIT' })
+    const colleague = await person('colleague@a.example', { storeId: freshId, role: 'manager' })
+    expect((await create(colleague.session, 'kesari-colleague')).body).toMatchObject({ ok: true, step: 'enrol' })
+  })
+
   it('refuses a taken, reserved or malformed address and a country the partner doesn’t sell in', async () => {
     const { session } = await person('checks@a.example', { storeId: t.storeA1, role: 'owner' }, true)
     await db.sql`insert into store (partner_id, name, code, slug) values (${t.partnerB}, 'Theirs', 'theirs-b', 'held-elsewhere')`
