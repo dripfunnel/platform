@@ -6,10 +6,11 @@ import { mediaFile, mediaFolder } from './layout'
 
 const assetId = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 const shopPicture = new RegExp(`^/shop-api/assets/(${assetId})$`)
-const publishedPicture = new RegExp(`/media/(${assetId})$`)
+const namedPicture = new RegExp(`(?:^/shop-api/assets|/media)/(${assetId})$`)
+const maxKeysPerDelete = 1000
 // The catalogue's own picture types (core/media.ts `sniffMedia`); an SVG is never served from the public host.
 const pictureTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
-// Nothing purges the asset host, so a deleted copy (ACCESS §11) stops being served once this passes.
+// Nothing purges the asset host, so a deleted copy (DATA-MODEL §7.11) stops being served once this passes.
 const cacheControl = 'public, max-age=3600'
 const copiesAtOnce = 8
 // Each new copy is a lookup, a read and a write within one Workflow step's limits; the rest keep their Shop API
@@ -60,27 +61,32 @@ const idsIn = (answers: readonly RecordedAnswer[], pattern: RegExp): Set<string>
   return ids
 }
 
-/** The asset ids of the published copies `answers` name. */
-export const publishedPictureIds = (answers: readonly RecordedAnswer[]): Set<string> => idsIn(answers, publishedPicture)
+/** The asset ids of the pictures `answers` name, at the Shop API's address or as a copy. */
+export const pictureIds = (answers: readonly RecordedAnswer[]): Set<string> => idsIn(answers, namedPicture)
 
 /** The asset ids already copied for the store: one listing, rather than a request per picture. */
-const copiedIds = async (copies: PictureCopies, storeId: string): Promise<Set<string>> => {
+export const copiedIds = async (bucket: Pick<PictureCopies['published'], 'list'>, storeId: string): Promise<Set<string>> => {
   const prefix = mediaFolder(storeId)
   const ids = new Set<string>()
   let cursor: string | undefined
   do {
-    const page = await copies.published.list({ prefix, ...(cursor ? { cursor } : {}) })
+    const page = await bucket.list({ prefix, ...(cursor ? { cursor } : {}) })
     for (const object of page.objects) ids.add(object.key.slice(prefix.length))
     cursor = page.truncated ? page.cursor : undefined
   } while (cursor)
   return ids
 }
 
+/** Deletes the store's copies of these files, in R2's batches of at most 1,000 keys. */
+export const deleteCopies = async (bucket: { delete: (keys: string[]) => Promise<unknown> }, storeId: string, ids: readonly string[]): Promise<void> => {
+  for (let i = 0; i < ids.length; i += maxKeysPerDelete) await bucket.delete(ids.slice(i, i + maxKeysPerDelete).map((id) => mediaFile(storeId, id)))
+}
+
 /** Copies the answers' pictures not yet on the asset host, at most `maxCopiesPerStep`, then names every copy in their place. */
 export const publishPictures = async (copies: PictureCopies, storeId: string, answers: RecordedAnswer[], fileOf: ShopFile): Promise<RecordedAnswer[]> => {
   const named = idsIn(answers, shopPicture)
   if (named.size === 0) return answers
-  const published = await copiedIds(copies, storeId)
+  const published = await copiedIds(copies.published, storeId)
   const missing = [...named].filter((id) => !published.has(id)).slice(0, maxCopiesPerStep)
   for (let i = 0; i < missing.length; i += copiesAtOnce) {
     await Promise.all(

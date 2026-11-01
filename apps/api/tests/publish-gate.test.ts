@@ -171,8 +171,8 @@ describe('a publish’s build', () => {
       expect(asked.filter((a) => a.startsWith('base'))).toEqual([])
     })
 
-    // Card #1105: a hidden or deleted product's pictures leave the asset host with its pages.
-    describe('a dropped product’s pictures (ACCESS §11)', () => {
+    // Card #1105: a hidden or deleted product's pictures leave the asset host.
+    describe('picture copies shoppers can no longer see (DATA-MODEL §7.11)', () => {
       const copy = (id: string) => `stores/${t.storeA1}/media/${id}`
       const picture = (id: string) => ({ image: { url: `https://sf-assets.my-store.one/${copy(id)}` } })
       const copies = () => assets.keys(`stores/${t.storeA1}/media/`)
@@ -217,6 +217,19 @@ describe('a publish’s build', () => {
           failed: 0,
         }))
         expect(copies()).toEqual([copy(gone), copy(shared), copy(other)].sort())
+      })
+
+      it('deletes on a full publish every copy its answers no longer name, and nothing when an answer was missed', async () => {
+        const [shown, hidden] = [crypto.randomUUID(), crypto.randomUUID()]
+        const listing = { operation: 'Listing', variables: { first: 24 }, data: { products: { nodes: [{ photo: picture(shown) }] } } }
+        const full = async (n: number, failed: number) => {
+          for (const id of [shown, hidden]) await assets.put(copy(id), bundleBytes(id), { sha256: await hexOf(id) })
+          const catalogue = recorder({ answers: [listing], slugs: [], collections: [] })
+          await record({ ...deps(), catalogue: { ...catalogue, base: async (host) => ({ ...(await catalogue.base(host)), failed }) as Awaited<ReturnType<CatalogueRecorder['base']>> } }, await startRun('1.0.0', n))
+          return copies()
+        }
+        expect(await full(22, 1)).toEqual([copy(shown), copy(hidden)].sort())
+        expect(await full(23, 0)).toEqual([copy(shown)])
       })
     })
 
