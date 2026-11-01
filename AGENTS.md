@@ -147,7 +147,7 @@ Run the gates before reporting a change as done.
   notices, consent banner, preview banner, the brand's "Powered by" line, breadcrumbs, the order
   summary at review) are placed and styled, never removed, covered or reworded.
 - `storefront-core` is the only published package. Every change has a changeset with the
-  right bump; changing or removing an export is a major, and majors ship upgrade notes (docs/storefront/ARCHITECTURE.md §7).
+  right bump (major, minor or patch as docs/code/ARCHITECTURE.md §5 defines them), and majors ship upgrade notes (docs/storefront/ARCHITECTURE.md §7).
 - Publishing happens only in the release workflow. Never publish locally; never commit a
   token to `.npmrc`.
 
