@@ -20,7 +20,7 @@ const isApi = (pathname: string) => pathname === '/api' || pathname.startsWith('
 const domainPattern = /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 
-/** A partner's portal host keeps its routing (SAAS §8): `/api/*` to the API's `PortalProxy`, the rest to Pages. */
+/** A partner's portal host keeps its routing (SAAS §8): `/api/*` to the API's default fetch, the rest to Pages. */
 const portal = (request: Request, url: URL, env: Env): Promise<Response> => {
   if (isApi(url.pathname)) return env.API.fetch(request)
   // Pages answers only the host it knows, so the request goes to its own name; the partner host is not needed there.

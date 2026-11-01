@@ -175,7 +175,7 @@ import { createCustomersService } from '#saas/customers/index'
 import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
-import { resolveArea, type Area, type Entry } from './router'
+import { entryOf, resolveArea, type Area, type Entry } from './router'
 
 const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
@@ -872,7 +872,7 @@ const studioFrame = async (request: Request, config: Config, env: Env, ctx: Exec
   )
 }
 
-const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: Entry): Promise<{ response: Response; area: Area | null }> => {
+const route = async (request: Request, env: Env, ctx: ExecutionContext, reached: Entry): Promise<{ response: Response; area: Area | null }> => {
   const url = new URL(request.url)
   let config
   try {
@@ -882,12 +882,13 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
     console.error(JSON.stringify({ code: 'config_invalid', keys }))
     return { response: new Response(null, { status: 500 }), area: null }
   }
+  const entry = entryOf(url, config, reached)
   const area = resolveArea(url, config, entry)
   if (!area) return { response: notFound(), area: null }
   if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
   if (area === 'studio') return { response: await studioFrame(request, config, env, ctx), area }
   if (area === 'delivery') return { response: await handleDelivery(request, url, config, env, ctx), area }
-  // Through PortalProxy nothing answers before the host is found among the live portal rows.
+  // As a portal entry nothing answers before the host is found among the live portal rows.
   if (entry === 'public' && isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id, env.ASSETS !== undefined), area }
   }
@@ -1209,7 +1210,8 @@ const serve = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
   return response
 }
 
-/** A partner's own portal host, reached only through store-proxy's service binding (SAAS.md §8). */
+/** A partner's portal host from a store-proxy version that still binds this entrypoint, kept so it can be rolled back to;
+ *  current store-proxy calls the default fetch, which `entryOf` reads as the same portal entry (SAAS.md §8). */
 export class PortalProxy extends WorkerEntrypoint<Env> {
   override fetch(request: Request): Promise<Response> {
     return serve(request, this.env, this.ctx, 'portal')
