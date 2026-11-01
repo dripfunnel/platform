@@ -40,6 +40,17 @@ describe('the head', () => {
     expect(document.head.querySelector('link[rel="icon"]')).toBeNull()
   })
 
+  it('leaves an unchanged favicon link alone, so the browser asks for nothing again', () => {
+    applyHead(document, { title: 'Juniper', icon: '/shop-api/assets/f1' }, 'https://shop.example')
+    const link = document.head.querySelector('link[rel="icon"]')
+    if (!link) throw new Error('no favicon')
+    let writes = 0
+    new MutationObserver((records) => (writes += records.length)).observe(link, { attributes: true })
+    applyHead(document, { title: 'Linen', icon: '/shop-api/assets/f1' }, 'https://shop.example')
+    expect(document.head.querySelector('link[rel="icon"]')).toBe(link)
+    return new Promise<void>((done) => setTimeout(() => (expect(writes).toBe(0), done())))
+  })
+
   it("keeps the store's favicon over a page's, which useHead never passes on", () => {
     expect(mergedHead([{ level: 0, head: { icon: '/shop-api/assets/f1' } }, { level: 1, head: { title: 'Linen', icon: undefined } }]).icon).toBe('/shop-api/assets/f1')
   })
