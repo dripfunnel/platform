@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-05.
+Last updated: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -724,7 +724,8 @@ depend on an engine capability whose release is not yet chosen.
 - D10. Rename an option or a choice ("Red" → "Maroon") without touching stock or prices.
 - D11. Reorder options and choices. This changes the order the shopper sees.
 - D12. Per-version photo ("Show this photo when Red is picked"), usually set per colour rather
-  than per version.
+  than per version. Built on #1117 as one photo per version; "Photo for all {colour}" waits for a
+  photo shared by several versions (`product_photo_asset_key` allows one).
 - D13. Per-version tax class, classification code, barcode and weight, defaulting from the
   product and overridable. For example, a children's size can be zero-rated in the UK while
   the adult sizes are not.
