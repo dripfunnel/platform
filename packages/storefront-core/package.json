@@ -1,6 +1,6 @@
 {
   "name": "@dripfunnel/storefront-core",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "The locked commerce core every DripFunnel storefront runs on.",
   "type": "module",
   "repository": { "type": "git", "url": "https://github.com/dripfunnel/platform.git", "directory": "packages/storefront-core" },
