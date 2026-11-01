@@ -121,7 +121,9 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
     [collection, search, state],
   )
   const key = ready ? JSON.stringify(['listing', variables]) : null
-  const first = useShopData(key, (c) => loadPage(c, variables))
+  // Each answer names its collection or search, since useShopData holds the last answer for a render after the key moves.
+  const scope = JSON.stringify([collection, search])
+  const first = useShopData(key, async (c) => ({ ...(await loadPage(c, variables)), scope }))
 
   const [more, setMore] = useState<{ key: string | null; items: ProductCard[]; end: string | null; hasMore: boolean; loading: boolean; failed: boolean }>({ key: null, items: [], end: null, hasMore: false, loading: false, failed: false })
   const asked = useRef(0)
@@ -156,8 +158,14 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
     change(next)
     navigate(withQuery(path, next))
   }
+  // While another filter or sort loads, the last facets of this collection or search stay, so the filters don't vanish.
+  const [last, setLast] = useState<{ scope: string; facets: Page['facets'] } | null>(null)
+  useEffect(() => {
+    if (first.data) setLast(first.data)
+  }, [first.data])
+  const current = first.data ?? last
   const chosen = new Set(state.filters)
-  const facets = (first.data?.facets ?? []).map((f) => ({ ...f, values: f.values.map((v) => ({ ...v, selected: chosen.has(v.id) })) }))
+  const facets = (current?.scope === scope ? current.facets : []).map((f) => ({ ...f, values: f.values.map((v) => ({ ...v, selected: chosen.has(v.id) })) }))
   const names = new Map(facets.flatMap((f) => f.values.map((v) => [v.id, v.name] as const)))
   const page = (name: 'after' | 'before', value: string | null) => {
     const next = new URLSearchParams(query)
