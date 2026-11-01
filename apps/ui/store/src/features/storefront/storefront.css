@@ -150,15 +150,8 @@
   min-width: 0;
 }
 
-.df-sf-field--wide,
-.df-sf-pair {
+.df-sf-field--wide {
   grid-column: 1 / -1;
-}
-
-.df-sf-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
 }
 
 .df-sf-field-head {
@@ -269,26 +262,6 @@
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-}
-
-.df-sf-colour {
-  display: flex;
-  gap: 6px;
-}
-
-.df-sf-colour input[type='color'] {
-  width: 44px;
-  flex: none;
-  padding: 4px;
-  cursor: pointer;
-}
-
-.df-sf-colour input[type='color'][data-empty] {
-  opacity: 0.35;
-}
-
-.df-sf-colour input:last-child {
-  flex: 1;
 }
 
 .df-sf-chips {
@@ -642,8 +615,7 @@
     font-size: 22px;
   }
 
-  .df-sf-grid,
-  .df-sf-pair {
+  .df-sf-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

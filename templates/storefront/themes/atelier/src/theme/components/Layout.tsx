@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, StoreLogo, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Menu } from './interactive/Menu'
 import styles from '../styles/layout.module.css'
 
@@ -11,7 +11,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       <header className={styles.header}>
         <div className={styles.bar}>
           <Link href="/" className={styles.brand}>
-            {store.name}
+            <StoreLogo className={styles.logo} />
           </Link>
           <Menu label={t('common.nav.menu')}>
             <nav className={styles.nav} aria-label={t('common.nav.label')}>

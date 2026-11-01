@@ -36,7 +36,7 @@ describe('the build’s page plan', () => {
     const snapshot = catalogueSnapshotSchema.parse({
       version: 1,
       origin: 'https://shop.juniper.example',
-      store: { ...store, languages: ['en'] },
+      store: { ...store, languages: ['en'], favicon: { url: '/shop-api/assets/f1' } },
       poweredBy: null,
       guard: { locales: ['en'], usedPaths: ['/blog/why-linen'], mediaIds: [], brand: { name: 'Juniper & Co.', tagline: null, email: null, phone: null, address: [], socialLinks: [] } },
       csp: { assetOrigin: null, mediaOrigins: [], analytics: [], payments: [] },
@@ -52,6 +52,7 @@ describe('the build’s page plan', () => {
     expect(html).toContain('<title>Why linen &lt;/script&gt; · Juniper &amp; Co.</title>')
     expect(html).toContain('<meta name="description" content="It breathes.">')
     expect(html).toContain('<meta property="og:type" content="article">')
+    expect(html).toContain('<link rel="icon" href="/shop-api/assets/f1">')
     expect(html).toContain('<link rel="canonical" href="https://shop.juniper.example/blog/why-linen/">')
     const ld = /<script type="application\/ld\+json">(.*?)<\/script>/.exec(html)?.[1] ?? '{}'
     expect(ld).not.toContain('</script>')
