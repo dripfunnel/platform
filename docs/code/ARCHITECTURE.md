@@ -82,8 +82,9 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 - **Changesets** apply only here. A pull request that changes it needs a changeset with the
   bump and the reason; CI enforces it.
 - **Semver means the public API** (decided on #1137, 2026-11-01, Kshitij Raj):
-  - **major**: an export is removed or its type or signature changes, the theme contract or a
-    preset rule changes, a store's look changes, or a supported Shop API version is dropped;
+  - **major**: an export is removed or its type or signature changes, a hook's documented
+    behaviour changes other than to fix it, the theme contract or a preset rule changes, a store's
+    look changes, or a supported Shop API version is dropped;
   - **minor**: new exports or new behaviour, backward-compatible;
   - **patch**: a fix that makes a hook behave as documented or removes behaviour that was never
     documented, with no theme change. Its pull request shows `apps/sandbox/src/themes.test.ts`
