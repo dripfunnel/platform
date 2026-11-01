@@ -171,11 +171,12 @@ describe('invite', () => {
     confirm(w.next)
   }
 
-  it('asks the name, then the mobile starting with +, and sends it as E.164', async () => {
+  it('asks the name, then the mobile beside its country code, and sends it as E.164', async () => {
     await start()
     const mobile = dialog().getByLabelText(w.mobile) as HTMLInputElement
-    expect(mobile.value).toBe('+')
-    fireEvent.change(mobile, { target: { value: '+91 98765 43210' } })
+    expect(mobile.value).toBe('')
+    fireEvent.change(dialog().getByLabelText(messages.phone.countryCode), { target: { value: 'IN' } })
+    fireEvent.change(mobile, { target: { value: '98765 43210' } })
     confirm(w.send)
     await settle()
     expect(api.inviteRider).toHaveBeenCalledWith('Asha Rao', '+919876543210')
@@ -207,7 +208,8 @@ describe('invite', () => {
     confirm(w.send)
     await settle()
     expect(dialog().getByText(w.refused.PHONE_TAKEN)).toBeTruthy()
-    expect((dialog().getByLabelText(w.mobile) as HTMLInputElement).value).toBe('+91 98765 43210')
+    expect((dialog().getByLabelText(messages.phone.countryCode) as HTMLSelectElement).value).toBe('IN')
+    expect((dialog().getByLabelText(w.mobile) as HTMLInputElement).value).toBe('9876543210')
   })
 })
 

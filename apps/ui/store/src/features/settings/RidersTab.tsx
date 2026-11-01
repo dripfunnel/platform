@@ -1,10 +1,11 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, initials, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { PageOf } from '../../api/allPages'
 import { eraseRider, inviteRider, loadRiders, removeRider, requestRiderExport, restoreRider, resendRiderInvitation, suspendRider, type Rider, type RiderStatus } from '../../api/riders'
 import { fill, formatCount, messages } from '../../messages'
 import { startListExport } from '../common/listExport'
+import { PhoneInput } from '../common/PhoneInput'
 import { refusalIn } from '../common/refusal'
 import '../common/teamRow.css'
 import { isMobile, toE164 } from './riderPhone'
@@ -12,7 +13,7 @@ import './riders.css'
 
 const words = messages.settings.riders
 
-type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'> & { stayOpen?: boolean }
+type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'> & { stayOpen?: boolean; askMobile?: boolean }
 
 const tones: Record<RiderStatus, string> = { active: 'ok', invited: 'wait', suspended: 'off' }
 
@@ -43,6 +44,8 @@ export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
   const riders = page.nodes
 
   const inFlight = useRef(false)
+  const [phone, setPhone] = useState('')
+  const mobileId = useId()
 
   /** A write behind a dialog; a refusal goes to `refused`, else to the toast. One write at a time, however fast the clicks. */
   const run = async (work: () => Promise<string>, refused?: (text: string) => void) => {
@@ -80,7 +83,10 @@ export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
           consequence: words.inviteBody,
           confirmLabel: words.next,
           input: { label: words.name, type: 'text', initial: '', placeholder: words.namePlaceholder, error: (v) => (v.trim() === '' ? words.nameMissing : null) },
-          onConfirm: (_, value) => setAsk(inviteAsk((value ?? '').trim())),
+          onConfirm: (_, value) => {
+            setPhone('')
+            setAsk(inviteAsk((value ?? '').trim()))
+          },
         }
       : {
           title: fill(words.mobileTitle, { name }),
@@ -90,7 +96,7 @@ export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
           // A refusal leaves this dialog open with what was typed.
           stayOpen: true,
           error: null,
-          input: { label: words.mobile, type: 'text', initial: '+', placeholder: words.mobilePlaceholder, error: (v) => (isMobile(v) ? null : words.mobileInvalid) },
+          askMobile: true,
           onConfirm: (_, value) => {
             const phone = toE164(value ?? '')
             setAsk((a) => a && { ...a, error: null })
@@ -162,7 +168,7 @@ export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
     }
   }
 
-  const shown = ask && (({ stayOpen, ...props }: Ask) => ({ stayOpen: stayOpen === true, props }))(ask)
+  const shown = ask && (({ stayOpen, askMobile, ...props }: Ask) => ({ stayOpen: stayOpen === true, askMobile: askMobile === true, props }))(ask)
 
   const inviteButton = (
     <button type="button" className="df-button df-button--primary" disabled={busy} onClick={() => setAsk(inviteAsk(null))}>
@@ -258,11 +264,19 @@ export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
           open
           cancelLabel={words.cancel}
           onCancel={() => setAsk(null)}
-          onConfirm={(...args) => {
+          onConfirm={(reason, value, choices) => {
             if (!shown.stayOpen) setAsk(null)
-            shown.props.onConfirm(...args)
+            shown.props.onConfirm(reason, shown.askMobile ? phone : value, choices)
           }}
-        />
+          {...(shown.askMobile ? { blocked: isMobile(phone) ? null : words.mobileInvalid } : {})}
+        >
+          {shown.askMobile && (
+            <div className="df-field">
+              <label htmlFor={mobileId}>{words.mobile}</label>
+              <PhoneInput id={mobileId} value={phone} onValue={setPhone} placeholder={words.mobilePlaceholder} invalid={!isMobile(phone)} />
+            </div>
+          )}
+        </ConfirmDialog>
       )}
     </div>
   )

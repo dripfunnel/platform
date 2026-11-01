@@ -1,4 +1,7 @@
 {
+  "phone": {
+    "countryCode": "Country code"
+  },
   "home": {
     "title": "Home",
     "greeting": {
@@ -565,7 +568,7 @@
       "backupCode": "Backup code",
       "backupPlaceholder": "XXXX-XXXX",
       "phone": "Mobile number",
-      "phonePlaceholder": "+91 98450 11234",
+      "phonePlaceholder": "98450 11234",
       "remember": "Keep me signed in on this device for 30 days"
     },
     "strength": [
@@ -621,7 +624,7 @@
       "sendPrimary": "Text me a code",
       "confirmPrimary": "Turn on and sign in",
       "changeNumber": "Change number",
-      "invalidPhone": "Use the full number with its country code, like +91 98450 11234.",
+      "invalidPhone": "Check the country code and the number.",
       "stale": "This step timed out. Sign in again to set up two-step sign-in."
     },
     "codes": {
@@ -821,7 +824,7 @@
       "sent": "We sent a link to {email} — your email changes once you click it",
       "nameMissing": "Your name can’t be empty — your team sees it on everything you change.",
       "emailBad": "That email doesn’t look right. Check for a typo.",
-      "phoneBad": "Use the full number with the country code, like +91 98450 11234.",
+      "phoneBad": "Check the country code and the number.",
       "passwordMissing": "Type your current password to change your email.",
       "tooMany": "You’ve changed your email three times today. Try again tomorrow."
     },
@@ -3050,10 +3053,10 @@
       "nameMissing": "Add their name",
       "next": "Next: mobile number",
       "mobileTitle": "Mobile number for {name}",
-      "mobileBody": "Use the number they’ll sign in with, starting with its country code.",
+      "mobileBody": "Use the number they’ll sign in with.",
       "mobile": "Mobile number",
-      "mobilePlaceholder": "+91 98765 43210",
-      "mobileInvalid": "Enter the full mobile number with its country code, such as +91 98765 43210",
+      "mobilePlaceholder": "98765 43210",
+      "mobileInvalid": "Check the country code and the number.",
       "send": "Send invitation",
       "invited": "Invitation texted to {phone}",
       "resend": "Resend invitation: text the app link again",

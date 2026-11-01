@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { fill, formatCount, messages } from '../../messages'
+import { PhoneInput } from '../common/PhoneInput'
 
 const words = messages.storefront.brand
 
@@ -45,7 +46,13 @@ export const TextField = ({ label, value, onValue, readOnly, max, help, problem,
         </label>
         {counted && <span className="df-sf-count">{fill(words.count, { count: formatCount(value.length), limit: formatCount(max) })}</span>}
       </span>
-      {multiline ? <textarea rows={3} {...shared} onChange={(e) => onValue(e.target.value)} /> : <input type={type} {...shared} onChange={(e) => onValue(e.target.value)} />}
+      {multiline ? (
+        <textarea rows={3} {...shared} onChange={(e) => onValue(e.target.value)} />
+      ) : type === 'tel' ? (
+        <PhoneInput id={id} value={value} onValue={onValue} readOnly={readOnly} invalid={Boolean(problem)} describedBy={shared['aria-describedby']} placeholder={placeholder} autoComplete={autoComplete} />
+      ) : (
+        <input type={type} {...shared} onChange={(e) => onValue(e.target.value)} />
+      )}
       {below && (
         <span id={`${id}-below`} className={problem ? 'df-sf-problem' : 'df-sf-help'} role={problem ? 'alert' : undefined}>
           {below}

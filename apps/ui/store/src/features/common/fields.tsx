@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes, type ReactNode } from 'react'
+import { PhoneInput } from './PhoneInput'
 
 // The one labelled field and the two buttons, for every area of the portal (docs/ui/README.md §2). An
 // area keeps its prototype's look through `look`, which picks its classes (auth.css, profile.css).
@@ -36,7 +37,11 @@ export const Field = ({ look, label, value, onValue, aside, help, helpTone, inva
       </span>
       <span className={`df-${look}-control${variant ? ` df-${look}-control--${variant}` : ''}`} data-invalid={invalid ? 'true' : undefined} data-readonly={input.readOnly ? 'true' : undefined}>
         {prefix && <span className={`df-${look}-affix`}>{prefix}</span>}
-        <input id={id} value={value} onChange={(event) => onValue(event.target.value)} aria-invalid={invalid || undefined} aria-describedby={help ? helpId : undefined} {...input} />
+        {input.type === 'tel' ? (
+          <PhoneInput id={id} value={value} onValue={onValue} readOnly={input.readOnly} invalid={invalid} describedBy={help ? helpId : undefined} placeholder={input.placeholder} autoComplete={input.autoComplete} />
+        ) : (
+          <input id={id} value={value} onChange={(event) => onValue(event.target.value)} aria-invalid={invalid || undefined} aria-describedby={help ? helpId : undefined} {...input} />
+        )}
         {suffix && <span className={`df-${look}-affix`}>{suffix}</span>}
         {trailing}
       </span>

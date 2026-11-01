@@ -1,0 +1,40 @@
+.df-phone {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.df-phone select {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  min-width: 0;
+  font: inherit;
+}
+
+.df-phone input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Inside a bordered control (auth, profile) the two share its border, split by a line. */
+:is(.df-auth-control, .df-profile-control) .df-phone select {
+  flex: 0 0 5.5rem;
+  height: 100%;
+  padding: 0 6px 0 0;
+  border: 0;
+  border-right: 1px solid var(--df-color-field-border);
+  background: transparent;
+  color: var(--df-color-text);
+}
+
+.df-sf-field .df-phone select {
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-size: 14px;
+}
