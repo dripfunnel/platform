@@ -102,6 +102,16 @@ describe('loadShell', () => {
     expect(actingStore()).toEqual({ storeId: 's1', supplierId: null })
   })
 
+  it('sends a refusal tied to no shell field to the error screen rather than dropping it', async () => {
+    api.readShell.mockResolvedValue({
+      data: { me: me(acting), myStores: onePage, storeState: null, navBadges: null },
+      errors: [{ path: [], error: new ApiError('INTERNAL_SERVER_ERROR', 'operation failed') }],
+    })
+    expect(await outcome()).toMatchObject({ error: { code: 'INTERNAL_SERVER_ERROR' } })
+    api.readShell.mockResolvedValue({ data: { me: me(acting), myStores: onePage, storeState: null, navBadges: null }, errors: [{ path: ['somethingElse'], error: new ApiError('UNKNOWN', 'odd') }] })
+    expect(await outcome()).toMatchObject({ error: { code: 'UNKNOWN' } })
+  })
+
   it('lets a refused me through to the error screen', async () => {
     answer({}, { me: 'INTERNAL_SERVER_ERROR' })
     expect(await outcome()).toMatchObject({ error: { code: 'INTERNAL_SERVER_ERROR' } })

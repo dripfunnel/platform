@@ -21,6 +21,8 @@ export interface ShellData {
   badges: Record<NavBadgeSource, number>
 }
 
+const shellFields: readonly string[] = ['me', 'myStores', 'storeState', 'navBadges']
+
 /**
  * The signed-in person in their acting store, before any screen loads (ACCESS.md §4). Nobody signed
  * in goes to sign-in and comes back; no acting store, or one no longer held, goes to the chooser.
@@ -30,6 +32,9 @@ export const loadShell = async (search: ShellSearch, here: string): Promise<Shel
   const sampleSeat = sample?.me.acting ? seatOf(sample.me.acting) : null
   if (sample?.me.acting && sampleSeat) return { me: sample.me, acting: sample.me.acting, seat: sampleSeat, stores: sample.stores, state: sample.state, badges: sample.badges }
   const { data, errors } = await readShell()
+  // A refusal tied to none of the shell's fields (no path) is the whole answer failing: the error screen.
+  const stray = errors.find((e) => !shellFields.includes(String(e.path[0])))
+  if (stray) throw stray.error
   const refused = (field: string) => errors.find((e) => e.path[0] === field)?.error
   const meRefused = refused('me')
   if (meRefused) throw meRefused
