@@ -492,7 +492,8 @@
       "back": "Back to your stores",
       "loading": "Loading the store form",
       "forbidden": "A support session can’t create a store.",
-      "dailyLimit": "You can create one new store a day. Try again 24 hours after your last one."
+      "limit": "You already own 5 stores, the most you can create yourself. To open another, contact support at {support}.",
+      "limitNoContact": "You already own 5 stores, the most you can create yourself. To open another, contact support."
     }
   },
   "auth": {

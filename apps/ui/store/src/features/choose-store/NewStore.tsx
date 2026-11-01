@@ -3,6 +3,7 @@ import '@dripfunnel/shared/ui/states.css'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { rememberActing } from '../../acting'
+import { currentBrand } from '../../brand/current'
 import { createAnotherStore, isRefusal, newStoreOptions, type AuthRefusal, type Country } from '../../api/auth'
 import { fill, messages } from '../../messages'
 import { AuthFrame } from '../auth/AuthFrame'
@@ -15,7 +16,14 @@ const su = messages.auth.signup
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'refused'; text: string } | { kind: 'store'; countries: Country[]; shopDomain: string | null } | { kind: 'building'; storeId: string; enrol: boolean }
 
-const refusedText = (refusal: AuthRefusal): string => (refusal.code === 'FORBIDDEN' ? words.create.forbidden : refusal.code === 'DAILY_LIMIT' ? words.create.dailyLimit : signupText(refusal))
+/** Past a person's stores, support opens the next one: the partner's own contact, as the sign-in footer shows it. */
+const limitText = (): string => {
+  const brand = currentBrand()
+  const support = brand?.supportEmail ?? brand?.supportUrl ?? null
+  return support ? fill(words.create.limit, { support }) : words.create.limitNoContact
+}
+
+const refusedText = (refusal: AuthRefusal): string => (refusal.code === 'FORBIDDEN' ? words.create.forbidden : refusal.code === 'STORE_LIMIT' ? limitText() : signupText(refusal))
 
 // "Create another store" (FIRST-RELEASE §4; PortalAuth `pick` → su3, then the building view; #1136): a
 // signed-in person's next store, with no account step and no texted code, opened as the acting store.

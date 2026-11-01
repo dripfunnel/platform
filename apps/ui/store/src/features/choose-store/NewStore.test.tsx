@@ -85,8 +85,8 @@ describe('creating another store', () => {
     expect(router.state.location.search).toEqual({ step: 'enrol', next: '/home' })
   })
 
-  it('words a taken address, a support session and the day’s limit, and checks the name before asking', async () => {
-    serve({ 'new-store/options': [options, options], 'new-store': [{ ok: false, code: 'SUBDOMAIN_TAKEN', suggestions: ['kesari-co'] }, { ok: false, code: 'FORBIDDEN' }, { ok: false, code: 'DAILY_LIMIT' }] })
+  it('words a taken address, a support session and the store limit, and checks the name before asking', async () => {
+    serve({ 'new-store/options': [options, options], 'new-store': [{ ok: false, code: 'SUBDOMAIN_TAKEN', suggestions: ['kesari-co'] }, { ok: false, code: 'FORBIDDEN' }, { ok: false, code: 'STORE_LIMIT' }] })
     const { NewStore } = await import('./NewStore')
     await show(<NewStore />)
     await settle()
@@ -101,8 +101,20 @@ describe('creating another store', () => {
     expect(screen.getByText(words.forbidden)).toBeTruthy()
     fillIn('Kesari')
     await settle()
-    expect(screen.getByText(words.dailyLimit)).toBeTruthy()
+    expect(screen.getByText(words.limitNoContact)).toBeTruthy()
     expect(calls.filter((c) => c.route === 'new-store')).toHaveLength(3)
+  })
+
+  it('asks a person at the limit to contact the partner’s support before showing the form', async () => {
+    const { setBrand } = await import('../../brand/current')
+    setBrand({ productName: 'Northstar Shops', primaryColor: '#1B3A5B', accentColor: '#2BB673', font: null, corner: null, background: null, files: { logoLight: null, logoDark: null, mark: null, favicon: null }, supportEmail: 'help@northstar.shop', supportUrl: null, helpUrl: null, termsUrl: null, privacyUrl: null, poweredBy: true, googleSignIn: false })
+    serve({ 'new-store/options': [{ ok: false, code: 'STORE_LIMIT' }, { ok: false, code: 'STORE_LIMIT' }] })
+    const { NewStore } = await import('./NewStore')
+    await show(<NewStore />)
+    await settle()
+    expect(screen.getAllByText(fill(words.limit, { support: 'help@northstar.shop' })).length).toBeGreaterThan(0)
+    expect(screen.queryByLabelText(su3.store)).toBeNull()
+    setBrand(null)
   })
 
   it('says when the partner takes no new stores, sends a signed-out person to sign in, and goes back to the stores', async () => {

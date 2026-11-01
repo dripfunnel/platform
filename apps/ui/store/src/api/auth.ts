@@ -27,7 +27,7 @@ export const authCodes = [
   'INVITATION_INVALID',
   'EMAIL_CHANGE_INVALID',
   'FORBIDDEN',
-  'DAILY_LIMIT',
+  'STORE_LIMIT',
 ] as const
 
 export type AuthCode = (typeof authCodes)[number]
