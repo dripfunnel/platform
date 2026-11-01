@@ -126,6 +126,19 @@ export const selectSignupCurrencies = async (tx: ScopedSql, partnerId: string): 
 export const selectPartnerState = async (tx: ScopedSql, partnerId: string): Promise<string | null> =>
   (await tx<{ state: string }[]>`select state from partner where id = ${partnerId}`)[0]?.state ?? null
 
+/** Stores made under the partner since `since`: the hour's cap for a signed-in person's next store (#1136). */
+export const countStoresCreatedSince = async (tx: ScopedSql, partnerId: string, since: Date): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from store where partner_id = ${partnerId} and created_at > ${since}`)[0]?.n ?? 0
+
+/** The store at this address that this person was just made Owner of, so a retried creation answers it again (#1136). */
+export const selectOwnNewStore = async (tx: ScopedSql, partnerId: string, userId: string, slug: string, since: Date): Promise<string | null> =>
+  (
+    await tx<{ id: string }[]>`
+      select s.id from store s join membership m on m.store_id = s.id and m.user_id = ${userId} and m.role_key = 'owner' and m.status = 'active'
+      where s.partner_id = ${partnerId} and lower(s.slug) = lower(${slug}) and s.created_at > ${since}
+    `
+  )[0]?.id ?? null
+
 // SAAS.md §5 step 1, inside provisioning's one transaction.
 
 export const insertSignupUser = async (tx: ScopedSql, u: { partnerId: string; email: string; name: string; passwordHash: string | null; phone: string; now: Date }): Promise<string> => {

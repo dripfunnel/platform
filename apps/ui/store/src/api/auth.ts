@@ -26,6 +26,7 @@ export const authCodes = [
   'INVITATION_REPLACED',
   'INVITATION_INVALID',
   'EMAIL_CHANGE_INVALID',
+  'FORBIDDEN',
 ] as const
 
 export type AuthCode = (typeof authCodes)[number]
@@ -35,7 +36,7 @@ export type AuthRefusal = SharedAuthRefusal<AuthCode>
 // The routes after which this browser is someone else (sharedSessionReads.ts `identityChanged`).
 const { post } = createAuthClient({
   codes: authCodes,
-  identityRoutes: new Set(['sign-in', 'second-factor', 'backup-code', 'enrol-second-factor', 'accept-invitation', 'join', 'reset-password', 'sign-up/verify-phone']),
+  identityRoutes: new Set(['sign-in', 'second-factor', 'backup-code', 'enrol-second-factor', 'accept-invitation', 'join', 'reset-password', 'sign-up/verify-phone', 'new-store']),
 })
 
 export const isRefusal = (value: { ok: boolean }): value is AuthRefusal => value.ok === false
@@ -143,6 +144,13 @@ export const signupStore = (storeName: string, subdomain: string, country: strin
 export const sendSignupPhone = (phone: string) => post('sign-up/send-phone', { phone }, z.object({ ok: z.literal(true), hint: z.string() }))
 
 export const verifySignupPhone = (code: string) => post('sign-up/verify-phone', { code }, z.object({ ok: z.literal(true), step: z.enum(['done', 'enrol']), storeId: z.string() }))
+
+/** What the store step offers someone already signed in (#1136): the partner's countries and the free address's domain. */
+export const newStoreOptions = () => post('new-store/options', {}, z.object({ ok: z.literal(true), countries: z.array(countrySchema), shopDomain: z.string().nullable() }))
+
+/** Opens another store with the signed-in person as its Owner; `enrol` when they must set up two-step sign-in first. */
+export const createAnotherStore = (storeName: string, subdomain: string, country: string) =>
+  post('new-store', { storeName, subdomain, country }, z.object({ ok: z.literal(true), step: z.enum(['done', 'enrol']), storeId: z.string() }))
 
 /** A web address from a store name, as the prototype suggests one: lower-case words joined by hyphens. */
 export const subdomainFrom = (name: string): string =>

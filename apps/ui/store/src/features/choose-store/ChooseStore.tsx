@@ -7,7 +7,7 @@ import { shellSample } from '../../api/sample'
 import { loadMe, loadMyStores, openStore, signOut, type Me, type StoreChoice } from '../../api/shell'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { AuthFrame } from '../auth/AuthFrame'
-import { Foot } from '../auth/fields'
+import { Foot, Secondary } from '../auth/fields'
 import { choiceLabel } from '../shell/StoreSwitcher'
 import './chooseStore.css'
 
@@ -117,6 +117,7 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
           )
         })}
       </ul>
+      {!sample && <Secondary onClick={() => void navigate({ to: '/stores/new' })}>{words.create.action}</Secondary>}
       <Foot text={words.notYou} link={words.signOut} onClick={leave} />
     </AuthFrame>
   )

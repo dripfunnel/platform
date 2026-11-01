@@ -35,6 +35,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as StoresNewRouteImport } from './routes/stores.new'
 import { Route as SupportEnterRouteImport } from './routes/support.enter'
 import { Route as AppBillingKeepRouteImport } from './routes/_app/billing_.keep'
 import { Route as AppCartsCartIdRouteImport } from './routes/_app/carts_.$cartId'
@@ -177,6 +178,11 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StoresNewRoute = StoresNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => StoresRoute,
+} as any)
 const SupportEnterRoute = SupportEnterRouteImport.update({
   id: '/support/enter',
   path: '/support/enter',
@@ -246,7 +252,7 @@ const AppProductsProductIdStoryRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/stores': typeof StoresRoute
+  '/stores': typeof StoresRouteWithChildren
   '/activity': typeof AppActivityRoute
   '/billing': typeof AppBillingRoute
   '/carts': typeof AppCartsRoute
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/stores/new': typeof StoresNewRoute
   '/support/enter': typeof SupportEnterRoute
   '/billing/keep': typeof AppBillingKeepRoute
   '/carts/$cartId': typeof AppCartsCartIdRoute
@@ -285,7 +292,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
-  '/stores': typeof StoresRoute
+  '/stores': typeof StoresRouteWithChildren
   '/activity': typeof AppActivityRoute
   '/billing': typeof AppBillingRoute
   '/carts': typeof AppCartsRoute
@@ -308,6 +315,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/stores/new': typeof StoresNewRoute
   '/support/enter': typeof SupportEnterRoute
   '/billing/keep': typeof AppBillingKeepRoute
   '/carts/$cartId': typeof AppCartsCartIdRoute
@@ -326,7 +334,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
-  '/stores': typeof StoresRoute
+  '/stores': typeof StoresRouteWithChildren
   '/_app/activity': typeof AppActivityRoute
   '/_app/billing': typeof AppBillingRoute
   '/_app/carts': typeof AppCartsRoute
@@ -349,6 +357,7 @@ export interface FileRoutesById {
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/stores/new': typeof StoresNewRoute
   '/support/enter': typeof SupportEnterRoute
   '/_app/': typeof AppIndexRoute
   '/_app/billing_/keep': typeof AppBillingKeepRoute
@@ -391,6 +400,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/stores/new'
     | '/support/enter'
     | '/billing/keep'
     | '/carts/$cartId'
@@ -430,6 +440,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/stores/new'
     | '/support/enter'
     | '/billing/keep'
     | '/carts/$cartId'
@@ -470,6 +481,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-in'
     | '/_auth/sign-up'
     | '/impersonate/enter'
+    | '/stores/new'
     | '/support/enter'
     | '/_app/'
     | '/_app/billing_/keep'
@@ -489,7 +501,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
-  StoresRoute: typeof StoresRoute
+  StoresRoute: typeof StoresRouteWithChildren
   ImpersonateEnterRoute: typeof ImpersonateEnterRoute
   SupportEnterRoute: typeof SupportEnterRoute
 }
@@ -678,6 +690,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stores/new': {
+      id: '/stores/new'
+      path: '/new'
+      fullPath: '/stores/new'
+      preLoaderRoute: typeof StoresNewRouteImport
+      parentRoute: typeof StoresRoute
+    }
     '/support/enter': {
       id: '/support/enter'
       path: '/support/enter'
@@ -856,10 +875,21 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface StoresRouteChildren {
+  StoresNewRoute: typeof StoresNewRoute
+}
+
+const StoresRouteChildren: StoresRouteChildren = {
+  StoresNewRoute: StoresNewRoute,
+}
+
+const StoresRouteWithChildren =
+  StoresRoute._addFileChildren(StoresRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
-  StoresRoute: StoresRoute,
+  StoresRoute: StoresRouteWithChildren,
   ImpersonateEnterRoute: ImpersonateEnterRoute,
   SupportEnterRoute: SupportEnterRoute,
 }

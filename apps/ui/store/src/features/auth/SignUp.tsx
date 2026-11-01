@@ -1,13 +1,14 @@
 import { useScreenState } from '@dripfunnel/shared/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
-import { isRefusal, resumeSignup, sendSignupPhone, signupStore, startSignup, subdomainFrom, verifySignupEmail, verifySignupPhone, type AuthRefusal, type Country } from '../../api/auth'
+import { isRefusal, resumeSignup, sendSignupPhone, signupStore, startSignup, verifySignupEmail, verifySignupPhone, type AuthRefusal, type Country } from '../../api/auth'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { sampleCountries, sampleEmail, sampleHint, sampleSuggestions, signUpStates, type SignUpState } from './authStates'
 import { AuthFrame } from './AuthFrame'
 import { productName } from '../common/productName'
 import { CodeField, Field, Foot, GoogleButton, NewPasswordField, Primary, Terms, useResendWait } from './fields'
+import { draftSubdomain, emptyStoreDraft, StoreFields, storeDraftProblem } from './StoreFields'
 import { googleOutcomeText, signupText, type GoogleOutcome } from './refusals'
 import { looksLikeEmail } from '@dripfunnel/shared/format'
 
@@ -60,10 +61,7 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
   const [email, setEmail] = useState(start ? sampleEmail : '')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
-  const [store, setStore] = useState('')
-  const [subdomain, setSubdomain] = useState('')
-  const [subTouched, setSubTouched] = useState(false)
-  const [country, setCountry] = useState('')
+  const [draft, setDraft] = useState(emptyStoreDraft)
   const [phone, setPhone] = useState('')
   const [error, setError] = useState<string | null>(start?.error ?? null)
   const [busy, setBusy] = useState(false)
@@ -98,7 +96,7 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
       if (isRefusal(answer)) return answer.code === 'SIGNUP_EXPIRED' ? refused(answer) : setError(signupText(answer))
       setName(answer.name)
       setEmail(answer.email)
-      setCountry(answer.countries[0]?.code ?? '')
+      setDraft((d) => ({ ...d, country: answer.countries[0]?.code ?? '' }))
       // Where the sign-up stands, not where Google left it: a reload after the store step goes on to the phone.
       go(answer.step === 'phone' ? { kind: 'phone', hint: null } : answer.step === 'verify-email' ? { kind: 'email' } : { kind: 'store', countries: answer.countries, shopDomain: answer.shopDomain })
     })
@@ -131,15 +129,13 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
           if (code.length !== 6) return setError(words.secondFactor.incomplete)
           const answer = await verifySignupEmail(code)
           if (isRefusal(answer)) return refused(answer)
-          setCountry(answer.countries[0]?.code ?? '')
+          setDraft((d) => ({ ...d, country: answer.countries[0]?.code ?? '' }))
           return go({ kind: 'store', countries: answer.countries, shopDomain: answer.shopDomain ?? null })
         }
         if (view.kind === 'store') {
-          const sub = subdomain || subdomainFrom(store)
-          if (!store.trim()) return setError(su.su3.nameMissing)
-          if (!sub) return setError(su.su3.subBad)
-          if (!country) return setError(su.su3.countryNone)
-          const answer = await signupStore(store.trim(), sub, country)
+          const problem = storeDraftProblem(draft)
+          if (problem) return setError(problem)
+          const answer = await signupStore(draft.store.trim(), draftSubdomain(draft), draft.country)
           return isRefusal(answer) ? refused(answer) : go({ kind: 'phone', hint: null })
         }
         if (view.kind === 'phone') {
@@ -204,23 +200,7 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
       return (
         <AuthFrame panel="up" step={2} title={su.su3.title} sub={su.su3.sub} notice={notice}>
           <form className="df-portal-auth-form" onSubmit={submit} noValidate>
-            <Field label={su.su3.store} placeholder={su.su3.storePlaceholder} value={store} onValue={(v) => (setStore(v), subTouched ? undefined : setSubdomain(subdomainFrom(v)))} help={su.su3.storeHelp} />
-            <Field label={su.su3.sub2} placeholder={su.su3.subPlaceholder} value={subdomain} onValue={(v) => (setSubTouched(true), setSubdomain(v.toLowerCase()))} help={view.shopDomain && subdomain ? fill(su.su3.subHelp, { address: `${subdomain}.${view.shopDomain}` }) : su.su3.subHelpNone} />
-            <div className="df-auth-field">
-              <label className="df-auth-label" htmlFor="signup-country">
-                {su.su3.country}
-              </label>
-              <span className="df-auth-control">
-                <select id="signup-country" value={country} onChange={(event) => setCountry(event.target.value)}>
-                  {view.countries.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name} · {c.currency}
-                    </option>
-                  ))}
-                </select>
-              </span>
-              <span className="df-auth-help">{su.su3.countryHelp}</span>
-            </div>
+            <StoreFields draft={draft} onDraft={setDraft} countries={view.countries} shopDomain={view.shopDomain} />
             <Primary busy={busy}>{su.su3.primary}</Primary>
           </form>
         </AuthFrame>
@@ -246,6 +226,6 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
         </AuthFrame>
       )
     case 'building':
-      return <AuthFrame panel="up" step="building" icon={{ name: 'spark', tone: 'warning' }} title={fill(su.building.title, { store: store.trim() || su.building.yourStore })} sub={su.building.sub} />
+      return <AuthFrame panel="up" step="building" icon={{ name: 'spark', tone: 'warning' }} title={fill(su.building.title, { store: draft.store.trim() || su.building.yourStore })} sub={su.building.sub} />
   }
 }

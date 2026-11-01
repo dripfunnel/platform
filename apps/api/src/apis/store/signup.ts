@@ -41,16 +41,16 @@ const clearSignupCookie = () => `${signupCookieName}=; Path=/; Secure; HttpOnly;
 
 const textsPerNumberPerDay = 3
 const textsPerPartnerPerHour = 200
-const startsPerPartnerPerHour = 500
+export const startsPerPartnerPerHour = 500
 
 const startInput = z.strictObject({ name: z.string().max(120), email: z.string().max(320), password: z.string().max(1024) })
 const codeInput = z.strictObject({ code: z.string().max(16) })
-const storeInput = z.strictObject({ storeName: z.string().max(120), subdomain: z.string().max(60), country: z.string().max(2) })
+export const storeInput = z.strictObject({ storeName: z.string().max(120), subdomain: z.string().max(60), country: z.string().max(2) })
 const phoneInput = z.strictObject({ phone: z.string().max(20) })
 
-type SignupRefusal = Refusal | { code: 'SUBDOMAIN_TAKEN'; suggestions: string[] }
+export type SignupRefusal = Refusal | { code: 'SUBDOMAIN_TAKEN'; suggestions: string[] }
 
-const offeredCountries = async (tx: ScopedSql, partnerId: string) => countriesIn(new Set(await selectSignupCurrencies(tx, partnerId))).map((c) => ({ code: c.code, name: c.name, currency: c.currency }))
+export const offeredCountries = async (tx: ScopedSql, partnerId: string) => countriesIn(new Set(await selectSignupCurrencies(tx, partnerId))).map((c) => ({ code: c.code, name: c.name, currency: c.currency }))
 
 /** Step 1: the same answer, and the same email (a code, or how to sign in), whether or not the address has an account. */
 export const startSignup = async (request: Request, deps: StoreAuthDeps): Promise<Response> => {
@@ -116,11 +116,11 @@ const withSignup = async <T>(deps: StoreAuthDeps, cookie: string | null, stages:
   })
 }
 
-const isRefusal = (v: unknown): v is SignupRefusal => typeof v === 'object' && v !== null && 'code' in v && typeof (v as { code: unknown }).code === 'string'
+export const isRefusal = (v: unknown): v is SignupRefusal => typeof v === 'object' && v !== null && 'code' in v && typeof (v as { code: unknown }).code === 'string'
 
 const answer = (outcome: unknown, ok: Record<string, unknown>, cookie?: string) => (isRefusal(outcome) ? refuseSignup(outcome) : json(200, { ok: true, ...ok }, cookie))
 
-const refuseSignup = (r: SignupRefusal): Response => (r.code === 'SUBDOMAIN_TAKEN' ? json(400, { ok: false, ...r }) : refuse(r))
+export const refuseSignup = (r: SignupRefusal): Response => (r.code === 'SUBDOMAIN_TAKEN' ? json(400, { ok: false, ...r }) : refuse(r))
 
 /** A wrong code counts, committed with the answer; the fifth closes the code (a new one comes by asking again). */
 const checkCode = async (tx: ScopedSql, s: SignupRow, which: 'email' | 'phone', typed: string, now: Date, mode: CodeCheck): Promise<Refusal | null> => {
@@ -146,7 +146,7 @@ export const verifySignupEmail = async (request: Request, deps: StoreAuthDeps, c
   return answer(outcome, { step: 'store', ...(isRefusal(outcome) ? {} : outcome) })
 }
 
-const suggestionsFor = async (tx: ScopedSql, base: string, signupId: string): Promise<string[]> => {
+export const suggestionsFor = async (tx: ScopedSql, base: string, signupId: string | null): Promise<string[]> => {
   const free: string[] = []
   for (const candidate of [`${base}-co`, `${base}-shop`, `${base}-store`, `${base}-online`]) {
     if (slugPattern.test(candidate) && !isReservedSlug(candidate) && !(await subdomainTaken(tx, candidate, signupId))) free.push(candidate)
@@ -155,20 +155,33 @@ const suggestionsFor = async (tx: ScopedSql, base: string, signupId: string): Pr
   return free
 }
 
+export interface StoreStep {
+  storeName: string
+  subdomain: string
+  country: string
+}
+
+/** Step 3's checks, for a sign-up (its own address doesn't count against it) or a signed-in person's next store (#1136). */
+export const checkStoreStep = async (tx: ScopedSql, partnerId: string, input: z.infer<typeof storeInput>, signupId: string | null): Promise<SignupRefusal | StoreStep> => {
+  const storeName = input.storeName.trim()
+  const subdomain = input.subdomain.trim().toLowerCase()
+  if (storeName === '' || storeName.length > 80) return { code: 'NAME_REQUIRED' }
+  if (!slugPattern.test(subdomain)) return { code: 'INVALID_SUBDOMAIN' }
+  if (isReservedSlug(subdomain) || (await subdomainTaken(tx, subdomain, signupId))) {
+    return { code: 'SUBDOMAIN_TAKEN', suggestions: await suggestionsFor(tx, subdomain, signupId) }
+  }
+  if (!(await offeredCountries(tx, partnerId)).some((c) => c.code === input.country)) return { code: 'COUNTRY_UNAVAILABLE' }
+  return { storeName, subdomain, country: input.country }
+}
+
 /** Step 3: the store's name, its web address on the partner's domain, and its country (which sets the currency). */
 export const signupStore = async (request: Request, deps: StoreAuthDeps, cookie: string | null): Promise<Response> => {
   const input = await readBody(request, storeInput)
   const outcome = await withSignup(deps, cookie, ['store', 'phone'], async (tx, s): Promise<SignupRefusal | Record<string, never>> => {
     if (!input) return { code: 'INVALID_INPUT' }
-    const storeName = input.storeName.trim()
-    const subdomain = input.subdomain.trim().toLowerCase()
-    if (storeName === '' || storeName.length > 80) return { code: 'NAME_REQUIRED' }
-    if (!slugPattern.test(subdomain)) return { code: 'INVALID_SUBDOMAIN' }
-    if (isReservedSlug(subdomain) || (await subdomainTaken(tx, subdomain, s.id))) {
-      return { code: 'SUBDOMAIN_TAKEN', suggestions: await suggestionsFor(tx, subdomain, s.id) }
-    }
-    if (!(await offeredCountries(tx, deps.partnerId)).some((c) => c.code === input.country)) return { code: 'COUNTRY_UNAVAILABLE' }
-    await advanceSignup(tx, s.id, 'phone', { store_name: storeName, subdomain, country: input.country })
+    const store = await checkStoreStep(tx, deps.partnerId, input, s.id)
+    if (isRefusal(store)) return store
+    await advanceSignup(tx, s.id, 'phone', { store_name: store.storeName, subdomain: store.subdomain, country: store.country })
     return {}
   })
   return answer(outcome, { step: 'phone' })
