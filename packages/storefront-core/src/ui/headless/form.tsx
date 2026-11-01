@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState, type ReactNode } from 'react'
+import { memo, useId, useRef, useState, type ReactNode } from 'react'
 import { addressFields, fillFromPlace, type AddressDraft, type MapFilled, type AddressField, type FieldProblem } from '../../checkout/address'
 import { countryOptions, joinPhone, splitPhone } from '../../checkout/phone'
 import type { Translate } from '../../platform/i18n/i18n'
@@ -79,6 +79,16 @@ export type PhoneFieldProps = Omit<TextFieldProps, 'type' | 'inputMode' | 'maxLe
   groupClassName?: string | undefined
 }
 
+/** The chosen code alone fits the closed dropdown; the list names each country for finding it by typing. */
+// Memoised: ~245 options would otherwise re-render on every keystroke in the form around them.
+const CountryOptions = memo(({ locale, chosen }: { locale: string; chosen: string }) =>
+  countryOptions(locale).map((o) => (
+    <option key={o.country} value={o.country}>
+      {o.country === chosen ? `+${o.dial}` : `${o.name} (+${o.dial})`}
+    </option>
+  )),
+)
+
 /** A mobile number as a country code dropdown and the number; it hands back one value, `+` and the code first. */
 export const PhoneField = ({ label, value, onChange, country, codeLabel, locale, autoComplete = 'tel', note, hint, error, className, groupClassName }: PhoneFieldProps) => {
   const id = useId()
@@ -101,12 +111,7 @@ export const PhoneField = ({ label, value, onChange, country, codeLabel, locale,
           }}
         >
           {split.country ? null : <option value="">+</option>}
-          {/* The chosen code alone fits the closed dropdown; the list names each country for finding it by typing. */}
-          {countryOptions(locale).map((o) => (
-            <option key={o.country} value={o.country}>
-              {o.country === split.country ? `+${o.dial}` : `${o.name} (+${o.dial})`}
-            </option>
-          ))}
+          <CountryOptions locale={locale} chosen={split.country} />
         </select>
         <input id={id} type="tel" value={split.national} autoComplete={autoComplete} inputMode="tel" maxLength={20} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(joinPhone(split.country, e.target.value))} />
       </span>
