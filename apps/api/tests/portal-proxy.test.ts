@@ -3,7 +3,8 @@ import worker, { PortalProxy } from '../src/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
-// Card #426: a partner's own portal host reaches the Store API only through store-proxy's binding (SAAS.md §8).
+// Card #426: a partner's own portal host reaches the Store API only through store-proxy's binding (SAAS.md §8), which
+// calls the default fetch since #1107.
 
 let db: TestDatabase
 let t: Tenants
@@ -87,11 +88,19 @@ describe('the PortalProxy entrypoint', () => {
   })
 })
 
-describe('the public fetch', () => {
-  it('gives a forged Host of a registered partner nothing of that partner’s', async () => {
-    for (const host of [hostA, hostB]) {
-      expect(await viaPublic(host)).toEqual({ status: 404, name: undefined })
-    }
+// #1107: store-proxy's binding calls the default fetch so placement applies; a host outside our zone on /api is the portal
+// entry there, with PortalProxy's rules. A forged Host can't reach it: the Worker's own routes match only our zone.
+describe('the default fetch, as store-proxy’s binding calls it', () => {
+  it('serves each partner its own live portal host, as PortalProxy does', async () => {
+    expect(await viaPublic(hostA)).toEqual({ status: 200, name: 'Partner A' })
+    expect(await viaPublic(hostB)).toEqual({ status: 200, name: 'Partner B' })
+  })
+
+  it('answers 404 on a host no partner holds, one that is not a portal, and one not yet live', async () => {
+    expect((await viaPublic('store.nobody.example')).status).toBe(404)
+    expect((await viaPublic('mail.partner-a.example')).status).toBe(404)
+    await setStatus(pending, 'waiting')
+    expect((await viaPublic(pending)).status).toBe(404)
   })
 
   it('still serves a registered portal host on our own zone, which has a route of its own', async () => {
