@@ -1,4 +1,4 @@
-import { refusalResponse } from '#core/http'
+import { json, refusalResponse } from '#core/http'
 
 export { json, readBody } from '#core/http'
 
@@ -14,7 +14,9 @@ export type Refusal =
   | { code: 'NAME_REQUIRED' | 'WEAK_PASSWORD' | 'RESET_INVALID' | 'INVITATION_USED' | 'INVITATION_REPLACED' | 'INVITATION_INVALID' | 'EMAIL_CHANGE_INVALID' }
   // The prototype's expired screen asks the inviter by name (PortalAuth `inviteBad`).
   | { code: 'INVITATION_EXPIRED'; invitedBy: string }
+  // Create another store in a support session (#1136).
+  | { code: 'FORBIDDEN' }
 
 const badRequest = new Set<Refusal['code']>(['INVALID_PHONE', 'INVALID_INPUT', 'INVALID_EMAIL', 'INVALID_SUBDOMAIN', 'COUNTRY_UNAVAILABLE', 'SIGNUP_CLOSED', 'SIGNUP_EXPIRED', 'NAME_REQUIRED', 'WEAK_PASSWORD', 'RESET_INVALID', 'INVITATION_EXPIRED', 'INVITATION_USED', 'INVITATION_REPLACED', 'INVITATION_INVALID', 'EMAIL_CHANGE_INVALID'])
 
-export const refuse = (refusal: Refusal): Response => refusalResponse(refusal, badRequest)
+export const refuse = (refusal: Refusal): Response => (refusal.code === 'FORBIDDEN' ? json(403, { ok: false, ...refusal }) : refusalResponse<Refusal>(refusal, badRequest))

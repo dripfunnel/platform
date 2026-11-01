@@ -222,6 +222,15 @@ steps 1–3. The store starts in Trial on the partner's cheapest live plan in th
 the plan's trial days or 14 when it sets none (decided on #290). Signup, like every account endpoint, responds identically
 whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 
+**Create another store** (#1136, `apis/store/newStore.ts`): a person already signed in on the portal, in any role
+(Owner, Manager, Staff or supplier), opens another store under that partner as its Owner. `POST /api/auth/new-store/options`
+answers step 3's countries; `POST /api/auth/new-store` takes step 3's store name, web address and country, checked as
+sign-up checks them, and provisions the store for the existing account in one transaction, with no texted code. Each
+store starts its own trial as a sign-up does, with no limit on how many. Refused `SIGNUP_CLOSED` while the partner isn't
+Live, `FORBIDDEN` in a support session, `RATE_LIMITED` per person and past 500 new stores under the partner in an hour.
+A retry within 10 minutes answers the store it already made. An Owner without 2-factor is then held at enrolment
+(ACCESS.md §4).
+
 **The web address is the store's `slug`** (decided 2026-10-15 with Gaurav, USERS-AND-DOMAINS §2):
 the field is filled in from the store name and can be edited, the store is at `{slug}.my-store.one`
 and its preview at `{slug}-preview.my-store.one`, and the slug never changes afterwards. The partner
