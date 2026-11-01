@@ -2,7 +2,7 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import { describe, expect, it } from 'vitest'
 import type { StorefrontDomain, StorefrontStatus } from '../../api/storefront'
 import { fill, messages } from '../../messages'
-import { brandComplete, brandFormOf, brandProblemOf, pickerValue } from './brandDraft'
+import { brandComplete, brandFormOf, brandProblemOf } from './brandDraft'
 import { canCancel, canMakePrimary, domainRefusal, inProgress, needsRecords } from './domainView'
 import { counterText, googleTitle, seoTooLong } from './seoView'
 import { chooseRefusal, hasSite, liveHost, needsTemplate, templateName } from './overviewView'
@@ -38,13 +38,6 @@ describe('the brand', () => {
     expect(brandComplete({ ...empty, shopName: 'Kesari' })).toBe(false)
     expect(brandComplete({ ...empty, shopName: '  ', logoAssetId: 'a' })).toBe(false)
     expect(brandComplete({ ...empty, shopName: 'Kesari', logoAssetId: 'a' })).toBe(true)
-  })
-
-  it('shows a picker only a full colour', () => {
-    expect(pickerValue('#1D6B47')).toBe('#1d6b47')
-    expect(pickerValue('abc')).toBe('#aabbcc')
-    expect(pickerValue('orange')).toBe('#000000')
-    expect(pickerValue(null)).toBe('#000000')
   })
 
   it('keeps a refusal with the field it names', () => {

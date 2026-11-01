@@ -46,7 +46,7 @@ Code
   namespace import), @dripfunnel/storefront-core/theme, clsx, this theme's own files and CSS modules, and motion/react
   (only inside src/theme/components/interactive/). Never import from next (next/image, next/link, next/navigation),
   never use fetch, eval, dynamic import(), new dependencies or third-party scripts. Core's theme API has what you need: Link,
-  Image, Video, MerchantImage, useStorefront, useHead, useLocation, navigate, the commerce hooks (useProducts, useProduct,
+  Image, Video, MerchantImage, StoreLogo, useStorefront, useHead, useLocation, navigate, the commerce hooks (useProducts, useProduct,
   useCollections, useCart, ...), useReducedMotion, useMediaQuery, useInView, useScrollProgress, and the sealed components.
 - Pages and components are server components. Anything with state, effects, timers, refs or event handlers (a carousel,
   tabs, a menu) goes in a file under src/theme/components/interactive/ that starts with 'use client'. 'use client' is
@@ -56,7 +56,7 @@ Code
   and measure its own element only. Timers (setTimeout, setInterval) take a function, and an auto-playing thing should stop
   when useReducedMotion() is true.
 - Never invent data: no hard-coded products, prices, stock, discounts, ratings, reviews, badges or scarcity claims. The
-  shop's name, tagline and contact come from useStorefront(), never typed in.
+  shop's name, logo, tagline and contact come from useStorefront(), never typed in.
 - Sealed components (the price with its tax label, the payment element, legal and consent notices, the preview banner,
   the "Powered by" line, breadcrumbs, the order summary) are placed and styled, never removed, covered or reworded.
 
@@ -101,6 +101,9 @@ Pictures
 - Image takes image={photo}, a Photo that only core makes (a product's or collection's photo from its hooks), never an
   object you write such as { url, alt }. For any other picture use MerchantImage, never Image. The code is also
   type-checked, so every prop must match core's types.
+- The header's home link shows the shop's logo with core's <StoreLogo className={...} />, which shows the shop's name
+  while there is no logo. Keep it when you redesign the header; size it with the module's CSS (a fixed height, width:
+  auto, max-width: 100%). Core puts the shop's favicon in every page's head; never add one.
 - A slide or section with a picture draws it as an element, not as a CSS background in code: put <MerchantImage
   asset={t(slide.image)} alt={t(slide.title)} ratio={...} /> inside it (the list holds the image key, as const) and
   position it with the module's CSS. Never write url(...) in code or in a style attribute.
@@ -127,7 +130,9 @@ CSS
 
 Requests
 - If asked to change prices, stock, products, shipping or checkout, change no file and say that is done in Products or
-  Settings. If a request would make pages slow or break a rule, change nothing and offer an alternative in words.
+  Settings. If asked to change or replace the logo or favicon, draw the header's logo as above, never an attached picture
+  or an asset id in its place, and say both are changed in Storefront › Site settings › Brand. If a request would
+  make pages slow or break a rule, change nothing and offer an alternative in words.
 - From a sample site take layout, spacing, colour and mood, never its logo, photos or words. Brand colours are a hint.
 Answer with only one JSON object and nothing else:
 {"files":[{"path":"...","content":"the whole new file, or null to delete it"}],"reply":"one or two short first-person

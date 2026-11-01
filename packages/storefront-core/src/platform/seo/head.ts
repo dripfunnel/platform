@@ -11,14 +11,16 @@ export type Head = {
   /** A path on this store; the query a filter or sort adds is left out of it (ARCHITECTURE §8 "Crawling"). */
   canonical?: string | null | undefined
   image?: string | null | undefined
+  /** The store's favicon (Site settings › Brand). */
+  icon?: string | null | undefined
   /** noindex: the preview and studio, and pages search engines shouldn't list. */
   hidden?: boolean | undefined
 }
 
 /** The store's head for a page: the home page's search and sharing on `/` (SAAS §9.2), the name and description elsewhere. */
-export const storeHead = (store: { name: string; description?: string | null | undefined; seo?: { title: string | null; description: string | null; image: { url: string } | null } | null }, path: string): Head => {
+export const storeHead = (store: { name: string; description?: string | null | undefined; favicon?: { url: string } | null | undefined; seo?: { title: string | null; description: string | null; image: { url: string } | null } | null }, path: string): Head => {
   const home = path === '/' ? store.seo : null
-  return { title: home?.title ?? store.name, description: home?.description ?? store.description ?? null, image: home?.image?.url ?? null }
+  return { title: home?.title ?? store.name, description: home?.description ?? store.description ?? null, image: home?.image?.url ?? null, icon: store.favicon?.url ?? null }
 }
 
 /** The store's own head (0) under a page's (1), whatever order their effects run in. */
@@ -38,12 +40,14 @@ const setMeta = (doc: Document, key: 'name' | 'property', name: string, content:
   meta.setAttribute('content', content)
 }
 
-const setCanonical = (doc: Document, href: string | null) => {
-  let link = doc.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+const setLink = (doc: Document, rel: 'canonical' | 'icon', href: string | null) => {
+  let link = doc.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`)
   if (href === null) return link?.remove()
+  // Left alone when unchanged, so no browser asks for the favicon again.
+  if (link?.getAttribute('href') === href) return
   if (!link) {
     link = doc.createElement('link')
-    link.setAttribute('rel', 'canonical')
+    link.setAttribute('rel', rel)
     link.setAttribute(mark, '')
     doc.head.append(link)
   }
@@ -71,23 +75,24 @@ export const applyHead = (doc: Document, head: Head, origin: string) => {
   setMeta(doc, 'property', 'og:image', head.image ?? null)
   // Only ever added: a live page the build marked noindex (a cart, an account page) stays so.
   if (head.hidden) setMeta(doc, 'name', 'robots', 'noindex, nofollow')
-  setCanonical(doc, head.hidden ? null : head.canonical ? new URL(head.canonical, origin).toString() : builtCanonical(doc, origin))
+  setLink(doc, 'icon', head.icon ?? null)
+  setLink(doc, 'canonical', head.hidden ? null : head.canonical ? new URL(head.canonical, origin).toString() : builtCanonical(doc, origin))
 }
 
 const refresh = () => applyHead(document, mergedHead(entries), location.origin)
 
 export const useHeadAt = (level: Entry['level'], head: Head) => {
-  const { title, description, canonical, image, hidden } = head
+  const { title, description, canonical, image, icon, hidden } = head
   useEffect(() => {
-    const entry: Entry = { level, head: { title, description, canonical, image, hidden } }
+    const entry: Entry = { level, head: { title, description, canonical, image, icon, hidden } }
     entries.push(entry)
     refresh()
     return () => {
       entries.splice(entries.indexOf(entry), 1)
       refresh()
     }
-  }, [level, title, description, canonical, image, hidden])
+  }, [level, title, description, canonical, image, icon, hidden])
 }
 
-/** Adds to the page's head while the component is shown: a theme's own page title, and what core's hooks load. */
-export const useHead = (head: Head) => useHeadAt(1, head)
+/** Adds to the page's head while the component is shown: a theme's own page title, and what core's hooks load; the favicon stays the store's. */
+export const useHead = (head: Omit<Head, 'icon'>) => useHeadAt(1, { ...head, icon: undefined })

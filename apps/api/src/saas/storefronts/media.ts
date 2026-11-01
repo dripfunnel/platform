@@ -77,6 +77,20 @@ export const copiedIds = async (bucket: Pick<PictureCopies['published'], 'list'>
   return ids
 }
 
+/** The snapshot's store with its logo and favicon at the copies the `Brand` answer names, when those copy the same files. */
+export const withBrandCopies = (store: Record<string, unknown>, answers: readonly RecordedAnswer[]): Record<string, unknown> => {
+  const brand = answers.find((a) => a.operation === 'Brand')?.data
+  if (!brand) return store
+  const copied = (field: 'logo' | 'favicon') => {
+    const current = store[field]
+    const copy = (brand[field] as { image?: unknown } | null | undefined)?.image
+    if (!isPicture(current) || !isPicture(copy)) return current
+    const id = shopPicture.exec(current.url)?.[1]
+    return id && copy.url !== current.url && namedPicture.exec(copy.url)?.[1] === id ? { url: copy.url } : current
+  }
+  return { ...store, logo: copied('logo'), favicon: copied('favicon') }
+}
+
 /** Deletes the store's copies of these files, in R2's batches of at most 1,000 keys. */
 export const deleteCopies = async (bucket: { delete: (keys: string[]) => Promise<unknown> }, storeId: string, ids: readonly string[]): Promise<void> => {
   for (let i = 0; i < ids.length; i += maxKeysPerDelete) await bucket.delete(ids.slice(i, i + maxKeysPerDelete).map((id) => mediaFile(storeId, id)))

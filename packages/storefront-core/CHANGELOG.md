@@ -1,5 +1,13 @@
 # @dripfunnel/storefront-core
 
+## 0.7.0
+
+### Minor Changes
+
+- 5cd08d3: Checkout asks the Shop API twice less (#1105): Review shows the cart its `checkout` answer holds instead of reading it again, and the ways to pay are asked alongside the cart when checkout opens, not after it, and only when the browser holds a cart or a signed-in shopper. A refused Review or Place order still reads the cart again. Themes change nothing.
+- 5cd08d3: Live pictures from the asset host (#1105): `<Image>` keeps the address a built page named a picture by while the Shop API's fresh answer names the same file, so a live page's pictures stay on their asset-host copies after it loads instead of being asked for again through the Shop API. Themes change nothing.
+- f7ba62e: Only adds; no theme has to change. `<StoreLogo className>` shows the store's logo from Site settings › Brand, or its name while it has none, loaded at once and never resized. The store's favicon is now in every page's head (`<link rel="icon">`), on the live site and in the preview; `Head` gains an optional `icon`, which `useHead` never passes on, so the favicon stays the store's.
+
 ## 0.6.1
 
 ### Patch Changes

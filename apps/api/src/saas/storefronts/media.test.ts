@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RecordedAnswer } from './catalogue'
-import { copiedIds, deleteCopies, maxCopiesPerStep, pictureIds, publishPictures, type PictureCopies } from './media'
+import { copiedIds, deleteCopies, maxCopiesPerStep, pictureIds, publishPictures, withBrandCopies, type PictureCopies } from './media'
 
 // Card #1105: a live build's pictures are copied to the asset host and named there (LIVE-SHOP §2, §4 step 3).
 
@@ -109,5 +109,24 @@ describe('the copies a run keeps track of', () => {
     const batches: number[] = []
     await deleteCopies({ delete: async (k: string[]) => void batches.push(k.length) }, store, keys.map((_, n) => idOf(n)))
     expect(batches).toEqual([1000, 1000, 500])
+  })
+})
+
+describe('withBrandCopies', () => {
+  const brand = (logoUrl: string | null): RecordedAnswer => ({ operation: 'Brand', variables: {}, data: { logo: { image: logoUrl ? { url: logoUrl } : null }, favicon: { image: { url: `/shop-api/assets/${mug}` } } } })
+  const snapshotStore = { name: 'Juniper', logo: { url: `/shop-api/assets/${shirt}` }, favicon: { url: `/shop-api/assets/${mug}` } }
+
+  it('names the copy of the logo the Brand answer recorded, and keeps a favicon that was not copied at the Shop API', () => {
+    expect(withBrandCopies(snapshotStore, [brand(copyOf(shirt))])).toEqual({ ...snapshotStore, logo: { url: copyOf(shirt) } })
+  })
+
+  it('keeps the store as it is without a Brand answer, or when the copy is of another file (a page run after a new logo)', () => {
+    expect(withBrandCopies(snapshotStore, [])).toBe(snapshotStore)
+    expect(withBrandCopies(snapshotStore, [brand(copyOf(logo))])).toEqual(snapshotStore)
+    expect(withBrandCopies({ ...snapshotStore, logo: null }, [brand(copyOf(shirt))])).toEqual({ ...snapshotStore, logo: null })
+  })
+
+  it('counts the brand’s copies among the pictures a build names, so pruning keeps them', () => {
+    expect(pictureIds([brand(copyOf(shirt))])).toEqual(new Set([shirt, mug]))
   })
 })

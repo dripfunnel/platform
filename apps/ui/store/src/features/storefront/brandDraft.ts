@@ -36,14 +36,6 @@ export const brandComplete = (form: BrandForm): form is BrandForm & { logoAssetI
 /** A colour as the API takes it: `#rgb` or `#rrggbb`, with or without the `#`; anything else stays as typed for the API to refuse. */
 export const colourValue = (typed: string): string | null => (typed.trim() === '' ? null : typed.trim())
 
-/** What a colour picker can show: only a full `#rrggbb`. */
-export const pickerValue = (colour: string | null): string => {
-  const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(colour?.trim() ?? '')
-  if (!m?.[1]) return '#000000'
-  const hex = m[1].toLowerCase()
-  return `#${hex.length === 3 ? [...hex].map((c) => c + c).join('') : hex}`
-}
-
 export const brandInputOf = (form: BrandForm & { logoAssetId: string }): BrandInput => ({ ...form, shopName: form.shopName.trim(), primaryColour: colourValue(form.primaryColour ?? ''), secondaryColour: colourValue(form.secondaryColour ?? '') })
 
 /** A refusal, at the field it names when there is one: the brand's fields, `logo` and `favicon`, and the home page's. */

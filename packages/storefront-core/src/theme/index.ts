@@ -13,7 +13,7 @@ export { useInView, useMediaQuery, usePointer, useReducedMotion, useScrollProgre
 export { Link } from '../platform/browser/link'
 export { navigate, useLocation, type Address } from '../platform/browser/router'
 export { type Translate } from '../platform/i18n/i18n'
-export { Image, Video, type ImageProps, type VideoProps } from '../platform/media/media'
+export { Image, StoreLogo, Video, type ImageProps, type VideoProps } from '../platform/media/media'
 export { MerchantImage, type MerchantImageProps } from '../platform/media/merchantImage'
 export type { Photo, VideoFile } from '../platform/media/photo'
 export { type Loaded } from '../platform/render/data'

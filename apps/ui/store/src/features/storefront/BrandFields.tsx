@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import { brandLimits, seoLimits, socialNetworks } from '../../api/storefront'
 import { messages } from '../../messages'
-import { pickerValue, type BrandForm, type FormProblem, type HomeForm } from './brandDraft'
+import { type BrandForm, type FormProblem, type HomeForm } from './brandDraft'
 import { ImageField } from '../common/ImageField'
 import type { StorefrontApi } from './storefrontApi'
 import { TextField } from './TextField'
@@ -10,7 +10,7 @@ const words = messages.storefront.brand
 const imageWords = { upload: words.upload, replace: words.replace, uploading: words.uploading, remove: words.removeImage, required: words.required }
 
 /** Every field these groups draw, so a refusal for any other is shown above them instead. */
-export const brandFieldKeys = ['shopName', 'logo', 'favicon', 'primaryColour', 'secondaryColour', 'tagline', 'description', 'contactEmail', 'contactPhone', 'contactAddress', 'voice', ...socialNetworks.map((n) => `social.${n}`)]
+export const brandFieldKeys = ['shopName', 'logo', 'favicon', 'tagline', 'description', 'contactEmail', 'contactPhone', 'contactAddress', 'voice', ...socialNetworks.map((n) => `social.${n}`)]
 export const homeFieldKeys = ['home.title', 'home.description']
 
 export interface BrandFieldsProps {
@@ -55,42 +55,12 @@ export const BrandFields = ({ form, onForm, home, problem, onProblem, readOnly, 
     })
   }
 
-  const colour = (key: 'primaryColour' | 'secondaryColour', label: string, pick: string) => (
-    <div className="df-sf-field">
-      <label htmlFor={`${id}-${key}`}>{label}</label>
-      <span className="df-sf-colour">
-        <input type="color" aria-label={pick} data-empty={form[key] ? undefined : ''} value={pickerValue(form[key])} disabled={readOnly} onChange={(e) => set({ [key]: e.target.value })} />
-        <input
-          id={`${id}-${key}`}
-          className="df-sf-mono"
-          value={form[key] ?? ''}
-          readOnly={readOnly}
-          maxLength={7}
-          placeholder="#"
-          aria-invalid={at(key) ? true : undefined}
-          aria-describedby={`${id}-${key}-below`}
-          onChange={(e) => set({ [key]: e.target.value })}
-        />
-      </span>
-      <span id={`${id}-${key}-below`} className={at(key) ? 'df-sf-problem' : 'df-sf-help'} role={at(key) ? 'alert' : undefined}>
-        {at(key) ?? words.colourHelp}
-      </span>
-    </div>
-  )
-
   return (
     <>
       <Group layout={layout} title={words.sections.identity}>
         <TextField label={words.shopName} value={form.shopName} onValue={(shopName) => set({ shopName })} readOnly={readOnly} max={brandLimits.shopName} problem={at('shopName')} required autoComplete="organization" wide />
         <ImageField label={words.logo} help={words.logoHelp} alt={words.logoAlt} none={words.noLogo} assetId={form.logoAssetId} words={imageWords} required readOnly={readOnly} busy={uploading === 'logo'} problem={at('logo')} onFile={(f) => upload('logo', f)} />
-      </Group>
-
-      <Group layout={layout} title={words.sections.look} help={words.sections.lookHelp}>
         <ImageField label={words.favicon} help={words.faviconHelp} alt={words.faviconAlt} none={words.noFavicon} assetId={form.faviconAssetId} words={imageWords} readOnly={readOnly} busy={uploading === 'favicon'} problem={at('favicon')} onFile={(f) => upload('favicon', f)} onRemove={() => set({ faviconAssetId: null })} />
-        <span className="df-sf-pair">
-          {colour('primaryColour', words.primaryColour, words.pickPrimary)}
-          {colour('secondaryColour', words.secondaryColour, words.pickSecondary)}
-        </span>
       </Group>
 
       {home && (

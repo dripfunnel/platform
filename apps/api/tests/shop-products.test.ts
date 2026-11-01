@@ -332,4 +332,28 @@ describe('recording the catalogue for a live build', () => {
     expect(batch.answers[0]?.data).toMatchObject({ product: { photos: [{ image: { url: `https://sf-assets.shop.example/${copy}` } }] } })
     expect(JSON.stringify([base, batch])).not.toContain(theirs.id)
   })
+
+  // Card #1129: the store's logo is recorded with the catalogue, so a live page shows its copy on the asset host.
+  it('records the store’s logo as the Brand answer and copies it to the asset host', async () => {
+    const [logo] = await db.sql<{ id: string; r2_key: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id, r2_key`
+    if (!logo) throw new Error('no asset')
+    await db.sql`update store set logo_asset_id = ${logo.id} where id = ${t.storeA1}`
+    const published = new Set<string>()
+    const copies: PictureCopies = {
+      library: { get: async (key) => (key === logo.r2_key ? { body: new Blob([key]).stream() } : null) },
+      published: {
+        list: async ({ prefix }) => ({ objects: [...published].filter((k) => k.startsWith(prefix)).map((key) => ({ key })), truncated: false }),
+        put: async (key, value) => void (await new Response(value).arrayBuffer(), published.add(key)),
+      },
+      origin: 'https://sf-assets.shop.example',
+    }
+    try {
+      const base = await shopCatalogueRecorder(db.sql, 'shop.example', () => new Date(), copies).base(host)
+      const copy = `stores/${t.storeA1}/media/${logo.id}`
+      expect(published.has(copy)).toBe(true)
+      expect(base?.answers.find((a) => a.operation === 'Brand')?.data).toEqual({ logo: { image: { url: `https://sf-assets.shop.example/${copy}` } }, favicon: { image: null } })
+    } finally {
+      await db.sql`update store set logo_asset_id = null where id = ${t.storeA1}`
+    }
+  })
 })
