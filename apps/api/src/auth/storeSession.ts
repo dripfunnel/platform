@@ -88,7 +88,6 @@ export const endUserSession = async (tx: ScopedSql, id: string): Promise<UserSes
   return row ? { userId: row.user_id, partnerId: row.partner_id } : null
 }
 
-/** The live session on this partner's host, sliding its idle window; null when unknown, ended or another partner's. */
 /** The live-session condition's inputs for this partner's portal (ACCESS.md §4). */
 export const userSessionWindow = (idHash: string, partnerId: string, now: Date): UserSessionWindow => ({ idHash, partnerId, now, idleMs, rememberIdleMs })
 
@@ -101,6 +100,7 @@ export const touchUserSession = async (tx: ScopedSql, idHash: string, lastSeenAt
   `
 }
 
+/** The live session on this partner's host, sliding its idle window; null when unknown, ended or another partner's. */
 export const readUserSession = async (tx: ScopedSql, id: string, partnerId: string, now: Date): Promise<UserSession | null> => {
   const idHash = await hashSessionId(id)
   const rows = await tx<{ user_id: string; partner_id: string; last_seen_at: Date }[]>`

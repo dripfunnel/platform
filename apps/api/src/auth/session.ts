@@ -45,10 +45,6 @@ export const createSession = async (tx: ScopedSql, staffUserId: string, now: Dat
   return id
 }
 
-/**
- * The session if it is live, else null. Idle is measured from `last_seen_at` and the absolute
- * bound from `expires_at`; touching `last_seen_at` is what makes the idle window sliding.
- */
 /** The live-session condition's inputs for the Admin API (ACCESS.md §4). */
 export const staffSessionWindow = (idHash: string, now: Date): StaffSessionWindow => ({ idHash, now, idleSince: new Date(now.getTime() - idleMs) })
 
@@ -61,6 +57,10 @@ export const touchStaffSession = async (tx: ScopedSql, idHash: string, lastSeenA
   `
 }
 
+/**
+ * The session if it is live, else null. Idle is measured from `last_seen_at` and the absolute
+ * bound from `expires_at`; touching `last_seen_at` is what makes the idle window sliding.
+ */
 export const readSession = async (tx: ScopedSql, id: string, now: Date): Promise<StaffSession | null> => {
   const idHash = await hashSessionId(id)
   const rows = await tx<{ staff_user_id: string; reauth_at: Date | null; last_seen_at: Date }[]>`

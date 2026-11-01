@@ -88,6 +88,13 @@ describe('the store portal’s session check (C1)', () => {
     expect(await resolveStoreStanding(db.sql, storeRequest(fresh, { [storeHeader]: t.storeA1 }), t.partnerB, at(1000), activityLog, facts)).toEqual({ kind: 'signed-out' })
   })
 
+  it('reads a session past its absolute end as signed out, however recently it was used', async () => {
+    const cookie = await storeSession(start)
+    await db.sql`update user_session set absolute_expires_at = ${at(1000)} where id_hash = ${await hashSessionId(cookie)}`
+    expect(await standing(cookie, at(500), { [storeHeader]: t.storeA1 })).toMatchObject({ kind: 'acting' })
+    expect(await standing(cookie, at(2000), { [storeHeader]: t.storeA1 })).toEqual({ kind: 'signed-out' })
+  })
+
   it('keeps "remember me" sessions to their own, longer idle limit', async () => {
     const remembered = await storeSession(start, { remember: true })
     expect(await standing(remembered, at(storeIdleMs + 1000), { [storeHeader]: t.storeA1 })).toMatchObject({ kind: 'acting' })
@@ -150,6 +157,13 @@ describe('the partner console’s session check (C1)', () => {
     expect(sent.filter((q) => !['begin', 'commit'].includes(q) && !q.includes('set_config'))).toHaveLength(1)
   })
 
+  it('reads a session past its absolute end as no session, however recently it was used', async () => {
+    const cookie = await withSystemScope(db.sql, (tx) => createPartnerSession(tx, asha, start))
+    await db.sql`update partner_session set absolute_expires_at = ${at(1000)} where id_hash = ${await hashSessionId(cookie)}`
+    expect(await resolvePartner(db.sql, request(cookie), at(500), activityLog)).toMatchObject({ user: { id: asha } })
+    expect(await resolvePartner(db.sql, request(cookie), at(2000), activityLog)).toBeNull()
+  })
+
   it('reads an idle session, a suspended user and a closed partner as no session', async () => {
     const cookie = await withSystemScope(db.sql, (tx) => createPartnerSession(tx, asha, start))
     expect(await resolvePartner(db.sql, request(cookie), at(partnerIdleMs + 1000), activityLog)).toBeNull()
@@ -172,6 +186,13 @@ describe('the admin console’s session check (C1)', () => {
     sent = []
     expect(await resolveStaff(counted, request(cookie), at(1000))).toMatchObject({ staff: { id: priya, role: 'staff-read-only' }, reauthFresh: expect.any(Boolean) })
     expect(sent.filter((q) => !['begin', 'commit'].includes(q) && !q.includes('set_config'))).toHaveLength(1)
+  })
+
+  it('reads a session past its absolute end as no session, however recently it was used', async () => {
+    const cookie = await withSystemScope(db.sql, (tx) => createSession(tx, priya, start))
+    await db.sql`update staff_session set expires_at = ${at(1000)} where id_hash = ${await hashSessionId(cookie)}`
+    expect(await resolveStaff(db.sql, request(cookie), at(500))).toMatchObject({ staff: { id: priya } })
+    expect(await resolveStaff(db.sql, request(cookie), at(2000))).toBeNull()
   })
 
   it('reads an idle session and a suspended staff member as no session', async () => {
