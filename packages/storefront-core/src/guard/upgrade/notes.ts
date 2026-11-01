@@ -34,6 +34,17 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.7.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only adds; no theme has to change.',
+      "`<StoreLogo className>` shows the store's logo from Site settings › Brand, or its name while it has none (#1129); a theme may put it in its header in place of the name.",
+      "Every page's head carries the store's favicon (#1129), and a live page's pictures stay on their asset-host copies after it loads, with checkout asking the Shop API less (#1105).",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.6.1',
     kind: 'patch',
     security: false,
