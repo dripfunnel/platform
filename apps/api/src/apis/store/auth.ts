@@ -41,6 +41,7 @@ import { admit, admitted, withSession, type OpenedSession, type StoreAuthDeps } 
 import { brandName, checkTextedCode, countWrong, textCode } from './codes'
 import { confirmEmailChange } from './emailChange'
 import { sendSignupPhoneCode, signupCookieName, signupStore, startSignup, verifySignupEmail, verifySignupPhone } from './signup'
+import { createAnotherStore, newStoreOptions } from './newStore'
 import { acceptStoreInvitation, joinStore, lookUpStoreInvitation, requestStorePasswordReset, resetStorePassword } from './invitations'
 import { json, readBody, refuse, type Refusal } from './authHttp'
 
@@ -68,6 +69,8 @@ const paths = {
   signUpStore: '/api/auth/sign-up/store',
   signUpPhone: '/api/auth/sign-up/send-phone',
   signUpVerifyPhone: '/api/auth/sign-up/verify-phone',
+  newStoreOptions: '/api/auth/new-store/options',
+  newStore: '/api/auth/new-store',
 }
 
 const isRefusal = (value: Refusal | Record<string, unknown>): value is Refusal => typeof value['code'] === 'string'
@@ -126,6 +129,9 @@ export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Pr
   if (url.pathname === paths.signUpStore) return signupStore(request, deps, signup)
   if (url.pathname === paths.signUpPhone) return sendSignupPhoneCode(request, deps, signup)
   if (url.pathname === paths.signUpVerifyPhone) return verifySignupPhone(request, deps, facts, signup)
+  const inSupport = readCookie(request.headers.get('cookie'), staffCookieName) !== null
+  if (url.pathname === paths.newStoreOptions) return newStoreOptions(deps, sessionId, inSupport)
+  if (url.pathname === paths.newStore) return createAnotherStore(request, deps, facts, sessionId, inSupport)
   return enrol(request, deps, facts, sessionId)
 }
 

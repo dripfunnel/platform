@@ -187,7 +187,7 @@ From the prototype's shell (`design.md` §3), which this release keeps:
 ### 3.2 Header
 
 The partner's logo; the **store switcher** (current store's name and initial; "Switch store"
-lists the person's stores under this partner, never another partner's); **Help**, which opens the partner's help-centre link in a new tab (here and in the sign-in pages' footer) and is hidden when the partner has set none, with no fallback to DripFunnel's help, the support link or the support email; the person's name
+lists the person's stores under this partner, never another partner's, then **Create another store**, #1136); **Help**, which opens the partner's help-centre link in a new tab (here and in the sign-in pages' footer) and is hidden when the partner has set none, with no fallback to DripFunnel's help, the support link or the support email; the person's name
 and role with a menu holding **My profile**, **Store activity** (a Manager's, #333), **Switch store** and **Sign out** ("Signs you out of
 every store on this device"). On a phone the menu is a drawer behind a button.
 
@@ -229,6 +229,9 @@ import banner is built on #302 from the caller's own `catalogImports`, not `stor
   Google, carrying on at the store step with no emailed code and no password (ACCESS §2; built below).
 - **Choose a store / switch store**: the portal never picks; a person who belongs to no store is
   refused, not shown an empty portal. "Create another store" starts sign-up step 3.
+  **Built on #1136** (`/stores/new`, `features/choose-store/NewStore.tsx`): on the chooser and as the switcher's last
+  item; su3's fields (`auth/StoreFields.tsx`, shared with sign-up), then the building view, with no texted code. A person
+  who owns five stores is asked to contact the partner's support (its support email or link) instead of shown the form. The new store becomes the acting one; an Owner without two-step sign-in sets it up first.
 - **Reset password**: a link valid for 30 minutes; signs out everywhere else.
 - **Invitations**: a new person sets a name and password; an existing account joins without one;
   an expired link (7 days) says so and asks the inviter for a new one.
@@ -236,8 +239,7 @@ import banner is built on #302 from the caller's own `catalogImports`, not `stor
   and SMS set-up steps, the lock, reset, sign-up `su1`–`su4` and its building view, invitations
   (`/accept-invite`, `/join`), the confirm-email link and the chooser in the same frame, each view
   under `?state=` (`authStates.ts`). Not built, for want of an API: setting up an
-  authenticator app at sign-in (SMS only); "Create another store", since sign-up starts only for a
-  new account; and the web address's suffix, which needs the partner's storefront domain. Country
+  authenticator app at sign-in (SMS only); and the web address's suffix, which needs the partner's storefront domain. Country
   is asked on the store step, where the API takes it.
 - **Google sign-in, built on #1047** (API #1046, ACCESS §2): "Continue with Google" and its "or with email" rule head
   Sign in and Create your store as PortalAuth `login` and `su1` draw them, only while the partner's Google client is on
