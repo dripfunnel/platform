@@ -1,4 +1,5 @@
 import type { ScopedSql } from '#db/scoped/index'
+import { livePartnerSession, type PartnerSessionWindow } from '#db/scoped/partnerUsers'
 import { hashSessionId, lastSeenIsStale, lastSeenWriteMs, newSessionId } from './session'
 
 // ACCESS.md §4: the session model every pool but staff's uses. No partner screen offers
@@ -29,24 +30,27 @@ export const createPartnerSession = async (tx: ScopedSql, partnerUserId: string,
   return id
 }
 
+/** The live-session condition's inputs for the partner console (ACCESS.md §4). */
+export const partnerSessionWindow = (idHash: string, now: Date): PartnerSessionWindow => ({ idHash, now, idleSince: new Date(now.getTime() - idleMs) })
+
+/** Moves a live session's last-seen on, only when it is stale. */
+export const touchPartnerSession = async (tx: ScopedSql, idHash: string, lastSeenAt: Date, now: Date): Promise<void> => {
+  if (!lastSeenIsStale(lastSeenAt, now)) return
+  await tx`
+    update partner_session set last_seen_at = ${now}
+    where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
+  `
+}
+
 /** The session's user if it is live and past every sign-in step, sliding the idle window; else null. */
 export const readPartnerSession = async (tx: ScopedSql, id: string, now: Date): Promise<string | null> => {
   const idHash = await hashSessionId(id)
   const rows = await tx<{ partner_user_id: string; last_seen_at: Date }[]>`
-    select partner_user_id, last_seen_at from partner_session
-    where id_hash = ${idHash}
-      and stage = 'full'
-      and absolute_expires_at > ${now}
-      and last_seen_at > ${new Date(now.getTime() - idleMs)}
+    select partner_user_id, last_seen_at from partner_session where ${livePartnerSession(tx, partnerSessionWindow(idHash, now))}
   `
   const row = rows[0]
   if (!row) return null
-  if (lastSeenIsStale(row.last_seen_at, now)) {
-    await tx`
-      update partner_session set last_seen_at = ${now}
-      where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
-    `
-  }
+  await touchPartnerSession(tx, idHash, row.last_seen_at, now)
   return row.partner_user_id
 }
 

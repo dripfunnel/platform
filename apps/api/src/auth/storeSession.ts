@@ -1,4 +1,5 @@
 import type { ScopedSql } from '#db/scoped/index'
+import { liveUserSession, type UserSessionWindow } from '#db/scoped/storeCaller'
 import { hashSessionId, lastSeenIsStale, lastSeenWriteMs, newSessionId } from './session'
 
 // ACCESS.md §4: idle 2 h and absolute 12 h; "Remember me" 7 days idle and 30 days absolute (#337).
@@ -87,25 +88,27 @@ export const endUserSession = async (tx: ScopedSql, id: string): Promise<UserSes
   return row ? { userId: row.user_id, partnerId: row.partner_id } : null
 }
 
+/** The live-session condition's inputs for this partner's portal (ACCESS.md §4). */
+export const userSessionWindow = (idHash: string, partnerId: string, now: Date): UserSessionWindow => ({ idHash, partnerId, now, idleMs, rememberIdleMs })
+
+/** Moves a live session's last-seen on, only when it is stale, so a busy tab writes a few times an hour at most. */
+export const touchUserSession = async (tx: ScopedSql, idHash: string, lastSeenAt: Date, now: Date): Promise<void> => {
+  if (!lastSeenIsStale(lastSeenAt, now)) return
+  await tx`
+    update user_session set last_seen_at = ${now}
+    where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
+  `
+}
+
 /** The live session on this partner's host, sliding its idle window; null when unknown, ended or another partner's. */
 export const readUserSession = async (tx: ScopedSql, id: string, partnerId: string, now: Date): Promise<UserSession | null> => {
   const idHash = await hashSessionId(id)
   const rows = await tx<{ user_id: string; partner_id: string; last_seen_at: Date }[]>`
-    select user_id, partner_id, last_seen_at from user_session
-    where id_hash = ${idHash}
-      and partner_id = ${partnerId}
-      and stage = 'full'
-      and absolute_expires_at > ${now}
-      and last_seen_at > ${now}::timestamptz - case when remember then ${`${rememberIdleMs} milliseconds`}::interval else ${`${idleMs} milliseconds`}::interval end
+    select user_id, partner_id, last_seen_at from user_session where ${liveUserSession(tx, userSessionWindow(idHash, partnerId, now))}
   `
   const row = rows[0]
   if (!row) return null
-  if (lastSeenIsStale(row.last_seen_at, now)) {
-    await tx`
-      update user_session set last_seen_at = ${now}
-      where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
-    `
-  }
+  await touchUserSession(tx, idHash, row.last_seen_at, now)
   return { userId: row.user_id, partnerId: row.partner_id }
 }
 

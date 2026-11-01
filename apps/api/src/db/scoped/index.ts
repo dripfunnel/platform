@@ -30,8 +30,8 @@ export const withScope = async <T>(
 /** Jobs, webhooks and sign-in: granted per table through `app_system` (DATA-MODEL.md §5.2). */
 export const withSystemScope = async <T>(sql: postgres.Sql, work: (tx: ScopedSql) => Promise<T>): Promise<T> =>
   sql.begin(async (tx) => {
-    await tx`set local role app_system`
-    await tx`select set_config('app.scope', 'system', true)`
+    // The role and the scope in one statement, as withScope does (#1124): `set_config('role', …, true)` is `SET LOCAL ROLE`.
+    await tx`select set_config('role', 'app_system', true), set_config('app.scope', 'system', true)`
     return work(tx)
   }) as Promise<T>
 

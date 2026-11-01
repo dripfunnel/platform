@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-11-01 (#1086: the production database on PlanetScale, §7). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §7). Before: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-11-01 (#1124: system scope in one statement, each console's session check in one query, §7). Before: 2026-11-01 (#1086: the production database on PlanetScale, §7). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §7). Before: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -328,9 +328,17 @@ merchant-side people and support sessions run as `app_request`; supplier users a
 (#295); shoppers as `app_shop` (#306), which `request_scope` holds to `shop` scope on the tables it reads;
 jobs run as `app_system` through `withSystemScope`. After the role, `withScope` sets every
 `app.*` setting of `settingsFor` in one statement, the names and values passed as two `pgArray`
-parameters to `unnest`, never spliced into the SQL (#478). A scoped transaction therefore sends
-four statements besides its work (`begin`, the role, the settings, `commit`), as `withSystemScope`
-does; `tests/scoped-settings.test.ts` holds both the count and every caller kind's values. Every policy names the roles that may use
+parameters to `unnest`, never spliced into the SQL (#478), the role among them (#1061). A scoped
+transaction therefore sends three statements besides its work (`begin`, the role with the settings,
+`commit`), and `withSystemScope` does the same with `app_system` and `system` scope in one
+statement of literals (#1124); `tests/scoped-settings.test.ts` holds the count and every caller
+kind's values, `tests/session-check-one-query.test.ts` system scope's. Each console's person
+session check is then **one query** inside it (#1124): the store portal's session, person and
+seats in the store asked for (`selectStanding`), the partner console's session and partner user
+(`selectPartnerStanding`), the Admin API's session and staff member (`selectStaffStanding`). Each
+session's live condition is one shared fragment (`liveUserSession`, `livePartnerSession`,
+`liveStaffSession`) that the older single readers use too, so they can't drift; the last-seen
+write stays a separate statement, only when stale. Every policy names the roles that may use
 it, and on every tenant table four restrictive policies (`request_scope`, `partner_scope`,
 `platform_scope`, `system_scope`) hold each role to its own values of `app.scope`, so a role never passes another
 role's branch. A card that adds a role adds, in one migration, the role, its grants, the
