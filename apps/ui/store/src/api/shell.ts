@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { rememberActing } from '../acting'
 import { forgetDrafts } from '../drafts'
 import { merchantRoles, supplierTiers, type NavBadgeSource, type Seat } from '../nav'
-import { allPages } from './allPages'
-import { query } from './client'
+import { allPages, type PageOf } from './allPages'
+import { query, queryPartial } from './client'
 
 // The shell's reads (FIRST-RELEASE.md §3, §19; apps/api/schema/store.graphql): who is signed in and
 // as what, their stores under this partner, and the acting store's state for the banners.
@@ -36,24 +36,27 @@ export const seatOf = (acting: Acting): Seat | null => {
   return role ? { side: 'merchant', role } : null
 }
 
-export const loadMe = async (): Promise<Me | null> =>
-  (await query(`{ me { id name email acting { store { id name } role tier seller { id name } plan { id name } permissions } } }`, meSchema)).me
+const meFields = 'id name email acting { store { id name } role tier seller { id name } plan { id name } permissions }'
+
+export const loadMe = async (): Promise<Me | null> => (await query(`{ me { ${meFields} } }`, meSchema)).me
 
 const choiceSchema = z.object({ membershipId: z.string(), store: named, role: z.string(), tier: z.string().nullable(), seller: named.nullable() })
 const choicesSchema = z.object({ myStores: z.object({ nodes: z.array(choiceSchema), pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }) }) })
 
 export type StoreChoice = z.infer<typeof choiceSchema>
 
+const choicesFields = 'nodes { membershipId store { id name } role tier seller { id name } } pageInfo { hasNextPage endCursor }'
+
+const storesPage = async (after: string | null): Promise<PageOf<StoreChoice>> => {
+  const { myStores }: z.infer<typeof choicesSchema> = await query(`query Mine($after: String) { myStores(first: 50, after: $after) { ${choicesFields} } }`, choicesSchema, { after })
+  return myStores
+}
+
 /** Every store the person holds under this partner: the switcher and the chooser need the whole list. */
-export const loadMyStores = (): Promise<StoreChoice[]> =>
-  allPages(async (after) => {
-    const { myStores }: z.infer<typeof choicesSchema> = await query(
-      `query Mine($after: String) { myStores(first: 50, after: $after) { nodes { membershipId store { id name } role tier seller { id name } } pageInfo { hasNextPage endCursor } } }`,
-      choicesSchema,
-      { after },
-    )
-    return myStores
-  })
+export const loadMyStores = (): Promise<StoreChoice[]> => allPages(storesPage)
+
+/** Every store from a first page already read (the shell's), the later pages fetched as `loadMyStores` does. */
+export const storesFrom = (first: PageOf<StoreChoice>): Promise<StoreChoice[]> => allPages((after) => (after === null ? Promise.resolve(first) : storesPage(after)))
 
 const stateSchema = z.object({
   storeState: z
@@ -70,16 +73,18 @@ const stateSchema = z.object({
 
 export type StoreState = NonNullable<z.infer<typeof stateSchema>['storeState']>
 
-export const loadStoreState = async (): Promise<StoreState | null> =>
-  (await query(`{ storeState { readOnly status trialEndsAt pastDueSince provisioning { state step } support { partnerName agentFirstName endsAt } } }`, stateSchema)).storeState
+const stateFields = 'readOnly status trialEndsAt pastDueSince provisioning { state step } support { partnerName agentFirstName endsAt }'
 
 const badgesSchema = z.object({ navBadges: z.object({ products: z.number().int().nullable(), toShip: z.number().int().nullable() }).nullable() })
 
-/** The menu's counts (FIRST-RELEASE §3.1, §19): orders to ship and products to approve. */
-export const loadNavBadges = async (): Promise<Record<NavBadgeSource, number>> => {
-  const { navBadges } = await query('{ navBadges { products toShip } }', badgesSchema)
-  return { ordersToShip: navBadges?.toShip ?? 0, productsToApprove: navBadges?.products ?? 0 }
-}
+/** The menu's counts (FIRST-RELEASE §3.1, §19): orders to ship and products to approve; none for a count left out or refused. */
+export const badgesOf = (navBadges: z.infer<typeof badgesSchema>['navBadges']): Record<NavBadgeSource, number> => ({ ordersToShip: navBadges?.toShip ?? 0, productsToApprove: navBadges?.products ?? 0 })
+
+const shellSchema = z.object({ me: meSchema.shape.me, myStores: choicesSchema.shape.myStores.nullable(), storeState: stateSchema.shape.storeState, navBadges: badgesSchema.shape.navBadges })
+
+/** The shell's four reads in one request, so one session check (#1111); each field answers or is refused on its own. */
+export const readShell = () =>
+  queryPartial(`query Shell { me { ${meFields} } myStores(first: 50) { ${choicesFields} } storeState { ${stateFields} } navBadges { products toShip } }`, shellSchema)
 
 const switchSchema = z.object({ switchStore: choiceSchema })
 

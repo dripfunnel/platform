@@ -1,8 +1,9 @@
+import { ApiError } from '@dripfunnel/shared/graphql'
 import { redirect } from '@tanstack/react-router'
 import { actingStore, rememberActing } from '../../acting'
 import { isApiError } from '../../api/client'
 import { shellSample } from '../../api/sample'
-import { loadMe, loadMyStores, loadNavBadges, loadStoreState, seatOf, type Acting, type Me, type StoreChoice, type StoreState } from '../../api/shell'
+import { badgesOf, readShell, seatOf, storesFrom, type Acting, type Me, type StoreChoice, type StoreState } from '../../api/shell'
 import type { NavBadgeSource, Seat } from '../../nav'
 
 export interface ShellSearch {
@@ -20,8 +21,7 @@ export interface ShellData {
   badges: Record<NavBadgeSource, number>
 }
 
-// A badge is a hint: when its count fails the menu draws none rather than the screen failing.
-const noBadges: Record<NavBadgeSource, number> = { ordersToShip: 0, productsToApprove: 0 }
+const shellFields: readonly string[] = ['me', 'myStores', 'storeState', 'navBadges']
 
 /**
  * The signed-in person in their acting store, before any screen loads (ACCESS.md §4). Nobody signed
@@ -31,7 +31,14 @@ export const loadShell = async (search: ShellSearch, here: string): Promise<Shel
   const sample = shellSample(search)
   const sampleSeat = sample?.me.acting ? seatOf(sample.me.acting) : null
   if (sample?.me.acting && sampleSeat) return { me: sample.me, acting: sample.me.acting, seat: sampleSeat, stores: sample.stores, state: sample.state, badges: sample.badges }
-  const me = await loadMe()
+  const { data, errors } = await readShell()
+  // A refusal tied to none of the shell's fields (no path) is the whole answer failing: the error screen.
+  const stray = errors.find((e) => !shellFields.includes(String(e.path[0])))
+  if (stray) throw stray.error
+  const refused = (field: string) => errors.find((e) => e.path[0] === field)?.error
+  const meRefused = refused('me')
+  if (meRefused) throw meRefused
+  const me = data.me
   if (!me) throw redirect({ to: '/sign-in', search: { next: here } })
   const seat = me.acting ? seatOf(me.acting) : null
   if (!me.acting || !seat) {
@@ -39,14 +46,20 @@ export const loadShell = async (search: ShellSearch, here: string): Promise<Shel
     if (actingStore()) rememberActing(null)
     throw redirect({ to: '/stores', search: { next: here } })
   }
+  const forget = () => {
+    rememberActing(null)
+    return redirect({ to: '/stores', search: { next: here } })
+  }
+  // The store's reads refused FORBIDDEN: it is no longer held. A refused badge count only draws no badge.
+  const failed = [refused('storeState'), refused('myStores')].filter((e): e is ApiError => e !== undefined)
+  if (failed.some((e) => isApiError(e, 'FORBIDDEN'))) throw forget()
+  if (failed[0]) throw failed[0]
+  if (!data.myStores) throw new ApiError('EMPTY_RESPONSE', 'The API returned no stores.')
   try {
-    const [stores, state, badges] = await Promise.all([loadMyStores(), loadStoreState(), loadNavBadges().catch(() => noBadges)])
-    return { me, acting: me.acting, seat, stores, state, badges }
+    const stores = await storesFrom(data.myStores)
+    return { me, acting: me.acting, seat, stores, state: data.storeState, badges: badgesOf(data.navBadges) }
   } catch (error) {
-    if (isApiError(error, 'FORBIDDEN')) {
-      rememberActing(null)
-      throw redirect({ to: '/stores', search: { next: here } })
-    }
+    if (isApiError(error, 'FORBIDDEN')) throw forget()
     throw error
   }
 }
