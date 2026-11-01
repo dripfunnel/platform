@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-11-01 (#1131: dev builds are `0.7.0-dev.<run>` since core 0.7.0, §5). Before: 2026-11-01 (#1098: dev builds are `0.6.1-dev.<run>` since core 0.6.1, §5). Before: 2026-10-31 (#1089: dev builds are `0.6.0-dev.<run>` since core 0.6.0, §5). Before: 2026-10-31 (#1075: dev builds are `0.5.0-dev.<run>` since core 0.5.0, §5). Before: 2026-10-31 (#1065: dev builds are `0.4.0-dev.<run>` since core 0.4.0, §5). Before: 2026-10-27 (the template's token-free `.npmrc` for a store repo's local install, §5). Before: 2026-10-22 (five APIs with the Delivery API, proposed). Before: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
+Last updated: 2026-11-01 (#1134: fixing a hook's undocumented behaviour is a patch, §5). Before: 2026-11-01 (#1131: dev builds are `0.7.0-dev.<run>` since core 0.7.0, §5). Before: 2026-11-01 (#1098: dev builds are `0.6.1-dev.<run>` since core 0.6.1, §5). Before: 2026-10-31 (#1089: dev builds are `0.6.0-dev.<run>` since core 0.6.0, §5). Before: 2026-10-31 (#1075: dev builds are `0.5.0-dev.<run>` since core 0.5.0, §5). Before: 2026-10-31 (#1065: dev builds are `0.4.0-dev.<run>` since core 0.4.0, §5). Before: 2026-10-27 (the template's token-free `.npmrc` for a store repo's local install, §5). Before: 2026-10-22 (five APIs with the Delivery API, proposed). Before: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
 Before: 2026-10-09 (the sandbox image published on `ghcr.io` for store builds, public then; private with a pull token since #790).
 
 ---
@@ -82,7 +82,10 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 - **Changesets** apply only here. A pull request that changes it needs a changeset with the
   bump and the reason; CI enforces it.
 - **Semver means the public API**: removing or changing an export, a hook's behaviour, a
-  contract, a preset rule or a supported Shop API version is a major.
+  contract, a preset rule or a supported Shop API version is a major. *Decided on #1134
+  (2026-11-01, Kshitij Raj):* a fix to a hook's undocumented behaviour that no theme relies on
+  and no theme has to change for is a patch, since a major reaches stores only when their
+  merchant publishes (storefront ARCHITECTURE §7) and would hold the fix back.
 - **A release is a card.** Its pull request runs `pnpm changeset version` on its own
   `#<issue>/task/release-core-<version>` branch, which consumes the pending changesets, bumps
   the version and writes the changelog, and goes through review, gates and naming like any
