@@ -123,8 +123,8 @@ describe('creating another store', () => {
     await ownMore(id, 3, 'five-own')
     expect((await create(session, 'kesari-fifth')).body).toMatchObject({ ok: true, step: 'done' })
     const options = await post('/api/auth/new-store/options', {}, session)
-    expect([options.status, options.body]).toEqual([403, { ok: false, code: 'STORE_LIMIT' }])
-    expect((await create(session, 'kesari-sixth')).body).toEqual({ ok: false, code: 'STORE_LIMIT' })
+    expect([options.status, options.body]).toEqual([403, { ok: false, code: 'STORE_LIMIT', limit: 5 }])
+    expect((await create(session, 'kesari-sixth')).body).toEqual({ ok: false, code: 'STORE_LIMIT', limit: 5 })
     expect(await db.sql`select 1 from store where slug = 'kesari-sixth'`).toHaveLength(0)
   })
 
@@ -140,7 +140,7 @@ describe('creating another store', () => {
   it('counts only the open stores the person owns, never ones they work in or another person’s', async () => {
     const owner = await person('full@a.example', { storeId: t.storeA2, role: 'owner' }, true)
     await ownMore(owner.id, 4, 'full-own')
-    expect((await create(owner.session, 'kesari-over')).body).toEqual({ ok: false, code: 'STORE_LIMIT' })
+    expect((await create(owner.session, 'kesari-over')).body).toEqual({ ok: false, code: 'STORE_LIMIT', limit: 5 })
     const colleague = await person('colleague@a.example', { storeId: t.storeA2, role: 'manager' })
     await db.sql`insert into membership (user_id, store_id, role_key, status) select ${colleague.id}, m.store_id, 'staff', 'active' from membership m join store s on s.id = m.store_id where m.user_id = ${owner.id} and s.code like 'full-own-%'`
     expect((await create(colleague.session, 'kesari-colleague')).body).toMatchObject({ ok: true, step: 'enrol' })

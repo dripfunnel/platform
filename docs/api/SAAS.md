@@ -227,7 +227,7 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 answers step 3's countries; `POST /api/auth/new-store` takes step 3's store name, web address and country, checked as
 sign-up checks them, and provisions the store for the existing account in one transaction, with no texted code. Each
 store starts its own trial as a sign-up does. **At most five per person** (decided 2026-11-01, Gaurav, replacing one a
-day): both routes answer `STORE_LIMIT` (403) once the person is the active Owner of five stores that aren't Closed,
+day): both routes answer `STORE_LIMIT` (403, with the `limit`, which the portal states) once the person is the active Owner of five stores that aren't Closed,
 however they were made, and the portal asks them to contact the partner's support, who can create the next one from the
 partner console's Create store, which this limit doesn't touch. A lock per person makes parallel requests wait for each
 other, so they never pass the limit between them. Refused `SIGNUP_CLOSED` while the partner isn't Live, `FORBIDDEN` in a support session, and

@@ -25,7 +25,7 @@ export const newStoreOptions = async (deps: StoreAuthDeps, sessionId: string | n
     const user = sessionId ? await readUserSession(tx, sessionId, deps.partnerId, deps.now()) : null
     if (!user) return { code: 'INVALID_CREDENTIALS' }
     if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return { code: 'SIGNUP_CLOSED' }
-    if ((await countOwnStores(tx, user.userId)) >= storesPerPerson) return { code: 'STORE_LIMIT' }
+    if ((await countOwnStores(tx, user.userId)) >= storesPerPerson) return { code: 'STORE_LIMIT', limit: storesPerPerson }
     return { countries: await offeredCountries(tx, deps.partnerId) }
   })
   return isRefusal(outcome) ? refuseSignup(outcome) : json(200, { ok: true, countries: outcome.countries, shopDomain: deps.shopDomain ?? null })
@@ -47,7 +47,7 @@ export const createAnotherStore = async (request: Request, deps: StoreAuthDeps, 
     await serialise(tx, `new_store:${user.userId}`)
     const again = await selectOwnNewStore(tx, deps.partnerId, user.userId, input.subdomain.trim(), new Date(now.getTime() - retryMs))
     if (again) return { storeId: again, enrol: false }
-    if ((await countOwnStores(tx, user.userId)) >= storesPerPerson) return { code: 'STORE_LIMIT' }
+    if ((await countOwnStores(tx, user.userId)) >= storesPerPerson) return { code: 'STORE_LIMIT', limit: storesPerPerson }
     if ((await countStoresCreatedSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000))) >= startsPerPartnerPerHour) return { code: 'RATE_LIMITED' }
     const store = await checkStoreStep(tx, deps.partnerId, input, null)
     if (isRefusal(store)) return store
