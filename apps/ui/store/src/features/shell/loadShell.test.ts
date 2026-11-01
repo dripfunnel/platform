@@ -90,8 +90,15 @@ describe('loadShell', () => {
   it('lets any other refusal of the store’s reads through to the error screen, keeping the store', async () => {
     answer({ me: me(acting), myStores: onePage }, { storeState: 'STORE_SUSPENDED' })
     expect(await outcome()).toMatchObject({ error: { code: 'STORE_SUSPENDED' } })
-    answer({ me: me(acting) }, { myStores: 'BLOCKED_FOR_SUPPORT' })
-    expect(await outcome()).toMatchObject({ error: { code: 'BLOCKED_FOR_SUPPORT' } })
+    answer({ me: me(acting) }, { myStores: 'UNAUTHENTICATED' })
+    expect(await outcome()).toMatchObject({ error: { code: 'UNAUTHENTICATED' } })
+    expect(actingStore()).toEqual({ storeId: 's1', supplierId: null })
+  })
+
+  // #1112: a partner's support session holds no store list of its own (ACCESS §8.3); its one store is the acting one.
+  it('opens a support session’s shell with no store list when the API refuses it myStores', async () => {
+    answer({ me: me(acting), navBadges: { products: 1, toShip: 0 } }, { myStores: 'BLOCKED_FOR_SUPPORT' })
+    expect(await outcome()).toMatchObject({ data: { acting, stores: [], badges: { productsToApprove: 1 } } })
     expect(actingStore()).toEqual({ storeId: 's1', supplierId: null })
   })
 

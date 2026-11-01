@@ -4,7 +4,7 @@ Production on `dripfunnel.ai`: how to set it up once, how values get onto it, an
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-11-01 (#1086: the production database on PlanetScale, §1, §3.3, §3.4, §6, §7). Before: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §4). Before: 2026-11-01 (#1086: the production database on PlanetScale, §1, §3.3, §3.4, §6, §7). Before: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -240,7 +240,7 @@ moment you save.
 | `AI_PHOTO_SOURCES` | Text | e.g. `openverse,commons` | Optional, with `AI_PHOTOS`: the sources the AI may use, from `pexels,pixabay,openverse,commons`; unset is `openverse,commons`; an unknown name stops the Worker at boot. Read each source's terms for automated use before naming it |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
-harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.ai`.
+harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.ai`, and the store portal's `VITE_PLATFORM_URL` (where a spent support link sends the agent) to `https://platform.dripfunnel.ai`.
 
 The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Workers Logs on, **invocation logs and traces off on purpose** (LOGGING §9: they record URLs, and some carry a token). Don't switch them on in the dashboard.
 
