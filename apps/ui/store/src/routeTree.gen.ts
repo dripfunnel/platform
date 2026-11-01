@@ -35,7 +35,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
-import { Route as StoresNewRouteImport } from './routes/stores.new'
+import { Route as StoresNewRouteImport } from './routes/stores_.new'
 import { Route as SupportEnterRouteImport } from './routes/support.enter'
 import { Route as AppBillingKeepRouteImport } from './routes/_app/billing_.keep'
 import { Route as AppCartsCartIdRouteImport } from './routes/_app/carts_.$cartId'
@@ -179,9 +179,9 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const StoresNewRoute = StoresNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => StoresRoute,
+  id: '/stores_/new',
+  path: '/stores/new',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const SupportEnterRoute = SupportEnterRouteImport.update({
   id: '/support/enter',
@@ -252,7 +252,7 @@ const AppProductsProductIdStoryRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/stores': typeof StoresRouteWithChildren
+  '/stores': typeof StoresRoute
   '/activity': typeof AppActivityRoute
   '/billing': typeof AppBillingRoute
   '/carts': typeof AppCartsRoute
@@ -292,7 +292,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
-  '/stores': typeof StoresRouteWithChildren
+  '/stores': typeof StoresRoute
   '/activity': typeof AppActivityRoute
   '/billing': typeof AppBillingRoute
   '/carts': typeof AppCartsRoute
@@ -334,7 +334,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
-  '/stores': typeof StoresRouteWithChildren
+  '/stores': typeof StoresRoute
   '/_app/activity': typeof AppActivityRoute
   '/_app/billing': typeof AppBillingRoute
   '/_app/carts': typeof AppCartsRoute
@@ -357,7 +357,7 @@ export interface FileRoutesById {
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
-  '/stores/new': typeof StoresNewRoute
+  '/stores_/new': typeof StoresNewRoute
   '/support/enter': typeof SupportEnterRoute
   '/_app/': typeof AppIndexRoute
   '/_app/billing_/keep': typeof AppBillingKeepRoute
@@ -481,7 +481,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-in'
     | '/_auth/sign-up'
     | '/impersonate/enter'
-    | '/stores/new'
+    | '/stores_/new'
     | '/support/enter'
     | '/_app/'
     | '/_app/billing_/keep'
@@ -501,8 +501,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
-  StoresRoute: typeof StoresRouteWithChildren
+  StoresRoute: typeof StoresRoute
   ImpersonateEnterRoute: typeof ImpersonateEnterRoute
+  StoresNewRoute: typeof StoresNewRoute
   SupportEnterRoute: typeof SupportEnterRoute
 }
 
@@ -690,12 +691,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/stores/new': {
-      id: '/stores/new'
-      path: '/new'
+    '/stores_/new': {
+      id: '/stores_/new'
+      path: '/stores/new'
       fullPath: '/stores/new'
       preLoaderRoute: typeof StoresNewRouteImport
-      parentRoute: typeof StoresRoute
+      parentRoute: typeof rootRouteImport
     }
     '/support/enter': {
       id: '/support/enter'
@@ -875,22 +876,12 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
-interface StoresRouteChildren {
-  StoresNewRoute: typeof StoresNewRoute
-}
-
-const StoresRouteChildren: StoresRouteChildren = {
-  StoresNewRoute: StoresNewRoute,
-}
-
-const StoresRouteWithChildren =
-  StoresRoute._addFileChildren(StoresRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
-  StoresRoute: StoresRouteWithChildren,
+  StoresRoute: StoresRoute,
   ImpersonateEnterRoute: ImpersonateEnterRoute,
+  StoresNewRoute: StoresNewRoute,
   SupportEnterRoute: SupportEnterRoute,
 }
 export const routeTree = rootRouteImport
