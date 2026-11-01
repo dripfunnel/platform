@@ -10,6 +10,9 @@ export const previewFolder = (storeId: string, ref: string) => `${previewRoot(st
 
 /** `storefront-assets` (public, behind the asset host): the same build folder, its hashed JS and CSS under `assets/`. */
 export const assetsFolder = (storeId: string, buildId: string) => `${buildFolder(storeId, buildId)}assets/`
+/** `storefront-assets`: the catalogue pictures a live build names, one copy per file, shared by every build. */
+export const mediaFolder = (storeId: string) => `${storePrefix(storeId)}media/`
+export const mediaFile = (storeId: string, assetId: string) => `${mediaFolder(storeId)}${assetId}`
 
 /** `storefront-drafts` (private): the draft, each build's source bundle and catalogue snapshot (LIVE-SHOP §4 step 3). */
 export const draftBundle = (storeId: string) => `drafts/${storeId}.bundle`

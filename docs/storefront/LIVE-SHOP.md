@@ -20,7 +20,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). On #968: a push to a store
 repo's `main` builds that commit and goes live (§4, "A push to `main`"). The rest is specification.
 
-Last updated: 2026-10-31 (#1011: the version 2 snapshot carries the catalogue, §4 steps 3 and 6). Before: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-11-01 (#1105: the catalogue's pictures copied to the asset host, §2, §4 step 3, §5 step 7). Before: 2026-10-31 (#1011: the version 2 snapshot carries the catalogue, §4 steps 3 and 6). Before: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -70,7 +70,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 | **Store repo** | The published theme code, the generated files and the locked workflow (ARCHITECTURE §2.2) | The public, free place to build. It holds only what is already live. |
 | **API Worker** | Starts builds, checks OIDC tokens, mints R2 credentials, records `publish_run`, moves the live pointer | Every credential and every decision stays on the platform, never in a repo or a runner. |
 | **`storefront-sites` bucket** (decided on #317: `storefront-sites` on prod, `-dev` and `-local` elsewhere) | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Never public. The edge Worker reads build and preview folders; the API reads staging folders and writes build folders (§4 step 9); the studio's Durable Object writes preview folders (PREVIEW §4); an upload credential writes one staging folder only. |
-| **`storefront-assets` bucket** (decided on #317, named as above; served at `sf-assets.<SHOP_DOMAIN>`) | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
+| **`storefront-assets` bucket** (decided on #317, named as above; served at `sf-assets.<SHOP_DOMAIN>`) | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), *since #1105* the catalogue pictures live builds name (`stores/{id}/media/{asset id}`, one copy per file shared by every build), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
 | **`storefront-drafts` bucket** (decided on #317, named as above), private | `drafts/{store}.bundle`, unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3); `sources/{store}/{build id}.bundle`, each build's source (§4 step 3); the snapshots | Source code that isn't public yet must never share a bucket with files that are served. Only the platform touches it: the studio's Durable Object reads and writes `drafts/` and reads `sources/`; the API writes `sources/` and the snapshots and hands a run 15-minute read links to its own build's files; nothing else reads it. |
 | **Edge Worker** | Answers every storefront request | One code path for every store; nothing per store to deploy. |
 | **Postgres** | `storefront`, `publish_run`, `design_version`: which build is live, and the history (DATA-MODEL §7) | The live pointer is state the consoles show, not a file. |
@@ -165,7 +165,15 @@ checking, deploying, live, failed, rolled back).
    collections), with each product's and collection's address (ARCHITECTURE §4.2). It is recorded after the freeze, in
    steps of its own (`saas/storefronts/catalogue.ts`: the listings, then a hundred products a step, then the snapshot
    made whole), so a refused freeze records nothing and no one step holds the whole catalogue; questions that failed
-   are counted in the technical log (`storefront_catalogue_unanswered`). A page run (§7) keeps the live build's
+   are counted in the technical log (`storefront_catalogue_unanswered`). *Since #1105* each step copies the pictures its
+   answers name (products' and collections' `image`: JPEG, PNG or WebP, never a video or an SVG) to `storefront-assets` at
+   `stores/{id}/media/{asset id}`, through the Shop API's own lookup so only a file shoppers may see is copied, and the
+   answers name the copy on the asset host. A step lists the copies already there once and copies at most 200 new ones;
+   a picture past that, or one that can't be copied, keeps its Shop API address until a later publish copies it. Copies
+   are cached for an hour, since nothing purges the asset host. A page run's `snapshot` step deletes the copies only its
+   dropped products showed (ACCESS §11), unless its own recorded pages show them (a renamed product); a deleted copy stops
+   being served within the hour, and a picture the live build's kept answers still show, such as a listing's, stays until
+   a full publish. A page run (§7) keeps the live build's
    answers and records only its own products, so it republishes no other item and uses no allowance for one. The
    live build's files the run fetches for the visual diff leave out its product and collection pages. *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
    it stays as private as the draft it copies.
@@ -477,8 +485,9 @@ What the edge Worker does on each request to a storefront host.
    period, a closed one or one never published gets a 404. Each file is cached under the host, the store, the build and
    the path, kept immutably (a build never changes) and sent with the build's own cache rules.
 7. **JS, CSS and images** load from the shared asset host (`storefront-assets` through its own
-   domain, outside the catch-all route; it holds only verified build folders and `core/`) and from Cloudflare image resizing, never through this
-   Worker.
+   domain, outside the catch-all route; it holds only verified build folders, the copied catalogue pictures (§4 step 3)
+   and `core/`) and from Cloudflare image resizing, never through this Worker. A built page's pictures are resized from
+   their copies there, so neither the API Worker nor the database serves them.
 
 ---
 

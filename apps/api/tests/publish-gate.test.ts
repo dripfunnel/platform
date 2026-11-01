@@ -171,6 +171,55 @@ describe('a publish’s build', () => {
       expect(asked.filter((a) => a.startsWith('base'))).toEqual([])
     })
 
+    // Card #1105: a hidden or deleted product's pictures leave the asset host with its pages.
+    describe('a dropped product’s pictures (ACCESS §11)', () => {
+      const copy = (id: string) => `stores/${t.storeA1}/media/${id}`
+      const picture = (id: string) => ({ image: { url: `https://sf-assets.my-store.one/${copy(id)}` } })
+      const copies = () => assets.keys(`stores/${t.storeA1}/media/`)
+      beforeEach(() => {
+        for (const key of copies()) assets.objects.delete(key)
+      })
+      /** A live build whose `old` product alone shows `gone` and shares `shared` with a listing, then a page run that drops `old`. */
+      const dropOld = async (n: number, pages: string[], showsOnNewPage: (gone: string) => CatalogueRecorder['products']) => {
+        const [gone, shared, other] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()]
+        for (const id of [gone, shared, other]) await assets.put(copy(id), bundleBytes(id), { sha256: await hexOf(id) })
+        const live = await startRun('1.0.0', n)
+        const liveSnapshot = JSON.stringify({
+          version: 2,
+          catalogue: {
+            answers: [
+              { operation: 'Listing', variables: { first: 24 }, data: { products: { nodes: [{ slug: 'kept', photo: picture(shared) }] } } },
+              { operation: 'Product', variables: { slug: 'old' }, data: { product: { photos: [picture(gone), picture(shared)] } } },
+              { operation: 'Product', variables: { slug: 'kept' }, data: { product: { photos: [picture(other)] } } },
+            ],
+            products: [{ slug: 'old', versions: [] }, { slug: 'kept', versions: [] }],
+            collections: [],
+          },
+        })
+        await drafts.put(snapshotFile(t.storeA1, live), bundleBytes(liveSnapshot), { sha256: await hexOf(liveSnapshot) })
+        await drafts.put(sourceBundle(t.storeA1, live), bundleBytes('live source'), { sha256: await hexOf('live source') })
+        await db.sql`update publish_run set state = 'live', finished_at = now() where id = ${live}`
+        await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA1}`
+        const catalogue = { ...recorder({ answers: [], slugs: [], collections: [] }), products: showsOnNewPage(gone) }
+        await record({ ...deps(), catalogue }, await startRun('1.0.0', n + 1, 'page', { pages, drop: ['/products/old'] }))
+        return { gone, shared, other }
+      }
+
+      it('deletes the copies only the hidden product showed, and keeps one another answer still shows', async () => {
+        const { shared, other } = await dropOld(18, [], () => async () => ({ answers: [], products: [], failed: 0 }))
+        expect(copies()).toEqual([copy(shared), copy(other)].sort())
+      })
+
+      it('keeps a renamed product’s pictures, which its new page shows', async () => {
+        const { gone, shared, other } = await dropOld(20, ['/products/renamed'], (id) => async (_, slugs) => ({
+          answers: slugs.map((slug) => ({ operation: 'Product', variables: { slug }, data: { product: { photos: [picture(id)] } } })),
+          products: slugs.map((slug) => ({ slug, versions: [] })),
+          failed: 0,
+        }))
+        expect(copies()).toEqual([copy(gone), copy(shared), copy(other)].sort())
+      })
+    })
+
     it('keeps version pages within the build’s budget, in the products’ order', async () => {
       const slugs = Array.from({ length: maxCatalogueVersionPages / 2 + 1 }, (_, i) => `p${i}`)
       const snapshot = await record({ ...deps(), catalogue: recorder({ answers: [], slugs, collections: [] }) }, await startRun('1.0.0', 17))

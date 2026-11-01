@@ -7,6 +7,7 @@ import type { TenantContext } from '#core/tenancy'
 import { pgArray, withScope } from '#db/scoped/index'
 import { encodeValueCursor } from '#core/cursor'
 import { activityLog } from '#saas/activity/index'
+import type { PictureCopies } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -303,5 +304,32 @@ describe('recording the catalogue for a live build', () => {
   it('records nothing for a host that serves no open store', async () => {
     expect(await record('nobody.shop.example')).toBeNull()
     expect(await recorder().store('nobody.shop.example')).toBeNull()
+  })
+
+  // Card #1105: the pictures a live build names are copied to the asset host, only this store's and only what shoppers see.
+  it('copies the product’s pictures to the asset host and names the copies, never another store’s file', async () => {
+    const asset = async (storeId: string) =>
+      (await db.sql<{ id: string; r2_key: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id, r2_key`)[0]
+    const own = await asset(t.storeA1)
+    const theirs = await asset(t.storeB1)
+    if (!own || !theirs) throw new Error('no asset')
+    await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${ids.kurta}, ${t.storeA1}, ${own.id}, 0), (${ids.other}, ${t.storeB1}, ${theirs.id}, 0)`
+    const published = new Map<string, string>()
+    const copies: PictureCopies = {
+      library: { get: async (key) => (key === own.r2_key || key === theirs.r2_key ? { body: new Blob([key]).stream() } : null) },
+      published: {
+        list: async ({ prefix }) => ({ objects: [...published.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key })), truncated: false }),
+        put: async (key, value, o) => void (await new Response(value).arrayBuffer(), published.set(key, o.httpMetadata.contentType)),
+      },
+      origin: 'https://sf-assets.shop.example',
+    }
+    const recording = shopCatalogueRecorder(db.sql, 'shop.example', () => new Date(), copies)
+    const base = await recording.base(host)
+    const batch = await recording.products(host, ['kurta'], base?.store ?? null)
+    const copy = `stores/${t.storeA1}/media/${own.id}`
+    expect([...published.keys()]).toEqual([copy])
+    expect(published.get(copy)).toBe('image/png')
+    expect(batch.answers[0]?.data).toMatchObject({ product: { photos: [{ image: { url: `https://sf-assets.shop.example/${copy}` } }] } })
+    expect(JSON.stringify([base, batch])).not.toContain(theirs.id)
   })
 })

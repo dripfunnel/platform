@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useInView, useReducedMotion } from '../browser/hooks'
 import { studioBasePath } from '../render/studio'
 import { useStorefront } from '../store/context'
@@ -21,6 +21,17 @@ export const frameAddress = (address: string, base: string | null): string => {
   }
 }
 
+// The file an address names, the same in the Shop API's `/shop-api/assets/{id}` and a built page's copy of it (LIVE-SHOP §5 step 7).
+const fileOf = (address: string) => address.slice(address.lastIndexOf('/') + 1)
+
+/** The first address given for a file: a built page keeps its copy when the Shop API's fresh answer names the same file. */
+const useSteadyAddress = (address: string): string => {
+  const [kept, keep] = useState(address)
+  const same = fileOf(kept) === fileOf(address)
+  if (!same) keep(address)
+  return same ? kept : address
+}
+
 export type ImageProps = {
   image: Photo
   alt: string
@@ -35,12 +46,13 @@ export type ImageProps = {
 export const Image = ({ image, alt, ratio, sizes = '100vw', className }: ImageProps) => {
   const { mode } = useStorefront()
   const live = mode === 'live'
-  const source = mode === 'studio' ? frameAddress(image.url, studioBasePath(import.meta.url)) : image.url
+  const address = useSteadyAddress(image.url)
+  const source = mode === 'studio' ? frameAddress(address, studioBasePath(import.meta.url)) : address
   const height = Math.round(1200 / (ratio > 0 ? ratio : 1))
   return (
     <img
-      src={live ? resized(image.url, 960) : source}
-      srcSet={live ? widths.map((w) => `${resized(image.url, w)} ${w}w`).join(', ') : undefined}
+      src={live ? resized(address, 960) : source}
+      srcSet={live ? widths.map((w) => `${resized(address, w)} ${w}w`).join(', ') : undefined}
       sizes={live ? sizes : undefined}
       width={1200}
       height={height}

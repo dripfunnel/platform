@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
+import { cleanup, render } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { Provided } from '../../../test/shop'
 import type { RenderMode } from '../store/context'
 import { frameAddress, Image, Video } from './media'
@@ -71,5 +72,25 @@ describe('photo.ts', () => {
     const source = await readFile('src/platform/media/photo.ts', 'utf8')
     expect(source).not.toMatch(/^['"]use client['"]/)
     expect(source).not.toMatch(/from ['"]\.\/media['"]/)
+  })
+})
+
+// Card #1105: a built page names a picture's copy on the asset host, and the Shop API's fresh answer names the same file.
+describe('Image after a fresh answer', () => {
+  afterEach(cleanup)
+  const at = (url: string) => photoSchema.parse({ alt: null, image: { url } })
+  const copy = 'https://sf-assets.my-store.one/stores/s1/media/0b6f6a52-1c1e-4d8a-9b6e-6f1d0c2a3b4c'
+  const shown = (container: HTMLElement) => container.querySelector('img')?.getAttribute('src')
+
+  it('keeps the address it was built with while the answer names the same file, and takes a different file at once', () => {
+    const built = at(copy)
+    const fresh = at('https://shop.example/shop-api/assets/0b6f6a52-1c1e-4d8a-9b6e-6f1d0c2a3b4c')
+    const other = at('https://shop.example/shop-api/assets/9a8b7c6d-1c1e-4d8a-9b6e-6f1d0c2a3b4c')
+    if (!built || !fresh || !other) throw new Error('no photo')
+    const { container, rerender } = render(<Provided mode="live"><Image image={built} alt="" ratio={1} /></Provided>)
+    rerender(<Provided mode="live"><Image image={fresh} alt="" ratio={1} /></Provided>)
+    expect(shown(container)).toBe(`/cdn-cgi/image/width=960,quality=82,format=auto/${copy}`)
+    rerender(<Provided mode="live"><Image image={other} alt="" ratio={1} /></Provided>)
+    expect(shown(container)).toContain('/shop-api/assets/9a8b7c6d-')
   })
 })

@@ -11,6 +11,7 @@ import type { StudioSessionObject } from '#jobs/durable/studio'
 import { shopCatalogueRecorder } from '#apis/shop/record'
 
 export interface PublishStorefrontEnv extends Record<string, unknown> {
+  ASSETS?: R2Bucket | undefined
   STOREFRONT_SITES?: R2Bucket | undefined
   STOREFRONT_ASSETS?: R2Bucket | undefined
   STOREFRONT_DRAFTS?: R2Bucket | undefined
@@ -52,14 +53,15 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
         })
       : httpEdgeProbe()
   const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+  // The asset host on the shop domain (LIVE-SHOP §2).
+  const assetOrigin = `https://sf-assets.${shopDomain}`
   try {
     const deps = {
       sql,
       sites,
       assets,
       drafts,
-      // The asset host on the shop domain (LIVE-SHOP §2).
-      assetOrigin: `https://sf-assets.${shopDomain}`,
+      assetOrigin,
       shopDomain,
       mapsFrameOrigin: config.GOOGLE_MAPS_BROWSER_KEY ? api : null,
       dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api }),
@@ -69,7 +71,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
         const main = await repos.head(repo)
         return main !== null && sameWorkflow(repos, repo, known, main)
       },
-      catalogue: shopCatalogueRecorder(sql, shopDomain, () => new Date()),
+      catalogue: shopCatalogueRecorder(sql, shopDomain, () => new Date(), env.ASSETS ? { library: env.ASSETS, published: assets, origin: assetOrigin } : null),
       now: () => new Date(),
       probe,
       assetHost: `sf-assets.${shopDomain}`,
