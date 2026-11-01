@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-10-31 (#1071: the dev database on PlanetScale). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, own delivery, api/DELIVERY.md, proposed). Before: 2026-10-09 (#520: storefront LIVE-SHOP, PREVIEW and AI-STUDIO added; #493: the mobile app's first release has no Billing or in-app purchase).
+Last updated: 2026-11-01 (#1086: the production database on PlanetScale). Before: 2026-10-31 (#1071: the dev database on PlanetScale). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, own delivery, api/DELIVERY.md, proposed). Before: 2026-10-09 (#520: storefront LIVE-SHOP, PREVIEW and AI-STUDIO added; #493: the mobile app's first release has no Billing or in-app purchase).
 
 ---
 
@@ -16,7 +16,7 @@ their **merchants** each get a store, a merchant portal in the partner's look, a
 storefront designed by an AI; merchants can invite **vendors** (suppliers) who see only
 their own; **shoppers** buy on the storefronts. DripFunnel **staff** run everything from an
 admin console. One API Worker serves everything; three static SPAs and the storefronts are
-its clients; everything runs on Cloudflare, with Postgres on Neon (the dev environment's on PlanetScale).
+its clients; everything runs on Cloudflare, with Postgres on PlanetScale (feature environments and CI tests on Neon).
 
 ---
 

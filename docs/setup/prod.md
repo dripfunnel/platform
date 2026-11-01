@@ -4,7 +4,7 @@ Production on `dripfunnel.ai`: how to set it up once, how values get onto it, an
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-11-01 (#1086: the production database on PlanetScale, §1, §3.3, §3.4, §6, §7). Before: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -26,7 +26,7 @@ pull request.
 | API Worker | `dripfunnel-api` (`wrangler.jsonc` › `env.prod`) |
 | Hosts | `admin.dripfunnel.ai`, `platform.dripfunnel.ai`, `hooks.dripfunnel.ai`; merchant portals on each partner's own host, e.g. `store.<partnerdomain>` (custom hostnames, SAAS.md §8) |
 | Consoles | Pages projects `dripfunnel-admin`, `dripfunnel-platform`, `dripfunnel-store` |
-| Database | Neon production project or branch *(decide, THIRD-PARTY-ACCESS.md §2.2)*, Postgres **18**, through Hyperdrive |
+| Database | PlanetScale Postgres **18** (Mumbai, PS-40), database `dripfunnel`, through Hyperdrive; on Neon until 2026-11-01 (#1086) |
 | Gate | Cloudflare Access on `admin.dripfunnel.ai` (recommended, §2.1) |
 | Deploys | `prod.yml` on every push to `main` (gates, migrations, **upload** of the API and store-proxy versions); `promote.yml` by hand (both to 100%, health check, consoles) |
 | Third parties | Live mode: Stripe live keys, SES production access, the Entra registration's production redirect |
@@ -44,7 +44,7 @@ pull request.
 
 ## 3. One-time setup
 
-Done once, by whoever holds the production Cloudflare, Neon, GitHub, Microsoft, Stripe and AWS
+Done once, by whoever holds the production Cloudflare, PlanetScale, Neon, GitHub, Microsoft, Stripe and AWS
 admin rights. Take each value straight from its source into its place. Never through chat,
 email or a file in the repo.
 
@@ -62,27 +62,41 @@ email or a file in the repo.
    `dripfunnel.ai`, and Queues, Workflows and Hyperdrive Edit (THIRD-PARTY-ACCESS.md §2.1).
 3. Copy it once into the GitHub `prod` environment (§3.6).
 
-### 3.3 Neon
+### 3.3 PlanetScale (the production database) and Neon (the CI test branch)
 
-1. Production database on Postgres **18**. Whether it's its own project or a branch is still
-   to decide (§7).
-2. Roles:
-   - **migration role**: owns the schema, with `CREATEROLE` and `BYPASSRLS`
-     ([api/README.md §7](../api/README.md)); used only by `prod.yml`;
-   - **app role**: what the Worker uses, **without** `BYPASSRLS` (DATA-MODEL.md §5.3).
-3. A separate, **disposable** branch for `prod.yml`'s gates. Never the production branch.
-4. Note:
-   - the migration role's **direct** string → `PROD_DATABASE_URL`;
-   - the test branch's string → `TEST_DATABASE_URL` (prod's own, not dev's);
-   - the app role's **pooled** string → Hyperdrive (§3.4);
-   - the two hostnames → `ALLOWED_MIGRATION_HOST` and `ALLOWED_TEST_HOST`.
+Production's database moved from Neon to PlanetScale on 2026-11-01 with `pg_dump` and
+`pg_restore`, the same way as dev (dev.md §2.3); how, and the checks it passed, are on #1086.
+Neon's copy is kept, frozen, as the rollback (ROLLBACK.md).
+
+1. In PlanetScale, a Postgres **18** database, region Mumbai (`ap-south`), PS-40, single node.
+   Create its **default role** (*Connect* › default role); it sets up the roles below and
+   nothing else, never the Worker.
+2. As that default role, the **migration role** `neondb_owner` (`CREATEROLE`, `BYPASSRLS`) and
+   the database `dripfunnel` it owns, as in dev.md §2.3 step 2. Used only by `prod.yml`.
+3. As `neondb_owner` in `dripfunnel`, before any restore: the nine `app_*` roles, `CREATE` on
+   `public` for `app_definer`, and the **app role** `app_login`, what the Worker connects as,
+   **without** `CREATEROLE` or `BYPASSRLS`, granted `app_request, app_system, app_platform,
+   app_partner, app_supplier, app_shop, app_rider` ([DATA-MODEL.md §5.3](../api/DATA-MODEL.md)).
+   On Neon this login was `hyperdrive_user`, with both rights; it was not carried over (#1086).
+4. A login connects as `<role>.<branch id>` on the **direct** port 5432, database `dripfunnel`:
+   - `neondb_owner.<branch id>`, `?sslmode=verify-full` → `PROD_DATABASE_URL`;
+   - `app_login.<branch id>` → Hyperdrive (§3.4).
+5. CI tests stay on a disposable **Neon** branch, never the production database: its string →
+   `TEST_DATABASE_URL` (prod's own, not dev's).
+6. Note the two hostnames → `ALLOWED_MIGRATION_HOST` and `ALLOWED_TEST_HOST`.
+
+**Moving the database again**, in this order: copy and check; a new Hyperdrive config; the
+`prod` environment's `PROD_DATABASE_URL` and `ALLOWED_MIGRATION_HOST`; merge the `env.prod`
+change; promote. Nothing else merges to `main` in between, because a merge migrates whatever
+`PROD_DATABASE_URL` names while the live version still uses the old database.
 
 ### 3.4 Hyperdrive, R2, the queue and Containers — **Not done yet**
 `env.prod` in `apps/api/wrangler.jsonc` binds all of these (#816), so create them **before** the change merges to `main`: a binding to a missing bucket, queue or Hyperdrive fails the deploy, and a push to `main` runs migrations.
 1. Create Hyperdrive on the production account, and put its id in `env.prod`'s `hyperdrive` binding:
    ```bash
-   wrangler hyperdrive create dripfunnel-prod --connection-string="<app role pooled string>"
+   wrangler hyperdrive create dripfunnel-prod-ps --connection-string="<app_login's string, §3.3>" --origin-connection-limit=<n>
    ```
+   The limit stays under the database's direct connections (*Direct: x/N* on PlanetScale's dashboard); Hyperdrive's own default is 60. **Done** (2026-11-01, #1086): `dripfunnel-prod-ps`; the Neon config `3f5dde45…` is kept as the rollback.
 2. Set `HYPERDRIVE_REQUIRED=1` on the Worker (§4) in the same release, so a lost binding turns
    `/api/health` red.
 3. Create the buckets: `wrangler r2 bucket create` for `dripfunnel-assets-prod`, `storefront-sites-prod`, `storefront-assets-prod` and `storefront-drafts-prod` (the assets host and CORS: §4, `CF_CACHE_PURGE_TOKEN`).
@@ -257,7 +271,7 @@ version still running (AGENTS.md "Data").
 
 - [ ] Account, zone, SSL Full (strict) (§3.1)
 - [ ] Deploy token (§3.2)
-- [ ] Neon production database, roles, disposable test branch (§3.3)
+- [x] PlanetScale production database, migration and app roles; Neon test branch (§3.3)
 - [ ] Hyperdrive, the four R2 buckets and the outbox queue `dripfunnel-outbox-wake-prod` created before `env.prod` merges (§3.4)
 - [ ] Containers and Durable Objects on; a stable `storefront-build` tag in the registry (§3.4)
 - [ ] Routes, console hostnames, Access on admin (§3.5)
@@ -273,5 +287,5 @@ version still running (AGENTS.md "Data").
 
 ## 7. Open questions
 
-1. Production database: its own Neon project, or a branch (THIRD-PARTY-ACCESS.md §2.2). *(decide)*
+1. ~~Production database: its own Neon project, or a branch.~~ Answered on #1086: PlanetScale, §3.3.
 2. How the first super admin is created on an empty production database. *(decide)*

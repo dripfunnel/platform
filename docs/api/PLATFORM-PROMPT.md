@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
+Last updated: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -17,7 +17,7 @@ Admin, and the stack. The one other change is that **storefronts are hosted on C
 not AWS**.
 
 **Deployment has since moved entirely to Cloudflare** (one `platform` repo; portal and DF
-Admin as static SPAs on Pages; APIs and jobs on Workers; Postgres on Neon via Hyperdrive;
+Admin as static SPAs on Pages; APIs and jobs on Workers; Postgres on PlanetScale via Hyperdrive;
 R2; SES). **[`../ARCHITECTURE.md`](../ARCHITECTURE.md) records those decisions and wins
 wherever this document still mentions AWS containers, separate repos or a polling job
 runner.**
@@ -190,7 +190,7 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
     §4.2, §6). [SAAS-PLAN §7]
 
 **Engineering**
-15. **Stack**: React, Drizzle, Postgres (Neon via Hyperdrive), zod, Vitest, Playwright;
+15. **Stack**: React, Drizzle, Postgres (PlanetScale via Hyperdrive), zod, Vitest, Playwright;
     APIs and jobs on **Cloudflare Workers**, UIs on **Cloudflare Pages**, files on **R2**,
     email through **SES**; Next.js for the storefront template; the GitHub App for repos;
     Stripe Billing for subscriptions (`../ARCHITECTURE.md` §1).
@@ -299,7 +299,7 @@ Deployables, hostnames, repository layout and the Workers runtime rules are in
 | Portal (`apps/ui/store`), partner console (`apps/ui/platform`) and DF Admin (`apps/ui/admin`) | Static SPAs on **Cloudflare Pages** |
 | Store API, Platform API, Admin API, Shop API, inbound webhooks (one Worker, `apps/api`) | **Cloudflare Workers**, at `/api` on each UI's own hostname |
 | Jobs, event delivery, schedules (`apps/api/src/jobs`) | **Queues**, **Workflows** and **Cron Triggers** |
-| Postgres | **Neon**, through **Hyperdrive** |
+| Postgres | **PlanetScale** (feature environments and CI tests: **Neon**), through **Hyperdrive** |
 | Files | **R2** |
 | AI storefronts | One repo per store (preview SPA + live SSG) on Cloudflare |
 | Merchants' own storefronts | Anywhere, calling the Shop API |
