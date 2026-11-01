@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-31 (promote.yml starts the promoted core's rollout, §6). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2, §6). Before: 2026-10-23 (#839: the Delivery API built, answering only on a store's free address through `StorefrontEdge`, §1, §2). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, one build per store, and the Delivery API on `{slug}.<SHOP_DOMAIN>`, §1–§3, proposed: api/DELIVERY.md, mobile-app/README.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (#744, #745: every store's free addresses on `SHOP_DOMAIN`, `{slug}.` live and
+Last updated: 2026-11-01 (#1086: the production database on PlanetScale, §1, §2, §6). Before: 2026-10-31 (promote.yml starts the promoted core's rollout, §6). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2, §6). Before: 2026-10-23 (#839: the Delivery API built, answering only on a store's free address through `StorefrontEdge`, §1, §2). Before: 2026-10-22 (with Gaurav: the shop and delivery apps, one build per store, and the Delivery API on `{slug}.<SHOP_DOMAIN>`, §1–§3, proposed: api/DELIVERY.md, mobile-app/README.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (#744, #745: every store's free addresses on `SHOP_DOMAIN`, `{slug}.` live and
 `{slug}-preview.` preview, §1 and §8; no per-store Cloudflare hostnames). Before: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
@@ -33,7 +33,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, 
 | **The SPAs are built with Vite, React and TanStack Router** | Next.js static export | A pure client-side app: fast builds, no server features to avoid, typed routes and search params. Next.js stays only in the storefront template, which needs static generation. |
 | **The API runs on Cloudflare Workers** | Containers on AWS | The same edge platform as the UIs and storefronts; no servers to run; scales per request. The cost is Workers' runtime constraints (§4). |
 | **The API is served at `/api` on each UI's own hostname** (a Worker route), including partners' custom domains | A separate `api.` host; one central API domain | Same origin: `httpOnly` session cookies stay first-party, no CORS, one hostname per partner. |
-| **Postgres on Neon, reached through Cloudflare Hyperdrive** | Cloudflare D1; AWS RDS | Keeps Postgres features the design relies on (row-level security, `SKIP LOCKED`, JSONB, full-text search). Neon adds a database branch per feature environment. The one part of the platform not on Cloudflare. The dev environment's database is PlanetScale Postgres in Mumbai instead (#1071, 2026-10-31): the same Postgres 18 and roles, cheaper always on and nearer the team; feature environments and CI tests stay on Neon for its branches. |
+| **Postgres on PlanetScale (feature environments and CI tests on Neon), reached through Cloudflare Hyperdrive** | Cloudflare D1; AWS RDS | Keeps Postgres features the design relies on (row-level security, `SKIP LOCKED`, JSONB, full-text search). The one part of the platform not on Cloudflare. Dev and production run on PlanetScale Postgres in Mumbai (dev #1071, 2026-10-31; production #1086, 2026-11-01): the same Postgres 18 and roles, cheaper always on and nearer the team. Feature environments and CI tests stay on Neon, whose branches are copies in seconds. |
 | **Background work on Cloudflare Queues, Workflows and Cron Triggers** | A polling job runner process | Workers have no always-on process. Queues carry outbox events and jobs; Workflows run durable multi-step jobs with retries and compensation (provisioning, publishing); Cron runs schedules (automatic publish, cleanups). The `job` table in Postgres stays as the record the platform console reads. |
 | **Files on Cloudflare R2** | S3 | Product photos, brand assets, imports, exports and invoices, with zero egress cost and a Worker binding. |
 | **Email through Amazon SES** (HTTP API) | SMTP; Postmark; Resend | Workers can't use SMTP libraries; SES supports many verified sender domains (one per partner) at low cost. |
@@ -59,7 +59,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, 
 | `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every storefront runs on, with the validator and gate suites. Store repos never install it: they pin a version, and the sandbox image for that version has it preinstalled (code/ARCHITECTURE.md §5) | none |
 | `apps/sandbox` | **Container image**, one per core version: run in Cloudflare Containers by the API Worker's `StudioSession` Durable Object, and published on `ghcr.io` for store repos' builds, pulled with `GHCR_PULL_TOKEN` (#790) | A store's studio session (applying the AI's changes, the fast gate, the live frame) and, inside each store repo's workflow, every storefront build; Node, not the Workers runtime; no network, no credential | none |
 | Store repos | **Public** GitHub repo per store, holding its published theme and one locked workflow that builds it inside `apps/sandbox`'s image (storefront/LIVE-SHOP.md §3–§4) | The store's live static build, uploaded to R2 and served by the edge Worker; its preview comes from the studio (storefront/PREVIEW.md) | `{slug}.my-store.one`; the merchant's own domain; preview on `{slug}-preview.my-store.one` |
-| Postgres | **Neon** (dev: **PlanetScale**), via **Hyperdrive** | The system of record | none |
+| Postgres | **PlanetScale** (feature environments and CI tests: **Neon**), via **Hyperdrive** | The system of record | none |
 | R2 buckets | **R2** | Assets, imports and exports, invoices; storefront builds, previews and private drafts (storefront/LIVE-SHOP.md §2) | public assets through a custom domain with Cloudflare image resizing (decided 2026-10-05 on #337) |
 
 **How the one Worker routes**, before any other code runs:
@@ -196,7 +196,7 @@ current documentation before relying on it.**
 ```
 store SPA (Pages) ─────/api──────▶ ┐
 platform SPA (Pages) ──/api──────▶ │
-Storefronts ───────────/shop-api─▶ ├─ apps/api (one Worker) ─┬─▶ Hyperdrive ─▶ Neon Postgres
+Storefronts ───────────/shop-api─▶ ├─ apps/api (one Worker) ─┬─▶ Hyperdrive ─▶ PlanetScale Postgres
 Providers ─────────────hooks.────▶ │   store · platform ·    ├─▶ R2
 outbox rows ─▶ Queues ───────────▶ ┘   shop · hooks · jobs   ├─▶ SES, Stripe, GitHub, Cloudflare APIs, AI models
                                                               └─▶ Durable Objects ─▶ Containers (apps/sandbox)
@@ -218,7 +218,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 ## 6. Environments and deploy
 
 - **Environments**: local, feature (per `#<issue>/feature/<short-name>` branch), dev,
-  production. Each has its own Worker, Pages deploys, R2 buckets, Queues and **database**: a Neon branch, or on dev a PlanetScale database.
+  production. Each has its own Worker, Pages deploys, R2 buckets, Queues and **database**: a PlanetScale database on dev and production, a Neon branch for a feature environment.
   Feature environments live in a separate Cloudflare account and Neon project, on
   `actuateminds.com` ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
 - **Local**: `wrangler dev` for the API Worker with Hyperdrive pointed at the **local
@@ -232,7 +232,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   commit ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
 - **Dev**: one long-lived environment, redeployed on every push to `dev`, so both tracks
   see their work running against a real database instead of only locally. Same shape as
-  production: migrations run first over Neon's direct connection, then the API Worker, then
+  production: migrations run first over the database's direct connection, then the API Worker, then
   the three SPAs, each deploying only when its own files or `apps/ui/shared/` change. Hosts
   `dev-store.actuateminds.com`, `dev-platform.actuateminds.com`, `dev-admin.actuateminds.com` and
   `dev-hooks.actuateminds.com` (decided 2026-10-01; moved from `dripfunnel.ai` to `actuateminds.com` 2026-10-26): dev runs on
@@ -248,7 +248,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   always begins with its issue number, so `dev-*` can never collide with one
   ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)). Seeded once on first
   deploy; re-seeding is a manual `workflow_dispatch`, never automatic.
-- **Production**: migrations from `apps/api/migrations` run first against Neon's direct
+- **Production**: migrations from `apps/api/migrations` run first against PlanetScale's direct
   connection (not Hyperdrive), and must be backward-compatible with the running version; then
   the API Worker version is uploaded — not deployed. Promotion to 100% and the SPA deploys are a
   separate, manual `workflow_dispatch` (`promote.yml`) run once the uploaded version is confirmed
@@ -289,7 +289,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   A Worker's `fetch` takes a URL, not an address, so it can't connect to the address that was
   checked: a name whose answer changes between the check and the request (DNS rebinding) is not
   stopped by the Worker itself. What bounds it is this deployment: the Worker has no private
-  network attached (no Cloudflare Tunnel, VPC service or Hyperdrive to anything but Neon), and
+  network attached (no Cloudflare Tunnel, VPC service or Hyperdrive to anything but the public PlanetScale and Neon hosts), and
   nothing internal listens on an address it can reach. **Adding any private network to the
   Worker makes this a real gap**: such a fetch would then have to connect to the checked
   address itself (`connect()` from `cloudflare:sockets`) or move behind an egress proxy.
