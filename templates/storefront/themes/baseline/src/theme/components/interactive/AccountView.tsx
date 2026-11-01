@@ -220,7 +220,7 @@ const Addresses = ({ page }: { page: AccountPage }) => {
             })
           }
         >
-          <AddressFields value={draft} onChange={setDraft} countries={page.countries} errors={errors} t={t} locale={locale} className={styles.fields} fieldClassName={styles.field} />
+          <AddressFields value={draft} onChange={setDraft} countries={page.countries} errors={errors} t={t} locale={locale} className={styles.fields} fieldClassName={styles.field} phoneClassName={styles.phone} />
           <Checkbox checked={isDefault} onChange={setIsDefault} className={styles.check}>
             {t('shop.account.makeDefault')}
           </Checkbox>

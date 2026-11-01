@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -35,6 +35,7 @@ the missing backend.
 | 11 | ~~**Links that go nowhere.** "Edit branding" (white-label banner) and the `brand`, `plans` and `partner` routes land on the "isn't part of the Catalogue prototype" placeholder.~~ | shell:148/391/560 |
 | 12 | ~~**Four unmounted files.** Decide whether to keep or delete `PortalBrand`, `PortalPartner`, `PortalPayouts` and `PortalPlans`.~~ Deleted on #183: the shell links to the Platform prototype for brand, plans and partner. | design.md §1 |
 | 13 | ~~**Open decisions still unresolved:** what a supplier may see of a customer, who owns refunds across suppliers, whether editing an approved product sends it back for approval, what happens to a removed supplier's products, and whether 2FA applies to Owners only or to everyone.~~ | uploads/DESIGN-BRIEF.md §4 |
+| 14 | **Mobile number fields are one box** (PortalAuth, PortalProfile, SetRiders, SetStore, customers, brand; the DF Storefront prototype's Contact and sign-in too). The built portal and storefront show a country code dropdown, starting in the store's country, beside the number (decided 2026-11-01); the prototypes still need it drawn. | PortalProfile:21; DF Storefront Prototype:578, 686 |
 
 ---
 

@@ -8,7 +8,7 @@ import { formatMoney, isZero } from '../pricing/money'
 import { PreviewBanner } from '../sealed/components'
 import { PaymentElement } from '../sealed/payment'
 import { OrderSummary } from '../sealed/summary'
-import { AddressFields, Choices, Form, SubmitButton, TextField } from '../ui/headless/form'
+import { AddressFields, Choices, Form, PhoneField, SubmitButton, TextField } from '../ui/headless/form'
 import { addressDraft, useCheckout, type CheckoutStepId } from './checkout'
 import type { AddressField, FieldProblem } from './address'
 import { PlaceOrder } from './place'
@@ -32,6 +32,7 @@ const css = `
 .df-bc label{display:grid;gap:4px;font-weight:600;font-size:14px}
 .df-bc input,.df-bc select{min-height:44px;padding:0 12px;border:1px solid #9aa5b1;border-radius:8px;font:inherit;background:#fff;color:inherit}
 .df-bc input[type=radio]{min-height:0;width:18px;height:18px}
+.df-bc-phone{display:grid;grid-template-columns:6.5rem minmax(0,1fr);gap:8px}
 .df-bc fieldset{display:grid;gap:8px;border:0;margin:0;padding:0}
 .df-bc legend{font-weight:600;margin-bottom:8px}
 .df-bc fieldset label{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #d9dee3;border-radius:8px;font-weight:400}
@@ -119,7 +120,7 @@ export const BaselineCheckout = () => {
       return (
         <Form onSubmit={() => void c.saveContact(value).then(setContactErrors)}>
           <TextField label={t('checkout.email')} type="email" autoComplete="email" value={value.email} onChange={(email) => setContact({ ...value, email })} error={problem(contactErrors.email)} />
-          <TextField label={t('checkout.phone')} type="tel" autoComplete="tel" note={t('address.optional')} value={value.phone} onChange={(phone) => setContact({ ...value, phone })} error={contactErrors.phone === 'invalid' ? t('address.phoneInvalid') : problem(contactErrors.phone)} />
+          <PhoneField label={t('checkout.phone')} codeLabel={t('address.countryCode')} country={store.address?.country ?? c.countries[0] ?? ''} locale={locale} note={t('address.optional')} value={value.phone} onChange={(phone) => setContact({ ...value, phone })} error={contactErrors.phone === 'invalid' ? t('address.phoneInvalid') : problem(contactErrors.phone)} groupClassName="df-bc-phone" />
           <SubmitButton disabled={c.busy}>{t('checkout.continue')}</SubmitButton>
         </Form>
       )
@@ -128,7 +129,7 @@ export const BaselineCheckout = () => {
       const draft = address ?? addressDraft(cart.shippingAddress, c.countries[0] ?? '')
       return (
         <Form onSubmit={() => void c.saveAddress(draft).then(setAddressErrors)}>
-          <AddressFields value={draft} onChange={setAddress} countries={c.countries} errors={addressErrors} t={t} locale={locale} className="df-bc-fields" />
+          <AddressFields value={draft} onChange={setAddress} countries={c.countries} errors={addressErrors} t={t} locale={locale} className="df-bc-fields" phoneClassName="df-bc-phone" />
           <SubmitButton disabled={c.busy}>{t('checkout.continue')}</SubmitButton>
         </Form>
       )

@@ -80,6 +80,17 @@ describe('the baseline checkout', () => {
     expect(assign).toHaveBeenCalledWith('/order/o-1/')
   })
 
+  it('takes the mobile number beside a country code that starts in the store’s market, and saves it once as E.164', async () => {
+    const asked = engine()
+    await show()
+    const code = screen.getAllByLabelText('Country code')[0] as HTMLSelectElement
+    expect(code.value).toBe('US')
+    type('Email', 'maya@example.com')
+    type('Mobile number', '(614) 555-0100')
+    await press('Continue')
+    expect(asked.filter((a) => a.query.includes('setCartContact')).map((a) => a.variables)).toEqual([{ email: 'maya@example.com', phone: '+16145550100' }])
+  })
+
   it('reopens a finished step with Change, and says when there is nothing to check out', async () => {
     engine()
     await show()
