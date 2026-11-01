@@ -130,6 +130,15 @@ export const selectPartnerState = async (tx: ScopedSql, partnerId: string): Prom
 export const countStoresCreatedSince = async (tx: ScopedSql, partnerId: string, since: Date): Promise<number> =>
   (await tx<{ n: number }[]>`select count(*)::int as n from store where partner_id = ${partnerId} and created_at > ${since}`)[0]?.n ?? 0
 
+/** The open stores this person owns, however they were made: Create another store's limit (#1136). */
+export const countOwnStores = async (tx: ScopedSql, userId: string): Promise<number> =>
+  (
+    await tx<{ n: number }[]>`
+      select count(*)::int as n from store s join membership m on m.store_id = s.id and m.user_id = ${userId} and m.role_key = 'owner' and m.status = 'active'
+      where s.status <> 'closed'
+    `
+  )[0]?.n ?? 0
+
 /** The store at this address that this person was just made Owner of, so a retried creation answers it again (#1136). */
 export const selectOwnNewStore = async (tx: ScopedSql, partnerId: string, userId: string, slug: string, since: Date): Promise<string | null> =>
   (

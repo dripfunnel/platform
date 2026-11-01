@@ -11,6 +11,8 @@ describe('the auth transport', () => {
   it('keeps a promised refusal with its facts and reads any other as not connected', async () => {
     answer({ ok: false, code: 'WRONG_CODE', triesLeft: 2 })
     expect(await client.post('second-factor', {}, z.object({ ok: z.literal(true) }))).toMatchObject({ ok: false, code: 'WRONG_CODE', triesLeft: 2 })
+    answer({ ok: false, code: 'LOCKED', limit: 5 })
+    expect(await client.post('second-factor', {}, z.object({ ok: z.literal(true) }))).toMatchObject({ ok: false, code: 'LOCKED', limit: 5 })
     answer({ ok: false, code: 'SOMETHING_ELSE' })
     expect(await client.post('second-factor', {}, z.object({ ok: z.literal(true) }))).toEqual({ ok: false, code: 'NOT_CONNECTED' })
     answer({ ok: true, unexpected: 'shape' })

@@ -1,8 +1,8 @@
 import type { RequestFacts } from '#auth/activity'
 import { holdForEnrolment, readUserSession } from '#auth/storeSession'
 import { countryOf } from '#core/countries'
-import { withSystemScope } from '#db/scoped/index'
-import { countStoresCreatedSince, selectOwnNewStore, selectPartnerState } from '#db/scoped/signup'
+import { serialise, withSystemScope } from '#db/scoped/index'
+import { countOwnStores, countStoresCreatedSince, selectOwnNewStore, selectPartnerState } from '#db/scoped/signup'
 import { selectUserSecondFactor } from '#db/scoped/userSignIn'
 import { provisionStore, type FailAt } from '#saas/provisioning/index'
 import { withSession, type StoreAuthDeps } from './admission'
@@ -15,12 +15,17 @@ import { checkStoreStep, isRefusal, offeredCountries, refuseSignup, startsPerPar
 /** A retry within this long answers the store it already made instead of "taken". */
 const retryMs = 10 * 60_000
 
+/** Past this many, a person asks support, and the partner creates the store for them (decided 2026-11-01, Gaurav). */
+export const storesPerPerson = 5
+
 /** What the store step offers a signed-in person: the partner's countries and the free address's domain. */
 export const newStoreOptions = async (deps: StoreAuthDeps, sessionId: string | null, inSupport: boolean): Promise<Response> => {
   if (inSupport) return refuse({ code: 'FORBIDDEN' })
   const outcome = await withSystemScope(deps.sql, async (tx): Promise<SignupRefusal | { countries: Awaited<ReturnType<typeof offeredCountries>> }> => {
-    if (!sessionId || !(await readUserSession(tx, sessionId, deps.partnerId, deps.now()))) return { code: 'INVALID_CREDENTIALS' }
+    const user = sessionId ? await readUserSession(tx, sessionId, deps.partnerId, deps.now()) : null
+    if (!user) return { code: 'INVALID_CREDENTIALS' }
     if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return { code: 'SIGNUP_CLOSED' }
+    if ((await countOwnStores(tx, user.userId)) >= storesPerPerson) return { code: 'STORE_LIMIT', limit: storesPerPerson }
     return { countries: await offeredCountries(tx, deps.partnerId) }
   })
   return isRefusal(outcome) ? refuseSignup(outcome) : json(200, { ok: true, countries: outcome.countries, shopDomain: deps.shopDomain ?? null })
@@ -38,8 +43,11 @@ export const createAnotherStore = async (request: Request, deps: StoreAuthDeps, 
   const outcome = await withSystemScope(deps.sql, async (tx): Promise<SignupRefusal | { storeId: string; enrol: boolean }> => {
     if (!(await readUserSession(tx, sessionId, deps.partnerId, now))) return { code: 'INVALID_CREDENTIALS' }
     if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return { code: 'SIGNUP_CLOSED' }
+    // Before the retry and the count, so parallel requests from one person see each other's store.
+    await serialise(tx, `new_store:${user.userId}`)
     const again = await selectOwnNewStore(tx, deps.partnerId, user.userId, input.subdomain.trim(), new Date(now.getTime() - retryMs))
     if (again) return { storeId: again, enrol: false }
+    if ((await countOwnStores(tx, user.userId)) >= storesPerPerson) return { code: 'STORE_LIMIT', limit: storesPerPerson }
     if ((await countStoresCreatedSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000))) >= startsPerPartnerPerHour) return { code: 'RATE_LIMITED' }
     const store = await checkStoreStep(tx, deps.partnerId, input, null)
     if (isRefusal(store)) return store

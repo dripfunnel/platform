@@ -110,6 +110,44 @@ describe('creating another store', () => {
     expect(await membershipsOf(id)).toHaveLength(2)
   })
 
+  /** `count` more open stores the person owns, made elsewhere (sign-up or the partner console). */
+  const ownMore = async (userId: string, count: number, prefix: string) => {
+    for (let n = 1; n <= count; n++) {
+      const [store] = await db.sql<{ id: string }[]>`insert into store (partner_id, name, code) values (${t.partnerA}, ${`${prefix} ${n}`}, ${`${prefix}-${n}`}) returning id`
+      await db.sql`insert into membership (user_id, store_id, role_key, status) values (${userId}, ${store?.id ?? ''}, 'owner', 'active')`
+    }
+  }
+
+  it('lets a person own five stores, then asks them to contact support, on the form and on create', async () => {
+    const { id, session } = await person('five@a.example', { storeId: t.storeA1, role: 'owner' }, true)
+    await ownMore(id, 3, 'five-own')
+    expect((await create(session, 'kesari-fifth')).body).toMatchObject({ ok: true, step: 'done' })
+    const options = await post('/api/auth/new-store/options', {}, session)
+    expect([options.status, options.body]).toEqual([403, { ok: false, code: 'STORE_LIMIT', limit: 5 }])
+    expect((await create(session, 'kesari-sixth')).body).toEqual({ ok: false, code: 'STORE_LIMIT', limit: 5 })
+    expect(await db.sql`select 1 from store where slug = 'kesari-sixth'`).toHaveLength(0)
+  })
+
+  it('makes one store between parallel requests from a person at their fourth', async () => {
+    const { id, session } = await person('parallel@a.example', { storeId: t.storeA1, role: 'owner' }, true)
+    await ownMore(id, 3, 'parallel-own')
+    const answers = await Promise.all(['kesari-par-1', 'kesari-par-2', 'kesari-par-3'].map((slug) => create(session, slug)))
+    expect(answers.filter((a) => a.body['ok'] === true)).toHaveLength(1)
+    expect(answers.filter((a) => a.body['code'] === 'STORE_LIMIT')).toHaveLength(2)
+    expect(await membershipsOf(id)).toHaveLength(5)
+  })
+
+  it('counts only the open stores the person owns, never ones they work in or another person’s', async () => {
+    const owner = await person('full@a.example', { storeId: t.storeA2, role: 'owner' }, true)
+    await ownMore(owner.id, 4, 'full-own')
+    expect((await create(owner.session, 'kesari-over')).body).toEqual({ ok: false, code: 'STORE_LIMIT', limit: 5 })
+    const colleague = await person('colleague@a.example', { storeId: t.storeA2, role: 'manager' })
+    await db.sql`insert into membership (user_id, store_id, role_key, status) select ${colleague.id}, m.store_id, 'staff', 'active' from membership m join store s on s.id = m.store_id where m.user_id = ${owner.id} and s.code like 'full-own-%'`
+    expect((await create(colleague.session, 'kesari-colleague')).body).toMatchObject({ ok: true, step: 'enrol' })
+    await db.sql`update store set status = 'closed' where code = 'full-own-1'`
+    expect((await create(owner.session, 'kesari-after-close')).body).toMatchObject({ ok: true, step: 'done' })
+  })
+
   it('refuses a taken, reserved or malformed address and a country the partner doesn’t sell in', async () => {
     const { session } = await person('checks@a.example', { storeId: t.storeA1, role: 'owner' }, true)
     await db.sql`insert into store (partner_id, name, code, slug) values (${t.partnerB}, 'Theirs', 'theirs-b', 'held-elsewhere')`

@@ -14,9 +14,15 @@ export type Refusal =
   | { code: 'NAME_REQUIRED' | 'WEAK_PASSWORD' | 'RESET_INVALID' | 'INVITATION_USED' | 'INVITATION_REPLACED' | 'INVITATION_INVALID' | 'EMAIL_CHANGE_INVALID' }
   // The prototype's expired screen asks the inviter by name (PortalAuth `inviteBad`).
   | { code: 'INVITATION_EXPIRED'; invitedBy: string }
-  // Create another store in a support session (#1136).
+  // Create another store in a support session, or past a person's limit, which the portal states (#1136).
   | { code: 'FORBIDDEN' }
+  | { code: 'STORE_LIMIT'; limit: number }
 
 const badRequest = new Set<Refusal['code']>(['INVALID_PHONE', 'INVALID_INPUT', 'INVALID_EMAIL', 'INVALID_SUBDOMAIN', 'COUNTRY_UNAVAILABLE', 'SIGNUP_CLOSED', 'SIGNUP_EXPIRED', 'NAME_REQUIRED', 'WEAK_PASSWORD', 'RESET_INVALID', 'INVITATION_EXPIRED', 'INVITATION_USED', 'INVITATION_REPLACED', 'INVITATION_INVALID', 'EMAIL_CHANGE_INVALID'])
 
-export const refuse = (refusal: Refusal): Response => (refusal.code === 'FORBIDDEN' ? json(403, { ok: false, ...refusal }) : refusalResponse<Refusal>(refusal, badRequest))
+const ownStatus: Partial<Record<Refusal['code'], number>> = { FORBIDDEN: 403, STORE_LIMIT: 403 }
+
+export const refuse = (refusal: Refusal): Response => {
+  const status = ownStatus[refusal.code]
+  return status ? json(status, { ok: false, ...refusal }) : refusalResponse<Refusal>(refusal, badRequest)
+}
