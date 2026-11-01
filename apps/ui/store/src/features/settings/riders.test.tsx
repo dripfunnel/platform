@@ -175,6 +175,7 @@ describe('invite', () => {
     await start()
     const mobile = dialog().getByLabelText(w.mobile) as HTMLInputElement
     expect(mobile.value).toBe('')
+    expect(mobile.getAttribute('aria-invalid')).toBeNull()
     fireEvent.change(dialog().getByLabelText(messages.phone.countryCode), { target: { value: 'IN' } })
     fireEvent.change(mobile, { target: { value: '98765 43210' } })
     confirm(w.send)

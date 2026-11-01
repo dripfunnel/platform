@@ -273,7 +273,7 @@ export const RidersTab = ({ first, canEdit, onChanged }: RidersTabProps) => {
           {shown.askMobile && (
             <div className="df-field">
               <label htmlFor={mobileId}>{words.mobile}</label>
-              <PhoneInput id={mobileId} value={phone} onValue={setPhone} placeholder={words.mobilePlaceholder} invalid={!isMobile(phone)} />
+              <PhoneInput id={mobileId} value={phone} onValue={setPhone} placeholder={words.mobilePlaceholder} invalid={phone !== '' && !isMobile(phone)} />
             </div>
           )}
         </ConfirmDialog>
