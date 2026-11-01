@@ -93,4 +93,16 @@ describe('Image after a fresh answer', () => {
     rerender(<Provided mode="live"><Image image={other} alt="" ratio={1} /></Provided>)
     expect(shown(container)).toContain('/shop-api/assets/9a8b7c6d-')
   })
+
+  it('takes at once any other address, even one ending in the same name', () => {
+    const steps = ['https://a.example/img/hero.jpg', 'https://b.example/other/hero.jpg', 'https://b.example/other/hero.jpg?v=2', `https://a.example/x/${copy.slice(-36)}`]
+    const photos = steps.map(at).filter((p) => p !== null)
+    const [first] = photos
+    if (!first || photos.length !== steps.length) throw new Error('no photo')
+    const { container, rerender } = render(<Provided mode="preview"><Image image={first} alt="" ratio={1} /></Provided>)
+    for (const [n, photo] of photos.entries()) {
+      rerender(<Provided mode="preview"><Image image={photo} alt="" ratio={1} /></Provided>)
+      expect(shown(container)).toBe(steps[n])
+    }
+  })
 })

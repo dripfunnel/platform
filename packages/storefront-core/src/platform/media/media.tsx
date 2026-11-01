@@ -21,13 +21,15 @@ export const frameAddress = (address: string, base: string | null): string => {
   }
 }
 
-// The file an address names, the same in the Shop API's `/shop-api/assets/{id}` and a built page's copy of it (LIVE-SHOP §5 step 7).
-const fileOf = (address: string) => address.slice(address.lastIndexOf('/') + 1)
+// The catalogue file the Shop API's `/shop-api/assets/{id}` and a built page's copy of it name (LIVE-SHOP §5 step 7).
+const catalogueFile = /(?:\/shop-api\/assets|\/media)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/
+const fileOf = (address: string): string | null => catalogueFile.exec(address)?.[1] ?? null
 
-/** The first address given for a file: a built page keeps its copy when the Shop API's fresh answer names the same file. */
+/** The first address given for a catalogue file: a built page keeps its copy when the Shop API's fresh answer names it too. */
 const useSteadyAddress = (address: string): string => {
   const [kept, keep] = useState(address)
-  const same = fileOf(kept) === fileOf(address)
+  const file = fileOf(address)
+  const same = kept === address || (file !== null && fileOf(kept) === file)
   if (!same) keep(address)
   return same ? kept : address
 }
