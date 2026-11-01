@@ -48,7 +48,7 @@ import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'
 import { maxRepairs } from '#saas/studio/index'
-import { attachCatalogue, recordCatalogueBase, recordCatalogueProducts, type CatalogueRecorder } from './catalogue'
+import { attachCatalogue, pruneCatalogue, recordCatalogueBase, recordCatalogueProducts, type CatalogueRecorder } from './catalogue'
 import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
 import { buildFolder, manifestName, publishedTheme, stagingFolder } from './layout'
 import type { PushResult, RepoFile } from './push'
@@ -570,6 +570,8 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
     const verdict = await steps.do('checks', () => checksStep(deps, p.storeId, liveId), 'long')
     if (verdict !== 'passed') return (await steps.do('rollback', () => rollbackStep(deps, p, liveId, verdict))) === 'rolled_back' ? 'rolled_back' : 'stopped'
     if ((await steps.do('confirm', () => confirmStep(deps, p, liveId))) !== 'live') return 'stopped'
+    // Only now that no live page shows them; a copy left behind waits for the next publish to find it again.
+    await steps.do('prune', async () => (await pruneCatalogue(deps, p.storeId, liveId), 'pruned')).catch((error: unknown) => logEvent({ event: 'storefront_prune_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
     // The build is live whatever the push does; one still failing after its retries waits for the next publish's push.
     await steps.do('push', () => pushStep(deps, p, liveId)).catch((error: unknown) => logEvent({ event: 'storefront_push_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
     return 'live'

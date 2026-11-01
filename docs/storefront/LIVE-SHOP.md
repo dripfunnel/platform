@@ -170,11 +170,12 @@ checking, deploying, live, failed, rolled back).
    `stores/{id}/media/{asset id}`, through the Shop API's own lookup so only a file shoppers may see is copied, and the
    answers name the copy on the asset host. A step lists the copies already there once and copies at most 200 new ones;
    a picture past that, or one that can't be copied, keeps its Shop API address until a later publish copies it. Copies
-   are cached for an hour, since nothing purges the asset host. The `snapshot` step deletes the copies shoppers can no
+   are cached for an hour, since nothing purges the asset host. The `snapshot` step notes the copies shoppers can no
    longer see (DATA-MODEL §7.11), unless this build's answers name them (a renamed product): for a page run, those only
    its dropped products showed (a picture the live build's kept answers still show, such as a listing's, stays until a
    full publish); for a full publish whose every question was answered, every copy its answers no longer name. A full
-   publish that missed an answer deletes nothing. A deleted copy stops being served within the hour. A page run (§7) keeps the live build's
+   publish that missed an answer notes none. A `prune` step deletes them only once the build is live (after `confirm`),
+   so a publish that fails leaves the live build's pictures as they were. A deleted copy stops being served within the hour. A page run (§7) keeps the live build's
    answers and records only its own products, so it republishes no other item and uses no allowance for one. The
    live build's files the run fetches for the visual diff leave out its product and collection pages. *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
    it stays as private as the draft it copies.

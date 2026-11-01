@@ -36,7 +36,7 @@ const productsPerStep = 100
 /** Version addresses across all products: core's `maxSnapshotVersionPages`, inside the build's 5,000 files. */
 export const maxCatalogueVersionPages = 2000
 
-/** The copies the `snapshot` step deletes: a page run's that only its dropped products showed, or every one a full run leaves unnamed. */
+/** The copies a build deletes once live: a page run's that only its dropped products showed, or every one a full run leaves unnamed. */
 type Prune = { dropped: string[] } | { unnamed: true }
 type Base = Omit<CatalogueBase, 'failed'> & { host: string; prune?: Prune }
 type ProductPart = Omit<ProductBatch, 'failed'> & { failed?: number }
@@ -66,13 +66,26 @@ const droppedPictures = (live: readonly RecordedAnswer[], dropped: ReadonlySet<s
 }
 
 /**
- * Deletes the copies `prune` names that this build's answers don't, so a renamed product keeps its pictures; a full run
- * that missed an answer deletes nothing, since a picture its live pages still show may be among them.
+ * The copies `prune` names that this build's answers don't, so a renamed product keeps its pictures; a full run that
+ * missed an answer gives none, since a picture its live pages still show may be among them.
  */
-const pruneCopies = async (deps: CatalogueDeps, storeId: string, prune: Prune | undefined, named: ReadonlySet<string>, complete: boolean) => {
-  if (!prune || ('unnamed' in prune && !complete)) return
+const prunable = async (deps: CatalogueDeps, storeId: string, prune: Prune | undefined, named: ReadonlySet<string>, complete: boolean): Promise<string[]> => {
+  if (!prune || ('unnamed' in prune && !complete)) return []
   const candidates = 'dropped' in prune ? prune.dropped : await copiedIds(deps.assets, storeId)
-  await deleteCopies(deps.assets, storeId, [...candidates].filter((id) => !named.has(id)))
+  return [...candidates].filter((id) => !named.has(id))
+}
+
+const pruneFile = (storeId: string, buildId: string) => `${catalogueFolder(storeId, buildId)}prune.json`
+
+/**
+ * Step `prune`, once the build is live: deletes the copies its `snapshot` step found shoppers can no longer see. Until then
+ * the live build's pages still show them, so a publish that fails deletes nothing (DATA-MODEL §7.11).
+ */
+export const pruneCatalogue = async (deps: CatalogueDeps, storeId: string, buildId: string): Promise<void> => {
+  const ids = await read<string[]>(deps, pruneFile(storeId, buildId))
+  if (!ids) return
+  await deleteCopies(deps.assets, storeId, ids)
+  await deps.drafts.delete([pruneFile(storeId, buildId)])
 }
 
 /**
@@ -139,7 +152,8 @@ export const attachCatalogue = async (deps: CatalogueDeps, storeId: string, buil
       products.push({ slug: p.slug, versions: own })
     }
   }
-  await pruneCopies(deps, storeId, base.prune, named, complete)
+  const gone = await prunable(deps, storeId, base.prune, named, complete)
+  if (gone.length > 0) await put(deps, pruneFile(storeId, buildId), encode(gone))
   const catalogue = `{"answers":[${answers.filter((a) => a !== '').join(',')}],"products":${JSON.stringify(products)},"collections":${JSON.stringify(base.collections)}}`
   const text = `${JSON.stringify({ ...snapshot, version: 2 }).slice(0, -1)},"catalogue":${catalogue}}`
   await put(deps, snapshotFile(storeId, buildId), new TextEncoder().encode(text).buffer)
