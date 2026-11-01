@@ -1,4 +1,4 @@
-import { useState, type InputHTMLAttributes } from 'react'
+import { memo, useState, type InputHTMLAttributes } from 'react'
 import { locale, messages } from '../../messages'
 import { browserCountry, countryOptions, joinPhone, splitPhone } from './phone'
 import './phone.css'
@@ -11,6 +11,16 @@ export interface PhoneInputProps extends Omit<InputHTMLAttributes<HTMLInputEleme
   country?: string | undefined
   invalid?: boolean | undefined
 }
+
+/** The chosen code alone fits the closed dropdown; the list names each country for finding it by typing. */
+// Memoised: ~245 options would otherwise re-render on every keystroke in the form around them.
+const CountryOptions = memo(({ chosen }: { chosen: string }) =>
+  countryOptions(locale).map((o) => (
+    <option key={o.country} value={o.country}>
+      {o.country === chosen ? `+${o.dial}` : `${o.name} (+${o.dial})`}
+    </option>
+  )),
+)
 
 /** A mobile number as a country code dropdown and the number; the field around it gives the label and the border. */
 export const PhoneInput = ({ value, onValue, country, invalid, readOnly, disabled, ...input }: PhoneInputProps) => {
@@ -28,12 +38,7 @@ export const PhoneInput = ({ value, onValue, country, invalid, readOnly, disable
         }}
       >
         {split.country ? null : <option value="">+</option>}
-        {/* The chosen code alone fits the closed dropdown; the list names each country for finding it by typing. */}
-        {countryOptions(locale).map((o) => (
-          <option key={o.country} value={o.country}>
-            {o.country === split.country ? `+${o.dial}` : `${o.name} (+${o.dial})`}
-          </option>
-        ))}
+        <CountryOptions chosen={split.country} />
       </select>
       <input
         inputMode="tel"
