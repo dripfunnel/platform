@@ -184,6 +184,9 @@ export type CartAnswer = { cart?: Decoded | null | undefined; cartToken?: string
 
 export type CartStore = ReturnType<typeof createCartStore>
 
+/** This browser holds a cart or a signed-in shopper; without either there is no cart, and a static build has neither. */
+export const mayHaveCart = (): boolean => shopperToken('cart') !== undefined || shopperToken('session') !== undefined
+
 const createCartStore = (client: ShopClient) => {
   let state: Snapshot = { status: 'loading', code: null, cart: null, overlay: [], error: null }
   let started = false
@@ -197,7 +200,7 @@ const createCartStore = (client: ShopClient) => {
 
   const read = async () => {
     // Without a token there is no cart to read: a guest's first add makes one.
-    if (!shopperToken('cart') && !shopperToken('session')) return set({ status: 'ready', code: null, cart: null })
+    if (!mayHaveCart()) return set({ status: 'ready', code: null, cart: null })
     try {
       const { cart } = await client.query(readQuery, z.object({ cart: cartSchema.nullable() }))
       set({ status: 'ready', code: null, cart })
@@ -264,6 +267,13 @@ const createCartStore = (client: ShopClient) => {
       return inTurn(read)
     },
     change,
+    /** Runs `call` in turn and shows the cart it answers with, so it needs no read after it; a refusal is thrown to the caller. */
+    adopt: <T>(call: () => Promise<T>, cartOf: (answer: T) => Decoded | null): Promise<T> =>
+      inTurn(async () => {
+        const answer = await call()
+        set({ status: 'ready', code: null, cart: cartOf(answer) })
+        return answer
+      }),
   }
 }
 

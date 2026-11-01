@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -619,16 +619,18 @@ failed; a live hostname can become expiring or broken if its records change.
    (whose own URL gives it the right `Host`), and keeps the partner's own `Host` on `/api/*`.
    Hosts on our own zone pass through untouched, and `dev-admin`, `dev-platform`, `dev-store`
    and `dev-hooks` answered as before.
-   **How a portal host reaches the API (#426, decided on #422):** the proxy's `API` service
-   binding names the API Worker's `PortalProxy` entrypoint (`store-proxy/wrangler.jsonc`, dev;
-   prod with #428), and sends the request with the partner's own `Host`: no forwarded-host
-   header, no shared secret. `PortalProxy` finds the partner among `partner_domain`'s portal
+   **How a portal host reaches the API (#426, decided on #422; the entrypoint replaced
+   on #1107):** the proxy's `API` service binding calls the API Worker's default
+   `fetch` (`store-proxy/wrangler.jsonc`), so the API's placement next to the database applies
+   (ARCHITECTURE §6), and sends the request with the partner's own `Host`: no forwarded-host
+   header, no shared secret. A host outside our zone on `/api` can only arrive that way, so the
+   Worker reads it as a portal entry (`entryOf`, ARCHITECTURE §2), finds the partner among `partner_domain`'s portal
    rows that have gone live (`live`, `expiring`, `broken`) of a partner not closed, and serves
    only `/api/*`; anything else is 404. **The lookup is cached (#637):** a found partner is kept
    in the data centre's `caches.default` for 60 s under the lower-cased host, a host not found is
    never kept, and nothing purges it: a removed domain or a closed partner resolves for up to 60 s,
-   the edge lookup's limit below. The session and membership checks still run on every request. The Worker's public `fetch` serves the Store API only on
-   our own zone's hosts, so a partner's host sent to it with a forged `Host` is 404
+   the edge lookup's limit below. The session and membership checks still run on every request. The Worker's own routes match only
+   our own zone's hosts, so a forged `Host` on them never reaches the portal entry
    (ARCHITECTURE §2). *Decided here (#426): our own zone is the admin host's parent, so feature
    environments and `*.localhost` work with no new setting; verifying and issuing hosts are not
    yet live, as the card says.*

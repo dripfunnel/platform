@@ -8,7 +8,7 @@ import { allowanceUsed } from '#db/scoped/publishing'
 import { recordGate } from '#db/scoped/builds'
 import { createGitHubApp, GitHubRefused, GitHubUnavailable, noAnswer, storeRepos } from '#integrations/github/index'
 import { localGitHub } from '#integrations/local/github'
-import { attachCatalogue, digestOf, dispatchBuild, freezeBuild, maxCatalogueVersionPages, recordCatalogueBase, recordCatalogueProducts, runPublish, startPublish, type CatalogueRecorder, type PublishDeps } from '#saas/storefronts/index'
+import { attachCatalogue, digestOf, dispatchBuild, freezeBuild, maxCatalogueVersionPages, pruneCatalogue, recordCatalogueBase, recordCatalogueProducts, runPublish, startPublish, type CatalogueRecorder, type PublishDeps } from '#saas/storefronts/index'
 import { draftBundle, snapshotFile, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
 import { testProbe } from './support/edgeProbe'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -169,6 +169,88 @@ describe('a publish’s build', () => {
         collections: [],
       })
       expect(asked.filter((a) => a.startsWith('base'))).toEqual([])
+    })
+
+    // Card #1105: a hidden or deleted product's pictures leave the asset host.
+    describe('picture copies shoppers can no longer see (DATA-MODEL §7.11)', () => {
+      const copy = (id: string) => `stores/${t.storeA1}/media/${id}`
+      const picture = (id: string) => ({ image: { url: `https://sf-assets.my-store.one/${copy(id)}` } })
+      const copies = () => assets.keys(`stores/${t.storeA1}/media/`)
+      beforeEach(() => {
+        for (const key of copies()) assets.objects.delete(key)
+      })
+      /** The run's copies before its build goes live, and after its `prune` step. */
+      const recordThenPrune = async (d: PublishDeps, runId: string) => {
+        await record(d, runId)
+        const recorded = copies()
+        await pruneCatalogue(d, t.storeA1, runId)
+        return { recorded, live: copies() }
+      }
+      /** A live build whose `old` product alone shows `gone` and shares `shared` with a listing, then a page run that drops `old`. */
+      const dropOld = async (n: number, pages: string[], showsOnNewPage: (gone: string) => CatalogueRecorder['products']) => {
+        const [gone, shared, other] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()]
+        for (const id of [gone, shared, other]) await assets.put(copy(id), bundleBytes(id), { sha256: await hexOf(id) })
+        const live = await startRun('1.0.0', n)
+        const liveSnapshot = JSON.stringify({
+          version: 2,
+          catalogue: {
+            answers: [
+              { operation: 'Listing', variables: { first: 24 }, data: { products: { nodes: [{ slug: 'kept', photo: picture(shared) }] } } },
+              { operation: 'Product', variables: { slug: 'old' }, data: { product: { photos: [picture(gone), picture(shared)] } } },
+              { operation: 'Product', variables: { slug: 'kept' }, data: { product: { photos: [picture(other)] } } },
+            ],
+            products: [{ slug: 'old', versions: [] }, { slug: 'kept', versions: [] }],
+            collections: [],
+          },
+        })
+        await drafts.put(snapshotFile(t.storeA1, live), bundleBytes(liveSnapshot), { sha256: await hexOf(liveSnapshot) })
+        await drafts.put(sourceBundle(t.storeA1, live), bundleBytes('live source'), { sha256: await hexOf('live source') })
+        await db.sql`update publish_run set state = 'live', finished_at = now() where id = ${live}`
+        await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA1}`
+        const catalogue = { ...recorder({ answers: [], slugs: [], collections: [] }), products: showsOnNewPage(gone) }
+        const copied = await recordThenPrune({ ...deps(), catalogue }, await startRun('1.0.0', n + 1, 'page', { pages, drop: ['/products/old'] }))
+        // Nothing goes before the build is live: the live build's pages still show the dropped product.
+        expect(copied.recorded).toEqual([copy(gone), copy(shared), copy(other)].sort())
+        return { gone, shared, other, live: copied.live }
+      }
+
+      it('deletes the copies only the hidden product showed, and keeps one another answer still shows', async () => {
+        const { shared, other, live } = await dropOld(18, [], () => async () => ({ answers: [], products: [], failed: 0 }))
+        expect(live).toEqual([copy(shared), copy(other)].sort())
+      })
+
+      it('keeps a renamed product’s pictures, which its new page shows', async () => {
+        const { gone, shared, other, live } = await dropOld(20, ['/products/renamed'], (id) => async (_, slugs) => ({
+          answers: slugs.map((slug) => ({ operation: 'Product', variables: { slug }, data: { product: { photos: [picture(id)] } } })),
+          products: slugs.map((slug) => ({ slug, versions: [] })),
+          failed: 0,
+        }))
+        expect(live).toEqual([copy(gone), copy(shared), copy(other)].sort())
+      })
+
+      it('deletes on a full publish every copy its answers no longer name, and nothing when an answer was missed', async () => {
+        const [shown, hidden] = [crypto.randomUUID(), crypto.randomUUID()]
+        const listing = { operation: 'Listing', variables: { first: 24 }, data: { products: { nodes: [{ photo: picture(shown) }] } } }
+        const full = async (n: number, failed: number) => {
+          for (const id of [shown, hidden]) await assets.put(copy(id), bundleBytes(id), { sha256: await hexOf(id) })
+          const catalogue = recorder({ answers: [listing], slugs: [], collections: [] })
+          const d = { ...deps(), catalogue: { ...catalogue, base: async (host: string) => ({ ...(await catalogue.base(host)), failed }) as Awaited<ReturnType<CatalogueRecorder['base']>> } }
+          return (await recordThenPrune(d, await startRun('1.0.0', n))).live
+        }
+        expect(await full(22, 1)).toEqual([copy(shown), copy(hidden)].sort())
+        expect(await full(23, 0)).toEqual([copy(shown)])
+      })
+
+      it('deletes nothing when the publish fails after its snapshot step, so the live build keeps its pictures', async () => {
+        const [shown, hidden] = [crypto.randomUUID(), crypto.randomUUID()]
+        for (const id of [shown, hidden]) await assets.put(copy(id), bundleBytes(id), { sha256: await hexOf(id) })
+        const listing = { operation: 'Listing', variables: { first: 24 }, data: { products: { nodes: [{ photo: picture(shown) }] } } }
+        const runId = await startRun('1.0.0', 24)
+        // No build ever reports, so the run fails after the snapshot step found `hidden` to delete.
+        expect(await runPublish({ ...deps(), catalogue: recorder({ answers: [listing], slugs: [], collections: [] }) }, { runId, storeId: t.storeA1 }, noReport)).toBe('failed')
+        expect(drafts.keys(`snapshots/${t.storeA1}/${runId}.catalogue/`)).toEqual([`snapshots/${t.storeA1}/${runId}.catalogue/prune.json`])
+        expect(copies()).toEqual([copy(shown), copy(hidden)].sort())
+      })
     })
 
     it('keeps version pages within the build’s budget, in the products’ order', async () => {

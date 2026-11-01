@@ -2,8 +2,9 @@ import type postgres from 'postgres'
 import { graphql } from 'graphql'
 import { resolveShopper } from '#auth/shopCaller'
 import { activityLog } from '#saas/activity/index'
-import type { CatalogueBase, CatalogueRecorder, ProductBatch, RecordedAnswer } from '#saas/storefronts/index'
+import { publishPictures, type CatalogueBase, type CatalogueRecorder, type PictureCopies, type ProductBatch, type RecordedAnswer } from '#saas/storefronts/index'
 import type { ShopContext } from './access'
+import { catalogOf } from './catalog'
 import { shopSchema } from './schema'
 
 // The catalogue snapshot's answers (storefront ARCHITECTURE §4.2): core's catalogue questions asked in-process as a
@@ -43,8 +44,11 @@ type Page = { nodes?: ({ slug?: unknown } & Record<string, unknown>)[] | null; p
 const pageOf = (data: Record<string, unknown> | null, field: string): Page | null => (data?.[field] as Page | null | undefined) ?? null
 const slugsOf = (page: Page | null) => (page?.nodes ?? []).flatMap((n) => (typeof n.slug === 'string' && plainSlug.test(n.slug) ? [n.slug] : []))
 
-/** Asks as a shopper on `host`; null when that host serves no open store. `failed` counts the questions that errored. */
-const askerOn = async (sql: postgres.Sql, host: string, shopDomain: string | null, now: () => Date) => {
+/**
+ * Asks as a shopper on `host`; null when that host serves no open store. `failed` counts the questions that errored, and
+ * `published` gives the answers with their pictures on the asset host, when there is one.
+ */
+const askerOn = async (sql: postgres.Sql, host: string, shopDomain: string | null, now: () => Date, copies: PictureCopies | null) => {
   const resolved = await resolveShopper(sql, new Request(`https://${host}/shop-api`), host, shopDomain)
   if (resolved.kind !== 'found' || !resolved.shopper.available) return null
   // Relative asset addresses, as the snapshot's logo is: the page may be served on any of the store's hosts.
@@ -58,17 +62,25 @@ const askerOn = async (sql: postgres.Sql, host: string, shopDomain: string | nul
     if (data && keep) answers.push({ operation, variables, data })
     return data
   }
-  return { ask, answers, errors }
+  const published = async (recorded: RecordedAnswer[]) => {
+    if (!copies) return recorded
+    const catalog = catalogOf(context)
+    return publishPictures(copies, resolved.shopper.context.storeId, recorded, async (id) => {
+      const row = await catalog.asset(id)
+      return row && !row.rider_photo ? row : null
+    })
+  }
+  return { ask, answers, errors, published }
 }
 
 /** The store's market, which core's product question also reads (products/product.ts `legalNotices`). */
 const storeOn = async (ask: NonNullable<Awaited<ReturnType<typeof askerOn>>>['ask']) => (await ask('Store', {}, false))?.['store'] ?? null
 
 /** Everything but the products' own answers: the menu, the listings, the collections, and the products to record. */
-const recordBase = async (sql: postgres.Sql, host: string, shopDomain: string | null, now: () => Date): Promise<CatalogueBase | null> => {
-  const asker = await askerOn(sql, host, shopDomain, now)
+const recordBase = async (sql: postgres.Sql, host: string, shopDomain: string | null, now: () => Date, copies: PictureCopies | null): Promise<CatalogueBase | null> => {
+  const asker = await askerOn(sql, host, shopDomain, now, copies)
   if (!asker) return null
-  const { ask, answers, errors } = asker
+  const { ask, answers, errors, published } = asker
   await ask('Menu', {})
   const store = await storeOn(ask)
   for (const sort of sorts) await ask('Listing', { sort, first: listingSize })
@@ -99,14 +111,14 @@ const recordBase = async (sql: postgres.Sql, host: string, shopDomain: string | 
     after = page?.pageInfo?.hasNextPage ? (page.pageInfo.endCursor ?? null) : null
     if (!after) break
   }
-  return { answers, collections: kept.map((slug) => ({ slug })), slugs: slugs.slice(0, maxRecordedProducts), store, failed: errors.failed }
+  return { answers: await published(answers), collections: kept.map((slug) => ({ slug })), slugs: slugs.slice(0, maxRecordedProducts), store, failed: errors.failed }
 }
 
 /** Each product's own answer, with the store's market added, and its versions' addresses. */
-const recordProducts = async (sql: postgres.Sql, host: string, shopDomain: string | null, now: () => Date, slugs: readonly string[], store: unknown): Promise<ProductBatch> => {
-  const asker = await askerOn(sql, host, shopDomain, now)
+const recordProducts = async (sql: postgres.Sql, host: string, shopDomain: string | null, now: () => Date, copies: PictureCopies | null, slugs: readonly string[], store: unknown): Promise<ProductBatch> => {
+  const asker = await askerOn(sql, host, shopDomain, now, copies)
   if (!asker) return { answers: [], products: [], failed: 0 }
-  const { ask, answers, errors } = asker
+  const { ask, answers, errors, published } = asker
   const found: ({ slug: string; versions: string[]; answer: RecordedAnswer } | null)[] = []
   // A few at a time over the one connection's pool; each answer goes in at its product's place, so the order holds.
   for (let i = 0; i < slugs.length; i += productBatch) {
@@ -124,15 +136,15 @@ const recordProducts = async (sql: postgres.Sql, host: string, shopDomain: strin
   }
   const kept = found.filter((p) => p !== null)
   answers.push(...kept.map((p) => p.answer))
-  return { answers, products: kept.map(({ slug, versions }) => ({ slug, versions })), failed: errors.failed }
+  return { answers: await published(answers), products: kept.map(({ slug, versions }) => ({ slug, versions })), failed: errors.failed }
 }
 
 /** The publish workflow's recorder (saas/storefronts/catalogue.ts), asking this Shop API as `host`'s shoppers do. */
-export const shopCatalogueRecorder = (sql: postgres.Sql, shopDomain: string | null, now: () => Date): CatalogueRecorder => ({
-  base: (host) => recordBase(sql, host, shopDomain, now),
+export const shopCatalogueRecorder = (sql: postgres.Sql, shopDomain: string | null, now: () => Date, copies: PictureCopies | null = null): CatalogueRecorder => ({
+  base: (host) => recordBase(sql, host, shopDomain, now, copies),
   store: async (host) => {
-    const asker = await askerOn(sql, host, shopDomain, now)
+    const asker = await askerOn(sql, host, shopDomain, now, null)
     return asker ? storeOn(asker.ask) : null
   },
-  products: (host, slugs, store) => recordProducts(sql, host, shopDomain, now, slugs, store),
+  products: (host, slugs, store) => recordProducts(sql, host, shopDomain, now, copies, slugs, store),
 })

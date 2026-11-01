@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { z } from 'zod'
-import { cartFields, cartSchema, useCartState, type Cart, type CartAddress } from '../cart/cart'
+import { cartFields, cartSchema, mayHaveCart, useCartState, type Cart, type CartAddress } from '../cart/cart'
 import { ShopApiError, type ShopClient } from '../platform/api/client'
 import { navigate } from '../platform/browser/router'
 import { useShopData } from '../platform/render/data'
@@ -178,7 +178,8 @@ export const useCheckout = (): CheckoutPage => {
   const { client, mode, locale } = useStorefront()
   const { store: carts, snapshot, cart } = useCartState()
   const { store, state } = useCheckoutState()
-  const options = useShopData(snapshot.status === 'ready' && cart ? 'paymentOptions' : null, (c) => c.query(optionsQuery, optionsSchema))
+  // Asked alongside the cart, not after it: the store's ways to pay don't depend on the cart.
+  const options = useShopData(mayHaveCart() ? 'paymentOptions' : null, (c) => c.query(optionsQuery, optionsSchema))
   const payments = useMemo(() => (options.data?.paymentOptions ?? []).map((o): PaymentChoice => ({ provider: o.provider, kind: o.kind, instructions: o.instructions ?? null, test: o.mode === 'test' })), [options.data])
   const countries = useMemo(() => [...new Set((options.data?.store?.markets ?? []).flatMap((m) => m.countries ?? []))], [options.data])
   const steps = stepsOf(cart, state)
@@ -247,8 +248,7 @@ export const useCheckout = (): CheckoutPage => {
       if (!provider) return false
       store.set({ chosen: provider, busy: true, error: null, problems: [] })
       try {
-        const answer = await client.query(checkoutMutation, z.object({ checkout: cartSchema.nullable() }))
-        await carts.reload()
+        const answer = await carts.adopt(() => client.query(checkoutMutation, z.object({ checkout: cartSchema.nullable() })), (a) => a.checkout)
         store.set({ busy: false, editing: answer.checkout?.readyToPay === false ? store.get().editing : null })
         return true
       } catch (error) {

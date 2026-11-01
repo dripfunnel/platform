@@ -450,3 +450,73 @@ describe('the sole delivery option', () => {
     expect(page.steps.map((s) => s.id)).toContain('delivery')
   })
 })
+
+// Card #1105 (checkout part): checkout asks the Shop API only what it needs.
+describe('the calls checkout makes', () => {
+  const names = (asked: readonly Asked[]) => asked.map((a) => a.query.split(' ')[1])
+
+  it('asks for the ways to pay alongside the cart, not after it', async () => {
+    const cart = later<unknown>()
+    const asked = shop('test', (a) => (a.query.startsWith('query Cart ') ? cart.promise : undefined))
+    mount()
+    await act(async () => undefined)
+    expect(names(asked)).toEqual(expect.arrayContaining(['Cart', 'PaymentOptions']))
+    await act(async () => cart.settle({ data: { cart: ready } }))
+    expect(page.status).toBe('ready')
+    expect(page.payments.length).toBeGreaterThan(0)
+  })
+
+  it('shows the cart Review answers with, and reads it no second time', async () => {
+    const asked = shop('test', (a) => (a.query.includes('checkout {') ? { data: { checkout: { ...ready, email: 'new@example.com' } } } : undefined))
+    mount()
+    await act(async () => undefined)
+    act(() => page.choosePayment('cod'))
+    const before = asked.length
+    await act(async () => void (await page.review()))
+    expect(names(asked.slice(before))).toEqual(['Checkout'])
+    expect(page.cart?.email).toBe('new@example.com')
+  })
+
+  it('reads the cart again after Review is refused', async () => {
+    const asked = shop('test', (a) => (a.query.includes('checkout {') ? { errors: [{ message: 'not ready', extensions: { code: 'NOT_READY' } }] } : undefined))
+    mount()
+    await act(async () => undefined)
+    act(() => page.choosePayment('cod'))
+    const before = asked.length
+    await act(async () => void (await page.review()))
+    expect(names(asked.slice(before))).toEqual(['Checkout', 'Cart'])
+    expect(page.error).toBe('NOT_READY')
+  })
+
+  it('keeps a change made while Review is answered, since Review takes its turn', async () => {
+    const reviewed = later<unknown>()
+    shop('test', (a) => {
+      if (a.query.includes('checkout {')) return reviewed.promise
+      if (a.query.includes('setCartContact')) return { data: { setCartContact: { cart: { ...ready, email: 'later@example.com' } } } }
+      return undefined
+    })
+    mount()
+    await act(async () => undefined)
+    act(() => page.choosePayment('cod'))
+    let review: Promise<boolean> = Promise.resolve(false)
+    let contact: Promise<unknown> = Promise.resolve()
+    act(() => {
+      review = page.review()
+      contact = page.saveContact({ email: 'later@example.com', phone: '' })
+    })
+    await act(async () => reviewed.settle({ data: { checkout: ready } }))
+    await act(async () => void (await Promise.all([review, contact])))
+    expect(page.cart?.email).toBe('later@example.com')
+  })
+})
+
+describe('checkout with no cart in this browser', () => {
+  it('asks neither for a cart nor for the ways to pay', async () => {
+    localStorage.clear()
+    const asked = shop()
+    mount()
+    await act(async () => undefined)
+    expect(asked).toEqual([])
+    expect(page.status).toBe('empty')
+  })
+})
