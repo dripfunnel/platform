@@ -49,7 +49,7 @@ export const TextField = ({ label, value, onValue, readOnly, max, help, problem,
       {multiline ? (
         <textarea rows={3} {...shared} onChange={(e) => onValue(e.target.value)} />
       ) : type === 'tel' ? (
-        <PhoneInput id={id} value={value} onValue={onValue} readOnly={readOnly} invalid={Boolean(problem)} describedBy={shared['aria-describedby']} placeholder={placeholder} autoComplete={autoComplete} />
+        <PhoneInput {...shared} onValue={onValue} invalid={Boolean(problem)} />
       ) : (
         <input type={type} {...shared} onChange={(e) => onValue(e.target.value)} />
       )}

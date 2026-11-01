@@ -50,6 +50,13 @@ describe('a mobile number field', () => {
     expect(seen.at(-1)).toBe('+9719876543210')
   })
 
+  it('passes the input’s own props through, so a disabled field takes no number', () => {
+    render(<Field look="profile" label="Mobile number" type="tel" value="+919876543210" onValue={() => undefined} disabled name="mobile" />)
+    expect(code().disabled).toBe(true)
+    expect(number().disabled).toBe(true)
+    expect(number().name).toBe('mobile')
+  })
+
   it('locks the country code with the number when it is read-only', () => {
     render(<Phone start="+919876543210" seen={[]} readOnly />)
     expect(code().disabled).toBe(true)

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { callingCodes, countryOptions, dialOf, joinPhone, splitPhone } from './phone'
 
@@ -40,5 +41,14 @@ describe('phone', () => {
       const { country, national } = splitPhone(number, 'US')
       expect(joinPhone(country, national)).toBe(number)
     }
+  })
+})
+
+describe('the copy of storefront-core’s table', () => {
+  it('stays the same as core’s, from the calling codes down', () => {
+    const below = (file: URL) => readFileSync(file, 'utf8').replaceAll('\r\n', '\n').split('// ITU-T E.164 calling codes')[1]
+    const core = below(new URL('../../../../../../packages/storefront-core/src/checkout/phone.ts', import.meta.url))
+    expect(core).toBeTruthy()
+    expect(below(new URL('./phone.ts', import.meta.url))).toBe(core)
   })
 })

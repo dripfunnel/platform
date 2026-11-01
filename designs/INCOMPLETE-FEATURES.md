@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-11-02 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things

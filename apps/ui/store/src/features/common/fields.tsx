@@ -38,7 +38,7 @@ export const Field = ({ look, label, value, onValue, aside, help, helpTone, inva
       <span className={`df-${look}-control${variant ? ` df-${look}-control--${variant}` : ''}`} data-invalid={invalid ? 'true' : undefined} data-readonly={input.readOnly ? 'true' : undefined}>
         {prefix && <span className={`df-${look}-affix`}>{prefix}</span>}
         {input.type === 'tel' ? (
-          <PhoneInput id={id} value={value} onValue={onValue} readOnly={input.readOnly} invalid={invalid} describedBy={help ? helpId : undefined} placeholder={input.placeholder} autoComplete={input.autoComplete} />
+          <PhoneInput id={id} value={value} onValue={onValue} invalid={invalid} aria-describedby={help ? helpId : undefined} {...input} />
         ) : (
           <input id={id} value={value} onChange={(event) => onValue(event.target.value)} aria-invalid={invalid || undefined} aria-describedby={help ? helpId : undefined} {...input} />
         )}

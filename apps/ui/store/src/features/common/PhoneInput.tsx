@@ -1,24 +1,19 @@
-import { useState } from 'react'
+import { useState, type InputHTMLAttributes } from 'react'
 import { locale, messages } from '../../messages'
 import { browserCountry, countryOptions, joinPhone, splitPhone } from './phone'
 import './phone.css'
 
-export interface PhoneInputProps {
-  id?: string | undefined
+export interface PhoneInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'prefix'> {
   value: string
-  /** One value, `+` and the calling code first, as the API takes it. */
+  /** E.164 with no spaces, as the API takes it. */
   onValue: (value: string) => void
   /** The country a new number starts in; the browser's by default. */
   country?: string | undefined
-  readOnly?: boolean | undefined
   invalid?: boolean | undefined
-  describedBy?: string | undefined
-  placeholder?: string | undefined
-  autoComplete?: string | undefined
 }
 
 /** A mobile number as a country code dropdown and the number; the field around it gives the label and the border. */
-export const PhoneInput = ({ id, value, onValue, country, readOnly, invalid, describedBy, placeholder, autoComplete = 'tel' }: PhoneInputProps) => {
+export const PhoneInput = ({ value, onValue, country, invalid, readOnly, disabled, ...input }: PhoneInputProps) => {
   const [picked, setPicked] = useState<string | null>(null)
   const split = splitPhone(value, picked ?? country ?? browserCountry())
   return (
@@ -26,7 +21,7 @@ export const PhoneInput = ({ id, value, onValue, country, readOnly, invalid, des
       <select
         aria-label={messages.phone.countryCode}
         value={split.country}
-        disabled={readOnly}
+        disabled={readOnly || disabled}
         onChange={(event) => {
           setPicked(event.target.value)
           onValue(joinPhone(event.target.value, split.national))
@@ -41,16 +36,15 @@ export const PhoneInput = ({ id, value, onValue, country, readOnly, invalid, des
         ))}
       </select>
       <input
-        id={id}
-        type="tel"
         inputMode="tel"
-        autoComplete={autoComplete}
+        autoComplete="tel"
         maxLength={20}
+        {...input}
+        type="tel"
         value={split.national}
-        placeholder={placeholder}
         readOnly={readOnly}
+        disabled={disabled}
         aria-invalid={invalid || undefined}
-        aria-describedby={describedBy}
         onChange={(event) => onValue(joinPhone(split.country, event.target.value))}
       />
     </span>
