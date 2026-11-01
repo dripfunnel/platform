@@ -1,6 +1,7 @@
 import { looksLikeEmail } from '@dripfunnel/shared/format'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { messages } from '../../messages'
+import { PhoneInput } from '../common/PhoneInput'
 
 const words = messages.customers.addForm
 
@@ -11,6 +12,7 @@ export const AddCustomer = ({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (
   const [phone, setPhone] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const first = useRef<HTMLInputElement>(null)
+  const phoneId = useId()
   useEffect(() => first.current?.focus(), [])
   const add = () => {
     if (!name.trim()) return setProblem(words.nameMissing)
@@ -31,10 +33,10 @@ export const AddCustomer = ({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (
           <span>{words.email}</span>
           <input type="email" value={email} placeholder={words.emailPlaceholder} onChange={(event) => setEmail(event.target.value)} />
         </label>
-        <label className="df-form-field">
-          <span>{words.phone}</span>
-          <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} />
-        </label>
+        <div className="df-form-field">
+          <label htmlFor={phoneId}>{words.phone}</label>
+          <PhoneInput id={phoneId} value={phone} onValue={setPhone} />
+        </div>
       </div>
       {problem && (
         <p className="df-form-problem" role="alert">

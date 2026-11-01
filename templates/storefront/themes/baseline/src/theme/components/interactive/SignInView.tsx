@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { Checkbox, Form, Link, SubmitButton, TextField, useSignIn, useStorefront, type FieldProblem, type SignInChannel } from '@dripfunnel/storefront-core/theme'
+import { Checkbox, Form, Link, PhoneField, SubmitButton, TextField, useSignIn, useStorefront, type FieldProblem, type SignInChannel } from '@dripfunnel/storefront-core/theme'
 import shop from '../../styles/shop.module.css'
 import styles from '../../styles/account.module.css'
 
@@ -10,7 +10,7 @@ type Purpose = 'signIn' | 'register' | 'reset'
 
 /** Sign in, create an account or set a new password, as D1's sign-in screens; each ends with a code the Shop API sends. */
 export const SignInView = ({ purpose }: { purpose: Purpose }) => {
-  const { t } = useStorefront()
+  const { store, locale, t } = useStorefront()
   const s = useSignIn()
   const [channel, setChannel] = useState<SignInChannel>('email')
   const [email, setEmail] = useState('')
@@ -120,7 +120,7 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
         >
           {purpose === 'register' ? <TextField label={t('shop.account.name')} autoComplete="name" value={name} onChange={setName} error={problem(errors.name)} className={styles.field} /> : null}
           {byPhone ? (
-            <TextField label={t('shop.checkout.phone')} type="tel" autoComplete="tel" value={phone} onChange={setPhone} hint={t('shop.account.textHint')} error={problem(errors.to)} className={styles.field} />
+            <PhoneField label={t('shop.checkout.phone')} codeLabel={t('shop.checkout.countryCode')} country={store.address?.country ?? ''} locale={locale} value={phone} onChange={setPhone} hint={t('shop.account.textHint')} error={problem(errors.to)} className={styles.field} groupClassName={styles.phone} />
           ) : (
             <TextField label={t('shop.checkout.email')} type="email" autoComplete="email" value={email} onChange={setEmail} error={problem(errors.to)} className={styles.field} />
           )}

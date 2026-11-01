@@ -6,6 +6,7 @@ import { uploadPhoto } from '../../api/productEditor'
 import { loadTranslationProgress, saveCurrencies, saveLanguages, saveStoreInfo, type StoreInfo, type StoreInfoInput, type StoreLocale } from '../../api/settings'
 import { fill, formatCount, formatDay, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
+import { PhoneInput } from '../common/PhoneInput'
 import '../common/switch.css'
 
 const words = messages.settings.store
@@ -168,15 +169,19 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
     <div className={wide ? 'df-set-field df-set-field--wide' : 'df-set-field'}>
       <label htmlFor={`${id}-${key}`}>{label}</label>
       {help && <span className="df-set-help">{help}</span>}
-      <input
-        id={`${id}-${key}`}
-        value={form[key]}
-        readOnly={ro}
-        maxLength={max}
-        aria-invalid={key === 'name' && infoProblem?.field === 'name'}
-        aria-describedby={key === 'name' && infoProblem?.field === 'name' ? `${id}-name-problem` : undefined}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-      />
+      {key === 'contactPhone' ? (
+        <PhoneInput id={`${id}-${key}`} value={form[key]} onValue={(contactPhone) => setForm({ ...form, contactPhone })} country={info.country ?? undefined} readOnly={ro} />
+      ) : (
+        <input
+          id={`${id}-${key}`}
+          value={form[key]}
+          readOnly={ro}
+          maxLength={max}
+          aria-invalid={key === 'name' && infoProblem?.field === 'name'}
+          aria-describedby={key === 'name' && infoProblem?.field === 'name' ? `${id}-name-problem` : undefined}
+          onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        />
+      )}
       {key === 'name' && infoProblem?.field === 'name' && (
         <span id={`${id}-name-problem`} className="df-set-problem">
           {infoProblem.text}

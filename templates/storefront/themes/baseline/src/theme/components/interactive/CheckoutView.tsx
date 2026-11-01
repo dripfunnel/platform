@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { AddressFields, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PhoneField, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
@@ -86,7 +86,7 @@ export const CheckoutView = () => {
             </p>
           ) : null}
           <TextField label={t('shop.checkout.email')} type="email" autoComplete="email" value={email ?? cart.email ?? account.account?.email ?? ''} onChange={setEmail} hint={t('shop.checkout.emailHint')} error={contactErrors.email} className={styles.field} />
-          <TextField label={t('shop.checkout.phone')} type="tel" autoComplete="tel" value={phone ?? cart.phone ?? account.account?.phone ?? ''} onChange={setPhone} note={t('shop.checkout.optional')} hint={t('shop.checkout.phoneHint')} error={contactErrors.phone} className={styles.field} />
+          <PhoneField label={t('shop.checkout.phone')} codeLabel={t('shop.checkout.countryCode')} country={store.address?.country ?? c.countries[0] ?? ''} locale={locale} value={phone ?? cart.phone ?? account.account?.phone ?? ''} onChange={setPhone} note={t('shop.checkout.optional')} hint={t('shop.checkout.phoneHint')} error={contactErrors.phone} className={styles.field} groupClassName={styles.phone} />
           <SubmitButton className={shop.primary} disabled={c.busy}>
             {t('shop.checkout.continue')}
           </SubmitButton>
@@ -97,7 +97,7 @@ export const CheckoutView = () => {
       const draft = address ?? addressDraft(cart.shippingAddress, c.countries[0] ?? '')
       return (
         <Form className={styles.form} onSubmit={() => void c.saveAddress(draft).then(setAddressErrors)}>
-          <AddressFields value={draft} onChange={setAddress} countries={c.countries} errors={addressErrors} t={t} locale={locale} className={styles.fields} fieldClassName={styles.field} />
+          <AddressFields value={draft} onChange={setAddress} countries={c.countries} errors={addressErrors} t={t} locale={locale} className={styles.fields} fieldClassName={styles.field} phoneClassName={styles.phone} />
           <SubmitButton className={shop.primary} disabled={c.busy}>
             {t('shop.checkout.continue')}
           </SubmitButton>

@@ -91,9 +91,9 @@ const codeOf = (error: unknown) => (error instanceof ShopApiError ? error.code :
 
 /** The steps a cart needs, each done, open or still to come; without anything to send, no address or delivery. */
 const stepsOf = (cart: Cart | null, s: State): { id: CheckoutStepId; state: 'done' | 'open' | 'later' }[] => {
-  // A sole delivery option is applied for the shopper (useCheckout), so its step is omitted, even before the apply
-  // lands, unless applying it failed; with several the shopper chooses, and with none the step shows why.
-  const sole = cart !== null && cart.shippingOptions.length === 1 && !s.soleDeliveryFailed
+  // Omitted until an address quotes the options, and for a sole option applied for the shopper unless that failed
+  // (storefront ARCHITECTURE §2.1); with several the shopper chooses, and with none the step shows why.
+  const sole = cart !== null && (cart.shippingAddress === null || (cart.shippingOptions.length === 1 && !s.soleDeliveryFailed))
   const ids: CheckoutStepId[] = cart && !cart.needsShipping ? ['contact', 'payment', 'review'] : sole ? ['contact', 'address', 'payment', 'review'] : ['contact', 'address', 'delivery', 'payment', 'review']
   const done = (id: CheckoutStepId) =>
     cart !== null &&
