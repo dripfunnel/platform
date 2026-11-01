@@ -184,11 +184,6 @@ describe('worker', () => {
     expect(response.status).toBe(403)
   })
 
-  it('answers a partner’s own host nothing on the public fetch, health included (SAAS.md §8)', async () => {
-    expect((await query('https://store.partner.com/api/')).status).toBe(404)
-    expect((await call('https://store.partner.com/api/health')).status).toBe(404)
-  })
-
   it('returns 500 without a payload when required config is missing', async () => {
     const broken = { ...env, PLATFORM_HOST: undefined }
     const response = await worker.fetch(
@@ -287,6 +282,29 @@ describe('the PortalProxy entrypoint', () => {
 
   it('fails rather than answers when the database is down', async () => {
     expect((await viaProxy('https://store.partner.com/api/')).status).toBeGreaterThanOrEqual(500)
+  })
+})
+
+describe('a partner’s host on the default fetch, as store-proxy’s binding sends it', () => {
+  const viaBinding = (href: string, e: Record<string, unknown> = env) =>
+    worker.fetch(
+      new Request(href, { method: 'POST', headers: { 'content-type': 'application/json', origin: new URL(href).origin, 'cf-connecting-ip': '203.0.113.1' }, body: JSON.stringify({ query: '{ health }' }) }) as Parameters<typeof worker.fetch>[0],
+      e as never,
+      ctx,
+    )
+
+  it('answers 404 without a database, health included, as PortalProxy does', async () => {
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    expect((await viaBinding('https://store.partner.com/api/', withoutHyperdrive)).status).toBe(404)
+    expect((await viaBinding('https://store.partner.com/api/health', withoutHyperdrive)).status).toBe(404)
+  })
+
+  it('fails rather than answers when the database is down', async () => {
+    expect((await viaBinding('https://store.partner.com/api/')).status).toBeGreaterThanOrEqual(500)
+  })
+
+  it('answers nothing but /api on a partner’s host', async () => {
+    expect((await viaBinding('https://store.partner.com/')).status).toBe(404)
   })
 })
 
