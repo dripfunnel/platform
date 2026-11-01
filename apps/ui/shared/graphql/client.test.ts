@@ -41,3 +41,31 @@ describe('createApiClient', () => {
     await expect(createApiClient().request('{ health }')).rejects.toMatchObject({ code: 'NOT_CONNECTED' })
   })
 })
+
+describe('requestPartial', () => {
+  it('returns the fields that answered beside each refused field, by its path', async () => {
+    answering(Promise.resolve(new Response(JSON.stringify({ data: { me: { id: 'u1' }, storeState: null }, errors: [{ message: 'no', path: ['storeState'], extensions: { code: 'FORBIDDEN', store: 's1' } }] }))))
+    const { data, errors } = await createApiClient().requestPartial<{ me: { id: string }; storeState: null }>('{ me { id } storeState { readOnly } }')
+    expect(data).toEqual({ me: { id: 'u1' }, storeState: null })
+    expect(errors).toEqual([{ path: ['storeState'], error: new ApiError('FORBIDDEN', 'no', { store: 's1' }) }])
+  })
+
+  it('returns no errors for a full answer', async () => {
+    answering(Promise.resolve(new Response(JSON.stringify({ data: { health: 'ok' } }))))
+    expect(await createApiClient().requestPartial('{ health }')).toEqual({ data: { health: 'ok' }, errors: [] })
+  })
+
+  it('throws as request does when the answer carries no data at all', async () => {
+    answering(Promise.resolve(new Response(JSON.stringify({ data: null, errors: [{ message: 'bad query', extensions: { code: 'GRAPHQL_VALIDATION_FAILED' } }] }))))
+    await expect(createApiClient().requestPartial('{ nope }')).rejects.toMatchObject({ code: 'GRAPHQL_VALIDATION_FAILED' })
+    answering(Promise.resolve(new Response(JSON.stringify({}))))
+    await expect(createApiClient().requestPartial('{ health }')).rejects.toMatchObject({ code: 'EMPTY_RESPONSE' })
+    answering(Promise.reject(new TypeError('Failed to fetch')))
+    await expect(createApiClient().requestPartial('{ health }')).rejects.toMatchObject({ code: 'NOT_CONNECTED' })
+  })
+
+  it('leaves request unchanged: any error in a partial answer still throws there', async () => {
+    answering(Promise.resolve(new Response(JSON.stringify({ data: { me: { id: 'u1' }, storeState: null }, errors: [{ message: 'no', path: ['storeState'], extensions: { code: 'FORBIDDEN' } }] }))))
+    await expect(createApiClient().request('{ me { id } storeState { readOnly } }')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  })
+})
