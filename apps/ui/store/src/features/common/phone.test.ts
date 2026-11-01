@@ -36,6 +36,13 @@ describe('phone', () => {
     expect(joinPhone('IN', '0044 20 7946 0958')).toBe('+442079460958')
   })
 
+  it('drops the national trunk 0, except where the number keeps it after the code', () => {
+    expect(joinPhone('GB', '07946 095800')).toBe('+447946095800')
+    expect(joinPhone('AU', '0412 345 678')).toBe('+61412345678')
+    expect(joinPhone('IN', '098765 43210')).toBe('+919876543210')
+    expect(joinPhone('IT', '06 6982 1234')).toBe('+390669821234')
+  })
+
   it('gives back what it was given, split and joined again', () => {
     for (const number of ['+919876543210', '+18765550100', '+447946095800']) {
       const { country, national } = splitPhone(number, 'US')

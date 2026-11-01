@@ -49,10 +49,14 @@ export const splitPhone = (value: string, preferred: string): { country: string;
   return { country: best.find((c) => c.country === preferred)?.country ?? best[0]?.country ?? '', national: number.slice(1 + longest) }
 }
 
+const keepsLeadingZero = new Set(['IT', 'VA', 'SM'])
+
 /** The number as the API takes it (E.164, no spaces): `+`, the calling code and the rest; empty while nothing is typed. */
 export const joinPhone = (country: string, national: string): string => {
   // A pasted whole number keeps its own code, written with `+` or the international 00.
   const typed = compact(national).replace(/^00/, '+')
   const dial = dialOf(country)
-  return typed === '' || typed.startsWith('+') || !dial ? typed : `+${dial}${typed}`
+  if (typed === '' || typed.startsWith('+') || !dial) return typed
+  // The national trunk 0 (UK 07946…) is dialled at home only; Italy's numbers keep theirs after the code.
+  return `+${dial}${keepsLeadingZero.has(country) ? typed : typed.replace(/^0/, '')}`
 }
