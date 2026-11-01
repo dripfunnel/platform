@@ -485,7 +485,16 @@
       "retry": "Try again"
     },
     "notYou": "Not you?",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "create": {
+      "action": "Create another store",
+      "primary": "Create store",
+      "back": "Back to your stores",
+      "loading": "Loading the store form",
+      "forbidden": "A support session can’t create a store.",
+      "limit": "You already own {limit} stores, the most you can create yourself. To open another, contact support at {support}.",
+      "limitNoContact": "You already own {limit} stores, the most you can create yourself. To open another, contact support."
+    }
   },
   "auth": {
     "logoAlt": "DripFunnel",
