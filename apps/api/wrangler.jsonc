@@ -171,7 +171,7 @@
         { "pattern": "platform.dripfunnel.ai/api/*", "zone_name": "dripfunnel.ai" },
         { "pattern": "hooks.dripfunnel.ai", "custom_domain": true }
       ],
-      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "3f5dde455e2a43e1b61f0aa1c08460a4" }],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "da2b7c996382402b85b82ac9b92be80e" }],
       "r2_buckets": [
         { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-prod" },
         { "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-prod" },

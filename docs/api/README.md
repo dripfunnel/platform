@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-31 (#1071: the dev database on PlanetScale, §7). Before: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-11-01 (#1086: the production database on PlanetScale, §7). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §7). Before: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -299,7 +299,7 @@ own migration file with no other statements. Applied migrations are recorded in 
 ## 7. Local Postgres
 
 This project requires Postgres 18.x; `pnpm migrate` refuses to run against any other major
-(`scripts/migrate/version-check.ts`). This matches the dev database (PlanetScale) and Neon's
+(`scripts/migrate/version-check.ts`). This matches the dev and production databases (PlanetScale) and Neon's
 test branch (`REQUIRED_POSTGRES_MAJOR` — confirmed 2026-09-30, [FEATURE-ENVIRONMENTS.md](../code/FEATURE-ENVIRONMENTS.md)
 §4), so a version-specific issue is caught locally and in CI before it reaches a real
 deploy. If either's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
@@ -378,15 +378,15 @@ This is local only (AGENTS.md "Working with the user" rule 3): nothing in
 `dbpg01.softobotics.org`. The exceptions are the deploy workflows, each of
 which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply migrations to its own
 database: `dev.yml` (the persistent dev database, on PlanetScale), `prod.yml`
-(production's Neon branch) and `feature-env.yml` (the feature environment's Neon branch). The guard
+(the production database, on PlanetScale) and `feature-env.yml` (the feature environment's Neon branch). The guard
 (`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
 by GitHub Actions) so the override can't be tripped by an env var left in a
 shell profile or `.env` on a developer machine, and requires the connection
 string's host to exactly match `ALLOWED_MIGRATION_HOST`, so a misconfigured
-`DATABASE_URL` can't silently migrate a different Neon project (production
+`DATABASE_URL` can't silently migrate a different database (production
 included). In `dev.yml` and `prod.yml` that is the `ALLOWED_MIGRATION_HOST`
 variable of the job's GitHub environment (`dev` or `prod`), set to that
-branch's literal Neon hostname. In `feature-env.yml` it is the host the run's
+database's literal hostname. In `feature-env.yml` it is the host the run's
 own *Database branch* step just created (`steps.neon.outputs.host`), since a
 feature branch's host is new per branch and no fixed variable could name it
 ([FEATURE-ENVIRONMENTS.md §3](../code/FEATURE-ENVIRONMENTS.md)).
