@@ -34,6 +34,17 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.8.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only adds; no theme has to change.',
+      '`PhoneField` takes a mobile number as a country code dropdown and the number, saved as E.164 with no spaces (#1147); `AddressFields` uses it, and a theme may switch its own contact or sign-in phone field from `TextField` to it (`codeLabel`, `country`, `locale`).',
+      "Checkout shows the delivery step only once the cart has a delivery address (#1145), and a listing keeps its filter panel while a new filter or sort loads (#1134).",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.7.0',
     kind: 'minor',
     security: false,
