@@ -21,7 +21,7 @@ controls reach the states. `designs/DF Store Pricing.dc.html` says what each pla
 which is what the portal's plan gates and upgrade prompts follow. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
+Last updated: 2026-11-01 (#1112: `/support/enter`, §6). Before: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
 
 | Document | Covers |
 |---|---|
@@ -207,7 +207,9 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
 - **Support session banner**: while a **partner** support session is open, every person
   signed in to that store sees "[Partner] support (name) is viewing your store. Read-only.
   Ends in 28 min." (USERS-AND-DOMAINS.md §4.1). DripFunnel staff never open one; when a staff
-  member is impersonating, the banner says "Support (name) is signed in as …" (§4.2).
+  member is impersonating, the banner says "Support (name) is signed in as …" (§4.2). The agent
+  arrives through `/support/enter` (built on #1112, ACCESS.md §8.3), which exchanges the console's
+  one-time link; the shell gives a support session no store list, since `myStores` is refused to it.
 - **Regional by default**: every screen that differs by region is designed for a US, an EU
   and an Indian store; tax words, units and formats come from the store's settings.
 - **Phone first**: every screen works at 360 px, with camera upload for photos.

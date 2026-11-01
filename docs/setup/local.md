@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-11-01 (#1086: dev and production run Postgres 18 on PlanetScale, §2 step 3). Before: 2026-10-26 (#840: `PUSH_LOCAL` among the stand-ins, §6.1). Before: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-11-01 (#1112: the store portal's `VITE_PLATFORM_URL`, §4). Before: 2026-11-01 (#1086: dev and production run Postgres 18 on PlanetScale, §2 step 3). Before: 2026-10-26 (#840: `PUSH_LOCAL` among the stand-ins, §6.1). Before: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -110,8 +110,8 @@ can use your own role and database names, as long as you put them in `.env.local
 3. A value already set in your shell wins over the file. Nothing needs exporting: every script
    reads `.env.local` itself.
 
-The three consoles need no `.env.local` under `pnpm dev`. Their two build flags
-(`VITE_STATE_HARNESS`, `VITE_ADMIN_URL`) only matter for built bundles.
+The three consoles need no `.env.local` under `pnpm dev`. Their build flags
+(`VITE_STATE_HARNESS`, `VITE_ADMIN_URL`, and the store portal's `VITE_PLATFORM_URL`) only matter for built bundles.
 
 ---
 

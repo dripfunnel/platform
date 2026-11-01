@@ -51,9 +51,13 @@ export const loadShell = async (search: ShellSearch, here: string): Promise<Shel
     return redirect({ to: '/stores', search: { next: here } })
   }
   // The store's reads refused FORBIDDEN: it is no longer held. A refused badge count only draws no badge.
-  const failed = [refused('storeState'), refused('myStores')].filter((e): e is ApiError => e !== undefined)
+  // A support session holds no store list of its own (ACCESS §8.3, #1112): its one store is the acting one.
+  const storesRefused = refused('myStores')
+  const support = isApiError(storesRefused, 'BLOCKED_FOR_SUPPORT')
+  const failed = [refused('storeState'), support ? undefined : storesRefused].filter((e): e is ApiError => e !== undefined)
   if (failed.some((e) => isApiError(e, 'FORBIDDEN'))) throw forget()
   if (failed[0]) throw failed[0]
+  if (support) return { me, acting: me.acting, seat, stores: [], state: data.storeState, badges: badgesOf(data.navBadges) }
   if (!data.myStores) throw new ApiError('EMPTY_RESPONSE', 'The API returned no stores.')
   try {
     const stores = await storesFrom(data.myStores)
