@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -114,7 +114,8 @@ the missing backend.
 - **Product video:** gated by plan, but there is no upload in the editor.
 - **Translation:** only into French, even when Settings adds another language.
 - **Barcode:** the import template has a barcode column, the editor has none.
-- **Per-version values:** a version has no compare price, cost or weight of its own.
+- **Per-version values:** a version has no weight of its own. ~~Compare price and cost~~: built
+  in the portal on #1117 (each version's "More" and "Set values for all…"), not drawn here.
 - **AI and lookup helpers are placeholders:**
   - "Write it for me" returns canned text.
   - "Suggest a translation" uses a small word list.

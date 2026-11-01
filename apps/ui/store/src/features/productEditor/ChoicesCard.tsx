@@ -1,10 +1,11 @@
-import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { minorOf } from '@dripfunnel/shared/format'
-import { useId, useState } from 'react'
+import { Fragment, useId, useRef, useState } from 'react'
 import { fill, formatCount, messages, plural } from '../../messages'
 import type { StockLevel, Warehouse } from '../../api/stock'
+import { AssetImage } from '../common/AssetImage'
 import { combinationsOf, maxOptions, maxVersions, newVersionCount, quantityOf, syncVersions, versionKey, type Draft, type DraftOption, type DraftProblem, type DraftVersion } from '../common/productDraft'
-import { Card, type Update } from './EditorCards'
+import { Card, exampleOf, PriceField, priceProblemOf, Profit, type PriceKey, type Update } from './EditorCards'
 import { reservedLine, StockHistory, type StockHistoryView } from './StockCard'
 
 /** The versions' stock at the default location, for a physical product (null otherwise). */
@@ -120,12 +121,60 @@ const OptionRow = ({ draft, index, update, disabled, ask, onToast }: { draft: Dr
   )
 }
 
-/** The versions table: price, code and whether each shows; "We don't make this" leaves a combination out. */
-const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock, manual }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; stock: VersionStock | null; manual: readonly string[] }) => {
+/** A version's own photo, set one version at a time (#1117). */
+export interface VersionPhotos {
+  uploading: ReadonlySet<string>
+  onFile: (choices: string[], file: File) => void
+}
+
+type BulkValues = Record<PriceKey, string>
+
+const noBulk: BulkValues = { price: '', compareAt: '', cost: '' }
+const bulkKeys: PriceKey[] = ['price', 'compareAt', 'cost']
+
+/** "Set values for all…": each value filled in goes on every version made; one left empty keeps each version's own. */
+const BulkDialog = ({ count, currency, onApply, onCancel }: { count: number; currency: string; onApply: (values: BulkValues) => void; onCancel: () => void }) => {
+  const id = useId()
+  const [values, setValues] = useState(noBulk)
+  const typed = (key: PriceKey) => values[key].trim() !== ''
+  const problemOf = (key: PriceKey) => {
+    if (!typed(key)) return null
+    const amount = minorOf(values[key], currency)
+    if (key === 'price' && amount !== 'invalid' && amount !== null && amount <= 0) return words.price.missing
+    return amount === 'invalid' ? fill(words.price.invalid, { example: exampleOf(currency) }) : null
+  }
+  const blocked = !bulkKeys.some(typed) ? words.versions.setNone : bulkKeys.some((k) => problemOf(k) !== null) ? words.versions.setFix : null
+  return (
+    <ConfirmDialog
+      open
+      title={words.versions.setPriceTitle}
+      target={fill(words.versions.title, { count: formatCount(count) })}
+      consequence={words.versions.setPriceTitle}
+      confirmLabel={messages.editor.apply}
+      cancelLabel={messages.editor.cancel}
+      blocked={blocked}
+      onCancel={onCancel}
+      onConfirm={() => onApply(values)}
+    >
+      <p className="df-field-hint">{words.versions.setKeeps}</p>
+      {bulkKeys.map((key) => (
+        <PriceField key={key} id={`${id}-${key}`} field={key} value={values[key]} currency={currency} problem={problemOf(key)} readOnly={false} onChange={(value) => setValues((v) => ({ ...v, [key]: value }))} />
+      ))}
+    </ConfirmDialog>
+  )
+}
+
+/** The versions table: photo, price, code and whether each shows, with compare-at price and cost under "More"; "We don't make this" leaves a combination out. */
+const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock, manual, photos }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; stock: VersionStock | null; manual: readonly string[]; photos: VersionPhotos }) => {
   const where = stock?.warehouse ?? null
   const typedAt = (v: DraftVersion) => (where ? (draft.stock[versionKey(v.choices)]?.[where.id] ?? '') : '')
   const setStockOf = (v: DraftVersion, text: string) => where && update((d) => ({ ...d, stock: { ...d.stock, [versionKey(v.choices)]: { ...d.stock[versionKey(v.choices)], [where.id]: text } } }))
+  const id = useId()
   const [search, setSearch] = useState('')
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set())
+  const [bulk, setBulk] = useState(false)
+  const picker = useRef<HTMLInputElement>(null)
+  const picking = useRef<string[] | null>(null)
   const live = draft.versions.filter((v) => !v.removed)
   const q = search.trim().toLowerCase()
   const shown = draft.versions.map((v, i) => ({ v, i })).filter(({ v }) => !q || v.choices.join(' ').toLowerCase().includes(q))
@@ -145,25 +194,55 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
       onConfirm: (_, __, picks) => set(index, picks['how'] === 'remove' ? { removed: true } : { visible: false }),
     })
   }
-  const setAll = () =>
+  const setAll = (values: BulkValues) => {
+    setBulk(false)
+    const filled: Partial<BulkValues> = {}
+    for (const key of bulkKeys) if (values[key].trim() !== '') filled[key] = values[key].trim()
+    update((d) => ({ ...d, versions: d.versions.map((v) => (v.removed ? v : { ...v, ...filled })) }))
+  }
+  const photoOf = (v: DraftVersion) => draft.photos.find((p) => p.versionChoices !== null && versionKey(p.versionChoices) === versionKey(v.choices)) ?? null
+  const openPicker = (v: DraftVersion) => {
+    picking.current = v.choices
+    picker.current?.click()
+  }
+  const pickPhoto = (v: DraftVersion) => {
+    if (!photoOf(v)) return openPicker(v)
+    const name = v.choices.join(' / ')
     ask({
-      title: words.versions.setPriceTitle,
-      target: fill(words.versions.title, { count: formatCount(live.length) }),
-      consequence: words.versions.setPriceTitle,
+      title: name,
+      target: name,
+      consequence: words.versions.photoBody,
       confirmLabel: messages.editor.apply,
-      input: { label: words.versions.setPriceLabel, type: 'text', initial: '', placeholder: '0.00', error: (value) => (typeof minorOf(value, currency) === 'number' && (minorOf(value, currency) as number) > 0 ? null : words.price.missing) },
-      onConfirm: (_, value) => update((d) => ({ ...d, versions: d.versions.map((v) => (v.removed ? v : { ...v, price: value ?? v.price })) })),
+      choices: [{ key: 'photo', label: words.versions.photo, options: [{ value: 'upload', label: words.versions.photoUpload }, { value: 'main', label: words.versions.photoMain }], initial: 'upload', error: () => null }],
+      onConfirm: (_, __, picks) => (picks['photo'] === 'main' ? update((d) => ({ ...d, photos: d.photos.filter((p) => p.versionChoices === null || versionKey(p.versionChoices) !== versionKey(v.choices)) })) : openPicker(v)),
     })
+  }
+  const toggleMore = (key: string) => setOpened((s) => (s.has(key) ? new Set([...s].filter((k) => k !== key)) : new Set([...s, key])))
+  const columns = 6 + manual.length + (where ? 1 : 0)
   return (
     <div className="df-editor-versions">
       <div className="df-editor-versions-head">
         <h3>{fill(words.versions.title, { count: formatCount(live.length) })}</h3>
         {!disabled && (
-          <button type="button" className="df-editor-link" onClick={setAll}>
+          <button type="button" className="df-editor-link" onClick={() => setBulk(true)}>
             {words.versions.setPrice}
           </button>
         )}
       </div>
+      {bulk && <BulkDialog count={live.length} currency={currency} onApply={setAll} onCancel={() => setBulk(false)} />}
+      <input
+        ref={picker}
+        className="df-visually-hidden"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif,image/heic"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file && picking.current) photos.onFile(picking.current, file)
+          event.target.value = ''
+        }}
+      />
       {stock && where && (
         <div className="df-editor-stock-summary">
           <span>{fill(messages.editor.stock.versionsTotal, { count: formatCount(live.reduce((sum, v) => sum + (Number(typedAt(v)) || 0), 0)) })}</span>
@@ -180,6 +259,7 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
         <table className="df-table df-editor-versions-table">
           <thead>
             <tr>
+              <th>{words.versions.photo}</th>
               <th>{words.versions.version}</th>
               <th>{words.versions.price}</th>
               {manual.map((c) => (
@@ -188,37 +268,70 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
               {where && <th>{messages.editor.stock.title}</th>}
               <th>{words.versions.code}</th>
               <th>{words.versions.onStore}</th>
+              <th>
+                <span className="df-visually-hidden">{words.versions.more}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {shown.map(({ v, i }) => {
               const name = v.choices.join(' / ')
+              const key = versionKey(v.choices)
               const bad = !v.removed && problems.includes('price') && !(typeof minorOf(v.price, currency) === 'number' && (minorOf(v.price, currency) as number) > 0)
+              const compareProblem = v.removed ? null : priceProblemOf(v, 'compareAt', currency, problems)
+              const costProblem = v.removed ? null : priceProblemOf(v, 'cost', currency, problems)
+              const open = opened.has(key) || compareProblem !== null || costProblem !== null
+              const photo = photoOf(v)
+              const uploading = photos.uploading.has(key)
+              const photoLabel = fill(photo ? words.versions.photoChange : words.versions.photoAdd, { name })
               return (
-                <tr key={name || i} className={v.removed ? 'df-editor-version--removed' : undefined}>
-                  <td>{name}</td>
-                  <td>
-                    <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.priceOf, { name })} value={v.price} readOnly={disabled || v.removed} aria-invalid={bad} onChange={(event) => set(i, { price: event.target.value })} />
-                  </td>
-                  {manual.map((c) => (
-                    <td key={c}>
-                      <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.manualOf, { currency: c, name })} value={v.manualPrices[c] ?? ''} readOnly={disabled || v.removed} onChange={(event) => set(i, { manualPrices: { ...v.manualPrices, [c]: event.target.value } })} />
-                    </td>
-                  ))}
-                  {where && (
+                <Fragment key={name || i}>
+                  <tr className={v.removed ? 'df-editor-version--removed' : undefined}>
                     <td>
-                      <input className="df-editor-cell df-editor-cell--narrow" inputMode="numeric" aria-label={fill(messages.editor.stock.stockOf, { name })} value={typedAt(v)} placeholder={messages.editor.stock.countPlaceholder} readOnly={!stock?.canStock || v.removed} aria-invalid={problems.includes('stock') && quantityOf(typedAt(v)) === 'invalid'} onChange={(event) => setStockOf(v, event.target.value)} />
+                      <button type="button" className={photo && !uploading ? 'df-editor-vphoto' : 'df-editor-vphoto df-editor-vphoto--empty'} aria-label={photoLabel} title={photoLabel} disabled={disabled || v.removed || uploading} onClick={() => pickPhoto(v)}>
+                        {uploading ? '…' : photo ? <AssetImage className="df-editor-photo-img" url={photo.url} alt="" placeholder="" /> : '+'}
+                      </button>
                     </td>
+                    <td>{name}</td>
+                    <td>
+                      <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.priceOf, { name })} value={v.price} readOnly={disabled || v.removed} aria-invalid={bad} onChange={(event) => set(i, { price: event.target.value })} />
+                    </td>
+                    {manual.map((c) => (
+                      <td key={c}>
+                        <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.manualOf, { currency: c, name })} value={v.manualPrices[c] ?? ''} readOnly={disabled || v.removed} onChange={(event) => set(i, { manualPrices: { ...v.manualPrices, [c]: event.target.value } })} />
+                      </td>
+                    ))}
+                    {where && (
+                      <td>
+                        <input className="df-editor-cell df-editor-cell--narrow" inputMode="numeric" aria-label={fill(messages.editor.stock.stockOf, { name })} value={typedAt(v)} placeholder={messages.editor.stock.countPlaceholder} readOnly={!stock?.canStock || v.removed} aria-invalid={problems.includes('stock') && quantityOf(typedAt(v)) === 'invalid'} onChange={(event) => setStockOf(v, event.target.value)} />
+                      </td>
+                    )}
+                    <td>
+                      <input className="df-editor-cell" aria-label={fill(words.versions.codeOf, { name })} value={v.sku} maxLength={64} readOnly={disabled || v.removed} onChange={(event) => set(i, { sku: event.target.value })} />
+                    </td>
+                    <td>
+                      <button type="button" className={`df-editor-vis df-editor-vis--${v.removed ? 'removed' : v.visible ? 'visible' : 'hidden'}`} disabled={disabled} aria-label={v.removed || !v.visible ? fill(words.versions.show, { name }) : fill(words.versions.hide, { name })} onClick={() => toggle(i, v)}>
+                        {v.removed ? words.versions.notMade : v.visible ? words.versions.visible : words.versions.hidden}
+                      </button>
+                    </td>
+                    <td>
+                      <button type="button" className="df-editor-link" aria-label={fill(words.versions.moreOf, { name })} aria-expanded={open} aria-controls={open ? `${id}-${i}` : undefined} onClick={() => toggleMore(key)}>
+                        {words.versions.more}
+                      </button>
+                    </td>
+                  </tr>
+                  {open && (
+                    <tr className="df-editor-version-more">
+                      <td colSpan={columns}>
+                        <div id={`${id}-${i}`} role="group" aria-label={fill(words.versions.moreOf, { name })} className="df-editor-version-prices">
+                          <PriceField id={`${id}-${i}-compare`} field="compareAt" value={v.compareAt} currency={currency} problem={compareProblem} readOnly={disabled || v.removed} onChange={(value) => set(i, { compareAt: value })} />
+                          <PriceField id={`${id}-${i}-cost`} field="cost" value={v.cost} currency={currency} problem={costProblem} readOnly={disabled || v.removed} onChange={(value) => set(i, { cost: value })} />
+                          <Profit version={v} currency={currency} />
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                  <td>
-                    <input className="df-editor-cell" aria-label={fill(words.versions.codeOf, { name })} value={v.sku} maxLength={64} readOnly={disabled || v.removed} onChange={(event) => set(i, { sku: event.target.value })} />
-                  </td>
-                  <td>
-                    <button type="button" className={`df-editor-vis df-editor-vis--${v.removed ? 'removed' : v.visible ? 'visible' : 'hidden'}`} disabled={disabled} aria-label={v.removed || !v.visible ? fill(words.versions.show, { name }) : fill(words.versions.hide, { name })} onClick={() => toggle(i, v)}>
-                      {v.removed ? words.versions.notMade : v.visible ? words.versions.visible : words.versions.hidden}
-                    </button>
-                  </td>
-                </tr>
+                </Fragment>
               )
             })}
           </tbody>
@@ -230,7 +343,7 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
 }
 
 /** "Does it come in different sizes, colours or other choices?": up to three kinds, then their versions. */
-export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, onToast, stock, manual = [] }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; onToast: (text: string) => void; stock: VersionStock | null; manual?: readonly string[] }) => {
+export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, onToast, stock, photos, manual = [] }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; onToast: (text: string) => void; stock: VersionStock | null; photos: VersionPhotos; manual?: readonly string[] }) => {
   const addOption = (name: string) => update((d) => ({ ...d, options: [...d.options, { id: null, name: name.trim().slice(0, 60), values: [] }] }))
   if (draft.options.length === 0)
     return (
@@ -301,7 +414,7 @@ export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, 
           </div>
         )
       )}
-      {made && <VersionsTable draft={draft} update={update} disabled={disabled} currency={currency} problems={problems} ask={ask} stock={stock} manual={manual} />}
+      {made && <VersionsTable draft={draft} update={update} disabled={disabled} currency={currency} problems={problems} ask={ask} stock={stock} manual={manual} photos={photos} />}
     </Card>
   )
 }
