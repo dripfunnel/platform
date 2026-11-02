@@ -96,7 +96,8 @@ describe('useCollection', () => {
     shopAnswering(collectionAnswer((a) => (a.variables['collection'] === 'linen' ? page([1], null) : slow.promise)))
     render(<Provided><Collection /></Provided>)
     await screen.findByText(/Shirt 1/)
-    act(() => navigate('/collections/cotton/'))
+    // In place: another page loads whole (location.assign), which tells a listing nothing (#1152).
+    act(() => navigate('/collections/cotton/', { inPlace: true }))
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('loading'))
     expect(screen.getByTestId('facets').textContent).toBe('')
   })
