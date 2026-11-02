@@ -165,7 +165,8 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    domain `sf-assets.my-shop.dev` (R2 › the bucket › Settings › Custom Domains; keep the r2.dev address off), give it a CORS
    rule allowing `GET` from any origin (the storefront's module scripts load cross-origin), add a Cache Rule on the
    `my-shop.dev` zone (Caching › Cache Rules: `(http.host eq "sf-assets.my-shop.dev")`, Eligible for cache, Edge TTL
-   "Use cache-control header if present"; the copies have no file extension, so nothing else caches them, #1169), and add a Worker route
+   "Use cache-control header if present, use default Cloudflare caching behavior if not"; the copies have no file
+   extension, so nothing else caches them, #1169), and add a Worker route
    `sf-assets.my-shop.dev/*` with **no Worker** (Workers Routes › Add route › Worker: None), so the store proxy's `*/*`
    route never runs for it (LIVE-SHOP §5 step 7). They are bound in `apps/api/wrangler.jsonc`'s `env.dev`
    (`STOREFRONT_SITES`, `STOREFRONT_ASSETS`, `STOREFRONT_DRAFTS`) with the four Workflows and the studio's `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Objects as in `env.local` (#730; the deploy
