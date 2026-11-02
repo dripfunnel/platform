@@ -34,6 +34,16 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.8.2',
+    kind: 'patch',
+    security: false,
+    notes: [
+      'No theme has to change.',
+      'The checkout order summary shows each picture as a 320 px resized copy on the live site (#1168), and sign-in counts the shop as email only until its sign-in options answer (#1173).',
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.8.1',
     kind: 'patch',
     security: false,
