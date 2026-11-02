@@ -74,6 +74,7 @@ const problemWords = (units: Units, kind: ProductKind): Record<DraftProblem | Ki
   tooMany: words.refused.TOO_MANY_VERSIONS,
   weight: fill(words.sections.weightInvalid, { example: words.sections.units[units].weightPlaceholder }),
   box: fill(words.sections.boxInvalid, { example: words.sections.units[units].boxPlaceholder }),
+  hsCode: words.sections.hsCodeInvalid,
   stock: words.stock.invalid,
   manual: words.refused.INVALID_PRICE,
   file: words.kinds.download.missing,
@@ -99,7 +100,16 @@ const refusalOf = (error: unknown): string => {
   return known ?? words.refused.other
 }
 
-const kindRefusalOf = (error: unknown): string => {
+const namedFields: Record<string, DraftProblem | undefined> = { hsCode: 'hsCode', weight: 'weight', box: 'box' }
+
+/** The field an INVALID_INPUT refusal names, when the editor has a message for it. */
+const refusedFieldOf = (error: unknown): DraftProblem | null => {
+  if (!isApiError(error, 'INVALID_INPUT')) return null
+  const field = error.details['field']
+  return (typeof field === 'string' && namedFields[field]) || null
+}
+
+const kindRefusalOf =(error: unknown): string => {
   const known: Record<string, string | undefined> = words.kinds.refused
   return (isApiError(error) && known[error.code]) || words.kinds.refused.other
 }
@@ -120,6 +130,9 @@ export const ProductEditor = () => {
   const [draft, setDraft] = useState<Draft>(blankDraft)
   const [saved, setSaved] = useState<Draft>(blankDraft)
   const [showProblems, setShowProblems] = useState(false)
+  // A field the server refused stays marked until the draft changes.
+  const [refused, setRefused] = useState<{ draft: Draft; problems: DraftProblem[] } | null>(null)
+  const page = useRef<HTMLDivElement>(null)
   const [saving, setSaving] = useState(false)
   const [failure, setFailure] = useState<{ text: string; stale: boolean } | null>(null)
   const [pending, setPending] = useState<PendingPhoto[]>([])
@@ -185,6 +198,10 @@ export const ProductEditor = () => {
 
   useEffect(load, [load])
 
+  useEffect(() => {
+    if (refused) page.current?.querySelector('[aria-invalid="true"]')?.scrollIntoView({ block: 'center' })
+  }, [refused])
+
   const dirty = view.kind === 'ready' && isDirty(draft, saved)
   const unsaved = dirty || translationDirty
   useBlocker({ shouldBlockFn: () => unsaved && !leaving.current && !window.confirm(words.leave), enableBeforeUnload: () => unsaved })
@@ -213,7 +230,7 @@ export const ProductEditor = () => {
   const disabled = !access.canEdit || saving
   const problems = problemsOf(draft, currency)
   const kindProblems = access.storeFields ? kindProblemsOf(draft.kind, draft.details) : []
-  const shownProblems = showProblems ? problems : []
+  const shownProblems = [...(showProblems ? problems : []), ...(refused?.draft === draft ? refused.problems : [])]
   const made = draft.options.length > 0 && draft.versions.some((v) => v.choices.length === draft.options.length)
   const status = isNew ? 'new' : product?.approval === 'pending' ? 'pending' : product?.approval === 'sent_back' ? 'sent_back' : draft.visible ? 'visible' : 'hidden'
   const waitsForApproval = access.side === 'supplier' && (access.proposes || view.approvalRequired)
@@ -304,7 +321,9 @@ export const ProductEditor = () => {
       try {
         done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side, view.extras.choices.shown), access.proposes)
       } catch (error) {
-        setFailure({ text: refusalOf(error), stale: isApiError(error, 'STALE_REVISION') })
+        const field = refusedFieldOf(error)
+        if (field) setRefused({ draft, problems: [field] })
+        setFailure({ text: field ? problemWords(draft.units, draft.kind)[field] : refusalOf(error), stale: isApiError(error, 'STALE_REVISION') })
         setSaving(false)
         return
       }
@@ -459,7 +478,7 @@ export const ProductEditor = () => {
   if (access.viewOnly && access.side === 'merchant') banners.push({ tone: 'info', title: words.banner.viewOnly, body: words.banner.viewOnlyBody })
 
   return (
-    <div className="df-editor">
+    <div className="df-editor" ref={page}>
       <div className="df-editor-top">
         <Link className="df-editor-back" to="/products">
           {supplierName ? words.backSupplier : words.back}

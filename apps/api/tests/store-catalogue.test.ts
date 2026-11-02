@@ -258,6 +258,20 @@ describe('the merchant side', () => {
     expect((await create('owner', simple('Coded again', { versions: [{ choices: [], sku: 'UNIQUE-1', prices: [price('100')] }] }))).code).toBe('DUPLICATE_SKU')
   })
 
+  it('names the field of a product it refuses as not valid', async () => {
+    const withVersion = (version: Record<string, unknown>) => simple('Necklace', { versions: [{ choices: [], prices: [price('100')], ...version }] })
+    const refused = async (version: Record<string, unknown>) => {
+      const result = await gql(save, 'owner', { input: withVersion(version) })
+      return { code: result.code, field: result.errors?.[0]?.extensions['field'] }
+    }
+    expect(await refused({ hsCode: '7113' })).toEqual({ code: 'INVALID_INPUT', field: 'hsCode' })
+    expect(await refused({ hsCode: 'ABC-necklace' })).toEqual({ code: 'INVALID_INPUT', field: 'hsCode' })
+    expect(await refused({ weightGrams: -1 })).toEqual({ code: 'INVALID_INPUT', field: 'weight' })
+    expect(await refused({ lengthMm: -1 })).toEqual({ code: 'INVALID_INPUT', field: 'box' })
+    expect((await create('owner', withVersion({ hsCode: '711319' }))).saved).toBeDefined()
+    expect((await create('owner', withVersion({ hsCode: '71131900' }))).saved).toBeDefined()
+  })
+
   it('lets Staff read the catalogue but not write it', async () => {
     expect((await listed('staff')).length).toBeGreaterThan(0)
     expect((await create('staff', simple('Staff product'))).code).toBe('FORBIDDEN')

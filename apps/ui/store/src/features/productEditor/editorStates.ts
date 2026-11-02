@@ -41,7 +41,7 @@ const version = (id: string, choices: string[], amount: string, visible = true) 
   lengthMm: 250,
   widthMm: 200,
   heightMm: 30,
-  hsCode: '6205',
+  hsCode: '620520',
   taxClassId: null,
   trackStock: true, continueSelling: false,
 })

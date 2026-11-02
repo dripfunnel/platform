@@ -212,6 +212,73 @@ describe('the product editor', () => {
     expect(field(words.name.label).value).toBe('Renamed cushion')
   })
 
+  describe('the HS code', () => {
+    const save = async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+      await settle()
+    }
+    const typeCode = async (code: string) => {
+      api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+      await show(owner)
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.ship) }))
+      fireEvent.change(field(words.sections.code), { target: { value: code } })
+      await save()
+    }
+
+    it.each(['7113', 'ABC-necklace'])('says under the field that %s isn’t 6 to 10 digits, and sends nothing', async (code) => {
+      await typeCode(code)
+      expect(api.saveProduct).not.toHaveBeenCalled()
+      expect(screen.getByText(words.sections.hsCodeInvalid)).toBeTruthy()
+      expect(field(words.sections.code).getAttribute('aria-invalid')).toBe('true')
+      expect(screen.queryByText(words.refused.other)).toBeNull()
+    })
+
+    it.each(['711319', '71131900'])('saves %s', async (code) => {
+      await typeCode(code)
+      expect(api.saveProduct).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText(words.sections.hsCodeInvalid)).toBeNull()
+    })
+
+    it('saves with the code left empty', async () => {
+      api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+      await show(owner)
+      fireEvent.change(field(words.name.label), { target: { value: 'Renamed cushion' } })
+      await save()
+      expect(api.saveProduct).toHaveBeenCalledTimes(1)
+    })
+
+    it('suggests a code that is itself valid', () => {
+      expect(words.sections.codePlaceholder).toBe('e.g. 610910')
+    })
+  })
+
+  it('says which field a refused save is about, opens it, and highlights it until it changes', async () => {
+    const scrolled = vi.fn()
+    Element.prototype.scrollIntoView = scrolled
+    api.saveProduct.mockRejectedValue(new ApiError('INVALID_INPUT', 'Something in this product isn’t valid.', { field: 'hsCode' }))
+    await show(owner)
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed cushion' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(within(screen.getByRole('region', { name: words.bar.failed })).getByText(words.sections.hsCodeInvalid)).toBeTruthy()
+    expect(screen.queryByText(words.refused.other)).toBeNull()
+    expect(field(words.sections.code).getAttribute('aria-invalid')).toBe('true')
+    expect(scrolled.mock.contexts[0]).toBe(field(words.sections.code))
+    fireEvent.change(field(words.sections.code), { target: { value: '711319' } })
+    expect(field(words.sections.code).getAttribute('aria-invalid')).not.toBe('true')
+  })
+
+  it('has a message for every refusal a product save can answer, and keeps the catch-all for anything else', () => {
+    const codes = [
+      'NAME_REQUIRED', 'INVALID_INPUT', 'CATEGORY_REFUSED', 'TOO_MANY_OPTIONS', 'TOO_MANY_VERSIONS', 'OPTION_VALUES_REQUIRED', 'DUPLICATE_OPTION', 'DUPLICATE_VALUE',
+      'VERSION_CHOICES', 'DUPLICATE_VERSION', 'VERSION_REQUIRED', 'PRICE_REQUIRED', 'INVALID_PRICE', 'INVALID_BARCODE', 'DUPLICATE_SKU', 'TOO_MANY_PHOTOS', 'INVALID_PHOTO',
+      'INVALID_VIDEO', 'INVALID_FILTER', 'INVALID_LISTING', 'LISTING_REFUSED', 'NOT_FOUND', 'CURRENCY_REQUIRED', 'SUPPLIER_FIELD', 'FILE_REFUSED', 'NOT_SHOWABLE',
+      'STALE_REVISION', 'PLAN_LIMIT', 'READ_ONLY', 'FORBIDDEN',
+    ]
+    const refused: Record<string, string> = words.refused
+    expect(codes.filter((code) => !refused[code])).toEqual([])
+  })
+
   it('adds an uploaded photo, and says why one didn’t upload', async () => {
     api.uploadPhoto.mockResolvedValueOnce({ ok: true, assetId: 'a1' }).mockResolvedValueOnce({ ok: false, code: 'TOO_LARGE' })
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })

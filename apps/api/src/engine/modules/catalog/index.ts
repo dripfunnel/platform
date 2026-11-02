@@ -46,7 +46,7 @@ import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStru
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { approvalAudit } from './approval'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
-import { cleanProduct, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
+import { cleanProduct, invalidVersionField, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput, type VersionField } from './rules'
 import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
@@ -122,7 +122,8 @@ export const catalogAudit = {
 } as const
 
 export type SaveRefusal =
-  | { reason: CatalogRefusal | 'NOT_FOUND' | 'CURRENCY_REQUIRED' | 'SUPPLIER_FIELD' | 'FILE_REFUSED' | 'NOT_SHOWABLE' }
+  | { reason: Exclude<CatalogRefusal, 'INVALID_INPUT'> | 'NOT_FOUND' | 'CURRENCY_REQUIRED' | 'SUPPLIER_FIELD' | 'FILE_REFUSED' | 'NOT_SHOWABLE' }
+  | { reason: 'INVALID_INPUT'; field?: VersionField | undefined }
   | { reason: 'STALE_REVISION'; revision: number }
   | { reason: 'PLAN_LIMIT'; wanted: number }
 
@@ -298,6 +299,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     const currency = await selectPricingCurrency(tx)
     if (!currency) throw new Refused({ reason: 'CURRENCY_REQUIRED' })
     const result = cleanProduct(input, currency)
+    if (result === 'INVALID_INPUT') throw new Refused({ reason: result, field: input.versions.map(invalidVersionField).find((f) => f !== null) ?? undefined })
     if (typeof result === 'string') throw new Refused({ reason: result })
     // Vendor input can't carry visibility (ACCESS §7.2), prices in the store's other currencies (CATALOG O14) or a kind
     // other than a physical item (CATALOG T14):

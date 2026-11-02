@@ -363,7 +363,10 @@ export const newVersionCount = (draft: Draft): number => {
   return combinationsOf(draft.options).filter((c) => !existing.has(keyOf(c))).length
 }
 
-export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'weight' | 'box' | 'stock' | 'manual'
+export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'weight' | 'box' | 'hsCode' | 'stock' | 'manual'
+
+/** The API's rule for a classification code (catalog/rules.ts): 6 to 10 digits, or none. */
+const hsCodeOk = (text: string) => text.trim() === '' || /^\d{6,10}$/.test(text.trim())
 
 /** What stops a save, in the order the form shows it; the API checks it all again. */
 export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
@@ -383,6 +386,7 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   if (combinationsOf(draft.options).length > maxVersions) problems.push('tooMany')
   if (gramsOf(draft.weight, draft.units) === 'invalid') problems.push('weight')
   if (boxOf(draft.box, draft.units) === 'invalid') problems.push('box')
+  if (draft.kind === 'physical' && !hsCodeOk(draft.hsCode)) problems.push('hsCode')
   if (draft.kind === 'physical' && live.some((v) => Object.values(draft.stock[keyOf(v.choices)] ?? {}).some((t) => quantityOf(t) === 'invalid'))) problems.push('stock')
   return problems
 }

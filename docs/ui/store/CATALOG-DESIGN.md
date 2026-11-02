@@ -209,6 +209,8 @@ against them before relying on it, and fix this document where they differ.
    cross-border customs need one; a US store selling domestically does not.
    - Don't block saving a first product on it. Block visibility only in the markets that
      require it, and explain why.
+   - When typed, it is 6 to 10 digits (`610910`). The editor says so under the field before
+     saving, and the engine refuses anything else.
    - Offer search by plain words ("cotton shirt" → 6205.20). The first 6 digits are
      international, and countries add their own digits after them. The code lookup is an engine
      or platform service `(release: decide)`.
