@@ -138,7 +138,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
         return { ok: false, reason: 'CODE_REFUSED' }
       }
       if (!live || live.attempts >= maxSmsCodeAttempts || !live.code_hash) return refused()
-      if (!codeMatches(live.code_hash === (await hashShopperCode(live.id, code.trim())), codeCheck)) {
+      if (!codeMatches(live.code_hash === (await hashShopperCode(live.id, code.trim())), codeCheck, channel === 'email' ? 'email' : 'text')) {
         await countCodeAttempt(tx, live.id)
         return refused()
       }

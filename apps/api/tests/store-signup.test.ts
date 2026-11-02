@@ -142,10 +142,13 @@ describe('signing up', () => {
     expect((await taken('fresh-slug'))['ok']).toBe(true)
   })
 
-  it('accepts any sign-up email code when CODE_CHECK is 0', async () => {
+  it('still checks the sign-up email code when CODE_CHECK is 0, which skips text codes only (#1002)', async () => {
     const start = await post('/api/auth/sign-up', { name: 'Zed', email: 'zed@a.example', password })
-    await emailCode('zed@a.example')
-    const verified = await post('/api/auth/sign-up/verify-email', { code: '000000' }, start.cookies['__Host-portal_signup'] ?? '', off())
+    const code = await emailCode('zed@a.example')
+    const cookie = start.cookies['__Host-portal_signup'] ?? ''
+    const wrong = await post('/api/auth/sign-up/verify-email', { code: code === '000000' ? '111111' : '000000' }, cookie, off())
+    expect(wrong.body).toMatchObject({ ok: false, code: 'WRONG_CODE', triesLeft: 4 })
+    const verified = await post('/api/auth/sign-up/verify-email', { code }, cookie, off())
     expect(verified.body['step']).toBe('store')
   })
   it('makes the account, the store, its Trial and the Owner, then holds the Owner at 2-factor set-up', async () => {

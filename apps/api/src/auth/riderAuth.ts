@@ -115,7 +115,7 @@ export const createRiderAuth = ({ sql, storeId, partnerId, activity, facts, allo
       }
       const live = await selectLiveRiderCode(tx, storeId, phone, now())
       if (!live || live.attempts >= maxSmsCodeAttempts || !live.code_hash) return refused()
-      if (!codeMatches(live.code_hash === (await hashRiderCode(live.id, code.trim())), codeCheck)) {
+      if (!codeMatches(live.code_hash === (await hashRiderCode(live.id, code.trim())), codeCheck, 'text')) {
         await countRiderCodeAttempt(tx, live.id)
         return refused()
       }
