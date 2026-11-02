@@ -112,7 +112,7 @@ export const proveShopper = async (tx: ScopedSql, id: string, channel: 'email' |
   `
 }
 
-/** The store's placed guest orders with any of the account's verified emails or numbers become its account's; how many. */
+/** The store's placed guest orders with any of the account's verified emails or numbers become its account's; how many. A preview's test order isn't a sale. */
 export const linkGuestOrders = async (tx: ScopedSql, storeId: string, customerId: string): Promise<number> => {
   const linked = await tx`
     update "order" o set customer_id = c.id
@@ -120,6 +120,7 @@ export const linkGuestOrders = async (tx: ScopedSql, storeId: string, customerId
     where c.id = ${customerId} and c.store_id = ${storeId}
       and o.store_id = ${storeId} and o.customer_id is null and o.state <> 'cart'
       and ((c.email_verified_at is not null and o.email = c.email) or (c.phone_verified_at is not null and o.phone = c.phone))
+      and not exists (select 1 from payment m where m.order_id = o.id and m.mode = 'test')
   `
   return linked.count
 }

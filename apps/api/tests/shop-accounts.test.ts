@@ -187,6 +187,7 @@ describe('signing in by email', () => {
 
     // Even after a failed assertion, so no later test sees these orders, Ravi's number or Kiran's account.
     afterEach(async () => {
+      await db.sql`delete from payment where order_id in (select id from "order" where number like 'JP-9%')`
       await db.sql`delete from "order" where number like 'JP-9%' or number like 'SU-9%' or (state = 'cart' and email = 'ravi@example.com')`
       await ravisPhone(null, false)
       await db.sql`delete from customer_session where customer_id in (select id from customer where email = 'kiran@example.com')`
@@ -224,6 +225,13 @@ describe('signing in by email', () => {
       await guest(stores.india, 'JP-9004', { phone: '+919845099002' })
       await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')
       expect(await db.sql`select customer_id from "order" where number = 'JP-9004'`).toEqual([{ customer_id: null }])
+    })
+
+    it('links no preview’s test order, which isn’t a sale', async () => {
+      const test = await guest(stores.india, 'JP-9006', { email: 'ravi@example.com' })
+      await db.sql`insert into payment (order_id, store_id, provider, kind, state, amount, currency, mode) values (${test}, ${stores.india}, 'cod', 'cod', 'pending', 99900, 'INR', 'test')`
+      await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')
+      expect(await db.sql`select customer_id from "order" where number = 'JP-9006'`).toEqual([{ customer_id: null }])
     })
   })
 })

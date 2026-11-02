@@ -120,7 +120,7 @@ Rules for the **people** pool:
 - With **both**, one customer may hold an email and a phone; adding the second one verifies
   it. A guest checkout with a phone links to an account with that phone **once the shopper proves
   the number with a code** at sign-in, never by number alone (decided 2026-10-05 on #337). Every sign-in
-  links the store's placed guest orders whose email or number matches one of the account's verified ones,
+  links the store's placed guest orders (never a preview's test order) whose email or number matches one of the account's verified ones,
   however the shopper signed in, and logs `customer.orders_linked`; a linked order then shows under the
   account's orders and no longer opens with its guest token.
 
