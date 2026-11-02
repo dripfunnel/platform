@@ -1,5 +1,5 @@
 import { graphql, type GraphQLSchema } from 'graphql'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
@@ -160,32 +160,6 @@ describe('signing in by email', () => {
     expect((await gql('mutation { signIn(email: "nobody@example.com", password: "wrong-passphrase") { created } }')).code).toBe('SIGN_IN_REFUSED')
   })
 
-  it('links the store’s placed guest orders with the account’s verified email or number at sign-in, and no other store’s or cart', async () => {
-    const guest = (storeId: string, number: string, contact: { email?: string; phone?: string }) =>
-      db.sql`insert into "order" (store_id, state, currency, number, placed_at, subtotal_amount, shipping_amount, tax_amount, total_amount, tax_inclusive, email, phone)
-        values (${storeId}, 'placed', 'INR', ${number}, now(), 99900, 0, 0, 99900, true, ${contact.email ?? null}, ${contact.phone ?? null})`
-    await db.sql`update customer set phone = '+919845099001', phone_verified_at = now() where store_id = ${stores.india} and email = 'ravi@example.com'`
-    await guest(stores.india, 'JP-9001', { email: 'ravi@example.com' })
-    await guest(stores.india, 'JP-9003', { phone: '+919845099001' })
-    await guest(stores.india, 'JP-9002', { email: 'someone@example.com' })
-    await guest(stores.other, 'SU-9001', { email: 'ravi@example.com' })
-    await db.sql`insert into "order" (store_id, currency, email, access_token_hash, cart_expires_at) values (${stores.india}, 'INR', 'ravi@example.com', ${'b'.repeat(64)}, now() + interval '1 day')`
-    const session = ((await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')).data?.['signIn'] as { sessionToken: string }).sessionToken
-    const history = (await gql('{ orderHistory { nodes { number } } }', { session })).data?.['orderHistory'] as { nodes: { number: string }[] }
-    expect(history.nodes.map((o) => o.number).sort()).toEqual(['JP-9001', 'JP-9003'])
-    expect((await db.sql`delete from "order" where email = 'ravi@example.com' and state = 'cart' returning customer_id`).map((o) => o.customer_id)).toEqual([null])
-    await db.sql`update customer set phone = null, phone_verified_at = null where store_id = ${stores.india} and email = 'ravi@example.com'`
-  })
-
-  it('links nothing by a number the account hasn’t verified', async () => {
-    await db.sql`update customer set phone = '+919845099002' where store_id = ${stores.india} and email = 'ravi@example.com'`
-    await db.sql`insert into "order" (store_id, state, currency, number, placed_at, subtotal_amount, shipping_amount, tax_amount, total_amount, tax_inclusive, phone)
-      values (${stores.india}, 'placed', 'INR', 'JP-9004', now(), 99900, 0, 0, 99900, true, '+919845099002')`
-    await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')
-    expect((await db.sql<{ customer_id: string | null }[]>`select customer_id from "order" where number = 'JP-9004'`)[0]?.customer_id).toBeNull()
-    await db.sql`update customer set phone = null where store_id = ${stores.india} and email = 'ravi@example.com'`
-  })
-
   it('refuses a way the store has switched off, which the Owner sets in Settings and a Manager can’t', async () => {
     expect((await merchant('{ customerAccounts { mode customers withEmail withPhone phoneOnly } }', ownerCookie)).data?.['customerAccounts']).toEqual({ mode: 'both', customers: 2, withEmail: 1, withPhone: 1, phoneOnly: 1 })
     expect((await merchant('mutation { saveCustomerAccounts(mode: "mobile") { mode } }', managerCookie)).code).toBe('FORBIDDEN')
@@ -194,6 +168,50 @@ describe('signing in by email', () => {
     expect((await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { created } }')).code).toBe('METHOD_OFF')
     expect((await gql('mutation { requestSignInCode(channel: EMAIL, to: "ravi@example.com") }')).code).toBe('METHOD_OFF')
     await merchant('mutation { saveCustomerAccounts(mode: "both") { mode } }', ownerCookie)
+  })
+
+  describe('guest orders at sign-in', () => {
+    const guest = (storeId: string, number: string, contact: { email?: string; phone?: string }) =>
+      db.sql`insert into "order" (store_id, state, currency, number, placed_at, subtotal_amount, shipping_amount, tax_amount, total_amount, tax_inclusive, email, phone)
+        values (${storeId}, 'placed', 'INR', ${number}, now(), 99900, 0, 0, 99900, true, ${contact.email ?? null}, ${contact.phone ?? null})`
+    const ravisPhone = (phone: string | null, verified: boolean) =>
+      db.sql`update customer set phone = ${phone}, phone_verified_at = ${verified ? new Date() : null} where store_id = ${stores.india} and email = 'ravi@example.com'`
+    const history = async (session: string) =>
+      ((await gql('{ orderHistory { nodes { number } } }', { session })).data?.['orderHistory'] as { nodes: { number: string }[] }).nodes.map((o) => o.number).sort()
+
+    // Even after a failed assertion, so no later test sees these orders, Ravi's number or Kiran's account.
+    afterEach(async () => {
+      await db.sql`delete from "order" where number like 'JP-9%' or number like 'SU-9%' or (state = 'cart' and email = 'ravi@example.com')`
+      await ravisPhone(null, false)
+      await db.sql`delete from customer_session where customer_id in (select id from customer where email = 'kiran@example.com')`
+      await db.sql`delete from customer where email = 'kiran@example.com'`
+    })
+
+    it('links the store’s placed guest orders with the account’s verified email or number at a password sign-in, and no other store’s or cart', async () => {
+      await ravisPhone('+919845099001', true)
+      await guest(stores.india, 'JP-9001', { email: 'ravi@example.com' })
+      await guest(stores.india, 'JP-9003', { phone: '+919845099001' })
+      await guest(stores.india, 'JP-9002', { email: 'someone@example.com' })
+      await guest(stores.other, 'SU-9001', { email: 'ravi@example.com' })
+      await db.sql`insert into "order" (store_id, currency, email, access_token_hash, cart_expires_at) values (${stores.india}, 'INR', 'ravi@example.com', ${'b'.repeat(64)}, now() + interval '1 day')`
+      const session = ((await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')).data?.['signIn'] as { sessionToken: string }).sessionToken
+      expect(await history(session)).toEqual(['JP-9001', 'JP-9003'])
+      expect(await db.sql`select customer_id from "order" where state = 'cart' and email = 'ravi@example.com'`).toEqual([{ customer_id: null }])
+    })
+
+    it('links them at a sign-in by code too, the one that makes the account', async () => {
+      await guest(stores.india, 'JP-9005', { email: 'kiran@example.com' })
+      await gql('mutation { requestSignInCode(channel: EMAIL, to: "kiran@example.com") }')
+      const session = ((await verify('EMAIL', 'kiran@example.com', await emailedCode())).data?.['verifySignInCode'] as { sessionToken: string }).sessionToken
+      expect(await history(session)).toEqual(['JP-9005'])
+    })
+
+    it('links nothing by a number the account hasn’t verified', async () => {
+      await ravisPhone('+919845099002', false)
+      await guest(stores.india, 'JP-9004', { phone: '+919845099002' })
+      await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')
+      expect(await db.sql`select customer_id from "order" where number = 'JP-9004'`).toEqual([{ customer_id: null }])
+    })
   })
 })
 
