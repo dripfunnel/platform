@@ -123,9 +123,9 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
       throw error
     }
   }
-  // A number typed without `+` is the store's own: its trunk 0 dropped, its country's code added (#1040).
+  // A number typed without `+` is the store's own: its trunk 0 dropped, its country's code added (#1040); a leading 00 is `+`.
   const fullNumber = async (tx: ScopedSql, raw: string): Promise<string> => {
-    const typed = raw.trim()
+    const typed = raw.trim().replace(/^00/, '+')
     const dial = typed.startsWith('+') ? null : dialCodeOf((await selectStoreCountry(tx, storeId)) ?? '')
     return dial ? `+${dial}${typed.replace(/^0/, '')}` : typed
   }

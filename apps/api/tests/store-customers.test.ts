@@ -200,6 +200,12 @@ describe('adding and changing a customer', () => {
     expect(await phoneOf('asha2@example.com')).toBe('+919861212314')
     expect((await add('asha3@example.com', '+1 415 555 0100')).data?.['addCustomer']).toBeTruthy()
     expect(await phoneOf('asha3@example.com')).toBe('+14155550100')
+    expect((await add('asha6@example.com', '0091 98612 12319')).data?.['addCustomer']).toBeTruthy()
+    expect(await phoneOf('asha6@example.com')).toBe('+919861212319')
+    // Typed with its code but no +, it is a longer national number: the store's code goes in front.
+    expect((await add('asha7@example.com', '919861212320')).data?.['addCustomer']).toBeTruthy()
+    expect(await phoneOf('asha7@example.com')).toBe('+91919861212320')
+    expect(await add('asha4@example.com', '00')).toMatchObject({ code: 'INVALID_INPUT', field: 'phone' })
     expect(await add('asha4@example.com', '12')).toMatchObject({ code: 'INVALID_INPUT', field: 'phone' })
     expect(await add('asha4@example.com', '9861212313')).toMatchObject({ code: 'NUMBER_TAKEN', field: 'phone' })
     expect(await add('asha4@example.com', '', ' ')).toMatchObject({ code: 'INVALID_INPUT', field: 'name' })

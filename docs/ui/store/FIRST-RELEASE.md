@@ -1324,7 +1324,7 @@ a figure a currency) and `customerGroups` (by name, each with its members; up to
 `addCustomer(name, email, phone)` (no email goes to them; an email already a customer answers that one, `existed`),
 `updateCustomer(id, name, phone, address)` (the default delivery address; a number the shopper proved is theirs,
 `VERIFIED`); on both, a number typed without `+` has its leading `0` dropped and the store's country code (the country chosen at
-sign-up) added, so `9861212313` in an Indian store is kept as `+919861212313`, while a number with `+` is kept as typed; every
+sign-up) added, so `9861212313` in an Indian store is kept as `+919861212313`, while a number with `+`, or with the international `00` for it, is kept as typed (one typed with its code but no `+`, like `919861212313`, is taken as a longer national number and gets the code too); every
 refusal of either names the input at fault in its `field` (`name`, `email`, `phone`, `address` or `country`), which the forms
 show under that field (#1040), `setCustomerTags` (up to 20, 24 characters each), `setCustomerNote` (up to 2,000 characters),
 `recordMarketingStop` (consent `stopped`, recorded by the store; order and delivery emails still go), `setCustomerGroups(id,
