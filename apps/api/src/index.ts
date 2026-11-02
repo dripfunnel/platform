@@ -671,7 +671,7 @@ const buildDepsFor = (config: Config, env: Env): Omit<BuildDeps, 'sql'> | null =
     const instance = await publish.get(buildId).catch((error: unknown) => (render ? render.get(buildId) : Promise.reject(error)))
     await instance.sendEvent({ type: event, payload: null })
   }
-  const common = { audience: `https://${config.HOOKS_HOST}`, org: config.GITHUB_STORE_ORG, sites, wake, now: () => new Date() }
+  const common = { audience: `https://${config.HOOKS_HOST}`, org: config.GITHUB_STORE_ORG, checksOff: config.PUBLISH_CHECKS === 'off', sites, wake, now: () => new Date() }
   if (config.GITHUB_LOCAL === '1') return { ...common, keys: localActionsKeys, r2: localStorefrontR2(), buckets: { sites: 'storefront-sites-local', drafts: 'storefront-drafts-local' } }
   const { R2_STOREFRONT_ACCOUNT_ID: accountId, R2_STOREFRONT_ACCESS_KEY_ID: accessKeyId, R2_STOREFRONT_SECRET_ACCESS_KEY: secretAccessKey, R2_STOREFRONT_API_TOKEN: apiToken } = config
   const { STOREFRONT_SITES_BUCKET: sitesBucket, STOREFRONT_DRAFTS_BUCKET: draftsBucket } = config

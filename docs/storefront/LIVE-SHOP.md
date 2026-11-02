@@ -235,7 +235,7 @@ checking, deploying, live, failed, rolled back).
    - the edge-case catalogue render;
    - a visual diff against the live build's files from step 3.
 
-   Since #806 the API decides the verdict from the check names, whatever `passed` the runner sends: the budgets, no-JS, crawl and visual-diff checks are advisory (a failing one is kept on the build and the version still goes live), unless the publish must keep the look, when the visual diff refuses too. `build.yml` is unchanged.
+   Since #806 the API decides the verdict from the check names, whatever `passed` the runner sends: the budgets, no-JS, crawl and visual-diff checks are advisory (a failing one is kept on the build and the version still goes live), unless the publish must keep the look, when the visual diff refuses too. The Worker variable `PUBLISH_CHECKS=off` turns every refusal off in that environment: the report is kept, the build passes. `build.yml` is unchanged.
 
    The checkout smoke test runs against core's offline Shop API fixture (decided on #483); the real
    checkout is the post-deploy check (step 10). Its test purchase (`smokeTest`, storefront ARCHITECTURE §4.2's

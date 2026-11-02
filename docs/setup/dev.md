@@ -186,6 +186,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    dev.yml's *Studio image* step swaps for the newest `storefront-build:<version>-dev.<n>` tag's digest in dev's Cloudflare registry
    (pushed by release.yml's `sandbox-image-dev` job) before it deploys: commit no digest (#790). The deploy token needs
    *Containers: Edit*. `STUDIO_MAX_RUNNING` (a Worker variable, default 5000) caps studios running at once.
+   `PUBLISH_CHECKS=off` (a Worker variable, default on) stops a failing check from refusing a store build's publish; the report is still kept (LIVE-SHOP §4 step 7). Unset it to restore the walls.
 4. **GitHub**: store builds pull the private `storefront-build` image with the organisation secret `GHCR_PULL_TOKEN`: a *classic*
    personal access token with `read:packages` (fine-grained tokens can't read Packages), repository access *All repositories*,
    created by an org owner (#790). The token belongs to that person's account, so builds fail if they leave the org. The org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,

@@ -38,6 +38,8 @@ export interface BuildDeps {
   /** The audience every build token must name: this environment's hooks host. */
   audience: string
   org: string
+  /** PUBLISH_CHECKS=off: a failing check no longer refuses the publish; the report is still kept. */
+  checksOff?: boolean
   r2: StorefrontR2
   buckets: { sites: string; drafts: string }
   sites: SitesBucket
@@ -197,7 +199,7 @@ const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>
  */
 export const reportBuild = async (deps: BuildDeps, token: string, report: GateReport): Promise<{ passed: boolean; upload: boolean }> => {
   const answer = await withBuild(deps, token, report.build, async (tx, build) => {
-    const passed = report.checks.every((c) => c.passed || !blocks(c.name, keepsLook(build)))
+    const passed = deps.checksOff === true || report.checks.every((c) => c.passed || !blocks(c.name, keepsLook(build)))
     const gate = { passed, checks: report.checks }
     if (build.gate !== null) {
       if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, passed), wake: build.attempt_of ?? build.id }

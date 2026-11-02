@@ -258,6 +258,12 @@ describe('the verdict (#806)', () => {
       expect(await run(id)).toMatchObject({ state: 'checking', gate: { passed: false } })
     }
   })
+  it('lets a failing safety check through when PUBLISH_CHECKS is off, keeping the report', async () => {
+    const id = await newBuild(t.storeA1)
+    const auth = await token(claimsFor(repos.a1, '5901'))
+    expect(await reportBuild({ ...deps, checksOff: true }, auth, sent(id, false, [{ name: 'sealed', passed: false, detail: 'Broken.' }]))).toEqual({ passed: true, upload: true })
+    expect(await run(id)).toMatchObject({ state: 'deploying', gate: { passed: true, checks: [{ name: 'sealed', passed: false }] } })
+  })
   it('refuses a look that changed when the publish must keep it (a core upgrade), and only suggests otherwise', async () => {
     const id = await newBuild(t.storeA1)
     await db.sql`update publish_run set kind = 'upgrade' where id = ${id}`
