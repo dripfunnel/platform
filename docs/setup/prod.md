@@ -277,7 +277,7 @@ version still running (AGENTS.md "Data").
 - [ ] Routes, console hostnames, Access on admin (§3.5)
 - [ ] GitHub environment `prod`, with required reviewers (§3.6)
 - [ ] `main` protected (§3.7)
-- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any code on prod
+- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any text code on prod
 - [ ] SES production access granted
 - [ ] The first super admin can sign in (§7)
 - [ ] Own delivery for the pilot store, every row of §3.9 checked and its walkthrough recorded on #875
