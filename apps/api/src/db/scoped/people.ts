@@ -120,10 +120,10 @@ export const countInvitationsSince = async (tx: ScopedSql, storeId: string, sinc
     `
   )[0]?.n ?? 0
 
-export const selectMember = async (tx: ScopedSql, membershipId: string): Promise<{ id: string; user_id: string; role_key: MerchantRole; label: string } | null> =>
+export const selectMember = async (tx: ScopedSql, membershipId: string): Promise<{ id: string; user_id: string; role_key: MerchantRole; label: string; email: string } | null> =>
   (
-    await tx<{ id: string; user_id: string; role_key: MerchantRole; label: string }[]>`
-      select m.id, m.user_id, m.role_key, coalesce(u.name, u.email) as label from membership m join "user" u on u.id = m.user_id
+    await tx<{ id: string; user_id: string; role_key: MerchantRole; label: string; email: string }[]>`
+      select m.id, m.user_id, m.role_key, coalesce(u.name, u.email) as label, u.email from membership m join "user" u on u.id = m.user_id
       where m.id = ${membershipId} and m.seller_id is null and m.status = 'active' for update of m
     `
   )[0] ?? null

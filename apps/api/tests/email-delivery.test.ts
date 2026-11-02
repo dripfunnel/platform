@@ -164,6 +164,20 @@ describe('email delivery', () => {
     expect(await relay(ses.api, 60_000)).toMatchObject({ delivered: 0 })
   })
 
+  it('tells a member their new role from the partner, naming the store and linking to the portal (#1034)', async () => {
+    const [portal] = await db.sql<{ host: string }[]>`select host from partner_domain where partner_id = ${store.partnerId} and kind = 'portal' and status = 'live' limit 1`
+    await queue('store-role-changed', { storeId: store.id, to: 'moved.person@shop.example', role: 'staff' }, { partnerId: store.partnerId, storeId: store.id })
+    const ses = fakeSes()
+    await relay(ses.api)
+    const [mail] = ses.sent
+    expect(mail?.to).toEqual(['moved.person@shop.example'])
+    expect(mail?.from).not.toMatch(/^"DripFunnel"/)
+    expect(mail?.subject).toContain(store.name)
+    expect(mail?.text).toContain('Staff')
+    expect(mail?.text).toContain(`https://${portal?.host ?? ''}/`)
+    expect(mail?.to).not.toContain(store.ownerEmail)
+  })
+
   it('sends a store invitation in the partner’s voice to its portal host: set a password if new, sign in to join if not', async () => {
     const live = await db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${store.partnerId} and kind = 'portal' and status = 'live'`
     await db.sql`update partner_domain set status = 'verifying' where id = any(${pgArray(live.map((d) => d.id))}::uuid[])`

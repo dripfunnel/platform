@@ -105,6 +105,7 @@ const payloads = {
   'support-write-allowed': z.object({ supportSessionId: id }),
   'webhook-disabled': z.object({ storeId: id, host: z.string().max(253) }),
   'api-keys-creator-gone': z.object({ storeId: id, creatorId: id, keys: z.number().int().positive() }),
+  'store-role-changed': z.object({ storeId: id, to: email, role: z.enum(['owner', 'manager', 'staff']) }),
   'store-cancelled': z.object({ storeId: id, until: z.iso.datetime() }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
@@ -552,9 +553,21 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const w = en.apiKeysCreatorGone
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(creator, p.keys, m.store.name)] } }
     }
+    case 'store-role-changed': {
+      const p = parse(t)
+      const store = await selectStore(tx, p.storeId)
+      if (!store) return { send: false, reason: 'no_recipient' }
+      if (store.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, store.partner_id)
+      const host = await selectLivePortalHost(tx, store.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      if (!host) throw new NoPortalHost()
+      const w = en.storeRoleChanged
+      return { send: true, accountSecurity: false, to: [p.to], voice: look.voice, brand: look.brand, content: { subject: w.subject(store.name), heading: w.heading, paragraphs: [w.body(store.name, w.roles[p.role])], action: { label: w.action, url: `https://${host}/` } } }
+    }
     case 'cart-reminder': {
       const p = parse(t)
-      const r = await selectReminderToSend(tx, p.reminderId)
+      const r =await selectReminderToSend(tx, p.reminderId)
       // Decided otherwise since it was queued, or sent by an earlier delivery: nothing goes twice.
       if (!r || r.state !== 'queued' || r.channel !== 'email') return { send: false, reason: 'link_closed' }
       if (r.partner_id !== row.partnerId || r.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }

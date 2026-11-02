@@ -203,6 +203,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
         }
         await setMemberRole(tx, member.id, role)
         if (member.role_key === 'owner') await tellOwnersOfKeys(tx, member)
+        await queueSideEffect(tx, { kind: 'email', idempotencyKey: `store-role-changed:${member.id}:${member.role_key}:${role}:${now().getTime()}`, payload: { template: 'store-role-changed', storeId, to: member.email, role }, partnerId: caller.person.partnerId, storeId })
         await activity.record(tx, { ...entry(peopleAudit.changeRole, { type: 'membership', id: member.id, label: member.label }, null), changes: [{ field: 'role', before: member.role_key, after: role }] })
         return { ok: true }
       }),
