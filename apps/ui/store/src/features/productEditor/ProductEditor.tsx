@@ -109,7 +109,7 @@ const refusedFieldOf = (error: unknown): DraftProblem | null => {
   return (typeof field === 'string' && namedFields[field]) || null
 }
 
-const kindRefusalOf =(error: unknown): string => {
+const kindRefusalOf = (error: unknown): string => {
   const known: Record<string, string | undefined> = words.kinds.refused
   return (isApiError(error) && known[error.code]) || words.kinds.refused.other
 }
