@@ -178,6 +178,30 @@ describe('email delivery', () => {
     expect(mail?.to).not.toContain(store.ownerEmail)
   })
 
+  it('holds a role-change email until the partner has a live portal host, then sends it (#1034)', async () => {
+    const live = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${store.partnerId} and kind = 'portal' and status = 'live'`
+    await db.sql`update partner_domain set status = 'verifying' where id = any(${pgArray(live.map((d) => d.id))}::uuid[])`
+    await queue('store-role-changed', { storeId: store.id, to: 'waiting.person@shop.example', role: 'manager' }, { partnerId: store.partnerId, storeId: store.id })
+    const outboxRow = async () => (await db.sql<{ attempts: number; delivered_at: Date | null; failed_at: Date | null }[]>`select attempts, delivered_at, failed_at from outbox where payload->>'to' = 'waiting.person@shop.example'`)[0]
+    const ses = fakeSes()
+    for (let i = 1; i <= 3; i += 1) await relay(ses.api, i * 2 * 3_600_000)
+    expect(await outboxRow()).toMatchObject({ attempts: 0, delivered_at: null, failed_at: null })
+    expect(ses.sent).toEqual([])
+    await db.sql`update partner_domain set status = 'live' where id = any(${pgArray(live.map((d) => d.id))}::uuid[])`
+    await relay(ses.api, 8 * 3_600_000)
+    expect((await outboxRow())?.delivered_at).not.toBeNull()
+    expect(ses.sent[0]?.to).toEqual(['waiting.person@shop.example'])
+  })
+
+  it('sends no role-change email for a store that is not the outbox row’s partner’s (#1034)', async () => {
+    const [other] = await db.sql<{ id: string }[]>`select id from partner where id <> ${store.partnerId} limit 1`
+    if (!other) throw new Error('seed: need two partners')
+    await queue('store-role-changed', { storeId: store.id, to: 'misfiled.person@shop.example', role: 'staff' }, { partnerId: other.id, storeId: store.id })
+    const ses = fakeSes()
+    expect(await relay(ses.api)).toMatchObject({ delivered: 1, retry: 0, dead: 0 })
+    expect(ses.sent).toEqual([])
+  })
+
   it('sends a store invitation in the partner’s voice to its portal host: set a password if new, sign in to join if not', async () => {
     const live = await db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${store.partnerId} and kind = 'portal' and status = 'live'`
     await db.sql`update partner_domain set status = 'verifying' where id = any(${pgArray(live.map((d) => d.id))}::uuid[])`
