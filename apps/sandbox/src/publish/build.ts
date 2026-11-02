@@ -4,7 +4,7 @@ import { themeRoutesSchema, type AnsweredPage } from '@dripfunnel/storefront-cor
 import { checkValidator, edgeCases, gateCheck, gateReport, pageName, validateChange, type CatalogueSnapshot, type GateCheckName, type GateReport, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { bundle, runtimeFolder } from '../gate/bundle'
 import { typecheck } from '../gate/typecheck'
-import { checkedPages, directionOf, edgeRules, fileOf, pageDocument, plan, robots, sitemap, type PlannedPage } from './pages'
+import { checkedPages, directionOf, edgeRules, fileOf, pageDocument, pageLinks, plan, robots, sitemap, type PlannedPage } from './pages'
 import { serverTheme, type ServerTheme } from './render'
 
 // Step `build` (storefront LIVE-SHOP §4 step 6): the validator over the whole theme, then the static build from the
@@ -23,8 +23,9 @@ const write = async (file: string, text: string) => {
 const failed = (problems: string[], name: GateCheckName = 'validator'): BuildOutcome => ({ ok: false, report: gateReport([gateCheck(name, problems)]) })
 
 /** Renders each page; a page whose theme code throws is named, never its error's text (LIVE-SHOP §4 step 5's log). */
-const renderPages = async (server: ServerTheme, pages: readonly PlannedPage[], s: CatalogueSnapshot, into: string, assets: { entry: string; css: string[] }, dir?: 'ltr' | 'rtl'): Promise<string[]> => {
+const renderPages = async (server: ServerTheme, pages: readonly PlannedPage[], s: CatalogueSnapshot, into: string, assets: { entry: string; css: string[] }, edge?: { dir: 'ltr' | 'rtl' }): Promise<string[]> => {
   const thrown: string[] = []
+  const links = edge ? undefined : pageLinks(pages, s.store, s.origin)
   for (const page of pages) {
     const store = { ...s.store, language: page.language }
     const Page = server.page(page.route === 'custom' ? null : page.route, page.custom)
@@ -38,7 +39,7 @@ const renderPages = async (server: ServerTheme, pages: readonly PlannedPage[], s
     }
     // A recorded answer core can't use is the platform's fault, not the theme's: said, never refused.
     if (rendered.unexpected.length > 0) console.warn(`The ${pageName(page)} (${page.path}) couldn't use the snapshot's answer: ${[...new Set(rendered.unexpected)].join(', ')}.`)
-    await write(join(into, fileOf(page.path)), pageDocument(page, s, { body: rendered.html, answers: rendered.answers, assets, dir: dir ?? directionOf(page.language), store }))
+    await write(join(into, fileOf(page.path)), pageDocument(page, s, { body: rendered.html, answers: rendered.answers, assets, dir: edge?.dir ?? directionOf(page.language), store, ...(links ? { links } : {}) }))
   }
   return thrown
 }
@@ -80,14 +81,14 @@ const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
   const pages = plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path), s.catalogue)
   const thrown = await renderPages(server, pages, s, site, assets)
   if (thrown.length > 0) return failed(thrown, 'contracts')
-  await write(join(site, 'sitemap.xml'), sitemap(pages, s.origin))
+  await write(join(site, 'sitemap.xml'), sitemap(pages, s.origin, s))
   await write(join(site, 'robots.txt'), robots(s.origin))
   await write(join(site, '_edge.json'), `${JSON.stringify(edgeRules(pages, s.store))}\n`)
 
   const main = checkedPages(pages.filter((p) => p.language === s.store.mainLanguage))
   for (const [n, edge] of edgeCases(s).entries()) {
     const language = edge.snapshot.store.language
-    const edgeThrown = await renderPages(server, main.map((p) => ({ ...p, language })), edge.snapshot, join(out, edgeFolder(n)), assets, edge.dir)
+    const edgeThrown = await renderPages(server, main.map((p) => ({ ...p, language })), edge.snapshot, join(out, edgeFolder(n)), assets, edge)
     if (edgeThrown.length > 0) return failed(edgeThrown.map((t) => `With ${edge.name}: ${t}`), 'edge-cases')
   }
   return { ok: true, pages: pages.length }

@@ -21,6 +21,41 @@ describe('seoFor', () => {
     expect(seoFor({ store, url: 'u', title: 'Y', preview: false, product: { name: 'Y', price: moneySchema.parse({ amount: '1200', currency: 'JPY' }), available: true } }).jsonLd[0]).toMatchObject({ offers: { price: '1200' } })
   })
 
+  it('shares a page on Twitter and Open Graph with its locale and image alt, and passes on its alternates', () => {
+    const alternates = [{ language: 'zh-Hant-TW', url: 'https://juniper.example/zh-hant-tw/' }]
+    const seo = seoFor({ store, url: 'https://juniper.example/about/', title: 'About', description: 'Us.', image: 'https://media.example/a.jpg', imageAlt: 'The shop', locale: 'zh-Hant-TW', alternates, preview: false })
+    expect(seo.meta).toEqual(
+      expect.arrayContaining([
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'About' },
+        { name: 'twitter:description', content: 'Us.' },
+        { name: 'twitter:image', content: 'https://media.example/a.jpg' },
+        { property: 'og:locale', content: 'zh_Hant_TW' },
+        { property: 'og:image:alt', content: 'The shop' },
+      ]),
+    )
+    expect(seo.alternates).toEqual(alternates)
+    expect(seoFor({ store, url: 'u', title: 'T', imageAlt: 'No image', preview: false }).meta).not.toContainEqual(expect.objectContaining({ property: 'og:image:alt' }))
+  })
+
+  it('adds WebSite search to the home page only when the store has a search page, with its social profiles', () => {
+    const home = seoFor({ store: { ...store, search: 'https://juniper.example/search/', sameAs: ['https://instagram.com/juniper'] }, url: store.url, title: store.name, preview: false })
+    expect(home.jsonLd[0]).toMatchObject({ '@type': 'Organization', sameAs: ['https://instagram.com/juniper'] })
+    expect(home.jsonLd[1]).toMatchObject({ '@type': 'WebSite', potentialAction: { '@type': 'SearchAction', target: { urlTemplate: 'https://juniper.example/search/?q={search_term_string}' } } })
+    expect(seoFor({ store, url: store.url, title: store.name, preview: false }).jsonLd.map((d) => d['@type'])).toEqual(['Organization'])
+  })
+
+  it('gives a product its description and photos, and a collection its breadcrumbs and products in order', () => {
+    const product = seoFor({ store, url: 'https://juniper.example/products/tee/', title: 'Tee', preview: false, product: { name: 'Tee', price: moneySchema.parse({ amount: '2800', currency: 'USD' }), available: true, description: 'Cotton.', images: ['https://media.example/1.jpg', 'https://media.example/2.jpg'] } })
+    expect(product.jsonLd[0]).toMatchObject({ '@type': 'Product', description: 'Cotton.', image: ['https://media.example/1.jpg', 'https://media.example/2.jpg'] })
+    const one = seoFor({ store, url: 'u', title: 'Y', preview: false, product: { name: 'Y', price: moneySchema.parse({ amount: '1200', currency: 'JPY' }), available: true, image: 'https://media.example/y.jpg' } })
+    expect(one.jsonLd[0]).toMatchObject({ image: ['https://media.example/y.jpg'] })
+    const crumbs = [{ name: 'Juniper & Co.', url: store.url }, { name: 'Summer', url: 'https://juniper.example/collections/summer/' }]
+    const collection = seoFor({ store, url: crumbs[1]?.url ?? '', title: 'Summer', preview: false, breadcrumbs: crumbs, items: [{ name: 'Tee', url: 'https://juniper.example/products/tee/' }, { name: 'Shirt', url: 'https://juniper.example/products/shirt/' }] })
+    expect(collection.jsonLd.map((d) => d['@type'])).toEqual(['BreadcrumbList', 'ItemList'])
+    expect(collection.jsonLd[1]).toMatchObject({ itemListElement: [{ position: 1, name: 'Tee' }, { position: 2, name: 'Shirt' }] })
+  })
+
   it('escapes < in structured data', () => {
     expect(jsonLdText({ name: '</script><script>x' })).not.toContain('</script>')
   })
