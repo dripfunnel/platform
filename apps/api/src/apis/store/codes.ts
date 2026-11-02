@@ -34,7 +34,7 @@ export const textCode = async (tx: ScopedSql, partnerId: string, userId: string,
 export const checkTextedCode = async (tx: ScopedSql, userId: string, purpose: 'sign_in' | 'enrol_phone', typed: string, now: Date, mode: CodeCheck): Promise<'ok' | 'wrong' | 'expired'> => {
   const live = await selectLiveCode(tx, userId, purpose, now)
   if (!live || live.attempts >= maxSmsCodeAttempts) return 'expired'
-  if (!codeMatches((await hashSmsCode(live.id, typed)) === live.code_hash, mode)) {
+  if (!codeMatches((await hashSmsCode(live.id, typed)) === live.code_hash, mode, 'text')) {
     await bumpCodeAttempt(tx, live.id)
     return 'wrong'
   }
