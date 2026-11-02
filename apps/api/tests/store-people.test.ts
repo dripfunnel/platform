@@ -247,6 +247,17 @@ describe('telling someone their role changed', () => {
     expect(sent[0]?.key).toContain(row?.id ?? '')
   })
 
+  it('emails every change, including one that repeats an earlier change', async () => {
+    const member = await user(t.partnerA, 'flip.flop@a.example', 'Flo Flop')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${member}, ${t.storeA1}, 'manager', 'active')`
+    const row = (await list('staff')).find((n) => n.email === 'flip.flop@a.example')
+    for (const role of ['staff', 'manager', 'staff', 'manager']) {
+      expect((await gql(`mutation { changeRole(membershipId: "${row?.id}", role: "${role}") }`, 'owner')).data?.['changeRole']).toBe(true)
+    }
+    const sent = (await roleEmails(t.storeA1)).filter((e) => e.to === 'flip.flop@a.example')
+    expect(sent.map((e) => e.role)).toEqual(['staff', 'manager', 'staff', 'manager'])
+  })
+
   it('queues nothing for the same role, a pending invitation, or a refused change', async () => {
     const before = (await roleEmails(t.storeA1)).length
     const row = (await list('staff')).find((n) => n.email === 'role.change@a.example')
