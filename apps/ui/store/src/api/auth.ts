@@ -71,7 +71,7 @@ const enrolStep = z.union([
 
 export type EnrolStep = z.infer<typeof enrolStep>
 
-/** An Owner's set-up at sign-in: by SMS, the number then its code; ten backup codes come back once at the end. */
+/** Set-up for a session held at enrolment (a team that requires 2-factor, #1008): by SMS, the number then its code; ten backup codes come back once at the end. */
 export const enrolBySms = (phone: string) => post('enrol-second-factor', { method: 'sms', phone }, enrolStep)
 export const confirmEnrolBySms = (code: string) => post('enrol-second-factor', { method: 'sms', code }, enrolStep)
 

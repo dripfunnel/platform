@@ -29,7 +29,7 @@ export const verifyCode = async (rest: RestOptions, pendingToken: string, code: 
 export const signInWithBackupCode = async (rest: RestOptions, pendingToken: string, code: string): Promise<{ token: string; left: number }> =>
   decode(backupCodeAnswer, await postJson(rest, '/api/auth/backup-code', { code }, pendingToken))
 
-/** An Owner's set-up by text message: the number first, then the code it was sent, which ends with the backup codes. */
+/** Set-up for a held session by text message (a team that requires 2-factor, #1008): the number first, then the code it was sent, which ends with the backup codes. */
 export const enrolSendCode = async (rest: RestOptions, pendingToken: string, phone: string): Promise<string> =>
   decode(hintAnswer, await postJson(rest, '/api/auth/enrol-second-factor', { method: 'sms', phone }, pendingToken)).hint
 
