@@ -35,7 +35,8 @@ const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
     : resolved
   const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, payments: null, secrets: null, now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
-  return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
+  const refusal = result.errors?.[0]?.extensions
+  return { data: result.data as Record<string, unknown> | null | undefined, code: refusal?.['code'] as string | undefined, field: refusal?.['field'] as string | undefined }
 }
 
 /** A placed order, paid unless it says otherwise, for a customer or a guest. */
@@ -186,6 +187,42 @@ describe('adding and changing a customer', () => {
     expect((await edit(', name: "  "')).code).toBe('INVALID_INPUT')
     // The fields that changed, never their values (LOGGING §4.1).
     expect((await entries('customer.edited'))[0]?.changes).toEqual(['phone', 'address'].map((field) => ({ field, before: null, after: 'changed', redacted: false })))
+  })
+
+  it('adds the store’s country code to a number typed without one, and names the field of every refusal (#1040)', async () => {
+    await db.sql`update store set country = 'IN' where id = ${t.storeA1}`
+    const phoneOf = async (email: string) => (await db.sql<{ phone: string | null }[]>`select phone from customer where store_id = ${t.storeA1} and email = ${email}`)[0]?.phone
+    const add = (email: string, phone: string, name = 'Asha') => gql(`mutation { addCustomer(name: "${name}", email: "${email}", phone: "${phone}") { id } }`, 'staff')
+
+    expect((await add('asha1@example.com', '9861212313')).data?.['addCustomer']).toBeTruthy()
+    expect(await phoneOf('asha1@example.com')).toBe('+919861212313')
+    expect((await add('asha2@example.com', '09861212314')).data?.['addCustomer']).toBeTruthy()
+    expect(await phoneOf('asha2@example.com')).toBe('+919861212314')
+    expect((await add('asha3@example.com', '+1 415 555 0100')).data?.['addCustomer']).toBeTruthy()
+    expect(await phoneOf('asha3@example.com')).toBe('+14155550100')
+    expect(await add('asha4@example.com', '12')).toMatchObject({ code: 'INVALID_INPUT', field: 'phone' })
+    expect(await add('asha4@example.com', '9861212313')).toMatchObject({ code: 'NUMBER_TAKEN', field: 'phone' })
+    expect(await add('asha4@example.com', '', ' ')).toMatchObject({ code: 'INVALID_INPUT', field: 'name' })
+    expect(await add('not an email', '')).toMatchObject({ code: 'INVALID_INPUT', field: 'email' })
+
+    const id = await customerId('asha1@example.com')
+    const edit = (args: string) => gql(`mutation { updateCustomer(id: "${id}"${args}) }`, 'manager')
+    expect((await edit(', phone: "9861212315"')).data?.['updateCustomer']).toBe(true)
+    expect(await phoneOf('asha1@example.com')).toBe('+919861212315')
+    expect((await edit(', phone: "09861212316"')).data?.['updateCustomer']).toBe(true)
+    expect(await phoneOf('asha1@example.com')).toBe('+919861212316')
+    expect((await edit(', phone: "+1 415 555 0101"')).data?.['updateCustomer']).toBe(true)
+    expect(await phoneOf('asha1@example.com')).toBe('+14155550101')
+    expect(await edit(', phone: "12"')).toMatchObject({ code: 'INVALID_INPUT', field: 'phone' })
+    expect(await edit(', phone: "9861212314"')).toMatchObject({ code: 'NUMBER_TAKEN', field: 'phone' })
+    expect(await edit(', name: "  "')).toMatchObject({ code: 'INVALID_INPUT', field: 'name' })
+    expect(await edit(', address: { name: "Asha", line1: "", city: "Pune", country: "IN" }')).toMatchObject({ code: 'INVALID_INPUT', field: 'address' })
+    expect(await edit(', address: { name: "Asha", line1: "1 Lane", city: "Pune", country: "XX" }')).toMatchObject({ code: 'INVALID_INPUT', field: 'country' })
+    expect(await gql(`mutation { updateCustomer(id: "${t.customerA1}", phone: "9861212317") }`, 'manager')).toMatchObject({ code: 'VERIFIED', field: 'phone' })
+
+    // No country on the store: nothing to add, so a bare number is refused by name.
+    await db.sql`update store set country = null where id = ${t.storeA1}`
+    expect(await add('asha5@example.com', '9861212318')).toMatchObject({ code: 'INVALID_INPUT', field: 'phone' })
   })
 
   it('keeps tags, a team note and a recorded stop, logging none of their text', async () => {

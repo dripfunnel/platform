@@ -1,9 +1,11 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import { dialCodeOf, isCountry } from '#core/countries'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, type ScopedSql } from '#db/scoped/index'
+import { selectStoreCountry } from '#db/scoped/orders'
 import {
   countCustomerGroups,
   countStoreCustomers,
@@ -57,7 +59,9 @@ export const maxCustomerNote = 2000
 export const maxGroups = 100
 
 export type CustomersRefusal = 'INVALID_INPUT' | 'NOT_FOUND' | 'READ_ONLY' | 'TOO_MANY' | 'NAME_TAKEN' | 'NUMBER_TAKEN' | 'VERIFIED' | 'DELETED'
-export type CustomersResult<T> = { ok: true; value: T } | { ok: false; reason: CustomersRefusal }
+/** The input a refusal is about, for the form to mark. */
+export type CustomersField = 'name' | 'email' | 'phone' | 'address' | 'country'
+export type CustomersResult<T> = { ok: true; value: T } | { ok: false; reason: CustomersRefusal; field?: CustomersField }
 
 export interface CustomersDeps {
   sql: postgres.Sql
@@ -69,7 +73,10 @@ export interface CustomersDeps {
 }
 
 class Refused extends Error {
-  constructor(readonly reason: CustomersRefusal) {
+  constructor(
+    readonly reason: CustomersRefusal,
+    readonly field?: CustomersField,
+  ) {
     super(reason)
   }
 }
@@ -112,9 +119,15 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
     try {
       return { ok: true, value: await withScope(sql, context, work) }
     } catch (error) {
-      if (error instanceof Refused) return { ok: false, reason: error.reason }
+      if (error instanceof Refused) return { ok: false, reason: error.reason, ...(error.field ? { field: error.field } : {}) }
       throw error
     }
+  }
+  // A number typed without `+` is the store's own: its trunk 0 dropped, its country's code added (#1040).
+  const fullNumber = async (tx: ScopedSql, raw: string): Promise<string> => {
+    const typed = raw.trim()
+    const dial = typed.startsWith('+') ? null : dialCodeOf((await selectStoreCountry(tx, storeId)) ?? '')
+    return dial ? `+${dial}${typed.replace(/^0/, '')}` : typed
   }
   const locked = async (tx: ScopedSql, id: string) => {
     const found = isUuid(id) ? await lockStoreCustomer(tx, storeId, id) : null
@@ -135,19 +148,23 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
   const add = (input: { name: string; email: string; phone: string | null }): Promise<CustomersResult<{ id: string; existed: boolean }>> =>
     write(async (tx) => {
       const name = cleanName(input.name, 200)
-      const contact = cleanContact({ email: input.email, phone: input.phone })
-      if (!name || !contact?.email) throw new Refused('INVALID_INPUT')
-      const existing = await selectCustomerByContact(tx, storeId, contact.email, null)
+      if (!name) throw new Refused('INVALID_INPUT', 'name')
+      const email = cleanContact({ email: input.email })?.email
+      if (!email) throw new Refused('INVALID_INPUT', 'email')
+      const typedPhone = input.phone?.trim()
+      const phone = typedPhone ? cleanContact({ phone: await fullNumber(tx, typedPhone) })?.phone : null
+      if (phone === undefined) throw new Refused('INVALID_INPUT', 'phone')
+      const existing = await selectCustomerByContact(tx, storeId, email, null)
       if (existing) {
         if (existing.status === 'deleted') throw new Refused('DELETED')
         return { id: existing.id, existed: true }
       }
-      if (contact.phone && (await selectCustomerByContact(tx, storeId, null, contact.phone))) throw new Refused('NUMBER_TAKEN')
-      const id = await insertStoreCustomer(tx, { storeId, name, email: contact.email, phone: contact.phone, byUserId: actor.id, now: now() })
+      if (phone && (await selectCustomerByContact(tx, storeId, null, phone))) throw new Refused('NUMBER_TAKEN', 'phone')
+      const id = await insertStoreCustomer(tx, { storeId, name, email, phone, byUserId: actor.id, now: now() })
       // Taken by a checkout or sign-up a moment ago: answered as the customer that now is.
       if (!id) {
-        const raced = await selectCustomerByContact(tx, storeId, contact.email, null)
-        if (!raced) throw new Refused('NUMBER_TAKEN')
+        const raced = await selectCustomerByContact(tx, storeId, email, null)
+        if (!raced) throw new Refused('NUMBER_TAKEN', 'phone')
         return { id: raced.id, existed: true }
       }
       await activity.record(tx, entry(customersAudit.added, customerTarget(id)))
@@ -159,11 +176,13 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
     write(async (tx) => {
       const found = await locked(tx, id)
       const name = input.name === undefined || input.name === null ? (found.name ?? '') : cleanName(input.name, 200)
-      const phone = input.phone === undefined ? found.phone : input.phone === null || input.phone.trim() === '' ? null : (cleanContact({ phone: input.phone })?.phone ?? undefined)
+      const phone = input.phone === undefined ? found.phone : input.phone === null || input.phone.trim() === '' ? null : (cleanContact({ phone: await fullNumber(tx, input.phone) })?.phone ?? undefined)
       const address = input.address ? cleanAddress(input.address) : null
-      if (name === null || name === '' || phone === undefined || (input.address && !address)) throw new Refused('INVALID_INPUT')
-      if (phone !== found.phone && found.phone_verified) throw new Refused('VERIFIED')
-      if (phone !== null && phone !== found.phone && (await selectCustomerByContact(tx, storeId, null, phone))) throw new Refused('NUMBER_TAKEN')
+      if (name === null || name === '') throw new Refused('INVALID_INPUT', 'name')
+      if (phone === undefined) throw new Refused('INVALID_INPUT', 'phone')
+      if (input.address && !address) throw new Refused('INVALID_INPUT', isCountry(input.address.country.trim().toUpperCase()) ? 'address' : 'country')
+      if (phone !== found.phone && found.phone_verified) throw new Refused('VERIFIED', 'phone')
+      if (phone !== null && phone !== found.phone && (await selectCustomerByContact(tx, storeId, null, phone))) throw new Refused('NUMBER_TAKEN', 'phone')
       const changed = [...(name !== found.name ? ['name'] : []), ...(phone !== found.phone ? ['phone'] : []), ...(address ? ['address'] : [])]
       if (changed.length === 0) return true as const
       await updateStoreCustomer(tx, found.id, { name, phone })
