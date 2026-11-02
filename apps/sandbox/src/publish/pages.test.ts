@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { catalogueSnapshotSchema } from '@dripfunnel/storefront-core/guard'
-import { checkedPages, edgeRules, itemFacts, pageDocument, plan, sitemap } from './pages'
+import { checkedPages, edgeRules, itemFacts, pageDocument, pageLinks, plan, sitemap } from './pages'
 
 // Card #324: the build plans a page for each of the store's content pages, and the blog's, once the theme maps them.
 
@@ -141,5 +141,71 @@ it('says what each product page shows for the gate: the price its address names 
       '/products/shirt/v2/': { priced: true, legal: true },
       '/products/gift/': { priced: false, legal: false },
     })
+  })
+})
+
+// ARCHITECTURE §8: the head, structured data, hreflang and sitemap the live build writes from the snapshot.
+describe('the live build’s search and sharing', () => {
+  const origin = 'https://shop.juniper.example'
+  const answers = [
+    { operation: 'Product', variables: { slug: 'shirt' }, data: { product: { name: 'Shirt', description: 'Linen.', inStock: true, price: { amount: '100', currency: 'USD' }, photos: [{ alt: 'Front', image: { url: '/shop-api/assets/p1' } }, { alt: null, image: { url: '/shop-api/assets/p2' } }] } } },
+    { operation: 'Collection', variables: { slug: 'summer' }, data: { collection: { name: 'Summer', description: null, image: { url: '/shop-api/assets/c1' } } } },
+    { operation: 'Listing', variables: { collection: 'summer', first: 24 }, data: { products: { nodes: [{ name: 'Shirt', slug: 'shirt' }] } } },
+  ]
+  const snapshot = catalogueSnapshotSchema.parse({
+    version: 2, origin, store: { ...store, logo: { url: '/shop-api/assets/l1' }, social: [{ network: 'instagram', url: 'https://instagram.com/juniper' }] }, poweredBy: null,
+    guard: { locales: ['en', 'hi'], usedPaths: [], mediaIds: [], brand: { name: 'Juniper & Co.', tagline: null, email: null, phone: null, address: [], socialLinks: [] } },
+    csp: { assetOrigin: null, mediaOrigins: [], analytics: [], payments: [] }, assetBase: null,
+    catalogue: { answers, products: [{ slug: 'shirt', versions: [] }], collections: [{ slug: 'summer' }] },
+  })
+  const pages = plan({ routes: { ...core, search: 'SearchPage', product: 'ProductPage', collection: 'CollectionPage' } }, snapshot.store, [], [], snapshot.catalogue)
+  const links = pageLinks(pages, snapshot.store, origin)
+  const documentOf = (path: string) => {
+    const page = pages.find((p) => p.path === path)
+    if (!page) throw new Error(`no page at ${path}`)
+    return pageDocument(page, snapshot, { body: '', assets: { entry: 'e.js', css: [] }, dir: 'ltr', store: snapshot.store, links })
+  }
+  const jsonLd = (html: string) => [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => JSON.parse(m[1] ?? '{}') as Record<string, unknown>)
+
+  it('links a page to itself in every language, the main one as x-default, and a main-language-only item to none', () => {
+    expect(links.alternates.get('/hi/')).toEqual([{ language: 'en', url: `${origin}/` }, { language: 'hi', url: `${origin}/hi/` }, { language: 'x-default', url: `${origin}/` }])
+    expect(links.alternates.has('/products/shirt/')).toBe(false)
+    expect(documentOf('/hi/')).toContain(`<link rel="alternate" hreflang="x-default" href="${origin}/">`)
+  })
+
+  it('describes the home page as the store, with its logo, social profiles and search, and shares it on Twitter', () => {
+    const html = documentOf('/')
+    expect(html).toContain('<meta name="twitter:card" content="summary">')
+    expect(html).toContain('<meta property="og:locale" content="en">')
+    const [organization, website] = jsonLd(html)
+    expect(organization).toMatchObject({ '@type': 'Organization', logo: `${origin}/shop-api/assets/l1`, sameAs: ['https://instagram.com/juniper'] })
+    expect(website).toMatchObject({ '@type': 'WebSite', potentialAction: { target: { urlTemplate: `${origin}/search/?q={search_term_string}` } } })
+  })
+
+  it('gives a product its description, every photo and breadcrumbs, and a collection its products', () => {
+    const product = documentOf('/products/shirt/')
+    expect(product).toContain('<meta property="og:image:alt" content="Front">')
+    expect(jsonLd(product)).toEqual([
+      expect.objectContaining({ '@type': 'Product', description: 'Linen.', image: [`${origin}/shop-api/assets/p1`, `${origin}/shop-api/assets/p2`] }),
+      expect.objectContaining({ '@type': 'BreadcrumbList', itemListElement: [expect.objectContaining({ position: 1, item: `${origin}/` }), expect.objectContaining({ position: 2, name: 'Shirt', item: `${origin}/products/shirt/` })] }),
+    ])
+    const collection = documentOf('/collections/summer/')
+    expect(collection).toContain(`<meta property="og:image" content="${origin}/shop-api/assets/c1">`)
+    expect(jsonLd(collection)).toContainEqual(expect.objectContaining({ '@type': 'ItemList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Shirt', item: `${origin}/products/shirt/` }] }))
+  })
+
+  it('leaves a page search engines don’t see without structured data or hreflang', () => {
+    const html = documentOf('/_fallback/product/')
+    expect(html).toContain('<meta name="robots" content="noindex">')
+    expect(html).not.toContain('application/ld+json')
+    expect(html).not.toContain('hreflang')
+  })
+
+  it('lists a product’s photos in the sitemap, and a post’s date', () => {
+    const xml = sitemap(pages, origin, snapshot)
+    expect(xml).toContain(`<url><loc>${origin}/products/shirt/</loc><image:image><image:loc>${origin}/shop-api/assets/p1</image:loc></image:image><image:image><image:loc>${origin}/shop-api/assets/p2</image:loc></image:image></url>`)
+    const withPost = catalogueSnapshotSchema.parse({ ...snapshot, posts: [{ path: '/blog/linen', title: 'Linen', seoTitle: null, seoDescription: null, author: null, publishedAt: '2026-10-01T10:00:00.000Z', image: null }] })
+    const posts = plan({ routes: { ...core, blogPost: 'BlogPostPage' } }, withPost.store, [], ['/blog/linen'])
+    expect(sitemap(posts, origin, withPost)).toContain(`<url><loc>${origin}/blog/linen/</loc><lastmod>2026-10-01T10:00:00.000Z</lastmod></url>`)
   })
 })

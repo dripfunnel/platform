@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react'
 
-// Core owns the <head> (ARCHITECTURE §8); in the browser it keeps the title, description, canonical, Open Graph and
-// robots in step with what the page shows. The live build writes the same head into each page's HTML (LIVE-SHOP §4).
+// Core owns the <head> (ARCHITECTURE §8); in the browser it keeps the title, description, canonical, Open Graph, Twitter
+// cards and robots in step with what the page shows. The live build writes the same head into each page's HTML (LIVE-SHOP §4).
 
 export type Head = {
   title?: string | null | undefined
@@ -73,6 +73,9 @@ export const applyHead = (doc: Document, head: Head, origin: string) => {
   setMeta(doc, 'property', 'og:title', head.title ?? null)
   setMeta(doc, 'property', 'og:description', head.description ?? null)
   setMeta(doc, 'property', 'og:image', head.image ?? null)
+  setMeta(doc, 'name', 'twitter:title', head.title ?? null)
+  setMeta(doc, 'name', 'twitter:description', head.description ?? null)
+  setMeta(doc, 'name', 'twitter:image', head.image ?? null)
   // Only ever added: a live page the build marked noindex (a cart, an account page) stays so.
   if (head.hidden) setMeta(doc, 'name', 'robots', 'noindex, nofollow')
   setLink(doc, 'icon', head.icon ?? null)

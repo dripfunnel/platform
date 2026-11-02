@@ -23,6 +23,14 @@ describe('the head', () => {
     expect(document.head.querySelector('meta[name="description"]')).toBeNull()
   })
 
+  it('keeps the Twitter card’s title, description and image in step with the page', () => {
+    applyHead(document, { title: 'Linen', description: 'All linen', image: 'https://media.example/l.jpg' }, 'https://shop.example')
+    const twitter = (name: string) => document.head.querySelector(`meta[name="twitter:${name}"]`)?.getAttribute('content')
+    expect([twitter('title'), twitter('description'), twitter('image')]).toEqual(['Linen', 'All linen', 'https://media.example/l.jpg'])
+    applyHead(document, { title: 'Cart' }, 'https://shop.example')
+    expect([twitter('title'), twitter('description'), twitter('image')]).toEqual(['Cart', undefined, undefined])
+  })
+
   it("keeps the build's canonical on the page it was written for, and drops it once the address moves on", () => {
     document.head.innerHTML = `<link rel="canonical" href="${location.origin}/about/">`
     history.replaceState(null, '', '/about/')
