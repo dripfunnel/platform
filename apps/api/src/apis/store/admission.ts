@@ -21,7 +21,7 @@ export interface StoreAuthDeps {
   now: () => Date
   /** False when this key has made too many attempts (ARCHITECTURE.md §7). */
   allowAttempt: (key: string) => Promise<boolean>
-  /** CODE_CHECK: 0 accepts any email or text code. */
+  /** CODE_CHECK: 0 accepts any text code; email codes are always checked (#1002). */
   codeCheck?: CodeCheck
 }
 

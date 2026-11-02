@@ -125,7 +125,7 @@ const configSchema = z.object({
   GITHUB_ACTIONS_JOBS: z.coerce.number().int().min(1).max(10_000).optional(),
   // Expo's push service (THIRD-PARTY-ACCESS.md §2.13), a Worker secret. Absent, pushes wait in the outbox.
   EXPO_PUSH_TOKEN: z.string().regex(/^[A-Za-z0-9_-]{20,}$/, 'EXPO_PUSH_TOKEN must be an Expo access token').optional(),
-  // `0` accepts any email or text code (docs/setup/dev.md).
+  // `0` accepts any text (SMS) code; email codes are always checked (docs/setup/dev.md).
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
