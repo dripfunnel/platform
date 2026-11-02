@@ -8,6 +8,7 @@ import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { claimUse } from '#db/scoped/promotions'
+import { linkGuestOrders } from '#db/scoped/shopper'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -288,7 +289,7 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     }
   })
 
-  it('never counts an order or a use by its typed email, proven or not: whoever placed it may have typed someone else’s', async () => {
+  it('never counts an order or a use by its typed email until a sign-in links the order, and then only for "first order only"', async () => {
     await off()
     await db.sql`update promotion set enabled = true where id = ${placeOffer}`
     const first = await offer({ name: 'First only', code: 'FIRSTONLY', action: { operation: 'order_percentage_discount', percent: 5 }, conditions: [{ operation: 'first_order' }], combines: { product: true, order: true, shipping: true } })
@@ -306,6 +307,10 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
       // Nor does proving the email by itself: only signing in links the order.
       await db.sql`update customer set email_verified_at = now() where store_id = ${store} and email = 'ravi@example.com'`
       expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
+      // Linked as a sign-in links it, the order is his history; the typed-email use still isn't.
+      const [ravi] = await db.sql<{ id: string }[]>`select id from customer where store_id = ${store} and email = 'ravi@example.com'`
+      expect(await withSystemScope(db.sql, (tx) => linkGuestOrders(tx, store, ravi?.id ?? ''))).toBe(1)
+      expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'NOT_ELIGIBLE' }])
     } finally {
       session = null
     }
@@ -351,7 +356,11 @@ describe('the last use, raced (OFFERS fact 8; PLATFORM-PROMPT §5.9)', () => {
     })
     await held
     const second = place(token)
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    // Released only once the second waits on the first's lock: a fixed pause let a slow placement arrive after the commit.
+    for (let tries = 0; (await db.sql`select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`).length === 0; tries += 1) {
+      if (tries === 200) throw new Error('the second placement never waited for the first')
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
     release()
     await firstOrder
     expect((await second).code).toBe('OFFER_CHANGED')

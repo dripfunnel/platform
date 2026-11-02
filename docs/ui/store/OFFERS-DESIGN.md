@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-05.
+Last updated: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -231,7 +231,8 @@ promotions tests before relying on it.
      include the guest orders a sign-in linked to it (ACCESS §2.1). A guest is never counted, by a typed email or a
      typed number, since any answer turning on what they typed would reveal another shopper's history (ACCESS §2.1);
      such an offer asks a guest to sign in. Decided on #320's review, narrowing #337's
-     "guests recognised by normalised email, or by a phone proven by a code" (§3.1). The form's helper text (a
+     "guests recognised by normalised email, or by a phone proven by a code" (§3.1); #1186 (2026-11-03) replaced its
+     "nor do a guest's orders count later against an account with that email" with the sign-in's linking. The form's helper text (a
      `messages/` key, with the editor) says so: "Shoppers sign in to use it, so we know who has used it."
    - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).
    - Show usage as "38 of 100 used".

@@ -6816,6 +6816,7 @@
       "customer.updated": "changed customer {target}",
       "customer.signed_in": "signed in",
       "customer.signed_out": "signed out",
+      "customer.orders_linked": "linked their guest orders to their account",
       "customer.exported": "exported customers",
       "store.info_saved": "saved the store’s details",
       "store.currencies_saved": "saved the currencies",
