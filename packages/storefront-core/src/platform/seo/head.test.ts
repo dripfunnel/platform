@@ -32,12 +32,34 @@ describe('the head', () => {
     applyHead(document, { title: 'Cart' }, location.origin)
     expect(document.head.querySelector('link[rel="canonical"]')).toBeNull()
   })
+
+  it("writes the store's favicon, and takes it away once the store has none", () => {
+    applyHead(document, { title: 'Juniper', icon: '/shop-api/assets/f1' }, 'https://shop.example')
+    expect(document.head.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe('/shop-api/assets/f1')
+    applyHead(document, { title: 'Juniper' }, 'https://shop.example')
+    expect(document.head.querySelector('link[rel="icon"]')).toBeNull()
+  })
+
+  it('leaves an unchanged favicon link alone, so the browser asks for nothing again', () => {
+    applyHead(document, { title: 'Juniper', icon: '/shop-api/assets/f1' }, 'https://shop.example')
+    const link = document.head.querySelector('link[rel="icon"]')
+    if (!link) throw new Error('no favicon')
+    let writes = 0
+    new MutationObserver((records) => (writes += records.length)).observe(link, { attributes: true })
+    applyHead(document, { title: 'Linen', icon: '/shop-api/assets/f1' }, 'https://shop.example')
+    expect(document.head.querySelector('link[rel="icon"]')).toBe(link)
+    return new Promise<void>((done) => setTimeout(() => (expect(writes).toBe(0), done())))
+  })
+
+  it("keeps the store's favicon over a page's, which useHead never passes on", () => {
+    expect(mergedHead([{ level: 0, head: { icon: '/shop-api/assets/f1' } }, { level: 1, head: { title: 'Linen', icon: undefined } }]).icon).toBe('/shop-api/assets/f1')
+  })
 })
 
 describe('storeHead', () => {
   it("uses the home page's search and sharing on the home page only", () => {
-    const store = { name: 'Juniper', description: 'Clothes', seo: { title: 'Juniper linen', description: null, image: { url: 'https://shop.example/s.png' } } }
-    expect(storeHead(store, '/')).toEqual({ title: 'Juniper linen', description: 'Clothes', image: 'https://shop.example/s.png' })
-    expect(storeHead(store, '/about/')).toEqual({ title: 'Juniper', description: 'Clothes', image: null })
+    const store = { name: 'Juniper', description: 'Clothes', seo: { title: 'Juniper linen', description: null, image: { url: 'https://shop.example/s.png' } }, favicon: { url: '/shop-api/assets/f1' } }
+    expect(storeHead(store, '/')).toEqual({ title: 'Juniper linen', description: 'Clothes', image: 'https://shop.example/s.png', icon: '/shop-api/assets/f1' })
+    expect(storeHead(store, '/about/')).toEqual({ title: 'Juniper', description: 'Clothes', image: null, icon: '/shop-api/assets/f1' })
   })
 })

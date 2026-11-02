@@ -34,6 +34,72 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.8.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only adds; no theme has to change.',
+      '`PhoneField` takes a mobile number as a country code dropdown and the number, saved as E.164 with no spaces (#1147); `AddressFields` uses it, and a theme may switch its own contact or sign-in phone field from `TextField` to it (`codeLabel`, `country`, `locale`).',
+      "Checkout shows the delivery step only once the cart has a delivery address (#1145), and a listing keeps its filter panel while a new filter or sort loads (#1134).",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
+    version: '0.7.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only adds; no theme has to change.',
+      "`<StoreLogo className>` shows the store's logo from Site settings › Brand, or its name while it has none (#1129); a theme may put it in its header in place of the name.",
+      "Every page's head carries the store's favicon (#1129), and a live page's pictures stay on their asset-host copies after it loads, with checkout asking the Shop API less (#1105).",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
+    version: '0.6.1',
+    kind: 'patch',
+    security: false,
+    notes: [
+      'No theme has to change.',
+      "The publish gate's visual diff runs the live site's own scripts from the asset host (#1092), so an upgrade is compared with the live site as shoppers see it and refused only for a real change of look.",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
+    version: '0.6.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only accepts more; no theme has to change.',
+      "The theme guard accepts a t() key typed as a list of written names (['hero.one', 'hero.two'] as const), each checked against every language, and CSS transitions and keyframes on colours, backgrounds, box-shadow, fill and stroke as well as transform, opacity and filter.",
+      "The publish gate's visual diff gives the live page the same shop data as the new build (#1087), so an upgrade is refused only for a real change of look.",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
+    version: '0.5.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every addition is optional; no theme has to change.',
+      'SearchField takes `suggest`, how many products (up to 4) to list under the box while the shopper types, each with its picture, name and sealed <Price>, then "See all results". Core renders the list (<ul role="listbox">) and a <p role="status"> for "No products match" inside the form; style them through the form\'s class, and keep the list\'s `hidden` working (never set `display` on the <ul>).',
+    ].join('\n'),
+    codemods: [],
+  },
+  {
+    version: '0.4.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every addition is optional, except that a product page must keep the sealed <Price> and <LegalNotices> placed when its product gives them, and stay whole with very long names and no photo (below); the publish gate refuses one that doesn\'t.',
+      'The live site now builds a page for each product, version and collection, with the catalogue already in it (ARCHITECTURE §4.2): useProduct, useCollection, useListing, useProducts, useCollections and useMenu return their data on the first render there, and the browser refreshes it from the Shop API after load. The studio and the preview load as before.',
+      'The publish gate checks those pages: a product page must place the sealed <Price> when the product (or the version its address names) has a price, and <LegalNotices> when the product has compliance details for the store\'s market or everywhere. A theme that shows product.legal through LegalNotices and the chosen price through Price already passes; one that hides either must place it.',
+      'The long-names edge case now also stretches product and collection names and descriptions and removes their pictures, so a product page must stay whole with a 200-character name and no photo.',
+      'An item page\'s title is its own (the product\'s or collection\'s search title, else its name), as useHead sets it.',
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.3.0',
     kind: 'minor',
     security: false,

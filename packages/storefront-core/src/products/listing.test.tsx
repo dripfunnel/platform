@@ -2,6 +2,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { later, Provided, shopAnswering, type Asked } from '../../test/shop'
+import { navigate } from '../platform/browser/router'
 import { useCollection } from '../collections/collections'
 import { useSearch } from '../search/search'
 import { listingState, pageSize } from './listing'
@@ -74,6 +75,31 @@ describe('useCollection', () => {
     await waitFor(() => expect(asked.filter((a) => a.query.startsWith('query Listing')).at(-1)?.variables).toMatchObject({ filters: ['linen'], sort: 'PRICE_LOW', after: null }))
     act(() => history.back())
     await waitFor(() => expect(location.search).toBe('?filter=linen'))
+  })
+
+  it('keeps the filters while the next filter loads', async () => {
+    history.replaceState(null, '', '/collections/linen/')
+    const slow = later<unknown>()
+    shopAnswering(collectionAnswer((a) => (a.variables['filters'] === null ? page([1], null) : slow.promise)))
+    render(<Provided><Collection /></Provided>)
+    await screen.findByText(/Shirt 1/)
+    act(() => screen.getByText('linen').click())
+    await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('loading'))
+    expect(screen.getByTestId('facets').textContent).toBe('Linen:on,Cotton:off')
+    await act(async () => slow.settle(page([4], null)))
+    await screen.findByText(/Shirt 4/)
+  })
+
+  it('shows no filters of the last collection while another loads', async () => {
+    history.replaceState(null, '', '/collections/linen/')
+    const slow = later<unknown>()
+    shopAnswering(collectionAnswer((a) => (a.variables['collection'] === 'linen' ? page([1], null) : slow.promise)))
+    render(<Provided><Collection /></Provided>)
+    await screen.findByText(/Shirt 1/)
+    // In place: another page loads whole (location.assign), which tells a listing nothing (#1152).
+    act(() => navigate('/collections/cotton/', { inPlace: true }))
+    await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('loading'))
+    expect(screen.getByTestId('facets').textContent).toBe('')
   })
 
   it('appends the next page with fetchMore, and stops when there is none', async () => {

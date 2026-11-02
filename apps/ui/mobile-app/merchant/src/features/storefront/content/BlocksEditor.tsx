@@ -11,7 +11,6 @@ import { moveBlock, newBlock, type DraftBlock } from './contentDraft'
 
 type Props = {
   client: ApiClient
-  kind: 'page' | 'post'
   body: DraftBlock[]
   /** Each change is made to the blocks as they are then. */
   onBody: (change: (was: DraftBlock[]) => DraftBlock[]) => void
@@ -23,16 +22,15 @@ type Props = {
   onName: (id: string, name: string) => void
 }
 
-// A photo is not added on the phone (decided on #513); one the page already has stays, moves and can be removed.
+// A photo is not added on the phone (decided on #513); one the post already has stays, moves and can be removed.
 const addable = blockKinds.filter((kind): kind is Exclude<BlockKind, 'image'> => kind !== 'image')
 
-// The page's blocks (StorefrontContent's block editor at phone width): add, move, remove and fill each kind.
-export function BlocksEditor({ client, kind, body, onBody, canEdit, names, namesFailed, onName }: Props) {
+// The post's blocks (StorefrontContent's block editor at phone width): add, move, remove and fill each kind.
+export function BlocksEditor({ client, body, onBody, canEdit, names, namesFailed, onName }: Props) {
   const { colors, radii } = useTheme()
   const [picking, setPicking] = useState<number | null>(null)
   const set = (index: number, patch: Partial<DraftBlock>) => onBody((was) => was.map((block, i) => (i === index ? { ...block, ...patch } : block)))
   const full = body.length >= contentLimits.blocks
-  const tools = addable.filter((tool) => tool !== 'form' || kind === 'page')
 
   return (
     <View style={styles.list}>
@@ -58,7 +56,6 @@ export function BlocksEditor({ client, kind, body, onBody, canEdit, names, names
               />
             ) : null}
             {block.kind === 'image' ? <Text style={[styles.note, { color: colors.muted }]}>{t('storefront.content.editor.photoKept')}</Text> : null}
-            {block.kind === 'form' ? <Text style={[styles.note, { color: colors.muted }]}>{t('storefront.content.editor.form')}</Text> : null}
             {block.kind === 'faq' ? (
               <View style={styles.list}>
                 {block.items.map((item, q) => (
@@ -100,7 +97,7 @@ export function BlocksEditor({ client, kind, body, onBody, canEdit, names, names
       })}
       {canEdit ? (
         <View style={styles.tools} accessibilityLabel={t('storefront.content.editor.toolsLabel')}>
-          {tools.map((tool) => (
+          {addable.map((tool) => (
             <Button key={tool} kind="secondary" label={t(`storefront.content.editor.tools.${tool}`)} disabled={full} onPress={() => onBody((was) => [...was, newBlock(tool)])} />
           ))}
         </View>

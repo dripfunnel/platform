@@ -36,11 +36,14 @@ export const AppShell = () => {
       <AppHeader me={me} seat={seat} current={current} stores={stores} brand={brand} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} />
       <div className="df-banners">
         <EnvironmentStrip />
-        <StoreBanners seat={seat} acting={acting} state={state} brand={brand} />
       </div>
       <div className="df-shell-body">
         <SideNav rows={rows} variant="bar" label={words.navLabel} footer={null} />
         <main id="main" className="df-shell-main" tabIndex={-1}>
+          {/* The store's banners head the page column, beside the side bar, as the prototype draws them. */}
+          <div className="df-banners">
+            <StoreBanners seat={seat} acting={acting} state={state} brand={brand} />
+          </div>
           <div className="df-shell-content">
             <Outlet />
           </div>

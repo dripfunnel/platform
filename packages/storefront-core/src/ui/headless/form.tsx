@@ -1,7 +1,8 @@
 'use client'
 
-import { useId, useRef, type ReactNode } from 'react'
+import { memo, useId, useRef, useState, type ReactNode } from 'react'
 import { addressFields, fillFromPlace, type AddressDraft, type MapFilled, type AddressField, type FieldProblem } from '../../checkout/address'
+import { countryOptions, joinPhone, splitPhone } from '../../checkout/phone'
 import type { Translate } from '../../platform/i18n/i18n'
 import { PinOnMap } from './pin'
 
@@ -68,6 +69,62 @@ export const TextField = ({ label, value, onChange, type = 'text', autoComplete,
   )
 }
 
+export type PhoneFieldProps = Omit<TextFieldProps, 'type' | 'inputMode' | 'maxLength'> & {
+  /** The country a new number starts in, by ISO 3166 code: the store's, or the address's. */
+  country: string
+  /** The country code dropdown's name for screen readers, in the theme's words. */
+  codeLabel: string
+  locale: string
+  /** The class of the country code and the number together. */
+  groupClassName?: string | undefined
+}
+
+/** The chosen code alone fits the closed dropdown; the list names each country for finding it by typing. */
+// Memoised: ~245 options would otherwise re-render on every keystroke in the form around them.
+const CountryOptions = memo(({ locale, chosen }: { locale: string; chosen: string }) =>
+  countryOptions(locale).map((o) => (
+    <option key={o.country} value={o.country}>
+      {o.country === chosen ? `+${o.dial}` : `${o.name} (+${o.dial})`}
+    </option>
+  )),
+)
+
+/** A mobile number as a country code dropdown and the number; it hands back one value, `+` and the code first. */
+export const PhoneField = ({ label, value, onChange, country, codeLabel, locale, autoComplete = 'tel', note, hint, error, className, groupClassName }: PhoneFieldProps) => {
+  const id = useId()
+  const [picked, setPicked] = useState<string | null>(null)
+  const split = splitPhone(value, picked ?? country)
+  const described = [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ')
+  return (
+    <span className={className}>
+      <label htmlFor={id}>
+        {label}
+        {note ? <small> {note}</small> : null}
+      </label>
+      <span className={groupClassName}>
+        <select
+          aria-label={codeLabel}
+          value={split.country}
+          onChange={(e) => {
+            setPicked(e.target.value)
+            onChange(joinPhone(e.target.value, split.national))
+          }}
+        >
+          {split.country ? null : <option value="">+</option>}
+          <CountryOptions locale={locale} chosen={split.country} />
+        </select>
+        <input id={id} type="tel" value={split.national} autoComplete={autoComplete} inputMode="tel" maxLength={20} aria-invalid={error ? true : undefined} aria-describedby={described || undefined} onChange={(e) => onChange(joinPhone(split.country, e.target.value))} />
+      </span>
+      {hint ? <small id={`${id}-hint`}>{hint}</small> : null}
+      {error ? (
+        <small id={`${id}-error`} role="alert">
+          {error}
+        </small>
+      ) : null}
+    </span>
+  )
+}
+
 /** One choice of several, as radio buttons in a fieldset: each option's content is the theme's. */
 export const Choices = <V extends string>({ legend, value, options, onChange, className, optionClassName, chosenClassName }: Styled & { legend: string; value: V | null; options: readonly { value: V; content: ReactNode }[]; onChange: (value: V) => void; optionClassName?: string; chosenClassName?: string }) => {
   const name = useId()
@@ -85,7 +142,7 @@ export const Choices = <V extends string>({ legend, value, options, onChange, cl
 }
 
 /** The delivery address's fields for its country (address.ts), with core's labels; the theme gives the country list. */
-export const AddressFields = ({ value, onChange, countries, errors, t, locale, fieldClassName, className }: Styled & {
+export const AddressFields = ({ value, onChange, countries, errors, t, locale, fieldClassName, phoneClassName, className }: Styled & {
   value: AddressDraft
   onChange: (value: AddressDraft) => void
   countries: readonly string[]
@@ -93,6 +150,8 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
   t: Translate
   locale: string
   fieldClassName?: string
+  /** PhoneField's `groupClassName`. */
+  phoneClassName?: string
 }) => {
   const id = useId()
   const mapFilled = useRef<MapFilled>({})
@@ -116,19 +175,35 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
           </small>
         ) : null}
       </span>
-      {addressFields(value.country).map((f) => (
-        <TextField
-          key={f.field}
-          label={t(f.label)}
-          note={f.optional ? t('address.optional') : undefined}
-          value={value[f.field]}
-          type={f.field === 'phone' ? 'tel' : 'text'}
-          autoComplete={f.autoComplete}
-          error={f.field === 'phone' && errors.phone === 'invalid' ? t('address.phoneInvalid') : problem(errors[f.field])}
-          onChange={(v) => onChange({ ...value, [f.field]: v })}
-          className={fieldClassName}
-        />
-      ))}
+      {addressFields(value.country).map((f) =>
+        f.field === 'phone' ? (
+          <PhoneField
+            key={f.field}
+            label={t(f.label)}
+            note={t('address.optional')}
+            value={value.phone}
+            country={value.country}
+            codeLabel={t('address.countryCode')}
+            locale={locale}
+            autoComplete={f.autoComplete}
+            error={errors.phone === 'invalid' ? t('address.phoneInvalid') : problem(errors.phone)}
+            onChange={(phone) => onChange({ ...value, phone })}
+            className={fieldClassName}
+            groupClassName={phoneClassName}
+          />
+        ) : (
+          <TextField
+            key={f.field}
+            label={t(f.label)}
+            note={f.optional ? t('address.optional') : undefined}
+            value={value[f.field]}
+            autoComplete={f.autoComplete}
+            error={problem(errors[f.field])}
+            onChange={(v) => onChange({ ...value, [f.field]: v })}
+            className={fieldClassName}
+          />
+        ),
+      )}
       <PinOnMap
         value={value.pin ?? null}
         onChange={(pin, place) => {

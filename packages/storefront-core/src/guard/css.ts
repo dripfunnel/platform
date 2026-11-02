@@ -5,7 +5,8 @@ import { mediaIdPattern, problem, type GuardContext, type Problem, type RuleId }
 export const maxThemeZIndex = 99
 
 const atRules = new Set(['media', 'supports', 'container', 'keyframes'])
-const animated = new Set(['transform', 'opacity', 'filter'])
+// Compositor and paint-only properties: none moves layout, so none costs CLS (ARCHITECTURE §3.4 "CSS", §9).
+const animated = new Set(['transform', 'opacity', 'filter', 'color', 'background', 'background-color', 'border-color', 'outline-color', 'text-decoration-color', 'fill', 'stroke', 'box-shadow'])
 const keyframeProperties = new Set([...animated, 'animation-timing-function'])
 const transitionWords = new Set(['ease', 'linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'start', 'end', 'jump-start', 'jump-end', 'jump-none', 'jump-both', 'normal', 'allow-discrete', 'auto', 'none'])
 // Properties that put words on the page (ARCHITECTURE §3.4 "No text in code").
@@ -58,13 +59,13 @@ const transitioned = (decl: Declaration, shorthand: boolean): string[] => {
 
 const declarationProblem = (decl: Declaration, inKeyframes: boolean, siblings: readonly CssNode[]): [RuleId, string] | undefined => {
   const property = unprefixed(plain(decl.property))
-  if (inKeyframes && !keyframeProperties.has(property)) return ['css/animated-property', `Keyframes may animate only transform, opacity and filter, not ${property}.`]
+  if (inKeyframes && !keyframeProperties.has(property)) return ['css/animated-property', `Keyframes may animate only transform, opacity, filter and colours (not ${property}, which moves layout).`]
   const namesProperty = siblings.some((d) => d.type === 'Declaration' && ['transition', 'transition-property'].includes(unprefixed(plain(d.property))))
   const bad =
     property === 'transition' || property === 'transition-property' || property === 'will-change'
       ? transitioned(decl, property === 'transition').filter((p) => !animated.has(p))
       : property === 'transition-duration' && !namesProperty ? ['all'] : []
-  if (bad.length > 0) return ['css/animated-property', `Transitions may animate only transform, opacity and filter, not ${bad.join(', ')}; name them in transition-property.`]
+  if (bad.length > 0) return ['css/animated-property', `Transitions may animate only transform, opacity, filter and colours (not ${bad.join(', ')}, which moves layout); name them in transition-property.`]
   if (property === 'z-index') {
     const only = decl.value.type === 'Value' && decl.value.children.size === 1 ? decl.value.children.first : null
     const fine = only?.type === 'Identifier' ? plain(only.name) === 'auto' : only?.type === 'Number' && /^-?\d+$/.test(only.value) && Number(only.value) <= maxThemeZIndex

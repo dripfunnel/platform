@@ -54,7 +54,7 @@ describe('useCheckout', () => {
     engine()
     mount()
     await act(async () => undefined)
-    expect(page.steps.map((s) => s.id)).toEqual(['contact', 'address', 'delivery', 'payment', 'review'])
+    expect(page.steps.map((s) => s.id)).toEqual(['contact', 'address', 'payment', 'review'])
     expect(open()).toBe('contact')
     let errors = {}
     await act(async () => void (errors = await page.saveContact({ email: 'not an email', phone: '' })))
@@ -65,6 +65,7 @@ describe('useCheckout', () => {
     await act(async () => void (errors = await page.saveAddress({ ...addressDraft(null, 'US'), name: 'Maya' })))
     expect(errors).toEqual({ line1: 'required', city: 'required', region: 'required', postalCode: 'required' })
     await act(async () => void (await page.saveAddress(addressDraft(us, 'US'))))
+    expect(page.steps.map((s) => s.id)).toEqual(['contact', 'address', 'delivery', 'payment', 'review'])
     expect(open()).toBe('delivery')
     await act(async () => void (await page.chooseDelivery('flat')))
     expect(open()).toBe('payment')

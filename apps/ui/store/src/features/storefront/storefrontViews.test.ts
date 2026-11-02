@@ -2,7 +2,7 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import { describe, expect, it } from 'vitest'
 import type { StorefrontDomain, StorefrontStatus } from '../../api/storefront'
 import { fill, messages } from '../../messages'
-import { brandComplete, brandFormOf, brandProblemOf, pickerValue } from './brandDraft'
+import { brandComplete, brandFormOf, brandProblemOf } from './brandDraft'
 import { canCancel, canMakePrimary, domainRefusal, inProgress, needsRecords } from './domainView'
 import { counterText, googleTitle, seoTooLong } from './seoView'
 import { chooseRefusal, hasSite, liveHost, needsTemplate, templateName } from './overviewView'
@@ -38,13 +38,6 @@ describe('the brand', () => {
     expect(brandComplete({ ...empty, shopName: 'Kesari' })).toBe(false)
     expect(brandComplete({ ...empty, shopName: '  ', logoAssetId: 'a' })).toBe(false)
     expect(brandComplete({ ...empty, shopName: 'Kesari', logoAssetId: 'a' })).toBe(true)
-  })
-
-  it('shows a picker only a full colour', () => {
-    expect(pickerValue('#1D6B47')).toBe('#1d6b47')
-    expect(pickerValue('abc')).toBe('#aabbcc')
-    expect(pickerValue('orange')).toBe('#000000')
-    expect(pickerValue(null)).toBe('#000000')
   })
 
   it('keeps a refusal with the field it names', () => {
@@ -169,6 +162,9 @@ describe('the studio’s rules', () => {
 
   it('lists empty groups out, and names notes it knows only', () => {
     expect(pageGroups({ product: null, content: [], custom: [] }).map((g) => g.label)).toEqual([words.studio.groups.shop, words.studio.groups.policies])
+    expect(noteText('photo:pexels:Ana', (k) => k)).toBe(fill(words.studio.chat.notes.photoFrom, { name: 'Ana', source: 'Pexels' }))
+    expect(noteText('photo:Ana', (k) => k)).toBe(fill(words.studio.chat.notes.photoBy, { name: 'Ana' }))
+    expect(noteText('photo:', (k) => k)).toBe(words.studio.chat.notes.photo)
     expect(noteText('template:baseline', (k) => k)).toBe(words.studio.chat.notes.scratch)
     expect(noteText('template:bloom', () => 'Bloom')).toBe(fill(words.studio.chat.notes.template, { name: 'Bloom' }))
     expect(noteText('something:new', (k) => k)).toBeNull()

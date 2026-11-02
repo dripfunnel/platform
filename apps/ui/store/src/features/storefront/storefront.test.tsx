@@ -12,6 +12,7 @@ import { historyPageSize } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
 import { frameTimeoutMs, LiveFrame } from './LiveFrame'
 import { storefrontTabs, storefrontViews } from './storefrontAccess'
+import { storefrontSearch } from './storefrontSearch'
 
 // Storefront driven by each seat (FIRST-RELEASE §14): the brand step, the gallery, the overview, the tabs, and Site settings' three cards.
 
@@ -27,7 +28,7 @@ const api = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadSeo:
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
 const studio = vi.hoisted(() => ({ loadStudioSession: vi.fn(), renewStudioSession: vi.fn(), loadDesignChat: vi.fn(), askDesign: vi.fn(), undoDesignChange: vi.fn(), loadDesignText: vi.fn(), saveDesignText: vi.fn(), loadStudioPages: vi.fn(), loadStudioLanguages: vi.fn(), loadPublishRun: vi.fn(), publishDesign: vi.fn(), publishBefore: vi.fn() }))
 vi.mock('../../api/studio', async (actual) => ({ ...(await actual<typeof import('../../api/studio')>()), ...studio }))
-const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn() }))
+const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn() }))
 vi.mock('../../api/content', async (actual) => ({ ...(await actual<typeof import('../../api/content')>()), ...content }))
 const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn(), postAsset: vi.fn() }))
 vi.mock('../../api/productEditor', () => upload)
@@ -103,7 +104,6 @@ beforeEach(() => {
   studio.loadStudioPages.mockResolvedValue({ product: null, content: [], custom: [] })
   studio.loadStudioLanguages.mockResolvedValue(['en'])
   content.loadContentList.mockResolvedValue({ rows: [], next: null })
-  content.loadCustomPaths.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -128,18 +128,18 @@ describe('storefront', () => {
     expect(screen.getByRole('region', { name: fill(o.liveLabel, { number: '12' }) })).toBeTruthy()
   })
 
-  it('has five tabs in the ARIA pattern: one tab stop, arrows, Home and End', async () => {
+  it('has four tabs in the ARIA pattern: one tab stop, arrows, Home and End', async () => {
     await show()
     const tabs = screen.getAllByRole('tab')
-    expect(tabs.map((t) => t.textContent)).toEqual([words.tabs.design, words.tabs.pages, words.tabs.journal, words.tabs.assets, words.tabs.settings])
+    expect(tabs.map((t) => t.textContent)).toEqual([words.tabs.design, words.tabs.journal, words.tabs.assets, words.tabs.settings])
     expect(tabs.filter((t) => t.tabIndex === 0)).toHaveLength(1)
     expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tabs[0]?.id)
     fireEvent.keyDown(tabs[0] as HTMLElement, { key: 'ArrowRight' })
     await settle()
-    expect(screen.getByRole('tab', { name: words.tabs.pages }).getAttribute('aria-selected')).toBe('true')
-    expect(document.activeElement).toBe(screen.getByRole('tab', { name: words.tabs.pages }))
-    expect(screen.getByRole('heading', { name: words.content.pages.title })).toBeTruthy()
-    fireEvent.keyDown(screen.getByRole('tab', { name: words.tabs.pages }), { key: 'End' })
+    expect(screen.getByRole('tab', { name: words.tabs.journal }).getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: words.tabs.journal }))
+    expect(screen.getByRole('heading', { name: words.content.journal.title })).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('tab', { name: words.tabs.journal }), { key: 'End' })
     await settle()
     expect(screen.getByRole('tab', { name: words.tabs.settings }).getAttribute('aria-selected')).toBe('true')
     fireEvent.keyDown(screen.getByRole('tab', { name: words.tabs.settings }), { key: 'ArrowRight' })
@@ -156,7 +156,16 @@ describe('storefront', () => {
   it('shows the Journal tab', async () => {
     await show({ tab: 'journal' })
     expect(screen.getByRole('heading', { name: words.content.journal.title })).toBeTruthy()
-    expect(content.loadContentList).toHaveBeenCalledWith('post', null)
+    expect(content.loadContentList).toHaveBeenCalledWith(null)
+  })
+
+  it('opens Design for the Pages tab it no longer has (#1078)', async () => {
+    expect(storefrontSearch.parse({ tab: 'pages' }).tab).toBeUndefined()
+    await show({ tab: 'pages' })
+    const design = screen.getByRole('tab', { name: words.tabs.design })
+    expect(design.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(design.id)
+    expect(screen.queryByRole('tab', { name: 'Pages' })).toBeNull()
   })
 })
 
@@ -245,7 +254,7 @@ describe('the brand step', () => {
 
 describe('the overview', () => {
   const onPlan: Acting = { ...owner, plan: { id: 'p1', name: 'Starter' } }
-  const brandWith = (poweredBy: boolean) => setBrand({ productName: 'Northstar', primaryColor: null, accentColor: null, font: null, corner: null, background: null, files: { logoLight: null, logoDark: null, mark: null, favicon: null }, supportEmail: null, supportUrl: null, helpUrl: null, poweredBy })
+  const brandWith = (poweredBy: boolean) => setBrand({ productName: 'Northstar', primaryColor: null, accentColor: null, font: null, corner: null, background: null, files: { logoLight: null, logoDark: null, mark: null, favicon: null }, supportEmail: null, supportUrl: null, helpUrl: null, termsUrl: null, privacyUrl: null, poweredBy, googleSignIn: false })
   afterEach(() => setBrand(null))
 
   it('gives the Owner the live line, View live site, Change template and the live version', async () => {

@@ -24,7 +24,8 @@ prints the digest. `promote.yml` does this itself, and refuses a `studio_digest`
 
 Nothing serves the new code until this is run — a failed or skipped promotion just leaves the
 previous version live. If you promote by hand, deploy the SPAs by hand too (see below) — skipping
-`promote.yml` means nothing enforces that they come from the same commit as the Worker.
+`promote.yml` means nothing enforces that they come from the same commit as the Worker. It also
+skips the core rollout `promote.yml` starts last (`api/SAAS.md` §10): start it from the Admin API, or nothing upgrades.
 
 Run `promote.yml` shortly after the `prod.yml` run it follows: it checks out `commit_sha` to
 build the SPAs *and* to run the deploy actions themselves, so promoting a stale commit runs old
@@ -67,10 +68,22 @@ pnpm exec wrangler pages deployment list --project-name <project>
 
 then redeploy/promote the prior deployment from the dashboard.
 
+## Going back to Neon after the database move (#1086)
+
+Until the old Hyperdrive config `3f5dde455e2a43e1b61f0aa1c08460a4` is deleted, production can go
+back to its frozen Neon database:
+
+1. Promote (as above) the last version uploaded before #1086 merged; it binds that config.
+2. In the GitHub `prod` environment, point `PROD_DATABASE_URL` and `ALLOWED_MIGRATION_HOST` back at Neon.
+3. Revert #1086's change to `env.prod` in a pull request, before anything else merges to `main`.
+
+Everything written on PlanetScale since the cut-over stays there and is not on Neon.
+
 ## Data corruption from a bad migration
 
 Not automated. Rolling back a migration script is out of scope here — if a migration corrupted
 data, this is a database restore, not a deploy rollback:
 
-- Neon point-in-time restore, or
+- a restore from PlanetScale's backups into a new branch, then `PROD_DATABASE_URL` and a
+  Hyperdrive config pointed at it ([../setup/prod.md](../setup/prod.md) §3.3), or
 - the engineer on call for the `prod` environment.

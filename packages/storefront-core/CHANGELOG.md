@@ -1,5 +1,52 @@
 # @dripfunnel/storefront-core
 
+## 0.8.0
+
+### Minor Changes
+
+- f39f1dd: Adds `PhoneField`: a country code dropdown and the number, handed back as E.164 with no spaces (`+919876543210`), the form every Shop API phone input checks. `AddressFields` and the baseline checkout use it; a theme's own contact or sign-in phone field may switch from `TextField` to `PhoneField` (it needs `codeLabel`, `country` and `locale`). The phone error now reads "Check the country code and the number."
+
+### Patch Changes
+
+- 20a4abf: No theme has to change (#1145). `useCheckout` leaves the delivery step out of `steps` until the cart has a delivery address, so a store with one delivery option no longer shows the step before the address and then drops it.
+- d3ce20b: No theme has to change (#1134). While a listing loads after a filter or sort changes, `useListing` (and so `useCollection` and `useSearch`) keeps the last facets of the same collection or search, so a theme's filter panel stays on screen and only the products reload.
+
+## 0.7.0
+
+### Minor Changes
+
+- 5cd08d3: Checkout asks the Shop API twice less (#1105): Review shows the cart its `checkout` answer holds instead of reading it again, and the ways to pay are asked alongside the cart when checkout opens, not after it, and only when the browser holds a cart or a signed-in shopper. A refused Review or Place order still reads the cart again. Themes change nothing.
+- 5cd08d3: Live pictures from the asset host (#1105): `<Image>` keeps the address a built page named a picture by while the Shop API's fresh answer names the same file, so a live page's pictures stay on their asset-host copies after it loads instead of being asked for again through the Shop API. Themes change nothing.
+- f7ba62e: Only adds; no theme has to change. `<StoreLogo className>` shows the store's logo from Site settings › Brand, or its name while it has none, loaded at once and never resized. The store's favicon is now in every page's head (`<link rel="icon">`), on the live site and in the preview; `Head` gains an optional `icon`, which `useHead` never passes on, so the favicon stays the store's.
+
+## 0.6.1
+
+### Patch Changes
+
+- The publish gate's visual diff compares an upgrade with the live site as shoppers see it: the live page gets the same shop data as the new build (#1087), and its own scripts run from the asset host (#1092). An upgrade is refused only for a real change of look. Themes change nothing.
+
+## 0.6.0
+
+### Minor Changes
+
+- aa41704: The theme guard lets a theme do two more honest things. A `t()` key typed as a list of written names (`['hero.one', 'hero.two'] as const`) is accepted, and each name is checked against every language like a written key, so slides, tabs and other repeated parts can loop. CSS transitions and keyframes may animate colours, backgrounds, `box-shadow`, `fill` and `stroke` as well as `transform`, `opacity` and `filter`; properties that move layout stay refused. Themes change nothing.
+
+## 0.5.0
+
+### Minor Changes
+
+- d7db644: Search suggestions (#1070): `SearchField` takes an optional `suggest`, how many products (up to 4) to show under the box while the shopper types. Once typing pauses (250 ms, two letters or more) core asks the Shop API for the matching products and lists each with its picture, name and sealed price, linked to the product, then "See all results for “…”", or says "No products match “…”." (core's `search.suggest.*` messages). The box is a combobox: arrows move, Enter opens the highlighted product or the results, Escape closes, and a failed lookup hides the list without stopping the search. The theme styles the list through its form's class. Nothing changes for a theme that leaves `suggest` out.
+
+## 0.4.0
+
+### Minor Changes
+
+- 894c7b1: Live catalogue pages (#1011): the catalogue snapshot's version 2 carries the Shop API's recorded answers (`catalogue`, `snapshotCatalogueSchema`, `maxSnapshotProducts`, `maxSnapshotCollections` in `./guard`), `recordedShopClient` and `recordedAnswer` answer core's questions from them offline (`catalogueQueries` names those questions, `productPath` and `collectionPath` their addresses), `answeredRender` renders a page from them, answering each question once per build, and `PrefilledProvider` lets `useShopData` start from a built page's answers and refresh them from the Shop API. The snapshot caps version pages at `maxSnapshotVersionPages`, the long-names edge case stretches the catalogue too, and the gate takes each item page's own price and legal notices (`items`). A route's client-rendered page no longer needs the sealed price, and the crawl check leaves product version addresses out of the sitemap (`isVersionPath`). The theme API is unchanged; the publish gate asks a product page for the sealed price and legal notices when its product has them.
+
+### Patch Changes
+
+- 018d45d: Tests only: the product page test waits for the page title, which the head sets in an effect after the product's name shows. No change to what the package ships.
+
 ## 0.3.0
 
 ### Minor Changes

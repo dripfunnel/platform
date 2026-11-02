@@ -12,6 +12,14 @@ describe('parseConfig', () => {
     expect(parseConfig(hosts).SHOPIFY_LOCAL).toBeUndefined()
   })
 
+  it('reads the AI’s photo sources as a list of known names, and stops at boot on an unknown one', () => {
+    expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pexels,commons' }).AI_PHOTO_SOURCES).toEqual(['pexels', 'commons'])
+    expect(parseConfig(hosts).AI_PHOTO_SOURCES).toBeUndefined()
+    expect(() => parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pexels,foo' })).toThrow()
+    expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'openverse, commons,' }).AI_PHOTO_SOURCES).toEqual(['openverse', 'commons'])
+    expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: '' }).AI_PHOTO_SOURCES).toBeUndefined()
+  })
+
   it('refuses the email, SMS, push and DNS stand-ins anywhere but on localhost', () => {
     for (const key of ['EMAIL_LOCAL', 'SMS_LOCAL', 'PUSH_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL'] as const) {
       expect(() => parseConfig({ ...hosts, [key]: '1' }), key).toThrow(new RegExp(`${key} is for local development only`))

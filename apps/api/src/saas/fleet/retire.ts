@@ -14,7 +14,7 @@ export const keptImages = 20
 /** About 50 GB at up to 2 GB an image (AI-STUDIO §7): past this, the engineer on call is alerted. */
 export const imageBudget = 25
 
-const job = (actorId: string, actorLabel: string) => ({ category: 'system', result: 'success', actorKind: 'job', actorId, actorLabel, partnerId: null, storeId: null, api: 'system', requestId: null, ip: null, userAgent: null, visibility: 'staff' }) as const
+export const job = (actorId: string, actorLabel: string) => ({ category: 'system', result: 'success', actorKind: 'job', actorId, actorLabel, partnerId: null, storeId: null, api: 'system', requestId: null, ip: null, userAgent: null, visibility: 'staff' }) as const
 
 /** A version's studio image leaves (staff only, LOGGING §4): the job retires it, then the workflow deletes it. */
 const releaseEntry = (version: string, action: string, field: string, after: string, by: ReturnType<typeof job>): ActivityEntry => ({

@@ -4,6 +4,8 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
+  // No workers.dev name: a host outside our zone reaches the default fetch only over store-proxy's binding (router.ts `entryOf`).
+  "workers_dev": false,
   // Values live on each Worker (dashboard › Settings › Variables and Secrets) and locally in
   // apps/api/.env.local, never here (#272): this file holds bindings only, and a deploy keeps
   // the dashboard's values instead of deleting them. The Worker refuses to start without them.
@@ -112,7 +114,12 @@
         "traces": { "enabled": false }
       },
       "images": { "binding": "IMAGES" },
-      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }],
+      // Next to the database (PlanetScale, Mumbai): fetch handlers only, not store-proxy's RPC entrypoints (ARCHITECTURE.md §6).
+      "placement": { "region": "aws:ap-south-1" },
+      // Stated per environment, as the deployed config: entryOf trusts that no workers.dev or preview name reaches this Worker.
+      "workers_dev": false,
+      "preview_urls": false,
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "c3b583f2cfbf4cf4a11268fc78d6bb7a" }],
       "r2_buckets": [
         { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-dev" },
         // The buckets must exist first: a binding to a missing bucket fails the deploy (docs/setup/dev.md §2.8 item 1).
@@ -166,12 +173,17 @@
         "traces": { "enabled": false }
       },
       "images": { "binding": "IMAGES" },
+      // Next to the database (PlanetScale, Mumbai): fetch handlers only, not store-proxy's RPC entrypoints (ARCHITECTURE.md §6).
+      "placement": { "region": "aws:ap-south-1" },
+      // Stated per environment, as the deployed config: entryOf trusts that no workers.dev or preview name reaches this Worker.
+      "workers_dev": false,
+      "preview_urls": false,
       "routes": [
         { "pattern": "admin.dripfunnel.ai/api/*", "zone_name": "dripfunnel.ai" },
         { "pattern": "platform.dripfunnel.ai/api/*", "zone_name": "dripfunnel.ai" },
         { "pattern": "hooks.dripfunnel.ai", "custom_domain": true }
       ],
-      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "3f5dde455e2a43e1b61f0aa1c08460a4" }],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "da2b7c996382402b85b82ac9b92be80e" }],
       "r2_buckets": [
         { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-prod" },
         { "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-prod" },

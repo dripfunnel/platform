@@ -1,18 +1,18 @@
 import type { ReactNode } from 'react'
-import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, StoreLogo, useStorefront } from '@dripfunnel/storefront-core/theme'
 import layout from '../styles/layout.module.css'
 import styles from '../styles/checkout.module.css'
 
-/** Checkout's own frame (D1): the shop's name, "Secure checkout" and the way back to the cart, without the menu. */
+/** Checkout's own frame (D1): the shop's logo or name, "Secure checkout" and the way back to the cart, without the menu. */
 export const CheckoutLayout = ({ children }: { children: ReactNode }) => {
-  const { store, t, mode, poweredBy } = useStorefront()
+  const { t, mode, poweredBy } = useStorefront()
   return (
     <div className={layout.shell}>
       {mode === 'live' ? null : <PreviewBanner t={t} className={layout.preview} />}
       <header className={styles.header}>
         <div className={styles.bar}>
           <Link href="/" className={layout.brand}>
-            {store.name}
+            <StoreLogo className={layout.logo} />
           </Link>
           <p className={styles.secure}>
             <svg className={styles.lock} viewBox="0 0 24 24" aria-hidden="true" focusable="false">

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, normalize } from 'node:path'
+import { recordedAnswer } from '@dripfunnel/storefront-core'
 import type { CatalogueSnapshot } from '@dripfunnel/storefront-core/guard'
 
 // What the check step serves to its own headless browser, on 127.0.0.1 only: a built folder as the edge Worker would
@@ -64,6 +65,9 @@ export const shopFixture = (snapshot: CatalogueSnapshot, reports: ShopReport[]) 
     return { data: { reportStorefrontProblem: true } }
   }
   if (/^\s*query Store\b/.test(query)) return { data: { store: snapshot.store } }
+  // A catalogue snapshot's own answers, so a checked page loads in the browser what it was built with.
+  const recorded = recordedAnswer(snapshot.catalogue?.answers ?? [], query, v)
+  if (recorded) return { data: recorded }
   if (/^\s*query Menu\b/.test(query)) return { data: { menu: [{ id: 'm1', label: 'Women', kind: 'page', url: '/about', children: [{ id: 'm2', label: 'Dresses', kind: 'page', url: '/faq' }, { id: 'm3', label: 'Kurtas', kind: 'page', url: '/contact' }] }] } }
   return { errors: [{ message: 'The offline Shop API has no answer for this.', extensions: { code: 'UNAVAILABLE' } }] }
 }

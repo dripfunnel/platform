@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { withSystemScope } from '#db/scoped/index'
 import { failureCode, logEvent } from '#core/log'
 import { markFilesDeleted, markPreviewsTidied, markStoreFilesDeleted, selectClosedStoresToErase, selectExpiredBuilds, selectPreviewCleanups } from '#db/scoped/publishing'
-import { buildFolder, draftBundle, previewRoot, snapshotFile, snapshotsPrefix, sourceBundle, sourcesPrefix, stagingFolder, storePrefix, upgradesPrefix } from './layout'
+import { buildFolder, catalogueFolder, draftBundle, previewRoot, snapshotFile, snapshotsPrefix, sourceBundle, sourcesPrefix, stagingFolder, storePrefix, upgradesPrefix } from './layout'
 import { deletePrefix, type SitesBucket } from './templates'
 
 // Clean-up of the storefront buckets (storefront LIVE-SHOP.md §4 step 11, PREVIEW.md §3), run daily by the cron. Each part
@@ -26,6 +26,7 @@ const deleteBuild = async (b: StorefrontBuckets, storeId: string, buildId: strin
   await deletePrefix(b.sites, stagingFolder(storeId, buildId))
   await deletePrefix(b.assets, buildFolder(storeId, buildId))
   await b.drafts.delete([sourceBundle(storeId, buildId), snapshotFile(storeId, buildId)])
+  await deletePrefix(b.drafts, catalogueFolder(storeId, buildId))
 }
 
 /** Preview folders other than the current one, written before the store's latest publish went live (PREVIEW §3). */

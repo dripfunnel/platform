@@ -799,7 +799,7 @@
       "pastdue": "Past due",
       "suspended": "Suspended",
       "cancelled": "Cancelled",
-      "closed": "Closed"
+      "closed": "Archived"
     },
     "statusLabel": {
       "trialDays": {
@@ -817,7 +817,8 @@
       "pastdue": "Writes blocked, still selling",
       "suspended": "{reason} · by {by} · storefront shows a notice",
       "cancelled": "Since {date}",
-      "closed": "Closed since {date}"
+      "closed": "Archived {date}",
+      "closedBy": "Archived {date} · by {by}"
     },
     "storefronts": {
       "live": "AI storefront: live",
@@ -873,11 +874,12 @@
       "INVITERS_ONLY": "Only a Super admin or Support can {verb}.",
       "NOTERS_ONLY": "Only a Super admin, Partner manager, Support or the Engineer on call can {verb}.",
       "STAFF_ROLE_NOT_ALLOWED": "Your role can’t {verb}.",
-      "NOT_ASSIGNED": "This store’s partner isn’t in your assignment, so you can’t {verb}."
+      "NOT_ASSIGNED": "This store’s partner isn’t in your assignment, so you can’t {verb}.", "NOT_ARCHIVABLE": "Only a cancelled or suspended store can be archived. Suspend it first."
     },
     "verbs": {
       "suspend": "suspend a store",
       "restore": "restore a store",
+      "archive": "archive a store",
       "extendTrial": "extend a trial",
       "resendInvite": "resend the owner's invitation",
       "addNote": "add a note"
@@ -920,6 +922,7 @@
     "actions": {
       "suspend": "Suspend",
       "restore": "Restore",
+      "archive": "Archive store",
       "extendTrial": "Extend trial",
       "resendInvite": "Resend owner invitation",
       "addNote": "Add note"
@@ -1111,6 +1114,20 @@
       "by": "{by} · {time}"
     },
     "dialogs": {
+      "archive": {
+        "title": "Archive {name}?",
+        "consequence": "{name} disappears at once for everyone who works in it and for its shoppers: it’s gone from their store list, anyone signed in is signed out of it, and its storefront goes offline. This can’t be undone.",
+        "notes": [
+          "Any subscription it still has is cancelled now, with no refund.",
+          "Its data is kept for 90 days, then deleted. The owner is told to ask {partner} support for a copy."
+        ],
+        "confirm": "Archive store",
+        "reason": "Reason",
+        "reasonPlaceholder": "e.g. Merchant left, test store",
+        "reasonHint": "Kept in the activity log.",
+        "typeLabel": "Type {name} to confirm",
+        "typeHint": "Type the store name exactly to confirm."
+      },
       "suspend": {
         "title": "Suspend {name}?",
         "consequence": "{name} can’t make changes and its storefront shows a notice.",
@@ -1153,7 +1170,7 @@
     },
     "toasts": {
       "suspend": "{name} is suspended.",
-      "restore": "{name} is {status} again.",
+      "restore": "{name} is {status} again.", "archive": "{name} is archived.",
       "extendTrial": "Trial now ends {date}.",
       "resendInvite": "New invitation sent to {email}.",
       "addNote": "Note added.",

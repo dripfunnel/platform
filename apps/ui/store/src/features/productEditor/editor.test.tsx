@@ -979,3 +979,136 @@ describe('downloads, services and gift cards in the editor', () => {
     expect(screen.getByRole('heading', { name: words.error.title })).toBeTruthy()
   })
 })
+
+describe('each version’s own compare-at price, cost and photo (#1117)', () => {
+  const sizes = (p: Partial<EditorProduct> = {}) =>
+    cushion({ options: [{ id: 'o1', name: 'Size', values: [{ id: 'vs', name: 'S' }, { id: 'vm', name: 'M' }, { id: 'vl', name: 'L' }] }], versions: [version('ver-s', ['S'], '129900'), version('ver-m', ['M'], '149900'), version('ver-l', ['L'], '169900')], ...p })
+  const more = (name: string) => within(screen.getByRole('group', { name: `More for ${name}` }))
+  const sent = () => api.saveProduct.mock.calls[0]?.[2] as { versions: { choices: string[]; prices: unknown[]; cost?: unknown }[]; photos: unknown[] }
+  const pickFile = async (name: string) => {
+    const inputs = document.querySelectorAll('input[type="file"]')
+    fireEvent.change(inputs[inputs.length - 1] as HTMLInputElement, { target: { files: [new File(['x'], name, { type: 'image/png' })] } })
+    await settle()
+  }
+
+  beforeEach(() => {
+    api.loadProduct.mockResolvedValue(sizes())
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    stockApi.loadProductStock.mockResolvedValue(new Map())
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 404 }))
+  })
+
+  it('saves a version’s compare-at price and cost from its own row, and shows what it makes', async () => {
+    await show(owner)
+    expect(screen.queryByRole('group', { name: 'More for M' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'More for M' }))
+    expect(screen.getByRole('button', { name: 'More for M' }).getAttribute('aria-expanded')).toBe('true')
+    fireEvent.change(more('M').getByLabelText(words.price.compare), { target: { value: '1999' } })
+    fireEvent.change(more('M').getByLabelText(new RegExp(words.price.cost)), { target: { value: '600' } })
+    expect(more('M').getByText(/^You make .*per sale · 60% margin$/)).toBeTruthy()
+    fireEvent.click(saveButton())
+    await settle()
+    const [s, m] = sent().versions
+    expect(m).toMatchObject({ prices: [{ currency: 'INR', amount: '149900', compareAtAmount: '199900' }], cost: { currency: 'INR', amount: '60000' } })
+    expect(s).toMatchObject({ prices: [{ currency: 'INR', amount: '129900' }] })
+    expect(s?.cost).toBeUndefined()
+  })
+
+  it('blocks a save with a compare-at price at or below the price, opening that version’s row to say so', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: 'More for S' }))
+    fireEvent.change(more('S').getByLabelText(words.price.compare), { target: { value: '1000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'More for S' }))
+    expect(screen.queryByRole('group', { name: 'More for S' })).toBeNull()
+    fireEvent.click(saveButton())
+    await settle()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+    expect(more('S').getByText(words.price.compareLow)).toBeTruthy()
+  })
+
+  it('sets the values filled in on every version made, keeping the rest as they are', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: 'Hide L' }))
+    fireEvent.change(within(dialog()).getByLabelText('L'), { target: { value: 'remove' } })
+    fireEvent.click(within(dialog()).getByRole('button', { name: messages.editor.apply }))
+    expect((screen.getByRole('button', { name: 'Add a photo for L' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: words.versions.setPrice }))
+    const box = within(dialog())
+    expect(box.getByRole('heading', { name: words.versions.setPriceTitle })).toBeTruthy()
+    const apply = box.getByRole('button', { name: messages.editor.apply }) as HTMLButtonElement
+    expect(apply.disabled).toBe(true)
+    expect(box.getByText(words.versions.setNone)).toBeTruthy()
+    fireEvent.change(box.getByLabelText(words.price.price), { target: { value: 'lots' } })
+    expect(apply.disabled).toBe(true)
+    expect(box.getByText(words.versions.setFix)).toBeTruthy()
+    fireEvent.change(box.getByLabelText(words.price.price), { target: { value: '' } })
+    fireEvent.change(box.getByLabelText(words.price.compare), { target: { value: '2500' } })
+    fireEvent.change(box.getByLabelText(new RegExp(words.price.cost)), { target: { value: '500' } })
+    fireEvent.click(apply)
+    expect(field('Price of S').value).toBe('1299.00')
+    fireEvent.click(saveButton())
+    await settle()
+    expect(sent().versions.map((v) => [v.choices, v.prices, v.cost])).toEqual([
+      [['S'], [{ currency: 'INR', amount: '129900', compareAtAmount: '250000' }], { currency: 'INR', amount: '50000' }],
+      [['M'], [{ currency: 'INR', amount: '149900', compareAtAmount: '250000' }], { currency: 'INR', amount: '50000' }],
+    ])
+  })
+
+  it('gives a version its own uploaded photo, replacing the one before, and saves it by its place', async () => {
+    api.uploadPhoto.mockResolvedValueOnce({ ok: true, assetId: 'a7' }).mockResolvedValueOnce({ ok: true, assetId: 'a8' })
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: 'Add a photo for M' }))
+    expect(document.querySelector('dialog')).toBeNull()
+    await pickFile('red.png')
+    fireEvent.click(screen.getByRole('button', { name: 'Change the photo of M' }))
+    fireEvent.click(within(dialog()).getByRole('button', { name: messages.editor.apply }))
+    await pickFile('red-2.png')
+    expect(screen.getByText('1 of 20 photos')).toBeTruthy()
+    fireEvent.click(saveButton())
+    await settle()
+    expect(sent().photos).toEqual([{ assetId: 'a8', version: 1 }])
+  })
+
+  it('shows a saved version photo in its square, and goes back to the main photo when asked', async () => {
+    api.loadProduct.mockResolvedValue(sizes({ photos: [{ id: 'ph1', assetId: 'a1', url: '/api/assets/a1', alt: null, versionId: null }, { id: 'ph2', assetId: 'a5', url: '/api/assets/a5', alt: null, versionId: 'ver-m' }] }))
+    await show(owner)
+    expect(screen.getByText('2 of 20 photos')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add a photo for S' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Change the photo of M' }))
+    fireEvent.change(within(dialog()).getByLabelText(words.versions.photo), { target: { value: 'main' } })
+    fireEvent.click(within(dialog()).getByRole('button', { name: messages.editor.apply }))
+    expect(screen.getByRole('button', { name: 'Add a photo for M' })).toBeTruthy()
+    fireEvent.click(saveButton())
+    await settle()
+    expect(sent().photos).toEqual([{ assetId: 'a1' }])
+  })
+
+  it('refuses a version photo past the product’s 20, counting versions’ photos in the meter', async () => {
+    const own = Array.from({ length: 19 }, (_, n) => ({ id: `ph${n}`, assetId: `a${n}`, url: `/api/assets/a${n}`, alt: null, versionId: null }))
+    api.loadProduct.mockResolvedValue(sizes({ photos: [...own, { id: 'phm', assetId: 'am', url: '/api/assets/am', alt: null, versionId: 'ver-m' }] }))
+    await show(owner)
+    expect(screen.getByText('20 of 20 photos')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Add a photo for S' }))
+    await pickFile('blue.png')
+    expect(api.uploadPhoto).not.toHaveBeenCalled()
+    expect(screen.getAllByText(words.photos.limit).length).toBe(2)
+  })
+
+  it('says why a version photo didn’t upload, and leaves its square as it was', async () => {
+    api.uploadPhoto.mockResolvedValue({ ok: false, code: 'TOO_LARGE' })
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: 'Add a photo for S' }))
+    await pickFile('huge.png')
+    expect(screen.getByText(words.photos.refused.TOO_LARGE)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add a photo for S' })).toBeTruthy()
+  })
+
+  it('shows staff a version’s photo, compare-at price and cost with no way to change them', async () => {
+    await show(staff)
+    expect((screen.getByRole('button', { name: 'Add a photo for S' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: words.versions.setPrice })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'More for S' }))
+    expect((more('S').getByLabelText(words.price.compare) as HTMLInputElement).readOnly).toBe(true)
+    expect((more('S').getByLabelText(new RegExp(words.price.cost)) as HTMLInputElement).readOnly).toBe(true)
+  })
+})

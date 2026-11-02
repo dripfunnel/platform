@@ -8,7 +8,7 @@ import { setBrand } from '../../brand/current'
 import { messages } from '../../messages'
 import { AuthFrame } from './AuthFrame'
 import { BackupCodes } from './BackupCodes'
-import { strength } from './fields'
+import { strength, Terms } from './fields'
 import { storeStates } from '../staff-session/StaffSessionRoot'
 import { confirmEmailStates, invitationStates, resetStates, signInStates, signUpStates } from './authStates'
 import { badInvitationKey, refusalText, roleWords, signupText } from './refusals'
@@ -130,7 +130,10 @@ describe('the partner’s logos', () => {
     supportEmail: null,
     supportUrl: null,
     helpUrl: null,
+    termsUrl: null,
+    privacyUrl: null,
     poweredBy: true,
+    googleSignIn: false,
   })
   const frame = async (b: Brand) => {
     setBrand(b)
@@ -157,8 +160,8 @@ describe('the partner’s logos', () => {
   })
 })
 
-describe('the Help link', () => {
-  const brand = (helpUrl: string | null): Brand => ({
+describe('the legal links', () => {
+  const brand = (urls: Partial<Pick<Brand, 'helpUrl' | 'termsUrl' | 'privacyUrl'>>): Brand => ({
     productName: 'Northstar Shops',
     primaryColor: '#1B3A5B',
     accentColor: '#2BB673',
@@ -168,41 +171,58 @@ describe('the Help link', () => {
     files: { logoLight: null, logoDark: null, mark: null, favicon: null },
     supportEmail: 'help@northstar.shop',
     supportUrl: 'https://northstar.shop/support',
-    helpUrl,
+    helpUrl: null,
+    termsUrl: null,
+    privacyUrl: null,
     poweredBy: true,
+    googleSignIn: false,
+    ...urls,
   })
-  const frame = async (b: Brand | null) => {
+  const show = async (b: Brand | null, view = <AuthFrame panel="in" title="t" sub="s" />) => {
     setBrand(b)
     vi.stubGlobal('window', { location: { hostname: 'store.example.com' } })
     try {
-      return await render(<AuthFrame panel="in" title="t" sub="s" />)
+      return await render(view)
     } finally {
       vi.unstubAllGlobals()
       setBrand(null)
     }
   }
   const footer = (html: string) => /<footer class="df-portal-auth-legal">(.*?)<\/footer>/s.exec(html)?.[1] ?? ''
+  const all = { privacyUrl: 'https://northstar.shop/privacy', termsUrl: 'https://northstar.shop/terms', helpUrl: 'https://help.northstar.shop/shops' }
 
-  it('opens the partner’s help-centre link in a new tab, on the panel and in the footer', async () => {
-    const html = await frame(brand('https://help.northstar.shop/shops'))
-    expect(footer(html)).toContain('<a href="https://help.northstar.shop/shops" target="_blank" rel="noopener noreferrer">Help')
-    expect(html.split('href="https://help.northstar.shop/shops"')).toHaveLength(3)
+  it('opens the partner’s privacy, terms and help pages in a new tab, on the panel and in the footer', async () => {
+    const html = await show(brand(all))
+    const legal = footer(html)
+    expect(legal).toContain('<a href="https://northstar.shop/privacy" target="_blank" rel="noopener noreferrer">Privacy')
+    expect(legal).toContain('<a href="https://northstar.shop/terms" target="_blank" rel="noopener noreferrer">Terms')
+    expect(legal).toContain('<a href="https://help.northstar.shop/shops" target="_blank" rel="noopener noreferrer">Help')
+    for (const url of Object.values(all)) expect(html.split(`href="${url}"`)).toHaveLength(3)
+    expect(html).not.toContain('dripfunnel.ai/')
   })
 
-  it('leaves Help and its separator out when the partner set no link, so the footer reads only Privacy', async () => {
-    const html = await frame(brand(null))
+  it('leaves out each page the partner set no link for, with its separator', async () => {
+    const html = await show(brand({ termsUrl: all.termsUrl }))
     const legal = footer(html)
-    expect(legal).toContain('Privacy')
+    expect(legal).toContain('Terms')
+    expect(legal).not.toContain('Privacy')
     expect(legal).not.toContain('Help')
     expect(legal).not.toContain('·')
     expect(html).not.toContain('northstar.shop/support')
-    expect(html).not.toContain('help.dripfunnel')
   })
 
-  it('leaves Help out when there is no partner look at all', async () => {
-    const legal = footer(await frame(null))
-    expect(legal).toContain('Privacy')
-    expect(legal).not.toContain('Help')
-    expect(legal).not.toContain('·')
+  it('shows no legal links when there is no partner look at all', async () => {
+    const html = await show(null)
+    expect(footer(html)).toBe('')
+    expect(html).not.toContain('Privacy')
+  })
+
+  it('links the agreement’s Terms and Privacy policy to the partner’s pages, naming one without a page as text', async () => {
+    const agree = <Terms before="By creating a store you agree to the " after="." />
+    expect(await show(brand(all), agree)).toContain('<a href="https://northstar.shop/terms" target="_blank" rel="noopener noreferrer">Terms')
+    const half = await show(brand({ termsUrl: all.termsUrl }), agree)
+    expect(half).toContain('href="https://northstar.shop/terms"')
+    expect(half.replaceAll('<!-- -->', '')).toContain(' and Privacy policy.')
+    expect(half.match(/<a /g)).toHaveLength(1)
   })
 })

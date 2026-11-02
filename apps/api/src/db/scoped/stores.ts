@@ -90,6 +90,7 @@ export interface StoreStatusPatch {
   suspendedPreviousStatus?: StoreRow['suspended_previous_status']
   cancelledAt?: Date | null
   closedAt?: Date | null
+  closedByLabel?: string | null
 }
 
 export const updateStoreStatus = async (tx: ScopedSql, id: string, patch: StoreStatusPatch): Promise<boolean> => {
@@ -103,7 +104,8 @@ export const updateStoreStatus = async (tx: ScopedSql, id: string, patch: StoreS
       suspended_by_label = ${patch.suspendedByLabel === undefined ? tx`suspended_by_label` : patch.suspendedByLabel},
       suspended_previous_status = ${patch.suspendedPreviousStatus === undefined ? tx`suspended_previous_status` : patch.suspendedPreviousStatus},
       cancelled_at = ${patch.cancelledAt === undefined ? tx`cancelled_at` : patch.cancelledAt},
-      closed_at = ${patch.closedAt === undefined ? tx`closed_at` : patch.closedAt}
+      closed_at = ${patch.closedAt === undefined ? tx`closed_at` : patch.closedAt},
+      closed_by_label = ${patch.closedByLabel === undefined ? tx`closed_by_label` : patch.closedByLabel}
     where id = ${id}
     returning id
   `

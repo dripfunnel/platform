@@ -13,7 +13,10 @@ const brand = (over: Partial<Brand> = {}): Brand => ({
   supportEmail: null,
   supportUrl: null,
   helpUrl: null,
+  termsUrl: null,
+  privacyUrl: null,
   poweredBy: true,
+  googleSignIn: false,
   ...over,
 })
 

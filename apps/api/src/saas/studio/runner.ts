@@ -491,6 +491,7 @@ export class StudioRunner {
     const theme = await this.themeNow()
     const attempts: Attempt[] = []
     let problems: GateProblem[] = []
+    let previous: { path: string; content: string }[] = []
     let saved: Awaited<ReturnType<StudioRunner['collect']>> | null = null
     let stop: () => void = () => undefined
     const stopping = new Promise<never>((_, reject) => {
@@ -502,7 +503,7 @@ export class StudioRunner {
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
-        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems }), stopping])
+        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous }), stopping])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         const startedAt = this.deps.now().getTime()
         run.sandboxed = true
@@ -520,6 +521,7 @@ export class StudioRunner {
           break
         }
         problems = done.result.problems
+        previous = proposal.files.flatMap((f) => (f.content === null ? [] : [{ path: f.path, content: f.content }]))
         run.sandboxed = false
       }
     } catch (error) {

@@ -26,7 +26,8 @@ const StorefrontContext = createContext<Storefront | null>(null)
 /** The store's own head under every page's; a preview or the studio frame is never indexed (PREVIEW §5 step 4). */
 const StoreHead = ({ store, mode }: { store: ShopStoreSettings; mode: RenderMode }) => {
   const { path } = useLocation()
-  useHeadAt(0, { ...storeHead(store, path), hidden: mode !== 'live' })
+  // A frame's favicon is never shown, and the studio frame can't ask for a Shop API file at its address (AI-STUDIO §3 step 6).
+  useHeadAt(0, { ...storeHead(store, path), hidden: mode !== 'live', ...(mode === 'studio' ? { icon: null } : {}) })
   return null
 }
 

@@ -45,6 +45,21 @@ describe('a store’s plan on Stripe', () => {
     expect([body.get('phases[0][items][0][price]'), body.get('phases[0][end_date]'), body.get('phases[1][items][0][price_data][unit_amount]'), body.get('phases[1][metadata][plan_id]')]).toEqual(['price_1', '2', '6000', 'p2'])
   })
 
+  it('ends a subscription now, taking only gone or already ended as done', async () => {
+    const refused = (code: string, status = 400) => ({ status, json: { error: { type: 'invalid_request_error', code } } })
+    const ended = async (answers: { status: number; json: unknown }[]) => {
+      const seen: Request[] = []
+      const result = await storeBillingStripe({ secretKey: 'rk_test_a', fetchImpl: recording(answers, seen) }).cancelNow('sub_1').then(() => 'ok', (e: unknown) => e)
+      return { result, calls: seen.map((r) => `${r.method} ${new URL(r.url).pathname}`) }
+    }
+    expect(await ended([{ status: 200, json: { ...sub, status: 'canceled' } }])).toEqual({ result: 'ok', calls: ['DELETE /v1/subscriptions/sub_1'] })
+    expect((await ended([refused('resource_missing', 404)])).result).toBe('ok')
+    expect(await ended([refused('subscription_canceled'), { status: 200, json: { ...sub, status: 'canceled' } }])).toEqual({ result: 'ok', calls: ['DELETE /v1/subscriptions/sub_1', 'GET /v1/subscriptions/sub_1'] })
+    // Still live, or the key refused: the caller must not close the store.
+    expect((await ended([refused('parameter_invalid'), { status: 200, json: sub }])).result).toBeInstanceOf(StripeRefused)
+    expect((await ended([refused('api_key_expired', 401)])).result).toBeInstanceOf(StripeRefused)
+  })
+
   it('makes the plan’s product once, an existing one answering its id', async () => {
     const seen: Request[] = []
     const api = storeBillingStripe({ secretKey: 'rk_test_a', fetchImpl: recording([{ status: 400, json: { error: { code: 'resource_already_exists' } } }], seen) })

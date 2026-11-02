@@ -18,6 +18,7 @@ import { Route as AppBrandingRouteImport } from './routes/_app/branding'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppDomainsRouteImport } from './routes/_app/domains'
 import { Route as AppPlansRouteImport } from './routes/_app/plans'
+import { Route as AppProfileRouteImport } from './routes/_app/profile'
 import { Route as AppReportsRouteImport } from './routes/_app/reports'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
@@ -73,6 +74,11 @@ const AppDomainsRoute = AppDomainsRouteImport.update({
 const AppPlansRoute = AppPlansRouteImport.update({
   id: '/plans',
   path: '/plans',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
 const AppReportsRoute = AppReportsRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AppDashboardRoute
   '/domains': typeof AppDomainsRoute
   '/plans': typeof AppPlansRoute
+  '/profile': typeof AppProfileRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/states': typeof AppStatesRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AppDashboardRoute
   '/domains': typeof AppDomainsRoute
   '/plans': typeof AppPlansRoute
+  '/profile': typeof AppProfileRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/states': typeof AppStatesRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/domains': typeof AppDomainsRoute
   '/_app/plans': typeof AppPlansRoute
+  '/_app/profile': typeof AppProfileRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/states': typeof AppStatesRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/domains'
     | '/plans'
+    | '/profile'
     | '/reports'
     | '/settings'
     | '/states'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/domains'
     | '/plans'
+    | '/profile'
     | '/reports'
     | '/settings'
     | '/states'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/domains'
     | '/_app/plans'
+    | '/_app/profile'
     | '/_app/reports'
     | '/_app/settings'
     | '/_app/states'
@@ -350,6 +362,13 @@ declare module '@tanstack/react-router' {
       path: '/plans'
       fullPath: '/plans'
       preLoaderRoute: typeof AppPlansRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/reports': {
@@ -453,6 +472,7 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppDomainsRoute: typeof AppDomainsRoute
   AppPlansRoute: typeof AppPlansRoute
+  AppProfileRoute: typeof AppProfileRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppStatesRoute: typeof AppStatesRoute
@@ -472,6 +492,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppDomainsRoute: AppDomainsRoute,
   AppPlansRoute: AppPlansRoute,
+  AppProfileRoute: AppProfileRoute,
   AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppStatesRoute: AppStatesRoute,

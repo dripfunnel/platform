@@ -106,6 +106,12 @@
   font: inherit;
 }
 
+.phone {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 8px;
+}
+
 .field input[aria-invalid='true'] {
   border-color: var(--danger);
 }

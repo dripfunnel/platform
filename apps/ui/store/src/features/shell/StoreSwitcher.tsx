@@ -96,6 +96,14 @@ export const StoreSwitcher = ({ current, stores }: { current: StoreChoice; store
               </button>
             )
           })}
+          <button type="button" role="menuitem" className="df-switcher-item df-switcher-create" onClick={() => void navigate({ to: '/stores/new' })}>
+            <span className="df-switcher-initial" aria-hidden="true">
+              +
+            </span>
+            <span className="df-switcher-item-text">
+              <span>{messages.chooseStore.create.action}</span>
+            </span>
+          </button>
         </div>
       )}
       {failed && (

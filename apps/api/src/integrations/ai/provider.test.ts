@@ -23,7 +23,9 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: Anthropic }
 })
 
-import { AiDeclined, anthropicOAuthDesignerProvider } from './provider'
+import { AiDeclined, anthropicOAuthDesignerProvider, routedDesignerProvider } from './provider'
+import type { CanonicalRequest } from './canonical'
+import type { Router } from './routing/router'
 import Anthropic from '@anthropic-ai/sdk'
 
 beforeEach(() => {
@@ -84,4 +86,16 @@ it('maps an Anthropic 429 to RATE_LIMITED and a 401 to INVALID_CREDENTIALS, with
     mocks.stream.mockReturnValue({ finalMessage: async () => { throw new Anthropic.APIError(status, undefined, 'secret body', undefined) } })
     await expect(anthropicOAuthDesignerProvider('oauth-token').complete({ system: 's', text: 't', images: [] })).rejects.toMatchObject({ code, message: expect.not.stringContaining('secret') })
   }
+})
+
+it('sends no tool choice when a turn has no tools, which the translators refuse', async () => {
+  const seen: CanonicalRequest[] = []
+  const router = { stream: async (request: CanonicalRequest) => (seen.push(request), Promise.reject(new Error('stop here'))) } as unknown as Router
+  const provider = routedDesignerProvider(router, 'claude-haiku-4-5', { signIn: false })
+  const tool = { name: 'search_stock_images', description: 'x', parameters: { type: 'object' } }
+  await provider.converse?.({ system: 's', messages: [], tools: [tool] }).catch(() => undefined)
+  await provider.converse?.({ system: 's', messages: [], tools: [] }).catch(() => undefined)
+  expect(seen[0]?.toolChoice).toBe('auto')
+  expect(seen[1]?.tools).toEqual([])
+  expect(seen[1]?.toolChoice).toBeUndefined()
 })

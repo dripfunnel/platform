@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useInView, useReducedMotion } from '../browser/hooks'
 import { studioBasePath } from '../render/studio'
 import { useStorefront } from '../store/context'
@@ -21,6 +21,19 @@ export const frameAddress = (address: string, base: string | null): string => {
   }
 }
 
+// The catalogue file the Shop API's `/shop-api/assets/{id}` and a built page's copy of it name (LIVE-SHOP §5 step 7).
+const catalogueFile = /(?:\/shop-api\/assets|\/media)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/
+const fileOf = (address: string): string | null => catalogueFile.exec(address)?.[1] ?? null
+
+/** The first address given for a catalogue file: a built page keeps its copy when the Shop API's fresh answer names it too. */
+const useSteadyAddress = (address: string): string => {
+  const [kept, keep] = useState(address)
+  const file = fileOf(address)
+  const same = kept === address || (file !== null && fileOf(kept) === file)
+  if (!same) keep(address)
+  return same ? kept : address
+}
+
 export type ImageProps = {
   image: Photo
   alt: string
@@ -35,12 +48,13 @@ export type ImageProps = {
 export const Image = ({ image, alt, ratio, sizes = '100vw', className }: ImageProps) => {
   const { mode } = useStorefront()
   const live = mode === 'live'
-  const source = mode === 'studio' ? frameAddress(image.url, studioBasePath(import.meta.url)) : image.url
+  const address = useSteadyAddress(image.url)
+  const source = mode === 'studio' ? frameAddress(address, studioBasePath(import.meta.url)) : address
   const height = Math.round(1200 / (ratio > 0 ? ratio : 1))
   return (
     <img
-      src={live ? resized(image.url, 960) : source}
-      srcSet={live ? widths.map((w) => `${resized(image.url, w)} ${w}w`).join(', ') : undefined}
+      src={live ? resized(address, 960) : source}
+      srcSet={live ? widths.map((w) => `${resized(address, w)} ${w}w`).join(', ') : undefined}
       sizes={live ? sizes : undefined}
       width={1200}
       height={height}
@@ -51,6 +65,17 @@ export const Image = ({ image, alt, ratio, sizes = '100vw', className }: ImagePr
       className={className}
     />
   )
+}
+
+/**
+ * The store's logo from Site settings › Brand, or its name while it has none. Loaded at once and never resized (a logo
+ * may be an SVG); the theme's CSS sets its height.
+ */
+export const StoreLogo = ({ className }: { className?: string }) => {
+  const { store, mode } = useStorefront()
+  if (!store.logo) return <>{store.name}</>
+  const source = mode === 'studio' ? frameAddress(store.logo.url, studioBasePath(import.meta.url)) : store.logo.url
+  return <img src={source} alt={store.name} decoding="async" className={className} />
 }
 
 export type VideoProps = {

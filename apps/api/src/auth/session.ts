@@ -1,4 +1,5 @@
 import type { ScopedSql } from '#db/scoped/index'
+import { liveStaffSession, type StaffSessionWindow } from '#db/scoped/staffMembers'
 
 // ACCESS.md §4, decided 2026-10-01: shorter than every other pool, because a staff session is
 // the one that can suspend a store and impersonate a merchant.
@@ -44,6 +45,18 @@ export const createSession = async (tx: ScopedSql, staffUserId: string, now: Dat
   return id
 }
 
+/** The live-session condition's inputs for the Admin API (ACCESS.md §4). */
+export const staffSessionWindow = (idHash: string, now: Date): StaffSessionWindow => ({ idHash, now, idleSince: new Date(now.getTime() - idleMs) })
+
+/** Moves a live session's last-seen on, only when it is stale. */
+export const touchStaffSession = async (tx: ScopedSql, idHash: string, lastSeenAt: Date, now: Date): Promise<void> => {
+  if (!lastSeenIsStale(lastSeenAt, now)) return
+  await tx`
+    update staff_session set last_seen_at = ${now}
+    where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
+  `
+}
+
 /**
  * The session if it is live, else null. Idle is measured from `last_seen_at` and the absolute
  * bound from `expires_at`; touching `last_seen_at` is what makes the idle window sliding.
@@ -51,19 +64,11 @@ export const createSession = async (tx: ScopedSql, staffUserId: string, now: Dat
 export const readSession = async (tx: ScopedSql, id: string, now: Date): Promise<StaffSession | null> => {
   const idHash = await hashSessionId(id)
   const rows = await tx<{ staff_user_id: string; reauth_at: Date | null; last_seen_at: Date }[]>`
-    select staff_user_id, reauth_at, last_seen_at from staff_session
-    where id_hash = ${idHash}
-      and expires_at > ${now}
-      and last_seen_at > ${new Date(now.getTime() - idleMs)}
+    select staff_user_id, reauth_at, last_seen_at from staff_session where ${liveStaffSession(tx, staffSessionWindow(idHash, now))}
   `
   const row = rows[0]
   if (!row) return null
-  if (lastSeenIsStale(row.last_seen_at, now)) {
-    await tx`
-      update staff_session set last_seen_at = ${now}
-      where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
-    `
-  }
+  await touchStaffSession(tx, idHash, row.last_seen_at, now)
   return { staffUserId: row.staff_user_id, reauthAt: row.reauth_at }
 }
 

@@ -120,7 +120,10 @@ describe('the header’s Help link', () => {
     supportEmail: 'help@northstar.shop',
     supportUrl: 'https://northstar.shop/support',
     helpUrl,
+    termsUrl: null,
+    privacyUrl: null,
     poweredBy: true,
+    googleSignIn: false,
   })
   const header = (b: Brand | null) => render(<AppHeader me={me} seat={owner} current={choice} stores={[choice]} brand={b} menuOpen={false} onOpenMenu={() => undefined} />)
 

@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
+import { cleanup, render } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
-import { Provided } from '../../../test/shop'
-import type { RenderMode } from '../store/context'
-import { frameAddress, Image, Video } from './media'
+import { afterEach, describe, expect, it } from 'vitest'
+import { Provided, store } from '../../../test/shop'
+import { createShopClient } from '../api/client'
+import { StorefrontProvider, type RenderMode } from '../store/context'
+import { frameAddress, Image, StoreLogo, Video } from './media'
 import { asMain, photoSchema, videoSchema } from './photo'
 
 const photo = photoSchema.parse({ alt: 'Front', image: { url: 'https://shop.example/shop-api/assets/a' } })
@@ -71,5 +73,59 @@ describe('photo.ts', () => {
     const source = await readFile('src/platform/media/photo.ts', 'utf8')
     expect(source).not.toMatch(/^['"]use client['"]/)
     expect(source).not.toMatch(/from ['"]\.\/media['"]/)
+  })
+})
+
+// Card #1105: a built page names a picture's copy on the asset host, and the Shop API's fresh answer names the same file.
+describe('Image after a fresh answer', () => {
+  afterEach(cleanup)
+  const at = (url: string) => photoSchema.parse({ alt: null, image: { url } })
+  const copy = 'https://sf-assets.my-store.one/stores/s1/media/0b6f6a52-1c1e-4d8a-9b6e-6f1d0c2a3b4c'
+  const shown = (container: HTMLElement) => container.querySelector('img')?.getAttribute('src')
+
+  it('keeps the address it was built with while the answer names the same file, and takes a different file at once', () => {
+    const built = at(copy)
+    const fresh = at('https://shop.example/shop-api/assets/0b6f6a52-1c1e-4d8a-9b6e-6f1d0c2a3b4c')
+    const other = at('https://shop.example/shop-api/assets/9a8b7c6d-1c1e-4d8a-9b6e-6f1d0c2a3b4c')
+    if (!built || !fresh || !other) throw new Error('no photo')
+    const { container, rerender } = render(<Provided mode="live"><Image image={built} alt="" ratio={1} /></Provided>)
+    rerender(<Provided mode="live"><Image image={fresh} alt="" ratio={1} /></Provided>)
+    expect(shown(container)).toBe(`/cdn-cgi/image/width=960,quality=82,format=auto/${copy}`)
+    rerender(<Provided mode="live"><Image image={other} alt="" ratio={1} /></Provided>)
+    expect(shown(container)).toContain('/shop-api/assets/9a8b7c6d-')
+  })
+
+  it('takes at once any other address, even one ending in the same name', () => {
+    const steps = ['https://a.example/img/hero.jpg', 'https://b.example/other/hero.jpg', 'https://b.example/other/hero.jpg?v=2', `https://a.example/x/${copy.slice(-36)}`]
+    const photos = steps.map(at).filter((p) => p !== null)
+    const [first] = photos
+    if (!first || photos.length !== steps.length) throw new Error('no photo')
+    const { container, rerender } = render(<Provided mode="preview"><Image image={first} alt="" ratio={1} /></Provided>)
+    for (const [n, photo] of photos.entries()) {
+      rerender(<Provided mode="preview"><Image image={photo} alt="" ratio={1} /></Provided>)
+      expect(shown(container)).toBe(steps[n])
+    }
+  })
+})
+
+describe('StoreLogo', () => {
+  const withLogo = { ...store, logo: { url: 'https://shop.example/shop-api/assets/l' } }
+  const logo = (mode: RenderMode, value: typeof store) =>
+    renderToStaticMarkup(
+      <StorefrontProvider value={{ client: createShopClient(), store: value, locale: 'en-US', mode, poweredBy: null }}>
+        <StoreLogo className="logo" />
+      </StorefrontProvider>,
+    )
+
+  it('shows the logo as it is, named by the store, loaded at once and never resized', () => {
+    const live = logo('live', withLogo)
+    expect(live).toContain('src="https://shop.example/shop-api/assets/l"')
+    expect(live).toContain('alt="Juniper &amp; Co."')
+    expect(live).not.toContain('loading=')
+    expect(live).not.toContain('cdn-cgi')
+  })
+
+  it('shows the store’s name while it has no logo', () => {
+    expect(logo('live', store)).toBe('Juniper &amp; Co.')
   })
 })

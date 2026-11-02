@@ -33,7 +33,7 @@ const store = {
   supportAccess: true,
   notes: [],
   job: null,
-  actions: { suspend: permission(true), restore: null, extendTrial: null, resendInvite: permission(false, 'INVITERS_ONLY'), addNote: permission(true) },
+  actions: { suspend: permission(true), restore: null, archive: permission(false, 'NOT_ARCHIVABLE'), extendTrial: null, resendInvite: permission(false, 'INVITERS_ONLY'), addNote: permission(true) },
 }
 
 afterEach(() => void vi.unstubAllGlobals())
@@ -55,8 +55,15 @@ describe('loadStore', () => {
     const loaded = await loadStore('s1')
     expect(loaded?.users.map((u) => u.role)).toEqual(['owner', 'supplierAdmin'])
     expect(loaded?.impersonate).toEqual({ u1: { allowed: true }, u2: { allowed: false, reason: 'TARGET_NOT_ACTIVE' } })
-    expect(loaded?.actions).toEqual({ suspend: { allowed: true }, resendInvite: { allowed: false, reason: 'INVITERS_ONLY' }, addNote: { allowed: true } })
+    expect(loaded?.actions).toEqual({ suspend: { allowed: true }, archive: { allowed: false, reason: 'NOT_ARCHIVABLE' }, resendInvite: { allowed: false, reason: 'INVITERS_ONLY' }, addNote: { allowed: true } })
     expect(loaded?.history[0]?.action).toBe('store.past_due')
+  })
+
+  it('reads an archived store as Archived, with who archived it', async () => {
+    stubApi({ data: { store: { ...store, state: { kind: 'closed', trialEndsAt: null, daysLeft: null, daysPastDue: null, reason: null, by: 'Priya Shah', previous: null, since: '2026-10-31T09:00:00.000Z' }, actions: { ...store.actions, archive: null } } } })
+    const loaded = await loadStore('s1')
+    expect(loaded?.state).toEqual({ kind: 'closed', since: '2026-10-31T09:00:00.000Z', by: 'Priya Shah' })
+    expect(loaded?.actions.archive).toBeUndefined()
   })
 
   it('reads the Engineer on call emergency suspend as such', async () => {
@@ -82,5 +89,11 @@ describe('runStoreAction', () => {
     expect(ok.calls[0]?.variables).toEqual({ id: 's1', trialEndsAt: '2026-10-20T00:00:00.000Z' })
     stubApi({ data: { suspendStore: { ok: false, code: 'REASON_REQUIRED' } } })
     await expect(runStoreAction('s1', 'suspend', '', null)).rejects.toMatchObject({ code: 'REASON_REQUIRED' })
+  })
+
+  it('archives with the reason given', async () => {
+    const stub = stubApi({ data: { archiveStore: { ok: true, code: null } } })
+    await runStoreAction('s1', 'archive', 'Merchant left', null)
+    expect(stub.calls[0]?.variables).toEqual({ id: 's1', reason: 'Merchant left' })
   })
 })

@@ -76,7 +76,7 @@ const runnerOf = (storeId: string): StudioRunner => {
 const local = localStudio(() => db.sql, runnerOf)
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
-const script: { answers: string[]; sent: string[]; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], turns: [] }
+const script: { answers: string[]; sent: string[]; lastTurn: string; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], lastTurn: '', turns: [] }
 const reply = (files: { path: string; content: string | null }[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => {
@@ -93,7 +93,7 @@ const provider: AiProvider = {
     script.sent.push('converse')
     const next = script.turns.shift()
     if (next) return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
-    void call
+    script.lastTurn = JSON.stringify(call.messages.filter((m) => m.role === 'tool'))
     if (hold) {
       held?.()
       await hold
@@ -118,14 +118,14 @@ const design: {
   screenshots: Screenshotter | null
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
   stock: StockImages | null
-  aiPhotos: boolean
+  aiPhotos: readonly string[]
 } = {
   ai: (billedTo, _context, model) => ((askedModel = model), aiMode === 'plan' && billedTo === 'plan' ? provider : null),
   models: () => ['claude-opus-5-5', 'claude-haiku-5-5'],
   screenshots: null,
   readAsset: null,
   stock: null,
-  aiPhotos: false,
+  aiPhotos: [],
 }
 let siteText: string | null = null
 let stockBudget = 1000
@@ -205,6 +205,20 @@ describe('asking for a change', () => {
     const runs = await db.sql<{ kind: string; billed_to: string }[]>`select kind, billed_to from ai_run where store_id = ${t.storeA1} order by created_at desc limit 2`
     expect(runs.map((r) => `${r.kind}:${r.billed_to}`).sort()).toEqual(['design:plan', 'repair:platform'])
     expect(await usage(t.storeA1)).toBe(2)
+  })
+
+  it('shows each repair the files of the attempt before it, and the first ask none', async () => {
+    const second = { path: 'src/theme/pages/AboutPage.tsx', content: "export const AboutPage = () => { fetch('/y'); return null }\n" }
+    const deletion = { path: 'src/theme/components/Gone.tsx', content: null }
+    script.answers = [reply([refusedPage, deletion]), reply([second]), reply([lead('Third time.')])]
+    expect((await ask('owner', 'Three attempts')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    const [first, repair, again] = script.sent.slice(-3)
+    const marker = "Your last answer's files, which failed:"
+    expect(first).not.toContain(marker)
+    expect(repair).toContain(`${marker}\n--- ${refusedPage.path}\n${refusedPage.content}`)
+    expect(repair).not.toContain(deletion.path)
+    expect(again).toContain(`${marker}\n--- ${second.path}\n${second.content}`)
+    expect(again).not.toContain(`${marker}\n--- ${refusedPage.path}`)
   })
 
   it('refuses a change still failing after three repairs and leaves the draft as it was', async () => {
@@ -346,27 +360,29 @@ describe('asking for a change', () => {
 
   it('lets the AI add only a photo its own search returned', async () => {
     const downloaded: string[] = []
-    design.aiPhotos = true
+    design.aiPhotos = ['pexels']
     design.stock = {
-      search: async () => ({ total: 1, photos: [{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }] }),
-      download: async (id) => (downloaded.push(id), 'https://pixabay.com/get/42.png'),
+      search: async () => ({ total: 1, photos: [{ id: 'pexels:42', source: 'pexels', thumb: 'https://images.pexels.com/t.jpg', user: 'Ana', pageUrl: 'https://pexels.com/p/42', tags: 'linen' }, { id: 'pixabay:7', source: 'pixabay', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Bo', pageUrl: 'https://pixabay.com/p/7', tags: 'linen' }] }),
+      download: async (id) => (downloaded.push(id), 'https://images.pexels.com/get/42.png'),
     }
-    dns['pixabay.com A'] = ['93.184.216.34']
+    dns['images.pexels.com A'] = ['93.184.216.34']
     vi.stubGlobal('fetch', async () => new Response(png, { headers: { 'content-type': 'image/png' } }))
     const used = await usage(t.storeA1)
     await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
     const before = stored.length
     const call = (id: string, name: string, args: object) => ({ id, name, arguments: JSON.stringify(args) })
-    script.turns = [[call('1', 'add_stock_image', { id: '999' })], [call('2', 'search_stock_images', { query: 'linen' })], [call('3', 'add_stock_image', { id: '42' })]]
+    script.turns = [[call('1', 'add_stock_image', { id: '999' })], [call('2', 'search_stock_images', { query: 'linen' })], [call('3', 'add_stock_image', { id: 'pixabay:7' })], [call('4', 'add_stock_image', { id: 'pexels:42' })]]
     script.answers = [reply([])]
     try {
       expect((await ask('owner', 'A linen hero photo')).code).toBeUndefined()
-      expect(downloaded).toEqual(['42'])
+      expect(downloaded).toEqual(['pexels:42'])
+      expect(script.lastTurn).toContain('pexels:42')
+      expect(script.lastTurn).not.toContain('pixabay:7')
       expect(stored.length).toBe(before + 1)
     } finally {
       script.turns = []
       vi.unstubAllGlobals()
-      design.aiPhotos = false
+      design.aiPhotos = []
       design.stock = null
       await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
     }
@@ -430,7 +446,7 @@ describe('asking for a change', () => {
     expect((await w.gql('owner', stockQuery)).data?.['stockImagesAvailable']).toBe(false)
     expect((await w.gql('owner', 'query { searchStockImages(query: "linen", page: 1) { id } }')).code).toBe('NOT_CONNECTED')
     design.stock = {
-      search: async (query) => (query === 'down' ? null : { total: 1, photos: [{ id: '42', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }] }),
+      search: async (query) => (query === 'down' ? null : { total: 1, photos: [{ id: '42', source: 'pixabay', thumb: 'https://cdn.pixabay.com/t.jpg', user: 'Ana', pageUrl: 'https://pixabay.com/p/42', tags: 'linen' }] }),
       download: async (id) => (id === '42' ? 'https://pixabay.com/get/42.png' : null),
     }
     dns['pixabay.com A'] = ['93.184.216.34']
@@ -445,6 +461,7 @@ describe('asking for a change', () => {
       const used = async (id: string) => w.gql('owner', 'mutation U($i: String!) { useStockImage(id: $i) }', { i: id })
       expect((await used('../etc')).code).toBe('INVALID_INPUT')
       expect((await used('7')).code).toBe('SAMPLE_UNAVAILABLE')
+      for (const id of ['foo:1', 'unsplash:abc', 'pexels:1', 'constructor:1', '__proto__:1']) expect((await used(id)).code, id).toBe('SAMPLE_UNAVAILABLE')
       const before = stored.length
       const asset = (await used('42')).data?.['useStockImage'] as string
       expect(asset).toMatch(/^[0-9a-f-]{36}$/)

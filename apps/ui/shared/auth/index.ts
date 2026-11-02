@@ -11,6 +11,7 @@ export interface AuthRefusal<Code extends string> {
   minutes?: number | undefined
   invitedBy?: string | undefined
   suggestions?: string[] | undefined
+  limit?: number | undefined
 }
 
 const refusalSchema = z.object({
@@ -20,6 +21,7 @@ const refusalSchema = z.object({
   minutes: z.number().int().optional(),
   invitedBy: z.string().optional(),
   suggestions: z.array(z.string()).optional(),
+  limit: z.number().int().optional(),
 })
 
 export const authTimeoutMs = 15_000
@@ -37,7 +39,7 @@ export const createAuthClient = <Code extends string>({ codes, identityRoutes }:
 
   const refusalOf = (answer: z.infer<typeof refusalSchema>): AuthRefusal<Code> =>
     known.has(answer.code)
-      ? { ok: false, code: answer.code as Code, triesLeft: answer.triesLeft, minutes: answer.minutes, invitedBy: answer.invitedBy, suggestions: answer.suggestions }
+      ? { ok: false, code: answer.code as Code, triesLeft: answer.triesLeft, minutes: answer.minutes, invitedBy: answer.invitedBy, suggestions: answer.suggestions, limit: answer.limit }
       : notConnected
 
   const post = async <Schema extends z.ZodType>(route: string, body: Record<string, unknown>, done: Schema): Promise<z.infer<Schema> | AuthRefusal<Code>> => {

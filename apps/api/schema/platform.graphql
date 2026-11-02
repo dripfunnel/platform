@@ -362,7 +362,9 @@ type Mutation {
   addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
   addPartnerAiKey(key: String!, name: String!, provider: String!): PartnerAiKeyResult
   addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
+  archiveStore(id: ID!, reason: String!): StoreActionResult
   beginPartnerAiOauth(id: ID, provider: String!): PartnerAiKeyResult
+  changeMyPassword(current: String!, password: String!): MyProfileResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   changeTeamRole(id: ID!, role: String!): TeamResult
   createPlan(input: PlanInput!): PlanResult
@@ -390,6 +392,7 @@ type Mutation {
   retryProvisioningStep(id: ID!): StoreActionResult
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
+  savePartnerGoogleSignIn(clientId: String!, clientSecret: String!): PartnerGoogleSignInResult
   setBillingMode(mode: String!): BillingResult
   setDefaultPartnerAiKey(id: ID!): PartnerAiKeyResult
   setPaymentMethod(token: String!): BillingResult
@@ -401,7 +404,16 @@ type Mutation {
   suspendStore(id: ID!, reason: String!): StoreActionResult
   testPartnerAiKey(id: ID!): PartnerAiKeyResult
   transferOwnership(toUserId: ID!): TeamResult
+  turnOffPartnerGoogleSignIn: PartnerGoogleSignInResult
+  updateMyName(name: String!): MyProfileResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
+}
+
+type MyProfileResult {
+  minutes: Int
+  ok: Boolean
+  reason: String
+  triesLeft: Int
 }
 
 type NavBadges {
@@ -586,6 +598,20 @@ type PartnerDomains {
   addresses: [PartnerAddress!]
   fallbackAddress: String
   fallbackSender: String
+}
+
+type PartnerGoogleSignIn {
+  clientId: String
+  enabled: Boolean
+  redirectUri: String
+  secretHint: String
+  setAt: String
+  setBy: String
+}
+
+type PartnerGoogleSignInResult {
+  ok: Boolean
+  reason: String
 }
 
 type PartnerInvoice {
@@ -859,6 +885,7 @@ type Query {
   partnerAiSignIn: [PartnerAiSignIn!]
   partnerCompany: PartnerCompany
   partnerDomains: PartnerDomains
+  partnerGoogleSignIn: PartnerGoogleSignIn
   partnerInvoices(after: String, before: String, first: Int): PartnerInvoicesPage
   partnerState: PartnerState
   paymentMethod: PaymentMethod
@@ -1023,6 +1050,7 @@ type StoreActionResult {
 
 type StoreActions {
   addOverride: StoreActionPermission
+  archive: StoreActionPermission
   changePlan: StoreActionPermission
   extendTrial: StoreActionPermission
   resendInvite: StoreActionPermission

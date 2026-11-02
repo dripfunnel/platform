@@ -3,7 +3,7 @@
 The shared, long-lived environment on `actuateminds.com` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-30 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -21,7 +21,7 @@ Feature environments (one per `feature` branch) are a separate setup:
 | API Worker | `dripfunnel-api-dev` (`wrangler.jsonc` › `env.dev`) |
 | Hosts | `dev-admin.actuateminds.com`, `dev-platform.actuateminds.com`, `dev-store.actuateminds.com` (each `/api/*` routes to the Worker), `dev-hooks.actuateminds.com` (the Worker's own custom domain) |
 | Consoles | Pages projects `dripfunnel-admin-dev`, `dripfunnel-platform-dev`, `dripfunnel-store-dev` |
-| Database | Neon project `dripfunnel-dev`, its persistent `dev` branch, through Hyperdrive |
+| Database | PlanetScale Postgres `dripfunnel-dev` (Mumbai, AWS `ap-south-1`), database `dripfunnel`, through Hyperdrive; on Neon until 2026-10-31 (#1071) |
 | Gate | Cloudflare Access: `*.actuateminds.com` allows `@softobotics.com`; `*-hooks.actuateminds.com` is bypassed so providers' test webhooks arrive |
 | Merchant mobile app | Its `dev` profile points at `dev-store.actuateminds.com` ([mobile-app/merchant/CONFIGURATION.md §2](../mobile-app/merchant/CONFIGURATION.md), #493); the Access gate above refuses the app's API calls until its own card solves that |
 | Deploys | `.github/workflows/dev.yml`, on every push to `dev`, or by hand |
@@ -35,8 +35,8 @@ What one run of `dev.yml` does, in order:
    and different.
 3. **Gates:** `build typecheck lint test`, against the disposable **test** branch
    (`TEST_DATABASE_URL`), never the dev database.
-4. **Migrations:** against the persistent dev branch (`DEV_DATABASE_URL`), over Neon's direct
-   connection.
+4. **Migrations:** against the persistent dev database (`DEV_DATABASE_URL`), over PlanetScale's
+   direct connection.
 5. **Consoles:** deploys each console that changed to its Pages project. A missing project is
    created on the first deploy.
 6. **API Worker:** `wrangler deploy --env dev`, if the API changed.
@@ -45,7 +45,7 @@ What one run of `dev.yml` does, in order:
 
 ## 2. One-time setup
 
-Done once, by whoever holds the Cloudflare, Neon and GitHub admin rights. Each step can be
+Done once, by whoever holds the Cloudflare, PlanetScale, Neon and GitHub admin rights. Each step can be
 checked off.
 
 ### 2.1 Cloudflare account, zone and Access
@@ -66,23 +66,34 @@ checked off.
    `actuateminds.com`*: Zone Read, DNS Edit, Workers Routes Edit.
 3. Copy it once. It goes into the GitHub `dev` environment (§2.5).
 
-### 2.3 Neon
+### 2.3 PlanetScale (the dev database) and Neon (the CI test branch)
 
-1. In the project `dripfunnel-dev` (Postgres **18**), create a branch named `dev`. It is the
-   persistent dev database.
-2. Create a second branch for CI tests, e.g. `ci-test`. It is disposable: the gates migrate
-   and write to it freely.
-3. Roles on the `dev` branch:
-   - **migration role** (e.g. `migrator`): owns the schema and runs migrations. It needs
-     `CREATEROLE` and `BYPASSRLS`, because migrations create the request roles
-     ([api/README.md §7](../api/README.md));
-   - **app role**: what the Worker connects as, **without** `BYPASSRLS`, a member of the
-     request roles ([DATA-MODEL.md §5.3](../api/DATA-MODEL.md)).
-4. Note three connection strings from Neon › the branch › *Connection details*:
-   - the migration role, **direct** (not pooled), on `dev` → `DEV_DATABASE_URL`;
-   - the test branch's string → `TEST_DATABASE_URL`;
-   - the app role, **pooled**, on `dev` → for Hyperdrive (§2.4).
-5. Note the two hostnames, from `DEV_DATABASE_URL` and `TEST_DATABASE_URL`. They become
+The dev database moved from Neon's `DripFunnel-Dev` project (branch `production`) to PlanetScale
+on 2026-10-31 with `pg_dump` and `pg_restore`; how, and the checks it passed, are on #1071.
+
+1. In PlanetScale, a Postgres **18** database `dripfunnel-dev`, region Mumbai (AWS `ap-south-1`),
+   PS-10, single node. Create its **default role** (*Connect* › default role); it sets up the
+   roles below and nothing else, never the Worker.
+2. As that default role (it has `CREATEROLE` and `BYPASSRLS`), the **migration role** and the
+   database. The role keeps its Neon name, because a dump names its owners:
+   ```sql
+   create role neondb_owner login password '<password>' createrole bypassrls;
+   grant neondb_owner to current_user;
+   create database dripfunnel owner neondb_owner;
+   ```
+   It owns the schema and runs migrations: `CREATEROLE` and `BYPASSRLS` because migrations
+   create the request roles ([api/README.md §7](../api/README.md)).
+3. As `neondb_owner` in `dripfunnel`, the **app role**, what the Worker connects as, **without**
+   `BYPASSRLS`: `create role app_login login password '<password>'`. Once the migrations have
+   created the request roles, `grant app_request, app_system, app_platform, app_partner,
+   app_supplier, app_shop, app_rider to app_login` ([DATA-MODEL.md §5.3](../api/DATA-MODEL.md)).
+4. A login connects as `<role>.<branch id>` (PlanetScale routes by the suffix; the branch id
+   follows `postgres.` in the default role's username), on the **direct** port 5432:
+   - `neondb_owner.<branch id>`, database `dripfunnel`, `?sslmode=verify-full` → `DEV_DATABASE_URL`;
+   - `app_login.<branch id>`, database `dripfunnel` → Hyperdrive (§2.4).
+5. CI tests stay on a disposable **Neon** branch: the gates migrate and write to it freely.
+   Its string → `TEST_DATABASE_URL`.
+6. Note the two hostnames, from `DEV_DATABASE_URL` and `TEST_DATABASE_URL`. They become
    `ALLOWED_MIGRATION_HOST` and `ALLOWED_TEST_HOST`.
 
 ### 2.4 Hyperdrive, R2 and the outbox queue
@@ -90,9 +101,10 @@ checked off.
 1. **Hyperdrive** already exists: its id is in `wrangler.jsonc` › `env.dev` › `hyperdrive`. To
    make it again:
    ```bash
-   wrangler hyperdrive create dripfunnel-dev --connection-string="<app role pooled string>"
+   wrangler hyperdrive create dripfunnel-dev --connection-string="<app_login's string, §2.3>" --origin-connection-limit=15
    ```
-   Then put the new id in `env.dev`, in a pull request.
+   Then put the new id in `env.dev`, in a pull request. The limit stays under the cluster's
+   direct connections (*Direct: x/N* on PlanetScale's dashboard); Hyperdrive's own default is 60.
 2. **R2**: `wrangler r2 bucket create dripfunnel-assets-dev`, then add
    `"r2_buckets": [{ "binding": "ASSETS", "bucket_name": "dripfunnel-assets-dev" }]` to
    `env.dev`. **Done** (2026-10-07): bucket created and bound. Raster brand files are served as
@@ -171,7 +183,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Object bindings, their `studio-v1` migration, and a
    `containers` entry `{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { … } }`
    naming the image. A Durable Object starts only an image its config names, so on dev the entry's image is a placeholder that
-   dev.yml's *Studio image* step swaps for the newest `storefront-build:0.0.0-dev.<n>` tag's digest in dev's Cloudflare registry
+   dev.yml's *Studio image* step swaps for the newest `storefront-build:<version>-dev.<n>` tag's digest in dev's Cloudflare registry
    (pushed by release.yml's `sandbox-image-dev` job) before it deploys: commit no digest (#790). The deploy token needs
    *Containers: Edit*. `STUDIO_MAX_RUNNING` (a Worker variable, default 5000) caps studios running at once.
 4. **GitHub**: store builds pull the private `storefront-build` image with the organisation secret `GHCR_PULL_TOKEN`: a *classic*
@@ -257,15 +269,19 @@ Never reuse a value from local or production.
 | `GITHUB_WEBHOOK_SECRET` | Secret | the App's webhook secret | §2.8 item 4. Read since #968: without it a push to a store repo's `main` builds nothing |
 | `SHOP_DOMAIN` | Text | `my-shop.dev` (§2.8 item 2) | Validated at boot; `my-store.localhost` locally. Replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Read since #317: seals "Open preview" links; without it, or without `SHOP_DOMAIN`, Open preview answers "not set up" |
+| `PEXELS_API_KEY` | Secret | a free key from pexels.com/api | Optional. Adds Pexels to the studio's free photo search (AI-STUDIO §8); unset leaves it out. Openverse and Wikimedia Commons need no key |
+| `AI_PHOTOS` | Text | `1` | Optional, default off. Lets the studio's AI search and add photos itself, from the sources in `AI_PHOTO_SOURCES` (AI-STUDIO §8). Only `1` is accepted; read at boot, so it needs a new version |
+| `AI_PHOTO_SOURCES` | Text | e.g. `openverse,commons` | Optional, with `AI_PHOTOS`: the sources the AI may use, from `pexels,pixabay,openverse,commons`; unset is `openverse,commons`; an unknown name stops the Worker at boot. Read each source's terms for automated use before naming it |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
 "not connected" instead of failing. Leaving out part of a group does the same, so set each
 group whole.
 
-The consoles' two build flags (`VITE_STATE_HARNESS=1` and `VITE_ADMIN_URL=https://dev-admin.actuateminds.com`)
-are meant to be set in the dev build (THIRD-PARTY-ACCESS.md §8), but **`dev.yml` doesn't set
-them yet**. Until it does, dev bundles have no `?state=` harness, and the portals' staff-session
-links point at production's admin console.
+The consoles' build flags (`VITE_STATE_HARNESS=1`, `VITE_ADMIN_URL=https://dev-admin.actuateminds.com`
+and the store portal's `VITE_PLATFORM_URL=https://dev-platform.actuateminds.com`) are meant to be set in the
+dev build (THIRD-PARTY-ACCESS.md §8), but **`dev.yml` doesn't set them yet**. Until it does, dev bundles
+have no `?state=` harness, the portals' staff-session links point at production's admin console, and a
+spent support link's "Back to the partner console" points at production's partner console.
 
 ---
 
@@ -304,7 +320,7 @@ links point at production's admin console.
 
 - [ ] Cloudflare dev account, `actuateminds.com`, SSL Full (strict), Access applications (§2.1)
 - [ ] Deploy token (§2.2)
-- [ ] Neon `dev` and test branches, migration and app roles, three connection strings (§2.3)
+- [x] PlanetScale database, migration and app roles; Neon test branch; three connection strings (§2.3)
 - [ ] Hyperdrive id in `env.dev` (§2.4)
 - [x] R2 bucket `dripfunnel-assets-dev` and binding (§2.4)
 - [x] Queue `dripfunnel-outbox-wake-dev`, created 2026-10-08, and *Queues: Edit* on the deploy token (§2.4, §2.2); the first deploy shows whether the token has it

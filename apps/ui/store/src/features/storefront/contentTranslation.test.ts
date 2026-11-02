@@ -5,12 +5,10 @@ import { translationDraftOf, translationInputOf, writtenOf } from './contentTran
 const block = (kind: ContentEntry['body'][number]['kind'], more: Partial<ContentEntry['body'][number]> = {}) => ({ kind, text: null, assetId: null, alt: null, items: null, productIds: null, ...more })
 const main: ContentEntry = {
   id: 'p',
-  kind: 'page',
   title: 'About',
   slug: 'about',
-  path: '/about',
+  path: '/blog/about',
   status: 'published',
-  inMenu: false,
   publishAt: null,
   author: null,
   waitingForPublish: false,
@@ -20,7 +18,7 @@ const main: ContentEntry = {
   tags: [],
   coverAssetId: null,
   revision: 1,
-  body: [block('heading', { text: 'Our story' }), block('image', { assetId: 'a1', alt: 'Printers' }), block('faq', { items: [{ question: 'Q?', answer: 'A.' }] }), block('form')],
+  body: [block('heading', { text: 'Our story' }), block('image', { assetId: 'a1', alt: 'Printers' }), block('faq', { items: [{ question: 'Q?', answer: 'A.' }] }), block('products', { productIds: ['p1'] })],
 }
 
 describe('a translation', () => {
@@ -31,11 +29,11 @@ describe('a translation', () => {
     expect(draft.blocks[2]?.items).toEqual([{ question: '', answer: '' }])
   })
 
-  it('sends the page’s blocks with the main words where a field is empty, photos and the form as they are', () => {
+  it('sends the post’s blocks with the main words where a field is empty, photos and products as they are', () => {
     const draft = translationDraftOf(main, null)
     expect(translationInputOf(main, { ...draft, blocks: draft.blocks.map((b, i) => (i === 1 ? { ...b, alt: 'छपाई' } : b)) })).toEqual({
       title: 'About',
-      body: [{ kind: 'heading', text: 'Our story' }, { kind: 'image', assetId: 'a1', alt: 'छपाई' }, { kind: 'faq', items: [{ question: 'Q?', answer: 'A.' }] }, { kind: 'form' }],
+      body: [{ kind: 'heading', text: 'Our story' }, { kind: 'image', assetId: 'a1', alt: 'छपाई' }, { kind: 'faq', items: [{ question: 'Q?', answer: 'A.' }] }, { kind: 'products', productIds: ['p1'] }],
       seoTitle: null,
       seoDescription: null,
     })

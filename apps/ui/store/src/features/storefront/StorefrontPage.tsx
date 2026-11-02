@@ -40,10 +40,10 @@ type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; reads: Re
 // How often a site being made is read again until it is ready.
 const creatingPollMs = 5_000
 
-/** Storefront (PortalStorefront, FIRST-RELEASE §14): the brand step, the gallery, then Design · Pages · Journal · Site settings. ?state= per storefrontStates.ts. */
+/** Storefront (PortalStorefront, FIRST-RELEASE §14): the brand step, the gallery, then Design · Journal · Assets · Site settings. ?state= per storefrontStates.ts. */
 export const StorefrontPage = () => {
   const { acting, state } = shellRoute.useLoaderData()
-  const { tab = 'design', view: shown, run, page, entry } = pageRoute.useSearch()
+  const { tab = 'design', view: shown, run, entry } = pageRoute.useSearch()
   const navigate = useNavigate()
   const forced = useScreenState(storefrontStates, harnessEnabled)
   const access = useMemo(() => storefrontAccessOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
@@ -132,7 +132,7 @@ export const StorefrontPage = () => {
   const tabsId = useId()
   const tabRefs = useRef<Partial<Record<StorefrontTab, HTMLButtonElement | null>>>({})
   const goTab = (next: StorefrontTab) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: next === 'design' ? undefined : next }), replace: true })
-  const goView = (next: StorefrontView | undefined, path?: string) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: undefined, view: next, page: path }) })
+  const goView = (next: StorefrontView | undefined) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: undefined, view: next }) })
   const goEntry = (next: string | undefined) => void navigate({ to: '/storefront', search: (prev) => ({ ...prev, entry: next }) })
   const onTabKey = tabKeyHandler(tabs, tab, goTab, (next) => tabRefs.current[next]?.focus())
 
@@ -204,33 +204,16 @@ export const StorefrontPage = () => {
         storeName={brand?.shopName ?? acting.store.name}
         host={host}
         api={api}
-        onExit={() => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, isStudioState(forced) ? 'draft' : (forced ?? undefined)), view: undefined, page: undefined }) })}
+        onExit={() => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, isStudioState(forced) ? 'draft' : (forced ?? undefined)), view: undefined }) })}
         onOverview={onOverview}
         usage={meters?.usage ?? null}
         run={run ?? (forced === 'pubChecking' || forced === 'pubRefused' || forced === 'rolledBack' ? 'sample-run' : null)}
         onRun={onRun}
-        startPath={page ?? '/'}
       />
     )
 
   const panel = () => {
-    if (tab === 'pages')
-      return (
-        <ContentTab
-          kind="page"
-          api={api}
-          canEdit={access.canEdit}
-          onStudio={access.canEdit && hasSite(overview.status) ? (path) => goView('studio', path) : null}
-          entry={entry}
-          onEntry={goEntry}
-          host={host}
-          shopName={brand?.shopName ?? acting.store.name}
-          contactEmail={brand?.contactEmail ?? null}
-          onToast={setToast}
-        />
-      )
-    if (tab === 'journal')
-      return <ContentTab kind="post" api={api} canEdit={access.canEdit} onStudio={null} entry={entry} onEntry={goEntry} host={host} shopName={brand?.shopName ?? acting.store.name} contactEmail={null} onToast={setToast} />
+    if (tab === 'journal') return <ContentTab api={api} canEdit={access.canEdit} entry={entry} onEntry={goEntry} host={host} shopName={brand?.shopName ?? acting.store.name} onToast={setToast} />
     if (tab === 'assets') return <AssetsTab api={api} canEdit={access.canEdit} onToast={setToast} />
     if (tab === 'ai')
       return aiListed ? <AiTab reads={forced ? sampleAiReads : aiReads} canEdit={access.canEdit} onToast={setToast} /> : <EmptyState title={words.ai.denied.title} body={words.ai.denied.body} />

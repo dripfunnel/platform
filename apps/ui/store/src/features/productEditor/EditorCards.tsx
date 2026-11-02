@@ -2,7 +2,7 @@ import { formatMoney, minorOf } from '@dripfunnel/shared/format'
 import { useId, useRef, type ReactNode } from 'react'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
-import { productKinds, type Draft, type DraftProblem, type ProductKind } from '../common/productDraft'
+import { productKinds, type Draft, type DraftProblem, type DraftVersion, type ProductKind } from '../common/productDraft'
 
 const words = messages.editor
 
@@ -65,7 +65,8 @@ export const PhotosCard = ({
   const input = useRef<HTMLInputElement>(null)
   const altId = useId()
   const own = draft.photos.filter((p) => p.versionChoices === null)
-  const count = own.length + pending.length
+  // Versions' own photos count too: the API's limit is on every photo of the product.
+  const count = draft.photos.length + pending.length
   const full = count >= maxPhotos
   const move = (assetId: string) => update((d) => ({ ...d, photos: [...d.photos.filter((p) => p.assetId === assetId), ...d.photos.filter((p) => p.assetId !== assetId)] }))
   const remove = (assetId: string) => update((d) => ({ ...d, photos: d.photos.filter((p) => p.assetId !== assetId) }))
@@ -177,6 +178,48 @@ export const BasicsCard = ({ draft, update, disabled, problems }: { draft: Draft
 /** "1299.00" for a hint, in the currency's own decimals. */
 export const exampleOf = (currency: string) => formatMoney({ amount: 129900, currency }, locale)
 
+export type PriceKey = 'price' | 'compareAt' | 'cost'
+
+/** Why a version's price, compare-at price or cost won't save, once a save was tried (`problems`); null when it will. */
+export const priceProblemOf = (version: DraftVersion, key: PriceKey, currency: string, problems: readonly DraftProblem[]): string | null => {
+  const price = minorOf(version.price, currency)
+  const invalid = fill(words.price.invalid, { example: exampleOf(currency) })
+  if (key === 'price') return problems.includes('price') && !(typeof price === 'number' && price > 0) ? (price === 'invalid' ? invalid : words.price.missing) : null
+  if (key === 'compareAt') {
+    const at = minorOf(version.compareAt, currency)
+    return problems.includes('compare') && (at === 'invalid' || (typeof at === 'number' && typeof price === 'number' && at <= price)) ? words.price.compareLow : null
+  }
+  return problems.includes('cost') && minorOf(version.cost, currency) === 'invalid' ? invalid : null
+}
+
+const priceLabels: Record<PriceKey, { label: ReactNode; placeholder: string }> = {
+  price: { label: words.price.price, placeholder: '0.00' },
+  compareAt: { label: words.price.compare, placeholder: words.price.compareHint },
+  cost: { label: <>{words.price.cost} <span className="df-editor-hint-inline">{words.price.costHint}</span></>, placeholder: words.price.costPlaceholder },
+}
+
+/** One money field of the Price card, also a version's and the bulk box's. */
+export const PriceField = ({ id, field, value, currency, problem, readOnly, onChange }: { id: string; field: PriceKey; value: string; currency: string; problem: string | null; readOnly: boolean; onChange: (value: string) => void }) => (
+  <div className="df-editor-field">
+    <label htmlFor={id}>{priceLabels[field].label}</label>
+    <span className="df-editor-money">
+      <span aria-hidden="true">{currency}</span>
+      <input id={id} inputMode="decimal" value={value} readOnly={readOnly} placeholder={priceLabels[field].placeholder} aria-invalid={problem !== null} aria-describedby={problem ? `${id}-p` : undefined} onChange={(event) => onChange(event.target.value)} />
+    </span>
+    {problem && <Problem id={`${id}-p`} text={problem} />}
+  </div>
+)
+
+/** What each sale makes or loses, once a price and a cost are both typed. */
+export const Profit = ({ version, currency }: { version: DraftVersion; currency: string }) => {
+  const price = minorOf(version.price, currency)
+  const cost = minorOf(version.cost, currency)
+  if (!(typeof price === 'number' && price > 0 && typeof cost === 'number' && cost > 0)) return null
+  const profit = price - cost
+  const money = (amount: number) => formatMoney({ amount, currency }, locale)
+  return <span className={profit >= 0 ? 'df-editor-profit' : 'df-editor-profit df-editor-profit--loss'}>{profit >= 0 ? fill(words.price.profit, { amount: money(profit), margin: String(Math.round((profit / price) * 100)) }) : fill(words.price.loss, { amount: money(-profit) })}</span>
+}
+
 /** Price, compare-at price and cost for a product without choices, with what the shopper pays and what it makes. */
 export const PriceCard = ({ draft, update, disabled, currency, problems, inclusive, children }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; inclusive: boolean | null; children?: ReactNode }) => {
   const id = useId()
@@ -184,34 +227,20 @@ export const PriceCard = ({ draft, update, disabled, currency, problems, inclusi
   if (!version) return null
   const set = (patch: Partial<typeof version>) => update((d) => ({ ...d, versions: d.versions.map((v, i) => (i === 0 ? { ...v, ...patch } : v)) }))
   const price = minorOf(version.price, currency)
-  const cost = minorOf(version.cost, currency)
   const money = (amount: number) => formatMoney({ amount, currency }, locale)
   const shown = typeof price === 'number' && price > 0 ? price : null
   const breakdown = shown === null ? words.price.none : inclusive === false ? fill(words.price.added, { price: money(shown) }) : fill(words.price.included, { price: money(shown) })
-  const profit = shown !== null && typeof cost === 'number' && cost > 0 ? shown - cost : null
-  const field = (key: 'price' | 'compareAt' | 'cost', label: ReactNode, placeholder?: string) => {
-    const problem = key === 'price' ? (problems.includes('price') ? (minorOf(version.price, currency) === 'invalid' ? fill(words.price.invalid, { example: exampleOf(currency) }) : words.price.missing) : null) : key === 'compareAt' && problems.includes('compare') ? words.price.compareLow : key === 'cost' && problems.includes('cost') ? fill(words.price.invalid, { example: exampleOf(currency) }) : null
-    return (
-      <div className="df-editor-field">
-        <label htmlFor={`${id}-${key}`}>{label}</label>
-        <span className="df-editor-money">
-          <span aria-hidden="true">{currency}</span>
-          <input id={`${id}-${key}`} inputMode="decimal" value={version[key]} readOnly={disabled} placeholder={placeholder} aria-invalid={problem !== null} aria-describedby={problem ? `${id}-${key}-p` : undefined} onChange={(event) => set({ [key]: event.target.value })} />
-        </span>
-        {problem && <Problem id={`${id}-${key}-p`} text={problem} />}
-      </div>
-    )
-  }
+  const field = (key: PriceKey) => <PriceField id={`${id}-${key}`} field={key} value={version[key]} currency={currency} problem={priceProblemOf(version, key, currency, problems)} readOnly={disabled} onChange={(value) => set({ [key]: value })} />
   return (
     <Card title={words.price.title}>
       <div className="df-editor-price">
-        {field('price', words.price.price, '0.00')}
-        {field('compareAt', <>{words.price.compare}</>, words.price.compareHint)}
-        {field('cost', <>{words.price.cost} <span className="df-editor-hint-inline">{words.price.costHint}</span></>, words.price.costPlaceholder)}
+        {field('price')}
+        {field('compareAt')}
+        {field('cost')}
       </div>
       <div className="df-editor-breakdown">
         <span>{breakdown}</span>
-        {profit !== null && <span className={profit >= 0 ? 'df-editor-profit' : 'df-editor-profit df-editor-profit--loss'}>{profit >= 0 ? fill(words.price.profit, { amount: money(profit), margin: String(Math.round((profit / (shown ?? 1)) * 100)) }) : fill(words.price.loss, { amount: money(-profit) })}</span>}
+        <Profit version={version} currency={currency} />
       </div>
       <p className="df-editor-hint">{words.price.compareHelp}</p>
       {children}

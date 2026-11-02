@@ -1,4 +1,4 @@
-import { deleteContent, loadContentEntry, loadContentList, loadContentTranslation, loadCustomPaths, saveContent, saveContentTranslation } from '../../api/content'
+import { deleteContent, loadContentEntry, loadContentList, loadContentTranslation, saveContent, saveContentTranslation } from '../../api/content'
 import { loadProductNames } from '../../api/offers'
 import { uploadPhoto } from '../../api/productEditor'
 import { checkDomain, chooseTemplate, connectDomain, discardDraft, endPreviewLinks, goBackToVersion, loadBrand, loadDomains, loadHistory, loadMeters, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, previewLink, publishNow, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
@@ -57,7 +57,6 @@ export interface StorefrontApi {
   previewLink: typeof previewLink
   endPreviewLinks: typeof endPreviewLinks
   loadContentList: typeof loadContentList
-  loadCustomPaths: typeof loadCustomPaths
   loadContentEntry: typeof loadContentEntry
   saveContent: typeof saveContent
   deleteContent: typeof deleteContent
@@ -66,7 +65,7 @@ export interface StorefrontApi {
   saveContentTranslation: typeof saveContentTranslation
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadCustomPaths, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -163,7 +162,7 @@ const sampleStudio = (state: StorefrontState) => {
     renameLibraryAsset: () => Promise.resolve(),
     deleteLibraryAsset: () => Promise.resolve(),
     loadStockAvailable: () => Promise.resolve(true),
-    searchStockImages: () => Promise.resolve([1, 2, 3, 4, 5, 6].map((n) => ({ id: String(n), thumb: '', user: 'A contributor', pageUrl: 'https://pixabay.com/', tags: 'sample' }))),
+    searchStockImages: () => Promise.resolve([1, 2, 3, 4, 5, 6].map((n) => ({ id: String(n), source: 'pixabay', thumb: '', user: 'A contributor', pageUrl: 'https://pixabay.com/', tags: 'sample' }))),
     useStockImage: () => Promise.resolve('sample-stock-1'),
     undoDesignChange: (id: string) => {
       chat = [line(`m${(n += 1)}`, 'note', 'undone'), ...chat.map((m) => (m.id === id ? { ...m, undone: true, canUndo: false } : m))]

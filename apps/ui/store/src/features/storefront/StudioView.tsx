@@ -41,15 +41,13 @@ export interface StudioViewProps {
   /** The publish being followed, kept in the address so a reload keeps following it. */
   run: string | null
   onRun: (id: string | null) => void
-  /** The page the frame opens on: one of the AI's pages picked in Storefront › Pages, else the home page. */
-  startPath: string
 }
 
 const sandboxOf = (state: string, place: number | null): Sandbox =>
   state === 'ready' ? { kind: 'ready' } : state === 'queued' ? { kind: 'queued', place: place ?? 1 } : state === 'busy' ? { kind: 'finishing' } : state === 'unavailable' ? { kind: 'failed', text: words.sandbox.unavailable } : { kind: 'opening' }
 
 /** The full-screen AI studio (PortalStorefront › studio; FIRST-RELEASE §14; storefront AI-STUDIO §1, §3, §8). */
-export const StudioView = ({ overview, templates, storeName, host, api, onExit, onOverview, usage, run, onRun, startPath }: StudioViewProps) => {
+export const StudioView = ({ overview, templates, storeName, host, api, onExit, onOverview, usage, run, onRun }: StudioViewProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const phone = usePhone()
@@ -70,8 +68,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [pane, setPane] = useState<StudioPane>('chat')
   const panesId = useId()
   // Each pick is a new visit, so the frame goes there even when its address already names that page (it may have moved itself).
-  const [visit, setVisit] = useState({ path: startPath, count: 0 })
-  const [shownPath, setShownPath] = useState(startPath)
+  const [visit, setVisit] = useState({ path: '/', count: 0 })
+  const [shownPath, setShownPath] = useState('/')
   const [editing, setEditing] = useState(false)
   const [textKey, setTextKey] = useState<string | null>(null)
   const [discarding, setDiscarding] = useState(false)

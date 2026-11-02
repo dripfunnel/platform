@@ -227,6 +227,23 @@ describe('a single-page render', () => {
     await expect(deliver({ storeId: t.storeA1, pages: ['//evil.example/'], drop: [] })).rejects.toBeInstanceOf(GiveUp)
     await expect(deliver({ storeId: t.storeA1, pages: [], drop: [] })).rejects.toBeInstanceOf(GiveUp)
   })
+
+  it('drops the pages of a product that leaves the storefront, hidden or deleted, at once (#1011)', async () => {
+    const clear = () => db.sql`delete from outbox where kind = 'storefront.render' and store_id = ${t.storeA1}`
+    const [cup] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${t.storeA1}, 'Cup', 'cup', 'visible') returning id`
+    const [jug] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${t.storeA1}, 'Jug', 'jug', 'visible') returning id`
+    await clear()
+    await db.sql`update product set visibility = 'hidden' where id = ${cup?.id ?? ''}`
+    await db.sql`update product set deleted_at = now() where id = ${jug?.id ?? ''}`
+    expect((await renderOutbox(t.storeA1)).map((r) => r.payload)).toEqual([
+      { storeId: t.storeA1, pages: [], drop: ['/products/cup', '/hi-in/products/cup'] },
+      { storeId: t.storeA1, pages: [], drop: ['/products/jug', '/hi-in/products/jug'] },
+    ])
+    // A product already off the storefront asks nothing more.
+    await clear()
+    await db.sql`update product set slug = 'old-cup' where id = ${cup?.id ?? ''}`
+    expect(await renderOutbox(t.storeA1)).toEqual([])
+  })
 })
 
 describe('isolation', () => {

@@ -4,7 +4,7 @@ The whole DripFunnel platform in one repo: one API Worker (`apps/api`: the comme
 the Store, Platform, Admin and Shop APIs (and the proposed Delivery API), webhooks and background jobs on Queues, Workflows and
 Cron), three static SPAs on Cloudflare Pages in `apps/ui/` (`store` for merchants and
 vendors, `platform` for Partners, `admin` for DripFunnel staff), the one published package (`storefront-core`) and
-the storefront template every store's own repo is created from. Postgres on Neon via
+the storefront template every store's own repo is created from. Postgres on PlanetScale (feature environments and CI tests on Neon) via
 Hyperdrive; files on R2.
 
 **Status: skeleton.** The apps, `apps/ui/shared/`, `storefront-core` and the template build and pass
@@ -147,7 +147,7 @@ Run the gates before reporting a change as done.
   notices, consent banner, preview banner, the brand's "Powered by" line, breadcrumbs, the order
   summary at review) are placed and styled, never removed, covered or reworded.
 - `storefront-core` is the only published package. Every change has a changeset with the
-  right bump; changing or removing an export is a major, and majors ship upgrade notes (docs/storefront/ARCHITECTURE.md §7).
+  right bump (major, minor or patch as docs/code/ARCHITECTURE.md §5 defines them), and majors ship upgrade notes (docs/storefront/ARCHITECTURE.md §7).
 - Publishing happens only in the release workflow. Never publish locally; never commit a
   token to `.npmrc`.
 

@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-11-01 (#1124: system scope in one statement, each console's session check in one query, §7). Before: 2026-11-01 (#1086: the production database on PlanetScale, §7). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §7). Before: 2026-10-31 (#1061: `withScope` sets the role with the settings, in one statement, §7). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the every-minute group and the relay's budget, §5.1). Before: 2026-10-26 (#840: pushes wait without `EXPO_PUSH_TOKEN`, §5). Before: 2026-10-23 (#839: the Delivery API built, `src/apis/delivery`, §1–§3). Before: 2026-10-22 (the Delivery API, its caller and folder, proposed: DELIVERY.md, §1–§3). Before: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -299,10 +299,10 @@ own migration file with no other statements. Applied migrations are recorded in 
 ## 7. Local Postgres
 
 This project requires Postgres 18.x; `pnpm migrate` refuses to run against any other major
-(`scripts/migrate/version-check.ts`). This matches the Neon projects `dripfunnel-dev` and the
+(`scripts/migrate/version-check.ts`). This matches the dev and production databases (PlanetScale) and Neon's
 test branch (`REQUIRED_POSTGRES_MAJOR` — confirmed 2026-09-30, [FEATURE-ENVIRONMENTS.md](../code/FEATURE-ENVIRONMENTS.md)
 §4), so a version-specific issue is caught locally and in CI before it reaches a real
-deploy. If Neon's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
+deploy. If either's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
 together. Install it natively — no Docker required.
 
 **Installing it, creating the database, `apps/api/.env.local`, `pnpm setup:local`, `pnpm dev`
@@ -321,16 +321,24 @@ the owner nor a member it stops before the first statement and names both roles 
 that fixes it, rather than failing on Postgres's bare "must be owner".
 
 **Which role a request runs as** (DATA-MODEL.md §5.3, built on #205). `withScope`
-(`src/db/scoped/index.ts`) issues `set local role` with what `roleFor`
-(`src/db/rls/settings.ts`) returns for the caller kind: staff on the Admin API run as
+(`src/db/scoped/index.ts`) sets the role, as `set_config('role', …, true)` in the same statement as the
+settings (#1061), to what `roleFor` (`src/db/rls/settings.ts`) returns for the caller kind: staff on the Admin API run as
 `app_platform`; partner users and staff setup sessions run as `app_partner` (#155);
 merchant-side people and support sessions run as `app_request`; supplier users as `app_supplier`
 (#295); shoppers as `app_shop` (#306), which `request_scope` holds to `shop` scope on the tables it reads;
 jobs run as `app_system` through `withSystemScope`. After the role, `withScope` sets every
 `app.*` setting of `settingsFor` in one statement, the names and values passed as two `pgArray`
-parameters to `unnest`, never spliced into the SQL (#478). A scoped transaction therefore sends
-four statements besides its work (`begin`, the role, the settings, `commit`), as `withSystemScope`
-does; `tests/scoped-settings.test.ts` holds both the count and every caller kind's values. Every policy names the roles that may use
+parameters to `unnest`, never spliced into the SQL (#478), the role among them (#1061). A scoped
+transaction therefore sends three statements besides its work (`begin`, the role with the settings,
+`commit`), and `withSystemScope` does the same with `app_system` and `system` scope in one
+statement of literals (#1124); `tests/scoped-settings.test.ts` holds the count and every caller
+kind's values, `tests/session-check-one-query.test.ts` system scope's. Each console's person
+session check is then **one query** inside it (#1124): the store portal's session, person and
+seats in the store asked for (`selectStanding`), the partner console's session and partner user
+(`selectPartnerStanding`), the Admin API's session and staff member (`selectStaffStanding`). Each
+session's live condition is one shared fragment (`liveUserSession`, `livePartnerSession`,
+`liveStaffSession`) that the older single readers use too, so they can't drift; the last-seen
+write stays a separate statement, only when stale. Every policy names the roles that may use
 it, and on every tenant table four restrictive policies (`request_scope`, `partner_scope`,
 `platform_scope`, `system_scope`) hold each role to its own values of `app.scope`, so a role never passes another
 role's branch. A card that adds a role adds, in one migration, the role, its grants, the
@@ -376,25 +384,25 @@ install it (`postgresql-contrib` / `postgresql-contrib-18`) rather than partiall
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
 `.env.example` or `wrangler.jsonc` ever points at
 `dbpg01.softobotics.org`. The exceptions are the deploy workflows, each of
-which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply migrations to its own Neon
-branch: `dev.yml` (the persistent `dev` branch), `prod.yml` (production) and
-`feature-env.yml` (the feature environment's branch). The guard
+which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply migrations to its own
+database: `dev.yml` (the persistent dev database, on PlanetScale), `prod.yml`
+(the production database, on PlanetScale) and `feature-env.yml` (the feature environment's Neon branch). The guard
 (`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
 by GitHub Actions) so the override can't be tripped by an env var left in a
 shell profile or `.env` on a developer machine, and requires the connection
 string's host to exactly match `ALLOWED_MIGRATION_HOST`, so a misconfigured
-`DATABASE_URL` can't silently migrate a different Neon project (production
+`DATABASE_URL` can't silently migrate a different database (production
 included). In `dev.yml` and `prod.yml` that is the `ALLOWED_MIGRATION_HOST`
 variable of the job's GitHub environment (`dev` or `prod`), set to that
-branch's literal Neon hostname. In `feature-env.yml` it is the host the run's
+database's literal hostname. In `feature-env.yml` it is the host the run's
 own *Database branch* step just created (`steps.neon.outputs.host`), since a
 feature branch's host is new per branch and no fixed variable could name it
 ([FEATURE-ENVIRONMENTS.md §3](../code/FEATURE-ENVIRONMENTS.md)).
 
 The `dev` and `prod` workflows' Gates step (`build typecheck lint test`) is a second,
 separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,
-disposable Neon branch kept only for CI test runs, not the persistent `dev`
-branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same
+disposable Neon branch kept only for CI test runs, not the persistent dev
+database above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same
 guard**, pinned by the `ALLOWED_TEST_HOST` variable instead of
 `ALLOWED_MIGRATION_HOST`, because `scripts/migrate/runner.test.ts` applies the
 migrations and that is the same privileged operation as the deploy step. The

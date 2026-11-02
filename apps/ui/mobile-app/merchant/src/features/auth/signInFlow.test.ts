@@ -1,6 +1,7 @@
 import { createSessionStore, type SessionStorage } from '../../session/sessionStore'
+import { t } from '../../messages'
 import { createPendingStore } from './pending'
-import { confirmEnrolCode, failureOf, finishEnrol, resendCode, sendEnrolCode, signOut, startSignIn, submitBackupCode, submitCode } from './signInFlow'
+import { confirmEnrolCode, failureOf, finishEnrol, resendCode, sendEnrolCode, signOut, startGoogleSignIn, startSignIn, submitBackupCode, submitCode } from './signInFlow'
 
 type Call = { path: string; body: Record<string, unknown>; authorization: string | null; credentials: string | undefined }
 
@@ -224,3 +225,32 @@ describe('signing out', () => {
     expect(session.token()).toBeNull()
   })
 })
+
+describe('signing in with Google', () => {
+  it('sends Google’s ID token and opens the session as a password would', async () => {
+    const { deps, session, calls } = setup({ '/api/auth/google/token': () => ({ ok: true, step: 'done', token: 'full-token' }) })
+    await expect(startGoogleSignIn(deps, 'google-id-token')).resolves.toBe('done')
+    expect(session.token()).toBe('full-token')
+    expect(calls[0]).toMatchObject({ path: '/api/auth/google/token', body: { idToken: 'google-id-token' }, authorization: null, credentials: 'omit' })
+  })
+
+  it('still asks for the second factor, and holds an Owner without one at set-up', async () => {
+    const twoStep = setup({ '/api/auth/google/token': () => ({ ok: true, step: 'second-factor', method: 'app', token: 'pending-token' }) })
+    await expect(startGoogleSignIn(twoStep.deps, 'id')).resolves.toBe('second-factor')
+    expect(twoStep.session.token()).toBeNull()
+    expect(twoStep.pending.get()).toMatchObject({ step: 'second-factor', token: 'pending-token', method: 'app' })
+    const owner = setup({ '/api/auth/google/token': () => ({ ok: true, step: 'enrol', token: 'pending-token' }) })
+    await expect(startGoogleSignIn(owner.deps, 'id')).resolves.toBe('enrol')
+  })
+
+  it('words no account, a refused token and Google turned off, and takes the lock to its screen', async () => {
+    for (const [code, key] of [['NO_ACCOUNT', 'NO_ACCOUNT'], ['GOOGLE_REFUSED', 'GOOGLE_REFUSED'], ['GOOGLE_UNAVAILABLE', 'GOOGLE_UNAVAILABLE']] as const) {
+      const { deps } = setup({ '/api/auth/google/token': () => refusal(code) })
+      const failed = await startGoogleSignIn(deps, 'id').catch((e: unknown) => e)
+      expect(failureOf(failed, 'google').message).toBe(t(`errors.google.${key}`))
+    }
+    const { deps } = setup({ '/api/auth/google/token': () => refusal('LOCKED', { minutes: 12 }) })
+    expect(failureOf(await startGoogleSignIn(deps, 'id').catch((e: unknown) => e), 'google').locked).toBe(12)
+  })
+})
+

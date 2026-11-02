@@ -2,12 +2,12 @@ import type postgres from 'postgres'
 import type { PartnerContext } from '#core/tenancy'
 import type { PartnerState } from '#db/schema/saas'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { selectPartnerCaller, selectPartnerConsole } from '#db/scoped/partnerUsers'
+import { selectPartnerCaller, selectPartnerConsole, selectPartnerStanding, type PartnerCallerRow } from '#db/scoped/partnerUsers'
 import { endPortalSession, selectPortalSession, type PortalSessionRow } from '#db/scoped/staffPortal'
 import { factsOf, staffSessionEnded, type ActivityLog, type RequestFacts } from './activity'
 import { readCookie } from './cookie'
 import { isPartnerRole, type PartnerRole } from './partnerPermissions'
-import { partnerCookieName, readPartnerSession } from './partnerSession'
+import { partnerCookieName, partnerSessionWindow, touchPartnerSession } from './partnerSession'
 import { hashSessionId } from './session'
 import { staffPortalCookieName } from './staffPortal'
 
@@ -63,12 +63,13 @@ const partnerOf = (row: { partner_id: string; partner_name: string; product_name
       }
 
 // A suspended user and a closed partner read as no session at all, as an unknown one does.
-const userCaller = async (tx: ScopedSql, partnerUserId: string): Promise<PartnerCaller | null> => {
-  const row = await selectPartnerCaller(tx, partnerUserId)
+const callerOf = (row: PartnerCallerRow | null): PartnerCaller | null => {
   const partner = row && partnerOf(row)
   if (!row || !partner || !isPartnerRole(row.role_key)) return null
   return { role: row.role_key, user: { id: row.id, name: row.name, email: row.email }, staff: null, partner }
 }
+
+const userCaller = async (tx: ScopedSql, partnerUserId: string): Promise<PartnerCaller | null> => callerOf(await selectPartnerCaller(tx, partnerUserId))
 
 // ACCESS.md §8.1, §8.2: a session ends at its time, and as soon as its partner closes or the user
 // it acts as is no longer active; every read of it checks.
@@ -119,7 +120,12 @@ export const resolvePartner = async (sql: postgres.Sql, request: Request, now: D
   return withSystemScope(sql, async (tx) => {
     const staff = staffCookie ? await staffCaller(tx, staffCookie, { now, activity, facts: factsOf(request) }) : null
     if (staff) return staff
-    const userId = userCookie ? await readPartnerSession(tx, userCookie, now) : null
-    return userId ? userCaller(tx, userId) : null
+    if (!userCookie) return null
+    // The session and its user in one statement (#1124).
+    const idHash = await hashSessionId(userCookie)
+    const row = await selectPartnerStanding(tx, partnerSessionWindow(idHash, now))
+    if (!row) return null
+    await touchPartnerSession(tx, idHash, row.last_seen_at, now)
+    return callerOf(row)
   })
 }

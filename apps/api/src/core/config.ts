@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+/** The stock photo sources (`integrations/stockImages`), and the ones the AI uses when `AI_PHOTO_SOURCES` is unset: those whose terms allow it. */
+export const photoSources = ['pexels', 'pixabay', 'openverse', 'commons'] as const
+export const aiPhotoSourcesDefault: readonly string[] = ['openverse', 'commons']
+
 const configSchema = z.object({
   ADMIN_HOST: z.string().min(1),
   PLATFORM_HOST: z.string().min(1),
@@ -100,13 +104,21 @@ const configSchema = z.object({
   AI_PROVIDER_KEY: z.string().regex(/^sk-ant-[A-Za-z0-9_-]{20,}$/, 'AI_PROVIDER_KEY must be an Anthropic API key').optional(),
   // Claude and ChatGPT sign-in (THIRD-PARTY-ACCESS §2.6): off unless 1, so it can be switched off without a deploy of code.
   AI_SIGN_IN: z.literal('1').optional(),
+  /** 1 lets the studio's AI search and add photos itself, from `AI_PHOTO_SOURCES`; unset leaves it to the merchant's picker. */
+  AI_PHOTOS: z.literal('1').optional(),
+  /** With AI_PHOTOS, the sources the AI may use, comma separated; unset or empty is `aiPhotoSourcesDefault`. Pixabay only when named: read its terms first. */
+  AI_PHOTO_SOURCES: z.string().transform((v) => v.split(',').map((n) => n.trim()).filter(Boolean)).pipe(z.array(z.enum(photoSources))).transform((l) => (l.length ? l : undefined)).optional(),
   // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
   AI_LOCAL: z.literal('1').optional(),
+  // A page on the portal host stands in for Google's sign-in (#1046; integrations/google/local.ts).
+  GOOGLE_SIGN_IN_LOCAL: z.literal('1').optional(),
   // A sample site's screenshot for the designer (storefront ARCHITECTURE §6.2): Cloudflare Browser Rendering, both or none.
   BROWSER_RENDERING_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'BROWSER_RENDERING_ACCOUNT_ID must be the 32-character account id').optional(),
   BROWSER_RENDERING_TOKEN: z.string().min(20).optional(),
-  /** Pixabay's API key for the studio's stock image picker; unset hides the picker. */
+  /** Pixabay's API key for the studio's stock image picker; unset leaves Pixabay out. */
   PIXABAY_API_KEY: z.string().min(10).optional(),
+  /** Pexels' API key for the same picker; unset leaves Pexels out. */
+  PEXELS_API_KEY: z.string().min(10).optional(),
   // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue. Unset: 5,000.
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),
   // The org's Actions jobs at once, which a core rollout's waves are sized to (storefront LIVE-SHOP §10). Unset: 20 (Free).
@@ -119,7 +131,7 @@ const configSchema = z.object({
 
 const devHooksHost = 'dev-hooks.actuateminds.com'
 export const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
-const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'PUSH_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL'] as const
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'PUSH_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL', 'GOOGLE_SIGN_IN_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
 const checkedConfig = configSchema.superRefine((c, ctx) => {

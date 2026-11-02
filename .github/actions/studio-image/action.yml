@@ -6,7 +6,7 @@ description: >
 inputs:
   channel:
     required: true
-    description: "stable (newest x.y.z tag, prod) or dev (newest 0.0.0-dev.<run> tag, dev)"
+    description: "stable (newest x.y.z tag, prod) or dev (newest <version>-dev.<run> tag, dev)"
   digest:
     required: false
     default: ''
@@ -36,7 +36,7 @@ runs:
             none="No stable storefront-build tag in the prod registry: run release.yml first." ;;
           dev)
             placeholder=DEV_STUDIO_IMAGE
-            filter='[.[] | select(.name == "storefront-build") | .tags[] | select(test("^0\\.0\\.0-dev\\.[0-9]+$"))] | sort_by(split(".")[-1] | tonumber) | last // empty'
+            filter='[.[] | select(.name == "storefront-build") | .tags[] | select(test("-dev\\.[0-9]+$"))] | sort_by(split(".")[-1] | tonumber) | last // empty'
             none="No storefront-build dev tag in the dev registry: run the release workflow on dev first." ;;
           *) echo "channel must be stable or dev, got: $INPUT_CHANNEL" >&2; exit 1 ;;
         esac

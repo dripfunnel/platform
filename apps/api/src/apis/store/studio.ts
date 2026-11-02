@@ -31,7 +31,7 @@ const studioFor = (ctx: StoreContext) => {
     assets: ctx.files ?? null,
     readAsset: design?.readAsset ?? null,
     stock: design?.stock ?? null,
-    aiPhotos: design?.aiPhotos ?? false,
+    aiPhotos: design?.aiPhotos ?? [],
     allowStock: ctx.allowStock ?? (async () => false),
     previewDomain: ctx.preview?.domain ?? null,
     shopDomain: ctx.domains?.shopDomain ?? null,
@@ -91,7 +91,7 @@ export const registerStudio = (builder: StoreBuilder) => {
     }),
   })
   const StockPhotoRef = builder.objectRef<StockPhoto>('StockPhoto').implement({
-    fields: (t) => ({ id: t.exposeString('id'), thumb: t.exposeString('thumb'), user: t.exposeString('user'), pageUrl: t.exposeString('pageUrl'), tags: t.exposeString('tags') }),
+    fields: (t) => ({ id: t.exposeString('id'), source: t.exposeString('source'), thumb: t.exposeString('thumb'), user: t.exposeString('user'), pageUrl: t.exposeString('pageUrl'), tags: t.exposeString('tags') }),
   })
   const Text = builder.objectRef<TextEntry>('DesignText').implement({
     fields: (t) => ({ key: t.exposeString('key'), text: t.exposeString('text') }),

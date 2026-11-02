@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -87,13 +87,13 @@ is (`account`, `authentication`, `cart`, `checkout`, `collections`, `currency`, 
 | `platform/store` | Store resolution from `store.config.ts`, store settings from the Shop API (name, locales, currencies, policies, legal and compliance info, brand "Powered by" rule), **the brand and the home page's search and sharing** (logo, tagline, social links, public contact, title, description, share image: SAAS §9.2), and the store's state (live, past due, suspended) for degraded mode. A theme reads all of it through `useStorefront()` and never copies it into its own files (decided 2026-10-08 on #470). |
 | `platform/render` | The render-mode adapter (§4): one interface for data loading that resolves at build time in live mode and at run time in preview mode. |
 | `platform/i18n` | Locale routing, message catalogues for core strings, `t()` over the theme's `content/{locale}/*.json`, `Intl` formatting, RTL direction. Core messages can be restyled, never removed. |
-| `platform/seo` | The whole `<head>` (§8): title, description, canonical URLs, hreflang, Open Graph, structured data (Product, Offer, BreadcrumbList, ItemList, Organization, WebSite, Article), sitemap and robots, noindex in preview. |
+| `platform/seo` | The whole `<head>` (§8): title, description, the store's favicon, canonical URLs, hreflang, Open Graph, structured data (Product, Offer, BreadcrumbList, ItemList, Organization, WebSite, Article), sitemap and robots, noindex in preview. |
 | `platform/analytics` | Commerce events (view item, add to cart, begin checkout, purchase), consent-aware, provider adapters: **GA4, Meta Pixel and Google Tag Manager**, loaded only after consent and after the page loads (decided 2026-10-05 on #337); Google Tag Manager needs both analytics and marketing consent, because a container may hold any tag (decided on #304); a withdrawal reaches each provider's own script (Google Consent Mode, Meta's consent call); and **real-user Core Web Vitals**, also only after consent (decided 2026-10-08 on #470, §9). |
 | `platform/consent` | Cookie and tracking consent (asked everywhere until the shopper chooses), and a **Cookie settings** button that reopens it with the saved choice, so consent is as easy to withdraw as to give; providers stop receiving events the moment it is withdrawn. |
-| `platform/media` | `<Image>` (Cloudflare image resizing, AVIF/WebP, `srcset` and `sizes`, width and height always set, lazy unless core chose it as the page's main image), `<MerchantImage>` (a picture the merchant chose in Storefront › Assets, named by its asset id from the theme's content and fetched by core through the Shop API's `shopAsset(id)`; draws through `<Image>`, nothing for an id that isn't the store's), `<Video>` (poster required, `preload="none"` on phones, paused off-screen and under reduced motion, a size cap) and the font loader (allowlisted, self-hosted, subset `woff2`, metric-matched fallbacks). |
+| `platform/media` | `<Image>` (Cloudflare image resizing, AVIF/WebP, `srcset` and `sizes`, width and height always set, lazy unless core chose it as the page's main image), `<StoreLogo>` (the store's logo, or its name while it has none; loaded at once and never resized, sized by the theme's CSS), `<MerchantImage>` (a picture the merchant chose in Storefront › Assets, named by its asset id from the theme's content and fetched by core through the Shop API's `shopAsset(id)`; draws through `<Image>`, nothing for an id that isn't the store's), `<Video>` (poster required, `preload="none"` on phones, paused off-screen and under reduced motion, a size cap) and the font loader (allowlisted, self-hosted, subset `woff2`, metric-matched fallbacks). |
 | `platform/browser` | The only browser access a theme gets: `useInView`, `useScrollProgress`, `usePointer`, `useMediaQuery`, `useReducedMotion`, `navigate()`, `<Link>` (internal routes, the store's listed external links and, since #859, `tel:` and a dialable number; prefetch by Speculation Rules). |
 | `cart` | The active order as the only cart state (the reference's rule), add, remove, adjust, apply and remove codes, buy now, optimistic UI with server reconciliation. |
-| `checkout` | The checkout controller: contact → shipping address → delivery → payment → review, with the engine deciding what each step needs, and express wallets where the provider offers them. When a store offers exactly one delivery option the controller applies it for the shopper and omits the delivery step, which returns only if that apply fails; with several the shopper chooses, and with none the step explains why it can't be delivered. Payment adapters (Stripe, Razorpay, Cashfree first), each loading its own provider SDK; asynchronous settlement with a "payment processing" state (the reference's `PaymentProcessingBanner` pattern). The theme skins its slots; an error in the theme's checkout switches that shopper to the baseline checkout. AI storefronts check out in the theme; own storefronts hand off to the engine's hosted checkout by default (decided 2026-10-05 on #337). |
+| `checkout` | The checkout controller: contact → shipping address → delivery → payment → review, with the engine deciding what each step needs, and express wallets where the provider offers them. The delivery step waits for the delivery address, since the options are quoted for it. When a store offers exactly one delivery option the controller applies it for the shopper and omits the delivery step, which returns only if that apply fails; with several the shopper chooses, and with none the step explains why it can't be delivered. Payment adapters (Stripe, Razorpay, Cashfree first), each loading its own provider SDK; asynchronous settlement with a "payment processing" state (the reference's `PaymentProcessingBanner` pattern). The theme skins its slots; an error in the theme's checkout switches that shopper to the baseline checkout. AI storefronts check out in the theme; own storefronts hand off to the engine's hosted checkout by default (decided 2026-10-05 on #337). |
 | `products`, `collections`, `search` | Hooks for product detail (versions, options, selection rules, live price and stock), collection listings with `fetchMore`, search with filters (OR within a filter, AND across filters), sorting and pagination as URL state. |
 | `account`, `authentication`, `orders` | Sign-up, verification, sign-in, password reset, profile, addresses, order history, order detail and tracking. |
 | `pricing` | `Money`, `Stock`, `Rating` and `Badge` as **opaque branded types** only core's hooks return; the price display: currency always explicit (the reference's silent `USD` default is banned), tax label per region ("incl. VAT", "+ tax"), compare-at price only as the engine returns it. |
@@ -124,14 +124,22 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **The browser side** in `./theme`: `useLocation`, `navigate`, `useMediaQuery`, `useReducedMotion`, `useInView`,
   `useScrollProgress` and `usePointer` (`platform/browser`); `<Image>` and `<Video>` (`platform/media`); `useHead`
   (`platform/seo`); and the headless `Checkbox`, `Select` and `SearchField` (`ui/headless`).
+- **Search suggestions** *(core 0.5.0, #1070)*: `<SearchField suggest={n}>` lists up to 4 matching products under the
+  box once typing pauses (250 ms, two letters or more; `search/suggest.ts`, the search page's own `products(search:)`),
+  each with its picture, name and sealed price, linked to the product, then "See all results"; with none, core's "No
+  products match". Core renders it as a combobox (`<ul role="listbox">`, a `<p role="status">`) inside the theme's form,
+  which styles it through the form's class; a failed lookup hides the list and never stops the search.
 - **Loading, in both render modes**: a hook renders its loading state in the static build and in the browser's first
   render alike, so hydration matches, then asks the Shop API (`platform/render`'s `useShopData`). A question is asked once
-  per page however many components ask it, and only the latest question's answer is kept. The static build doesn't
-  prerender catalogue pages yet, since the snapshot carries only the store (§4.2): products and collections reach a live
-  page in the browser.
+  per page however many components ask it, and only the latest question's answer is kept. *Since #1011* a live page
+  built from a catalogue snapshot (§4.2) starts from the answers it was built with (`PrefilledProvider`): it renders
+  them in the static HTML and at hydration, then asks the Shop API again and shows the newer answer, keeping the built
+  one if that fails. The preview and the studio get no answers and load as before.
 - **The address is the state**: `filter` (each chosen facet value's id, repeated), `sort` (`featured`, `newest`,
   `price-low`, `price-high`, `name`), `after` or `before` (the page's cursor) and `q` (search words, at most 200
-  characters). A new filter or sort goes back to the first page; the canonical link keeps only the cursor. 24 products a
+  characters). A new filter or sort goes back to the first page; the canonical link keeps only the cursor. While that
+  page loads, the listing keeps the facets it last had for the same collection or search, so a theme's filters stay on
+  screen and only the products reload. 24 products a
   page, and `fetchMore` appends the next in place. Search, a missing collection and a missing product are `noindex`.
 - **A version's address** is `/products/{slug}/{version id}/`, canonical to the product's. A partial choice (a colour
   before a size) stays in the page; a complete one replaces the history entry, so Back leaves the product. A product's
@@ -142,14 +150,17 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   market still have no Shop API field, so core keeps taking them as props (`poweredBy`, `notices`).
 - **`navigate()`** changes the query in place, in history; another path loads whole, since each live page is its own
   file, unless the caller says the same page shows it (`inPlace`).
+- **`<StoreLogo className>`** shows the store's logo from Site settings › Brand, or its name while there is none; a
+  theme never draws the logo from `store.logo` itself.
 - **`<MerchantImage asset alt ratio>`** (core 0.3.0) takes the id of a file the merchant chose, written as a value in the theme's
   content and read through `t()`; it takes no address, and an id that isn't a file of this store shows nothing.
 - **`<Image>`** takes only a picture core decoded (`Photo`), with the width over height (`ratio`) that sets its width and
   height; on the live site it is resized through Cloudflare's `/cdn-cgi/image/` (320 to 1920 px), and a preview shows the
-  original. Only the picture core marks as the page's main one loads eagerly. **`<Video>`** needs a poster, never
+  original. *Since #1105* a built page names each catalogue picture by its copy on the asset host (LIVE-SHOP §4 step 3),
+  and `<Image>` keeps that address while the Shop API's fresh answer names the same file. Only the picture core marks as the page's main one loads eagerly. **`<Video>`** needs a poster, never
   preloads, plays muted only while on screen and never under reduced motion; the size cap is the media library's, not
   the browser's.
-- **The head**: core keeps the title, description, canonical, Open Graph and robots in step in the browser, the page's
+- **The head**: core keeps the title, description, the store's favicon (never a page's: `useHead` takes none), canonical, Open Graph and robots in step in the browser, the page's
   over the store's, and `noindex` holds in the preview and the studio. The home page's title, description and share
   image are the store's search and sharing (SAAS §9.2), in the static HTML and in the browser (`storeHead`). JSON-LD is
   only ever in the static HTML: Trusted Types forbid writing a script's text at run time.
@@ -195,7 +206,9 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   it applies for the shopper (the step returns only if that apply fails); `edit` opens a finished step again. `saveContact`,
   `saveAddress` (core's checks per country first: what `address.ts` requires and the PIN, ZIP or postcode's form),
   `chooseDelivery`, `choosePayment`, `review` (the Shop API's `checkout`) and `place`. The cart is `useCart`'s, so a change
-  anywhere shows everywhere.
+  anywhere shows everywhere. *Since #1105:* as checkout opens, the ways to pay (`paymentOptions`) are asked alongside the
+  cart when the browser holds a cart or a signed-in shopper, and `review` takes its turn among the cart's changes and
+  shows the cart its answer holds; only a refused `review` or `place` reads the cart again.
 - **Placing**: `placeOrder` with the chosen way to pay. Cash on delivery and a bank transfer go straight to the order's page;
   a card provider's payment is then taken by its **adapter** (`checkout/payments.ts`), which loads its own SDK only then:
   Stripe's Payment Element (Stripe.js through `@stripe/stripe-js`, as #278's console uses it) in the sealed element with
@@ -225,7 +238,9 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **`<PlaceOrder>`**: the theme words and styles it; core places the order, or asks for another attempt after a failed
   payment; marked `data-df-action` for the smoke test.
 - **Headless form controls** (`ui/headless/form.tsx`): `Form` and `SubmitButton`, `TextField` (its label, hint and error
-  tied to it), `Choices` (radio buttons, each option's content the theme's) and `AddressFields` (the country's fields with
+  tied to it), `PhoneField` (a mobile number as a country code dropdown, starting in the store's or the address's country,
+  and the number, handed back as E.164 with no spaces; `checkout/phone.ts` holds the calling codes), `Choices` (radio
+  buttons, each option's content the theme's) and `AddressFields` (the country's fields with
   core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK). `AddressFields` ends with
   **"Pin on map"** (`ui/headless/pin.tsx`, #814), an optional point saved with the address as `latitude` and `longitude`:
   the Shop API's `store.mapFrame` shows it, and none hides it. The map is **a frame of its own** on the hooks host
@@ -565,15 +580,18 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   string prop of the theme's own components that isn't declared as a choice (`'warm' | 'cool'`).
   Words in any string anywhere in the code, any address (`https:`, `//`, `javascript:`, `url(`)
   and any copied brand field are refused too.
-- **`t()`**: `t('file.key')` reads `content/{language}/file.json`. Its key is written out, `t`
-  isn't passed on as another type, and every key exists in every language the store offers.
+- **`t()`**: `t('file.key')` reads `content/{language}/file.json`. Its key is written out, or is typed as
+  a list of written names (`const slides = ['hero.one', 'hero.two'] as const`), and each name is checked like a
+  written key; `t` isn't passed on as another type, and every key exists in every language the store offers.
 - No `declare`, `namespace`, `import =`, `export =` or `/// <reference>`.
 
 **CSS**: CSS Modules only; every selector starts with a module class, and a `+` or `~` leads only to another
 module class; no `*`, `html` or `body` anywhere (inside `:is()` and `:not()` too); no `:global`, no
 `@import`, no `@font-face`; `url()` only for the store's media ids; no selector naming a core
 class or a `df-` element; `z-index` below core's layer; animation only of `transform`,
-`opacity` and `filter`. As built on #480 *(decided there)*: `url()` names a media id from the
+`opacity`, `filter` and the paint-only colour properties (`color`, `background`, `background-color`,
+`border-color`, `outline-color`, `text-decoration-color`, `fill`, `stroke`, `box-shadow`), never one that moves
+layout (width, height, margin, top, ...). As built on #480 *(decided there)*: `url()` names a media id from the
 store's `mediaIds`, exactly; the z-index cap is 99 (`maxThemeZIndex`, *proposed*); only `@media`,
 `@supports`, `@container` and `@keyframes`; pseudo-classes and pseudo-elements from an allowlist
 (`::part` among them, for sealed components), and functions from an allowlist (no `attr()`,
@@ -820,12 +838,25 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
 - `edge-cases`: the theme rendered against the edge-case catalogue (§10) at phone width: whole, no wider than the
   screen, its required parts seen, its heading and words there without JavaScript.
 
-*Decided on #483:* until the snapshot carries the catalogue (core's product hooks exist since #307, and load in the browser), the static build prerenders the routes core can
-fill today (home, search, cart, checkout, the account and sign-in pages, 404, the degraded page and the custom pages),
-and each item route's client-rendered page. `runGate` requires the sealed price on the routes core gave a price to show
-(`priced`; product, cart and checkout when the input leaves it out), and the check step names none until core's
-product and cart hooks put a price on a built page: a static cart has no lines. Legal notices are required the same way when the
-input says the store's markets need them (`legal`). A page or width the check step skipped, an unweighed budgeted page
+*Decided on #483:* the static build prerenders the routes core can fill (home, search, cart, checkout, the account and
+sign-in pages, 404, the degraded page and the custom pages), and each item route's client-rendered page. *Built on
+#1011:* a version 2 snapshot carries the catalogue as the Shop API's own answers to core's questions (`catalogue`:
+each product, the store's collections and each one's first 24, `/collections/all/`, the four sorts' first 24, the
+collections list and the menu, recorded in-process by `apis/shop/record.ts` on the store's live host), and the build
+answers the page from them offline (`recordedShopClient`), rendering each page until it asks nothing new. It writes a
+page for each product (newest first, at most 1,000), each of its versions when it has more than one (canonical to the
+product, so not in the sitemap; at most 2,000 across the catalogue, within the build's 5,000 files), and each
+collection (at most 200), in the main language only, with the item's head (its own title, as `useHead` sets it) and
+Product data; any other item, another language's and one added later keep their route's client-rendered page. Each
+page carries the answers it was built with, which its hydration starts from. The platform sends version 2 only to a
+build whose core reads it (0.4.0 on), so an older store builds as before. The check step reads, visits and weighs
+every page but the items past each item route's first two, which the edge cases render too, the long-names case with
+the catalogue's names and words stretched and its pictures gone; the build has already rendered every item without
+throwing. `runGate` requires the sealed price on the routes core gave a price to show (`priced`; product, cart and
+checkout when the input leaves it out), never on a route's client-rendered page, which is written without its item; a
+page built from the catalogue (`items`) needs the price only when its product (or the version its address names) has
+one, and the legal notices when the product has compliance details for the store's market or everywhere: a static cart
+has no lines. Legal notices are required the same way when the input says the store's markets need them (`legal`). A page or width the check step skipped, an unweighed budgeted page
 or an edge case it didn't render fails the check that needed it, and an address with `..`, an encoded character, a
 query or an empty segment never passes for a page or an item.
 
@@ -970,7 +1001,8 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
   colour and mood, **never its logo, photos or words**.
 - **The fast gate** (seconds): the file allowlist, the validator, the typecheck, the bundle,
   the byte budgets (§9) and the content checks. On failure the model gets the exact errors
-  and tries again, **at most three times**; repairs are the platform's cost.
+  and tries again, **at most three times**; repairs are the platform's cost. A repair is also shown the
+  files of its last answer, so it edits them rather than rewriting blind (#1083).
 - **What it refuses**: prices, stock, products, shipping and checkout behaviour; it says these
   are changed in Products or Settings, and the draft stays as it was. A request that would
   break a budget is answered in words with an alternative ("a 4K video would make the page

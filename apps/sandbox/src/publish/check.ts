@@ -8,7 +8,7 @@ import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
 import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
 import { edgeFolder } from './build'
-import { fileOf, languagePrefix, plan, type PlannedPage } from './pages'
+import { checkedPages, fileOf, itemFacts, languagePrefix, plan, type PlannedPage } from './pages'
 import { fileFor, serveFolders, shopFixture, type Served, type ShopReport } from './serve'
 
 // Step `check` (storefront LIVE-SHOP §4 step 7): a fresh process serves the built files to its own headless browser and
@@ -81,17 +81,21 @@ export const headersOf = async (root: string, snapshot: CatalogueSnapshot) => {
 type Network = { errors: string[]; reports: ShopReport[]; js: { url: string; gzip: number }[]; css: number; bytes: number; reading: Promise<void>[] }
 const network = (): Network => ({ errors: [], reports: [], js: [], css: 0, bytes: 0, reading: [] })
 
+const answerShop = (route: Route, fixture: ReturnType<typeof shopFixture>) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture(route.request().postData() ?? '')) })
+// The browser runs a module script only when it is served as JavaScript.
+const answerAsset = (route: Route, found: { rel: string; bytes: Buffer }) => route.fulfill({ status: 200, body: found.bytes, contentType: found.rel.endsWith('.css') ? 'text/css' : 'text/javascript' })
+
 /** Requests stay on this machine: the page's own server, the build's assets and the offline Shop API; anything else fails. */
 const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { assets: string }, net: Network) => {
   const fixture = shopFixture(s, net.reports)
   await page.route('**/*', async (route: Route) => {
     const url = new URL(route.request().url())
-    if (url.origin === served.origin && url.pathname === '/shop-api') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture(route.request().postData() ?? '')) })
+    if (url.origin === served.origin && url.pathname === '/shop-api') return answerShop(route, fixture)
     if (url.origin === served.origin) return route.fallback()
     const base = s.assetBase ? new URL(s.assetBase) : null
     if (base && url.origin === base.origin && url.pathname.startsWith(base.pathname)) {
       const found = await fileFor([roots.assets], url.pathname.slice(base.pathname.length))
-      return found ? route.fulfill({ status: 200, body: found.bytes, contentType: found.rel.endsWith('.css') ? 'text/css' : 'text/javascript' }) : route.fulfill({ status: 404 })
+      return found ? answerAsset(route, found) : route.fulfill({ status: 404 })
     }
     net.errors.push(`It tried to reach ${url.origin}, outside the store.`)
     return route.abort('blockedbyclient')
@@ -317,20 +321,22 @@ export const difference = async (page: Page, a: Buffer, b: Buffer): Promise<numb
     return changed / (p.length / 4 || 1)
   })()`)) as number
 
-/** The live site's page at the same width, its JS and CSS served from the live build's own files. */
+/** The live site's page at the same width, its JS and CSS served from the live build's own files, its data from the same snapshot. */
 const liveShot = async (browser: Browser, served: Served, live: string, s: CatalogueSnapshot, path: string, width: number): Promise<Buffer | null> => {
   if (!(await fileFor([live], path))) return null
   const context = await browser.newContext({ viewport: { width, height } })
   await returningShopper(context)
   const page = await context.newPage()
+  const fixture = shopFixture(s, [])
   try {
     await page.route('**/*', async (route) => {
       const url = new URL(route.request().url())
+      if (url.origin === served.origin && url.pathname === '/shop-api') return answerShop(route, fixture)
       if (url.origin === served.origin) return route.fallback()
-      // A live page names its own build's asset folder; the runner fetched those files into `live` by their paths.
-      const asset = /\/assets\/(.*)$/.exec(url.pathname)?.[0]
+      // A live page names its own build's asset folder (`…/builds/{id}/assets/`); the runner fetched its files into `live` by their paths.
+      const asset = /\/builds\/[^/]+\/assets\/(.+)$/.exec(url.pathname)?.[1]
       const found = asset ? await fileFor([live], asset) : null
-      return found ? route.fulfill({ status: 200, body: found.bytes }) : route.abort('blockedbyclient')
+      return found ? answerAsset(route, found) : route.abort('blockedbyclient')
     })
     await open(page, `${served.origin}${path}`, network())
     await settled(page, network())
@@ -346,7 +352,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
   const { snapshot: s, browser, site } = input
   const validator = validateChange(input.theme, s.guard).problems
   const routes = routesOf(input.theme)
-  const pages = plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path))
+  const pages = checkedPages(plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path), s.catalogue))
   const main = pages.filter((p) => p.language === s.store.mainLanguage)
   const headers = await headersOf(site, s)
   const served = await serveFolders([site], (rel) => headers[rel]?.['content-security-policy'] ?? null)
@@ -410,9 +416,10 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
       poweredBy: s.poweredBy !== null,
       strictLook: input.strictLook,
       edge,
-      // A static cart has no lines, and core's product hooks don't reach a built page yet (ARCHITECTURE §4.2).
+      // A static cart has no lines; a product page built from the catalogue shows what its product gave it (ARCHITECTURE §4.2).
       priced: new Set(),
-      // The snapshot carries no legal notices yet: core's LegalNotices has no data source in the Shop API.
+      items: itemFacts(pages, s),
+      // Beyond each product page's own (`items`), the snapshot doesn't say whether the store's markets require notices.
       legal: false,
       edgeNames: cases.map((c) => c.name),
     })

@@ -11,6 +11,7 @@ const brand = {
   helpUrl: null,
   supportUrl: null,
   supportEmail: null,
+  googleSignIn: true,
   files: { logoLight: null, logoDark: null, mark: null },
 }
 
@@ -31,6 +32,11 @@ describe('reading the partner look before sign-in', () => {
     expect(init.method).toBe('GET')
     expect(init.body).toBeUndefined()
     expect(Object.keys(init.headers ?? {})).toEqual([])
+  })
+
+  it('reads a look saved before Google sign-in as Google off', async () => {
+    const earlier = Object.fromEntries(Object.entries(brand).filter(([name]) => name !== 'googleSignIn'))
+    await expect(fetchBrand(clientAnswering({ brand: earlier }).client)).resolves.toEqual({ ...earlier, googleSignIn: false })
   })
 
   it('reads a partner with no look yet as null', async () => {

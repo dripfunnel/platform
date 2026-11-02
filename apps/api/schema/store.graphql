@@ -219,6 +219,7 @@ type Brand {
   corner: String
   files: BrandFiles
   font: String
+  googleSignIn: Boolean
   helpUrl: String
   poweredBy: Boolean
   primaryColor: String
@@ -2715,6 +2716,7 @@ type StockMovementPage {
 type StockPhoto {
   id: String
   pageUrl: String
+  source: String
   tags: String
   thumb: String
   user: String

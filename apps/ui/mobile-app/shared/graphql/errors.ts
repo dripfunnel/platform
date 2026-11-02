@@ -19,6 +19,10 @@ export const knownErrorCodes = [
   // The sign-in routes' refusals and My profile's (ACCESS.md §4); the sign-in ones carry `minutes` or `triesLeft` in details.
   'INVALID_CREDENTIALS',
   'LOCKED',
+  // Google sign-in's token route (ACCESS.md §2, #1048).
+  'NO_ACCOUNT',
+  'GOOGLE_REFUSED',
+  'GOOGLE_UNAVAILABLE',
   'WRONG_CODE',
   'CODE_EXPIRED',
   'INVALID_PHONE',
@@ -186,7 +190,7 @@ export const knownErrorCodes = [
   'ALREADY_LIVE',
   'BUILD_GONE',
   'SECURITY_RELEASE',
-  // The studio's session, its changes and publishes, the template gallery, and the Pages and Journal editor (apps/api src/saas/ai-designer, src/apis/store/studio.ts, content.ts).
+  // The studio's session, its changes and publishes, the template gallery, and the Journal editor (apps/api src/saas/ai-designer, src/apis/store/studio.ts, content.ts).
   'SESSION_ENDED',
   'NOT_BISECTED',
   'INVALID_URL',

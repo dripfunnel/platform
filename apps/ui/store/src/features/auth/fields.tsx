@@ -1,4 +1,7 @@
+import { safeNext } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import googleMark from '../../assets/google-mark.svg'
+import { currentBrand } from '../../brand/current'
 import { fill, messages } from '../../messages'
 import { Field as CommonField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
 
@@ -101,18 +104,45 @@ export const Foot = ({ text, link, onClick }: { text: string; link: string; onCl
 
 const NewTab = () => <span className="df-visually-hidden"> {words.opensInNewTab}</span>
 
-export const Terms = ({ before, after }: { before: string; after: string }) => (
-  <p className="df-auth-terms">
-    {before}
-    <a href={words.termsUrl} target="_blank" rel="noopener noreferrer">
-      {words.terms.terms}
+// The partner's own pages (SAAS §3.4); one it hasn't set is named without a link.
+const Policy = ({ label, url }: { label: string; url: string | null | undefined }) =>
+  url ? (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      {label}
       <NewTab />
     </a>
-    {words.terms.middle}
-    <a href={words.privacyUrl} target="_blank" rel="noopener noreferrer">
-      {words.terms.privacy}
-      <NewTab />
-    </a>
-    {after}
-  </p>
-)
+  ) : (
+    label
+  )
+
+export const Terms = ({ before, after }: { before: string; after: string }) => {
+  const brand = currentBrand()
+  return (
+    <p className="df-auth-terms">
+      {before}
+      <Policy label={words.terms.terms} url={brand?.termsUrl} />
+      {words.terms.middle}
+      <Policy label={words.terms.privacy} url={brand?.privacyUrl} />
+      {after}
+    </p>
+  )
+}
+
+/** PortalAuth's "Continue with Google" and its divider, only while the partner's Google client is on (ACCESS.md §2). */
+export const GoogleButton = ({ intent, next }: { intent: 'sign-in' | 'sign-up'; next?: string | undefined }) => {
+  if (!currentBrand()?.googleSignIn) return null
+  // A sign-in lands on the store chooser, as a password one does (SignIn `enter`); a sign-up comes back to its store step.
+  const after = intent === 'sign-in' ? { next: `/stores?${new URLSearchParams({ next: safeNext(next, window.location.origin, '/home') }).toString()}` } : {}
+  const href = `/api/auth/google/start?${new URLSearchParams({ intent, ...after }).toString()}`
+  return (
+    <>
+      <a className="df-auth-secondary df-auth-google" href={href}>
+        {/* Google's own mark in its own colours, as its branding requires: an asset, not tokens. */}
+        <img src={googleMark} alt="" width={18} height={18} />
+        {words.google.button}
+      </a>
+      <p className="df-auth-or">{words.google.or}</p>
+    </>
+  )
+}
+

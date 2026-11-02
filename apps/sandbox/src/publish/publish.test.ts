@@ -33,6 +33,54 @@ const snapshot: CatalogueSnapshot = catalogueSnapshotSchema.parse({
   assetBase: null,
 })
 
+// Card #1011: the Shop API's answers as the platform records them at freeze (apis/shop/record.ts).
+const catalogueSnapshot = catalogueSnapshotSchema.parse({
+  ...snapshot,
+  version: 2,
+  catalogue: {
+    answers: [
+      {
+        operation: 'Product',
+        variables: { slug: 'linen-shirt' },
+        data: {
+          product: { id: 'p1', name: 'Linen shirt', slug: 'linen-shirt', productType: 'physical', description: 'Soft.', inStock: true, price: { amount: '249900', currency: 'INR' }, versions: [{ id: 'v-blue', name: 'Blue', choices: [], price: { amount: '249900', currency: 'INR' }, inStock: true }, { id: 'v-red', name: 'Red', choices: [], price: { amount: '249900', currency: 'INR' }, inStock: true }] },
+          store: { marketId: null, markets: [] },
+        },
+      },
+      { operation: 'Collection', variables: { slug: 'summer' }, data: { collection: { id: 'c1', name: 'Summer', slug: 'summer', description: null, seoTitle: null, seoDescription: null, image: null } } },
+    ],
+    products: [{ slug: 'linen-shirt', versions: ['v-blue', 'v-red'] }],
+    collections: [{ slug: 'summer' }],
+  },
+})
+
+/** A live store's: its pages load their JS and CSS from the asset host. */
+const hosted = catalogueSnapshotSchema.parse({ ...snapshot, csp: { ...snapshot.csp, assetOrigin: 'https://sf-assets.example.com', portalOrigin: 'https://store.partner-a.example' }, assetBase: 'https://sf-assets.example.com/stores/s1/builds/b1/assets/' })
+
+/** The baseline's product page showing the product's name and core's sealed price. */
+const pricedProductPage = [
+  "import { Price, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'",
+  "import { Shell } from '../components/Shell'",
+  "import styles from '../styles/page.module.css'",
+  '',
+  'export const ProductPage = () => {',
+  '  const { t, store, locale } = useStorefront()',
+  '  const page = useProduct()',
+  '  return (',
+  "    <Shell title={page.product ? page.product.name : t('pages.product.title')}>",
+  "      {page.price ? <Price money={page.price} includesTax={store.pricesIncludeTax} locale={locale} t={t} /> : <p className={styles.lead}>{t('pages.product.lead')}</p>}",
+  '    </Shell>',
+  '  )',
+  '}',
+  '',
+].join('\n')
+
+/** That page over the baseline, its title wrapping a long product name as every starting theme's does (product.module.css). */
+const pricedProduct = {
+  'src/theme/pages/ProductPage.tsx': pricedProductPage,
+  'src/theme/styles/shell.module.css': `${readFileSync(join(baselineDir, 'src/theme/styles/shell.module.css'), 'utf8')}\n.title {\n  overflow-wrap: anywhere;\n}\n`,
+}
+
 let root: string
 let runtime: string
 
@@ -112,6 +160,34 @@ describe('step build', () => {
     // Exactly the build's own two scripts: the page's module and its data, nothing the name opened.
     expect(home.match(/<script/g)).toHaveLength(2)
     expect(home.match(/<\/script>/g)).toHaveLength(2)
+  })
+
+  it('writes each product, version and collection of a catalogue snapshot as its own page, rendered from the recorded answers', async () => {
+    writeFileSync(join(root, 'catalogue.json'), JSON.stringify(catalogueSnapshot))
+    const source = await sourceOf('catalogue', pricedProduct)
+    await cli(['build', ...stepArgs(source, join(root, 'catalogue.json')), '--out', join(root, 'catalogue')])
+    expect(existsSync(join(root, 'catalogue/report.json'))).toBe(false)
+    const site = (path: string) => readFileSync(join(root, 'catalogue/site', path), 'utf8')
+    const shirt = site('products/linen-shirt/index.html')
+    expect(shirt).toContain('<title>Linen shirt</title>')
+    expect(shirt).toMatch(/<h1[^>]*>Linen shirt<\/h1>/)
+    expect(shirt).toContain('data-df-sealed="price"')
+    expect(shirt).toContain('2,499.00')
+    expect(shirt).toContain('"answers":{"[\\"product\\",\\"linen-shirt\\"]"')
+    expect(site('products/linen-shirt/v-blue/index.html')).toContain('<link rel="canonical" href="https://shop.northstar.example/products/linen-shirt/">')
+    expect(existsSync(join(root, 'catalogue/site/collections/summer/index.html'))).toBe(true)
+    expect(existsSync(join(root, 'catalogue/site/collections/all/index.html'))).toBe(true)
+    // Another language's items are its client-rendered page's, which reads its own words; so is a product added later.
+    expect(existsSync(join(root, 'catalogue/site/hi/products/linen-shirt/index.html'))).toBe(false)
+    expect(site('_fallback/product/index.html')).not.toContain('"answers"')
+    expect(site('sitemap.xml')).toContain('<loc>https://shop.northstar.example/products/linen-shirt/</loc>')
+  })
+
+  it('builds a version 1 snapshot exactly as before: no item pages, no answers in a page', async () => {
+    const source = await sourceOf('plain', pricedProduct)
+    await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', join(root, 'plain')])
+    expect(existsSync(join(root, 'plain/site/products'))).toBe(false)
+    expect(readFileSync(join(root, 'plain/site/_fallback/product/index.html'), 'utf8')).not.toContain('"answers"')
   })
 
   it('builds with the image’s own packages, never ones the store repo carries', async () => {
@@ -243,6 +319,20 @@ describe.skipIf(!chrome)('step check', () => {
     expect(Object.values(headers).every((h) => h['content-security-policy'].includes("frame-ancestors 'none'"))).toBe(true)
   })
 
+  it('passes a catalogue snapshot’s product and collection pages through the whole gate, hydrated from their answers (#1011)', async () => {
+    writeFileSync(join(root, 'catalogue-check.json'), JSON.stringify(catalogueSnapshot))
+    const source = await sourceOf('catalogue-check', pricedProduct)
+    const built = join(root, 'catalogue-check-built')
+    await cli(['build', ...stepArgs(source, join(root, 'catalogue-check.json')), '--out', built])
+    const checkArgs = ['check', ...stepArgs(source, join(root, 'catalogue-check.json')), '--built', built, '--out', join(root, 'catalogue-check-checked')]
+    expect(await runStep(checkArgs, { PATH: process.env['PATH'] ?? '' }, { metrics: steady(() => 20) })).toBe(0)
+    const report = JSON.parse(readFileSync(join(root, 'catalogue-check-checked/report.json'), 'utf8')) as GateReport
+    // The product page places the sealed price its answer gave it, and its script hydrates the built HTML without a mismatch.
+    expect(report.checks.filter((c) => !c.passed)).toEqual([])
+    const headers = JSON.parse(readFileSync(join(root, 'catalogue-check-checked/headers.json'), 'utf8')) as Record<string, unknown>
+    expect(Object.keys(headers)).toEqual(expect.arrayContaining(['products/linen-shirt/index.html', 'products/linen-shirt/v-red/index.html', 'collections/summer/index.html']))
+  })
+
   it('fails a page whose loads block the main thread past the budget, by the timings it measured', async () => {
     const source = await sourceOf('blocking')
     const out = join(root, 'blocking-built')
@@ -319,7 +409,6 @@ describe.skipIf(!chrome)('step check', () => {
 
   it('fails a page that reaches outside the store, with JavaScript on or off, and serves the build’s assets from its asset host', async () => {
     // The pages load their JS and CSS from the asset host, which the check step answers from the build's own files.
-    const hosted = catalogueSnapshotSchema.parse({ ...snapshot, csp: { ...snapshot.csp, assetOrigin: 'https://sf-assets.example.com', portalOrigin: 'https://store.partner-a.example' }, assetBase: 'https://sf-assets.example.com/stores/s1/builds/b1/assets/' })
     const source = await sourceOf('reaching')
     const out = join(root, 'reaching-built')
     const theme = await checkout(source.bundle, source.commit, join(root, 'reaching-src'))
@@ -363,6 +452,32 @@ describe.skipIf(!chrome)('step check', () => {
     const check = (name: string) => report.checks.find((c) => c.name === name)
     expect(check('visual-diff')).toMatchObject({ passed: false, detail: expect.stringMatching(/^The home page at 390 px looks different from the live site/) })
     expect(check('contracts')?.detail).toContain('The search page at 390 px failed while loading.')
+  })
+
+  it('runs the live page’s scripts from its asset host and answers its Shop API from the snapshot, so a page that loads its data in the browser keeps its look', async () => {
+    // The home page shows the menu only once the Shop API answers, as a page of a store built before #1011 does.
+    const source = await sourceOf('shop-look', {
+      'src/theme/pages/HomePage.tsx': [
+        "import { useMenu, useStorefront } from '@dripfunnel/storefront-core/theme'",
+        "import { Shell } from '../components/Shell'",
+        "import styles from '../styles/page.module.css'",
+        '',
+        'export const HomePage = () => {',
+        '  const { t } = useStorefront()',
+        '  const menu = useMenu()',
+        "  return <Shell title={t('pages.home.title')}>{menu.items.length > 0 && <ul className={styles.menu}>{menu.items.map((i) => <li key={i.id}>{i.label}</li>)}</ul>}</Shell>",
+        '}',
+        '',
+      ].join('\n'),
+      'src/theme/styles/page.module.css': `${readFileSync(join(baselineDir, 'src/theme/styles/page.module.css'), 'utf8')}\n.menu {\n  min-height: 400px;\n  background: currentColor;\n}\n`,
+    })
+    const out = join(root, 'shop-look-built')
+    const theme = await checkout(source.bundle, source.commit, join(root, 'shop-look-src'))
+    await buildSite({ repo: join(root, 'shop-look-src'), theme, snapshot: hosted, runtimeDir: runtime, out, work: join(root, 'shop-look-work') })
+    const live = join(root, 'shop-look-live')
+    cpSync(join(out, 'site'), live, { recursive: true })
+    const { report } = await checkSite({ site: join(out, 'site'), out, live, snapshot: hosted, theme, strictLook: true, browser })
+    expect(report.checks.find((c) => c.name === 'visual-diff')).toEqual({ name: 'visual-diff', passed: true })
   })
 
   it('counts every pixel when two screenshots differ in size', async () => {

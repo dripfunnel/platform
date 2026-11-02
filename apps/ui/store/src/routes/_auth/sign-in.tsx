@@ -1,6 +1,10 @@
+import { previewsState, redirectSignedIn } from '@dripfunnel/shared/ui'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { loadMe } from '../../api/shell'
 import { SignIn } from '../../features/auth/SignIn'
+import { googleOutcomes } from '../../features/auth/refusals'
+import { harnessEnabled } from '../../harness'
 
 const search = z.object({
   next: z.string().optional(),
@@ -8,12 +12,19 @@ const search = z.object({
   step: z.enum(['enrol', 'second-factor']).optional(),
   method: z.enum(['app', 'sms']).optional(),
   view: z.enum(['forgot']).optional(),
+  // Back from Google without a session (ACCESS.md §2): why, and a lock's minutes.
+  outcome: z.enum([...googleOutcomes, 'locked']).optional(),
+  minutes: z.coerce.number().int().min(1).max(60).optional(),
 })
 
 const Screen = () => {
-  const { next, note, step, method, view } = Route.useSearch()
+  const { next, note, step, method, view, outcome, minutes } = Route.useSearch()
   const resume = step === 'enrol' ? ({ step: 'enrol' } as const) : step === 'second-factor' ? ({ step: 'second-factor', method: method ?? 'sms' } as const) : undefined
-  return <SignIn next={next} note={note} resume={resume} start={view} />
+  return <SignIn next={next} note={note} resume={resume} start={view} google={outcome === 'locked' ? { locked: minutes ?? 15 } : outcome} />
 }
 
-export const Route = createFileRoute('/_auth/sign-in')({ validateSearch: search, component: Screen })
+export const Route = createFileRoute('/_auth/sign-in')({
+  validateSearch: search,
+  beforeLoad: ({ search, location }) => redirectSignedIn({ loadMe, next: search.next, home: '/home', skip: previewsState(harnessEnabled, location.searchStr) }),
+  component: Screen,
+})

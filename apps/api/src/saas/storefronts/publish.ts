@@ -48,6 +48,7 @@ import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'
 import { maxRepairs } from '#saas/studio/index'
+import { attachCatalogue, pruneCatalogue, recordCatalogueBase, recordCatalogueProducts, type CatalogueRecorder } from './catalogue'
 import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
 import { buildFolder, manifestName, publishedTheme, stagingFolder } from './layout'
 import type { PushResult, RepoFile } from './push'
@@ -150,6 +151,8 @@ export const requestPageRender = (sql: postgres.Sql, request: RenderRequest, now
   })
 
 export interface PublishDeps extends FreezeDeps {
+  /** The Shop API's answers for a version 2 snapshot (apis/shop/record.ts); absent, snapshots carry no catalogue. */
+  catalogue?: CatalogueRecorder
   /** Absent until the designer's model reaches the Workflow (#318): a failing design publish then goes straight to bisect. */
   repair?: PublishRepair
   sites: SitesBucket
@@ -457,6 +460,12 @@ const minutesBefore = (deps: PublishDeps, deadline: string) => Math.max(1, Math.
 /** One build through the gate: frozen, dispatched, then its report; `label` keeps each build's steps apart. */
 const gateBuild = async (deps: PublishDeps, steps: PublishSteps, storeId: string, buildId: string, label: string): Promise<boolean> => {
   await steps.do(`${label}freeze`, () => freezeBuild(deps, storeId, buildId))
+  // The catalogue's steps (saas/storefronts/catalogue.ts): -1 when this build carries none.
+  const catalogue = Number(await steps.do(`${label}catalogue`, async () => String((await recordCatalogueBase(deps, storeId, buildId)) ?? -1)))
+  if (catalogue >= 0) {
+    for (let n = 0; n < catalogue; n += 1) await steps.do(`${label}catalogue:${n}`, async () => (await recordCatalogueProducts(deps, storeId, buildId, n), 'recorded'))
+    await steps.do(`${label}snapshot`, async () => (await attachCatalogue(deps, storeId, buildId, catalogue), 'attached'))
+  }
   await steps.do(`${label}dispatch`, () => dispatchBuild(deps, storeId, buildId))
   const deadline = await steps.do(`${label}deadline`, () => deadlineOf(deps, storeId, buildId))
   // The build's "report" and "uploaded" calls wake this run; a DB check comes first, so one that came early isn't missed.
@@ -561,6 +570,8 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
     const verdict = await steps.do('checks', () => checksStep(deps, p.storeId, liveId), 'long')
     if (verdict !== 'passed') return (await steps.do('rollback', () => rollbackStep(deps, p, liveId, verdict))) === 'rolled_back' ? 'rolled_back' : 'stopped'
     if ((await steps.do('confirm', () => confirmStep(deps, p, liveId))) !== 'live') return 'stopped'
+    // Only now that no live page shows them; a copy left behind waits for the next publish to find it again.
+    await steps.do('prune', async () => (await pruneCatalogue(deps, p.storeId, liveId), 'pruned')).catch((error: unknown) => logEvent({ event: 'storefront_prune_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
     // The build is live whatever the push does; one still failing after its retries waits for the next publish's push.
     await steps.do('push', () => pushStep(deps, p, liveId)).catch((error: unknown) => logEvent({ event: 'storefront_push_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
     return 'live'

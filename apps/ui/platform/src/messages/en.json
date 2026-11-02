@@ -147,6 +147,7 @@
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
+      "myProfile": "My profile",
       "myActivity": "My activity",
       "signOut": "Sign out",
       "theme": {
@@ -363,6 +364,32 @@
       "cancel": "Cancel"
     }
   },
+  "profile": {
+    "title": "My profile",
+    "sub": "Your own name and password. Your email and two-step sign-in stay as they are.",
+    "name": { "title": "Name", "label": "Your name", "hint": "Shown to your team and in the activity log.", "save": "Save name", "saved": "Name saved." },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "hint": "At least 10 characters.",
+      "signsOut": "Changing it signs you out everywhere else. This session stays signed in.",
+      "show": "Show",
+      "hide": "Hide",
+      "save": "Change password",
+      "saved": "Password changed. You’re signed out everywhere else."
+    },
+    "refusals": {
+      "INVALID_INPUT": "Enter a name of 1 to 80 characters.",
+      "WEAK_PASSWORD": "Use at least 10 characters.",
+      "WRONG_PASSWORD": "That isn’t your current password.",
+      "WRONG_PASSWORD_TRIES": "That isn’t your current password. {tries} left before sign-in pauses for 15 minutes.",
+      "LOCKED": "Too many wrong tries. Try again in {minutes} minutes; we’ve emailed you about it.",
+      "NOT_FOUND": "Your account couldn’t be found. Sign in again."
+    },
+    "tries": { "one": "1 try", "other": "{count} tries" },
+    "failed": "That didn’t go through. Nothing was changed. Try again."
+  },
   "settings": {
     "account": "Your account",
     "accountSub": "What a staff session can’t change is turned off here, with the reason.",
@@ -566,6 +593,48 @@
       "staffSession": "Payment method and payout details stay with {partner}. {partner} enters these itself."
     },
     "integrations": {
+      "google": {
+        "title": "Google sign-in",
+        "note": "Lets your merchants sign in and create their store with their Google account on your portal. It uses your own Google client, so Google shows your name. The secret is stored encrypted and never shown again; only its last 4 characters are.",
+        "loading": "Loading Google sign-in",
+        "error": { "title": "Google sign-in couldn’t be loaded", "body": "Nothing was changed. Try again.", "retry": "Try again" },
+        "off": "Off. Merchants sign in with their email and password.",
+        "on": "On",
+        "turnedOff": "Off",
+        "clientLabel": "Client ID",
+        "secretLabel": "Client secret",
+        "setBy": "Set by {name}, {when}",
+        "redirectLabel": "Authorised redirect URI",
+        "redirectHint": "In Google Cloud, create an OAuth client of type “Web application” and add this address to its authorised redirect URIs.",
+        "noHost": "Add your portal address under Domains first: Google needs it as the redirect URI.",
+        "copy": "Copy",
+        "copied": "Copied.",
+        "copyFailed": "Couldn’t copy. Select the address and copy it yourself.",
+        "setUp": "Set up Google sign-in",
+        "replace": "Replace client",
+        "turnOff": "Turn off",
+        "dialog": {
+          "title": "Google sign-in",
+          "target": "Your Google OAuth client",
+          "consequence": "Merchants on your portal can sign in and create their store with Google from now on. A secret you replace stops working here at once.",
+          "save": "Save and turn on",
+          "clientHint": "Ends in .apps.googleusercontent.com",
+          "secretHint": "Starts with GOCSPX-. Google Cloud shows it once; we never show it again.",
+          "incomplete": "Enter the client ID and secret from Google Cloud."
+        },
+        "offDialog": {
+          "title": "Turn off Google sign-in?",
+          "target": "Google sign-in on your portal",
+          "consequence": "“Continue with Google” goes away from sign-in and sign-up at once. Merchants who signed up with Google and never set a password will need “Forgot password?” to get in. The client stays saved: set it up again to turn it back on.",
+          "confirm": "Turn off Google sign-in"
+        },
+        "refusals": {
+          "INVALID_INPUT": "That isn’t a Google client ID and secret. Copy both from the OAuth client in Google Cloud.",
+          "NOT_CONFIGURED": "Secrets can’t be stored on this server yet. Ask DripFunnel support.",
+          "NOT_FOUND": "Google sign-in is already off."
+        },
+        "toasts": { "saved": "Google sign-in is on.", "off": "Google sign-in is off.", "failed": "That didn’t go through. Nothing was changed. Try again." }
+      },
       "title": "AI accounts",
       "note": "Pays for the AI designer on your plans that include AI. DripFunnel holds no AI account of its own. Keys are stored encrypted and never shown again; only the start and last 4 characters are. A sign-in is kept only as long as you stay connected, and your merchants’ own accounts are separate from yours. The default account is the one used; if it is rejected, the designer pauses until you fix it.",
       "loading": "Loading your AI accounts",
@@ -956,7 +1025,7 @@
       "pastdue": "Past due",
       "suspended": "Suspended",
       "cancelled": "Cancelled",
-      "closed": "Closed"
+      "closed": "Archived"
     },
     "statusSub": {
       "trialDays": {
@@ -969,7 +1038,8 @@
         "one": "{count} day · changes blocked, still selling",
         "other": "{count} days · changes blocked, still selling"
       },
-      "cancelled": "Since {date}"
+      "cancelled": "Since {date}",
+      "closed": "Archived {date}"
     },
     "storefronts": {
       "live": "Live",
@@ -1171,6 +1241,7 @@
       "addOverride": "Add a limit override",
       "suspend": "Suspend",
       "restore": "Restore",
+      "archive": "Archive store",
       "resendInvite": "Resend owner invitation",
       "retryStep": "Retry this step"
     },
@@ -1179,6 +1250,8 @@
       "FINANCE_TRIAL_ONLY": "Your role can’t {verb}. Owners, Admins and Finance can.",
       "ALREADY_SUSPENDED": "{name} is already suspended.",
       "NOT_SUSPENDED": "{name} is not suspended.",
+      "CANCEL_OR_SUSPEND_FIRST": "Only a cancelled or suspended store can be archived. Suspend {name} first.",
+      "PROVIDER_UNAVAILABLE": "Its subscription couldn’t be ended just now, so nothing was changed. Try again in a moment.",
       "NOT_ON_TRIAL": "{name} is not on a trial.",
       "NO_PENDING_INVITATION": "The owner has already set a password.",
       "READ_ONLY": "The console is read-only, so nothing here can change.",
@@ -1199,6 +1272,7 @@
       "addOverride": "add limit overrides",
       "suspend": "suspend stores",
       "restore": "restore stores",
+      "archive": "archive stores",
       "resendInvite": "resend invitations",
       "retryStep": "retry a setup step",
       "billingStatus": "set billing status",
@@ -1435,6 +1509,15 @@
         "forAlways": "Until removed",
         "confirm": "Add override"
       },
+      "archive": {
+        "title": "Archive {name}?",
+        "consequence": "{name} disappears at once for its team and its shoppers: it’s gone from their store list, anyone signed in is signed out of it, and its shop goes offline. Any subscription it still has ends now, with no refund. Its data is kept for 90 days, then deleted. {owner} gets an email saying so. This can’t be undone.",
+        "reason": "Reason",
+        "reasonHint": "Required. Kept in the activity log.",
+        "typeLabel": "Type the store name to confirm",
+        "typeHint": "Type {name} exactly to confirm.",
+        "confirm": "Archive store"
+      },
       "suspend": {
         "title": "Suspend {name}?",
         "consequence": "Its shop stops taking orders and its team can’t make changes until you restore it. {owner} gets the “Store suspended” email. Billing pauses.",
@@ -1467,6 +1550,7 @@
       "addOverride": "Override added.",
       "suspend": "{name} is suspended.",
       "restore": "{name} is restored.",
+      "archive": "{name} is archived.",
       "resendInvite": "Invitation sent to {email}.",
       "retryStep": "Retried. {name}’s storefront is live.",
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",

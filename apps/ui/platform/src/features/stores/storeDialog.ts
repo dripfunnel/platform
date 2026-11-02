@@ -125,6 +125,19 @@ export const storeDialog = (action: StoreAction, store: Store, options: ChangePl
         danger: true,
       }
     }
+    // Archive (#1056): SAAS §4.2's Closed, no way back; confirmed as Suspend is.
+    case 'archive': {
+      const spec = words.archive
+      return {
+        ...base,
+        title: fill(spec.title, values),
+        consequence: fill(spec.consequence, { name: store.name, owner: store.owner.name.split(' ')[0] ?? store.owner.name }),
+        confirmLabel: spec.confirm,
+        reason: reasonField(spec.reason, spec.reasonHint),
+        typeToConfirm: { label: spec.typeLabel, hint: fill(spec.typeHint, values), expected: store.name },
+        danger: true,
+      }
+    }
     case 'restore': {
       const spec = words.restore
       return { ...base, title: fill(spec.title, values), consequence: spec.consequence, confirmLabel: spec.confirm, reason: reasonField() }
@@ -154,6 +167,7 @@ export const actionInput = (action: StoreAction, reason: string | null, value: s
     }
     case 'suspend':
     case 'restore':
+    case 'archive':
       return reason ? { action, reason } : null
     case 'resendInvite':
     case 'retryStep':
@@ -176,6 +190,8 @@ export const storeToast = (input: StoreActionInput, store: Store, options: Chang
       return fill(words.suspend, { name: store.name })
     case 'restore':
       return fill(words.restore, { name: store.name })
+    case 'archive':
+      return fill(words.archive, { name: store.name })
     case 'resendInvite':
       return fill(words.resendInvite, { email: store.owner.email })
     case 'retryStep':

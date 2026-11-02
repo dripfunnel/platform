@@ -10,6 +10,9 @@ export const previewFolder = (storeId: string, ref: string) => `${previewRoot(st
 
 /** `storefront-assets` (public, behind the asset host): the same build folder, its hashed JS and CSS under `assets/`. */
 export const assetsFolder = (storeId: string, buildId: string) => `${buildFolder(storeId, buildId)}assets/`
+/** `storefront-assets`: the catalogue pictures a live build names, one copy per file, shared by every build. */
+export const mediaFolder = (storeId: string) => `${storePrefix(storeId)}media/`
+export const mediaFile = (storeId: string, assetId: string) => `${mediaFolder(storeId)}${assetId}`
 
 /** `storefront-drafts` (private): the draft, each build's source bundle and catalogue snapshot (LIVE-SHOP §4 step 3). */
 export const draftBundle = (storeId: string) => `drafts/${storeId}.bundle`
@@ -19,6 +22,8 @@ export const sourceBundle = (storeId: string, buildId: string) => `${sourcesPref
 export const publishedTheme = (storeId: string, commit: string) => `${sourcesPrefix(storeId)}themes/${commit}.json`
 export const snapshotsPrefix = (storeId: string) => `snapshots/${storeId}/`
 export const snapshotFile = (storeId: string, buildId: string) => `${snapshotsPrefix(storeId)}${buildId}.json`
+/** The catalogue's parts while its steps record them (saas/storefronts/catalogue.ts), deleted once the snapshot holds them. */
+export const catalogueFolder = (storeId: string, buildId: string) => `${snapshotsPrefix(storeId)}${buildId}.catalogue/`
 /** The upgrade bot's private commits (LIVE-SHOP §8): each as a bundle, with the files it changed for the push once live. */
 export const upgradesPrefix = (storeId: string) => `upgrades/${storeId}/`
 export const upgradeBundle = (storeId: string, commit: string) => `${upgradesPrefix(storeId)}${commit}.bundle`

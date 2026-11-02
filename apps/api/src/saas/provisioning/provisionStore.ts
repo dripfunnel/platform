@@ -5,12 +5,13 @@ import { finishJob, insertActiveOwnerMembership, insertRunningJob, insertSignupU
 import { addMonth } from '#saas/partnerStores/create'
 import { stepsFor } from './stuck'
 
-// SAAS.md §5's first three steps for a merchant's own sign-up. All database writes, so one transaction:
+// SAAS.md §5's first three steps for a merchant's own sign-up, or their next store. All database writes, so one transaction:
 // a failure anywhere leaves nothing. INF 1 adds steps 4–8, with compensations, as the Workflow.
 
 export interface ProvisionInput {
   partnerId: string
-  owner: { name: string; email: string; passwordHash: string; phone: string }
+  /** A new account from sign-up, or a signed-in person's own for their next store (#1136). */
+  owner: { name: string; email: string; passwordHash: string | null; phone: string } | { userId: string }
   store: { name: string; code: string; country: string; currency: string }
 }
 
@@ -33,7 +34,7 @@ export const provisionStore = async (tx: ScopedSql, input: ProvisionInput, at: D
 
   // 1. Account and store.
   failAt('accountAndStore')
-  const userId = await insertSignupUser(tx, { partnerId: input.partnerId, ...input.owner, now: at })
+  const userId = 'userId' in input.owner ? input.owner.userId : await insertSignupUser(tx, { partnerId: input.partnerId, ...input.owner, now: at })
   const storeId = await insertPartnerStore(tx, { partnerId: input.partnerId, name: input.store.name, code: input.store.code, slug: input.store.code, country: input.store.country, pricingCurrency: input.store.currency, status: 'trial', planId: plan.id, trialEndsAt, createdAt: at })
   await insertActiveOwnerMembership(tx, userId, storeId)
   await insertNewSubscription(tx, { storeId, partnerId: input.partnerId, planId: plan.id, planVersion: plan.version, status: 'trial', currency: input.store.currency, amount: plan.monthly, periodStart: at, periodEnd: addMonth(at), trialEndsAt })

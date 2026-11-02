@@ -2,12 +2,12 @@ import type postgres from 'postgres'
 import { logEvent } from '#core/log'
 import type { Subscription, TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { crossingsLoggedSince, selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
+import { crossingsLoggedSince, selectHeldStoreIds, selectPortalPartner, selectStanding, type MembershipRow } from '#db/scoped/storeCaller'
 import type { ActivityEntry, ActivityLog, RequestFacts } from './activity'
 import { readCookie } from './cookie'
 import { sendsStoreCookie, storeSessionId } from './storeCredential'
 import { hashSessionId } from './session'
-import { readUserSession } from './storeSession'
+import { touchUserSession, userSessionWindow } from './storeSession'
 import { storeRoleOf, type StoreRole } from './storePermissions'
 import { resolveStaffCaller, staffAttributed, staffCookieName, type StaffSeat } from './storeStaff'
 import { resolveSupportCaller, supportActor, supportCookieName, type SupportSeat } from './storeSupport'
@@ -175,14 +175,16 @@ export const resolveStoreStanding = async (
       return { kind: 'crossing', person: support.person }
     }
     if (!sessionId) return { kind: 'signed-out' }
-    const session = await readUserSession(tx, sessionId, partnerId, now)
-    const row = session ? await selectStorePerson(tx, session.userId, partnerId) : null
-    if (!row) return { kind: 'signed-out' }
+    // The session, the person and their seats in the store asked for, in one statement (#1124). A header that isn't a
+    // store id asks for no store, as before: the person is found and nothing is held.
     const sessionHash = await hashSessionId(sessionId)
-    const person: StorePerson = { ...row, partnerId, sessionHash }
     const asked = request.headers.get(storeHeader)
+    const row = await selectStanding(tx, userSessionWindow(sessionHash, partnerId, now), asked && isUuid(asked) ? asked : null)
+    if (!row) return { kind: 'signed-out' }
+    await touchUserSession(tx, sessionHash, row.last_seen_at, now)
+    const person: StorePerson = { id: row.id, name: row.name, email: row.email, partnerId, sessionHash }
     if (!asked) return { kind: 'no-store', person }
-    const memberships = isUuid(asked) ? await selectMemberships(tx, person.id, partnerId, asked) : []
+    const memberships = row.memberships
     if (memberships.length === 0) {
       await recordCrossing(tx, person, asked, activity, facts, now)
       return { kind: 'crossing', person }

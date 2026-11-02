@@ -105,7 +105,7 @@ export const anthropicProvider = (apiKey: string, model: string = designerModel)
  */
 export const routedDesignerProvider = (router: Router, model: string, options: { signIn: boolean; onRouted?: (routed: Pick<Routed<unknown>, 'route' | 'fallbackUsed' | 'fallbackFrom'>) => void }): AiProvider => ({
   converse: async (call) => {
-    const request: CanonicalRequest = { model, system: call.system, maxTokens: 64_000, messages: call.messages, tools: call.tools, toolChoice: 'auto' }
+    const request: CanonicalRequest = { model, system: call.system, maxTokens: 64_000, messages: call.messages, tools: call.tools, ...(call.tools.length > 0 ? { toolChoice: 'auto' as const } : {}) }
     try {
       const routed = await router.stream(request, call.signal)
       options.onRouted?.(routed)

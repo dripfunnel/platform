@@ -112,7 +112,7 @@ describe('where the tab bar is hidden (DESIGN.md §2)', () => {
   it('hides it in the full designer and shows it on the compact Storefront and every other screen', () => {
     expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront', 'designer'])).toBe(true)
     expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront', 'studio'])).toBe(true)
-    expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront', 'page', '[id]'])).toBe(true)
+    expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront', 'post', '[id]'])).toBe(true)
     expect(tabBarHiddenAt(['(tabs)', 'more', 'storefront'])).toBe(false)
     expect(tabBarHiddenAt(['(tabs)', 'more', 'reports'])).toBe(false)
     expect(tabBarHiddenAt(['(tabs)', 'orders', 'index'])).toBe(false)

@@ -17,10 +17,9 @@ export const withScope = async <T>(
   work: (tx: ScopedSql) => Promise<T>,
 ): Promise<T> =>
   sql.begin(async (tx) => {
-    // A role is an identifier, never a parameter; roleFor returns only the literals it names.
-    await tx.unsafe(`set local role ${roleFor(context)}`)
-    // Every setting in one statement, each still a parameter (#478).
-    const settings = Object.entries(settingsFor(context))
+    // The role and every setting in one statement, each a parameter (#478): `set_config('role', …, true)` is
+    // `SET LOCAL ROLE`, membership check included, and a refusal aborts the transaction before the work.
+    const settings = [['role', roleFor(context)], ...Object.entries(settingsFor(context))]
     await tx`
       select set_config(name, value, true)
       from unnest(${pgArray(settings.map(([name]) => name))}::text[], ${pgArray(settings.map(([, value]) => value))}::text[]) as setting(name, value)
@@ -31,8 +30,8 @@ export const withScope = async <T>(
 /** Jobs, webhooks and sign-in: granted per table through `app_system` (DATA-MODEL.md §5.2). */
 export const withSystemScope = async <T>(sql: postgres.Sql, work: (tx: ScopedSql) => Promise<T>): Promise<T> =>
   sql.begin(async (tx) => {
-    await tx`set local role app_system`
-    await tx`select set_config('app.scope', 'system', true)`
+    // The role and the scope in one statement, as withScope does (#1124): `set_config('role', …, true)` is `SET LOCAL ROLE`.
+    await tx`select set_config('role', 'app_system', true), set_config('app.scope', 'system', true)`
     return work(tx)
   }) as Promise<T>
 

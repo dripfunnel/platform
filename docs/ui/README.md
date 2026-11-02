@@ -7,7 +7,7 @@ own guide says what that app is for, who uses it and what it may do.
 **Status: skeleton.** Each app has a sign-in route and a home route; `shared/` has a button,
 design tokens, the GraphQL client and money formatting.
 
-Last updated: 2026-10-11.
+Last updated: 2026-11-01 (#1122: signed-in visitors on sign-in pages, §5). Before: 2026-10-11.
 
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
@@ -143,6 +143,9 @@ apps/ui/<app>/
     as in the portal ([../../designs/design.md](../../designs/design.md) §4).
 - **Locked** means "not yet" (for example during provisioning); **absent** means "not for
   you".
+- **A signed-in person never gets sign-in, Forgot password or sign-up**: those routes send them
+  to their `next` (same app only) or the app's home (`redirectSignedIn` in `shared/ui`, #1122).
+  Pages a link opens (confirm email, invitations, password reset) don't redirect.
 - **Badges mean work waiting**, never trivia counts.
 - Every nav row must resolve to a real screen or an explicit placeholder; a route audit in
   CI clicks every row *(planned)*.

@@ -26,6 +26,7 @@
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-firebase/app": "27.1.0",
     "@react-native-firebase/crashlytics": "27.1.0",
+    "@react-native-google-signin/google-signin": "16.1.5",
     "expo": "57.0.27",
     "expo-build-properties": "~57.0.22",
     "expo-clipboard": "~57.0.2",

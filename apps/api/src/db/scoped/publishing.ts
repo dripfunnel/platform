@@ -373,13 +373,14 @@ export interface BuildInputRow {
   live_build_id: string | null
   dispatched_at: Date | null
   reported: boolean
+  render: PageRender | null
 }
 
 /** What freezing and dispatching a build need (storefront LIVE-SHOP §4 steps 3–4). */
 export const selectBuildInput = async (tx: ScopedSql, storeId: string, runId: string): Promise<BuildInputRow | null> =>
   (
     await tx<BuildInputRow[]>`
-      select r.kind, r.commit, r.core_version, f.repo, f.repo_head, f.live_build_id, r.dispatched_at, r.gate is not null as reported
+      select r.kind, r.commit, r.core_version, f.repo, f.repo_head, f.live_build_id, r.dispatched_at, r.gate is not null as reported, r.render
       from publish_run r join storefront f on f.store_id = r.store_id where r.id = ${runId} and r.store_id = ${storeId}`
   )[0] ?? null
 

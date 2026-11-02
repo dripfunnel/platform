@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -35,6 +35,7 @@ the missing backend.
 | 11 | ~~**Links that go nowhere.** "Edit branding" (white-label banner) and the `brand`, `plans` and `partner` routes land on the "isn't part of the Catalogue prototype" placeholder.~~ | shell:148/391/560 |
 | 12 | ~~**Four unmounted files.** Decide whether to keep or delete `PortalBrand`, `PortalPartner`, `PortalPayouts` and `PortalPlans`.~~ Deleted on #183: the shell links to the Platform prototype for brand, plans and partner. | design.md §1 |
 | 13 | ~~**Open decisions still unresolved:** what a supplier may see of a customer, who owns refunds across suppliers, whether editing an approved product sends it back for approval, what happens to a removed supplier's products, and whether 2FA applies to Owners only or to everyone.~~ | uploads/DESIGN-BRIEF.md §4 |
+| 14 | **Mobile number fields are one box** (PortalAuth, PortalProfile, SetRiders, SetStore, customers, brand; the DF Storefront prototype's Contact and sign-in too). The built portal and storefront show a country code dropdown, starting in the store's country, beside the number (decided 2026-11-01); the prototypes still need it drawn. | PortalProfile:21; DF Storefront Prototype:578, 686 |
 
 ---
 
@@ -114,7 +115,8 @@ the missing backend.
 - **Product video:** gated by plan, but there is no upload in the editor.
 - **Translation:** only into French, even when Settings adds another language.
 - **Barcode:** the import template has a barcode column, the editor has none.
-- **Per-version values:** a version has no compare price, cost or weight of its own.
+- **Per-version values:** a version has no weight of its own. ~~Compare price and cost~~: built
+  in the portal on #1117 (each version's "More" and "Set values for all…"), not drawn here.
 - **AI and lookup helpers are placeholders:**
   - "Write it for me" returns canned text.
   - "Suggest a translation" uses a small word list.
@@ -157,7 +159,7 @@ the missing backend.
 - ~~There is no page, header or footer editing.~~ Redrawn 2026-10-08.
 - Decided 2026-10-08 on #470 and not drawn yet (FIRST-RELEASE §14 gives the wording):
   - the **"Your brand"** step before the gallery, and Site settings › **Brand**;
-  - the **Pages** and **Journal** tabs (the new file has only Design and Site settings; `StorefrontContent` holds their drawing);
+  - the **Journal** tab (the new file has only Design and Site settings; `StorefrontContent` holds its drawing; the **Pages** tab was removed on #1078);
   - the catalogue **Publish now** bar on the Design tab;
   - ~~**Open preview ↗** in the studio's top bar.~~ Drawn on #487, with **End all preview links** in its menu.
 - Decided 2026-10-08 on #470 ("Plan A": the AI writes theme code), drawn on #487 (FIRST-RELEASE §14; each under `?state=`, design.md §2):
@@ -168,6 +170,8 @@ the missing backend.
   - ~~**End all preview links**, its confirmation and "Preview links ended".~~
   - the drawing still renders site JSON (`storefront-lib.js`); that is how it draws, not what is built.
 - The queue, "Finishing your previous change…", a refused publish and a rollback are reached only through `?state=`; nothing in the drawing makes them happen.
+- Decided 2026-11-01, not drawn: Your brand and Site settings › Brand no longer ask for primary and secondary colours
+  (the look is changed in the studio), and the Journal tab is called **Blog** (FIRST-RELEASE §14).
 - "View live site" is still toast only.
 
 ### Settings

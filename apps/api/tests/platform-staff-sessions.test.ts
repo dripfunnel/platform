@@ -226,13 +226,18 @@ describe('the blocked lists', () => {
   const moneyDetails = ['paymentMethod', 'payoutAccount', 'setPaymentMethod', 'setPayoutAccount']
   // An AI key is set by the partner, or by staff in a setup session (#275), never while acting as a partner user.
   const aiKeyWrites = ['addPartnerAiKey', 'beginPartnerAiOauth', 'finishPartnerAiOauth', 'removePartnerAiKey', 'setDefaultPartnerAiKey']
+  const googleSignInWrites = ['savePartnerGoogleSignIn', 'turnOffPartnerGoogleSignIn']
+  // A user's own name and password are theirs alone (My profile, #1053): neither staff session changes them.
+  const ownAccount = ['changeMyPassword', 'updateMyName']
+  // Archiving a store is the partner's own decision, never staff acting as a partner user (#1056).
+  const archive = ['archiveStore']
 
   it('refuses an impersonation ownership, the team’s sign-in rule, and the user’s own second factor and support access', () => {
-    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, ...aiKeyWrites, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
+    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, ...aiKeyWrites, ...googleSignInWrites, ...ownAccount, ...archive, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
   })
 
   it('refuses a setup session ownership and support access, which need a partner user', () => {
-    expect(blockedFields('setup')).toEqual([...support, ...moneyDetails, 'transferOwnership'].sort())
+    expect(blockedFields('setup')).toEqual([...support, ...moneyDetails, ...ownAccount, 'transferOwnership'].sort())
   })
 
   it('keeps who is Owner the partner’s own decision: no staff session makes, demotes or removes one', async () => {
@@ -261,7 +266,10 @@ describe('the blocked lists', () => {
     clock = start
     const transfer = `mutation($id: ID!) { transferOwnership(toUserId: $id) { ok reason } }`
     const imp = await impersonate(ids.maya)
-    expect((await platformRun(transfer, await signedIn((await enter(imp.token)).cookie), { id: ids.diego })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    const acting = await signedIn((await enter(imp.token)).cookie)
+    expect((await platformRun(transfer, acting, { id: ids.diego })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    const archiveStore = `mutation($id: ID!) { archiveStore(id: $id, reason: "Merchant left") { ok reason } }`
+    expect((await platformRun(archiveStore, acting, { id: crypto.randomUUID() })).code).toBe('BLOCKED_WHILE_IMPERSONATING')
     await endFromAdmin(imp.id)
     const setup = await setUp(ids.northstar)
     const caller = await signedIn((await enter(setup.token)).cookie)

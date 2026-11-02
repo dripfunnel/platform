@@ -24,6 +24,7 @@ import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { resolveRider } from '#auth/riderCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { handleStoreGoogle, isStoreGooglePath } from '#apis/store/google'
 import { handleStaffSession, isStaffSessionPath } from '#apis/store/staffSession'
 import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
 import { handleAppAssets, isAppAssetsPath } from '#apis/store/appAssets'
@@ -54,7 +55,7 @@ import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
-import { isLocalhost, parseConfig, type Config } from '#core/config'
+import { aiPhotoSourcesDefault, isLocalhost, parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
@@ -69,6 +70,8 @@ import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#s
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
+import { localGoogleSignIn } from '#integrations/google/local'
+import { googleSignIn, type GoogleSignIn } from '#integrations/google/provider'
 import { storeBillingStripe, stripeClient, type StoreBillingStripe, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { githubHookPath, handleGitHubHook } from '#hooks/github'
@@ -133,6 +136,10 @@ import type { TenantContext } from '#core/tenancy'
 import { localAiProvider } from '#integrations/ai/index'
 import { designerAiFor, designerModelsFor } from '#saas/aiGateway/index'
 import { browserScreenshots } from '#integrations/cloudflare/screenshot'
+import { commonsImages } from '#integrations/stockImages/commons'
+import { stockImages } from '#integrations/stockImages/combine'
+import { openverseImages } from '#integrations/stockImages/openverse'
+import { pexelsImages } from '#integrations/stockImages/pexels'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
@@ -168,7 +175,7 @@ import { createCustomersService } from '#saas/customers/index'
 import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
-import { resolveArea, type Area, type Entry } from './router'
+import { entryOf, resolveArea, type Area, type Entry } from './router'
 
 const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
@@ -376,6 +383,10 @@ const providerFor = (config: Config): IdentityProvider => {
   return built.provider
 }
 
+// Once per isolate, so Google's key set is fetched once (integrations/google/provider.ts).
+let googleBuilt: GoogleSignIn | undefined
+const googleFor = (config: Config): GoogleSignIn => (config.GOOGLE_SIGN_IN_LOCAL ? localGoogleSignIn() : (googleBuilt ??= googleSignIn()))
+
 const withConnection = async (
   hyperdrive: NonNullable<Config['HYPERDRIVE']>,
   ctx: ExecutionContext,
@@ -445,7 +456,7 @@ const handleAdmin = async (
       partners: caller
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: config.PLATFORM_HOST, localHosts: config.DNS_LOCAL === '1', now: () => new Date() })
         : null,
-      stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, shopDomain: config.SHOP_DOMAIN ?? null, now: () => new Date() }) : null,
+      stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, shopDomain: config.SHOP_DOMAIN ?? null, stripe: stripeFor(config), now: () => new Date() }) : null,
       provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffSessions: caller
         ? createStaffSessionsService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, reauthFresh: caller.reauthFresh, platformHost: config.PLATFORM_HOST, now: () => new Date() })
@@ -570,7 +581,8 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
+    const stripe = stripeFor(config)
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, sessionId: readCookie(cookies, partnerCookieName), stripe, billingStripe: stripe, stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', aiOauth: aiOauthFor(sql, secrets, config), now: () => new Date() }))
   })
 }
 
@@ -584,7 +596,7 @@ const tooManyRequests = (retryAfterSeconds: number) =>
 // A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
 // caller is the session's person acting in the store the request names (ACCESS.md §4).
 const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext, entry: Entry): Promise<Response> => {
-  if (!isStoreAuthPath(url.pathname) && !storeOriginAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
+  if (!isStoreAuthPath(url.pathname) && !isStoreGooglePath(url.pathname) && !storeOriginAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
   const hyperdrive = config.HYPERDRIVE
   if (!hyperdrive) return entry === 'portal' ? notFound() : servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
   const secrets = await secretsFor(config)
@@ -607,6 +619,11 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
         allowExchange: async (key) => (await exchangeLimiter.limit({ key })).success,
         allowRead: async (key) => (await readLimiter.limit({ key })).success,
       })
+    }
+    if (isStoreGooglePath(url.pathname)) {
+      const limiter = env.SIGN_IN_RATE_LIMITER
+      if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+      return handleStoreGoogle(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK, google: googleFor(config), local: config.GOOGLE_SIGN_IN_LOCAL === '1' })
     }
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
@@ -801,7 +818,13 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
     models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
-    stock: config.PIXABAY_API_KEY ? pixabayImages({ key: config.PIXABAY_API_KEY }) : null,
+    aiPhotos: config.AI_PHOTOS === '1' ? (config.AI_PHOTO_SOURCES ?? aiPhotoSourcesDefault) : [],
+    stock: stockImages({
+      ...(config.PIXABAY_API_KEY ? { pixabay: pixabayImages({ key: config.PIXABAY_API_KEY }) } : {}),
+      ...(config.PEXELS_API_KEY ? { pexels: pexelsImages({ key: config.PEXELS_API_KEY }) } : {}),
+      openverse: openverseImages(),
+      commons: commonsImages(),
+    }),
     readAsset: assets
       ? async (r2Key) => {
           const object = await assets.get(r2Key)
@@ -849,7 +872,7 @@ const studioFrame = async (request: Request, config: Config, env: Env, ctx: Exec
   )
 }
 
-const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: Entry): Promise<{ response: Response; area: Area | null }> => {
+const route = async (request: Request, env: Env, ctx: ExecutionContext, reached: Entry): Promise<{ response: Response; area: Area | null }> => {
   const url = new URL(request.url)
   let config
   try {
@@ -859,12 +882,13 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
     console.error(JSON.stringify({ code: 'config_invalid', keys }))
     return { response: new Response(null, { status: 500 }), area: null }
   }
+  const entry = entryOf(url, config, reached)
   const area = resolveArea(url, config, entry)
   if (!area) return { response: notFound(), area: null }
   if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
   if (area === 'studio') return { response: await studioFrame(request, config, env, ctx), area }
   if (area === 'delivery') return { response: await handleDelivery(request, url, config, env, ctx), area }
-  // Through PortalProxy nothing answers before the host is found among the live portal rows.
+  // As a portal entry nothing answers before the host is found among the live portal rows.
   if (entry === 'public' && isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id, env.ASSETS !== undefined), area }
   }
@@ -1186,7 +1210,8 @@ const serve = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
   return response
 }
 
-/** A partner's own portal host, reached only through store-proxy's service binding (SAAS.md §8). */
+/** A partner's portal host from a store-proxy version that still binds this entrypoint, kept so it can be rolled back to;
+ *  current store-proxy calls the default fetch, which `entryOf` reads as the same portal entry (SAAS.md §8). */
 export class PortalProxy extends WorkerEntrypoint<Env> {
   override fetch(request: Request): Promise<Response> {
     return serve(request, this.env, this.ctx, 'portal')

@@ -12,5 +12,6 @@ export {
   type StoreState,
   type StoreUserDto,
 } from './service'
+export { archivable, closeStore, endStripeSubscription } from './archive'
 export { reissueOwnerInvitation, storeInvitationDays } from './invitations'
 export { daysPastDue, extendTrial, transitionStore, trialDaysLeft } from './states'

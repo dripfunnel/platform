@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-26 (#840: `PUSH_LOCAL` among the stand-ins, §6.1). Before: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-11-01 (#1112: the store portal's `VITE_PLATFORM_URL`, §4). Before: 2026-11-01 (#1086: dev and production run Postgres 18 on PlanetScale, §2 step 3). Before: 2026-10-26 (#840: `PUSH_LOCAL` among the stand-ins, §6.1). Before: 2026-10-26 (`seed:templates` builds real previews and takes `--released`, §6.3). Before: 2026-10-17 (`seed:templates --core`, §6.3). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -38,7 +38,7 @@ Browsers send every `*.localhost` name to your machine, so nothing goes in `/etc
 2. **pnpm**, the version in the root `package.json` (`packageManager`). Run `corepack enable`
    and pnpm picks the right version itself.
 3. **Postgres 18.** Version 18 exactly: migrations refuse any other major, because dev and
-   production run 18 on Neon. No Docker.
+   production run 18 on PlanetScale. No Docker.
    - **macOS:**
      ```bash
      brew install postgresql@18
@@ -110,8 +110,8 @@ can use your own role and database names, as long as you put them in `.env.local
 3. A value already set in your shell wins over the file. Nothing needs exporting: every script
    reads `.env.local` itself.
 
-The three consoles need no `.env.local` under `pnpm dev`. Their two build flags
-(`VITE_STATE_HARNESS`, `VITE_ADMIN_URL`) only matter for built bundles.
+The three consoles need no `.env.local` under `pnpm dev`. Their build flags
+(`VITE_STATE_HARNESS`, `VITE_ADMIN_URL`, and the store portal's `VITE_PLATFORM_URL`) only matter for built bundles.
 
 ---
 
@@ -220,8 +220,13 @@ job. Only the last call is local (`apps/api/src/integrations/local/`):
 to `https://hooks.localhost/couriers/shiprocket/<partner id>` with `x-api-key: local-courier-hook` and a body such as
 `{"awb": "LOCAL…", "current_status": "DELIVERED", "current_timestamp": "2026-10-12 11:00:00"}`; EasyPost's events sign
 with the same secret.
+- **Google sign-in** (`GOOGLE_SIGN_IN_LOCAL`): "Continue with Google" on the portal goes to a page on the portal host
+  that asks for an address and a name, then back to the callback as Google would (#1046). The partner still needs a
+  Google client saved on Integrations (any `….apps.googleusercontent.com` and secret do), since the button shows only
+  while one is on.
 - **The designer's model** (`AI_LOCAL`): every studio request answers "nothing changed" without calling a provider
   (#318), so the studio's chat, metering and gate run end to end; set `AI_PROVIDER_KEY` instead to use a real model.
+- **The AI's own photos** (`AI_PHOTOS=1`): the designer may search and add photos from the sources in `AI_PHOTO_SOURCES` (default `openverse,commons`); leave it out to keep the picker human-only.
 - **GitHub** (`GITHUB_LOCAL`): store repos are made in an in-memory GitHub that the App's real client talks to (#316), so
   a store's first template choice runs the whole `create-storefront` Workflow without the App. The repos last until
   `pnpm dev` restarts. The templates come from the local `storefront-sites-local` bucket (bound with `storefront-assets-local` and

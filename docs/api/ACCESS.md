@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -29,7 +29,7 @@ Last updated: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026
 | Decision | Rejected | Why |
 |---|---|---|
 | **Five identity pools, kept separate**: merchant and vendor people; partner users; DripFunnel staff; shoppers per store; riders per store (§2; riders *proposed* 2026-10-22, DELIVERY.md) | One users table with flags; staff as merchants with a superuser flag | Each pool signs in on its own host with its own rules. A staff or partner identity can never be a merchant session with a flag (PLATFORM-PROMPT §5.2), and a bug in one pool's checks can't grant another pool's power. |
-| **One account per person per partner** in the merchant/vendor pool: `user` unique by `(partner_id, email)` (decided 2026-09-28) | An account per store; one account platform-wide | One person, one login, many stores **within a partner** (PLATFORM-PROMPT §2 item 3). Accounts never cross partners, so no password, 2-factor, Google sign-in, reset or "you already have an account" email reveals that two brands run on one platform. The cost: someone with stores under two partners has two unrelated logins. |
+| **One account per person per partner** in the merchant/vendor pool: `user` unique by `(partner_id, email)` (decided 2026-09-28) | An account per store; one account platform-wide | One person, one login, many stores **within a partner** (PLATFORM-PROMPT §2 item 3), joined by invitation or opened by the person (Create another store, SAAS §4.1). Accounts never cross partners, so no password, 2-factor, Google sign-in, reset or "you already have an account" email reveals that two brands run on one platform. The cost: someone with stores under two partners has two unrelated logins. |
 | **`membership(user_id, store_id, seller_id, role_key)`**; vendor identity is a property of the pair (user, store) | Vendor identity on the user | A person can be Staff in one store and a vendor in two others, with a different `seller_id` in each. |
 | **Roles are fixed permission sets in code**, keyed by `role_key` | Role rows per store; cloning at provisioning; a role editor | Nothing to clone or drift; a change is reviewed and deployed like code; a role change takes effect on the next request. |
 | **Permissions are checked per resolver and per row** | Per-store permissions only | A vendor's "write catalogue" means its own products. The scoped query layer applies `store_id` and `SellerScope` to every read and write (PLATFORM-PROMPT §5.1, §5.5). |
@@ -68,10 +68,34 @@ Rules for the **people** pool:
 
 - `user(id, partner_id, email, email_verified_at, password_hash null, status, created_at)`,
   unique `(partner_id, email)`. `password_hash`
-  is null for an invited person who hasn't accepted yet (§6). Email and phone verification
+  is null for an invited person who hasn't accepted yet (§6), and for an account made by signing
+  up with Google until its owner sets one; `status`, not the password, tells the two apart. Email and phone verification
   codes are stored hashed with an attempt counter (PLATFORM-PROMPT §5.2).
 - Google sign-in authenticates an existing account whose email matches Google's verified
-  email. It never skips signup or accepts an invitation on its own.
+  email. It never accepts an invitation on its own: an invited person who hasn't joined has no
+  account to match. **Built on #1046**, on the partner's own Google client (THIRD-PARTY-ACCESS §2.9),
+  only while it is on (`brand.googleSignIn`):
+  - `GET /api/auth/google/start?intent=sign-in|sign-up&next=` sends the browser to Google with PKCE,
+    a state and a nonce held in the `__Host-df_google` cookie, with the intent and the page to return
+    to, for 10 minutes. `GET /api/auth/google/callback` checks the state, exchanges the code with the
+    partner's secret and checks the ID token (Google's keys, issuer, audience, expiry, nonce,
+    `email_verified`).
+  - A matching account then goes exactly as a password sign-in does: the lock, the second factor
+    when it's on, and enrolment for an Owner without one (§4). The browser lands on the page it
+    came from, or `/sign-in?step=second-factor&method=…` or `?step=enrol`.
+  - With no account, sign-in answers `/sign-in?outcome=no-account`: only the address's owner can
+    reach that answer, so it tells no one else whether an account exists. Other answers are
+    `cancelled`, `unavailable`, `refused`, `locked` and `busy`.
+  - **Signing up with Google** (decided 2026-10-30 on #1046, following PortalAuth `su1`): Google's
+    name and verified email start the sign-up at the store step, with no email code and no
+    password (`/sign-up?step=store`; `POST /api/auth/sign-up/resume` tells the portal where it
+    stands). The phone code stays. The account has no password until the person sets one through
+    Forgot password, so the profile's password checks need one first. An address that already has
+    an account is signed into it. Closed while the partner isn't Live (`outcome=closed`).
+  - The merchant app sends the ID token from Google's native sign-in to
+    `POST /api/auth/google/token`, issued for the partner's web client; the session comes back as
+    `token`, as on the other bearer routes (§4). Refusals: `NO_ACCOUNT`, `GOOGLE_REFUSED`,
+    `GOOGLE_UNAVAILABLE`, `LOCKED`.
 - **The portal resolves the partner from the hostname before sign-in**; sign-in, signup,
   reset and invitation pages and emails are in that partner's look and from its sender
   domain (PLATFORM-PROMPT §5.3).
@@ -402,6 +426,10 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
   A2). **Support sessions** have their own cookie and bounds (§8).
+- **A partner user's own name and password** (My profile, built on #1053; ui/platform/FIRST-RELEASE.md §14.6):
+  `updateMyName` and `changeMyPassword` act only on the caller's own `partner_user`, any role, and are refused to
+  both staff sessions. A password change needs the current one (a wrong one counts toward the sign-in lock, §4) and
+  ends every other `partner_session` of the user, keeping the one it came from.
 - **Past due** blocks writes in that store but never signs anyone out (PLATFORM-PROMPT §2
   item 7); the gate is evaluated per acting store, from `subscription` on the context,
   invalidated by the billing webhook.
@@ -446,7 +474,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
 | `support.allow_write`: Allow or Deny a support agent's write request inside an open session (§8) (decided 2026-10-05 on #337) | ✓ | ✓ | |
-| `storefront.read`: the Storefront read-only, its Pages and Journal first (content pages, posts and the theme's own pages; decided on #338, since `publish` is the Owner's alone), then Site settings' brand, search and sharing and domains (#471) | ✓ | ✓ | |
+| `storefront.read`: the Storefront read-only, its Journal first (posts, and the content pages and the theme's own pages the studio's page picker lists; decided on #338, since `publish` is the Owner's alone; the Pages tab went on #1078), then Site settings' brand, search and sharing and domains (#471) | ✓ | ✓ | |
 
 **Owner-only capabilities**, checked for the acting store; someone may be an Owner in one
 store and a vendor in another:
@@ -553,6 +581,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `stores.plan` (change plan, limit overrides) | §6.4 | ✓ | ✓ | | | |
 | `stores.trial` | §6.4 | ✓ | ✓ | | ✓ | |
 | `stores.suspend` (suspend and restore) | §6.4 | ✓ | ✓ | | | |
+| `stores.archive` (archive a Cancelled or Suspended store; never in an impersonation; #1056) | §6.4 | ✓ | ✓ | | | |
 | `stores.invite.resend` | §6.4 | ✓ | ✓ | | | |
 | `setup.retry` (retry a stuck signup step) | §6.3, §5 | ✓ | ✓ | | | |
 | `stores.billingStatus` (only when the partner bills its merchants) | §6.1, §6.3 | ✓ | ✓ | | ✓ | |
@@ -599,6 +628,7 @@ SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call,
 | `partners.pause` (and resume) | ✓ | | | | | |
 | `stores.suspend` | ✓ | | | | ✓ | |
 | `stores.restore`, `stores.trial.extend` | ✓ | | | | | |
+| `stores.archive` (archive a Cancelled or Suspended store; #1056) | ✓ | | | | | |
 | `stores.invite.resend` | ✓ | | ✓ | | | |
 | `stores.notes.write` | ✓ | ✓ | ✓ | | ✓ | |
 | `stores.deliveryApp.write` (upload a store's delivery app APK, set its minimum build; #852) | ✓ | | | | ✓ | |
@@ -1020,7 +1050,9 @@ codes still allow a session.
   and seller scope, read-only until elevated. So the "support read set" is the Owner's only when
   the agent signed in as an Owner (decided here: #202 already opened sessions per user).
 - **The exchange.** The portal's `/support/enter` page posts the token to
-  `POST /api/auth/support-handoff`. That spends it once, only on the session's own partner's host
+  `POST /api/auth/support-handoff` (the page built on #1112: it forgets a remembered acting store, opens
+  the store, and shows "This link no longer works" for a spent link; the shell reads a support session's
+  refused `myStores` as no store list). That spends it once, only on the session's own partner's host
   and while a start would still be allowed, and sets `__Host-portal_support`, a cookie of its own
   beside any person's, of which only the hash is kept (`portal_session_hash`). A spent, expired or
   unknown link is `HANDOFF_INVALID`.

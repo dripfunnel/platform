@@ -303,6 +303,7 @@ disabled with the reason.
 | **Resend owner invitation** | Owner, Admin | Always | | "{owner} ({email}) gets a new invitation to set their password. The old link stops working." |
 | **Restore** | Owner, Admin | Suspended | Reason | "Its shop takes orders again and its team can sign in and make changes. Billing restarts from today." |
 | **Suspend** | Owner, Admin | Active, Trial or Past due | Reason (the merchant sees it); the store name typed | "Its shop stops taking orders and its team can't make changes until you restore it. {owner} gets the 'Store suspended' email. Billing pauses." (SAAS §4.2–4.3) |
+| **Archive store** (#1056) | Owner, Admin; never in an impersonation | Offered on every store not yet archived; refused with "Suspend it first" unless Cancelled or Suspended | Reason; the store name typed | "{name} disappears at once for its team and its shoppers… Any subscription it still has ends now, with no refund. Its data is kept for 90 days, then deleted. {owner} gets an email saying so. This can't be undone." (SAAS §4.2 Closed). The store stays in the list as **Archived**, with when, never by whom (a staff member's name stays DripFunnel's, as a suspension's does); the Cancelled filter shows it |
 | **Retry this step** | Owner, Admin | A stuck or failed setup step | | "We start this step again. The merchant's products and settings aren't touched. It usually takes under two minutes." |
 
 Who may act is **the API's answer**: `store(id)` returns each action as allowed, refused with
@@ -751,7 +752,7 @@ at most 20 keys per partner. In a staff setup session the tab works as the partn
 (ACCESS §8.2). **Built on #275** (migration 0368; `partnerAiKeys`, `addPartnerAiKey`, `testPartnerAiKey`,
 `setDefaultPartnerAiKey`, `removePartnerAiKey`; permission `integrations.write`). Add and Test check an
 Anthropic key with one `models.list` call; OpenAI keys save as Not tested. Add, Make default and Remove are
-refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, Google sign-in, support chat.
+refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, support chat. Google sign-in is built below.
 
 **Built on #193, straight onto #199's API.**
 - **Invite** is a form on the Team tab, because it needs a name, an email and a role, and the
@@ -767,6 +768,26 @@ refused to an impersonation. Not drawn or built: couriers, SMS and WhatsApp, Goo
 - **The 2-factor-off list** names the team members loaded so far.
 - **"Your account"** (what a staff session can't change, #46) sits under Security.
 
+**Google sign-in** (#1046), a panel under the AI accounts, drawn from the tab's own parts since no
+prototype has it: the portal's redirect URI to register in Google Cloud (with Copy; "add your portal
+address under Domains first" before there is one), On or Off, the client ID, the secret as
+"GOCSPX-…aaaa", who set it and when, **Set up Google sign-in** or **Replace client** (client ID and
+secret, checked for Google's shapes before sending) and **Turn off**, which restates that merchants who
+signed up with Google and never set a password will need Forgot password. Owner and Admin only, as the
+tab; never in an impersonation. Built on #1046 (migration 0377; `partnerGoogleSignIn`,
+`savePartnerGoogleSignIn`, `turnOffPartnerGoogleSignIn`; `integrations.write`).
+
+
+### 14.6 My profile
+
+**Built on #1053**, from the user menu's **My profile** (above My activity), for every role: the signed-in user's
+own **name** (1–80 characters; the header shows it at once) and **password** (the current one, then a new one of 10
+characters or more, with Show). Before the password is changed the screen says it signs you out everywhere else;
+the change ends every other session of that user and keeps this one (ACCESS §2). A wrong current password counts
+toward the sign-in lock (§3), and the answer says how many tries are left. In a staff impersonation or setup
+session the page is read-only with the reason, as "Your account" under Security is; the API refuses both changes
+(`updateMyName`, `changeMyPassword`, blocked for both staff sessions). No Platform prototype draws it: it follows
+the Store portal's PortalProfile name and password, in this console's panels. Email and 2-factor are not on it (§15).
 ---
 
 ## 15. Not in this release
@@ -778,7 +799,7 @@ Only what the prototype does not draw:
 | **Announcements** (CONSOLE-DESIGN Q, README §3) | Messages and incident banners to merchants. The prototype has no such screen |
 | **Partner state changes** (D) | Pause, offboard, close and the contract's renewal are Admin and contractual actions; the console shows their banners (§2.3) |
 | **Promotions on plans** (G8) | Open in SAAS §14; not drawn |
-| **A user's own profile and 2-factor settings** | A user who skipped 2-factor enrols when the Owner requires it (§14.4); a voluntary later enrolment and a password change from inside the console need a profile screen the prototype lacks |
+| **Email change and 2-factor from My profile** (§14.6) | A user who skipped 2-factor enrols when the Owner requires it (§14.4); changing email and a voluntary later enrolment need screens the prototype lacks |
 | **Changing company details** (§14.1) | A request to the partner manager, by design |
 | **Google sign-in** | Decided out (§3, ACCESS §2) |
 

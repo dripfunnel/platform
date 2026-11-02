@@ -99,6 +99,7 @@ const payloads = {
   'store-plan-changed': z.object({ storeId: id, planId: id, when: z.enum(['next', 'now']) }),
   'store-suspended': z.object({ storeId: id, reason: z.string().max(500) }),
   'store-restored': z.object({ storeId: id }),
+  'store-archived': z.object({ storeId: id }),
   'storefront-baseline': z.object({ storeId: id }),
   'support-session-started': z.object({ supportSessionId: id }),
   'support-write-allowed': z.object({ supportSessionId: id }),
@@ -259,7 +260,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!token) return { send: false, reason: 'link_closed' }
       const w = en.storeInvitation
       const role = invitation.seller_name ? w.roles.supplier(invitation.seller_name) : (w.roles[invitation.role_key as 'owner' | 'manager' | 'staff'] ?? w.roles.staff)
-      const content: EmailContent = invitation.has_password
+      const content: EmailContent = invitation.has_account
         ? { subject: w.subject(invitation.store_name), heading: w.heading(invitation.store_name), paragraphs: [w.existingPerson(invitation.invited_by_label, invitation.store_name, role)], action: { label: w.actionJoin, url: link(host, '/join', token) }, note: w.note }
         : { subject: w.subject(invitation.store_name), heading: w.heading(invitation.store_name), paragraphs: [w.newPerson(invitation.invited_by_label, invitation.store_name, role)], action: { label: w.actionNew, url: link(host, '/accept-invite', token) }, note: w.note }
       return { send: true, accountSecurity: true, to: [p.to], voice: look.voice, brand: look.brand, content }
@@ -404,6 +405,17 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       // The partner's support, never DripFunnel's (SAAS §4.2): without one, no contact line.
       const contact = m.brand.supportEmail ?? m.brand.supportUrl
       const paragraphs = [w.body(m.store.name), w.reason(p.reason), ...(contact ? [w.contact(contact)] : [])]
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
+    }
+    case 'store-archived': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const w = en.storeArchived
+      // The partner's support, never DripFunnel's (SAAS §4.2): without one, no contact line.
+      const contact = m.brand.supportEmail ?? m.brand.supportUrl
+      const paragraphs = [w.body(m.store.name), w.data, ...(contact ? [w.contact(contact)] : [])]
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
     }
     case 'order-downloads': {

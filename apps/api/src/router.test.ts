@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveArea } from './router'
+import { entryOf, resolveArea } from './router'
 
 const config = { ADMIN_HOST: 'admin.dripfunnel.ai', PLATFORM_HOST: 'platform.dripfunnel.ai', HOOKS_HOST: 'hooks.dripfunnel.ai' }
 const area = (href: string) => resolveArea(new URL(href), config, 'public')
@@ -41,6 +41,19 @@ describe('resolveArea', () => {
     expect(throughProxy('https://admin.dripfunnel.ai/api')).toBeUndefined()
     expect(throughProxy('https://platform.dripfunnel.ai/api')).toBeUndefined()
     expect(throughProxy('https://hooks.dripfunnel.ai/stripe')).toBeUndefined()
+  })
+
+  it('reads a partner’s host on /api at the default fetch as store-proxy’s portal binding, and nothing else', () => {
+    const entry = (href: string) => entryOf(new URL(href), config, 'public')
+    expect(entry('https://store.partner.com/api')).toBe('portal')
+    expect(entry('https://store.dripfunnel.ai.partner.com/api/')).toBe('portal')
+    expect(entry('https://evildripfunnel.com/api')).toBe('portal')
+    expect(entry('https://admin.dripfunnel.ai/api')).toBe('public')
+    expect(entry('https://store.dripfunnel.ai/api')).toBe('public')
+    expect(entry('https://dripfunnel.ai/api')).toBe('public')
+    expect(entry('https://store.partner.com/')).toBe('public')
+    expect(entry('https://acme.shops.partner.com/shop-api')).toBe('public')
+    expect(entryOf(new URL('https://store.partner.com/api'), config, 'edge')).toBe('edge')
   })
 
   it('serves the Shop API on storefront hosts', () => {

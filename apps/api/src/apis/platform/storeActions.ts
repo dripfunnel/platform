@@ -93,6 +93,13 @@ builder.mutationFields((t) => ({
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.suspend', target: 'none', audit: storeActionAudit.suspendStore } },
     resolve: (_, { id, reason }, ctx) => signedIn(ctx.storeActions).suspendStore(String(id), reason),
   }),
+  // Archive (#1056): SAAS §4.2's Closed, from Cancelled or Suspended only; never by staff acting as a partner user.
+  archiveStore: t.field({
+    type: ResultType,
+    args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
+    extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.archive', target: 'none', audit: storeActionAudit.archiveStore, blockedFor: ['impersonation'] } },
+    resolve: (_, { id, reason }, ctx) => signedIn(ctx.storeActions).archiveStore(String(id), reason),
+  }),
   restoreStore: t.field({
     type: ResultType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },

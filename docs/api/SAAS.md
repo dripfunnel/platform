@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -147,7 +147,9 @@ or CH, built on #162), and the **"Powered by DripFunnel"** line: on, off, or by 
 partner's plan with DripFunnel (fact 18). Whether a partner may hide DripFunnel everywhere is
 open (§14). Email templates (verification code, invitation, password reset, trial ending,
 payment failed, store suspended, receipts) are editable in subject and a small set of blocks,
-per language *(ask which languages)*, with variables shown as chips (F6).
+per language *(ask which languages)*, with variables shown as chips (F6). "Continue with Google" on
+the portal uses the partner's own Google client, set on Settings › Integrations, and shows only
+while it is on (THIRD-PARTY-ACCESS §2.9, ACCESS §2; #1046).
 
 ### 3.5 Domains
 
@@ -220,6 +222,19 @@ steps 1–3. The store starts in Trial on the partner's cheapest live plan in th
 the plan's trial days or 14 when it sets none (decided on #290). Signup, like every account endpoint, responds identically
 whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 
+**Create another store** (#1136, `apis/store/newStore.ts`): a person already signed in on the portal, in any role
+(Owner, Manager, Staff or supplier), opens another store under that partner as its Owner. `POST /api/auth/new-store/options`
+answers step 3's countries; `POST /api/auth/new-store` takes step 3's store name, web address and country, checked as
+sign-up checks them, and provisions the store for the existing account in one transaction, with no texted code. Each
+store starts its own trial as a sign-up does. **At most five per person** (decided 2026-11-01, Gaurav, replacing one a
+day): both routes answer `STORE_LIMIT` (403, with the `limit`, which the portal states) once the person is the active Owner of five stores that aren't Closed,
+however they were made, and the portal asks them to contact the partner's support, who can create the next one from the
+partner console's Create store, which this limit doesn't touch. A lock per person makes parallel requests wait for each
+other, so they never pass the limit between them. Refused `SIGNUP_CLOSED` while the partner isn't Live, `FORBIDDEN` in a support session, and
+`RATE_LIMITED` by the attempt throttle on the person's requests or past 500 new stores under the partner in an hour.
+A retry within 10 minutes answers the store it already made. An Owner without 2-factor is then held at enrolment
+(ACCESS.md §4).
+
 **The web address is the store's `slug`** (decided 2026-10-15 with Gaurav, USERS-AND-DOMAINS §2):
 the field is filled in from the store name and can be edited, the store is at `{slug}.my-store.one`
 and its preview at `{slug}-preview.my-store.one`, and the slug never changes afterwards. The partner
@@ -240,7 +255,7 @@ DATA-MODEL §2).
 | **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner); the store's suppliers keep their stock and shipping going and aren't told (below) | **Keeps selling** as normal (decided 2026-10-05 on #284) |
 | **Suspended** | A person: Admin, or the partner (confirmed 2026-09-30: a partner's Owner and Admin may suspend and restore their own merchants, ACCESS §5.3), with a required reason; or dunning, **after 14 days past due** (decided 2026-10-05 on #284) | Sign-in shows why and whom to contact: **the partner's support, never DripFunnel's** (decided 2026-09-30), so white label holds; no writes | A degraded page served by an edge rule, without a rebuild. It tells shoppers to contact the store and carries no DripFunnel contact route |
 | **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Live until the paid period ends, then offline; kept 90 days (decided 2026-10-05 on #337) |
-| **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept **90 days**, then deleted (decided 2026-10-05 on #337) |
+| **Closed**, shown as **Archived** | Staff or the partner, after export is offered: **Archive store** (built on #1056) | Gone | Gone; repo and assets kept **90 days**, then deleted (decided 2026-10-05 on #337) |
 
 The row keeps the facts of each state (DATA-MODEL.md §2.1, built on #32); a suspended store
 remembers the status it had, so Restore returns to it exactly (decided on #20).
@@ -266,6 +281,17 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
   transaction, and one that fails goes behind the others in the next run. *Decided here*: that past-due
   store may still choose a plan while read-only, since paying is how it leaves (ui/store
   FIRST-RELEASE.md §3.3). The 90-day deletion is Closed's, not built here.
+- **Archive, built on #1056** (decided 2026-10-31): a Super admin, or the partner's Owner or Admin for its own
+  stores (never in an impersonation), archives a **Cancelled or Suspended** store with a reason and its name typed.
+  A suspended store passes through Cancelled; either way it becomes **Closed**, with `closed_at` and `closed_by_label`.
+  Any live Stripe subscription (a suspended store's, or a cancelled one still in its paid period) is cancelled at
+  Stripe **first and at once, with no refund**, so a refusal there leaves the store as it was; then the subscription
+  row ends. At once the store leaves its people's store lists, a session acting in it is refused, and its storefront
+  and Shop API answer 404 (they already refuse Closed). The Owner gets `store-archived` in the partner's voice
+  (archived, data kept 90 days, ask the partner's support for a copy); the storefront's lookups are purged; the
+  activity log has `store.archived` with the reason. Both consoles keep listing the store as **Archived**. There is
+  no way back. "After export is offered": a cancelled store's Owner had the export while read-only; a suspended
+  store's asks the partner's support.
 
 ### 4.3 What the partner can do to an account
 
@@ -606,16 +632,18 @@ failed; a live hostname can become expiring or broken if its records change.
    (whose own URL gives it the right `Host`), and keeps the partner's own `Host` on `/api/*`.
    Hosts on our own zone pass through untouched, and `dev-admin`, `dev-platform`, `dev-store`
    and `dev-hooks` answered as before.
-   **How a portal host reaches the API (#426, decided on #422):** the proxy's `API` service
-   binding names the API Worker's `PortalProxy` entrypoint (`store-proxy/wrangler.jsonc`, dev;
-   prod with #428), and sends the request with the partner's own `Host`: no forwarded-host
-   header, no shared secret. `PortalProxy` finds the partner among `partner_domain`'s portal
+   **How a portal host reaches the API (#426, decided on #422; the entrypoint replaced
+   on #1107):** the proxy's `API` service binding calls the API Worker's default
+   `fetch` (`store-proxy/wrangler.jsonc`), so the API's placement next to the database applies
+   (ARCHITECTURE §6), and sends the request with the partner's own `Host`: no forwarded-host
+   header, no shared secret. A host outside our zone on `/api` can only arrive that way, so the
+   Worker reads it as a portal entry (`entryOf`, ARCHITECTURE §2), finds the partner among `partner_domain`'s portal
    rows that have gone live (`live`, `expiring`, `broken`) of a partner not closed, and serves
    only `/api/*`; anything else is 404. **The lookup is cached (#637):** a found partner is kept
    in the data centre's `caches.default` for 60 s under the lower-cased host, a host not found is
    never kept, and nothing purges it: a removed domain or a closed partner resolves for up to 60 s,
-   the edge lookup's limit below. The session and membership checks still run on every request. The Worker's public `fetch` serves the Store API only on
-   our own zone's hosts, so a partner's host sent to it with a forged `Host` is 404
+   the edge lookup's limit below. The session and membership checks still run on every request. The Worker's own routes match only
+   our own zone's hosts, so a forged `Host` on them never reaches the portal entry
    (ARCHITECTURE §2). *Decided here (#426): our own zone is the admin host's parent, so feature
    environments and `*.localhost` work with no new setting; verifying and issuing hosts are not
    yet live, as the card says.*
@@ -986,6 +1014,12 @@ built and gated per store, and the upgrade bot must exist from day one.
   upgrade (`storefront.rolled_back`, `core_rolled_back`), and a passed major's waiting upgrade is dropped; a store
   whose live build moved on since (a publish or a page render) keeps it, marked `moved_on`. *Decided on #485:* one
   rollout at a time, so no store is upgraded by two at once.
+  **A release starts its own rollout once promoted:** promote.yml's last step (`release:rollout`) starts the rollout of
+  the promoted commit's core version as the `core-release` job (`core_rollout.started` with `release`), patches, minors
+  and majors alike, so no store moves before the API it needs is live. It starts none when release.yml hasn't recorded
+  that version yet, when a rollout to it already exists, or while another rollout is running or paused; that last one
+  says so (`core_rollout.not_started` with `rollout_active`, technical log `core_rollout_not_started`), for staff to
+  start it once that one ends. *Decided 2026-10-31 (Kshitij).*
 - **Majors** may change the look or the theme contract and ship **upgrade notes** and
   codemods. Each published version is **pinned** to the core version it was built with
   (decided 2026-10-08 on #470); a major's new look reaches a store only at its merchant's next
