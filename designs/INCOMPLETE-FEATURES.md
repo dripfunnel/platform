@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, Sign-in). Before: 2026-11-01 (#1147, §1 #14: a country code beside every mobile number). Before: 2026-11-01 (#1117: per-version compare price and cost). Before: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -257,7 +257,7 @@ Still open: everything in §2 not listed above (e.g. menus beyond one level, A+ 
 
 ## 5. Loose ends fixed on 2026-10-04 (#183)
 
-- **Sign-in:** the second-factor step follows the profile. It is skipped when 2FA is off, and an Owner without it is made to turn it on first (an empty store's Owner starts without it). Passwords need at least 10 characters everywhere, as ACCESS.md §4 says.
+- **Sign-in:** the second-factor step follows the profile. It is skipped when 2FA is off. **The prototype still holds an Owner without it at the `enrol` view and words My profile as "required for owners"; since 2026-10-29 (#1008) 2-factor is optional for everyone, Owners included, off by default, so a new Owner goes straight into the store and My profile has a Turn off button for every role. The docs win; the prototype is not changed.** Passwords need at least 10 characters everywhere, as ACCESS.md §4 says.
 - **Removed supplier:** "hidden", never "drafts"; each of their products says "From {supplier}, removed" in Products.
 - **Billing:** seed invoices carry a plan label and a numeric amount, so PDF and Export all work. The proration date, a pending downgrade and the store-closing date all come from the billing period. "Download my data first" adds `store-export-customers.csv`.
 - **Wording:** the custom report builder picks rows and columns. A domain is usually checked within an hour and can take up to 48 hours. The store's own domain is on Growth and a market's own domain is on Business. The Partner contact no longer offers an API.

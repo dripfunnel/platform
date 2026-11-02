@@ -3526,7 +3526,6 @@ input TranslationTextInput {
 type TwoFactor {
   backupCodesLeft: Int
   method: String
-  required: Boolean
 }
 
 input VersionNameTranslationInput {

@@ -151,15 +151,16 @@ describe('signing up', () => {
     const verified = await post('/api/auth/sign-up/verify-email', { code }, cookie, off())
     expect(verified.body['step']).toBe('store')
   })
-  it('makes the account, the store, its Trial and the Owner, then holds the Owner at 2-factor set-up', async () => {
+  it('makes the account, the store, its Trial and the Owner, then opens a full session with no 2-factor set-up (#1008)', async () => {
     const signup = await throughStore('owner.new@a.example', 'kesari')
     expect((await post('/api/auth/sign-up/send-phone', { phone: '98450 22113' }, signup)).body).toEqual({ ok: false, code: 'INVALID_PHONE' })
     expect((await post('/api/auth/sign-up/send-phone', { phone: '+919845022113' }, signup)).body).toEqual({ ok: true, hint: '•••• 2113' })
     expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup)).body).toEqual({ ok: false, code: 'WRONG_CODE', triesLeft: 4 })
     const done = await post('/api/auth/sign-up/verify-phone', { code: await textedCode('+919845022113') }, signup)
-    expect(done.body['step']).toBe('enrol')
+    expect(done.body['step']).toBe('done')
     expect(done.cookies['__Host-portal_signup']).toBe('')
     expect(done.cookies['__Host-portal_session']).not.toBe('')
+    expect((await db.sql<{ stage: string }[]>`select stage from user_session s join "user" u on u.id = s.user_id where u.email = 'owner.new@a.example'`)[0]?.stage).toBe('full')
     const [store] = await db.sql<{ id: string; code: string; country: string; status: string; trial_days: number }[]>`
       select id, code, country, status, round(extract(epoch from trial_ends_at - ${now}::timestamptz) / 86400)::int as trial_days from store where code = 'kesari'`
     expect(store).toMatchObject({ code: 'kesari', country: 'IN', status: 'trial', trial_days: 14 })
@@ -206,7 +207,7 @@ describe('signing up', () => {
   it('accepts any sign-up phone code when CODE_CHECK is 0', async () => {
     const signup = await throughStore('zed.phone@a.example', 'zed-phone')
     await post('/api/auth/sign-up/send-phone', { phone: '+16145550101' }, signup)
-    expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup, off())).body['step']).toBe('enrol')
+    expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup, off())).body['step']).toBe('done')
   })
 
   it('leaves nothing behind when any step fails, and the same code then works', async () => {
@@ -222,7 +223,7 @@ describe('signing up', () => {
       expect(await db.sql`select 1 from store where code = ${`fails-${step.toLowerCase()}`}`).toHaveLength(0)
       expect(await db.sql`select 1 from "user" where email = ${email}`).toHaveLength(0)
       expect(await db.sql`select 1 from outbox o where kind like 'store_host%'`).toHaveLength(0)
-      expect((await post('/api/auth/sign-up/verify-phone', { code }, signup)).body['step']).toBe('enrol')
+      expect((await post('/api/auth/sign-up/verify-phone', { code }, signup)).body['step']).toBe('done')
     }
   })
 

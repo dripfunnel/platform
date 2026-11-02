@@ -29,10 +29,10 @@ export interface TwoStepProps {
   initialSetup?: Setup | null
 }
 
-// "Two-step sign-in" (ACCESS.md §4): an Owner must keep it on and may only switch method; every start,
+// "Two-step sign-in" (ACCESS.md §4): optional for everyone, Owners included (#1008); every start,
 // switch and off needs the password, and turning it on ends with ten backup codes shown once.
 export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: TwoStepProps) => {
-  const { method, backupCodesLeft, required } = profile.twoFactor
+  const { method, backupCodesLeft } = profile.twoFactor
   const [setup, setSetup] = useState<Setup | null>(initialSetup)
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
@@ -75,11 +75,11 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
     })
   }
 
-  const pill = on ? { label: words.on, tone: 'success' as const, icon: 'ok' as const } : required ? { label: words.needed, tone: 'warning' as const, icon: 'alert' as const } : { label: words.off, tone: 'neutral' as const, icon: 'pause' as const }
+  const pill = on ? { label: words.on, tone: 'success' as const, icon: 'ok' as const } : { label: words.off, tone: 'neutral' as const, icon: 'pause' as const }
   const low = backupCodesLeft <= 3
 
   return (
-    <Card title={words.title} sub={required ? words.whyOwner : words.whyOther} aside={<StatusPill {...pill} />}>
+    <Card title={words.title} sub={words.why} aside={<StatusPill {...pill} />}>
       {on && method && !setup && (
         <>
           <div className="df-profile-rows">
@@ -105,11 +105,9 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
               </Secondary>
             </div>
           </div>
-          {!required && (
-            <button type="button" className="df-profile-link" onClick={() => setAsking('off')}>
-              {words.turnOff}
-            </button>
-          )}
+          <button type="button" className="df-profile-link" onClick={() => setAsking('off')}>
+            {words.turnOff}
+          </button>
           <Alert text={error} />
         </>
       )}

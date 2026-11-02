@@ -11,12 +11,12 @@ const profileSchema = z.object({
   phone: z.string().nullable(),
   theme: z.enum(['light', 'dark']).nullable(),
   passwordChangedAt: z.string().nullable(),
-  twoFactor: z.object({ method: z.enum(['app', 'sms']).nullable(), backupCodesLeft: z.number().int(), required: z.boolean() }),
+  twoFactor: z.object({ method: z.enum(['app', 'sms']).nullable(), backupCodesLeft: z.number().int() }),
 })
 
 export type Profile = z.infer<typeof profileSchema>
 
-const profileFields = 'name email pendingEmail phone theme passwordChangedAt twoFactor { method backupCodesLeft required }'
+const profileFields = 'name email pendingEmail phone theme passwordChangedAt twoFactor { method backupCodesLeft }'
 
 export const loadProfile = async (): Promise<Profile | null> => (await query(`{ profile { ${profileFields} } }`, z.object({ profile: profileSchema.nullable() }))).profile
 

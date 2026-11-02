@@ -112,10 +112,3 @@ export const readUserSession = async (tx: ScopedSql, id: string, partnerId: stri
   return { userId: row.user_id, partnerId: row.partner_id }
 }
 
-/** A person who has just become an Owner without 2-factor is held at enrolment, as at sign-in (ACCESS.md §4). */
-export const holdForEnrolment = async (tx: ScopedSql, id: string, now: Date): Promise<void> => {
-  await tx`
-    update user_session set stage = 'enrol', absolute_expires_at = ${new Date(now.getTime() + pendingMs)}
-    where id_hash = ${await hashSessionId(id)} and stage = 'full'
-  `
-}

@@ -69,7 +69,7 @@ interface Profile {
   phone: string | null
   theme: string | null
   passwordChangedAt: string | null
-  twoFactor: { method: string | null; backupCodesLeft: number; required: boolean }
+  twoFactor: { method: string | null; backupCodesLeft: number }
 }
 
 const profileOf = (r: ProfileRow): Profile => ({
@@ -79,7 +79,7 @@ const profileOf = (r: ProfileRow): Profile => ({
   phone: r.phone,
   theme: r.theme,
   passwordChangedAt: r.password_changed_at?.toISOString() ?? null,
-  twoFactor: { method: r.two_factor_method, backupCodesLeft: r.backup_codes_left, required: r.is_owner },
+  twoFactor: { method: r.two_factor_method, backupCodesLeft: r.backup_codes_left },
 })
 
 const readProfile = async (tx: ScopedSql, person: StorePerson, now: Date): Promise<ProfileRow> => {
@@ -118,8 +118,6 @@ export const registerProfile = (builder: StoreBuilder) => {
     fields: (t) => ({
       method: t.exposeString('method', { nullable: true }),
       backupCodesLeft: t.exposeInt('backupCodesLeft'),
-      // An Owner may switch method but never turn it off (ACCESS.md §4).
-      required: t.exposeBoolean('required'),
     }),
   })
 
@@ -346,7 +344,6 @@ export const registerProfile = (builder: StoreBuilder) => {
             return step({ done: true, backupCodes: codes })
           }
           if (args.method === 'off') {
-            if (profile.is_owner) throw refused('SECOND_FACTOR_REQUIRED', 'Store owners keep two-step sign-in on.')
             if (turningOn) return step({ done: true })
             await turnOffUserSecondFactor(tx, person.id)
             await record(ctx, tx, personSecondFactorDisabled(userOf(person), ctx.facts))

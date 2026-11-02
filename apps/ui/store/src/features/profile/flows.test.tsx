@@ -31,16 +31,16 @@ const typeIn = (label: string, value: string) => fireEvent.change(screen.getByLa
 const setUpPassword = (value: string) => fireEvent.change(screen.getAllByLabelText(words.twoStep.password)[0] as HTMLElement, { target: { value } })
 
 describe('two-step sign-in', () => {
-  it('offers an Owner no way to turn it off, and anyone else only with their password', async () => {
+  it('offers everyone, an Owner included, the way to turn it off, only with their password (#1008)', async () => {
     const turnOffSecondFactor = vi.fn().mockResolvedValue(undefined)
     vi.doMock('../../api/profile', async (actual) => ({ ...(await actual<typeof import('../../api/profile')>()), turnOffSecondFactor }))
     const { TwoStep } = await import('./TwoStep')
-    const view = render(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8, required: true })} onChanged={() => undefined} onToast={() => undefined} />)
-    expect(screen.queryByRole('button', { name: words.twoStep.turnOff })).toBeNull()
+    const view = render(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8 })} onChanged={() => undefined} onToast={() => undefined} />)
+    expect(screen.getByRole('button', { name: words.twoStep.turnOff })).toBeTruthy()
     view.unmount()
 
     const onChanged = vi.fn()
-    render(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8, required: false })} onChanged={onChanged} onToast={() => undefined} />)
+    render(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8 })} onChanged={onChanged} onToast={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: words.twoStep.turnOff }))
     fireEvent.click(screen.getByRole('button', { name: words.twoStep.offConfirm }))
     expect(turnOffSecondFactor).not.toHaveBeenCalled()
@@ -55,7 +55,7 @@ describe('two-step sign-in', () => {
     const startSecondFactor = vi.fn().mockResolvedValue({ secret: 'JBSWY3DPEHPK3PXP', uri: null, hint: null, done: false, backupCodes: null })
     vi.doMock('../../api/profile', async (actual) => ({ ...(await actual<typeof import('../../api/profile')>()), startSecondFactor }))
     const { TwoStep } = await import('./TwoStep')
-    const view = render(<TwoStep profile={profile({ method: null, backupCodesLeft: 0, required: false })} onChanged={() => undefined} onToast={() => undefined} />)
+    const view = render(<TwoStep profile={profile({ method: null, backupCodesLeft: 0 })} onChanged={() => undefined} onToast={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: words.twoStep.turnOn }))
     fireEvent.click(screen.getByRole('button', { name: words.twoStep.next }))
     expect(screen.getByRole('alert').textContent).toBe(words.twoStep.passwordMissing)
@@ -66,7 +66,7 @@ describe('two-step sign-in', () => {
     expect(startSecondFactor).toHaveBeenLastCalledWith('app', 'pw one')
     view.unmount()
 
-    render(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8, required: true })} onChanged={() => undefined} onToast={() => undefined} />)
+    render(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8 })} onChanged={() => undefined} onToast={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: words.twoStep.useSms }))
     setUpPassword('pw two')
     fireEvent.click(screen.getByRole('button', { name: words.twoStep.next }))
@@ -79,13 +79,13 @@ describe('two-step sign-in', () => {
 describe('your details', () => {
   it('asks for the password before sending a new email, and keeps saved details when the email is refused', async () => {
     const { ApiError } = await import('@dripfunnel/shared/graphql')
-    const saved = profile({ method: null, backupCodesLeft: 0, required: false }, { name: 'Farhan A' })
+    const saved = profile({ method: null, backupCodesLeft: 0 }, { name: 'Farhan A' })
     const updateProfile = vi.fn().mockResolvedValue(saved)
     const changeEmail = vi.fn().mockRejectedValue(new ApiError('INVALID_CREDENTIALS', 'no'))
     vi.doMock('../../api/profile', async (actual) => ({ ...(await actual<typeof import('../../api/profile')>()), updateProfile, changeEmail }))
     const { Details } = await import('./Details')
     const onSaved = vi.fn()
-    render(<Details profile={profile({ method: null, backupCodesLeft: 0, required: false })} onSaved={onSaved} onChanged={() => undefined} onToast={() => undefined} />)
+    render(<Details profile={profile({ method: null, backupCodesLeft: 0 })} onSaved={onSaved} onChanged={() => undefined} onToast={() => undefined} />)
     typeIn(words.details.name, 'Farhan A')
     typeIn(words.details.email, 'farhan@new.example')
     fireEvent.click(screen.getByRole('button', { name: words.details.save }))
@@ -105,7 +105,7 @@ describe('your details', () => {
 
 describe('appearance', () => {
   it('saves only the theme, and puts this device back when the account refuses it', async () => {
-    const setTheme = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(profile({ method: null, backupCodesLeft: 0, required: false }, { theme: 'dark' }))
+    const setTheme = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(profile({ method: null, backupCodesLeft: 0 }, { theme: 'dark' }))
     vi.doMock('../../api/profile', async (actual) => ({ ...(await actual<typeof import('../../api/profile')>()), setTheme }))
     const { Appearance } = await import('./Appearance')
     const onFailed = vi.fn()
@@ -128,7 +128,7 @@ describe('appearance', () => {
     const setTheme = vi
       .fn()
       .mockImplementationOnce(() => new Promise((_, reject) => (refuseDark = () => reject(new Error('offline')))))
-      .mockResolvedValueOnce(profile({ method: null, backupCodesLeft: 0, required: false }, { theme: 'light' }))
+      .mockResolvedValueOnce(profile({ method: null, backupCodesLeft: 0 }, { theme: 'light' }))
     vi.doMock('../../api/profile', async (actual) => ({ ...(await actual<typeof import('../../api/profile')>()), setTheme }))
     const { Appearance } = await import('./Appearance')
     const onFailed = vi.fn()
