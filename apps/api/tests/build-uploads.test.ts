@@ -258,6 +258,28 @@ describe('the verdict (#806)', () => {
       expect(await run(id)).toMatchObject({ state: 'checking', gate: { passed: false } })
     }
   })
+  it('lets a failing safety check through when PUBLISH_CHECKS is off, keeping the report', async () => {
+    const id = await newBuild(t.storeA1)
+    const auth = await token(claimsFor(repos.a1, '5901'))
+    expect(await reportBuild({ ...deps, checksOff: true }, auth, sent(id, false, [{ name: 'sealed', passed: false, detail: 'Broken.' }]))).toEqual({ passed: true, upload: true })
+    expect(await run(id)).toMatchObject({ state: 'deploying', gate: { passed: true, checks: [{ name: 'sealed', passed: false }] } })
+    const [entry] = await db.sql<{ action: string; reason: string }[]>`select action, reason from activity_log where target_id = ${id} and action like 'storefront.build_%ed'`
+    expect(entry).toEqual({ action: 'storefront.build_passed', reason: 'sealed (PUBLISH_CHECKS off)' })
+  })
+  it('keeps a refusal when the report is retried after PUBLISH_CHECKS turns off', async () => {
+    const id = await newBuild(t.storeA1)
+    const auth = await token(claimsFor(repos.a1, '5903'))
+    const failing = sent(id, false, [{ name: 'sealed', passed: false, detail: 'Broken.' }])
+    expect(await reportBuild({ ...deps, checksOff: false }, auth, failing)).toEqual({ passed: false, upload: false })
+    expect(await reportBuild({ ...deps, checksOff: true }, auth, failing)).toEqual({ passed: false, upload: false })
+  })
+  it('answers a retried report as the first was, even after PUBLISH_CHECKS changes', async () => {
+    const id = await newBuild(t.storeA1)
+    const auth = await token(claimsFor(repos.a1, '5902'))
+    const failing = sent(id, false, [{ name: 'sealed', passed: false, detail: 'Broken.' }])
+    expect(await reportBuild({ ...deps, checksOff: true }, auth, failing)).toEqual({ passed: true, upload: true })
+    expect(await reportBuild({ ...deps, checksOff: false }, auth, failing)).toEqual({ passed: true, upload: true })
+  })
   it('refuses a look that changed when the publish must keep it (a core upgrade), and only suggests otherwise', async () => {
     const id = await newBuild(t.storeA1)
     await db.sql`update publish_run set kind = 'upgrade' where id = ${id}`

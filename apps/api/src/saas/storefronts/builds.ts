@@ -38,6 +38,8 @@ export interface BuildDeps {
   /** The audience every build token must name: this environment's hooks host. */
   audience: string
   org: string
+  /** PUBLISH_CHECKS=off: a failing check no longer refuses the publish; the report is still kept. */
+  checksOff?: boolean
   r2: StorefrontR2
   buckets: { sites: string; drafts: string }
   sites: SitesBucket
@@ -189,7 +191,8 @@ export type GateReport = z.infer<typeof gateReport>
 
 // jsonb keeps no key order, so a stored report is compared field by field.
 const checksOf = (gate: Record<string, unknown>) => JSON.stringify((Array.isArray(gate['checks']) ? (gate['checks'] as Record<string, unknown>[]) : []).map((c) => [c['name'], c['passed'], c['detail'] ?? null]))
-const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>) => stored['passed'] === sent['passed'] && checksOf(stored) === checksOf(sent)
+// The decision is not compared: a retry is answered with the stored one, whatever PUBLISH_CHECKS says now.
+const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>) => checksOf(stored) === checksOf(sent)
 
 /**
  * Step `check` (LIVE-SHOP §4 step 7): the report, once; a retry of the same report is answered as the first was, and wakes
@@ -197,16 +200,17 @@ const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>
  */
 export const reportBuild = async (deps: BuildDeps, token: string, report: GateReport): Promise<{ passed: boolean; upload: boolean }> => {
   const answer = await withBuild(deps, token, report.build, async (tx, build) => {
-    const passed = report.checks.every((c) => c.passed || !blocks(c.name, keepsLook(build)))
+    const wouldPass = report.checks.every((c) => c.passed || !blocks(c.name, keepsLook(build)))
+    const passed = deps.checksOff === true || wouldPass
     const gate = { passed, checks: report.checks }
     if (build.gate !== null) {
-      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, passed), wake: build.attempt_of ?? build.id }
+      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, build.gate['passed'] === true), wake: build.attempt_of ?? build.id }
       throw new BuildRefused('wrong_state')
     }
     if (build.state !== 'building' && build.state !== 'checking') throw new BuildRefused('wrong_state')
     await recordGate(tx, { buildId: build.id, gate, digest: report.digest, passed, at: deps.now() })
     const failed = report.checks.filter((c) => !c.passed).map((c) => c.name)
-    await record(tx, build, build.runId, passed ? 'storefront.build_passed' : 'storefront.build_failed', passed ? 'success' : 'failed', failed.length > 0 ? failed.join(', ') : null)
+    await record(tx, build, build.runId, passed ? 'storefront.build_passed' : 'storefront.build_failed', passed ? 'success' : 'failed', failed.length > 0 ? `${failed.join(', ')}${passed && !wouldPass ? ' (PUBLISH_CHECKS off)' : ''}` : null)
     return { answer: answerTo(build, passed), wake: build.attempt_of ?? build.id }
   })
   await deps.wake(answer.wake, 'reported').catch(() => {
