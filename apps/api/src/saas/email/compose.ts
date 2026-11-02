@@ -567,7 +567,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'cart-reminder': {
       const p = parse(t)
-      const r =await selectReminderToSend(tx, p.reminderId)
+      const r = await selectReminderToSend(tx, p.reminderId)
       // Decided otherwise since it was queued, or sent by an earlier delivery: nothing goes twice.
       if (!r || r.state !== 'queued' || r.channel !== 'email') return { send: false, reason: 'link_closed' }
       if (r.partner_id !== row.partnerId || r.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
