@@ -325,7 +325,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   decide the screens): after the password, a person with 2-factor on enters a 6-digit code
   from their authenticator app or texted to their own mobile number; a **backup code** (one of
   ten, each usable once, stored hashed) stands in for it, and the sign-in says how many are
-  left. **A person with 2-factor off, an Owner included, signs in with email and password alone** (decided 2026-10-29 on #1008, reversing 2026-10-02): a new Owner goes straight into the store after sign-up step 4, and a person turns it on or off in My profile › Two-step sign-in, with their password. Setting up shows the authenticator secret and the backup codes
+  left. **A person with 2-factor off, an Owner included, signs in with email and password alone** (decided 2026-10-29 on #1008, reversing 2026-10-02): a new Owner goes straight into the store after sign-up step 4, and a person turns it on or off in My profile › Two-step sign-in, with their password. The Store schema keeps `TwoFactor.required`, deprecated and always `false`, until the merchant mobile app stops selecting it (#1008); then it can go. Setting up shows the authenticator secret and the backup codes
   **once**, at creation, and never again (ui/README.md §3). Codes are rate-limited like
   passwords; a used backup code is spent in the same transaction that admits the session.
 - **Where you're signed in**: a person lists their own sessions (device label, last used,
