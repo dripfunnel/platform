@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Provided, shopAnswering } from '../../test/shop'
+import { later, Provided, shopAnswering } from '../../test/shop'
 import { createShopClient } from '../platform/api/client'
 import { shopperToken, storedShopState } from '../platform/api/tokens'
 import type { RenderMode } from '../platform/store/context'
@@ -117,6 +117,18 @@ describe('useSignIn', () => {
     expect(asked.find((a) => a.query.includes('verifySignInCode'))?.variables).toEqual({ channel: 'EMAIL', to: 'maya@example.com', code: '123456', name: 'Maya Chen', password: 'a long password' })
     act(() => shown(signIn).restart())
     expect(shown(signIn).sent).toBeNull()
+  })
+
+  it('counts the shop as email only until it answers, then as it answers; a preview shows both ways', async () => {
+    const options = later<unknown>()
+    shopAnswering(() => options.promise)
+    await show('signIn')
+    expect(shown(signIn).ways).toEqual({ email: true, phone: false })
+    await act(async () => options.settle({ data: { signInOptions: { email: true, phone: true } } }))
+    expect(shown(signIn).ways).toEqual({ email: true, phone: true })
+    cleanup()
+    await show('signIn', 'preview')
+    expect(shown(signIn).ways).toEqual({ email: true, phone: true })
   })
 
   it('asks the Shop API nothing on a preview, where nobody signs in', async () => {
