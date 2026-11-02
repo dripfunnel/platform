@@ -8,7 +8,7 @@ import type { Photo, VideoFile } from './photo'
 
 const widths = [320, 480, 640, 960, 1280, 1920] as const
 // Cloudflare image resizing on the live site (decided 2026-10-05 on #337); a preview shows the original.
-const resized = (source: string, width: number) => `/cdn-cgi/image/width=${width},quality=82,format=auto/${source}`
+export const resized = (source: string, width: number) => `/cdn-cgi/image/width=${width},quality=82,format=auto/${source}`
 
 /** In the studio frame the shop's files are asked for under `/__studio/{session}/`, since the frame carries no cookie (AI-STUDIO §3 step 6). */
 export const frameAddress = (address: string, base: string | null): string => {
