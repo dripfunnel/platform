@@ -11,18 +11,12 @@ export interface SignInCandidate {
   password_hash: string | null
   two_factor_method: 'app' | 'sms' | null
   locked_until: Date | null
-  /** Holds an active Owner membership in an open store of this partner: 2-factor is required (ACCESS.md §2). */
-  is_owner: boolean
 }
 
 /** The active person with this email under the host's partner; at most one (user_email_key). */
 export const selectSignInCandidate = async (tx: ScopedSql, partnerId: string, email: string): Promise<SignInCandidate | null> => {
   const rows = await tx<SignInCandidate[]>`
-    select u.id, u.partner_id, u.name, u.email, u.password_hash, u.two_factor_method, u.locked_until,
-      exists (
-        select 1 from membership m join store s on s.id = m.store_id
-        where m.user_id = u.id and m.role_key = 'owner' and m.status = 'active' and s.status <> 'closed'
-      ) as is_owner
+    select u.id, u.partner_id, u.name, u.email, u.password_hash, u.two_factor_method, u.locked_until
     from "user" u
     where u.partner_id = ${partnerId} and lower(u.email) = lower(${email}) and u.status = 'active'
   `
@@ -39,16 +33,11 @@ export interface UserSecondFactor {
   two_factor_secret_enc: string | null
   last_code_step: string | null
   locked_until: Date | null
-  is_owner: boolean
 }
 
 export const selectUserSecondFactor = async (tx: ScopedSql, userId: string): Promise<UserSecondFactor | null> => {
   const rows = await tx<UserSecondFactor[]>`
-    select u.id, u.partner_id, u.name, u.email, u.phone, u.two_factor_method, u.two_factor_secret_enc, u.last_code_step::text as last_code_step, u.locked_until,
-      exists (
-        select 1 from membership m join store s on s.id = m.store_id
-        where m.user_id = u.id and m.role_key = 'owner' and m.status = 'active' and s.status <> 'closed'
-      ) as is_owner
+    select u.id, u.partner_id, u.name, u.email, u.phone, u.two_factor_method, u.two_factor_secret_enc, u.last_code_step::text as last_code_step, u.locked_until
     from "user" u where u.id = ${userId} and u.status = 'active'
   `
   return rows[0] ?? null

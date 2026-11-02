@@ -15,7 +15,6 @@ export interface ProfileRow {
   two_factor_method: 'app' | 'sms' | null
   backup_codes_left: number
   pending_email: string | null
-  is_owner: boolean
 }
 
 export const selectProfile = async (tx: ScopedSql, userId: string, now: Date): Promise<ProfileRow | null> =>
@@ -23,11 +22,7 @@ export const selectProfile = async (tx: ScopedSql, userId: string, now: Date): P
     await tx<ProfileRow[]>`
       select u.id, u.partner_id, u.name, u.email, u.phone, u.theme, u.password_changed_at, u.two_factor_method,
         (select count(*)::int from user_backup_code b where b.user_id = u.id and b.used_at is null) as backup_codes_left,
-        (select c.new_email from user_email_change c where c.user_id = u.id and c.used_at is null and c.expires_at > ${now} order by c.created_at desc limit 1) as pending_email,
-        exists (
-          select 1 from membership m join store s on s.id = m.store_id
-          where m.user_id = u.id and m.role_key = 'owner' and m.status = 'active' and s.status <> 'closed'
-        ) as is_owner
+        (select c.new_email from user_email_change c where c.user_id = u.id and c.used_at is null and c.expires_at > ${now} order by c.created_at desc limit 1) as pending_email
       from "user" u where u.id = ${userId} and u.status = 'active'
     `
   )[0] ?? null

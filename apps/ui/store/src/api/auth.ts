@@ -149,7 +149,7 @@ export const verifySignupPhone = (code: string) => post('sign-up/verify-phone', 
 /** What the store step offers someone already signed in (#1136): the partner's countries and the free address's domain. */
 export const newStoreOptions = () => post('new-store/options', {}, z.object({ ok: z.literal(true), countries: z.array(countrySchema), shopDomain: z.string().nullable() }))
 
-/** Opens another store with the signed-in person as its Owner; `enrol` when they must set up two-step sign-in first. */
+/** Opens another store with the signed-in person as its Owner. */
 export const createAnotherStore = (storeName: string, subdomain: string, country: string) =>
   post('new-store', { storeName, subdomain, country }, z.object({ ok: z.literal(true), step: z.enum(['done', 'enrol']), storeId: z.string() }))
 

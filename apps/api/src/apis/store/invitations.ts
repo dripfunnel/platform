@@ -63,7 +63,7 @@ export const lookUpStoreInvitation = async (request: Request, deps: StoreAuthDep
   })
 }
 
-/** A new person sets a name and a password; the session opens as sign-in would (an Owner enrols first). */
+/** A new person sets a name and a password; the session opens as sign-in would. */
 export const acceptStoreInvitation = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts): Promise<Response> => {
   const input = await readBody(request, acceptInput)
   if (!input) return refuse({ code: 'INVITATION_INVALID' })

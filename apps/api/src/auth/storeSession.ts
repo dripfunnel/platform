@@ -111,4 +111,3 @@ export const readUserSession = async (tx: ScopedSql, id: string, partnerId: stri
   await touchUserSession(tx, idHash, row.last_seen_at, now)
   return { userId: row.user_id, partnerId: row.partner_id }
 }
-

@@ -30,7 +30,7 @@ export const newStoreOptions = async (deps: StoreAuthDeps, sessionId: string | n
   return isRefusal(outcome) ? refuseSignup(outcome) : json(200, { ok: true, countries: outcome.countries, shopDomain: deps.shopDomain ?? null })
 }
 
-/** Makes the store in one transaction (SAAS.md §5 steps 1–3); an Owner without 2-factor is then held at enrolment (ACCESS.md §4). */
+/** Makes the store in one transaction (SAAS.md §5 steps 1–3). */
 export const createAnotherStore = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, sessionId: string | null, inSupport: boolean, failAt?: FailAt): Promise<Response> => {
   if (inSupport) return refuse({ code: 'FORBIDDEN' })
   const input = await readBody(request, storeInput)
