@@ -31,6 +31,8 @@ const user = async (partnerId: string, email: string, name: string) => {
   return row?.id ?? ''
 }
 
+const roleEmails = (storeId: string) => db.sql<{ to: string; role: string; key: string }[]>`select payload->>'to' as to, payload->>'role' as role, idempotency_key as key from outbox where kind = 'email' and payload->>'template' = 'store-role-changed' and store_id = ${storeId} order by created_at`
+
 beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
@@ -154,6 +156,9 @@ describe('inviting', () => {
     const extraOwner = await user(t.partnerA, 'owner3@a.example', 'Owner Three')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${extraOwner}, ${t.storeA2}, 'owner', 'active')`
     expect(await as(`mutation { changeRole(membershipId: "${secondOwner?.id}", role: "staff") }`)).toBe('PLAN_LIMIT')
+    const [kept] = await db.sql<{ role_key: string }[]>`select role_key from membership where id = ${secondOwner?.id ?? ''}`
+    expect(kept?.role_key).toBe('owner')
+    expect(await roleEmails(t.storeA2)).toHaveLength(0)
   })
 })
 
@@ -231,8 +236,6 @@ describe('the last Owner under concurrency', () => {
 
 // Card #1034: only the person whose role changed hears of it, and only once they have joined.
 describe('telling someone their role changed', () => {
-  const roleEmails = (storeId: string) => db.sql<{ to: string; role: string; key: string }[]>`select payload->>'to' as to, payload->>'role' as role, idempotency_key as key from outbox where kind = 'email' and payload->>'template' = 'store-role-changed' and store_id = ${storeId} order by created_at`
-
   it('queues one email to the person, naming the store and the new role, and none to the Owner who changed it', async () => {
     const member = await user(t.partnerA, 'role.change@a.example', 'Rae Change')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${member}, ${t.storeA1}, 'manager', 'active')`
@@ -258,8 +261,6 @@ describe('telling someone their role changed', () => {
     const owner = (await list('staff')).find((n) => n.email === 'owner@a.example')
     expect((await gql(`mutation { changeRole(membershipId: "${owner?.id}", role: "manager") }`, 'owner')).code).toBe('LAST_OWNER')
     expect(await roleEmails(t.storeA1)).toHaveLength(before)
-    // The plan-limit refusal on storeA2 is in 'holds a store to its plan’s staff seats'.
-    expect(await roleEmails(t.storeA2)).toHaveLength(0)
   })
 })
 
