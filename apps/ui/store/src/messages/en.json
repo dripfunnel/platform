@@ -4807,6 +4807,7 @@
     },
     "readOnly": "Your store is read-only until the bill is paid. You can look, but customers can’t be changed until then.",
     "failed": "That didn’t work. Nothing was changed; try again.",
+    "phoneInvalid": "Use the full number with the country code, like +91 98450 11234",
     "refused": {
       "NAME_TAKEN": "You already have a group with that name.",
       "NUMBER_TAKEN": "Another customer already has that number.",

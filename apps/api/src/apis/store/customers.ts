@@ -35,7 +35,7 @@ const words: Record<CustomersRefusal, string> = {
 
 const answered = <T>(result: CustomersResult<T>): T => {
   if (result.ok) return result.value
-  throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
+  throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(result.field ? { field: result.field } : {}) } })
 }
 
 export const registerCustomers = (builder: StoreBuilder) => {

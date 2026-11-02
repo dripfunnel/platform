@@ -7,6 +7,16 @@ const currencyByCountry: Readonly<Record<string, string>> = {
   NZ: 'NZD', PL: 'PLN', PT: 'EUR', SA: 'SAR', SE: 'SEK', SG: 'SGD', US: 'USD', ZA: 'ZAR',
 }
 
+// International dialling codes (ITU-T E.164), for the same countries.
+const dialCodeByCountry: Readonly<Record<string, string>> = {
+  AE: '971', AT: '43', AU: '61', BE: '32', BR: '55', CA: '1', CH: '41', DE: '49', DK: '45', ES: '34',
+  FI: '358', FR: '33', GB: '44', IE: '353', IN: '91', IT: '39', JP: '81', MX: '52', NL: '31', NO: '47',
+  NZ: '64', PL: '48', PT: '351', SA: '966', SE: '46', SG: '65', US: '1', ZA: '27',
+}
+
+/** The digits a number in `code` starts with after the `+` (India → `91`); null for a country a store can't be made in. */
+export const dialCodeOf = (code: string): string | null => (Object.hasOwn(dialCodeByCountry, code) ? (dialCodeByCountry[code] ?? null) : null)
+
 const names = new Intl.DisplayNames(['en'], { type: 'region' })
 
 export interface Country {
