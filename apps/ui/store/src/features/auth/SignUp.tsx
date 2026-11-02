@@ -51,7 +51,7 @@ export interface SignUpProps {
 }
 
 // PortalAuth's su1–su4 and building views (FIRST-RELEASE §4; SAAS.md §4.1, §5): account, emailed code,
-// store, texted code, then the store is made and an Owner sets up two-step sign-in; ?state= per authStates.ts.
+// store, texted code, then the store is made and the Owner goes straight in (#1008); ?state= per authStates.ts.
 export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
   const navigate = useNavigate()
   const forced = useScreenState(signUpStates, harnessEnabled)
@@ -108,7 +108,7 @@ export const SignUp = ({ fromGoogle = false, google }: SignUpProps = {}) => {
   // The building view stays up while the API makes the store; it answers in the same request.
   useEffect(() => {
     if (view.kind !== 'building' || forced) return
-    // An Owner sets up two-step sign-in before the store opens (ACCESS.md §4): sign-in's set-up step.
+    // The answer is 'enrol' only for a held session, which no sign-up leads to now (#1008).
     const leave = setTimeout(() => void (view.enrol ? navigate({ to: '/sign-in', search: { step: 'enrol', next: '/home' } }) : navigate({ to: '/stores', search: { next: '/home' } })), 1200)
     return () => clearTimeout(leave)
   }, [view, forced, navigate])

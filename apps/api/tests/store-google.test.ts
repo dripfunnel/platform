@@ -178,9 +178,9 @@ describe('signing in with Google', () => {
     expect(entry?.reason).toBe('google')
   })
 
-  it('still asks for the second factor, and sends an Owner without one to set it up', async () => {
+  it('still asks for the second factor, and lets an Owner without one straight in (#1008)', async () => {
     expect((await through('sign-in', { email: 'two@a.example', name: 'Tara' })).location).toBe('/sign-in?step=second-factor&method=sms')
-    expect((await through('sign-in', { email: 'owner@a.example', name: 'Olivia' })).location).toBe('/sign-in?step=enrol')
+    expect((await through('sign-in', { email: 'owner@a.example', name: 'Olivia' })).location).toBe('/')
   })
 
   it('refuses an address with no account here, an invitation not yet accepted, and another partner’s account', async () => {

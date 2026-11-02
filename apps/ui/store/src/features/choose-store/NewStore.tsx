@@ -57,7 +57,7 @@ export const NewStore = () => {
     void load()
   }, [load])
 
-  // The building view stays up a moment; an Owner without two-step sign-in sets it up first (ACCESS.md §4).
+  // The building view stays up a moment; the answer is 'enrol' only for a held session, which no new store leads to now (#1008).
   useEffect(() => {
     if (view.kind !== 'building') return
     rememberActing({ storeId: view.storeId, supplierId: null })

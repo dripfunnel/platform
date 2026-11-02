@@ -2,6 +2,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { cartOf, line, shownCart, usd } from '../../test/cart'
+import { Provided } from '../../test/shop'
 import type { Order } from '../orders/order'
 import { createI18n } from '../platform/i18n/i18n'
 import { OrderSummary } from './summary'
@@ -41,6 +42,15 @@ describe('OrderSummary', () => {
     const settled = renderToStaticMarkup(<OrderSummary cart={shownCart(cartOf([{ ...line('v1', 1), problem: 'unavailable' }]))} at="checkout" locale="en-US" t={t} />)
     expect(settled).not.toContain('Updating')
     expect(settled).toContain('Organic Cotton Tee × 1')
+  })
+
+  it('shows a line’s picture resized on the live site, and the original in a preview or on its own', () => {
+    const original = 'https://shop.example/shop-api/assets/a'
+    const cart = shownCart(cartOf([{ ...line('v1', 1), photoUrl: original }]))
+    const summary = <OrderSummary cart={cart} at="checkout" locale="en-US" t={t} />
+    expect(renderToStaticMarkup(<Provided mode="live">{summary}</Provided>)).toContain(`src="/cdn-cgi/image/width=320,quality=82,format=auto/${original}"`)
+    expect(renderToStaticMarkup(<Provided mode="preview">{summary}</Provided>)).toContain(`src="${original}"`)
+    expect(renderToStaticMarkup(summary)).toContain(`src="${original}"`)
   })
 
   it('shows a placed order’s lines and what was charged, without an estimate or a next step', () => {

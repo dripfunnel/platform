@@ -7,8 +7,9 @@ import { storeSchema } from '#apis/store/schema'
 import { hashPassword } from '#auth/password'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
-import { storeCookieName } from '#auth/storeSession'
+import { createUserSession, setStoreCookie, storeCookieName } from '#auth/storeSession'
 import { codeAt, stepAt } from '#auth/totp'
+import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -54,6 +55,9 @@ afterAll(async () => {
 })
 
 const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: db.sql, activity: activityLog, partnerId: t.partnerA, host, secrets, now: () => clock, allowAttempt: async () => true, ...overrides })
+
+// No sign-in leads to enrolment now; a session held there is what a team that requires 2-factor will use (ACCESS.md §14.4).
+const heldAtEnrolment = (userId: string) => withSystemScope(db.sql, (tx) => createUserSession(tx, { id: userId, partnerId: t.partnerA }, clock, { stage: 'enrol' }))
 
 const cookieOf = (response: Response) => /__Host-portal_session=([^;]*)/.exec(response.headers.get('set-cookie') ?? '')?.[1] ?? ''
 
@@ -144,21 +148,21 @@ describe('sign-in', () => {
 describe('an Owner without 2-factor', () => {
   let cookie = ''
 
-  it('is held at enrolment, where nothing else answers', async () => {
+  it('signs in to a full session with no code asked, and no set-up screen (#1008)', async () => {
     const res = await post('/api/auth/sign-in', { email: 'owner@a.example', password })
-    expect(res.body).toEqual({ ok: true, step: 'enrol' })
-    cookie = res.cookie
+    expect(res.body).toEqual({ ok: true, step: 'done' })
+    expect((await gql('{ me { name } }', res.cookie)).data?.['me']).toEqual({ name: 'Olivia Owner' })
+  })
+
+  it('keeps a session held at enrolment answering nothing else', async () => {
+    cookie = await heldAtEnrolment(people.owner)
     expect((await gql('{ me { name } }', cookie)).data?.['me']).toBeNull()
     expect((await gql('{ myStores { nodes { store { id } } } }', cookie)).code).toBe('UNAUTHENTICATED')
     expect((await gql('{ storeState { status } }', cookie, { [storeHeader]: t.storeA1 })).code).toBe('UNAUTHENTICATED')
   })
 
-  it('keeps the pending cookie for ten minutes, the time the server holds the step open', async () => {
-    const response = await handleStoreAuth(
-      new Request(`https://${host}/api/auth/sign-in`, { method: 'POST', headers: { origin: `https://${host}`, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7' }, body: JSON.stringify({ email: 'owner@a.example', password }) }),
-      deps(),
-    )
-    expect(response.headers.get('set-cookie')).toContain('Max-Age=600')
+  it('keeps the pending cookie for ten minutes, the time the server holds the step open', () => {
+    expect(setStoreCookie('id', false, 'enrol')).toContain('Max-Age=600')
   })
 
   it('is not let into enrolment on another partner’s host with this host’s cookie', async () => {
@@ -278,7 +282,7 @@ describe('an Owner enrolling by SMS', () => {
   it('texts the number, and the code it sent sets SMS as the method', async () => {
     const owner = await user(t.partnerA, 'second.owner@a.example', 'Second Owner')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
-    const res = await post('/api/auth/sign-in', { email: 'second.owner@a.example', password })
+    const res = { cookie: await heldAtEnrolment(owner) }
     expect((await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '0161 555' }, res.cookie)).body).toEqual({ ok: false, code: 'INVALID_PHONE' })
     expect((await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550199' }, res.cookie)).body).toEqual({ ok: true, hint: '•••• 0199' })
     const done = await post('/api/auth/enrol-second-factor', { method: 'sms', code: await lastSmsCode('+16145550199') }, res.cookie)
@@ -289,7 +293,7 @@ describe('an Owner enrolling by SMS', () => {
   it('takes any code when CODE_CHECK is 0', async () => {
     const owner = await user(t.partnerA, 'third.owner@a.example', 'Third Owner')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
-    const res = await post('/api/auth/sign-in', { email: 'third.owner@a.example', password })
+    const res = { cookie: await heldAtEnrolment(owner) }
     await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550198' }, res.cookie)
     expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code: '000000' }, res.cookie, deps({ codeCheck: '0' }))).body['backupCodes']).toHaveLength(10)
   })
@@ -490,7 +494,7 @@ describe('codes that are wrong, late or used', () => {
   it('refuses a wrong or stale app code during enrolment, and sets no method', async () => {
     const owner = await user(t.partnerA, 'app.owner@a.example', 'App Owner')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
-    const res = await post('/api/auth/sign-in', { email: 'app.owner@a.example', password })
+    const res = { cookie: await heldAtEnrolment(owner) }
     const start = await post('/api/auth/enrol-second-factor', { method: 'app' }, res.cookie)
     const secret = String(start.body['secret'])
     expect((await post('/api/auth/enrol-second-factor', { method: 'app', code: '000000' }, res.cookie)).body).toEqual({ ok: false, code: 'WRONG_CODE' })
@@ -502,7 +506,7 @@ describe('codes that are wrong, late or used', () => {
   it('refuses a wrong or expired texted code during enrolment', async () => {
     const owner = await user(t.partnerA, 'sms.owner@a.example', 'Sms Owner')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
-    const res = await post('/api/auth/sign-in', { email: 'sms.owner@a.example', password })
+    const res = { cookie: await heldAtEnrolment(owner) }
     await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550122' }, res.cookie)
     expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code: '000000' }, res.cookie)).body).toEqual({ ok: false, code: 'WRONG_CODE' })
     const code = await lastSmsCode('+16145550122')

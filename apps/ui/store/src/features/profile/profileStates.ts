@@ -2,7 +2,7 @@ import type { MyActivityEntry, Profile, SignedInSession } from '../../api/profil
 import type { Setup } from './TwoStep'
 
 // My profile's states under ?state= (ui/README.md §6), named apart from StaffSessionRoot's.
-export const profileStates = ['loading', 'error', 'owner', 'needsSetup', 'staff', 'sms', 'lowCodes', 'pendingEmail', 'setupPick', 'setupApp', 'setupSms', 'setupCodes'] as const
+export const profileStates = ['loading', 'error', 'owner', 'off', 'sms', 'lowCodes', 'pendingEmail', 'setupPick', 'setupApp', 'setupSms', 'setupCodes'] as const
 
 export type ProfileState = (typeof profileStates)[number]
 
@@ -24,7 +24,7 @@ const base =
           phone: '+919845011234',
           theme: null,
           passwordChangedAt: '2026-08-14T09:30:00.000Z',
-          twoFactor: { method: 'app', backupCodesLeft: 8, required: true },
+          twoFactor: { method: 'app', backupCodesLeft: 8 },
         } satisfies Profile,
         sessions: [
           { device: 'Chrome on Mac', current: true, createdAt: '2026-10-05T08:00:00.000Z', lastUsedAt: '2026-10-05T10:40:00.000Z' },
@@ -48,10 +48,8 @@ export const profileSample = (state: ProfileState | null): ProfileSample | null 
   switch (state) {
     case 'owner':
       return base
-    case 'needsSetup':
-      return { ...base, profile: { ...profile, twoFactor: { method: null, backupCodesLeft: 0, required: true } } }
-    case 'staff':
-      return { ...base, profile: { ...profile, twoFactor: { method: null, backupCodesLeft: 0, required: false } } }
+    case 'off':
+      return { ...base, profile: { ...profile, twoFactor: { method: null, backupCodesLeft: 0 } } }
     case 'sms':
       return { ...base, profile: { ...profile, twoFactor: { ...profile.twoFactor, method: 'sms' } } }
     case 'lowCodes':
@@ -62,7 +60,7 @@ export const profileSample = (state: ProfileState | null): ProfileSample | null 
     case 'setupApp':
     case 'setupSms':
     case 'setupCodes': {
-      const off = { ...base, profile: { ...profile, twoFactor: { method: null, backupCodesLeft: 0, required: true } } }
+      const off = { ...base, profile: { ...profile, twoFactor: { method: null, backupCodesLeft: 0 } } }
       if (state === 'setupPick') return { ...off, setup: { step: 'pick', method: 'app', switching: false } }
       if (state === 'setupCodes') return { ...off, setup: { step: 'codes', codes: base.codes } }
       return { ...off, setup: { step: 'verify', method: state === 'setupApp' ? 'app' : 'sms', switching: false, secret: base.secret, hint: '•••• 1234' } }

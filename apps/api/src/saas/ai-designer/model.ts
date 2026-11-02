@@ -128,6 +128,29 @@ CSS
   transition: opacity 300ms, background-color 300ms. Never transition: all or a bare transition-duration, and keyframes
   use only transform, opacity, filter and colours. Slide with transform: translateX, not left or margin.
 
+What publishing checks
+After the code passes, publishing builds the whole shop and opens every page at 390, 768 and 1440 px, with scripts on and
+off, and again with a very long shop name and no logo, in each language and right to left. A page that breaks one of these
+is not published, so write each page to keep them.
+- Exactly one h1 on a page, and it holds words. A repeated part (a slide, a card, a tab) never has an h1: use h2 or
+  below. The page's h1 sits outside the carousel and is always shown.
+- With scripts off every page still shows its h1 and its main words. Words come from the page's content, never from state
+  that only runs in the browser.
+- Never put aria-hidden on anything that holds a Link or a button. Hide an inactive slide, tab or panel with the hidden
+  attribute (hidden={i !== active}) so it leaves the tab order too, or draw only the active one. Keep a link out of focus
+  with tabIndex={-1} only on an element that is also hidden.
+- Every button, link and field is at least 24 by 24 px at every width, including a carousel's dots; give a small control
+  that size in its module's CSS and draw any smaller dot inside it. Give each button a name from a content key.
+- Text has a contrast of at least 4.5 to 1 against what is behind it (3 to 1 for large text) on every background you
+  set, and every picture has an alt from a content key.
+- Nothing hides, covers or overlaps the page's main content or a sealed part (price, payment, legal, "Powered by"). A
+  fixed or absolute layer, or a negative margin, never sits over them.
+- No page is wider than the screen, at 390 px too: let long words and names wrap, size pictures with max-width: 100%, and
+  use no fixed width wider than a phone.
+- Every link goes to a page that exists (core's routes or one listed in routes.json), never to a made-up address.
+- Keep a page light: little CSS, a few pictures, no layout that shifts as it loads (give pictures a ratio), and no
+  heavy loop of work in a timer. Pages are timed on a slowed phone.
+
 Requests
 - If asked to change prices, stock, products, shipping or checkout, change no file and say that is done in Products or
   Settings. If asked to change or replace the logo or favicon, draw the header's logo as above, never an attached picture
@@ -171,7 +194,7 @@ export const HeroCarousel = () => {
     <section className={styles.carousel} aria-roledescription={t('carousel.label')}>
       <div className={styles.track}>
         {slides.map((slide, i) => (
-          <div key={slide.title} className={i === active ? styles.slideOn : styles.slide} aria-hidden={i !== active}>
+          <div key={slide.title} className={i === active ? styles.slideOn : styles.slide} hidden={i !== active}>
             <p className={styles.eyebrow}>{t(slide.eyebrow)}</p>
             <h2 className={styles.title}>{t(slide.title)}</h2>
             <p className={styles.lead}>{t(slide.lead)}</p>
@@ -233,8 +256,8 @@ export const HeroCarousel = () => {
 
 .dot,
 .dotOn {
-  width: 12px;
-  height: 12px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   border-radius: 50%;

@@ -130,13 +130,12 @@ describe('accepting as a new person', () => {
     expect((await post('/api/auth/accept-invitation', { token, name: 'Meera Iyer', password })).body).toEqual({ ok: false, code: 'INVITATION_USED' })
   })
 
-  it('holds a new Owner at 2-factor set-up before the store opens', async () => {
+  it('opens a full session for a new Owner, with no 2-factor set-up (#1008)', async () => {
     const id = await person(t.partnerA, 'new.owner@a.example', 'invited')
     const { token } = await invite({ storeId: t.storeA2, email: 'new.owner@a.example', role: 'owner', userId: id })
     const res = await post('/api/auth/accept-invitation', { token, name: 'New Owner', password })
-    expect(res.body).toEqual({ ok: true, step: 'enrol' })
-    expect(res.setCookie).toContain('Max-Age=600')
-    expect(await me(res.cookie)).toBeNull()
+    expect(res.body).toEqual({ ok: true, step: 'done' })
+    expect(await me(res.cookie)).not.toBeNull()
   })
 
   it('never accepts a link on another partner’s host', async () => {
@@ -171,14 +170,14 @@ describe('joining with an existing account', () => {
     expect(await membershipStatus(id, t.storeA2)).toBe('active')
   })
 
-  it('holds someone joining as an Owner without 2-factor at set-up', async () => {
+  it('does not hold someone joining as an Owner without 2-factor at set-up (#1008)', async () => {
     const id = await person(t.partnerA, 'promoted@a.example', 'active')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${id}, ${t.storeA1}, 'staff', 'active')`
     const { token } = await invite({ storeId: t.storeA2, email: 'promoted@a.example', role: 'owner', userId: id })
     const cookie = await signIn('promoted@a.example')
     const res = await post('/api/auth/join', { token }, cookie)
-    expect(res.body).toEqual({ ok: true, step: 'enrol' })
-    expect(await me(cookie)).toBeNull()
+    expect(res.body).toEqual({ ok: true, step: 'done' })
+    expect(await me(cookie)).not.toBeNull()
   })
 
   it('never joins a link on another partner’s host, even for someone signed in there', async () => {

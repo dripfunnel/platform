@@ -49,6 +49,13 @@ describe('parseConfig', () => {
     expect(parseConfig({ ...hosts, CODE_CHECK: '1' }).CODE_CHECK).toBe('1')
   })
 
+  it('takes PUBLISH_CHECKS on or off on any host, and refuses another value', () => {
+    expect(parseConfig({ ...hosts, PUBLISH_CHECKS: 'off' }).PUBLISH_CHECKS).toBe('off')
+    expect(parseConfig({ ...hosts, PUBLISH_CHECKS: 'on' }).PUBLISH_CHECKS).toBe('on')
+    expect(parseConfig(hosts).PUBLISH_CHECKS).toBeUndefined()
+    expect(() => parseConfig({ ...hosts, PUBLISH_CHECKS: 'maybe' })).toThrow()
+  })
+
   it('takes SHOP_DOMAIN as a domain apart from the consoles, and my-store.localhost on localhost only', () => {
     expect(parseConfig({ ...hosts, SHOP_DOMAIN: 'my-store.one' }).SHOP_DOMAIN).toBe('my-store.one')
     expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', SHOP_DOMAIN: 'my-store.localhost' }).SHOP_DOMAIN).toBe('my-store.localhost')

@@ -3,7 +3,7 @@
 The shared, long-lived environment on `actuateminds.com` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §3, §4). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §3). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §3). Before: 2026-10-31 (#1071: the dev database on PlanetScale, §1, §2.3, §2.4). Before: 2026-10-21 (#428: `shops.edge` in the `EDGE_ZONE` row). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-shop.dev`, §2.8 item 1). Before: 2026-10-18 (#790: the dev studio's image and the `GHCR_PULL_TOKEN` org secret, §2.8 items 3 and 4). Before: 2026-10-17 (the `templates` workflow uploads the dev templates, §2.8). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -186,6 +186,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    dev.yml's *Studio image* step swaps for the newest `storefront-build:<version>-dev.<n>` tag's digest in dev's Cloudflare registry
    (pushed by release.yml's `sandbox-image-dev` job) before it deploys: commit no digest (#790). The deploy token needs
    *Containers: Edit*. `STUDIO_MAX_RUNNING` (a Worker variable, default 5000) caps studios running at once.
+   `PUBLISH_CHECKS=off` (a Worker variable, default on) stops a failing check from refusing a store build's publish; the report is still kept (LIVE-SHOP §4 step 7). Unset it to restore the walls.
 4. **GitHub**: store builds pull the private `storefront-build` image with the organisation secret `GHCR_PULL_TOKEN`: a *classic*
    personal access token with `read:packages` (fine-grained tokens can't read Packages), repository access *All repositories*,
    created by an org owner (#790). The token belongs to that person's account, so builds fail if they leave the org. The org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,
@@ -246,7 +247,8 @@ Never reuse a value from local or production.
 | `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
 | `PLATFORM_HOST` | Text | `dev-platform.actuateminds.com` | fixed |
 | `HOOKS_HOST` | Text | `dev-hooks.actuateminds.com` | fixed |
-| `CODE_CHECK` | Text | `0` | Any email or text code is accepted (expiry, tries and lockout still apply), so sign-in 2-factor, phone enrolment and sign-ups work before an SMS provider exists (#275). Prod leaves it unset unless it accepts any code too (prod.md §4) |
+| `CODE_CHECK` | Text | `0` | Any **text (SMS)** code is accepted (expiry, tries and lockout still apply), so sign-in 2-factor, phone enrolment and sign-ups work before an SMS provider exists (#275). **Email codes are always checked** (#1002), because email reaches the people who test. Prod leaves it unset unless it accepts any code too (prod.md §4) |
+| `PUBLISH_CHECKS` | Text | `off` | A failing check no longer refuses a store build's publish, so a theme that breaks `sealed`, `checkout` or the others still goes live; the report keeps each check's real result (#1164, LIVE-SHOP §4 step 7). Unset or `on` restores the walls |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | fixed: the dev Worker has its binding |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Keep a copy in the team's password manager: losing it makes every stored 2-factor secret and credential on dev unreadable |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://dev-admin.actuateminds.com/api/auth/callback` |
@@ -324,7 +326,8 @@ spent support link's "Back to the partner console" points at production's partne
 - [ ] Hyperdrive id in `env.dev` (§2.4)
 - [x] R2 bucket `dripfunnel-assets-dev` and binding (§2.4)
 - [x] Queue `dripfunnel-outbox-wake-dev`, created 2026-10-08, and *Queues: Edit* on the deploy token (§2.4, §2.2); the first deploy shows whether the token has it
-- [ ] `CODE_CHECK` = `0` on the Worker (§3)
+- [ ] `CODE_CHECK` = `0` on the Worker (§3): any text code is accepted, email codes are still checked
+- [ ] `PUBLISH_CHECKS` = `off` on the Worker (§3), only while store builds must publish despite failing checks
 - [ ] GitHub environment `dev`: three secrets, three variables (§2.5)
 - [ ] First deploy (§2.6)
 - [ ] `dev-env:attach` (§2.7)

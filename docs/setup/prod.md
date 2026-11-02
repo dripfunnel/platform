@@ -4,7 +4,7 @@ Production on `dripfunnel.ai`: how to set it up once, how values get onto it, an
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §4). Before: 2026-11-01 (#1086: the production database on PlanetScale, §1, §3.3, §3.4, §6, §7). Before: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §4). Before: 2026-11-02 (#1002: `CODE_CHECK` skips text codes only, §4). Before: 2026-11-01 (#1112: `VITE_PLATFORM_URL`, §4). Before: 2026-11-01 (#1086: the production database on PlanetScale, §1, §3.3, §3.4, §6, §7). Before: 2026-10-29 (#875: own delivery for the pilot store, §3.9, §4, §6). Before: 2026-10-26 (the `templates.yml` prod upload and its environment values, §3.6). Before: 2026-10-21 (#825: the `studio-image` action, promote's `studio_digest`, §3.5 step 5). Before: 2026-10-21 (#428: `shops.edge`, the first deploy without routes, §3.5 steps 5 and 6). Before: 2026-10-21 (#816: `env.prod` binds the resources, routes and studio; store-proxy has a prod env, §2, §3.4, §3.5, §4). Before: 2026-10-20 (#809: the asset host is `sf-assets.my-store.one`, §4). Before: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.one`, §3.5 step 4, §4). Before: 2026-10-14 (#733: observability, §4). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -217,7 +217,8 @@ moment you save.
 | `PLATFORM_HOST` | Text | `platform.dripfunnel.ai` | fixed |
 | `HOOKS_HOST` | Text | `hooks.dripfunnel.ai` | fixed |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | in the same release as the binding (§3.4) |
-| `CODE_CHECK` | Text | unset (codes are checked) | `0` accepts any email or text code, so anyone who knows an email or phone can sign in to that account, 2-factor included; set it on prod only knowingly |
+| `CODE_CHECK` | Text | unset (codes are checked) | `0` accepts any text (SMS) code, so anyone who knows a phone number can sign in to that account, 2-factor included; email codes are always checked (#1002). Set it on prod only knowingly |
+| `PUBLISH_CHECKS` | Text | unset (checks refuse) | `off` stops every failing check, `sealed`, `checkout`, `validator` and `content` included, from refusing a store build's publish, so AI-written code that breaks them goes live on every store. The report is still kept (#1164). Set it on prod only knowingly |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Store it in the password manager **before** saving it. Losing it makes every encrypted 2-factor secret and partner or merchant credential unreadable for good; it carries a version for rotation (THIRD-PARTY-ACCESS.md §5) |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center (THIRD-PARTY-ACCESS.md §2.5). Redirect URI `https://admin.dripfunnel.ai/api/auth/callback`. The client secret expires (24 months at most): note the date |
 | `STRIPE_SECRET_KEY` | Secret | **live** restricted key `rk_live_…` | Stripe (live mode) › Developers › API keys › *Create restricted key*, with only the permissions in THIRD-PARTY-ACCESS.md §8 |
@@ -277,7 +278,7 @@ version still running (AGENTS.md "Data").
 - [ ] Routes, console hostnames, Access on admin (§3.5)
 - [ ] GitHub environment `prod`, with required reviewers (§3.6)
 - [ ] `main` protected (§3.7)
-- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any code on prod
+- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any text code on prod; `PUBLISH_CHECKS` unset unless you accept unchecked store builds on prod
 - [ ] SES production access granted
 - [ ] The first super admin can sign in (§7)
 - [ ] Own delivery for the pilot store, every row of §3.9 checked and its walkthrough recorded on #875

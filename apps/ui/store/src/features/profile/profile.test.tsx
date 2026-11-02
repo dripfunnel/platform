@@ -31,7 +31,7 @@ describe('profile words', () => {
   it('words each refusal the profile API answers, and anything else with the fallback', () => {
     expect(profileRefusal(new ApiError('INVALID_CREDENTIALS', ''), 'x')).toBe(words.twoStep.wrongPassword)
     expect(profileRefusal(new ApiError('PHONE_IN_USE_FOR_SIGN_IN', ''), 'x')).toBe(words.details.phoneLocked)
-    expect(profileRefusal(new ApiError('SECOND_FACTOR_REQUIRED', ''), 'x')).toBe(words.twoStep.ownerKeeps)
+    expect(profileRefusal(new ApiError('SECOND_FACTOR_REQUIRED', ''), 'x')).toBe('x')
     expect(profileRefusal(new ApiError('SOMETHING_NEW', ''), 'x')).toBe('x')
     expect(profileRefusal(new TypeError('offline'), 'x')).toBe('x')
   })
@@ -74,35 +74,35 @@ describe('the harness states', () => {
 })
 
 describe('two-step sign-in', () => {
-  it('lets an Owner switch method but never turn it off', () => {
-    const html = renderToString(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8, required: true })} onChanged={none} onToast={none} />)
-    expect(html).toContain(words.twoStep.whyOwner)
+  it('lets an Owner switch method and turn it off, like anyone else (#1008)', () => {
+    const html = renderToString(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 8 })} onChanged={none} onToast={none} />)
+    expect(html).toContain(words.twoStep.why)
     expect(html).toContain(words.twoStep.useSms)
-    expect(html).not.toContain('df-profile-link')
+    expect(html).toContain('df-profile-link')
   })
 
   it('offers anyone else the way to turn it off', () => {
-    const html = renderToString(<TwoStep profile={profile({ method: 'sms', backupCodesLeft: 8, required: false })} onChanged={none} onToast={none} />)
+    const html = renderToString(<TwoStep profile={profile({ method: 'sms', backupCodesLeft: 8 })} onChanged={none} onToast={none} />)
     expect(html).toContain('df-profile-link')
     expect(html).toContain('1234')
   })
 
   it('warns when three or fewer backup codes are left', () => {
-    const html = renderToString(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 2, required: true })} onChanged={none} onToast={none} />)
+    const html = renderToString(<TwoStep profile={profile({ method: 'app', backupCodesLeft: 2 })} onChanged={none} onToast={none} />)
     expect(html).toContain(words.twoStep.low)
     expect(html).toContain('df-profile-low')
   })
 
-  it('asks an Owner without it to set it up, and the set-up for the password first', () => {
-    const off = profile({ method: null, backupCodesLeft: 0, required: true })
-    expect(renderToString(<TwoStep profile={off} onChanged={none} onToast={none} />)).toContain(words.twoStep.needed)
+  it('offers it to anyone without it, and the set-up asks for the password first', () => {
+    const off = profile({ method: null, backupCodesLeft: 0 })
+    expect(renderToString(<TwoStep profile={off} onChanged={none} onToast={none} />)).toContain(words.twoStep.turnOn)
     const picking = renderToString(<TwoStep profile={off} onChanged={none} onToast={none} initialSetup={{ step: 'pick', method: 'app', switching: false }} />)
     expect(picking).toContain(words.twoStep.pick)
     expect(picking).toContain(words.twoStep.password)
   })
 
   it('shows the setup key grouped, and the codes once', () => {
-    const off = profile({ method: null, backupCodesLeft: 0, required: true })
+    const off = profile({ method: null, backupCodesLeft: 0 })
     expect(renderToString(<TwoStep profile={off} onChanged={none} onToast={none} initialSetup={{ step: 'verify', method: 'app', switching: false, secret: 'JBSWY3DPEHPK3PXP', hint: null }} />)).toContain('JBSW Y3DP EHPK 3PXP')
     expect(renderToString(<TwoStep profile={off} onChanged={none} onToast={none} initialSetup={{ step: 'codes', codes: ['abcd-efgh'] }} />)).toContain('ABCD-EFGH')
   })
@@ -110,19 +110,19 @@ describe('two-step sign-in', () => {
 
 describe('your details', () => {
   it('locks the number while it gets the sign-in codes', () => {
-    const html = renderToString(<Details profile={profile({ method: 'sms', backupCodesLeft: 8, required: false })} onSaved={none} onChanged={none} onToast={none} />)
+    const html = renderToString(<Details profile={profile({ method: 'sms', backupCodesLeft: 8 })} onSaved={none} onChanged={none} onToast={none} />)
     expect(html).toContain(words.details.phoneLocked)
     expect(html).toMatch(/readOnly=""|readonly=""/)
   })
 
   it('says a new email is waiting for its link', () => {
-    const html = renderToString(<Details profile={profile({ method: null, backupCodesLeft: 0, required: false }, { pendingEmail: 'new@example.com' })} onSaved={none} onChanged={none} onToast={none} />)
+    const html = renderToString(<Details profile={profile({ method: null, backupCodesLeft: 0 }, { pendingEmail: 'new@example.com' })} onSaved={none} onChanged={none} onToast={none} />)
     expect(html).toContain('new@example.com')
   })
 })
 
 describe('saving your details', () => {
-  const base = profile({ method: null, backupCodesLeft: 0, required: false })
+  const base = profile({ method: null, backupCodesLeft: 0 })
   const fake = (emailFails = false) => {
     const calls: string[] = []
     return {

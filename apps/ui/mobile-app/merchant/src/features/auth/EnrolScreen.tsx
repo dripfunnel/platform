@@ -10,7 +10,7 @@ import { flowDeps } from './deps'
 import { pendingStore, usePending } from './pending'
 import { confirmEnrolCode, failureOf, finishEnrol, sendEnrolCode } from './signInFlow'
 
-// An Owner without two-step sign-in is held here before the store opens (ACCESS.md §4, FIRST-RELEASE §4): the mobile
+// A session held at set-up lands here; no Owner is held since #1008, so it serves a team that requires 2-factor (ACCESS.md §14.4): the mobile
 // number, the code texted to it, then the ten backup codes, shown once.
 export function EnrolScreen() {
   const router = useRouter()

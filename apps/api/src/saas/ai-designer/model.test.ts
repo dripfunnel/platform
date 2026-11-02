@@ -138,6 +138,13 @@ describe('the rules the AI is given', () => {
     expect(rules).toMatch(/src\/theme\/components\/interactive\/ that starts with 'use client'/)
     expect(rules).toMatch(/every existing key still in it/)
   })
+
+  it('state what publishing checks: one h1, no aria-hidden over focusable parts, 24 px targets, no overflow', () => {
+    expect(rules).toMatch(/Exactly one h1 on a page/)
+    expect(rules).toMatch(/Never put aria-hidden on anything that holds a Link or a button/)
+    expect(rules).toMatch(/at least 24 by 24 px/)
+    expect(rules).toMatch(/No page is wider than the screen/)
+  })
 })
 
 describe('the worked carousel', () => {

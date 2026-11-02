@@ -209,6 +209,13 @@ export const en = {
     body: (who: string, keys: number, store: string) =>
       `${who} is no longer an Owner of ${store}. ${keys === 1 ? 'The API key they made keeps' : `The ${keys} API keys they made keep`} working, because keys belong to the store. Check them in Settings › Developers, and revoke any you don’t need.`,
   },
+  storeRoleChanged: {
+    subject: (store: string) => `Your role in ${store} has changed`,
+    heading: 'Your role has changed',
+    roles: { owner: 'an Owner', manager: 'a Manager', staff: 'Staff' },
+    body: (store: string, role: string) => `Your role in ${store} is now ${role}. What you can do there has changed to match.`,
+    action: 'Open the store',
+  },
   orderConfirmed: {
     subject: (store: string, order: string) => `Your ${store} order ${order}`,
     heading: 'Thanks for your order',
