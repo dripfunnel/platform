@@ -257,6 +257,7 @@ describe('the product editor', () => {
     Element.prototype.scrollIntoView = scrolled
     api.saveProduct.mockRejectedValue(new ApiError('INVALID_INPUT', 'Something in this product isn’t valid.', { field: 'hsCode' }))
     await show(owner)
+    expect(screen.queryByLabelText(words.sections.code)).toBeNull()
     fireEvent.change(field(words.name.label), { target: { value: 'Renamed cushion' } })
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
     await settle()
