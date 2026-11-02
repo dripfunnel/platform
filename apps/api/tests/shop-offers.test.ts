@@ -8,6 +8,7 @@ import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { claimUse } from '#db/scoped/promotions'
+import { linkGuestOrders } from '#db/scoped/shopper'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -288,7 +289,7 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     }
   })
 
-  it('never counts an order or a use by its typed email, proven or not: whoever placed it may have typed someone else’s', async () => {
+  it('never counts an order or a use by its typed email until a sign-in links the order, and then only for "first order only"', async () => {
     await off()
     await db.sql`update promotion set enabled = true where id = ${placeOffer}`
     const first = await offer({ name: 'First only', code: 'FIRSTONLY', action: { operation: 'order_percentage_discount', percent: 5 }, conditions: [{ operation: 'first_order' }], combines: { product: true, order: true, shipping: true } })
@@ -299,13 +300,17 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     await db.sql`insert into promotion_usage (promotion_id, store_id, order_id, customer_email, discount_amount, currency) values (${placeOffer}, ${store}, ${o?.id ?? ''}, 'ravi@example.com', 20000, 'INR')`
     await signIn('ravi@example.com', false)
     try {
-      // A guest order and use placed with Ravi's email are no history of his account, whoever placed them.
+      // A guest order and use placed with Ravi's email are no history of his account until a sign-in links the order (ACCESS §2.1).
       const cart = await add(kurta, 1)
       expect((await apply(cart, 'PLACE20')).state).toBe('APPLIED')
       expect((await apply(cart, 'FIRSTONLY')).cart.codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
-      // Nor once the email is proven his: proving it says nothing about who typed it on those orders.
+      // Nor does proving the email by itself: only signing in links the order.
       await db.sql`update customer set email_verified_at = now() where store_id = ${store} and email = 'ravi@example.com'`
       expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
+      // Linked as a sign-in links it, the order is his history; the typed-email use still isn't.
+      const [ravi] = await db.sql<{ id: string }[]>`select id from customer where store_id = ${store} and email = 'ravi@example.com'`
+      expect(await withSystemScope(db.sql, (tx) => linkGuestOrders(tx, store, ravi?.id ?? ''))).toBe(1)
+      expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'NOT_ELIGIBLE' }])
     } finally {
       session = null
     }
@@ -344,14 +349,20 @@ describe('the last use, raced (OFFERS fact 8; PLATFORM-PROMPT §5.9)', () => {
     let ready_ = () => {}
     const gate = new Promise<void>((resolve) => (release = resolve))
     const held = new Promise<void>((resolve) => (ready_ = resolve))
+    let firstPid = 0
     const firstOrder = withSystemScope(db.sql, async (tx) => {
       expect(await claimUse(tx, store, id, new Date())).toBe(true)
+      firstPid = (await tx<{ pid: number }[]>`select pg_backend_pid() as pid`)[0]?.pid ?? 0
       ready_()
       await gate
     })
     await held
     const second = place(token)
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    // Released only once a session waits on the first's lock: a fixed pause let a slow placement arrive after the commit.
+    for (let tries = 0; (await db.sql`select 1 from pg_stat_activity where ${firstPid}::int = any(pg_blocking_pids(pid))`).length === 0; tries += 1) {
+      if (tries === 200) throw new Error('the second placement never waited for the first')
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
     release()
     await firstOrder
     expect((await second).code).toBe('OFFER_CHANGED')

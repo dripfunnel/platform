@@ -1,9 +1,10 @@
 import { graphql, type GraphQLSchema } from 'graphql'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveShopper } from '#auth/shopCaller'
+import { hashSessionId } from '#auth/session'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
@@ -169,6 +170,70 @@ describe('signing in by email', () => {
     expect((await gql('mutation { requestSignInCode(channel: EMAIL, to: "ravi@example.com") }')).code).toBe('METHOD_OFF')
     await merchant('mutation { saveCustomerAccounts(mode: "both") { mode } }', ownerCookie)
   })
+
+  describe('guest orders at sign-in', () => {
+    /** A guest's placed order; with a cart token, the one it was placed with. */
+    const guest = async (storeId: string, number: string, contact: { email?: string; phone?: string }, cart?: string) =>
+      (
+        await db.sql<{ id: string }[]>`insert into "order" (store_id, state, currency, number, placed_at, subtotal_amount, shipping_amount, tax_amount, total_amount, tax_inclusive, email, phone, access_token_hash)
+          values (${storeId}, 'placed', 'INR', ${number}, now(), 99900, 0, 0, 99900, true, ${contact.email ?? null}, ${contact.phone ?? null}, ${cart ? await hashSessionId(cart) : null}) returning id`
+      )[0]?.id ?? ''
+    const opened = async (id: string, who: { session?: string; cart?: string }) =>
+      (await gql(`{ order(id: "${id}") { number } }`, who)).data?.['order'] ?? null
+    const ravisPhone = (phone: string | null, verified: boolean) =>
+      db.sql`update customer set phone = ${phone}, phone_verified_at = ${verified ? new Date() : null} where store_id = ${stores.india} and email = 'ravi@example.com'`
+    const history = async (session: string) =>
+      ((await gql('{ orderHistory { nodes { number } } }', { session })).data?.['orderHistory'] as { nodes: { number: string }[] }).nodes.map((o) => o.number).sort()
+
+    // Even after a failed assertion, so no later test sees these orders, Ravi's number or Kiran's account.
+    afterEach(async () => {
+      await db.sql`delete from payment where order_id in (select id from "order" where number like 'JP-9%')`
+      await db.sql`delete from "order" where number like 'JP-9%' or number like 'SU-9%' or (state = 'cart' and email = 'ravi@example.com')`
+      await ravisPhone(null, false)
+      await db.sql`delete from customer_session where customer_id in (select id from customer where email = 'kiran@example.com')`
+      await db.sql`delete from customer where email = 'kiran@example.com'`
+    })
+
+    it('links the store’s placed guest orders with the account’s verified email or number at a password sign-in, and no other store’s or cart', async () => {
+      await ravisPhone('+919845099001', true)
+      // Whoever typed Ravi's email at checkout: the decision on #1186 links it all the same (ACCESS §2.1).
+      const typed = await guest(stores.india, 'JP-9001', { email: 'ravi@example.com' }, 'c'.repeat(64))
+      await guest(stores.india, 'JP-9003', { phone: '+919845099001' })
+      await guest(stores.india, 'JP-9002', { email: 'someone@example.com' })
+      await guest(stores.other, 'SU-9001', { email: 'ravi@example.com' })
+      await db.sql`insert into "order" (store_id, currency, email, access_token_hash, cart_expires_at) values (${stores.india}, 'INR', 'ravi@example.com', ${'b'.repeat(64)}, now() + interval '1 day')`
+      expect(await opened(typed, { cart: 'c'.repeat(64) })).toEqual({ number: 'JP-9001' })
+      const session = ((await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')).data?.['signIn'] as { sessionToken: string }).sessionToken
+      expect(await history(session)).toEqual(['JP-9001', 'JP-9003'])
+      expect(await db.sql`select customer_id from "order" where state = 'cart' and email = 'ravi@example.com'`).toEqual([{ customer_id: null }])
+      // The account's now: its session opens it, the guest's cart token no longer does.
+      expect(await opened(typed, { session })).toEqual({ number: 'JP-9001' })
+      expect(await opened(typed, { cart: 'c'.repeat(64) })).toBeNull()
+      const [logged] = await db.sql<{ changes: unknown }[]>`select changes from activity_log where action = 'customer.orders_linked'`
+      expect(logged?.changes).toEqual([{ field: 'orders', before: null, after: '2', redacted: false }])
+    })
+
+    it('links them at a sign-in by code too, the one that makes the account', async () => {
+      await guest(stores.india, 'JP-9005', { email: 'kiran@example.com' })
+      await gql('mutation { requestSignInCode(channel: EMAIL, to: "kiran@example.com") }')
+      const session = ((await verify('EMAIL', 'kiran@example.com', await emailedCode())).data?.['verifySignInCode'] as { sessionToken: string }).sessionToken
+      expect(await history(session)).toEqual(['JP-9005'])
+    })
+
+    it('links nothing by a number the account hasn’t verified', async () => {
+      await ravisPhone('+919845099002', false)
+      await guest(stores.india, 'JP-9004', { phone: '+919845099002' })
+      await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')
+      expect(await db.sql`select customer_id from "order" where number = 'JP-9004'`).toEqual([{ customer_id: null }])
+    })
+
+    it('links no preview’s test order, which isn’t a sale', async () => {
+      const test = await guest(stores.india, 'JP-9006', { email: 'ravi@example.com' })
+      await db.sql`insert into payment (order_id, store_id, provider, kind, state, amount, currency, mode) values (${test}, ${stores.india}, 'cod', 'cod', 'pending', 99900, 'INR', 'test')`
+      await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')
+      expect(await db.sql`select customer_id from "order" where number = 'JP-9006'`).toEqual([{ customer_id: null }])
+    })
+  })
 })
 
 describe('a signed-in shopper', () => {
@@ -262,7 +327,7 @@ describe('isolation', () => {
 
   it('records sign-ins and account changes for the merchant, never the code or the number', async () => {
     const rows = await db.sql<{ action: string; reason: string | null; target_label: string | null }[]>`select action, reason, target_label from activity_log where store_id = ${stores.india} and action like 'customer.%'`
-    expect(new Set(rows.map((r) => r.action))).toEqual(new Set(['customer.code_requested', 'customer.signed_up', 'customer.signed_in', 'customer.sign_in_failed', 'customer.updated', 'customer.address_saved', 'customer.address_removed', 'customer.signed_out']))
+    expect(new Set(rows.map((r) => r.action))).toEqual(new Set(['customer.code_requested', 'customer.signed_up', 'customer.signed_in', 'customer.sign_in_failed', 'customer.updated', 'customer.address_saved', 'customer.address_removed', 'customer.signed_out', 'customer.orders_linked']))
     expect(JSON.stringify(rows)).not.toMatch(/9845022113|ravi@example\.com/)
   })
 })

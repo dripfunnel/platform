@@ -10,6 +10,7 @@ import {
   insertCode,
   insertShopper,
   insertShopperSession,
+  linkGuestOrders,
   proveShopper,
   selectCustomerAuth,
   selectLiveCode,
@@ -112,6 +113,12 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       return { ok: true, codeId, channel, target, code }
     })()
 
+  // How many orders, never the email or number they matched (LOGGING §3).
+  const linkOrders = async (tx: ScopedSql, customerId: string) => {
+    const linked = await linkGuestOrders(tx, storeId, customerId)
+    if (linked > 0) await activity.record(tx, { ...entry('customer.orders_linked', customerId), changes: [{ field: 'orders', before: null, after: String(linked) }] })
+  }
+
   const startSession = async (tx: ScopedSql, customerId: string): Promise<string> => {
     const token = newSessionId()
     await insertShopperSession(tx, { idHash: await hashSessionId(token), storeId, customerId, expiresAt: new Date(now().getTime() + shopperSessionMs), now: now() })
@@ -158,6 +165,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
         customerId = await insertShopper(tx, { storeId, channel, target, name, passwordHash, now: now() })
         await activity.record(tx, entry('customer.signed_up', customerId))
       }
+      await linkOrders(tx, customerId)
       await activity.record(tx, entry('customer.signed_in', customerId))
       return { ok: true, token: await startSession(tx, customerId), customerId, created: !found }
     })
@@ -175,6 +183,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
         await activity.record(tx, entry('customer.sign_in_failed', found?.id ?? null, 'failed'))
         return { ok: false, reason: 'SIGN_IN_REFUSED' }
       }
+      await linkOrders(tx, found.id)
       await activity.record(tx, entry('customer.signed_in', found.id))
       return { ok: true, token: await startSession(tx, found.id), customerId: found.id, created: false }
     })
