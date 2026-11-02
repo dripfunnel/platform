@@ -241,7 +241,7 @@ All five were done on 2026-10-02 — see §4.
 
 ## 4. Designed on 2026-10-02
 
-Decisions taken (#13): suppliers see nothing of the customer — the store delivers, suppliers send items to the store's default warehouse · each supplier refunds its own items; the store can override (amount comes off the supplier's next payout) · editing an approved product sends it back only for price, title or photo changes · 2FA is required for Owners, optional for everyone else · a removed supplier's products are hidden, still marked as theirs (Products has no draft status). Trial is 10 days. DripFunnel's own prices show in the store's currency.
+Decisions taken (#13): suppliers see nothing of the customer — the store delivers, suppliers send items to the store's default warehouse · each supplier refunds its own items; the store can override (amount comes off the supplier's next payout) · editing an approved product sends it back only for price, title or photo changes · 2FA was required for Owners, optional for everyone else (reversed 2026-10-29, #1008: optional for everyone, Owners included) · a removed supplier's products are hidden, still marked as theirs (Products has no draft status). Trial is 10 days. DripFunnel's own prices show in the store's currency.
 
 Now designed in the Store prototype:
 - **Cross-cutting:** upgrade prompt keeps the plan key and guesses from the label otherwise; plan names corrected everywhere (Growth / Growth Pro / Partner); 10-day trial; prices in USD / EUR / INR; Pricing links, rows and FAQ fixed, plus a currency picker; read-only enforced in Import, A+ and Catalogue settings; Store dark mode (Dark mode toggle in the controls, or My profile › Appearance).

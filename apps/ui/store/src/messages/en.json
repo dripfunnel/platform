@@ -619,7 +619,7 @@
     },
     "enrol": {
       "title": "Turn on two-step sign-in",
-      "sub": "Store owners need it before the store opens — it protects your payouts and your customers’ data. We’ll text you a code each time you sign in.",
+      "sub": "It protects your payouts and your customers’ data. We’ll text you a code each time you sign in.",
       "subSent": "Type the 6-digit code we texted to the number ending {hint}.",
       "sendPrimary": "Text me a code",
       "confirmPrimary": "Turn on and sign in",
