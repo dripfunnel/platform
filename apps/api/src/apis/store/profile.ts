@@ -118,6 +118,8 @@ export const registerProfile = (builder: StoreBuilder) => {
     fields: (t) => ({
       method: t.exposeString('method', { nullable: true }),
       backupCodesLeft: t.exposeInt('backupCodesLeft'),
+      // Released merchant apps still select it (#1008): always false now that an Owner may turn 2-factor off.
+      required: t.boolean({ nullable: false, deprecationReason: '2-factor is optional for everyone, Owners included', resolve: () => false }),
     }),
   })
 

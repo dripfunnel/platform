@@ -311,6 +311,6 @@ describe('two-step sign-in', () => {
     await gql('mutation { regenerateBackupCodes }', ownerCookie)
     expect((await gql('mutation { setSecondFactor(method: "off", password: "not it") { done } }', ownerCookie)).code).toBe('INVALID_CREDENTIALS')
     expect((await gql(`mutation { setSecondFactor(method: "off", password: "${password}") { done } }`, ownerCookie)).data?.['setSecondFactor']).toEqual({ done: true })
-    expect(((await gql('{ profile { twoFactor { method backupCodesLeft } } }', ownerCookie)).data?.['profile'])).toEqual({ twoFactor: { method: null, backupCodesLeft: 0 } })
+    expect(((await gql('{ profile { twoFactor { method backupCodesLeft required } } }', ownerCookie)).data?.['profile'])).toEqual({ twoFactor: { method: null, backupCodesLeft: 0, required: false } })
   })
 })

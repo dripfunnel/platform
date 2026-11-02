@@ -3526,6 +3526,7 @@ input TranslationTextInput {
 type TwoFactor {
   backupCodesLeft: Int
   method: String
+  required: Boolean! @deprecated(reason: "2-factor is optional for everyone, Owners included")
 }
 
 input VersionNameTranslationInput {

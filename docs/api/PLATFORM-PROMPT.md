@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
+Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, the people pool). Before: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -344,7 +344,7 @@ leaks structurally hard:
 - Our own users table: one account per person per partner (email unique within a partner,
   ACCESS.md §2), password hashes
   (argon2id), Google sign-in, email and phone verification codes stored hashed with attempt
-  counters, 2-factor **required for Owners and optional for everyone else** (authenticator app
+  counters, 2-factor **optional for everyone, Owners included** (#1008; authenticator app
   or SMS, backup codes; decided 2026-10-02, ACCESS.md §2 and §4).
 - `membership(user_id, store_id, seller_id, role_key)`: role keys map to **permission sets in
   code**. Nothing is cloned; changing a role takes effect on the next request.
@@ -798,6 +798,6 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - ~~What happens to a removed or suspended vendor's products?~~ **Settled 2026-10-02**: removed →
   hidden and kept; suspended → the Owner chooses hide or keep selling (ACCESS.md §7.5).
 - ~~2-factor for Owners only, or everyone?~~ **Settled 2026-10-02**: required for Owners,
-  optional for everyone else (ACCESS.md §2).
+  optional for everyone else (ACCESS.md §2). **Reversed 2026-10-29 (#1008): optional for everyone, Owners included.**
 - What happens to a past-due store's vendors? (Past due never blocks sign-in: §2 item 7.)
 - ~~Retention and export on cancellation (SAAS-PLAN §15).~~ The storefront stays live to the end of the paid period; data, assets and repo kept **90 days** with export offered, then deleted; orders and invoices as the law requires (decided 2026-10-05 on #337).
