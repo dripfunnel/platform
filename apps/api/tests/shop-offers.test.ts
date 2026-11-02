@@ -349,15 +349,17 @@ describe('the last use, raced (OFFERS fact 8; PLATFORM-PROMPT §5.9)', () => {
     let ready_ = () => {}
     const gate = new Promise<void>((resolve) => (release = resolve))
     const held = new Promise<void>((resolve) => (ready_ = resolve))
+    let firstPid = 0
     const firstOrder = withSystemScope(db.sql, async (tx) => {
       expect(await claimUse(tx, store, id, new Date())).toBe(true)
+      firstPid = (await tx<{ pid: number }[]>`select pg_backend_pid() as pid`)[0]?.pid ?? 0
       ready_()
       await gate
     })
     await held
     const second = place(token)
-    // Released only once the second waits on the first's lock: a fixed pause let a slow placement arrive after the commit.
-    for (let tries = 0; (await db.sql`select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`).length === 0; tries += 1) {
+    // Released only once a session waits on the first's lock: a fixed pause let a slow placement arrive after the commit.
+    for (let tries = 0; (await db.sql`select 1 from pg_stat_activity where ${firstPid}::int = any(pg_blocking_pids(pid))`).length === 0; tries += 1) {
       if (tries === 200) throw new Error('the second placement never waited for the first')
       await new Promise((resolve) => setTimeout(resolve, 25))
     }
