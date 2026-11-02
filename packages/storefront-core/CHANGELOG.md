@@ -1,5 +1,12 @@
 # @dripfunnel/storefront-core
 
+## 0.8.2
+
+### Patch Changes
+
+- d44776c: `useSignIn` counts the shop as email only until its sign-in options answer, instead of both ways (#1173), so a store that allows email only no longer shows a "Mobile number" tab that disappears after a moment. A preview still shows both ways. Nothing changes for themes.
+- 97eefe1: The checkout order summary shows each line's picture as a 320 px resized copy on the live site instead of the original file (#1168). Previews and the studio still show the original. Nothing changes for themes.
+
 ## 0.8.1
 
 ### Patch Changes
