@@ -84,7 +84,7 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
   const leave = () => signOut()
 
   const last = actingStore()
-  if (view.kind === 'loading') return <AuthFrame panel="in" title={words.title}><LoadingState label={words.loading} /></AuthFrame>
+  if (view.kind === 'loading') return <AuthFrame panel="in"><LoadingState label={words.loading} /></AuthFrame>
   if (view.kind === 'error') return <AuthFrame panel="in" title={words.error.title}><ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: () => void load() }} /></AuthFrame>
   if (view.kind === 'none')
     return (
