@@ -826,7 +826,10 @@ Accept: token + password (new) or token + signed-in session (existing)
   obvious and offer resend (flow 10).
 - **Already a member here** is the only error, and it reveals nothing the Owner can't already
   see in their own People list.
-- **Change role** writes the membership's `role_key`; it applies on the next request.
+- **Change role** writes the membership's `role_key`; it applies on the next request. A merchant's
+  active member is emailed the new role (`store-role-changed`, from the store's partner, linking to the
+  portal; decided on #1034): no one else is, and nothing is sent for the same role, a refused change or
+  an invitation not yet accepted.
 - **Removing someone** (flow 12) removes the membership for this store only: it stays as a
   `removed` row the activity log names (built on #290), and the account is never deleted by a
   removal, whether or not they belong elsewhere (erasing a person is an erasure request's, LOGGING.md §8).
@@ -839,7 +842,8 @@ Accept: token + password (new) or token + signed-in session (existing)
   account found or made `invited` by `store_invitee`, migrations/0040, the same call whether or not it
   exists; the plan's `staff` limit counts Managers and Staff, active or invited, never an Owner);
   `resendInvitation` (a new link revokes the old) and `revokeInvitation`; `changeRole` and
-  `removeMember`, the last Owner kept under a lock (`LAST_OWNER`). Invitations are capped at 20 an
+  `removeMember`, the last Owner kept under a lock (`LAST_OWNER`); `changeRole` queues its email through the
+  outbox in the same transaction (#1034). Invitations are capped at 20 an
   hour per inviter and 3 a day per address in the store. A removed membership stays as `removed`
   (requests never delete), and a revoked invitation's `invited` account is kept, as the partner team
   keeps its rows (#199).
