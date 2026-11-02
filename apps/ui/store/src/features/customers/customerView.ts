@@ -1,3 +1,4 @@
+import { isApiError } from '@dripfunnel/shared/graphql'
 import type { ApiMoney } from '../../api/orders'
 import type { Customer, CustomerAddress } from '../../api/customers'
 import { fill, formatList, locale, messages } from '../../messages'
@@ -18,6 +19,29 @@ export interface CustomersAccess {
 export const customersAccessOf = (acting: { permissions: readonly string[] }, readOnly: boolean): CustomersAccess => {
   const has = (p: string) => acting.permissions.includes(p)
   return { canRead: has('customers.read'), canEdit: has('customers.write') && !readOnly, canExport: has('customers.export'), readOnly }
+}
+
+export type CustomerField = 'name' | 'email' | 'phone' | 'address' | 'country'
+export interface CustomerFault {
+  field: CustomerField
+  text: string
+}
+
+const invalid: Record<CustomerField, string> = {
+  name: messages.customers.editForm.nameMissing,
+  email: messages.customers.addForm.emailInvalid,
+  phone: messages.customers.phoneInvalid,
+  address: messages.customers.editForm.addressPartial,
+  country: messages.customers.editForm.countryInvalid,
+}
+
+/** What the API refused a customer save for, when it names the field at fault (#1040): the words to show under that field. */
+export const customerFault = (error: unknown): CustomerFault | null => {
+  if (!isApiError(error)) return null
+  const field = Object.keys(invalid).find((f): f is CustomerField => f === error.details['field'])
+  if (!field) return null
+  const refused: Record<string, string> = messages.customers.refused
+  return { field, text: error.code === 'INVALID_INPUT' ? invalid[field] : (refused[error.code] ?? invalid[field]) }
 }
 
 /** One figure a currency, as the API keeps them. */

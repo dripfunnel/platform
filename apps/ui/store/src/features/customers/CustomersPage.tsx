@@ -32,7 +32,7 @@ import { tabKeyHandler } from '../common/tabKeys'
 import { AddCustomer } from './AddCustomer'
 import { CustomerDetail } from './CustomerDetail'
 import { customerSample, customerStates, sampleCustomer } from './customerStates'
-import { customersAccessOf, spentText, type CustomersAccess } from './customerView'
+import { customerFault, customersAccessOf, spentText, type CustomerFault, type CustomersAccess } from './customerView'
 import { GroupsTab } from './GroupsTab'
 import './customers.css'
 
@@ -180,7 +180,7 @@ export const CustomersPage = () => {
   }
 
   /** Runs one change, says so, and reads the list and the customer again; false when the API refused it. */
-  const act = async (work: () => Promise<void>, done: string): Promise<boolean> => {
+  const act = async (work: () => Promise<void>, done: string, onRefused?: (error: unknown) => boolean): Promise<boolean> => {
     if (sample) {
       setToast(done)
       return true
@@ -192,7 +192,7 @@ export const CustomersPage = () => {
       refresh()
       return true
     } catch (error) {
-      setToast(refused(error))
+      if (!onRefused?.(error)) setToast(refused(error))
       return false
     } finally {
       setBusy(false)
@@ -212,19 +212,28 @@ export const CustomersPage = () => {
       .finally(() => setBusy(false))
   }
 
-  const add = (name: string, email: string, phoneNumber: string | null) => {
-    if (sample) return setAdding(false)
+  /** The field the API refused, for the form to mark; null once added, or for a refusal that names none (a toast). */
+  const add = async (name: string, email: string, phoneNumber: string | null): Promise<CustomerFault | null> => {
+    if (sample) {
+      setAdding(false)
+      return null
+    }
     setBusy(true)
-    void addCustomer(name, email, phoneNumber)
-      .then(({ id, existed }) => {
-        setAdding(false)
-        setToast(fill(existed ? words.addForm.existed : words.addForm.added, { name }))
-        change({ search: '', groupId: null })
-        select(id)
-        refresh()
-      })
-      .catch((error: unknown) => setToast(refused(error)))
-      .finally(() => setBusy(false))
+    try {
+      const { id, existed } = await addCustomer(name, email, phoneNumber)
+      setAdding(false)
+      setToast(fill(existed ? words.addForm.existed : words.addForm.added, { name }))
+      change({ search: '', groupId: null })
+      select(id)
+      refresh()
+      return null
+    } catch (error) {
+      const fault = customerFault(error)
+      if (!fault) setToast(refused(error))
+      return fault
+    } finally {
+      setBusy(false)
+    }
   }
 
   if (!access.canRead)

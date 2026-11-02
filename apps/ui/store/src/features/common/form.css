@@ -36,6 +36,14 @@
   outline-offset: 1px;
 }
 
+.df-form-field :is(input, select)[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-form-field .df-form-error {
+  color: var(--df-color-danger);
+}
+
 .df-form-mono {
   font-family: var(--df-font-mono);
 }
