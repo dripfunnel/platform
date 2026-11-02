@@ -32,7 +32,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
 
-  const { method, required, backupCodesLeft } = profile.twoFactor
+  const { method, backupCodesLeft } = profile.twoFactor
   const left = backupCodesLeft ?? 0
 
   const reset = () => {
@@ -87,9 +87,9 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
       { text: t('profile.newCodes'), onPress: () => void run(async () => setFlow({ step: 'codes', codes: await regenerateBackupCodes(sessionClient()) })) },
     ])
 
-  const why = required ? t('profile.twoStepWhyOwner') : t('profile.twoStepWhyOther')
-  const pill = method ? t('profile.pillOn') : required ? t('profile.pillNeeds') : t('profile.pillOff')
-  const pillColors = method ? { bg: colors.successSurface, fg: colors.success } : required ? { bg: colors.warningSurface, fg: colors.warning } : { bg: colors.neutralSurface, fg: colors.neutral }
+  const why = t('profile.twoStepWhy')
+  const pill = method ? t('profile.pillOn') : t('profile.pillOff')
+  const pillColors = method ? { bg: colors.successSurface, fg: colors.success } : { bg: colors.neutralSurface, fg: colors.neutral }
 
   return (
     <SectionCard title={t('profile.twoStepTitle')} sub={why}>
@@ -114,7 +114,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
               <LinkButton label={t('profile.newCodes')} onPress={makeNewCodes} />
             </View>
           </View>
-          {!required ? <LinkButton danger label={t('profile.turnOff')} onPress={() => setFlow({ step: 'off' })} /> : null}
+          <LinkButton danger label={t('profile.turnOff')} onPress={() => setFlow({ step: 'off' })} />
         </>
       ) : null}
 

@@ -9,12 +9,12 @@ export const profileSchema = z.object({
   phone: z.string().nullable(),
   pendingEmail: z.string().nullable(),
   passwordChangedAt: z.string().nullable(),
-  twoFactor: z.object({ method: z.enum(['app', 'sms']).nullable(), required: z.boolean(), backupCodesLeft: z.number().nullable() }),
+  twoFactor: z.object({ method: z.enum(['app', 'sms']).nullable(), backupCodesLeft: z.number().nullable() }),
 })
 
 export type Profile = z.infer<typeof profileSchema>
 
-const profileFields = `name email phone pendingEmail passwordChangedAt twoFactor { method required backupCodesLeft }`
+const profileFields = `name email phone pendingEmail passwordChangedAt twoFactor { method backupCodesLeft }`
 
 export const loadProfile = async (client: ApiClient): Promise<Profile> => (await typedQuery(client)(`{ profile { ${profileFields} } }`, z.object({ profile: profileSchema }))).profile
 
