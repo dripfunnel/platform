@@ -33,7 +33,7 @@ const nextOf = (query: URLSearchParams) => {
 }
 
 export type SignInPage = {
-  /** The ways this shop signs shoppers in; both until it answers. */
+  /** The ways this shop signs shoppers in; email only until it answers, and both on a preview, which never asks. */
   ways: { email: boolean; phone: boolean }
   /** A preview or the studio frame: nobody signs in there (the Shop API refuses with NOT_IN_PREVIEW). */
   previewOnly: boolean
@@ -84,7 +84,7 @@ export const useSignIn = (): SignInPage => {
 
   const ways = options.data?.signInOptions
   return {
-    ways: { email: ways?.email ?? true, phone: ways?.phone ?? true },
+    ways: { email: ways?.email ?? true, phone: ways?.phone ?? previewOnly },
     previewOnly,
     busy,
     error,
