@@ -200,7 +200,8 @@ const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>
  */
 export const reportBuild = async (deps: BuildDeps, token: string, report: GateReport): Promise<{ passed: boolean; upload: boolean }> => {
   const answer = await withBuild(deps, token, report.build, async (tx, build) => {
-    const passed = deps.checksOff === true || report.checks.every((c) => c.passed || !blocks(c.name, keepsLook(build)))
+    const wouldPass = report.checks.every((c) => c.passed || !blocks(c.name, keepsLook(build)))
+    const passed = deps.checksOff === true || wouldPass
     const gate = { passed, checks: report.checks }
     if (build.gate !== null) {
       if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, build.gate['passed'] === true), wake: build.attempt_of ?? build.id }
@@ -209,7 +210,7 @@ export const reportBuild = async (deps: BuildDeps, token: string, report: GateRe
     if (build.state !== 'building' && build.state !== 'checking') throw new BuildRefused('wrong_state')
     await recordGate(tx, { buildId: build.id, gate, digest: report.digest, passed, at: deps.now() })
     const failed = report.checks.filter((c) => !c.passed).map((c) => c.name)
-    await record(tx, build, build.runId, passed ? 'storefront.build_passed' : 'storefront.build_failed', passed ? 'success' : 'failed', failed.length > 0 ? failed.join(', ') : null)
+    await record(tx, build, build.runId, passed ? 'storefront.build_passed' : 'storefront.build_failed', passed ? 'success' : 'failed', failed.length > 0 ? `${failed.join(', ')}${passed && !wouldPass ? ' (PUBLISH_CHECKS off)' : ''}` : null)
     return { answer: answerTo(build, passed), wake: build.attempt_of ?? build.id }
   })
   await deps.wake(answer.wake, 'reported').catch(() => {
