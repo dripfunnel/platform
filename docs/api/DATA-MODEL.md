@@ -1458,9 +1458,10 @@ customer (+ columns) tags text[] (up to 20), note text, consent_state ('opted_in
                     -- built on #312 (0074); the default address is customer_address.is_default_shipping,
                     -- and the list searches name, email, number and tags directly (0027's indexes), so
                     -- neither default_address_id nor a search tsvector was needed. A live guest order
-                    -- adds an 'unverified' row from its email (or number), never linked to the order;
+                    -- adds an 'unverified' row from its email (or number), not linked to the order;
                     -- the team's 'Add a customer' does the same; proving that email or number at
-                    -- sign-in makes it the shopper's account (#308's proveShopper)
+                    -- sign-in makes it the shopper's account (#308's proveShopper), and every sign-in
+                    -- links the store's placed guest orders with any of its verified emails or numbers (linkGuestOrders)
                     -- §3.4 has the identity columns and status ('active'|'unverified'|'deleted',
                     -- built in 0002), which is the deletion marker; "Record that they asked
                     -- to stop" writes consent_state = 'stopped' with the recording user

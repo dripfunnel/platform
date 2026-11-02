@@ -227,10 +227,10 @@ promotions tests before relying on it.
      usage counting must survive concurrency (PLATFORM-PROMPT §5.4, §5.9): two shoppers
      placing orders at once can't both take the last use.
    - "Per customer" and "first order only" work only once the shopper is known, which means **signed in**: by
-     their account, and only by the orders placed while signed in to it. A guest is never counted, by a typed email or a
+     their account: "per customer" by the uses made while signed in to it, "first order only" by its orders, which
+     include the guest orders a sign-in linked to it (ACCESS §2.1). A guest is never counted, by a typed email or a
      typed number, since any answer turning on what they typed would reveal another shopper's history (ACCESS §2.1);
-     such an offer asks a guest to sign in. Nor do a guest's orders count later against an account with that email,
-     proven or not: whoever placed them typed it, perhaps someone else. Decided on #320's review, narrowing #337's
+     such an offer asks a guest to sign in. Decided on #320's review, narrowing #337's
      "guests recognised by normalised email, or by a phone proven by a code" (§3.1). The form's helper text (a
      `messages/` key, with the editor) says so: "Shoppers sign in to use it, so we know who has used it."
    - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).

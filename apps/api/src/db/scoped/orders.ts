@@ -299,7 +299,7 @@ export interface ShopOrderSummaryRow {
   item_count: number
 }
 
-/** A signed-in customer's placed orders, newest first; never a guest's, though the policy would let a cart token read one. */
+/** A signed-in customer's placed orders, newest first; a guest's only once linked, though the policy would let a cart token read one. */
 export const selectCustomerOrders = (tx: ScopedSql, storeId: string, customerId: string, window: PageWindow): Promise<ShopOrderSummaryRow[]> =>
   tx<ShopOrderSummaryRow[]>`
     select o.id, o.number, o.state, o.payment_state, o.payment_method, o.currency, o.total_amount::text as total_amount, o.tax_inclusive, o.placed_at,

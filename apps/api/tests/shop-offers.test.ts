@@ -299,11 +299,11 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     await db.sql`insert into promotion_usage (promotion_id, store_id, order_id, customer_email, discount_amount, currency) values (${placeOffer}, ${store}, ${o?.id ?? ''}, 'ravi@example.com', 20000, 'INR')`
     await signIn('ravi@example.com', false)
     try {
-      // A guest order and use placed with Ravi's email are no history of his account, whoever placed them.
+      // A guest order and use placed with Ravi's email are no history of his account until a sign-in links the order (ACCESS §2.1).
       const cart = await add(kurta, 1)
       expect((await apply(cart, 'PLACE20')).state).toBe('APPLIED')
       expect((await apply(cart, 'FIRSTONLY')).cart.codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
-      // Nor once the email is proven his: proving it says nothing about who typed it on those orders.
+      // Nor does proving the email by itself: only signing in links the order.
       await db.sql`update customer set email_verified_at = now() where store_id = ${store} and email = 'ravi@example.com'`
       expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
     } finally {

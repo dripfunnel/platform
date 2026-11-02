@@ -10,6 +10,7 @@ import {
   insertCode,
   insertShopper,
   insertShopperSession,
+  linkGuestOrders,
   proveShopper,
   selectCustomerAuth,
   selectLiveCode,
@@ -158,6 +159,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
         customerId = await insertShopper(tx, { storeId, channel, target, name, passwordHash, now: now() })
         await activity.record(tx, entry('customer.signed_up', customerId))
       }
+      await linkGuestOrders(tx, storeId, customerId)
       await activity.record(tx, entry('customer.signed_in', customerId))
       return { ok: true, token: await startSession(tx, customerId), customerId, created: !found }
     })
@@ -175,6 +177,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
         await activity.record(tx, entry('customer.sign_in_failed', found?.id ?? null, 'failed'))
         return { ok: false, reason: 'SIGN_IN_REFUSED' }
       }
+      await linkGuestOrders(tx, storeId, found.id)
       await activity.record(tx, entry('customer.signed_in', found.id))
       return { ok: true, token: await startSession(tx, found.id), customerId: found.id, created: false }
     })

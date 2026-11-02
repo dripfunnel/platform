@@ -218,7 +218,7 @@ export const registerCheckout = (shop: ShopBuilder) => {
     paymentOptions: t.field({ type: [Option], extensions: { access }, resolve: async (_, __, ctx) => (await checkoutOf(ctx)).options() }),
     // The shopper's own order: its account's, or a guest's with the cart token it was placed with.
     order: t.field({ type: Order, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access }, resolve: async (_, args, ctx) => (await checkoutOf(ctx)).order(String(args.id)) }),
-    // The signed-in shopper's own orders, newest first, at most 50 a page; guest orders are never listed.
+    // The signed-in shopper's own orders, newest first, at most 50 a page; a guest order only once a sign-in has linked it (ACCESS §2.1).
     orderHistory: t.field({
       type: SummaryPage,
       args: { first: t.arg.int(), after: t.arg.string() },

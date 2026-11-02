@@ -119,7 +119,10 @@ Rules for the **people** pool:
   set. Phone numbers are stored in E.164. At least one verified identifier is required.
 - With **both**, one customer may hold an email and a phone; adding the second one verifies
   it. A guest checkout with a phone links to an account with that phone **once the shopper proves
-  the number with a code** at sign-in, never by number alone (decided 2026-10-05 on #337).
+  the number with a code** at sign-in, never by number alone (decided 2026-10-05 on #337). Every sign-in
+  links the store's placed guest orders whose email or number matches one of the account's verified ones,
+  however the shopper signed in; a linked order then shows under the account's orders and no longer
+  opens with its guest token.
 - **The same email or mobile may register in any number of stores**: each store's account is
   separate, with its own password, addresses and orders, and no store can see another's.
 - Codes are hashed, short-lived, attempt-counted and rate-limited per number, per store and
