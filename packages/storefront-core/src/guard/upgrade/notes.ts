@@ -34,6 +34,16 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.8.1',
+    kind: 'patch',
+    security: false,
+    notes: [
+      'No theme has to change.',
+      "`PhoneField`'s country list no longer re-renders on every keystroke in the form around it (#1153), so a checkout with two phone fields stays quick.",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.8.0',
     kind: 'minor',
     security: false,

@@ -1,5 +1,13 @@
 # @dripfunnel/storefront-core
 
+## 0.8.1
+
+### Patch Changes
+
+- a647a2d: Nothing changes for themes or the published package (#1152). Core's own tests get 20 s each and testing-library's `waitFor` 5 s, so a loaded CI runner no longer times out the baseline checkout and listing tests.
+- d523ecf: Nothing changes for themes or the published package (#1152). A listing test switches collection in place, so it no longer depends on how a test DOM emulates a whole-page load.
+- 0dcab3e: No theme has to change. `PhoneField`'s country list no longer re-renders on every keystroke in the form around it, so a checkout with two phone fields stays quick.
+
 ## 0.8.0
 
 ### Minor Changes
