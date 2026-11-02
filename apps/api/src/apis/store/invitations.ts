@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { personJoinedStore, personPasswordReset, type RequestFacts } from '#auth/activity'
 import { hashPassword, minPasswordLength } from '#auth/password'
 import { hashSessionId } from '#auth/session'
-import { holdForEnrolment, readUserSession } from '#auth/storeSession'
+import { readUserSession } from '#auth/storeSession'
 import { userPasswordResetRequestKind } from '#auth/storeTokens'
 import { withSystemScope } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
@@ -14,8 +14,8 @@ import {
   selectUserResetByToken,
   type StoreInvitationByToken,
 } from '#db/scoped/userInvitations'
-import { selectSignInCandidate, selectUserSecondFactor } from '#db/scoped/userSignIn'
-import { admit, admitted, withSession, type Admission, type StoreAuthDeps } from './admission'
+import { selectSignInCandidate } from '#db/scoped/userSignIn'
+import { admit, admitted, type Admission, type StoreAuthDeps } from './admission'
 import { json, readBody, refuse, type Refusal } from './authHttp'
 
 // Store invitations (`/accept-invite` for a new person, `/join` for an existing account) and
@@ -63,7 +63,7 @@ export const lookUpStoreInvitation = async (request: Request, deps: StoreAuthDep
   })
 }
 
-/** A new person sets a name and a password; the session opens as sign-in would (an Owner enrols first). */
+/** A new person sets a name and a password; the session opens as sign-in would. */
 export const acceptStoreInvitation = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts): Promise<Response> => {
   const input = await readBody(request, acceptInput)
   if (!input) return refuse({ code: 'INVITATION_INVALID' })
@@ -92,7 +92,7 @@ export const joinStore = async (request: Request, deps: StoreAuthDeps, facts: Re
   const input = await readBody(request, tokenInput)
   if (!input) return refuse({ code: 'INVITATION_INVALID' })
   const now = deps.now()
-  const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | { enrol: boolean }> => {
+  const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | null> => {
     const session = sessionId ? await readUserSession(tx, sessionId, deps.partnerId, now) : null
     if (!sessionId || !session) return { code: 'INVALID_CREDENTIALS' }
     const found = await findOpen(tx, deps, input.token, now)
@@ -101,14 +101,9 @@ export const joinStore = async (request: Request, deps: StoreAuthDeps, facts: Re
     if (found.user_id !== session.userId || found.user_status !== 'active') return { code: 'INVITATION_INVALID' }
     if (!(await acceptAsExistingPerson(tx, found, session.userId, now))) return { code: 'INVITATION_INVALID' }
     await deps.activity.record(tx, personJoinedStore({ id: session.userId, partnerId: deps.partnerId }, facts, { id: found.store_id, name: found.store_name }, found.seller_id, found.role_key))
-    const state = await selectUserSecondFactor(tx, session.userId)
-    const enrol = !!state && state.is_owner && state.two_factor_method === null
-    if (enrol) await holdForEnrolment(tx, sessionId, now)
-    return { enrol }
+    return null
   })
-  if ('code' in outcome) return refuse(outcome)
-  if (!outcome.enrol || !sessionId) return json(200, { ok: true, step: 'done' })
-  return withSession(request, { ok: true, step: 'enrol' }, { id: sessionId, remember: false, stage: 'enrol' })
+  return outcome ? refuse(outcome) : json(200, { ok: true, step: 'done' })
 }
 
 // The same answer, and the same single write, whether or not the email has an account here

@@ -86,18 +86,17 @@ describe('creating another store', () => {
     expect(await db.sql`select 1 from "user" where email = 'owner@a.example'`).toHaveLength(1)
   })
 
-  it('lets a Manager, Staff member and supplier each open one, holding the new Owner at 2-factor set-up', async () => {
+  it('lets a Manager, Staff member and supplier each open one, leaving the new Owner in a full session (#1008)', async () => {
     const manager = await person('manager@a.example', { storeId: t.storeA1, role: 'manager' })
     const staff = await person('staff@a.example', { storeId: t.storeA2, role: 'staff' })
     const supplier = await person('supplier@a.example', { storeId: t.storeA1, role: 'supplier-admin', sellerId: t.sellerA1First })
     for (const [who, slug] of [[manager, 'kesari-manager'], [staff, 'kesari-staff'], [supplier, 'kesari-supplier']] as const) {
       const before = await membershipsOf(who.id)
       const made = await create(who.session, slug)
-      expect(made.body).toMatchObject({ ok: true, step: 'enrol' })
-      expect(made.setCookie).toContain('__Host-portal_session=')
+      expect(made.body).toMatchObject({ ok: true, step: 'done' })
       expect(await membershipsOf(who.id)).toEqual([...before, { store_id: made.body['storeId'], role_key: 'owner', seller_id: null }])
       const [session] = await db.sql<{ stage: string }[]>`select stage from user_session where user_id = ${who.id}`
-      expect(session?.stage).toBe('enrol')
+      expect(session?.stage).toBe('full')
     }
   })
 
@@ -143,7 +142,7 @@ describe('creating another store', () => {
     expect((await create(owner.session, 'kesari-over')).body).toEqual({ ok: false, code: 'STORE_LIMIT', limit: 5 })
     const colleague = await person('colleague@a.example', { storeId: t.storeA2, role: 'manager' })
     await db.sql`insert into membership (user_id, store_id, role_key, status) select ${colleague.id}, m.store_id, 'staff', 'active' from membership m join store s on s.id = m.store_id where m.user_id = ${owner.id} and s.code like 'full-own-%'`
-    expect((await create(colleague.session, 'kesari-colleague')).body).toMatchObject({ ok: true, step: 'enrol' })
+    expect((await create(colleague.session, 'kesari-colleague')).body).toMatchObject({ ok: true, step: 'done' })
     await db.sql`update store set status = 'closed' where code = 'full-own-1'`
     expect((await create(owner.session, 'kesari-after-close')).body).toMatchObject({ ok: true, step: 'done' })
   })

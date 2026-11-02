@@ -214,7 +214,7 @@ export const sendSignupPhoneCode = async (request: Request, deps: StoreAuthDeps,
 
 /**
  * Step 4b: the texted code proves the number, and the store is made in the same transaction (SAAS.md §5,
- * steps 1–3). The Owner then sets up 2-factor before anything else answers (ACCESS.md §4).
+ * steps 1–3). The Owner's session then opens as sign-in would: 2-factor is optional (ACCESS.md §4, #1008).
  */
 export const verifySignupPhone = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null, failAt?: FailAt): Promise<Response> => {
   const input = await readBody(request, codeInput)

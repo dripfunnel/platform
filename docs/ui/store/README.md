@@ -21,7 +21,7 @@ controls reach the states. `designs/DF Store Pricing.dc.html` says what each pla
 which is what the portal's plan gates and upgrade prompts follow. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-11-01 (#1112: `/support/enter`, §6). Before: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
+Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, My profile, the settled 2-factor question). Before: 2026-11-01 (#1112: `/support/enter`, §6). Before: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
 
 | Document | Covers |
 |---|---|
@@ -115,8 +115,7 @@ Keys: `owner`, `manager`, `staff`; supplier access levels `vendor-stock`, `vendo
 `vendor-orders-fulfil`, set by the merchant **per supplier**, as is the supplier's **shipping
 mode**, `to-store` or `to-shopper` (ACCESS.md §5.2, decided 2026-10-02). Inside a supplier,
 its own team roles: **Supplier admin** (manages the supplier's team) and **Supplier member**
-(DATA-MODEL.md §4.2, decided 2026-10-02). **2-factor is required for Owners and optional for
-everyone else** (ACCESS.md §2).
+(DATA-MODEL.md §4.2, decided 2026-10-02). **2-factor is optional for everyone, Owners included, and off by default** (ACCESS.md §2; decided 2026-10-29 on #1008, reversing 2026-10-02's "required for Owners").
 A fourth vendor tier, `vendor-orders-read` (own sales, no fulfilment), is defined but not
 offered on the Suppliers screen (ACCESS.md §5).
 
@@ -264,6 +263,6 @@ they change this portal:
 - ~~Staff: export, and a read-only offers list?~~ **Decided 2026-10-04 on #184**: both yes.
 - Vendors: ~~import/export~~ (own only, #184), translations, other-currency prices, collections?
 - ~~2-factor for Owners only, or everyone.~~ **Settled 2026-10-02**: Owners required, others
-  optional (ACCESS.md §2).
+  optional (ACCESS.md §2). **Reversed 2026-10-29 (#1008): optional for everyone, Owners included.**
 - Whether past due blocks sign-in, and what happens to the store's vendors.
 - Shopper sign-in options may be limited by the partner's plans? (ACCESS.md §2.1)

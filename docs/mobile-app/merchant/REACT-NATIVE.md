@@ -12,7 +12,7 @@ How builds, partners and store accounts work is in
 
 **Status: the project is set up (#496), its foundations are built (#497: the API client, formatting on Hermes, messages and the partner's look) and so are getting in and My profile (#498), the shell (#499), Products (#500), Collections (#501) and Import & export (#505).** The other screens are placeholders. The Hermes check has passed on Android; iOS is still to run (§6).
 
-Last updated: 2026-10-23 (#853: the foundations move to `@dripfunnel/mobile-shared`, §1–§2, §6). Before: 2026-10-16 (#505: the status line names Import & export). Before: 2026-10-15 (#501: the status line names Collections). Before: 2026-10-14 (#500: the status line names the shell and Products). Before: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
+Last updated: 2026-11-02 (#1008: no Owner is held at `enrol`, §sign-in). Before: 2026-10-23 (#853: the foundations move to `@dripfunnel/mobile-shared`, §1–§2, §6). Before: 2026-10-16 (#505: the status line names Import & export). Before: 2026-10-15 (#501: the status line names Collections). Before: 2026-10-14 (#500: the status line names the shell and Products). Before: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
 
 ---
 
@@ -167,8 +167,9 @@ loading the partner's look don't.
   that cannot remove the token tries twice, then marks the device signed out in AsyncStorage, so the next start
   does not use the token it left behind and tries the removal again; a new sign-in replaces it and clears the mark.
 - **After the password:** `done` opens the session; `second-factor` asks for the code (an authenticator app's,
-  or a text sent as the step opens), a backup code stands in for it; `enrol` holds an Owner at set-up by text
-  message, then shows the ten backup codes once before the session opens.
+  or a text sent as the step opens), a backup code stands in for it; `enrol` holds a session at set-up by text
+  message, then shows the ten backup codes once before the session opens; no Owner is held there since #1008
+  (2-factor is optional), so it serves only a team that requires it (ACCESS.md §14.4).
 - **The stores.** `myStores` after sign-in: none is refused ("This account doesn't belong to a store here"),
   one opens directly, several show the chooser with the last store first. This is read at every start, so a person
   in several stores sees the chooser each time, as ARCHITECTURE.md §4 step 5 says. A last store that is no longer

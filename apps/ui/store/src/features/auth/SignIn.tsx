@@ -26,8 +26,8 @@ type View =
 
 export interface SignInProps {
   next: string | undefined
-  /** Where a session already started stands: an Owner made by sign-up or an invitation sets up two-step
-   *  sign-in; a reset still owes its second factor. The pending cookie is already set. */
+  /** Where a session already started stands: a reset still owes its second factor, and set-up is only for a team that
+   *  requires 2-factor (#1008; ACCESS.md §14.4). The pending cookie is already set. */
   resume?: { step: 'enrol' } | { step: 'second-factor'; method: 'app' | 'sms' } | undefined
   /** Why the person is here: signed out, or their session expired (FIRST-RELEASE §3.3). */
   note?: 'signedOut' | 'expired' | undefined

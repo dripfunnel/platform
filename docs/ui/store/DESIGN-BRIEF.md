@@ -9,7 +9,7 @@ new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-22 (six kinds of user). Before: 2026-10-05.
+Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, My profile). Before: 2026-10-22 (six kinds of user). Before: 2026-10-05.
 
 Paste §1 to start a design session, then name a flow from §3.
 
@@ -197,7 +197,7 @@ line says who it is for and the thing most likely to be missed.
     person, who may belong to others.
 13. **My profile**: everyone (`PortalProfile`, designed 2026-10-02). Name, email (changed
     through a link to the new address), mobile number, password (changing it signs out every
-    other device), **two-step sign-in** (required for Owners, optional for everyone else;
+    other device), **two-step sign-in** (optional for everyone, Owners included, #1008;
     authenticator app or SMS; ten backup codes shown once), appearance (light or dark) and
     **where you're signed in** with "Sign out everywhere else" (ACCESS.md §2, §4).
 
@@ -463,7 +463,7 @@ will probably settle them; flag them when you hit one rather than assuming:
   the acting store against the session's memberships on every request (the first platform's AUTH-PLAN
   §3.2 and its settled questions, now [ACCESS.md](../../api/ACCESS.md)).
 - ~~Whether two-factor authentication applies to Owners only or everyone (flow 13).~~
-  **Settled 2026-10-02:** required for Owners, optional for everyone else (ACCESS.md §2).
+  **Settled 2026-10-02:** required for Owners, optional for everyone else (ACCESS.md §2). **Reversed 2026-10-29 (#1008): optional for everyone, Owners included.**
 - ~~Whether a vendor may create their own warehouses, or the merchant creates them on
   the vendor's behalf (flow 31).~~ **Settled by the first platform's Settings design and build:** a
   supplier's locations are the supplier's. The merchant sees them in the Warehouse tab, in

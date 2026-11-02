@@ -27,8 +27,6 @@ export const profileRefusal = (error: unknown, fallback: string): string => {
       return words.details.phoneLocked
     case 'PHONE_REQUIRED':
       return words.twoStep.needPhone
-    case 'SECOND_FACTOR_REQUIRED':
-      return words.twoStep.ownerKeeps
     case 'WRONG_CODE':
       return messages.auth.secondFactor.wrongPlain
     case 'CODE_EXPIRED':

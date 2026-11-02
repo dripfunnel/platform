@@ -72,7 +72,7 @@ describe('creating another store', () => {
     expect(calls.some((c) => c.route.startsWith('sign-up'))).toBe(false)
   })
 
-  it('sends a new Owner without two-step sign-in to set it up first', async () => {
+  it('sends a held session to its set-up step when the server answers enrol (none does for a new Owner since #1008)', async () => {
     serve({ 'new-store/options': [options, options], 'new-store': [{ ok: true, step: 'enrol', storeId: 'store-new' }] })
     const { NewStore } = await import('./NewStore')
     const router = await show(<NewStore />)

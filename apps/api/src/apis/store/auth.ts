@@ -49,7 +49,7 @@ export type { StoreAuthDeps } from './admission'
 
 // Sign-in on a partner's portal host (ACCESS.md §2, §4; FIRST-RELEASE §4; #290): the same shape
 // as the partner console's (apis/platform/auth.ts), with SMS codes and backup codes besides an
-// authenticator app, and 2-factor required of every Owner.
+// authenticator app, and 2-factor optional for everyone, Owners included (#1008).
 
 const paths = {
   signIn: '/api/auth/sign-in',
@@ -252,7 +252,7 @@ const backupCode = async (request: Request, deps: StoreAuthDeps, facts: RequestF
   return 'code' in outcome ? refuse(outcome) : withSession(request, { ok: true, left: outcome.left }, admitted)
 }
 
-/** An Owner's 2-factor set-up, by app or by SMS, ending with the ten backup codes (ACCESS.md §4). */
+/** 2-factor set-up for a session held at enrolment, by app or SMS, ending with the ten backup codes; only a team that requires 2-factor reaches it (ACCESS.md §4, §14.4). */
 const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, sessionId: string | null): Promise<Response> => {
   const input = await readBody(request, enrolInput)
   const now = deps.now()

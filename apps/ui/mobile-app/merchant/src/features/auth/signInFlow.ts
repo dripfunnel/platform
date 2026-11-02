@@ -9,7 +9,7 @@ export type FlowDeps = { rest: RestOptions; session: SessionStore; pending: Pend
 export type NextScreen = 'done' | 'second-factor' | 'enrol'
 
 // ACCESS.md §4: a proven password opens a session as far as the person's second factor allows. A person with no
-// second factor is signed in; one with it must give a code; an Owner without it is held at set-up.
+// second factor is signed in, Owners included (#1008); one with it must give a code.
 export const startSignIn = async (deps: FlowDeps, email: string, password: string): Promise<NextScreen> => opened(deps, await signIn(deps.rest, email, password))
 
 /** Google proves the address; what opens is what a password would open, second factor included (ACCESS.md §2). */

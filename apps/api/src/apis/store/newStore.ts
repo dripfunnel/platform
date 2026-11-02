@@ -1,11 +1,10 @@
 import type { RequestFacts } from '#auth/activity'
-import { holdForEnrolment, readUserSession } from '#auth/storeSession'
+import { readUserSession } from '#auth/storeSession'
 import { countryOf } from '#core/countries'
 import { serialise, withSystemScope } from '#db/scoped/index'
 import { countOwnStores, countStoresCreatedSince, selectOwnNewStore, selectPartnerState } from '#db/scoped/signup'
-import { selectUserSecondFactor } from '#db/scoped/userSignIn'
 import { provisionStore, type FailAt } from '#saas/provisioning/index'
-import { withSession, type StoreAuthDeps } from './admission'
+import type { StoreAuthDeps } from './admission'
 import { json, readBody, refuse } from './authHttp'
 import { checkStoreStep, isRefusal, offeredCountries, refuseSignup, startsPerPartnerPerHour, storeInput, suggestionsFor, type SignupRefusal } from './signup'
 
@@ -31,7 +30,7 @@ export const newStoreOptions = async (deps: StoreAuthDeps, sessionId: string | n
   return isRefusal(outcome) ? refuseSignup(outcome) : json(200, { ok: true, countries: outcome.countries, shopDomain: deps.shopDomain ?? null })
 }
 
-/** Makes the store in one transaction (SAAS.md §5 steps 1–3); an Owner without 2-factor is then held at enrolment (ACCESS.md §4). */
+/** Makes the store in one transaction (SAAS.md §5 steps 1–3). */
 export const createAnotherStore = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, sessionId: string | null, inSupport: boolean, failAt?: FailAt): Promise<Response> => {
   if (inSupport) return refuse({ code: 'FORBIDDEN' })
   const input = await readBody(request, storeInput)
@@ -40,13 +39,13 @@ export const createAnotherStore = async (request: Request, deps: StoreAuthDeps, 
   const user = sessionId ? await withSystemScope(deps.sql, (tx) => readUserSession(tx, sessionId, deps.partnerId, now)) : null
   if (!sessionId || !user) return refuse({ code: 'INVALID_CREDENTIALS' })
   if (!(await deps.allowAttempt(`store:${deps.host}:new-store:${user.userId}`))) return refuse({ code: 'RATE_LIMITED' })
-  const outcome = await withSystemScope(deps.sql, async (tx): Promise<SignupRefusal | { storeId: string; enrol: boolean }> => {
+  const outcome = await withSystemScope(deps.sql, async (tx): Promise<SignupRefusal | { storeId: string }> => {
     if (!(await readUserSession(tx, sessionId, deps.partnerId, now))) return { code: 'INVALID_CREDENTIALS' }
     if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return { code: 'SIGNUP_CLOSED' }
     // Before the retry and the count, so parallel requests from one person see each other's store.
     await serialise(tx, `new_store:${user.userId}`)
     const again = await selectOwnNewStore(tx, deps.partnerId, user.userId, input.subdomain.trim(), new Date(now.getTime() - retryMs))
-    if (again) return { storeId: again, enrol: false }
+    if (again) return { storeId: again }
     if ((await countOwnStores(tx, user.userId)) >= storesPerPerson) return { code: 'STORE_LIMIT', limit: storesPerPerson }
     if ((await countStoresCreatedSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000))) >= startsPerPartnerPerHour) return { code: 'RATE_LIMITED' }
     const store = await checkStoreStep(tx, deps.partnerId, input, null)
@@ -70,12 +69,8 @@ export const createAnotherStore = async (request: Request, deps: StoreAuthDeps, 
       visibility: 'store',
       ...facts,
     })
-    const state = await selectUserSecondFactor(tx, user.userId)
-    const enrol = !!state && state.is_owner && state.two_factor_method === null
-    if (enrol) await holdForEnrolment(tx, sessionId, now)
-    return { storeId: made.storeId, enrol }
+    return { storeId: made.storeId }
   })
   if (isRefusal(outcome)) return refuseSignup(outcome)
-  const body = { ok: true, step: outcome.enrol ? 'enrol' : 'done', storeId: outcome.storeId }
-  return outcome.enrol ? withSession(request, body, { id: sessionId, remember: false, stage: 'enrol' }) : json(200, body)
+  return json(200, { ok: true, step: 'done', storeId: outcome.storeId })
 }
