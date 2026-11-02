@@ -191,7 +191,8 @@ export type GateReport = z.infer<typeof gateReport>
 
 // jsonb keeps no key order, so a stored report is compared field by field.
 const checksOf = (gate: Record<string, unknown>) => JSON.stringify((Array.isArray(gate['checks']) ? (gate['checks'] as Record<string, unknown>[]) : []).map((c) => [c['name'], c['passed'], c['detail'] ?? null]))
-const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>) => stored['passed'] === sent['passed'] && checksOf(stored) === checksOf(sent)
+// The decision is not compared: a retry is answered with the stored one, whatever PUBLISH_CHECKS says now.
+const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>) => checksOf(stored) === checksOf(sent)
 
 /**
  * Step `check` (LIVE-SHOP §4 step 7): the report, once; a retry of the same report is answered as the first was, and wakes
@@ -202,7 +203,7 @@ export const reportBuild = async (deps: BuildDeps, token: string, report: GateRe
     const passed = deps.checksOff === true || report.checks.every((c) => c.passed || !blocks(c.name, keepsLook(build)))
     const gate = { passed, checks: report.checks }
     if (build.gate !== null) {
-      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, passed), wake: build.attempt_of ?? build.id }
+      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, build.gate['passed'] === true), wake: build.attempt_of ?? build.id }
       throw new BuildRefused('wrong_state')
     }
     if (build.state !== 'building' && build.state !== 'checking') throw new BuildRefused('wrong_state')

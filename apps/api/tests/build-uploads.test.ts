@@ -264,6 +264,13 @@ describe('the verdict (#806)', () => {
     expect(await reportBuild({ ...deps, checksOff: true }, auth, sent(id, false, [{ name: 'sealed', passed: false, detail: 'Broken.' }]))).toEqual({ passed: true, upload: true })
     expect(await run(id)).toMatchObject({ state: 'deploying', gate: { passed: true, checks: [{ name: 'sealed', passed: false }] } })
   })
+  it('answers a retried report as the first was, even after PUBLISH_CHECKS changes', async () => {
+    const id = await newBuild(t.storeA1)
+    const auth = await token(claimsFor(repos.a1, '5902'))
+    const failing = sent(id, false, [{ name: 'sealed', passed: false, detail: 'Broken.' }])
+    expect(await reportBuild({ ...deps, checksOff: true }, auth, failing)).toEqual({ passed: true, upload: true })
+    expect(await reportBuild({ ...deps, checksOff: false }, auth, failing)).toEqual({ passed: true, upload: true })
+  })
   it('refuses a look that changed when the publish must keep it (a core upgrade), and only suggests otherwise', async () => {
     const id = await newBuild(t.storeA1)
     await db.sql`update publish_run set kind = 'upgrade' where id = ${id}`

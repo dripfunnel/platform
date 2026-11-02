@@ -218,6 +218,7 @@ moment you save.
 | `HOOKS_HOST` | Text | `hooks.dripfunnel.ai` | fixed |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | in the same release as the binding (§3.4) |
 | `CODE_CHECK` | Text | unset (codes are checked) | `0` accepts any text (SMS) code, so anyone who knows a phone number can sign in to that account, 2-factor included; email codes are always checked (#1002). Set it on prod only knowingly |
+| `PUBLISH_CHECKS` | Text | unset (checks refuse) | `off` stops every failing check, `sealed`, `checkout`, `validator` and `content` included, from refusing a store build's publish, so AI-written code that breaks them goes live on every store. The report is still kept (#1164). Set it on prod only knowingly |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Store it in the password manager **before** saving it. Losing it makes every encrypted 2-factor secret and partner or merchant credential unreadable for good; it carries a version for rotation (THIRD-PARTY-ACCESS.md §5) |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center (THIRD-PARTY-ACCESS.md §2.5). Redirect URI `https://admin.dripfunnel.ai/api/auth/callback`. The client secret expires (24 months at most): note the date |
 | `STRIPE_SECRET_KEY` | Secret | **live** restricted key `rk_live_…` | Stripe (live mode) › Developers › API keys › *Create restricted key*, with only the permissions in THIRD-PARTY-ACCESS.md §8 |
@@ -277,7 +278,7 @@ version still running (AGENTS.md "Data").
 - [ ] Routes, console hostnames, Access on admin (§3.5)
 - [ ] GitHub environment `prod`, with required reviewers (§3.6)
 - [ ] `main` protected (§3.7)
-- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any text code on prod
+- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset unless you accept any text code on prod; `PUBLISH_CHECKS` unset unless you accept unchecked store builds on prod
 - [ ] SES production access granted
 - [ ] The first super admin can sign in (§7)
 - [ ] Own delivery for the pilot store, every row of §3.9 checked and its walkthrough recorded on #875
