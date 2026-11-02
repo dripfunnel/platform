@@ -19,8 +19,8 @@ const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   photos: [{ id: 'ph1', assetId: 'a1', url: '/api/assets/a1', alt: 'Front', versionId: null }],
   options: [{ id: 'o1', name: 'Size', values: [{ id: 'v-s', name: 'S' }, { id: 'v-m', name: 'M' }] }],
   versions: [
-    { id: 'ver-s', choices: ['S'], name: null, sku: 'MARA-S', barcode: null, visible: true, prices: [{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000', compareAtAmount: null }], cost: { currency: 'INR', amount: '90000' }, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
-    { id: 'ver-m', choices: ['M'], name: null, sku: null, barcode: null, visible: false, prices: [{ currency: 'INR', amount: '279900', compareAtAmount: null }], cost: null, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+    { id: 'ver-s', choices: ['S'], name: null, sku: 'MARA-S', barcode: null, visible: true, prices: [{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000', compareAtAmount: null }], cost: { currency: 'INR', amount: '90000' }, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+    { id: 'ver-m', choices: ['M'], name: null, sku: null, barcode: null, visible: false, prices: [{ currency: 'INR', amount: '279900', compareAtAmount: null }], cost: null, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', trackStock: true, continueSelling: false },
   ],
   readiness: [],
   ...p,
@@ -36,7 +36,7 @@ describe('the editor’s draft (CatEditor)', () => {
       [['M'], '2799.00', '', '', '', false],
     ])
     expect(d.versions[0]?.otherPrices).toEqual([{ currency: 'USD', amount: '3000', compareAtAmount: null }])
-    expect([d.weight, d.box, d.hsCode, d.taxClassId]).toEqual(['0.4', '25 × 20 × 3', '6205', 'tc5'])
+    expect([d.weight, d.box, d.hsCode, d.taxClassId]).toEqual(['0.4', '25 × 20 × 3', '620520', 'tc5'])
   })
 
   it('makes every combination of the choices, keeping the versions that match and pricing new ones like the first', () => {
@@ -64,6 +64,8 @@ describe('the editor’s draft (CatEditor)', () => {
     expect(problemsOf({ ...priced, options: [{ id: null, name: 'Size', values: [{ id: null, name: 'S' }] }] }, 'INR')).toEqual(['versions'])
     expect(problemsOf({ ...priced, options: [{ id: null, name: 'Size', values: [] }] }, 'INR')).toContain('options')
     expect(problemsOf({ ...priced, weight: 'heavy' }, 'INR')).toEqual(['weight'])
+    for (const hsCode of ['7113', 'ABC-necklace', '71131900123', '7113 19']) expect(problemsOf({ ...priced, hsCode }, 'INR')).toEqual(['hsCode'])
+    for (const hsCode of ['', '  ', '711319', '71131900', ' 711319 ']) expect(problemsOf({ ...priced, hsCode }, 'INR')).toEqual([])
     // A version not made needs no price.
     const d = draftOf(product(), 'INR')
     expect(problemsOf({ ...d, versions: d.versions.map((v, i) => (i === 1 ? { ...v, price: '', removed: true } : v)) }, 'INR')).toEqual([])
@@ -86,7 +88,7 @@ describe('the editor’s draft (CatEditor)', () => {
     const d = draftOf(product({ photos: [{ id: 'ph1', assetId: 'a1', url: '', alt: 'Front', versionId: null }, { id: 'ph2', assetId: 'a2', url: '', alt: '', versionId: 'ver-m' }] }), 'INR')
     const merchant = inputOf({ ...d, versions: d.versions.map((v, i) => (i === 0 ? { ...v, removed: true } : v)) }, 'INR', 'merchant')
     expect(merchant.versions).toEqual([
-      { id: 'ver-m', choices: ['M'], sku: null, visible: false, prices: [{ currency: 'INR', amount: '279900' }], weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+      { id: 'ver-m', choices: ['M'], sku: null, visible: false, prices: [{ currency: 'INR', amount: '279900' }], weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '620520', taxClassId: 'tc5', trackStock: true, continueSelling: false },
     ])
     expect(merchant.photos).toEqual([{ assetId: 'a1', alt: 'Front' }, { assetId: 'a2', version: 0 }])
     expect(merchant.visible).toBe(true)
@@ -107,9 +109,9 @@ describe('the editor’s draft (CatEditor)', () => {
   })
 
   it('keeps each version’s own shipping unless the field is changed, then gives it to every version', () => {
-    const two = product({ versions: product().versions.map((v, i) => ({ ...v, weightGrams: i === 0 ? 400 : 650, hsCode: '6205' })) })
+    const two = product({ versions: product().versions.map((v, i) => ({ ...v, weightGrams: i === 0 ? 400 : 650, hsCode: '620520' })) })
     const d = draftOf(two, 'INR')
-    expect([d.weight, d.hsCode]).toEqual(['', '6205'])
+    expect([d.weight, d.hsCode]).toEqual(['', '620520'])
     expect(inputOf(d, 'INR', 'merchant').versions.map((v) => v.weightGrams)).toEqual([400, 650])
     const set = { ...d, weight: '1', shippingChanged: { ...d.shippingChanged, weight: true } }
     expect(inputOf(set, 'INR', 'merchant').versions.map((v) => v.weightGrams)).toEqual([1000, 1000])

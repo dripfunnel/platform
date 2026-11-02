@@ -429,7 +429,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       const limit = await planLimitFor(ctx.sql, actingCaller(ctx).context, { key: 'products', total: result.wanted }, ctx.now())
       throw new GraphQLError(words.PLAN_LIMIT, { extensions: { code: 'PLAN_LIMIT', key: 'products', limit: limit?.limit ?? 0, unlockedBy: limit?.unlockedBy ?? null } })
     }
-    const facts = result.reason === 'STALE_REVISION' ? { revision: result.revision } : {}
+    const facts = result.reason === 'STALE_REVISION' ? { revision: result.revision } : result.reason === 'INVALID_INPUT' && result.field ? { field: result.field } : {}
     throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...facts } })
   }
 

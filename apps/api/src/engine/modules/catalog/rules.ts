@@ -283,6 +283,17 @@ const whole = (value: number | null | undefined, max: number): number | null | f
   return Number.isInteger(value) && value >= 0 && value <= max ? value : false
 }
 
+export type VersionField = 'hsCode' | 'weight' | 'box'
+
+/** The shipping field that makes a version invalid, for the refusal to name (a classification code is 6 to 10 digits). */
+export const invalidVersionField = (v: VersionInput): VersionField | null => {
+  const hsCode = text(v.hsCode, 10)
+  if (hsCode === false || (hsCode !== null && !/^\d{6,10}$/.test(hsCode))) return 'hsCode'
+  if (whole(v.weightGrams, 10_000_000) === false) return 'weight'
+  if ([v.lengthMm, v.widthMm, v.heightMm].some((side) => whole(side, 100_000) === false)) return 'box'
+  return null
+}
+
 const keyOf = (name: string) => name.trim().toLowerCase()
 
 const price = (p: PriceInput): CleanPrice | null => {
@@ -305,10 +316,9 @@ const cleanVersion = (v: VersionInput, optionCount: number, pricingCurrency: str
   const hsCode = text(v.hsCode, 10)
   if (sku === false || name === false || customs === false || barcode === false || hsCode === false) return 'INVALID_INPUT'
   if (barcode !== null && !isBarcode(barcode)) return 'INVALID_BARCODE'
-  if (hsCode !== null && !/^\d{6,10}$/.test(hsCode)) return 'INVALID_INPUT'
+  if (invalidVersionField(v)) return 'INVALID_INPUT'
   if (v.taxClassId != null && !isUuid(v.taxClassId)) return 'INVALID_INPUT'
   const sizes = [whole(v.weightGrams, 10_000_000), whole(v.lengthMm, 100_000), whole(v.widthMm, 100_000), whole(v.heightMm, 100_000)]
-  if (sizes.includes(false)) return 'INVALID_INPUT'
   const currencies = new Set<string>()
   const prices: CleanPrice[] = []
   for (const p of v.prices) {
