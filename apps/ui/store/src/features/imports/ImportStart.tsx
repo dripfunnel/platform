@@ -45,6 +45,11 @@ interface StartProps {
 /** Choose: a spreadsheet, Shopify (its export files, or a connected shop), or the template; the file's refusal said in CatImport's words. */
 export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, locked, canUpgrade, currencies, onMode, onFile, onShopifyFiles, onTemplate, onConnected }: StartProps) => {
   const picker = useRef<HTMLInputElement>(null)
+  const loading = useRef<HTMLDivElement>(null)
+  // The card just used is disabled while it holds focus, so focus moves to the loading notice (WCAG 2.4.3).
+  useEffect(() => {
+    if (checking) loading.current?.focus()
+  }, [checking])
   const choose = () => picker.current?.click()
   const s = words.sources
   const sources = [
@@ -77,7 +82,11 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
           if (file) onFile(file)
         }}
       />
-      {checking && <LoadingState label={words.checking.file} />}
+      {checking && (
+        <div ref={loading} tabIndex={-1} className="df-import-loading">
+          <LoadingState label={words.checking.file} />
+        </div>
+      )}
       {said && !checking && (
         <div className="df-import-problem" role="alert">
           <strong>{said.title}</strong>
