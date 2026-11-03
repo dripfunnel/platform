@@ -42,7 +42,8 @@ const Legal = ({ links }: { links: LegalLink[] }) => (
 
 export interface AuthFrameProps {
   panel: Panel
-  title: string
+  /** Left out while a view is only loading: no heading yet. */
+  title?: string | undefined
   sub?: ReactNode
   back?: { label: string; onBack: () => void } | undefined
   /** The sign-up's four steps (0–3), or `building` for the last bar. */
@@ -155,12 +156,14 @@ export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, childre
                 {'name' in icon ? <Icon name={icon.name} size={22} /> : icon.letter}
               </span>
             )}
-            <div className="df-portal-auth-heading">
-              <h1 ref={heading} tabIndex={-1}>
-                {title}
-              </h1>
-              {sub && <p>{sub}</p>}
-            </div>
+            {title !== undefined && (
+              <div className="df-portal-auth-heading">
+                <h1 ref={heading} tabIndex={-1}>
+                  {title}
+                </h1>
+                {sub && <p>{sub}</p>}
+              </div>
+            )}
             {notice && (
               <p role={notice.tone === 'error' ? 'alert' : 'status'} className={`df-portal-auth-notice df-portal-auth-notice--${notice.tone}`}>
                 {notice.text}

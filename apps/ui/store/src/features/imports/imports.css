@@ -428,6 +428,78 @@
   font-weight: 600;
 }
 
+.df-import-locations {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+  font-weight: 600;
+}
+
+.df-import-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-import-tabs button {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-import-tabs button[aria-selected='true'] {
+  border-bottom-color: var(--df-color-brand);
+  color: var(--df-color-heading);
+}
+
+.df-import-files {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.df-import-file {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.df-import-file-label {
+  font-weight: 700;
+}
+
+.df-import-file-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* The picker is a label, which the kit's button styles don't centre. */
+.df-import-file-row .df-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.df-import-files + .df-button {
+  align-self: flex-start;
+}
+
 .df-import-place select {
   height: 38px;
   padding: 0 10px;
@@ -573,6 +645,10 @@
     grid-template-columns: 1fr;
   }
 
+  .df-import-files {
+    grid-template-columns: 1fr;
+  }
+
   .df-import-fix-row {
     grid-template-columns: 60px minmax(0, 1fr);
   }
@@ -580,4 +656,37 @@
   .df-import-fix-row > :last-child {
     grid-column: 1 / -1;
   }
+}
+
+.df-import-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border: 2px solid var(--df-color-border);
+  border-top-color: var(--df-color-link);
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: df-import-spin 0.8s linear infinite;
+}
+
+@keyframes df-import-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .df-import-spinner {
+    animation: none;
+  }
+}
+
+.df-import-card[aria-busy='true'] .df-import-files,
+.df-import-card[aria-busy='true'] .df-import-place {
+  opacity: 0.6;
+}
+
+.df-import-loading:focus {
+  outline: none;
 }

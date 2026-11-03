@@ -9,7 +9,7 @@ import type { ProductQuery } from './products'
 export const importStates = ['checking', 'ready', 'running', 'done', 'failed', 'unreadable'] as const
 export type ImportState = (typeof importStates)[number]
 
-const problemSchema = z.object({ line: z.number().int(), column: z.string().nullable(), code: z.string(), message: z.string() })
+const problemSchema = z.object({ line: z.number().int(), column: z.string().nullable(), code: z.string(), message: z.string(), file: z.string().nullable() })
 export type ImportProblem = z.infer<typeof problemSchema>
 
 const importSchema = z.object({
@@ -26,12 +26,17 @@ const importSchema = z.object({
   failed: z.number().int(),
   photosPending: z.number().int(),
   problemCount: z.number().int(),
+  /** The Shopify locations an inventory file gave counts for, to match to warehouses. */
+  locations: z.array(z.string()),
+  /** Set when the file's prices were converted to the store's pricing currency, at the rates of day `on`. */
+  conversion: z.object({ from: z.string(), to: z.string(), on: z.string() }).nullable(),
+  stockCounted: z.boolean(),
   problems: z.array(problemSchema),
   problemsCsv: z.string().nullable(),
 })
 export type CatalogImport = z.infer<typeof importSchema>
 
-const importFields = 'id state source products ready matched done created updated skipped failed photosPending problemCount problems { line column code message } problemsCsv'
+const importFields = 'id state source products ready matched done created updated skipped failed photosPending problemCount locations conversion { from to on } stockCounted problems { line column code message file } problemsCsv'
 
 /** The largest file the API takes (FILE_TOO_LARGE), checked here first so a big file isn't sent at all. */
 export const maxImportBytes = 5 * 1024 * 1024
@@ -42,11 +47,38 @@ export const loadImport = async (id: string): Promise<CatalogImport | null> =>
 /** The caller's own recent imports, newest first: the shell finds a run still going here after a reload. */
 export const loadImports = async (): Promise<CatalogImport[]> => (await query(`{ catalogImports { ${importFields} } }`, z.object({ catalogImports: z.array(importSchema).nullable() }))).catalogImports ?? []
 
-export const startFileImport = async (file: string): Promise<string> =>
-  (await query('mutation S($f: String!) { startCatalogImport(file: $f) }', z.object({ startCatalogImport: z.string() }), { f: file })).startCatalogImport
+/**
+ * `source` is the option the file came from, so the server refuses the other kind; `inventory` is Shopify's inventory
+ * file; `currency` is the one the file's prices are in when it isn't the store's pricing currency.
+ */
+export const startFileImport = async (file: string, source: 'csv' | 'shopify', inventory: string | null, currency: string | null): Promise<string> =>
+  (
+    await query(
+      'mutation S($f: String!, $s: CatalogImportSource, $i: String, $c: String) { startCatalogImport(file: $f, source: $s, inventory: $i, currency: $c) }',
+      z.object({ startCatalogImport: z.string() }),
+      { f: file, s: source, i: inventory, c: currency },
+    )
+  ).startCatalogImport
 
-export const confirmImport = async (id: string, matching: 'update' | 'skip', warehouseId: string | null): Promise<void> => {
-  await query('mutation C($id: ID!, $m: CatalogImportMatching!, $w: ID) { confirmCatalogImport(id: $id, matching: $m, warehouseId: $w) }', z.object({ confirmCatalogImport: z.boolean().nullable() }), { id, m: matching, w: warehouseId })
+/** The currencies a Shopify file's prices can be in: the store's pricing currency, and every other one with an exchange rate (the euro is always one). */
+export const loadImportCurrencies = async (): Promise<{ pricing: string | null; others: string[] }> => {
+  const { storeLocale } = await query(
+    '{ storeLocale { pricingCurrency examples { currency } } }',
+    z.object({ storeLocale: z.object({ pricingCurrency: z.string().nullable(), examples: z.array(z.object({ currency: z.string() })) }).nullable() }),
+  )
+  const pricing = storeLocale?.pricingCurrency ?? null
+  return { pricing, others: pricing ? [...new Set(['EUR', ...(storeLocale?.examples ?? []).map((r) => r.currency)])].filter((c) => c !== pricing).sort() : [] }
+}
+
+export type LocationWarehouse = { location: string; warehouseId: string | null }
+
+/** `locations` when the check found Shopify locations: each one's warehouse, or null to leave it out. */
+export const confirmImport = async (id: string, matching: 'update' | 'skip', warehouseId: string | null, locations: LocationWarehouse[] | null = null): Promise<void> => {
+  await query(
+    'mutation C($id: ID!, $m: CatalogImportMatching!, $w: ID, $l: [CatalogImportLocationInput!]) { confirmCatalogImport(id: $id, matching: $m, warehouseId: $w, locations: $l) }',
+    z.object({ confirmCatalogImport: z.boolean().nullable() }),
+    { id, m: matching, w: warehouseId, l: locations },
+  )
 }
 
 export const loadImportTemplate = async (): Promise<string> => (await query('{ catalogImportTemplate }', z.object({ catalogImportTemplate: z.string().nullable() }))).catalogImportTemplate ?? ''

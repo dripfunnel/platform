@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -625,7 +625,7 @@ depend on an engine capability whose release is not yet chosen.
 
 - A1. The catalogue is empty on a brand-new store. Show a friendly empty state with one primary
   action ("Add your first product") and two secondary ones ("Import from a file",
-  "Bring products from Shopify").
+  "Import from Shopify").
 - A2. A guided first product: a short inline walkthrough that can be dismissed, not a modal tour.
 - A3. A setup checklist on Home ("Add 3 products · Create a collection · Set up shipping")
   linking into these screens.
@@ -714,7 +714,10 @@ depend on an engine capability whose release is not yet chosen.
   options and 100 versions (decided 2026-10-05 on #337), and a clear message at the version limit.
 - D4. A generated versions table showing each combination's price, stock, SKU, photo and
   visibility, with "Apply to all" for price and stock, and per-choice apply ("All XL:
-  $34.99").
+  $34.99"). **Built (#1117, #1182)**: **Set values for all…** sets Price, Compare-at price, What it
+  costs you and Stock on every version made; Stock sets the count at the table's location (it
+  doesn't add to it) and shows only where the Stock column is editable. An empty field keeps each
+  version's own value.
 - D5. Remove combinations that don't exist ("We don't make Red in XL") and add them back later.
 - D6. Add a choice later (e.g. XXL). Only the new versions appear, pre-filled from a sibling.
 - D7. Remove a choice. Confirm which versions go, say they cannot be undone, and say that past
@@ -843,13 +846,27 @@ The engine's import/export module provides CSV and Shopify import (file and stor
 with validation before any write, partial-failure reports, and translation and currency columns
 (PLATFORM-PROMPT §3.2, §5.4). Imports and exports run as background jobs, never in a request.
 
-- K1. Entry points: "Import from a spreadsheet", "Bring products from Shopify" (file or connect
-  store), and a template download with an example row.
+- K1. Entry points (decided 2026-11-02 on #1178): "Import from a spreadsheet" (our own template's
+  columns only), "Import from Shopify", and a template download with an example row. "Import from
+  Shopify" has two tabs: **Connect Shopify** (K7) and **Import CSV from Shopify**, which takes a
+  required **Products CSV** (Shopify admin › Products › Export) and an optional **Inventory CSV**
+  (Products › Inventory › Export, "for stores with more than one location"), then the same check,
+  confirm and progress steps as a spreadsheet. **Connect Shopify is switched off until #1162
+  works**: "Import from Shopify" opens straight to Import CSV from Shopify, with no tabs
+  (`importFlags.ts`). A file of the other kind is refused when the check reads it, each way pointing
+  to the right option: a Shopify export on "Import from a spreadsheet" (`SHOPIFY_FILE`), and our
+  template, or any file that isn't a Shopify export, on the Shopify option (`NOT_SHOPIFY_FILE`). A
+  caller that doesn't say which kind of file it sends (the merchant mobile app) has either read, as
+  before.
 - K2. Upload, then a validation summary: "120 products ready · 8 have problems".
 - K3. Problems listed by row and column in plain words, with a download of the file with an
   errors column. The seller can fix and re-upload, or import only the valid rows.
 - K4. Existing products matched by SKU: the merchant chooses "update them" or "skip them" (decided 2026-10-05 on #337).
-- K5. A warehouse for imported stock, defaulting to the default warehouse.
+- K5. A warehouse for imported stock, defaulting to the default warehouse. **With Shopify's
+  inventory file** (K12) there is no single warehouse: the confirm step lists each Shopify location
+  the file gave counts for, each with a dropdown of the store's own warehouses or **Don't import**
+  (a location starts on the warehouse of the same name, else Don't import), and every location must
+  be said, with no warehouse used twice.
 - K6. Long-running import: a progress bar, and permission to leave the page, with a
   notification when done and partial-failure reporting (e.g. image URLs that 404).
 - K7. Shopify connect: enter the store address, approve on Shopify, return, pick products with
@@ -861,6 +878,42 @@ with validation before any write, partial-failure reports, and translation and c
   `description:hi`) (decided 2026-10-05 on #337).
 - K11. Multi-currency: import and export manual-currency prices as extra columns
   (`price:USD`). Automatic currencies are never imported.
+- K12. Shopify's files (decided 2026-11-02 on #1178). Every product in the Products CSV comes in
+  with its name, description (HTML read as text), price, compare-at price, cost, SKU, barcode,
+  weight (Shopify writes grams as `0.0`), options and versions, photos in Shopify's `Image Position`
+  order, SEO title and description, and status (`active` shown, `draft` and `archived` hidden).
+  Shopify columns we don't keep (Vendor, Tags, Product Category, Type) are left out.
+  - **Excel (decided 2026-11-03 on #1178 and #1202, narrowing #302's "CSV only"):** Import from a spreadsheet and
+    the two Shopify pickers also take `.xlsx` (the first sheet). The browser turns it into CSV text (`read-excel-file`, loaded only
+    when an Excel file is chosen), so the API still reads one kind of text. The merchant mobile app is
+    unchanged.
+  - **Currency (decided 2026-11-03 on #1178; the spreadsheet option too, on #1202):** Shopify's files don't name one; their prices are in
+    the Shopify store's currency. A dropdown asks which one the file's prices are in, defaulting to
+    the store's pricing currency, and offers the euro and every currency with a reference rate (O5);
+    it is absent while the store holds no rates. In the pricing currency the import is ordinary. In
+    another, each price, compare-at price and cost is **converted to the pricing currency** at the
+    reference rates held (CATALOG fact 26: both against the euro, rounded half up to the pricing
+    currency's minor unit, no store rounding rule). The check says "converted from INR to USD at the
+    exchange rates of {day}", the older of the two currencies' days. A currency with no rate held
+    refuses the file (`RATE_MISSING`); nothing is guessed. A currency is only a way to read the file's
+    numbers: nothing is stored in it, and the typed prices of K11 are unaffected. Import from a spreadsheet has the same dropdown on its card, for the file's main price column; its `price:<currency>` columns are read as they are.
+  - **Plan:** Import CSV from Shopify is on **Growth and above**, the same switch as Connect Shopify
+    (`import_shopify`); a store without it sees the tab locked with the usual upgrade prompt after
+    the API refuses the upload (only the Owner is told which plan; others are told to ask the Owner). The API decides, not the option: a Shopify file sent with no option (the mobile app) is gated on `import_shopify` by its header.
+  - **Stock, Products CSV alone:** each version takes `Variant Inventory Qty` when the file has it,
+    otherwise nothing is written (a new product starts at 0), into the warehouse chosen at confirm.
+    With no counts the check says so in one line and points to Inventory or the inventory file.
+  - **Stock, with the Inventory CSV:** its counts replace the Products CSV's. Our stock is Shopify's
+    **Available** count (`not stocked` or an empty count brings none, and is listed as skipped). Rows match a product by Handle, then a version
+    by SKU when the row has one, else by option values (Shopify's simple product is "Default
+    Title"). A row that matches no product, a bad count (not a whole number of 0 or more) and a
+    missing location are listed as problems by line under "Inventory file, row N"; they are not in
+    the error file, which holds the Products CSV's rows. A row for a product the check refused is
+    left alone. A file with more than 50 distinct locations is refused.
+  - The location-to-warehouse choice is kept on the import job (`catalog_import.warehouse_map`) and
+    the Inventory CSV only until the check has read it (`catalog_import.inventory`, migration 0379).
+  - Creating warehouses from Shopify locations, importing an inventory file on its own, and other
+    platforms' files are not built.
 
 ### L. Vendors and approval (catalogue side)
 

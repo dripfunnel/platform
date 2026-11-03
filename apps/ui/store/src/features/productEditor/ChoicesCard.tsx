@@ -127,39 +127,54 @@ export interface VersionPhotos {
   onFile: (choices: string[], file: File) => void
 }
 
-type BulkValues = Record<PriceKey, string>
+type BulkValues = Record<PriceKey | 'stock', string>
 
-const noBulk: BulkValues = { price: '', compareAt: '', cost: '' }
+const noBulk: BulkValues = { price: '', compareAt: '', cost: '', stock: '' }
 const bulkKeys: PriceKey[] = ['price', 'compareAt', 'cost']
 
-/** "Set values for all…": each value filled in goes on every version made; one left empty keeps each version's own. */
-const BulkDialog = ({ count, currency, onApply, onCancel }: { count: number; currency: string; onApply: (values: BulkValues) => void; onCancel: () => void }) => {
+/** "Set values for all…": each value filled in goes on every version made; one left empty keeps each version's own. Stock only where the table has an editable Stock column. */
+const BulkDialog = ({ count, currency, canStock, onApply, onCancel }: { count: number; currency: string; canStock: boolean; onApply: (values: BulkValues) => void; onCancel: () => void }) => {
   const id = useId()
   const [values, setValues] = useState(noBulk)
-  const typed = (key: PriceKey) => values[key].trim() !== ''
+  const typed = (key: keyof BulkValues) => values[key].trim() !== ''
   const problemOf = (key: PriceKey) => {
     if (!typed(key)) return null
     const amount = minorOf(values[key], currency)
     if (key === 'price' && amount !== 'invalid' && amount !== null && amount <= 0) return words.price.missing
     return amount === 'invalid' ? fill(words.price.invalid, { example: exampleOf(currency) }) : null
   }
-  const blocked = !bulkKeys.some(typed) ? words.versions.setNone : bulkKeys.some((k) => problemOf(k) !== null) ? words.versions.setFix : null
+  const stockProblem = canStock && quantityOf(values.stock) === 'invalid' ? words.stock.invalid : null
+  const anyTyped = bulkKeys.some(typed) || (canStock && typed('stock'))
+  const blocked = !anyTyped ? words.versions.setNone : bulkKeys.some((k) => problemOf(k) !== null) || stockProblem !== null ? words.versions.setFix : null
   return (
     <ConfirmDialog
       open
       title={words.versions.setPriceTitle}
       target={fill(words.versions.title, { count: formatCount(count) })}
-      consequence={words.versions.setPriceTitle}
+      consequence={words.versions.setBody}
       confirmLabel={messages.editor.apply}
       cancelLabel={messages.editor.cancel}
       blocked={blocked}
       onCancel={onCancel}
-      onConfirm={() => onApply(values)}
+      onConfirm={() => onApply(canStock ? values : { ...values, stock: '' })}
     >
-      <p className="df-field-hint">{words.versions.setKeeps}</p>
-      {bulkKeys.map((key) => (
-        <PriceField key={key} id={`${id}-${key}`} field={key} value={values[key]} currency={currency} problem={problemOf(key)} readOnly={false} onChange={(value) => setValues((v) => ({ ...v, [key]: value }))} />
-      ))}
+      <div className="df-editor-bulk">
+        <p className="df-field-hint">{words.versions.setKeeps}</p>
+        {bulkKeys.map((key) => (
+          <PriceField key={key} id={`${id}-${key}`} field={key} value={values[key]} currency={currency} problem={problemOf(key)} readOnly={false} onChange={(value) => setValues((v) => ({ ...v, [key]: value }))} />
+        ))}
+        {canStock && (
+          <div className="df-editor-field">
+            <label htmlFor={`${id}-stock`}>{words.stock.title}</label>
+            <input id={`${id}-stock`} inputMode="numeric" value={values.stock} placeholder={words.stock.countPlaceholder} aria-invalid={stockProblem !== null} aria-describedby={stockProblem ? `${id}-stock-p` : undefined} onChange={(event) => setValues((v) => ({ ...v, stock: event.target.value }))} />
+            {stockProblem && (
+              <span id={`${id}-stock-p`} className="df-editor-problem">
+                {stockProblem}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </ConfirmDialog>
   )
 }
@@ -196,9 +211,14 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
   }
   const setAll = (values: BulkValues) => {
     setBulk(false)
-    const filled: Partial<BulkValues> = {}
+    const filled: Partial<Record<PriceKey, string>> = {}
     for (const key of bulkKeys) if (values[key].trim() !== '') filled[key] = values[key].trim()
-    update((d) => ({ ...d, versions: d.versions.map((v) => (v.removed ? v : { ...v, ...filled })) }))
+    const count = values.stock.trim()
+    update((d) => {
+      const counted = { ...d.stock }
+      if (where && count !== '') for (const v of d.versions.filter((x) => !x.removed)) counted[versionKey(v.choices)] = { ...d.stock[versionKey(v.choices)], [where.id]: count }
+      return { ...d, versions: d.versions.map((v) => (v.removed ? v : { ...v, ...filled })), stock: counted }
+    })
   }
   const photoOf = (v: DraftVersion) => draft.photos.find((p) => p.versionChoices !== null && versionKey(p.versionChoices) === versionKey(v.choices)) ?? null
   const openPicker = (v: DraftVersion) => {
@@ -229,7 +249,7 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
           </button>
         )}
       </div>
-      {bulk && <BulkDialog count={live.length} currency={currency} onApply={setAll} onCancel={() => setBulk(false)} />}
+      {bulk && <BulkDialog count={live.length} currency={currency} canStock={where !== null && stock?.canStock === true} onApply={setAll} onCancel={() => setBulk(false)} />}
       <input
         ref={picker}
         className="df-visually-hidden"

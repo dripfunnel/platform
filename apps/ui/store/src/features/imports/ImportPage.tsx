@@ -2,11 +2,13 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { EmptyState, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { maxImportBytes, type CatalogImport } from '../../api/imports'
+import { z } from 'zod'
+import { maxImportBytes, type CatalogImport, type LocationWarehouse } from '../../api/imports'
 import type { Place } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
-import { messages } from '../../messages'
+import { fill, messages } from '../../messages'
 import { ExportCard } from './ExportCard'
+import { fileText, isCsv, isExcel } from './fileText'
 import { ImportCheck } from './ImportCheck'
 import { ImportPick } from './ImportPick'
 import { ImportDone, ImportRunning, ImportStopped } from './ImportProgress'
@@ -48,13 +50,22 @@ export const ImportPage = () => {
     )
   return (
     <ImportApiContext.Provider value={sample?.api ?? liveImportApi}>
-      <ImportFlow key={forced ?? 'live'} readOnly={forced ? forced === 'readOnly' : (state?.readOnly ?? false)} side={acting.seller ? 'supplier' : 'merchant'} sample={sample} />
+      <ImportFlow
+        key={forced ?? 'live'}
+        readOnly={forced ? forced === 'readOnly' : (state?.readOnly ?? false)}
+        side={acting.seller ? 'supplier' : 'merchant'}
+        canUpgrade={forced ? forced !== 'denied' : acting.permissions.includes('billing')}
+        sample={sample}
+      />
     </ImportApiContext.Provider>
   )
 }
 
-const ImportFlow = ({ readOnly, side, sample }: { readOnly: boolean; side: 'merchant' | 'supplier'; sample: ImportSample | null }) => {
-  const { confirmImport, finishShopifyConnect, loadImport, loadImportTemplate, loadPlaces, startFileImport, startShopifyImport } = useImportApi()
+// PLAN_LIMIT names the cheapest plan that unlocks it (src/apis/store/refusals.ts); unchecked data until parsed.
+const unlockSchema = z.object({ name: z.string() })
+
+const ImportFlow = ({ readOnly, side, canUpgrade, sample }: { readOnly: boolean; side: 'merchant' | 'supplier'; canUpgrade: boolean; sample: ImportSample | null }) => {
+  const { confirmImport, finishShopifyConnect, loadImport, loadImportTemplate, loadImportCurrencies, loadPlaces, startFileImport, startShopifyImport } = useImportApi()
   const search = importSearch.catch({}).parse(useSearch({ strict: false }))
   const navigate = useNavigate()
   const liveRun = useImportRun()
@@ -65,17 +76,20 @@ const ImportFlow = ({ readOnly, side, sample }: { readOnly: boolean; side: 'merc
   const [fileName, setFileName] = useState(sample?.fileName ?? '')
   const [fileError, setFileError] = useState<FileError | null>(sample?.fileError ?? null)
   const [shopNote, setShopNote] = useState<'failed' | null>(null)
+  const [locked, setLocked] = useState<{ plan: string | null } | null>(sample?.locked ?? null)
   const [checking, setChecking] = useState(sample?.checking ?? false)
   const [places, setPlaces] = useState<Place[]>([])
+  const [currencies, setCurrencies] = useState<{ pricing: string | null; others: string[] }>({ pricing: null, others: [] })
   const live = useRef(true)
 
   useEffect(() => {
     live.current = true
     loadPlaces().then((all) => live.current && setPlaces(all.filter((p) => side === 'supplier' || p.supplierId === null)), () => undefined)
+    loadImportCurrencies().then((found) => live.current && setCurrencies(found), () => undefined)
     return () => {
       live.current = false
     }
-  }, [side, loadPlaces])
+  }, [side, loadPlaces, loadImportCurrencies])
 
   // Back from Shopify (src/hooks/shopify.ts): a one-time key finishes the connection, then the picker opens.
   const { shopify, key } = search
@@ -109,17 +123,38 @@ const ImportFlow = ({ readOnly, side, sample }: { readOnly: boolean; side: 'merc
     check()
   }
 
-  const chooseFile = async (file: File) => {
-    setMode('file')
+  /** A file must be a CSV or an Excel sheet within the API's size; said before anything is sent. */
+  const refusalOf = (file: File): FileError | null => {
+    if (!isCsv(file) && !isExcel(file)) return { kind: 'type', name: file.name }
+    if (file.size > maxImportBytes) return { kind: 'big', name: file.name, size: file.size }
+    return null
+  }
+
+  const startFiles = async (source: 'csv' | 'shopify', file: File, inventory: File | null, currency: string | null) => {
+    setMode(source === 'csv' ? 'file' : 'shopify')
     setJob(null)
     setFileName(file.name)
-    if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') return setFileError({ kind: 'type', name: file.name })
-    if (file.size > maxImportBytes) return setFileError({ kind: 'big', name: file.name, size: file.size })
+    const refused = refusalOf(file) ?? (inventory && refusalOf(inventory))
+    if (refused) return setFileError(refused)
     setFileError(null)
+    setChecking(true)
+    let followed = false
     try {
-      follow(await startFileImport(await file.text()), file.name)
+      const [products, stock] = [await fileText(file), inventory ? await fileText(inventory) : null]
+      for (const [read, name] of [[products, file.name], [stock, inventory?.name ?? '']] as const) {
+        if (read && !read.ok) return setFileError(read.reason === 'big' ? { kind: 'big', name, size: maxImportBytes + 1 } : { kind: 'other', name, message: fill(words.fileErrors.excelUnreadable, { name }) })
+      }
+      const id = await startFileImport(products.ok ? products.text : '', source, stock?.ok ? stock.text : null, currency)
+      followed = true
+      follow(id, file.name)
     } catch (error) {
+      if (source === 'shopify' && isApiError(error, 'PLAN_LIMIT')) {
+        const plan = unlockSchema.safeParse(error.details['unlockedBy'])
+        return setLocked({ plan: plan.success ? plan.data.name : null })
+      }
       setFileError({ kind: 'other', name: file.name, message: isApiError(error) ? error.message : '' })
+    } finally {
+      if (!followed) setChecking(false)
     }
   }
 
@@ -143,9 +178,9 @@ const ImportFlow = ({ readOnly, side, sample }: { readOnly: boolean; side: 'merc
     setChecking(false)
   }
 
-  const confirm = async (matching: 'update' | 'skip', warehouseId: string | null) => {
+  const confirm = async (matching: 'update' | 'skip', warehouseId: string | null, locations: LocationWarehouse[] | null) => {
     if (!job) return
-    await confirmImport(job.id, matching, warehouseId)
+    await confirmImport(job.id, matching, warehouseId, locations)
     importRun.set({ ...job, state: 'running', done: 0 })
   }
 
@@ -171,7 +206,21 @@ const ImportFlow = ({ readOnly, side, sample }: { readOnly: boolean; side: 'merc
       )}
 
       {step === 'start' && (
-        <ImportStart mode={mode} readOnly={readOnly} checking={checking} fileError={fileError} shopNote={shopNote} onMode={setMode} onFile={chooseFile} onTemplate={template} onConnected={setPicking} />
+        <ImportStart
+          mode={mode}
+          readOnly={readOnly}
+          checking={checking}
+          fileError={fileError}
+          shopNote={shopNote}
+          locked={locked}
+          canUpgrade={canUpgrade}
+          onMode={setMode}
+          onFile={(file, currency) => startFiles('csv', file, null, currency)}
+          currencies={currencies}
+          onShopifyFiles={(products, inventory, currency) => startFiles('shopify', products, inventory, currency)}
+          onTemplate={template}
+          onConnected={setPicking}
+        />
       )}
       {step === 'pick' && picking && <ImportPick shop={picking} checking={checking} onBack={restart} onCheck={(ids) => checkShop(ids, picking)} />}
       {step === 'check' && job && <ImportCheck job={job} name={fileName} readOnly={readOnly} places={places} onRestart={restart} onRun={confirm} />}

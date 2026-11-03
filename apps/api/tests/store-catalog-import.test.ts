@@ -13,6 +13,7 @@ import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
+import { shopifyInventoryCsv, shopifyProductsCsv, shopifyVariantsCsv } from './support/shopifyExports'
 
 // Card #301 (SAPI 16, part 2): import from a spreadsheet, ours or Shopify's (CATALOG K; FIRST-RELEASE §13).
 
@@ -95,8 +96,8 @@ const importWithPhotoQueued = async (who: Who, handle: string, url: string) => {
 }
 
 type Problem = { line: number; column: string | null; code: string; message: string }
-type Job = { id: string; source: string; state: string; products: number; ready: number; matched: number; created: number; updated: number; skipped: number; failed: number; problemCount: number; problems: Problem[]; problemsCsv: string | null }
-const fields = 'id source state products ready matched created updated skipped failed problemCount problems { line column code message } problemsCsv'
+type Job = { id: string; source: string; state: string; products: number; ready: number; matched: number; created: number; updated: number; skipped: number; failed: number; problemCount: number; locations: string[]; stockCounted: boolean; problems: Problem[]; problemsCsv: string | null }
+const fields = 'id source state products ready matched created updated skipped failed problemCount locations stockCounted problems { line column code message } problemsCsv'
 const read = async (who: Who, id: string) => (await gql(`query J($id: ID!) { catalogImport(id: $id) { ${fields} } }`, who, { id })).data?.['catalogImport'] as Job | null
 const upload = async (who: Who, file: string) => {
   const result = await gql('mutation S($f: String!) { startCatalogImport(file: $f) }', who, { f: file })
@@ -212,7 +213,10 @@ describe('a spreadsheet import', () => {
       'tee,,,,,,,M,TEE-M,190,2,499.00,https://cdn.example/gone.png,,',
       'tee,,,,,,,,,,,,https://inside.example/secret.png,,',
     ].join('\n')
+    // Sent with no option, as the mobile app does, a Shopify file is gated as one: this store is on Growth for this test only.
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) select plan_id, ${t.partnerA}, 1, 'import_shopify', true from store where id = ${t.storeA1}`
     const { id, job } = await upload('owner', shopify)
+    await db.sql`delete from plan_entitlement where key = 'import_shopify' and plan_id = (select plan_id from store where id = ${t.storeA1})`
     expect(job).toMatchObject({ source: 'shopify', ready: 1, problemCount: 0 })
     const done = (await confirm('owner', id)).job
     expect(done).toMatchObject({ state: 'done', created: 1 })
@@ -275,6 +279,133 @@ describe('a spreadsheet import', () => {
   })
 })
 
+describe('a Shopify CSV import (#1178)', () => {
+  const shopifyUpload = async (who: Who, file: string, o: { inventory?: string; source?: 'csv' | 'shopify'; currency?: string } = {}) => {
+    const result = await gql('mutation S($f: String!, $s: CatalogImportSource, $i: String, $c: String) { startCatalogImport(file: $f, source: $s, inventory: $i, currency: $c) }', who, { f: file, s: o.source ?? 'shopify', i: o.inventory, c: o.currency })
+    await relay()
+    const id = result.data?.['startCatalogImport'] as string | undefined
+    return { id: id ?? '', code: result.code, job: id ? await read(who, id) : null }
+  }
+  const confirmAt = async (id: string, locations: { location: string; warehouseId: string | null }[]) => {
+    const result = await gql('mutation C($id: ID!, $l: [CatalogImportLocationInput!]) { confirmCatalogImport(id: $id, matching: update, locations: $l) }', 'owner', { id, l: locations })
+    await relay()
+    return { code: result.code, job: await read('owner', id) }
+  }
+  const stockOf = (name: string) =>
+    db.sql<{ warehouse: string; on_hand: number }[]>`
+      select w.name as warehouse, s.on_hand from stock_level s join warehouse w on w.id = s.warehouse_id join product_version v on v.id = s.version_id join product p on p.id = v.product_id
+      where p.name = ${name} and p.store_id = ${t.storeA1} and p.deleted_at is null order by w.name, v.position`
+  const warehouse = async (storeId: string, name: string) => (await db.sql<{ id: string }[]>`insert into warehouse (store_id, name) values (${storeId}, ${name}) returning id`)[0]?.id ?? ''
+
+  it('is on a plan that includes it: a Starter store is refused, Growth and above reads the file', async () => {
+    const refused = await shopifyUpload('owner', shopifyProductsCsv)
+    expect(refused).toMatchObject({ code: 'PLAN_LIMIT', id: '' })
+    expect(await db.sql`select 1 from catalog_import where store_id = ${t.storeA1} and file like 'Handle,Title,Body (HTML)%'`).toHaveLength(0)
+    // Leaving the option out doesn't skip the gate: the file's own header says it is Shopify's.
+    const unnamed = await gql('mutation S($f: String!) { startCatalogImport(file: $f) }', 'owner', { f: shopifyProductsCsv })
+    expect(unnamed.code).toBe('PLAN_LIMIT')
+    expect(await db.sql`select 1 from catalog_import where store_id = ${t.storeA1} and file like 'Handle,Title,Body (HTML)%'`).toHaveLength(0)
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) select plan_id, ${t.partnerA}, 1, 'import_shopify', true from store where id = ${t.storeA1}`
+    expect((await shopifyUpload('owner', shopifyProductsCsv)).job).toMatchObject({ source: 'shopify', ready: 2, problemCount: 0 })
+  })
+
+  it('refuses a Shopify file on the spreadsheet option and our template on the Shopify tab, each pointing to the other', async () => {
+    const wrongWay = await shopifyUpload('owner', shopifyProductsCsv, { source: 'csv' })
+    expect(wrongWay.job).toMatchObject({ state: 'unreadable', problems: [{ line: 0, code: 'SHOPIFY_FILE' }] })
+    expect(wrongWay.job?.problems[0]?.message).toContain('Import CSV from Shopify')
+    const ourOwn = await shopifyUpload('owner', 'handle,name,price\nours,Ours,10\n')
+    expect(ourOwn.job).toMatchObject({ state: 'unreadable', problems: [{ line: 0, code: 'NOT_SHOPIFY_FILE' }] })
+    expect(ourOwn.job?.problems[0]?.message).toContain('Import from a spreadsheet')
+    // The mobile app says nothing about the kind of file: either is read, as before.
+    expect((await upload('owner', 'handle,name,price\nmobile-pot,Mobile pot,10\n')).job).toMatchObject({ source: 'csv', ready: 1 })
+    expect((await upload('owner', shopifyProductsCsv)).job).toMatchObject({ source: 'shopify', ready: 2 })
+  })
+
+  it('refuses an inventory file with anything but a Shopify source, and one that isn’t an inventory export', async () => {
+    expect((await shopifyUpload('owner', 'handle,name,price\nours,Ours,10\n', { inventory: shopifyInventoryCsv, source: 'csv' })).code).toBe('INVALID_INPUT')
+    expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1", inventory: "x") }', 'owner')).code).toBe('INVALID_INPUT')
+    const wrong = await shopifyUpload('owner', shopifyProductsCsv, { inventory: shopifyProductsCsv })
+    expect(wrong.job).toMatchObject({ state: 'unreadable', problems: [{ line: 0, code: 'NOT_INVENTORY_FILE' }] })
+    expect((await gql('mutation S($f: String!, $i: String) { startCatalogImport(file: $f, source: shopify, inventory: $i) }', 'owner', { f: shopifyProductsCsv, i: 'x'.repeat(5 * 1024 * 1024 + 1) })).code).toBe('FILE_TOO_LARGE')
+  })
+
+  it('takes the products file’s quantity into the one warehouse, and says so when it has none', async () => {
+    const noCounts = await shopifyUpload('owner', shopifyProductsCsv)
+    expect(noCounts.job).toMatchObject({ locations: [], stockCounted: false })
+    const { id, job } = await shopifyUpload('owner', shopifyVariantsCsv)
+    expect(job).toMatchObject({ source: 'shopify', ready: 2, locations: [], stockCounted: true })
+    expect((await confirm('owner', id)).job).toMatchObject({ state: 'done', created: 2 })
+    expect(await stockOf('Ribbed tee')).toEqual([{ warehouse: 'Main location', on_hand: 5 }, { warehouse: 'Main location', on_hand: 2 }])
+    const [tee] = await db.sql<{ id: string; description: string; visibility: string }[]>`select id, description, visibility from product where name = 'Ribbed tee' and store_id = ${t.storeA1}`
+    expect(tee).toMatchObject({ description: 'Soft & light' })
+    expect(await db.sql`select v.sku, v.barcode, v.weight_grams from product_version v where v.product_id = ${tee?.id ?? ''} order by v.position`).toEqual([
+      { sku: 'TEE-S-R', barcode: '4006381333931', weight_grams: 180 },
+      { sku: 'TEE-M-R', barcode: null, weight_grams: 190 },
+    ])
+    expect(await db.sql`select visibility from product where name = 'Sketch' and store_id = ${t.storeA1}`).toEqual([{ visibility: 'hidden' }])
+  })
+
+  it('puts each Shopify location’s Available count into the warehouse it is matched to, leaves one out, and lists an unmatched row', async () => {
+    const [matha, shop] = [await warehouse(t.storeA1, 'Matha'), await warehouse(t.storeA1, 'Indiranagar shop')]
+    const { id, job } = await shopifyUpload('owner', shopifyProductsCsv, { inventory: shopifyInventoryCsv })
+    expect(job).toMatchObject({ ready: 2, locations: ['#9,Matha pitru nivasa', 'Indiranagar'], stockCounted: true })
+    expect(job?.problems).toMatchObject([{ line: 6, code: 'INVENTORY_UNMATCHED' }, { line: 7, code: 'NOT_STOCKED' }])
+    const tagged = await gql('query J($id: ID!) { catalogImport(id: $id) { problems { line file } } }', 'owner', { id })
+    expect(tagged.data?.['catalogImport']).toEqual({ problems: [{ line: 6, file: 'inventory' }, { line: 7, file: 'inventory' }] })
+    expect((await confirmAt(id, [{ location: '#9,Matha pitru nivasa', warehouseId: matha }, { location: 'Indiranagar', warehouseId: shop }])).job).toMatchObject({ state: 'done', created: 2 })
+    expect(await stockOf('Everyday Chocolate Bar – 100 g')).toEqual([{ warehouse: 'Indiranagar shop', on_hand: 80 }, { warehouse: 'Matha', on_hand: 40 }])
+    expect(await stockOf('Everyday Ground Coffee – 250 g')).toEqual([{ warehouse: 'Indiranagar shop', on_hand: 40 }, { warehouse: 'Matha', on_hand: 20 }])
+
+    const second = await shopifyUpload('owner', shopifyProductsCsv.replaceAll('everyday-', 'again-').replaceAll('Everyday ', 'Again '), { inventory: shopifyInventoryCsv.replaceAll('everyday-', 'again-') })
+    expect((await confirmAt(second.id, [{ location: '#9,Matha pitru nivasa', warehouseId: null }, { location: 'Indiranagar', warehouseId: shop }])).job).toMatchObject({ state: 'done', created: 2 })
+    expect(await stockOf('Again Chocolate Bar – 100 g')).toEqual([{ warehouse: 'Indiranagar shop', on_hand: 80 }])
+  })
+
+  it('converts a file in another currency to the store’s at the rates held, and refuses one with no rate', async () => {
+    await db.sql`insert into exchange_rate (currency, per_euro, source, published_on, fetched_at) values ('USD', 1.25, 'ecb', '2026-10-05', now()), ('INR', 100, 'ecb', '2026-10-05', now())
+      on conflict (currency) do update set per_euro = excluded.per_euro, published_on = excluded.published_on`
+    const header = 'Handle,Title,Variant SKU,Variant Price,Variant Compare At Price,Cost per item,Status'
+    const usd = await shopifyUpload('owner', `${header}\ncur-lamp,Cur lamp,CURLAMP,12.00,15.00,6.00,active`, { currency: 'USD' })
+    expect(usd.job).toMatchObject({ ready: 1, problemCount: 0 })
+    const said = await gql('query J($id: ID!) { catalogImport(id: $id) { conversion { from to on } } }', 'owner', { id: usd.id })
+    expect(said.data?.['catalogImport']).toEqual({ conversion: { from: 'USD', to: 'INR', on: '2026-10-05' } })
+    expect((await confirm('owner', usd.id)).job).toMatchObject({ state: 'done', created: 1 })
+    // 12.00 USD at 1.25 and 100 per euro is 960.00 INR, compare-at 1,200.00, cost 480.00.
+    expect(await db.sql`select vp.currency, vp.amount::text as amount, vp.compare_at_amount::text as compare, v.cost_amount::text as cost from version_price vp join product_version v on v.id = vp.version_id where v.sku = 'CURLAMP'`).toEqual([
+      { currency: 'INR', amount: '96000', compare: '120000', cost: '48000' },
+    ])
+    // The store's own currency named is the ordinary import; one with no rate is refused, and the spreadsheet option converts the same way.
+    expect((await shopifyUpload('owner', `${header}\ncur-fresh,Cur fresh,CURFRESH,30.00,,,active`, { currency: 'INR' })).job).toMatchObject({ ready: 1, problemCount: 0 })
+    expect((await shopifyUpload('owner', `${header}\ncur-none,Cur none,CURNONE,9.00,,,active`, { currency: 'ZZZ' })).job).toMatchObject({ state: 'unreadable', problems: [{ line: 0, code: 'RATE_MISSING' }] })
+    const sheet = await shopifyUpload('owner', 'handle,name,price\ncur-sheet,Cur sheet,12\n', { source: 'csv', currency: 'USD' })
+    expect(sheet.job).toMatchObject({ ready: 1, problemCount: 0 })
+    expect((await gql('query J($id: ID!) { catalogImport(id: $id) { conversion { from to } } }', 'owner', { id: sheet.id })).data?.['catalogImport']).toEqual({ conversion: { from: 'USD', to: 'INR' } })
+    // Only the main price column is converted; a hand-priced column is read as it is. No rate on this path refuses the file too.
+    const both = await shopifyUpload('owner', 'handle,name,price,price:USD\ncur-both,Cur both,12,3\n', { source: 'csv', currency: 'USD' })
+    expect(both.job).toMatchObject({ ready: 1, problemCount: 0 })
+    expect((await confirm('owner', both.id)).job).toMatchObject({ state: 'done', created: 1 })
+    expect(await db.sql`select trim(vp.currency) as currency, vp.amount::text as amount from version_price vp join product_version v on v.id = vp.version_id join product p on p.id = v.product_id where p.name = 'Cur both' order by 1`).toEqual([
+      { currency: 'INR', amount: '96000' },
+      { currency: 'USD', amount: '300' },
+    ])
+    expect((await shopifyUpload('owner', 'handle,name,price\ncur-zzz,Cur zzz,9\n', { source: 'csv', currency: 'ZZZ' })).job).toMatchObject({ state: 'unreadable', problems: [{ line: 0, code: 'RATE_MISSING' }] })
+    expect((await gql('mutation S($f: String!, $c: String) { startCatalogImport(file: $f, currency: $c) }', 'owner', { f: 'handle,name,price\na,A,1\n', c: 'USD' })).code).toBe('INVALID_INPUT')
+  })
+
+  it('refuses a warehouse from another store, a location left unsaid, and one warehouse for two locations', async () => {
+    const other = await warehouse(t.storeB1, 'Bea’s')
+    const mine = await warehouse(t.storeA1, 'Mine')
+    const { id } = await shopifyUpload('owner', shopifyProductsCsv.replaceAll('everyday-', 'iso-').replaceAll('Everyday ', 'Iso '), { inventory: shopifyInventoryCsv.replaceAll('everyday-', 'iso-') })
+    const places = ['#9,Matha pitru nivasa', 'Indiranagar']
+    expect((await confirmAt(id, [{ location: places[0] ?? '', warehouseId: mine }, { location: places[1] ?? '', warehouseId: other }])).code).toBe('WAREHOUSE_NOT_FOUND')
+    expect((await confirmAt(id, [{ location: places[0] ?? '', warehouseId: mine }])).code).toBe('LOCATIONS_INVALID')
+    expect((await confirmAt(id, [{ location: places[0] ?? '', warehouseId: mine }, { location: places[1] ?? '', warehouseId: mine }])).code).toBe('LOCATIONS_INVALID')
+    expect((await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id })).code).toBe('LOCATIONS_INVALID')
+    expect((await db.sql`select state from catalog_import where id = ${id}`)[0]).toEqual({ state: 'ready' })
+    expect(await db.sql`select 1 from product where name like 'Iso %'`).toHaveLength(0)
+  })
+})
+
 describe('a supplier’s import', () => {
   it('writes only its own rows, waiting for approval while it’s on, whatever SKUs the store uses', async () => {
     await gql('mutation { setApproval(on: true) }', 'owner')
@@ -288,6 +419,34 @@ describe('a supplier’s import', () => {
     expect(kus.map((k) => k.seller_id).sort()).toEqual([null, t.sellerA1First].sort())
     expect(kus.find((k) => k.seller_id === null)?.name).toBe('Kurta')
     expect(await db.sql`select w.seller_id from stock_level s join warehouse w on w.id = s.warehouse_id join product_version v on v.id = s.version_id where v.sku = 'MUG'`).toEqual([{ seller_id: t.sellerA1First }])
+  })
+
+  it('matches Shopify locations only to its own warehouses: the store’s and another supplier’s are refused', async () => {
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) select plan_id, ${t.partnerA}, 1, 'import_shopify', true from store where id = ${t.storeA1}
+      on conflict do nothing`
+    const [storeWide, others, mine] = await Promise.all([
+      db.sql<{ id: string }[]>`insert into warehouse (store_id, name) values (${t.storeA1}, 'Store-wide') returning id`,
+      db.sql<{ id: string }[]>`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1Second}, 'Other supplier') returning id`,
+      db.sql<{ id: string }[]>`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1First}, 'My shelf') returning id`,
+    ])
+    const [storeWideId, othersId, mineId] = [storeWide[0]?.id ?? '', others[0]?.id ?? '', mine[0]?.id ?? '']
+    const started = await gql('mutation S($f: String!, $s: CatalogImportSource, $i: String) { startCatalogImport(file: $f, source: $s, inventory: $i) }', 'supplier', {
+      f: shopifyProductsCsv.replaceAll('everyday-', 'sup-').replaceAll('Everyday ', 'Sup '),
+      s: 'shopify',
+      i: shopifyInventoryCsv.replaceAll('everyday-', 'sup-'),
+    })
+    await relay()
+    const id = started.data?.['startCatalogImport'] as string
+    expect(await read('supplier', id)).toMatchObject({ state: 'ready' })
+    const confirmAs = (shop: string, matha: string) =>
+      gql('mutation C($id: ID!, $l: [CatalogImportLocationInput!]) { confirmCatalogImport(id: $id, matching: update, locations: $l) }', 'supplier', {
+        id,
+        l: [{ location: '#9,Matha pitru nivasa', warehouseId: matha }, { location: 'Indiranagar', warehouseId: shop }],
+      })
+    expect((await confirmAs(mineId, storeWideId)).code).toBe('WAREHOUSE_NOT_FOUND')
+    expect((await confirmAs(othersId, mineId)).code).toBe('WAREHOUSE_NOT_FOUND')
+    expect((await db.sql`select state from catalog_import where id = ${id}`)[0]).toEqual({ state: 'ready' })
+    expect((await confirmAs(mineId, (await db.sql<{ id: string }[]>`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1First}, 'My second shelf') returning id`)[0]?.id ?? '')).code).toBeUndefined()
   })
 
   it('is read back only by whoever imported it; Staff can’t import', async () => {

@@ -9,7 +9,7 @@ shoppers (theme code written by the AI, fenced by walls, rendered with core); th
 same theme with different colours. The AI has full freedom over the look and the front-end
 behaviour; the core package and the engine guarantee the commerce.
 
-Last updated: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
+Last updated: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
 
 ---
 
@@ -92,8 +92,8 @@ Decided 2026-10-08 on #470, as `designs/PortalStorefront` draws it:
    (required), favicon, the home page's title and description,
    a tagline and short description, social links, the public email, phone and address, and a
    tone of voice. The same fields are later in Storefront › Site settings › Brand.
-2. **A template**: six (Linen, minimal fashion; Concrete, bold streetwear; Bloom, beauty and
-   wellness; Circuit, electronics; Market, food and grocery; Atelier, luxury editorial) and
+2. **A template**: seven (Linen, minimal fashion; Concrete, bold streetwear; Bloom, beauty and
+   wellness; Circuit, electronics; Market, food and grocery; Atelier, luxury editorial; Classic, traditional and ethnic) and
    **Start from scratch**, each a complete starting theme (ARCHITECTURE §2.3), previewed with
    the store's own products and openable as a demo. A template keeps its own colours; the
    merchant changes them by asking the AI in the studio (colours saved before 2026-11-01 stay a hint it uses when asked). Changing
