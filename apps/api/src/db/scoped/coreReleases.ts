@@ -4,7 +4,7 @@ import type { ScopedSql } from './index'
 
 export type ReleaseKind = 'major' | 'minor' | 'patch'
 
-const parts = (version: string) => version.split('.').map(Number)
+const parts = (version: string) => version.split('-')[0]?.split('.').map(Number) ?? []
 
 /** How far `version` moved from the newest release below it; the first release counts as a major. */
 export const releaseKind = (version: string, previous: string | null): ReleaseKind => {

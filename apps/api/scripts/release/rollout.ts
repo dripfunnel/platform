@@ -8,7 +8,7 @@ import { assertLocalHost } from '../migrate/host-guard'
 const env = z
   .object({
     DATABASE_URL: z.string().min(1),
-    VERSION: z.string().regex(/^\d+\.\d+\.\d+$/),
+    VERSION: z.string().regex(/^\d+\.\d+\.\d+(-dev\.\d+)?$/),
   })
   .parse(process.env)
 assertLocalHost(env.DATABASE_URL)

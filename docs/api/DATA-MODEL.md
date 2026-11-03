@@ -2103,7 +2103,7 @@ store_limit_override (id, store_id, key, amount, duration ('month'|'always'), mo
 ```
 core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), security boolean,
                      sandbox_image, shop_api_versions text[], notes_url, retired_at NULL, image_deleted_at NULL)
-                    -- every published storefront-core version and its sandbox image digest:
+                    -- every published storefront-core version (dev's database also holds each `-dev.N` build, #1164) and its sandbox image digest:
                     -- sandbox_image is Cloudflare's registry reference pinned by @sha256, which the
                     -- studio's Durable Object starts; written by release.yml's sandbox-image job
                     -- (built on #482, migration 0250); staff read it, system scope writes it; retired_at and

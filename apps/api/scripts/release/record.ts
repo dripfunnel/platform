@@ -9,7 +9,7 @@ import { assertLocalHost } from '../migrate/host-guard'
 const env = z
   .object({
     DATABASE_URL: z.string().min(1),
-    VERSION: z.string().regex(/^\d+\.\d+\.\d+$/),
+    VERSION: z.string().regex(/^\d+\.\d+\.\d+(-dev\.\d+)?$/),
     SANDBOX_IMAGE: z.string().regex(/^registry\.cloudflare\.com\/[A-Za-z0-9_./-]+@sha256:[0-9a-f]{64}$/),
   })
   .parse(process.env)

@@ -30,6 +30,15 @@ describe('core_release', () => {
     expect(releaseKind('2.0.0', '1.4.2')).toBe('major')
     expect(releaseKind('1.5.0', '1.4.2')).toBe('minor')
     expect(releaseKind('1.4.3', '1.4.2')).toBe('patch')
+    expect(releaseKind('1.5.0-dev.7', '1.4.2')).toBe('minor')
+    expect(releaseKind('1.4.2-dev.8', '1.4.2-dev.7')).toBe('patch')
+  })
+
+  it('records a dev build, and a stable release outranks its dev builds (#1164)', async () => {
+    await withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '3.0.0-dev.4', image('a')))
+    await withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '3.0.0-dev.12', image('b')))
+    expect(await withSystemScope(db.sql, selectNewestRelease)).toBe('3.0.0-dev.12')
+    await db.sql`delete from core_release where version like '3.0.0-dev.%'`
   })
 
   it('records a version once, and a second record only moves its image', async () => {
