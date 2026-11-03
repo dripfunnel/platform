@@ -34,6 +34,16 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.9.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only adds; no theme has to change.',
+      "`seoFor` writes more of the head for every page (#1184): Twitter cards, `og:locale`, `og:image:alt`, hreflang alternates, WebSite with SearchAction on the home page, ItemList for a collection's products, the store's social profiles on Organization, and a product's description and every photo.",
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.8.2',
     kind: 'patch',
     security: false,
