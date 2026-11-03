@@ -108,7 +108,7 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   card, is never published.
 - **Dev channel** (#761): every push to `dev` publishes `<version>-dev.<run number>` under the `dev` dist-tag
   (`main` publishes under `latest`). The stamp is written inside the run only; a dev build gets no git tag,
-  no git tag, but its ghcr.io build image (store repos' builds pull it, LIVE-SHOP §4 step 5), a tag in dev's Cloudflare registry (dev.yml writes the newest digest into `env.dev`'s `containers` entry at deploy, #790), a `core_release` row in **dev's** database and, from the same job, a rollout of that version to dev's stores (`release:record`, `release:rollout`, SAAS §10; #1164). Prod's database only ever records `main`'s releases. Dev builds are the one exception to the `0.0.0` rule: the tag is
+  but its ghcr.io build image (store repos' builds pull it, LIVE-SHOP §4 step 5), a tag in dev's Cloudflare registry (dev.yml writes the newest digest into `env.dev`'s `containers` entry at deploy, #790), a `core_release` row in **dev's** database and, from the same job, a rollout of that version to dev's stores (`release:record`, `release:rollout`, SAAS §10; #1164). Prod's database only ever records `main`'s releases. Dev builds are the one exception to the `0.0.0` rule: the tag is
   `<version>-dev.<run>` (`0.0.0-dev.<run>` until the first release card, `0.9.0-dev.<run>` since core 0.9.0).
 - CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
   `packages/storefront-core` (its changelog aside) without adding a changeset naming the
