@@ -1,0 +1,785 @@
+.shell {
+  --bg: #faf9f7;
+  --surface: #fff;
+  --soft: #f2efea;
+  --tint: #e9e4dc;
+  --ink: #2a2725;
+  --ink-soft: #4a4541;
+  --muted: #6b655f;
+  --line: #e2ddd5;
+  --accent: #3f3a36;
+  --accent-ink: #faf9f7;
+  --taupe: #b3a593;
+  --taupe-ink: #2a2725;
+  /* Taupe dark enough to read as text on the page background. */
+  --taupe-text: #6f6252;
+  --deep: #2f2b28;
+  --danger: #9a3412;
+  --focus: #00519f;
+  --radius: 8px;
+  --button-radius: 6px;
+  --heading-font: 'Cormorant Garamond', georgia, serif;
+  --heading-weight: 600;
+  --brand-weight: 700;
+  --heading-case: none;
+  --heading-spacing: 0;
+  --body-font: system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --header-bg: var(--accent);
+  --header-ink: var(--accent-ink);
+  --header-hover: rgb(255 255 255 / 12%);
+  --nav-bg: rgb(250 249 247 / 92%);
+  --footer-bg: #26221f;
+  --footer-ink: #fff;
+  --footer-muted: rgb(255 255 255 / 75%);
+  --footer-line: rgb(179 165 147 / 25%);
+  --picture: linear-gradient(160deg, #f2efea, #ddd6cc);
+  --picture-alt: linear-gradient(160deg, #e9e4dc, #d6cec2);
+  --df-sealed-font: var(--body-font);
+  --df-sealed-color: var(--ink);
+  --df-sealed-muted: var(--muted);
+  --df-sealed-surface: var(--surface);
+  --df-sealed-radius: var(--radius);
+
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  /* Cancels the browser's 8px body margin, which theme CSS can't name (storefront ARCHITECTURE §3.4). */
+  margin: -8px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body-font);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.preview {
+  display: block;
+}
+
+/* Top bar: brand, search and tools on charcoal. */
+
+.header {
+  background: var(--header-bg);
+  color: var(--header-ink);
+}
+
+.bar {
+  display: grid;
+  box-sizing: border-box;
+  width: min(100%, 1240px);
+  align-items: center;
+  gap: 8px 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-inline: auto;
+  padding: 10px 16px;
+}
+
+.brand {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--header-ink);
+  font-family: var(--heading-font);
+  font-size: 24px;
+  font-weight: var(--brand-weight);
+  line-height: 1.1;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logo {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: 40px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.search {
+  position: relative;
+  display: flex;
+  min-height: 44px;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 12px;
+  grid-column: 1 / -1;
+  order: 1;
+  padding: 4px 4px 4px 18px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.search label {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.search input {
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.search input::placeholder {
+  color: var(--muted);
+}
+
+/* Core's button carries its word as text; the word is hidden and a magnifier is drawn in its place. */
+.search button {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--taupe);
+  color: transparent;
+  font-size: 0;
+  cursor: pointer;
+}
+
+.search button::before {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 11px;
+  height: 11px;
+  box-sizing: border-box;
+  border: 2px solid var(--taupe-ink);
+  border-radius: 50%;
+  content: '';
+}
+
+.search button::after {
+  position: absolute;
+  top: 22px;
+  left: 20px;
+  width: 6px;
+  height: 2px;
+  background: var(--taupe-ink);
+  content: '';
+  transform: rotate(45deg);
+  transform-origin: 0 50%;
+}
+
+.search ul {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgb(38 34 31 / 18%);
+  list-style: none;
+}
+
+.search li {
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.search li:hover,
+.search li[aria-selected='true'] {
+  background: var(--soft);
+}
+
+.search li:last-child {
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.search li a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.search li img {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--soft);
+  object-fit: cover;
+}
+
+.search li span {
+  flex: 1;
+  font-family: var(--heading-font);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.search p {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgb(38 34 31 / 18%);
+  color: var(--muted);
+}
+
+/* Not display: none, so screen readers still announce "No products match" when the status fills. */
+.search p:empty {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.account,
+.tool {
+  display: inline-flex;
+  min-width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--button-radius);
+  color: var(--header-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.account:hover,
+.tool:hover {
+  background: var(--header-hover);
+}
+
+.accountLabel {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.divider {
+  display: none;
+  width: 1px;
+  height: 24px;
+  background: rgb(255 255 255 / 25%);
+}
+
+.tool:has(.count) {
+  position: relative;
+}
+
+.count {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--taupe);
+  color: var(--taupe-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.hidden {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Nav bar: off-white, sticky, uppercase links. */
+
+.navBar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid rgb(179 165 147 / 30%);
+  background: var(--nav-bg);
+  backdrop-filter: blur(8px);
+  color: var(--ink);
+}
+
+.navInner {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 1240px);
+  min-height: 52px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  padding-block: 8px;
+}
+
+.navLink {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: var(--button-radius);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.navLink:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.navItem {
+  position: relative;
+}
+
+.subnav {
+  display: flex;
+  flex-direction: column;
+  padding-left: 16px;
+}
+
+.subLink {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: var(--button-radius);
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.subLink:hover {
+  background: var(--soft);
+  color: var(--accent);
+}
+
+.subToggle {
+  display: none;
+}
+
+.main {
+  width: 100%;
+  flex: 1;
+}
+
+/* Footer: deep charcoal with taupe headings. */
+
+.footer {
+  padding: 44px 16px 24px;
+  background:
+    linear-gradient(90deg, transparent, var(--taupe), transparent) top / 100% 3px no-repeat,
+    var(--footer-bg);
+  color: var(--footer-muted);
+  font-size: 14px;
+}
+
+.columns {
+  display: grid;
+  box-sizing: border-box;
+  width: min(100%, 1208px);
+  gap: 32px 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-inline: auto;
+}
+
+.about {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.footerBrand {
+  margin: 0;
+  color: var(--footer-ink);
+  font-family: var(--heading-font);
+  font-size: 28px;
+  font-weight: var(--brand-weight);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.tagline {
+  margin: 0;
+  color: var(--taupe);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.note {
+  max-width: 36ch;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.contact {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.social {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.socialLink {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--taupe);
+  border-radius: 999px;
+  color: var(--taupe);
+  font-size: 13px;
+  text-decoration: none;
+  text-transform: capitalize;
+}
+
+.socialLink:hover {
+  background: var(--taupe);
+  color: var(--taupe-ink);
+}
+
+.links {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.heading {
+  margin: 0 0 12px;
+  color: var(--taupe);
+  font-family: var(--heading-font);
+  font-size: 19px;
+  font-weight: var(--heading-weight);
+}
+
+.footerLink {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  color: var(--footer-muted);
+  text-decoration: none;
+}
+
+.footerLink:hover {
+  color: var(--taupe);
+}
+
+.base {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 1208px);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 32px auto 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--footer-line);
+  color: var(--footer-muted);
+  font-size: 12px;
+}
+
+.cookies {
+  display: block;
+  --df-sealed-color: var(--footer-ink);
+}
+
+.cookies::part(button) {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--footer-line);
+  border-radius: var(--button-radius);
+  background: transparent;
+  color: var(--footer-ink);
+}
+
+.powered {
+  display: block;
+  --df-sealed-muted: var(--footer-muted);
+}
+
+.consent {
+  display: block;
+}
+
+.copyright {
+  margin: 0;
+  margin-right: auto;
+}
+
+/* Phones: the menu's top-level items as a sideways strip of chips beside the menu button. */
+.chips {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 4px;
+  list-style: none;
+  order: 2;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.chips li {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
+.chip {
+  display: inline-flex;
+  height: 32px;
+  box-sizing: border-box;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid rgb(179 165 147 / 40%);
+  border-radius: 999px;
+  background: rgb(250 249 247 / 60%);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.whatsapp {
+  position: fixed;
+  z-index: 30;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 8px rgb(38 34 31 / 15%),
+    0 8px 24px rgb(0 0 0 / 20%);
+  color: #fff;
+  transition: transform 0.3s ease;
+}
+
+.whatsapp:hover {
+  transform: scale(1.06);
+}
+
+.whatsappIcon {
+  width: 28px;
+  height: 28px;
+  fill: currentcolor;
+}
+
+.chip:focus-visible,
+.whatsapp:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.brand:focus-visible,
+.search:focus-within,
+.account:focus-visible,
+.tool:focus-visible {
+  outline: 2px solid var(--header-ink);
+  outline-offset: 2px;
+}
+
+.navLink:focus-visible,
+.subLink:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.footerLink:focus-visible,
+.socialLink:focus-visible {
+  outline: 2px solid var(--taupe);
+  outline-offset: 2px;
+}
+
+@media (min-width: 900px) {
+  .bar {
+    min-height: 72px;
+    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 560px) minmax(0, 1fr);
+    padding: 12px 32px;
+  }
+
+  .brand {
+    font-size: 28px;
+  }
+
+  .search {
+    grid-column: auto;
+    order: 0;
+  }
+
+  .tools {
+    justify-content: flex-end;
+  }
+
+  .account {
+    padding: 0 10px;
+  }
+
+  .accountLabel {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+
+  .divider {
+    display: block;
+  }
+
+  .navInner {
+    justify-content: center;
+    padding-inline: 32px;
+  }
+
+  .chips {
+    display: none;
+  }
+
+  .nav {
+    flex-direction: row;
+    gap: 4px;
+    padding-block: 0;
+  }
+
+  .subnav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    display: none;
+    min-width: 200px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgb(42 39 37 / 12%);
+  }
+
+  .navItem {
+    display: flex;
+    align-items: center;
+  }
+
+  .navItem .navLink {
+    padding-right: 2px;
+  }
+
+  .subToggle {
+    display: flex;
+    width: 24px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .subToggle .icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .subnavOpen {
+    display: flex;
+  }
+
+  .footer {
+    padding: 56px 32px 24px;
+  }
+
+  .columns {
+    grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
+  }
+
+  .about {
+    grid-column: auto;
+  }
+}

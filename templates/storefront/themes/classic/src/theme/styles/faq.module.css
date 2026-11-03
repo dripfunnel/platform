@@ -1,0 +1,142 @@
+.page {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 768px);
+  flex-direction: column;
+  gap: 40px;
+  margin-inline: auto;
+  padding: 48px 16px;
+}
+
+.groupTitle {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-family: var(--heading-font);
+  font-size: 22px;
+  font-weight: var(--heading-weight);
+}
+
+.items {
+  border-block: 1px solid rgb(179 165 147 / 20%);
+}
+
+.item + .item {
+  border-top: 1px solid rgb(179 165 147 / 20%);
+}
+
+.question {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.question::marker {
+  font-size: 0;
+}
+
+.chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--muted);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  transition: transform 0.2s ease;
+}
+
+.item[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.question:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.line {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  align-self: flex-start;
+  color: var(--accent);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  border: 1px solid rgb(179 165 147 / 30%);
+  border-radius: var(--radius);
+  background: rgb(242 239 234 / 40%);
+  text-align: center;
+}
+
+.moreTitle {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--heading-font);
+  font-size: 22px;
+  font-weight: var(--heading-weight);
+}
+
+.moreLead {
+  margin: 0;
+  color: var(--muted);
+}
+
+.contacts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px 24px;
+  margin: 12px 0 0;
+  padding: 0;
+  font-size: 14px;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 900px) {
+  .page {
+    padding: 64px 32px;
+  }
+
+  .groupTitle {
+    font-size: 26px;
+  }
+
+  .more {
+    padding: 32px;
+  }
+}
