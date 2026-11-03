@@ -2,6 +2,9 @@ import type { ScopedSql } from './index'
 
 // core_release (DATA-MODEL §7.8): one row per published storefront-core version, in system scope.
 
+/** A core version as release.yml publishes it: `X.Y.Z`, or `X.Y.Z-dev.N` on dev; migration 0379's check says the same. */
+export const coreVersionPattern = /^\d+\.\d+\.\d+(-dev\.\d+)?$/
+
 export type ReleaseKind = 'major' | 'minor' | 'patch'
 
 const parts = (version: string) => version.split('-')[0]?.split('.').map(Number) ?? []

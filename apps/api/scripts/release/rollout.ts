@@ -1,5 +1,6 @@
 import postgres from 'postgres'
 import { z } from 'zod'
+import { coreVersionPattern } from '#db/scoped/coreReleases'
 import { uniqueViolation, withSystemScope } from '#db/scoped/index'
 import { startReleaseRollout } from '#saas/fleet/index'
 import { assertLocalHost } from '../migrate/host-guard'
@@ -8,7 +9,7 @@ import { assertLocalHost } from '../migrate/host-guard'
 const env = z
   .object({
     DATABASE_URL: z.string().min(1),
-    VERSION: z.string().regex(/^\d+\.\d+\.\d+(-dev\.\d+)?$/),
+    VERSION: z.string().regex(coreVersionPattern),
   })
   .parse(process.env)
 assertLocalHost(env.DATABASE_URL)
