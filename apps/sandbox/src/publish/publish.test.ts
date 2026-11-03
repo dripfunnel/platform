@@ -157,9 +157,11 @@ describe('step build', () => {
     expect(home).toContain('<title>Linen &amp; &quot;Co&quot; &lt;/script&gt;&lt;script&gt;alert(1)&lt;/script&gt;</title>')
     expect(home).toContain('<meta name="description" content="&lt;img src=x onerror=alert(1)&gt; &amp; more">')
     expect(home).toContain('\\u003c/script>\\u003cscript>alert(1)\\u003c/script>')
-    // Exactly the build's own two scripts: the page's module and its data, nothing the name opened.
-    expect(home.match(/<script/g)).toHaveLength(2)
-    expect(home.match(/<\/script>/g)).toHaveLength(2)
+    // Only the build's own scripts: the page's module, its data and the home page's JSON-LD (#1184), nothing the name opened.
+    const jsonLd = home.match(/<script type="application\/ld\+json">/g)?.length ?? 0
+    expect(jsonLd).toBeGreaterThan(0)
+    expect(home.match(/<script/g)).toHaveLength(2 + jsonLd)
+    expect(home.match(/<\/script>/g)).toHaveLength(2 + jsonLd)
   })
 
   it('writes each product, version and collection of a catalogue snapshot as its own page, rendered from the recorded answers', async () => {
