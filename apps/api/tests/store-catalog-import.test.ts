@@ -409,6 +409,34 @@ describe('a supplier’s import', () => {
     expect(await db.sql`select w.seller_id from stock_level s join warehouse w on w.id = s.warehouse_id join product_version v on v.id = s.version_id where v.sku = 'MUG'`).toEqual([{ seller_id: t.sellerA1First }])
   })
 
+  it('matches Shopify locations only to its own warehouses: the store’s and another supplier’s are refused', async () => {
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) select plan_id, ${t.partnerA}, 1, 'import_shopify', true from store where id = ${t.storeA1}
+      on conflict do nothing`
+    const [storeWide, others, mine] = await Promise.all([
+      db.sql<{ id: string }[]>`insert into warehouse (store_id, name) values (${t.storeA1}, 'Store-wide') returning id`,
+      db.sql<{ id: string }[]>`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1Second}, 'Other supplier') returning id`,
+      db.sql<{ id: string }[]>`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1First}, 'My shelf') returning id`,
+    ])
+    const [storeWideId, othersId, mineId] = [storeWide[0]?.id ?? '', others[0]?.id ?? '', mine[0]?.id ?? '']
+    const started = await gql('mutation S($f: String!, $s: CatalogImportSource, $i: String) { startCatalogImport(file: $f, source: $s, inventory: $i) }', 'supplier', {
+      f: shopifyProductsCsv.replaceAll('everyday-', 'sup-').replaceAll('Everyday ', 'Sup '),
+      s: 'shopify',
+      i: shopifyInventoryCsv.replaceAll('everyday-', 'sup-'),
+    })
+    await relay()
+    const id = started.data?.['startCatalogImport'] as string
+    expect(await read('supplier', id)).toMatchObject({ state: 'ready' })
+    const confirmAs = (shop: string, matha: string) =>
+      gql('mutation C($id: ID!, $l: [CatalogImportLocationInput!]) { confirmCatalogImport(id: $id, matching: update, locations: $l) }', 'supplier', {
+        id,
+        l: [{ location: '#9,Matha pitru nivasa', warehouseId: matha }, { location: 'Indiranagar', warehouseId: shop }],
+      })
+    expect((await confirmAs(mineId, storeWideId)).code).toBe('WAREHOUSE_NOT_FOUND')
+    expect((await confirmAs(othersId, mineId)).code).toBe('WAREHOUSE_NOT_FOUND')
+    expect((await db.sql`select state from catalog_import where id = ${id}`)[0]).toEqual({ state: 'ready' })
+    expect((await confirmAs(mineId, (await db.sql<{ id: string }[]>`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1First}, 'My second shelf') returning id`)[0]?.id ?? '')).code).toBeUndefined()
+  })
+
   it('is read back only by whoever imported it; Staff can’t import', async () => {
     const { id } = await upload('supplier', 'handle,name,price\ncup,Cup,10\n')
     for (const who of ['otherSupplier', 'owner', 'bOwner'] as const) expect(await read(who, id), who).toBeNull()
