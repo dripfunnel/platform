@@ -69,6 +69,7 @@ const templateRows: readonly (readonly [string, string, string, string])[] = har
       ['circuit', 'Circuit', 'Electronics & tech', 'Dark, sharp and spec-led. Clear details and help up front.'],
       ['market', 'Market', 'Food & grocery', 'Warm, friendly and easy to browse.'],
       ['atelier', 'Atelier', 'Luxury editorial', 'Magazine-like pacing. Large serif type, muted tones, lots of space.'],
+      ['classic', 'Classic', 'Traditional & ethnic', 'Calm neutral colours and serif headings. A banner carousel, search in the header and collection spotlights.'],
     ]
   : []
 
