@@ -1380,6 +1380,7 @@
       "title": "Versions · {count}",
       "setPrice": "Set values for all…",
       "setPriceTitle": "Set the value of every version",
+      "setBody": "Each value you fill in replaces the one on every version, except those you don’t make.",
       "setKeeps": "Leave a field empty to keep each version’s own value.",
       "setNone": "Fill in at least one value.",
       "setFix": "Fix the value marked above first.",
