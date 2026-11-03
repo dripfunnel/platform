@@ -213,7 +213,10 @@ describe('a spreadsheet import', () => {
       'tee,,,,,,,M,TEE-M,190,2,499.00,https://cdn.example/gone.png,,',
       'tee,,,,,,,,,,,,https://inside.example/secret.png,,',
     ].join('\n')
+    // Sent with no option, as the mobile app does, a Shopify file is gated as one: this store is on Growth for this test only.
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) select plan_id, ${t.partnerA}, 1, 'import_shopify', true from store where id = ${t.storeA1}`
     const { id, job } = await upload('owner', shopify)
+    await db.sql`delete from plan_entitlement where key = 'import_shopify' and plan_id = (select plan_id from store where id = ${t.storeA1})`
     expect(job).toMatchObject({ source: 'shopify', ready: 1, problemCount: 0 })
     const done = (await confirm('owner', id)).job
     expect(done).toMatchObject({ state: 'done', created: 1 })
@@ -297,6 +300,10 @@ describe('a Shopify CSV import (#1178)', () => {
   it('is on a plan that includes it: a Starter store is refused, Growth and above reads the file', async () => {
     const refused = await shopifyUpload('owner', shopifyProductsCsv)
     expect(refused).toMatchObject({ code: 'PLAN_LIMIT', id: '' })
+    expect(await db.sql`select 1 from catalog_import where store_id = ${t.storeA1} and file like 'Handle,Title,Body (HTML)%'`).toHaveLength(0)
+    // Leaving the option out doesn't skip the gate: the file's own header says it is Shopify's.
+    const unnamed = await gql('mutation S($f: String!) { startCatalogImport(file: $f) }', 'owner', { f: shopifyProductsCsv })
+    expect(unnamed.code).toBe('PLAN_LIMIT')
     expect(await db.sql`select 1 from catalog_import where store_id = ${t.storeA1} and file like 'Handle,Title,Body (HTML)%'`).toHaveLength(0)
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) select plan_id, ${t.partnerA}, 1, 'import_shopify', true from store where id = ${t.storeA1}`
     expect((await shopifyUpload('owner', shopifyProductsCsv)).job).toMatchObject({ source: 'shopify', ready: 2, problemCount: 0 })

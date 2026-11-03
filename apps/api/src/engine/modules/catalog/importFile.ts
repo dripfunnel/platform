@@ -176,6 +176,13 @@ for (const n of [1, 2, 3] as const) {
 
 const isShopify = (header: readonly string[]) => header.some((h) => h === 'variant sku' || h === 'variant price' || h === 'body (html)')
 
+/** Whether a file's header is Shopify's, read without planning the file: the plan gate needs it before the check runs. */
+export const isShopifyFile = (text: string): boolean => {
+  const end = text.search(/\r?\n/)
+  const header = parseCsv(end === -1 ? text : text.slice(0, end))?.[0]
+  return header !== undefined && isShopify(header.map((h) => h.trim().toLowerCase()))
+}
+
 /** Shopify's description is HTML; ours is text, so tags go and the common entities are read. */
 export const textOfHtml = (html: string): string =>
   html

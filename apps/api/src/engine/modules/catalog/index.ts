@@ -104,6 +104,7 @@ export {
   type ImportJobDeps,
   type PhotoFetch,
 } from './imports'
+export { isShopifyFile } from './importFile'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'

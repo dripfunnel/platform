@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { catalogImportAudit, createCatalogImportService, type CatalogImportDto, type CatalogImportRefusal } from '#engine/modules/catalog/index'
+import { catalogImportAudit, createCatalogImportService, isShopifyFile, type CatalogImportDto, type CatalogImportRefusal } from '#engine/modules/catalog/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -100,7 +100,8 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
       args: { file: t.arg.string({ required: true }), source: t.arg({ type: Source }), inventory: t.arg.string(), currency: t.arg.string() },
       extensions: { access: { ...access, audit: catalogImportAudit.started } },
       resolve: async (_, { file, source, inventory, currency }, ctx) => {
-        await requireFeature(ctx, actingCaller(ctx), source === 'shopify' ? 'import_shopify' : 'import_spreadsheet')
+        // With no source (the mobile app) either kind is read, so a Shopify file is gated as one whichever option sent it.
+        await requireFeature(ctx, actingCaller(ctx), (source ?? (isShopifyFile(file) ? 'shopify' : 'csv')) === 'shopify' ? 'import_shopify' : 'import_spreadsheet')
         const result = await writer(ctx).start(file, source ?? null, inventory ?? null, currency ?? null)
         if (!result.ok) throw refused(result.reason)
         return result.value

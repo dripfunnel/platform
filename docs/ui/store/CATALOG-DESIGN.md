@@ -896,7 +896,7 @@ with validation before any write, partial-failure reports, and translation and c
     numbers: nothing is stored in it, and the typed prices of K11 are unaffected.
   - **Plan:** Import CSV from Shopify is on **Growth and above**, the same switch as Connect Shopify
     (`import_shopify`); a store without it sees the tab locked with the usual upgrade prompt after
-    the API refuses the upload (only the Owner is told which plan; others are told to ask the Owner).
+    the API refuses the upload (only the Owner is told which plan; others are told to ask the Owner). The API decides, not the option: a Shopify file sent with no option (the mobile app) is gated on `import_shopify` by its header.
   - **Stock, Products CSV alone:** each version takes `Variant Inventory Qty` when the file has it,
     otherwise nothing is written (a new product starts at 0), into the warehouse chosen at confirm.
     With no counts the check says so in one line and points to Inventory or the inventory file.

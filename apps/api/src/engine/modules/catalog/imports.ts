@@ -33,7 +33,7 @@ import { importLimits, planImport, type ImportPlan, type ImportProblem, type Imp
 import { applyInventory, readInventory, type InventoryRefusal } from './inventoryFile'
 import { isMerchantRole, isSupplierRole, isSupplierTier, storeRoleHas } from '#auth/storePermissions'
 import { jobPayloadOf } from './jobScope'
-import { maxValuesPerOption, type ProductInput, type VersionInput } from './rules'
+import { maxValuesPerOption, textLimits, type ProductInput, type VersionInput } from './rules'
 import type { SaveResult } from './index'
 import type { ProductTranslationInput, TranslationResult } from './translations'
 
@@ -62,14 +62,14 @@ export const problemWords: Record<ProblemCode, string> = {
   OPTIONS_DIFFER: 'Its options differ from the product’s. Add every version, or change the options in the editor first.',
   PHOTO_UNAVAILABLE: 'This photo couldn’t be fetched from its address.',
   PHOTO_REFUSED: 'This photo isn’t a JPEG, PNG or WebP of up to 20 MB.',
-  NAME_TOO_LONG: 'The name is over 255 characters. Shorten it.',
-  DESCRIPTION_TOO_LONG: 'The description is over 20,000 characters (as plain text). Shorten it.',
-  SEO_TITLE_TOO_LONG: 'The SEO title is over 120 characters. Shorten it.',
-  SEO_DESCRIPTION_TOO_LONG: 'The SEO description is over 320 characters. Shorten it.',
-  OPTION_NAME_INVALID: 'An option name is over 60 characters. Shorten it.',
-  OPTION_VALUE_INVALID: 'An option value is over 60 characters. Shorten it.',
+  NAME_TOO_LONG: `The name is over ${textLimits.name} characters. Shorten it.`,
+  DESCRIPTION_TOO_LONG: `The description is over ${textLimits.description.toLocaleString('en')} characters (as plain text). Shorten it.`,
+  SEO_TITLE_TOO_LONG: `The SEO title is over ${textLimits.seoTitle} characters. Shorten it.`,
+  SEO_DESCRIPTION_TOO_LONG: `The SEO description is over ${textLimits.seoDescription} characters. Shorten it.`,
+  OPTION_NAME_INVALID: `An option name is over ${textLimits.optionName} characters. Shorten it.`,
+  OPTION_VALUE_INVALID: `An option value is over ${textLimits.optionValue} characters. Shorten it.`,
   TOO_MANY_VALUES: `An option can have up to ${maxValuesPerOption} values.`,
-  SKU_TOO_LONG: 'The SKU is over 64 characters. Shorten it.',
+  SKU_TOO_LONG: `The SKU is over ${textLimits.sku} characters. Shorten it.`,
   COMPARE_BELOW_PRICE: 'The compare-at price must be higher than the price, or left empty.',
   PHOTO_TOO_LONG: `This photo’s address is over ${importLimits.photoUrl.toLocaleString('en')} characters, or its description over ${importLimits.photoAlt}, so it was left out.`,
   NOT_FOUND: 'That product is no longer here.',
