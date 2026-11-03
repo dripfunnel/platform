@@ -15,7 +15,7 @@ export interface InventoryRow {
   available: number
 }
 
-export type InventoryRefusal = 'NOT_INVENTORY_FILE' | 'TOO_MANY_ROWS'
+export type InventoryRefusal = 'NOT_INVENTORY_FILE' | 'TOO_MANY_ROWS' | 'TOO_MANY_LOCATIONS'
 
 const asProblem = (line: number, column: string | null, code: ImportProblem['code']): ImportProblem => ({ line, column, code, file: 'inventory' })
 
@@ -32,6 +32,7 @@ export const readInventory = (text: string): { rows: InventoryRow[]; problems: I
   if (handle < 0 || location < 0 || available < 0) return 'NOT_INVENTORY_FILE'
   const body = numbered.slice(1)
   if (body.length > importLimits.rows) return 'TOO_MANY_ROWS'
+  if (new Set(body.map((r) => r.cells[location]?.trim() ?? '')).size > importLimits.locations) return 'TOO_MANY_LOCATIONS'
   const options = [1, 2, 3].map((n) => at(`option${n} value`))
   const sku = at('sku')
   const rows: InventoryRow[] = []
@@ -93,7 +94,8 @@ export const applyInventory = (products: PlannedProduct[], rows: readonly Invent
       continue
     }
     if (!locations.includes(row.location)) locations.push(row.location)
-    const counts = (product.stockAt ??= {})
+    // A location is uploaded text: a prototype-less object keeps names like `__proto__` and `constructor` plain keys.
+    const counts = (product.stockAt ??= Object.create(null) as Record<string, (number | null)[]>)
     const own = (counts[row.location] ??= versions.map(() => null))
     own[index] = row.available
   }

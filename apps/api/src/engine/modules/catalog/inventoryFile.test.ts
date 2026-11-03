@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { shopifyInventoryCsv, shopifyProductsCsv, shopifyVariantsCsv } from '../../../../tests/support/shopifyExports'
-import { planImport, type ImportPlan, type PlanOptions } from './importFile'
+import { importLimits, planImport, type ImportPlan, type PlanOptions } from './importFile'
 import { applyInventory, readInventory } from './inventoryFile'
 
 const o = { currency: 'INR', languages: [], manualCurrencies: [], supplier: false }
@@ -57,6 +57,21 @@ describe('applyInventory, onto the products file’s versions', () => {
     const { problems } = applyInventory(planned.products, rows, new Set())
     expect(planned.products[0]?.stockAt).toEqual({ Shop: [6, 9] })
     expect(problems.map((p) => [p.line, p.code])).toEqual([[4, 'INVENTORY_UNMATCHED']])
+  })
+
+  it('keeps location names like __proto__ and constructor as plain names, never touching Object.prototype', () => {
+    const planned = plan(shopifyVariantsCsv)
+    const rows = read('Handle,Option1 Value,Option2 Value,Option3 Value,SKU,Location,Available (not editable)\nribbed-tee,S,Red,Cotton,,__proto__,6\nribbed-tee,S,Red,Cotton,,constructor,4\nribbed-tee,S,Red,Cotton,,toString,2').rows
+    const { locations } = applyInventory(planned.products, rows, new Set())
+    expect(locations).toEqual(['__proto__', 'constructor', 'toString'])
+    expect(Object.keys(planned.products[0]?.stockAt ?? {})).toEqual(['__proto__', 'constructor', 'toString'])
+    expect(Object.hasOwn(Object.prototype, '0')).toBe(false)
+    expect(({} as Record<string, unknown>)['0']).toBeUndefined()
+  })
+
+  it('refuses an inventory file with more locations than the limit', () => {
+    const rows = Array.from({ length: importLimits.locations + 1 }, (_, i) => `a,,,,Place ${i},1`).join('\n')
+    expect(readInventory(`Handle,Option1 Value,Option2 Value,Option3 Value,Location,Available (not editable)\n${rows}`)).toBe('TOO_MANY_LOCATIONS')
   })
 
   it('leaves rows of a product the check refused alone', () => {

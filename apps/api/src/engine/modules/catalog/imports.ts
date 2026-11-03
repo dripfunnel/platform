@@ -152,6 +152,7 @@ const fileWords: Record<FileRefusal, string> = {
   RATE_MISSING: 'There is no exchange rate yet between the file’s currency and your store’s, so its prices can’t be converted. Choose your store’s currency, or try again later.',
   SHOPIFY_FILE: 'This is a Shopify export. Choose Import from Shopify, then Import CSV from Shopify.',
   NOT_SHOPIFY_FILE: 'This isn’t a Shopify product export. Use Import from a spreadsheet instead.',
+  TOO_MANY_LOCATIONS: `The inventory file has more than ${importLimits.locations} locations. Export fewer and import in parts.`,
   NOT_INVENTORY_FILE: 'The inventory file isn’t Shopify’s inventory export. In Shopify, open Products › Inventory › Export and choose that file.',
   UNREADABLE: 'This file can’t be read as a spreadsheet. Save it as CSV and try again.',
   EMPTY: 'This file has no products in it.',
@@ -511,7 +512,7 @@ const importOne = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProd
 const importStock = async (tx: ScopedSql, d: ImportJobDeps, job: CatalogImportRow, p: PlannedProduct, productId: string): Promise<boolean> => {
   // With an inventory file each Shopify location's counts go to the warehouse it was matched to; one left out brings none.
   const groups = p.stockAt
-    ? Object.entries(p.stockAt).map(([location, counts]) => ({ warehouseId: job.warehouse_map?.[location] ?? null, counts }))
+    ? Object.entries(p.stockAt).map(([location, counts]) => ({ warehouseId: job.warehouse_map && Object.hasOwn(job.warehouse_map, location) ? (job.warehouse_map[location] ?? null) : null, counts }))
     : [{ warehouseId: job.warehouse_id, counts: p.stock }]
   const counted = groups.filter((g) => g.counts.some((n) => n !== null) && (p.stockAt === undefined || g.warehouseId !== null))
   if (counted.length === 0) return true

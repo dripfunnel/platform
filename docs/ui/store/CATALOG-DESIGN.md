@@ -901,12 +901,12 @@ with validation before any write, partial-failure reports, and translation and c
     otherwise nothing is written (a new product starts at 0), into the warehouse chosen at confirm.
     With no counts the check says so in one line and points to Inventory or the inventory file.
   - **Stock, with the Inventory CSV:** its counts replace the Products CSV's. Our stock is Shopify's
-    **Available** count (`not stocked` brings none). Rows match a product by Handle, then a version
+    **Available** count (`not stocked` or an empty count brings none, and is listed as skipped). Rows match a product by Handle, then a version
     by SKU when the row has one, else by option values (Shopify's simple product is "Default
     Title"). A row that matches no product, a bad count (not a whole number of 0 or more) and a
     missing location are listed as problems by line under "Inventory file, row N"; they are not in
     the error file, which holds the Products CSV's rows. A row for a product the check refused is
-    left alone.
+    left alone. A file with more than 50 distinct locations is refused.
   - The location-to-warehouse choice is kept on the import job (`catalog_import.warehouse_map`) and
     the Inventory CSV only until the check has read it (`catalog_import.inventory`, migration 0379).
   - Creating warehouses from Shopify locations, importing an inventory file on its own, and other

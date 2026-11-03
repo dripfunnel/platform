@@ -5,7 +5,7 @@ import { cleanProduct, invalidInputOf, maxOptions, maxPhotos, productTypes, slug
 // A spreadsheet of products as the import reads it (CATALOG K1–K3, K10, K11): our own export's columns or
 // Shopify's product CSV, rows grouped by handle into products, each checked as a save would check it.
 
-export const importLimits = { bytes: 5 * 1024 * 1024, rows: 20_000, products: 5_000, maxStock: 1_000_000, photoUrl: 2048, photoAlt: 500 } as const
+export const importLimits = { bytes: 5 * 1024 * 1024, rows: 20_000, products: 5_000, maxStock: 1_000_000, locations: 50, photoUrl: 2048, photoAlt: 500 } as const
 
 export type ImportSource = 'csv' | 'shopify'
 
