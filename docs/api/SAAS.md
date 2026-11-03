@@ -1019,7 +1019,7 @@ built and gated per store, and the upgrade bot must exist from day one.
   and majors alike, so no store moves before the API it needs is live. It starts none when release.yml hasn't recorded
   that version yet, when a rollout to it already exists, or while another rollout is running or paused; that last one
   says so (`core_rollout.not_started` with `rollout_active`, technical log `core_rollout_not_started`), for staff to
-  start it once that one ends. *Decided 2026-10-31 (Kshitij).* Dev does the same for every `<version>-dev.<run>` it publishes: release.yml's `sandbox-image-dev` job records the row and starts the rollout against dev's database, so dev's stores follow the dev core without anyone starting it (#1164).
+  start it once that one ends. *Decided 2026-10-31 (Kshitij).* Dev does the same for every `<version>-dev.<run>` it publishes: release.yml's `sandbox-image-dev` job records the row and starts the rollout against dev's database, so dev's stores follow the dev core without anyone starting it (#1205).
 - **Majors** may change the look or the theme contract and ship **upgrade notes** and
   codemods. Each published version is **pinned** to the core version it was built with
   (decided 2026-10-08 on #470); a major's new look reaches a store only at its merchant's next
