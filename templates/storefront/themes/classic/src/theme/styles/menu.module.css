@@ -1,0 +1,64 @@
+.menu {
+  display: contents;
+}
+
+.toggle {
+  display: inline-flex;
+  min-width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  order: 2;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid currentcolor;
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-width: 1.6;
+}
+
+.label {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.panel {
+  display: none;
+}
+
+.open {
+  display: block;
+  flex-basis: 100%;
+  order: 3;
+}
+
+@media (min-width: 900px) {
+  .toggle {
+    display: none;
+  }
+
+  .panel,
+  .open {
+    display: block;
+    flex-basis: auto;
+    order: 0;
+  }
+}

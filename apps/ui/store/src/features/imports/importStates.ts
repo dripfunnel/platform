@@ -4,8 +4,9 @@ import { liveImportApi, type ImportApi } from './importApi'
 import type { FileError } from './ImportStart'
 
 // Import & export's states under ?state= (ui/README.md §6), CatImport's own: start, fileError, checking, shopify,
-// shopifyExpired, pick, check, running, done, stopped, readOnly and denied, each answered with samples, never the API.
-export const importStates = ['start', 'fileError', 'checking', 'shopify', 'shopifyExpired', 'pick', 'check', 'running', 'done', 'stopped', 'readOnly', 'denied'] as const
+// shopifyExpired, shopifyLocked, pick, check, checkLocations, running, done, stopped, readOnly and denied, each
+// answered with samples, never the API.
+export const importStates = ['start', 'fileError', 'checking', 'shopify', 'shopifyExpired', 'shopifyLocked', 'pick', 'check', 'checkLocations', 'running', 'done', 'stopped', 'readOnly', 'denied'] as const
 
 export type ImportScreenState = (typeof importStates)[number]
 
@@ -18,6 +19,7 @@ export interface ImportSample {
   fileError: FileError | null
   fileName: string
   checking: boolean
+  locked: { plan: string | null } | null
 }
 
 
@@ -35,10 +37,13 @@ const job = (patch: Partial<CatalogImport>): CatalogImport => ({
   failed: 0,
   photosPending: 0,
   problemCount: 2,
+  locations: [],
+  conversion: null,
+  stockCounted: true,
   problems: harness
     ? [
-        { line: 14, column: 'price', code: 'BAD_PRICE', message: 'Price is empty. Add a price so shoppers can buy this.' },
-        { line: 22, column: 'barcode', code: 'BAD_NUMBER', message: 'The barcode’s last digit doesn’t check out — probably a typo.' },
+        { line: 14, column: 'price', code: 'BAD_PRICE', message: 'Price is empty. Add a price so shoppers can buy this.', file: null },
+        { line: 22, column: 'barcode', code: 'BAD_NUMBER', message: 'The barcode’s last digit doesn’t check out — probably a typo.', file: null },
       ]
     : [],
   problemsCsv: null,
@@ -56,6 +61,7 @@ const never = <T>() => new Promise<T>(() => undefined)
 const sampleApi = (state: ImportScreenState): ImportApi => ({
   ...liveImportApi,
   loadImport: async () => job({}),
+  loadImportCurrencies: async () => ({ pricing: 'INR', others: ['EUR', 'USD'] }),
   startFileImport: never,
   confirmImport: async () => undefined,
   loadImportTemplate: async () => 'handle,name,price\n',
@@ -75,7 +81,7 @@ const sampleApi = (state: ImportScreenState): ImportApi => ({
 
 export const importSample = (state: ImportScreenState | null): ImportSample | null => {
   if (!state) return null
-  const base: ImportSample = { api: sampleApi(state), mode: null, picking: null, job: null, run: null, fileError: null, fileName: '', checking: false }
+  const base: ImportSample = { api: sampleApi(state), mode: null, picking: null, job: null, run: null, fileError: null, fileName: '', checking: false, locked: null }
   switch (state) {
     case 'fileError':
       return { ...base, mode: 'file', fileError: { kind: 'type', name: 'product-photos.zip' } }
@@ -84,16 +90,33 @@ export const importSample = (state: ImportScreenState | null): ImportSample | nu
     case 'shopify':
     case 'shopifyExpired':
       return { ...base, mode: 'shopify' }
+    case 'shopifyLocked':
+      return { ...base, mode: 'shopify', locked: { plan: 'Growth' } }
     case 'pick':
       return { ...base, mode: 'shopify', picking: 'kesari-threads.myshopify.com' }
     case 'check':
       return { ...base, mode: 'file', job: job({}), fileName: 'spring-range.csv' }
+    case 'checkLocations':
+      return {
+        ...base,
+        mode: 'shopify',
+        fileName: 'products_export_1.csv',
+        job: job({
+          source: 'shopify',
+          products: 2,
+          ready: 2,
+          matched: 0,
+          problemCount: 1,
+          locations: ['Indiranagar', '#9,Matha pitru nivasa'],
+          problems: [{ line: 6, column: 'Handle', code: 'INVENTORY_UNMATCHED', message: 'No product in the products file matches this row, so its count was left out.', file: 'inventory' }],
+        }),
+      }
     case 'running':
       return { ...base, run: job({ state: 'running', done: 5 }) }
     case 'done':
       return { ...base, run: job({ state: 'done', done: 8, created: 6, updated: 2, photosPending: 1 }) }
     case 'stopped':
-      return { ...base, run: job({ state: 'failed', problems: [{ line: 0, column: null, code: 'SHOPIFY_EXPIRED', message: 'Your Shopify connection has expired. Connect your shop again.' }] }) }
+      return { ...base, run: job({ state: 'failed', problems: [{ line: 0, column: null, code: 'SHOPIFY_EXPIRED', message: 'Your Shopify connection has expired. Connect your shop again.', file: null }] }) }
     default:
       return base
   }

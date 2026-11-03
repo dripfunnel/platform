@@ -27,11 +27,13 @@ import {
 } from '#db/scoped/catalogImports'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { setStockTargets } from '#db/scoped/inventory'
+import { selectRates } from '#db/scoped/rates'
 import { selectLanguages } from '#db/scoped/translations'
-import { importLimits, planImport, type ImportPlan, type ImportProblem, type ImportSource, type PlannedProduct, type ProblemCode } from './importFile'
+import { importLimits, planImport, type ImportPlan, type ImportProblem, type ImportSource, type PlannedProduct, type PlanOptions, type PlanRefusal, type ProblemCode } from './importFile'
+import { applyInventory, readInventory, type InventoryRefusal } from './inventoryFile'
 import { isMerchantRole, isSupplierRole, isSupplierTier, storeRoleHas } from '#auth/storePermissions'
 import { jobPayloadOf } from './jobScope'
-import type { ProductInput, VersionInput } from './rules'
+import { maxValuesPerOption, textLimits, type ProductInput, type VersionInput } from './rules'
 import type { SaveResult } from './index'
 import type { ProductTranslationInput, TranslationResult } from './translations'
 
@@ -60,6 +62,15 @@ export const problemWords: Record<ProblemCode, string> = {
   OPTIONS_DIFFER: 'Its options differ from the product’s. Add every version, or change the options in the editor first.',
   PHOTO_UNAVAILABLE: 'This photo couldn’t be fetched from its address.',
   PHOTO_REFUSED: 'This photo isn’t a JPEG, PNG or WebP of up to 20 MB.',
+  NAME_TOO_LONG: `The name is over ${textLimits.name} characters. Shorten it.`,
+  DESCRIPTION_TOO_LONG: `The description is over ${textLimits.description.toLocaleString('en')} characters (as plain text). Shorten it.`,
+  SEO_TITLE_TOO_LONG: `The SEO title is over ${textLimits.seoTitle} characters. Shorten it.`,
+  SEO_DESCRIPTION_TOO_LONG: `The SEO description is over ${textLimits.seoDescription} characters. Shorten it.`,
+  OPTION_NAME_INVALID: `An option name is over ${textLimits.optionName} characters. Shorten it.`,
+  OPTION_VALUE_INVALID: `An option value is over ${textLimits.optionValue} characters. Shorten it.`,
+  TOO_MANY_VALUES: `An option can have up to ${maxValuesPerOption} values.`,
+  SKU_TOO_LONG: `The SKU is over ${textLimits.sku} characters. Shorten it.`,
+  COMPARE_BELOW_PRICE: 'The compare-at price must be higher than the price, or left empty.',
   PHOTO_TOO_LONG: `This photo’s address is over ${importLimits.photoUrl.toLocaleString('en')} characters, or its description over ${importLimits.photoAlt}, so it was left out.`,
   NOT_FOUND: 'That product is no longer here.',
   CURRENCY_REQUIRED: 'Set your store’s currency first.',
@@ -71,6 +82,10 @@ export const problemWords: Record<ProblemCode, string> = {
   MATCHES_MANY: 'Its SKUs belong to more than one product here.',
   STOCK_REFUSED: 'Its stock couldn’t be set.',
   TRANSLATION_REFUSED: 'A translation couldn’t be saved.',
+  LOCATION_REQUIRED: 'Give the location this count is for.',
+  INVENTORY_UNMATCHED: 'No product in the products file matches this row, so its count was left out.',
+  NOT_STOCKED: 'Skipped: Shopify says this item isn’t stocked at this location, so no count was imported for it.',
+  NO_COUNT: 'Skipped: this row has no Available count, so nothing was imported for it.',
   NOT_ALLOWED: 'You can no longer import into this store, so the rest wasn’t imported.',
   NAME_REQUIRED: 'Give the product a name.',
   INVALID_INPUT: 'Something in this row isn’t valid.',
@@ -95,7 +110,13 @@ export const problemWords: Record<ProblemCode, string> = {
   LISTING_REFUSED: 'Something in the listing isn’t allowed.',
 }
 
-export type CatalogImportRefusal = 'INVALID_INPUT' | 'FILE_TOO_LARGE' | 'NOT_FOUND' | 'NOT_READY' | 'NOTHING_TO_IMPORT' | 'WAREHOUSE_NOT_FOUND'
+export type CatalogImportRefusal = 'INVALID_INPUT' | 'FILE_TOO_LARGE' | 'NOT_FOUND' | 'NOT_READY' | 'NOTHING_TO_IMPORT' | 'WAREHOUSE_NOT_FOUND' | 'LOCATIONS_INVALID'
+
+/** Each Shopify location of an inventory file matched to one of the store's warehouses, or left out (null). */
+export interface LocationWarehouse {
+  location: string
+  warehouseId: string | null
+}
 export type ImportResult<T> = { ok: true; value: T } | { ok: false; reason: CatalogImportRefusal }
 
 export interface CatalogImportDto {
@@ -112,6 +133,12 @@ export interface CatalogImportDto {
   failed: number
   photosPending: number
   problemCount: number
+  /** The Shopify locations the inventory file gave counts for; the confirm step maps each to a warehouse. */
+  locations: string[]
+  /** Set when the file's prices were converted to the pricing currency, and at the rates of which day. */
+  conversion: { from: string; to: string; on: string } | null
+  /** Whether the file or files carry any stock count; without one, new products start at 0. */
+  stockCounted: boolean
   /** The first problems, in the file's order; the error file has them all. */
   problems: (ImportProblem & { message: string })[]
   problemsCsv: string | null
@@ -120,8 +147,13 @@ export interface CatalogImportDto {
 }
 
 /** The check's refusal of the whole file, kept in `problems` as line 0 so the screen can say what's wrong. */
-type FileRefusal = Exclude<ReturnType<typeof planImport>, ImportPlan>
+type FileRefusal = PlanRefusal | InventoryRefusal | 'RATE_MISSING'
 const fileWords: Record<FileRefusal, string> = {
+  RATE_MISSING: 'There is no exchange rate yet between the file’s currency and your store’s, so its prices can’t be converted. Choose your store’s currency, or try again later.',
+  SHOPIFY_FILE: 'This is a Shopify export. Choose Import from Shopify, then Import CSV from Shopify.',
+  NOT_SHOPIFY_FILE: 'This isn’t a Shopify product export. Use Import from a spreadsheet instead.',
+  TOO_MANY_LOCATIONS: `The inventory file has more than ${importLimits.locations} locations. Export fewer and import in parts.`,
+  NOT_INVENTORY_FILE: 'The inventory file isn’t Shopify’s inventory export. In Shopify, open Products › Inventory › Export and choose that file.',
   UNREADABLE: 'This file can’t be read as a spreadsheet. Save it as CSV and try again.',
   EMPTY: 'This file has no products in it.',
   TOO_MANY_ROWS: `A file can have up to ${importLimits.rows.toLocaleString('en')} rows. Split it and import each part.`,
@@ -143,8 +175,10 @@ const shopWords: Record<string, string> = {
 const messageOf = (code: string, source: ImportSource | null = null): string =>
   (source === 'shopify' ? shopWords[code] : undefined) ?? (problemWords as Record<string, string>)[code] ?? (fileWords as Record<string, string>)[code] ?? shopWords[code] ?? 'This row couldn’t be imported.'
 
-const dtoOf = (job: CatalogImportSummary & { problems?: unknown; problems_csv?: string | null }, shown: number): CatalogImportDto => {
+const dtoOf = (job: CatalogImportSummary & { problems?: unknown; problems_csv?: string | null; plan?: unknown }, shown: number): CatalogImportDto => {
   const problems = problemsOf(job.problems)
+  const plan = job.plan as ImportPlan | null | undefined
+  const locations = plan?.locations ?? []
   const unreadable = job.state === 'failed' && problems.some((p) => p.line === 0 && p.code !== 'NOT_ALLOWED')
   return {
     id: job.id,
@@ -160,6 +194,9 @@ const dtoOf = (job: CatalogImportSummary & { problems?: unknown; problems_csv?: 
     failed: job.failed,
     photosPending: job.photos_pending,
     problemCount: problems.length,
+    locations,
+    conversion: plan?.conversion ?? null,
+    stockCounted: locations.length > 0 || (plan?.products.some((p) => p.stock.some((n) => n !== null)) ?? false),
     problems: problems.slice(0, shown).map((p) => ({ ...p, message: messageOf(p.code, p.line === 0 ? job.source : null) })),
     problemsCsv: job.problems_csv ?? null,
     requestedAt: job.created_at,
@@ -227,13 +264,15 @@ export const createCatalogImportService = (d: CatalogImportDeps) => {
   const mine = <T extends { requested_by_id: string }>(job: T | null): T | null => (job && job.requested_by_id === actor.id ? job : null)
 
   /** Uploaded and checked after commit; nothing in the catalogue changes until it's confirmed (K2). */
-  const start = async (file: string): Promise<ImportResult<string>> => {
-    if (new TextEncoder().encode(file).byteLength > importLimits.bytes) return { ok: false, reason: 'FILE_TOO_LARGE' }
-    if (file.trim() === '' || !jobPayloadOf(context, storeId)) return { ok: false, reason: 'INVALID_INPUT' }
+  const start = async (file: string, source: ImportSource | null = null, inventory: string | null = null, currency: string | null = null): Promise<ImportResult<string>> => {
+    const tooLarge = (text: string) => new TextEncoder().encode(text).byteLength > importLimits.bytes
+    if (tooLarge(file) || (inventory !== null && tooLarge(inventory))) return { ok: false, reason: 'FILE_TOO_LARGE' }
+    if (file.trim() === '' || (inventory !== null && (source !== 'shopify' || inventory.trim() === '')) || (currency !== null && (source !== 'shopify' || !/^[A-Z]{3}$/.test(currency))) || !jobPayloadOf(context, storeId)) return { ok: false, reason: 'INVALID_INPUT' }
     const id = await inScope(async (tx) => {
-      const made = await insertCatalogImport(tx, { storeId, sellerId, source: 'csv', file, byId: actor.id, byLabel: actor.label })
+      const made = await insertCatalogImport(tx, { storeId, sellerId, source: source ?? 'csv', file, inventory, byId: actor.id, byLabel: actor.label })
       const payload = jobPayloadOf(context, made)
-      if (payload) await queue(tx, catalogImportKind, `${made}:check`, { ...payload, phase: 'check' })
+      // Without a source (the mobile app) either kind of file is read, as before.
+      if (payload) await queue(tx, catalogImportKind, `${made}:check`, { ...payload, phase: 'check', ...(source ? { expect: source } : {}), ...(currency ? { currency } : {}) })
       await activity.record(tx, entry(catalogImportAudit.started, { type: 'import', id: made, label: 'Products' }))
       return made
     })
@@ -241,22 +280,41 @@ export const createCatalogImportService = (d: CatalogImportDeps) => {
   }
 
   /** "Import" (K4, K5): update or skip what matches by SKU, counts into the chosen location or the default. */
-  const confirm = (id: string, matchMode: 'update' | 'skip', warehouseId: string | null): Promise<ImportResult<true>> => {
-    if (!z.guid().safeParse(id).success || (warehouseId !== null && !z.guid().safeParse(warehouseId).success)) return Promise.resolve({ ok: false, reason: 'NOT_FOUND' })
+  const confirm = (id: string, matchMode: 'update' | 'skip', warehouseId: string | null, locations: readonly LocationWarehouse[] | null = null): Promise<ImportResult<true>> => {
+    const ids = [id, ...(warehouseId === null ? [] : [warehouseId]), ...(locations ?? []).flatMap((l) => (l.warehouseId === null ? [] : [l.warehouseId]))]
+    if (!ids.every((x) => z.guid().safeParse(x).success)) return Promise.resolve({ ok: false, reason: 'NOT_FOUND' })
     return inScope(async (tx) => {
       const job = mine(await lockCatalogImport(tx, storeId, id))
       if (!job) return { ok: false, reason: 'NOT_FOUND' }
       if (job.state !== 'ready') return { ok: false, reason: 'NOT_READY' }
       if (job.ready === 0) return { ok: false, reason: 'NOTHING_TO_IMPORT' }
+      const plan = job.plan as ImportPlan | null
+      const named = plan?.locations ?? []
+      // With an inventory file each of its locations is matched to one warehouse, or left out; every one must be said.
+      if (named.length > 0 || locations !== null) {
+        const said = (locations ?? []).map((l) => l.location)
+        const chosen = (locations ?? []).flatMap((l) => (l.warehouseId === null ? [] : [l.warehouseId]))
+        if (new Set(said).size !== said.length || new Set(chosen).size !== chosen.length || said.length !== named.length || !named.every((n) => said.includes(n))) return { ok: false, reason: 'LOCATIONS_INVALID' }
+        const own = new Set<string>()
+        for (const w of chosen) if (await selectOwnWarehouse(tx, storeId, sellerId, w)) own.add(w)
+        if (own.size !== chosen.length) return { ok: false, reason: 'WAREHOUSE_NOT_FOUND' }
+        const map = Object.fromEntries((locations ?? []).flatMap((l) => (l.warehouseId === null ? [] : [[l.location, l.warehouseId] as const])))
+        if (!(await startImportRun(tx, id, { matchMode, warehouseId: null, warehouseMap: map, at: now() }))) return { ok: false, reason: 'NOT_READY' }
+        return queued(tx, id, job.ready, matchMode)
+      }
       const location = warehouseId === null ? await selectOwnDefaultWarehouse(tx, storeId, sellerId) : await selectOwnWarehouse(tx, storeId, sellerId, warehouseId)
-      const counts = (job.plan as ImportPlan | null)?.products.some((p) => p.stock.some((n) => n !== null)) ?? false
+      const counts = plan?.products.some((p) => p.stock.some((n) => n !== null)) ?? false
       if (!location && (warehouseId !== null || counts)) return { ok: false, reason: 'WAREHOUSE_NOT_FOUND' }
-      if (!(await startImportRun(tx, id, { matchMode, warehouseId: location, at: now() }))) return { ok: false, reason: 'NOT_READY' }
-      const payload = jobPayloadOf(context, id)
-      if (payload) await queue(tx, catalogImportKind, `${id}:run:0`, { ...payload, phase: 'run' })
-      await activity.record(tx, entry(catalogImportAudit.confirmed, { type: 'import', id, label: 'Products' }, [{ field: 'products', before: null, after: String(job.ready) }, { field: 'matching', before: null, after: matchMode }]))
-      return { ok: true, value: true }
+      if (!(await startImportRun(tx, id, { matchMode, warehouseId: location, warehouseMap: null, at: now() }))) return { ok: false, reason: 'NOT_READY' }
+      return queued(tx, id, job.ready, matchMode)
     })
+  }
+
+  const queued = async (tx: ScopedSql, id: string, ready: number, matchMode: 'update' | 'skip'): Promise<ImportResult<true>> => {
+    const payload = jobPayloadOf(context, id)
+    if (payload) await queue(tx, catalogImportKind, `${id}:run:0`, { ...payload, phase: 'run' })
+    await activity.record(tx, entry(catalogImportAudit.confirmed, { type: 'import', id, label: 'Products' }, [{ field: 'products', before: null, after: String(ready) }, { field: 'matching', before: null, after: matchMode }]))
+    return { ok: true, value: true }
   }
 
   const catalogImport = (id: string): Promise<CatalogImportDto | null> => {
@@ -299,7 +357,7 @@ export interface ImportJobDeps {
 }
 
 /** The check (K2, K3): the file read as products, each checked as a save would be, and what matches by SKU. */
-export const checkImport = async (d: ImportJobDeps, jobId: string): Promise<void> => {
+export const checkImport = async (d: ImportJobDeps, jobId: string, expect?: ImportSource, fileCurrency?: string): Promise<void> => {
   const { storeId } = d.context
   const sellerId = d.context.sellerScope.kind === 'seller' ? d.context.sellerScope.sellerId : null
   await withScope(d.sql, d.context, async (tx) => {
@@ -313,17 +371,39 @@ export const checkImport = async (d: ImportJobDeps, jobId: string): Promise<void
       await failImport(tx, jobId, at, new Date(at.getTime() + catalogImportLifetimeMs))
       return
     }
+    // A file in another currency is converted at the rates held, the euro being 1 (CATALOG fact 26, O5); none held, none guessed.
+    const other = fileCurrency && fileCurrency !== currency ? fileCurrency : undefined
+    let convertAt: PlanOptions['convert']
+    if (other) {
+      const rates = await selectRates(tx, [other, currency].filter((c) => c !== 'EUR'))
+      const [from, to] = [other, currency].map((c) => (c === 'EUR' ? { per_euro: '1', published_on: null } : (rates.get(c) ?? null)))
+      if (!from || !to) {
+        await saveImportCheck(tx, jobId, { source: 'csv', plan: null, products: 0, ready: 0, matched: 0, problems: [{ line: 0, column: null, code: 'RATE_MISSING' }] })
+        await failImport(tx, jobId, at, new Date(at.getTime() + catalogImportLifetimeMs))
+        return
+      }
+      convertAt = { from: other, perEuroFrom: from.per_euro, perEuroTo: to.per_euro, on: [from.published_on, to.published_on].flatMap((day) => (day ? [day] : [])).sort()[0] ?? at.toISOString().slice(0, 10) }
+    }
     const plan = planImport(job.file, {
       currency,
       languages: await translationLanguages(tx, storeId),
       // A supplier prices in the pricing currency only (O14), and doesn't read the store's currencies.
       manualCurrencies: sellerId === null ? await selectManualCurrencies(tx, storeId) : [],
       supplier: sellerId !== null,
+      ...(expect ? { expect } : {}),
+      ...(convertAt ? { convert: convertAt } : {}),
     })
-    if (typeof plan === 'string') {
-      await saveImportCheck(tx, jobId, { source: 'csv', plan: null, products: 0, ready: 0, matched: 0, problems: [{ line: 0, column: null, code: plan }] })
+    const inventory = typeof plan === 'string' || job.inventory === null ? null : readInventory(job.inventory)
+    const refusal = typeof plan === 'string' ? plan : typeof inventory === 'string' ? inventory : null
+    if (typeof plan === 'string' || refusal !== null) {
+      await saveImportCheck(tx, jobId, { source: 'csv', plan: null, products: 0, ready: 0, matched: 0, problems: [{ line: 0, column: null, code: refusal ?? 'UNREADABLE' }] })
       await failImport(tx, jobId, at, new Date(at.getTime() + catalogImportLifetimeMs))
       return
+    }
+    if (inventory && typeof inventory !== 'string') {
+      const placed = applyInventory(plan.products, inventory.rows, new Set(plan.refusedHandles ?? []))
+      plan.locations = placed.locations
+      plan.problems.push(...inventory.problems, ...placed.problems)
     }
     const owned = new Set((await selectOwnSkus(tx, storeId, sellerId, plan.products.flatMap(skusOf))).map((r) => r.sku))
     const matched = plan.products.filter((p) => skusOf(p).some((s) => owned.has(s.toLowerCase()))).length
@@ -430,14 +510,20 @@ const importOne = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProd
  * the product's transaction, under a savepoint, so a refused count is reported without undoing the product.
  */
 const importStock = async (tx: ScopedSql, d: ImportJobDeps, job: CatalogImportRow, p: PlannedProduct, productId: string): Promise<boolean> => {
-  if (p.stock.every((s) => s === null)) return true
-  const warehouseId = job.warehouse_id
-  if (!warehouseId) return false
+  // With an inventory file each Shopify location's counts go to the warehouse it was matched to; one left out brings none.
+  const groups = p.stockAt
+    ? Object.entries(p.stockAt).map(([location, counts]) => ({ warehouseId: job.warehouse_map && Object.hasOwn(job.warehouse_map, location) ? (job.warehouse_map[location] ?? null) : null, counts }))
+    : [{ warehouseId: job.warehouse_id, counts: p.stock }]
+  const counted = groups.filter((g) => g.counts.some((n) => n !== null) && (p.stockAt === undefined || g.warehouseId !== null))
+  if (counted.length === 0) return true
+  if (counted.some((g) => !g.warehouseId)) return false
   const versions = await selectVersionIdsInOrder(tx, productId)
-  const entries = p.stock.flatMap((target, i) => {
-    const versionId = versions[i]
-    return target === null || !versionId ? [] : [{ versionId, warehouseId, target }]
-  })
+  const entries = counted.flatMap((g) =>
+    g.counts.flatMap((target, i) => {
+      const versionId = versions[i]
+      return target === null || !versionId || !g.warehouseId ? [] : [{ versionId, warehouseId: g.warehouseId, target }]
+    }),
+  )
   const entry = entryOf(d)
   try {
     await tx.savepoint(async (sp) => {
@@ -458,7 +544,9 @@ const finishIfDone = async (tx: ScopedSql, storeId: string, jobId: string, at: D
 }
 
 /** The error file (K3): the file's own rows that had a problem, each product's rows together, with a problem column. */
-export const problemsCsv = (file: string | null, plan: ImportPlan, problems: readonly ImportProblem[]): string | null => {
+export const problemsCsv = (file: string | null, plan: ImportPlan, all: readonly ImportProblem[]): string | null => {
+  // The inventory file's lines aren't rows of this file; the screen lists them.
+  const problems = all.filter((p) => p.file === undefined)
   if (problems.length === 0 || file === null) return null
   const table = parseCsv(file) ?? []
   const said = new Map<number, string[]>()

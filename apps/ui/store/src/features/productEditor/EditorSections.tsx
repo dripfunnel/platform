@@ -1,5 +1,5 @@
 import { formatMoney } from '@dripfunnel/shared/format'
-import { useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { EditorProduct } from '../../api/productEditor'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
@@ -57,7 +57,11 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
   const setShipping = (field: 'weight' | 'box' | 'hsCode', text: string) => update((x) => ({ ...x, [field]: text, shippingChanged: { ...x.shippingChanged, [field]: true } }))
   const usual = taxClasses?.find((c) => c.isDefault)
   const chosen = taxClasses?.find((c) => c.id === draft.taxClassId)
-  const shipProblem = problems.includes('weight') || problems.includes('box')
+  const shipProblem = problems.includes('weight') || problems.includes('box') || problems.includes('hsCode')
+  // Stays open once a problem opened it, so fixing the field doesn't close it under the cursor.
+  useEffect(() => {
+    if (shipProblem) setOpen((o) => ({ ...o, ship: true }))
+  }, [shipProblem])
   return (
     <>
       {draft.kind === 'physical' && (
@@ -69,7 +73,9 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
             <Field label={words.sections.box} hint={units.box} problem={problems.includes('box') || boxOf(draft.box, draft.units) === 'invalid' ? fill(words.sections.boxInvalid, { example: units.boxPlaceholder }) : null}>
               {(id, d) => <input id={id} placeholder={varies('box') ?? units.boxPlaceholder} value={draft.box} readOnly={disabled} aria-describedby={d} aria-invalid={d !== undefined} onChange={(e) => setShipping('box', e.target.value)} />}
             </Field>
-            <Field label={words.sections.code}>{(id) => <input id={id} maxLength={12} placeholder={varies('hsCode') ?? words.sections.codePlaceholder} value={draft.hsCode} readOnly={disabled} onChange={(e) => setShipping('hsCode', e.target.value)} />}</Field>
+            <Field label={words.sections.code} problem={problems.includes('hsCode') ? words.sections.hsCodeInvalid : null}>
+              {(id, d) => <input id={id} maxLength={12} placeholder={varies('hsCode') ?? words.sections.codePlaceholder} value={draft.hsCode} readOnly={disabled} aria-describedby={d} aria-invalid={d !== undefined} onChange={(e) => setShipping('hsCode', e.target.value)} />}
+            </Field>
           </div>
         </Section>
       )}

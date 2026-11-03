@@ -342,7 +342,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
             providerRef: card?.started.providerRef ?? null,
           })
         }
-        // Everyone who has bought is a customer (FIRST-RELEASE §7): a guest's row is made here, never linked to the order.
+        // Everyone who has bought is a customer (FIRST-RELEASE §7): a guest's row is made here; a sign-in links the order (ACCESS §2.1).
         if (!customerId && mode === 'live') await ensureGuestCustomer(tx, { storeId, email: cart.email, phone: cart.phone, name: cart.shippingAddress?.name ?? null, now: at })
         // Its shopper's carts left this week are recovered by it, and their reminders stop (FIRST-RELEASE §9); a preview's test order isn't a sale.
         if (mode === 'live') await recoverCarts(tx, { storeId, orderId: cart.id, customerId, email: cart.email, now: at })

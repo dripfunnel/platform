@@ -3,7 +3,9 @@ import { LoadingState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { ShopifyConnection } from '../../api/imports'
 import { fill, formatMegabytes, messages } from '../../messages'
+import { tabKeyHandler } from '../common/tabKeys'
 import { useImportApi } from './importApi'
+import { connectShopifyEnabled } from './importFlags'
 import type { Mode } from './ImportPage'
 
 const words = messages.imports
@@ -28,14 +30,20 @@ interface StartProps {
   checking: boolean
   fileError: FileError | null
   shopNote: 'failed' | null
+  /** The plan that unlocks Import CSV from Shopify (null when it doesn't say), once the API has refused it. */
+  locked: { plan: string | null } | null
+  canUpgrade: boolean
   onMode: (mode: Mode) => void
   onFile: (file: File) => void
+  /** The store's pricing currency and the ones it prices by hand, for the currency a Shopify file's prices are in. */
+  currencies: { pricing: string | null; others: string[] }
+  onShopifyFiles: (products: File, inventory: File | null, currency: string | null) => void
   onTemplate: () => void
   onConnected: (shop: string) => void
 }
 
-/** Choose: a spreadsheet, a Shopify shop, or the template; the file's refusal said in CatImport's words. */
-export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, onMode, onFile, onTemplate, onConnected }: StartProps) => {
+/** Choose: a spreadsheet, Shopify (its export files, or a connected shop), or the template; the file's refusal said in CatImport's words. */
+export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, locked, canUpgrade, currencies, onMode, onFile, onShopifyFiles, onTemplate, onConnected }: StartProps) => {
   const picker = useRef<HTMLInputElement>(null)
   const choose = () => picker.current?.click()
   const s = words.sources
@@ -75,17 +83,121 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, onM
           <strong>{said.title}</strong>
           <span>{said.body}</span>
           <span className="df-import-problem-actions">
-            <button type="button" onClick={choose} disabled={readOnly}>
-              {words.fileErrors.chooseAnother}
-            </button>
+            {mode !== 'shopify' && (
+              <button type="button" onClick={choose} disabled={readOnly}>
+                {words.fileErrors.chooseAnother}
+              </button>
+            )}
             <button type="button" onClick={onTemplate}>
               {words.fileErrors.template}
             </button>
           </span>
         </div>
       )}
-      {mode === 'shopify' && !checking && <ShopifyConnect note={shopNote} onConnected={onConnected} />}
+      {mode === 'shopify' && !checking && <ShopifyImport note={shopNote} readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onShopifyFiles} onConnected={onConnected} />}
     </>
+  )
+}
+
+type ShopifyTab = 'csv' | 'connect'
+const shopifyTabs: readonly ShopifyTab[] = ['connect', 'csv']
+
+/** "Import from Shopify": Import CSV from Shopify, and beside it Connect Shopify once that is switched on. */
+const ShopifyImport = ({ note, readOnly, locked, canUpgrade, currencies, onFiles, onConnected }: { currencies: StartProps['currencies']; note: 'failed' | null; readOnly: boolean; locked: StartProps['locked']; canUpgrade: boolean; onFiles: StartProps['onShopifyFiles']; onConnected: StartProps['onConnected'] }) => {
+  const t = words.shopifyTabs
+  const tabsId = useId()
+  const [tab, setTab] = useState<ShopifyTab>(note === 'failed' ? 'connect' : 'csv')
+  const buttons = useRef(new Map<ShopifyTab, HTMLButtonElement>())
+  if (!connectShopifyEnabled) return <ShopifyCsv readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onFiles} />
+  return (
+    <>
+      <div className="df-import-tabs" role="tablist" aria-label={t.label} onKeyDown={tabKeyHandler(shopifyTabs, tab, setTab, (key) => buttons.current.get(key)?.focus())}>
+        {shopifyTabs.map((key) => (
+          <button key={key} ref={(el) => void (el ? buttons.current.set(key, el) : buttons.current.delete(key))} id={`${tabsId}-${key}`} type="button" role="tab" aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>
+            {t[key]}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
+        {tab === 'connect' ? <ShopifyConnect note={note} onConnected={onConnected} /> : <ShopifyCsv readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onFiles} />}
+      </div>
+    </>
+  )
+}
+
+const ShopifyCsv = ({ readOnly, locked, canUpgrade, currencies, onFiles }: { currencies: StartProps['currencies']; readOnly: boolean; locked: StartProps['locked']; canUpgrade: boolean; onFiles: StartProps['onShopifyFiles'] }) => {
+  const w = words.shopifyCsv
+  const id = useId()
+  const [products, setProducts] = useState<File | null>(null)
+  const [inventory, setInventory] = useState<File | null>(null)
+  const [currency, setCurrency] = useState<string | null>(null)
+  const choices = currencies.pricing ? [currencies.pricing, ...currencies.others] : []
+  if (locked)
+    return (
+      <div className="df-import-card df-import-connect">
+        <h2>{w.title}</h2>
+        <p className="df-import-problem" role="status">
+          {canUpgrade ? (locked.plan ? fill(w.locked, { plan: locked.plan }) : w.lockedAnyPlan) : `${w.lockedAnyPlan} ${w.askOwner}`}
+        </p>
+      </div>
+    )
+  const pickers = [
+    { key: 'products', ...w.products, tag: w.products.required, file: products, set: setProducts },
+    { key: 'inventory', ...w.inventory, tag: w.inventory.optional, file: inventory, set: setInventory },
+  ] as const
+  return (
+    <div className="df-import-card df-import-connect">
+      <h2 id={id}>{w.title}</h2>
+      <div className="df-import-files">
+        {pickers.map((p) => (
+          <div key={p.key} className="df-import-file">
+            <span className="df-import-file-label">
+              {p.label} <span className="df-import-hint">· {p.tag}</span>
+            </span>
+            <span className="df-import-hint">{p.hint}</span>
+            <span className="df-import-file-row">
+              <label className="df-button">
+                {p.file ? w.change : w.choose}
+                <input
+                  type="file"
+                  accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="df-visually-hidden"
+                  aria-label={p.label}
+                  disabled={readOnly}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    event.target.value = ''
+                    if (file) p.set(file)
+                  }}
+                />
+              </label>
+              <span className="df-import-mono">{p.file?.name ?? w.none}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      {choices.length > 1 && (
+        <label className="df-import-place">
+          <span>{w.currency.label}</span>
+          <select aria-label={w.currency.label} value={currency ?? currencies.pricing ?? ''} onChange={(event) => setCurrency(event.target.value)}>
+            {choices.map((code) => (
+              <option key={code} value={code}>
+                {code === currencies.pricing ? fill(w.currency.own, { code }) : code}
+              </option>
+            ))}
+          </select>
+          <span className="df-import-hint">{w.currency.hint}</span>
+        </label>
+      )}
+      <button
+        type="button"
+        className="df-button df-button--primary"
+        disabled={readOnly || !products}
+        onClick={() => products && onFiles(products, inventory, currency !== null && currency !== currencies.pricing ? currency : null)}
+      >
+        {w.check}
+      </button>
+    </div>
   )
 }
 

@@ -8,6 +8,9 @@ import { isUuid } from '#core/ids'
 export const maxOptions = 3
 export const maxVersions = 100
 export const maxValuesPerOption = 100
+
+/** The longest each listing text may be, shared by the save and by the import that names which one a file broke. */
+export const textLimits = { name: 255, description: 20_000, category: 120, longText: 5000, seoTitle: 120, seoDescription: 320, optionName: 60, optionValue: 60, sku: 64, versionName: 255, customs: 255, barcode: 14 } as const
 export const maxPhotos = 20
 export const maxFilterValues = 100
 
@@ -283,6 +286,41 @@ const whole = (value: number | null | undefined, max: number): number | null | f
   return Number.isInteger(value) && value >= 0 && value <= max ? value : false
 }
 
+export type VersionField = 'hsCode' | 'weight' | 'box'
+
+/** The shipping field that makes a version invalid, for the refusal to name (a classification code is 6 to 10 digits). */
+export const invalidVersionField = (v: VersionInput): VersionField | null => {
+  const hsCode = text(v.hsCode, 10)
+  if (hsCode === false || (hsCode !== null && !/^\d{6,10}$/.test(hsCode))) return 'hsCode'
+  if (whole(v.weightGrams, 10_000_000) === false) return 'weight'
+  if ([v.lengthMm, v.widthMm, v.heightMm].some((side) => whole(side, 100_000) === false)) return 'box'
+  return null
+}
+
+export interface InvalidInput {
+  field: 'name' | 'description' | 'seoTitle' | 'seoDescription' | 'optionName' | 'optionValue' | 'optionValues' | 'sku' | 'barcode'
+  /** The option (0-based) or version it is on. */
+  option?: number
+  version?: number
+}
+
+/** What `cleanProduct` refused as `INVALID_INPUT`, where it is one of the text and count limits, so a file can name it. */
+export const invalidInputOf = (input: ProductInput): InvalidInput | null => {
+  if (text(input.name, textLimits.name) === false) return { field: 'name' }
+  if ((input.description?.trim() ?? '').length > textLimits.description) return { field: 'description' }
+  if (text(input.seoTitle, textLimits.seoTitle) === false) return { field: 'seoTitle' }
+  if (text(input.seoDescription, textLimits.seoDescription) === false) return { field: 'seoDescription' }
+  for (const [option, o] of input.options.entries()) {
+    if (text(o.name, textLimits.optionName) === false) return { field: 'optionName', option }
+    if (o.values.length > maxValuesPerOption) return { field: 'optionValues', option }
+    if (o.values.some((v) => text(v.name, textLimits.optionValue) === false)) return { field: 'optionValue', option }
+  }
+  const sku = input.versions.findIndex((v) => text(v.sku, textLimits.sku) === false)
+  if (sku !== -1) return { field: 'sku', version: sku }
+  const barcode = input.versions.findIndex((v) => text(v.barcode, textLimits.barcode) === false)
+  return barcode === -1 ? null : { field: 'barcode', version: barcode }
+}
+
 const keyOf = (name: string) => name.trim().toLowerCase()
 
 const price = (p: PriceInput): CleanPrice | null => {
@@ -298,17 +336,16 @@ const price = (p: PriceInput): CleanPrice | null => {
 
 const cleanVersion = (v: VersionInput, optionCount: number, pricingCurrency: string): CleanVersion | CatalogRefusal => {
   if (v.choices.length !== optionCount) return 'VERSION_CHOICES'
-  const sku = text(v.sku, 64)
-  const name = text(v.name, 255)
-  const customs = text(v.customsDescription, 255)
-  const barcode = text(v.barcode, 14)
+  const sku = text(v.sku, textLimits.sku)
+  const name = text(v.name, textLimits.versionName)
+  const customs = text(v.customsDescription, textLimits.customs)
+  const barcode = text(v.barcode, textLimits.barcode)
   const hsCode = text(v.hsCode, 10)
   if (sku === false || name === false || customs === false || barcode === false || hsCode === false) return 'INVALID_INPUT'
   if (barcode !== null && !isBarcode(barcode)) return 'INVALID_BARCODE'
-  if (hsCode !== null && !/^\d{6,10}$/.test(hsCode)) return 'INVALID_INPUT'
+  if (invalidVersionField(v)) return 'INVALID_INPUT'
   if (v.taxClassId != null && !isUuid(v.taxClassId)) return 'INVALID_INPUT'
   const sizes = [whole(v.weightGrams, 10_000_000), whole(v.lengthMm, 100_000), whole(v.widthMm, 100_000), whole(v.heightMm, 100_000)]
-  if (sizes.includes(false)) return 'INVALID_INPUT'
   const currencies = new Set<string>()
   const prices: CleanPrice[] = []
   for (const p of v.prices) {
@@ -353,17 +390,17 @@ const cleanVersion = (v: VersionInput, optionCount: number, pricingCurrency: str
  * version names one value per option, no two the same combination (fact 4); 3 options, 100 versions.
  */
 export const cleanProduct = (input: ProductInput, pricingCurrency: string): CleanProduct | CatalogRefusal => {
-  const name = text(input.name, 255)
+  const name = text(input.name, textLimits.name)
   if (name === null) return 'NAME_REQUIRED'
   if (name === false) return 'INVALID_INPUT'
   const description = input.description?.trim() ?? ''
-  if (description.length > 20_000) return 'INVALID_INPUT'
+  if (description.length > textLimits.description) return 'INVALID_INPUT'
   const productType = (productTypes as readonly string[]).includes(input.productType ?? 'physical') ? ((input.productType ?? 'physical') as ProductType) : null
   if (!productType) return 'INVALID_INPUT'
-  const category = text(input.category, 120)
+  const category = text(input.category, textLimits.category)
   if (category === false) return 'INVALID_INPUT'
   if (category !== null && isRefusedCategory(category)) return 'CATEGORY_REFUSED'
-  const extras = [text(input.warrantyText, 5000), text(input.returnsText, 5000), text(input.seoTitle, 120), text(input.seoDescription, 320)]
+  const extras = [text(input.warrantyText, textLimits.longText), text(input.returnsText, textLimits.longText), text(input.seoTitle, textLimits.seoTitle), text(input.seoDescription, textLimits.seoDescription)]
   if (extras.includes(false)) return 'INVALID_INPUT'
   const slugGiven = Boolean(input.slug?.trim())
   const slug = slugFrom(input.slug?.trim() || name) || 'product'
@@ -372,7 +409,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
   const options: CleanOption[] = []
   const optionNames = new Set<string>()
   for (const o of input.options) {
-    const optionName = text(o.name, 60)
+    const optionName = text(o.name, textLimits.optionName)
     if (optionName === null || optionName === false) return 'INVALID_INPUT'
     if (optionNames.has(keyOf(optionName))) return 'DUPLICATE_OPTION'
     optionNames.add(keyOf(optionName))
@@ -381,7 +418,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     const valueNames = new Set<string>()
     const values: CleanOption['values'] = []
     for (const v of o.values) {
-      const valueName = text(v.name, 60)
+      const valueName = text(v.name, textLimits.optionValue)
       if (valueName === null || valueName === false) return 'INVALID_INPUT'
       if (valueNames.has(keyOf(valueName))) return 'DUPLICATE_VALUE'
       valueNames.add(keyOf(valueName))

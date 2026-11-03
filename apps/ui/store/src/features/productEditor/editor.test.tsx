@@ -212,6 +212,74 @@ describe('the product editor', () => {
     expect(field(words.name.label).value).toBe('Renamed cushion')
   })
 
+  describe('the HS code', () => {
+    const save = async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+      await settle()
+    }
+    const typeCode = async (code: string) => {
+      api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+      await show(owner)
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.ship) }))
+      fireEvent.change(field(words.sections.code), { target: { value: code } })
+      await save()
+    }
+
+    it.each(['7113', 'ABC-necklace'])('says under the field that %s isn’t 6 to 10 digits, and sends nothing', async (code) => {
+      await typeCode(code)
+      expect(api.saveProduct).not.toHaveBeenCalled()
+      expect(screen.getByText(words.sections.hsCodeInvalid)).toBeTruthy()
+      expect(field(words.sections.code).getAttribute('aria-invalid')).toBe('true')
+      expect(screen.queryByText(words.refused.other)).toBeNull()
+    })
+
+    it.each(['711319', '71131900'])('saves %s', async (code) => {
+      await typeCode(code)
+      expect(api.saveProduct).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText(words.sections.hsCodeInvalid)).toBeNull()
+    })
+
+    it('saves with the code left empty', async () => {
+      api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+      await show(owner)
+      fireEvent.change(field(words.name.label), { target: { value: 'Renamed cushion' } })
+      await save()
+      expect(api.saveProduct).toHaveBeenCalledTimes(1)
+    })
+
+    it('suggests a code that is itself valid', () => {
+      expect(words.sections.codePlaceholder).toBe('e.g. 610910')
+    })
+  })
+
+  it('says which field a refused save is about, opens it, and highlights it until it changes', async () => {
+    const scrolled = vi.fn()
+    Element.prototype.scrollIntoView = scrolled
+    api.saveProduct.mockRejectedValue(new ApiError('INVALID_INPUT', 'Something in this product isn’t valid.', { field: 'hsCode' }))
+    await show(owner)
+    expect(screen.queryByLabelText(words.sections.code)).toBeNull()
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed cushion' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(within(screen.getByRole('region', { name: words.bar.failed })).getByText(words.sections.hsCodeInvalid)).toBeTruthy()
+    expect(screen.queryByText(words.refused.other)).toBeNull()
+    expect(field(words.sections.code).getAttribute('aria-invalid')).toBe('true')
+    expect(scrolled.mock.contexts[0]).toBe(field(words.sections.code))
+    fireEvent.change(field(words.sections.code), { target: { value: '711319' } })
+    expect(field(words.sections.code).getAttribute('aria-invalid')).not.toBe('true')
+  })
+
+  it('has a message for every refusal a product save can answer, and keeps the catch-all for anything else', () => {
+    const codes = [
+      'NAME_REQUIRED', 'INVALID_INPUT', 'CATEGORY_REFUSED', 'TOO_MANY_OPTIONS', 'TOO_MANY_VERSIONS', 'OPTION_VALUES_REQUIRED', 'DUPLICATE_OPTION', 'DUPLICATE_VALUE',
+      'VERSION_CHOICES', 'DUPLICATE_VERSION', 'VERSION_REQUIRED', 'PRICE_REQUIRED', 'INVALID_PRICE', 'INVALID_BARCODE', 'DUPLICATE_SKU', 'TOO_MANY_PHOTOS', 'INVALID_PHOTO',
+      'INVALID_VIDEO', 'INVALID_FILTER', 'INVALID_LISTING', 'LISTING_REFUSED', 'NOT_FOUND', 'CURRENCY_REQUIRED', 'SUPPLIER_FIELD', 'FILE_REFUSED', 'NOT_SHOWABLE',
+      'STALE_REVISION', 'PLAN_LIMIT', 'READ_ONLY', 'FORBIDDEN',
+    ]
+    const refused: Record<string, string> = words.refused
+    expect(codes.filter((code) => !refused[code])).toEqual([])
+  })
+
   it('adds an uploaded photo, and says why one didn’t upload', async () => {
     api.uploadPhoto.mockResolvedValueOnce({ ok: true, assetId: 'a1' }).mockResolvedValueOnce({ ok: false, code: 'TOO_LARGE' })
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
@@ -1052,6 +1120,98 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
       [['S'], [{ currency: 'INR', amount: '129900', compareAtAmount: '250000' }], { currency: 'INR', amount: '50000' }],
       [['M'], [{ currency: 'INR', amount: '149900', compareAtAmount: '250000' }], { currency: 'INR', amount: '50000' }],
     ])
+  })
+
+  describe('and its Stock, set for every version at once (#1182)', () => {
+    const openBox = () => {
+      fireEvent.click(screen.getByRole('button', { name: words.versions.setPrice }))
+      return within(dialog())
+    }
+    const applyBox = (box: ReturnType<typeof openBox>) => box.getByRole('button', { name: words.apply }) as HTMLButtonElement
+    const notMake = (name: string) => {
+      fireEvent.click(screen.getByRole('button', { name: `Hide ${name}` }))
+      fireEvent.change(within(dialog()).getByLabelText(name), { target: { value: 'remove' } })
+      fireEvent.click(within(dialog()).getByRole('button', { name: words.apply }))
+    }
+
+    it('lists Stock after what it costs you, and shows the title and the hint once each', async () => {
+      await show(owner)
+      const box = openBox()
+      expect(box.getAllByText(words.versions.setPriceTitle).length).toBe(1)
+      expect(box.getAllByText(words.versions.setKeeps).length).toBe(1)
+      const cost = box.getByLabelText(new RegExp(words.price.cost))
+      expect(cost.compareDocumentPosition(box.getByLabelText(words.stock.title)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(box.getByText(words.versions.setNone)).toBeTruthy()
+    })
+
+    it('sets every version’s stock to the count typed, leaving prices alone, and saves it', async () => {
+      await show(owner)
+      const box = openBox()
+      fireEvent.change(box.getByLabelText(words.stock.title), { target: { value: '10' } })
+      expect(applyBox(box).disabled).toBe(false)
+      fireEvent.click(applyBox(box))
+      for (const name of ['S', 'M', 'L']) expect(field(`Stock of ${name}`).value).toBe('10')
+      expect(field('Price of S').value).toBe('1299.00')
+      fireEvent.click(saveButton())
+      await settle()
+      expect(sent().versions.map((v) => v.prices)).toEqual([[{ currency: 'INR', amount: '129900' }], [{ currency: 'INR', amount: '149900' }], [{ currency: 'INR', amount: '169900' }]])
+      expect(stockApi.setStock).toHaveBeenCalledWith([
+        { versionId: 'ver-s', warehouseId: 'w1', quantity: 10 },
+        { versionId: 'ver-m', warehouseId: 'w1', quantity: 10 },
+        { versionId: 'ver-l', warehouseId: 'w1', quantity: 10 },
+      ])
+    })
+
+    it('keeps each version’s own count when Stock is left empty', async () => {
+      await show(owner)
+      fireEvent.change(field('Stock of M'), { target: { value: '7' } })
+      const box = openBox()
+      fireEvent.change(box.getByLabelText(words.price.price), { target: { value: '2000' } })
+      fireEvent.click(applyBox(box))
+      expect(field('Stock of M').value).toBe('7')
+      expect(field('Stock of S').value).toBe('')
+      expect(field('Price of S').value).toBe('2000')
+    })
+
+    it('leaves a version we don’t make with its own count', async () => {
+      await show(owner)
+      fireEvent.change(field('Stock of L'), { target: { value: '4' } })
+      notMake('L')
+      const box = openBox()
+      fireEvent.change(box.getByLabelText(words.stock.title), { target: { value: '10' } })
+      fireEvent.click(applyBox(box))
+      expect(field('Stock of S').value).toBe('10')
+      expect(field('Stock of L').value).toBe('4')
+    })
+
+    it.each(['-1', '2.5', 'abc'])('blocks Apply for a count of %s, with the row’s own message', async (bad) => {
+      await show(owner)
+      const box = openBox()
+      fireEvent.change(box.getByLabelText(words.stock.title), { target: { value: bad } })
+      expect(applyBox(box).disabled).toBe(true)
+      expect(box.getByText(words.stock.invalid)).toBeTruthy()
+      expect(box.getByText(words.versions.setFix)).toBeTruthy()
+      fireEvent.change(box.getByLabelText(words.stock.title), { target: { value: '0' } })
+      expect(applyBox(box).disabled).toBe(false)
+    })
+
+    it('has no Stock field for a product with no Stock column', async () => {
+      api.loadProduct.mockResolvedValue(sizes({ productType: 'digital' }))
+      kindApi.loadProductKind.mockResolvedValue(kindView({}))
+      await show(owner)
+      expect(screen.queryByLabelText('Stock of S')).toBeNull()
+      expect(openBox().queryByLabelText(words.stock.title)).toBeNull()
+    })
+
+    it('has no Stock field without a stock location, or for someone who can’t change stock', async () => {
+      stockApi.loadWarehouses.mockResolvedValue([])
+      await show(owner)
+      expect(openBox().queryByLabelText(words.stock.title)).toBeNull()
+      cleanup()
+      stockApi.loadWarehouses.mockResolvedValue([home])
+      await show({ ...owner, permissions: ['catalog.read', 'catalog.write', 'stock.read'] })
+      expect(openBox().queryByLabelText(words.stock.title)).toBeNull()
+    })
   })
 
   it('gives a version its own uploaded photo, replacing the one before, and saves it by its place', async () => {

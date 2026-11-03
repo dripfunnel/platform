@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { collectionPath, contentAddresses, coreRoutes, jsonLdText, moneySchema, productPath, recordedAnswer, routeAddresses, seoFor, storeHead, type ThemeRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
+import { collectionPath, contentAddresses, coreRoutes, jsonLdText, moneySchema, productPath, recordedAnswer, routeAddresses, seoFor, storeHead, type Seo, type SeoInput, type ThemeRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { fallbackPath, indexable, isVersionPath, type CatalogueSnapshot, type PageRoute, type SnapshotCatalogue } from '@dripfunnel/storefront-core/guard'
 
 // The live site's pages and the files around them (storefront ARCHITECTURE §4.2, §8; LIVE-SHOP §4 step 6, and §5 step 6
@@ -88,9 +88,10 @@ const postOf = (page: PlannedPage, s: CatalogueSnapshot) => (page.route === 'blo
 
 const text = z.string().nullish()
 const productAnswer = z.object({
-  product: z.object({ name: z.string().min(1), seoTitle: text, seoDescription: text, description: text, inStock: z.boolean().nullish(), price: moneySchema.nullish().catch(null), photos: z.array(z.object({ image: z.object({ url: text }).nullish() })).nullish() }),
+  product: z.object({ name: z.string().min(1), seoTitle: text, seoDescription: text, description: text, inStock: z.boolean().nullish(), price: moneySchema.nullish().catch(null), photos: z.array(z.object({ alt: text, image: z.object({ url: text }).nullish() })).nullish() }),
 })
-const collectionAnswer = z.object({ collection: z.object({ name: z.string().min(1), seoTitle: text, seoDescription: text, description: text }) })
+const collectionAnswer = z.object({ collection: z.object({ name: z.string().min(1), seoTitle: text, seoDescription: text, description: text, image: z.object({ url: text }).nullish() }) })
+const listingAnswer = z.object({ products: z.object({ nodes: z.array(z.object({ name: z.string().min(1), slug: z.string().min(1) })) }) })
 const priceAnswer = z.object({
   product: z.object({ price: z.unknown(), versions: z.array(z.object({ id: text, price: z.unknown() })).nullish(), compliance: z.array(z.object({ region: text, value: text })).nullish() }),
   store: z.object({ marketId: text, markets: z.array(z.object({ id: text, countries: z.array(z.string()).nullish() })).nullish() }).nullish(),
@@ -102,19 +103,67 @@ const slugOf = (path: string) => path.split('/')[2] ?? ''
 /** The snapshot's answer to core's question about one item, by the same lookup the build's client uses. */
 const recordedFor = (s: CatalogueSnapshot, operation: string, slug: string) => recordedAnswer(s.catalogue?.answers ?? [], `query ${operation}`, { slug })
 
+/** A collection's first page of products as the snapshot recorded it (apis/shop/record.ts), in its default order. */
+const listedIn = (s: CatalogueSnapshot, slug: string) =>
+  listingAnswer.safeParse(s.catalogue?.answers.find((a) => a.operation === 'Listing' && a.variables['collection'] === slug && !a.variables['after'] && (a.variables['sort'] ?? 'featured') === 'featured')?.data).data?.products.nodes ?? []
+
+/** A path on the store as an absolute URL; a URL elsewhere (the asset host) as it is. */
+const absoluteIn = (origin: string) => (url: string) => (url.startsWith('/') ? `${origin}${url}` : url)
+
+type Product = z.infer<typeof productAnswer>['product']
+const productOf = (s: CatalogueSnapshot, page: PlannedPage) => productAnswer.safeParse(recordedFor(s, 'Product', slugOf(page.path))).data?.product ?? null
+const photosOf = (p: Product, origin: string) => (p.photos ?? []).flatMap((ph) => (ph.image?.url ? [{ url: absoluteIn(origin)(ph.image.url), alt: ph.alt ?? null }] : []))
+
+type Site = SeoInput['store']
+type PageSeo = Pick<SeoInput, 'locale' | 'alternates'>
+
 /** A product's or collection's own head, as core's hooks set it in the browser (products/product.ts, collections/collections.ts). */
-const itemSeo = (page: PlannedPage, s: CatalogueSnapshot, store: CatalogueSnapshot['store'], absolute: (url: string) => string) => {
+const itemSeo = (page: PlannedPage, s: CatalogueSnapshot, site: Site, extra: PageSeo) => {
   if (!isItemPage(page)) return null
-  const site = { name: store.name, url: `${s.origin}/` }
+  const home = { name: site.name, url: site.url }
   if (page.route === 'product') {
-    const p = productAnswer.safeParse(recordedFor(s, 'Product', slugOf(page.path))).data?.product
+    const p = productOf(s, page)
     if (!p) return null
-    const image = p.photos?.find((ph) => ph.image?.url)?.image?.url
-    const seo = seoFor({ store: site, url: `${s.origin}${productPath(slugOf(page.path))}`, title: p.seoTitle ?? p.name, description: p.seoDescription ?? p.description, image: image ? absolute(image) : null, preview: false, ...(p.price ? { product: { name: p.name, price: p.price, available: p.inStock ?? false, image: image ? absolute(image) : null } } : {}) })
+    const url = `${s.origin}${productPath(slugOf(page.path))}`
+    const photos = photosOf(p, s.origin)
+    const product = p.price ? { product: { name: p.name, price: p.price, available: p.inStock ?? false, description: p.description, images: photos.map((ph) => ph.url) } } : {}
+    const seo = seoFor({ store: site, url, title: p.seoTitle ?? p.name, description: p.seoDescription ?? p.description, image: photos[0]?.url ?? null, imageAlt: photos[0]?.alt, preview: false, breadcrumbs: [home, { name: p.name, url }], ...extra, ...product })
     return { seo, title: p.seoTitle ?? p.name, description: p.seoDescription ?? p.description ?? null }
   }
   const c = collectionAnswer.safeParse(recordedFor(s, 'Collection', slugOf(page.path))).data?.collection
-  return c ? { seo: seoFor({ store: site, url: `${s.origin}${page.path}`, title: c.seoTitle ?? c.name, description: c.seoDescription ?? c.description, preview: false }), title: c.seoTitle ?? c.name, description: c.seoDescription ?? c.description ?? null } : null
+  if (!c) return null
+  const url = `${s.origin}${page.path}`
+  const items = listedIn(s, slugOf(page.path)).map((n) => ({ name: n.name, url: `${s.origin}${productPath(n.slug)}` }))
+  const image = c.image?.url ? absoluteIn(s.origin)(c.image.url) : null
+  const seo = seoFor({ store: site, url, title: c.seoTitle ?? c.name, description: c.seoDescription ?? c.description, image, preview: false, breadcrumbs: [home, { name: c.name, url }], items, ...extra })
+  return { seo, title: c.seoTitle ?? c.name, description: c.seoDescription ?? c.description ?? null }
+}
+
+/** The page in path form shared by every language (`/hi/faq/` → `/faq/`). */
+const sharedPath = (page: PlannedPage, store: CatalogueSnapshot['store']) => page.path.slice(languagePrefix(store, page.language).length)
+
+const listed = (p: PlannedPage) => indexable(p.route) && !p.path.includes('/_fallback/') && !isVersionPath(p.path)
+
+export type PageLinks = { alternates: Map<string, { language: string; url: string }[]>; search: Map<string, string> }
+
+/**
+ * Worked out once per build: each page's versions in the other languages, the main language's as `x-default` (a page in
+ * one language has none), and the search page's path in each language.
+ */
+export const pageLinks = (pages: readonly PlannedPage[], store: CatalogueSnapshot['store'], origin: string): PageLinks => {
+  const groups = new Map<string, PlannedPage[]>()
+  for (const p of pages.filter(listed)) {
+    const key = `${p.route}|${p.custom ?? ''}|${sharedPath(p, store)}`
+    groups.set(key, [...(groups.get(key) ?? []), p])
+  }
+  const alternates = new Map<string, { language: string; url: string }[]>()
+  for (const group of groups.values()) {
+    if (group.length < 2) continue
+    const main = group.find((p) => p.language === store.mainLanguage)
+    const links = [...group.map((p) => ({ language: p.language, url: `${origin}${p.path}` })), ...(main ? [{ language: 'x-default', url: `${origin}${main.path}` }] : [])]
+    for (const p of group) alternates.set(p.path, links)
+  }
+  return { alternates, search: new Map(pages.filter((p) => p.route === 'search').map((p) => [p.language, p.path])) }
 }
 
 /**
@@ -136,30 +185,36 @@ export const itemFacts = (pages: readonly PlannedPage[], s: CatalogueSnapshot): 
 
 /** The document around a rendered page: core owns the head (ARCHITECTURE §8), the theme the body. */
 
-export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body: string; assets: PageAssets; dir: 'ltr' | 'rtl'; store: CatalogueSnapshot['store']; answers?: Record<string, unknown> }) => {
+const metaLine = (m: Seo['meta'][number]) => (m.name ? `<meta name="${escapeHtml(m.name)}" content="${escapeHtml(m.content)}">` : `<meta property="${escapeHtml(m.property ?? '')}" content="${escapeHtml(m.content)}">`)
+
+/** `links`: `pageLinks`' for the live site; an edge-case render, which is never served, goes without. */
+export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body: string; assets: PageAssets; dir: 'ltr' | 'rtl'; store: CatalogueSnapshot['store']; answers?: Record<string, unknown>; links?: PageLinks }) => {
   const asset = (file: string) => escapeHtml(`${s.assetBase ?? '/'}${file}`)
+  const absolute = absoluteIn(s.origin)
+  const search = o.links?.search.get(page.language)
+  const site: Site = { name: o.store.name, url: `${s.origin}/`, logoUrl: o.store.logo ? absolute(o.store.logo.url) : null, search: search ? `${s.origin}${search}` : null, sameAs: o.store.social.map((l) => l.url) }
+  const extra: PageSeo = { locale: page.language, alternates: o.links?.alternates.get(page.path) }
   const post = postOf(page, s)
-  const absolute = (url: string) => (url.startsWith('/') ? `${s.origin}${url}` : url)
+  const postImage = post?.image ? absolute(post.image.url) : null
   const article = post
-    ? seoFor({ store: { name: o.store.name, url: `${s.origin}/` }, url: `${s.origin}${page.path}`, title: post.seoTitle ?? post.title, description: post.seoDescription, image: post.image ? absolute(post.image.url) : null, preview: false, article: { headline: post.title, datePublished: post.publishedAt, author: post.author, image: post.image ? absolute(post.image.url) : null } })
+    ? seoFor({ store: site, url: `${s.origin}${page.path}`, title: post.seoTitle ?? post.title, description: post.seoDescription, image: postImage, preview: false, ...extra, article: { headline: post.title, datePublished: post.publishedAt, author: post.author, image: postImage } })
     : null
-  const item = itemSeo(page, s, o.store, absolute)
-  const seo = article ?? item?.seo ?? null
-  const ogImage = seo?.meta.find((m) => m.property === 'og:image')?.content ?? null
-  const head = article ? { title: article.title, description: post?.seoDescription ?? null, image: post?.image ? absolute(post.image.url) : null } : item ? { title: item.title, description: item.description, image: ogImage } : storeHead(o.store, page.route === 'home' ? '/' : page.path)
-  const ogType = seo?.meta.find((m) => m.property === 'og:type')?.content
+  const item = itemSeo(page, s, site, extra)
+  const head = article ? { title: article.title, description: post?.seoDescription ?? null } : item ? { title: item.title, description: item.description } : storeHead(o.store, page.route === 'home' ? '/' : page.path)
+  const storeImage = 'image' in head && head.image ? absolute(head.image) : null
+  const seo = article ?? item?.seo ?? seoFor({ store: site, url: `${s.origin}${page.path}`, title: head.title ?? o.store.name, description: head.description, image: storeImage, preview: false, ...extra })
+  const indexed = indexable(page.route) && !page.path.includes('/_fallback/')
   const answers = o.answers && Object.keys(o.answers).length > 0 ? { answers: o.answers } : {}
   const live: LivePage = { route: page.route === 'custom' ? null : page.route, custom: page.custom, path: page.path, store: o.store, poweredBy: s.poweredBy, ...answers }
   return [
     '<!doctype html>',
     `<html lang="${escapeHtml(page.language)}" dir="${o.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">`,
     `<title>${escapeHtml(head.title ?? o.store.name)}</title>`,
-    head.description ? `<meta name="description" content="${escapeHtml(head.description)}">` : '',
+    ...seo.meta.map(metaLine),
     o.store.favicon ? `<link rel="icon" href="${escapeHtml(o.store.favicon.url)}">` : '',
-    head.image ? `<meta property="og:image" content="${escapeHtml(head.image)}">` : '',
-    ogType && ogType !== 'website' ? `<meta property="og:type" content="${ogType}">` : '',
-    ...(seo?.jsonLd ?? []).map((data) => `<script type="application/ld+json">${jsonLdText(data)}</script>`),
-    indexable(page.route) && !page.path.includes('/_fallback/') ? `<link rel="canonical" href="${escapeHtml(item?.seo.canonical ?? `${s.origin}${page.path}`)}">` : '<meta name="robots" content="noindex">',
+    ...(indexed ? seo.jsonLd : []).map((data) => `<script type="application/ld+json">${jsonLdText(data)}</script>`),
+    indexed ? `<link rel="canonical" href="${escapeHtml(seo.canonical)}">` : '<meta name="robots" content="noindex">',
+    ...(indexed ? seo.alternates : []).map((a) => `<link rel="alternate" hreflang="${escapeHtml(a.language)}" href="${escapeHtml(a.url)}">`),
     ...o.assets.css.map((c) => `<link rel="stylesheet" href="${asset(c)}">`),
     `<script type="module" src="${asset(o.assets.entry)}"></script>`,
     `</head><body><div id="root">${o.body}</div><script type="application/json" id="${livePageId}">${scriptJson(live)}</script></body></html>`,
@@ -169,15 +224,27 @@ export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body:
     .join('\n')
 }
 
-/** The pages search engines are told about, in every language. */
-export const sitemap = (pages: readonly PlannedPage[], origin: string) =>
-  [
+/** The pages search engines are told about, in every language, with a post's date and a product's photos when `s` has them. */
+export const sitemap = (pages: readonly PlannedPage[], origin: string, s?: CatalogueSnapshot) => {
+  const entry = (p: PlannedPage) => {
+    const post = s ? postOf(p, s) : null
+    const product = s && isItemPage(p) && p.route === 'product' ? productOf(s, p) : null
+    const photos = product ? photosOf(product, origin) : []
+    return [
+      `<url><loc>${escapeHtml(`${origin}${p.path}`)}</loc>`,
+      post ? `<lastmod>${escapeHtml(post.publishedAt)}</lastmod>` : '',
+      ...photos.map((ph) => `<image:image><image:loc>${escapeHtml(ph.url)}</image:loc></image:image>`),
+      '</url>',
+    ].join('')
+  }
+  return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...pages.filter((p) => indexable(p.route) && !p.path.includes('/_fallback/') && !isVersionPath(p.path)).map((p) => `<url><loc>${escapeHtml(`${origin}${p.path}`)}</loc></url>`),
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
+    ...pages.filter(listed).map(entry),
     '</urlset>',
     '',
   ].join('\n')
+}
 
 export const robots = (origin: string) => `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`
 

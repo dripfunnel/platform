@@ -1,0 +1,127 @@
+{
+  "signIn": {
+    "title": "Sign in",
+    "lead": "Sign in to follow your orders and use your saved addresses.",
+    "action": "New here? Create an account"
+  },
+  "register": {
+    "title": "Create an account",
+    "lead": "An account keeps your orders and addresses in one place.",
+    "action": "Already have an account? Sign in"
+  },
+  "verify": {
+    "title": "Check your email",
+    "lead": "We sent you a code to confirm your email address."
+  },
+  "forgotPassword": {
+    "title": "Forgot your password?",
+    "lead": "We will email you a link to set a new one.",
+    "action": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "lead": "Choose a new password for your account.",
+    "action": "Back to sign in"
+  },
+  "account": {
+    "title": "Your account",
+    "lead": "Your orders and addresses in one place.",
+    "orders": "Your orders",
+    "addresses": "Your addresses"
+  },
+  "addresses": {
+    "title": "Your addresses",
+    "lead": "The addresses you ship to."
+  },
+  "orders": {
+    "title": "Your orders",
+    "lead": "Every order you have placed with us."
+  },
+  "order": {
+    "title": "Your order",
+    "lead": "Where your order is and what is in it."
+  },
+  "policy": {
+    "title": "Our policies",
+    "lead": "The terms that apply when you shop with us.",
+    "legal": "Legal notice",
+    "ask": "Questions about this policy? Get in touch and we will answer."
+  },
+  "notFound": {
+    "title": "We can’t find that page",
+    "lead": "The link may be old, or the page may have been taken down.",
+    "action": "Go to the home page",
+    "search": "Search the shop"
+  },
+  "degraded": {
+    "title": "We will be back soon",
+    "lead": "The shop is closed for now. Please come back later."
+  },
+  "about": {
+    "eyebrow": "Our Story",
+    "title": "About {store}",
+    "lead": "Welcome to {store}. Here is a little about who we are and what we do.",
+    "story": {
+      "eyebrow": "Who we are",
+      "title": "A shop built on",
+      "accent": "care and quality",
+      "first": "We started {store} to bring together pieces we love and believe in. Every item in our shop is chosen with care, so you can shop with confidence.",
+      "second": "We are always adding to our collections, and we are glad to hear what you would like to see next. Thank you for shopping with us."
+    },
+    "promise": {
+      "eyebrow": "Our Promise",
+      "title": "More than just products",
+      "body": "We want every order to be a pleasure, from the moment you browse to the moment it arrives.",
+      "designs": {
+        "title": "Thoughtful Choices",
+        "body": "Pieces picked for their design and the way they are made."
+      },
+      "quality": {
+        "title": "Lasting Quality",
+        "body": "Made to be used, enjoyed and kept."
+      },
+      "service": {
+        "title": "Friendly Service",
+        "body": "Real people ready to help with your order."
+      }
+    },
+    "visit": {
+      "title": "Visit Our Store",
+      "lead": "Come see the collection in person.",
+      "whatsapp": "Chat on WhatsApp"
+    },
+    "closing": "Thank you for choosing {store}."
+  },
+  "contact": {
+    "title": "Get in touch",
+    "lead": "Questions about an order or anything else? Write to us and we will reply.",
+    "email": "Email",
+    "phone": "Phone",
+    "visit": "Visit"
+  },
+  "content": {
+    "loading": "Loading the page",
+    "failed": "We couldn't load this page",
+    "questions": "Questions",
+    "contact": "Write to us",
+    "email": "Email {email} and we'll reply within a working day.",
+    "phone": "Or call {phone}."
+  },
+  "blog": {
+    "eyebrow": "Journal",
+    "title": "From the journal",
+    "tagged": "Posts about {tag}",
+    "all": "All posts",
+    "loading": "Loading the posts",
+    "failed": "We couldn't load the posts",
+    "empty": "Nothing here yet",
+    "emptyLead": "New posts will show up here.",
+    "older": "Older posts",
+    "loadingPost": "Loading the post",
+    "failedPost": "We couldn't load this post",
+    "back": "← Journal",
+    "by": "by {author}",
+    "tags": "Tags",
+    "olderFailed": "We couldn't load older posts. Try again."
+  }
+}

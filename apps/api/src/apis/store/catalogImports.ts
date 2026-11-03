@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { catalogImportAudit, createCatalogImportService, type CatalogImportDto, type CatalogImportRefusal } from '#engine/modules/catalog/index'
+import { catalogImportAudit, createCatalogImportService, isShopifyFile, type CatalogImportDto, type CatalogImportRefusal } from '#engine/modules/catalog/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -16,6 +16,7 @@ const words: Record<CatalogImportRefusal, string> = {
   NOT_READY: 'That import has already started, or its check isn’t finished.',
   NOTHING_TO_IMPORT: 'No product in this file is ready to import. Fix the problems and upload it again.',
   WAREHOUSE_NOT_FOUND: 'Choose one of your locations.',
+  LOCATIONS_INVALID: 'Match each Shopify location to a different one of your locations, or choose Don’t import.',
 }
 
 const refused = (reason: CatalogImportRefusal) => new GraphQLError(words[reason], { extensions: { code: reason } })
@@ -50,7 +51,12 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
       column: t.exposeString('column', { nullable: true }),
       code: t.exposeString('code'),
       message: t.exposeString('message'),
+      // 'inventory' when the line is in Shopify's inventory file, not the products file.
+      file: t.string({ nullable: true, resolve: (p) => p.file ?? null }),
     }),
+  })
+  const Conversion = builder.objectRef<NonNullable<CatalogImportDto['conversion']>>('CatalogImportConversion').implement({
+    fields: (t) => ({ from: t.exposeString('from'), to: t.exposeString('to'), on: t.exposeString('on') }),
   })
   const Import = builder.objectRef<CatalogImportDto>('CatalogImport').implement({
     fields: (t) => ({
@@ -68,6 +74,10 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
       failed: t.exposeInt('failed'),
       photosPending: t.exposeInt('photosPending'),
       problemCount: t.exposeInt('problemCount'),
+      locations: t.stringList({ resolve: (i) => i.locations }),
+      // Set when the file's prices were converted to the pricing currency, at the reference rates of day `on`.
+      conversion: t.field({ type: Conversion, nullable: true, resolve: (i) => i.conversion }),
+      stockCounted: t.exposeBoolean('stockCounted'),
       problems: t.field({ type: [Problem], resolve: (i) => i.problems }),
       problemsCsv: t.exposeString('problemsCsv', { nullable: true }),
       requestedAt: t.string({ resolve: (i) => i.requestedAt.toISOString() }),
@@ -75,6 +85,9 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
     }),
   })
   const Matching = builder.enumType('CatalogImportMatching', { values: ['update', 'skip'] as const })
+  const Source = builder.enumType('CatalogImportSource', { values: ['csv', 'shopify'] as const })
+  // A null warehouse leaves that Shopify location out.
+  const LocationInput = builder.inputType('CatalogImportLocationInput', { fields: (t) => ({ location: t.string({ required: true }), warehouseId: t.id() }) })
 
   builder.queryFields((t) => ({
     catalogImport: t.field({ type: Import, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access }, resolve: (_, { id }, ctx) => service(ctx).catalogImport(String(id)) }),
@@ -84,20 +97,26 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
 
   builder.mutationFields((t) => ({
     startCatalogImport: t.id({
-      args: { file: t.arg.string({ required: true }) },
+      args: { file: t.arg.string({ required: true }), source: t.arg({ type: Source }), inventory: t.arg.string(), currency: t.arg.string() },
       extensions: { access: { ...access, audit: catalogImportAudit.started } },
-      resolve: async (_, { file }, ctx) => {
-        await requireFeature(ctx, actingCaller(ctx), 'import_spreadsheet')
-        const result = await writer(ctx).start(file)
+      resolve: async (_, { file, source, inventory, currency }, ctx) => {
+        // With no source (the mobile app) either kind is read, so a Shopify file is gated as one whichever option sent it.
+        await requireFeature(ctx, actingCaller(ctx), (source ?? (isShopifyFile(file) ? 'shopify' : 'csv')) === 'shopify' ? 'import_shopify' : 'import_spreadsheet')
+        const result = await writer(ctx).start(file, source ?? null, inventory ?? null, currency ?? null)
         if (!result.ok) throw refused(result.reason)
         return result.value
       },
     }),
     confirmCatalogImport: t.boolean({
-      args: { id: t.arg.id({ required: true }), matching: t.arg({ type: Matching, required: true }), warehouseId: t.arg.id() },
+      args: { id: t.arg.id({ required: true }), matching: t.arg({ type: Matching, required: true }), warehouseId: t.arg.id(), locations: t.arg({ type: [LocationInput] }) },
       extensions: { access: { ...access, audit: catalogImportAudit.confirmed } },
-      resolve: async (_, { id, matching, warehouseId }, ctx) => {
-        const result = await writer(ctx).confirm(String(id), matching, warehouseId === null || warehouseId === undefined ? null : String(warehouseId))
+      resolve: async (_, { id, matching, warehouseId, locations }, ctx) => {
+        const result = await writer(ctx).confirm(
+          String(id),
+          matching,
+          warehouseId === null || warehouseId === undefined ? null : String(warehouseId),
+          locations ? locations.map((l) => ({ location: l.location, warehouseId: l.warehouseId === null || l.warehouseId === undefined ? null : String(l.warehouseId) })) : null,
+        )
         if (!result.ok) throw refused(result.reason)
         return true
       },

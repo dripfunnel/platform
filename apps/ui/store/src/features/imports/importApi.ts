@@ -6,6 +6,7 @@ import { loadPlaces } from '../../api/stock'
 // What Import & export reads and writes, given by context so the ?state= harness can answer with samples (importStates.ts).
 export const liveImportApi = {
   loadImport: imports.loadImport,
+  loadImportCurrencies: imports.loadImportCurrencies,
   startFileImport: imports.startFileImport,
   confirmImport: imports.confirmImport,
   loadImportTemplate: imports.loadImportTemplate,

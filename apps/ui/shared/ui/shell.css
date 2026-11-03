@@ -214,6 +214,7 @@
 
 .df-user-identity p {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .df-user-identity-name {

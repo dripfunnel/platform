@@ -1,0 +1,70 @@
+{
+  "title": "Shop our collections",
+  "hero": {
+    "region": "Featured collections",
+    "role": "carousel",
+    "previous": "Previous slide",
+    "next": "Next slide",
+    "pause": "Pause the slides",
+    "play": "Play the slides",
+    "goTo": "Go to slide {n}",
+    "first": "Our latest collection, shop now",
+    "second": "Shop the collection",
+    "third": "Explore more of the shop"
+  },
+  "newest": "New Arrivals",
+  "newestEmpty": "New arrivals are on their way. Check back soon.",
+  "featured": "Featured Products",
+  "viewAll": "View all products",
+  "promises": {
+    "title": "Why shop with us",
+    "craft": {
+      "title": "Chosen with Care",
+      "body": "Every piece is picked for its quality and finish"
+    },
+    "stage": {
+      "title": "For Every Occasion",
+      "body": "Something for everyday wear and special days alike"
+    },
+    "secure": {
+      "title": "Secure Checkout",
+      "body": "Pay safely through trusted payment partners"
+    },
+    "support": {
+      "title": "Here to Help",
+      "body": "Questions about an order? Get in touch with us"
+    }
+  },
+  "collections": {
+    "eyebrow": "Shop by Category",
+    "title": "Explore Our Collections",
+    "explore": "Explore"
+  },
+  "deals": {
+    "eyebrow": "Handpicked for you"
+  },
+  "spotlight": {
+    "eyebrow": "Featured Collection",
+    "body": "Discover the pieces in this collection, chosen for their quality and craft.",
+    "cta": "Shop all {name}"
+  },
+  "story": {
+    "eyebrow": "Our Story",
+    "title": "Made with care,",
+    "accent": "chosen for you.",
+    "lead": "We bring together pieces we love, chosen for their quality, their craft and the way they make you feel.",
+    "body": "Whether you are shopping for yourself or for someone special, every item in our collection is picked to look as good as it feels.",
+    "more": "Explore the collection"
+  },
+  "range": {
+    "eyebrow": "Explore the Range",
+    "title": "Find Exactly What You Need",
+    "shopAll": "Shop all {name}"
+  },
+  "signup": {
+    "eyebrow": "Join us",
+    "title": "Shop faster with an account",
+    "body": "Create an account for faster checkout, order tracking and saved addresses.",
+    "action": "Create Account"
+  }
+}

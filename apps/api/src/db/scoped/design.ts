@@ -20,7 +20,7 @@ export const selectOfferedTemplates = (tx: ScopedSql, shopDomain: string | null)
     from storefront_template t left join store s on s.id = t.demo_store_id
     where t.state = 'offered'
     order by t.key = 'baseline' desc, case t.key when 'linen' then 1 when 'concrete' then 2 when 'bloom' then 3 when 'circuit' then 4
-      when 'market' then 5 when 'atelier' then 6 else 7 end, t.key
+      when 'market' then 5 when 'atelier' then 6 when 'classic' then 7 else 8 end, t.key
     limit ${maxPageSize}`
 
 export const isOfferedTemplate = async (tx: ScopedSql, key: string): Promise<boolean> =>
