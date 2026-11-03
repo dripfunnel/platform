@@ -712,4 +712,41 @@ describe('while a file is being checked (#1195)', () => {
     expect(sourceButton(words.sources.shopify.title).disabled).toBe(false)
     expect(screen.getByRole('alert').textContent).toContain(words.fileErrors.type.title)
   })
+
+  const checkShopify = async (file: File) => {
+    fireEvent.click(sourceButton(words.sources.shopify.title))
+    await settle()
+    fireEvent.change(screen.getByLabelText(words.shopifyCsv.products.label), { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: words.shopifyCsv.check }))
+    await settle()
+    await settle()
+  }
+
+  it('brings the cards back when an Excel file can’t be read', async () => {
+    excel.readSheet.mockRejectedValueOnce(new Error('not a zip'))
+    await show()
+    await checkShopify(new File(['x'], 'broken.xlsx'))
+    expect(sourceButton(words.sources.file.title).disabled).toBe(false)
+    expect(sourceButton(words.sources.shopify.title).disabled).toBe(false)
+    expect(screen.getByRole('alert').textContent).toContain(fill(words.fileErrors.excelUnreadable, { name: 'broken.xlsx' }))
+  })
+
+  it('brings the cards back when the plan doesn’t include the Shopify file import', async () => {
+    api.startFileImport.mockRejectedValue(new ApiError('PLAN_LIMIT', 'Not on your plan.', { unlockedBy: { name: 'Growth' } }))
+    await show()
+    await checkShopify(new File(['Handle,Title\nshirt,Shirt\n'], 'products_export_1.csv', { type: 'text/csv' }))
+    expect(sourceButton(words.sources.file.title).disabled).toBe(false)
+    expect(sourceButton(words.sources.shopify.title).disabled).toBe(false)
+    expect(screen.getByRole('status').textContent).toContain(words.shopifyCsv.lockedAnyPlan)
+  })
+
+  it('moves focus to the loading notice when the card in use is disabled', async () => {
+    api.startFileImport.mockReturnValue(new Promise(() => undefined))
+    await show()
+    sourceButton(words.sources.file.title).focus()
+    choose(csv())
+    await settle()
+    const notice = screen.getAllByRole('status').find((s) => s.textContent === words.checking.file)
+    expect(document.activeElement).toBe(notice?.closest('.df-import-loading'))
+  })
 })

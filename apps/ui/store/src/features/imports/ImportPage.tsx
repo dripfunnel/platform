@@ -138,22 +138,23 @@ const ImportFlow = ({ readOnly, side, canUpgrade, sample }: { readOnly: boolean;
     if (refused) return setFileError(refused)
     setFileError(null)
     setChecking(true)
-    const [products, stock] = [await fileText(file), inventory ? await fileText(inventory) : null]
-    for (const [read, name] of [[products, file.name], [stock, inventory?.name ?? '']] as const) {
-      if (read && !read.ok) {
-        setChecking(false)
-        return setFileError(read.reason === 'big' ? { kind: 'big', name, size: maxImportBytes + 1 } : { kind: 'other', name, message: fill(words.fileErrors.excelUnreadable, { name }) })
-      }
-    }
+    let followed = false
     try {
-      follow(await startFileImport(products.ok ? products.text : '', source, stock?.ok ? stock.text : null, currency), file.name)
+      const [products, stock] = [await fileText(file), inventory ? await fileText(inventory) : null]
+      for (const [read, name] of [[products, file.name], [stock, inventory?.name ?? '']] as const) {
+        if (read && !read.ok) return setFileError(read.reason === 'big' ? { kind: 'big', name, size: maxImportBytes + 1 } : { kind: 'other', name, message: fill(words.fileErrors.excelUnreadable, { name }) })
+      }
+      const id = await startFileImport(products.ok ? products.text : '', source, stock?.ok ? stock.text : null, currency)
+      followed = true
+      follow(id, file.name)
     } catch (error) {
-      setChecking(false)
       if (source === 'shopify' && isApiError(error, 'PLAN_LIMIT')) {
         const plan = unlockSchema.safeParse(error.details['unlockedBy'])
         return setLocked({ plan: plan.success ? plan.data.name : null })
       }
       setFileError({ kind: 'other', name: file.name, message: isApiError(error) ? error.message : '' })
+    } finally {
+      if (!followed) setChecking(false)
     }
   }
 

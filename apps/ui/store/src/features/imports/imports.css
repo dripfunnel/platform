@@ -686,3 +686,7 @@
 .df-import-card[aria-busy='true'] .df-import-place {
   opacity: 0.6;
 }
+
+.df-import-loading:focus {
+  outline: none;
+}
