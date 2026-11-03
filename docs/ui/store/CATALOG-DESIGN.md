@@ -887,6 +887,8 @@ with validation before any write, partial-failure reports, and translation and c
     the two Shopify pickers also take `.xlsx` (the first sheet). The browser turns it into CSV text (`read-excel-file`, loaded only
     when an Excel file is chosen), so the API still reads one kind of text. The merchant mobile app is
     unchanged.
+  - **A panel first (2026-11-03, #1207, differing from the prototype's direct picker):** choosing Import from a spreadsheet opens a panel
+    under the cards with the currency dropdown and "Choose a file", as Import from Shopify does; the file picker opens from that button.
   - **Currency (decided 2026-11-03 on #1178; the spreadsheet option too, on #1202):** Shopify's files don't name one; their prices are in
     the Shopify store's currency. A dropdown asks which one the file's prices are in, defaulting to
     the store's pricing currency, and offers the euro and every currency with a reference rate (O5);
