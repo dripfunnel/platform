@@ -15,6 +15,9 @@ export interface CatalogImportRow {
   plan: unknown
   match_mode: 'update' | 'skip' | null
   warehouse_id: string | null
+  /** Shopify location → the store's warehouse, for an import with an inventory file; a skipped location is absent. */
+  warehouse_map: Record<string, string> | null
+  inventory: string | null
   products: number
   ready: number
   matched: number
@@ -37,17 +40,20 @@ export interface CatalogImportRow {
   expires_at: Date | null
 }
 
-export type CatalogImportSummary = Omit<CatalogImportRow, 'file' | 'plan' | 'problems' | 'problems_csv' | 'connection_id' | 'selection' | 'cursor'>
+export type CatalogImportSummary = Omit<CatalogImportRow, 'file' | 'inventory' | 'plan' | 'problems' | 'problems_csv' | 'connection_id' | 'selection' | 'cursor' | 'warehouse_map'>
 
 const summary = (tx: ScopedSql) =>
   tx`id, store_id, seller_id, source, state, match_mode, warehouse_id, products, ready, matched, done, created, updated, skipped, failed, photos_pending,
     requested_by_id, requested_by_label, created_at, started_at, finished_at, expires_at`
 
-export const insertCatalogImport = async (tx: ScopedSql, i: { storeId: string; sellerId: string | null; source: 'csv' | 'shopify'; file: string; byId: string; byLabel: string }): Promise<string> => {
+export const insertCatalogImport = async (
+  tx: ScopedSql,
+  i: { storeId: string; sellerId: string | null; source: 'csv' | 'shopify'; file: string; inventory: string | null; byId: string; byLabel: string },
+): Promise<string> => {
   const id = crypto.randomUUID()
   await tx`
-    insert into catalog_import (id, store_id, seller_id, source, file, requested_by_id, requested_by_label)
-    values (${id}, ${i.storeId}, ${i.sellerId}, ${i.source}, ${i.file}, ${i.byId}, ${i.byLabel})
+    insert into catalog_import (id, store_id, seller_id, source, file, inventory, requested_by_id, requested_by_label)
+    values (${id}, ${i.storeId}, ${i.sellerId}, ${i.source}, ${i.file}, ${i.inventory}, ${i.byId}, ${i.byLabel})
   `
   return id
 }
@@ -88,15 +94,25 @@ export const saveImportCheck = async (
   c: { source: 'csv' | 'shopify'; plan: unknown; products: number; ready: number; matched: number; problems: unknown },
 ): Promise<void> => {
   await tx`
-    update catalog_import set state = 'ready', source = ${c.source}, plan = ${JSON.stringify(c.plan)}::text::jsonb, products = ${c.products},
+    update catalog_import set state = 'ready', source = ${c.source}, inventory = null, plan = ${JSON.stringify(c.plan)}::text::jsonb, products = ${c.products},
       ready = ${c.ready}, matched = ${c.matched}, problems = ${JSON.stringify(c.problems)}::text::jsonb
     where id = ${id} and state = 'checking'
   `
 }
 
 /** False when it isn't ready any more: confirmed twice, or failed meanwhile. */
-export const startImportRun = async (tx: ScopedSql, id: string, r: { matchMode: 'update' | 'skip'; warehouseId: string | null; at: Date }): Promise<boolean> =>
-  (await tx`update catalog_import set state = 'running', match_mode = ${r.matchMode}, warehouse_id = ${r.warehouseId}, started_at = ${r.at} where id = ${id} and state = 'ready' returning id`).length === 1
+export const startImportRun = async (
+  tx: ScopedSql,
+  id: string,
+  r: { matchMode: 'update' | 'skip'; warehouseId: string | null; warehouseMap: Record<string, string> | null; at: Date },
+): Promise<boolean> =>
+  (
+    await tx`
+      update catalog_import set state = 'running', match_mode = ${r.matchMode}, warehouse_id = ${r.warehouseId},
+        warehouse_map = ${r.warehouseMap === null ? null : JSON.stringify(r.warehouseMap)}::text::jsonb, started_at = ${r.at}
+      where id = ${id} and state = 'ready' returning id
+    `
+  ).length === 1
 
 export const saveImportProgress = async (
   tx: ScopedSql,
@@ -126,7 +142,7 @@ export const finishImport = async (tx: ScopedSql, id: string, f: { problemsCsv: 
 
 export const failImport = async (tx: ScopedSql, id: string, at: Date, expiresAt: Date): Promise<void> => {
   await tx`
-    update catalog_import set state = 'failed', file = null, plan = null, finished_at = ${at}, expires_at = ${expiresAt}
+    update catalog_import set state = 'failed', file = null, inventory = null, plan = null, finished_at = ${at}, expires_at = ${expiresAt}
     where id = ${id} and state in ('checking', 'ready', 'running')
   `
 }
@@ -139,7 +155,7 @@ export const deleteExpiredImports = async (tx: ScopedSql, now: Date): Promise<nu
 export const failDeadImports = async (tx: ScopedSql, now: Date, expiresAt: Date): Promise<number> =>
   (
     await tx`
-      update catalog_import set state = 'failed', file = null, plan = null, finished_at = ${now}, expires_at = ${expiresAt}
+      update catalog_import set state = 'failed', file = null, inventory = null, plan = null, finished_at = ${now}, expires_at = ${expiresAt}
       where state in ('checking', 'running') and id in (
         select (payload->>'jobId')::uuid from outbox where kind in ('import.catalog', 'import.photos') and failed_at is not null
       )

@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   loadImport: vi.fn(),
   loadImports: vi.fn(),
   startFileImport: vi.fn(),
+  loadImportCurrencies: vi.fn(),
   confirmImport: vi.fn(),
   loadImportTemplate: vi.fn(),
   loadShopifyConnection: vi.fn(),
@@ -28,8 +29,17 @@ const api = vi.hoisted(() => ({
   requestProductExport: vi.fn(),
 }))
 vi.mock('../../api/imports', async (actual) => ({ ...(await actual<typeof import('../../api/imports')>()), ...api }))
+// Connect Shopify is switched off for now (importFlags.ts); its own tests switch it on.
+const flags = vi.hoisted(() => ({ connect: false }))
+vi.mock('./importFlags', () => ({
+  get connectShopifyEnabled() {
+    return flags.connect
+  },
+}))
 const stock = vi.hoisted(() => ({ loadPlaces: vi.fn() }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stock }))
+const excel = vi.hoisted(() => ({ readSheet: vi.fn() }))
+vi.mock('read-excel-file/browser', () => excel)
 const products = vi.hoisted(() => ({ loadProductCounts: vi.fn() }))
 vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...products }))
 
@@ -52,9 +62,12 @@ const job = (patch: Partial<CatalogImport> = {}): CatalogImport => ({
   failed: 0,
   photosPending: 0,
   problemCount: 3,
+  locations: [],
+  conversion: null,
+  stockCounted: true,
   problems: [
-    { line: 14, column: 'price', code: 'BAD_PRICE', message: 'Price is empty.' },
-    { line: 22, column: 'barcode', code: 'BAD_NUMBER', message: 'The barcode isn’t a number.' },
+    { line: 14, column: 'price', code: 'BAD_PRICE', message: 'Price is empty.', file: null },
+    { line: 22, column: 'barcode', code: 'BAD_NUMBER', message: 'The barcode isn’t a number.', file: null },
   ],
   problemsCsv: null,
   ...patch,
@@ -84,6 +97,7 @@ beforeEach(() => {
   api.loadCatalogExports.mockResolvedValue([])
   api.loadImports.mockResolvedValue([])
   api.startFileImport.mockResolvedValue('i1')
+  api.loadImportCurrencies.mockResolvedValue({ pricing: 'INR', others: [] })
   api.loadImport.mockResolvedValue(job())
   api.confirmImport.mockResolvedValue(undefined)
   api.loadShopifyConnection.mockResolvedValue({ available: true, status: 'none', shop: null })
@@ -97,6 +111,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  flags.connect = false
   vi.resetAllMocks()
 })
 
@@ -132,10 +147,10 @@ describe('choosing what to import', () => {
 
   it('says why the check couldn’t read the file, in CatImport’s words for an empty file or missing columns', async () => {
     await show()
-    api.loadImport.mockResolvedValueOnce(job({ state: 'unreadable', problems: [{ line: 0, column: null, code: 'EMPTY', message: 'x' }] }))
+    api.loadImport.mockResolvedValueOnce(job({ state: 'unreadable', problems: [{ line: 0, column: null, code: 'EMPTY', message: 'x', file: null }] }))
     await upload(csv('blank.csv'))
     expect(screen.getByRole('alert').textContent).toContain(fill(words.fileErrors.empty.body, { name: 'blank.csv' }))
-    api.loadImport.mockResolvedValueOnce(job({ state: 'unreadable', problems: [{ line: 0, column: null, code: 'NO_NAME_COLUMN', message: 'x' }] }))
+    api.loadImport.mockResolvedValueOnce(job({ state: 'unreadable', problems: [{ line: 0, column: null, code: 'NO_NAME_COLUMN', message: 'x', file: null }] }))
     await upload(csv('old-template.csv'))
     expect(screen.getByRole('alert').textContent).toContain(words.fileErrors.cols.title)
     expect(screen.getByRole('button', { name: words.fileErrors.chooseAnother })).toBeTruthy()
@@ -146,7 +161,7 @@ describe('checking and importing a file', () => {
   it('shows what’s ready and what needs fixing, then imports into the chosen location', async () => {
     await show()
     await upload(csv())
-    expect(api.startFileImport).toHaveBeenCalledWith('name,price\nTee,10\n')
+    expect(api.startFileImport).toHaveBeenCalledWith('name,price\nTee,10\n', 'csv', null, null)
     expect(screen.getByText(fill(words.check.ready, { count: '8' }))).toBeTruthy()
     expect(screen.getByText(fill(words.check.readyNote, { new: '6', matched: '2' }))).toBeTruthy()
     expect(screen.getByText(fill(words.check.problems, { count: '2' }))).toBeTruthy()
@@ -160,7 +175,7 @@ describe('checking and importing a file', () => {
     fireEvent.click(screen.getByLabelText(words.check.skip))
     fireEvent.click(screen.getByRole('button', { name: fill(words.check.run.other, { count: '6' }) }))
     await settle()
-    expect(api.confirmImport).toHaveBeenCalledWith('i1', 'skip', 'w2')
+    expect(api.confirmImport).toHaveBeenCalledWith('i1', 'skip', 'w2', null)
     expect(screen.getByRole('heading', { name: fill(words.running.title.other, { count: '8' }) })).toBeTruthy()
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0')
   })
@@ -198,7 +213,7 @@ describe('checking and importing a file', () => {
   })
 
   it('says the run stopped, in the API’s words, when the server ended it', async () => {
-    importRun.set(job({ state: 'failed', problems: [{ line: 0, column: null, code: 'SHOPIFY_EXPIRED', message: 'Your Shopify connection has expired.' }] }))
+    importRun.set(job({ state: 'failed', problems: [{ line: 0, column: null, code: 'SHOPIFY_EXPIRED', message: 'Your Shopify connection has expired.', file: null }] }))
     await show()
     expect(screen.getByRole('alert').textContent).toContain('Your Shopify connection has expired.')
   })
@@ -215,7 +230,7 @@ describe('a supplier’s import', () => {
     expect([...place.options].map((o) => o.value)).toEqual(['w9'])
     fireEvent.click(screen.getByRole('button', { name: fill(words.check.run.other, { count: '8' }) }))
     await settle()
-    expect(api.confirmImport).toHaveBeenCalledWith('i1', 'update', 'w9')
+    expect(api.confirmImport).toHaveBeenCalledWith('i1', 'update', 'w9', null)
   })
 })
 
@@ -241,11 +256,21 @@ describe('bringing products from Shopify', () => {
     { id: 'gid://shopify/Product/2', title: 'Cap', status: 'DRAFT', versions: 1, imageUrl: null },
   ]
 
+  beforeEach(() => {
+    flags.connect = true
+  })
+
+  const openConnect = async () => {
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.shopify.title) }))
+    await settle()
+    fireEvent.click(screen.getByRole('tab', { name: words.shopifyTabs.connect }))
+    await settle()
+  }
+
   it('asks for the shop, says when it can’t be found, and sends the person to Shopify to approve', async () => {
     const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => undefined)
     await show()
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.shopify.title) }))
-    await settle()
+    await openConnect()
     fireEvent.click(screen.getByRole('button', { name: words.shopify.connect }))
     expect(screen.getByRole('alert').textContent).toBe(words.shopify.required)
     fireEvent.change(screen.getByLabelText(words.shopify.address), { target: { value: 'nope' } })
@@ -265,15 +290,13 @@ describe('bringing products from Shopify', () => {
   it('says a lapsed connection expired, and that Shopify isn’t set up where it isn’t', async () => {
     api.loadShopifyConnection.mockResolvedValueOnce({ available: true, status: 'expired', shop: 'kesari.myshopify.com' })
     await show()
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.shopify.title) }))
-    await settle()
+    await openConnect()
     expect(screen.getByRole('alert').textContent).toBe(words.shopify.expired)
     expect(screen.getByRole('button', { name: words.shopify.again })).toBeTruthy()
     cleanup()
     api.loadShopifyConnection.mockResolvedValueOnce({ available: false, status: 'none', shop: null })
     await show()
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.shopify.title) }))
-    await settle()
+    await openConnect()
     expect(screen.getByText(words.shopify.unavailable)).toBeTruthy()
   })
 
@@ -319,6 +342,216 @@ describe('bringing products from Shopify', () => {
     await show(owner, { at: '/products/import?shopify=failed' })
     await settle()
     expect(screen.getByRole('alert').textContent).toBe(words.shopify.failed)
+  })
+})
+
+describe('importing Shopify’s CSV files (#1178)', () => {
+  const productsFile = () => new File(['Handle,Title\nshirt,Shirt\n'], 'products_export_1.csv', { type: 'text/csv' })
+  const inventoryFile = () => new File(['Handle,Location\nshirt,Indiranagar\n'], 'inventory_export_1.csv', { type: 'text/csv' })
+  const openCsv = async (acting: Acting = owner) => {
+    await show(acting)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.shopify.title) }))
+    await settle()
+  }
+  const pick = (label: string, file: File) => fireEvent.change(screen.getByLabelText(label), { target: { files: [file] } })
+  const check = async () => {
+    fireEvent.click(screen.getByRole('button', { name: words.shopifyCsv.check }))
+    await settle()
+    await settle()
+  }
+
+  it('opens straight to the CSV import while Connect Shopify is off, and the spreadsheet option says it is ours only', async () => {
+    await openCsv()
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.queryByRole('button', { name: words.shopify.connect })).toBeNull()
+    expect(screen.getByRole('heading', { name: words.shopifyCsv.title })).toBeTruthy()
+    expect(words.sources.shopify.cta).toBe('Import from Shopify')
+    expect(screen.getByText(words.sources.file.body)).toBeTruthy()
+  })
+
+  it('shows Connect Shopify beside it as a tab when it is on', async () => {
+    flags.connect = true
+    await openCsv()
+    const tabs = within(screen.getByRole('tablist', { name: words.shopifyTabs.label }))
+    expect(tabs.getAllByRole('tab').map((t) => t.textContent)).toEqual([words.shopifyTabs.connect, words.shopifyTabs.csv])
+    expect(tabs.getByRole('tab', { name: words.shopifyTabs.csv }).getAttribute('aria-selected')).toBe('true')
+    fireEvent.click(tabs.getByRole('tab', { name: words.shopifyTabs.connect }))
+    await settle()
+    expect(screen.getByLabelText(words.shopify.address)).toBeTruthy()
+  })
+
+  it('moves between the tabs with the arrow keys, Home and End, so the inactive one is reachable by keyboard', async () => {
+    flags.connect = true
+    await openCsv()
+    const connect = screen.getByRole('tab', { name: words.shopifyTabs.connect })
+    const csv = screen.getByRole('tab', { name: words.shopifyTabs.csv })
+    expect(screen.getAllByRole('tab').filter((t) => t.tabIndex === 0)).toEqual([csv])
+    fireEvent.keyDown(csv, { key: 'ArrowLeft' })
+    await settle()
+    expect(connect.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(connect)
+    fireEvent.keyDown(connect, { key: 'End' })
+    await settle()
+    expect(csv.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(csv)
+    fireEvent.keyDown(csv, { key: 'Home' })
+    await settle()
+    expect(connect.getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(connect, { key: 'ArrowRight' })
+    await settle()
+    expect(csv.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('needs the products file; the inventory file is optional and goes with it', async () => {
+    api.loadImport.mockResolvedValue(job({ source: 'shopify' }))
+    await openCsv()
+    const button = screen.getByRole('button', { name: words.shopifyCsv.check }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    pick(words.shopifyCsv.products.label, productsFile())
+    await settle()
+    expect(button.disabled).toBe(false)
+    await check()
+    expect(api.startFileImport).toHaveBeenLastCalledWith('Handle,Title\nshirt,Shirt\n', 'shopify', null, null)
+    cleanup()
+    await openCsv()
+    pick(words.shopifyCsv.products.label, productsFile())
+    pick(words.shopifyCsv.inventory.label, inventoryFile())
+    await settle()
+    await check()
+    expect(api.startFileImport).toHaveBeenLastCalledWith('Handle,Title\nshirt,Shirt\n', 'shopify', 'Handle,Location\nshirt,Indiranagar\n', null)
+  })
+
+  it('says a file that is not a CSV or too big is refused without sending either', async () => {
+    await openCsv()
+    pick(words.shopifyCsv.products.label, productsFile())
+    pick(words.shopifyCsv.inventory.label, new File(['x'], 'inventory.txt', { type: 'text/plain' }))
+    await settle()
+    await check()
+    expect(screen.getByRole('alert').textContent).toContain(words.fileErrors.type.title)
+    expect(api.startFileImport).not.toHaveBeenCalled()
+  })
+
+  it('says the API’s refusal when the file is the other kind, pointing to the other option', async () => {
+    api.loadImport.mockResolvedValueOnce(job({ state: 'unreadable', problems: [{ line: 0, column: null, code: 'NOT_SHOPIFY_FILE', message: 'This isn’t a Shopify product export. Use Import from a spreadsheet instead.', file: null }] }))
+    await openCsv()
+    pick(words.shopifyCsv.products.label, productsFile())
+    await settle()
+    await check()
+    expect(screen.getByRole('alert').textContent).toContain('Use Import from a spreadsheet instead.')
+    expect(screen.queryByRole('button', { name: words.fileErrors.chooseAnother })).toBeNull()
+  })
+
+  it('matches each Shopify location to a warehouse or leaves it out, and sends the list', async () => {
+    api.startFileImport.mockResolvedValue('i3')
+    api.loadImport.mockResolvedValue(
+      job({ id: 'i3', source: 'shopify', locations: ['Workshop', 'Indiranagar'], problemCount: 1, problems: [{ line: 6, column: 'Handle', code: 'INVENTORY_UNMATCHED', message: 'No product matches.', file: 'inventory' }] }),
+    )
+    await openCsv()
+    pick(words.shopifyCsv.products.label, productsFile())
+    pick(words.shopifyCsv.inventory.label, inventoryFile())
+    await settle()
+    await check()
+    expect(screen.queryByLabelText(words.check.stockIn)).toBeNull()
+    expect(screen.getByText(fill(words.check.inventoryRow, { line: '6' }))).toBeTruthy()
+    // A location starts on the warehouse of the same name, else left out.
+    const workshop = screen.getByLabelText(fill(words.check.locationFor, { location: 'Workshop' })) as HTMLSelectElement
+    const indiranagar = screen.getByLabelText(fill(words.check.locationFor, { location: 'Indiranagar' })) as HTMLSelectElement
+    expect([...workshop.options].map((o) => o.textContent)).toEqual([words.check.skipLocation, 'Workshop', 'Shop floor', 'Anand’s depot'].filter((n) => n !== 'Anand’s depot'))
+    expect(workshop.value).toBe('w1')
+    expect(indiranagar.value).toBe('')
+    fireEvent.change(indiranagar, { target: { value: 'w2' } })
+    fireEvent.change(workshop, { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: fill(words.check.run.other, { count: '8' }) }))
+    await settle()
+    expect(api.confirmImport).toHaveBeenCalledWith('i3', 'update', null, [
+      { location: 'Workshop', warehouseId: null },
+      { location: 'Indiranagar', warehouseId: 'w2' },
+    ])
+  })
+
+  it('says new products come in at 0 when no stock count came with the files, and keeps the one warehouse', async () => {
+    api.startFileImport.mockResolvedValue('i4')
+    api.loadImport.mockResolvedValue(job({ id: 'i4', source: 'shopify', stockCounted: false }))
+    await openCsv()
+    pick(words.shopifyCsv.products.label, productsFile())
+    await settle()
+    await check()
+    expect(screen.getByText(words.check.noStock)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: fill(words.check.run.other, { count: '8' }) }))
+    await settle()
+    expect(api.confirmImport).toHaveBeenCalledWith('i4', 'update', 'w1', null)
+  })
+
+  it('reads Excel files into CSV text before sending, and refuses one it can’t read', async () => {
+    api.loadImport.mockResolvedValue(job({ source: 'shopify' }))
+    excel.readSheet.mockResolvedValueOnce([['Handle', 'Title', 'Variant Grams'], ['shirt', 'Shirt, "red"', 0]])
+    await openCsv()
+    pick(words.shopifyCsv.products.label, new File(['x'], 'products_export_1.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+    await settle()
+    await check()
+    expect(api.startFileImport).toHaveBeenLastCalledWith('Handle,Title,Variant Grams\nshirt,"Shirt, ""red""",0', 'shopify', null, null)
+    cleanup()
+    excel.readSheet.mockRejectedValueOnce(new Error('not a zip'))
+    await openCsv()
+    pick(words.shopifyCsv.products.label, new File(['x'], 'broken.xlsx'))
+    await settle()
+    await check()
+    expect(screen.getByRole('alert').textContent).toContain(fill(words.fileErrors.excelUnreadable, { name: 'broken.xlsx' }))
+    expect(api.startFileImport).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the spreadsheet option to CSV: an Excel file there is refused as before', async () => {
+    await show()
+    await upload(new File(['x'], 'products.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+    expect(screen.getByRole('alert').textContent).toContain(words.fileErrors.type.title)
+    expect(api.startFileImport).not.toHaveBeenCalled()
+  })
+
+  it('asks which currency the prices are in once the store has rates, and sends a choice other than its own', async () => {
+    api.loadImport.mockResolvedValue(job({ source: 'shopify' }))
+    await openCsv()
+    expect(screen.queryByLabelText(words.shopifyCsv.currency.label)).toBeNull()
+    cleanup()
+    api.loadImportCurrencies.mockResolvedValue({ pricing: 'INR', others: ['USD'] })
+    await openCsv()
+    pick(words.shopifyCsv.products.label, productsFile())
+    await settle()
+    const select = screen.getByLabelText(words.shopifyCsv.currency.label) as HTMLSelectElement
+    expect([...select.options].map((o) => o.textContent)).toEqual([fill(words.shopifyCsv.currency.own, { code: 'INR' }), 'USD'])
+    await check()
+    expect(api.startFileImport).toHaveBeenLastCalledWith('Handle,Title\nshirt,Shirt\n', 'shopify', null, null)
+    cleanup()
+    await openCsv()
+    pick(words.shopifyCsv.products.label, productsFile())
+    fireEvent.change(screen.getByLabelText(words.shopifyCsv.currency.label), { target: { value: 'USD' } })
+    await settle()
+    await check()
+    expect(api.startFileImport).toHaveBeenLastCalledWith('Handle,Title\nshirt,Shirt\n', 'shopify', null, 'USD')
+  })
+
+  it('says on the check what the prices were converted from and to, and at which day’s rates', async () => {
+    api.loadImport.mockResolvedValue(job({ source: 'shopify', conversion: { from: 'INR', to: 'USD', on: '2026-11-02' } }))
+    await openCsv()
+    pick(words.shopifyCsv.products.label, productsFile())
+    await settle()
+    await check()
+    expect(screen.getByText(fill(words.check.converted, { from: 'INR', to: 'USD', date: '2026-11-02' }))).toBeTruthy()
+  })
+
+  it('locks the tab with the upgrade prompt on a plan without it, and asks a Manager to ask the Owner', async () => {
+    api.startFileImport.mockRejectedValue(new ApiError('PLAN_LIMIT', 'Not on your plan.', { unlockedBy: { name: 'Growth' } }))
+    await openCsv({ ...owner, permissions: [...owner.permissions, 'billing'] })
+    pick(words.shopifyCsv.products.label, productsFile())
+    await settle()
+    await check()
+    expect(screen.getByRole('status').textContent).toBe(fill(words.shopifyCsv.locked, { plan: 'Growth' }))
+    expect(screen.queryByRole('button', { name: words.shopifyCsv.check })).toBeNull()
+    cleanup()
+    await openCsv({ ...owner, role: 'manager' })
+    pick(words.shopifyCsv.products.label, productsFile())
+    await settle()
+    await check()
+    expect(screen.getByRole('status').textContent).toBe(`${words.shopifyCsv.lockedAnyPlan} ${words.shopifyCsv.askOwner}`)
   })
 })
 

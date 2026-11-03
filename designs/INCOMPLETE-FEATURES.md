@@ -151,6 +151,7 @@ the missing backend.
 - ~~The warehouse choice lists only the two hard-coded locations.~~
 - ~~There is no read-only check and no plan gate on export.~~
 - There is no column-mapping step, no image ZIP and no customer or order import.
+- The prototype draws "Bring products from Shopify" with **Connect Shopify** only. Decided 2026-11-02 on #1178: the option reads **Import from Shopify** with two tabs, Connect Shopify and **Import CSV from Shopify** (a required Products CSV, an optional Inventory CSV, and on confirm a warehouse per Shopify location). Connect Shopify is switched off until #1162 works. The docs win (CATALOG-DESIGN K1, K12); the prototype is not changed.
 
 ### Storefront (PortalStorefront)
 - ~~The AI can edit **only the hero section** (headline, subheading, button, colours).~~ Redrawn 2026-10-08 so every part of the page can change. The drawing still models changes as site JSON (`storefront-lib.js`); what is built is Plan A, where the AI writes theme code (storefront ARCHITECTURE §1).

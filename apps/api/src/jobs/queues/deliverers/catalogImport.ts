@@ -35,7 +35,7 @@ const chunkBudgetMs = 6_000
 const maxPhotoBytes = 20 * 1024 * 1024
 
 // A fetch names the page it reads (null for the first), so delivering it twice adds that page once.
-const jobPayload = catalogJobPayload.extend({ phase: z.enum(['fetch', 'check', 'run']), after: z.string().max(2000).nullable().optional() }).strict()
+const jobPayload = catalogJobPayload.extend({ phase: z.enum(['fetch', 'check', 'run']), after: z.string().max(2000).nullable().optional(), expect: z.enum(['csv', 'shopify']).optional(), currency: z.string().regex(/^[A-Z]{3}$/).optional() }).strict()
 const photoPayload = catalogJobPayload.extend(importPhotoPayload.shape).strict()
 
 /** The run's catalogue, translations and outbox, in the importer's own scope. */
@@ -85,7 +85,7 @@ export const catalogImportDeliverer = (sql: postgres.Sql, shop: ShopConnect | nu
     const deps = catalogImportDeps(sql, p, effect, now)
     const phases = {
       fetch: () => fetchShopPage({ ...deps, shop, secrets }, p.jobId, p.after ?? null),
-      check: () => checkImport(deps, p.jobId),
+      check: () => checkImport(deps, p.jobId, p.expect, p.currency),
       run: () => runImportChunk(deps, p.jobId, chunkBudgetMs),
     }
     await failingLast(sql, p, effect, now, phases[p.phase])
