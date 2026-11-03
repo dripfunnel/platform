@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { CatalogImport } from '../../api/imports'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { useOnline } from '../common/online'
+import { downloadCsv } from '../common/download'
 import { ProblemList } from './ProblemList'
 
 const words = messages.imports
@@ -47,6 +48,11 @@ export const ImportDone = ({ run, onRestart }: { run: CatalogImport; onRestart: 
         <section className="df-import-fix" aria-label={d.listTitle}>
           <h3>{d.listTitle}</h3>
           <ProblemList problems={run.problems} count={run.problemCount} />
+          {run.problemsCsv && run.problemCount > run.problems.length && (
+            <button type="button" className="df-import-text-button df-import-link" onClick={() => downloadCsv(run.problemsCsv ?? '', words.check.problemsFile)}>
+              {d.downloadAll}
+            </button>
+          )}
         </section>
       )}
       <div className="df-import-row-actions">

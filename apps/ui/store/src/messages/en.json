@@ -2372,6 +2372,7 @@
         "other": "{count} photos are still coming in."
       },
       "listTitle": "What didn’t go in",
+      "downloadAll": "Download all of them as a file",
       "view": "See your products",
       "another": "Import another file"
     },

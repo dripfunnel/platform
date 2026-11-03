@@ -206,8 +206,8 @@ describe('checking and importing a file', () => {
     })
     expect(screen.getByRole('heading', { name: fill(words.done.title, { added: '5', updated: '2' }) })).toBeTruthy()
     expect(screen.getByText(new RegExp(fill(words.done.skipped.other, { count: '2' })))).toBeTruthy()
-    // The problems are listed here, not handed over as a file.
-    expect(screen.queryByRole('button', { name: /Download/ })).toBeNull()
+    // The problems are listed here; the file is offered only because more were found than are listed.
+    expect(screen.getByRole('button', { name: words.done.downloadAll })).toBeTruthy()
     const listed = within(screen.getByRole('region', { name: words.done.listTitle }))
     expect(listed.getByText('Price is empty.')).toBeTruthy()
     expect(listed.getByText(fill(words.check.row, { line: '14' }))).toBeTruthy()
@@ -503,6 +503,17 @@ describe('importing Shopify’s CSV files (#1178)', () => {
     await check()
     expect(screen.getByRole('alert').textContent).toContain(fill(words.fileErrors.excelUnreadable, { name: 'broken.xlsx' }))
     expect(api.startFileImport).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows one currency dropdown at a time: the spreadsheet’s under the cards, or Shopify’s own panel’s', async () => {
+    api.loadImportCurrencies.mockResolvedValue({ pricing: 'INR', others: ['USD'] })
+    await show()
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getByLabelText(words.sources.file.currency.label)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.shopify.title) }))
+    await settle()
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getByLabelText(words.shopifyCsv.currency.label)).toBeTruthy()
   })
 
   it('asks which currency the spreadsheet’s prices are in once the store has rates, and sends a choice other than its own', async () => {

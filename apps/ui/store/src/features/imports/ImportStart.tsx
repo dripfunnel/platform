@@ -66,7 +66,7 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
           </button>
         ))}
       </div>
-      {choices.length > 1 && (
+      {choices.length > 1 && mode !== 'shopify' && (
         <label className="df-import-place">
           <span>{s.file.currency.label}</span>
           <select aria-label={s.file.currency.label} disabled={readOnly || checking} value={currency ?? currencies.pricing ?? ''} onChange={(event) => setCurrency(event.target.value)}>

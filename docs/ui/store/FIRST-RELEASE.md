@@ -619,8 +619,7 @@ ends; it is found again after a reload. Decided on #302:
   **Narrowed on #1178 and #1195 (2026-11-03):** an `.xlsx` is accepted on Import from a spreadsheet and on Shopify's two files, read in the
   browser into CSV and loaded only then (CATALOG-DESIGN K12). Any other file type is refused with how to save it as CSV.
 - **Shopify's picker** opens with its first page ticked, as CatImport does; up to 250 by hand, or **Select all**.
-- **The "Problems" file** is offered once a run ends: the check lists the first problems and how many more there
-  are, because the API writes the file at the end of the run (#301). Building it at the check is open on #302.
+- **The "Problems" file:** the Done step lists the first problems (up to 100) on the screen, with how many more there are, and offers the file only when there are more than it lists; the check offers it too (#301, #1195). Building it at the check is open on #302.
 - **The plan's room** isn't said before the run (the check doesn't count it); products past the limit are listed
   in Done as `PLAN_LIMIT` problems.
 - **Exports** list the caller's recent files by kind and size; the API keeps no label for "all" or "hidden only".
