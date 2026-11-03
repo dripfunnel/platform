@@ -193,3 +193,20 @@ jobs:
           directory: store-proxy
           env-name: dev
           message: ${{ github.sha }}
+
+      # Last, once the API it needs is deployed (SAAS §10): the newest dev core is recorded and rolled out to dev's stores.
+      # Every push, so a core change that leaves the API alone still rolls out; both steps repeat harmlessly.
+      - name: Core release
+        id: core
+        uses: ./.github/actions/studio-image
+        with:
+          channel: dev
+
+      - name: Core rollout
+        env:
+          DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+          VERSION: ${{ steps.core.outputs.tag }}
+          SANDBOX_IMAGE: registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/storefront-build@${{ steps.core.outputs.digest }}
+        run: pnpm release:record && pnpm release:rollout

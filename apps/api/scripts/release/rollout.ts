@@ -4,7 +4,7 @@ import { uniqueViolation, withSystemScope } from '#db/scoped/index'
 import { startReleaseRollout } from '#saas/fleet/index'
 import { assertLocalHost } from '../migrate/host-guard'
 
-// promote.yml's last step, and release.yml's for a dev build (SAAS §10): stores move to the released core.
+// promote.yml's last step, and dev.yml's for the newest dev build (SAAS §10): stores move to the released core.
 const env = z
   .object({
     DATABASE_URL: z.string().min(1),

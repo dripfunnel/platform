@@ -5,7 +5,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { assertLocalHost } from '../migrate/host-guard'
 
 // The release workflow's last step (storefront AI-STUDIO §1): core_release learns the version's sandbox image. Run on
-// the same push as the environment's migrations (prod.yml, or release.yml itself for a dev build), so it waits for the table that migration 0250 makes.
+// the same push as prod.yml's migrations, so it waits for the table that migration 0250 makes; dev.yml runs it after its own.
 const env = z
   .object({
     DATABASE_URL: z.string().min(1),
