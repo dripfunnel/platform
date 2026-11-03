@@ -123,9 +123,9 @@ const ImportFlow = ({ readOnly, side, canUpgrade, sample }: { readOnly: boolean;
     check()
   }
 
-  /** A file must be a CSV or an Excel sheet within the API's size; said before anything is sent. */
-  const refusalOf = (file: File): FileError | null => {
-    if (!isCsv(file) && !isExcel(file)) return { kind: 'type', name: file.name }
+  /** A file must be a CSV (or, for Shopify's files, Excel) within the API's size; said before anything is sent. */
+  const refusalOf = (file: File, excel: boolean): FileError | null => {
+    if (!isCsv(file) && !(excel && isExcel(file))) return { kind: 'type', name: file.name }
     if (file.size > maxImportBytes) return { kind: 'big', name: file.name, size: file.size }
     return null
   }
@@ -134,7 +134,8 @@ const ImportFlow = ({ readOnly, side, canUpgrade, sample }: { readOnly: boolean;
     setMode(source === 'csv' ? 'file' : 'shopify')
     setJob(null)
     setFileName(file.name)
-    const refused = refusalOf(file) ?? (inventory && refusalOf(inventory))
+    const excel = source === 'shopify'
+    const refused = refusalOf(file, excel) ?? (inventory && refusalOf(inventory, excel))
     if (refused) return setFileError(refused)
     setFileError(null)
     setChecking(true)
@@ -214,7 +215,7 @@ const ImportFlow = ({ readOnly, side, canUpgrade, sample }: { readOnly: boolean;
           locked={locked}
           canUpgrade={canUpgrade}
           onMode={setMode}
-          onFile={(file, currency) => startFiles('csv', file, null, currency)}
+          onFile={(file) => startFiles('csv', file, null, null)}
           currencies={currencies}
           onShopifyFiles={(products, inventory, currency) => startFiles('shopify', products, inventory, currency)}
           onTemplate={template}

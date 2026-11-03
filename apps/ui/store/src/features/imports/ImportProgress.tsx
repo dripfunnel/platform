@@ -3,7 +3,6 @@ import type { CatalogImport } from '../../api/imports'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { useOnline } from '../common/online'
 import { downloadCsv } from '../common/download'
-import { ProblemList } from './ProblemList'
 
 const words = messages.imports
 
@@ -44,16 +43,10 @@ export const ImportDone = ({ run, onRestart }: { run: CatalogImport; onRestart: 
     <section className="df-import-card df-import-progress df-import-done" aria-live="polite">
       <h2>{fill(d.title, { added: formatCount(run.created), updated: formatCount(run.updated) })}</h2>
       {lines.length > 0 && <p>{lines.join(' ')}</p>}
-      {run.problems.length > 0 && (
-        <section className="df-import-fix" aria-label={d.listTitle}>
-          <h3>{d.listTitle}</h3>
-          <ProblemList problems={run.problems} count={run.problemCount} />
-          {run.problemsCsv && run.problemCount > run.problems.length && (
-            <button type="button" className="df-import-text-button df-import-link" onClick={() => downloadCsv(run.problemsCsv ?? '', words.check.problemsFile)}>
-              {d.downloadAll}
-            </button>
-          )}
-        </section>
+      {run.problemsCsv && (
+        <button type="button" className="df-import-text-button df-import-link" onClick={() => downloadCsv(run.problemsCsv ?? '', words.check.problemsFile)}>
+          {d.download}
+        </button>
       )}
       <div className="df-import-row-actions">
         <Link to="/products" className="df-button df-button--primary">
