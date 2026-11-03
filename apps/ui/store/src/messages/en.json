@@ -2192,7 +2192,8 @@
       "file": {
         "title": "Import from a spreadsheet",
         "body": "A CSV or Excel file in our template’s columns. The template has one example row.",
-        "cta": "Choose a file",
+        "cta": "Upload a file",
+        "choose": "Choose a file",
         "currency": {
           "label": "Prices in the file are in",
           "hint": "If they aren’t in your store’s currency, prices and costs are converted at the latest exchange rates we hold, rounded to the currency’s smallest unit."

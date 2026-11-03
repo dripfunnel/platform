@@ -505,9 +505,16 @@ describe('importing Shopify’s CSV files (#1178)', () => {
     expect(api.startFileImport).toHaveBeenCalledTimes(1)
   })
 
-  it('shows one currency dropdown at a time: the spreadsheet’s under the cards, or Shopify’s own panel’s', async () => {
+  const openSheet = async () => {
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.file.title) }))
+    await settle()
+  }
+
+  it('shows one currency dropdown at a time: the spreadsheet’s panel, or Shopify’s own panel’s', async () => {
     api.loadImportCurrencies.mockResolvedValue({ pricing: 'INR', others: ['USD'] })
     await show()
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0)
+    await openSheet()
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
     expect(screen.getByLabelText(words.sources.file.currency.label)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.shopify.title) }))
@@ -516,18 +523,41 @@ describe('importing Shopify’s CSV files (#1178)', () => {
     expect(screen.getByLabelText(words.shopifyCsv.currency.label)).toBeTruthy()
   })
 
+  it('opens a panel under the cards instead of the file picker, and the picker opens from its button', async () => {
+    const picked = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
+    await show()
+    await openSheet()
+    expect(picked).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: new RegExp(words.sources.file.title) }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: words.sources.file.choose }))
+    expect(picked).toHaveBeenCalledTimes(1)
+    picked.mockRestore()
+  })
+
+  it('says why a spreadsheet can’t be imported inside its panel, above the options', async () => {
+    api.startFileImport.mockRejectedValue(new ApiError('INVALID_INPUT', 'This is a Shopify export.', {}))
+    await show()
+    await openSheet()
+    await upload(csv())
+    const panel = screen.getByRole('heading', { name: words.sources.file.title, level: 2 }).parentElement as HTMLElement
+    expect(within(panel).getByRole('alert').textContent).toContain('This is a Shopify export.')
+  })
+
   it('asks which currency the spreadsheet’s prices are in once the store has rates, and sends a choice other than its own', async () => {
     await show()
+    await openSheet()
     expect(screen.queryByLabelText(words.sources.file.currency.label)).toBeNull()
     cleanup()
     api.loadImportCurrencies.mockResolvedValue({ pricing: 'INR', others: ['USD'] })
     await show()
+    await openSheet()
     const select = screen.getByLabelText(words.sources.file.currency.label) as HTMLSelectElement
     expect([...select.options].map((o) => o.textContent)).toEqual([fill(words.shopifyCsv.currency.own, { code: 'INR' }), 'USD'])
     await upload(csv())
     expect(api.startFileImport).toHaveBeenLastCalledWith('name,price\nTee,10\n', 'csv', null, null)
     cleanup()
     await show()
+    await openSheet()
     fireEvent.change(screen.getByLabelText(words.sources.file.currency.label), { target: { value: 'USD' } })
     await upload(csv())
     expect(api.startFileImport).toHaveBeenLastCalledWith('name,price\nTee,10\n', 'csv', null, 'USD')
