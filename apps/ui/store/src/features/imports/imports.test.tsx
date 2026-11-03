@@ -380,6 +380,28 @@ describe('importing Shopify’s CSV files (#1178)', () => {
     expect(screen.getByLabelText(words.shopify.address)).toBeTruthy()
   })
 
+  it('moves between the tabs with the arrow keys, Home and End, so the inactive one is reachable by keyboard', async () => {
+    flags.connect = true
+    await openCsv()
+    const connect = screen.getByRole('tab', { name: words.shopifyTabs.connect })
+    const csv = screen.getByRole('tab', { name: words.shopifyTabs.csv })
+    expect(screen.getAllByRole('tab').filter((t) => t.tabIndex === 0)).toEqual([csv])
+    fireEvent.keyDown(csv, { key: 'ArrowLeft' })
+    await settle()
+    expect(connect.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(connect)
+    fireEvent.keyDown(connect, { key: 'End' })
+    await settle()
+    expect(csv.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(csv)
+    fireEvent.keyDown(csv, { key: 'Home' })
+    await settle()
+    expect(connect.getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(connect, { key: 'ArrowRight' })
+    await settle()
+    expect(csv.getAttribute('aria-selected')).toBe('true')
+  })
+
   it('needs the products file; the inventory file is optional and goes with it', async () => {
     api.loadImport.mockResolvedValue(job({ source: 'shopify' }))
     await openCsv()

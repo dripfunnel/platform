@@ -3,6 +3,7 @@ import { LoadingState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { ShopifyConnection } from '../../api/imports'
 import { fill, formatMegabytes, messages } from '../../messages'
+import { tabKeyHandler } from '../common/tabKeys'
 import { useImportApi } from './importApi'
 import { connectShopifyEnabled } from './importFlags'
 import type { Mode } from './ImportPage'
@@ -106,12 +107,13 @@ const ShopifyImport = ({ note, readOnly, locked, canUpgrade, currencies, onFiles
   const t = words.shopifyTabs
   const tabsId = useId()
   const [tab, setTab] = useState<ShopifyTab>(note === 'failed' ? 'connect' : 'csv')
+  const buttons = useRef(new Map<ShopifyTab, HTMLButtonElement>())
   if (!connectShopifyEnabled) return <ShopifyCsv readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onFiles} />
   return (
     <>
-      <div className="df-import-tabs" role="tablist" aria-label={t.label}>
+      <div className="df-import-tabs" role="tablist" aria-label={t.label} onKeyDown={tabKeyHandler(shopifyTabs, tab, setTab, (key) => buttons.current.get(key)?.focus())}>
         {shopifyTabs.map((key) => (
-          <button key={key} id={`${tabsId}-${key}`} type="button" role="tab" aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>
+          <button key={key} ref={(el) => void (el ? buttons.current.set(key, el) : buttons.current.delete(key))} id={`${tabsId}-${key}`} type="button" role="tab" aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>
             {t[key]}
           </button>
         ))}
