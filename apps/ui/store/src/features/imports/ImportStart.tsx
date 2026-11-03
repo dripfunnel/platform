@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { ShopifyConnection } from '../../api/imports'
 import { fill, formatMegabytes, messages } from '../../messages'
 import { tabKeyHandler } from '../common/tabKeys'
+import { CurrencyChoice, currencyToSend, type FileCurrencies } from './CurrencyChoice'
 import { useImportApi } from './importApi'
 import { connectShopifyEnabled } from './importFlags'
 import type { Mode } from './ImportPage'
@@ -34,9 +35,9 @@ interface StartProps {
   locked: { plan: string | null } | null
   canUpgrade: boolean
   onMode: (mode: Mode) => void
-  onFile: (file: File) => void
+  onFile: (file: File, currency: string | null) => void
   /** The store's pricing currency and the ones it prices by hand, for the currency a Shopify file's prices are in. */
-  currencies: { pricing: string | null; others: string[] }
+  currencies: FileCurrencies
   onShopifyFiles: (products: File, inventory: File | null, currency: string | null) => void
   onTemplate: () => void
   onConnected: (shop: string) => void
@@ -46,6 +47,7 @@ interface StartProps {
 export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, locked, canUpgrade, currencies, onMode, onFile, onShopifyFiles, onTemplate, onConnected }: StartProps) => {
   const picker = useRef<HTMLInputElement>(null)
   const choose = () => picker.current?.click()
+  const [currency, setCurrency] = useState<string | null>(null)
   const s = words.sources
   const sources = [
     { key: 'file', ...s.file, selected: mode === 'file', disabled: readOnly || checking, onClick: choose },
@@ -64,17 +66,18 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
           </button>
         ))}
       </div>
+      {mode !== 'shopify' && <CurrencyChoice currencies={currencies} chosen={currency} copy={s.file.currency} disabled={readOnly || checking} onChange={setCurrency} />}
       <input
         ref={picker}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         className="df-visually-hidden"
         tabIndex={-1}
         aria-label={s.file.cta}
         onChange={(event) => {
           const file = event.target.files?.[0]
           event.target.value = ''
-          if (file) onFile(file)
+          if (file) onFile(file, currencyToSend(currency, currencies))
         }}
       />
       {checking && <LoadingState label={words.checking.file} />}
@@ -131,7 +134,6 @@ const ShopifyCsv = ({ busy, readOnly, locked, canUpgrade, currencies, onFiles }:
   const [products, setProducts] = useState<File | null>(null)
   const [inventory, setInventory] = useState<File | null>(null)
   const [currency, setCurrency] = useState<string | null>(null)
-  const choices = currencies.pricing ? [currencies.pricing, ...currencies.others] : []
   if (locked)
     return (
       <div className="df-import-card df-import-connect">
@@ -176,24 +178,12 @@ const ShopifyCsv = ({ busy, readOnly, locked, canUpgrade, currencies, onFiles }:
           </div>
         ))}
       </div>
-      {choices.length > 1 && (
-        <label className="df-import-place">
-          <span>{w.currency.label}</span>
-          <select aria-label={w.currency.label} disabled={busy} value={currency ?? currencies.pricing ?? ''} onChange={(event) => setCurrency(event.target.value)}>
-            {choices.map((code) => (
-              <option key={code} value={code}>
-                {code === currencies.pricing ? fill(w.currency.own, { code }) : code}
-              </option>
-            ))}
-          </select>
-          <span className="df-import-hint">{w.currency.hint}</span>
-        </label>
-      )}
+      <CurrencyChoice currencies={currencies} chosen={currency} copy={w.currency} disabled={busy} onChange={setCurrency} />
       <button
         type="button"
         className="df-button df-button--primary"
         disabled={readOnly || busy || !products}
-        onClick={() => products && onFiles(products, inventory, currency !== null && currency !== currencies.pricing ? currency : null)}
+        onClick={() => products && onFiles(products, inventory, currencyToSend(currency, currencies))}
       >
         {busy ? <><span className="df-import-spinner" aria-hidden="true" />{words.checking.file}</> : w.check}
       </button>

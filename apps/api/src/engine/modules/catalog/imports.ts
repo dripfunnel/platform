@@ -267,7 +267,7 @@ export const createCatalogImportService = (d: CatalogImportDeps) => {
   const start = async (file: string, source: ImportSource | null = null, inventory: string | null = null, currency: string | null = null): Promise<ImportResult<string>> => {
     const tooLarge = (text: string) => new TextEncoder().encode(text).byteLength > importLimits.bytes
     if (tooLarge(file) || (inventory !== null && tooLarge(inventory))) return { ok: false, reason: 'FILE_TOO_LARGE' }
-    if (file.trim() === '' || (inventory !== null && (source !== 'shopify' || inventory.trim() === '')) || (currency !== null && (source !== 'shopify' || !/^[A-Z]{3}$/.test(currency))) || !jobPayloadOf(context, storeId)) return { ok: false, reason: 'INVALID_INPUT' }
+    if (file.trim() === '' || (inventory !== null && (source !== 'shopify' || inventory.trim() === '')) || (currency !== null && (source === null || !/^[A-Z]{3}$/.test(currency))) || !jobPayloadOf(context, storeId)) return { ok: false, reason: 'INVALID_INPUT' }
     const id = await inScope(async (tx) => {
       const made = await insertCatalogImport(tx, { storeId, sellerId, source: source ?? 'csv', file, inventory, byId: actor.id, byLabel: actor.label })
       const payload = jobPayloadOf(context, made)
