@@ -4,6 +4,7 @@ import type { CatalogImport, LocationWarehouse } from '../../api/imports'
 import type { Place } from '../../api/stock'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { downloadCsv } from '../common/download'
+import { ProblemList } from './ProblemList'
 
 const words = messages.imports.check
 
@@ -29,7 +30,6 @@ export const ImportCheck = ({ job, name, readOnly, places, onRestart, onRun }: C
   const chosen = place ?? places.find((p) => p.isDefault)?.id ?? places[0]?.id ?? null
   const withProblems = job.products - job.ready
   const count = matching === 'update' ? job.ready : job.ready - job.matched
-  const more = job.problemCount - job.problems.length
 
   const run = async () => {
     setBusy(true)
@@ -117,16 +117,7 @@ export const ImportCheck = ({ job, name, readOnly, places, onRestart, onRun }: C
               </button>
             )}
           </div>
-          <ul>
-            {job.problems.map((p) => (
-              <li key={`${p.line}-${p.column ?? ''}-${p.code}`} className="df-import-fix-row">
-                <span className="df-import-mono">{fill(p.file === 'inventory' ? words.inventoryRow : words.row, { line: String(p.line) })}</span>
-                <span className="df-import-mono">{p.column ?? words.file}</span>
-                <span>{p.message}</span>
-              </li>
-            ))}
-          </ul>
-          {more > 0 && <p className="df-import-hint">{fill(plural(words.moreProblems, more), { count: formatCount(more) })}</p>}
+          <ProblemList problems={job.problems} count={job.problemCount} />
         </section>
       )}
 
