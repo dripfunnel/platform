@@ -133,7 +133,7 @@ export const HomePage = () => {
           { key: 'second', art: art.bannerSecond, href: slideHref(1), label: t('home.hero.second') },
           { key: 'third', art: art.bannerThird, href: slideHref(2), label: t('home.hero.third') },
         ]}
-        labels={{ region: t('home.hero.region'), role: t('home.hero.role'), previous: t('home.hero.previous'), next: t('home.hero.next'), goTo: (n) => t('home.hero.goTo', { n }) }}
+        labels={{ region: t('home.hero.region'), role: t('home.hero.role'), previous: t('home.hero.previous'), next: t('home.hero.next'), pause: t('home.hero.pause'), play: t('home.hero.play'), goTo: (n) => t('home.hero.goTo', { n }) }}
       />
       <ProductRail title={t('home.newest')} action={viewAll} products={{ status: newest.status, items: newest.products }} empty={t('home.newestEmpty')} />
       <section className={styles.promises}>
