@@ -45,11 +45,16 @@ interface StartProps {
 /** Choose: a spreadsheet, Shopify (its export files, or a connected shop), or the template; the file's refusal said in CatImport's words. */
 export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, locked, canUpgrade, currencies, onMode, onFile, onShopifyFiles, onTemplate, onConnected }: StartProps) => {
   const picker = useRef<HTMLInputElement>(null)
+  const loading = useRef<HTMLDivElement>(null)
+  // The card just used is disabled while it holds focus, so focus moves to the loading notice (WCAG 2.4.3).
+  useEffect(() => {
+    if (checking) loading.current?.focus()
+  }, [checking])
   const choose = () => picker.current?.click()
   const s = words.sources
   const sources = [
-    { key: 'file', ...s.file, selected: mode === 'file', disabled: readOnly, onClick: choose },
-    { key: 'shopify', ...s.shopify, selected: mode === 'shopify', disabled: readOnly, onClick: () => onMode('shopify') },
+    { key: 'file', ...s.file, selected: mode === 'file', disabled: readOnly || checking, onClick: choose },
+    { key: 'shopify', ...s.shopify, selected: mode === 'shopify', disabled: readOnly || checking, onClick: () => onMode('shopify') },
     { key: 'template', ...s.template, selected: false, disabled: false, onClick: onTemplate },
   ]
   const said = fileError && errorWords(fileError)
@@ -60,7 +65,7 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
           <button key={source.key} type="button" className="df-import-source" aria-pressed={source.key === 'template' ? undefined : source.selected} disabled={source.disabled} onClick={source.onClick}>
             <span className="df-import-source-title">{source.title}</span>
             <span className="df-import-source-body">{source.body}</span>
-            <span className="df-import-source-cta">{source.cta}</span>
+            <span className="df-import-source-cta">{checking && source.selected ? <><span className="df-import-spinner" aria-hidden="true" />{words.checking.file}</> : source.cta}</span>
           </button>
         ))}
       </div>
@@ -77,7 +82,11 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
           if (file) onFile(file)
         }}
       />
-      {checking && <LoadingState label={mode === 'shopify' ? words.checking.shopify : words.checking.file} />}
+      {checking && (
+        <div ref={loading} tabIndex={-1} className="df-import-loading">
+          <LoadingState label={words.checking.file} />
+        </div>
+      )}
       {said && !checking && (
         <div className="df-import-problem" role="alert">
           <strong>{said.title}</strong>
@@ -94,7 +103,7 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
           </span>
         </div>
       )}
-      {mode === 'shopify' && !checking && <ShopifyImport note={shopNote} readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onShopifyFiles} onConnected={onConnected} />}
+      {mode === 'shopify' && <ShopifyImport busy={checking} note={shopNote} readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onShopifyFiles} onConnected={onConnected} />}
     </>
   )
 }
@@ -103,12 +112,12 @@ type ShopifyTab = 'csv' | 'connect'
 const shopifyTabs: readonly ShopifyTab[] = ['connect', 'csv']
 
 /** "Import from Shopify": Import CSV from Shopify, and beside it Connect Shopify once that is switched on. */
-const ShopifyImport = ({ note, readOnly, locked, canUpgrade, currencies, onFiles, onConnected }: { currencies: StartProps['currencies']; note: 'failed' | null; readOnly: boolean; locked: StartProps['locked']; canUpgrade: boolean; onFiles: StartProps['onShopifyFiles']; onConnected: StartProps['onConnected'] }) => {
+const ShopifyImport = ({ busy, note, readOnly, locked, canUpgrade, currencies, onFiles, onConnected }: { busy: boolean; currencies: StartProps['currencies']; note: 'failed' | null; readOnly: boolean; locked: StartProps['locked']; canUpgrade: boolean; onFiles: StartProps['onShopifyFiles']; onConnected: StartProps['onConnected'] }) => {
   const t = words.shopifyTabs
   const tabsId = useId()
   const [tab, setTab] = useState<ShopifyTab>(note === 'failed' ? 'connect' : 'csv')
   const buttons = useRef(new Map<ShopifyTab, HTMLButtonElement>())
-  if (!connectShopifyEnabled) return <ShopifyCsv readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onFiles} />
+  if (!connectShopifyEnabled) return <ShopifyCsv busy={busy} readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onFiles} />
   return (
     <>
       <div className="df-import-tabs" role="tablist" aria-label={t.label} onKeyDown={tabKeyHandler(shopifyTabs, tab, setTab, (key) => buttons.current.get(key)?.focus())}>
@@ -119,13 +128,13 @@ const ShopifyImport = ({ note, readOnly, locked, canUpgrade, currencies, onFiles
         ))}
       </div>
       <div role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
-        {tab === 'connect' ? <ShopifyConnect note={note} onConnected={onConnected} /> : <ShopifyCsv readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onFiles} />}
+        {tab === 'connect' ? <ShopifyConnect note={note} onConnected={onConnected} /> : <ShopifyCsv busy={busy} readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onFiles} />}
       </div>
     </>
   )
 }
 
-const ShopifyCsv = ({ readOnly, locked, canUpgrade, currencies, onFiles }: { currencies: StartProps['currencies']; readOnly: boolean; locked: StartProps['locked']; canUpgrade: boolean; onFiles: StartProps['onShopifyFiles'] }) => {
+const ShopifyCsv = ({ busy, readOnly, locked, canUpgrade, currencies, onFiles }: { busy: boolean; currencies: StartProps['currencies']; readOnly: boolean; locked: StartProps['locked']; canUpgrade: boolean; onFiles: StartProps['onShopifyFiles'] }) => {
   const w = words.shopifyCsv
   const id = useId()
   const [products, setProducts] = useState<File | null>(null)
@@ -146,7 +155,7 @@ const ShopifyCsv = ({ readOnly, locked, canUpgrade, currencies, onFiles }: { cur
     { key: 'inventory', ...w.inventory, tag: w.inventory.optional, file: inventory, set: setInventory },
   ] as const
   return (
-    <div className="df-import-card df-import-connect">
+    <div className="df-import-card df-import-connect" aria-busy={busy}>
       <h2 id={id}>{w.title}</h2>
       <div className="df-import-files">
         {pickers.map((p) => (
@@ -163,7 +172,7 @@ const ShopifyCsv = ({ readOnly, locked, canUpgrade, currencies, onFiles }: { cur
                   accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   className="df-visually-hidden"
                   aria-label={p.label}
-                  disabled={readOnly}
+                  disabled={readOnly || busy}
                   onChange={(event) => {
                     const file = event.target.files?.[0]
                     event.target.value = ''
@@ -179,7 +188,7 @@ const ShopifyCsv = ({ readOnly, locked, canUpgrade, currencies, onFiles }: { cur
       {choices.length > 1 && (
         <label className="df-import-place">
           <span>{w.currency.label}</span>
-          <select aria-label={w.currency.label} value={currency ?? currencies.pricing ?? ''} onChange={(event) => setCurrency(event.target.value)}>
+          <select aria-label={w.currency.label} disabled={busy} value={currency ?? currencies.pricing ?? ''} onChange={(event) => setCurrency(event.target.value)}>
             {choices.map((code) => (
               <option key={code} value={code}>
                 {code === currencies.pricing ? fill(w.currency.own, { code }) : code}
@@ -192,10 +201,10 @@ const ShopifyCsv = ({ readOnly, locked, canUpgrade, currencies, onFiles }: { cur
       <button
         type="button"
         className="df-button df-button--primary"
-        disabled={readOnly || !products}
+        disabled={readOnly || busy || !products}
         onClick={() => products && onFiles(products, inventory, currency !== null && currency !== currencies.pricing ? currency : null)}
       >
-        {w.check}
+        {busy ? <><span className="df-import-spinner" aria-hidden="true" />{words.checking.file}</> : w.check}
       </button>
     </div>
   )
