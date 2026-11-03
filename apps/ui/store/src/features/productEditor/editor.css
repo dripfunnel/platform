@@ -542,6 +542,16 @@
   gap: var(--df-space-2);
 }
 
+.df-editor-bulk {
+  display: grid;
+  gap: var(--df-space-3);
+  margin-bottom: var(--df-space-3);
+}
+
+.df-editor-versions .df-dialog > .df-field-hint {
+  margin-bottom: var(--df-space-3);
+}
+
 .df-editor-versions-head {
   display: flex;
   align-items: center;

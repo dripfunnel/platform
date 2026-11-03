@@ -1122,6 +1122,98 @@ describe('each version’s own compare-at price, cost and photo (#1117)', () => 
     ])
   })
 
+  describe('and its Stock, set for every version at once (#1182)', () => {
+    const openBox = () => {
+      fireEvent.click(screen.getByRole('button', { name: words.versions.setPrice }))
+      return within(dialog())
+    }
+    const applyBox = (box: ReturnType<typeof openBox>) => box.getByRole('button', { name: words.apply }) as HTMLButtonElement
+    const notMake = (name: string) => {
+      fireEvent.click(screen.getByRole('button', { name: `Hide ${name}` }))
+      fireEvent.change(within(dialog()).getByLabelText(name), { target: { value: 'remove' } })
+      fireEvent.click(within(dialog()).getByRole('button', { name: words.apply }))
+    }
+
+    it('lists Stock after what it costs you, and shows the title and the hint once each', async () => {
+      await show(owner)
+      const box = openBox()
+      expect(box.getAllByText(words.versions.setPriceTitle).length).toBe(1)
+      expect(box.getAllByText(words.versions.setKeeps).length).toBe(1)
+      const cost = box.getByLabelText(new RegExp(words.price.cost))
+      expect(cost.compareDocumentPosition(box.getByLabelText(words.stock.title)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(box.getByText(words.versions.setNone)).toBeTruthy()
+    })
+
+    it('sets every version’s stock to the count typed, leaving prices alone, and saves it', async () => {
+      await show(owner)
+      const box = openBox()
+      fireEvent.change(box.getByLabelText(words.stock.title), { target: { value: '10' } })
+      expect(applyBox(box).disabled).toBe(false)
+      fireEvent.click(applyBox(box))
+      for (const name of ['S', 'M', 'L']) expect(field(`Stock of ${name}`).value).toBe('10')
+      expect(field('Price of S').value).toBe('1299.00')
+      fireEvent.click(saveButton())
+      await settle()
+      expect(sent().versions.map((v) => v.prices)).toEqual([[{ currency: 'INR', amount: '129900' }], [{ currency: 'INR', amount: '149900' }], [{ currency: 'INR', amount: '169900' }]])
+      expect(stockApi.setStock).toHaveBeenCalledWith([
+        { versionId: 'ver-s', warehouseId: 'w1', quantity: 10 },
+        { versionId: 'ver-m', warehouseId: 'w1', quantity: 10 },
+        { versionId: 'ver-l', warehouseId: 'w1', quantity: 10 },
+      ])
+    })
+
+    it('keeps each version’s own count when Stock is left empty', async () => {
+      await show(owner)
+      fireEvent.change(field('Stock of M'), { target: { value: '7' } })
+      const box = openBox()
+      fireEvent.change(box.getByLabelText(words.price.price), { target: { value: '2000' } })
+      fireEvent.click(applyBox(box))
+      expect(field('Stock of M').value).toBe('7')
+      expect(field('Stock of S').value).toBe('')
+      expect(field('Price of S').value).toBe('2000')
+    })
+
+    it('leaves a version we don’t make with its own count', async () => {
+      await show(owner)
+      fireEvent.change(field('Stock of L'), { target: { value: '4' } })
+      notMake('L')
+      const box = openBox()
+      fireEvent.change(box.getByLabelText(words.stock.title), { target: { value: '10' } })
+      fireEvent.click(applyBox(box))
+      expect(field('Stock of S').value).toBe('10')
+      expect(field('Stock of L').value).toBe('4')
+    })
+
+    it.each(['-1', '2.5', 'abc'])('blocks Apply for a count of %s, with the row’s own message', async (bad) => {
+      await show(owner)
+      const box = openBox()
+      fireEvent.change(box.getByLabelText(words.stock.title), { target: { value: bad } })
+      expect(applyBox(box).disabled).toBe(true)
+      expect(box.getByText(words.stock.invalid)).toBeTruthy()
+      expect(box.getByText(words.versions.setFix)).toBeTruthy()
+      fireEvent.change(box.getByLabelText(words.stock.title), { target: { value: '0' } })
+      expect(applyBox(box).disabled).toBe(false)
+    })
+
+    it('has no Stock field for a product with no Stock column', async () => {
+      api.loadProduct.mockResolvedValue(sizes({ productType: 'digital' }))
+      kindApi.loadProductKind.mockResolvedValue(kindView({}))
+      await show(owner)
+      expect(screen.queryByLabelText('Stock of S')).toBeNull()
+      expect(openBox().queryByLabelText(words.stock.title)).toBeNull()
+    })
+
+    it('has no Stock field without a stock location, or for someone who can’t change stock', async () => {
+      stockApi.loadWarehouses.mockResolvedValue([])
+      await show(owner)
+      expect(openBox().queryByLabelText(words.stock.title)).toBeNull()
+      cleanup()
+      stockApi.loadWarehouses.mockResolvedValue([home])
+      await show({ ...owner, permissions: ['catalog.read', 'catalog.write', 'stock.read'] })
+      expect(openBox().queryByLabelText(words.stock.title)).toBeNull()
+    })
+  })
+
   it('gives a version its own uploaded photo, replacing the one before, and saves it by its place', async () => {
     api.uploadPhoto.mockResolvedValueOnce({ ok: true, assetId: 'a7' }).mockResolvedValueOnce({ ok: true, assetId: 'a8' })
     await show(owner)

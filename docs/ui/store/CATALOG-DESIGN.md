@@ -714,7 +714,10 @@ depend on an engine capability whose release is not yet chosen.
   options and 100 versions (decided 2026-10-05 on #337), and a clear message at the version limit.
 - D4. A generated versions table showing each combination's price, stock, SKU, photo and
   visibility, with "Apply to all" for price and stock, and per-choice apply ("All XL:
-  $34.99").
+  $34.99"). **Built (#1117, #1182)**: **Set values for all…** sets Price, Compare-at price, What it
+  costs you and Stock on every version made; Stock sets the count at the table's location (it
+  doesn't add to it) and shows only where the Stock column is editable. An empty field keeps each
+  version's own value.
 - D5. Remove combinations that don't exist ("We don't make Red in XL") and add them back later.
 - D6. Add a choice later (e.g. XXL). Only the new versions appear, pre-filled from a sibling.
 - D7. Remove a choice. Confirm which versions go, say they cannot be undone, and say that past
