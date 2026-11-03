@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-03 (#1195: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -883,11 +883,11 @@ with validation before any write, partial-failure reports, and translation and c
   weight (Shopify writes grams as `0.0`), options and versions, photos in Shopify's `Image Position`
   order, SEO title and description, and status (`active` shown, `draft` and `archived` hidden).
   Shopify columns we don't keep (Vendor, Tags, Product Category, Type) are left out.
-  - **Excel (decided 2026-11-03 on #1178 and #1195, narrowing #302's "CSV only"):** Import from a spreadsheet and
+  - **Excel (decided 2026-11-03 on #1178 and #1202, narrowing #302's "CSV only"):** Import from a spreadsheet and
     the two Shopify pickers also take `.xlsx` (the first sheet). The browser turns it into CSV text (`read-excel-file`, loaded only
     when an Excel file is chosen), so the API still reads one kind of text. The merchant mobile app is
     unchanged.
-  - **Currency (decided 2026-11-03 on #1178; the spreadsheet option too, on #1195):** Shopify's files don't name one; their prices are in
+  - **Currency (decided 2026-11-03 on #1178; the spreadsheet option too, on #1202):** Shopify's files don't name one; their prices are in
     the Shopify store's currency. A dropdown asks which one the file's prices are in, defaulting to
     the store's pricing currency, and offers the euro and every currency with a reference rate (O5);
     it is absent while the store holds no rates. In the pricing currency the import is ordinary. In
