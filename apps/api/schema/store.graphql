@@ -284,11 +284,13 @@ enum CatalogExportKind {
 }
 
 type CatalogImport {
+  conversion: CatalogImportConversion
   created: Int
   done: Int
   failed: Int
   finishedAt: String
   id: ID
+  locations: [String!]
   matched: Int
   photosPending: Int
   problemCount: Int
@@ -300,7 +302,19 @@ type CatalogImport {
   skipped: Int
   source: String
   state: String
+  stockCounted: Boolean
   updated: Int
+}
+
+type CatalogImportConversion {
+  from: String
+  on: String
+  to: String
+}
+
+input CatalogImportLocationInput {
+  location: String!
+  warehouseId: ID
 }
 
 enum CatalogImportMatching {
@@ -311,8 +325,14 @@ enum CatalogImportMatching {
 type CatalogImportProblem {
   code: String
   column: String
+  file: String
   line: Int
   message: String
+}
+
+enum CatalogImportSource {
+  csv
+  shopify
 }
 
 type CatalogueFeature {
@@ -1063,7 +1083,7 @@ type Mutation {
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   checkDomain(id: ID!): Boolean
   chooseTemplate(keepWords: Boolean!, key: String!): String
-  confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
+  confirmCatalogImport(id: ID!, locations: [CatalogImportLocationInput!], matching: CatalogImportMatching!, warehouseId: ID): Boolean
   connectCourier(provider: String!): String
   connectDomain(host: String!): StorefrontDomain
   connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
@@ -1222,7 +1242,7 @@ type Mutation {
   shipItems(courierName: String, lines: [ShipLineInput!]!, orderId: ID!, trackingNumber: String, trackingUrl: String, warehouseId: ID!): [ID!]
   signOutOtherSessions: Int
   skipSetupStep(skipped: Boolean!, step: SetupStep!): Boolean
-  startCatalogImport(file: String!): ID
+  startCatalogImport(currency: String, file: String!, inventory: String, source: CatalogImportSource): ID
   startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
   stopCartReminders(cartId: ID!, note: String): Boolean

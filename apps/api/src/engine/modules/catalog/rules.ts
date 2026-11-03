@@ -294,6 +294,30 @@ export const invalidVersionField = (v: VersionInput): VersionField | null => {
   return null
 }
 
+export interface InvalidInput {
+  field: 'name' | 'description' | 'seoTitle' | 'seoDescription' | 'optionName' | 'optionValue' | 'optionValues' | 'sku' | 'barcode'
+  /** The option (0-based) or version it is on. */
+  option?: number
+  version?: number
+}
+
+/** What `cleanProduct` refused as `INVALID_INPUT`, where it is one of the text and count limits, so a file can name it. */
+export const invalidInputOf = (input: ProductInput): InvalidInput | null => {
+  if (text(input.name, 255) === false) return { field: 'name' }
+  if ((input.description?.trim() ?? '').length > 20_000) return { field: 'description' }
+  if (text(input.seoTitle, 120) === false) return { field: 'seoTitle' }
+  if (text(input.seoDescription, 320) === false) return { field: 'seoDescription' }
+  for (const [option, o] of input.options.entries()) {
+    if (text(o.name, 60) === false) return { field: 'optionName', option }
+    if (o.values.length > maxValuesPerOption) return { field: 'optionValues', option }
+    if (o.values.some((v) => text(v.name, 60) === false)) return { field: 'optionValue', option }
+  }
+  const sku = input.versions.findIndex((v) => text(v.sku, 64) === false)
+  if (sku !== -1) return { field: 'sku', version: sku }
+  const barcode = input.versions.findIndex((v) => text(v.barcode, 14) === false)
+  return barcode === -1 ? null : { field: 'barcode', version: barcode }
+}
+
 const keyOf = (name: string) => name.trim().toLowerCase()
 
 const price = (p: PriceInput): CleanPrice | null => {

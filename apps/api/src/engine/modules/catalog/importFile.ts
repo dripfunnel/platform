@@ -1,6 +1,6 @@
 import { parseCsv } from '#core/csv'
-import { fromMajor } from '#core/money'
-import { cleanProduct, maxOptions, maxPhotos, productTypes, slugFrom, type CatalogRefusal, type ProductInput, type VersionInput } from './rules'
+import { convert, fromMajor } from '#core/money'
+import { cleanProduct, invalidInputOf, maxOptions, maxPhotos, productTypes, slugFrom, type CatalogRefusal, type ProductInput, type VersionInput } from './rules'
 
 // A spreadsheet of products as the import reads it (CATALOG K1–K3, K10, K11): our own export's columns or
 // Shopify's product CSV, rows grouped by handle into products, each checked as a save would check it.
@@ -25,6 +25,15 @@ export type ProblemCode =
   | 'OPTIONS_DIFFER'
   | 'PHOTO_UNAVAILABLE'
   | 'PHOTO_REFUSED'
+  | 'NAME_TOO_LONG'
+  | 'DESCRIPTION_TOO_LONG'
+  | 'SEO_TITLE_TOO_LONG'
+  | 'SEO_DESCRIPTION_TOO_LONG'
+  | 'OPTION_NAME_INVALID'
+  | 'OPTION_VALUE_INVALID'
+  | 'TOO_MANY_VALUES'
+  | 'SKU_TOO_LONG'
+  | 'COMPARE_BELOW_PRICE'
   // The run's, from the save it went through (catalog/index.ts SaveRefusal) or the import's own matching.
   | 'NOT_FOUND'
   | 'CURRENCY_REQUIRED'
@@ -37,12 +46,19 @@ export type ProblemCode =
   | 'STOCK_REFUSED'
   | 'TRANSLATION_REFUSED'
   | 'NOT_ALLOWED'
+  // The Shopify inventory file's (inventoryFile.ts).
+  | 'LOCATION_REQUIRED'
+  | 'INVENTORY_UNMATCHED'
+  | 'NOT_STOCKED'
+  | 'NO_COUNT'
 
 /** One problem, by the file's own line number (the header is line 1) and column, as K3 lists them. */
 export interface ImportProblem {
   line: number
   column: string | null
   code: ProblemCode
+  /** Set when the line is the inventory file's, not the products file's. */
+  file?: 'inventory'
 }
 
 export interface PlannedProduct {
@@ -52,6 +68,8 @@ export interface PlannedProduct {
   input: ProductInput
   /** Each version's count for the chosen location, in `input.versions`' order; null leaves it as it is. */
   stock: (number | null)[]
+  /** With an inventory file: the same, per Shopify location, in place of `stock`. */
+  stockAt?: Record<string, (number | null)[]>
   /** In the file's order, each with the line it's on, for a fetch that fails (K6). */
   photos: { url: string; alt: string | null; line: number }[]
   translations: Record<string, { name?: string; description?: string }>
@@ -65,9 +83,14 @@ export interface ImportPlan {
   refused: number
   /** Every line of those products, for the error file. */
   refusedLines: number[]
+  refusedHandles?: string[]
+  /** The Shopify locations an inventory file gave counts for, in the file's order. */
+  locations?: string[]
+  /** Set when the file's prices were converted from another currency to the pricing currency, at the rates of `on`. */
+  conversion?: { from: string; to: string; on: string }
 }
 
-export type PlanRefusal = 'UNREADABLE' | 'EMPTY' | 'TOO_MANY_ROWS' | 'TOO_MANY_PRODUCTS' | 'NO_NAME_COLUMN'
+export type PlanRefusal = 'UNREADABLE' | 'EMPTY' | 'TOO_MANY_ROWS' | 'TOO_MANY_PRODUCTS' | 'NO_NAME_COLUMN' | 'SHOPIFY_FILE' | 'NOT_SHOPIFY_FILE'
 
 export interface PlanOptions {
   currency: string
@@ -77,6 +100,10 @@ export interface PlanOptions {
   manualCurrencies: readonly string[]
   /** A supplier's file: no visibility, prices in the pricing currency only (ACCESS §7.2, CATALOG O14). */
   supplier: boolean
+  /** The kind of file the importer said it was uploading; with none, either is read. */
+  expect?: ImportSource
+  /** The file's prices are in `from`, not the pricing currency: converted at these rates, units per euro (CATALOG fact 26). */
+  convert?: { from: string; perEuroFrom: string; perEuroTo: string; on: string }
 }
 
 type Field =
@@ -96,6 +123,7 @@ type Field =
   | 'stock'
   | 'image'
   | 'imageAlt'
+  | 'imagePosition'
   | 'seoTitle'
   | 'seoDescription'
   | `option${1 | 2 | 3}Name`
@@ -128,6 +156,7 @@ const shopify: Record<string, Field> = {
   published: 'published',
   'variant sku': 'sku',
   'variant barcode': 'barcode',
+  'variant barcodes': 'barcode',
   'variant price': 'price',
   'variant compare at price': 'compare',
   'cost per item': 'cost',
@@ -135,6 +164,7 @@ const shopify: Record<string, Field> = {
   'variant inventory qty': 'stock',
   'image src': 'image',
   'image alt text': 'imageAlt',
+  'image position': 'imagePosition',
   'seo title': 'seoTitle',
   'seo description': 'seoDescription',
 }
@@ -163,6 +193,14 @@ export const textOfHtml = (html: string): string =>
 
 const yes = new Set(['yes', 'true', '1', 'y'])
 const no = new Set(['no', 'false', '0', 'n'])
+
+/** Shopify writes grams as "0.0" or "250.0". */
+const grams = (text: string, max: number): number | null | 'bad' => {
+  if (text === '') return null
+  if (!/^\d+(\.\d+)?$/.test(text)) return 'bad'
+  const n = Math.round(Number(text))
+  return n > max ? 'bad' : n
+}
 
 const whole = (text: string, max: number): number | null | 'bad' => {
   if (text === '') return null
@@ -195,10 +233,12 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
   const rows = table.map((cells, i) => ({ line: i + 1, cells })).filter((r) => r.cells.some((c) => c.trim() !== ''))
   const head = rows[0]?.cells
   const body = rows.slice(1)
-  if (!head || body.length === 0) return 'EMPTY'
-  if (body.length > importLimits.rows) return 'TOO_MANY_ROWS'
+  if (!head) return 'EMPTY'
   const header = head.map((h) => h.trim().toLowerCase())
   const source: ImportSource = isShopify(header) ? 'shopify' : 'csv'
+  if (o.expect && o.expect !== source) return o.expect === 'csv' ? 'SHOPIFY_FILE' : 'NOT_SHOPIFY_FILE'
+  if (body.length === 0) return 'EMPTY'
+  if (body.length > importLimits.rows) return 'TOO_MANY_ROWS'
   const names = source === 'shopify' ? shopify : ours
   const problems: ImportProblem[] = []
   const columnOf = new Map<Field, number>()
@@ -243,6 +283,7 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
   const seenSkus = new Map<string, string>()
   let refused = 0
   const refusedLines: number[] = []
+  const refusedHandles: string[] = []
   for (const [handle, lines] of groups) {
     const before = problems.length
     const flag = (line: number, field: Field | null, code: ProblemCode, column?: string) => problems.push({ line, column: column ?? (field ? labelOf(field) : null), code })
@@ -259,7 +300,9 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     const money = (row: { line: number; cells: string[] }, field: Field, currency: string, column?: number): string | null => {
       const raw = column === undefined ? at(row, field) : (row.cells[column]?.trim() ?? '')
       if (raw === '') return null
-      const parsed = fromMajor(raw.replace(/,/g, ''), currency)
+      // The file's own currency's amount, converted at the rates held to the pricing currency, half up to its minor unit.
+      const read = fromMajor(raw.replace(/,/g, ''), column === undefined && o.convert ? o.convert.from : currency)
+      const parsed = read && column === undefined && o.convert ? convert(read, currency, o.convert.perEuroFrom, o.convert.perEuroTo) : read
       if (!parsed) {
         flag(row.line, column === undefined ? field : null, 'BAD_PRICE', column === undefined ? undefined : head[column]?.trim())
         return null
@@ -271,7 +314,7 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
       const amount = money(row, 'price', o.currency)
       const compare = money(row, 'compare', o.currency)
       const cost = money(row, 'cost', o.currency)
-      const weight = whole(at(row, 'weight'), 1_000_000)
+      const weight = (source === 'shopify' ? grams : whole)(at(row, 'weight'), 1_000_000)
       if (weight === 'bad') flag(row.line, 'weight', 'BAD_NUMBER')
       const count = whole(at(row, 'stock'), importLimits.maxStock)
       if (count === 'bad') flag(row.line, 'stock', 'BAD_NUMBER')
@@ -320,10 +363,29 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     }
     if (problems.length === before) {
       const checked = cleanProduct(input, o.currency)
-      if (typeof checked === 'string') flag(first.line, refusalColumn[checked] ?? null, checked)
+      if (typeof checked === 'string') {
+        const rowOf = (version: number | undefined) => (version === undefined ? undefined : versionRows[version]?.line) ?? first.line
+        const bad = checked === 'INVALID_INPUT' ? invalidInputOf(input) : null
+        const compare = checked === 'INVALID_PRICE' ? input.versions.findIndex((v) => v.prices[0]?.compareAtAmount && BigInt(v.prices[0].compareAtAmount) <= BigInt(v.prices[0].amount)) : -1
+        const optionField = (suffix: 'Name' | 'Value'): Field => `option${((bad?.option ?? 0) + 1) as 1 | 2 | 3}${suffix}`
+        if (bad?.field === 'name') flag(first.line, 'name', 'NAME_TOO_LONG')
+        else if (bad?.field === 'description') flag(first.line, 'description', 'DESCRIPTION_TOO_LONG')
+        else if (bad?.field === 'seoTitle') flag(first.line, 'seoTitle', 'SEO_TITLE_TOO_LONG')
+        else if (bad?.field === 'seoDescription') flag(first.line, 'seoDescription', 'SEO_DESCRIPTION_TOO_LONG')
+        else if (bad?.field === 'optionName') flag(first.line, optionField('Name'), 'OPTION_NAME_INVALID')
+        else if (bad?.field === 'optionValue') flag(first.line, optionField('Value'), 'OPTION_VALUE_INVALID')
+        else if (bad?.field === 'optionValues') flag(first.line, optionField('Value'), 'TOO_MANY_VALUES')
+        else if (bad?.field === 'sku') flag(rowOf(bad.version), 'sku', 'SKU_TOO_LONG')
+        else if (bad?.field === 'barcode') flag(rowOf(bad.version), 'barcode', 'INVALID_BARCODE')
+        else if (compare !== -1) flag(rowOf(compare), 'compare', 'COMPARE_BELOW_PRICE')
+        else flag(first.line, refusalColumn[checked] ?? null, checked)
+      }
     }
     const seenPhotos = new Set<string>()
+    // Shopify numbers its photos; they come in that order whichever row each is on.
+    const place = (r: { cells: string[] }) => Number(at(r, 'imagePosition')) || 0
     const allPhotos = lines
+      .toSorted((a, b) => place(a) - place(b))
       .filter((r) => /^https?:\/\//i.test(at(r, 'image')) && !seenPhotos.has(at(r, 'image')) && Boolean(seenPhotos.add(at(r, 'image'))))
       .map((r) => ({ url: at(r, 'image'), alt: at(r, 'imageAlt') || null, line: r.line }))
     const translations = Object.fromEntries(
@@ -336,6 +398,7 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     if (problems.length > before) {
       refused++
       refusedLines.push(...lines.map((l) => l.line))
+      refusedHandles.push(handle)
       continue
     }
     // A photo the photo job couldn't carry is left out on its own line; the product still goes in (K6).
@@ -347,5 +410,5 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     if (extra) problems.push({ line: extra.line, column: labelOf('image'), code: 'TOO_MANY_PHOTOS' })
     products.push({ handle, lines: lines.map((l) => l.line), input, stock, photos: carried.slice(0, maxPhotos), translations })
   }
-  return { source, products, problems, refused, refusedLines }
+  return { source, products, problems, refused, refusedLines, refusedHandles, ...(o.convert ? { conversion: { from: o.convert.from, to: o.currency, on: o.convert.on } } : {}) }
 }

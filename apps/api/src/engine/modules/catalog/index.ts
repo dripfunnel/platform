@@ -100,6 +100,7 @@ export {
   type CatalogImportDto,
   type CatalogImportRefusal,
   type CatalogImportService,
+  type LocationWarehouse,
   type ImportJobDeps,
   type PhotoFetch,
 } from './imports'

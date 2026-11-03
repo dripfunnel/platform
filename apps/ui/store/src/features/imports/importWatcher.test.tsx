@@ -12,7 +12,7 @@ vi.mock('../../api/imports', async (actual) => ({ ...(await actual<typeof import
 const { ImportWatcher, importPollMs } = await import('./ImportWatcher')
 const { importRun } = await import('./importRun')
 
-const job = (patch: Partial<CatalogImport>): CatalogImport => ({ id: 'i1', state: 'running', source: 'csv', products: 8, ready: 8, matched: 0, done: 2, created: 0, updated: 0, skipped: 0, failed: 0, photosPending: 0, problemCount: 0, problems: [], problemsCsv: null, ...patch })
+const job = (patch: Partial<CatalogImport>): CatalogImport => ({ id: 'i1', state: 'running', source: 'csv', products: 8, ready: 8, matched: 0, done: 2, created: 0, updated: 0, skipped: 0, failed: 0, photosPending: 0, problemCount: 0, locations: [], conversion: null, stockCounted: true, problems: [], problemsCsv: null, ...patch })
 
 afterEach(() => {
   cleanup()

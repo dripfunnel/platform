@@ -2190,13 +2190,13 @@
     "sources": {
       "file": {
         "title": "Import from a spreadsheet",
-        "body": "A CSV file, or Shopify’s product export. Our template has one example row.",
+        "body": "A CSV file in our template’s columns. The template has one example row.",
         "cta": "Choose a file"
       },
       "shopify": {
-        "title": "Bring products from Shopify",
-        "body": "Connect your Shopify store and pick what to bring over — photos, choices and all.",
-        "cta": "Connect Shopify"
+        "title": "Import from Shopify",
+        "body": "Bring your products over from Shopify’s own export files — photos, choices, prices and stock.",
+        "cta": "Import from Shopify"
       },
       "template": {
         "title": "Download the template",
@@ -2225,8 +2225,39 @@
       "other": {
         "title": "That file can’t be imported"
       },
+      "excelUnreadable": "{name} is an Excel file we can’t read. Save it as CSV and choose it again.",
       "chooseAnother": "Choose another file",
       "template": "Download the template"
+    },
+    "shopifyTabs": {
+      "label": "How to bring products from Shopify",
+      "connect": "Connect Shopify",
+      "csv": "Import CSV from Shopify"
+    },
+    "shopifyCsv": {
+      "title": "Import CSV from Shopify",
+      "products": {
+        "label": "Products CSV",
+        "required": "Required",
+        "hint": "In Shopify admin, open Products, then Export. Choose the file it gives you (CSV or Excel)."
+      },
+      "inventory": {
+        "label": "Inventory CSV",
+        "optional": "Optional",
+        "hint": "For stores with more than one location. In Shopify admin, open Products › Inventory, then Export."
+      },
+      "currency": {
+        "label": "Prices in these files are in",
+        "own": "{code} (your store’s currency)",
+        "hint": "Shopify’s files don’t say. If they aren’t in your store’s currency, prices and costs are converted at the latest exchange rates we hold, rounded to the currency’s smallest unit."
+      },
+      "choose": "Choose file",
+      "change": "Change file",
+      "none": "No file chosen",
+      "check": "Check files",
+      "locked": "Import CSV from Shopify is on {plan}.",
+      "lockedAnyPlan": "Import CSV from Shopify isn’t on your plan.",
+      "askOwner": "Ask your store owner to upgrade."
     },
     "shopify": {
       "title": "Connect your Shopify store",
@@ -2236,13 +2267,13 @@
       "connect": "Connect",
       "connecting": "Connecting…",
       "again": "Connect again",
-      "note": "We’ll open Shopify so you can approve read-only access, then bring you back here to choose products. Have a Shopify export file instead? Use “Import from a spreadsheet”.",
+      "note": "We’ll open Shopify so you can approve read-only access, then bring you back here to choose products. Have Shopify’s export files instead? Use “Import CSV from Shopify”.",
       "expired": "Shopify stopped letting us in — the connection expired. Connect again to carry on.",
       "failed": "Shopify didn’t finish connecting. Try again.",
       "required": "Type your Shopify store address",
       "connected": "Connected — Shopify approved read-only access",
       "notFound": "We couldn’t find {shop}.myshopify.com. Check the address in your Shopify admin — it’s under Settings › Domains.",
-      "unavailable": "Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead, with “Import from a spreadsheet”.",
+      "unavailable": "Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead, with “Import CSV from Shopify”.",
       "away": "Shopify isn’t answering right now. Try again in a minute."
     },
     "pick": {
@@ -2288,6 +2319,12 @@
       "update": "Update them with the file",
       "skip": "Skip them, only add new ones",
       "stockIn": "Put imported stock in",
+      "stockLocations": "Match each Shopify location to one of your locations",
+      "locationFor": "Stock at {location}",
+      "skipLocation": "Don’t import",
+      "converted": "Prices (and costs) were converted from {from} to {to} at the exchange rates of {date}. Check a few before you import.",
+      "noStock": "This file has no stock counts, so new products come in with 0. Set stock in Inventory, or add Shopify’s inventory file when you import.",
+      "inventoryRow": "Inventory file, row {line}",
       "isDefault": "{name} (default)",
       "fix": "What to fix",
       "download": "Download file with a “Problems” column",

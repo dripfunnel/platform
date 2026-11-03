@@ -61,7 +61,7 @@ describe('the shell’s banners', () => {
   const banners = (seat: Seat, s: StoreState, path?: string) => render(<StoreBanners seat={seat} acting={acting} state={s} brand={null} />, path)
 
   it('follows a running import on every screen but Import & export itself, with the way back to it', async () => {
-    const running = { id: 'i1', state: 'running', source: 'csv', products: 10, ready: 8, matched: 0, done: 3, created: 0, updated: 0, skipped: 0, failed: 0, photosPending: 0, problemCount: 0, problems: [], problemsCsv: null } as const
+    const running = { id: 'i1', state: 'running', source: 'csv', products: 10, ready: 8, matched: 0, done: 3, created: 0, updated: 0, skipped: 0, failed: 0, photosPending: 0, problemCount: 0, locations: [] as string[], conversion: null, stockCounted: true, problems: [], problemsCsv: null } as const
     importRun.set({ ...running, problems: [] })
     try {
       const home = await banners(owner, state({}))
