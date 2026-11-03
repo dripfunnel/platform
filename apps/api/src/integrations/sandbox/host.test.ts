@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { sandboxImageFor, type SandboxContainer } from './host'
 
-// Card #790: a dev prerelease core has no core_release row, so its image is the one env.dev's containers entry names.
+// Card #790: a dev prerelease core's image is the one env.dev's containers entry names, whatever its core_release row says.
 const image = 'registry.cloudflare.com/acct/storefront-build@sha256:' + 'a'.repeat(64)
 const released = 'registry.cloudflare.com/acct/storefront-build@sha256:' + 'b'.repeat(64)
 const container = (images?: Record<string, string>) => ({ images }) as unknown as SandboxContainer

@@ -1,14 +1,15 @@
 import postgres from 'postgres'
 import { z } from 'zod'
+import { coreVersionPattern } from '#db/scoped/coreReleases'
 import { uniqueViolation, withSystemScope } from '#db/scoped/index'
 import { startReleaseRollout } from '#saas/fleet/index'
 import { assertLocalHost } from '../migrate/host-guard'
 
-// promote.yml's last step (SAAS §10): once the API is live, stores move to the promoted commit's core.
+// promote.yml's last step, and dev.yml's for the newest dev build (SAAS §10): stores move to the released core.
 const env = z
   .object({
     DATABASE_URL: z.string().min(1),
-    VERSION: z.string().regex(/^\d+\.\d+\.\d+$/),
+    VERSION: z.string().regex(coreVersionPattern),
   })
   .parse(process.env)
 assertLocalHost(env.DATABASE_URL)
