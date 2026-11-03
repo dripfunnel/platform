@@ -55,11 +55,28 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
   const [currency, setCurrency] = useState<string | null>(null)
   const s = words.sources
   const sources = [
-    { key: 'file', ...s.file, selected: mode === 'file', disabled: readOnly || checking, onClick: choose },
+    { key: 'file', ...s.file, selected: mode === 'file', disabled: readOnly || checking, onClick: () => onMode('file') },
     { key: 'shopify', ...s.shopify, selected: mode === 'shopify', disabled: readOnly || checking, onClick: () => onMode('shopify') },
     { key: 'template', ...s.template, selected: false, disabled: false, onClick: onTemplate },
   ]
   const said = fileError && errorWords(fileError)
+  const inPanel = mode === 'file'
+  const problem = said && !checking && (
+    <div className="df-import-problem" role="alert">
+      <strong>{said.title}</strong>
+      <span>{said.body}</span>
+      <span className="df-import-problem-actions">
+        {mode !== 'shopify' && (
+          <button type="button" onClick={choose} disabled={readOnly}>
+            {words.fileErrors.chooseAnother}
+          </button>
+        )}
+        <button type="button" onClick={onTemplate}>
+          {words.fileErrors.template}
+        </button>
+      </span>
+    </div>
+  )
   return (
     <>
       <div className="df-import-sources">
@@ -71,7 +88,16 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
           </button>
         ))}
       </div>
-      {mode !== 'shopify' && <CurrencyChoice currencies={currencies} chosen={currency} copy={s.file.currency} disabled={readOnly || checking} onChange={setCurrency} />}
+      {mode === 'file' && (
+        <div className="df-import-card df-import-connect" aria-busy={checking}>
+          <h2>{s.file.title}</h2>
+          {problem}
+          <CurrencyChoice currencies={currencies} chosen={currency} copy={s.file.currency} disabled={readOnly || checking} onChange={setCurrency} />
+          <button type="button" className="df-button df-button--primary" disabled={readOnly || checking} onClick={choose}>
+            {checking ? <><span className="df-import-spinner" aria-hidden="true" />{words.checking.file}</> : s.file.choose}
+          </button>
+        </div>
+      )}
       <input
         ref={picker}
         type="file"
@@ -90,22 +116,7 @@ export const ImportStart = ({ mode, readOnly, checking, fileError, shopNote, loc
           <LoadingState label={words.checking.file} />
         </div>
       )}
-      {said && !checking && (
-        <div className="df-import-problem" role="alert">
-          <strong>{said.title}</strong>
-          <span>{said.body}</span>
-          <span className="df-import-problem-actions">
-            {mode !== 'shopify' && (
-              <button type="button" onClick={choose} disabled={readOnly}>
-                {words.fileErrors.chooseAnother}
-              </button>
-            )}
-            <button type="button" onClick={onTemplate}>
-              {words.fileErrors.template}
-            </button>
-          </span>
-        </div>
-      )}
+      {!inPanel && problem}
       {mode === 'shopify' && <ShopifyImport busy={checking} note={shopNote} readOnly={readOnly} locked={locked} canUpgrade={canUpgrade} currencies={currencies} onFiles={onShopifyFiles} onConnected={onConnected} />}
     </>
   )
