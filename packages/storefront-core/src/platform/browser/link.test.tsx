@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from '@testing-library/react'
+import { createRef } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createShopClient } from '../api/client'
@@ -31,6 +32,18 @@ describe('Link', () => {
 
   it('renders the same on the server, so the static HTML and the browser agree', () => {
     expect(renderToStaticMarkup(provided('studio', 'https://instagram.com/juniper'))).toBe('<a href="https://instagram.com/juniper" target="_blank" rel="noreferrer noopener">Go</a>')
+  })
+
+  it('hands its anchor to a ref, so a theme can move focus to it', () => {
+    const ref = createRef<HTMLAnchorElement>()
+    render(
+      <StorefrontProvider value={{ client: createShopClient(), store, locale: 'en-US', mode: 'live', poweredBy: null }}>
+        <Link href="/cart/" ref={ref}>
+          Go
+        </Link>
+      </StorefrontProvider>,
+    )
+    expect(ref.current).toBe(screen.getByText('Go'))
   })
 
   it('keeps a link on this store, or outside the studio, in the same tab', () => {

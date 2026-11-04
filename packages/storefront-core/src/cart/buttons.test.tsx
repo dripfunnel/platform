@@ -63,6 +63,25 @@ describe('AddToCart and BuyNow', () => {
     await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Buy now' })))
     expect(assign).toHaveBeenCalledWith('/checkout/')
   })
+
+  it('adds once however fast it is pressed, and can be pressed again once the engine answers', async () => {
+    let answer = () => {}
+    const asked = shopAnswering(() => new Promise((resolve) => (answer = () => resolve({ data: { addToCart: { cartToken: 't', cart: cartOf([line('v1', 1)]) } } }))))
+    render(
+      <Provided client={createShopClient({ state: storedShopState })}>
+        <AddToCart versionId="v1">Add</AddToCart>
+      </Provided>,
+    )
+    const button = screen.getByRole('button', { name: 'Add' })
+    await act(async () => {
+      fireEvent.click(button)
+      fireEvent.click(button)
+    })
+    expect(button).toHaveProperty('disabled', true)
+    await act(async () => answer())
+    expect(asked).toHaveLength(1)
+    expect(button).toHaveProperty('disabled', false)
+  })
 })
 
 describe('when the engine refuses', () => {

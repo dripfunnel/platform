@@ -288,11 +288,13 @@
 
 .buy {
   display: flex;
+  align-self: stretch;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.buy > button {
+.buy > button,
+.buy > a {
   flex: 1 1 180px;
 }
 
@@ -346,9 +348,4 @@
   margin: 0;
   color: var(--ink-soft);
   font-size: 14px;
-}
-
-.viewCart {
-  color: var(--ink);
-  font-weight: 600;
 }
