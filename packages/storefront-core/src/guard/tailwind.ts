@@ -67,7 +67,6 @@ export const inClassPosition = (node: ts.Node, clsx: ReadonlySet<string>): boole
   }
 }
 
-/** Every word of every string in the theme's code: what Tailwind would build a class from, with its place. */
 /** The names a file imports clsx under. */
 export const clsxNames = (sf: ts.SourceFile): Set<string> => {
   const clsx = new Set<string>()
@@ -80,6 +79,7 @@ export const clsxNames = (sf: ts.SourceFile): Set<string> => {
   return clsx
 }
 
+/** Every word of every string in the theme's code: what Tailwind would build a class from, with its place. */
 const wordsOf = (file: string, text: string): Word[] => {
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const clsx = clsxNames(sf)
