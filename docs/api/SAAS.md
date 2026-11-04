@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-11-05 (#1241: the studio's container stops when unused and wakes on `studioActivity`; a change's save follows the frame's swap, §9.2). Before: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -807,8 +807,9 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
     (allowlist, validator, typecheck, bundle, byte budgets, content checks)
       fail → the model repairs from the exact errors (≤3) → else refused: nothing changes
       and the reply says so
-  → pass → a commit in the store's private draft; the studio frame shows it at once and the
-    preview gets the same bundle ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4)
+  → pass → a commit in the store's private draft, kept first in the Durable Object's own storage; the studio frame
+    shows it at once, and the draft bundle, the preview (the same bundle) and design_draft follow in the background;
+    askDesign answers once that save and its message are written ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4, #1241)
   → undo (revert the latest change), discard (back to the live version's commit),
     Open preview (signed link)
   → publishDesign: the publish pipeline (§9.1) builds the draft from private storage → a new
@@ -833,8 +834,10 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 
 **Studio sessions** (storefront ARCHITECTURE §6.1): one Durable Object and one container per
 store with a studio open; one change at a time per store (a second tab waits); a container
-stops after idle minutes and restarts from the last saved draft (private R2,
-[../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §7); when the account's container limit
+stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, and restarts from the last saved draft
+(private R2) with any change kept in the object's storage reapplied ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md)
+§7, #1241); `studioActivity` (the studio's read access, refused to support and impersonation, unlogged) wakes it on
+focus or typing, at most every 30 s; when the account's container limit
 is reached, studios queue and show their place. Container time is recorded per request in
 `ai_run.sandbox_ms`.
 

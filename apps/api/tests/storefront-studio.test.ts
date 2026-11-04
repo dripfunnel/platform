@@ -18,6 +18,7 @@ import { handleStudioLive, studioLiveRequest } from '#apis/store/studioLive'
 import { resolveStoreStanding } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
+import { studioStorage } from './support/kept'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
@@ -75,6 +76,7 @@ const runnerOf = (storeId: string): StudioRunner => {
     now: () => new Date(),
     newId: () => crypto.randomUUID(),
     onBundle: () => undefined,
+    ...studioStorage(),
   })
   runners.set(storeId, runner)
   return runner
@@ -736,6 +738,15 @@ describe('the studio session', () => {
     expect((await w.gql('manager', '{ studioSession { access } }')).data?.['studioSession']).toEqual({ access: 'view' })
     for (const who of ['staff', 'supplier'] as const) expect((await w.gql(who, '{ studioSession { access } }')).code).toBe('FORBIDDEN')
     expect(local.calls.every((c) => c.storeId === c.contextStore)).toBe(true)
+  })
+
+  it('wakes only the caller’s own store’s studio: the Owner’s and a Manager’s, never Staff’s or a supplier’s (#1241)', async () => {
+    const before = local.calls.length
+    for (const who of ['owner', 'manager', 'bOwner'] as const) expect((await w.gql(who, 'mutation { studioActivity }')).data?.['studioActivity'], who).toBe(true)
+    for (const who of ['staff', 'supplier'] as const) expect((await w.gql(who, 'mutation { studioActivity }')).code).toBe('FORBIDDEN')
+    const reached = local.calls.slice(before)
+    expect(reached.map((c) => c.storeId)).toEqual([t.storeA1, t.storeA1, t.storeB1])
+    expect(reached.every((c) => c.storeId === c.contextStore)).toBe(true)
   })
 
   it('renews only while the seat holds: a removed user’s renewal is refused and the session ends; signing out ends it at once', async () => {

@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -76,8 +76,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    context's store**, never by a store id from the client.
    *Why:* no address or parameter can reach another store's draft (isolation test on #482).
 3. **The Durable Object starts the store's container** from the image for the store's core
-   version (`storefront.core_version`) *(decide the size: `basic`, ¼ vCPU and 1 GiB, if the
-   typecheck fits, else `standard-1`)*.
+   version (`storefront.core_version`), at `standard-1` (½ vCPU, 4 GiB, 8 GB; decided on #1241, §9).
+   Opening the studio starts it, and so do picking a template in the gallery and focusing or typing in the chat
+   box (`studioActivity`, §7 "Stopping"), so it is usually up before Send.
 4. **The Durable Object loads the code into the container:**
    - from **`drafts/{store}.bundle`** when the store has unpublished changes (a `design_draft`
      row exists);
@@ -126,17 +127,24 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    These per-change commits, and their messages, stay in the private draft for ever: they never
    reach the public repo (§6 step 4).
    *Why:* every change is a commit, so undo and bisecting work as before.
-5. **The frame hot-reloads.** The Durable Object tells the frame, over a WebSocket through the
-   edge Worker, that a new bundle is ready. Core's preview adapter swaps in the new theme modules
-   and keeps the page, the scroll position and the screen width. This takes under a second
+5. **The change is kept in the Durable Object's own storage, and the frame hot-reloads** (decided on #1241). The
+   object writes the change's files, its commit and message to its SQLite storage (one file to a key), then tells the
+   frame, over a WebSocket through the edge Worker, that a new bundle is ready. Core's preview adapter swaps in the new
+   theme modules and keeps the page, the scroll position and the screen width. This takes under a second
    *(core's adapter needs a hot-swap entry point; on #482 and #304)*.
-6. **The Durable Object saves the draft**: it writes the repo as a git bundle to
-   `drafts/{store}.bundle` in private R2 and moves `design_draft.head_commit` (DATA-MODEL §7).
-   *Why:* a container can stop or crash at any time, but a saved change is never lost.
+   *Why:* the database is in Mumbai and the studio runs in Singapore, so the frame never waits on R2 or the database;
+   the object's own storage is local to it and survives it.
+6. **The Durable Object saves the draft, in the background**: it writes the repo as a git bundle to
+   `drafts/{store}.bundle` in private R2, then the preview (step 7), then moves `design_draft.head_commit` for every
+   change still kept, and only then drops them from its storage. A failed save is tried again after 0.5, 2 and 8
+   seconds; one still failing stays kept for the next start (§7 "A crash").
+   *Why:* a container can stop or crash at any time, but an accepted change is never lost.
 7. **The Durable Object updates the preview** ([PREVIEW.md](PREVIEW.md) §4), so "Open preview"
-   shows the change on any device.
-8. **The change is recorded**: a `design_message` with what changed, and an `ai_run` with the
-   tokens, container time and repairs (SAAS §9.2).
+   shows the change on any device, within seconds of the frame.
+8. **The change is recorded**: an `ai_run` with the tokens, container time and repairs, written by the object as it
+   answers (the chat's message refers to it), and a `design_message` with what changed, written by the Worker
+   (SAAS §9.2). `askDesign` answers once the message and the save of step 6 are both written, side by side, so every
+   read after the answer (the draft's state, Undo, Open preview, Publish) sees the change; the frame swapped before.
 
 ### Live progress (decided 2026-11-04 on #1237)
 
@@ -250,11 +258,24 @@ before, and reads the result when `askDesign` answers.
 
 ## 7. Idle, crashes and capacity
 
-- **Idle stop:** a container stops after 10 idle minutes *(proposed; 5 would halve idle cost, at
-  the price of more "Opening your studio…" waits)*. The next request starts a new one from the
-  draft bundle in a few seconds.
+- **Stopping** (decided 2026-11-04 with Gaurav on #1241): no container runs for a studio nobody uses. The object's
+  alarm stops it, never during a change or its save:
+  - **2 minutes after the studio closes**: the store's last live socket (§4 "Live progress") closed, so a reload
+    doesn't cause a cold start; with no socket at all, 2 minutes after the last activity;
+  - **after 5 minutes of inactivity** while open: no prompt, typing or click in the frame (a hidden tab sends none);
+  - **at a 3-hour cap** per container session, however busy.
+
+  **Waking early:** focusing or typing in the chat box, a click in the frame, and picking a template send
+  `studioActivity` (the studio's read access, refused to support and impersonation, unlogged as `studio_activity`,
+  LOGGING §5), at most every 30 seconds: it starts a stopped container and resets the inactivity timer. While it
+  starts, the frame shows the last saved preview under "Opening your studio…". Each stop is logged as
+  `studio_stopped` with the rule (`closed-stop`, `idle-stop`, `cap-stop`).
 - **A crash mid-change:** the Durable Object starts a new container from the last saved draft
   and retries the change once. The draft is only ever the last saved state.
+- **A crash after the frame's swap** (#1241): an accepted change kept in the object's storage whose save never
+  finished (the object restarted, or R2 or the database stayed down) is applied again, in order, through the gate onto
+  the last bundle the next time the container starts, then saved; one the gate now refuses is dropped and logged
+  (`studio_reapply_refused`). A reapplied change is a new commit of the same files.
 - **Two tabs or devices** share the store's one container and see the same draft.
 - **Capacity** (Cloudflare's account limits, checked 2026-10-09): 6 TiB of memory and 1,500 vCPU
   running at once. That is about **1,500 open studios at `standard-1`, or 6,000 at `basic`**;
@@ -393,12 +414,17 @@ before, and reads the result when `askDesign` answers.
 
 ## 9. Open questions
 
-- ~~The container size.~~ **`basic`** (¼ vCPU, 1 GiB, 4 GB disk; decided on #482). The fast gate over the
-  baseline theme (22 files) peaked at **365 MiB** in the sandbox's process, the first change in 1.0 s and later
-  ones in 0.33 s on a developer's laptop (2026-10-11); expect about four times that on ¼ vCPU. The Durable
-  Object starts it as custom resources (`vcpu: 0.25, memoryMib: 1024, diskMb: 4096`), since the
-  `durable_object` scheduling policy, which picks the image per start, takes no `basic` name and has no
-  `max_instances`. A theme near the 200-file cap is to measure on dev.
+- ~~The container size.~~ **`standard-1`** (½ vCPU, 4 GiB, 8 GB disk; decided 2026-11-04 with Gaurav on #1241, for
+  the warm TypeScript service of #1240), passed by name to `start()`, which the `durable_object` policy accepts
+  (it takes no `basic` name and has no `max_instances`). Before: `basic` (¼ vCPU, 1 GiB, decided on #482): the fast
+  gate over the baseline theme (22 files) peaked at **365 MiB** in the sandbox's process, the first change in 1.0 s
+  and later ones in 0.33 s on a developer's laptop (2026-10-11). A theme near the 200-file cap is to measure on dev.
+- **Placement** (decided on #1241): the studio's containers ran in Singapore (`sin15`, `sin21`, `sin22`) and once in
+  San Jose (dev, checked 2026-11-04); Cloudflare offers no Mumbai option for containers or Durable Objects. The
+  `StudioSession` object is made with `locationHint: "apac"` wherever it is got (`studioOf`, `studioForJob`), and its
+  container starts near it. Wrangler refuses `constraints.regions` on a `durable_object` application (only `images`,
+  `observability`, `ssh` and experimental flags are accepted), so the containers carry no region constraint of
+  their own; where they start is checked on dev. One Durable Object-to-database round trip is measured on dev.
 - **How the sandbox works** (decided on #482):
   - the model's diff is a list of **whole files**, each with its new text or `null` to remove it, not a
     patch: the validator judges whole files, and a patch that doesn't apply is one failure fewer;
@@ -419,8 +445,9 @@ before, and reads the result when `askDesign` answers.
     its own, no hooks and the `file` protocol only;
   - the server refuses to start when a variable that looks like a credential is set, and blocks
     `fetch`, sockets, HTTP and DNS inside its own process on top of the container's `enableInternet: false`.
-- ~~The idle timeout.~~ **10 minutes** (decided on #482): a merchant reading the preview between asks often passes 5,
-  a container at `basic` costs about a cent an hour, and a cold start reloads the saved draft in seconds.
+- ~~The idle timeout.~~ **5 minutes while open, 2 after closing, 3 hours at most** (decided on #1241, §7 "Stopping"),
+  with the container woken on focus or typing so the cold start happens while the merchant writes. Before: 10 minutes
+  (#482).
 - **How the Durable Object runs a change** (decided on #482):
   - `StudioSession` is named by the store id of the session's `TenantContext` (`studioOf`), keeps that id in its
     storage on the first call, and refuses a call for any other store;
@@ -431,20 +458,22 @@ before, and reads the result when `askDesign` answers.
   - it loads `drafts/{store}.bundle`, else the live build's `sources/{store}/{build}.bundle`, else, for a store
     that has never published, the template's files from the sites bucket (the template's commit on GitHub
     is never read);
-  - each accepted change saves, in this order: the draft bundle, the preview folder
-    `stores/{id}/preview/{change id}/` (each file with its SHA-256), `design_draft.head_commit` and
-    `preview_deploy_ref` with `storefront.custom_paths`, then the frame's reload notice;
+  - each accepted change is kept in the object's storage, then the frame's reload notice goes out, then, in the
+    background and one save at a time: the draft bundle, the preview folder `stores/{id}/preview/{change id}/` (each
+    file with its SHA-256, written in parallel), `design_draft.head_commit` and `preview_deploy_ref` with
+    `storefront.custom_paths` (#1241; before, all of it came before the reload);
   - a sandbox that stops answering is started again from the saved draft and the step is tried once more;
     a second failure answers "unavailable" and the draft stays at its last saved state;
   - a load that fails after the container started stops it and gives its place back; a change the model or
     the sandbox fails partway is metered as `failed`, with every ask already made;
-  - only opening, changing and undoing keep a studio from its idle stop; the alarm stops a container whose object
-    was evicted (no runner left to reach it), and one whose lapsed lease the ledger won't renew;
+  - opening, changing, undoing and `studioActivity` keep a studio from its idle stop; the alarm stops a container
+    whose object was evicted (no runner left to reach it), and one whose lapsed lease the ledger won't renew;
   - the validator's languages are the store's languages' base codes (`en-IN` → `content/en/`), which core's
     i18n reads for every region of a language; the content and post paths are SAPI 24's `storeContentPaths` (#338), read with the rest of the context;
   - **capacity**: the `durable_object` scheduling policy has no `max_instances`, so one `StudioCapacity` object
     keeps a ledger of `STUDIO_MAX_RUNNING` running studios (default 5,000, short of the ~6,000 the account's
-    vCPU allows at `basic`): a running studio's lease is renewed every minute and lapses 3 minutes after the
+    vCPU allowed at `basic`; at `standard-1` the account's 1,500 vCPU allow about 3,000, so the default is to lower
+    once the limit is confirmed): a running studio's lease is renewed every minute and lapses 3 minutes after the
     last renewal; a waiting studio keeps its place by when it first asked and leaves the queue a minute
     after it stops asking.
 - Whether a plan caps simultaneous studio sessions *(decide on #287; #482 caps only the account, by `STUDIO_MAX_RUNNING`)*.

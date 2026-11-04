@@ -402,7 +402,7 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   /** `studioActivity` (AI-STUDIO §7 "Stopping"): wakes the context's store's container; anyone who may open the studio. */
-  const activity = async (): Promise<DesignResult<true>> => {
+  const wake = async (): Promise<DesignResult<true>> => {
     if (!studio || !studioAccess(context, deps.role)) return { ok: false, reason: 'NOT_CONNECTED' }
     await studio.activity(storeId)
     return { ok: true, value: true }
@@ -480,5 +480,5 @@ export const createStudioService = (deps: StudioDeps) => {
     return offered.includes(language) ? (language.split('-')[0] ?? null) : null
   }
 
-  return { session, renew, activity, chat, ask, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
+  return { session, renew, wake, chat, ask, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
 }

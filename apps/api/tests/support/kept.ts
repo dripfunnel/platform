@@ -1,4 +1,4 @@
-import type { KeptStorage } from '#saas/studio/index'
+import { keptChanges, type KeptStorage } from '#saas/studio/index'
 
 /** A Durable Object's storage in memory, as the studio's kept changes use it: keys listed in order, at most 128 to a write. */
 export const memoryKept = () => {
@@ -13,3 +13,6 @@ export const memoryKept = () => {
   }
   return { storage, data }
 }
+
+/** A StudioRunner's own storage for a test: its kept changes in memory, a save's retries at once. */
+export const studioStorage = (kept = memoryKept()) => ({ kept: keptChanges(kept.storage), background: () => undefined, sleep: async () => undefined })

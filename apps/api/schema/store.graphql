@@ -1254,6 +1254,7 @@ type Mutation {
   startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
   stopCartReminders(cartId: ID!, note: String): Boolean
+  studioActivity: Boolean
   suspendRider(id: ID!): Rider
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
