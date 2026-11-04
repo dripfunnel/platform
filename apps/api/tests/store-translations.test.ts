@@ -97,7 +97,7 @@ describe('a product’s translations', () => {
     expect(rows?.map((r) => [r.entity, r.field, r.main, r.status])).toEqual([
       ['product', 'name', 'Linen kurta', 'missing'],
       ['product', 'slug', 'linen-kurta', 'missing'],
-      ['product', 'description', 'Soft linen, made in Jaipur.', 'missing'],
+      ['product', 'description', '<p>Soft linen, made in Jaipur.</p>', 'missing'],
       ['version', 'name', 'Red kurta', 'missing'],
       ['option_name', 'name', 'Colour', 'missing'],
       ['choice_name', 'name', 'Red', 'missing'],

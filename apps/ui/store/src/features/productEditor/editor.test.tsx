@@ -1386,3 +1386,67 @@ describe('Save, only when there is something to save (#1223)', () => {
     expect(top(words.stock.saveStock).disabled).toBe(false)
   })
 })
+
+describe('the description (#1216)', () => {
+  const content = () => document.querySelector<HTMLElement>('.ProseMirror') as HTMLElement
+  const editorOf = () => (content() as HTMLElement & { editor: import('@tiptap/react').Editor }).editor
+  const top = (name: string = words.save) => screen.getAllByRole('button', { name })[0] as HTMLButtonElement
+
+  it('is edited with the toolbar and saved as the formatting it was given', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ description: '<p>Soft cotton</p>' }))
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    expect(screen.getByRole('textbox', { name: /^Description/ })).toBe(content())
+    act(() => {
+      editorOf().commands.selectAll()
+    })
+    fireEvent.click(screen.getByRole('button', { name: words.description.tools.bold.label }))
+    fireEvent.click(top())
+    await settle()
+    expect(api.saveProduct.mock.calls[0]?.[2]).toMatchObject({ description: '<p><strong>Soft cotton</strong></p>' })
+  })
+
+  it('is not a change to open a description with formatting, or one typed as plain text', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ description: '<p>Soft</p><ul><li>One</li><li>Two</li></ul>' }))
+    await show(owner)
+    expect(top().disabled).toBe(true)
+    cleanup()
+    api.loadProduct.mockResolvedValue(cushion({ description: 'Soft cotton.\nHand wash.\n\nMade in India' }))
+    await show(owner)
+    expect([...content().querySelectorAll('p')].length).toBe(2)
+    expect(top().disabled).toBe(true)
+  })
+
+  it('shows the formatting and can’t be changed by a seat that can’t edit', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ description: '<p>Soft <strong>cotton</strong></p><ul><li>One</li></ul>' }))
+    await show(staff)
+    expect(content().getAttribute('contenteditable')).toBe('false')
+    expect(content().querySelector('strong')?.textContent).toBe('cotton')
+    expect(content().querySelector('li')?.textContent).toBe('One')
+    expect((screen.getByRole('button', { name: words.description.tools.bold.label }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows the search listing’s placeholder as the description’s words, without its tags', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ description: '<p>Soft <strong>cotton</strong> &amp; linen</p><ul><li>Hand wash</li></ul>' }))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(words.sections.seo) }))
+    expect((screen.getByLabelText(words.sections.seoDescription) as HTMLTextAreaElement).placeholder).toBe('Soft cotton & linen Hand wash')
+  })
+
+  it('is the same editor for a translation, and saves its formatting', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [], mainLanguage: 'en-IN', translationLanguages: ['hi-IN'] })
+    const rows = [{ entity: 'product', entityId: 'p1', field: 'description', main: '<p>Soft <strong>cotton</strong></p>', text: null, status: 'missing' }]
+    translationApi.loadProductTranslation.mockResolvedValue(rows)
+    translationApi.saveProductTranslation.mockResolvedValue([{ ...rows[0], text: '<p>Mulayam</p>', status: 'translated' }])
+    await show(owner)
+    fireEvent.click(screen.getByRole('tab', { name: /Hindi/ }))
+    await settle()
+    expect(screen.getByText(/Soft cotton/)).toBeTruthy()
+    act(() => {
+      editorOf().chain().focus('end').insertContent('Mulayam').run()
+    })
+    fireEvent.click(screen.getByRole('button', { name: words.translate.save }))
+    await settle()
+    expect(translationApi.saveProductTranslation).toHaveBeenCalledWith('p1', 'hi-IN', { description: '<p>Mulayam</p>' })
+  })
+})

@@ -21,6 +21,11 @@ describe('seoFor', () => {
     expect(seoFor({ store, url: 'u', title: 'Y', preview: false, product: { name: 'Y', price: moneySchema.parse({ amount: '1200', currency: 'JPY' }), available: true } }).jsonLd[0]).toMatchObject({ offers: { price: '1200' } })
   })
 
+  it('gives a product’s structured data its description as text, without the description’s tags (#1216)', () => {
+    const product = { name: 'Tee', price: moneySchema.parse({ amount: '2800', currency: 'USD' }), available: true, description: '<p>Soft <strong>cotton</strong></p><ul><li>Hand wash</li></ul>' }
+    expect(seoFor({ store, url: 'u', title: 'Tee', preview: false, product }).jsonLd[0]).toMatchObject({ '@type': 'Product', description: 'Soft cotton Hand wash' })
+  })
+
   it('shares a page on Twitter and Open Graph with its locale and image alt, and passes on its alternates', () => {
     const alternates = [{ language: 'zh-Hant-TW', url: 'https://juniper.example/zh-hant-tw/' }]
     const seo = seoFor({ store, url: 'https://juniper.example/about/', title: 'About', description: 'Us.', image: 'https://media.example/a.jpg', imageAlt: 'The shop', locale: 'zh-Hant-TW', alternates, preview: false })

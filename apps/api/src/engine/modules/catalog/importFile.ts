@@ -1,5 +1,6 @@
 import { parseCsv } from '#core/csv'
 import { convert, fromMajor } from '#core/money'
+import { sanitiseDescription } from './richText'
 import { cleanProduct, invalidInputOf, maxOptions, maxPhotos, productTypes, slugFrom, type CatalogRefusal, type ProductInput, type VersionInput } from './rules'
 
 // A spreadsheet of products as the import reads it (CATALOG K1–K3, K10, K11): our own export's columns or
@@ -183,21 +184,6 @@ export const isShopifyFile = (text: string): boolean => {
   return header !== undefined && isShopify(header.map((h) => h.trim().toLowerCase()))
 }
 
-/** Shopify's description is HTML; ours is text, so tags go and the common entities are read. */
-export const textOfHtml = (html: string): string =>
-  html
-    .replace(/<\s*br\s*\/?>/gi, '\n')
-    .replace(/<\/\s*(p|div|li|h[1-6])\s*>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-
 const yes = new Set(['yes', 'true', '1', 'y'])
 const no = new Set(['no', 'false', '0', 'n'])
 
@@ -359,7 +345,7 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     const description = at(first, 'description')
     const input: ProductInput = {
       name: at(first, 'name'),
-      description: source === 'shopify' ? textOfHtml(description) : description,
+      description: sanitiseDescription(description),
       slug: handle,
       productType: type === '' ? null : type,
       visible,

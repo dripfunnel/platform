@@ -10,6 +10,13 @@ describe('a product before it is written', () => {
     expect(clean).toMatchObject({ name: 'Cotton shirt', slug: 'cotton-shirt', productType: 'physical', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '129900', compareAt: null }] }] })
   })
 
+  it('writes the description with only the formatting it allows, and holds the 20,000 limit to what is written (#1216)', () => {
+    expect(cleanProduct(simple({ description: '<p onclick="x()">Soft <b>cotton</b></p><script>x()</script>' }), 'INR')).toMatchObject({ description: '<p>Soft <strong>cotton</strong></p>' })
+    expect(cleanProduct(simple({ description: '<p></p>' }), 'INR')).toMatchObject({ description: '' })
+    expect(cleanProduct(simple({ description: `<p>${'a'.repeat(19_990)}</p>` }), 'INR')).toMatchObject({ description: `<p>${'a'.repeat(19_990)}</p>` })
+    expect(cleanProduct(simple({ description: `<p>${'a'.repeat(20_000)}</p>` }), 'INR')).toBe('INVALID_INPUT')
+  })
+
   it('needs a name, a version, and the pricing currency’s price', () => {
     expect(cleanProduct(simple({ name: '  ' }), 'INR')).toBe('NAME_REQUIRED')
     expect(cleanProduct(simple({ versions: [] }), 'INR')).toBe('VERSION_REQUIRED')

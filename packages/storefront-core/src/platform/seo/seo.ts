@@ -1,3 +1,4 @@
+import { textOfRichText } from '../../sealed/richText'
 import { toDecimal, type Money } from '../../pricing/money'
 
 // Metadata every page gets from core, which a theme can't remove (storefront ARCHITECTURE §8):
@@ -78,7 +79,7 @@ export const seoFor = (p: SeoInput): Seo => {
       '@context': context,
       '@type': 'Product',
       name: p.product.name,
-      ...(p.product.description ? { description: p.product.description } : {}),
+      ...(p.product.description ? { description: textOfRichText(p.product.description) } : {}),
       ...(images.length ? { image: images } : {}),
       offers: {
         '@type': 'Offer',

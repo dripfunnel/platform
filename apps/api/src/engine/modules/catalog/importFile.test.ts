@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planImport, textOfHtml, type ImportPlan } from './importFile'
+import { planImport, type ImportPlan } from './importFile'
 
 const o = { currency: 'INR', languages: ['hi-IN'], manualCurrencies: ['USD'], supplier: false }
 const plan = (text: string, options = o) => planImport(text, options) as ImportPlan
@@ -19,7 +19,7 @@ describe('planImport, our own columns', () => {
     expect(problems).toEqual([])
     const [kurta, lamp] = products
     expect(kurta?.lines).toEqual([2, 3])
-    expect(kurta?.input).toMatchObject({ name: 'Kurta', description: '=cotton, handloomed', visible: true, productType: 'physical', options: [{ name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }] })
+    expect(kurta?.input).toMatchObject({ name: 'Kurta', description: '<p>=cotton, handloomed</p>', visible: true, productType: 'physical', options: [{ name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }] })
     expect(kurta?.input.versions[0]).toMatchObject({ choices: ['S'], sku: 'KU-S', weightGrams: 300, cost: { currency: 'INR', amount: '60000' }, prices: [{ currency: 'INR', amount: '129950', compareAtAmount: '149900' }, { currency: 'USD', amount: '1599' }] })
     expect(kurta?.stock).toEqual([7, 0])
     expect(kurta?.translations).toEqual({ 'hi-IN': { name: 'कुर्ता' } })
@@ -67,20 +67,22 @@ describe('planImport, Shopify’s product CSV', () => {
     'mug,Mug,,Acme,,,FALSE,Title,Default Title,MUG,350,,250.00,,,,,,draft',
   ].join('\n')
 
-  it('reads variants, HTML, images and Shopify’s simple product', () => {
+  it('reads variants, images and Shopify’s simple product, keeping its description’s formatting', () => {
     const { source, products, problems } = plan(file)
     expect(source).toBe('shopify')
     expect(problems).toEqual([])
     const [tee, mug] = products
-    expect(tee?.input).toMatchObject({ name: 'Tee', description: 'Soft & light\n\nCotton', visible: true, productType: null, options: [{ name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }] })
+    expect(tee?.input).toMatchObject({ name: 'Tee', description: '<p>Soft &amp; light</p><p>Cotton</p>', visible: true, productType: null, options: [{ name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }] })
     expect(tee?.input.versions.map((v) => v.sku)).toEqual(['TEE-S', 'TEE-M'])
     expect(tee?.stock).toEqual([5, 2])
     expect(tee?.photos).toEqual([{ url: 'https://cdn.example/tee.jpg', alt: 'Front', line: 2 }, { url: 'https://cdn.example/tee-back.jpg', alt: 'Back', line: 3 }])
     expect(mug?.input).toMatchObject({ visible: false, options: [], versions: [{ choices: [], sku: 'MUG', weightGrams: 350 }] })
   })
 
-  it('turns HTML into text', () => {
-    expect(textOfHtml('<h2>Care</h2><ul><li>Hand wash</li><li>Dry flat</li></ul>&lt;3')).toBe('Care\nHand wash\nDry flat\n<3')
+  it('plans a description without scripts, event attributes or unsafe links, and keeps its lists and bold labels', () => {
+    const html = '<ul><li><b>Material:</b> cotton</li></ul><script>x()</script><p onclick="x()">Soft</p><a href="javascript:x()">Care</a>'
+    const { products } = plan(`handle,name,description,price\ntee,Tee,"${html.replaceAll('"', '""')}",10\n`)
+    expect(products[0]?.input.description).toBe('<ul><li><strong>Material:</strong> cotton</li></ul><p>Soft</p><p>Care</p>')
   })
 
   it('leaves out a photo too long for the photo job, on its own line, and still imports the product', () => {

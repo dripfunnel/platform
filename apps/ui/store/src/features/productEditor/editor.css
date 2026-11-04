@@ -170,7 +170,7 @@
   min-width: 0;
 }
 
-.df-editor-field label {
+.df-editor-field :is(label, .df-editor-label) {
   color: var(--df-color-text-strong);
   font-size: 13px;
   font-weight: 600;
@@ -195,6 +195,122 @@
 .df-editor-field textarea {
   padding: 10px var(--df-space-3);
   resize: vertical;
+}
+
+.df-rich {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  overflow: hidden;
+}
+
+.df-rich:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 1px;
+}
+
+.df-rich[data-readonly] {
+  background: var(--df-color-page);
+}
+
+.df-rich-toolbar,
+.df-rich-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-page);
+}
+
+.df-rich-toolbar {
+  gap: 2px;
+}
+
+.df-rich-link {
+  padding: 8px var(--df-space-3);
+  background: var(--df-color-surface);
+}
+
+.df-rich-link input {
+  flex: 1 1 200px;
+  width: auto;
+}
+
+.df-rich-tool {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-rich-tool:hover {
+  background: var(--df-color-hover);
+}
+
+.df-rich-tool[aria-pressed='true'] {
+  background: var(--df-color-info-surface);
+  color: var(--df-color-link);
+}
+
+.df-rich-tool:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: -2px;
+}
+
+.df-rich-body {
+  position: relative;
+}
+
+.df-rich-content {
+  min-height: 96px;
+  padding: 10px var(--df-space-3);
+  outline: none;
+  color: var(--df-color-text);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.df-rich-content :is(p, ul, ol) {
+  margin: 0 0 8px;
+}
+
+.df-rich-content > :last-child {
+  margin-bottom: 0;
+}
+
+.df-rich-content :is(ul, ol) {
+  padding-left: 20px;
+}
+
+.df-rich-content li p {
+  margin: 0;
+}
+
+.df-rich-content a {
+  color: var(--df-color-link);
+  text-decoration: underline;
+}
+
+.df-rich-placeholder {
+  position: absolute;
+  top: 10px;
+  right: var(--df-space-3);
+  left: var(--df-space-3);
+  color: var(--df-color-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  pointer-events: none;
 }
 
 .df-editor-field [aria-invalid='true'],

@@ -98,7 +98,7 @@ is (`account`, `authentication`, `cart`, `checkout`, `collections`, `currency`, 
 | `account`, `authentication`, `orders` | Sign-up, verification, sign-in, password reset, profile, addresses, order history, order detail and tracking. |
 | `pricing` | `Money`, `Stock`, `Rating` and `Badge` as **opaque branded types** only core's hooks return; the price display: currency always explicit (the reference's silent `USD` default is banned), tax label per region ("incl. VAT", "+ tax"), compare-at price only as the engine returns it. |
 | `ui/headless` | Unstyled, accessible behaviour components the theme skins: variant picker, quantity stepper, cart drawer state, address form (country-aware fields), payment element host, facet filter, pagination, locale and currency pickers, search overlay. |
-| `sealed` | The **sealed components** (§3.5): the price with its tax label, the payment element, legal and compliance notices, the consent banner, the preview banner, the brand's "Powered by" line, breadcrumbs and the order summary at review. |
+| `sealed` | The **sealed components** (§3.5): the price with its tax label, the payment element, legal and compliance notices, the consent banner, the preview banner, the brand's "Powered by" line, breadcrumbs and the order summary at review; and `<RichText>`, which shows a product's formatted description (below). |
 | `contracts` | The TypeScript interfaces and route manifest the theme must satisfy (§3), and `routes.json`'s schema. |
 | `guard` | The **validator** (§3.4) and the **gate suites** (§4.2) the sandbox runs, exported as `./guard`. |
 | `testing` | The contract checks, exported as `./testing`. |
@@ -539,6 +539,7 @@ together are refused.
 - **No walking the DOM**: on a value typed as a DOM node, no `parentElement`, `closest`,
   `querySelector*`, `getRootNode`, `shadowRoot`, `innerHTML`, `outerHTML`, `insertAdjacent*`
   or computed `[expr]` access. A ref may style its own element and nothing else.
+- **Formatted text** (*built on #1216, decided 2026-11-04*): a product's description is the small HTML subset the engine stores (`p`, `br`, `strong`, `em`, `ul`, `ol`, `li`, and `a` to http, https or mailto). A theme shows it only through core's `<RichText html className>`, which reads the subset into React elements, never as markup, so nothing outside it can render; a link opens with `rel="noopener nofollow"`, and text typed before the editor was rich is shown as paragraphs. It is not a closed Shadow DOM and has no visibility check, since a description may be empty and is not a part the shop must show: the theme styles its paragraphs, lists and links with its own CSS, and `textOfRichText` gives the same words as plain text for the head and the structured data. The product page's section is headed "Description" (`shop.product.description`) and is always open.
 - **JSX**: no `dangerouslySetInnerHTML`, `<script>`, `<iframe>`, `<object>`, `<embed>`,
   `<form>`, `<input>`, `<meta>`, `<link>`, `<base>` or `<style>`; links only through core's
   `<Link>`, images and video only through core's `<Image>` and `<Video>`, forms and inputs only
