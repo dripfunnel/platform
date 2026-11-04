@@ -1,7 +1,6 @@
 import { useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
 import { PageIntro } from '../components/PageIntro'
-import styles from '../styles/page.module.css'
 
 export const ContactPage = () => {
   const { store, t } = useStorefront()
@@ -9,23 +8,23 @@ export const ContactPage = () => {
   return (
     <Layout>
       <PageIntro title={t('pages.contact.title')} lead={t('pages.contact.lead')}>
-        <dl className={styles.details}>
+        <dl className="mt-2 mr-0 mb-0 ml-0 grid gap-y-3.5 gap-x-3.5">
           {store.contactEmail ? (
-            <div className={styles.detail}>
-              <dt className={styles.term}>{t('pages.contact.email')}</dt>
-              <dd className={styles.value}>{store.contactEmail}</dd>
+            <div className="flex flex-col">
+              <dt className="text-muted text-[12px] tracking-[0.08em] uppercase">{t('pages.contact.email')}</dt>
+              <dd className="m-0 text-[16px] wrap-anywhere">{store.contactEmail}</dd>
             </div>
           ) : null}
           {store.contactPhone ? (
-            <div className={styles.detail}>
-              <dt className={styles.term}>{t('pages.contact.phone')}</dt>
-              <dd className={styles.value}>{store.contactPhone}</dd>
+            <div className="flex flex-col">
+              <dt className="text-muted text-[12px] tracking-[0.08em] uppercase">{t('pages.contact.phone')}</dt>
+              <dd className="m-0 text-[16px] wrap-anywhere">{store.contactPhone}</dd>
             </div>
           ) : null}
           {place ? (
-            <div className={styles.detail}>
-              <dt className={styles.term}>{t('pages.contact.visit')}</dt>
-              <dd className={styles.value}>{place}</dd>
+            <div className="flex flex-col">
+              <dt className="text-muted text-[12px] tracking-[0.08em] uppercase">{t('pages.contact.visit')}</dt>
+              <dd className="m-0 text-[16px] wrap-anywhere">{place}</dd>
             </div>
           ) : null}
         </dl>

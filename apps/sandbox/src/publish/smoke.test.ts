@@ -1,4 +1,4 @@
-import { appendFileSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -85,7 +85,8 @@ describe.skipIf(!chrome)('the checkout smoke test', () => {
 
   it('fails a theme whose checkout can’t place the order, at every width', async () => {
     if (!browser) throw new Error('no browser')
-    const site = await built('no-place-order', (repo) => appendFileSync(join(repo, 'src/theme/styles/checkout.module.css'), '\n.pay {\n  display: none;\n}\n'))
+    const view = (repo: string) => join(repo, 'src/theme/components/interactive/CheckoutView.tsx')
+    const site = await built('no-place-order', (repo) => writeFileSync(view(repo), readFileSync(view(repo), 'utf8').replace("<PlaceOrder checkout={c} className={clsx('", "<PlaceOrder checkout={c} className={clsx('hidden! ")))
     const problems = smokeProblems(await smokeTest({ browser, site, snapshot }))
     expect(problems).toHaveLength(3)
     expect(problems[0]).toMatch(/^The test purchase at 390 px didn't complete: /)

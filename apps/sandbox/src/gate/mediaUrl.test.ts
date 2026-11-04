@@ -7,7 +7,8 @@ import { bundle } from './bundle'
 
 // A theme's url(<media id>) reaches the browser as the shop's own /shop-api/assets/{id} (storefront AI-STUDIO §8).
 
-const baseline = fileURLToPath(new URL('../../../../templates/storefront/themes/baseline/', import.meta.url))
+// A store still on CSS Modules: its url(<media id>) sits in a module's rule.
+const baseline = fileURLToPath(new URL('../../../../packages/storefront-core/src/guard/fixtures/baseline/', import.meta.url))
 let repo = ''
 let out = ''
 
@@ -16,7 +17,7 @@ beforeAll(() => {
   out = mkdtempSync(join(tmpdir(), 'df-media-out-'))
   cpSync(baseline, repo, { recursive: true, filter: (from) => !from.includes('node_modules') })
   mkdirSync(join(repo, 'src/theme/styles'), { recursive: true })
-  const home = join(repo, 'src/theme/styles/home.module.css')
+  const home = join(repo, 'src/theme/styles/page.module.css')
   writeFileSync(home, `${readFileSync(home, 'utf8')}\n.picture { background-image: url(m_hero01); }\n`)
 })
 afterAll(() => {
