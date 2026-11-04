@@ -178,7 +178,8 @@ They are literals, never interpolated, so an entry cannot carry a subject or an 
   the schema refuses to build without it, or `unlogged: '<rule>'` naming one of the writes §3 leaves out (`cart`: a shopper's cart, built on #308;
   `payment_return`: a shopper back from paying, whose read-back writes only the settlement, which the provider's
   `order.paid` records, #309; `studio_renewal`: a studio session's renewal every two minutes, which only re-checks the seat
-  and moves the session's expiry, #318; `rider_position`: a rider's position report, whose coordinates never enter a log, #842); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
+  and moves the session's expiry, #318; `studio_activity`: the studio's focus or typing at most every 30 seconds, which
+  writes nothing but wakes the store's container, #1241; `rider_position`: a rider's position report, whose coordinates never enter a log, #842); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
   to this section. The entry is written **by the service, inside the
   transaction that makes the change**, because only the service holds that transaction; the
   declaration names the action the mutation records when it does what it is named for, and a

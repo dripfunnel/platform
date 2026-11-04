@@ -67,6 +67,8 @@ export interface StudioChatProps {
   aiLine: string | null
   /** What the store's AI account can run, the default first; empty hides the picker. */
   models: readonly string[]
+  /** Focus or typing in the composer, so a stopped sandbox starts before Send (AI-STUDIO §7). */
+  onActivity: () => void
 }
 
 interface Attached {
@@ -77,7 +79,7 @@ interface Attached {
 }
 
 /** "Design with AI" (PortalStorefront › studio): the conversation, suggestions and the composer with an image and a website. */
-export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, live, error, api, onEarlier, onUndo, onStop, onSend, notice, aiLine, models }: StudioChatProps) => {
+export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, live, error, api, onEarlier, onUndo, onStop, onSend, notice, aiLine, models, onActivity }: StudioChatProps) => {
   const [prompt, setPrompt] = useState('')
   const [image, setImage] = useState<Attached | null>(null)
   const [site, setSite] = useState<string | null>(null)
@@ -363,7 +365,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
               </div>
             )}
             {urlOpen && <AddressRow id={`${siteId}-image`} label={words.imageUrlLabel} value={urlIn} error={urlErr} onChange={(v) => (setUrlIn(v), setUrlErr(null))} onAdd={addImageUrl} onCancel={() => (setUrlOpen(false), setUrlErr(null))} />}
-            <textarea aria-label={words.prompt} rows={3} placeholder={chatMode ? words.placeholderChat : words.placeholder} value={prompt} readOnly={locked} onChange={(e) => setPrompt(e.target.value)} onKeyDown={onKey} onPaste={onPaste} />
+            <textarea aria-label={words.prompt} rows={3} placeholder={chatMode ? words.placeholderChat : words.placeholder} value={prompt} readOnly={locked} onFocus={onActivity} onChange={(e) => (setPrompt(e.target.value), onActivity())} onKeyDown={onKey} onPaste={onPaste} />
             <div className="df-studio-actions">
               <div className="df-studio-tools">
               <input ref={fileRef} type="file" accept={imageTypes.join(',')} hidden tabIndex={-1} onChange={(e) => (take(e.target.files?.[0]), (e.target.value = ''))} />

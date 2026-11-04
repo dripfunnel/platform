@@ -39,8 +39,12 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
       },
     )
   }
-  // A store with a site already keeps or replaces its words; the first pick has none to keep.
-  const pick = (template: StorefrontTemplate) => (hasSite(status) ? setAsking(template) : choose(template, true))
+  // A store with a site already keeps or replaces its words; the first pick has none to keep. Picking wakes its studio (AI-STUDIO §7).
+  const pick = (template: StorefrontTemplate) => {
+    if (!hasSite(status)) return choose(template, true)
+    api.studioActivity().catch(() => undefined)
+    setAsking(template)
+  }
 
   return (
     <div className="df-sf df-sf-gallery">

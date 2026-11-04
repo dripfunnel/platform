@@ -12,6 +12,9 @@ export const secondsPerPlace = 20
 /** The studio session is renewed every 2 minutes and lives 5 (AI-STUDIO §9, decided on #482). */
 export const renewEveryMs = 120_000
 
+/** `studioActivity` at most this often (AI-STUDIO §7 "Stopping", #1241). */
+export const activityEveryMs = 30_000
+
 /** While the sandbox starts or queues, `studioSession` is read again this often. */
 export const openingPollMs = 2_000
 

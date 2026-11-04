@@ -127,6 +127,12 @@ export const createStudioService = (deps: StudioDeps) => {
     return until ? { ok: true, value: until } : { ok: false, reason: 'SESSION_ENDED' }
   }
 
+  /**
+   * A change's save, which the frame never waits for (AI-STUDIO §4 step 6), runs beside the Worker's own record; the
+   * answer waits for both, so every read after it (the draft, Open preview, Undo) sees the change.
+   */
+  const savedBeside = (outcome: string): Promise<void> => (studio && outcome === 'changed' ? studio.saved(storeId).catch((error: unknown) => logEvent({ event: 'studio_save_unconfirmed', api: 'store', storeId, code: failureCode(error) })) : Promise.resolve())
+
   const chat = (limit: number, before: { at: Date; id: string } | null) => withScope(sql, context, (tx) => selectDesignChat(tx, storeId, limit, before))
 
   const billing = async (): Promise<'plan' | 'own_key'> => ((await allowanceFor(sql, context, 'ai_mode', now())) === ownKeyMode ? 'own_key' : 'plan')
@@ -276,7 +282,6 @@ export const createStudioService = (deps: StudioDeps) => {
     if (shot && !shot.ok) return shot
     const asked = now()
     if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? null, asked, live)
-    const before = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     // The photos the model added this request, each in Assets and credited in the chat once the change is recorded.
     const added: { assetId: string; user: string; source: string }[] = []
     const tools: DesignTools | null =
@@ -333,6 +338,7 @@ export const createStudioService = (deps: StudioDeps) => {
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: modelFailure instanceof GatewayError ? `${modelFailure.name}:${modelFailure.code}` : failureCode(modelFailure ?? error) })
       answer = { outcome: 'failed' }
     }
+    const saved = savedBeside(answer.outcome)
     if (answer.outcome === 'queued' || answer.outcome === 'unavailable' || (answer.outcome === 'failed' && !modelAsked)) await giveBack()
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
@@ -365,11 +371,12 @@ export const createStudioService = (deps: StudioDeps) => {
       const runId = 'runId' in answer ? answer.runId : null
       const id =
         (outcome === 'changed' || outcome === 'unchanged') && summary
-          ? await record(tx, { role: 'ai', text: summary.reply, changed: outcome === 'changed' ? summary.changed : [], page: summary.page, commit: answer.outcome === 'changed' ? answer.commit : null, beforeCommit: outcome === 'changed' ? before : null, aiRunId: runId })
+          ? await record(tx, { role: 'ai', text: summary.reply, changed: outcome === 'changed' ? summary.changed : [], page: summary.page, commit: answer.outcome === 'changed' ? answer.commit : null, beforeCommit: answer.outcome === 'changed' ? answer.before : null, aiRunId: runId })
           : await record(tx, { role: 'error', text: outcome === 'refused' ? designErrors.refused : designErrors.failedFor(reasonOf(modelFailure)), aiRunId: runId })
       await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: outcome }]))
       return selectMessage(tx, storeId, id)
     })
+    await saved
     if (!message) throw new Error('design_message: written and not found')
     return { ok: true, value: { outcome, message } }
   }
@@ -394,16 +401,26 @@ export const createStudioService = (deps: StudioDeps) => {
     return importImage(address, id.split(':')[0] ?? null)
   }
 
+  /** `studioActivity` (AI-STUDIO §7 "Stopping"): wakes the context's store's container; anyone who may open the studio. */
+  const activity = async (): Promise<DesignResult<true>> => {
+    if (!studio || !studioAccess(context, deps.role)) return { ok: false, reason: 'NOT_CONNECTED' }
+    await studio.activity(storeId)
+    return { ok: true, value: true }
+  }
+
   /** `cancelDesign`: stops the store's running change; the pending `askDesign` answers `cancelled`. */
   const cancel = async (): Promise<DesignResult<boolean>> => (studio ? { ok: true, value: await studio.cancel(storeId) } : { ok: false, reason: 'NOT_CONNECTED' })
 
   /** "Undo this change" on the latest change only (AI-STUDIO §5): a new change, with its own preview. */
   const undo = async (messageId: string): Promise<DesignResult<MessageRow>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    // A change's answer comes before its design_draft row is written (AI-STUDIO §4 step 6), so the head is read after it.
+    await studio.saved(storeId)
     const latest = await withScope(sql, context, (tx) => selectLatestChange(tx, storeId))
     const head = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     if (!latest || latest.id !== messageId || !latest.commit || latest.commit !== head) return { ok: false, reason: 'NOT_LATEST' }
     const answer = await studio.undo(storeId, { commit: latest.commit, userId: actor.id })
+    const saved = savedBeside(answer.outcome)
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
@@ -413,12 +430,14 @@ export const createStudioService = (deps: StudioDeps) => {
       await activity.record(tx, entry(designAudit.changeUndone, [{ field: 'change', before: latest.commit, after: answer.outcome === 'changed' ? answer.commit : null }]))
       return selectMessage(tx, storeId, latest.id)
     })
+    await saved
     return message ? { ok: true, value: message } : { ok: false, reason: 'NOT_FOUND' }
   }
 
   /** Discard (AI-STUDIO §5): the draft row and bundle go, the preview shows the live code again, the studio reloads it. */
   const discard = async (): Promise<DesignResult<true>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    await studio.saved(storeId)
     const had = await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId))
     if (!had?.head_commit || !had.live_build_id) return { ok: false, reason: 'NOTHING_TO_DISCARD' }
     await studio.discard(storeId)
@@ -450,7 +469,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
-    await recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.textEdited, [{ field: 'text', before: null, after: `${locale} ${key}` }])))
+    await Promise.all([recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.textEdited, [{ field: 'text', before: null, after: `${locale} ${key}` }]))), savedBeside(answer.outcome)])
     return { ok: true, value: true }
   }
 
@@ -461,5 +480,5 @@ export const createStudioService = (deps: StudioDeps) => {
     return offered.includes(language) ? (language.split('-')[0] ?? null) : null
   }
 
-  return { session, renew, chat, ask, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
+  return { session, renew, activity, chat, ask, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
 }

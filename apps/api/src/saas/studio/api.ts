@@ -25,6 +25,10 @@ export const studioAnswer = async <T extends ChangeOutcome | { outcome: 'missing
 
 export interface StudioApi {
   status: (storeId: string) => Promise<StudioState>
+  /** Focus or typing in the studio (AI-STUDIO §7 "Stopping"): starts a stopped container and puts off the idle stop. */
+  activity: (storeId: string) => Promise<void>
+  /** Resolves once every accepted change is in R2 and design_draft, which a change's answer doesn't wait for (§4 step 6). */
+  saved: (storeId: string) => Promise<void>
   useTemplate: (storeId: string, input: { template: string; keep: boolean; userId: string }) => Promise<StudioAnswer>
   /** One AI change (AI-STUDIO §4); `model` is the Worker's, called back over RPC, so no key reaches the object. Its steps go out as `run`'s. */
   change: (storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key'; run: string }, model: DesignModel) => Promise<StudioAnswer>

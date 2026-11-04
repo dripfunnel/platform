@@ -568,8 +568,9 @@ describe('studio sessions (AI-STUDIO §8)', () => {
 
   it('picks the store’s Durable Object from the TenantContext, never from anything the caller sent', () => {
     const named: string[] = []
-    const namespace = { idFromName: (name: string) => (named.push(name), name), get: (id: string) => ({ id }) } as unknown as DurableObjectNamespace
-    expect(studioOf(namespace, contextFor(t.storeA1, t.partnerA, ownerA.userId, ownerA.sessionHash))).toEqual({ id: t.storeA1 })
+    const namespace = { idFromName: (name: string) => (named.push(name), name), get: (id: string, options: unknown) => ({ id, options }) } as unknown as DurableObjectNamespace
+    // Made in Asia Pacific, beside its containers (#1241).
+    expect(studioOf(namespace, contextFor(t.storeA1, t.partnerA, ownerA.userId, ownerA.sessionHash))).toEqual({ id: t.storeA1, options: { locationHint: 'apac' } })
     expect(named).toEqual([t.storeA1])
   })
 })

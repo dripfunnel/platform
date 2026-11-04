@@ -25,6 +25,11 @@ export const renewStudioSession = async (session: string): Promise<void> => {
   await query('mutation R($s: String!) { renewStudioSession(session: $s) }', z.object({ renewStudioSession: z.string() }), { s: session })
 }
 
+/** Focus or typing in the studio: wakes the store's sandbox if it stopped, and puts off its idle stop (AI-STUDIO §7). */
+export const studioActivity = async (): Promise<void> => {
+  await query('mutation { studioActivity }', z.object({ studioActivity: z.boolean() }), {})
+}
+
 const text = z.string().nullable()
 const messageSchema = z.object({
   id: z.string(),

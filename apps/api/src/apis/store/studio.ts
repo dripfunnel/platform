@@ -175,6 +175,11 @@ export const registerStudio = (builder: StoreBuilder) => {
       extensions: { access: designWrite(designAudit.discarded) },
       resolve: async (_, __, ctx: StoreContext) => answered(await studioFor(ctx).discard()),
     }),
+    // Focus or typing in the studio, at most every 30 s: wakes a stopped container and puts off its idle stop (AI-STUDIO §7).
+    studioActivity: t.boolean({
+      extensions: { access: { ...studioRead, unlogged: 'studio_activity' } },
+      resolve: async (_, __, ctx: StoreContext) => answered(await studioFor(ctx).activity()),
+    }),
     // Re-checks the seat each time (every 2 minutes from the portal); a refusal ends the session (AI-STUDIO §8).
     // Open to any signed-in person, so a seat lost since still reaches here and the session ends rather than lingering.
     renewStudioSession: t.string({
