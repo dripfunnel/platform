@@ -25,12 +25,12 @@ const as = (role: string, scope: string, work: (tx: postgres.TransactionSql) => 
   })
 
 describe('storefront_template', () => {
-  it('has a row for each theme in templates/storefront/themes, offered, with the words of its template.json', async () => {
+  it('has a row for each theme in templates/storefront/themes, with the words of its template.json; only classic is offered', async () => {
     const files = readdirSync(themes).map((key) => JSON.parse(readFileSync(`${themes}${key}/template.json`, 'utf8')) as Record<string, unknown>)
     const rows = await db.sql`select key, name, tag, description, demo_store_id, core_min_version, state from storefront_template order by key`
     expect(rows).toEqual(
       files
-        .map((t) => ({ key: t['key'], name: t['name'], tag: t['tag'], description: t['description'], demo_store_id: t['demoStore'], core_min_version: t['coreMinVersion'], state: 'offered' }))
+        .map((t) => ({ key: t['key'], name: t['name'], tag: t['tag'], description: t['description'], demo_store_id: t['demoStore'], core_min_version: t['coreMinVersion'], state: t['key'] === 'classic' ? 'offered' : 'retired' }))
         .sort((a, b) => String(a.key).localeCompare(String(b.key))),
     )
   })

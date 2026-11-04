@@ -63,7 +63,6 @@ export const sampleDomains = (state: StorefrontState): StorefrontDomains => {
 const templateRows: readonly (readonly [string, string, string, string])[] = harness
   ? [
       ['classic', 'Classic', 'Traditional & ethnic', 'Calm neutral colours and serif headings. A banner carousel, search in the header and collection spotlights.'],
-      ['baseline', 'Start from scratch', 'Blank', 'A plain header, banner, story and footer. Describe your shop and the AI styles it.'],
     ]
   : []
 

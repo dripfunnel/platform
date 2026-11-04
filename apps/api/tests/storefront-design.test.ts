@@ -109,10 +109,10 @@ afterAll(async () => {
 })
 
 describe('the template gallery', () => {
-  it('lists Classic, then "Start from scratch"; the Manager reads it, Staff and suppliers are refused', async () => {
+  it('lists only Classic; the Manager reads it, Staff and suppliers are refused', async () => {
     const read = await w.gql('owner', '{ storefrontTemplates { key name tag current demoUrl } }')
     const rows = read.data?.['storefrontTemplates'] as { key: string; current: boolean; demoUrl: string | null }[]
-    expect(rows.map((r) => r.key)).toEqual(['classic', 'baseline'])
+    expect(rows.map((r) => r.key)).toEqual(['classic'])
     expect(rows.some((r) => r.current)).toBe(false)
     expect(rows.every((r) => r.demoUrl === null)).toBe(true)
     expect((await w.gql('manager', '{ storefrontTemplates { key } }')).code).toBeUndefined()
@@ -197,7 +197,7 @@ describe('choosing a template', () => {
     expect(first).toMatchObject({ code: undefined, data: { chooseTemplate: 'creating' } })
     const queued = await db.sql<{ payload: { template: string; storeId: string } }[]>`select payload from outbox where kind = 'storefront.create' and store_id = ${t.storeA1}`
     expect(queued.map((q) => q.payload)).toEqual([expect.objectContaining({ template: 'classic', storeId: t.storeA1 })])
-    expect((await choose('owner', 'baseline', false)).code).toBe('IN_PROGRESS')
+    expect((await choose('owner', 'classic', false)).code).toBe('IN_PROGRESS')
     const [logged] = await db.sql<{ action: string; changes: unknown }[]>`select action, changes from activity_log where store_id = ${t.storeA1} and action = 'storefront.template_chosen'`
     expect(logged?.changes).toEqual([expect.objectContaining({ field: 'template', before: null, after: 'classic' })])
     const notes = await db.sql<{ role: string; text: string }[]>`select role, text from design_message where store_id = ${t.storeA1}`
@@ -207,6 +207,8 @@ describe('choosing a template', () => {
   })
 
   it('later is a commit to the private draft with its preview, through the store’s own studio; nothing is pushed', async () => {
+    // A second offered template to move to: the gallery itself offers only Classic (migration 0382).
+    await db.sql`update storefront_template set state = 'offered' where key = 'baseline'`
     await db.sql`update job set state = 'done' where store_id = ${t.storeB1} or store_id = ${t.storeA1}`
     await db.sql`update storefront set repo_state = 'ready', template = 'baseline', repo = 'sf-b1aaaaaaaa', repo_head = ${'a'.repeat(40)} where store_id = ${t.storeB1}`
     const pushes = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from storefront_push`)[0]?.n
