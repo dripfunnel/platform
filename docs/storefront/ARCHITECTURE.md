@@ -357,6 +357,11 @@ Classic, "Start from scratch" and, until #1218, Market live in this repo as comp
   consent banner, Cookie settings, "Powered by" and preview banner. The product grids, collection tiles and cart lines
   the prototype draws joined the six themes on #765, copied from baseline with each theme's own tokens (home, collection,
   search, product and cart pages); checkout, account, order and blog pages still show their frame and words. Pictures are the template's own CSS surfaces, never a product's.
+- *Since #1239:* `baseline` and `classic` are styled with Tailwind classes (§3.4 "Classes"), with the same look as their
+  CSS Modules had. Their tokens are `@theme` values in `src/theme/styles/theme.css`: the colours as `--color-*` (`bg-ink`,
+  `text-accent`, `border-line`), `--font-heading` and `--font-body`, `--radius-card` and `--radius-button`, and the
+  heading and picture tokens under their own names. Core's `--df-sealed-*` properties stay on the shell element. `market`
+  stays on CSS Modules until #1218 deletes it, and is the in-repo theme of a store still on CSS Modules.
 - *Baseline's browse pages as built on #307* *(decided there)*: home (hero, the story and sign-up sections, then the store's collections and its newest products, which fill in late and sit last so they move nothing; the prototype was changed to match on #770, after the publish gate's layout-shift check failed with them above the story),
   collection and search (filters as a sidebar on wide screens and a panel on narrow ones, sort, chips, "Load more"), the
   product page (gallery with video, options as buttons with sold-out values struck through, the stock line, legal
