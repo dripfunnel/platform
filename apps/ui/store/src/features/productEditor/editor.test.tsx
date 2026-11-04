@@ -126,6 +126,12 @@ describe('the product editor', () => {
     api.loadProduct.mockResolvedValue(cushion({ id: 'p9', name: 'Kurta' }))
     const router = await show(owner, '/products/new')
     expect(screen.getByRole('heading', { level: 1, name: words.newProduct })).toBeTruthy()
+    fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.price.missing)).toBeTruthy()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+    fireEvent.change(field(words.name.label), { target: { value: '' } })
     fireEvent.change(field(words.price.price), { target: { value: '1299.5' } })
     fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
     await settle()
@@ -1363,6 +1369,14 @@ describe('Save, only when there is something to save (#1223)', () => {
     await settle()
     expect(router.state.location.pathname).toBe('/products/p9')
     expect(top().disabled).toBe(true)
+  })
+
+  it('keeps a sent-back supplier product’s Submit greyed out until it is edited, as it is for any product with nothing to send', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ supplier: { id: 'v1', name: 'Northwind Textiles' }, approval: 'sent_back', sentBackReason: 'Sharper photo please', readiness: null }))
+    await show(supplier)
+    expect(top(words.submit).disabled).toBe(true)
+    fireEvent.change(field(words.name.label), { target: { value: 'Cushion' } })
+    expect(top(words.submit).disabled).toBe(false)
   })
 
   it('is greyed out for a Stock-only seat until a count is typed', async () => {
