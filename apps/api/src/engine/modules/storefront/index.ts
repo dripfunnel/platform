@@ -263,5 +263,14 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
   }
   const cartItems = (versionIds: readonly string[]): Promise<Map<string, CartItem>> => inScope((tx) => cartItemsIn(tx, versionIds))
 
-  return { store, menu, collections, collection, asset, products, facets, product, cartItems, cartItemsIn }
+  /** These products in this order, as a listing would show them here: one a shopper can't see or buy here is left out. */
+  const productsByIds = (ids: readonly string[]): Promise<ShopProductView[]> =>
+    inScope(async (tx) => {
+      const facts = await pricingIn(tx)
+      if (!facts || ids.length === 0) return []
+      const listed = await selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, ids)
+      return viewsOf(tx, ids.filter((id) => listed.has(id)), facts)
+    })
+
+  return { store, menu, collections, collection, asset, products, facets, product, cartItems, cartItemsIn, productsByIds }
 }

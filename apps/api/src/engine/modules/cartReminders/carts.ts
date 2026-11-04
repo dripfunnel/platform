@@ -19,10 +19,12 @@ import {
   type CartTab,
 } from '#db/scoped/cartReminders'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { selectWishlistBesideCart } from '#db/scoped/wishlist'
 import { insertOutbox } from '#db/scoped/outbox'
 import { cartLinesNow, type CartLineNow } from '#engine/modules/cart/index'
 import { cartRemindKind } from './jobs'
 import { reminderPercents, reminderSteps, reminderWindowMs } from './rules'
+import { wishlistItemsNow, type WishlistItemNow } from './wishlist'
 
 // The Carts tab (FIRST-RELEASE §9; Carts): every merchant role reads the store's abandoned carts in its own store scope;
 // Owner and Manager remind, stop and resume (ACCESS §5.1 `carts.write`), written in system scope naming the store.
@@ -38,6 +40,8 @@ export interface AbandonedCartView extends AbandonedCartRow {
 
 export interface AbandonedCartDetail extends AbandonedCartView {
   items: CartLineNow[]
+  /** The shopper's wishlist items in stock and not in the cart; none for a guest cart. */
+  wishlist: WishlistItemNow[]
   reminders: CartReminderRow[]
 }
 
@@ -116,12 +120,13 @@ export const createCartsService = ({ sql, context, actor, activity, facts, level
     const at = now()
     const found = await withScope(sql, context, async (tx) => {
       const row = await selectAbandonedCart(tx, storeId, id.toLowerCase())
-      return row ? { row, reminders: await selectCartReminders(tx, storeId, row.id) } : null
+      return row ? { row, reminders: await selectCartReminders(tx, storeId, row.id), wished: row.customer_id ? await selectWishlistBesideCart(tx, storeId, row.customer_id, row.id) : [] } : null
     })
     if (!found) return null
     const { row } = found
     const items = await cartLinesNow({ sql, storeId, partnerId: context.partnerId, language: row.language, currency: row.currency, marketId: row.market_id, features: {}, now }, row.cart_lines)
-    return { ...row, status: statusOf(row, at), items, reminders: found.reminders }
+    const wishlist = await wishlistItemsNow({ sql, now }, { storeId, partnerId: context.partnerId, language: row.language, currency: row.currency, marketId: row.market_id, features: {} }, found.wished, null)
+    return { ...row, status: statusOf(row, at), items, wishlist, reminders: found.reminders }
   }
 
   const write = async <T>(work: () => Promise<CartsResult<T>>): Promise<CartsResult<T>> => {

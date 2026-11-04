@@ -7,6 +7,7 @@ import { registerContent } from './content'
 import { registerCart } from './cart'
 import { registerReminderLinks } from './reminders'
 import { registerAccounts } from './accounts'
+import { registerWishlist } from './wishlist'
 import { registerCheckout } from './checkout'
 
 export type { ShopContext } from './access'
@@ -16,12 +17,13 @@ shop.builder.queryFields((t) => ({
   health: t.string({ extensions: { access: { api: 'shop', scope: 'public', permission: null } }, resolve: () => 'ok' }),
 }))
 registerCatalog(shop)
-registerProducts(shop)
+const { Summary } = registerProducts(shop)
 registerContent(shop)
 shop.builder.mutationType({})
 const { Cart } = registerCart(shop)
 registerReminderLinks(shop, Cart)
 registerAccounts(shop)
+registerWishlist(shop, Summary)
 registerCheckout(shop)
 
 export const shopSchema = secureSchema(shop.builder.toSchema(), shopPolicy)
