@@ -11,8 +11,13 @@ import { hashSessionId } from '#auth/session'
 import { activityLog } from '#saas/activity/index'
 import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { draftBundle, previewFolder, sourceBundle } from '#saas/storefronts/index'
-import { liveHub, StudioRunner, type DraftsBucket, type LiveMessage } from '#saas/studio/index'
-import { handleStudioLive } from '#apis/store/studioLive'
+import { hashStudioSession, liveHub, StudioRunner, type DraftsBucket, type LiveMessage } from '#saas/studio/index'
+import { graphql, type GraphQLSchema } from 'graphql'
+import { storeSchema } from '#apis/store/schema'
+import { handleStudioLive, studioLiveRequest } from '#apis/store/studioLive'
+import { resolveStoreStanding } from '#auth/storeCaller'
+import { createUserSession, storeCookieName } from '#auth/storeSession'
+import { withSystemScope } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
@@ -853,5 +858,50 @@ describe('the live progress socket (#1237)', () => {
     expect(support.standing.kind).toBe('acting')
     expect((await handleStudioLive(upgrade(owners), support, { open })).status).toBe(403)
     expect(sockets.get(t.storeA1)?.length ?? 0).toBe(opened)
+  })
+})
+
+describe('the live socket’s checks at the handler (#1237)', () => {
+  const opened: { storeId: string; after: number }[] = []
+  const open = async (context: { storeId: string }, input: { sessionHash: string; after: number }) => {
+    opened.push({ storeId: context.storeId, after: input.after })
+    return new Response(null, { status: 200 })
+  }
+  /** As the Worker builds it: the cookie, and the acting store from `?store=` (index.ts handleStore). */
+  const contextFor = async (cookie: string, query: string) => {
+    const request = new Request(`https://store.example/api/studio/live?${query}`, { headers: { cookie: `${storeCookieName}=${cookie}`, origin: 'https://store.example', upgrade: 'websocket' } })
+    const standing = await resolveStoreStanding(db.sql, studioLiveRequest(request), t.partnerA, new Date(), activityLog, { requestId: 'r', ip: null, userAgent: null })
+    return { request, ctx: { ...(await w.context('owner')), standing, host: 'store.example' } }
+  }
+  const sessionFor = async (userId: string) => withSystemScope(db.sql, (tx) => createUserSession(tx, { id: userId, partnerId: t.partnerA }, new Date()))
+  const studioSessionOf = async (cookie: string) => {
+    const { ctx } = await contextFor(cookie, `store=${t.storeA1}`)
+    const result = await graphql({ schema: storeSchema as GraphQLSchema, source: '{ studioSession { session access } }', contextValue: ctx })
+    return result.data?.['studioSession'] as { session: string; access: string }
+  }
+
+  it('takes the acting store from ?store=, checked against the session’s seats: a store the person isn’t in is refused', async () => {
+    const cookie = await sessionFor(w.people.owner)
+    const { session } = await studioSessionOf(cookie)
+    const own = await contextFor(cookie, `store=${t.storeA1}&session=${session}&after=4`)
+    expect((await handleStudioLive(own.request, own.ctx, { open })).status).toBe(200)
+    expect(opened.at(-1)).toEqual({ storeId: t.storeA1, after: 4 })
+    const other = await contextFor(cookie, `store=${t.storeB1}&session=${session}`)
+    expect(other.ctx.standing.kind).toBe('crossing')
+    expect((await handleStudioLive(other.request, other.ctx, { open })).status).toBe(403)
+    const bad = await contextFor(cookie, `store=${t.storeA1}&session=${session}&after=-1`)
+    expect((await handleStudioLive(bad.request, bad.ctx, { open })).status).toBe(400)
+  })
+
+  it('opens for a Manager, who sees the studio read-only, and refuses a studio session that has ended', async () => {
+    await db.sql`update membership set status = 'active' where user_id = ${w.people.manager}`
+    const cookie = await sessionFor(w.people.manager)
+    const { session, access } = await studioSessionOf(cookie)
+    expect(access).toBe('view')
+    const manager = await contextFor(cookie, `store=${t.storeA1}&session=${session}`)
+    expect((await handleStudioLive(manager.request, manager.ctx, { open })).status).toBe(200)
+    await db.sql`update studio_session set expires_at = '2000-01-01T00:00:00Z' where id_hash = ${await hashStudioSession(session)}`
+    const ended = await contextFor(cookie, `store=${t.storeA1}&session=${session}`)
+    expect((await handleStudioLive(ended.request, ended.ctx, { open })).status).toBe(403)
   })
 })

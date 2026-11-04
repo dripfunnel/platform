@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { liveHub, liveKeepMs, liveMaxText, liveSender, liveUpgrade, liveUpgradeOf, type LiveEvent, type LiveMessage, type LiveStorage } from './live'
+import { closeEndedSockets } from './frame'
+import { isLiveSocket, liveHub, liveKeepMs, liveMaxText, liveSender, liveTags, liveUpgrade, liveUpgradeOf, type LiveEvent, type LiveMessage, type LiveStorage } from './live'
 
 const memory = (): LiveStorage & { writes: number } => {
   const values = new Map<string, unknown>()
@@ -140,5 +141,20 @@ describe('the upgrade the Store API hands the object', () => {
     expect(liveUpgradeOf(liveUpgrade('store-1', { sessionHash: 'abc', after: 7 }))).toEqual({ storeId: 'store-1', sessionHash: 'abc', after: 7 })
     expect(liveUpgradeOf(new Request('https://x/__studio/abcdefghijklmnopqrstuv/__live', { headers: { upgrade: 'websocket' } }))).toBeNull()
     expect(liveUpgradeOf(new Request('https://x/__live?after=-1', { headers: { upgrade: 'websocket', 'x-df-studio-store': 's', 'x-df-studio-live': 'h' } }))).toBeNull()
+  })
+})
+
+describe('a live socket’s tags', () => {
+  it('lead with its studio session’s hash, so the sweep closes it once that session ends, and keep the frame’s reload off it', async () => {
+    const closed: string[] = []
+    const sockets = [
+      { tag: liveTags('ended')[0], close: () => void closed.push('live ended') },
+      { tag: liveTags('open')[0], close: () => void closed.push('live open') },
+      { tag: 'open', close: () => void closed.push('frame open') },
+    ]
+    expect(await closeEndedSockets(sockets, async (hash) => hash === 'open')).toBe(1)
+    expect(closed).toEqual(['live ended'])
+    expect(isLiveSocket(liveTags('open'))).toBe(true)
+    expect(isLiveSocket(['open'])).toBe(false)
   })
 })

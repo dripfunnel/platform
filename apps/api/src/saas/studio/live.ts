@@ -20,7 +20,7 @@ export const liveKeepMs = 60_000
 /** A run that never ended (its request went away mid-change) is dropped after this. */
 export const liveRunMs = 20 * 60_000
 /** The stored feed's bound, so a run that streams without end can't grow the object's storage. */
-export const liveMaxEvents = 1000
+export const liveMaxEvents = 400
 /** A chat answer is kept to 2,000 characters (design_message); its streamed words stop there too. */
 export const liveMaxText = 2000
 
@@ -153,3 +153,7 @@ export const liveUpgradeOf = (request: Request): { storeId: string; sessionHash:
 
 /** The tag every live socket carries beside its session's hash, so the frame's hot reload never reaches one. */
 export const liveTag = 'live'
+
+/** The session's hash first, as a frame's socket has it, so the alarm's sweep (frame.ts) closes both kinds alike. */
+export const liveTags = (sessionHash: string): string[] => [sessionHash, liveTag]
+export const isLiveSocket = (tags: readonly string[]): boolean => tags.includes(liveTag)
