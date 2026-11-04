@@ -5,6 +5,7 @@ import { fill, messages } from '../../messages'
 import { isHttps } from '@dripfunnel/shared/format'
 import { chooseRefusal, hasSite } from './overviewView'
 import type { StorefrontApi } from './storefrontApi'
+import { wakeStudio } from './useStudioActivity'
 
 const words = messages.storefront.gallery
 
@@ -42,7 +43,7 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
   // A store with a site already keeps or replaces its words; the first pick has none to keep. Picking wakes its studio (AI-STUDIO §7).
   const pick = (template: StorefrontTemplate) => {
     if (!hasSite(status)) return choose(template, true)
-    api.studioActivity().catch(() => undefined)
+    wakeStudio(api)
     setAsking(template)
   }
 

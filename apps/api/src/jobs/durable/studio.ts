@@ -168,8 +168,8 @@ export const studioSessionClass = (connect: Connect) =>
     }
 
     /** Every accepted change so far written to R2 and design_draft, for the Store API's reads of the draft. */
-    async saved(storeId: string): Promise<void> {
-      await (await this.runnerFor(storeId)).saved()
+    async saved(storeId: string): Promise<boolean> {
+      return (await this.runnerFor(storeId)).saved()
     }
 
     async useTemplate(storeId: string, input: { template: string; keep: boolean; userId: string }): Promise<StudioAnswer> {

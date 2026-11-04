@@ -334,6 +334,20 @@ describe('saving off the wait (AI-STUDIO §4 steps 5–7, #1241)', () => {
     expect(sites.objects.has(`${previewFolder(t.storeA1, changed.previewRef)}index.html`)).toBe(true)
   })
 
+  it('says when a save gave up while the object stays up, and saves the change before a publish reads the draft', async () => {
+    let down = true
+    const flaky: DraftsBucket = { ...drafts.bucket, put: async (key, value) => (down ? Promise.reject(new Error('R2 unavailable')) : drafts.bucket.put(key, value)) }
+    const { runner } = await runnerFor(t.storeA1, { drafts: flaky })
+    const changed = await runner.change({ request: 'Saved late', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Saved late.')]]).model })
+    expect(changed.outcome).toBe('changed')
+    expect(await runner.saved()).toBe(false)
+    expect(await draftRow(t.storeA1)).toBeNull()
+    down = false
+    expect(await runner.prepare(null)).toMatchObject({ outcome: 'ready', commit: changed.outcome === 'changed' ? changed.commit : '' })
+    expect(await runner.saved()).toBe(true)
+    expect((await draftRow(t.storeA1))?.head_commit).toBe(changed.outcome === 'changed' ? changed.commit : '')
+  })
+
   it('loses no change when the object stops after the frame’s swap and before the R2 write: the next start reapplies it', async () => {
     const kept = memoryKept()
     const down: DraftsBucket = { ...drafts.bucket, put: async () => Promise.reject(new Error('R2 unavailable')) }

@@ -136,6 +136,8 @@ export class StudioRunner {
   private running: { stop: () => void; stopped: boolean; sandboxed: boolean } | null = null
   /** The saves still writing, one after another, off the change's own wait (AI-STUDIO §4 step 6). */
   private saving: Promise<void> = Promise.resolve()
+  /** The newest change handed to a save. */
+  private lastKept = 0
   private startedAt: number | null = null
 
   constructor(private readonly deps: StudioDeps) {}
@@ -154,9 +156,25 @@ export class StudioRunner {
     return this.startedAt
   }
 
-  /** Resolves once every accepted change so far is in R2 and design_draft, or left kept after its retries. */
-  saved(): Promise<void> {
-    return this.saving
+  /** Once every change accepted so far has had its save: true when all are in R2 and design_draft, false when one is still only kept. */
+  async saved(): Promise<boolean> {
+    const through = this.lastKept
+    await this.saving
+    return !(await this.deps.kept.list()).some((k) => k.seq <= through)
+  }
+
+  /**
+   * Before the draft is read for a publish: the saves finish, and a change still only kept after its save gave up is
+   * saved again from the loaded sandbox, else nothing is published without it.
+   */
+  private async settle(): Promise<void> {
+    await this.saving
+    if ((await this.deps.kept.list()).length === 0) return
+    // A fresh load reapplies the kept changes and saves them; a loaded sandbox already holds them.
+    const { client } = await this.ensureLoaded()
+    await this.saving
+    const last = (await this.deps.kept.list()).at(-1)
+    if (last && !(await this.persist(last.seq, await this.collect(client)))) throw new StudioUnavailable('The draft could not be saved.')
   }
 
   /** Starts the store's sandbox from its saved draft, or says where it stands in the queue. */
@@ -228,7 +246,7 @@ export class StudioRunner {
   prepare(commit: string | null): Promise<{ outcome: 'ready'; commit: string; template: string; coreVersion: string; taken: string | null } | { outcome: 'nothing' } | { outcome: 'refused'; problems: number }> {
     return this.inTurn(async () => {
       const { storeId } = this.deps
-      await this.saving
+      await this.settle()
       const row = await this.system((tx) => selectStudioStart(tx, storeId))
       if (!row?.head_commit) return { outcome: 'nothing' as const }
       const { client } = await this.ensureLoaded()
@@ -243,7 +261,7 @@ export class StudioRunner {
       // #1211: a design publish first takes what went live after the draft started, so it never overwrites a push to main.
       const taken = commit === null ? await this.takeLive(row) : null
       if (taken?.outcome === 'refused') return { outcome: 'refused' as const, problems: taken.problems.length }
-      await this.saving
+      await this.settle()
       const target = commit ?? (await this.system((tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
       if (!target) return { outcome: 'nothing' as const }
       await this.keepTheme(client, target)
@@ -385,7 +403,7 @@ export class StudioRunner {
     return this.inTurn(async (): Promise<PublishReady> => {
       const { storeId } = this.deps
       const { client } = await this.ensureLoaded()
-      await this.saving
+      await this.settle()
       const start = this.start
       const row = await this.system((tx) => selectStudioStart(tx, storeId))
       const head = (await client.theme()).head
@@ -690,22 +708,23 @@ export class StudioRunner {
   }
 
   private later(seq: number, saved: Collected): void {
-    const work = this.saving.then(() => this.persist(seq, saved))
+    this.lastKept = Math.max(this.lastKept, seq)
+    const work = this.saving.then(async () => void (await this.persist(seq, saved)))
     this.saving = work
     this.deps.background(work)
   }
 
   /**
    * The save behind the frame (AI-STUDIO §4 steps 6–7): the draft bundle, then the preview folder, then design_draft for
-   * every change still kept up to `seq` (the bundle holds them all), then they leave storage. Retried; never throws.
+   * every change still kept up to `seq` (the bundle holds them all), then they leave storage. Retried; false once it gave up.
    */
-  private async persist(seq: number, saved: Collected): Promise<void> {
+  private async persist(seq: number, saved: Collected): Promise<boolean> {
     const { storeId } = this.deps
     for (let attempt = 0; ; attempt += 1) {
       try {
         const kept = (await this.deps.kept.list()).filter((k) => k.seq <= seq)
         const own = kept.find((k) => k.seq === seq)
-        if (!own) return
+        if (!own) return true
         await this.deps.drafts.put(draftBundle(storeId), saved.bundle)
         const folder = previewFolder(storeId, own.previewRef)
         await Promise.all(
@@ -718,12 +737,12 @@ export class StudioRunner {
           for (const k of kept) await moveDraft(tx, { storeId, head: k.commit, template: k.template, coreVersion: k.coreVersion, previewRef: k.previewRef, userId: k.userId, at: this.deps.now(), customPaths: k.customPaths })
         })
         await this.deps.kept.drop(seq)
-        return
+        return true
       } catch (error) {
         const wait = saveRetryMs[attempt]
         if (wait === undefined) {
           logEvent({ event: 'studio_save_failed', api: 'store', storeId, code: failureCode(error) })
-          return
+          return false
         }
         await this.deps.sleep(wait)
       }

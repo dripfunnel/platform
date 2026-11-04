@@ -129,9 +129,15 @@ export const createStudioService = (deps: StudioDeps) => {
 
   /**
    * A change's save, which the frame never waits for (AI-STUDIO §4 step 6), runs beside the Worker's own record; the
-   * answer waits for both, so every read after it (the draft, Open preview, Undo) sees the change.
+   * answer waits for both, so every read after it (the draft, Open preview, Undo) sees the change. False when the save
+   * gave up: the change is kept in the object and saved at its next save or start, and the request answers unavailable.
    */
-  const savedBeside = (outcome: string): Promise<void> => (studio && outcome === 'changed' ? studio.saved(storeId).catch((error: unknown) => logEvent({ event: 'studio_save_unconfirmed', api: 'store', storeId, code: failureCode(error) })) : Promise.resolve())
+  const savedBeside = async (outcome: string): Promise<boolean> => {
+    if (!studio || outcome !== 'changed') return true
+    const saved = await studio.saved(storeId).catch((error: unknown) => (logEvent({ event: 'studio_save_unconfirmed', api: 'store', storeId, code: failureCode(error) }), false))
+    if (!saved) logEvent({ event: 'studio_save_unconfirmed', api: 'store', storeId, code: 'kept' })
+    return saved
+  }
 
   const chat = (limit: number, before: { at: Date; id: string } | null) => withScope(sql, context, (tx) => selectDesignChat(tx, storeId, limit, before))
 
@@ -376,7 +382,7 @@ export const createStudioService = (deps: StudioDeps) => {
       await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: outcome }]))
       return selectMessage(tx, storeId, id)
     })
-    await saved
+    if (!(await saved)) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (!message) throw new Error('design_message: written and not found')
     return { ok: true, value: { outcome, message } }
   }
@@ -430,7 +436,7 @@ export const createStudioService = (deps: StudioDeps) => {
       await activity.record(tx, entry(designAudit.changeUndone, [{ field: 'change', before: latest.commit, after: answer.outcome === 'changed' ? answer.commit : null }]))
       return selectMessage(tx, storeId, latest.id)
     })
-    await saved
+    if (!(await saved)) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     return message ? { ok: true, value: message } : { ok: false, reason: 'NOT_FOUND' }
   }
 
@@ -469,7 +475,8 @@ export const createStudioService = (deps: StudioDeps) => {
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
-    await Promise.all([recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.textEdited, [{ field: 'text', before: null, after: `${locale} ${key}` }]))), savedBeside(answer.outcome)])
+    const [, saved] = await Promise.all([recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.textEdited, [{ field: 'text', before: null, after: `${locale} ${key}` }]))), savedBeside(answer.outcome)])
+    if (!saved) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     return { ok: true, value: true }
   }
 
