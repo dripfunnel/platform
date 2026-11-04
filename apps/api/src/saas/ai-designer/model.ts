@@ -346,6 +346,7 @@ export const maxToolCalls = 4
 /** The store lookups' own allowance in a change, two of them photos at most (each up to four images). */
 export const maxLookups = 6
 export const maxPhotoLookups = 2
+const maxCalls = maxToolCalls + maxLookups
 
 const toolDefs: readonly CanonicalTool[] = [
   { name: 'search_stock_images', description: 'Search free stock photos for words such as "BMW car, wide". Returns up to six results with an id, tags and the photographer. Use it only when the merchant asks for a picture and attached none; choose words from their request and the page.', parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 100 } }, required: ['query'], additionalProperties: false } },
@@ -393,9 +394,11 @@ const converse = async (
   let used = 0
   let looked = 0
   let photosLooked = 0
+  // Every call counts here, a wrong or unknown one too, so the loop ends whatever the model asks.
+  let calls = 0
   for (;;) {
     signal?.throwIfAborted()
-    const offered = [...(tools && used < maxToolCalls ? toolDefs : []), ...(lookups && looked < maxLookups ? lookupDefs.filter((d) => d.name !== 'product_photos' || photosLooked < maxPhotoLookups) : [])]
+    const offered = calls >= maxCalls ? [] : [...(tools && used < maxToolCalls ? toolDefs : []), ...(lookups && looked < maxLookups ? lookupDefs.filter((d) => d.name !== 'product_photos' || photosLooked < maxPhotoLookups) : [])]
     const turn = await provider.converse?.({ system, messages, tools: offered, ...(signal ? { signal } : {}) })
     if (!turn) throw new Error('designModel: no converse')
     spent.tokensIn += turn.tokensIn
@@ -404,11 +407,13 @@ const converse = async (
     spent.costCurrency = turn.costCurrency
     spent.model = turn.model
     if (!turn.wantsTools) return { text: turn.text, ...spent }
+    if (calls >= maxCalls) throw new Error('designModel: tool calls past the limit')
     messages.push({ role: 'assistant', content: [...(turn.text ? [{ type: 'text' as const, text: turn.text }] : []), ...turn.toolCalls.map((c) => ({ type: 'tool_call' as const, id: c.id, name: c.name, arguments: c.arguments }))] })
     const results = []
     const shown: AiImage[] = []
     for (const call of turn.toolCalls) {
       signal?.throwIfAborted()
+      calls += 1
       const args = argsOf(call.arguments)
       let content = 'That is not a tool you have, or its arguments are wrong.'
       let isError = true

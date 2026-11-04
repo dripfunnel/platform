@@ -152,6 +152,11 @@ describe('the store lookups', () => {
     expect(r.seen[2]?.tools).toEqual([])
   })
 
+  it('ends the loop whatever the model calls: unknown tools count, and none is offered past ten calls', async () => {
+    const r = looked(Array.from({ length: 30 }, (_, i) => turn([call(`${i}`, 'delete_everything', {})])))
+    await expect(r).rejects.toThrow(/past the limit/)
+  })
+
   it('looks nothing up in a repair', async () => {
     const r = await looked([], [{ file: 'src/theme/x.tsx', message: 'bad' }])
     expect(r.seen).toEqual([])
