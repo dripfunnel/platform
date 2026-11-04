@@ -129,7 +129,7 @@ export const subscriptionSchema = z.object({
 })
 export type StripeSubscription = z.infer<typeof subscriptionSchema>
 
-const errorSchema = z.object({ error: z.object({ code: z.string().nullish(), type: z.string().nullish() }) })
+const errorSchema = z.object({ error: z.object({ code: z.string().nullish(), type: z.string().nullish(), message: z.string().nullish() }) })
 
 /** Stripe's form encoding, nested keys as `a[b]`. */
 export const form = (params: Record<string, string | Record<string, string> | undefined>): string => {
@@ -166,6 +166,8 @@ export const stripeRequester = ({ secretKey, fetchImpl = fetch }: { secretKey: s
   const json: unknown = await response.json().catch(() => null)
   if (!response.ok) {
     const parsed = errorSchema.safeParse(json)
+    // Stripe's own words for a refusal: code, type and message only, never the request body (no card data is in them).
+    console.error(`stripe refused ${method} ${path} -> ${response.status}`, parsed.success ? parsed.data.error : 'unreadable body')
     throw new StripeRefused(parsed.success ? (parsed.data.error.code ?? parsed.data.error.type ?? 'refused') : 'refused')
   }
   const parsed = schema.safeParse(json)

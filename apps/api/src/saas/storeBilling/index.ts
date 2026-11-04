@@ -63,6 +63,7 @@ export const storeBillingAudit = {
   keepProducts: 'billing.products_kept',
   cancelStore: 'store.cancelled',
   setPaymentMethod: 'billing.payment_method_set',
+  startCardSetup: 'billing.card_setup_started',
   saveBillingDetails: 'billing.details_saved',
 } as const
 
@@ -95,6 +96,7 @@ const refused = (reason: StoreBillingRefusal): { ok: false; reason: StoreBilling
 const claimMs = 2 * 60_000
 
 const cardToken = z.string().regex(/^pm_[A-Za-z0-9]{6,}$/)
+const setupSessionId = z.string().regex(/^cs_(?:test|live)_[A-Za-z0-9]+$/)
 const planChange = z.strictObject({ planId: z.guid(), interval: z.enum(['month', 'year']), when: z.enum(['now', 'period_end']) })
 
 const text = (max: number) => z.string().trim().min(1).max(max)
@@ -281,6 +283,27 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
     return created.id
   }
 
+  /** Keeps the card Stripe gave (brand, last 4, expiry only); a past-due store's open invoice is tried again with it at once. */
+  const keepCard = async (api: StripeApi & StoreBillingStripe, sub: BillingSubscriptionRow, card: { brand: string; last4: string; exp_month: number; exp_year: number }, retryKey: string): Promise<StoreBillingResult<BillingSubscriptionDto>> => {
+    const { brand, last4, exp_month, exp_year } = card
+    await system(async (tx) => {
+      await saveCard(tx, storeId, { brand, last4, expires: new Date(Date.UTC(exp_year, exp_month - 1, 1)) })
+      await activity.record(tx, entry(storeBillingAudit.setPaymentMethod, [{ field: 'card_last4', before: sub.payment_method_last4, after: last4 }]))
+    })
+    if (sub.status === 'past_due' && sub.stripe_subscription_id) {
+      try {
+        const current = await api.subscription(sub.stripe_subscription_id)
+        const open = current.latest_invoice ? await api.invoice(current.latest_invoice) : null
+        // Stripe's answer reaches the store through the webhook, which lifts the read-only state when it's paid.
+        if (open?.status === 'open') await api.payInvoice(open.id, `pay:${open.id}:${retryKey}`)
+      } catch (error) {
+        if (!(error instanceof StripeRefused || error instanceof StripeUnavailable)) throw error
+      }
+    }
+    const after = await subscriptionRow()
+    return after ? { ok: true, value: subscriptionDto(after) } : refused('NO_SUBSCRIPTION')
+  }
+
   // FIRST-RELEASE §16: the card from Stripe's hosted field, never a number. A past-due store's open invoice is tried
   // again with it at once, which is how the Owner pays while the store is read-only (SAAS §4.2).
   const setPaymentMethod = async (raw: unknown): Promise<StoreBillingResult<BillingSubscriptionDto>> => {
@@ -298,23 +321,42 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
       } catch (error) {
         return providerRefusal(error, 'CARD_REFUSED')
       }
-      const { brand, last4, exp_month, exp_year } = card.card
-      await system(async (tx) => {
-        await saveCard(tx, storeId, { brand, last4, expires: new Date(Date.UTC(exp_year, exp_month - 1, 1)) })
-        await activity.record(tx, entry(storeBillingAudit.setPaymentMethod, [{ field: 'card_last4', before: sub.payment_method_last4, after: last4 }]))
-      })
-      if (sub.status === 'past_due' && sub.stripe_subscription_id) {
-        try {
-          const current = await stripe.subscription(sub.stripe_subscription_id)
-          const open = current.latest_invoice ? await stripe.invoice(current.latest_invoice) : null
-          // Stripe's answer reaches the store through the webhook, which lifts the read-only state when it's paid.
-          if (open?.status === 'open') await stripe.payInvoice(open.id, `pay:${open.id}:${token.data}`)
-        } catch (error) {
-          if (!(error instanceof StripeRefused || error instanceof StripeUnavailable)) throw error
-        }
+      return keepCard(stripe, sub, card.card, token.data)
+    })
+  }
+
+  // The card page on Stripe (FIRST-RELEASE §16): the number and any 3D Secure step stay on Stripe's side; `back` is this portal's own address.
+  const startCardSetup = async (back: string): Promise<StoreBillingResult<string>> => {
+    if (!stripe) return refused('NOT_CONNECTED')
+    const sub = await subscriptionRow()
+    if (!sub) return refused('NO_SUBSCRIPTION')
+    if (sub.billing_mode === 'own') return refused('BILLED_BY_PARTNER')
+    try {
+      const customer = await customerOf(stripe, sub)
+      const made = await stripe.createCardSetup({ customer, successUrl: `${back}/billing?card={CHECKOUT_SESSION_ID}`, cancelUrl: `${back}/billing`, metadata: { store_id: storeId } })
+      return { ok: true, value: made.url }
+    } catch (error) {
+      return providerRefusal(error, 'CARD_REFUSED')
+    }
+  }
+
+  /** The way back from that page: the saved card becomes the plan's, only for the customer this store's own page was made for. */
+  const finishCardSetup = async (raw: unknown): Promise<StoreBillingResult<BillingSubscriptionDto>> => {
+    const id = setupSessionId.safeParse(raw)
+    if (!id.success) return refused('INVALID_INPUT')
+    if (!stripe) return refused('NOT_CONNECTED')
+    return claimed(async () => {
+      const sub = await subscriptionRow()
+      if (!sub) return refused('NO_SUBSCRIPTION')
+      if (sub.billing_mode === 'own') return refused('BILLED_BY_PARTNER')
+      let saved
+      try {
+        saved = await stripe.finishCardSetup(id.data)
+      } catch (error) {
+        return providerRefusal(error, 'CARD_REFUSED')
       }
-      const after = await subscriptionRow()
-      return after ? { ok: true, value: subscriptionDto(after) } : refused('NO_SUBSCRIPTION')
+      if (!saved || !sub.stripe_customer_id || saved.customer !== sub.stripe_customer_id) return refused('NOT_FOUND')
+      return keepCard(stripe, sub, saved.card.card, id.data)
     })
   }
 
@@ -572,7 +614,7 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
       return after ? { ok: true, value: subscriptionDto(after) } : refused('NO_SUBSCRIPTION')
     })
 
-  return { subscription, planCatalogue, usage, billingDetails, invoices, quotePlanChange, changePlan, setPaymentMethod, saveBillingDetails, downloadInvoice, planKeep, keepProducts, cancelStore }
+  return { subscription, planCatalogue, usage, billingDetails, invoices, quotePlanChange, changePlan, setPaymentMethod, startCardSetup, finishCardSetup, saveBillingDetails, downloadInvoice, planKeep, keepProducts, cancelStore }
 }
 
 export type StoreBillingService = ReturnType<typeof createStoreBillingService>

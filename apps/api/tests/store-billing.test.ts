@@ -57,6 +57,8 @@ const subscriptionOf = (id: string, customer: string, amount: number, metadata: 
   latest_invoice: null,
   items: { data: [{ id: `si_${id}`, price: { id: `price_${amount}`, currency: 'usd', unit_amount: amount } }] },
 })
+// What the fake card page saved: the customer it was made for, so another store's page can be told apart.
+const setups = new Map<string, string>()
 const missing = async (): Promise<never> => {
   throw new StripeRefused('resource_missing')
 }
@@ -75,6 +77,16 @@ const stripe: StripeApi & StoreBillingStripe = {
   payout: missing,
   account: missing,
   subscription: async (id) => subs.get(id) ?? missing(),
+  createCardSetup: async ({ customer, successUrl, cancelUrl }) => {
+    const id = `cs_test_${setups.size + 1}x`
+    setups.set(id, customer)
+    calls.push(`setup:${successUrl}|${cancelUrl}`)
+    return { id, url: `https://checkout.stripe.com/c/pay/${id}` }
+  },
+  finishCardSetup: async (id) => {
+    const customer = setups.get(id)
+    return customer ? { customer, card: { id: 'pm_card12345', card: { brand: 'visa', last4: '4242', exp_month: 12, exp_year: 2029 } } } : null
+  },
   createStoreCustomer: ({ storeId }) => once(`store-customer:${storeId}`, async () => ({ id: `cus_${storeId.slice(0, 8)}` })),
   updateCustomer: async () => {
     calls.push('updateCustomer')
@@ -227,7 +239,7 @@ const contextFor = async (who: Who, as: 'person' | 'support' | 'impersonation' =
     const caller = as === 'support' ? { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'write' as const } : { kind: 'impersonation' as const, impersonationId: crypto.randomUUID(), staffId: crypto.randomUUID(), userId: people[who] }
     standing = { ...standing, caller: { ...standing.caller, context: { ...standing.caller.context, caller } } }
   }
-  return { standing, partnerId, sql: db.sql, activity, facts, billing: stripe, now: () => clock }
+  return { standing, partnerId, sql: db.sql, activity, facts, billing: stripe, host: 'store.example', now: () => clock }
 }
 const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, as: 'person' | 'support' | 'impersonation' = 'person') => {
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue: await contextFor(who, as), variableValues: variables })
@@ -245,6 +257,8 @@ const q = {
   download: 'query D($id: ID!) { downloadInvoice(id: $id) }',
   change: `mutation C($p: ID!, $i: BillingInterval!, $w: PlanChangeWhen!) { changePlan(planId: $p, interval: $i, when: $w) { ${SUB} } }`,
   card: `mutation P($t: String!) { setPaymentMethod(token: $t) { ${SUB} } }`,
+  startSetup: 'mutation { startCardSetup }',
+  finishSetup: `mutation F($s: String!) { finishCardSetup(session: $s) { ${SUB} } }`,
   save: 'mutation S($input: BillingDetailsInput!) { saveBillingDetails(input: $input) { legalName taxId taxIdKind } }',
 }
 const details = { legalName: 'X', email: 'x@x.example', address: { line1: 'a', city: 'b', postal: 'c', country: 'US' } }
@@ -285,6 +299,8 @@ describe('who may see and change billing (ACCESS §5.1 `billing`, §11)', () => 
       expect((await gql(q.download, who, { id: crypto.randomUUID() })).code).toBe('FORBIDDEN')
       expect((await change(who, plans.business, 'NOW')).code).toBe('FORBIDDEN')
       expect((await gql(q.card, who, { t: 'pm_card12345' })).code).toBe('FORBIDDEN')
+      expect((await gql(q.startSetup, who)).code).toBe('FORBIDDEN')
+      expect((await gql(q.finishSetup, who, { s: 'cs_test_1x' })).code).toBe('FORBIDDEN')
       expect((await gql(q.save, who, { input: details })).code).toBe('FORBIDDEN')
     }
     expect(calls).toEqual([])
@@ -364,6 +380,31 @@ describe('choosing a plan out of the trial', () => {
     expect(await storeRow(t.storeA2)).toMatchObject({ plan_id: plans.starter, status: 'active' })
     expect(await entries(t.storeA2, 'billing.plan_changed')).toHaveLength(1)
     expect(await entries(t.storeA2, 'billing.payment_method_set')).toHaveLength(1)
+  })
+
+  it('saves the card from Stripe’s own page: it starts there, comes back with the page’s id, and keeps only brand, last 4 and expiry', async () => {
+    const started = (await gql(q.startSetup, 'trialOwner')).data?.['startCardSetup']
+    expect(started).toBe('https://checkout.stripe.com/c/pay/cs_test_1x')
+    expect(calls).toEqual(['setup:https://store.example/billing?card={CHECKOUT_SESSION_ID}|https://store.example/billing'])
+    const logged = (await entries(t.storeA2, 'billing.payment_method_set')).length
+    const back = await gql(q.finishSetup, 'trialOwner', { s: 'cs_test_1x' })
+    expect((back.data?.['finishCardSetup'] as { card: unknown }).card).toEqual({ brand: 'visa', last4: '4242', expires: '2029-12' })
+    expect(await entries(t.storeA2, 'billing.payment_method_set')).toHaveLength(logged + 1)
+    expect((await change('trialOwner', plans.starter, 'NOW')).data?.['changePlan']).toMatchObject({ status: 'active' })
+  })
+
+  it('refuses a card page that isn’t finished, isn’t this store’s, or isn’t a Stripe page id, and a support or impersonation session starting one', async () => {
+    await gql(q.startSetup, 'trialOwner')
+    const logged = (await entries(t.storeA2, 'billing.payment_method_set')).length
+    setups.set('cs_test_other1', 'cus_someoneelse')
+    expect((await gql(q.finishSetup, 'trialOwner', { s: 'cs_test_unknown1' })).code).toBe('NOT_FOUND')
+    expect((await gql(q.finishSetup, 'trialOwner', { s: 'cs_test_other1' })).code).toBe('NOT_FOUND')
+    expect((await gql(q.finishSetup, 'trialOwner', { s: '../customers' })).code).toBe('INVALID_INPUT')
+    for (const as of ['support', 'impersonation'] as const) {
+      expect((await gql(q.startSetup, 'trialOwner', {}, as)).code).toBe('FORBIDDEN')
+      expect((await gql(q.finishSetup, 'trialOwner', { s: 'cs_test_1x' }, as)).code).toBe('FORBIDDEN')
+    }
+    expect(await entries(t.storeA2, 'billing.payment_method_set')).toHaveLength(logged)
   })
 
   it('moves to Free with no card and nothing on Stripe', async () => {

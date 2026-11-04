@@ -204,7 +204,7 @@ the missing backend.
   - ~~The country list is hard-coded to 13 countries.~~
 
 ### Billing and plan changes (PortalBilling, PortalKeep)
-- ~~Invoice PDF, export and "Change card" are toast only.~~
+- ~~Invoice PDF, export and "Change card" are toast only.~~ The card is now added and changed on Stripe's own page (#1209).
 - ~~The card form asks for a raw card number in a plain text field (:101). It needs a hosted payment field so the card number never touches DripFunnel.~~
 - ~~"Download my data first" also starts closing the store (:102).~~
 - ~~There is no billing address or GST/VAT number for DripFunnel's invoice. It exists only in the unmounted PortalPayouts.~~

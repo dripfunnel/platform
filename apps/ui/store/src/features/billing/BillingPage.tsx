@@ -2,15 +2,17 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { csv } from '@dripfunnel/shared/format'
 import { ConfirmDialog, EmptyState, ErrorState, LoadingState, reserveTab, Strip, Toast, useScreenState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/states.css'
-import { getRouteApi, Link, useRouter } from '@tanstack/react-router'
+import { getRouteApi, Link, useRouter, useSearch } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { cancelStore, changePlan, invoicePdf, loadAllInvoices, loadBilling, loadMoreInvoices, quotePlanChange, type BillingDetails, type BillingInterval, type BillingRead, type CataloguePlan, type PlanChangeQuote, type PlanChangeWhen, type Subscription } from '../../api/billing'
+import { z } from 'zod'
+import { cancelStore, changePlan, finishCardSetup, startCardSetup, invoicePdf, loadAllInvoices, loadBilling, loadMoreInvoices, quotePlanChange, type BillingDetails, type BillingInterval, type BillingRead, type CataloguePlan, type PlanChangeQuote, type PlanChangeWhen, type Subscription } from '../../api/billing'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { downloadCsv } from '../common/download'
 import { refusalIn } from '../common/refusal'
 import { BillingDetailsDialog } from './BillingDetailsDialog'
 import { billingSeat } from './billingSeat'
+import { rememberSwitch, takeSwitch, type PendingSwitch } from './cardReturn'
 import { billingSample, billingStates } from './billingStates'
 import { billToLines, cardText, dayOf, invoiceCsvRows, invoiceRow, isFree, metersOf, money } from './billingView'
 import { PlanGrid } from './PlanGrid'
@@ -20,6 +22,8 @@ import './billing.css'
 const words = messages.billing
 const shellRoute = getRouteApi('/_app')
 const refused = refusalIn(words.refused)
+// Stripe's card page brings the Owner back with its id (api/store/billing.ts `startCardSetup`); unchecked data until parsed.
+const returnSearch = z.object({ card: z.string().regex(/^cs_(?:test|live)_[A-Za-z0-9]+$/).optional() })
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; read: BillingRead }
 
@@ -41,6 +45,12 @@ export const BillingPage = () => {
   const [change, setChange] = useState<Change | null>(null)
   const [changeError, setChangeError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  const [cardBusy, setCardBusy] = useState(false)
+  const [cardError, setCardError] = useState<string | null>(null)
+  const [resume, setResume] = useState<PendingSwitch | null>(null)
+  const { card: returnedCard } = returnSearch.catch({}).parse(useSearch({ strict: false }))
+  const pickRef = useRef<((plan: CataloguePlan, thenKeep: boolean, interval: BillingInterval) => Promise<void>) | null>(null)
+  const finished = useRef<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -63,6 +73,31 @@ export const BillingPage = () => {
   }, [forced, sample, seat.canRead])
   useEffect(load, [load])
 
+  // Back from Stripe's card page: its id turns into the card on the plan, and a switch left half-way comes back as it was.
+  useEffect(() => {
+    if (!returnedCard || sample || finished.current === returnedCard) return
+    finished.current = returnedCard
+    void router.navigate({ to: '/billing', search: (prev) => harnessSearch(prev), replace: true })
+    finishCardSetup(returnedCard).then(
+      (after) => {
+        setToast(words.card.saved)
+        setView((v) => (v.kind === 'ready' ? { kind: 'ready', read: { ...v.read, subscription: after } } : v))
+        setResume(takeSwitch())
+      },
+      (error: unknown) => {
+        takeSwitch()
+        setNotice(refused(error))
+      },
+    )
+  }, [returnedCard, sample, router])
+  useEffect(() => {
+    if (!resume || view.kind !== 'ready') return
+    const plan = view.read.plans.find((p) => p.id === resume.plan)
+    setResume(null)
+    setPeriod(resume.interval)
+    if (plan) void pickRef.current?.(plan, false, resume.interval)
+  }, [resume, view])
+
   const read = view.kind === 'ready' ? view.read : null
   const sub = read?.subscription ?? null
   const free = read?.plans.find((p) => isFree(p) && !p.current)
@@ -82,25 +117,43 @@ export const BillingPage = () => {
   }
 
   /** The quote first: both amounts and the date before anything is charged (SAAS §7.2). */
-  const pick = async (plan: CataloguePlan, thenKeep = false) => {
+  const pick = async (plan: CataloguePlan, thenKeep = false, interval: BillingInterval = shown) => {
     if (!sub) return
     setNotice(null)
-    if (plan.current && sub.scheduled && sub.interval === shown) return openChange({ plan, interval: shown, keep: sub.scheduled.plan.name })
-    if (sample) return openChange({ plan, interval: shown, quotes: sampleQuotes(plan, shown, sub), thenKeep })
+    if (plan.current && sub.scheduled && sub.interval === interval) return openChange({ plan, interval, keep: sub.scheduled.plan.name })
+    if (sample) return openChange({ plan, interval, quotes: sampleQuotes(plan, interval, sub), thenKeep })
     setPending(plan.id)
     try {
       const quotes: Partial<Record<PlanChangeWhen, PlanChangeQuote>> = {}
       try {
-        quotes.NOW = await quotePlanChange(plan.id, shown, 'NOW')
+        quotes.NOW = await quotePlanChange(plan.id, interval, 'NOW')
       } catch (error) {
         if (!isApiError(error, 'AT_PERIOD_END_ONLY')) throw error
       }
-      if (!quotes.NOW || quotes.NOW.offered.includes('PERIOD_END')) quotes.PERIOD_END = await quotePlanChange(plan.id, shown, 'PERIOD_END')
-      openChange({ plan, interval: shown, quotes, thenKeep })
+      if (!quotes.NOW || quotes.NOW.offered.includes('PERIOD_END')) quotes.PERIOD_END = await quotePlanChange(plan.id, interval, 'PERIOD_END')
+      openChange({ plan, interval, quotes, thenKeep })
     } catch (error) {
       setNotice(refused(error))
     } finally {
       setPending(null)
+    }
+  }
+
+  pickRef.current = pick
+
+  /** Stripe's own page takes the card (and any 3D Secure step); a switch in the pop-up is remembered to come back to. */
+  const addCard = async (switching?: Change) => {
+    if (sample) return
+    setCardError(null)
+    setChangeError(null)
+    setCardBusy(true)
+    if (switching && 'quotes' in switching) rememberSwitch({ plan: switching.plan.id, interval: switching.interval })
+    try {
+      window.location.assign(await startCardSetup())
+    } catch (error) {
+      setCardBusy(false)
+      if (switching) setChangeError(refused(error))
+      else setCardError(refused(error))
     }
   }
 
@@ -156,6 +209,7 @@ export const BillingPage = () => {
       .finally(() => setBusy(false))
   }
 
+  const canSetCard = Boolean(seat.canWrite && sub?.collectedBy === 'dripfunnel' && !sample)
   const canChange = Boolean(seat.canWrite && sub && sub.collectedBy === 'dripfunnel' && !sub.cancelAt && (!seat.readOnly || sub.status === 'past_due'))
 
   return (
@@ -228,6 +282,16 @@ export const BillingPage = () => {
               <section className="df-billing-card" aria-labelledby="df-billing-card">
                 <h2 id="df-billing-card">{words.card.title}</h2>
                 <p className="df-billing-strong">{cardText(sub.card)}</p>
+                {canSetCard && (
+                  <button type="button" className="df-billing-link" disabled={cardBusy} onClick={() => void addCard()}>
+                    {cardBusy ? words.card.opening : sub.card ? words.card.change : words.card.add}
+                  </button>
+                )}
+                {cardError && (
+                  <p className="df-billing-note" role="alert">
+                    {cardError}
+                  </p>
+                )}
                 <p className="df-billing-note">{words.card.note}</p>
               </section>
               <DetailsCard read={read} canEdit={seat.canWrite && !seat.readOnly} onEdit={() => setEditing(true)} />
@@ -244,7 +308,7 @@ export const BillingPage = () => {
         </>
       )}
       {change && sub && (
-        <ChangeDialog change={change} sub={sub} busy={busy} error={changeError} onConfirm={confirmChange} onCancel={() => openChange(null)} />
+        <ChangeDialog change={change} sub={sub} busy={busy} error={changeError} onAddCard={canSetCard ? () => void addCard(change) : null} addingCard={cardBusy} onConfirm={confirmChange} onCancel={() => openChange(null)} />
       )}
       {editing && read && <BillingDetailsDialog details={read.details} store={read.store} sample={Boolean(sample)} onSaved={savedDetails} onCancel={() => setEditing(false)} />}
       {closing && sub && (
@@ -270,7 +334,7 @@ const sampleQuotes = (plan: CataloguePlan, interval: BillingInterval, sub: Subsc
     : { PERIOD_END: { offered: ['PERIOD_END'], charge: zero, credit: zero, today: zero, from: sub.periodEnd, nextPrice: price } }
 }
 
-const ChangeDialog = ({ change, sub, busy, error, onConfirm, onCancel }: { change: Change; sub: Subscription; busy: boolean; error: string | null; onConfirm: (when: PlanChangeWhen) => void; onCancel: () => void }) => {
+const ChangeDialog = ({ change, sub, busy, error, onAddCard, addingCard, onConfirm, onCancel }: { change: Change; sub: Subscription; busy: boolean; error: string | null; onAddCard: (() => void) | null; addingCard: boolean; onConfirm: (when: PlanChangeWhen) => void; onCancel: () => void }) => {
   const w = words.change
   const per = w.per[change.interval]
   if ('keep' in change)
@@ -318,7 +382,13 @@ const ChangeDialog = ({ change, sub, busy, error, onConfirm, onCancel }: { chang
       error={error}
       onConfirm={(_, __, picks) => onConfirm(ways.find((when) => when === picks['when']) ?? first)}
       onCancel={onCancel}
-    />
+    >
+      {needsCard && onAddCard && (
+        <button type="button" className="df-button" disabled={addingCard} onClick={onAddCard}>
+          {addingCard ? words.card.opening : w.addCard}
+        </button>
+      )}
+    </ConfirmDialog>
   )
 }
 

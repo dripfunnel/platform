@@ -6548,7 +6548,11 @@
       "none": "No card yet",
       "on": "{brand} ending {last4}",
       "expires": "{card} · expires {date}",
-      "note": "Never used for your shoppers’ payments. Not needed during the trial."
+      "note": "Never used for your shoppers’ payments. Not needed during the trial.",
+      "add": "Add card",
+      "change": "Change card",
+      "opening": "Opening Stripe…",
+      "saved": "Your card is saved."
     },
     "details": {
       "title": "On your invoices",
@@ -6633,6 +6637,7 @@
       },
       "tax": "Tax is added where it applies.",
       "noCard": "You’ll need the card that pays for your plan first.",
+      "addCard": "Add a card",
       "confirm": "Switch to {plan}",
       "confirmKeep": "Keep {plan}",
       "cancel": "Cancel",

@@ -68,3 +68,32 @@ describe('a store’s plan on Stripe', () => {
     await expect(other.ensurePlanProduct({ id: '1', name: 'Growth' })).rejects.toEqual(new StripeRefused('parameter_invalid'))
   })
 })
+
+describe('saving a card on Stripe’s own page', () => {
+  const session = { id: 'cs_test_a1b2', url: 'https://checkout.stripe.com/c/pay/cs_test_a1b2' }
+  const pm = { id: 'pm_1', card: { brand: 'visa', last4: '4242', exp_month: 12, exp_year: 2029 } }
+  const done = { id: 'cs_test_a1b2', customer: 'cus_1', status: 'complete', setup_intent: { status: 'succeeded', payment_method: pm } }
+
+  it('opens a Checkout page in setup mode for the store’s customer, with the way back and nothing about a price', async () => {
+    const seen: Request[] = []
+    const api = storeBillingStripe({ secretKey: 'rk_test_a', fetchImpl: recording([{ status: 200, json: session }], seen) })
+    const made = await api.createCardSetup({ customer: 'cus_1', successUrl: 'https://store.example/billing?card={CHECKOUT_SESSION_ID}', cancelUrl: 'https://store.example/billing', metadata: { store_id: 's1' } })
+    const body = new URLSearchParams(await seen[0]?.text())
+    expect(made).toMatchObject({ id: 'cs_test_a1b2', url: session.url })
+    expect(new URL(seen[0]?.url ?? '').pathname).toBe('/v1/checkout/sessions')
+    expect([body.get('mode'), body.get('customer'), body.get('success_url'), body.get('metadata[store_id]')]).toEqual(['setup', 'cus_1', 'https://store.example/billing?card={CHECKOUT_SESSION_ID}', 's1'])
+    expect([...body.keys()].some((k) => k.startsWith('line_items'))).toBe(false)
+  })
+
+  it('reads the saved card back and makes it the customer’s default; an unfinished page saves nothing', async () => {
+    const seen: Request[] = []
+    const api = storeBillingStripe({ secretKey: 'rk_test_a', fetchImpl: recording([{ status: 200, json: done }, { status: 200, json: { id: 'cus_1' } }], seen) })
+    expect(await api.finishCardSetup('cs_test_a1b2')).toMatchObject({ customer: 'cus_1', card: { card: { last4: '4242' } } })
+    expect(seen[0]?.url).toContain('/v1/checkout/sessions/cs_test_a1b2?expand[]=setup_intent.payment_method')
+    expect(new URLSearchParams(await seen[1]?.text()).get('invoice_settings[default_payment_method]')).toBe('pm_1')
+    const open: Request[] = []
+    const waiting = storeBillingStripe({ secretKey: 'rk_test_a', fetchImpl: recording([{ status: 200, json: { ...done, status: 'open', setup_intent: { status: 'requires_payment_method', payment_method: null } } }], open) })
+    expect(await waiting.finishCardSetup('cs_test_a1b2')).toBeNull()
+    expect(open).toHaveLength(1)
+  })
+})

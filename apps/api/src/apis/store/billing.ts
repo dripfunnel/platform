@@ -221,6 +221,21 @@ export const registerBilling = (builder: StoreBuilder) => {
       extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.setPaymentMethod, blockedFor: ['impersonation'] } },
       resolve: async (_, { token }, ctx) => answered(await service(ctx, true).setPaymentMethod(token)),
     }),
+    // Stripe's own page to save a card; the way back is this portal's own address, never one the caller gives.
+    startCardSetup: t.string({
+      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.startCardSetup, blockedFor: ['impersonation'] } },
+      resolve: async (_, __, ctx) => {
+        if (!ctx.host) throw forbidden()
+        return answered(await service(ctx, true).startCardSetup(`https://${ctx.host}`))
+      },
+    }),
+    // The page's id from the way back; the card it saved becomes the plan's.
+    finishCardSetup: t.field({
+      type: Subscription,
+      args: { session: t.arg.string({ required: true }) },
+      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.setPaymentMethod, blockedFor: ['impersonation'] } },
+      resolve: async (_, { session }, ctx) => answered(await service(ctx, true).finishCardSetup(session)),
+    }),
     saveBillingDetails: t.field({
       type: Details,
       args: { input: t.arg({ type: DetailsInput, required: true }) },

@@ -163,6 +163,24 @@ export const changePlan = async (planId: string, interval: BillingInterval, when
   return sub
 }
 
+// Stripe's own page to save the card on; the card number is typed there and never reaches this app.
+export const startCardSetup = async (): Promise<string> => {
+  const { startCardSetup: url } = await query('mutation { startCardSetup }', z.object({ startCardSetup: z.string() }))
+  if (!/^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(url)) throw new ApiError('BAD_RESPONSE', 'The card page is not one of Stripe’s.')
+  return url
+}
+
+// The page's id from the way back; the card it saved is now the plan's.
+export const finishCardSetup = async (session: string): Promise<Subscription> => {
+  const { finishCardSetup: sub } = await query(
+    `mutation F($s: String!) { finishCardSetup(session: $s) { ${subscriptionFields} } }`,
+    z.object({ finishCardSetup: subscriptionSchema.nullable() }),
+    { s: session },
+  )
+  if (!sub) throw new ApiError('BAD_RESPONSE', 'The card answered nothing.')
+  return sub
+}
+
 export const saveBillingDetails = async (input: BillingDetailsInput): Promise<BillingDetails> => {
   const { saveBillingDetails: saved } = await query(
     'mutation D($input: BillingDetailsInput!) { saveBillingDetails(input: $input) { legalName email address { line1 line2 city region postal country } taxId taxIdKind } }',

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { form, stripeId, stripeRequester, StripeRefused, StripeUnavailable, subscriptionSchema, invoiceSchema, type StripeInvoice, type StripeSubscription } from './api'
+import { form, stripeId, stripeRequester, StripeRefused, StripeUnavailable, subscriptionSchema, invoiceSchema, type StripeCard, type StripeInvoice, type StripeSubscription } from './api'
 
 // A store's plan on DripFunnel's platform account (SAAS §7.2): its customer, its subscription and a change scheduled
 // for the period's end. Each write that charges carries the caller's idempotency key, so a retry or a second tab
@@ -31,7 +31,24 @@ export interface StoreBillingStripe {
   cancelNow: (subscriptionId: string) => Promise<void>
   /** Tries the open invoice again with the customer's card; the key is per card, so a new card tries once more. */
   payInvoice: (invoiceId: string, idempotencyKey: string) => Promise<StripeInvoice>
+  /** Stripe's own page to save a card (Checkout, `setup` mode): the number is typed, and 3D Secure asked, on Stripe's side. */
+  createCardSetup: (input: { customer: string; successUrl: string; cancelUrl: string; metadata: Record<string, string> }) => Promise<{ id: string; url: string }>
+  /** What that page saved, read back by its id and made the customer's default card; null while it isn't finished. */
+  finishCardSetup: (sessionId: string) => Promise<{ customer: string; card: StripeCard } | null>
 }
+
+const sessionId = z.string().regex(/^cs_(?:test|live)_[A-Za-z0-9]+$/)
+const setupCreated = z.object({ id: sessionId, url: z.string().url() })
+const setupRead = z.object({
+  customer: z.string().nullable(),
+  status: z.string(),
+  setup_intent: z
+    .object({
+      status: z.string(),
+      payment_method: z.object({ id: stripeId('pm'), card: z.object({ brand: z.string(), last4: z.string().regex(/^[0-9]{4}$/), exp_month: z.number().int(), exp_year: z.number().int() }) }).nullable(),
+    })
+    .nullable(),
+})
 
 const scheduleSchema = z.object({
   id: stripeId('sub_sched'),
@@ -138,5 +155,16 @@ export const storeBillingStripe = ({ secretKey, fetchImpl = fetch }: { secretKey
       }
     },
     payInvoice: (invoiceId, idempotencyKey) => call(invoiceSchema.loose(), 'POST', `/invoices/${encodeURIComponent(invoiceId)}/pay`, { idempotencyKey }),
+    createCardSetup: ({ customer, successUrl, cancelUrl, metadata }) =>
+      call(setupCreated.loose(), 'POST', '/checkout/sessions', {
+        body: form({ mode: 'setup', customer, 'payment_method_types[0]': 'card', success_url: successUrl, cancel_url: cancelUrl, metadata }),
+      }),
+    finishCardSetup: async (id) => {
+      const read = await call(setupRead.loose(), 'GET', `/checkout/sessions/${encodeURIComponent(id)}?expand[]=setup_intent.payment_method`)
+      const method = read.setup_intent?.payment_method
+      if (read.status !== 'complete' || read.setup_intent?.status !== 'succeeded' || !read.customer || !method) return null
+      await call(z.object({ id: stripeId('cus') }).loose(), 'POST', `/customers/${encodeURIComponent(read.customer)}`, { body: form({ 'invoice_settings[default_payment_method]': method.id }) })
+      return { customer: read.customer, card: method }
+    },
   }
 }

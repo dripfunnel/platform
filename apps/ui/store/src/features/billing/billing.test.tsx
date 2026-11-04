@@ -20,6 +20,8 @@ const api = vi.hoisted(() => ({
   quotePlanChange: vi.fn(),
   changePlan: vi.fn(),
   saveBillingDetails: vi.fn(),
+  startCardSetup: vi.fn(),
+  finishCardSetup: vi.fn(),
   invoicePdf: vi.fn(),
   cancelStore: vi.fn(),
   exportStoreData: vi.fn(),
@@ -503,5 +505,87 @@ describe('Close my store', () => {
     cleanup()
     await show(owner)
     expect(screen.getByRole('link', { name: 'Or choose what to keep on Free' }).getAttribute('href')).toBe('/billing/keep')
+  })
+})
+
+describe('the card that pays for the plan, on Stripe’s own page (#1209)', () => {
+  const trial = () =>
+    read({ subscription: { ...sub, status: 'trial', card: null, plan: { id: 'pro', name: 'Growth Pro' } }, plans: [free, { ...growth, current: false }, { ...pro, current: true }], invoices: { rows: [], next: null } })
+  const saved: Subscription = { ...sub, card: { brand: 'visa', last4: '4242', expires: '2029-12' } }
+  const cardPage = 'https://checkout.stripe.com/c/pay/cs_test_a1b2'
+  const toStripe = () => vi.spyOn(window.location, 'assign').mockImplementation(() => undefined)
+
+  beforeEach(() => {
+    api.startCardSetup.mockResolvedValue(cardPage)
+    api.finishCardSetup.mockResolvedValue(saved)
+    api.quotePlanChange.mockResolvedValue(quote({ offered: ['NOW'], charge: inr('83300'), credit: inr('0'), today: inr('83300'), nextPrice: inr('83300') }))
+  })
+
+  it('sends the Owner to Stripe from Add card on Billing, and shows the card after the way back', async () => {
+    const assign = toStripe()
+    api.loadBilling.mockResolvedValue(trial())
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.card.add }))
+    await settle()
+    expect(assign).toHaveBeenCalledWith(cardPage)
+    cleanup()
+    await show(owner, { readOnly: false, support: null }, '/billing?card=cs_test_a1b2')
+    expect(api.finishCardSetup).toHaveBeenCalledWith('cs_test_a1b2')
+    expect(screen.getByText(cardText(saved.card))).toBeTruthy()
+    expect(screen.getByRole('button', { name: words.card.change })).toBeTruthy()
+    expect(screen.getByText(words.card.saved)).toBeTruthy()
+  })
+
+  it('offers Add a card in the switch pop-up, and after the way back the pop-up returns with the switch enabled', async () => {
+    const assign = toStripe()
+    const before = trial()
+    api.loadBilling.mockResolvedValueOnce(before).mockResolvedValue({ ...before, subscription: before.subscription && { ...before.subscription, card: saved.card } })
+    await show(owner)
+    fireEvent.click(plan('Growth').getByRole('button', { name: 'Choose Growth' }))
+    await settle()
+    expect((dialog().getByRole('button', { name: 'Switch to Growth' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(dialog().getByRole('button', { name: words.change.addCard }))
+    await settle()
+    expect(assign).toHaveBeenCalledWith(cardPage)
+    cleanup()
+    await show(owner, { readOnly: false, support: null }, '/billing?card=cs_test_a1b2')
+    await settle()
+    expect(dialog().getByText('It starts today. Charged today: ₹833.00, then ₹833.00 a month.')).toBeTruthy()
+    expect((dialog().getByRole('button', { name: 'Switch to Growth' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('says why when Stripe’s page can’t be opened, or the way back is refused, and changes nothing', async () => {
+    api.loadBilling.mockResolvedValue(trial())
+    api.startCardSetup.mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'Billing isn’t set up yet.', {}))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.card.add }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(words.refused.NOT_CONNECTED)
+    cleanup()
+    api.finishCardSetup.mockRejectedValueOnce(new ApiError('NOT_FOUND', 'That is no longer here.', {}))
+    await show(owner, { readOnly: false, support: null }, '/billing?card=cs_test_a1b2')
+    expect(screen.getByText(words.refused.NOT_FOUND)).toBeTruthy()
+    expect(screen.getByText(words.card.none)).toBeTruthy()
+  })
+
+  it('shows Change card for a card on file, and ignores a way back that isn’t a Stripe page id', async () => {
+    toStripe()
+    api.loadBilling.mockResolvedValue(read())
+    await show(owner, { readOnly: false, support: null }, '/billing?card=not-a-session')
+    expect(api.finishCardSetup).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: words.card.change })).toBeTruthy()
+  })
+
+  it('lets a read-only store add one so it can pay, but never a support session, and not where the partner bills', async () => {
+    api.loadBilling.mockResolvedValue(trial())
+    await show(owner, { readOnly: true, support: null })
+    expect(screen.getByRole('button', { name: words.card.add })).toBeTruthy()
+    cleanup()
+    await show(owner, { readOnly: true, support: { partnerName: 'Kesari Commerce' } })
+    expect(screen.queryByRole('button', { name: words.card.add })).toBeNull()
+    cleanup()
+    api.loadBilling.mockResolvedValue(read({ subscription: { ...sub, card: null, collectedBy: 'partner' } }))
+    await show(owner)
+    expect(screen.queryByRole('button', { name: words.card.add })).toBeNull()
   })
 })
