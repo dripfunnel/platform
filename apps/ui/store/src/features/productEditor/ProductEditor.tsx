@@ -492,7 +492,7 @@ export const ProductEditor = () => {
           </button>
         )}
         {(access.canEdit || access.canStock) && (
-          <button type="button" className="df-button df-button--primary" disabled={saving} onClick={() => void save()}>
+          <button type="button" className="df-button df-button--primary" disabled={saving || !dirty} onClick={() => void save()}>
             {saveLabel}
           </button>
         )}
