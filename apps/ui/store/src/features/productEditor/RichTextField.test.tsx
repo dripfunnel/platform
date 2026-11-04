@@ -143,6 +143,9 @@ describe('the description editor (#1216)', () => {
     run((e) => e.commands.insertContentAt(e.state.doc.content.size - 1, 'a'.repeat(20_050)))
     expect(onChange.mock.calls.every(([html]) => (html as string).length <= 20_000)).toBe(true)
     expect(content().textContent).toBe('Short')
+    expect(screen.getByRole('alert').textContent).toBe(words.tooLong)
+    run((e) => e.commands.insertContentAt(e.state.doc.content.size - 1, ' more'))
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('shows the saved text again when the changes are discarded', () => {

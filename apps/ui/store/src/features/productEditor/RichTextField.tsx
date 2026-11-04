@@ -132,6 +132,7 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
   const latest = useRef(onChange)
   latest.current = onChange
   const shown = useRef(value)
+  const [refused, setRefused] = useState(false)
   const editor = useEditor({
     extensions,
     content: editorHtmlOf(value),
@@ -139,11 +140,13 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
     editorProps: { attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-labelledby': labelledBy, 'aria-placeholder': placeholder, 'aria-readonly': String(readOnly), class: 'df-rich-content' } },
     onUpdate: ({ editor: e }) => {
       const html = storedHtmlOf(e.getHTML())
-      // Refused like a textarea's maxLength: the edit that would pass the limit is taken back.
+      // Refused like a textarea's maxLength: the edit that would pass the limit is taken back, and said so.
       if (html.length > limit) {
         e.commands.undo()
+        setRefused(true)
         return
       }
+      setRefused(false)
       shown.current = html
       latest.current(html)
     },
@@ -169,6 +172,11 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
           </span>
         )}
       </div>
+      {refused && (
+        <p role="alert" className="df-editor-problem">
+          {words.tooLong}
+        </p>
+      )}
     </div>
   )
 }
