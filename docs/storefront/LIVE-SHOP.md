@@ -20,7 +20,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). On #968: a push to a store
 repo's `main` builds that commit and goes live (§4, "A push to `main`"). The rest is specification.
 
-Last updated: 2026-11-02 (#1169: the asset host's Cache Rule, §4 step 3). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §4 step 7). Before: 2026-11-01 (the store's logo and favicon copied to the asset host too, §4 step 3). Before: 2026-11-01 (#1105: the catalogue's pictures copied to the asset host, §2, §4 step 3, §5 step 7). Before: 2026-10-31 (#1011: the version 2 snapshot carries the catalogue, §4 steps 3 and 6). Before: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-11-04 (#1211: a design Publish keeps a push that went live after its draft started, §4). Before: 2026-11-02 (#1169: the asset host's Cache Rule, §4 step 3). Before: 2026-11-02 (#1164: `PUBLISH_CHECKS`, §4 step 7). Before: 2026-11-01 (the store's logo and favicon copied to the asset host too, §4 step 3). Before: 2026-11-01 (#1105: the catalogue's pictures copied to the asset host, §2, §4 step 3, §5 step 7). Before: 2026-10-31 (#1011: the version 2 snapshot carries the catalogue, §4 steps 3 and 6). Before: 2026-10-28 (#974: run `pnpm check` before pushing, §4). Before: 2026-10-28 (#968: a push to `main` builds and goes live, §1, §4, §9). Before: 2026-10-27 (the repo gets a generated `.env.development` for a clone's `next dev`, §3). Before: 2026-10-20 (#809: the asset host is `sf-assets.<SHOP_DOMAIN>`, §2, §5, §6). Before: 2026-10-18 (#790: the build image's package is private and a store's build pulls it with the org secret `GHCR_PULL_TOKEN`, §1, §3 step 3). Before: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -418,9 +418,12 @@ Run `pnpm check` first: the store repo's `AGENTS.md` says so, and it runs the bu
    private copy every later publish reads (step 3), and a page or catalogue run that waited behind it builds it too
    (it follows the live build when it starts, decided on #968).
 
-*Not covered yet:* the studio's draft doesn't follow a pushed commit, so a design Publish after a push may drop the
-pushed change or fail its push as `MAIN_MOVED`; and an upgrade the bot prepared before a push went live builds its
-older source (§8), as it does after a go back. Each is its own card.
+A design Publish takes a push that went live after its draft started into the draft first, so it never overwrites it
+(AI-STUDIO §6 step 2; #1211).
+
+*Not covered yet:* a push that goes live after that take, while the design publish is still building, is still replaced
+by it; and an upgrade the bot prepared before a push went live builds its older source (§8), as it does after a go back.
+Each is its own card.
 
 ---
 

@@ -11,6 +11,7 @@ export const designAudit = {
   discarded: 'storefront.discarded',
   reverted: 'storefront.reverted',
   publishStarted: 'storefront.publish_started',
+  repoPushTaken: 'storefront.repo_push_taken',
 } as const
 
 export const designNotes = {

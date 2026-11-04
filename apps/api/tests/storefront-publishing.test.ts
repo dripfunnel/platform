@@ -8,7 +8,8 @@ import { createGitHubApp, storeRepos, type StoreRepos } from '#integrations/gith
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
 import { designModel, repairBrief } from '#saas/ai-designer/index'
-import { digestOf, pushToRepo, runPublish, type PublishDeps, type PublishRepair, type PublishSteps } from '#saas/storefronts/index'
+import { sandboxClient } from '#integrations/sandbox/index'
+import { digestOf, pushToRepo, runPublish, sourceBundle, type PublishDeps, type PublishRepair, type PublishSteps } from '#saas/storefronts/index'
 import { stagingFolder } from '#saas/storefronts/layout'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
 import { testProbe } from './support/edgeProbe'
@@ -262,6 +263,49 @@ describe('publishing from the studio', () => {
     const repaired = await db.sql<{ billed_to: string; requested_by: string | null }[]>`select billed_to, requested_by from ai_run where store_id = ${t.storeA1} and billed_to = 'platform'`
     expect(repaired.length).toBeGreaterThan(0)
     expect(repaired.every((r) => r.requested_by === null)).toBe(true)
+  })
+
+  describe('a push to main that went live after the draft started (#1211)', () => {
+    /** A commit made on the live code outside the studio and built live, as a push to the store repo's main is. */
+    const pushLive = async (homePage: (live: string) => string) => {
+      const [live] = await db.sql<{ id: string; commit: string }[]>`select r.id, r.commit from storefront f join publish_run r on r.id = f.live_build_id where f.store_id = ${t.storeA1}`
+      const source = live ? await drafts.get(sourceBundle(t.storeA1, live.id)) : null
+      if (!live || !source) throw new Error('the live build has no source bundle')
+      const client = sandboxClient(host.send, 'pushed-1211')
+      await client.loadBundle(await source.arrayBuffer(), live.commit)
+      const files = (await client.theme()).files.map((f) => (f.path === 'src/theme/pages/HomePage.tsx' ? { path: f.path, content: homePage(f.content) } : f))
+      await client.loadFiles([{ path: 'package.json', content: '{"name":"store"}\n' }, ...files], 'A push to main')
+      const commit = (await client.theme()).head
+      const [run] = await db.sql<{ id: string }[]>`
+        insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind, switched_at, finished_at)
+        values (${t.storeA1}, 'repo', 'live', ${commit}, 'baseline', ${core}, 'system', now(), now()) returning id`
+      await draftsBucket().put(sourceBundle(t.storeA1, run?.id ?? ''), await client.exportBundle())
+      await db.sql`update storefront set live_build_id = ${run?.id ?? ''} where store_id = ${t.storeA1}`
+      return { runId: run?.id ?? '', commit }
+    }
+
+    it('takes the push into the draft at Publish, so main and the live site keep both', async () => {
+      expect((await ask('A change after the last publish', lead('Drafted before the push.'))).outcome).toBe('changed')
+      const pushed = await pushLive((page) => page.replace("label={t('pages.home.more')}", "label={t('pages.home.title')}"))
+      const runId = (await publish()).data?.publishDesign ?? ''
+      expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, workflow(new Set()))).toBe('live')
+      expect(github.files(repo)?.get('content/en/pages.json')).toContain('Drafted before the push.')
+      expect(github.files(repo)?.get('src/theme/pages/HomePage.tsx')).toContain("label={t('pages.home.title')}")
+      const [taken] = await db.sql<{ changes: unknown }[]>`select changes from activity_log where store_id = ${t.storeA1} and action = 'storefront.repo_push_taken'`
+      expect(taken?.changes).toEqual([expect.objectContaining({ field: 'main', after: pushed.commit })])
+    })
+
+    it('refuses Publish with CHANGE_REFUSED when the gate refuses what it would take, and changes nothing', async () => {
+      const live = await liveBuild()
+      expect((await ask('Another change', lead('Kept in the draft.'))).outcome).toBe('changed')
+      const draft = await head()
+      await pushLive(() => "export const HomePage = () => { fetch('/x'); return null }\n")
+      const runs = (await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${t.storeA1}`)[0]?.n
+      expect((await publish()).code).toBe('CHANGE_REFUSED')
+      expect(await head()).toBe(draft)
+      expect((await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${t.storeA1}`)[0]?.n).toBe(runs)
+      await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA1}`
+    })
   })
 
   it('never goes back across a newer security release of core: the live site and the draft stay', async () => {

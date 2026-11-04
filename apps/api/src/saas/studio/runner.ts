@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { isNewerVersion } from '#core/semver'
-import { insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
+import { insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
@@ -196,7 +196,7 @@ export class StudioRunner {
    * The hand-off to a publish (AI-STUDIO §6 steps 1–3): in turn, so a change in progress finishes first; the draft's head,
    * or `commit` (one of its changes), with its theme kept privately for the push once that publish is live (§6 step 4).
    */
-  prepare(commit: string | null): Promise<{ outcome: 'ready'; commit: string; template: string; coreVersion: string } | { outcome: 'nothing' }> {
+  prepare(commit: string | null): Promise<{ outcome: 'ready'; commit: string; template: string; coreVersion: string; taken: string | null } | { outcome: 'nothing' } | { outcome: 'refused'; problems: number }> {
     return this.inTurn(async () => {
       const { storeId } = this.deps
       const row = await this.system((tx) => selectStudioStart(tx, storeId))
@@ -210,11 +210,24 @@ export class StudioRunner {
         await this.deps.drafts.put(draftBundle(storeId), await client.exportBundle())
         await this.system((tx) => restartDraft(tx, storeId, head))
       }
+      // #1211: a design publish first takes what went live after the draft started, so it never overwrites a push to main.
+      const taken = commit === null ? await this.takeLive(row) : null
+      if (taken?.outcome === 'refused') return { outcome: 'refused' as const, problems: taken.problems.length }
       const target = commit ?? (await this.system((tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
       if (!target) return { outcome: 'nothing' as const }
       await this.keepTheme(client, target)
-      return { outcome: 'ready' as const, commit: target, template: start.template, coreVersion: start.coreVersion }
+      return { outcome: 'ready' as const, commit: target, template: start.template, coreVersion: start.coreVersion, taken: taken?.outcome === 'changed' ? row.own_commit : null }
     })
+  }
+
+  /** The theme files of the live build that changed after the draft started, written into it through the gate (#1211). */
+  private async takeLive(row: StudioDraftRow): Promise<ChangeOutcome | null> {
+    const { first_commit: start, own_build_id: build, own_commit: live } = row
+    if (!start || !build || !live) return null
+    const source = await this.deps.drafts.get(sourceBundle(this.deps.storeId, build))
+    if (!source) return null
+    const onto = { commit: live, bundle: await source.arrayBuffer() }
+    return this.commitStep((client, context) => client.takeLive(start, onto, context), null)
   }
 
   /** The theme at `commit`, kept privately as JSON for the push once a publish of it is live (AI-STUDIO §6 step 4). */
@@ -556,7 +569,7 @@ export class StudioRunner {
   }
 
   /** One step of the sandbox without the model (undo, a template, edited words): saved and previewed when it changed something. */
-  private async commitStep(step: (client: SandboxClient, context: GuardContext) => Promise<ChangeResult>, userId: string, template?: string): Promise<ChangeOutcome> {
+  private async commitStep(step: (client: SandboxClient, context: GuardContext) => Promise<ChangeResult>, userId: string | null, template?: string): Promise<ChangeOutcome> {
     const context = await this.guardContext()
     const done = await this.recovering(async (client) => {
       const result = await step(client, context)

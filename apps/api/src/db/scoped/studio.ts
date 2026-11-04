@@ -21,6 +21,8 @@ export interface StudioDraftRow {
   onto_commit: string | null
   onto_version: string | null
   onto_upgrade: boolean
+  /** The draft's first commit, whose parent is where the draft started (#1211). */
+  first_commit: string | null
 }
 
 /** What the studio starts from (AI-STUDIO §3 step 4): the draft if there is one, else the live build, else the template. */
@@ -32,7 +34,7 @@ export const selectStudioStart = async (tx: ScopedSql, storeId: string): Promise
         o.id as own_build_id, o.commit as own_commit, o.template as own_template, o.core_version as own_core_version,
         coalesce(f.core_upgrade_commit, case when f.theme_mode = 'own' then r.commit end) as onto_commit,
         coalesce(f.core_upgrade_version, case when f.theme_mode = 'own' then r.core_version end) as onto_version,
-        f.core_upgrade_commit is not null as onto_upgrade
+        f.core_upgrade_commit is not null as onto_upgrade, d.commits[1] as first_commit
       from storefront f join store s on s.id = f.store_id left join design_draft d on d.store_id = f.store_id
         left join publish_run r on r.id = f.live_build_id
         left join publish_run o on o.id = case when f.theme_mode = 'baseline' then coalesce(f.baseline_from_build_id, f.live_build_id) else f.live_build_id end

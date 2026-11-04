@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -168,6 +168,14 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    live commit when that is on a newer core, or onto a major's passed upgrade waiting on the storefront (SAAS §10), in a
    sandbox of that version, saves the draft at its new head and core (its bisect chain starts again from it), and
    answers the head to publish; a conflict or a refusal answers the gate's problems and keeps the draft on its own core.
+
+   **Built on #1211:** a design Publish first takes into the draft the theme files that changed between where the draft
+   started (the parent of its first commit) and the live commit, from the live build's source bundle (the sandbox's
+   `POST /slots/{slot}/take` after `PUT onto`): one change through the gate, the live version winning a file both changed,
+   so a push to `main` that went live meanwhile is never overwritten. Files are compared, not history, since a design
+   publish reaches `main` squashed. The take's commit names the live commit (a `Live:` trailer), so another Publish of the
+   same draft compares from there and keeps later edits. The gate refusing the take stops Publish with `CHANGE_REFUSED`
+   and changes nothing; a take is recorded as `storefront.repo_push_taken`. "Publish everything before" takes nothing.
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
    workflow fetches through a 15-minute link. Nothing is pushed yet.
