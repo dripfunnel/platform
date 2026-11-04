@@ -115,7 +115,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const opened = existing && renewed ? { id: existing, access, expiresAt: renewed } : await openStudioSession(sql, context, deps.role, now())
     if (!opened) return { ok: false, reason: 'NOT_FOUND' }
     // Opening the studio builds the AI's store summary beside it, so the first change reads no catalogue (ARCHITECTURE §6.2).
-    const [state] = await Promise.all([studio.status(storeId), existing ? null : keepNew(studio, storeId, now(), summaryOf).catch(() => null)])
+    const [state] = await Promise.all([studio.status(storeId), existing ? null : keepNew(studio, storeId, now(), summaryOf).catch(summaryFailed)])
     return { ok: true, value: { ...state, session: opened.id, models: await deps.models(await billing(), context), frameUrl: `https://${key.slug}-preview.${deps.previewDomain}/__studio/${opened.id}/`, access: opened.access, expiresAt: opened.expiresAt } }
   }
 
@@ -178,15 +178,16 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   const summaryOf = () => buildStoreSummary(sql, context, now())
+  const summaryFailed = (error: unknown): null => {
+    logEvent({ event: 'studio_summary_failed', api: 'store', storeId, code: failureCode(error) })
+    return null
+  }
 
   /** The kept summary, or a new one when it is missing or 10 minutes old (#1242); none without a studio. */
   const currentSummary = async (): Promise<StoreSummary | null> => {
     if (!studio) return null
     // A change goes ahead without the summary rather than fail on it.
-    return freshSummary(studio, storeId, now(), summaryOf).catch((error: unknown) => {
-      logEvent({ event: 'studio_summary_failed', api: 'store', storeId, code: failureCode(error) })
-      return null
-    })
+    return freshSummary(studio, storeId, now(), summaryOf).catch(summaryFailed)
   }
 
   const briefOf = async (input: AskInput, image: AiImage | null, screenshot: AiImage | null, summary: StoreSummary | null): Promise<DesignBrief> => {
