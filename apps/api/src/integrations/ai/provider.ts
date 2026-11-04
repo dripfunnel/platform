@@ -16,7 +16,7 @@ export interface AiCall {
   system: string
   text: string
   images: readonly AiImage[]
-  /** Each piece of the answer's text as it streams (studio chat mode, AI-STUDIO §4); the answer still comes whole. */
+  /** Each piece of the answer's text as it streams through the router (studio chat mode, AI-STUDIO §4); the answer still comes whole. */
   onText?: (text: string) => void
 }
 
@@ -87,7 +87,6 @@ export const anthropicProvider = (apiKey: string, model: string = designerModel)
               },
             ],
           })
-          .on('text', (text) => call.onText?.(text))
           .finalMessage()
         if (message.stop_reason === 'refusal') throw new AiDeclined('the model declined')
         const text = message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('')
@@ -169,7 +168,7 @@ export const anthropicOAuthDesignerProvider = (authToken: string, model: string 
             role: 'user',
             content: [...call.images.map((image) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType, data: image.base64 } })), { type: 'text' as const, text: call.text }],
           }],
-        }).on('text', (text) => call.onText?.(text)).finalMessage()
+        }).finalMessage()
         if (message.stop_reason === 'refusal') throw new AiDeclined('the model declined')
         const text = message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
         return { text, model: message.model, tokensIn: message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0) + (message.usage.cache_creation_input_tokens ?? 0), tokensOut: message.usage.output_tokens, costAmount: 0, costCurrency: 'USD' }
