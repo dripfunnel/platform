@@ -59,6 +59,7 @@ const pending = {
     try {
       globalThis.sessionStorage?.setItem(pendingKey, productId)
       if (versionId) globalThis.sessionStorage?.setItem(pendingVersionKey, versionId)
+      else globalThis.sessionStorage?.removeItem(pendingVersionKey)
     } catch {
       // Storage is off: the shopper signs in and taps the heart again.
     }
@@ -241,9 +242,10 @@ export const useWishlist = ({ cards = false }: { cards?: boolean } = {}): Wishli
     error,
     toggle,
     chose: chosen.set,
-    remove: (productId) => {
-      chosen.set(productId, null)
-      return change(removeMutation, productId, false)
+    remove: async (productId) => {
+      const removed = await change(removeMutation, productId, false)
+      if (removed) chosen.set(productId, null)
+      return removed
     },
     addToCart: async (item) => (item.versionId ? cart.add(item.versionId, 1) : false),
   }

@@ -131,6 +131,14 @@ describe('useWishlist (the heart)', () => {
     expect(JSON.parse(localStorage.getItem('df.wishlist.chosen') ?? '{}')).toEqual({ 'p-2': 'ver-2' })
   })
 
+  it('does not carry an abandoned sign-in option over to the next product', async () => {
+    holding([])
+    await show()
+    await act(async () => shown().toggle('p-1', 'ver-1'))
+    await act(async () => shown().toggle('p-2'))
+    expect([sessionStorage.getItem('df.wishlist.pending'), sessionStorage.getItem('df.wishlist.pending.version')]).toEqual(['p-2', null])
+  })
+
   it('forgets the saved options once the shopper is signed out', async () => {
     localStorage.setItem('df.wishlist.chosen', JSON.stringify({ 'p-2': 'ver-2' }))
     holding([])
@@ -210,6 +218,20 @@ describe('useWishlist (the page)', () => {
     expect(shown().status).toBe('ready')
     expect(shown().items.map((i) => [i.name, i.versionId])).toEqual([['Kurta', 'ver-a'], ['Scarf', null], ['Gift card', null], ['Shawl', null]])
     expect(sent(asked, 'WishlistVersions')[0]?.variables).toEqual({ s0: 'kurta', s1: 'scarf', s2: 'card', s3: 'shawl' })
+  })
+
+  it('keeps the saved option when a removal is refused', async () => {
+    signedIn()
+    localStorage.setItem('df.wishlist.chosen', JSON.stringify({ a: 'ver-a' }))
+    shopAnswering((q: Asked) => {
+      if (q.query.includes('removeFromWishlist')) return { errors: [{ message: 'no', extensions: { code: 'NOT_FOUND' } }] }
+      if (q.query.includes('WishlistVersions')) return { data: { v0: { giftCard: null, versions: [{ id: 'ver-a', inStock: true }, { id: 'ver-b', inStock: true }] } } }
+      if (q.query.includes('query Wishlist ')) return { data: { wishlist: [card('a', 'kurta', 'Kurta')] } }
+      return { data: { cart: null } }
+    })
+    await show({ cards: true })
+    await act(async () => void (await shown().remove('a')))
+    expect(JSON.parse(localStorage.getItem('df.wishlist.chosen') ?? '{}')).toEqual({ a: 'ver-a' })
   })
 
   it('removes a product from the list, and adds an item to the cart', async () => {
