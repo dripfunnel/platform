@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -59,6 +59,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 | Piece | Role | Why |
 |---|---|---|
 | **Studio** (portal SPA) | Chat, history, undo, Publish, and the frame | It talks only to the Store API, under the merchant's own session. |
+| **Live socket** (`/api/studio/live` on the portal host, #1237) | Each step of a change and a chat's words as they happen (§4 "Live progress") | One-way, from the store's `StudioSession` to every open studio of the store; changes still start and stop through GraphQL. |
 | **Store API** | Checks the session, the store and the capability (ACCESS §3), calls the model | The partner's or merchant's AI key never leaves the Worker. |
 | **`StudioSession` Durable Object** (one per store) | Owns the container, the change in progress and the draft's head commit | One owner per store makes two tabs safe and gives the container one place that talks to it. |
 | **Container** | Applies diffs, runs the fast gate, holds the working copy | Workers can't run a typecheck or a bundler; a container can, in isolation. |
@@ -136,6 +137,39 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    shows the change on any device.
 8. **The change is recorded**: a `design_message` with what changed, and an `ai_run` with the
    tokens, container time and repairs (SAAS §9.2).
+
+### Live progress (decided 2026-11-04 on #1237)
+
+The studio opens one WebSocket, `/api/studio/live?session=…&store=…&after=…`, on the portal host. The Store API builds
+the `TenantContext` from the session cookie (the acting store in `?store=`, checked like `X-Store`), checks the studio's
+read access (`storefront.read`, the Owner or a Manager; support and impersonation refused), that `Origin` is the portal
+host, and that `session` is this person's live studio session (§3 step 6). It hands the upgrade to the Durable Object
+named by the context's store, never by an id from the client. The object accepts it as a **hibernating** socket, so an
+idle open studio costs nothing, tagged with the studio session's hash: the alarm's sweep closes it with the frame's (§8).
+
+**One-way.** The object pushes events; nothing is ever read from the socket. `askDesign` and `cancelDesign` stay the only
+way to start and stop a change, so the merchant mobile app and every audit entry are unchanged. **Every open studio of
+the store** (two tabs, two people) gets the same events.
+
+| Event | Sent by | When |
+|---|---|---|
+| `step` `reading` | Worker | A change, as soon as `askDesign`'s input is checked: the first feedback, within 2 s of Send |
+| `step` `asking` | Worker (chat) or object | A chat's first step; a change's first ask of the model |
+| `text` | Worker (chat) or object | A chat: the model's words as they stream through the AI gateway. A change: the AI's one-line summary, once known |
+| `step` `checking` | object | Before each run of the fast gate |
+| `step` `repairing` (`attempt`, `of`) | object | Before each repair: "Fixing a problem (1 of 3)" |
+| `step` `saving`, `updating` | object | Saving the draft (steps 5–7), then the frame's reload |
+| `done` (`outcome`, `messageId`) | Worker | The outcome `askDesign` answers, once its message is recorded |
+| `error` (`code`) | Worker | `askDesign` refused after its first step (`STUDIO_QUEUED`, `AI_BUDGET_REACHED`…) or failed (`FAILED`) |
+
+Every event carries `seq`, numbered per store, and `run`, one per request. Never file contents, prompts or secrets: the
+merchant's words, the theme and the keys never go out on it. A chat's streamed words stop at 2,000 characters, as its
+message does.
+
+**Reconnect.** A dropped socket reconnects with the last `seq` it saw, and the object replays exactly what came after,
+from its own storage, so a restarted object still has it. A run's events are kept until **1 minute after it ends** (one
+without an end, after 20 minutes). **Fallback**: a studio whose socket can't connect shows "Checking your change…" as
+before, and reads the result when `askDesign` answers.
 
 ---
 
