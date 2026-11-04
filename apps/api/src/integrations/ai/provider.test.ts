@@ -50,7 +50,37 @@ it('uses the reference OAuth auth, model and streaming Messages request at the m
     system: 'Design a shop',
     messages: [{ role: 'user', content: [{ type: 'text', text: 'Warm colours' }] }],
   })
-  expect(answer).toEqual({ text: 'A design response', model: 'claude-haiku-4-5', tokensIn: 12, tokensOut: 34, costAmount: 0, costCurrency: 'USD' })
+  expect(answer).toEqual({ text: 'A design response', model: 'claude-haiku-4-5', tokensIn: 12, tokensOut: 34, costAmount: 0, costCurrency: 'USD', tokensCached: 0 })
+})
+
+it('marks the system and each context part for the cache, before the images and the request (#1238)', async () => {
+  await anthropicOAuthDesignerProvider('oauth-token').complete({ system: 'rules', context: ['shop', 'theme'], text: 'ask', images: [{ mediaType: 'image/png', base64: 'aW1hZ2U=' }] })
+  const marker = { cache_control: { type: 'ephemeral' } }
+  expect(mocks.stream).toHaveBeenCalledWith(expect.objectContaining({
+    system: [{ type: 'text', text: 'rules', ...marker }],
+    messages: [{ role: 'user', content: [
+      { type: 'text', text: 'shop', ...marker },
+      { type: 'text', text: 'theme', ...marker },
+      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'aW1hZ2U=' } },
+      { type: 'text', text: 'ask' },
+    ] }],
+  }))
+})
+
+it('costs a routed answer’s cached tokens at the cached price and reports them (#1238)', async () => {
+  const seen: CanonicalRequest[] = []
+  const usage = { tokensIn: 50_000, tokensOut: 100, cachedTokensIn: 40_000, cacheWriteTokensIn: 0 }
+  async function* events() {
+    yield { kind: 'text' as const, text: '{}' }
+    yield { kind: 'usage' as const, usage }
+    yield { kind: 'end' as const, finish: 'stop' as const, model: 'claude-opus-5-5' }
+  }
+  const route = { provider: 'anthropic', model: 'claude-opus-5-5', connection: { authType: 'api_key' } }
+  const router = { stream: async (request: CanonicalRequest) => (seen.push(request), { value: events(), route, fallbackUsed: false, fallbackFrom: null }) } as unknown as Router
+  const answer = await routedDesignerProvider(router, 'claude-opus-5-5', { signIn: false }).complete({ system: 'rules', context: ['theme'], text: 'ask', images: [] })
+  expect(seen[0]).toMatchObject({ cacheSystem: true, messages: [{ role: 'user', content: [{ type: 'text', text: 'theme', cache: true }, { type: 'text', text: 'ask' }] }] })
+  expect(answer.tokensCached).toBe(40_000)
+  expect(answer.costAmount).toBe(Math.ceil((10_000 * 400 + 40_000 * 20 + 100 * 2000) / 1_000_000))
 })
 
 it('sends reference images through the standard Messages content format', async () => {

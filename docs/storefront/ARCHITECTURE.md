@@ -1064,13 +1064,30 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
     'best-selling' })` when the store has best sellers), to give tiles to the collections it has (`useCollections`), to
     take palette hints from its photos, and to show a banner only for a real offer, through `useOffers()`; never a
     product, price, rating, collection, offer, discount, sales figure or city in theme code or content (§3.4).
+- **The answer is edits, not whole files** (decided 2026-11-04 on #1238): for a file the theme has, a list of exact
+  search-and-replace edits, each search found **exactly once** in the file as it is (edits to one file apply in order);
+  a new file is sent whole; a deleted file is named (`{path, delete: true}`). The reply is read with a strict schema, so
+  an unknown field makes it no usable answer. A whole file for a path the theme has is still taken as a replacement.
+  The runner (`saas/studio/patches.ts`) applies the edits to the theme it holds and gives the sandbox whole files, as
+  before; an edit whose search is missing, repeated or empty, or names a file that isn't there, is a problem like the
+  gate's (`patch/not-found`, `patch/not-unique`, `patch/empty-search`, `patch/missing-file`, naming the file, the edit
+  and why), sent back to the model with no sandbox run, and counts as one of the three repairs. A repair answers the
+  whole change again as edits against the same theme, never on top of a failed answer.
+- **The prompt's order, for the cache** (#1238): core's rules (the system prompt, the same for every store), then the
+  shop and its summary (rebuilt at most every 10 minutes), then the theme's files sorted by path (new with each change),
+  each ending a cached prefix (Anthropic's `cache_control`; OpenAI caches the same prefix itself). Everything that
+  changes per request comes after them: the merchant's image and the screenshot, the worked carousel when the request
+  asks for one, the no-photo-tools note, the page and device, the last four requests, a repair's last answer and
+  errors, and the request. The shop goes before the theme because it changes less often, so a new theme still reads
+  the rules and the shop from the cache. The first ask and its repairs offer the same tools on every turn (a repair's
+  calls are refused, a call past a limit is answered with it), so a repair reads the whole prefix from the cache.
 - **A sample site** is fetched as a screenshot by the platform (public addresses only, the
   rules of `../ARCHITECTURE.md` §7), never by the container. The AI takes its layout, spacing,
   colour and mood, **never its logo, photos or words**.
 - **The fast gate** (seconds): the file allowlist, the validator, the typecheck, the bundle,
   the byte budgets (§9) and the content checks. On failure the model gets the exact errors
-  and tries again, **at most three times**; repairs are the platform's cost. A repair is also shown the
-  files of its last answer, so it edits them rather than rewriting blind (#1083).
+  and tries again, **at most three times**; repairs are the platform's cost. A repair is also shown
+  its last answer's files as it sent them (its edits, #1238), so it corrects them rather than rewriting blind (#1083).
 - **What it refuses**: prices, stock, products, shipping and checkout behaviour; it says these
   are changed in Products or Settings, and the draft stays as it was. A request that would
   break a budget is answered in words with an alternative ("a 4K video would make the page

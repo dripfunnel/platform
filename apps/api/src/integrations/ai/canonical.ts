@@ -2,7 +2,8 @@
 import type { FinishReason, GatewayErrorCode } from './gateway'
 
 export type CanonicalPart =
-  | { type: 'text'; text: string }
+  /** `cache`: the prompt up to and including this part is a cache prefix (Anthropic's marker; OpenAI caches prefixes itself). */
+  | { type: 'text'; text: string; cache?: boolean }
   | { type: 'image'; mediaType: string; base64: string }
   | { type: 'tool_call'; id: string; name: string; arguments: string }
   | { type: 'tool_result'; callId: string; content: string; isError?: boolean }
@@ -26,6 +27,8 @@ export type ReasoningEffort = 'low' | 'medium' | 'high'
 export interface CanonicalRequest {
   model: string
   system?: string
+  /** The prompt up to the end of `system` is a cache prefix, as a text part's `cache`. */
+  cacheSystem?: boolean
   /** Higher-priority instructions than `system`; a format without that role raises UnsupportedFeature. */
   developer?: string
   messages: readonly CanonicalMessage[]
@@ -41,7 +44,9 @@ export interface CanonicalRequest {
 export interface CanonicalUsage {
   tokensIn: number
   tokensOut: number
+  /** The parts of `tokensIn` read from the prompt cache, and written to it (Anthropic bills a write above the input price). */
   cachedTokensIn: number
+  cacheWriteTokensIn: number
 }
 
 export type CanonicalFinish = FinishReason | 'tool_use' | 'error'

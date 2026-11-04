@@ -115,13 +115,16 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 1. **The merchant asks** in words, with a pasted image, or with a sample site's address
    (`askDesign`, SAAS §9.2). The Durable Object runs one change at a time per store; a second
    request waits and shows "Finishing your previous change…".
-2. **The Worker calls the model** with the context of ARCHITECTURE §6.2. The model answers
-   with a **file diff**.
+2. **The Worker calls the model** with the context of ARCHITECTURE §6.2, the stable part first and cached (core's
+   rules, the shop, the theme's files), then the request's own. The model answers with **edits**: exact
+   search-and-replace edits for a file the theme has, a new file whole, a deleted file named (#1238), so a one-line
+   change costs a few lines of output.
    *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (below, off for now), and the Worker runs them, never the model and never the container.
-3. **The container applies the diff and runs the fast gate** (ARCHITECTURE §6.2): the
-   allowlist, the validator, the typecheck, the bundle, the byte budgets and the content
-   checks. On failure the model repairs from the exact errors, at most three times; after that,
-   "I couldn't make that change" and nothing changes.
+3. **The Durable Object applies the edits** to the theme it holds, and **the container runs the fast gate** on the
+   whole files (ARCHITECTURE §6.2): the allowlist, the validator, the typecheck, the bundle, the byte budgets and the
+   content checks. An edit that doesn't apply (its search not found exactly once) and a gate failure are both repaired
+   from the exact errors, at most three times; after that, "I couldn't make that change" and nothing changes. An edit
+   that doesn't apply shows as "Fixing a problem" with no check before it.
 4. **On a pass, the container commits the change locally**, with the request as the message.
    These per-change commits, and their messages, stay in the private draft for ever: they never
    reach the public repo (§6 step 4).

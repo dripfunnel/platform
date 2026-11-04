@@ -803,10 +803,11 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
   → every open studio of the store follows it live over `/api/studio/live` (#1237): each step (reading, asking,
     checking, each repair, saving, updating), a chat's words as they stream, then the outcome askDesign answers; events
     only, never the request's words or a file ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4 "Live progress")
-  → the store's Durable Object runs the diff in the store's container: the fast gate
+  → the model answers with edits (#1238: exact search-and-replace edits, new files whole, deletions named); the store's
+    Durable Object applies them to the theme it holds and runs the whole files in the store's container: the fast gate
     (allowlist, validator, typecheck, bundle, byte budgets, content checks)
-      fail → the model repairs from the exact errors (≤3) → else refused: nothing changes
-      and the reply says so
+      fail, or an edit that doesn't apply → the model repairs from the exact errors (≤3) → else refused: nothing
+      changes and the reply says so
   → pass → a commit in the store's private draft; the studio frame shows it at once and the
     preview gets the same bundle ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4)
   → undo (revert the latest change), discard (back to the live version's commit),
@@ -853,8 +854,10 @@ at once (a single-page render, no allowance).
 
 **Metering**: every request writes an `ai_run` row: store, requesting user, prompt, model,
 tokens in and out, cost (minor units and currency), container time, repair attempts and their
-cost, outcome (changed, nothing changed, refused, failed). The merchant's meter counts the
-request's own tokens; repairs are recorded as the platform's cost. It is the source for the AI
+cost, outcome (changed, nothing changed, refused, failed). Tokens in count every input token, cached ones too; the
+cost prices each part at its own rate (#1238): input read from the provider's prompt cache at the cache-read price,
+input written to it at the cache-write price (Anthropic's 1.25×), the rest at the input price (`registry.ts`,
+`costOf`). The merchant's meter counts the request's own tokens; repairs are recorded as the platform's cost. It is the source for the AI
 meter, usage billing and §12's metrics; build minutes come from `publish_run`.
 
 ~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284);
@@ -923,7 +926,15 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
 - **Errors** are codes only (`INVALID_CREDENTIALS`, `RATE_LIMITED`, `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `CANCELLED`, `BAD_REQUEST`,
   `MODEL_NOT_FOUND`, `CONTENT_REFUSED`) with no upstream text, header or key.
 - **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
-  id; the prompt column is empty and no answer is kept. The Store API's per-minute and per-month call limits (ACCESS §5.6)
+  id; the prompt column is empty and no answer is kept.
+- **Prompt caching (the studio's path, #1238):** a canonical text part may carry `cache` and a request `cacheSystem`; the
+  Anthropic Messages translator turns each into a `cache_control: { type: 'ephemeral' }` marker (5 minutes) on that block,
+  at most three a request (the rules, the shop, the theme: storefront ARCHITECTURE §6.2), and the OpenAI translators drop
+  them, since OpenAI caches a request's prefix itself. The usage carries `cachedTokensIn` (read) and `cacheWriteTokensIn`
+  (written), both counted in `tokensIn` too, and the cost prices each at the model's `cacheRead` and `cacheWrite` rates in
+  `registry.ts` (Claude Opus 5.5 and Sonnet 5.5 read at the published $0.20 per million; the other Claude models at 0.1× and
+  writes at 1.25× their input price; OpenAI's cached input at its published price, with no write premium). Anything that
+  changes between two asks goes after the last marker, and the tools offered never change within a change. The Store API's per-minute and per-month call limits (ACCESS §5.6)
   apply as to any key.
 - **Differences between the providers.** Both take a system message and turns; `system` may be text or native text blocks, and
   a `role: system` turn is accepted. A request with no `user` turn is refused with `INVALID_INPUT`. Claude moves every system

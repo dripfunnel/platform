@@ -5,8 +5,8 @@ import type { StreamTranslator } from './types'
 
 export const errorEvent = (code: GatewayErrorCode): CanonicalStreamEvent => ({ kind: 'error', code, retryAfter: null })
 
-/** `tokensIn` counts cached tokens too and `cachedTokensIn` is the part of it served from cache, as the API-key provider meters it. */
-export const usageOf = (tokensIn: number | null | undefined, tokensOut: number | null | undefined, cachedTokensIn: number | null | undefined): CanonicalUsage => ({ tokensIn: tokensIn ?? 0, tokensOut: tokensOut ?? 0, cachedTokensIn: cachedTokensIn ?? 0 })
+/** `tokensIn` counts cached tokens too; `cachedTokensIn` is the part of it served from cache and `cacheWriteTokensIn` the part written to it. */
+export const usageOf = (tokensIn: number | null | undefined, tokensOut: number | null | undefined, cachedTokensIn: number | null | undefined, cacheWriteTokensIn?: number | null): CanonicalUsage => ({ tokensIn: tokensIn ?? 0, tokensOut: tokensOut ?? 0, cachedTokensIn: cachedTokensIn ?? 0, cacheWriteTokensIn: cacheWriteTokensIn ?? 0 })
 
 /** A body that failed its schema is a provider fault, never a success with fields missing. */
 export const parseOrThrow = <T extends z.ZodType>(schema: T, raw: unknown): z.infer<T> => {
