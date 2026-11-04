@@ -420,7 +420,7 @@ export const createStudioService = (deps: StudioDeps) => {
   const undo = async (messageId: string): Promise<DesignResult<MessageRow>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     // The head is read once every save is written (AI-STUDIO §4 step 6); a change still only kept can't be undone yet.
-    if (!(await studio.saved(storeId))) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+    if (!(await studio.saved(storeId).catch(() => false))) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     const latest = await withScope(sql, context, (tx) => selectLatestChange(tx, storeId))
     const head = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     if (!latest || latest.id !== messageId || !latest.commit || latest.commit !== head) return { ok: false, reason: 'NOT_LATEST' }
@@ -442,7 +442,8 @@ export const createStudioService = (deps: StudioDeps) => {
   /** Discard (AI-STUDIO §5): the draft row and bundle go, the preview shows the live code again, the studio reloads it. */
   const discard = async (): Promise<DesignResult<true>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
-    await studio.saved(storeId)
+    // Read the draft after the saves; Discard drops what is still kept anyway, so a failed wait doesn't stop it.
+    await studio.saved(storeId).catch(() => undefined)
     const had = await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId))
     if (!had?.head_commit || !had.live_build_id) return { ok: false, reason: 'NOTHING_TO_DISCARD' }
     await studio.discard(storeId)
