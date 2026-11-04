@@ -24,10 +24,10 @@ export const coreRoutes = [
 export type CoreRoute = (typeof coreRoutes)[number]
 
 /**
- * The routes a theme may map, and need not (ARCHITECTURE §3.1, #324): the store's content pages and its blog. The baseline
- * maps them; the other starting themes gain them in ST 0, and until then those addresses get the theme's 404.
+ * The routes a theme may map, and need not (ARCHITECTURE §3.1, #324, #1214): the store's content pages and its blog, and the
+ * account's Wishlist. A theme without one has that address answer with its 404, and stays valid.
  */
-export const contentRoutes = ['contentPage', 'blog', 'blogPost'] as const
+export const contentRoutes = ['contentPage', 'blog', 'blogPost', 'accountWishlist'] as const
 
 export type ContentRoute = (typeof contentRoutes)[number]
 export type ThemeRoute = CoreRoute | ContentRoute

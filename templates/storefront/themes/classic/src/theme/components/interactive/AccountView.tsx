@@ -6,12 +6,13 @@ import { AddressFields, Checkbox, Form, Link, Price, SubmitButton, TextField, ad
 import { Notice } from '../Notice'
 import { OrderPill } from '../OrderPill'
 import { Retry } from './Retry'
+import { WishlistList } from './WishlistList'
 import shop from '../../styles/shop.module.css'
 import styles from '../../styles/account.module.css'
 
-type Section = 'orders' | 'details' | 'addresses'
+type Section = 'orders' | 'details' | 'addresses' | 'wishlist'
 
-const pathOf: Record<Section, string> = { orders: '/account/orders/', details: '/account/', addresses: '/account/addresses/' }
+const pathOf: Record<Section, string> = { orders: '/account/orders/', details: '/account/', addresses: '/account/addresses/', wishlist: '/account/wishlist/' }
 
 /** The account as D1 draws it: "Hello", Sign out, its sections beside the one open; a signed-out shopper is sent to sign in. */
 export const AccountView = ({ section }: { section: Section }) => {
@@ -57,6 +58,7 @@ export const AccountView = ({ section }: { section: Section }) => {
           {tab(pathOf.details, t('shop.account.details'), section === 'details')}
           {tab(pathOf.addresses, t('pages.account.addresses'), section === 'addresses')}
           {tab(pathOf.orders, t('shop.orders.title'), section === 'orders')}
+          {tab(pathOf.wishlist, t('shop.wishlist.title'), section === 'wishlist')}
         </nav>
         <div className={styles.body}>
           {page.error ? (
@@ -70,7 +72,7 @@ export const AccountView = ({ section }: { section: Section }) => {
                     : t('shop.account.refused.other')}
             </p>
           ) : null}
-          {section === 'orders' ? <Orders /> : section === 'details' ? <Details page={page} /> : <Addresses page={page} />}
+          {section === 'orders' ? <Orders /> : section === 'details' ? <Details page={page} /> : section === 'wishlist' ? <WishlistList /> : <Addresses page={page} />}
         </div>
       </div>
     </section>

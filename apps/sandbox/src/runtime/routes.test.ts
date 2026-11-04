@@ -19,6 +19,7 @@ describe('the preview’s route for an address', () => {
     ['/products/', { route: 'notFound' }],
     ['/blog/', { route: 'blog' }],
     ['/blog/why-linen/', { route: 'blogPost' }],
+    ['/account/wishlist/', { route: 'accountWishlist' }],
     ['/faq', { route: 'contentPage' }],
     ['/nowhere/', { route: 'contentPage' }],
     ['/no/where/', { route: 'notFound' }],

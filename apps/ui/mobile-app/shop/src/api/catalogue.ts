@@ -89,9 +89,9 @@ const pageInfo = z.object({ endCursor: text, hasNextPage: z.boolean().nullable()
 const nextOf = (info: z.infer<typeof pageInfo>): string | null => (info?.hasNextPage && info.endCursor ? info.endCursor : null)
 
 const m = '{ amount currency }'
-const summaryFields = `id slug name inStock price ${m} compareAt ${m} maxPrice ${m} photo { alt image { url } } badges { label tone }`
+export const summaryFields = `id slug name inStock price ${m} compareAt ${m} maxPrice ${m} photo { alt image { url } } badges { label tone }`
 
-const summarySchema = z.object({
+export const summarySchema = z.object({
   id: z.string(),
   slug: z.string(),
   name: z.string(),
@@ -105,7 +105,7 @@ const summarySchema = z.object({
 
 const differs = (low: Price | null, high: Price | null | undefined): boolean => low !== null && high != null && low.amount !== high.amount
 
-const cardOf = (product: z.infer<typeof summarySchema>): ProductCard => ({
+export const cardOf = (product: z.infer<typeof summarySchema>): ProductCard => ({
   id: product.id,
   slug: product.slug,
   name: product.name,

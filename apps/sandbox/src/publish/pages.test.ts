@@ -17,6 +17,12 @@ describe('the build’s page plan', () => {
     expect(edgeRules(pages, store).fallbacks).toEqual(expect.arrayContaining([{ prefix: '/blog/', page: '/_fallback/blogPost/' }, { prefix: '/hi/blog/', page: '/hi/_fallback/blogPost/' }]))
   })
 
+  it('gives the Account’s Wishlist its page in every language once the theme maps it, and none when it doesn’t (#1214)', () => {
+    const pages = plan({ routes: { ...core, accountWishlist: 'account/WishlistPage' } }, store)
+    expect(pages.filter((p) => p.route === 'accountWishlist').map((p) => p.path)).toEqual(['/account/wishlist/', '/hi/account/wishlist/'])
+    expect(plan({ routes: core }, store).some((p) => p.route === 'accountWishlist')).toBe(false)
+  })
+
   it('plans none of them for a theme that doesn’t map them', () => {
     const pages = plan({ routes: core }, store, ['/faq'])
     expect(pages.some((p) => p.route === 'contentPage' || p.route === 'blog' || p.route === 'blogPost')).toBe(false)

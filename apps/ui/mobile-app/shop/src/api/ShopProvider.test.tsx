@@ -1,5 +1,6 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { secureStorage } from '@dripfunnel/mobile-shared/storage'
+import { keepPendingWishlist } from '../session/pendingWishlist'
 import { loadTokens } from '../session/tokens'
 import { ShopProvider } from './ShopProvider'
 import { useShop, type Shop } from './ShopContext'
@@ -109,6 +110,44 @@ describe('the shopper’s session', () => {
     await act(async () => shop.startSession('sess-secret'))
     await act(async () => shop.endSession())
     expect(JSON.stringify([...log.mock.calls, ...warn.mock.calls])).not.toContain('sess-secret')
+  })
+})
+
+describe('a product hearted while signed out', () => {
+  const wishlistCalls = () => fetchSpy.mock.calls.filter(([, init]) => String((init as { body?: string }).body).includes('addToWishlist'))
+
+  it('is added to the account the sign-in makes, once, carrying the new session', async () => {
+    await keepPendingWishlist(host, 'p1')
+    await mount()
+    await act(async () => shop.startSession('sess-1'))
+    expect(wishlistCalls()).toHaveLength(1)
+    expect(JSON.parse(String((wishlistCalls()[0]?.[1] as { body: string }).body)).variables).toEqual({ productId: 'p1' })
+    expect(sent().at(-1)).toMatchObject({ 'x-shop-session': 'sess-1' })
+    await act(async () => shop.startSession('sess-2'))
+    expect(wishlistCalls()).toHaveLength(1)
+  })
+
+  it('does not fail the sign-in when the API refuses it', async () => {
+    await keepPendingWishlist(host, 'p1')
+    fetchSpy.mockRejectedValue(new Error('offline'))
+    await mount()
+    await act(async () => shop.startSession('sess-1'))
+    expect(shop.signedIn).toBe(true)
+    expect(await loadTokens(host)).toEqual({ session: 'sess-1', cart: null })
+  })
+
+  it('is forgotten when the shopper signs out before signing in', async () => {
+    await keepPendingWishlist(host, 'p1')
+    await mount()
+    await act(async () => shop.endSession())
+    await act(async () => shop.startSession('sess-1'))
+    expect(wishlistCalls()).toHaveLength(0)
+  })
+
+  it('adds nothing for a sign-in with no product kept', async () => {
+    await mount()
+    await act(async () => shop.startSession('sess-1'))
+    expect(wishlistCalls()).toHaveLength(0)
   })
 })
 

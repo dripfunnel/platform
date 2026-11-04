@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { AddToCart, BuyNow, Link, TextField, useStorefront, type GiftRecipient, type ProductPage } from '@dripfunnel/storefront-core/theme'
 import shop from '../../styles/shop.module.css'
 import styles from '../../styles/product.module.css'
+import { WishlistHeart } from './WishlistHeart'
 
 const emailLike = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -86,6 +87,7 @@ export const BuyButtons = ({ page }: { page: ProductPage }) => {
           {t('shop.product.buyNow')}
         </BuyNow>
       )}
+      {page.product ? <WishlistHeart productId={page.product.id} name={page.product.name} versionId={version?.id ?? null} /> : null}
       {failed || added ? (
         <p className={styles.added} role="status">
           {failed ? t('shop.product.addFailed') : t('shop.product.added')}
