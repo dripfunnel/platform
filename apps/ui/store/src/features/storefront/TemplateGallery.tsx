@@ -17,7 +17,7 @@ export interface TemplateGalleryProps {
   onChosen: (template: StorefrontTemplate, status: StorefrontStatus) => void
 }
 
-/** The template gallery (PortalStorefront › gallery; FIRST-RELEASE §14): six looks and "Start from scratch". */
+/** The template gallery (PortalStorefront › gallery; FIRST-RELEASE §14): Classic and "Start from scratch". */
 export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: TemplateGalleryProps) => {
   const [asking, setAsking] = useState<StorefrontTemplate | null>(null)
   const [busy, setBusy] = useState<string | null>(null)

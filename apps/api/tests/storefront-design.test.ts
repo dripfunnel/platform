@@ -86,12 +86,12 @@ beforeAll(async () => {
   const template = await walk(baselineDir)
   await putText(sites, `templates/${core}/skeleton.json`, JSON.stringify({ files: [{ path: 'package.json', content: '{"name":"store"}\n' }, { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' }] }))
   await putText(sites, `templates/${core}/themes/baseline/source.json`, JSON.stringify({ files: template }))
-  // Linen, as ST 0 ships it: words in English only, another headline, its own look.
-  const linen = template
+  // A second template under the classic key: words in English only, another headline, its own look.
+  const classic = template
     .filter((f) => !f.path.startsWith('content/hi/'))
-    .map((f) => (f.path === 'content/en/pages.json' ? { ...f, content: f.content.replace('Made slowly, worn for years', 'Linen for slow days') } : f))
-    .map((f) => (f.path === 'src/theme/styles/page.module.css' ? { ...f, content: `${f.content}\n.linen {\n  letter-spacing: 0.02em;\n}\n` } : f))
-  await putText(sites, `templates/${core}/themes/linen/source.json`, JSON.stringify({ files: linen }))
+    .map((f) => (f.path === 'content/en/pages.json' ? { ...f, content: f.content.replace('Made slowly, worn for years', 'Classic for every day') } : f))
+    .map((f) => (f.path === 'src/theme/styles/page.module.css' ? { ...f, content: `${f.content}\n.classic {\n  letter-spacing: 0.02em;\n}\n` } : f))
+  await putText(sites, `templates/${core}/themes/classic/source.json`, JSON.stringify({ files: classic }))
   for (const storeId of [t.storeA1, t.storeA2, t.storeB1]) {
     await db.sql`update store set core_version = ${core}, main_language = 'en-IN' where id = ${storeId}`
     await db.sql`insert into store_language (store_id, language) values (${storeId}, 'en-IN'), (${storeId}, 'hi-IN') on conflict do nothing`
@@ -109,10 +109,10 @@ afterAll(async () => {
 })
 
 describe('the template gallery', () => {
-  it('lists "Start from scratch" and the seven templates; the Manager reads it, Staff and suppliers are refused', async () => {
+  it('lists Classic, then "Start from scratch", then Market; the Manager reads it, Staff and suppliers are refused', async () => {
     const read = await w.gql('owner', '{ storefrontTemplates { key name tag current demoUrl } }')
     const rows = read.data?.['storefrontTemplates'] as { key: string; current: boolean; demoUrl: string | null }[]
-    expect(rows.map((r) => r.key)).toEqual(['baseline', 'linen', 'concrete', 'bloom', 'circuit', 'market', 'atelier', 'classic'])
+    expect(rows.map((r) => r.key)).toEqual(['classic', 'baseline', 'market'])
     expect(rows.some((r) => r.current)).toBe(false)
     expect(rows.every((r) => r.demoUrl === null)).toBe(true)
     expect((await w.gql('manager', '{ storefrontTemplates { key } }')).code).toBeUndefined()
@@ -135,7 +135,7 @@ describe('each store’s own storefront', () => {
     }
     const outbox = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where store_id = ${t.storeB1}`)[0]?.n
     const before = await outbox()
-    await choose('a2Owner', 'linen', false)
+    await choose('a2Owner', 'classic', false)
     expect(await outbox()).toBe(before)
     expect(await db.sql`select 1 from design_draft where store_id = ${t.storeB1}`).toHaveLength(0)
     await db.sql`delete from design_version where store_id = ${t.storeB1}`
@@ -152,7 +152,7 @@ describe('each store’s own storefront', () => {
     const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now }, 'tok-studio')
     const cookie = entered?.cookie ?? ''
     expect((await w.support(cookie, t.partnerA, '{ storefront { status } }')).code).toBeUndefined()
-    expect((await w.support(cookie, t.partnerA, 'mutation { chooseTemplate(key: "linen", keepWords: false) }')).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await w.support(cookie, t.partnerA, 'mutation { chooseTemplate(key: "classic", keepWords: false) }')).code).toBe('BLOCKED_FOR_SUPPORT')
   })
 })
 
@@ -161,10 +161,10 @@ describe('the version history', () => {
     await db.sql`
       with runs as (
         insert into publish_run (store_id, kind, state, commit, template, core_version, uses_allowance, started_by_kind, created_at)
-        select ${t.storeA2}, 'design', 'live', lpad(to_hex(n), 40, '0'), 'linen', ${core}, false, 'system', now() from generate_series(1, 53) n
+        select ${t.storeA2}, 'design', 'live', lpad(to_hex(n), 40, '0'), 'classic', ${core}, false, 'system', now() from generate_series(1, 53) n
         returning id, commit)
       insert into design_version (store_id, number, commit, template, core_version, build_id, published_at, state)
-      select ${t.storeA2}, ('x' || right(commit, 8))::bit(32)::int, commit, 'linen', ${core}, id,
+      select ${t.storeA2}, ('x' || right(commit, 8))::bit(32)::int, commit, 'classic', ${core}, id,
         case when commit = lpad(to_hex(1), 40, '0') then now() - interval '400 days' else now() end, case when commit = lpad(to_hex(1), 40, '0') then 'live' else 'kept' end
       from runs`
     const page = async (before?: number) => ((await w.gql('a2Owner', 'query H($b: Int) { storefront { history(before: $b) { number live } } }', { b: before ?? null })).data?.['storefront'] as { history: { number: number; live: boolean }[] }).history
@@ -177,31 +177,31 @@ describe('the version history', () => {
 
 describe('choosing a template', () => {
   it('is refused until the brand is ready, and for a template that isn’t offered', async () => {
-    expect((await choose('a2Owner', 'linen', false)).code).toBe('BRAND_NOT_READY')
+    expect((await choose('a2Owner', 'classic', false)).code).toBe('BRAND_NOT_READY')
     expect((await choose('owner', 'nope', false)).code).toBe('INVALID_TEMPLATE')
   })
 
   it('is refused to a store with its own storefront, which never gets a repo (PLATFORM-PROMPT §5.6)', async () => {
     await db.sql`update store set storefront_kind = 'own' where id = ${t.storeA1}`
-    expect((await choose('owner', 'linen', false)).code).toBe('OWN_FRONTEND')
+    expect((await choose('owner', 'classic', false)).code).toBe('OWN_FRONTEND')
     await db.sql`update store set storefront_kind = 'ai' where id = ${t.storeA1}`
     expect(await db.sql`select 1 from outbox where kind = 'storefront.create' and store_id = ${t.storeA1}`).toHaveLength(0)
   })
 
   it('is the Owner’s: the Manager, Staff and a supplier are refused', async () => {
-    for (const who of ['manager', 'staff', 'supplier'] as const) expect((await choose(who, 'linen', false)).code).toBe('FORBIDDEN')
+    for (const who of ['manager', 'staff', 'supplier'] as const) expect((await choose(who, 'classic', false)).code).toBe('FORBIDDEN')
   })
 
   it('the first time starts the create-storefront Workflow through the outbox, once', async () => {
-    const first = await choose('owner', 'linen', false)
+    const first = await choose('owner', 'classic', false)
     expect(first).toMatchObject({ code: undefined, data: { chooseTemplate: 'creating' } })
     const queued = await db.sql<{ payload: { template: string; storeId: string } }[]>`select payload from outbox where kind = 'storefront.create' and store_id = ${t.storeA1}`
-    expect(queued.map((q) => q.payload)).toEqual([expect.objectContaining({ template: 'linen', storeId: t.storeA1 })])
-    expect((await choose('owner', 'bloom', false)).code).toBe('IN_PROGRESS')
+    expect(queued.map((q) => q.payload)).toEqual([expect.objectContaining({ template: 'classic', storeId: t.storeA1 })])
+    expect((await choose('owner', 'baseline', false)).code).toBe('IN_PROGRESS')
     const [logged] = await db.sql<{ action: string; changes: unknown }[]>`select action, changes from activity_log where store_id = ${t.storeA1} and action = 'storefront.template_chosen'`
-    expect(logged?.changes).toEqual([expect.objectContaining({ field: 'template', before: null, after: 'linen' })])
+    expect(logged?.changes).toEqual([expect.objectContaining({ field: 'template', before: null, after: 'classic' })])
     const notes = await db.sql<{ role: string; text: string }[]>`select role, text from design_message where store_id = ${t.storeA1}`
-    expect(notes).toEqual([{ role: 'note', text: 'template:linen' }])
+    expect(notes).toEqual([{ role: 'note', text: 'template:classic' }])
     const status = await w.gql('owner', '{ storefront { status template draft { template } live { number } history { number } } }')
     expect(status.data?.['storefront']).toEqual({ status: 'creating', template: null, draft: null, live: null, history: [] })
   })
@@ -211,11 +211,11 @@ describe('choosing a template', () => {
     await db.sql`update storefront set repo_state = 'ready', template = 'baseline', repo = 'sf-b1aaaaaaaa', repo_head = ${'a'.repeat(40)} where store_id = ${t.storeB1}`
     const pushes = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from storefront_push`)[0]?.n
     const before = await pushes()
-    const chosen = await choose('bOwner', 'linen', true)
+    const chosen = await choose('bOwner', 'classic', true)
     expect(chosen).toMatchObject({ code: undefined, data: { chooseTemplate: 'not_published' } })
     const [draft] = await db.sql<{ head_commit: string; template: string; preview_deploy_ref: string; changed_by: string }[]>`
       select head_commit, template, preview_deploy_ref, changed_by from design_draft where store_id = ${t.storeB1}`
-    expect(draft).toMatchObject({ template: 'linen', changed_by: w.people.bOwner })
+    expect(draft).toMatchObject({ template: 'classic', changed_by: w.people.bOwner })
     expect(drafts.objects.has(draftBundle(t.storeB1))).toBe(true)
     expect(sites.keys(previewFolder(t.storeB1, draft?.preview_deploy_ref ?? '')).length).toBeGreaterThan(0)
     expect(await pushes()).toBe(before)
@@ -224,7 +224,7 @@ describe('choosing a template', () => {
 
     const entries = (await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${t.storeB1} and action = 'storefront.template_chosen'`)[0]?.n
     // The template the draft already uses changes nothing and records nothing.
-    expect((await choose('bOwner', 'linen', true)).code).toBeUndefined()
+    expect((await choose('bOwner', 'classic', true)).code).toBeUndefined()
     expect((await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${t.storeB1} and action = 'storefront.template_chosen'`)[0]?.n)
       .toBe(entries)
     const again = await choose('bOwner', 'baseline', false)

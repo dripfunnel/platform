@@ -28,7 +28,7 @@ const refusalText = (error: unknown): string => {
 
 const nameOf = (template: StorefrontTemplate): string => (template.key === scratchTemplate ? t('storefront.gallery.scratch') : template.name)
 
-// The template gallery (PortalStorefront › gallery): the six looks and "Start from scratch", each a tile with its name (the API offers no picture, FIRST-RELEASE (store) §14).
+// The template gallery (PortalStorefront › gallery): Classic and "Start from scratch", each a tile with its name (the API offers no picture, FIRST-RELEASE (store) §14).
 // A site that exists asks whether to keep the merchant's words; the first pick has none to keep. The live site doesn't change until Publish.
 export function TemplateGallery({ client, templates, status, onBack, onChosen }: Props) {
   const { colors, radii } = useTheme()

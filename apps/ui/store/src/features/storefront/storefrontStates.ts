@@ -62,28 +62,22 @@ export const sampleDomains = (state: StorefrontState): StorefrontDomains => {
 
 const templateRows: readonly (readonly [string, string, string, string])[] = harness
   ? [
-      ['baseline', 'Start from scratch', 'Blank', 'A plain header, banner, story and footer. Describe your shop and the AI styles it.'],
-      ['linen', 'Linen', 'Minimal fashion', 'Light, roomy and quiet. Big photos, small type, nothing in the way.'],
-      ['concrete', 'Concrete', 'Bold streetwear', 'Loud type, hard edges and a bright accent.'],
-      ['bloom', 'Bloom', 'Beauty & wellness', 'Soft colour, rounded shapes and calm serif headings.'],
-      ['circuit', 'Circuit', 'Electronics & tech', 'Dark, sharp and spec-led. Clear details and help up front.'],
-      ['market', 'Market', 'Food & grocery', 'Warm, friendly and easy to browse.'],
-      ['atelier', 'Atelier', 'Luxury editorial', 'Magazine-like pacing. Large serif type, muted tones, lots of space.'],
       ['classic', 'Classic', 'Traditional & ethnic', 'Calm neutral colours and serif headings. A banner carousel, search in the header and collection spotlights.'],
+      ['baseline', 'Start from scratch', 'Blank', 'A plain header, banner, story and footer. Describe your shop and the AI styles it.'],
     ]
   : []
 
 const unstarted = (state: StorefrontState) => state === 'brand' || state === 'gallery' || state === 'noSite'
 
 export const sampleTemplates = (state: StorefrontState): StorefrontTemplate[] =>
-  templateRows.map(([key, name, tag, description]) => ({ key, name, tag, description, demoUrl: key === 'baseline' ? null : `https://${key}-demo.shops.dripfunnel.ai`, current: !unstarted(state) && state !== 'creating' && key === 'linen' }))
+  templateRows.map(([key, name, tag, description]) => ({ key, name, tag, description, demoUrl: key === 'baseline' ? null : `https://${key}-demo.shops.dripfunnel.ai`, current: !unstarted(state) && state !== 'creating' && key === 'classic' }))
 
 export const sampleOverview = (state: StorefrontState): StorefrontOverview => {
   if (!harness || unstarted(state)) return { status: 'not_started', template: null, live: null, draft: null, lastPublish: null }
-  if (state === 'creating') return { status: 'creating', template: 'linen', live: null, draft: null, lastPublish: null }
-  const live = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: state === 'oldBuild' ? null : window.location.origin }
-  const draft = { template: 'linen', changedAt: '2026-10-12T08:15:00Z', previewReady: true }
+  if (state === 'creating') return { status: 'creating', template: 'classic', live: null, draft: null, lastPublish: null }
+  const live = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'classic', portalOrigin: state === 'oldBuild' ? null : window.location.origin }
+  const draft = { template: 'classic', changedAt: '2026-10-12T08:15:00Z', previewReady: true }
   const lastPublish =
     state === 'rolledBackLive' ? { state: 'rolled_back' as const, error: 'check_checkout', version: null, finishedAt: '2026-10-12T09:05:00Z' } : { state: 'live' as const, error: null, version: 12, finishedAt: live.publishedAt }
-  return state === 'draft' || state === 'manager' || isStudioState(state) ? { status: 'unpublished_changes', template: 'linen', live, draft, lastPublish } : { status: 'same_as_live', template: 'linen', live, draft: null, lastPublish }
+  return state === 'draft' || state === 'manager' || isStudioState(state) ? { status: 'unpublished_changes', template: 'classic', live, draft, lastPublish } : { status: 'same_as_live', template: 'classic', live, draft: null, lastPublish }
 }
