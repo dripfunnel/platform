@@ -314,6 +314,11 @@ describe('publishing from the studio', () => {
       expect((await publish()).code).toBe('CHANGE_REFUSED')
       expect(await head()).toBe(draft)
       expect((await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${t.storeA1}`)[0]?.n).toBe(runs)
+      // A live build whose source can't be read is never published over either.
+      const missing = await pushLive((page) => page.replace("label={t('pages.home.more')}", "label={t('pages.home.lead')}"))
+      await drafts.delete([sourceBundle(t.storeA1, missing.runId)])
+      expect((await publish()).code).toBe('CHANGE_REFUSED')
+      expect(await head()).toBe(draft)
       await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA1}`
       await db.sql`update design_version set state = 'kept' where store_id = ${t.storeA1} and state = 'live'`
       await db.sql`update design_version set state = 'live' where id = ${liveVersion?.id ?? ''}`

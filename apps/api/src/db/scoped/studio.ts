@@ -66,9 +66,9 @@ export const restartDraft = async (tx: ScopedSql, storeId: string, head: string)
   await tx`update design_draft set head_commit = ${head}, commits = ${pgArray([head])}::text[], base_version_id = ${liveVersion(tx, storeId)} where store_id = ${storeId}`
 }
 
-/** The draft took the live theme (#1211): the next Publish compares from the live version, not from where it started. */
-export const baseDraftOnLive = async (tx: ScopedSql, storeId: string): Promise<void> => {
-  await tx`update design_draft set base_version_id = ${liveVersion(tx, storeId)} where store_id = ${storeId}`
+/** The draft took the theme of the live build `buildId` (#1211): the next Publish compares from that build's version. */
+export const baseDraftOnBuild = async (tx: ScopedSql, storeId: string, buildId: string): Promise<void> => {
+  await tx`update design_draft set base_version_id = (select id from design_version where store_id = ${storeId} and build_id = ${buildId}) where store_id = ${storeId}`
 }
 
 /** Discard (AI-STUDIO §5): the draft row goes, so the preview shows the live code (PREVIEW §3) and the studio loads it. */

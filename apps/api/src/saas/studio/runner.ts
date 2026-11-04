@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { isNewerVersion } from '#core/semver'
-import { baseDraftOnLive, insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
+import { baseDraftOnBuild, insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
@@ -225,10 +225,11 @@ export class StudioRunner {
     const { base_commit: from, live_build_id: build, live_commit: live } = row
     if (!from || !build || !live || from === live) return null
     const source = await this.deps.drafts.get(sourceBundle(this.deps.storeId, build))
-    if (!source) return null
+    // A live build's source is kept while it is live (cleanup.ts); without it nothing can be compared, so nothing is published over it.
+    if (!source) return { outcome: 'refused', problems: [{ step: 'validator', file: null, line: null, rule: 'take/missing-onto', message: 'The live build’s source is missing.' }], repairs: 0, runId: null }
     const onto = { commit: live, bundle: await source.arrayBuffer() }
     const taken = await this.commitStep((client, context) => client.takeLive(from, onto, context), null)
-    if (taken.outcome !== 'refused') await this.system((tx) => baseDraftOnLive(tx, this.deps.storeId))
+    if (taken.outcome !== 'refused') await this.system((tx) => baseDraftOnBuild(tx, this.deps.storeId, build))
     return taken
   }
 

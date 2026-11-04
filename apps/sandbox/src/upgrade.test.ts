@@ -220,11 +220,13 @@ describe('a draft started before a push went live (#1211)', () => {
     expect(after.get('content/en/pages.json')).toContain('Words beside the extra file')
   })
 
-  it('changes nothing when the live commit is the draft’s base or already in the draft, or the base is unknown', async () => {
+  it('changes nothing when the live commit is the draft’s base or already in the draft, and refuses an unknown base', async () => {
     const { from, pushed } = await draftAndPush([title('Unchanged words')], [homeLabel()])
     const before = await head('draft')
     expect((await take(from, { commit: from, bundle: live })).body).toMatchObject({ ok: true, changed: false, commit: before })
-    expect((await take('e'.repeat(40), pushed)).body).toMatchObject({ ok: true, changed: false, commit: before })
+    const unknown = await take('e'.repeat(40), pushed)
+    expect((unknown.body['problems'] as { rule: string }[])[0]?.rule).toBe('take/missing-base')
+    expect(await head('draft')).toBe(before)
     // Live is one of the draft's own commits, as after "Publish everything before": its later edits stay.
     const own = { commit: before, bundle: await exportBundle('draft') }
     expect((await call('POST', '/slots/draft/changes', { files: [title('Edited after that publish')], message: 'A later edit', context })).body['ok']).toBe(true)

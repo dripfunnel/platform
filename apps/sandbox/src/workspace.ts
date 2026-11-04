@@ -206,16 +206,17 @@ export class Workspace {
 
   /**
    * #1211: the theme files that changed between `from`, the version the draft is based on, and `onto`, a live commit of
-   * the received bundle, written into the draft as one change, the live version winning. Nothing is taken without `from`,
-   * or when the draft already holds `onto` (a "Publish everything before" of its own earlier change).
+   * the received bundle, written into the draft as one change, the live version winning. Nothing is taken when the draft
+   * already holds `onto` (a "Publish everything before" of its own earlier change); an unknown `from` is refused.
    */
   async takeLive(from: string, onto: string, context: GuardContext): Promise<ChangeResult> {
     this.mustBeLoaded()
     return this.withOnto(onto, refused('take/missing-onto', 'The live commit is not in the bundle sent for it.'), async () => {
       const has = (args: string[]) => this.git(args).then(() => true, () => false)
-      const known = (await has(['cat-file', '-e', `${from}^{commit}`])) && !(await has(['merge-base', '--is-ancestor', onto, 'HEAD']))
+      if (!(await has(['cat-file', '-e', `${from}^{commit}`]))) return refused('take/missing-base', 'The commit the draft is based on is not in the draft or the live bundle.')
+      const held = await has(['merge-base', '--is-ancestor', onto, 'HEAD'])
       // `-z --name-status` gives a status then a path per file, each ended by NUL; D is a file the live commit deleted.
-      const listed = known ? (await this.git(['diff', '--name-status', '-z', '--no-renames', from, onto])).split('\0') : []
+      const listed = held ? [] : (await this.git(['diff', '--name-status', '-z', '--no-renames', from, onto])).split('\0')
       const files: FileChange[] = []
       for (let i = 0; i + 1 < listed.length; i += 2) {
         const [status, path] = [listed[i], listed[i + 1] ?? '']

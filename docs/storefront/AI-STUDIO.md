@@ -174,10 +174,11 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    the live commit, from the live build's source bundle (the sandbox's `POST /slots/{slot}/take` after `PUT onto`): one
    change through the gate, the live version winning a file both changed, so a push to `main` that went live meanwhile is
    never overwritten. Files are compared, not history, since a design publish reaches `main` squashed. A take moves the
-   draft's base to the live version, so another Publish of the same draft keeps later edits. Nothing is taken for a store
-   served the baseline, a draft with no base, or a live commit already in the draft (after "Publish everything before"),
-   whose base then moves to it. The gate refusing the take stops Publish with `CHANGE_REFUSED` and
-   changes nothing; a take is recorded as `storefront.repo_push_taken`. "Publish everything before" takes nothing.
+   draft's base to the version of the build it took, so another Publish of the same draft keeps later edits. Nothing is
+   taken for a store served the baseline, a draft with no base, or a live commit already in the draft (after "Publish
+   everything before"), whose base then moves to it. The gate refusing the take, or a base commit or live source that
+   can't be read, stops Publish with `CHANGE_REFUSED` and changes nothing; a take is recorded as
+   `storefront.repo_push_taken`. "Publish everything before" takes nothing.
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
    workflow fetches through a 15-minute link. Nothing is pushed yet.
