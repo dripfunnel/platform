@@ -4887,6 +4887,7 @@
       "group": "{name} · {count}"
     },
     "noMatch": "Nobody matches.",
+    "noneInGroup": "No customers in this group",
     "list": {
       "label": "Customers"
     },
