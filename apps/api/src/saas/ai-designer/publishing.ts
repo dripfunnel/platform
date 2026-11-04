@@ -60,12 +60,13 @@ export const createPublishingService = (deps: DesignerDeps) => {
   })
 
   /** The studio's hand-off: `commit` (the draft's head when null) with its theme kept privately for the push once live. */
-  const handOff = async (commit: string | null): Promise<DesignResult<{ commit: string; template: string; coreVersion: string }>> => {
+  const handOff = async (commit: string | null): Promise<DesignResult<{ commit: string; template: string; coreVersion: string; taken: string | null }>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     const prepared = await studio.prepare(storeId, { commit })
     if (prepared.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: prepared.place }
     if (prepared.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (prepared.outcome === 'nothing') return { ok: false, reason: 'NOTHING_TO_PUBLISH' }
+    if (prepared.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: prepared.problems }
     return { ok: true, value: prepared }
   }
 
@@ -78,6 +79,8 @@ export const createPublishingService = (deps: DesignerDeps) => {
     return withSystemScope(sql, async (tx) => {
       const run = await startPublish(tx, { storeId, kind: 'design', commit: ready.value.commit, template: ready.value.template, coreVersion: ready.value.coreVersion, usesAllowance: false, startedBy: { kind: 'user', id: actor.id }, at: now() })
       if (!run.ok) return { ok: false, reason: 'NOT_FOUND' }
+      const { taken } = ready.value
+      if (taken) await activity.record(tx, entry(designAudit.repoPushTaken, [{ field: 'main', before: null, after: taken }]))
       return { ok: true, value: await started(tx, run.runId, 'design') }
     })
   }

@@ -167,3 +167,83 @@ describe('a draft started before the upgrade', () => {
     expect((await theme('conflict')).get('src/theme/pages/HomePage.tsx')).toContain("label={t('pages.home.lead')}")
   })
 })
+
+describe('a draft started before a push went live (#1211)', () => {
+  const title = (words: string) => ({ path: 'content/en/pages.json', content: pages().replace('Made slowly, worn for years', words) })
+  const homeLabel = () => ({ path: 'src/theme/pages/HomePage.tsx', content: (template.find((f) => f.path === 'src/theme/pages/HomePage.tsx')?.content ?? '').replace("label={t('pages.home.more')}", "label={t('pages.home.title')}") })
+  /** A draft with one change on the live code, and a push made on the live code too: the live commit, and the push's. */
+  const draftAndPush = async (draftFiles: unknown[], pushFiles: unknown[]) => {
+    await loadBundle('draft', live)
+    const from = await head('draft')
+    expect((await call('POST', '/slots/draft/changes', { files: draftFiles, message: 'A draft change', context })).body['ok']).toBe(true)
+    await loadBundle('fallback', live)
+    expect((await call('POST', '/slots/fallback/changes', { files: pushFiles, message: 'A push to main', context })).body['ok']).toBe(true)
+    return { from, pushed: { commit: await head('fallback'), bundle: await exportBundle('fallback') } }
+  }
+  const take = async (from: string, onto: { commit: string; bundle: ArrayBuffer }) => {
+    await fetch(`${base}/slots/draft/onto`, { method: 'PUT', body: onto.bundle })
+    return call('POST', '/slots/draft/take', { from, onto: onto.commit, context })
+  }
+
+  it('takes the files the push changed into the draft, keeping the draft’s own change', async () => {
+    const { from, pushed } = await draftAndPush([title('Linen for slow days')], [homeLabel()])
+    const taken = await take(from, pushed)
+    expect(taken.body).toMatchObject({ ok: true, changed: true })
+    const after = await theme('draft')
+    expect(after.get('content/en/pages.json')).toContain('Linen for slow days')
+    expect(after.get('src/theme/pages/HomePage.tsx')).toContain("label={t('pages.home.title')}")
+    // Based on the commit it took, a later edit to a pushed file stays.
+    const later = { path: 'src/theme/pages/HomePage.tsx', content: homeLabel().content.replace("label={t('pages.home.title')}", "label={t('pages.home.lead')}") }
+    expect((await call('POST', '/slots/draft/changes', { files: [later], message: 'A later edit', context })).body['ok']).toBe(true)
+    expect((await take(pushed.commit, pushed)).body).toMatchObject({ ok: true, changed: false })
+    expect((await theme('draft')).get('src/theme/pages/HomePage.tsx')).toContain("label={t('pages.home.lead')}")
+  })
+
+  it('keeps the pushed version of a file both changed', async () => {
+    const { from, pushed } = await draftAndPush([title('The draft words')], [title('The pushed words')])
+    expect((await take(from, pushed)).body).toMatchObject({ ok: true, changed: true })
+    const pagesNow = (await theme('draft')).get('content/en/pages.json') ?? ''
+    expect(pagesNow).toContain('The pushed words')
+    expect(pagesNow).not.toContain('The draft words')
+  })
+
+  it('deletes from the draft a file the push deleted', async () => {
+    const extra = { path: 'src/theme/styles/extra.module.css', content: '.extra {\n  color: inherit;\n}\n' }
+    await call('PUT', '/slots/fallback/draft', { files: [...template, extra], message: 'Live code with one more file' })
+    const from = await head('fallback')
+    await loadBundle('draft', await exportBundle('fallback'))
+    expect((await call('POST', '/slots/draft/changes', { files: [title('Words beside the extra file')], message: 'A draft change', context })).body['ok']).toBe(true)
+    expect((await call('POST', '/slots/fallback/changes', { files: [{ path: extra.path, content: null }], message: 'A push that deletes it', context })).body['ok']).toBe(true)
+    expect((await take(from, { commit: await head('fallback'), bundle: await exportBundle('fallback') })).body).toMatchObject({ ok: true, changed: true })
+    const after = await theme('draft')
+    expect(after.has(extra.path)).toBe(false)
+    expect(after.get('content/en/pages.json')).toContain('Words beside the extra file')
+  })
+
+  it('changes nothing when the live commit is the draft’s base or already in the draft, and refuses an unknown base', async () => {
+    const { from, pushed } = await draftAndPush([title('Unchanged words')], [homeLabel()])
+    const before = await head('draft')
+    expect((await take(from, { commit: from, bundle: live })).body).toMatchObject({ ok: true, changed: false, commit: before })
+    const unknown = await take('e'.repeat(40), pushed)
+    expect((unknown.body['problems'] as { rule: string }[])[0]?.rule).toBe('take/missing-base')
+    expect(await head('draft')).toBe(before)
+    // Live is one of the draft's own commits, as after "Publish everything before": its later edits stay.
+    const own = { commit: before, bundle: await exportBundle('draft') }
+    expect((await call('POST', '/slots/draft/changes', { files: [title('Edited after that publish')], message: 'A later edit', context })).body['ok']).toBe(true)
+    expect((await take(from, own)).body).toMatchObject({ ok: true, changed: false })
+    expect((await theme('draft')).get('content/en/pages.json')).toContain('Edited after that publish')
+  })
+
+  it('names a missing live commit, and leaves the draft as it was when the gate refuses what it would take', async () => {
+    const { from } = await draftAndPush([title('Kept words')], [homeLabel()])
+    const before = await head('draft')
+    const missing = await take(from, { commit: 'f'.repeat(40), bundle: live })
+    expect((missing.body['problems'] as { rule: string }[])[0]?.rule).toBe('take/missing-onto')
+    // A live commit with no history in common with the draft is still compared file by file.
+    await call('PUT', '/slots/fallback/draft', { files: template.map((f) => (f.path === 'src/theme/pages/HomePage.tsx' ? { path: f.path, content: "export const HomePage = () => { fetch('/x'); return null }\n" } : f)), message: 'A push the gate refuses' })
+    const refused = await take(from, { commit: await head('fallback'), bundle: await exportBundle('fallback') })
+    expect(refused.body['ok']).toBe(false)
+    expect(await head('draft')).toBe(before)
+    expect((await theme('draft')).get('content/en/pages.json')).toContain('Kept words')
+  })
+})
