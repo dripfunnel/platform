@@ -20,7 +20,7 @@ import { isStockUrl } from '#integrations/stockImages/combine'
 import type { StockImages, StockPhoto } from '#integrations/stockImages/pixabay'
 import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
-import { openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
+import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
 import { chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
@@ -80,6 +80,8 @@ const toBase64 = (bytes: Uint8Array): string => {
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
   return btoa(binary)
 }
+
+type Live = ReturnType<typeof liveSender>
 
 const monthStart = (at: Date) => new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1))
 
@@ -209,12 +211,12 @@ export const createStudioService = (deps: StudioDeps) => {
     insertDesignMessage(tx, { storeId, createdBy: actor.id, at: now(), ...m })
 
   /** Chat mode: a reply with no change and no sandbox; it takes a prompt like a change (SAAS §9.2) and is metered as a `design` run. */
-  const chat_ = async (input: AskInput, text: string, provider: AiProvider, billedTo: 'plan' | 'own_key', image: AiImage | null, shot: AiImage | null, asked: Date): Promise<DesignResult<AskAnswer>> => {
+  const chat_ = async (input: AskInput, text: string, provider: AiProvider, billedTo: 'plan' | 'own_key', image: AiImage | null, shot: AiImage | null, asked: Date, live: Live): Promise<DesignResult<AskAnswer>> => {
     if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     let reply: Awaited<ReturnType<typeof chatReply>> | null = null
     let failure: unknown = null
     try {
-      reply = await chatReply(provider, await briefOf(input, image, shot, await currentSummary()), text)
+      reply = await chatReply(provider, await briefOf(input, image, shot, await currentSummary()), text, live.text)
     } catch (error) {
       failure = error
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: error instanceof GatewayError ? `${error.name}:${error.code}` : failureCode(error) })
@@ -240,9 +242,29 @@ export const createStudioService = (deps: StudioDeps) => {
    */
   const ask = async (input: AskInput): Promise<DesignResult<AskAnswer>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    const run = crypto.randomUUID()
+    const live = liveSender(
+      (event) => studio.progress(storeId, run, event),
+      (error) => logEvent({ event: 'studio_live_lost', api: 'store', storeId, code: failureCode(error) }),
+    )
+    let answer: DesignResult<AskAnswer>
+    try {
+      answer = await askIn(input, run, live)
+    } catch (error) {
+      await live.end({ type: 'error', code: 'FAILED' })
+      throw error
+    }
+    await live.end(answer.ok ? { type: 'done', outcome: answer.value.outcome, messageId: answer.value.message.id } : { type: 'error', code: answer.reason })
+    return answer
+  }
+
+  /** `askDesign`'s work, its steps sent to the store's open studios as `run` (AI-STUDIO §4 "Live progress"). */
+  const askIn = async (input: AskInput, run: string, live: Live): Promise<DesignResult<AskAnswer>> => {
+    if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     const text = input.text.trim()
     if (text.length === 0 || text.length > maxRequest || input.page.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
     if (input.sampleUrl !== null && input.sampleUrl.length > maxUrl) return { ok: false, reason: 'INVALID_URL' }
+    live.step(input.mode === 'chat' ? 'asking' : 'reading')
     const billedTo = await billing()
     if (input.model !== null && !(await deps.models(billedTo, context)).includes(input.model)) return { ok: false, reason: 'INVALID_INPUT' }
     const provider = await deps.ai(billedTo, context, input.model)
@@ -253,7 +275,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const shot = input.sampleUrl ? await screenshotOf(input.sampleUrl, input.device) : null
     if (shot && !shot.ok) return shot
     const asked = now()
-    if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? null, asked)
+    if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? null, asked, live)
     const before = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     // The photos the model added this request, each in Assets and credited in the chat once the change is recorded.
     const added: { assetId: string; user: string; source: string }[] = []
@@ -306,7 +328,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const giveBack = () => (billedTo === 'plan' ? withSystemScope(sql, (tx) => releaseUsage(tx, storeId, 'ai_prompts', monthStart(now()), now())) : Promise.resolve())
     let answer: Awaited<ReturnType<NonNullable<typeof studio>['change']>> | { outcome: 'failed' }
     try {
-      answer = await studio.change(storeId, { request: text, userId: actor.id, billedTo }, model)
+      answer = await studio.change(storeId, { request: text, userId: actor.id, billedTo, run }, model)
     } catch (error) {
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: modelFailure instanceof GatewayError ? `${modelFailure.name}:${modelFailure.code}` : failureCode(modelFailure ?? error) })
       answer = { outcome: 'failed' }

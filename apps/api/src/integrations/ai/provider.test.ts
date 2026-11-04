@@ -23,7 +23,7 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: Anthropic }
 })
 
-import { AiDeclined, anthropicOAuthDesignerProvider, routedDesignerProvider } from './provider'
+import { AiDeclined, anthropicOAuthDesignerProvider, localAiProvider, routedDesignerProvider } from './provider'
 import type { CanonicalRequest } from './canonical'
 import type { Router } from './routing/router'
 import Anthropic from '@anthropic-ai/sdk'
@@ -98,4 +98,10 @@ it('sends no tool choice when a turn has no tools, which the translators refuse'
   expect(seen[0]?.toolChoice).toBe('auto')
   expect(seen[1]?.tools).toEqual([])
   expect(seen[1]?.toolChoice).toBeUndefined()
+})
+
+it('streams only the local stand-in’s reply, never its JSON envelope (#1237)', async () => {
+  const pieces: string[] = []
+  const answer = await localAiProvider().complete({ system: '', text: '', images: [], onText: (t) => void pieces.push(t) })
+  expect(pieces.join('')).toBe((JSON.parse(answer.text) as { reply: string }).reply)
 })

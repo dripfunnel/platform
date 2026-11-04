@@ -3,14 +3,16 @@ import { withSystemScope } from '#db/scoped/index'
 import { deleteDraft } from '#db/scoped/studio'
 import type postgres from 'postgres'
 import { goBack, type GoBackResult } from '#saas/storefronts/index'
-import { preparedAnswer, StudioQueued, StudioUnavailable, studioAnswer, type KeptSummary, type StudioApi, type StudioRunner, type StudioState } from '#saas/studio/index'
+import { preparedAnswer, StudioQueued, StudioUnavailable, studioAnswer, type KeptSummary, type LiveEvent, type StudioApi, type StudioRunner, type StudioState } from '#saas/studio/index'
 
 // The StudioSession's RPC shape (jobs/durable/studio.ts) over StudioRunners in this process, one per store, named by the
-// TenantContext's store as `studioOf` names the Durable Object. `calls` records which store each call reached.
+// TenantContext's store as `studioOf` names the Durable Object. `calls` records which store each call reached, `live` each
+// store's live events in the order its Durable Object would number them.
 
 export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string) => StudioRunner) => {
   const calls: { contextStore: string; storeId: string }[] = []
   const kept = new Map<string, KeptSummary>()
+  const live: { storeId: string; run: string; event: LiveEvent }[] = []
   const studio = (context: TenantContext): StudioApi => {
     const runner = (storeId: string) => {
       calls.push({ contextStore: context.storeId, storeId })
@@ -37,7 +39,12 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
       },
       change: async (storeId, input, model) => {
         const r = runner(storeId)
-        return studioAnswer(() => r.change({ ...input, model }))
+        const { run, ...request } = input
+        return studioAnswer(() => r.change({ ...request, model, progress: (event) => void live.push({ storeId, run, event }) }))
+      },
+      progress: async (storeId, run, event) => {
+        runner(storeId)
+        live.push({ storeId, run, event })
       },
       cancel: async (storeId) => runner(storeId).cancel(),
       undo: async (storeId, input) => {
@@ -74,5 +81,5 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
       },
     }
   }
-  return { studio, calls, kept }
+  return { studio, calls, live, kept }
 }

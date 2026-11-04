@@ -477,11 +477,11 @@ in chat mode: never say or imply you edited, applied or will apply a change; if 
 Change mode. Prices, stock, products, shipping and checkout are done in Products or Settings.`
 
 /** Chat mode: one text answer from the same brief, with no files and no gate (AI-STUDIO §4). */
-export const chatReply = async (provider: AiProvider, brief: DesignBrief, request: string) => {
+export const chatReply = async (provider: AiProvider, brief: DesignBrief, request: string, onText?: (text: string) => void) => {
   const images = [brief.image, brief.screenshot].filter((i) => i !== null)
   const context = [`The merchant is looking at the ${brief.page} page on ${brief.device}.`, `Shop: ${JSON.stringify(brief.store)}`, brief.summary ? `The shop's own data: ${JSON.stringify(brief.summary)}` : '', `The merchant asks: ${request}`]
     .filter((part) => part !== '')
     .join('\n\n')
-  const answer = await provider.complete({ system: chatRules, text: context, images })
+  const answer = await provider.complete({ system: chatRules, text: context, images, ...(onText ? { onText } : {}) })
   return { text: answer.text.trim().slice(0, 2000), model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, costAmount: answer.costAmount, costCurrency: answer.costCurrency }
 }

@@ -1,4 +1,5 @@
 import type { GoBackActor, GoBackResult } from '../storefronts/index'
+import type { LiveEvent } from './live'
 import type { DesignModel } from './model'
 import { StudioCancelled, StudioQueued, StudioUnavailable, type ChangeOutcome } from './runner'
 
@@ -25,8 +26,10 @@ export const studioAnswer = async <T extends ChangeOutcome | { outcome: 'missing
 export interface StudioApi {
   status: (storeId: string) => Promise<StudioState>
   useTemplate: (storeId: string, input: { template: string; keep: boolean; userId: string }) => Promise<StudioAnswer>
-  /** One AI change (AI-STUDIO §4); `model` is the Worker's, called back over RPC, so no key reaches the object. */
-  change: (storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel) => Promise<StudioAnswer>
+  /** One AI change (AI-STUDIO §4); `model` is the Worker's, called back over RPC, so no key reaches the object. Its steps go out as `run`'s. */
+  change: (storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key'; run: string }, model: DesignModel) => Promise<StudioAnswer>
+  /** One of the Worker's own events of `run` to the store's open studios (AI-STUDIO §4 "Live progress"). */
+  progress: (storeId: string, run: string, event: LiveEvent) => Promise<void>
   /** Stops the change running for the store; false when none is (AI-STUDIO §4). */
   cancel: (storeId: string) => Promise<boolean>
   undo: (storeId: string, input: { commit: string; userId: string }) => Promise<StudioAnswer>

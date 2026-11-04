@@ -7,7 +7,7 @@ own guide says what that app is for, who uses it and what it may do.
 **Status: skeleton.** Each app has a sign-in route and a home route; `shared/` has a button,
 design tokens, the GraphQL client and money formatting.
 
-Last updated: 2026-11-01 (#1122: signed-in visitors on sign-in pages, §5). Before: 2026-10-11.
+Last updated: 2026-11-05 (#1237: the studio's one live socket, §1 and §3). Before: 2026-11-01 (#1122: signed-in visitors on sign-in pages, §5). Before: 2026-10-11.
 
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
@@ -26,6 +26,7 @@ Last updated: 2026-11-01 (#1122: signed-in visitors on sign-in pages, §5). Befo
 | **Vite, React, TanStack Router** (file routes, typed params and search) | Next.js static export | Fast builds, no server features to avoid, typed URLs. |
 | **One SPA per audience**, each with its own host and API | One console with role switches | A screen or endpoint for staff can't be reached from a partner or merchant session; each app ships only what its users may see. |
 | **Each SPA talks only to `/api` on its own host** | A shared `api.` host | Same origin: `httpOnly` cookies stay first-party, no CORS. |
+| **One WebSocket next to GraphQL: the studio's live progress, `/api/studio/live`** (decided 2026-11-04 on #1237) | Polling; server-sent events; a socket that also takes requests | The merchant sees each step of a change within 2 s. It only carries events: every write still goes through GraphQL, so its access and audit don't change. |
 | **Types come from `apps/api/schema/*.graphql`** | Importing `apps/api` | No server code can reach a browser bundle; lint forbids the import. |
 | **`shared/` only for what a second app needs** | Shared components in advance | No speculative abstractions; move code the moment a second app needs it. |
 
@@ -65,6 +66,7 @@ apps/ui/<app>/
   `platform.localhost`, because the Worker routes by hostname and checks `Origin` against it
   (ARCHITECTURE.md §2, ACCESS.md §4); without that both reach the Store API. `store` needs no
   rewrite: any other host is the storefront branch. `pnpm dev` from the root runs all four.
+  The store proxy also carries WebSockets (`ws: true`), for the studio's live socket (§3).
 
 ---
 
@@ -72,6 +74,10 @@ apps/ui/<app>/
 
 - One client per app (`createApiClient()` from `@dripfunnel/shared/graphql`): same-origin
   cookie, a timeout on every call, errors surfaced as `ApiError` with the API's stable code.
+- **The one socket** (merchant portal only, #1237): the studio opens `/api/studio/live` on its own host through
+  `openStudioLive` in `src/api/studio.ts`, never `new WebSocket` in a screen. The browser can't send headers on it, so
+  the acting store rides in `?store=` and is checked like `X-Store`. It is one-way: events only (storefront
+  AI-STUDIO §4 "Live progress"); a screen that can't connect works as it did without it.
 - **Handle errors by code, never by message** (`PLAN_LIMIT_REACHED`, `NOT_FOUND`,
   `UNAUTHENTICATED`, `FORBIDDEN`…; the access codes are in api/ACCESS.md §3.1). Each code maps to a designed state or a message from `messages/`.
 - **The API decides; the UI displays.** Prices, totals, tax, stock, permissions and plan
