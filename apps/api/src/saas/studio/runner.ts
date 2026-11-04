@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { isNewerVersion } from '#core/semver'
-import { insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
+import { baseDraftOnLive, insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
@@ -216,18 +216,20 @@ export class StudioRunner {
       const target = commit ?? (await this.system((tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
       if (!target) return { outcome: 'nothing' as const }
       await this.keepTheme(client, target)
-      return { outcome: 'ready' as const, commit: target, template: start.template, coreVersion: start.coreVersion, taken: taken?.outcome === 'changed' ? row.own_commit : null }
+      return { outcome: 'ready' as const, commit: target, template: start.template, coreVersion: start.coreVersion, taken: taken?.outcome === 'changed' ? row.live_commit : null }
     })
   }
 
-  /** The theme files of the live build that changed after the draft started, written into it through the gate (#1211). */
+  /** The theme files that changed between the draft's base version and the live build, written into it through the gate (#1211). */
   private async takeLive(row: StudioDraftRow): Promise<ChangeOutcome | null> {
-    const { first_commit: start, own_build_id: build, own_commit: live } = row
-    if (!start || !build || !live) return null
+    const { base_commit: from, live_build_id: build, live_commit: live } = row
+    if (!from || !build || !live || from === live) return null
     const source = await this.deps.drafts.get(sourceBundle(this.deps.storeId, build))
     if (!source) return null
     const onto = { commit: live, bundle: await source.arrayBuffer() }
-    return this.commitStep((client, context) => client.takeLive(start, onto, context), null)
+    const taken = await this.commitStep((client, context) => client.takeLive(from, onto, context), null)
+    if (taken.outcome !== 'refused') await this.system((tx) => baseDraftOnLive(tx, this.deps.storeId))
+    return taken
   }
 
   /** The theme at `commit`, kept privately as JSON for the push once a publish of it is live (AI-STUDIO §6 step 4). */

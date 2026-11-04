@@ -169,13 +169,15 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    sandbox of that version, saves the draft at its new head and core (its bisect chain starts again from it), and
    answers the head to publish; a conflict or a refusal answers the gate's problems and keeps the draft on its own core.
 
-   **Built on #1211:** a design Publish first takes into the draft the theme files that changed between where the draft
-   started (the parent of its first commit) and the live commit, from the live build's source bundle (the sandbox's
-   `POST /slots/{slot}/take` after `PUT onto`): one change through the gate, the live version winning a file both changed,
-   so a push to `main` that went live meanwhile is never overwritten. Files are compared, not history, since a design
-   publish reaches `main` squashed. The take's commit names the live commit (a `Live:` trailer), so another Publish of the
-   same draft compares from there and keeps later edits. The gate refusing the take stops Publish with `CHANGE_REFUSED`
-   and changes nothing; a take is recorded as `storefront.repo_push_taken`. "Publish everything before" takes nothing.
+   **Built on #1211:** a design Publish first takes into the draft the theme files that changed between the version the
+   draft is based on (`design_draft.base_version_id`: the live version when the draft was made, restarted or rebased) and
+   the live commit, from the live build's source bundle (the sandbox's `POST /slots/{slot}/take` after `PUT onto`): one
+   change through the gate, the live version winning a file both changed, so a push to `main` that went live meanwhile is
+   never overwritten. Files are compared, not history, since a design publish reaches `main` squashed. A take moves the
+   draft's base to the live version, so another Publish of the same draft keeps later edits. Nothing is taken for a store
+   served the baseline, a draft with no base, or a live commit already in the draft (after "Publish everything before"),
+   whose base then moves to it. The gate refusing the take stops Publish with `CHANGE_REFUSED` and
+   changes nothing; a take is recorded as `storefront.repo_push_taken`. "Publish everything before" takes nothing.
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
    workflow fetches through a 15-minute link. Nothing is pushed yet.

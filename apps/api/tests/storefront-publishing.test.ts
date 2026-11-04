@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { recordGate } from '#db/scoped/builds'
 import { withSystemScope } from '#db/scoped/index'
+import { rebaseDraft } from '#db/scoped/studio'
 import { createGitHubApp, storeRepos, type StoreRepos } from '#integrations/github/index'
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
@@ -281,11 +282,19 @@ describe('publishing from the studio', () => {
         values (${t.storeA1}, 'repo', 'live', ${commit}, 'baseline', ${core}, 'system', now(), now()) returning id`
       await draftsBucket().put(sourceBundle(t.storeA1, run?.id ?? ''), await client.exportBundle())
       await db.sql`update storefront set live_build_id = ${run?.id ?? ''} where store_id = ${t.storeA1}`
+      await db.sql`update design_version set state = 'kept' where store_id = ${t.storeA1} and state = 'live'`
+      await db.sql`
+        insert into design_version (store_id, number, commit, template, core_version, build_id, published_at, state)
+        select ${t.storeA1}, max(number) + 1, ${commit}, 'baseline', ${core}, ${run?.id ?? ''}, now(), 'live' from design_version where store_id = ${t.storeA1}`
       return { runId: run?.id ?? '', commit }
     }
 
-    it('takes the push into the draft at Publish, so main and the live site keep both', async () => {
-      expect((await ask('A change after the last publish', lead('Drafted before the push.'))).outcome).toBe('changed')
+    it('takes the push into the draft at Publish, so main and the live site keep both, even after a rebase', async () => {
+      expect((await ask('A change after the last publish', lead('A first draft lead.'))).outcome).toBe('changed')
+      expect((await ask('Another change', lead('Drafted before the push.'))).outcome).toBe('changed')
+      // A rebase starts the draft's commits again from its head; where it started must not move with them.
+      const drafted = (await head()) ?? ''
+      await withSystemScope(db.sql, (tx) => rebaseDraft(tx, { storeId: t.storeA1, head: drafted, coreVersion: core, at: new Date() }))
       const pushed = await pushLive((page) => page.replace("label={t('pages.home.more')}", "label={t('pages.home.title')}"))
       const runId = (await publish()).data?.publishDesign ?? ''
       expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, workflow(new Set()))).toBe('live')
@@ -297,6 +306,7 @@ describe('publishing from the studio', () => {
 
     it('refuses Publish with CHANGE_REFUSED when the gate refuses what it would take, and changes nothing', async () => {
       const live = await liveBuild()
+      const [liveVersion] = await db.sql<{ id: string }[]>`select id from design_version where store_id = ${t.storeA1} and state = 'live'`
       expect((await ask('Another change', lead('Kept in the draft.'))).outcome).toBe('changed')
       const draft = await head()
       await pushLive(() => "export const HomePage = () => { fetch('/x'); return null }\n")
@@ -305,6 +315,8 @@ describe('publishing from the studio', () => {
       expect(await head()).toBe(draft)
       expect((await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${t.storeA1}`)[0]?.n).toBe(runs)
       await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA1}`
+      await db.sql`update design_version set state = 'kept' where store_id = ${t.storeA1} and state = 'live'`
+      await db.sql`update design_version set state = 'live' where id = ${liveVersion?.id ?? ''}`
     })
   })
 
