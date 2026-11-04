@@ -37,6 +37,10 @@ describe('the studio alarm (storefront AI-STUDIO §7, #1241)', () => {
     expect(nextLookMs({ ...open, runningForMs: studioCapMs - 30_000 })).toBe(30_000)
     expect(nextLookMs({ ...open, idleForMs: studioIdleMs + 1 })).toBe(1_000)
   })
+
+  it('looks once a tick while a change runs past a stop that came due, never every second', () => {
+    expect(nextLookMs({ ...open, pending: 1, openStudios: 0, closedForMs: studioClosedMs + 60_000, idleForMs: studioIdleMs + 1 })).toBe(studioTickMs)
+  })
 })
 
 describe('studioActivity (AI-STUDIO §7 "Stopping", #1241)', () => {

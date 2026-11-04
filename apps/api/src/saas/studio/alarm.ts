@@ -47,8 +47,10 @@ export const alarmStep = (s: AlarmState): AlarmStep => {
 export const wakeStep = (loaded: boolean, sinceLastWakeMs: number): 'skip' | 'open' | 'renew' =>
   sinceLastWakeMs < studioActivityEveryMs ? 'skip' : loaded ? 'renew' : 'open'
 
-/** How long until the next look: the first stop due, or the lease's tick, whichever is sooner. */
+/** How long until the next look: the first stop due, or the lease's tick, whichever is sooner; a tick while a change runs. */
 export const nextLookMs = (s: AlarmState): number => {
+  // A stop that came due during a change waits for the next tick, not a look every second.
+  if (s.pending > 0) return studioTickMs
   const due = [studioTickMs, studioIdleMs - s.idleForMs, studioCapMs - s.runningForMs]
   if (s.openStudios === 0) due.push(studioClosedMs - s.closedForMs)
   return Math.max(1_000, Math.min(...due))
