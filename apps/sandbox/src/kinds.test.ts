@@ -50,6 +50,24 @@ describe.skipIf(!chrome)('the baseline theme’s product kinds', () => {
     }
   })
 
+  it('turns Add to cart into Go to cart once added, keeping keyboard focus on it', async () => {
+    if (!preview) throw new Error('no browser')
+    const context = await preview.open(answer(productOf({ name: 'Tee', productType: 'physical', giftCard: null }), []))
+    try {
+      const page = await context.newPage()
+      await page.goto(`${previewOrigin}/products/gift-card/`)
+      const add = page.getByRole('button', { name: 'Add to cart' })
+      await add.focus()
+      await page.keyboard.press('Enter')
+      const goToCart = page.getByRole('link', { name: 'Go to cart' })
+      await goToCart.waitFor()
+      expect(await goToCart.evaluate((a) => a === document.activeElement)).toBe(true)
+      expect(await goToCart.getAttribute('href')).toBe('/cart/')
+    } finally {
+      await context.close()
+    }
+  })
+
   it('says what a download and a service give, and sells them as any product', async () => {
     if (!preview) throw new Error('no browser')
     const context = await preview.open(answer(productOf({ name: 'Pattern', productType: 'digital', giftCard: null, download: { days: 30, limit: 5 } }), []))

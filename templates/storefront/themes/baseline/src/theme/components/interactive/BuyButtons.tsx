@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { AddToCart, BuyNow, Link, TextField, useStorefront, type GiftRecipient, type ProductPage } from '@dripfunnel/storefront-core/theme'
 import shop from '../../styles/shop.module.css'
 import styles from '../../styles/product.module.css'
@@ -27,6 +27,13 @@ export const BuyButtons = ({ page }: { page: ProductPage }) => {
   const added = version !== null && addedId === version.id
   // A gift card keeps Add to cart, so a second one can go to someone else.
   const inCart = added && !isGift
+  // Go to cart replaces the button just pressed, so focus moves to it rather than dropping to the page (WCAG 2.4.3).
+  const goToCart = useRef<HTMLAnchorElement>(null)
+  const justAdded = useRef(false)
+  useEffect(() => {
+    if (inCart && justAdded.current) goToCart.current?.focus()
+    justAdded.current = false
+  }, [inCart])
   return (
     <div className={styles.buy}>
       {kind?.kind === 'digital' ? (
@@ -54,7 +61,7 @@ export const BuyButtons = ({ page }: { page: ProductPage }) => {
         </p>
       ) : null}
       {inCart ? (
-        <Link href="/cart/" className={shop.primary}>
+        <Link href="/cart/" className={shop.primary} ref={goToCart}>
           {t('shop.product.goToCart')}
         </Link>
       ) : (
@@ -66,7 +73,9 @@ export const BuyButtons = ({ page }: { page: ProductPage }) => {
           className={shop.primary}
           onDone={(worked) => {
             setFailed(!worked)
-            if (worked) setAddedId(version?.id ?? null)
+            if (!worked) return
+            justAdded.current = true
+            setAddedId(version?.id ?? null)
           }}
         >
           {isGift ? t('shop.product.gift.add') : t('shop.product.add')}
