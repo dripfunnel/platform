@@ -338,6 +338,9 @@ before, and reads the result when `askDesign` answers.
   links to that build's own run (LIVE-SHOP §2).
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
+- **The store lookups** (#1242; ARCHITECTURE §6.2): every change's first ask may also call `list_collections`,
+  `find_products`, `product_photos`, `best_sellers` and `active_offers`, at most 6 a change (photos at most 2), answered by
+  the Worker for the acting store from the summary kept in its `StudioSession`, or one query each beyond it.
 - **The AI's own photos** (on where `AI_PHOTOS=1`; off otherwise): on a change request, the model may call `search_stock_images` and
   `add_stock_image` (at most four calls in a change, none in a repair). It may use only the sources `AI_PHOTO_SOURCES` names (a comma
   list of `pexels,pixabay,openverse,commons`; unset is `openverse,commons`, the two whose terms allow it; an unknown name stops the Worker at boot); a result or an id from any other source is

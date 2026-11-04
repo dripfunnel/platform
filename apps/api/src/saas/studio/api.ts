@@ -42,7 +42,12 @@ export interface StudioApi {
   prepare: (storeId: string, input: { commit: string | null }) => Promise<Prepared>
   /** Go back (AI-STUDIO §5): the pointer moves in the studio's turn, and the draft is reset to the version only when it did. */
   goBack: (storeId: string, input: { versionId: string; by: string; actor: GoBackActor }) => Promise<GoBackResult>
+  /** The AI's store summary kept beside the studio (storefront ARCHITECTURE §6.2): its JSON and when it was built, or null. */
+  summary: (storeId: string) => Promise<KeptSummary | null>
+  keepSummary: (storeId: string, kept: KeptSummary) => Promise<void>
 }
+
+export type KeptSummary = { builtAt: number; text: string }
 
 /** `taken` is the live commit a design publish took into the draft first (#1211); `refused` is the gate refusing it. */
 export type Prepared =
