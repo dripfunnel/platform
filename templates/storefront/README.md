@@ -11,7 +11,7 @@ Specification: [docs/storefront/ARCHITECTURE.md](../../docs/storefront/ARCHITECT
 
 **Status: skeleton.** A static export (`next build`) of one placeholder page: `src/app/` is the
 locked shim layer and `src/theme/` its placeholder. The starting themes are in `themes/{key}/`
-(#486): `classic` and `baseline` ("Start from scratch", from `designs/DF Storefront Prototype`). Each holds
+(#486): `classic`, `baseline` ("Start from scratch", from `designs/DF Storefront Prototype`) and, until #1218, `market`. Each holds
 `src/theme/**`, `content/en/*.json`, `routes.json` and `template.json` (the gallery's name, tag,
 description, demo store and the lowest core it runs on, mirrored by the `storefront_template`
 rows), and passes the validator, the preview bundle and the publish gate in

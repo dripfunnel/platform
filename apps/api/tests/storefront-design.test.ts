@@ -109,10 +109,10 @@ afterAll(async () => {
 })
 
 describe('the template gallery', () => {
-  it('lists Classic, then "Start from scratch"; the Manager reads it, Staff and suppliers are refused', async () => {
+  it('lists Classic, then "Start from scratch", then Market; the Manager reads it, Staff and suppliers are refused', async () => {
     const read = await w.gql('owner', '{ storefrontTemplates { key name tag current demoUrl } }')
     const rows = read.data?.['storefrontTemplates'] as { key: string; current: boolean; demoUrl: string | null }[]
-    expect(rows.map((r) => r.key)).toEqual(['classic', 'baseline'])
+    expect(rows.map((r) => r.key)).toEqual(['classic', 'baseline', 'market'])
     expect(rows.some((r) => r.current)).toBe(false)
     expect(rows.every((r) => r.demoUrl === null)).toBe(true)
     expect((await w.gql('manager', '{ storefrontTemplates { key } }')).code).toBeUndefined()

@@ -13,7 +13,7 @@ export interface TemplateRow {
   demo_host: string | null
 }
 
-/** The gallery in a fixed order, Classic then "Start from scratch" (storefront ARCHITECTURE §2.3); one page of at most `maxPageSize`. */
+/** The gallery in a fixed order, Classic, "Start from scratch", then the rest by key (storefront ARCHITECTURE §2.3); one page of at most `maxPageSize`. */
 export const selectOfferedTemplates = (tx: ScopedSql, shopDomain: string | null): Promise<TemplateRow[]> =>
   tx<TemplateRow[]>`
     select t.key, t.name, t.tag, t.description, case when s.id is null then null else ${storefrontHostOf(tx, shopDomain)} end as demo_host
