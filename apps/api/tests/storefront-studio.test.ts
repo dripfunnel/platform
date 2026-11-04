@@ -243,6 +243,8 @@ describe('asking for a change', () => {
   })
 
   it('runs two requests for one store one after the other', async () => {
+    // Both must be taken: the tests before this one spend the plan's six AI requests.
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
     script.answers = [reply([lead('First of two.')]), reply([lead('Second of two.')])]
     const [one, two] = await Promise.all([ask('owner', 'First'), ask('owner', 'Second')])
     expect([one.data?.['askDesign'], two.data?.['askDesign']]).toEqual([expect.objectContaining({ outcome: 'changed' }), expect.objectContaining({ outcome: 'changed' })])

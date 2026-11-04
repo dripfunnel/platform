@@ -183,8 +183,9 @@ export const anthropicOAuthDesignerProvider = (authToken: string, model: string 
 /** The local stand-in (AI_LOCAL=1, docs/setup/local.md): answers every request with no change and says why. */
 export const localAiProvider = (): AiProvider => ({
   complete: async (call) => {
-    const text = JSON.stringify({ files: [], reply: 'This is the local stand-in for the design model, so nothing changed.', changed: [], page: null })
-    for (const word of text.split(/(?<= )/)) call.onText?.(word)
+    const reply = 'This is the local stand-in for the design model, so nothing changed.'
+    for (const word of reply.split(/(?<= )/)) call.onText?.(word)
+    const text = JSON.stringify({ files: [], reply, changed: [], page: null })
     return { text, model: 'local-stand-in', tokensIn: 0, tokensOut: 0, costAmount: 0, costCurrency: 'USD' }
   },
 })
