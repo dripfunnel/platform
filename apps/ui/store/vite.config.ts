@@ -9,6 +9,7 @@ export default defineConfig({
   server: {
     // Each partner's portal is its own host (docs/setup/local.md §7.3): Caddy sends https://store.<partner>.localhost here
     // and its host and origin go on to the Worker unchanged, which finds the partner by them (ARCHITECTURE.md §2).
-    proxy: { '/api': { target: 'http://localhost:8787', changeOrigin: false } },
+    // `ws` carries the studio's live socket (`/api/studio/live`, AI-STUDIO §4) to the Worker too.
+    proxy: { '/api': { target: 'http://localhost:8787', changeOrigin: false, ws: true } },
   },
 })

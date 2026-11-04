@@ -12,7 +12,10 @@
 <style>
 @keyframes df-spin{to{transform:rotate(360deg);}}
 .df-spin{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid #D7D3CD;border-top-color:#0A2A4A;animation:df-spin 0.9s linear infinite;}
-@media (prefers-reduced-motion: reduce){.df-spin{animation:none;}}
+@keyframes df-caret{50%{opacity:0;}}
+.df-feed-spin{animation:df-spin 0.9s linear infinite;}
+.df-feed-caret{animation:df-caret 1s steps(1) infinite;}
+@media (prefers-reduced-motion: reduce){.df-spin,.df-feed-spin,.df-feed-caret{animation:none;}}
 [data-edit-text="1"] :is(h1,h2,h3,p,span,li):hover{outline:2px dashed #00519F;outline-offset:2px;cursor:text;}
 </style>
 </helmet>
@@ -81,7 +84,7 @@
               </div>
             </sc-if>
           </sc-for>
-          <sc-if value="{{ busyLine }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span><span style="font-size:14px;color:#434A55;">{{ busyText }}</span><sc-if value="{{ busyReopen }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.reopen }}" style="align-self:flex-start;margin-top:4px;height:36px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Reopen</button></sc-if></div></sc-if>
+          <sc-if value="{{ busyLine }}" hint-placeholder-val="{{ false }}"><div role="status" aria-live="polite" style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span><sc-if value="{{ notFeed }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;color:#434A55;">{{ busyText }}</span></sc-if><sc-if value="{{ hasFeed }}" hint-placeholder-val="{{ false }}"><ol style="list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;"><sc-for list="{{ feedSteps }}" as="fs" hint-placeholder-count="3"><li style="display:flex;align-items:center;gap:8px;font-size:14px;color:{{ fs.fg }};font-weight:{{ fs.fw }};"><sc-if value="{{ fs.done }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex:none;"><circle cx="8" cy="8" r="7" fill="#EEF7F2" stroke="#CBE6D6"></circle><path d="M5 8.2l2 2 4-4.4" fill="none" stroke="#1D6B47" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if><sc-if value="{{ fs.active }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex:none;box-sizing:border-box;width:16px;height:16px;border:2px solid #E8E2DC;border-top-color:#EC844F;border-radius:50%;" class="df-feed-spin"></span></sc-if><span>{{ fs.t }}</span></li></sc-for></ol><sc-if value="{{ hasFeedSummary }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#14181F;margin-top:4px;">{{ feedSummary }}</span></sc-if></sc-if><sc-if value="{{ isStreaming }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#14181F;white-space:pre-wrap;">{{ streamText }}<span aria-hidden="true" style="display:inline-block;width:7px;height:15px;margin-left:2px;vertical-align:-2px;background:#EC844F;border-radius:1px;" class="df-feed-caret"></span></span></sc-if><sc-if value="{{ busyReopen }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.reopen }}" style="align-self:flex-start;margin-top:4px;height:36px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Reopen</button></sc-if></div></sc-if>
         </div>
         <div style="flex:none;border-top:1px solid #E8E2DC;padding:12px;display:flex;flex-direction:column;gap:8px;">
           <sc-if value="{{ showSugs }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ sugs }}" as="sg" hint-placeholder-count="3"><button onClick="{{ sg.onClick }}" style="min-height:30px;padding:4px 10px;border:1px solid #D7D3CD;border-radius:15px;background:#FFFFFF;color:#434A55;font-size:12px;cursor:pointer;text-align:left;" style-hover="background:#F7F2ED;">{{ sg.t }}</button></sc-for></div></sc-if>
@@ -639,10 +642,18 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       { id: now + 1, role: 'user', text: 'Make the colours warmer and give the home page an autumn headline', at: now },
       { id: now + 2, role: 'ai', text: 'I warmed up the background and buttons and gave the home page an autumn headline.', changed: ['Colours', 'Hero headline'], before: live, at: now }];
     let draft = warm; let studio = true; let after = null; const extra = { rolledBack: null };
-    const st = { sbx: 'ready', phase: '', pub: 0, queueSecs: 20, pageMenu: false, prevMenu: false, editMode: false, edit: null, attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '', prompt: '', page: 'home', pane: 'chat', changed: [], tab: 'design' };
+    const st = { sbx: 'ready', phase: '', feed: null, stream: '', pub: 0, queueSecs: 20, pageMenu: false, prevMenu: false, editMode: false, edit: null, attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '', prompt: '', page: 'home', pane: 'chat', changed: [], tab: 'design' };
     if (k === 'opening' || k === 'queued' || k === 'ended') st.sbx = k;
     else if (k === 'finishing') st.phase = 'finishing';
     else if (k === 'checking') { chat = [...chat, { id: now + 3, role: 'user', text: 'Add a customer reviews section', at: now }]; st.phase = 'checking'; }
+    // #1237: the live feed over the studio's socket; each step ticks as the next arrives, the last one spins.
+    else if (k === 'working') {
+      chat = [...chat, { id: now + 3, role: 'user', text: 'Add a customer reviews section', at: now }]; st.phase = 'working';
+      st.feed = { steps: ['Reading your theme', 'Asking the AI', 'Checking your change', 'Fixing a problem (1 of 3)', 'Checking your change'], summary: 'I’m adding a reviews section under your products.' };
+    } else if (k === 'chat-streaming') {
+      chat = [...chat, { id: now + 3, role: 'user', text: 'What would suit a linen shop?', at: now }]; st.phase = 'streaming'; st.chatMode = true;
+      st.stream = 'Linen looks best in a calm, airy shop: soft natural tones like oat, sand and stone, plenty of white space, and large photos that show the weave up close. For your home page, I’d';
+    }
     else if (k === 'attach') {
       chat = [...chat, { id: now + 3, role: 'user', text: 'Use the colours from this photo and a layout like this site', img: { name: 'shop-window.jpg', hue: 24 }, site: 'https://www.example.com/', at: now },
         { id: now + 4, role: 'ai', text: 'I took the clay and sand tones from your photo and the roomy two-column layout from example.com. Your products and prices stay as they are.', changed: ['Colours', 'Layout'], before: warm, at: now }];
@@ -826,6 +837,8 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       paneTabs: [['chat', 'Chat'], ['preview', 'Preview']].map(([k, l]) => ({ label: l, bd: s.pane === k ? '#0A2A4A' : 'transparent', fg: s.pane === k ? '#0A2A4A' : '#5A6472', onClick: () => this.setState({ pane: k }) })),
       showChat: !phone || s.pane === 'chat', showPreview: !phone || s.pane === 'preview', chatW: phone ? '100%' : (s.w && s.w < 1100 ? '320px' : '380px'),
       msgs, prompt: s.prompt, showSugs: !locked && sugPool.length > 0, sugs: sugPool.map(t => ({ t, onClick: () => this.ask(t) })),
+      hasFeed: !!s.feed && s.phase === 'working', feedSteps: (s.feed ? s.feed.steps : []).map((t, i, all) => ({ t, done: i < all.length - 1, active: i === all.length - 1, fw: i === all.length - 1 ? '600' : '400', fg: i === all.length - 1 ? '#14181F' : '#434A55' })), hasFeedSummary: !!(s.feed && s.feed.summary), feedSummary: s.feed ? s.feed.summary : '',
+      isStreaming: s.phase === 'streaming', streamText: s.stream, notFeed: !(s.feed && s.phase === 'working') && s.phase !== 'streaming',
       busyLine: !!s.phase || (phone && s.sbx !== 'ready'), busyReopen: phone && !s.phase && s.sbx === 'ended',
       busyText: { working: 'Working on it — the preview updates as soon as it’s ready.', checking: 'Checking your change…', finishing: 'Finishing your previous change…' }[s.phase] || (s.sbx === 'ended' ? 'Your studio session ended. Reopen the studio to keep designing.' : s.sbx === 'queued' ? `You’re next — about ${s.queueSecs} seconds` : 'Opening your studio…'),
       isWorking: !!s.phase, notWorking: !s.phase, sendLabel: s.phase ? 'Working…' : 'Send', sendBg: locked || !(s.prompt.trim() || s.attImg || s.attSite) ? '#F3D3BF' : '#EC844F',

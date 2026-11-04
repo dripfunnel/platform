@@ -4,6 +4,8 @@ import type { DesignMessage, StockPhoto } from '../../api/studio'
 import { fill, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { askRefusal, noteText, sampleAddress } from './studioRules'
+import { StudioFeed } from './StudioFeed'
+import type { LiveRun } from './useStudioLive'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.studio.chat
@@ -49,6 +51,8 @@ export interface StudioChatProps {
   canEdit: boolean
   /** "Checking your change…" and the sandbox's states, shown as the AI's line. */
   busyLine: string | null
+  /** The store's change or answer in progress, from the live socket; it takes the busy line's place. */
+  live: LiveRun | null
   error: string | null
   api: StorefrontApi
   onEarlier: () => void
@@ -73,7 +77,7 @@ interface Attached {
 }
 
 /** "Design with AI" (PortalStorefront › studio): the conversation, suggestions and the composer with an image and a website. */
-export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, error, api, onEarlier, onUndo, onStop, onSend, notice, aiLine, models }: StudioChatProps) => {
+export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, live, error, api, onEarlier, onUndo, onStop, onSend, notice, aiLine, models }: StudioChatProps) => {
   const [prompt, setPrompt] = useState('')
   const [image, setImage] = useState<Attached | null>(null)
   const [site, setSite] = useState<string | null>(null)
@@ -250,7 +254,13 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
           <ChatLine key={m.id} message={m} assistant={assistant} templateName={templateName} canUndo={canEdit && !locked && m.id === undoable} onUndo={() => onUndo(m)} onRetry={canEdit && !locked && last && m.id === chat[chat.length - 1]?.id ? retry : null} />
         ))}
         {notice}
-        {busyLine && (
+        {live && (
+          <li className="df-studio-ai">
+            <span className="df-sf-eyebrow">{assistant}</span>
+            <StudioFeed run={live} />
+          </li>
+        )}
+        {!live && busyLine && (
           <li className="df-studio-ai">
             <span className="df-sf-eyebrow">{assistant}</span>
             <span className="df-studio-dots" aria-hidden="true">

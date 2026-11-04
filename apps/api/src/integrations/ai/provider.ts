@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { anthropicFailure, anthropicOAuthHeaders } from './anthropicChat'
-import { UnsupportedFeature, type CanonicalMessage, type CanonicalRequest, type CanonicalTool, type CanonicalToolCall } from './canonical'
+import { UnsupportedFeature, type CanonicalMessage, type CanonicalRequest, type CanonicalStreamEvent, type CanonicalTool, type CanonicalToolCall } from './canonical'
 import { GatewayError } from './gateway'
 import { capabilityOf, costOf } from './registry'
 import { collectStream, type Router } from './routing/router'
@@ -16,6 +16,8 @@ export interface AiCall {
   system: string
   text: string
   images: readonly AiImage[]
+  /** Each piece of the answer's text as it streams through the router (studio chat mode, AI-STUDIO §4); the answer still comes whole. */
+  onText?: (text: string) => void
 }
 
 export interface AiAnswer {
@@ -99,6 +101,13 @@ export const anthropicProvider = (apiKey: string, model: string = designerModel)
   }
 }
 
+async function* tapText(events: AsyncIterable<CanonicalStreamEvent>, onText: (text: string) => void): AsyncGenerator<CanonicalStreamEvent> {
+  for await (const event of events) {
+    if (event.kind === 'text') onText(event.text)
+    yield event
+  }
+}
+
 /**
  * The designer's call through the router (SAAS.md §9.3): the router owns the one retry loop and any authorised fallback. The
  * answer is whole or the call fails: a refusal, a cut-off or an error event never returns text the studio could apply.
@@ -132,7 +141,7 @@ export const routedDesignerProvider = (router: Router, model: string, options: {
     try {
       const routed = await router.stream(request)
       options.onRouted?.(routed)
-      const answer = await collectStream(routed.value)
+      const answer = await collectStream(call.onText ? tapText(routed.value, call.onText) : routed.value)
       if (answer.finish !== 'stop') throw new AiDeclined(answer.finish === 'refusal' ? 'the model declined' : 'the answer was cut short')
       const { route } = routed
       const capability = capabilityOf(route.provider, route.model)
@@ -173,14 +182,12 @@ export const anthropicOAuthDesignerProvider = (authToken: string, model: string 
 
 /** The local stand-in (AI_LOCAL=1, docs/setup/local.md): answers every request with no change and says why. */
 export const localAiProvider = (): AiProvider => ({
-  complete: async () => ({
-    text: JSON.stringify({ files: [], reply: 'This is the local stand-in for the design model, so nothing changed.', changed: [], page: null }),
-    model: 'local-stand-in',
-    tokensIn: 0,
-    tokensOut: 0,
-    costAmount: 0,
-    costCurrency: 'USD',
-  }),
+  complete: async (call) => {
+    const reply = 'This is the local stand-in for the design model, so nothing changed.'
+    for (const word of reply.split(/(?<= )/)) call.onText?.(word)
+    const text = JSON.stringify({ files: [], reply, changed: [], page: null })
+    return { text, model: 'local-stand-in', tokensIn: 0, tokensOut: 0, costAmount: 0, costCurrency: 'USD' }
+  },
 })
 
 export type KeyCheck = 'ok' | 'rejected' | 'unavailable'

@@ -7606,6 +7606,17 @@
       },
       "frameTitle": "Your draft site",
       "resize": "Resize the chat. Drag, or use the arrow keys.",
+      "live": {
+        "steps": {
+          "reading": "Reading your theme",
+          "asking": "Asking the AI",
+          "checking": "Checking your change",
+          "repairing": "Fixing a problem ({attempt} of {of})",
+          "saving": "Saving",
+          "updating": "Updating the page"
+        },
+        "answering": "Writing an answer…"
+      },
       "sandbox": {
         "opening": "Opening your studio…",
         "queued": "You’re next — about {seconds} seconds",
