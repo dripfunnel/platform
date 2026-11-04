@@ -1,0 +1,36 @@
+@theme {
+  --color-bg: #faf9f7;
+  --color-surface: #fff;
+  --color-soft: #f2efea;
+  --color-tint: #e9e4dc;
+  --color-ink: #2a2725;
+  --color-ink-soft: #4a4541;
+  --color-muted: #6b655f;
+  --color-line: #e2ddd5;
+  --color-accent: #3f3a36;
+  --color-accent-ink: #faf9f7;
+  --color-taupe: #b3a593;
+  --color-taupe-ink: #2a2725;
+  --color-taupe-text: #6f6252;
+  --color-deep: #2f2b28;
+  --color-danger: #9a3412;
+  --color-focus: #00519f;
+  --radius-card: 8px;
+  --radius-button: 6px;
+  --font-heading: 'Cormorant Garamond', georgia, serif;
+  --heading-weight: 600;
+  --brand-weight: 700;
+  --heading-case: none;
+  --heading-spacing: 0;
+  --font-body: system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --color-header-bg: var(--color-accent);
+  --color-header-ink: var(--color-accent-ink);
+  --color-header-hover: rgb(255 255 255 / 12%);
+  --color-nav-bg: rgb(250 249 247 / 92%);
+  --color-footer-bg: #26221f;
+  --color-footer-ink: #fff;
+  --color-footer-muted: rgb(255 255 255 / 75%);
+  --color-footer-line: rgb(179 165 147 / 25%);
+  --picture: linear-gradient(160deg, #f2efea, #ddd6cc);
+  --picture-alt: linear-gradient(160deg, #e9e4dc, #d6cec2);
+}

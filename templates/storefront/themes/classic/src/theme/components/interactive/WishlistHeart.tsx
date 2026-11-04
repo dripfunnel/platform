@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import { cx } from '../cx'
+import { clsx } from 'clsx'
 import { useStorefront, useWishlist } from '@dripfunnel/storefront-core/theme'
-import styles from '../../styles/product.module.css'
 
 const heart = 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
 
@@ -18,13 +17,13 @@ export const WishlistHeart = ({ productId, name, versionId }: { productId: strin
   }, [on, chose, productId, versionId])
   return (
     <>
-      <button type="button" className={cx(styles.heart, on && styles.heartOn)} aria-pressed={on} aria-label={t('shop.wishlist.heart', { name })} disabled={wishlist.busy || wishlist.status === 'loading'} onClick={() => void wishlist.toggle(productId, versionId)}>
+      <button type="button" className={clsx('group-[:nth-child(n)]/product-buy:p-0 group-[:nth-child(n)]/product-buy:border group-[:nth-child(n)]/product-buy:inline-flex group-[:nth-child(n)]/product-buy:flex-[0_0_48px] group-[:nth-child(n)]/product-buy:min-h-12 group-[:nth-child(n)]/product-buy:items-center group-[:nth-child(n)]/product-buy:justify-center group-[:nth-child(n)]/product-buy:rounded-button group-[:nth-child(n)]/product-buy:bg-surface group-[:nth-child(n)]/product-buy:cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]', !(on) && 'group-[:nth-child(n)]/product-buy:border-line group-[:nth-child(n)]/product-buy:text-ink', on && 'group-[:nth-child(n)]/product-buy:border-accent group-[:nth-child(n)]/product-buy:text-accent')} aria-pressed={on} aria-label={t('shop.wishlist.heart', { name })} disabled={wishlist.busy || wishlist.status === 'loading'} onClick={() => void wishlist.toggle(productId, versionId)}>
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
           <path d={heart} fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
         </svg>
       </button>
       {wishlist.error ? (
-        <p className={styles.added} role="status">
+        <p className="m-0 basis-[100%] text-ink-soft text-[14px]" role="status">
           {wishlist.error === 'LIMIT' ? t('shop.wishlist.full') : t('shop.wishlist.failed')}
         </p>
       ) : null}
