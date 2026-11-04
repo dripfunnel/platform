@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { validateTheme, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { carouselExample, designModel, maxLookups, maxPhotoLookups, maxToolCalls, rules, type DesignBrief, type DesignTools } from './model'
 import type { StoreLookups, StoreSummary } from './summary'
+import type { FileEdit } from '#saas/studio/index'
 
 const brief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: 'S', languages: [] }, summary: null, image: null, screenshot: null }
 const spent = { tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD', model: 'fake' }
@@ -47,7 +48,7 @@ describe('the designer’s tool loop', () => {
     expect(r.proposal).toMatchObject({ tokensIn: 30, tokensOut: 15, costAmount: 3 })
   })
 
-  it('answers a fifth tool call with the limit and stops offering tools after the fourth', async () => {
+  it('answers a fifth tool call with the limit, offering the same tools so the cached prefix holds', async () => {
     const r = await run([
       turn([call('1', 'search_stock_images', { query: 'a' }), call('2', 'search_stock_images', { query: 'b' }), call('3', 'search_stock_images', { query: 'c' }), call('4', 'search_stock_images', { query: 'd' })]),
       turn([call('5', 'search_stock_images', { query: 'e' })]),
@@ -56,14 +57,16 @@ describe('the designer’s tool loop', () => {
     expect(maxToolCalls).toBe(4)
     expect(r.searched).toEqual(['a', 'b', 'c', 'd'])
     expect(r.seen[0]?.tools.length).toBe(2)
-    expect(r.seen[1]?.tools).toEqual([])
+    expect(r.seen[1]?.tools).toEqual(r.seen[0]?.tools)
     expect(lastResults(r)).toEqual([expect.objectContaining({ callId: '5', isError: true, content: 'The limit of tool calls for this change is reached.' })])
   })
 
-  it('offers no tools in a repair: the one plain call answers from the errors', async () => {
-    const r = await run([], {}, [{ file: 'src/theme/x.tsx', message: 'bad' }])
-    expect(r.seen).toEqual([])
-    expect(r.completed).toHaveLength(1)
+  it('runs no tool in a repair, offering the same tools so it reads the first ask’s cached prefix', async () => {
+    const r = await run([turn([call('1', 'search_stock_images', { query: 'a' })]), turn([])], {}, [{ file: 'src/theme/x.tsx', message: 'bad' }])
+    expect(r.searched).toEqual([])
+    expect(r.seen[0]?.tools.map((t) => t.name)).toEqual(['search_stock_images', 'add_stock_image'])
+    expect(lastResults(r)).toEqual([expect.objectContaining({ callId: '1', isError: true, content: 'A repair answers from the errors alone: no tool runs in it.' })])
+    expect(r.completed).toEqual([])
   })
 
   it('refuses a malformed or non-numeric id, an unknown tool and an empty query, adding and searching nothing', async () => {
@@ -140,7 +143,7 @@ describe('the store lookups', () => {
     expect(photos).toEqual({ role: 'user', content: [{ type: 'image', mediaType: 'image/png', base64: 'AAAA' }] })
   })
 
-  it('allows six lookups, two of them photos, then stops offering them', async () => {
+  it('allows six lookups, two of them photos, then answers each past the limit with it', async () => {
     const r = await looked([
       turn([call('1', 'product_photos', { product: 'a' }), call('2', 'product_photos', { product: 'b' }), call('3', 'product_photos', { product: 'c' })]),
       turn([call('4', 'find_products', {}), call('5', 'list_collections', {}), call('6', 'active_offers', {}), call('7', 'best_sellers', {})]),
@@ -148,8 +151,8 @@ describe('the store lookups', () => {
     ])
     expect([maxLookups, maxPhotoLookups]).toEqual([6, 2])
     expect(r.asked).toEqual(['product_photos', 'product_photos', 'find_products', 'list_collections', 'active_offers'])
-    expect(r.seen[1]?.tools.map((t) => t.name)).not.toContain('product_photos')
-    expect(r.seen[2]?.tools).toEqual([])
+    expect(r.seen[2]?.tools).toEqual(r.seen[0]?.tools)
+    expect(r.seen[2]?.messages.at(-1)).toEqual({ role: 'tool', content: [4, 5, 6, 7].map((n) => expect.objectContaining({ callId: `${n}`, isError: n === 7 })) })
   })
 
   it('ends the loop whatever the model calls: unknown tools count, and none is offered past ten calls', async () => {
@@ -157,16 +160,16 @@ describe('the store lookups', () => {
     await expect(r).rejects.toThrow(/past the limit/)
   })
 
-  it('looks nothing up in a repair', async () => {
-    const r = await looked([], [{ file: 'src/theme/x.tsx', message: 'bad' }])
-    expect(r.seen).toEqual([])
-    expect(r.completed).toHaveLength(1)
-    expect(r.completed[0]).toContain(JSON.stringify(summary))
+  it('looks nothing up in a repair, which still holds the summary', async () => {
+    const r = await looked([turn([call('1', 'best_sellers', {})]), turn([])], [{ file: 'src/theme/x.tsx', message: 'bad' }])
+    expect(r.asked).toEqual([])
+    const first = r.seen[0]?.messages[0]?.content.find((p) => p.type === 'text')
+    expect(first?.type === 'text' ? first.text : '').toContain(JSON.stringify(summary))
   })
 })
 
 describe('a repair', () => {
-  const ask = async (input: { problems: never[]; previous?: { path: string; content: string }[] }) => {
+  const ask = async (input: { problems: never[]; previous?: FileEdit[] }) => {
     const completed: string[] = []
     const provider: AiProvider = { complete: async (c) => (completed.push(c.text), { text: final, ...spent }) }
     await designModel(provider, brief, { search: async () => [], add: async () => null }).propose({ request: 'x', theme: [], ...input })
@@ -174,14 +177,63 @@ describe('a repair', () => {
   }
   const failed = [{ step: 'validator', rule: 'content/missing-key', file: 'a.tsx', line: 1, message: 'no words' }] as never[]
 
-  it('shows the model the files of its last answer beside the errors', async () => {
-    const text = await ask({ problems: failed, previous: [{ path: 'src/theme/A.tsx', content: 'MARKER-CODE' }] })
-    expect(text).toMatch(/Your last answer's files, which failed:\n--- src\/theme\/A\.tsx\nMARKER-CODE/)
-    expect(text).toMatch(/Your last answer failed these checks/)
+  it('shows the model its last answer’s edits beside the errors, and asks for the whole change again', async () => {
+    const previous: FileEdit[] = [{ path: 'src/theme/A.tsx', edits: [{ search: 'MARKER-OLD', replace: 'MARKER-CODE' }] }]
+    const text = await ask({ problems: failed, previous })
+    expect(text).toContain(`Your last answer's files, which failed and were not kept:\n${JSON.stringify(previous)}`)
+    expect(text).toMatch(/Your last answer failed these checks\. This is a repair: .* Answer again with the whole change, every edit made against the theme above/)
   })
 
   it('shows no previous files on the first ask', async () => {
     expect(await ask({ problems: [], previous: [{ path: 'src/theme/A.tsx', content: 'MARKER-CODE' }] })).not.toMatch(/MARKER-CODE/)
+  })
+})
+
+describe('the answer as edits, and the cached prefix (#1238)', () => {
+  const theme = [
+    { path: 'src/theme/styles/theme.css', content: '@theme {\n  --color-button: #1f6feb;\n}\n' },
+    { path: 'content/en/home.json', content: '{"title":"Hi"}\n' },
+  ]
+  const maroon = JSON.stringify({ files: [{ path: 'src/theme/styles/theme.css', edits: [{ search: '--color-button: #1f6feb;', replace: '--color-button: #800000;' }] }], reply: 'I made the buttons maroon.', changed: ['Buttons'], page: 'home' })
+  const turns = async (requests: { request: string; recent: string[]; theme: typeof theme }[]) => {
+    const seen: { system: string; cacheSystem: boolean | undefined; messages: readonly CanonicalMessage[] }[] = []
+    const provider: AiProvider = { complete: async () => ({ text: final, ...spent }), converse: async (c) => (seen.push({ system: c.system, cacheSystem: c.cacheSystem, messages: c.messages }), { ...turn([]), text: maroon }) }
+    const lookups: StoreLookups = { run: async () => null }
+    const proposals = []
+    for (const r of requests) proposals.push(await designModel(provider, { ...brief, recent: r.recent }, null, () => undefined, undefined, lookups).propose({ request: r.request, theme: r.theme, problems: [] }))
+    return { seen, proposals }
+  }
+  const cachedPrefix = (s: { system: string; messages: readonly CanonicalMessage[] }) => JSON.stringify([s.system, s.messages[0]?.content.filter((p) => p.type === 'text' && p.cache)])
+
+  it('reads a one-line colour change as one edit of a few lines', async () => {
+    const { proposals } = await turns([{ request: 'make the buttons maroon', recent: [], theme }])
+    expect(proposals[0]?.files).toEqual([{ path: 'src/theme/styles/theme.css', edits: [{ search: '--color-button: #1f6feb;', replace: '--color-button: #800000;' }] }])
+    expect(maroon.length).toBeLessThan(300)
+  })
+
+  it('sends the rules, the shop and the theme first, marked for the cache, byte-identical across two requests on one theme', async () => {
+    const { seen } = await turns([
+      { request: 'make the buttons maroon', recent: [], theme },
+      { request: 'add a carousel to the home page', recent: ['make the buttons maroon'], theme: [...theme].reverse() },
+    ])
+    const [one, two] = seen
+    expect(one?.cacheSystem).toBe(true)
+    expect(one?.messages[0]?.content.map((p) => p.type === 'text' && p.cache === true)).toEqual([true, true, false])
+    expect(one && cachedPrefix(one)).toBe(two && cachedPrefix(two))
+    const tail = (s: typeof one) => s?.messages[0]?.content.at(-1)
+    expect(tail(two)).toMatchObject({ type: 'text', text: expect.stringContaining('The merchant asks: add a carousel') })
+    expect(tail(two)).toMatchObject({ text: expect.stringContaining(carouselExample.trim()) })
+    expect(one?.system).toBe(rules)
+  })
+
+  it('reads an answer with an unknown field, or a file with both content and edits, as no usable answer', async () => {
+    const provider = (text: string): AiProvider => ({ complete: async () => ({ text, ...spent }) })
+    const odd = [
+      JSON.stringify({ files: [], reply: 'x', changed: [], page: null, extra: 1 }),
+      JSON.stringify({ files: [{ path: 'a.tsx', content: 'x', edits: [{ search: 'a', replace: 'b' }] }], reply: 'x', changed: [], page: null }),
+      JSON.stringify({ files: [{ path: 'a.tsx', content: null }], reply: 'x', changed: [], page: null }),
+    ]
+    for (const text of odd) expect((await designModel(provider(text), brief).propose({ request: 'x', theme: [], problems: [] })).summary).toBeNull()
   })
 })
 
@@ -216,17 +268,17 @@ describe('the rules the AI is given', () => {
 describe('the worked carousel', () => {
   const system = async (request: string) => {
     const seen: string[] = []
-    const provider: AiProvider = { complete: async (c) => (seen.push(c.system), { text: final, ...spent }) }
+    const provider: AiProvider = { complete: async (c) => (seen.push(c.text), { text: final, ...spent }) }
     await designModel(provider, brief, null).propose({ request, theme: [], problems: [] })
     return seen[0] ?? ''
   }
 
   it.each(['turn the hero into a rotating carousel of three slides', 'add a Slider of reviews', 'make the FAQ tabs'])('goes with "%s"', async (request) => {
-    expect(await system(request)).toContain(carouselExample)
+    expect(await system(request)).toContain(carouselExample.trim())
   })
 
   it.each(['make the colours warmer', 'add a customer reviews section', 'use a more elegant font for headings'])('stays out of "%s"', async (request) => {
-    expect(await system(request)).not.toContain(carouselExample)
+    expect(await system(request)).not.toContain(carouselExample.trim())
   })
 })
 

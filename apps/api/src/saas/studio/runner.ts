@@ -7,7 +7,8 @@ import { baseDraftOnBuild, insertAiRun, moveDraft, rebaseDraft, restartDraft, se
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import type { LiveEvent } from './live'
-import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
+import { maxRepairs, type DesignModel, type FileEdit, type Proposal, type ProposalSummary } from './model'
+import { applyEdits } from './patches'
 import { pageTexts, withText } from './texts'
 import { templateChange } from './template'
 
@@ -316,12 +317,20 @@ export class StudioRunner {
         const context = await this.guardContext()
         const theme = new Map((await client.theme()).files.map((f) => [f.path, f.content]))
         let problems: GateProblem[] = []
+        let previous: FileEdit[] = []
         for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
-          const proposal = await ask.model.propose({ request, theme: [...theme].map(([path, content]) => ({ path, content })), problems })
+          const proposal = await ask.model.propose({ request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous })
           const startedAt = this.deps.now().getTime()
           const made: Attempt = { proposal, ms: 0, result: null }
           attempts.push(made)
-          made.result = await client.change(proposal.files, `Migrate to storefront-core ${ask.to}`, context)
+          previous = proposal.files
+          const applied = applyEdits(theme, proposal.files)
+          if (!applied.ok) {
+            made.result = { ok: false, problems: applied.problems }
+            problems = applied.problems
+            continue
+          }
+          made.result = await client.change(applied.changes, `Migrate to storefront-core ${ask.to}`, context)
           made.ms = this.deps.now().getTime() - startedAt
           if (!made.result.ok) {
             problems = made.result.problems
@@ -329,7 +338,7 @@ export class StudioRunner {
           }
           // The push once live carries the upgrade's files and the agent's, each file as it ends up.
           const changed = new Map(filesSchema.parse(JSON.parse(new TextDecoder().decode(await files.arrayBuffer()))).files.map((f) => [f.path, f.content]))
-          for (const f of proposal.files) changed.set(f.path, f.content)
+          for (const f of applied.changes) changed.set(f.path, f.content)
           await this.deps.drafts.put(upgradeBundle(storeId, made.result.commit), await client.exportBundle())
           await this.deps.drafts.put(upgradeFiles(storeId, made.result.commit), new TextEncoder().encode(JSON.stringify({ files: [...changed].map(([path, content]) => ({ path, content })) })).buffer)
           await this.recordMigration(input, attempts, 'changed')
@@ -508,7 +517,8 @@ export class StudioRunner {
     const theme = await this.themeNow()
     const attempts: Attempt[] = []
     let problems: GateProblem[] = []
-    let previous: { path: string; content: string }[] = []
+    let previous: FileEdit[] = []
+    let after: Map<string, string> = theme
     let saved: Awaited<ReturnType<StudioRunner['collect']>> | null = null
     let stop: () => void = () => undefined
     const stopping = new Promise<never>((_, reject) => {
@@ -529,13 +539,21 @@ export class StudioRunner {
           summarised = true
           progress({ type: 'text', text: proposal.summary.reply })
         }
+        const made: Attempt = { proposal, ms: 0, result: null }
+        attempts.push(made)
+        previous = proposal.files
+        // Edits that don't apply are a repair like a gate failure, with no sandbox run (ARCHITECTURE §6.2).
+        const applied = applyEdits(theme, proposal.files)
+        if (!applied.ok) {
+          made.result = { ok: false, problems: applied.problems }
+          problems = applied.problems
+          continue
+        }
         progress({ type: 'step', step: 'checking' })
         const startedAt = this.deps.now().getTime()
         run.sandboxed = true
-        const made: Attempt = { proposal, ms: 0, result: null }
-        attempts.push(made)
         const done = await this.recovering(async (client) => {
-          const result = await client.change(proposal.files, input.request, context)
+          const result = await client.change(applied.changes, input.request, context)
           return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
         }).finally(() => {
           made.ms = this.deps.now().getTime() - startedAt
@@ -543,10 +561,10 @@ export class StudioRunner {
         made.result = done.result
         if (done.result.ok) {
           saved = done.saved
+          after = applied.after
           break
         }
         problems = done.result.problems
-        previous = proposal.files.flatMap((f) => (f.content === null ? [] : [{ path: f.path, content: f.content }]))
         run.sandboxed = false
       }
     } catch (error) {
@@ -561,11 +579,6 @@ export class StudioRunner {
     if (!last?.ok) {
       const runId = await this.record(input, attempts, 'refused')
       return { outcome: 'refused', problems, repairs, runId }
-    }
-    const after = new Map(theme)
-    for (const f of attempts.at(-1)?.proposal.files ?? []) {
-      if (f.content === null) after.delete(f.path)
-      else after.set(f.path, f.content)
     }
     let previewRef: string | null
     try {
