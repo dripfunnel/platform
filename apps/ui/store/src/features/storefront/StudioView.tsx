@@ -15,6 +15,7 @@ import { StudioChat, type ChatRequest } from './StudioChat'
 import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishProgress, failedWords, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 import { usePublishRun } from './usePublishRun'
+import { useStudioLive } from './useStudioLive'
 import './studio.css'
 
 const words = messages.storefront.studio
@@ -233,10 +234,17 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     </button>
   )
   // Reads after a change never throw: the chat says when it couldn't load, and the design keeps its last answer.
-  const after = async () => {
+  const after = useCallback(async () => {
     await loadChat()
     await api.loadOverview().then(onOverview, () => undefined)
-  }
+  }, [api, loadChat, onOverview])
+  // Another tab's or person's change, followed live: its result is read once it ends; this tab's own reads after its answer.
+  const busyNow = useRef(busy)
+  useEffect(() => {
+    busyNow.current = busy
+  }, [busy])
+  const othersEnded = useCallback(() => void (busyNow.current ? undefined : after()), [after])
+  const live = useStudioLive(api, sessionId, othersEnded)
   const perform = async (work: () => Promise<unknown>, refusal: (e: unknown) => string): Promise<boolean> => {
     if (locked) return false
     setBusy(true)
@@ -451,6 +459,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             locked={locked}
             canEdit
             busyLine={busyLine}
+            live={live.run}
             error={error}
             api={api}
             onEarlier={more}

@@ -5,7 +5,7 @@ import { later, Provided, shopAnswering, type Asked } from '../../test/shop'
 import { navigate } from '../platform/browser/router'
 import { useCollection } from '../collections/collections'
 import { useSearch } from '../search/search'
-import { listingState, pageSize } from './listing'
+import { listingState, pageSize, useProducts } from './listing'
 
 afterEach(() => {
   cleanup()
@@ -197,5 +197,18 @@ describe('every product', () => {
     render(<Provided><All /></Provided>)
     await screen.findByText('found|true|1')
     expect(asked.find((a) => a.query.startsWith('query Listing'))?.variables).toMatchObject({ collection: null, sort: null })
+  })
+})
+
+describe('useProducts', () => {
+  it('asks for the best sellers by the ranking, live in the browser', async () => {
+    const asked = shopAnswering(() => page([3, 1], null))
+    const Best = () => {
+      const best = useProducts({ sort: 'best-selling', first: 2 })
+      return <p>{best.products.map((p) => p.name).join()}</p>
+    }
+    render(<Provided><Best /></Provided>)
+    await screen.findByText('Shirt 3,Shirt 1')
+    expect(asked[0]?.variables).toEqual({ sort: 'BEST_SELLING', first: 2 })
   })
 })

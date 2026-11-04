@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { allPages } from './allPages'
 import { createApiClient, typedQuery } from '@dripfunnel/shared/graphql'
-import { actingHeaders } from '../acting'
+import { actingHeaders, actingStore } from '../acting'
 import { query } from './client'
 
 // A change waits on the model, up to 180 s a try (SAAS §9.3); the 15 s default would show a failure while it still runs.
@@ -156,3 +156,80 @@ export const publishBefore = async (messageId: string): Promise<string> =>
 /** Null for a publish that isn't this store's. */
 export const loadPublishRun = async (id: string): Promise<PublishRun | null> =>
   (await query('query P($id: ID!) { publishRun(id: $id) { id step version repairAttempts checks { name passed words } bisectMessageId } }', z.object({ publishRun: runSchema.nullable() }), { id })).publishRun
+
+// Live progress (storefront AI-STUDIO §4 "Live progress", #1237): the one socket next to GraphQL, one-way, to the store's
+// studio; it never starts or changes anything, so askDesign and cancelDesign stay the only writes.
+export const liveSteps = ['reading', 'asking', 'checking', 'repairing', 'saving', 'updating'] as const
+export type LiveStep = (typeof liveSteps)[number]
+
+const liveBase = { seq: z.number().int().positive(), run: z.string() }
+const liveEventSchema = z.discriminatedUnion('type', [
+  z.object({ ...liveBase, type: z.literal('step'), step: z.enum(liveSteps), attempt: z.number().int().optional(), of: z.number().int().optional() }),
+  z.object({ ...liveBase, type: z.literal('text'), text: z.string() }),
+  z.object({ ...liveBase, type: z.literal('done'), outcome: z.string(), messageId: text }),
+  z.object({ ...liveBase, type: z.literal('error'), code: z.string() }),
+])
+export type LiveEvent = z.infer<typeof liveEventSchema>
+
+export interface StudioLive {
+  close: () => void
+}
+
+/** A dropped socket tries again after these waits, the last one repeating. */
+export const liveRetryMs = [1_000, 2_000, 5_000, 10_000] as const
+
+/**
+ * Opens the studio's live socket for `session`; a dropped one reconnects with the last event seen, so only the missed
+ * ones come again. `onUp` says whether it is connected: without it the studio shows "Checking your change…" as before.
+ */
+export const openStudioLive = (session: string, onEvent: (event: LiveEvent) => void, onUp: (up: boolean) => void, connect: (url: string) => WebSocket = (url) => new WebSocket(url)): StudioLive => {
+  let last = 0
+  let tries = 0
+  let closed = false
+  let socket: WebSocket | null = null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const address = () => {
+    const url = new URL('/api/studio/live', window.location.href)
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    url.searchParams.set('session', session)
+    url.searchParams.set('after', String(last))
+    const store = actingStore()?.storeId
+    if (store) url.searchParams.set('store', store)
+    return url.toString()
+  }
+  const open = () => {
+    if (closed) return
+    const s = connect(address())
+    socket = s
+    s.onopen = () => {
+      tries = 0
+      onUp(true)
+    }
+    s.onmessage = (message: MessageEvent) => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(String(message.data))
+      } catch {
+        return
+      }
+      const event = liveEventSchema.safeParse(parsed)
+      if (!event.success || event.data.seq <= last) return
+      last = event.data.seq
+      onEvent(event.data)
+    }
+    s.onclose = () => {
+      if (socket !== s || closed) return
+      onUp(false)
+      timer = setTimeout(open, liveRetryMs[Math.min(tries, liveRetryMs.length - 1)])
+      tries += 1
+    }
+  }
+  open()
+  return {
+    close: () => {
+      closed = true
+      clearTimeout(timer)
+      socket?.close()
+    },
+  }
+}

@@ -1137,3 +1137,92 @@
 .df-studio-image--thumb--none {
   display: block;
 }
+
+/* The live feed (PortalStorefront › studio ?state=working and ?state=chat-streaming, #1237). */
+.df-studio-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-studio-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--df-color-text);
+  font-size: 14px;
+}
+
+.df-studio-step--current {
+  color: var(--df-color-text-strong);
+  font-weight: 600;
+}
+
+.df-studio-tick {
+  flex: none;
+}
+
+.df-studio-tick circle {
+  fill: var(--df-color-success-surface);
+  stroke: var(--df-color-success-border);
+}
+
+.df-studio-tick path {
+  fill: none;
+  stroke: var(--df-color-success);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.df-studio-spin {
+  box-sizing: border-box;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--df-color-border);
+  border-top-color: var(--df-color-brand);
+  border-radius: 50%;
+  animation: df-studio-turn 0.9s linear infinite;
+}
+
+@keyframes df-studio-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.df-studio-summary,
+.df-studio-stream {
+  margin: 4px 0 0;
+  color: var(--df-color-text-strong);
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.df-studio-caret {
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  border-radius: 1px;
+  background: var(--df-color-brand);
+  animation: df-studio-blink 1s steps(1) infinite;
+}
+
+@keyframes df-studio-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .df-studio-spin,
+  .df-studio-caret {
+    animation: none;
+  }
+}

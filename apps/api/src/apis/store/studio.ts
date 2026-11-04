@@ -39,7 +39,8 @@ const studioFor = (ctx: StoreContext) => {
   })
 }
 
-const read = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none', blockedFor: ['support', 'impersonation'] } as const
+/** The studio's read access: its queries and its live socket (studioLive.ts). */
+export const studioRead = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none', blockedFor: ['support', 'impersonation'] } as const
 const chatPage = 50
 
 export const registerStudio = (builder: StoreBuilder) => {
@@ -101,13 +102,13 @@ export const registerStudio = (builder: StoreBuilder) => {
     studioSession: t.field({
       type: Session,
       args: { session: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: studioRead },
       resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).session(args.session ?? null)),
     }),
     designChat: t.field({
       type: Chat,
       args: { after: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: studioRead },
       resolve: async (_, args, ctx: StoreContext) => {
         const cursor = args.after ? decodeCursor(args.after) : null
         const before = cursor ? { at: cursor.occurredAt, id: cursor.id } : null
@@ -118,7 +119,7 @@ export const registerStudio = (builder: StoreBuilder) => {
       },
     }),
     stockImagesAvailable: t.boolean({
-      extensions: { access: read },
+      extensions: { access: studioRead },
       resolve: async (_, __, ctx: StoreContext) => ctx.design?.stock != null,
     }),
     searchStockImages: t.field({
@@ -130,7 +131,7 @@ export const registerStudio = (builder: StoreBuilder) => {
     designText: t.field({
       type: [Text],
       args: { page: t.arg.string({ required: true }), locale: t.arg.string({ required: true }) },
-      extensions: { access: read },
+      extensions: { access: studioRead },
       resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).texts(args.page, args.locale)),
     }),
   }))

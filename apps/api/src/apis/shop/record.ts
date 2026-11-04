@@ -15,9 +15,9 @@ export const maxRecordedCollections = 200
 const listingSize = 24
 const maxVersionPages = 250
 const productBatch = 8
-const sorts = ['NEWEST', 'PRICE_LOW', 'PRICE_HIGH', 'NAME'] as const
-/** The most answers one recording holds: the menu, brand and collections list, the sorts, two per collection, `all`'s two, each product. */
-export const maxRecordedAnswers = 3 + sorts.length + 2 * maxRecordedCollections + 2 + maxRecordedProducts
+const sorts = ['NEWEST', 'PRICE_LOW', 'PRICE_HIGH', 'NAME', 'BEST_SELLING'] as const
+/** The most answers one recording holds: the menu, brand, offers and collections list, the sorts, two per collection, `all`'s two, each product. */
+export const maxRecordedAnswers = 4 + sorts.length + 2 * maxRecordedCollections + 2 + maxRecordedProducts
 
 const money = 'amount currency'
 const summary = `id name slug productType inStock price { ${money} } compareAt { ${money} } maxPrice { ${money} } photo { alt image { url } } badges { label tone }`
@@ -32,6 +32,7 @@ export const recordedQueries = {
   Listing: `query Listing($collection: String, $sort: ShopProductSort, $first: Int, $after: String) { products(collection: $collection, sort: $sort, first: $first, after: $after) { nodes { ${summary} } pageInfo { endCursor hasNextPage hasPreviousPage startCursor } facets { id name values { id name count } } } }`,
   Slugs: 'query Slugs($after: String) { products(sort: NEWEST, first: 50, after: $after) { nodes { slug } pageInfo { endCursor hasNextPage } } }',
   Menu: 'query Menu { menu { id label kind collectionSlug url children { id label kind collectionSlug url } } }',
+  Offers: 'query Offers { offers { id name description endsAt appliesTo products collections } }',
   // Each under `image`, so the logo and favicon are copied to the asset host like the catalogue's pictures (storefronts/media.ts).
   Brand: 'query Brand { logo: store { image: logo { url } } favicon: store { image: favicon { url } } }',
 } as const
@@ -85,6 +86,7 @@ const recordBase = async (sql: postgres.Sql, host: string, shopDomain: string | 
   const { ask, answers, errors, published } = asker
   await ask('Menu', {})
   await ask('Brand', {})
+  await ask('Offers', {})
   const store = await storeOn(ask)
   for (const sort of sorts) await ask('Listing', { sort, first: listingSize })
 

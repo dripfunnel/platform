@@ -119,7 +119,8 @@ Run the gates before reporting a change as done.
 
 **The SPAs (`apps/ui/store`, `apps/ui/platform`, `apps/ui/admin`)**
 - Static SPAs with no server code. They talk only to their API at `/api` on the same
-  hostname, through `@dripfunnel/shared/graphql`.
+  hostname, through `@dripfunnel/shared/graphql`, plus one WebSocket: the merchant portal's studio
+  opens `/api/studio/live` for its live progress, events only (docs/storefront/AI-STUDIO.md §4, #1237).
 - **Open the screen in its prototype before building it** (`designs/`, docs/ui/README.md
   §7 step 1), and check `designs/MISSING-FEATURES.md` and `designs/INCOMPLETE-FEATURES.md`
   so you don't implement a dead end.
