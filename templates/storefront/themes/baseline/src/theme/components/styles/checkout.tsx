@@ -1,12 +1,17 @@
 import { clsx } from 'clsx'
 
 // The checkout styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+const choiceBase = clsx('[&_input]:mt-0.5 [&_input]:mr-0 [&_input]:mb-0 [&_input]:ml-0 [&_input]:w-4.5 [&_input]:h-4.5 [&_input]:[accent-color:var(--color-accent)]')
+const stepBase = clsx('p-4.5 border [counter-increment:step] rounded-card bg-surface')
+const numberBase = clsx('group-[:nth-child(n)]/checkout-open:bg-accent group-[:nth-child(n)]/checkout-open:text-accent-ink')
+
 export const checkout = {
   back: clsx('text-ink underline-offset-[3px] shrink-0 text-[14px]'),
   bar: clsx('flex box-border w-[min(100%,1240px)] min-h-16 items-center justify-between gap-y-2 gap-x-4 mx-auto px-4'),
   body: clsx('mt-3.5'),
   change: clsx('py-0 px-1 border-0 border-current min-h-11 bg-transparent text-ink [font-family:inherit] [font-weight:inherit] [font-style:inherit] [line-height:inherit] text-[14px] underline underline-offset-[3px] cursor-pointer'),
-  choice: clsx('p-3.5 border border-line flex items-start gap-y-3 gap-x-3 rounded-card cursor-pointer [&_input]:mt-0.5 [&_input]:mr-0 [&_input]:mb-0 [&_input]:ml-0 [&_input]:w-4.5 [&_input]:h-4.5 [&_input]:[accent-color:var(--color-accent)]'),
+  choice: clsx(choiceBase, 'p-3.5 border border-line flex items-start gap-y-3 gap-x-3 rounded-card cursor-pointer'),
+  choiceBase,
   choiceName: clsx('font-semibold'),
   choiceNote: clsx('text-muted text-[14px]'),
   choicePrice: clsx('shrink-0 font-semibold'),
@@ -26,7 +31,8 @@ export const checkout = {
   layout: clsx('grid gap-y-5 gap-x-5 items-start min-[900px]:grid-cols-[minmax(0,1fr)_400px] min-[900px]:gap-y-8 min-[900px]:gap-x-8'),
   lock: clsx('w-4 h-4 [fill:none] [stroke:currentcolor] [stroke-width:1.6]'),
   note: clsx('m-0 text-ink-soft text-[14px]'),
-  number: clsx('inline-flex w-6.5 h-6.5 shrink-0 items-center justify-center rounded-full bg-soft text-ink text-[13px] font-bold [&::before]:[content:counter(step)] group-[:nth-child(n)]/checkout-open:bg-accent group-[:nth-child(n)]/checkout-open:text-accent-ink'),
+  number: clsx(numberBase, 'inline-flex w-6.5 h-6.5 shrink-0 items-center justify-center rounded-full bg-soft text-ink text-[13px] font-bold [&::before]:[content:counter(step)]'),
+  numberBase,
   numberDone: clsx('inline-flex w-6.5 h-6.5 shrink-0 items-center justify-center rounded-full text-[13px] font-bold bg-accent text-accent-ink [&::before]:[content:counter(step)]'),
   open: clsx('group/checkout-open border-ink-soft'),
   page: clsx('pt-5 pr-4 pb-2 pl-4 flex box-border w-[min(100%,1240px)] flex-col gap-y-4 gap-x-4 mx-auto'),
@@ -37,7 +43,8 @@ export const checkout = {
   secure: clsx('m-0 inline-flex items-center gap-y-1.5 gap-x-1.5 text-muted text-[14px]'),
   side: clsx('p-5 border border-line flex flex-col gap-y-3.5 gap-x-3.5 rounded-card bg-surface min-[900px]:sticky min-[900px]:top-6'),
   sideTitle: clsx('m-0 font-heading text-[22px] font-[var(--heading-weight)]'),
-  step: clsx('p-4.5 border border-line [counter-increment:step] rounded-card bg-surface'),
+  step: clsx(stepBase, 'border-line'),
+  stepBase,
   stepHead: clsx('flex items-center gap-y-2.5 gap-x-2.5'),
   stepTitle: clsx('m-0 flex-1 text-[18px] font-[650]'),
   steps: clsx('p-0 m-0 [counter-reset:step] grid gap-y-3.5 gap-x-3.5 list-none'),

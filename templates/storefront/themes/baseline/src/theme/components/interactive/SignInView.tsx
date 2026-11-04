@@ -59,10 +59,10 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
       {purpose === 'register' ? <p className={styles.lead}>{t('pages.register.lead')}</p> : purpose === 'reset' && !s.sent ? <p className={styles.lead}>{t('shop.account.resetLead')}</p> : null}
       {tabs && !s.sent ? (
         <div className={styles.tabs} role="group" aria-label={t('shop.account.how')}>
-          <button type="button" className={clsx('border-0 border-current min-h-11 rounded-button [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]', !(channel === 'email') && 'bg-transparent text-ink-soft', channel === 'email' && styles.tabOn)} aria-pressed={channel === 'email'} onClick={() => setChannel('email')}>
+          <button type="button" className={clsx(styles.tabBase, !(channel === 'email') && 'bg-transparent text-ink-soft', channel === 'email' && styles.tabOn)} aria-pressed={channel === 'email'} onClick={() => setChannel('email')}>
             {t('shop.checkout.email')}
           </button>
-          <button type="button" className={clsx('border-0 border-current min-h-11 rounded-button [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]', !(channel === 'phone') && 'bg-transparent text-ink-soft', channel === 'phone' && styles.tabOn)} aria-pressed={channel === 'phone'} onClick={() => setChannel('phone')}>
+          <button type="button" className={clsx(styles.tabBase, !(channel === 'phone') && 'bg-transparent text-ink-soft', channel === 'phone' && styles.tabOn)} aria-pressed={channel === 'phone'} onClick={() => setChannel('phone')}>
             {t('shop.checkout.phone')}
           </button>
         </div>

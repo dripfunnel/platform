@@ -41,7 +41,7 @@ export const AccountView = ({ section }: { section: Section }) => {
   }
   const first = page.account.name?.split(' ')[0]
   const tab = (href: string, label: string, on: boolean) => (
-    <Link href={href} className={clsx('focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px] py-0 px-4 inline-flex min-h-11 items-center rounded-button font-semibold no-underline', !(on) && 'text-ink-soft', on && styles.navOn)} {...(on ? { 'aria-current': 'page' as const } : {})}>
+    <Link href={href} className={clsx(styles.navItemBase, !(on) && 'text-ink-soft', on && styles.navOn)} {...(on ? { 'aria-current': 'page' as const } : {})}>
       {label}
     </Link>
   )

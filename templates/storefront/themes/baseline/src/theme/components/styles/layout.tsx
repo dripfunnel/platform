@@ -1,6 +1,8 @@
 import { clsx } from 'clsx'
 
 // The layout styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+const subnavBase = clsx('pl-4 flex flex-col min-[900px]:p-2 min-[900px]:border min-[900px]:border-header-hover min-[900px]:absolute min-[900px]:top-[100%] min-[900px]:left-0 min-[900px]:z-20 min-[900px]:min-w-50 min-[900px]:rounded-[12px] min-[900px]:bg-header-bg min-[900px]:[box-shadow:0_8px_24px_color-mix(in_srgb,var(--color-header-ink)_12%,transparent)]')
+
 export const layout = {
   about: clsx('flex min-w-0 flex-col gap-y-1.5 gap-x-1.5 col-[1_/_-1] min-[900px]:col-[auto]'),
   bar: clsx('flex box-border w-[min(100%,1240px)] min-h-16 flex-wrap items-center gap-y-1 gap-x-2 mx-auto px-4 min-[900px]:flex-nowrap min-[900px]:gap-y-6 min-[900px]:gap-x-6 min-[900px]:px-8'),
@@ -31,7 +33,8 @@ export const layout = {
   social: clsx('flex flex-wrap gap-y-0 gap-x-4 capitalize'),
   subLink: clsx('py-0 px-3 flex min-h-10 items-center rounded-[8px] text-header-ink text-[14px] no-underline hover:bg-header-hover'),
   subToggle: clsx('group/layout-subToggle hidden min-[900px]:p-0 min-[900px]:border-0 min-[900px]:border-current min-[900px]:flex min-[900px]:w-7 min-[900px]:h-11 min-[900px]:items-center min-[900px]:justify-center min-[900px]:bg-transparent min-[900px]:text-header-ink min-[900px]:cursor-pointer'),
-  subnav: clsx('pl-4 flex flex-col min-[900px]:p-2 min-[900px]:border min-[900px]:border-header-hover min-[900px]:absolute min-[900px]:top-[100%] min-[900px]:left-0 min-[900px]:z-20 min-[900px]:hidden min-[900px]:min-w-50 min-[900px]:rounded-[12px] min-[900px]:bg-header-bg min-[900px]:[box-shadow:0_8px_24px_color-mix(in_srgb,var(--color-header-ink)_12%,transparent)]'),
+  subnav: clsx(subnavBase, 'min-[900px]:hidden'),
+  subnavBase,
   subnavOpen: clsx('min-[900px]:flex'),
   tool: clsx('inline-flex w-11 h-11 items-center justify-center rounded-full text-header-ink hover:bg-header-hover relative focus-visible:[outline:2px_solid_var(--color-header-ink)] focus-visible:outline-offset-[2px]'),
   tools: clsx('flex items-center gap-y-0.5 gap-x-0.5 min-[900px]:ml-auto'),

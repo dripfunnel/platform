@@ -18,7 +18,7 @@ export const WishlistHeart = ({ productId, name, versionId }: { productId: strin
   }, [on, chose, productId, versionId])
   return (
     <>
-      <button type="button" className={clsx('group-[:nth-child(n)]/product-buy:p-0 group-[:nth-child(n)]/product-buy:border group-[:nth-child(n)]/product-buy:inline-flex group-[:nth-child(n)]/product-buy:flex-[0_0_48px] group-[:nth-child(n)]/product-buy:min-h-12 group-[:nth-child(n)]/product-buy:items-center group-[:nth-child(n)]/product-buy:justify-center group-[:nth-child(n)]/product-buy:rounded-button group-[:nth-child(n)]/product-buy:bg-surface group-[:nth-child(n)]/product-buy:cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]', !(on) && 'group-[:nth-child(n)]/product-buy:border-line group-[:nth-child(n)]/product-buy:text-ink', on && styles.heartOn)} aria-pressed={on} aria-label={t('shop.wishlist.heart', { name })} disabled={wishlist.busy || wishlist.status === 'loading'} onClick={() => void wishlist.toggle(productId, versionId)}>
+      <button type="button" className={clsx(styles.heartBase, !(on) && 'group-[:nth-child(n)]/product-buy:border-line group-[:nth-child(n)]/product-buy:text-ink', on && styles.heartOn)} aria-pressed={on} aria-label={t('shop.wishlist.heart', { name })} disabled={wishlist.busy || wishlist.status === 'loading'} onClick={() => void wishlist.toggle(productId, versionId)}>
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
           <path d={heart} fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
         </svg>

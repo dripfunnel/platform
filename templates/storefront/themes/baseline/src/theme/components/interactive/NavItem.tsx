@@ -54,7 +54,7 @@ export const NavItem = ({ item }: { item: MenuItem }) => {
               <path d="M6 9l6 6 6-6" />
             </svg>
           </button>
-          <div className={open ? clsx('pl-4 flex flex-col min-[900px]:p-2 min-[900px]:border min-[900px]:border-header-hover min-[900px]:absolute min-[900px]:top-[100%] min-[900px]:left-0 min-[900px]:z-20 min-[900px]:min-w-50 min-[900px]:rounded-[12px] min-[900px]:bg-header-bg min-[900px]:[box-shadow:0_8px_24px_color-mix(in_srgb,var(--color-header-ink)_12%,transparent)]', styles.subnavOpen) : styles.subnav}>
+          <div className={open ? clsx(styles.subnavBase, styles.subnavOpen) : styles.subnav}>
             {item.children.map((child) => (
               <Link key={child.id} href={child.href} className={styles.subLink}>
                 {child.label}
