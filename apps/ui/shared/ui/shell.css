@@ -437,6 +437,7 @@
 }
 
 .df-shell-main {
+  position: relative;
   overflow-y: auto;
   outline: none;
 }
