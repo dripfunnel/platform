@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-11-05 (#1241: the studio's container stops when unused and wakes on `studioActivity`; a change's save follows the frame's swap, §9.2). Before: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-11-05 (#1241: the studio's container stops when unused and wakes on `studioActivity`; a change's save follows the frame's swap, §9.2). Before: 2026-11-05 (#1238: the AI designer answers with edits, and its prompt is cached and priced at the cache rates, §9.2, §9.3). Before: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -803,10 +803,11 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
   → every open studio of the store follows it live over `/api/studio/live` (#1237): each step (reading, asking,
     checking, each repair, saving, updating), a chat's words as they stream, then the outcome askDesign answers; events
     only, never the request's words or a file ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4 "Live progress")
-  → the store's Durable Object runs the diff in the store's container: the fast gate
+  → the model answers with edits (#1238: exact search-and-replace edits, new files whole, deletions named); the store's
+    Durable Object applies them to the theme it holds and runs the whole files in the store's container: the fast gate
     (allowlist, validator, typecheck, bundle, byte budgets, content checks)
-      fail → the model repairs from the exact errors (≤3) → else refused: nothing changes
-      and the reply says so
+      fail, or an edit that doesn't apply → the model repairs from the exact errors (≤3) → else refused: nothing
+      changes and the reply says so
   → pass → a commit in the store's private draft, kept first in the Durable Object's own storage; the studio frame
     shows it at once, and the draft bundle, the preview (the same bundle) and design_draft follow in the background;
     askDesign answers once that save and its message are written ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4, #1241)
@@ -856,8 +857,10 @@ at once (a single-page render, no allowance).
 
 **Metering**: every request writes an `ai_run` row: store, requesting user, prompt, model,
 tokens in and out, cost (minor units and currency), container time, repair attempts and their
-cost, outcome (changed, nothing changed, refused, failed). The merchant's meter counts the
-request's own tokens; repairs are recorded as the platform's cost. It is the source for the AI
+cost, outcome (changed, nothing changed, refused, failed). Tokens in count every input token, cached ones too; the
+cost prices each part at its own rate (#1238): input read from the provider's prompt cache at the cache-read price,
+input written to it at the cache-write price (Anthropic's 1.25×), the rest at the input price (`registry.ts`,
+`costOf`). The merchant's meter counts the request's own tokens; repairs are recorded as the platform's cost. It is the source for the AI
 meter, usage billing and §12's metrics; build minutes come from `publish_run`.
 
 ~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284);
@@ -926,7 +929,15 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
 - **Errors** are codes only (`INVALID_CREDENTIALS`, `RATE_LIMITED`, `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `CANCELLED`, `BAD_REQUEST`,
   `MODEL_NOT_FOUND`, `CONTENT_REFUSED`) with no upstream text, header or key.
 - **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
-  id; the prompt column is empty and no answer is kept. The Store API's per-minute and per-month call limits (ACCESS §5.6)
+  id; the prompt column is empty and no answer is kept.
+- **Prompt caching (the studio's path, #1238):** a canonical text part may carry `cache` and a request `cacheSystem`; the
+  Anthropic Messages translator turns each into a `cache_control: { type: 'ephemeral' }` marker (5 minutes) on that block,
+  at most three a request (the rules, the shop, the theme: storefront ARCHITECTURE §6.2), and the OpenAI translators drop
+  them, since OpenAI caches a request's prefix itself. The usage carries `cachedTokensIn` (read) and `cacheWriteTokensIn`
+  (written), both counted in `tokensIn` too, and the cost prices each at the model's `cacheRead` and `cacheWrite` rates in
+  `registry.ts` (Claude Opus 5.5 and Sonnet 5.5 read at the published $0.20 per million; the other Claude models at 0.1× and
+  writes at 1.25× their input price; OpenAI's cached input at its published price, with no write premium). Anything that
+  changes between two asks goes after the last marker, and the tools offered never change within a change. The Store API's per-minute and per-month call limits (ACCESS §5.6)
   apply as to any key.
 - **Differences between the providers.** Both take a system message and turns; `system` may be text or native text blocks, and
   a `role: system` turn is accepted. A request with no `user` turn is refused with `INVALID_INPUT`. Claude moves every system

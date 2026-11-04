@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -116,13 +116,16 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 1. **The merchant asks** in words, with a pasted image, or with a sample site's address
    (`askDesign`, SAAS §9.2). The Durable Object runs one change at a time per store; a second
    request waits and shows "Finishing your previous change…".
-2. **The Worker calls the model** with the context of ARCHITECTURE §6.2. The model answers
-   with a **file diff**.
+2. **The Worker calls the model** with the context of ARCHITECTURE §6.2, the stable part first and cached (core's
+   rules, the shop, the theme's files), then the request's own. The model answers with **edits**: exact
+   search-and-replace edits for a file the theme has, a new file whole, a deleted file named (#1238), so a one-line
+   change costs a few lines of output.
    *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (below, off for now), and the Worker runs them, never the model and never the container.
-3. **The container applies the diff and runs the fast gate** (ARCHITECTURE §6.2): the
-   allowlist, the validator, the typecheck, the bundle, the byte budgets and the content
-   checks. On failure the model repairs from the exact errors, at most three times; after that,
-   "I couldn't make that change" and nothing changes.
+3. **The Durable Object applies the edits** to the theme it holds, and **the container runs the fast gate** on the
+   whole files (ARCHITECTURE §6.2): the allowlist, the validator, the typecheck, the bundle, the byte budgets and the
+   content checks. An edit that doesn't apply (its search not found exactly once) and a gate failure are both repaired
+   from the exact errors, at most three times; after that, "I couldn't make that change" and nothing changes. An edit
+   that doesn't apply shows as "Fixing a problem" with no check before it.
 4. **On a pass, the container commits the change locally**, with the request as the message.
    These per-change commits, and their messages, stay in the private draft for ever: they never
    reach the public repo (§6 step 4).

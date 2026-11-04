@@ -98,7 +98,7 @@ export class Workspace {
       if (f.content === null) theme.delete(f.path)
       else theme.set(f.path, f.content)
     }
-    const refused = validate([...theme].map(([path, content]) => ({ path, content })), context)
+    const refused = await validate([...theme].map(([path, content]) => ({ path, content })), context)
     if (refused.length > 0) return { ok: false, problems: refused }
     // The validator accepted every path, so each is one of §3.4's; checked again before it touches the disk.
     if (!files.every((f) => isThemePath(f.path))) throw new Error('A validated path is outside the theme.')
@@ -187,7 +187,7 @@ export class Workspace {
       const next = join(this.client, 'next')
       try {
         const theme = await this.theme()
-        const refused = validate([...theme].map(([path, content]) => ({ path, content })), context)
+        const refused = await validate([...theme].map(([path, content]) => ({ path, content })), context)
         const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await build(theme, this.repo, next)
         if (!gated.ok) {
           await this.git(['reset', '--quiet', '--hard', before])

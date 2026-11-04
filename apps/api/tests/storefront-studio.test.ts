@@ -11,7 +11,7 @@ import { hashSessionId } from '#auth/session'
 import { activityLog } from '#saas/activity/index'
 import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { draftBundle, previewFolder, sourceBundle } from '#saas/storefronts/index'
-import { hashStudioSession, liveHub, StudioRunner, type DraftsBucket, type LiveMessage } from '#saas/studio/index'
+import { hashStudioSession, liveHub, StudioRunner, type DraftsBucket, type FileEdit, type LiveMessage } from '#saas/studio/index'
 import { graphql, type GraphQLSchema } from 'graphql'
 import { storeSchema } from '#apis/store/schema'
 import { handleStudioLive, studioLiveRequest } from '#apis/store/studioLive'
@@ -85,7 +85,7 @@ const local = localStudio(() => db.sql, runnerOf)
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
 const script: { answers: string[]; sent: string[]; lastTurn: string; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], lastTurn: '', turns: [] }
-const reply = (files: { path: string; content: string | null }[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
+const reply = (files: FileEdit[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => {
     script.sent.push(call.text)
@@ -100,8 +100,8 @@ const provider: AiProvider = {
   },
   converse: async (call) => {
     // A conversation's first turn is recorded like a plain call, with the tools it was offered (#1242: every change has the store lookups).
-    const first = call.messages[0]?.content.find((p) => p.type === 'text')
-    if (call.messages.length === 1) script.sent.push(`[tools: ${call.tools.map((t) => t.name).join(' ')}] ${first?.type === 'text' ? first.text : ''}`)
+    const first = call.messages[0]?.content.flatMap((p) => (p.type === 'text' ? [p.text] : [])).join('\n\n') ?? ''
+    if (call.messages.length === 1) script.sent.push(`[tools: ${call.tools.map((t) => t.name).join(' ')}] ${first}`)
     // The model can call only the tools it was offered.
     const next = script.turns[0]
     if (next && next.every((c) => call.tools.some((t) => t.name === c.name))) {
@@ -223,18 +223,17 @@ describe('asking for a change', () => {
     expect(await usage(t.storeA1)).toBe(2)
   })
 
-  it('shows each repair the files of the attempt before it, and the first ask none', async () => {
+  it('shows each repair the answer of the attempt before it, and the first ask none', async () => {
     const second = { path: 'src/theme/pages/AboutPage.tsx', content: "export const AboutPage = () => { fetch('/y'); return null }\n" }
-    const deletion = { path: 'src/theme/components/Gone.tsx', content: null }
+    const deletion = { path: 'src/theme/components/Gone.tsx', delete: true as const }
     script.answers = [reply([refusedPage, deletion]), reply([second]), reply([lead('Third time.')])]
     expect((await ask('owner', 'Three attempts')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
     const [first, repair, again] = script.sent.slice(-3)
-    const marker = "Your last answer's files, which failed:"
+    const marker = "Your last answer's files, which failed and were not kept:"
     expect(first).not.toContain(marker)
-    expect(repair).toContain(`${marker}\n--- ${refusedPage.path}\n${refusedPage.content}`)
-    expect(repair).not.toContain(deletion.path)
-    expect(again).toContain(`${marker}\n--- ${second.path}\n${second.content}`)
-    expect(again).not.toContain(`${marker}\n--- ${refusedPage.path}`)
+    expect(repair).toContain(`${marker}\n${JSON.stringify([refusedPage, deletion])}`)
+    expect(again).toContain(`${marker}\n${JSON.stringify([second])}`)
+    expect(again).not.toContain(JSON.stringify(refusedPage))
   })
 
   it('refuses a change still failing after three repairs and leaves the draft as it was', async () => {
@@ -802,6 +801,14 @@ describe('the live progress socket (#1237)', () => {
     // Never the request's words or a file's contents.
     expect(JSON.stringify(events)).not.toContain('shown as it happens')
     expect(JSON.stringify(events)).not.toContain('fetch(')
+  })
+
+  it('shows an edit that does not apply as a repair, with no check of it (#1238)', async () => {
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    script.answers = [reply([{ path: 'content/en/pages.json', edits: [{ search: 'not in the file', replace: 'x' }] }]), reply([lead('Applied on the repair.')])]
+    expect((await ask('owner', 'An edit that misses')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    expect(named(runOf(t.storeA1))).toEqual(['reading', 'asking', 'text', 'repairing 1 of 3', 'checking', 'saving', 'updating', 'done'])
+    expect(script.sent.at(-1)).toContain('patch/not-found')
   })
 
   it('streams a chat answer word by word, then the outcome; a refusal before the first step sends nothing', async () => {

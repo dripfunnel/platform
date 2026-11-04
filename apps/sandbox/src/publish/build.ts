@@ -1,7 +1,7 @@
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { themeRoutesSchema, type AnsweredPage } from '@dripfunnel/storefront-core'
-import { checkValidator, edgeCases, gateCheck, gateReport, pageName, validateChange, type CatalogueSnapshot, type GateCheckName, type GateReport, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { checkValidator, edgeCases, gateCheck, gateReport, pageName, validateTheme, type CatalogueSnapshot, type GateCheckName, type GateReport, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { bundle, runtimeFolder } from '../gate/bundle'
 import { typecheck } from '../gate/typecheck'
 import { checkedPages, directionOf, edgeRules, fileOf, pageDocument, pageLinks, plan, robots, sitemap, type PlannedPage } from './pages'
@@ -56,7 +56,7 @@ export const buildSite = async (input: BuildInput): Promise<BuildOutcome> => {
 
 const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
   const { snapshot: s, out, work } = input
-  const validator = validateChange(input.theme, s.guard).problems
+  const validator = (await validateTheme(input.theme, s.guard)).problems
   if (validator.length > 0) return { ok: false, report: gateReport([checkValidator(validator)]) }
   const types = typecheck(new Map(input.theme.map((f) => [f.path, f.content])))
   if (types.length > 0) return failed(types.map((p) => `${p.file ?? 'The theme'}${p.line ? `:${p.line}` : ''}: ${p.message}`))

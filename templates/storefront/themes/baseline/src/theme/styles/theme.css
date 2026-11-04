@@ -1,0 +1,31 @@
+@theme {
+  --color-bg: #fbf8f4;
+  --color-surface: #fff;
+  --color-soft: #f3eee7;
+  --color-tint: #e3ece8;
+  --color-ink: #1d1b18;
+  --color-ink-soft: #46423c;
+  --color-muted: #6b655d;
+  --color-line: #e6dfd6;
+  --color-accent: #2f5d50;
+  --color-accent-ink: #fff;
+  --color-danger: #9a3412;
+  --color-focus: #00519f;
+  --radius-card: 12px;
+  --radius-button: 999px;
+  --font-heading: 'Lora', georgia, serif;
+  --heading-weight: 600;
+  --brand-weight: 700;
+  --heading-case: none;
+  --heading-spacing: -0.01em;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --color-header-bg: #fbf8f4;
+  --color-header-ink: #1d1b18;
+  --color-header-hover: #f3eee7;
+  --color-footer-bg: #f3eee7;
+  --color-footer-ink: #1d1b18;
+  --color-footer-muted: #6b655d;
+  --color-footer-line: #e6dfd6;
+  --picture: linear-gradient(160deg, #c9e2d8, #9fc5b8);
+  --picture-alt: linear-gradient(160deg, #e2dcc4, #c8bc98);
+}

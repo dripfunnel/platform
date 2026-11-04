@@ -60,7 +60,7 @@ async function* eventsOf(route: Route, request: CanonicalRequest, signal: AbortS
 /** The whole answer of a stream, or the failure: an `error` event or a stream with no `end` is never an answer. */
 export const collectStream = async (events: AsyncIterable<CanonicalStreamEvent>): Promise<CanonicalResponse> => {
   let text = ''
-  let usage: CanonicalResponse['usage'] = { tokensIn: 0, tokensOut: 0, cachedTokensIn: 0 }
+  let usage: CanonicalResponse['usage'] = { tokensIn: 0, tokensOut: 0, cachedTokensIn: 0, cacheWriteTokensIn: 0 }
   const calls = new Map<number, { id: string; name: string; arguments: string }>()
   for await (const event of events) {
     if (event.kind === 'text') text += event.text

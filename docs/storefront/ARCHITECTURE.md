@@ -3,7 +3,7 @@
 How DripFunnel's storefronts are built. The template's source lives in the `platform` repo at
 `templates/storefront/`; every store gets its own public storefront repo created from it when
 its merchant first picks a template. **The AI writes the store's theme code**: React pages and
-components, CSS Modules, the shopper-facing words per language and the store's own pages,
+components styled with Tailwind classes (CSS Modules still valid), the shopper-facing words per language and the store's own pages,
 inside `src/theme/**`, `content/**` and `routes.json` of that repo, and nothing else. A locked,
 versioned **core package** supplies all commerce behaviour through the **Shop API**, and a chain
 of independent walls (§3) keeps the AI's code from reaching money, data, the network or the
@@ -22,7 +22,7 @@ i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480),
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), `useOrders` for the account's list (#813), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
-Last updated: 2026-11-04 (#1242: `useProducts` best-selling and `useOffers`, recorded into the snapshot, §2.1, §4.2; the studio's store summary and read-only lookups, §6.2). Before: 2026-11-04 (#1214: `useWishlist` and the optional `accountWishlist` route, §2.1, §3.1). Before: 2026-11-04 (#1212: five starting themes deleted, Classic first; Market follows on #1218, §2.3). Before: 2026-11-03 (the Classic starting theme, §2.3). Before: 2026-11-03 (#1186: `useOrders` lists the guest orders a sign-in linked, §2.1). Before: 2026-11-02 (#1184: the live build's head carries every Open Graph and Twitter tag, hreflang, and WebSite, ItemList and BreadcrumbList data; the sitemap a post's date and a product's photos, §8). Before: 2026-11-02 (#1173: `useSignIn` counts the shop as email only until its sign-in options answer, §2.1). Before: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-11-05 (#1238: the answer is edits, an edit that does not apply is a repair, and the prompt is ordered for the cache, §6.2). Before: 2026-11-05 (#1239: themes styled with Tailwind v4, the validator's class rules and `theme.css`, §2.2, §3.4, §7). Before: 2026-11-04 (#1242: `useProducts` best-selling and `useOffers`, recorded into the snapshot, §2.1, §4.2; the studio's store summary and read-only lookups, §6.2). Before: 2026-11-04 (#1214: `useWishlist` and the optional `accountWishlist` route, §2.1, §3.1). Before: 2026-11-04 (#1212: five starting themes deleted, Classic first; Market follows on #1218, §2.3). Before: 2026-11-03 (the Classic starting theme, §2.3). Before: 2026-11-03 (#1186: `useOrders` lists the guest orders a sign-in linked, §2.1). Before: 2026-11-02 (#1184: the live build's head carries every Open Graph and Twitter tag, hreflang, and WebSite, ItemList and BreadcrumbList data; the sitemap a post's date and a product's photos, §8). Before: 2026-11-02 (#1173: `useSignIn` counts the shop as email only until its sign-in options answer, §2.1). Before: 2026-11-01 (#1147: `PhoneField`, a country code dropdown beside the number, §2.1). Before: 2026-11-01 (#1145: the delivery step waits for the delivery address, §2.1). Before: 2026-11-01 (a listing keeps its facets while a new filter or sort loads, §2.1). Before: 2026-11-01 (`<StoreLogo>` and the store's favicon in the head, §2.1, §3.4, §8). Before: 2026-11-01 (#1105: a live page's pictures come from the asset host, and checkout's calls, §2.1). Before: 2026-10-31 (#1083: a repair sees its last answer's files, §6.2). Before: 2026-10-31 (#1082: the guard accepts a `t()` key from a written list and colour transitions, §3.4). Before: 2026-10-31 (#1070: search suggestions on `SearchField`, §2.1). Before: 2026-10-31 (#1011: live catalogue pages prerendered from the Shop API's recorded answers, §2.1, §4.2). Before: 2026-10-30 (`<MerchantImage>` in core 0.3.0, §2.1, §3.4). Before: 2026-10-28 (#974: `pnpm check` runs the validator in a store repo, §2.2, §3.4). Before: 2026-10-27 (#859: the order page shows an own-delivery order's delivery, `<Link>` takes `tel:` numbers, §2.1, §3.4). Before: 2026-10-27 (a store repo runs locally once cloned: its `.npmrc` and generated `.env.development`, §2.2). Before: 2026-10-27 (#928: the checkout controller applies a store's sole delivery option and omits the delivery step; §2.1). Before: 2026-10-21 (#814: "Pin on map" in `AddressFields`, in a frame on the hooks host (§2.1), which the checkout and account pages may frame (§3.5)). Before: 2026-10-21 (#813: the account's list of orders, `useOrders` and baseline's Orders). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
@@ -51,7 +51,7 @@ infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the
 
 ```
 ┌──────────────────────── store repo (one per store, generated) ─────────────────────────┐
-│  src/theme/**          AI-WRITTEN: pages, components, layouts, CSS Modules             │
+│  src/theme/**          AI-WRITTEN: pages, components, Tailwind classes, CSS Modules    │
 │  content/{locale}/*.json  AI-WRITTEN (the merchant may edit): every word shoppers see  │
 │  routes.json           AI-WRITTEN: which theme page skins each core route; custom pages│
 │  src/app/**            LOCKED: the skeleton's; route shims generated at build          │
@@ -307,11 +307,12 @@ src/
   theme/                AI-WRITTEN
     pages/              a page per core route (§3.1) and the store's custom pages
     components/         server components; components/interactive/ for client islands
-    styles/             *.module.css only
+    styles/             theme.css (the Tailwind tokens, §3.4 "Classes") and *.module.css
 content/{locale}/       AI-WRITTEN: every shopper-facing word, one file per page or area
 routes.json             AI-WRITTEN: core route → theme page; custom page path → theme page
 store.config.ts         LOCKED, generated: the public store key and the Shop API's path
 package.json            LOCKED: core pinned exactly; dependencies from the allowlist only; `pnpm check` (§3.4)
+postcss.config.mjs, src/app/tailwind.css  LOCKED, from the template: core's PostCSS plugin builds the theme's classes for `next dev` (#1239)
 AGENTS.md, CLAUDE.md    LOCKED, from the template: run `pnpm check` before pushing to main (#974)
 .npmrc                  LOCKED, from the template: core's registry, no token (a clone's own install)
 .env.development        LOCKED, generated: SHOP_API_PROXY, the store's free address a clone's `next dev` proxies /shop-api to
@@ -321,6 +322,13 @@ AGENTS.md, CLAUDE.md    LOCKED, from the template: run `pnpm check` before pushi
 Choosing another template later replaces `src/theme/**` and `routes.json` with that
 template's, after asking whether to **keep the merchant's words** (`content/**` kept) or take
 the template's.
+
+*Decided on #1239:* a store's own `next dev` builds the theme's classes with core's PostCSS plugin
+(`@dripfunnel/storefront-core/postcss`), which fills `src/app/tailwind.css` with `themeStylesheet`'s output: the same
+classes, checks and pinned Tailwind as the sandbox's bundle (§3.4 "Classes"), never Tailwind's own scanner, which would
+build words from comments and CSS that the validator never judged. A class the rules refuse fails the build with its file,
+line and rule. A repo made before #1239 keeps its skeleton, which has no
+Tailwind, and its theme of CSS Modules builds as before.
 
 Decided on #316:
 - **The shims are generated at build, by core, from `routes.json`** (in the build image and the
@@ -509,7 +517,8 @@ could at worst *display* something wrong, never *charge* it.
 ### 3.4 The validator (`./guard`)
 
 Run on every change, before the change becomes the draft (§6.2), and again on the whole theme
-at publish. It is an **allowlist**: what isn't listed is refused. `validateChange(files, context)`
+at publish. It is an **allowlist**: what isn't listed is refused. `validateTheme(files, context)`
+(every rule below, the class rules of "Classes" included; `validateChange` is the same without them, #1239)
 takes the whole theme as it would be after the change, plus any other path the change writes, and
 the store's languages, content and post paths and brand fields from the platform, so it needs no
 network. Each problem names the file, the line, a rule id and a plain-words message for the repair
@@ -524,7 +533,7 @@ exactly the store's languages (locally the languages are its folders), copying t
 CSS `url()`'s media id (held only to a media id's shape) and a custom path already in use.
 
 **Files.** The AI may write only `src/theme/pages/**/*.tsx`, `src/theme/components/**/*.tsx`,
-`src/theme/styles/**/*.module.css`, `content/{locale}/*.json` and `routes.json`. Any other
+`src/theme/styles/**/*.module.css`, `src/theme/styles/theme.css`, `content/{locale}/*.json` and `routes.json`. Any other
 path, file type, symlink, or a file over its size cap refuses the **whole change**, never a
 trimmed one. Caps on file count, file size and total theme size: 200 files, 100 KB a file and
 2 MB in all *(proposed on #480; change them on review)*. Names are plain ASCII, so no `..`, case
@@ -535,7 +544,8 @@ together are refused.
 - **Imports** only from `react`, `@dripfunnel/storefront-core/theme` (core's public theme
   API), relative paths inside `src/theme`, and the library allowlist: `motion` (only inside
   `components/interactive/`, loaded lazily) and `clsx` (decided 2026-10-08 on #470; each
-  addition goes into the sandbox image). No dynamic `import()` or `require`, no `import.meta`, no
+  addition goes into the sandbox image). Tailwind v4 (`tailwindcss`, pinned exactly by core, #1239) is on the list as
+  the build's CSS compiler, never imported by a theme. No dynamic `import()` or `require`, no `import.meta`, no
   `document.currentScript` and no other way to learn a script's own URL: core's chunk loader is
   the only code that handles chunk URLs, which inside the studio frame carry the session id.
 - **No browser globals**: no `window`, `document`, `globalThis`, `fetch`, XHR, WebSocket,
@@ -609,6 +619,34 @@ store's `mediaIds`, exactly; the z-index cap is 99 (`maxThemeZIndex`, *proposed*
 nested rules are refused, so every selector is written out and checked; a transition names its
 properties in the same rule (a bare `transition: 0.3s`, or `initial`, `unset` and the other CSS-wide keywords, animate everything; a `transition-duration` is judged with the rule it sits in, not the cascade, so it needs its `transition-property` beside it); `content` and the other text
 properties hold no words and no `var()` that could carry them; `composes` names only the module's own classes.
+
+**Classes** *(#1239)*: themes are styled with Tailwind v4 classes; a store's CSS Modules stay valid under the rules
+above. `validateTheme(files, context)` is the validator: `validateChange`'s rules and these, which need Tailwind's compiler
+(so it is async; `validateChange` stays for its callers, without them). Core pins Tailwind exactly, and the validator, the
+sandbox's bundle (`themeStylesheet`) and a store repo's `next dev` (core's PostCSS plugin) build classes from the same entry: Tailwind's theme and
+utilities, never its preflight reset (it would restyle every store), then the theme's `theme.css`.
+- **What is a class**: every whitespace-separated word of every string in the theme's code is a class Tailwind may build,
+  as its own scanner would read it, and only those words are built. A word in `className`, a `clsx` argument or a `clsx`
+  object's key (through conditions, `&&`, `||`, `??`, templates and lists) must be a Tailwind class, one of the theme's
+  tokens, or a `group`/`peer` marker (`class/not-tailwind`); there, several classes in one string aren't words
+  (`code/text-in-string` reads them as classes). Elsewhere a string of classes is still words. A class built from pieces
+  is never built.
+- **Arbitrary values** (`[...]`, `(...)`) hold no `url(`, `@import`, address (`//`, a scheme), escape (`\`), `;`, `{`, `}`
+  or Tailwind's own `--tw-*` names (`class/arbitrary-value`).
+- **The CSS rules over each class**: what Tailwind writes for a class is judged by the CSS rules above, with its own class
+  in the place of a module's: it starts with its own class (alone, or wrapped whole in `:where()`, as `space-y-*` is), so
+  `[body_&]`, `*:`, `**:` and `in-*` are refused; it names no other class but the `group`/`peer` markers and no id; the
+  `*` that closes an `:is()` on its own class (`group-hover:`, `peer-checked:`) is the element itself and passes;
+  z-index, functions, pseudo-classes (`:popover-open` added, which a theme can't make), pseudo-elements, text and
+  animation as above. A class's transition may also name `translate`, `scale` and `rotate` (transform's longhands) and
+  Tailwind's gradient stops, which it registers as colours, so `transition-colors` and `transition-transform` pass; the
+  bare `transition`, `transition-all` and a lone `duration-*` don't. `content: var(--tw-content)`, which `before:` and
+  `after:` write, passes, while `--tw-content` holding words is refused anywhere, a CSS Module included.
+- **`theme.css`**, the theme's Tailwind entry, holds only `@theme` blocks (`inline` or `static` at most) of custom
+  properties, the tokens that become classes (`--color-ink` gives `bg-ink`), and `@keyframes`; never a rule, another
+  at-rule or a `--df-*` or `--tw-*` name (`css/theme-entry`), and its values follow the CSS rules. `@apply` stays refused:
+  it is an at-rule the CSS rules don't list.
+- A refusal names the file and line of the string holding the class, and the rule.
 
 **Content**: every key the theme's `t()` calls exists in **every language the store offers**
 (the AI writes them all, decided 2026-10-08 on #470; the merchant can correct any); no pattern
@@ -1026,13 +1064,30 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
     'best-selling' })` when the store has best sellers), to give tiles to the collections it has (`useCollections`), to
     take palette hints from its photos, and to show a banner only for a real offer, through `useOffers()`; never a
     product, price, rating, collection, offer, discount, sales figure or city in theme code or content (§3.4).
+- **The answer is edits, not whole files** (decided 2026-11-04 on #1238): for a file the theme has, a list of exact
+  search-and-replace edits, each search found **exactly once** in the file as it is (edits to one file apply in order);
+  a new file is sent whole; a deleted file is named (`{path, delete: true}`). The reply is read with a strict schema, so
+  an unknown field makes it no usable answer. A whole file for a path the theme has is still taken as a replacement.
+  The runner (`saas/studio/patches.ts`) applies the edits to the theme it holds and gives the sandbox whole files, as
+  before; an edit whose search is missing, repeated or empty, or names a file that isn't there, is a problem like the
+  gate's (`patch/not-found`, `patch/not-unique`, `patch/empty-search`, `patch/missing-file`, naming the file, the edit
+  and why), sent back to the model with no sandbox run, and counts as one of the three repairs. A repair answers the
+  whole change again as edits against the same theme, never on top of a failed answer.
+- **The prompt's order, for the cache** (#1238): core's rules (the system prompt, the same for every store), then the
+  shop and its summary (rebuilt at most every 10 minutes), then the theme's files sorted by path (new with each change),
+  each ending a cached prefix (Anthropic's `cache_control`; OpenAI caches the same prefix itself). Everything that
+  changes per request comes after them: the merchant's image and the screenshot, the worked carousel when the request
+  asks for one, the no-photo-tools note, the page and device, the last four requests, a repair's last answer and
+  errors, and the request. The shop goes before the theme because it changes less often, so a new theme still reads
+  the rules and the shop from the cache. The first ask and its repairs offer the same tools on every turn (a repair's
+  calls are refused, a call past a limit is answered with it), so a repair reads the whole prefix from the cache.
 - **A sample site** is fetched as a screenshot by the platform (public addresses only, the
   rules of `../ARCHITECTURE.md` §7), never by the container. The AI takes its layout, spacing,
   colour and mood, **never its logo, photos or words**.
 - **The fast gate** (seconds): the file allowlist, the validator, the typecheck, the bundle,
   the byte budgets (§9) and the content checks. On failure the model gets the exact errors
-  and tries again, **at most three times**; repairs are the platform's cost. A repair is also shown the
-  files of its last answer, so it edits them rather than rewriting blind (#1083).
+  and tries again, **at most three times**; repairs are the platform's cost. A repair is also shown
+  its last answer's files as it sent them (its edits, #1238), so it corrects them rather than rewriting blind (#1083).
 - **What it refuses**: prices, stock, products, shipping and checkout behaviour; it says these
   are changed in Products or Settings, and the draft stays as it was. A request that would
   break a budget is answered in words with an alternative ("a 4K video would make the page
@@ -1056,7 +1111,9 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
 - **The upgrade bot** (SAAS §10) takes a release to every store, **canary stores first**, then
   in waves: it builds each store's current published commit with the new core, applies
   core's **codemods**, and runs the full gate of §4.2 plus a visual diff against what is live.
-- **Patch and minor** releases can't change the look or the theme contract. A store that
+- **Patch and minor** releases can't change the look or the theme contract. *#1239's minor* adds the Tailwind class
+  rules, `theme.css` and `validateTheme` without changing a store: a theme of CSS Modules writes no class, so its bundle
+  is as before; it needs no codemod, and the starting themes' conversion reaches only stores made from them after it. A store that
   passes goes live on the new core; a store that fails gets the **migration agent** (the AI,
   with the build errors and the release's upgrade notes, under the same walls and gates); a
   store still failing **stays on its old core version**, with an alert in the admin console.
@@ -1089,7 +1146,8 @@ notes. The upgrade bot's commit (`POST /slots/{slot}/upgrade` in the sandbox of 
 core pinned exactly to the new version in `package.json` and the codemods of every release after the store's version up
 to the new one applied, in version order; no gate runs there, since the publish's full gate judges the commit. The same
 operation with the baseline theme's files writes the security fallback instead: the baseline's code, styles and routes,
-each CSS custom property the store's own styles also declare set to the store's value (its colours and fonts), and the
+each CSS custom property the store's own styles also declare set to the store's value (its colours and fonts; a Tailwind
+token such as `--color-ink` or `--font-heading` also takes a pre-#1239 store's `--ink` or `--heading-font`), and the
 baseline's words in each of the store's languages with the store's own text wherever its content has the same key
 (`baselineWithOwn`).
 

@@ -325,7 +325,7 @@ export const createStudioService = (deps: StudioDeps) => {
         modelAsked = true
         try {
           const made = await designer.propose(proposal)
-          proposed = made.files.map((f) => f.content ?? '').join('\n')
+          proposed = made.files.map((f) => ('content' in f ? f.content : 'edits' in f ? f.edits.map((e) => e.replace).join('\n') : '')).join('\n')
           return made
         } catch (error) {
           modelFailure = error

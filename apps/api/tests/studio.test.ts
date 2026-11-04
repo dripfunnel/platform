@@ -207,6 +207,57 @@ describe('one change', () => {
   })
 })
 
+describe('an answer of edits (#1238)', () => {
+  const shell = 'src/theme/styles/shell.module.css'
+  const maroon = { path: shell, edits: [{ search: 'color: var(--color-text, #111827);', replace: 'color: var(--color-text, #800000);' }] }
+  it('applies a one-line colour change as one edit, passes the gate and commits the whole file', async () => {
+    const { runner, host } = await runnerFor(t.storeA2)
+    const changed = await runner.change({ request: 'Make the text maroon', userId: ownerA.userId, billedTo: 'plan', model: scripted([[maroon]]).model })
+    expect(changed).toMatchObject({ outcome: 'changed', repairs: 0 })
+    const theme = await sandboxClient(host.send, t.storeA2).theme()
+    const before = template.find((f) => f.path === shell)?.content ?? ''
+    expect(theme.files.find((f) => f.path === shell)?.content).toBe(before.replace('#111827', '#800000'))
+  })
+
+  it('adds a new file whole and deletes a named one', async () => {
+    const { runner } = await runnerFor(t.storeA1)
+    const component = { path: 'src/theme/components/Note.tsx', content: 'export const Note = () => null\n' }
+    const added = await runner.change({ request: 'Add a note component', userId: ownerA.userId, billedTo: 'plan', model: scripted([[component]]).model })
+    expect(added).toMatchObject({ outcome: 'changed', repairs: 0 })
+    const removed = await runner.change({ request: 'Remove the note component', userId: ownerA.userId, billedTo: 'plan', model: scripted([[{ path: component.path, delete: true }]]).model })
+    expect(removed).toMatchObject({ outcome: 'changed', repairs: 0 })
+  })
+
+  it('makes a search text that is missing or appears twice a repair with a readable problem, and takes the repaired answer', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    const seen: { problems: { file: string | null; rule: string; message: string }[]; previous: unknown }[] = []
+    const answers = [[{ path: shell, edits: [{ search: 'color: purple;', replace: 'color: maroon;' }] }], [{ path: shell, edits: [{ search: 'display: flex;', replace: 'display: grid;' }] }], [maroon]]
+    const model: DesignModel = {
+      propose: async (input) => {
+        seen.push({ problems: input.problems, previous: input.previous })
+        return { files: answers[seen.length - 1] ?? [], model: 'test-model', tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD' }
+      },
+    }
+    expect(await runner.change({ request: 'Make the text maroon', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'changed', repairs: 2 })
+    expect(seen[1]?.problems).toEqual([expect.objectContaining({ file: shell, rule: 'patch/not-found', message: expect.stringContaining('"color: purple;"') })])
+    expect(seen[1]?.previous).toEqual(answers[0])
+    expect(seen[2]?.problems.map((p) => p.rule)).toEqual(['patch/not-unique'])
+  })
+
+  it('refuses after three repairs of edits that never apply, with the draft unchanged and each repair metered', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    await runner.open()
+    const before = { drafts: drafts.puts.length, sites: sites.objects.size }
+    const { model, asks } = scripted([[{ path: shell, edits: [{ search: 'not in the file', replace: 'x' }] }]])
+    expect(await runner.change({ request: 'Never applies', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'refused', repairs: 3 })
+    expect(asks).toEqual([{ problems: 0 }, { problems: 1 }, { problems: 1 }, { problems: 1 }])
+    expect({ drafts: drafts.puts.length, sites: sites.objects.size }).toEqual(before)
+    expect(await draftRow(t.storeA2)).toBeNull()
+    const runs = await db.sql<{ kind: string; outcome: string; sandbox_ms: number }[]>`select kind, outcome, sandbox_ms from ai_run where store_id = ${t.storeA2} order by kind`
+    expect(runs.map((r) => [r.kind, r.outcome, r.sandbox_ms])).toEqual([['design', 'refused', 0], ['repair', 'refused', 0], ['repair', 'refused', 0], ['repair', 'refused', 0]])
+  })
+})
+
 describe('a model that fails partway', () => {
   it('meters the asks already made as failed, and changes nothing', async () => {
     const { runner } = await runnerFor(t.storeA2)

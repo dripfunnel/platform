@@ -35,7 +35,7 @@ const rebaseSchema = z.strictObject({ onto: z.string().regex(/^[0-9a-f]{40}$/), 
 const takeSchema = z.strictObject({ from: z.string().regex(/^[0-9a-f]{40}$/), onto: z.string().regex(/^[0-9a-f]{40}$/), context: z.unknown() })
 const undoSchema = z.strictObject({ commit: z.string().regex(/^[0-9a-f]{40}$/), message: z.string().min(1).max(2000), context: z.unknown() })
 
-// validateChange parses the context with core's own schema before anything reads it (guard/rules.ts).
+// validateTheme parses the context with core's own schema before anything reads it (guard/rules.ts).
 const asContext = (value: unknown) => value as GuardContext
 
 const frameOrigins = (req: IncomingMessage): { mediaOrigin: string; portalOrigin: string } | null => {
