@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { recordCoreRelease, releaseKind, resolveReleasedCore, retireRelease, selectNewestRelease, selectSandboxImage } from '#db/scoped/coreReleases'
+import { coreVersionPattern, recordCoreRelease, releaseKind, resolveReleasedCore, retireRelease, selectNewestRelease, selectSandboxImage } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -30,6 +30,25 @@ describe('core_release', () => {
     expect(releaseKind('2.0.0', '1.4.2')).toBe('major')
     expect(releaseKind('1.5.0', '1.4.2')).toBe('minor')
     expect(releaseKind('1.4.3', '1.4.2')).toBe('patch')
+    expect(releaseKind('1.5.0-dev.7', '1.4.2')).toBe('minor')
+    expect(releaseKind('1.4.2-dev.8', '1.4.2-dev.7')).toBe('patch')
+  })
+
+  it('takes a version or a dev build of it, and nothing else (#1205)', () => {
+    for (const ok of ['1.2.3', '0.9.0-dev.12']) expect(coreVersionPattern.test(ok)).toBe(true)
+    for (const bad of ['1.2.3-dev', '1.2.3-rc.1', '1.2.3-dev.', 'v1.2.3', '1.2', '1.2.3-dev.1-x']) expect(coreVersionPattern.test(bad)).toBe(false)
+  })
+
+  it('records a dev build, and a stable release outranks its dev builds (#1205)', async () => {
+    try {
+      await withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '3.0.0-dev.4', image('a')))
+      await withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '3.0.0-dev.12', image('b')))
+      expect(await withSystemScope(db.sql, selectNewestRelease)).toBe('3.0.0-dev.12')
+      await withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '3.0.0', image('c')))
+      expect(await withSystemScope(db.sql, selectNewestRelease)).toBe('3.0.0')
+    } finally {
+      await db.sql`delete from core_release where version like '3.0.0%'`
+    }
   })
 
   it('records a version once, and a second record only moves its image', async () => {

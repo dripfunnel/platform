@@ -374,10 +374,22 @@ describe('a Shopify CSV import (#1178)', () => {
     expect(await db.sql`select vp.currency, vp.amount::text as amount, vp.compare_at_amount::text as compare, v.cost_amount::text as cost from version_price vp join product_version v on v.id = vp.version_id where v.sku = 'CURLAMP'`).toEqual([
       { currency: 'INR', amount: '96000', compare: '120000', cost: '48000' },
     ])
-    // The store's own currency named is the ordinary import; one with no rate, or named on the spreadsheet option, is refused.
+    // The store's own currency named is the ordinary import; one with no rate is refused, and the spreadsheet option converts the same way.
     expect((await shopifyUpload('owner', `${header}\ncur-fresh,Cur fresh,CURFRESH,30.00,,,active`, { currency: 'INR' })).job).toMatchObject({ ready: 1, problemCount: 0 })
     expect((await shopifyUpload('owner', `${header}\ncur-none,Cur none,CURNONE,9.00,,,active`, { currency: 'ZZZ' })).job).toMatchObject({ state: 'unreadable', problems: [{ line: 0, code: 'RATE_MISSING' }] })
-    expect((await shopifyUpload('owner', 'handle,name,price\na,A,1\n', { source: 'csv', currency: 'USD' })).code).toBe('INVALID_INPUT')
+    const sheet = await shopifyUpload('owner', 'handle,name,price\ncur-sheet,Cur sheet,12\n', { source: 'csv', currency: 'USD' })
+    expect(sheet.job).toMatchObject({ ready: 1, problemCount: 0 })
+    expect((await gql('query J($id: ID!) { catalogImport(id: $id) { conversion { from to } } }', 'owner', { id: sheet.id })).data?.['catalogImport']).toEqual({ conversion: { from: 'USD', to: 'INR' } })
+    // Only the main price column is converted; a hand-priced column is read as it is. No rate on this path refuses the file too.
+    const both = await shopifyUpload('owner', 'handle,name,price,price:USD\ncur-both,Cur both,12,3\n', { source: 'csv', currency: 'USD' })
+    expect(both.job).toMatchObject({ ready: 1, problemCount: 0 })
+    expect((await confirm('owner', both.id)).job).toMatchObject({ state: 'done', created: 1 })
+    expect(await db.sql`select trim(vp.currency) as currency, vp.amount::text as amount from version_price vp join product_version v on v.id = vp.version_id join product p on p.id = v.product_id where p.name = 'Cur both' order by 1`).toEqual([
+      { currency: 'INR', amount: '96000' },
+      { currency: 'USD', amount: '300' },
+    ])
+    expect((await shopifyUpload('owner', 'handle,name,price\ncur-zzz,Cur zzz,9\n', { source: 'csv', currency: 'ZZZ' })).job).toMatchObject({ state: 'unreadable', problems: [{ line: 0, code: 'RATE_MISSING' }] })
+    expect((await gql('mutation S($f: String!, $c: String) { startCatalogImport(file: $f, currency: $c) }', 'owner', { f: 'handle,name,price\na,A,1\n', c: 'USD' })).code).toBe('INVALID_INPUT')
   })
 
   it('refuses a warehouse from another store, a location left unsaid, and one warehouse for two locations', async () => {

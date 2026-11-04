@@ -5,6 +5,7 @@ type Image {
 
 type Mutation {
   addToCart(gift: ShopGiftCardInput, quantity: Int!, versionId: ID!): ShopCartChange
+  addToWishlist(productId: ID!): Boolean
   applyCode(code: String!): ShopCodeResult
   applyGiftCard(number: String!): ShopCartChange
   checkout: ShopCart
@@ -14,6 +15,7 @@ type Mutation {
   placeOrder(app: ShopAppPaymentInput, provider: String!): ShopPlacedOrder
   registerPushDevice(orderId: ID, platform: ShopPushPlatform!, token: String!): Boolean
   removeCode(code: String!): ShopCartChange
+  removeFromWishlist(productId: ID!): Boolean
   removeGiftCard: ShopCartChange
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
   restoreCart(token: String!): ShopRestoredCart
@@ -59,6 +61,7 @@ type Query {
   shopAsset(id: ID!): Image
   signInOptions: ShopSignInOptions
   store: ShopStore
+  wishlist: [ShopProductSummary!]
 }
 
 type ShopAccount {

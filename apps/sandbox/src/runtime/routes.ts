@@ -2,7 +2,7 @@ import { contentAddresses, coreRoutes, reservedPathSegments, routeAddresses, typ
 
 // The preview is one page for every address (PREVIEW §5 step 4), so the runtime picks the route the address names:
 // a core route's page, then the longest item prefix, then the theme's own path (ARCHITECTURE §3.1).
-const addresses = [...coreRoutes.map((route) => [route, routeAddresses[route]] as const), ...(['blog', 'blogPost'] as const).map((route) => [route, contentAddresses[route]] as const)]
+const addresses = [...coreRoutes.map((route) => [route, routeAddresses[route]] as const), ...(['blog', 'blogPost', 'accountWishlist'] as const).map((route) => [route, contentAddresses[route]] as const)]
 const pages = addresses.flatMap(([route, address]) => ('page' in address ? [{ route, page: address.page }] : []))
 const prefixes = addresses
   .flatMap(([route, address]) => ('prefix' in address ? [{ route, prefix: address.prefix }] : []))

@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { storeHost } from '@dripfunnel/mobile-shared/brand'
 import { useMarkets } from '../features/markets/MarketsContext'
 import { unregisterThisPhone } from '../push/push'
+import { dropPendingWishlist, takePendingWishlist } from '../session/pendingWishlist'
 import { clearCartToken, clearSessionToken, keepOrderToken, loadOrderToken, loadTokens, saveCartToken, saveSessionToken, shopHeaders, type Tokens } from '../session/tokens'
 import { createShopClient } from './client'
+import { addToWishlist } from './wishlist'
 import { ShopContext, type Shop } from './ShopContext'
 
 type Loaded = { host: string; tokens: Tokens; client: ReturnType<typeof createShopClient> }
@@ -44,6 +46,12 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         tokens.cart = null
         setSignedIn(true)
         await Promise.all([saveSessionToken(host, token), clearCartToken(host)])
+        // A product hearted while signed out is added once signed in, without holding sign-in up; a refusal (a full list) is not a failed sign-in.
+        void takePendingWishlist(host)
+          .then(async (pending) => {
+            if (pending) await addToWishlist(client, pending)
+          })
+          .catch(() => undefined)
       },
       endSession: async () => {
         // Best effort: a phone with no signal must still be able to sign out, so the token goes either way. The phone stops getting this customer's pushes first (api/DELIVERY.md §6).
@@ -51,6 +59,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         await client.request('mutation { signOut }').catch(() => undefined)
         tokens.session = null
         setSignedIn(false)
+        await dropPendingWishlist(host)
         await clearSessionToken(host)
       },
       keepOrderToken: (orderId) => keepOrderToken(host, orderId),

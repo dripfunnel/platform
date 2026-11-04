@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, StoreLogo, useCart, useMenu, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, StoreLogo, useCart, useMenu, useStorefront, useWishlist } from '@dripfunnel/storefront-core/theme'
 import { Menu } from './interactive/Menu'
 import { NavItem } from './interactive/NavItem'
 import styles from '../styles/layout.module.css'
@@ -8,6 +8,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   const { store, t, mode, poweredBy } = useStorefront()
   const menu = useMenu()
   const { count } = useCart()
+  const { count: wished } = useWishlist()
   return (
     <div className={styles.shell}>
       {mode === 'live' ? null : <PreviewBanner t={t} className={styles.preview} />}
@@ -47,6 +48,17 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                 <path d="M4.5 20c1.2-3.6 4-5.4 7.5-5.4s6.3 1.8 7.5 5.4" />
               </svg>
               <span className={styles.hidden}>{t('common.tools.account')}</span>
+            </Link>
+            <Link href="/account/wishlist/" className={styles.tool}>
+              <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.3a4.3 4.3 0 017.5 2.5C19.5 15.4 12 20 12 20z" />
+              </svg>
+              <span className={styles.hidden}>{wished > 0 ? t('common.tools.wishlistCount', { count: wished }) : t('common.tools.wishlist')}</span>
+              {wished > 0 ? (
+                <span className={styles.count} aria-hidden="true">
+                  {wished}
+                </span>
+              ) : null}
             </Link>
             <Link href="/cart/" className={styles.tool}>
               <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">

@@ -123,9 +123,9 @@ const ImportFlow = ({ readOnly, side, canUpgrade, sample }: { readOnly: boolean;
     check()
   }
 
-  /** A file must be a CSV (or, for Shopify's files, Excel) within the API's size; said before anything is sent. */
-  const refusalOf = (file: File, excel: boolean): FileError | null => {
-    if (!isCsv(file) && !(excel && isExcel(file))) return { kind: 'type', name: file.name }
+  /** A file must be a CSV or an Excel sheet within the API's size; said before anything is sent. */
+  const refusalOf = (file: File): FileError | null => {
+    if (!isCsv(file) && !isExcel(file)) return { kind: 'type', name: file.name }
     if (file.size > maxImportBytes) return { kind: 'big', name: file.name, size: file.size }
     return null
   }
@@ -134,22 +134,27 @@ const ImportFlow = ({ readOnly, side, canUpgrade, sample }: { readOnly: boolean;
     setMode(source === 'csv' ? 'file' : 'shopify')
     setJob(null)
     setFileName(file.name)
-    const excel = source === 'shopify'
-    const refused = refusalOf(file, excel) ?? (inventory && refusalOf(inventory, excel))
+    const refused = refusalOf(file) ?? (inventory && refusalOf(inventory))
     if (refused) return setFileError(refused)
     setFileError(null)
-    const [products, stock] = [await fileText(file), inventory ? await fileText(inventory) : null]
-    for (const [read, name] of [[products, file.name], [stock, inventory?.name ?? '']] as const) {
-      if (read && !read.ok) return setFileError(read.reason === 'big' ? { kind: 'big', name, size: maxImportBytes + 1 } : { kind: 'other', name, message: fill(words.fileErrors.excelUnreadable, { name }) })
-    }
+    setChecking(true)
+    let followed = false
     try {
-      follow(await startFileImport(products.ok ? products.text : '', source, stock?.ok ? stock.text : null, currency), file.name)
+      const [products, stock] = [await fileText(file), inventory ? await fileText(inventory) : null]
+      for (const [read, name] of [[products, file.name], [stock, inventory?.name ?? '']] as const) {
+        if (read && !read.ok) return setFileError(read.reason === 'big' ? { kind: 'big', name, size: maxImportBytes + 1 } : { kind: 'other', name, message: fill(words.fileErrors.excelUnreadable, { name }) })
+      }
+      const id = await startFileImport(products.ok ? products.text : '', source, stock?.ok ? stock.text : null, currency)
+      followed = true
+      follow(id, file.name)
     } catch (error) {
       if (source === 'shopify' && isApiError(error, 'PLAN_LIMIT')) {
         const plan = unlockSchema.safeParse(error.details['unlockedBy'])
         return setLocked({ plan: plan.success ? plan.data.name : null })
       }
       setFileError({ kind: 'other', name: file.name, message: isApiError(error) ? error.message : '' })
+    } finally {
+      if (!followed) setChecking(false)
     }
   }
 
@@ -210,7 +215,7 @@ const ImportFlow = ({ readOnly, side, canUpgrade, sample }: { readOnly: boolean;
           locked={locked}
           canUpgrade={canUpgrade}
           onMode={setMode}
-          onFile={(file) => startFiles('csv', file, null, null)}
+          onFile={(file, currency) => startFiles('csv', file, null, currency)}
           currencies={currencies}
           onShopifyFiles={(products, inventory, currency) => startFiles('shopify', products, inventory, currency)}
           onTemplate={template}

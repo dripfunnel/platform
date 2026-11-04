@@ -177,6 +177,8 @@ export const CustomersPage = () => {
     if (next.groupId !== undefined) setGroupId(next.groupId)
     setCursor({})
     setPageIndex(0)
+    // The new list opens its own first row; a customer left in the address may not be in it (#1210).
+    if (chosen) void navigate({ to: '/customers', search: (prev) => harnessSearch(prev, forced ?? undefined), replace: true })
   }
 
   /** Runs one change, says so, and reads the list and the customer again; false when the API refused it. */
@@ -423,7 +425,7 @@ export const CustomersPage = () => {
                     </li>
                   )
                 })}
-                {rows.length === 0 && <li className="df-customer-sub df-customers-none">{words.noMatch}</li>}
+                {rows.length === 0 && <li className="df-customer-sub df-customers-none">{groupId && !search ? words.noneInGroup : words.noMatch}</li>}
               </ul>
               {(view.page.next || view.page.previous) && (
                 <nav className="df-customers-pager" aria-label={words.pages.label}>

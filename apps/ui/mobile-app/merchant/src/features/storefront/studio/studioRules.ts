@@ -84,7 +84,7 @@ export const sampleAddress = (typed: string): string | null => {
   return /^https:\/\/[^\s/]+\.[^\s/]+(?:[/?#]\S*)?$/i.test(address) ? address : null
 }
 
-/** A note's code in the studio's words (`template:linen`, `undone`, `discarded`); null for a code this app doesn't know. */
+/** A note's code in the studio's words (`template:classic`, `undone`, `discarded`); null for a code this app doesn't know. */
 export const noteText = (code: string, templateName: (key: string) => string): string | null => {
   const template = /^template:(.+)$/.exec(code)?.[1]
   if (template) return template === 'baseline' ? t('storefront.studio.chat.notes.scratch') : t('storefront.studio.chat.notes.template', { name: templateName(template) })

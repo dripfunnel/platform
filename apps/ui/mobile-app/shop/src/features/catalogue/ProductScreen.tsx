@@ -6,6 +6,7 @@ import { addToCart, productOperation, type Product } from '../../api/catalogue'
 import { useShop } from '../../api/ShopContext'
 import { isApiError } from '@dripfunnel/mobile-shared/graphql'
 import { t } from '../../messages'
+import { WishlistHeart } from '../wishlist/WishlistHeart'
 import { Gallery } from './Gallery'
 import { OptionPicker } from './OptionPicker'
 import { ProductPrice } from './ProductPrice'
@@ -43,6 +44,7 @@ function Loaded({ product, stale }: { product: Product; stale: boolean }) {
   const [selection, setSelection] = useState<Selection>(() => initialSelection(product))
   const [quantity, setQuantity] = useState(1)
   const [adding, setAdding] = useState(false)
+  const [wishRefused, setWishRefused] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<{ kind: 'added' } | { kind: 'refused'; code: string } | null>(null)
 
   const version = versionFor(product, selection)
@@ -98,7 +100,13 @@ function Loaded({ product, stale }: { product: Product; stale: boolean }) {
           <View style={styles.buyButton}>
             <Button saves label={blocked ?? t('product.addToCart')} disabled={blocked !== null} busy={adding} onPress={() => void add()} />
           </View>
+          <WishlistHeart productId={product.id} name={product.name} onRefused={setWishRefused} />
         </View>
+        {wishRefused ? (
+          <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 14 }}>
+            {t(errorKey(wishRefused))}
+          </Text>
+        ) : null}
         {outcome?.kind === 'refused' ? (
           <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 14 }}>
             {t(errorKey(outcome.code))}

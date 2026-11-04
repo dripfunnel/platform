@@ -41,7 +41,13 @@ export interface StudioApi {
   goBack: (storeId: string, input: { versionId: string; by: string; actor: GoBackActor }) => Promise<GoBackResult>
 }
 
-export type Prepared = { outcome: 'ready'; commit: string; template: string; coreVersion: string } | { outcome: 'nothing' } | { outcome: 'queued'; place: number } | { outcome: 'unavailable' }
+/** `taken` is the live commit a design publish took into the draft first (#1211); `refused` is the gate refusing it. */
+export type Prepared =
+  | { outcome: 'ready'; commit: string; template: string; coreVersion: string; taken: string | null }
+  | { outcome: 'nothing' }
+  | { outcome: 'refused'; problems: number }
+  | { outcome: 'queued'; place: number }
+  | { outcome: 'unavailable' }
 
 /** `prepare`'s answer as a value, as `studioAnswer` does for a change. */
 export const preparedAnswer = async (work: () => Promise<Exclude<Prepared, { outcome: 'queued' | 'unavailable' }>>): Promise<Prepared> => {

@@ -93,7 +93,7 @@ jobs:
               echo "$app=false" >> "$GITHUB_OUTPUT"
             fi
           done
-          if echo "$files" | grep -q '^apps/api/'; then
+          if echo "$files" | grep -Eq '^(apps/api/|packages/storefront-core/|apps/sandbox/)'; then
             echo "api=true" >> "$GITHUB_OUTPUT"
           else
             echo "api=false" >> "$GITHUB_OUTPUT"
@@ -172,6 +172,7 @@ jobs:
       # A Durable Object starts only an image its config names, so the newest dev tag's digest goes into this checkout's
       # copy of the config (#790); nothing is committed. The release's image job has long finished: the gates above take longer.
       - name: Studio image
+        id: studio
         if: steps.changed.outputs.api == 'true'
         uses: ./.github/actions/studio-image
         with:
@@ -193,3 +194,15 @@ jobs:
           directory: store-proxy
           env-name: dev
           message: ${{ github.sha }}
+
+      # Last, once the API Worker runs the digest the studio will start (SAAS §10): that build is recorded and rolled out to
+      # dev's stores. A core or sandbox change counts as an API change above, so the Worker is redeployed for it.
+      - name: Core rollout
+        if: steps.changed.outputs.api == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+          VERSION: ${{ steps.studio.outputs.tag }}
+          SANDBOX_IMAGE: registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/storefront-build@${{ steps.studio.outputs.digest }}
+        run: pnpm release:record && pnpm release:rollout

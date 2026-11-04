@@ -183,6 +183,76 @@ describe('the Customers screen', () => {
     expect(api.loadCustomers).toHaveBeenLastCalledWith('g2', 'repeat', {})
   })
 
+  describe('picking a group or searching while a customer is open (#1210)', () => {
+    const emptyGroup: CustomerGroup = { id: 'g3', name: 'Cloth store group', members: 0, description: null }
+    const edit = () => screen.queryByRole('button', { name: words.detail.edit })
+    const answers = (group: string | null, search: string) => {
+      if (group === 'g3' || search === 'zzz') return { rows: [], next: null, previous: null }
+      if (group === 'g2' || search === 'vik') return { rows: [vikramRow], next: null, previous: null }
+      return { rows: [ananyaRow, vikramRow], next: null, previous: null }
+    }
+    beforeEach(() => {
+      api.loadCustomerGroups.mockResolvedValue([vip, wholesale, emptyGroup])
+      api.loadCustomers.mockImplementation(async (group: string | null, search: string) => answers(group, search))
+    })
+
+    it('says no customers are in an empty group and shows nobody on the right', async () => {
+      const router = await show(owner, { entry: '/customers?customer=c4' })
+      expect(screen.getByRole('region', { name: 'Vikram Shah' })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Cloth store group · 0' }))
+      await settle()
+      expect(screen.getByText(words.noneInGroup)).toBeTruthy()
+      expect(screen.queryByText(words.noMatch)).toBeNull()
+      expect(screen.queryByRole('region', { name: 'Vikram Shah' })).toBeNull()
+      expect(edit()).toBeNull()
+      expect(router.state.location.search).toEqual({})
+    })
+
+    it('opens the first member of a group, never someone outside it', async () => {
+      await show(owner, { entry: '/customers?customer=c1' })
+      fireEvent.click(screen.getByRole('button', { name: 'Wholesale · 1' }))
+      await settle()
+      expect(screen.getByRole('region', { name: 'Vikram Shah' })).toBeTruthy()
+      expect(screen.queryByRole('region', { name: 'Ananya Rao' })).toBeNull()
+    })
+
+    it('opens the first match of a search, and says nobody matches with nothing on the right when there is none', async () => {
+      await show(owner, { entry: '/customers?customer=c1' })
+      const box = screen.getByRole('searchbox', { name: words.search.label })
+      fireEvent.change(box, { target: { value: 'vik' } })
+      await settle(350)
+      expect(screen.getByRole('region', { name: 'Vikram Shah' })).toBeTruthy()
+      expect(screen.queryByRole('region', { name: 'Ananya Rao' })).toBeNull()
+      fireEvent.change(box, { target: { value: 'zzz' } })
+      await settle(350)
+      expect(screen.getByText(words.noMatch)).toBeTruthy()
+      expect(screen.queryByText(words.noneInGroup)).toBeNull()
+      expect(edit()).toBeNull()
+    })
+
+    it('says nobody matches, not that the group is empty, when a search inside a group finds nothing', async () => {
+      await show(owner)
+      fireEvent.click(screen.getByRole('button', { name: 'Wholesale · 1' }))
+      await settle()
+      fireEvent.change(screen.getByRole('searchbox', { name: words.search.label }), { target: { value: 'zzz' } })
+      await settle(350)
+      expect(screen.getByText(words.noMatch)).toBeTruthy()
+      expect(screen.queryByText(words.noneInGroup)).toBeNull()
+    })
+
+    it('opens the first person of the full list again on Everyone, and still opens whoever is clicked', async () => {
+      await show(owner, { entry: '/customers?customer=c4' })
+      fireEvent.click(screen.getByRole('button', { name: 'Cloth store group · 0' }))
+      await settle()
+      fireEvent.click(screen.getByRole('button', { name: words.chips.everyone }))
+      await settle()
+      expect(screen.getByRole('region', { name: 'Ananya Rao' })).toBeTruthy()
+      fireEvent.click(within(screen.getByRole('list', { name: words.list.label })).getAllByRole('button')[1] as HTMLElement)
+      await settle()
+      expect(screen.getByRole('region', { name: 'Vikram Shah' })).toBeTruthy()
+    })
+  })
+
   it('puts a customer in a group and takes them out', async () => {
     await show(owner)
     fireEvent.click(detail().getByRole('button', { name: '+ Wholesale' }))

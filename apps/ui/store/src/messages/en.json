@@ -2191,8 +2191,13 @@
     "sources": {
       "file": {
         "title": "Import from a spreadsheet",
-        "body": "A CSV file in our template’s columns. The template has one example row.",
-        "cta": "Choose a file"
+        "body": "A CSV or Excel file in our template’s columns. The template has one example row.",
+        "cta": "Upload a file",
+        "choose": "Choose a file",
+        "currency": {
+          "label": "Prices in the file are in",
+          "hint": "If they aren’t in your store’s currency, prices and costs are converted at the latest exchange rates we hold, rounded to the currency’s smallest unit."
+        }
       },
       "shopify": {
         "title": "Import from Shopify",
@@ -2209,7 +2214,7 @@
     "fileErrors": {
       "type": {
         "title": "That file type can’t be imported",
-        "body": "{name} isn’t a CSV file. Save it as CSV (in Excel: File › Save a copy › CSV) and choose it again."
+        "body": "{name} isn’t a CSV or Excel file. Choose a .csv or .xlsx file, or save it as CSV (in Excel: File › Save a copy › CSV)."
       },
       "big": {
         "title": "That file is too big",
@@ -2367,7 +2372,8 @@
         "one": "{count} photo is still coming in.",
         "other": "{count} photos are still coming in."
       },
-      "download": "Download what didn’t go in",
+      "listTitle": "What didn’t go in",
+      "downloadAll": "Download all of them as a file",
       "view": "See your products",
       "another": "Import another file"
     },
@@ -4881,6 +4887,7 @@
       "group": "{name} · {count}"
     },
     "noMatch": "Nobody matches.",
+    "noneInGroup": "No customers in this group",
     "list": {
       "label": "Customers"
     },
@@ -7764,6 +7771,7 @@
         "lost": "We couldn’t read how your publish is going. The studio waits until we can, so nothing changes under it.",
         "refused": {
           "NOTHING_TO_PUBLISH": "There are no changes to publish.",
+          "CHANGE_REFUSED": "We couldn’t bring in the changes made to your site’s code since this draft started. Nothing was published.",
           "NOT_BISECTED": "That change isn’t the one the refused publish named.",
           "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
           "STUDIO_QUEUED": "The studio is waiting for room. Try again in a moment.",

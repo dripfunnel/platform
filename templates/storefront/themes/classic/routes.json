@@ -16,6 +16,7 @@
     "accountAddresses": "account/AddressesPage",
     "accountOrders": "account/OrdersPage",
     "accountOrder": "account/OrderPage",
+    "accountWishlist": "account/WishlistPage",
     "policy": "PolicyPage",
     "contentPage": "content/ContentPage",
     "blog": "content/BlogPage",

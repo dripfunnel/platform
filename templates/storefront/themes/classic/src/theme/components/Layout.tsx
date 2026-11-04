@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ConsentBanner, ConsentSettingsButton, Link, navigate, PoweredBy, PreviewBanner, SearchField, StoreLogo, useCart, useCollections, useMenu, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { ConsentBanner, ConsentSettingsButton, Link, navigate, PoweredBy, PreviewBanner, SearchField, StoreLogo, useCart, useCollections, useMenu, useStorefront, useWishlist } from '@dripfunnel/storefront-core/theme'
 import { Menu } from './interactive/Menu'
 import { NavItem } from './interactive/NavItem'
 import styles from '../styles/layout.module.css'
@@ -14,6 +14,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   const { collections: fetched, status } = useCollections({ first: 20 })
   const collections = status === 'ready' ? fetched : []
   const { count } = useCart()
+  const { count: wished } = useWishlist()
   const whatsapp = store.social.find((s) => s.network === 'whatsapp')
   return (
     <div className={styles.shell}>
@@ -33,6 +34,17 @@ export const Layout = ({ children }: { children: ReactNode }) => {
               <span className={styles.accountLabel}>{t('common.tools.account')}</span>
             </Link>
             <span className={styles.divider} aria-hidden="true" />
+            <Link href="/account/wishlist/" className={styles.tool}>
+              <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.3a4.3 4.3 0 017.5 2.5C19.5 15.4 12 20 12 20z" />
+              </svg>
+              <span className={styles.hidden}>{wished > 0 ? t('common.tools.wishlistCount', { count: wished }) : t('common.tools.wishlist')}</span>
+              {wished > 0 ? (
+                <span className={styles.count} aria-hidden="true">
+                  {wished}
+                </span>
+              ) : null}
+            </Link>
             <Link href="/cart/" className={styles.tool}>
               <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M5.5 8h13l-1 12h-11z" />

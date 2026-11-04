@@ -143,7 +143,7 @@ const sampleStudio = (state: StorefrontState) => {
   let chat: DesignMessage[] = [
     line('m3', 'ai', 'I warmed up the background and buttons and gave the home page an autumn headline.', { changed: ['Colours', 'Hero headline'], canUndo: true }),
     line('m2', 'user', 'Make the colours warmer and give the home page an autumn headline'),
-    line('m1', 'note', 'template:linen'),
+    line('m1', 'note', 'template:classic'),
   ]
   let n = 3
   return {
@@ -190,7 +190,7 @@ const samplePublish = (state: StorefrontState, id: string): PublishRun => {
 const sampleMeters = (state: StorefrontState) => {
   let live = 12
   const versions = (): StorefrontVersion[] =>
-    [12, 11, 10].map((number) => ({ id: `v${number}`, number, template: 'linen', label: number === 12 ? 'Autumn colours and headline' : number === 11 ? 'Add a reviews section' : null, live: number === live, publishedAt: `2026-10-0${number - 3}T10:40:00Z` }))
+    [12, 11, 10].map((number) => ({ id: `v${number}`, number, template: 'classic', label: number === 12 ? 'Autumn colours and headline' : number === 11 ? 'Add a reviews section' : null, live: number === live, publishedAt: `2026-10-0${number - 3}T10:40:00Z` }))
   return {
     loadMeters: (): Promise<StorefrontMeters> =>
       Promise.resolve({

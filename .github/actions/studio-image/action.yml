@@ -18,6 +18,8 @@ inputs:
 outputs:
   digest:
     value: ${{ steps.pin.outputs.digest }}
+  tag:
+    value: ${{ steps.pin.outputs.tag }}
 runs:
   using: composite
   steps:
@@ -54,5 +56,6 @@ runs:
         [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "No valid digest for storefront-build:$tag." >&2; exit 1; }
         sed -i "s|$placeholder|registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/storefront-build@$digest|" wrangler.jsonc
         echo "digest=$digest" >> "$GITHUB_OUTPUT"
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
         echo "Studio image: storefront-build:$tag @ $digest"
         echo "- Studio image digest: \`$digest\`" >> "$GITHUB_STEP_SUMMARY"

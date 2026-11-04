@@ -31,6 +31,7 @@ type AbandonedCartDetail {
   cart: AbandonedCart
   lines: [AbandonedCartLine!]
   reminders: [CartReminder!]
+  wishlist: [AbandonedCartWishlistItem!]
 }
 
 type AbandonedCartLine {
@@ -46,6 +47,13 @@ type AbandonedCartLine {
 type AbandonedCartPage {
   nodes: [AbandonedCart!]
   pageInfo: PageInfo
+}
+
+type AbandonedCartWishlistItem {
+  name: String
+  price: Money
+  productId: ID
+  slug: String
 }
 
 type ActingStore {

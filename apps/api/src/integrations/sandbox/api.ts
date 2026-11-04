@@ -86,6 +86,11 @@ export const sandboxClient = (send: SandboxFetch, slot: string) => {
       await call('PUT', 'onto', onto.bundle, 'application/x-git-bundle')
       return json(await call('POST', 'rebase', JSON.stringify({ onto: onto.commit, context })), changeSchema)
     },
+    /** #1211: the theme files that changed from `from` to the live commit, written into the draft; the live bundle goes first. */
+    takeLive: async (from: string, onto: { commit: string; bundle: ArrayBuffer }, context: GuardContext): Promise<ChangeResult> => {
+      await call('PUT', 'onto', onto.bundle, 'application/x-git-bundle')
+      return json(await call('POST', 'take', JSON.stringify({ from, onto: onto.commit, context })), changeSchema)
+    },
     exportBundle: async (): Promise<ArrayBuffer> => (await call('GET', 'bundle')).arrayBuffer(),
     previewFiles: async (): Promise<PreviewFiles> => json(await call('GET', 'preview'), previewSchema),
     /** A frame file as the container serves it, its page with core's studio CSP for these origins; a 404 is passed through. */

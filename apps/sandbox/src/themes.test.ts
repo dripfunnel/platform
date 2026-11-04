@@ -92,7 +92,7 @@ afterAll(async () => {
 })
 
 it('has the starting themes the gallery offers, each in its own folder', () => {
-  expect(keys).toEqual(['atelier', 'baseline', 'bloom', 'circuit', 'classic', 'concrete', 'linen', 'market'])
+  expect(keys).toEqual(['baseline', 'classic', 'market'])
   for (const key of keys) expect(templateSchema.parse(JSON.parse(readFileSync(join(themesDir, key, 'template.json'), 'utf8'))).key).toBe(key)
 })
 

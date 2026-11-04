@@ -223,6 +223,8 @@ export const knownErrorCodes = [
   'SIGN_IN_REFUSED',
   'SIGNED_OUT',
   'NOT_IN_PREVIEW',
+  // The Shop API's wishlist (apps/api src/apis/shop/wishlist.ts): the 101st product.
+  'LIMIT',
   // Own delivery: the rider list, the Own delivery settings and an order's delivery (apps/api src/engine/modules/ownDelivery; docs/api/DELIVERY.md).
   'OWN_DELIVERY_NOT_READY',
   'DELIVERY_AREA_REQUIRED',

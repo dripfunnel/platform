@@ -1,15 +1,15 @@
 import postgres from 'postgres'
 import { z } from 'zod'
-import { recordCoreRelease } from '#db/scoped/coreReleases'
+import { coreVersionPattern, recordCoreRelease } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
 import { assertLocalHost } from '../migrate/host-guard'
 
 // The release workflow's last step (storefront AI-STUDIO §1): core_release learns the version's sandbox image. Run on
-// the same push as prod.yml's migrations, so it waits for the table that migration 0250 makes.
+// the same push as prod.yml's migrations, so it waits for the table that migration 0250 makes; dev.yml runs it after its own.
 const env = z
   .object({
     DATABASE_URL: z.string().min(1),
-    VERSION: z.string().regex(/^\d+\.\d+\.\d+$/),
+    VERSION: z.string().regex(coreVersionPattern),
     SANDBOX_IMAGE: z.string().regex(/^registry\.cloudflare\.com\/[A-Za-z0-9_./-]+@sha256:[0-9a-f]{64}$/),
   })
   .parse(process.env)

@@ -144,7 +144,7 @@ export const loadOverview = async (): Promise<StorefrontOverview> =>
 const templateSchema = z.object({ key: z.string(), name: z.string(), tag: z.string(), description: z.string(), demoUrl: text, current: z.boolean() })
 export type StorefrontTemplate = z.infer<typeof templateSchema>
 
-/** "Start from scratch" (`baseline`) first, then the seven templates. */
+/** Classic first, then "Start from scratch" (`baseline`). */
 export const loadTemplates = async (): Promise<StorefrontTemplate[]> =>
   (await query('{ storefrontTemplates { key name tag description demoUrl current } }', z.object({ storefrontTemplates: z.array(templateSchema) }))).storefrontTemplates
 

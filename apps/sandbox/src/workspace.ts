@@ -29,6 +29,7 @@ export class NotLoaded extends Error {
 }
 
 const branch = 'main'
+const refused = (rule: string, message: string): ChangeResult => ({ ok: false, problems: [{ step: 'validator', file: null, line: null, rule, message }] })
 
 /** One store's working copy and its current client bundle; the server keeps one per slot. */
 export class Workspace {
@@ -170,14 +171,9 @@ export class Workspace {
    */
   async rebase(onto: string, context: GuardContext): Promise<ChangeResult> {
     this.mustBeLoaded()
-    const file = join(this.dir, 'onto.bundle')
     const before = await this.head()
-    const refused = (rule: string, message: string): ChangeResult => ({ ok: false, problems: [{ step: 'validator', file: null, line: null, rule, message }] })
-    try {
-      // Only a real conflict is called one: a missing or unrelated commit is a fault in what was sent.
-      const fetched = await this.git(['fetch', '--quiet', file, `+${branch}:refs/df/onto`]).then(() => true, () => false)
-      const found = fetched && (await this.git(['merge-base', '--is-ancestor', onto, 'refs/df/onto']).then(() => true, () => false))
-      if (!found) return refused('rebase/missing-onto', 'The core update’s commit is not in the bundle sent for it.')
+    // Only a real conflict is called one: a missing or unrelated commit is a fault in what was sent.
+    return this.withOnto(onto, refused('rebase/missing-onto', 'The core update’s commit is not in the bundle sent for it.'), async () => {
       if (!(await this.git(['merge-base', onto, before]).then(() => true, () => false))) return refused('rebase/unrelated', 'The draft and the core update share no history.')
       const reached = await this.git(['merge-base', '--is-ancestor', onto, before]).then(() => true, () => false)
       if (reached) return { ok: true, changed: false, commit: before, bundle: this.current ?? (await this.rebundle()) }
@@ -205,6 +201,39 @@ export class Workspace {
         await rm(next, { recursive: true, force: true })
         throw error
       }
+    })
+  }
+
+  /**
+   * #1211: the theme files that changed between `from`, the version the draft is based on, and `onto`, a live commit of
+   * the received bundle, written into the draft as one change, the live version winning. Nothing is taken when the draft
+   * already holds `onto` (a "Publish everything before" of its own earlier change); an unknown `from` is refused.
+   */
+  async takeLive(from: string, onto: string, context: GuardContext): Promise<ChangeResult> {
+    this.mustBeLoaded()
+    return this.withOnto(onto, refused('take/missing-onto', 'The live commit is not in the bundle sent for it.'), async () => {
+      const has = (args: string[]) => this.git(args).then(() => true, () => false)
+      if (!(await has(['cat-file', '-e', `${from}^{commit}`]))) return refused('take/missing-base', 'The commit the draft is based on is not in the draft or the live bundle.')
+      const held = await has(['merge-base', '--is-ancestor', onto, 'HEAD'])
+      // `-z --name-status` gives a status then a path per file, each ended by NUL; D is a file the live commit deleted.
+      const listed = held ? [] : (await this.git(['diff', '--name-status', '-z', '--no-renames', from, onto])).split('\0')
+      const files: FileChange[] = []
+      for (let i = 0; i + 1 < listed.length; i += 2) {
+        const [status, path] = [listed[i], listed[i + 1] ?? '']
+        if (isThemePath(path)) files.push({ path, content: status === 'D' ? null : await this.git(['show', `${onto}:${path}`]) })
+      }
+      if (files.length === 0) return { ok: true, changed: false, commit: await this.head(), bundle: this.current ?? (await this.rebundle()) }
+      return this.change(files, `Take the theme live at ${onto.slice(0, 12)}`, context)
+    })
+  }
+
+  /** `work` with the received bundle fetched as refs/df/onto, or `missing` when `onto` isn't in it; both are gone after. */
+  private async withOnto(onto: string, missing: ChangeResult, work: () => Promise<ChangeResult>): Promise<ChangeResult> {
+    const file = join(this.dir, 'onto.bundle')
+    try {
+      const fetched = await this.git(['fetch', '--quiet', file, `+${branch}:refs/df/onto`]).then(() => true, () => false)
+      const found = fetched && (await this.git(['merge-base', '--is-ancestor', onto, 'refs/df/onto']).then(() => true, () => false))
+      return found ? await work() : missing
     } finally {
       await rm(file, { force: true })
       await this.git(['update-ref', '-d', 'refs/df/onto']).catch(() => undefined)

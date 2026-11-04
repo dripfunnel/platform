@@ -73,7 +73,7 @@
     "buyNow": "Buy now",
     "added": "Added to your cart.",
     "addFailed": "We couldn't add that. Try again.",
-    "viewCart": "View cart",
+    "goToCart": "Go to cart",
     "download": "A download: {times, plural, one {# download} other {# downloads}} within {days, plural, one {# day} other {# days}} of paying.",
     "downloadPlain": "A download, ready once you've paid.",
     "service": "A service: we'll be in touch to arrange it.",
@@ -275,5 +275,22 @@
     "saveAddress": "Save address",
     "cancel": "Cancel",
     "noPassword": "This shop signs you in with a code sent to your mobile number, so there is no password to reset."
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "loading": "Loading your wishlist…",
+    "loadFailed": "We couldn't load your wishlist",
+    "empty": "Nothing on your wishlist yet",
+    "emptyLead": "Tap the heart on a product to keep it here.",
+    "heart": "Save {name} to your wishlist",
+    "full": "Your wishlist is full. Remove something to save more.",
+    "failed": "We couldn't change your wishlist. Try again.",
+    "add": "Add to cart",
+    "added": "Added to cart",
+    "addFailed": "We couldn't add that to your cart. Try again.",
+    "choose": "Choose options",
+    "view": "View product",
+    "remove": "Remove",
+    "removeLabel": "Remove {name} from your wishlist"
   }
 }

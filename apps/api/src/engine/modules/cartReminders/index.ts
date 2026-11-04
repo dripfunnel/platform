@@ -4,6 +4,7 @@ import { defaultSteps } from './rules'
 
 export { cartRemindKind, decideReminder, fallBackToEmail, markAbandonedCarts, queueDueReminders, recoverCarts, type ReminderDecision } from './jobs'
 export { cartsAudit, createCartsService, maxStopNote, summaryDays, type AbandonedCartDetail, type AbandonedCartView, type CartStatus, type CartsRefusal, type CartsResult } from './carts'
+export { reminderWishlistItems, type WishlistItemNow } from './wishlist'
 export { restoreCart, unsubscribe, type LinkResult, type Restored } from './links'
 export { cartRemindersAudit, createCartRemindersService, type ReminderSettingsView, type RemindersRefusal, type RemindersResult } from './service'
 export { mayEmail, mayWhatsApp, reminderDelays, reminderPercents, reminderWindowMs, type ReminderLevel, type ReminderSettingsInput, type ReminderStepView } from './rules'
