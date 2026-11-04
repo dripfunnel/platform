@@ -852,6 +852,8 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
       discard: async (storeId) => await stub.discard(storeId),
       prepare: async (storeId, input) => await stub.prepare(storeId, input),
       goBack: async (storeId, input) => await stub.goBack(storeId, input),
+      summary: async (storeId) => await stub.summary(storeId),
+      keepSummary: async (storeId, kept) => await stub.keepSummary(storeId, kept),
     }
   }
 }

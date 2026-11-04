@@ -4,9 +4,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateChange, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
-import { carouselExample, designModel, maxToolCalls, rules, type DesignBrief, type DesignTools } from './model'
+import { carouselExample, designModel, maxLookups, maxPhotoLookups, maxToolCalls, rules, type DesignBrief, type DesignTools } from './model'
+import type { StoreLookups, StoreSummary } from './summary'
 
-const brief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: 'S', city: null, languages: [] }, brand: { tagline: null, description: null, voice: null, colours: [] }, products: [], image: null, screenshot: null }
+const brief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: 'S', languages: [] }, summary: null, image: null, screenshot: null }
 const spent = { tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD', model: 'fake' }
 const final = JSON.stringify({ files: [], reply: 'Done.', changed: [], page: 'home' })
 const call = (id: string, name: string, args: unknown) => ({ id, name, arguments: typeof args === 'string' ? args : JSON.stringify(args) })
@@ -105,6 +106,60 @@ describe('the designer’s tool loop', () => {
   })
 })
 
+describe('the store lookups', () => {
+  const summary: StoreSummary = {
+    name: 'Northstar', city: 'Pune', country: 'IN', languages: ['en-IN'], currency: 'INR', currencies: [], pricesIncludeTax: true, shipping: null, payments: ['cod'],
+    brand: { tagline: null, description: null, voice: null, colours: [] }, products: 3, collectionCount: 1, collections: [{ name: 'Summer', slug: 'summer', products: 2, image: false }],
+    bestSellers: [{ name: 'Linen shirt', slug: 'linen-shirt', price: 'INR 1499.00', unitsSold: 10 }], topCollections: [], topCities: [], offers: [], newest: [],
+  }
+  const looked = async (turns: AiTurn[], problems: { file: string; message: string }[] = []) => {
+    const seen: { tools: readonly CanonicalTool[]; messages: readonly CanonicalMessage[] }[] = []
+    const completed: string[] = []
+    const asked: string[] = []
+    const provider: AiProvider = {
+      complete: async (c) => (completed.push(c.text), { text: final, ...spent }),
+      converse: async (c) => (seen.push({ tools: c.tools, messages: [...c.messages] }), turns.shift() ?? turn([])),
+    }
+    const lookups: StoreLookups = { run: async (name) => (asked.push(name), { content: `answer:${name}`, images: name === 'product_photos' ? [{ mediaType: 'image/png', base64: 'AAAA' }] : [] }) }
+    await designModel(provider, { ...brief, summary }, null, () => undefined, undefined, lookups).propose({ request: 'a new home page', theme: [], problems: problems as never })
+    return { seen, completed, asked }
+  }
+
+  it('puts the summary in the brief and offers the lookups, with no photo tools when those are off', async () => {
+    const r = await looked([turn([])])
+    expect(r.seen[0]?.tools.map((t) => t.name)).toEqual(['list_collections', 'find_products', 'product_photos', 'best_sellers', 'active_offers'])
+    const first = r.seen[0]?.messages[0]?.content.find((p) => p.type === 'text')
+    expect(first?.type === 'text' ? first.text : '').toContain(`The shop's own data (to decide with, never to copy): ${JSON.stringify(summary)}`)
+  })
+
+  it('answers a lookup, and sends a product’s photos as the next user turn', async () => {
+    const r = await looked([turn([call('1', 'best_sellers', {}), call('2', 'product_photos', { product: 'linen-shirt' })]), turn([])])
+    expect(r.asked).toEqual(['best_sellers', 'product_photos'])
+    const [, , results, photos] = r.seen[1]?.messages ?? []
+    expect(results).toEqual({ role: 'tool', content: [expect.objectContaining({ callId: '1', content: 'answer:best_sellers', isError: false }), expect.objectContaining({ callId: '2', isError: false })] })
+    expect(photos).toEqual({ role: 'user', content: [{ type: 'image', mediaType: 'image/png', base64: 'AAAA' }] })
+  })
+
+  it('allows six lookups, two of them photos, then stops offering them', async () => {
+    const r = await looked([
+      turn([call('1', 'product_photos', { product: 'a' }), call('2', 'product_photos', { product: 'b' }), call('3', 'product_photos', { product: 'c' })]),
+      turn([call('4', 'find_products', {}), call('5', 'list_collections', {}), call('6', 'active_offers', {}), call('7', 'best_sellers', {})]),
+      turn([]),
+    ])
+    expect([maxLookups, maxPhotoLookups]).toEqual([6, 2])
+    expect(r.asked).toEqual(['product_photos', 'product_photos', 'find_products', 'list_collections', 'active_offers'])
+    expect(r.seen[1]?.tools.map((t) => t.name)).not.toContain('product_photos')
+    expect(r.seen[2]?.tools).toEqual([])
+  })
+
+  it('looks nothing up in a repair', async () => {
+    const r = await looked([], [{ file: 'src/theme/x.tsx', message: 'bad' }])
+    expect(r.seen).toEqual([])
+    expect(r.completed).toHaveLength(1)
+    expect(r.completed[0]).toContain(JSON.stringify(summary))
+  })
+})
+
 describe('a repair', () => {
   const ask = async (input: { problems: never[]; previous?: { path: string; content: string }[] }) => {
     const completed: string[] = []
@@ -137,6 +192,12 @@ describe('the rules the AI is given', () => {
     expect(rules).toMatch(/Never import from next/)
     expect(rules).toMatch(/src\/theme\/components\/interactive\/ that starts with 'use client'/)
     expect(rules).toMatch(/every existing key still in it/)
+  })
+
+  it('use the shop’s own data to decide, live through core, never copied into files (#1242)', () => {
+    expect(rules).toMatch(/useProducts\(\{ sort: 'best-selling' \}\)/)
+    expect(rules).toMatch(/drawn\s+from useOffers\(\) so it goes when the offer ends/)
+    expect(rules).toMatch(/Never write a product, price, rating, collection, offer, discount,\s+sales figure or city into code or content/)
   })
 
   it('state what publishing checks: one h1, no aria-hidden over focusable parts, 24 px targets, no overflow', () => {

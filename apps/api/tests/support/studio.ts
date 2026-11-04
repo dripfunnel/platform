@@ -3,13 +3,14 @@ import { withSystemScope } from '#db/scoped/index'
 import { deleteDraft } from '#db/scoped/studio'
 import type postgres from 'postgres'
 import { goBack, type GoBackResult } from '#saas/storefronts/index'
-import { preparedAnswer, StudioQueued, StudioUnavailable, studioAnswer, type StudioApi, type StudioRunner, type StudioState } from '#saas/studio/index'
+import { preparedAnswer, StudioQueued, StudioUnavailable, studioAnswer, type KeptSummary, type StudioApi, type StudioRunner, type StudioState } from '#saas/studio/index'
 
 // The StudioSession's RPC shape (jobs/durable/studio.ts) over StudioRunners in this process, one per store, named by the
 // TenantContext's store as `studioOf` names the Durable Object. `calls` records which store each call reached.
 
 export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string) => StudioRunner) => {
   const calls: { contextStore: string; storeId: string }[] = []
+  const kept = new Map<string, KeptSummary>()
   const studio = (context: TenantContext): StudioApi => {
     const runner = (storeId: string) => {
       calls.push({ contextStore: context.storeId, storeId })
@@ -63,7 +64,15 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
         })
         return result
       },
+      summary: async (storeId) => {
+        runner(storeId)
+        return kept.get(storeId) ?? null
+      },
+      keepSummary: async (storeId, value) => {
+        runner(storeId)
+        kept.set(storeId, value)
+      },
     }
   }
-  return { studio, calls }
+  return { studio, calls, kept }
 }

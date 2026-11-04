@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-11-04 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -798,7 +798,8 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
     sandbox, no change; it takes one `ai_prompts` unit like a change and is metered as a `design` run): the Worker asks the model (one of
     `studioSession.models`, the account's models, the default first) with the
     store's theme files, core's theme API and its rules, the page and screen size, the last
-    four requests, the brand and ~12 products (names, prices)
+    four requests and the store summary (storefront ARCHITECTURE §6.2, #1242: settings, brand, collections, best
+    sellers, top collections and cities, offers on now; never personal data), with read-only lookups it may call
   → the store's Durable Object runs the diff in the store's container: the fast gate
     (allowlist, validator, typecheck, bundle, byte budgets, content checks)
       fail → the model repairs from the exact errors (≤3) → else refused: nothing changes
@@ -857,8 +858,13 @@ meter, usage billing and §12's metrics; build minutes come from `publish_run`.
 ~~one Store API call, no agent run (2026-10-08 on #470)~~ **Cloudflare Containers**, one per
 store with a studio open (decided 2026-10-08 on #470, "Plan A"); publish builds in the store
 repo's GitHub Actions (decided 2026-10-09). ~~Whether the AI reads the
-store's catalogue~~ **It reads a sample** (about 12 products: names and prices; photos dropped
-on #470), metered in `ai_run` (decided 2026-10-05 on #337).
+store's catalogue~~ ~~**It reads a sample** (about 12 products: names and prices; photos dropped
+on #470), metered in `ai_run` (decided 2026-10-05 on #337)~~ **It knows its own store** (decided 2026-11-04 on
+#1242): everything of the store but personal data, as a summary in every prompt and read-only lookups (the full
+catalogue with photos, best sellers, offers), each one query for the acting store, the summary kept beside the studio
+and rebuilt after 10 minutes (storefront ARCHITECTURE §6.2). No customer's name, phone, email or address, no single order
+and no discount code reaches the model; a city appears only with at least 5 orders. Themes show best sellers and offers
+live through core (`useProducts({ sort: 'best-selling' })`, `useOffers()`), never written into theme code.
 
 ### 9.3 The AI gateway (#950)
 
@@ -1160,8 +1166,8 @@ The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
   after 100, up to 50,000) answered 2026-10-09; apex domains still open (§8).
 - ~~Where the AI agent runs~~ (GitHub Actions, decided 2026-10-05 on #284; **Cloudflare
   Containers**, decided 2026-10-08 on #470; builds moved to store repos' GitHub Actions on
-  2026-10-09); ~~does the AI read the catalogue~~ a sample of about
-  12 products (decided 2026-10-05 on #337).
+  2026-10-09); ~~does the AI read the catalogue~~ ~~a sample of about
+  12 products (decided 2026-10-05 on #337)~~ its own store's summary and lookups, never personal data (#1242, §9.2).
 - The container limits and price at the expected number of open studios, and whether a plan caps
   simultaneous studio sessions *(decide, INF 0 #287 and the sandbox card)*.
 - ~~Staging storefronts per store, or preview builds only?~~ Preview builds only (decided 2026-10-05 on #337).

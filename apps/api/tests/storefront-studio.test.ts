@@ -90,14 +90,21 @@ const provider: AiProvider = {
     return { text, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
   converse: async (call) => {
-    script.sent.push('converse')
-    const next = script.turns.shift()
-    if (next) return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
+    // A conversation's first turn is recorded like a plain call, with the tools it was offered (#1242: every change has the store lookups).
+    const first = call.messages[0]?.content.find((p) => p.type === 'text')
+    if (call.messages.length === 1) script.sent.push(`[tools: ${call.tools.map((t) => t.name).join(' ')}] ${first?.type === 'text' ? first.text : ''}`)
+    // The model can call only the tools it was offered.
+    const next = script.turns[0]
+    if (next && next.every((c) => call.tools.some((t) => t.name === c.name))) {
+      script.turns.shift()
+      return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
+    }
     script.lastTurn = JSON.stringify(call.messages.filter((m) => m.role === 'tool'))
     if (hold) {
       held?.()
       await hold
     }
+    if (providerFails) throw providerFails
     const text = script.answers.shift() ?? reply([])
     return { text, toolCalls: [], wantsTools: false, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
@@ -349,7 +356,7 @@ describe('asking for a change', () => {
     script.answers = [reply([])]
     try {
       expect((await ask('owner', 'A linen hero')).code).toBeUndefined()
-      expect(script.sent.slice(sent)).toEqual([expect.not.stringContaining('converse')])
+      expect(script.sent.slice(sent)).toEqual([expect.not.stringContaining('search_stock_images')])
       expect(script.turns).toHaveLength(1)
     } finally {
       script.turns = []

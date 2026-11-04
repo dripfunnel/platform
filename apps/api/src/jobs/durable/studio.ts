@@ -6,7 +6,7 @@ import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type KeptSummary, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -62,10 +62,14 @@ export const studioSessionClass = (connect: Connect) =>
     private opening: Promise<StudioState> | null = null
 
     /** The object is named by its store's id; it refuses any call for another store, whoever made it. */
-    private async runnerFor(storeId: string): Promise<StudioRunner> {
+    private async ownStore(storeId: string): Promise<void> {
       const own = await this.ctx.storage.get<string>('store')
       if (own !== undefined && own !== storeId) throw new Error('studio: a call for another store')
       if (own === undefined) await this.ctx.storage.put('store', storeId)
+    }
+
+    private async runnerFor(storeId: string): Promise<StudioRunner> {
+      await this.ownStore(storeId)
       if (this.runner) return this.runner
       const config = parseConfig(this.env)
       const { STOREFRONT_SITES: sites, STOREFRONT_DRAFTS: drafts, STUDIO_CAPACITY: capacity } = this.env
@@ -216,6 +220,17 @@ export const studioSessionClass = (connect: Connect) =>
       const commit = await (await this.active(storeId)).repairPublish(input.failing, model)
       await this.ctx.storage.put(`repair:${input.key}`, commit)
       return commit
+    }
+
+    /** The AI's store summary, kept here beside the studio rather than read from the database at every change (#1242). */
+    async summary(storeId: string): Promise<KeptSummary | null> {
+      await this.ownStore(storeId)
+      return (await this.ctx.storage.get<KeptSummary>('summary')) ?? null
+    }
+
+    async keepSummary(storeId: string, kept: KeptSummary): Promise<void> {
+      await this.ownStore(storeId)
+      await this.ctx.storage.put('summary', kept)
     }
 
     /** "Finishing your previous change…" (AI-STUDIO §4 step 1). */

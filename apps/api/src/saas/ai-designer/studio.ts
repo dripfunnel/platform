@@ -2,9 +2,8 @@ import type { ActivityEntry } from '#auth/activity'
 import type { StoreRole } from '#auth/storePermissions'
 import { isUuid } from '#core/ids'
 import { logEvent, failureCode } from '#core/log'
-import { toMajor } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { insertDesignMessage, markUndone, selectBriefStore, selectDesignChat, selectLatestChange, selectMessage, selectProductSample, selectRecentRequests, type MessageRow } from '#db/scoped/design'
+import { insertDesignMessage, markUndone, selectDesignChat, selectLatestChange, selectMessage, selectRecentRequests, type MessageRow } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
@@ -24,6 +23,7 @@ import { guardContextFor } from '#saas/storefronts/index'
 import { openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
 import { chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
+import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
 
 // The studio through the Store API (storefront AI-STUDIO §3–§5; SAAS §9.2): the Worker builds the model's context and
@@ -71,7 +71,6 @@ const maxUrl = 2048
 /** A page or a text key: names, never words. */
 const maxKey = 200
 const recentRequests = 4
-const sampleSize = 12
 const imageTypes = new Set<AiImage['mediaType']>(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 /** ai_mode's choices (planKeys.ts): the merchant's own key, or AI on the plan, counted against `ai_prompts`. */
 const ownKeyMode = 0
@@ -115,7 +114,8 @@ export const createStudioService = (deps: StudioDeps) => {
     const renewed = existing ? await renewStudio(sql, context, deps.role, existing, now()) : null
     const opened = existing && renewed ? { id: existing, access, expiresAt: renewed } : await openStudioSession(sql, context, deps.role, now())
     if (!opened) return { ok: false, reason: 'NOT_FOUND' }
-    const state = await studio.status(storeId)
+    // Opening the studio builds the AI's store summary beside it, so the first change reads no catalogue (ARCHITECTURE §6.2).
+    const [state] = await Promise.all([studio.status(storeId), existing ? null : keepNew(studio, storeId, now(), summaryOf).catch(() => null)])
     return { ok: true, value: { ...state, session: opened.id, models: await deps.models(await billing(), context), frameUrl: `https://${key.slug}-preview.${deps.previewDomain}/__studio/${opened.id}/`, access: opened.access, expiresAt: opened.expiresAt } }
   }
 
@@ -177,23 +177,32 @@ export const createStudioService = (deps: StudioDeps) => {
     return { ok: true, value: stored.asset.id }
   }
 
-  const briefOf = (input: AskInput, image: AiImage | null, screenshot: AiImage | null): Promise<DesignBrief> =>
-    withScope(sql, context, async (tx) => {
-      const store = await selectBriefStore(tx, storeId)
-      const guard = await withSystemScope(sql, (sys) => selectGuardContext(sys, storeId))
-      const products = await selectProductSample(tx, storeId, sampleSize)
-      return {
-        page: input.page,
-        device: input.device,
-        recent: (await selectRecentRequests(tx, storeId, recentRequests)).reverse(),
-        store: { name: store?.name ?? '', city: store?.city ?? null, languages: guard ? guardContextFor(guard, []).locales : [] },
-        brand: { tagline: store?.tagline ?? null, description: store?.description ?? null, voice: store?.voice ?? null, colours: [store?.primary_colour, store?.secondary_colour].filter((c): c is string => !!c) },
-        products: products.map((p) => ({ name: p.name, price: p.amount && p.currency ? `${p.currency} ${toMajor({ amount: BigInt(p.amount), currency: p.currency })}` : null })),
-        image,
-        imageAssetId: image ? input.imageAssetId : null,
-        screenshot,
-      }
+  const summaryOf = () => buildStoreSummary(sql, context, now())
+
+  /** The kept summary, or a new one when it is missing or 10 minutes old (#1242); none without a studio. */
+  const currentSummary = async (): Promise<StoreSummary | null> => {
+    if (!studio) return null
+    // A change goes ahead without the summary rather than fail on it.
+    return freshSummary(studio, storeId, now(), summaryOf).catch((error: unknown) => {
+      logEvent({ event: 'studio_summary_failed', api: 'store', storeId, code: failureCode(error) })
+      return null
     })
+  }
+
+  const briefOf = async (input: AskInput, image: AiImage | null, screenshot: AiImage | null, summary: StoreSummary | null): Promise<DesignBrief> => {
+    const guard = await withSystemScope(sql, (sys) => selectGuardContext(sys, storeId))
+    const recent = await withScope(sql, context, (tx) => selectRecentRequests(tx, storeId, recentRequests))
+    return {
+      page: input.page,
+      device: input.device,
+      recent: recent.reverse(),
+      store: { name: summary?.name ?? '', languages: guard ? guardContextFor(guard, []).locales : [] },
+      summary,
+      image,
+      imageAssetId: image ? input.imageAssetId : null,
+      screenshot,
+    }
+  }
 
   const record = (tx: ScopedSql, m: Omit<Parameters<typeof insertDesignMessage>[1], 'storeId' | 'createdBy' | 'at'> & { at?: Date }) =>
     insertDesignMessage(tx, { storeId, createdBy: actor.id, at: now(), ...m })
@@ -204,7 +213,7 @@ export const createStudioService = (deps: StudioDeps) => {
     let reply: Awaited<ReturnType<typeof chatReply>> | null = null
     let failure: unknown = null
     try {
-      reply = await chatReply(provider, await briefOf(input, image, shot), text)
+      reply = await chatReply(provider, await briefOf(input, image, shot, await currentSummary()), text)
     } catch (error) {
       failure = error
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: error instanceof GatewayError ? `${error.name}:${error.code}` : failureCode(error) })
@@ -265,12 +274,14 @@ export const createStudioService = (deps: StudioDeps) => {
         : null
     const seen = new Map<string, string>()
     const stopLoop = new AbortController()
+    const known = await currentSummary()
     const designer = designModel(
       provider,
-      await briefOf(input, image?.value ?? null, shot?.value ?? null),
+      await briefOf(input, image?.value ?? null, shot?.value ?? null, known),
       tools && { ...tools, search: async (words) => (await tools.search(words))?.map((p) => (seen.set(p.id, p.user), p)) ?? null },
       () => undefined,
       stopLoop.signal,
+      known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset }),
     )
     let modelAsked = false
     let modelFailure: unknown = null
