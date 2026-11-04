@@ -520,6 +520,10 @@ describe('asking for a change', () => {
       if (!source.startsWith('query { library')) expect([source, (await w.gql('manager', source)).code]).toEqual([source, 'FORBIDDEN'])
     }
     expect((await db.sql`select 1 from asset where id = ${id} and name is null`).length).toBe(1)
+    // The studio's wake is the studio's own read access, refused to support like the rest (#1241).
+    const woken = local.calls.length
+    expect((await w.support(cookie, t.partnerA, 'mutation { studioActivity }')).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect(local.calls.length).toBe(woken)
     expect(await assets()).toBe(rows)
     expect(stored.length).toBe(putsBefore)
     expect((await w.gql('bOwner', `mutation { renameLibraryAsset(id: "${id}", name: "x") }`)).code).toBe('NOT_FOUND')

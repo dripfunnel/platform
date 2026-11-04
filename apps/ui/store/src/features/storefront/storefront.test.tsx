@@ -525,6 +525,9 @@ describe('the template gallery', () => {
   })
 
   it('asks to keep the words when the template changes, and marks the current look', async () => {
+    // Past the 30 s of any earlier test's wake, so the two picks below are judged alone.
+    const later = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 3_600_000)
+    studio.studioActivity.mockClear()
     api.chooseTemplate.mockResolvedValue('unpublished_changes')
     await show()
     fireEvent.click(screen.getByRole('button', { name: o.changeTemplate }))
@@ -543,6 +546,9 @@ describe('the template gallery', () => {
     await settle()
     expect(api.chooseTemplate).toHaveBeenCalledWith('bloom', false)
     expect(screen.getByRole('dialog', { name: words.studio.label })).toBeTruthy()
+    // Each pick wakes the studio (AI-STUDIO §7), at most once in 30 s.
+    expect(studio.studioActivity).toHaveBeenCalledTimes(1)
+    later.mockRestore()
   })
 
   it('keeps the words when asked to', async () => {
