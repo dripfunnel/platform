@@ -253,8 +253,12 @@
   padding-left: 20px;
 }
 
-.description li + li {
+.description li {
   margin-top: 4px;
+}
+
+.description li:first-child {
+  margin-top: 0;
 }
 
 .description a {
