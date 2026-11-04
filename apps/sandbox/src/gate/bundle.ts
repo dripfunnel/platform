@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { build, type Message, type Plugin } from 'esbuild'
 import { z } from 'zod'
+import { isThemePath, themeCssPath, themeStylesheet } from '@dripfunnel/storefront-core/guard'
 import type { GateProblem } from './problems'
 
 // The fast gate's bundle is the studio frame and the preview (storefront AI-STUDIO §1, PREVIEW §4): the theme's own
@@ -32,13 +33,17 @@ export const routesSchema = z.object({ routes: z.record(z.string().regex(/^[A-Za
 /** Each language's words, flattened to the `file.key` names `t()` takes (ARCHITECTURE §3.4 "t()"). */
 export type Content = Record<string, Record<string, string>>
 
-const entrySource = (routesJson: string, content: Content): string => {
+const tailwindModule = 'df:tailwind'
+
+const entrySource = (routesJson: string, content: Content, tailwind: boolean): string => {
   const routes = routesSchema.parse(JSON.parse(routesJson))
   const pages = [...new Set([...Object.values(routes.routes), ...Object.values(routes.custom ?? {})])]
   const local = new Map(pages.map((page, i) => [page, `p${i}`]))
   const exportOf = (page: string) => page.split('/').at(-1) ?? page
   const ref = (page: string) => local.get(page) ?? 'undefined'
   return [
+    // First, so a CSS Module's rule wins over a Tailwind class of the same weight, as Tailwind's layers make it anyway.
+    ...(tailwind ? [`import '${tailwindModule}'`] : []),
     `import { boot } from 'df:boot'`,
     ...pages.map((page) => `import { ${exportOf(page)} as ${ref(page)} } from './src/theme/pages/${page}.tsx'`),
     `export const theme = { routes: { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} },`,
@@ -64,11 +69,14 @@ export const mediaUrlPlugin = (origin: string | null = null): Plugin => ({
   },
 })
 
-const runtimePlugin = (entry: string): Plugin => ({
+const runtimePlugin = (entry: string, tailwind: string | null): Plugin => ({
   name: 'df-runtime',
   setup(b) {
     b.onResolve({ filter: /^df:entry$/ }, () => ({ path: entryName, namespace: 'df' }))
     b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: entry, loader: 'ts', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
+    // The theme's Tailwind classes, built by core (guard's themeStylesheet), go through the same CSS step as its modules.
+    b.onResolve({ filter: /^df:tailwind$/ }, () => ({ path: 'tailwind.css', namespace: 'df-tailwind' }))
+    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: tailwind ?? '', loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
     b.onResolve({ filter: /^df:boot$/ }, () => ({ path: `./core/${bootModule}`, external: true }))
     b.onResolve({ filter: /^[^./]/ }, (args) => {
       const file = runtimeModules[args.path]
@@ -95,6 +103,13 @@ export const readContent = async (repo: string): Promise<Content> => {
   return content
 }
 
+/** The theme's code and theme.css as they are in the working copy: what Tailwind builds classes from. */
+const stylingFiles = async (repo: string): Promise<Map<string, string>> => {
+  const names = await readdir(join(repo, 'src/theme'), { recursive: true }).catch(() => [])
+  const paths = names.map((n) => `src/theme/${n.replaceAll('\\', '/')}`).filter((p) => isThemePath(p) && (p.endsWith('.tsx') || p === themeCssPath))
+  return new Map(await Promise.all(paths.map(async (p) => [p, await readFile(join(repo, p), 'utf8')] as const)))
+}
+
 const problemOf = (m: Message): GateProblem => ({ step: 'bundle', file: m.location?.file.replace(/^\.\//, '') ?? null, line: m.location?.line ?? null, rule: 'bundle/error', message: m.text })
 
 const html = (entry: string, css: readonly string[]) =>
@@ -111,9 +126,11 @@ const html = (entry: string, css: readonly string[]) =>
 export const bundle = async (repo: string, out: string, mediaOrigin: string | null = null): Promise<{ ok: true; bundle: ClientBundle } | { ok: false; problems: GateProblem[] }> => {
   await rm(out, { recursive: true, force: true })
   await mkdir(out, { recursive: true })
+  const tailwind = await themeStylesheet(await stylingFiles(repo))
+  if (!tailwind.ok) return { ok: false, problems: tailwind.problems.map((p) => ({ step: 'bundle', ...p })) }
   let source: string
   try {
-    source = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo))
+    source = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo), tailwind.css !== null)
   } catch {
     return { ok: false, problems: [{ step: 'bundle', file: 'routes.json', line: null, rule: 'bundle/routes', message: "routes.json or content/** can't be read." }] }
   }
@@ -134,7 +151,7 @@ export const bundle = async (repo: string, out: string, mediaOrigin: string | nu
     metafile: true,
     write: true,
     logLevel: 'silent',
-    plugins: [mediaUrlPlugin(mediaOrigin), runtimePlugin(source)],
+    plugins: [mediaUrlPlugin(mediaOrigin), runtimePlugin(source, tailwind.css)],
   }).catch((error: { errors?: Message[] }) => ({ errors: error.errors ?? [{ text: String(error) } as Message], metafile: undefined }))
   if (result.errors.length > 0 || !result.metafile) return { ok: false, problems: result.errors.map(problemOf) }
 

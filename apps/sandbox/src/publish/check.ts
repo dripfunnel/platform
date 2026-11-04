@@ -5,7 +5,7 @@ import { gzipSync } from 'node:zlib'
 import type { Browser, BrowserContext, Page, Route } from 'playwright-core'
 import { consentStorageKey, pageHeaders, settleMs, storeCsp, themeRoutesSchema, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
-import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateTheme, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
 import { edgeFolder } from './build'
 import { checkedPages, fileOf, itemFacts, languagePrefix, plan, type PlannedPage } from './pages'
@@ -350,7 +350,7 @@ const routesOf = (theme: readonly ThemeFile[]): ThemeRoutes => themeRoutesSchema
 
 export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
   const { snapshot: s, browser, site } = input
-  const validator = validateChange(input.theme, s.guard).problems
+  const validator = (await validateTheme(input.theme, s.guard)).problems
   const routes = routesOf(input.theme)
   const pages = checkedPages(plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path), s.catalogue))
   const main = pages.filter((p) => p.language === s.store.mainLanguage)
