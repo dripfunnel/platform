@@ -312,7 +312,7 @@ content/{locale}/       AI-WRITTEN: every shopper-facing word, one file per page
 routes.json             AI-WRITTEN: core route → theme page; custom page path → theme page
 store.config.ts         LOCKED, generated: the public store key and the Shop API's path
 package.json            LOCKED: core pinned exactly; dependencies from the allowlist only; `pnpm check` (§3.4)
-postcss.config.mjs, src/app/tailwind.css  LOCKED, from the template: Tailwind for `next dev`, at core's version (#1239)
+postcss.config.mjs, src/app/tailwind.css  LOCKED, from the template: core's PostCSS plugin builds the theme's classes for `next dev` (#1239)
 AGENTS.md, CLAUDE.md    LOCKED, from the template: run `pnpm check` before pushing to main (#974)
 .npmrc                  LOCKED, from the template: core's registry, no token (a clone's own install)
 .env.development        LOCKED, generated: SHOP_API_PROXY, the store's free address a clone's `next dev` proxies /shop-api to
@@ -323,9 +323,11 @@ Choosing another template later replaces `src/theme/**` and `routes.json` with t
 template's, after asking whether to **keep the merchant's words** (`content/**` kept) or take
 the template's.
 
-*Decided on #1239:* a store's own `next dev` builds the theme's classes with `@tailwindcss/postcss` at the Tailwind
-version core pins (`src/app/tailwind.css`: Tailwind's theme and utilities, never its reset, then `theme.css`); shipped
-builds use core's compiler in the sandbox (§3.4 "Classes"). A repo made before #1239 keeps its skeleton, which has no
+*Decided on #1239:* a store's own `next dev` builds the theme's classes with core's PostCSS plugin
+(`@dripfunnel/storefront-core/postcss`), which fills `src/app/tailwind.css` with `themeStylesheet`'s output: the same
+classes, checks and pinned Tailwind as the sandbox's bundle (§3.4 "Classes"), never Tailwind's own scanner, which would
+build words from comments and CSS that the validator never judged. A class the rules refuse fails the build with its file,
+line and rule. A repo made before #1239 keeps its skeleton, which has no
 Tailwind, and its theme of CSS Modules builds as before.
 
 Decided on #316:
@@ -620,7 +622,7 @@ properties hold no words and no `var()` that could carry them; `composes` names 
 **Classes** *(#1239)*: themes are styled with Tailwind v4 classes; a store's CSS Modules stay valid under the rules
 above. `validateTheme(files, context)` is the validator: `validateChange`'s rules and these, which need Tailwind's compiler
 (so it is async; `validateChange` stays for its callers, without them). Core pins Tailwind exactly, and the validator, the
-sandbox's bundle (`themeStylesheet`) and a store repo's `next dev` build classes from the same entry: Tailwind's theme and
+sandbox's bundle (`themeStylesheet`) and a store repo's `next dev` (core's PostCSS plugin) build classes from the same entry: Tailwind's theme and
 utilities, never its preflight reset (it would restyle every store), then the theme's `theme.css`.
 - **What is a class**: every whitespace-separated word of every string in the theme's code is a class Tailwind may build,
   as its own scanner would read it, and only those words are built. A word in `className`, a `clsx` argument or a `clsx`

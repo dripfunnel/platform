@@ -12,6 +12,7 @@
     "./theme": { "types": "./dist/theme/index.d.ts", "default": "./dist/theme/index.js" },
     "./guard": { "types": "./dist/guard/index.d.ts", "default": "./dist/guard/index.js" },
     "./testing": { "types": "./dist/testing/index.d.ts", "default": "./dist/testing/index.js" },
+    "./postcss": { "types": "./dist/postcss/index.d.ts", "default": "./dist/postcss/index.js" },
     "./tsconfig": "./presets/tsconfig.json",
     "./eslint": "./presets/eslint.js"
   },

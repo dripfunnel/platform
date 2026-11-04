@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { build, type Message, type Plugin } from 'esbuild'
 import { z } from 'zod'
-import { isThemePath, themeCssPath, themeStylesheet } from '@dripfunnel/storefront-core/guard'
+import { readThemeStyling, themeStylesheet } from '@dripfunnel/storefront-core/guard'
 import type { GateProblem } from './problems'
 
 // The fast gate's bundle is the studio frame and the preview (storefront AI-STUDIO §1, PREVIEW §4): the theme's own
@@ -103,13 +103,6 @@ export const readContent = async (repo: string): Promise<Content> => {
   return content
 }
 
-/** The theme's code and theme.css as they are in the working copy: what Tailwind builds classes from. */
-const stylingFiles = async (repo: string): Promise<Map<string, string>> => {
-  const names = await readdir(join(repo, 'src/theme'), { recursive: true }).catch(() => [])
-  const paths = names.map((n) => `src/theme/${n.replaceAll('\\', '/')}`).filter((p) => isThemePath(p) && (p.endsWith('.tsx') || p === themeCssPath))
-  return new Map(await Promise.all(paths.map(async (p) => [p, await readFile(join(repo, p), 'utf8')] as const)))
-}
-
 const problemOf = (m: Message): GateProblem => ({ step: 'bundle', file: m.location?.file.replace(/^\.\//, '') ?? null, line: m.location?.line ?? null, rule: 'bundle/error', message: m.text })
 
 const html = (entry: string, css: readonly string[]) =>
@@ -126,7 +119,7 @@ const html = (entry: string, css: readonly string[]) =>
 export const bundle = async (repo: string, out: string, mediaOrigin: string | null = null): Promise<{ ok: true; bundle: ClientBundle } | { ok: false; problems: GateProblem[] }> => {
   await rm(out, { recursive: true, force: true })
   await mkdir(out, { recursive: true })
-  const tailwind = await themeStylesheet(await stylingFiles(repo))
+  const tailwind = await themeStylesheet(readThemeStyling(repo))
   if (!tailwind.ok) return { ok: false, problems: tailwind.problems.map((p) => ({ step: 'bundle', ...p })) }
   let source: string
   try {

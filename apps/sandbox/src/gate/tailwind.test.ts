@@ -13,7 +13,7 @@ vi.setConfig({ testTimeout: 120_000 })
 
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 const fixtures = `${repoRoot}packages/storefront-core/src/guard/fixtures/`
-const version = (file: string, name: string) => (JSON.parse(readFileSync(`${repoRoot}${file}`, 'utf8')) as { dependencies: Record<string, string> }).dependencies[name]
+const dependencies = (file: string) => (JSON.parse(readFileSync(`${repoRoot}${file}`, 'utf8')) as { dependencies: Record<string, string>; devDependencies?: Record<string, string> })
 let root = ''
 
 const cssOf = (out: string) =>
@@ -62,11 +62,11 @@ describe('Tailwind in the fast gate’s bundle', () => {
 })
 
 describe('one Tailwind version', () => {
-  it('is pinned exactly in core and in the store repo’s locked build', () => {
-    const core = version('packages/storefront-core/package.json', 'tailwindcss')
-    expect(core).toMatch(/^\d+\.\d+\.\d+$/)
-    expect(version('templates/storefront/package.json', 'tailwindcss')).toBe(core)
-    expect(version('templates/storefront/package.json', '@tailwindcss/postcss')).toBe(core)
+  it('is core’s, pinned exactly, and the store repo’s locked build brings none of its own', () => {
+    expect(dependencies('packages/storefront-core/package.json').dependencies['tailwindcss']).toMatch(/^\d+\.\d+\.\d+$/)
+    const template = dependencies('templates/storefront/package.json')
+    expect(Object.keys({ ...template.dependencies, ...template.devDependencies }).filter((n) => n.includes('tailwind'))).toEqual([])
+    expect(readFileSync(`${repoRoot}templates/storefront/postcss.config.mjs`, 'utf8')).toContain("'@dripfunnel/storefront-core/postcss'")
   })
 
   it('lets a theme write its theme.css wherever core’s guard does', () => {

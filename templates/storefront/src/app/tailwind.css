@@ -1,5 +1,1 @@
-/* Tailwind's theme and utilities, never its reset, then the theme's tokens, as core's guard/tailwind.ts builds them. */
-@import 'tailwindcss/theme.css' layer(theme);
-@import 'tailwindcss/utilities.css' layer(utilities) source(none);
-@import '../theme/styles/theme.css';
-@source '../theme';
+/* Filled at build by core's PostCSS plugin with the theme's classes and tokens (storefront ARCHITECTURE §3.4). */

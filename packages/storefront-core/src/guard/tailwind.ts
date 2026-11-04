@@ -1,10 +1,11 @@
 /// <reference types="node" />
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { join } from 'node:path'
 import { compile, __unstable__loadDesignSystem } from 'tailwindcss'
 import ts from 'typescript'
 import { checkClassCss, checkCss } from './css.js'
-import { codePath, themeCssPath } from './files.js'
+import { codePath, isThemePath, themeCssPath } from './files.js'
 import { problem, type GuardContext, type Problem, type RuleId } from './rules.js'
 
 // Themes are styled with Tailwind v4 classes, each checked against ARCHITECTURE §3.4 "Classes" (#1239). Core pins one
@@ -37,6 +38,8 @@ const designFor = (themeCss: string): Promise<Design> => {
   const loading = __unstable__loadDesignSystem(entry(themeCss), { base: '/', loadStylesheet })
   if (designs.size >= 4) designs.delete(designs.keys().next().value ?? '')
   designs.set(themeCss, loading)
+  // A theme.css Tailwind can't read is refused, never kept: the next change tries it afresh.
+  loading.catch(() => designs.delete(themeCss))
   return loading
 }
 
@@ -148,7 +151,13 @@ const judged = async (files: ReadonlyMap<string, string>, context: GuardContext,
 export const checkClasses = async (files: ReadonlyMap<string, string>, context: GuardContext, storeData = true): Promise<Problem[]> => {
   const themeCss = files.get(themeCssPath)
   const entryProblems = themeCss === undefined ? [] : checkCss(themeCssPath, themeCss, context, storeData, true)
-  if (entryProblems.length === 0) return (await judged(files, context)).problems
+  if (entryProblems.length === 0) {
+    try {
+      return (await judged(files, context)).problems
+    } catch (error) {
+      return [problem(themeCssPath, 1, 'css/theme-entry', `Tailwind can't read theme.css: ${error instanceof Error ? error.message : String(error)}`)]
+    }
+  }
   // A refused theme.css never reaches Tailwind's compiler: the classes are judged without its tokens, so none is unknown.
   const classes = (await judged(files, context, false)).problems.filter((p) => p.rule !== 'class/not-tailwind')
   return [...entryProblems, ...classes]
@@ -169,4 +178,16 @@ export const themeStylesheet = async (files: ReadonlyMap<string, string>): Promi
   const compiler = await compile(entry(themeCss), { base: '/', loadStylesheet })
   // Tailwind's licence banner names its site, and nothing in a store's CSS names an address.
   return { ok: true, css: compiler.build(classes).replace(/^\/\*![^*]*\*\/\s*/, '') }
+}
+
+/** The theme's code and theme.css in the repo at `root`, as they are on disk: what Tailwind builds classes from. */
+export const readThemeStyling = (root: string): Map<string, string> => {
+  let names: string[]
+  try {
+    names = readdirSync(join(root, 'src/theme'), { recursive: true, encoding: 'utf8' })
+  } catch {
+    return new Map()
+  }
+  const paths = names.map((n) => `src/theme/${n.replaceAll('\\', '/')}`).filter((p) => isThemePath(p) && (p.endsWith('.tsx') || p === themeCssPath))
+  return new Map(paths.map((p) => [p, readFileSync(join(root, p), 'utf8')]))
 }

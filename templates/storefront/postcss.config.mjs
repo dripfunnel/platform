@@ -1,2 +1,2 @@
-// Tailwind for `next dev` and the template's own build, at the version core pins (storefront ARCHITECTURE §2.2, #1239).
-export default { plugins: { '@tailwindcss/postcss': {} } }
+// The theme's Tailwind classes, built and checked by core's own compiler (storefront ARCHITECTURE §2.2, #1239).
+export default { plugins: { '@dripfunnel/storefront-core/postcss': {} } }

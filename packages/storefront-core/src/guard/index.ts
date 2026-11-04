@@ -1,7 +1,7 @@
 export { maxThemeZIndex } from './css.js'
 export { isThemePath, maxFileBytes, maxFiles, maxThemeBytes, themeCssPath } from './files.js'
 export { ruleIds, type GuardContext, type GuardResult, type Problem, type RuleId, type ThemeFile } from './rules.js'
-export { themeStylesheet } from './tailwind.js'
+export { readThemeStyling, themeStylesheet } from './tailwind.js'
 export { validateChange, validateTheme } from './validate.js'
 export { budgetedRoutes, checkAxe, checkBudgets, checkCheckout, checkClaims, checkContracts, checkCrawl, checkEdgeCases, checkNoJs, checkSealed, checkValidator, checkVisualDiff, fallbackPath, gateWidths, indexable, isVersionPath, lookTolerance, pageBudgets, pageName, runGate, type GateInput, type PageRead, type PageRoute, type PageVisit, type PageWeight } from './gate/checks.js'
 export { smokeProblems, smokeProductSlug, smokeShop, smokeShopper, type SmokeRun } from './gate/smoke.js'
