@@ -9,6 +9,7 @@ import { registerReminderLinks } from './reminders'
 import { registerAccounts } from './accounts'
 import { registerWishlist } from './wishlist'
 import { registerCheckout } from './checkout'
+import { registerOffers } from './offers'
 
 export type { ShopContext } from './access'
 
@@ -19,6 +20,7 @@ shop.builder.queryFields((t) => ({
 registerCatalog(shop)
 const { Summary } = registerProducts(shop)
 registerContent(shop)
+registerOffers(shop)
 shop.builder.mutationType({})
 const { Cart } = registerCart(shop)
 registerReminderLinks(shop, Cart)

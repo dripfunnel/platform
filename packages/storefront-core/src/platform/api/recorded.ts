@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import { collectionQuery, collectionsQuery } from '../../collections/collections'
+import { offersQuery } from '../../offers/offers'
 import { listingQuery } from '../../products/listing'
 import { productQuery } from '../../products/product'
 import { menuQuery } from '../store/menu'
@@ -11,7 +12,7 @@ import { ShopApiError, type ShopClient } from './client'
 export type RecordedAnswer = { operation: string; variables: Record<string, unknown>; data: Record<string, unknown> }
 
 /** Core's catalogue questions, whose answers the platform records (apps/api `recordedQueries` must select at least these). */
-export const catalogueQueries = { product: productQuery, listing: listingQuery, collection: collectionQuery, collections: collectionsQuery, menu: menuQuery } as const
+export const catalogueQueries = { product: productQuery, listing: listingQuery, collection: collectionQuery, collections: collectionsQuery, menu: menuQuery, offers: offersQuery } as const
 
 const operationOf = (source: string) => /^\s*query\s+([A-Za-z_]\w*)/.exec(source)?.[1] ?? null
 

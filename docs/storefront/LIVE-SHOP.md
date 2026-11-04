@@ -528,6 +528,9 @@ What the edge Worker does on each request to a storefront host.
   drops its addresses (#1011, migration 0378), since a live build prerenders each product's page.
 - **Saving the home page's search and sharing** re-renders the home page the same way (SAAS
   §9.2).
+- **Best sellers and offers** (#1242) need no render: a live page shows the hourly ranking and the offers as of its last
+  render, then core asks the Shop API again in the browser and shows the current ones (ARCHITECTURE §2.1); an offer past
+  its end leaves the page at once.
 - Either way, the new files go into a **new build folder**, the API copies the live build's
   other files into it server-side (§4 step 9), and the pointer moves. Every build folder stays
   complete on its own.

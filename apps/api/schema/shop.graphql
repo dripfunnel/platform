@@ -52,6 +52,7 @@ type Query {
   giftCardBalance(number: String!): ShopGiftCardBalance
   health: String
   menu: [ShopMenuItem!]
+  offers: [ShopOffer!]
   order(id: ID!): ShopOrder
   orderHistory(after: String, first: Int): ShopOrderSummaryPage
   paymentOptions: [ShopPaymentOption!]
@@ -392,6 +393,22 @@ type ShopMoney {
   currency: String
 }
 
+type ShopOffer {
+  appliesTo: ShopOfferScope
+  collections: [String!]
+  description: String
+  endsAt: String
+  id: ID
+  name: String
+  products: [String!]
+}
+
+enum ShopOfferScope {
+  ORDER
+  PRODUCTS
+  SHIPPING
+}
+
 type ShopOption {
   id: ID
   name: String
@@ -556,6 +573,7 @@ type ShopProductPage {
 }
 
 enum ShopProductSort {
+  BEST_SELLING
   COLLECTION
   NAME
   NEWEST

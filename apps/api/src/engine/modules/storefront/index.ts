@@ -3,7 +3,7 @@ import { isUuid } from '#core/ids'
 import { pageWindow, pageWith, type Page, type PageRequest } from '#core/paging'
 import { decodeValueCursor, encodeCursor, encodeValueCursor } from '#core/cursor'
 import type { TenantContext } from '#core/tenancy'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import type { FeatureKey } from '#db/scoped/catalogListing'
 import {
   selectShopAsset,
@@ -22,6 +22,7 @@ import {
   selectShopSellable,
   selectShopStock,
   selectShopStore,
+  selectShopTargetSlugs,
   type ShopCollectionRow,
   type ShopFacetRow,
   type ShopMenuItemRow,
@@ -32,6 +33,7 @@ import {
 } from '#db/scoped/shop'
 import { missingFor, type StorePricing } from '#engine/modules/markets/index'
 import { selectCartVersions } from '#db/scoped/cart'
+import { selectShopOffers } from '#db/scoped/promotions'
 import { productView, type ShopProductView, type ShopVersionView } from './view'
 
 export type { ShopCollectionRow, ShopFacetRow, ShopProductExtrasRow, ShopSort, ShopStoreRow } from '#db/scoped/shop'
@@ -92,13 +94,32 @@ const valueFits = (sort: ShopSort, value: string): boolean => {
   }
   if (sort === 'name') return value.length <= 255 && !value.includes('\u0000')
   if (sort === 'collection') return /^-?\d{1,9}$/.test(value)
+  if (sort === 'best_selling') return /^\d{1,10}$/.test(value) && Number(value) <= 2147483647
   return /^-?\d{1,19}$/.test(value) && BigInt(value) <= 9223372036854775807n && BigInt(value) >= -1n
 }
 
 const maxSearch = 100
 const maxFilters = 50
-// A collection's own order (CatCollections "Sort"); best sellers wait for sales (SAPI 18) and list newest first.
-const collectionSort: Record<ShopCollectionRow['sort'], ShopSort> = { manual: 'collection', newest: 'newest', price_asc: 'price_low', price_desc: 'price_high', best_selling: 'newest' }
+// A collection's own order (CatCollections "Sort"); best selling is the hourly ranking (DATA-MODEL §7.3).
+const collectionSort: Record<ShopCollectionRow['sort'], ShopSort> = { manual: 'collection', newest: 'newest', price_asc: 'price_low', price_desc: 'price_high', best_selling: 'best_selling' }
+
+/** An offer on now that shoppers get without a code (#1242): what it is called, when it ends and what it applies to. */
+export interface ShopOfferView {
+  id: string
+  name: string
+  description: string | null
+  endsAt: Date | null
+  appliesTo: 'products' | 'order' | 'shipping'
+  /** The visible products and collections a product offer names, by web address; empty for "every product" or a filter. */
+  products: string[]
+  collections: string[]
+}
+
+const maxShopOffers = 20
+const maxOfferTargets = 50
+const productOffers = new Set(['products_percentage_discount', 'line_fixed_discount', 'buy_x_get_y'])
+const shippingOffers = new Set(['free_shipping', 'shipping_fixed_discount'])
+const idsIn = (value: unknown): string[] => (Array.isArray(value) ? value.filter((x): x is string => typeof x === 'string' && isUuid(x)).slice(0, maxOfferTargets) : [])
 
 export type ShopRefusal = 'INVALID_CURSOR' | 'INVALID_INPUT'
 export type ShopResult<T> = { ok: true; value: T } | { ok: false; reason: ShopRefusal }
@@ -272,5 +293,23 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       return viewsOf(tx, ids.filter((id) => listed.has(id)), facts)
     })
 
-  return { store, menu, collections, collection, asset, products, facets, product, cartItems, cartItemsIn, productsByIds }
+  /** The store's automatic offers on now, never a code (OFFERS-DESIGN fact 6); read as a cart's are, in system scope. */
+  const offers = async (): Promise<ShopOfferView[]> => {
+    const rows = await withSystemScope(sql, (tx) => selectShopOffers(tx, storeId, now(), maxShopOffers))
+    const productIds = [...new Set(rows.flatMap((r) => idsIn(r.targets?.productIds)))]
+    const collectionIds = [...new Set(rows.flatMap((r) => idsIn(r.targets?.collectionIds)))]
+    const found = productIds.length + collectionIds.length === 0 ? [] : await inScope((tx) => selectShopTargetSlugs(tx, storeId, language, productIds, collectionIds))
+    const slugOf = new Map(found.map((t) => [`${t.kind}:${t.id}`, t.slug]))
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      endsAt: r.ends_at,
+      appliesTo: productOffers.has(r.operation) ? 'products' : shippingOffers.has(r.operation) ? 'shipping' : 'order',
+      products: idsIn(r.targets?.productIds).flatMap((id) => slugOf.get(`product:${id}`) ?? []),
+      collections: idsIn(r.targets?.collectionIds).flatMap((id) => slugOf.get(`collection:${id}`) ?? []),
+    }))
+  }
+
+  return { store, menu, collections, collection, asset, products, facets, product, cartItems, cartItemsIn, productsByIds, offers }
 }
