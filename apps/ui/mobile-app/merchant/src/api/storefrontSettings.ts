@@ -82,7 +82,7 @@ export const loadShareImages = async (client: ApiClient): Promise<string[]> => {
   return ids.map((_, i) => photos[`p${i}`]?.photos?.[0]?.assetId ?? null).filter((id): id is string => id !== null)
 }
 
-/** "Start from scratch" is this key, which `storefrontTemplates` lists first. */
+/** "Start from scratch" is this key, which `storefrontTemplates` lists after Classic. */
 export const scratchTemplate = 'baseline'
 
 const templateSchema = z.object({ key: z.string(), name: z.string(), tag: z.string(), description: z.string(), demoUrl: text, current: z.boolean() })
