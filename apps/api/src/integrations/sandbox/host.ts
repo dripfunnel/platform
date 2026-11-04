@@ -13,8 +13,8 @@ export interface SandboxHost {
 
 export const sandboxPort = 8080
 
-/** AI-STUDIO §9: `basic`, given as resources because the durable_object policy's start() takes no `basic` name. */
-export const studioInstance = { vcpu: 0.25, memoryMib: 1024, diskMb: 4096 } as const
+/** AI-STUDIO §9: `standard-1` (½ vCPU, 4 GiB, 8 GB), a name the durable_object policy's start() takes (#1241). */
+export const studioInstance = 'standard-1'
 
 const ready = async (send: SandboxFetch, sleep: (ms: number) => Promise<void>): Promise<void> => {
   for (let wait = 100; wait <= 6_400; wait *= 2) {

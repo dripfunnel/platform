@@ -33,6 +33,11 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
         }
         return r.pending > 0 ? { state: 'busy' } : { state: 'ready' }
       },
+      activity: async (storeId) => {
+        const r = runner(storeId)
+        if (!r.loaded) await r.open().catch(() => undefined)
+      },
+      saved: async (storeId) => runner(storeId).saved(),
       useTemplate: async (storeId, input) => {
         const r = runner(storeId)
         return studioAnswer(() => r.useTemplate(input.template, input.keep, input.userId))

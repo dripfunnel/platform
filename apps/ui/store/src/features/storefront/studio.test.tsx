@@ -35,6 +35,7 @@ const fakeApi = () =>
     }),
     loadStudioSession: vi.fn().mockResolvedValue(ready),
     renewStudioSession: vi.fn().mockResolvedValue(undefined),
+    studioActivity: vi.fn().mockResolvedValue(undefined),
     loadDesignChat: vi.fn().mockResolvedValue({ messages: chat, next: null }),
     askDesign: vi.fn().mockResolvedValue('changed'),
     importDesignImage: vi.fn().mockResolvedValue('a-web'),
@@ -230,6 +231,17 @@ describe('the sandbox’s states', () => {
     await act(async () => void vi.advanceTimersByTime(120_000))
     await settle()
     expect(screen.queryByText(words.sandbox.ended)).toBeNull()
+  })
+
+  it('wakes the sandbox on focus and typing in the chat box, at most every 30 seconds (AI-STUDIO §7, #1241)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    await show()
+    fireEvent.focus(prompt())
+    fireEvent.change(prompt(), { target: { value: 'Make it' } })
+    expect(api.studioActivity).toHaveBeenCalledTimes(1)
+    await act(async () => void vi.advanceTimersByTime(30_000))
+    fireEvent.change(prompt(), { target: { value: 'Make it warmer' } })
+    expect(api.studioActivity).toHaveBeenCalledTimes(2)
   })
 })
 

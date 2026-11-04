@@ -8,6 +8,7 @@ import type { StoreRole } from '#auth/storePermissions'
 import { draftBundle, previewFolder, sourceBundle, upgradeBundle, upgradeFiles } from '#saas/storefronts/index'
 import { liveStudioSession, openStudioSession, renewStudio, studioOf, StudioRunner, StudioUnavailable, type DesignModel, type DraftsBucket, type Proposal, type StudioDeps } from '#saas/studio/index'
 import { sandboxClient } from '#integrations/sandbox/index'
+import { memoryKept, studioStorage } from './support/kept'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
@@ -112,6 +113,7 @@ const runnerFor = async (storeId: string, overrides: Partial<StudioDeps> = {}) =
     now: () => new Date(),
     newId: () => crypto.randomUUID(),
     onBundle: (b) => void bundles.push(b.id),
+    ...studioStorage(),
     ...overrides,
   })
   return { runner, host, bundles, released }
@@ -153,6 +155,7 @@ describe('one change', () => {
     const changed = await runner.change({ request: 'Make the lead warmer', userId: ownerA.userId, billedTo: 'plan', model })
     expect(changed).toMatchObject({ outcome: 'changed', repairs: 0 })
     if (changed.outcome !== 'changed') return
+    await runner.saved()
     expect(drafts.objects.has(draftBundle(t.storeA1))).toBe(true)
     expect(sites.objects.has(`${previewFolder(t.storeA1, changed.previewRef)}index.html`)).toBe(true)
     expect([...sites.objects.keys()].some((k) => k.startsWith(previewFolder(t.storeA1, changed.previewRef)) && k.includes('assets/core/'))).toBe(false)
@@ -160,8 +163,9 @@ describe('one change', () => {
     expect(bundles.length).toBeGreaterThanOrEqual(2)
 
     const undone = await runner.undo(changed.commit, ownerA.userId)
-    expect(undone).toMatchObject({ outcome: 'changed' })
+    expect(undone).toMatchObject({ outcome: 'changed', before: changed.commit })
     if (undone.outcome !== 'changed') return
+    await runner.saved()
     expect((await draftRow(t.storeA1))?.head_commit).toBe(undone.commit)
     expect(undone.previewRef).not.toBe(changed.previewRef)
     const [run] = await db.sql<{ kind: string; billed_to: string; sandbox_ms: number; outcome: string }[]>`select kind, billed_to, sandbox_ms, outcome from ai_run where store_id = ${t.storeA1}`
@@ -307,6 +311,7 @@ describe('one change at a time', () => {
     const [r1, r2] = await Promise.all([one, two])
     expect(r1).toMatchObject({ outcome: 'changed' })
     expect(r2).toMatchObject({ outcome: 'changed' })
+    await a.runner.saved()
     expect((await draftRow(t.storeA1))?.head_commit).toBe(r2.outcome === 'changed' ? r2.commit : '')
   })
 })
@@ -316,6 +321,7 @@ describe('a crash mid-change', () => {
     const { runner, host } = await runnerFor(t.storeA1)
     const saved = await runner.change({ request: 'Saved first', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Saved before the crash.')]]).model })
     expect(saved.outcome).toBe('changed')
+    await runner.saved()
     const savedHead = (await draftRow(t.storeA1))?.head_commit
     const crashing: DesignModel = {
       propose: async () => {
@@ -326,12 +332,14 @@ describe('a crash mid-change', () => {
     const retried = await runner.change({ request: 'Crashes once', userId: ownerA.userId, billedTo: 'plan', model: crashing })
     expect(host.starts()).toBe(2)
     expect(retried).toMatchObject({ outcome: 'changed' })
+    await runner.saved()
     expect((await draftRow(t.storeA1))?.head_commit).not.toBe(savedHead)
   })
 
   it('leaves the draft at the last saved state when the sandbox dies twice', async () => {
     const { runner, host } = await runnerFor(t.storeA1)
     await runner.change({ request: 'Saved first', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('The last saved state.')]]).model })
+    await runner.saved()
     const savedHead = (await draftRow(t.storeA1))?.head_commit
     const savedBundle = drafts.objects.get(draftBundle(t.storeA1))?.bytes
     const dying = scripted([[lead('Never saved.')]]).model
@@ -347,10 +355,74 @@ describe('a crash mid-change', () => {
       now: () => new Date(),
       newId: () => crypto.randomUUID(),
       onBundle: () => undefined,
+      ...studioStorage(),
     })
     await expect(fragile.change({ request: 'Dies twice', userId: ownerA.userId, billedTo: 'plan', model: dying })).rejects.toBeInstanceOf(StudioUnavailable)
     expect((await draftRow(t.storeA1))?.head_commit).toBe(savedHead)
     expect(drafts.objects.get(draftBundle(t.storeA1))?.bytes).toBe(savedBundle)
+  })
+})
+
+describe('saving off the wait (AI-STUDIO §4 steps 5–7, #1241)', () => {
+  it('reloads the frame before R2 or the database is written, and the preview follows', async () => {
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const slow: DraftsBucket = { ...drafts.bucket, put: async (key, value) => (await held, drafts.bucket.put(key, value)) }
+    const { runner, bundles } = await runnerFor(t.storeA1, { drafts: slow })
+    await runner.open()
+    const shown = bundles.length
+    const changed = await runner.change({ request: 'Swap at once', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Shown before it is saved.')]]).model })
+    expect(changed.outcome).toBe('changed')
+    if (changed.outcome !== 'changed') return
+    expect(bundles.length).toBe(shown + 1)
+    expect(drafts.objects.has(draftBundle(t.storeA1))).toBe(false)
+    expect(await draftRow(t.storeA1)).toBeNull()
+    // Metered at once: the chat's message refers to it.
+    expect((await db.sql<{ outcome: string }[]>`select outcome from ai_run where id = ${changed.runId}`)[0]?.outcome).toBe('changed')
+    release()
+    await runner.saved()
+    expect(await draftRow(t.storeA1)).toMatchObject({ head_commit: changed.commit, preview_deploy_ref: changed.previewRef })
+    expect(sites.objects.has(`${previewFolder(t.storeA1, changed.previewRef)}index.html`)).toBe(true)
+  })
+
+  it('says when a save gave up while the object stays up, and saves the change before a publish reads the draft', async () => {
+    let down = true
+    const flaky: DraftsBucket = { ...drafts.bucket, put: async (key, value) => (down ? Promise.reject(new Error('R2 unavailable')) : drafts.bucket.put(key, value)) }
+    const { runner } = await runnerFor(t.storeA1, { drafts: flaky })
+    const changed = await runner.change({ request: 'Saved late', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Saved late.')]]).model })
+    expect(changed.outcome).toBe('changed')
+    expect(await runner.saved()).toBe(false)
+    expect(await draftRow(t.storeA1)).toBeNull()
+    down = false
+    expect(await runner.prepare(null)).toMatchObject({ outcome: 'ready', commit: changed.outcome === 'changed' ? changed.commit : '' })
+    expect(await runner.saved()).toBe(true)
+    expect((await draftRow(t.storeA1))?.head_commit).toBe(changed.outcome === 'changed' ? changed.commit : '')
+  })
+
+  it('loses no change when the object stops after the frame’s swap and before the R2 write: the next start reapplies it', async () => {
+    const kept = memoryKept()
+    const down: DraftsBucket = { ...drafts.bucket, put: async () => Promise.reject(new Error('R2 unavailable')) }
+    const first = await runnerFor(t.storeA1, { drafts: down, ...studioStorage(kept) })
+    const changed = await first.runner.change({ request: 'Kept through a crash', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Kept through a crash.')]]).model })
+    expect(changed.outcome).toBe('changed')
+    await first.runner.saved()
+    expect(await draftRow(t.storeA1)).toBeNull()
+    first.host.kill()
+
+    // A new object over the same storage, as after an eviction: it starts from the last bundle (none) and reapplies.
+    const again = await runnerFor(t.storeA1, studioStorage(kept))
+    await again.runner.open()
+    await again.runner.saved()
+    const row = await draftRow(t.storeA1)
+    expect(row?.changed_by).toBe(ownerA.userId)
+    const bundle = drafts.objects.get(draftBundle(t.storeA1))?.bytes
+    if (!bundle) throw new Error('no draft bundle')
+    const client = sandboxClient(again.host.send, 'check-reapplied')
+    await client.loadBundle(bundle)
+    const theme = await client.theme()
+    expect(theme.head).toBe(row?.head_commit)
+    expect(theme.files.find((f) => f.path === 'content/en/pages.json')?.content).toContain('Kept through a crash.')
+    expect([...kept.data.keys()].filter((k) => k.startsWith('kept:m:'))).toEqual([])
   })
 })
 
@@ -619,8 +691,9 @@ describe('studio sessions (AI-STUDIO §8)', () => {
 
   it('picks the store’s Durable Object from the TenantContext, never from anything the caller sent', () => {
     const named: string[] = []
-    const namespace = { idFromName: (name: string) => (named.push(name), name), get: (id: string) => ({ id }) } as unknown as DurableObjectNamespace
-    expect(studioOf(namespace, contextFor(t.storeA1, t.partnerA, ownerA.userId, ownerA.sessionHash))).toEqual({ id: t.storeA1 })
+    const namespace = { idFromName: (name: string) => (named.push(name), name), get: (id: string, options: unknown) => ({ id, options }) } as unknown as DurableObjectNamespace
+    // Made in Asia Pacific, beside its containers (#1241).
+    expect(studioOf(namespace, contextFor(t.storeA1, t.partnerA, ownerA.userId, ownerA.sessionHash))).toEqual({ id: t.storeA1, options: { locationHint: 'apac' } })
     expect(named).toEqual([t.storeA1])
   })
 })

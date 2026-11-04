@@ -48,7 +48,7 @@ export type UpgradeRequest = { from: string; to: string; message: string; baseli
 /** How a request reaches the container: `ctx.container.getTcpPort(port).fetch` on Cloudflare, plain fetch locally. */
 export type SandboxFetch = (request: Request) => Promise<Response>
 
-// The gate's typecheck and bundle take seconds on ¼ vCPU (AI-STUDIO §9); a call past this is a container in trouble.
+// The gate's typecheck and bundle take seconds on ½ vCPU (AI-STUDIO §9); a call past this is a container in trouble.
 const timeoutMs = 120_000
 
 export const sandboxClient = (send: SandboxFetch, slot: string) => {

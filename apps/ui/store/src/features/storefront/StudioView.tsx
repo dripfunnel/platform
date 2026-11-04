@@ -15,6 +15,7 @@ import { StudioChat, type ChatRequest } from './StudioChat'
 import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishProgress, failedWords, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 import { usePublishRun } from './usePublishRun'
+import { useStudioActivity } from './useStudioActivity'
 import { useStudioLive } from './useStudioLive'
 import './studio.css'
 
@@ -245,6 +246,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   }, [busy])
   const othersEnded = useCallback(() => void (busyNow.current ? undefined : after()), [after])
   const live = useStudioLive(api, sessionId, othersEnded)
+  const poke = useStudioActivity(api, sessionId !== null)
   const perform = async (work: () => Promise<unknown>, refusal: (e: unknown) => string): Promise<boolean> => {
     if (locked) return false
     setBusy(true)
@@ -451,6 +453,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
       <div className={chatWidth.dragging ? 'df-studio-body df-studio-body--dragging' : 'df-studio-body'} ref={bodyRef} style={phone ? undefined : ({ '--df-studio-chat-w': `${chatWidth.width}px` } as React.CSSProperties)}>
         <div className="df-studio-pane" {...paneProps('chat')}>
           <StudioChat
+            onActivity={poke}
             chat={chat}
             chatRead={chatRead}
             hasEarlier={earlier !== null}

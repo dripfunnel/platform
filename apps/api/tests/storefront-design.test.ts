@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { draftBundle, previewFolder } from '#saas/storefronts/index'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
+import { studioStorage } from './support/kept'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
@@ -67,6 +68,7 @@ const runnerOf = (storeId: string): StudioRunner => {
     now: () => new Date(),
     newId: () => crypto.randomUUID(),
     onBundle: () => undefined,
+    ...studioStorage(),
   })
   runners.set(storeId, runner)
   return runner
