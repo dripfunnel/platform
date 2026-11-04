@@ -7,7 +7,7 @@ import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
-import { alarmStep, capacityLedger, keptChanges, nextLookMs, studioActivityEveryMs, studioClosedMs, studioTickMs, type AlarmState, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, isLiveSocket, liveHub, liveStudioSession, liveStudioSessionHash, liveTag, liveTags, liveUpgradeOf, sweepsAgain, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type KeptSummary, type LiveEvent, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { alarmStep, capacityLedger, keptChanges, nextLookMs, wakeStep, studioClosedMs, studioTickMs, type AlarmState, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, isLiveSocket, liveHub, liveStudioSession, liveStudioSessionHash, liveTag, liveTags, liveUpgradeOf, sweepsAgain, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type KeptSummary, type LiveEvent, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -58,6 +58,8 @@ export const studioSessionClass = (connect: Connect) =>
     private lastActive = Date.now()
     /** When the store's last live socket closed: the studio closed in every tab (AI-STUDIO §7 "Stopping"). */
     private lastClosed = 0
+    /** The last `studioActivity` acted on: one in 30 s, loaded or not, whatever a client sends. */
+    private lastWake = 0
     private db: (<T>(work: (sql: postgres.Sql) => Promise<T>) => Promise<T>) | null = null
     private opening: Promise<StudioState> | null = null
     private hub = liveHub(this.ctx.storage, () => this.ctx.getWebSockets(liveTag), () => Date.now())
@@ -159,12 +161,12 @@ export const studioSessionClass = (connect: Connect) =>
     /** Focus or typing in the studio (#1241): a stopped container starts, a running one's idle stop moves on; at most every 30 s. */
     async activity(storeId: string): Promise<void> {
       const runner = await this.runnerFor(storeId)
-      if (!runner.loaded) {
-        void this.startOpening(storeId)
-        return
-      }
-      if (Date.now() - this.lastActive < studioActivityEveryMs) return
-      await this.active(storeId)
+      const now = Date.now()
+      const step = wakeStep(runner.loaded, now - this.lastWake)
+      if (step === 'skip') return
+      this.lastWake = now
+      if (step === 'open') void this.startOpening(storeId)
+      else await this.active(storeId)
     }
 
     /** Every accepted change so far written to R2 and design_draft, for the Store API's reads of the draft. */

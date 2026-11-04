@@ -32,7 +32,7 @@ export const sweepsAgain = (openSockets: number, nextAlarm: number | null): bool
 
 /**
  * A container still running with no runner to reach it (the object was evicted) is stopped and its place given back.
- * A change in progress or being saved is never cut off: the stop waits for the next look.
+ * A change running or waiting its turn is never cut off; a save behind the frame holds its bytes and needs no container.
  */
 export const alarmStep = (s: AlarmState): AlarmStep => {
   if (!s.loaded) return s.containerRunning ? 'stop-orphan' : 'rest'
@@ -42,6 +42,10 @@ export const alarmStep = (s: AlarmState): AlarmStep => {
   if (s.runningForMs >= studioCapMs) return 'cap-stop'
   return 'renew'
 }
+
+/** `studioActivity`, at most one acted on in 30 s, server side: it starts a stopped container, or puts off a running one's stop. */
+export const wakeStep = (loaded: boolean, sinceLastWakeMs: number): 'skip' | 'open' | 'renew' =>
+  sinceLastWakeMs < studioActivityEveryMs ? 'skip' : loaded ? 'renew' : 'open'
 
 /** How long until the next look: the first stop due, or the lease's tick, whichever is sooner. */
 export const nextLookMs = (s: AlarmState): number => {

@@ -328,8 +328,8 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
   The studio (#1241): `studio_stopped` when the alarm stops a container, with the rule as the code (`closed-stop`,
   `idle-stop`, `cap-stop`, storefront AI-STUDIO §7); `studio_save_failed` when a change's save behind the frame gave up
   after its retries (the change stays kept in the Durable Object), with the error's class and code;
-  `studio_save_unconfirmed` when a request answered unavailable because its change wasn't saved (`kept`, or the RPC's
-  error); `studio_reapply_refused` when a kept change reapplied after a restart failed the gate, with its first rule.
+  `studio_save_unconfirmed` when a request answered a change whose save gave up, the change applied and kept (`kept`,
+  or the RPC's error); `studio_reapply_refused` when a kept change reapplied after a restart failed the gate, with its first rule.
   Never a file, a request's words or a commit.
   Couriers (#311): `label_not_kept` and `pickup_not_kept` when a label or pickup was bought at the courier but couldn't be
   kept here, with `<courier>:<the courier's id>` as the code, so support can cancel or refund it there.

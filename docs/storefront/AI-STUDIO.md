@@ -148,6 +148,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    answers (the chat's message refers to it), and a `design_message` with what changed, written by the Worker
    (SAAS §9.2). `askDesign` answers once the message and the save of step 6 are both written, side by side, so every
    read after the answer (the draft's state, Undo, Open preview, Publish) sees the change; the frame swapped before.
+   A save that gave up still answers the change, which is applied and kept (`studio_save_unconfirmed`): Undo answers
+   unavailable until it is saved, and a publish saves it first or refuses.
 
 ### Live progress (decided 2026-11-04 on #1237)
 
@@ -262,7 +264,7 @@ before, and reads the result when `askDesign` answers.
 ## 7. Idle, crashes and capacity
 
 - **Stopping** (decided 2026-11-04 with Gaurav on #1241): no container runs for a studio nobody uses. The object's
-  alarm stops it, never during a change or its save:
+  alarm stops it, never during a change (a save behind the frame holds its bytes and needs no container):
   - **2 minutes after the studio closes**: the store's last live socket (§4 "Live progress") closed, so a reload
     doesn't cause a cold start; with no socket at all, 2 minutes after the last activity;
   - **after 5 minutes of inactivity** while open: no prompt, typing or click in the frame (a hidden tab sends none);

@@ -129,14 +129,13 @@ export const createStudioService = (deps: StudioDeps) => {
 
   /**
    * A change's save, which the frame never waits for (AI-STUDIO §4 step 6), runs beside the Worker's own record; the
-   * answer waits for both, so every read after it (the draft, Open preview, Undo) sees the change. False when the save
-   * gave up: the change is kept in the object and saved at its next save or start, and the request answers unavailable.
+   * answer waits for both, so every read after it (the draft, Open preview, Undo) sees the change. A save that gave up
+   * still answers the change, which is applied and kept in the object until its next save or start (AI-STUDIO §7).
    */
-  const savedBeside = async (outcome: string): Promise<boolean> => {
-    if (!studio || outcome !== 'changed') return true
-    const saved = await studio.saved(storeId).catch((error: unknown) => (logEvent({ event: 'studio_save_unconfirmed', api: 'store', storeId, code: failureCode(error) }), false))
+  const savedBeside = async (outcome: string): Promise<void> => {
+    if (!studio || outcome !== 'changed') return
+    const saved = await studio.saved(storeId).catch((error: unknown) => (logEvent({ event: 'studio_save_unconfirmed', api: 'store', storeId, code: failureCode(error) }), true))
     if (!saved) logEvent({ event: 'studio_save_unconfirmed', api: 'store', storeId, code: 'kept' })
-    return saved
   }
 
   const chat = (limit: number, before: { at: Date; id: string } | null) => withScope(sql, context, (tx) => selectDesignChat(tx, storeId, limit, before))
@@ -382,7 +381,7 @@ export const createStudioService = (deps: StudioDeps) => {
       await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: outcome }]))
       return selectMessage(tx, storeId, id)
     })
-    if (!(await saved)) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+    await saved
     if (!message) throw new Error('design_message: written and not found')
     return { ok: true, value: { outcome, message } }
   }
@@ -420,8 +419,8 @@ export const createStudioService = (deps: StudioDeps) => {
   /** "Undo this change" on the latest change only (AI-STUDIO §5): a new change, with its own preview. */
   const undo = async (messageId: string): Promise<DesignResult<MessageRow>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
-    // A change's answer comes before its design_draft row is written (AI-STUDIO §4 step 6), so the head is read after it.
-    await studio.saved(storeId)
+    // The head is read once every save is written (AI-STUDIO §4 step 6); a change still only kept can't be undone yet.
+    if (!(await studio.saved(storeId))) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     const latest = await withScope(sql, context, (tx) => selectLatestChange(tx, storeId))
     const head = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     if (!latest || latest.id !== messageId || !latest.commit || latest.commit !== head) return { ok: false, reason: 'NOT_LATEST' }
@@ -436,7 +435,7 @@ export const createStudioService = (deps: StudioDeps) => {
       await activity.record(tx, entry(designAudit.changeUndone, [{ field: 'change', before: latest.commit, after: answer.outcome === 'changed' ? answer.commit : null }]))
       return selectMessage(tx, storeId, latest.id)
     })
-    if (!(await saved)) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+    await saved
     return message ? { ok: true, value: message } : { ok: false, reason: 'NOT_FOUND' }
   }
 
@@ -475,8 +474,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
-    const [, saved] = await Promise.all([recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.textEdited, [{ field: 'text', before: null, after: `${locale} ${key}` }]))), savedBeside(answer.outcome)])
-    if (!saved) return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+    await Promise.all([recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.textEdited, [{ field: 'text', before: null, after: `${locale} ${key}` }]))), savedBeside(answer.outcome)])
     return { ok: true, value: true }
   }
 

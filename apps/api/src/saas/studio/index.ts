@@ -1,4 +1,4 @@
-export { alarmStep, nextLookMs, studioActivityEveryMs, studioCapMs, studioClosedMs, studioIdleMs, studioTickMs, sweepsAgain, type AlarmState, type AlarmStep } from './alarm'
+export { alarmStep, nextLookMs, wakeStep, studioActivityEveryMs, studioCapMs, studioClosedMs, studioIdleMs, studioTickMs, sweepsAgain, type AlarmState, type AlarmStep } from './alarm'
 export { changedFiles, keptChanges, type KeptChange, type KeptChanges, type KeptStorage } from './kept'
 export { capacityLedger, defaultStudioCapacity, leaseMs, queueMs, type Grant, type LedgerStorage } from './capacity'
 export { maxRepairs, type DesignModel, type FileEdit, type Proposal, type ProposalInput, type TextEdit } from './model'

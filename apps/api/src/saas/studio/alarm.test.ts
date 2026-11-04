@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmStep, nextLookMs, studioCapMs, studioClosedMs, studioIdleMs, studioTickMs, sweepsAgain, type AlarmState } from './alarm'
+import { alarmStep, nextLookMs, studioActivityEveryMs, studioCapMs, studioClosedMs, studioIdleMs, studioTickMs, sweepsAgain, wakeStep, type AlarmState } from './alarm'
 
 const open: AlarmState = { loaded: true, containerRunning: true, pending: 0, openStudios: 1, closedForMs: 0, idleForMs: 0, runningForMs: 0 }
 
@@ -26,7 +26,7 @@ describe('the studio alarm (storefront AI-STUDIO §7, #1241)', () => {
     expect(alarmStep({ ...open, runningForMs: studioCapMs })).toBe('cap-stop')
   })
 
-  it('never stops a change in progress or being saved', () => {
+  it('never stops while a change runs or waits its turn', () => {
     expect(alarmStep({ ...open, pending: 1, openStudios: 0, closedForMs: studioClosedMs, idleForMs: studioIdleMs, runningForMs: studioCapMs })).toBe('renew')
   })
 
@@ -36,6 +36,15 @@ describe('the studio alarm (storefront AI-STUDIO §7, #1241)', () => {
     expect(nextLookMs({ ...open, idleForMs: studioIdleMs - 5_000 })).toBe(5_000)
     expect(nextLookMs({ ...open, runningForMs: studioCapMs - 30_000 })).toBe(30_000)
     expect(nextLookMs({ ...open, idleForMs: studioIdleMs + 1 })).toBe(1_000)
+  })
+})
+
+describe('studioActivity (AI-STUDIO §7 "Stopping", #1241)', () => {
+  it('acts on one in 30 seconds, a stopped container’s as much as a running one’s', () => {
+    expect(wakeStep(false, Number.POSITIVE_INFINITY)).toBe('open')
+    expect(wakeStep(true, studioActivityEveryMs)).toBe('renew')
+    expect(wakeStep(false, studioActivityEveryMs - 1)).toBe('skip')
+    expect(wakeStep(true, studioActivityEveryMs - 1)).toBe('skip')
   })
 })
 
