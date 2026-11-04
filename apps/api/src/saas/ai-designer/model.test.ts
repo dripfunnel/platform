@@ -3,7 +3,7 @@ import type { AiAnswer, AiProvider, AiTurn, CanonicalMessage, CanonicalTool } fr
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { validateChange, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { validateTheme, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { carouselExample, designModel, maxLookups, maxPhotoLookups, maxToolCalls, rules, type DesignBrief, type DesignTools } from './model'
 import type { StoreLookups, StoreSummary } from './summary'
 
@@ -252,9 +252,9 @@ const exampleFiles = (): ThemeFile[] => {
 const validatorMs = 60_000
 
 describe('the worked carousel against the validator', () => {
-  it('passes with no problem, so the prompt never teaches what the gate refuses', () => {
-    expect(exampleFiles().map((f) => f.path)).toEqual(['src/theme/components/interactive/HeroCarousel.tsx', 'src/theme/styles/carousel.module.css', 'content/en/carousel.json', 'content/hi/carousel.json'])
-    expect(validateChange([...baseline, ...exampleFiles()], guardContext).problems).toEqual([])
+  it('passes with no problem, so the prompt never teaches what the gate refuses', async () => {
+    expect(exampleFiles().map((f) => f.path)).toEqual(['src/theme/components/interactive/HeroCarousel.tsx', 'content/en/carousel.json', 'content/hi/carousel.json'])
+    expect((await validateTheme([...baseline, ...exampleFiles()], guardContext)).problems).toEqual([])
   }, validatorMs)
 })
 
@@ -279,15 +279,33 @@ describe('the rules the prompt states against the validator', () => {
     [styles('Layer', '.a { z-index: 100; }\n'), 'css/z-index'],
     [styles('Import', '@import "x.css";\n.a { opacity: 1; }\n'), 'css/at-rule-not-allowed'],
     [styles('Words', '.a::after { content: "Next"; }\n'), 'css/text'],
+    [component('NotAClass', 'export const X = () => <div className="flex pretty" />\n', false), 'class/not-tailwind'],
+    [component('ClassUrl', 'export const X = () => <div className="bg-[url(m_x)]" />\n', false), 'class/arbitrary-value'],
+    [component('ClassEscape', 'export const X = () => <div className="bg-[u\\72l(m_x)]" />\n', false), 'class/arbitrary-value'],
+    [component('ClassBody', 'export const X = () => <div className="[body_&]:hidden" />\n', false), 'css/selector-not-scoped'],
+    [component('ClassChildren', 'export const X = () => <div className="*:p-2" />\n', false), 'css/selector-not-scoped'],
+    [component('ClassLayer', 'export const X = () => <div className="z-[100]" />\n', false), 'css/z-index'],
+    [component('ClassTransition', 'export const X = () => <div className="transition duration-300" />\n', false), 'css/animated-property'],
+    [component('ClassWords', "export const X = () => <div className=\"after:content-['Next']\" />\n", false), 'css/text'],
+    [component('ClassVariable', "export const card = 'flex gap-4'\n", false), 'code/text-in-string'],
   ]
   const allowed: ThemeFile[] = [
     component('Slides', `${"import { useStorefront } from '@dripfunnel/storefront-core/theme'"}\n${keys} as const\nexport const X = () => { const { t } = useStorefront(); return <div>{slides.map((s) => <p key={s.title}>{t(s.title)}</p>)}</div> }\n`),
+    component('Classes', "import { clsx } from 'clsx'\nexport const X = ({ open }: { open: boolean }) => <div className={clsx('flex gap-4 p-6 group md:grid min-[720px]:p-8 transition-colors [transition:opacity_300ms] z-[99] [&::part(price)]:text-[#222] m-0 border-0 size-6', open && 'bg-[#222] text-white group-hover:opacity-90')} />\n", false),
     styles('Colours', '.a { transition: transform 300ms, opacity 300ms, background-color 300ms, box-shadow 300ms; }\n.a:hover { opacity: .9; }\n.a::before { content: ""; }\n@media (min-width: 900px) { .a > h2 { margin: 0; } }\n.b { z-index: 99; }\n'),
   ]
 
-  it('refuses each thing the prompt says is refused, and allows each thing it says is allowed', () => {
-    const { problems } = validateChange([...baseline, ...refused.map(([f]) => f), ...allowed], guardContext)
+  it('refuses each thing the prompt says is refused, and allows each thing it says is allowed', async () => {
+    const { problems } = await validateTheme([...baseline, ...refused.map(([f]) => f), ...allowed], guardContext)
     for (const [file, rule] of refused) expect(problems.filter((p) => p.file === file.path).map((p) => p.rule), file.path).toContain(rule)
     for (const file of allowed) expect(problems.filter((p) => p.file === file.path), file.path).toEqual([])
+  }, validatorMs)
+
+  it('keeps theme.css to @theme tokens and @keyframes, as the prompt says', async () => {
+    const tokens = { path: 'src/theme/styles/theme.css', content: '@theme {\n  --color-ink: #222;\n}\n\n@keyframes rise {\n  from {\n    opacity: 0;\n  }\n}\n' }
+    const inked = component('Inked', 'export const X = () => <div className="bg-ink text-ink" />\n', false)
+    expect((await validateTheme([...baseline, tokens, inked], guardContext)).problems).toEqual([])
+    const rule = { ...tokens, content: `${tokens.content}\n.a {\n  color: red;\n}\n` }
+    expect((await validateTheme([...baseline, rule], guardContext)).problems.map((p) => p.rule)).toEqual(['css/theme-entry'])
   }, validatorMs)
 })

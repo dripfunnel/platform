@@ -52,10 +52,10 @@ const report = (result: GuardResult, left: { unadded: readonly string[]; unstage
 ]
 
 /** The repo at `root` through the validator, with its languages taken from content/. */
-export const runCheck = (root: string): { code: 0 | 1; lines: string[] } => {
+export const runCheck = async (root: string): Promise<{ code: 0 | 1; lines: string[] }> => {
   if (!existsSync(join(root, '.git'))) return { code: 1, lines: ["Run pnpm check from the store repo's root, where its .git folder is."] }
   const locales = localesIn(root)
   if (locales.length === 0) return { code: 1, lines: ['The theme has no words: content/{language}/*.json holds them, one folder per language the store offers.'] }
-  const result = validateLocally(themeFilesIn(root), locales)
+  const result = await validateLocally(themeFilesIn(root), locales)
   return { code: result.ok ? 0 : 1, lines: report(result, { unadded: unadded(root), unstaged: unstaged(root) }) }
 }

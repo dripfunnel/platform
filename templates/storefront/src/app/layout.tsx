@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import '../theme/tokens.css'
+import './tailwind.css'
 import { theme } from '../theme/manifest'
 import { readContent } from './content'
 import { Shell } from './Shell'

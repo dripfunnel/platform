@@ -36,61 +36,61 @@ afterEach(() => {
 })
 
 describe('pnpm check', () => {
-  it('passes the baseline theme and names what only the build checks', () => {
-    const { code, lines } = runCheck(repoWith())
+  it('passes the baseline theme and names what only the build checks', async () => {
+    const { code, lines } = await runCheck(repoWith())
     expect(code).toBe(0)
     expect(lines[0]).toBe('The theme passes the validator.')
     expect(lines.at(-1)).toMatch(/^Checked when you push, not here: that the content\/ folders are exactly the store's languages; /)
   })
 
-  it('refuses words typed in JSX, naming the file, line and rule', () => {
+  it('refuses words typed in JSX, naming the file, line and rule', async () => {
     const root = repoWith((r) => rewrite(r, 'src/theme/pages/HomePage.tsx', (text) => text.replace("{t('pages.home.lead')}", 'Big Bang Diwali sale')))
-    const { code, lines } = runCheck(root)
+    const { code, lines } = await runCheck(root)
     expect(code).toBe(1)
     expect(lines[0]).toMatch(/^src\/theme\/pages\/HomePage\.tsx:10 {2}jsx\/text-literal {2}/)
     expect(lines).toContain('1 problem(s): the build would refuse this push.')
   })
 
-  it('refuses an invented discount in the words', () => {
+  it('refuses an invented discount in the words', async () => {
     const root = repoWith((r) => rewrite(r, 'content/en/common.json', (text) => text.replace('Thank you for shopping with a small studio.', 'Up to 60% off this week.')))
-    const { code, lines } = runCheck(root)
+    const { code, lines } = await runCheck(root)
     expect(code).toBe(1)
     expect(lines.some((l) => l.startsWith('content/en/common.json:') && l.includes('content/price'))).toBe(true)
   })
 
-  it('checks what a push carries: a theme file never added to git is named, not checked', () => {
+  it('checks what a push carries: a theme file never added to git is named, not checked', async () => {
     const root = repoWith((r) => writeFileSync(join(r, 'src/theme/components/Banner.tsx'), 'export const Banner = () => <p>Not added</p>\n'))
-    const { code, lines } = runCheck(root)
+    const { code, lines } = await runCheck(root)
     expect(code).toBe(0)
     expect(lines).toContain("src/theme/components/Banner.tsx  not added to git: a push leaves it out, so the build won't see it")
   })
 
-  it('checks a theme folder named like a build folder, such as out/', () => {
+  it('checks a theme folder named like a build folder, such as out/', async () => {
     const root = repoWith((r) => {
       mkdirSync(join(r, 'src/theme/components/out'))
       writeFileSync(join(r, 'src/theme/components/out/Note.tsx'), 'export const Note = () => <p>Typed words</p>\n')
       git(r, 'add', '-A')
     })
-    const { code, lines } = runCheck(root)
+    const { code, lines } = await runCheck(root)
     expect(code).toBe(1)
     expect(lines[0]).toMatch(/^src\/theme\/components\/out\/Note\.tsx:1 {2}jsx\/text-literal/)
   })
 
-  it('names a file whose copy on disk is not the staged one, since a commit would carry the staged one', () => {
+  it('names a file whose copy on disk is not the staged one, since a commit would carry the staged one', async () => {
     const page = 'src/theme/pages/HomePage.tsx'
     const root = repoWith((r) => {
       rewrite(r, page, (text) => text.replace("{t('pages.home.lead')}", 'Typed words'))
       git(r, 'add', '-A')
       rewrite(r, page, (text) => text.replace('Typed words', "{t('pages.home.lead')}"))
     })
-    const { code, lines } = runCheck(root)
+    const { code, lines } = await runCheck(root)
     expect(code).toBe(0)
     expect(lines).toContain(`${page}  changed since git add: checked as it is here, so git add it before you commit`)
   })
 
-  it('says where to run it from outside a store repo, and what is missing without words', () => {
-    expect(runCheck(repoWith((r) => rmSync(join(r, '.git'), { recursive: true, force: true })))).toEqual({ code: 1, lines: ["Run pnpm check from the store repo's root, where its .git folder is."] })
-    expect(runCheck(repoWith((r) => rmSync(join(r, 'content'), { recursive: true, force: true })))).toEqual({
+  it('says where to run it from outside a store repo, and what is missing without words', async () => {
+    expect(await runCheck(repoWith((r) => rmSync(join(r, '.git'), { recursive: true, force: true })))).toEqual({ code: 1, lines: ["Run pnpm check from the store repo's root, where its .git folder is."] })
+    expect(await runCheck(repoWith((r) => rmSync(join(r, 'content'), { recursive: true, force: true })))).toEqual({
       code: 1,
       lines: ['The theme has no words: content/{language}/*.json holds them, one folder per language the store offers.'],
     })
@@ -107,7 +107,7 @@ describe('validateLocally: what it leaves to the build', () => {
   const swap = (path: string, change: (text: string) => string) => files.map((f) => (f.path === path ? { ...f, content: change(f.content) } : f))
   const rules = (result: { problems: { rule: string }[] }) => result.problems.map((p) => p.rule)
 
-  it('skips the brand, the media ids and the used paths, which the build still refuses', () => {
+  it('skips the brand, the media ids and the used paths, which the build still refuses', async () => {
     const copied = swap('content/en/common.json', (text) => text.replace('Thank you for shopping with a small studio.', 'Thank you for shopping at Northstar Linen.'))
     const pictured = swap('src/theme/styles/page.module.css', (text) => `${text}\n.hero { background-image: url(m_unknown); }\n`)
     for (const [change, rule] of [
@@ -116,13 +116,13 @@ describe('validateLocally: what it leaves to the build', () => {
       [files, 'routes/path-in-use'],
     ] as const) {
       expect(rules(validateChange(change, store))).toContain(rule)
-      expect(rules(validateLocally(change, ['en', 'hi']))).not.toContain(rule)
+      expect(rules(await validateLocally(change, ['en', 'hi']))).not.toContain(rule)
     }
   })
 
-  it('still refuses a url() that is no media id at all', () => {
+  it('still refuses a url() that is no media id at all', async () => {
     const address = swap('src/theme/styles/page.module.css', (text) => `${text}\n.hero { background-image: url(https://example.com/a.png); }\n`)
-    expect(rules(validateLocally(address, ['en', 'hi']))).toEqual(['css/url-not-media'])
+    expect(rules(await validateLocally(address, ['en', 'hi']))).toEqual(['css/url-not-media'])
   })
 })
 

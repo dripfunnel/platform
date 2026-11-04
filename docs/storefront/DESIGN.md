@@ -9,7 +9,7 @@ shoppers (theme code written by the AI, fenced by walls, rendered with core); th
 same theme with different colours. The AI has full freedom over the look and the front-end
 behaviour; the core package and the engine guarantee the commerce.
 
-Last updated: 2026-11-04 (#1212: Classic first, five templates deleted, §2 step 2). Before: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
+Last updated: 2026-11-05 (#1239: a store's tokens are Tailwind `@theme` values, §5). Before: 2026-11-04 (#1212: Classic first, five templates deleted, §2 step 2). Before: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
 
 ---
 
@@ -125,7 +125,10 @@ Design floors the gates check, whatever the look:
 - **Findable**: one `<h1>` per page, headings in order, the main content in the HTML, alt text
   on every image, descriptive links (ARCHITECTURE §8).
 - **Consistent**: one set of tokens per store. The AI doesn't invent one-off colours or
-  spacing on a single page.
+  spacing on a single page. Since #1239 the tokens are Tailwind `@theme` values in the theme's
+  `src/theme/styles/theme.css` (`--color-*`, `--font-*`, `--radius-*` and the theme's own), which
+  become its classes (`bg-ink`, `font-heading`, `rounded-card`); a store's older CSS Modules keep
+  theirs as custom properties (ARCHITECTURE §3.4 "Classes").
 
 ## 6. Commerce pages: look, not logic
 

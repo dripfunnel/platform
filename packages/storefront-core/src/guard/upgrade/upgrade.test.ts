@@ -92,6 +92,14 @@ describe('the baseline theme with the store’s own words and tokens', () => {
     expect(files.get('src/theme/styles/layout.module.css')).toBe('.shell { --brand: #e11d48; --font: "Inter", sans-serif; --space: 8px; color: var(--brand); }\n')
   })
 
+  it('carries a store’s colours and fonts into a Tailwind baseline’s theme.css, from its own tokens or the names before #1239', () => {
+    const tailwind = new Map([...baseline, ['src/theme/styles/theme.css', '@theme {\n  --color-brand: #111111;\n  --font-heading: serif;\n  --color-line: #e6dfd6;\n}\n']])
+    const before = new Map([['src/theme/styles/layout.module.css', '.shell { --brand: #e11d48; --heading-font: "Lora", serif; }\n']])
+    expect(baselineWithOwn(tailwind, before).get('src/theme/styles/theme.css')).toBe('@theme {\n  --color-brand: #e11d48;\n  --font-heading: "Lora", serif;\n  --color-line: #e6dfd6;\n}\n')
+    const after = new Map([['src/theme/styles/theme.css', '@theme {\n  --color-line: #000;\n}\n']])
+    expect(baselineWithOwn(tailwind, after).get('src/theme/styles/theme.css')).toBe('@theme {\n  --color-brand: #111111;\n  --font-heading: serif;\n  --color-line: #000;\n}\n')
+  })
+
   it('writes the baseline’s keys in each of the store’s languages, with the store’s words where it has the same key', () => {
     const files = baselineWithOwn(baseline, own)
     expect(JSON.parse(files.get('content/en/home.json') ?? '')).toEqual({ hero: { title: 'Linen for slow days', lead: 'Shop the range' }, cta: 'Browse' })
