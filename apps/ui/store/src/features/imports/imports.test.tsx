@@ -206,7 +206,12 @@ describe('checking and importing a file', () => {
     })
     expect(screen.getByRole('heading', { name: fill(words.done.title, { added: '5', updated: '2' }) })).toBeTruthy()
     expect(screen.getByText(new RegExp(fill(words.done.skipped.other, { count: '2' })))).toBeTruthy()
-    expect(screen.getByRole('button', { name: words.done.download })).toBeTruthy()
+    // The problems are listed here; the file is offered only because more were found than are listed.
+    expect(screen.getByRole('button', { name: words.done.downloadAll })).toBeTruthy()
+    const listed = within(screen.getByRole('region', { name: words.done.listTitle }))
+    expect(listed.getByText('Price is empty.')).toBeTruthy()
+    expect(listed.getByText(fill(words.check.row, { line: '14' }))).toBeTruthy()
+    expect(listed.getByText(fill(words.check.moreProblems.one, { count: '1' }))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: words.done.another }))
     expect(importRun.get()).toBeNull()
     expect(screen.getByRole('button', { name: new RegExp(words.sources.file.title) })).toBeTruthy()
@@ -500,11 +505,76 @@ describe('importing Shopify’s CSV files (#1178)', () => {
     expect(api.startFileImport).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the spreadsheet option to CSV: an Excel file there is refused as before', async () => {
+  const openSheet = async () => {
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.file.title) }))
+    await settle()
+  }
+
+  it('shows one currency dropdown at a time: the spreadsheet’s panel, or Shopify’s own panel’s', async () => {
+    api.loadImportCurrencies.mockResolvedValue({ pricing: 'INR', others: ['USD'] })
+    await show()
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0)
+    await openSheet()
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getByLabelText(words.sources.file.currency.label)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sources.shopify.title) }))
+    await settle()
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getByLabelText(words.shopifyCsv.currency.label)).toBeTruthy()
+  })
+
+  it('opens a panel under the cards instead of the file picker, and the picker opens from its button', async () => {
+    const picked = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
+    await show()
+    await openSheet()
+    expect(picked).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: new RegExp(words.sources.file.title) }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: words.sources.file.choose }))
+    expect(picked).toHaveBeenCalledTimes(1)
+    picked.mockRestore()
+  })
+
+  it('says why a spreadsheet can’t be imported inside its panel, above the options', async () => {
+    api.startFileImport.mockRejectedValue(new ApiError('INVALID_INPUT', 'This is a Shopify export.', {}))
+    await show()
+    await openSheet()
+    await upload(csv())
+    const panel = screen.getByRole('heading', { name: words.sources.file.title, level: 2 }).parentElement as HTMLElement
+    expect(within(panel).getByRole('alert').textContent).toContain('This is a Shopify export.')
+  })
+
+  it('asks which currency the spreadsheet’s prices are in once the store has rates, and sends a choice other than its own', async () => {
+    await show()
+    await openSheet()
+    expect(screen.queryByLabelText(words.sources.file.currency.label)).toBeNull()
+    cleanup()
+    api.loadImportCurrencies.mockResolvedValue({ pricing: 'INR', others: ['USD'] })
+    await show()
+    await openSheet()
+    const select = screen.getByLabelText(words.sources.file.currency.label) as HTMLSelectElement
+    expect([...select.options].map((o) => o.textContent)).toEqual([fill(words.shopifyCsv.currency.own, { code: 'INR' }), 'USD'])
+    await upload(csv())
+    expect(api.startFileImport).toHaveBeenLastCalledWith('name,price\nTee,10\n', 'csv', null, null)
+    cleanup()
+    await show()
+    await openSheet()
+    fireEvent.change(screen.getByLabelText(words.sources.file.currency.label), { target: { value: 'USD' } })
+    await upload(csv())
+    expect(api.startFileImport).toHaveBeenLastCalledWith('name,price\nTee,10\n', 'csv', null, 'USD')
+  })
+
+  it('takes an Excel sheet on the spreadsheet option too, read into CSV text, and refuses one it can’t read', async () => {
+    excel.readSheet.mockResolvedValueOnce([['name', 'price'], ['Tee', 10]])
     await show()
     await upload(new File(['x'], 'products.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+    expect(api.startFileImport).toHaveBeenLastCalledWith('name,price\nTee,10', 'csv', null, null)
+    excel.readSheet.mockRejectedValueOnce(new Error('not a zip'))
+    cleanup()
+    await show()
+    await upload(new File(['x'], 'broken.xlsx'))
+    expect(screen.getByRole('alert').textContent).toContain(fill(words.fileErrors.excelUnreadable, { name: 'broken.xlsx' }))
+    await upload(new File(['x'], 'photos.zip', { type: 'application/zip' }))
     expect(screen.getByRole('alert').textContent).toContain(words.fileErrors.type.title)
-    expect(api.startFileImport).not.toHaveBeenCalled()
   })
 
   it('asks which currency the prices are in once the store has rates, and sends a choice other than its own', async () => {
@@ -598,5 +668,115 @@ describe('exports', () => {
     await settle()
     expect(api.requestProductExport).toHaveBeenCalledWith({ filter: 'hidden' })
     expect(card.getByText(words.export.preparing)).toBeTruthy()
+  })
+})
+
+describe('while a file is being checked (#1195)', () => {
+  const sourceButton = (title: string) => screen.getByRole('button', { name: new RegExp(title) }) as HTMLButtonElement
+  const choose = (file: File) => fireEvent.change(screen.getByLabelText(words.sources.file.cta), { target: { files: [file] } })
+
+  it('fades and disables the two cards the moment a CSV is chosen, with the loader on the spreadsheet card only', async () => {
+    api.startFileImport.mockReturnValue(new Promise(() => undefined))
+    await show()
+    choose(csv())
+    // Before the file is even read.
+    expect(sourceButton(words.sources.file.title).disabled).toBe(true)
+    expect(sourceButton(words.sources.shopify.title).disabled).toBe(true)
+    await settle()
+    expect(sourceButton(words.sources.file.title).textContent).toContain(words.checking.file)
+    expect(sourceButton(words.sources.shopify.title).textContent).not.toContain(words.checking.file)
+    expect(sourceButton(words.sources.template.title).disabled).toBe(false)
+    expect(screen.getAllByRole('status').filter((s) => s.textContent === words.checking.file)).toHaveLength(1)
+  })
+
+  it('leaves the template working while the file loads', async () => {
+    api.startFileImport.mockReturnValue(new Promise(() => undefined))
+    api.loadImportTemplate.mockResolvedValue('handle,name\n')
+    const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:t')
+    await show()
+    choose(csv())
+    await settle()
+    fireEvent.click(sourceButton(words.sources.template.title))
+    await settle()
+    expect(api.loadImportTemplate).toHaveBeenCalled()
+    made.mockRestore()
+  })
+
+  it('does the same for Shopify’s CSV files: the cards, both pickers and the button are held, with the loader on the Shopify card', async () => {
+    api.startFileImport.mockReturnValue(new Promise(() => undefined))
+    await show()
+    fireEvent.click(sourceButton(words.sources.shopify.title))
+    await settle()
+    fireEvent.change(screen.getByLabelText(words.shopifyCsv.products.label), { target: { files: [new File(['Handle,Title\nshirt,Shirt\n'], 'products_export_1.csv', { type: 'text/csv' })] } })
+    fireEvent.click(screen.getByRole('button', { name: words.shopifyCsv.check }))
+    await settle()
+    expect(sourceButton(words.sources.file.title).disabled).toBe(true)
+    expect(sourceButton(words.sources.shopify.title).disabled).toBe(true)
+    expect(sourceButton(words.sources.shopify.title).textContent).toContain(words.checking.file)
+    expect((screen.getByLabelText(words.shopifyCsv.products.label) as HTMLInputElement).disabled).toBe(true)
+    expect((screen.getByLabelText(words.shopifyCsv.inventory.label) as HTMLInputElement).disabled).toBe(true)
+    const panel = within(screen.getByRole('heading', { name: words.shopifyCsv.title }).parentElement as HTMLElement)
+    const held = panel.getByRole('button', { name: new RegExp(words.checking.file) }) as HTMLButtonElement
+    expect(held.disabled).toBe(true)
+    expect(sourceButton(words.sources.template.title).disabled).toBe(false)
+  })
+
+  it('brings the cards back with the error when the upload is refused', async () => {
+    api.startFileImport.mockRejectedValue(new ApiError('INVALID_INPUT', 'Choose a CSV file to import.', {}))
+    await show()
+    await upload(csv())
+    expect(sourceButton(words.sources.file.title).disabled).toBe(false)
+    expect(sourceButton(words.sources.shopify.title).disabled).toBe(false)
+    expect(sourceButton(words.sources.file.title).textContent).toContain(words.sources.file.cta)
+    expect(screen.getByRole('alert').textContent).toContain('Choose a CSV file to import.')
+  })
+
+  it('brings the cards back when the check finds the file unreadable, and when the file is the wrong type', async () => {
+    api.loadImport.mockResolvedValueOnce(job({ state: 'unreadable', problems: [{ line: 0, column: null, code: 'EMPTY', message: 'x', file: null }] }))
+    await show()
+    await upload(csv('blank.csv'))
+    expect(sourceButton(words.sources.file.title).disabled).toBe(false)
+    expect(screen.getByRole('alert').textContent).toContain(words.fileErrors.empty.title)
+    await upload(new File(['x'], 'photos.zip', { type: 'application/zip' }))
+    expect(sourceButton(words.sources.file.title).disabled).toBe(false)
+    expect(sourceButton(words.sources.shopify.title).disabled).toBe(false)
+    expect(screen.getByRole('alert').textContent).toContain(words.fileErrors.type.title)
+  })
+
+  const checkShopify = async (file: File) => {
+    fireEvent.click(sourceButton(words.sources.shopify.title))
+    await settle()
+    fireEvent.change(screen.getByLabelText(words.shopifyCsv.products.label), { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: words.shopifyCsv.check }))
+    await settle()
+    await settle()
+  }
+
+  it('brings the cards back when an Excel file can’t be read', async () => {
+    excel.readSheet.mockRejectedValueOnce(new Error('not a zip'))
+    await show()
+    await checkShopify(new File(['x'], 'broken.xlsx'))
+    expect(sourceButton(words.sources.file.title).disabled).toBe(false)
+    expect(sourceButton(words.sources.shopify.title).disabled).toBe(false)
+    expect(screen.getByRole('alert').textContent).toContain(fill(words.fileErrors.excelUnreadable, { name: 'broken.xlsx' }))
+  })
+
+  it('brings the cards back when the plan doesn’t include the Shopify file import', async () => {
+    api.startFileImport.mockRejectedValue(new ApiError('PLAN_LIMIT', 'Not on your plan.', { unlockedBy: { name: 'Growth' } }))
+    await show()
+    await checkShopify(new File(['Handle,Title\nshirt,Shirt\n'], 'products_export_1.csv', { type: 'text/csv' }))
+    expect(sourceButton(words.sources.file.title).disabled).toBe(false)
+    expect(sourceButton(words.sources.shopify.title).disabled).toBe(false)
+    expect(screen.getByRole('status').textContent).toContain(words.shopifyCsv.lockedAnyPlan)
+  })
+
+  it('moves focus to the loading notice when the card in use is disabled', async () => {
+    api.startFileImport.mockReturnValue(new Promise(() => undefined))
+    await show()
+    sourceButton(words.sources.file.title).focus()
+    choose(csv())
+    await settle()
+    const notice = screen.getAllByRole('status').find((s) => s.textContent === words.checking.file)
+    expect(document.activeElement).toBe(notice?.closest('.df-import-loading'))
   })
 })

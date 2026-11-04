@@ -657,3 +657,36 @@
     grid-column: 1 / -1;
   }
 }
+
+.df-import-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border: 2px solid var(--df-color-border);
+  border-top-color: var(--df-color-link);
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: df-import-spin 0.8s linear infinite;
+}
+
+@keyframes df-import-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .df-import-spinner {
+    animation: none;
+  }
+}
+
+.df-import-card[aria-busy='true'] .df-import-files,
+.df-import-card[aria-busy='true'] .df-import-place {
+  opacity: 0.6;
+}
+
+.df-import-loading:focus {
+  outline: none;
+}

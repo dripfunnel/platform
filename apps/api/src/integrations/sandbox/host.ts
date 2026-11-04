@@ -36,7 +36,7 @@ export interface SandboxContainer {
   getTcpPort(port: number): { fetch(request: Request): Promise<Response> }
 }
 
-/** A dev prerelease has no core_release row (#788): its image is the one env.dev's containers entry names (#790). */
+/** A dev prerelease's core_release row exists (#1205) but is not read: the studio starts the image env.dev's containers entry names (#790). */
 export const sandboxImageFor = async (
   container: SandboxContainer | undefined,
   core: string,
