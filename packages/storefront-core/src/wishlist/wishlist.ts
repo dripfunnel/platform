@@ -227,6 +227,8 @@ export const useWishlist = ({ cards = false }: { cards?: boolean } = {}): Wishli
       pending.keep(productId, versionId)
       return navigate(`/sign-in/?next=${encodeURIComponent(path)}`)
     }
+    // Which way to go is unknown until the list has loaded.
+    if (loaded.status !== 'ready') return
     const has = loaded.ids.has(productId)
     if (await change(has ? removeMutation : addMutation, productId, !has)) chosen.set(productId, has ? null : versionId)
   }

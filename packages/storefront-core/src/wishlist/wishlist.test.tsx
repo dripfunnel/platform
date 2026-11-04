@@ -107,6 +107,15 @@ describe('useWishlist (the heart)', () => {
     expect(sent(asked, 'removeFromWishlist')).toHaveLength(1)
   })
 
+  it('ignores a tap until the list has loaded, as it cannot tell an add from a remove', async () => {
+    signedIn()
+    const asked = shopAnswering((a: Asked) => (a.query.includes('WishlistIds') ? new Promise(() => undefined) : { data: { cart: null } }))
+    await show()
+    expect(shown().status).toBe('loading')
+    await act(async () => shown().toggle('p-1'))
+    expect([sent(asked, 'addToWishlist'), sent(asked, 'removeFromWishlist')]).toEqual([[], []])
+  })
+
   it('says LIMIT when the list is full and keeps the heart off', async () => {
     signedIn()
     holding([], 'LIMIT')

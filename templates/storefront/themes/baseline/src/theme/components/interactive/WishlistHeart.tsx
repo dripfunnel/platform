@@ -18,7 +18,7 @@ export const WishlistHeart = ({ productId, name, versionId }: { productId: strin
   }, [on, chose, productId, versionId])
   return (
     <>
-      <button type="button" className={clsx(styles.heart, on && styles.heartOn)} aria-pressed={on} aria-label={t('shop.wishlist.heart', { name })} disabled={wishlist.busy} onClick={() => void wishlist.toggle(productId, versionId)}>
+      <button type="button" className={clsx(styles.heart, on && styles.heartOn)} aria-pressed={on} aria-label={t('shop.wishlist.heart', { name })} disabled={wishlist.busy || wishlist.status === 'loading'} onClick={() => void wishlist.toggle(productId, versionId)}>
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
           <path d={heart} fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
         </svg>

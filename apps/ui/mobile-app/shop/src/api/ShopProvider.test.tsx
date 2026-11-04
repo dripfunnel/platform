@@ -136,6 +136,15 @@ describe('a product hearted while signed out', () => {
     expect(await loadTokens(host)).toEqual({ session: 'sess-1', cart: null })
   })
 
+  it('does not hold the sign-in up while the add is still waiting on the network', async () => {
+    await keepPendingWishlist(host, 'p1')
+    fetchSpy.mockImplementation(() => new Promise(() => undefined))
+    await mount()
+    await act(async () => shop.startSession('sess-1'))
+    expect(shop.signedIn).toBe(true)
+    expect(await loadTokens(host)).toEqual({ session: 'sess-1', cart: null })
+  })
+
   it('is forgotten when the shopper signs out before signing in', async () => {
     await keepPendingWishlist(host, 'p1')
     await mount()

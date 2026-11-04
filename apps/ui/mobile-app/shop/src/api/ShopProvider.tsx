@@ -44,11 +44,14 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       startSession: async (token) => {
         tokens.session = token
         tokens.cart = null
-        // A product hearted while signed out is added now; a refusal (a full list) is not a failed sign-in.
-        const pending = await takePendingWishlist(host)
-        if (pending) await addToWishlist(client, pending).catch(() => undefined)
         setSignedIn(true)
         await Promise.all([saveSessionToken(host, token), clearCartToken(host)])
+        // A product hearted while signed out is added once signed in, without holding sign-in up; a refusal (a full list) is not a failed sign-in.
+        void takePendingWishlist(host)
+          .then(async (pending) => {
+            if (pending) await addToWishlist(client, pending)
+          })
+          .catch(() => undefined)
       },
       endSession: async () => {
         // Best effort: a phone with no signal must still be able to sign out, so the token goes either way. The phone stops getting this customer's pushes first (api/DELIVERY.md §6).
