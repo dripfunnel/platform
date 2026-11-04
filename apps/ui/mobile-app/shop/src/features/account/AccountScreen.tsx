@@ -99,6 +99,15 @@ function Profile() {
               <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }}>{t('account.ordersTitle')}</Text>
               <Text style={{ color: colors.muted, fontSize: 14 }}>{t('account.ordersBody')}</Text>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('wishlist.title')}
+              onPress={() => router.push('/account/wishlist')}
+              style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.card }]}
+            >
+              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }}>{t('wishlist.title')}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14 }}>{t('wishlist.rowBody')}</Text>
+            </Pressable>
             <AccountLinks />
             <Button kind="secondary" label={t('account.signOut')} busy={action.busy} onPress={() => void action.run(endSession)} />
           </View>

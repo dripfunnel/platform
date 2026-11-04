@@ -79,7 +79,10 @@ export const isVersionPath = (path: string) => /\/products\/[^/]+\/[^/]+\/$/.tes
 /** Where a route's client-rendered page is kept, for addresses that have no file of their own (LIVE-SHOP §5 step 6). */
 export const fallbackPath = (route: ThemeRoute) => `/_fallback/${route}/`
 
-const routeNames: Partial<Record<PageRoute, string>> = { orderConfirmation: 'order confirmation', signIn: 'sign-in', forgotPassword: 'forgot password', resetPassword: 'reset password', accountAddresses: 'addresses', accountOrders: 'orders', accountOrder: 'order', notFound: 'not found', contentPage: 'content page', blogPost: 'blog post' }
+/** The optional routes that have a page of their own at a fixed address. */
+const optionalPages = ['blog', 'blogPost', 'accountWishlist'] as const
+
+const routeNames: Partial<Record<PageRoute, string>> = { accountWishlist: 'wishlist', orderConfirmation: 'order confirmation', signIn: 'sign-in', forgotPassword: 'forgot password', resetPassword: 'reset password', accountAddresses: 'addresses', accountOrders: 'orders', accountOrder: 'order', notFound: 'not found', contentPage: 'content page', blogPost: 'blog post' }
 /** How the gate names a page in its words. */
 export const pageName = (p: { path: string; route: PageRoute }) => (p.route === 'custom' ? `page ${p.path}` : `${routeNames[p.route] ?? p.route} page`)
 const at = (v: PageVisit) => `${pageName(v)} at ${v.width} px`
@@ -123,7 +126,7 @@ export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visi
     const path = 'page' in address ? address.page : fallbackPath(route)
     if (!built.has(path)) problems.push(`The build has no ${pageName({ path, route })}.`)
   }
-  for (const route of ['blog', 'blogPost'] as const) {
+  for (const route of optionalPages) {
     if (!input.routes.routes[route]) continue
     const address = contentAddresses[route]
     const path = 'page' in address ? address.page : fallbackPath(route)

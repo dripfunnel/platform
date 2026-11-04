@@ -78,6 +78,7 @@
     "CODE_REFUSED": "That code didn’t work. Check it, or ask for a new one.",
     "SIGN_IN_REFUSED": "That email and password don’t match an account here.",
     "WEAK_PASSWORD": "Choose a password of at least 10 characters.",
+    "LIMIT": "Your wishlist is full. Remove something first.",
     "TOO_MANY": "That’s as many addresses as an account keeps.",
     "NOT_FOUND": "That is no longer here.",
     "SIGNED_OUT": "Your session ended. Sign in again.",
@@ -277,6 +278,26 @@
     "signOut": "Sign out",
     "ordersTitle": "Orders",
     "ordersBody": "Your orders, and where a delivery is"
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "rowBody": "Products you saved for later",
+    "heart": "Wishlist, {name}",
+    "empty": {
+      "title": "Your wishlist is empty",
+      "body": "Tap the heart on a product to keep it here."
+    },
+    "signedOut": {
+      "title": "Sign in to see your wishlist",
+      "body": "Your wishlist is kept with your account."
+    },
+    "addToCart": "Add to cart",
+    "addLabel": "Add {name} to your cart",
+    "chooseOptions": "Choose options",
+    "chooseLabel": "Choose options for {name}",
+    "added": "Added to your cart",
+    "remove": "Remove",
+    "removeLabel": "Remove {name} from your wishlist"
   },
   "addresses": {
     "title": "Addresses",

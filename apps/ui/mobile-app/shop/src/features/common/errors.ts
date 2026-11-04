@@ -23,6 +23,8 @@ export const errorKey = (code: string): MessageKey => {
       return 'errors.SIGN_IN_REFUSED'
     case 'WEAK_PASSWORD':
       return 'errors.WEAK_PASSWORD'
+    case 'LIMIT':
+      return 'errors.LIMIT'
     case 'TOO_MANY':
       return 'errors.TOO_MANY'
     case 'NOT_FOUND':

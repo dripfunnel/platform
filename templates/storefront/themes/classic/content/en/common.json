@@ -12,6 +12,8 @@
     "search": "Search",
     "searchPrompt": "Search products…",
     "account": "Account",
+    "wishlist": "Wishlist",
+    "wishlistCount": "Wishlist, {count, plural, one {# item} other {# items}}",
     "cart": "Cart",
     "cartCount": "Cart, {count, plural, one {# item} other {# items}}"
   },

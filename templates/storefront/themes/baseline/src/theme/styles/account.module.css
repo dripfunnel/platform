@@ -418,3 +418,35 @@
     flex-direction: column;
   }
 }
+
+.wishlist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wished {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wishActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wishActions > a,
+.wishActions > button {
+  flex: 1 1 120px;
+  align-self: stretch;
+}
+
+.wishActions > p {
+  flex-basis: 100%;
+  margin: 0;
+}

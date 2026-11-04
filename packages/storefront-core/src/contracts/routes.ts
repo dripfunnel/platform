@@ -53,10 +53,12 @@ export const routeAddresses: Readonly<Record<CoreRoute, { page: string } | { pre
 }
 
 /**
- * Where the content routes live (SAPI 24 as built on #338): the blog at `/blog/`, a post under it; a content page at the one
- * segment its slug names, which the build learns from the store's content paths (the validator's `usedPaths`).
+ * Where the optional routes live (SAPI 24 as built on #338): the blog at `/blog/`, a post under it; a content page at the one
+ * segment its slug names, which the build learns from the store's content paths (the validator's `usedPaths`); and the
+ * account's Wishlist at `/account/wishlist/` (#1214).
  */
 export const contentAddresses: Readonly<Record<Exclude<ContentRoute, 'contentPage'>, { page: string } | { prefix: string }>> = {
   blog: { page: '/blog/' },
   blogPost: { prefix: '/blog/' },
+  accountWishlist: { page: '/account/wishlist/' },
 }

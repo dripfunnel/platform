@@ -34,7 +34,7 @@ export const plan = (routes: ThemeRoutes, store: CatalogueSnapshot['store'], con
           const address = routeAddresses[route]
           return { path: `${prefix}${'page' in address ? address.page : fallbackPath(route)}`, route, language, custom: null }
         }),
-      ...(['blog', 'blogPost'] as const)
+      ...(['blog', 'blogPost', 'accountWishlist'] as const)
         .filter((route) => routes.routes[route] !== undefined)
         .map((route): PlannedPage => {
           const address = contentAddresses[route]
@@ -253,7 +253,7 @@ export const edgeRules = (pages: readonly PlannedPage[], store: CatalogueSnapsho
   redirects: [],
   fallbacks: pages.flatMap((p) => {
     if (p.route === 'custom' || p.route === 'contentPage') return []
-    const address = p.route === 'blog' || p.route === 'blogPost' ? contentAddresses[p.route] : routeAddresses[p.route]
+    const address = p.route === 'blog' || p.route === 'blogPost' || p.route === 'accountWishlist' ? contentAddresses[p.route] : routeAddresses[p.route]
     return 'prefix' in address ? [{ prefix: `${languagePrefix(store, p.language)}${address.prefix}`, page: p.path }] : []
   }),
   notFound: pages.find((p) => p.route === 'notFound' && p.language === store.mainLanguage)?.path ?? null,

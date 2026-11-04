@@ -102,6 +102,11 @@ describe('the full gate', () => {
     expect(detail({ ...good, routes: blogRoutes }, 'contracts')).toContain('The build has no blog post page.')
   })
 
+  it('wants the wishlist page built once a theme maps it (#1214)', () => {
+    const wishRoutes: ThemeRoutes = { ...routes, routes: { ...routes.routes, accountWishlist: 'account/WishlistPage' } }
+    expect(detail({ ...good, routes: wishRoutes }, 'contracts')).toContain('The build has no wishlist page.')
+  })
+
   it('leaves checkout out of the JavaScript budget, and takes the median of three timings', () => {
     expect(failing({ ...good, weights: onPage(good.weights, '/checkout/', (w) => ({ ...w, jsGzip: 200_000 })) })).toEqual([])
     expect(failing({ ...good, weights: onPage(good.weights, '/', (w) => ({ ...w, lcpMs: [2100, 2200, 100] })) })).toEqual(['budgets'])
