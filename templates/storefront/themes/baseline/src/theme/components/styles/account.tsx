@@ -1,6 +1,9 @@
 import { clsx } from 'clsx'
 
 // The account styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+const navItemBase = clsx('focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px] py-0 px-4 inline-flex min-h-11 items-center rounded-button font-semibold no-underline')
+const tabBase = clsx('border-0 border-current min-h-11 rounded-button [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]')
+
 export const account = {
   account: clsx('grid gap-y-5 gap-x-5 items-start min-[900px]:grid-cols-[220px_minmax(0,1fr)] min-[900px]:gap-y-8 min-[900px]:gap-x-8'),
   address: clsx('pb-2.5 border-b border-b-line grid gap-y-1.5 gap-x-1.5'),
@@ -21,7 +24,8 @@ export const account = {
   lead: clsx('m-0 text-ink-soft text-[14px]'),
   link: clsx('focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px] p-0 border-0 border-current min-h-6 bg-transparent text-ink [font-family:inherit] [font-weight:inherit] [font-style:inherit] [line-height:inherit] text-[14px] underline underline-offset-[3px] cursor-pointer disabled:opacity-[0.55] disabled:cursor-default'),
   nav: clsx('flex flex-wrap gap-y-2 gap-x-2 min-[900px]:flex-col'),
-  navItem: clsx('focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px] py-0 px-4 inline-flex min-h-11 items-center rounded-button text-ink-soft font-semibold no-underline'),
+  navItem: clsx(navItemBase, 'text-ink-soft'),
+  navItemBase,
   navOn: clsx('bg-soft text-ink'),
   note: clsx('m-0 text-ink-soft text-[14px]'),
   order: clsx('p-4 border border-line flex items-center justify-between gap-y-3 gap-x-3 rounded-card bg-surface text-ink no-underline hover:border-ink-soft focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
@@ -33,7 +37,8 @@ export const account = {
   pill: clsx('py-0.5 px-2.5 inline-block rounded-button bg-tint text-accent text-[12px] font-semibold'),
   row: clsx('flex flex-wrap items-center gap-y-3.5 gap-x-3.5'),
   switch: clsx('pt-4 m-0 border-t border-t-line text-center'),
-  tab: clsx('border-0 border-current min-h-11 rounded-button bg-transparent text-ink-soft [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
+  tab: clsx(tabBase, 'bg-transparent text-ink-soft'),
+  tabBase,
   tabOn: clsx('bg-surface text-ink'),
   tabs: clsx('p-1 grid grid-cols-[1fr_1fr] gap-y-1 gap-x-1 rounded-button bg-soft'),
   title: clsx('m-0 font-heading text-[30px] font-[var(--heading-weight)] tracking-[var(--heading-spacing)] [text-transform:var(--heading-case)]'),

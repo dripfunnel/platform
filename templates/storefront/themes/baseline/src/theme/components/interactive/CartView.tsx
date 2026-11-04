@@ -152,12 +152,12 @@ export const CartView = () => {
           {blocked ? (
             <>
               <p className={styles.problem}>{t('shop.cart.blocked')}</p>
-              <button type="button" className={clsx('py-0 px-5.5 border border-accent inline-flex min-h-12 items-center justify-center rounded-button bg-accent text-accent-ink [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold no-underline cursor-pointer group-[:nth-child(n)]/shop-noticeActions:[align-self:auto] focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]', styles.checkout)} disabled>
+              <button type="button" className={clsx(shop.primaryBase, styles.checkout)} disabled>
                 {t('shop.cart.checkout')}
               </button>
             </>
           ) : (
-            <Link href="/checkout/" className={clsx('py-0 px-5.5 border border-accent inline-flex min-h-12 items-center justify-center rounded-button bg-accent text-accent-ink [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold no-underline cursor-pointer group-[:nth-child(n)]/shop-noticeActions:[align-self:auto] focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]', styles.checkout)}>
+            <Link href="/checkout/" className={clsx(shop.primaryBase, styles.checkout)}>
               {t('shop.cart.checkout')}
             </Link>
           )}

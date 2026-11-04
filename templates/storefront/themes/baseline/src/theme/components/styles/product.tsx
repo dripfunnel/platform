@@ -1,6 +1,8 @@
 import { clsx } from 'clsx'
 
 // The product styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+const heartBase = clsx('group-[:nth-child(n)]/product-buy:p-0 group-[:nth-child(n)]/product-buy:border group-[:nth-child(n)]/product-buy:inline-flex group-[:nth-child(n)]/product-buy:flex-[0_0_48px] group-[:nth-child(n)]/product-buy:min-h-12 group-[:nth-child(n)]/product-buy:items-center group-[:nth-child(n)]/product-buy:justify-center group-[:nth-child(n)]/product-buy:rounded-button group-[:nth-child(n)]/product-buy:bg-surface group-[:nth-child(n)]/product-buy:cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]')
+
 export const product = {
   added: clsx('m-0 basis-[100%] text-ink-soft text-[14px]'),
   badge: clsx('py-0.75 px-2.5 border border-line rounded-full bg-surface text-[12px] font-semibold'),
@@ -11,7 +13,8 @@ export const product = {
   from: clsx('font-bold'),
   gallery: clsx('flex min-w-0 flex-col gap-y-2.5 gap-x-2.5'),
   gift: clsx('grid basis-[100%] gap-y-3 gap-x-3'),
-  heart: clsx('group-[:nth-child(n)]/product-buy:p-0 group-[:nth-child(n)]/product-buy:border group-[:nth-child(n)]/product-buy:border-line group-[:nth-child(n)]/product-buy:inline-flex group-[:nth-child(n)]/product-buy:flex-[0_0_48px] group-[:nth-child(n)]/product-buy:min-h-12 group-[:nth-child(n)]/product-buy:items-center group-[:nth-child(n)]/product-buy:justify-center group-[:nth-child(n)]/product-buy:rounded-button group-[:nth-child(n)]/product-buy:bg-surface group-[:nth-child(n)]/product-buy:text-ink group-[:nth-child(n)]/product-buy:cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
+  heart: clsx(heartBase, 'group-[:nth-child(n)]/product-buy:border-line group-[:nth-child(n)]/product-buy:text-ink'),
+  heartBase,
   heartOn: clsx('group-[:nth-child(n)]/product-buy:border-accent group-[:nth-child(n)]/product-buy:text-accent'),
   highlights: clsx('pl-4.5 m-0 text-ink-soft'),
   info: clsx('flex min-w-0 flex-col items-start gap-y-3.5 gap-x-3.5'),

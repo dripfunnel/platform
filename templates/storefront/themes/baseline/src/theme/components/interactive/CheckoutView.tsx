@@ -113,7 +113,7 @@ export const CheckoutView = () => {
           value={cart.shippingOption}
           className={styles.choices}
           optionClassName={styles.choice}
-          chosenClassName={clsx('[&_input]:mt-0.5 [&_input]:mr-0 [&_input]:mb-0 [&_input]:ml-0 [&_input]:w-4.5 [&_input]:h-4.5 [&_input]:[accent-color:var(--color-accent)]', styles.chosen)}
+          chosenClassName={clsx(styles.choiceBase, styles.chosen)}
           onChange={(o) => void c.chooseDelivery(o)}
           options={cart.shippingOptions.map((o) => ({
             value: o.id,
@@ -140,7 +140,7 @@ export const CheckoutView = () => {
               value={c.chosen}
               className={styles.choices}
               optionClassName={styles.choice}
-              chosenClassName={clsx('[&_input]:mt-0.5 [&_input]:mr-0 [&_input]:mb-0 [&_input]:ml-0 [&_input]:w-4.5 [&_input]:h-4.5 [&_input]:[accent-color:var(--color-accent)]', styles.chosen)}
+              chosenClassName={clsx(styles.choiceBase, styles.chosen)}
               onChange={c.choosePayment}
               options={c.payments.map((p) => ({
                 value: p.provider,
@@ -183,7 +183,7 @@ export const CheckoutView = () => {
         </dl>
         <p className={styles.note}>{t('shop.checkout.agree')}</p>
         <PaymentElement t={t} className={styles.payment} />
-        <PlaceOrder checkout={c} className={clsx('py-0 px-5.5 border border-accent inline-flex min-h-12 items-center justify-center rounded-button bg-accent text-accent-ink [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold no-underline cursor-pointer group-[:nth-child(n)]/shop-noticeActions:[align-self:auto] focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]', styles.pay)} again={t('shop.checkout.payAgain')}>
+        <PlaceOrder checkout={c} className={clsx(shop.primaryBase, styles.pay)} again={t('shop.checkout.payAgain')}>
           {t('shop.checkout.place')}
         </PlaceOrder>
         {c.phase.kind === 'failed' && c.phase.orderId === null ? <p className={styles.error} role="alert">{refusal(c.phase.code)}</p> : null}
@@ -202,9 +202,9 @@ export const CheckoutView = () => {
       <div className={styles.layout}>
         <ol className={styles.steps}>
           {c.steps.map((s) => (
-            <li key={s.id} className={clsx('p-4.5 border [counter-increment:step] rounded-card bg-surface', !(s.state === 'open') && 'border-line', s.state === 'open' && styles.open)}>
+            <li key={s.id} className={clsx(styles.stepBase, !(s.state === 'open') && 'border-line', s.state === 'open' && styles.open)}>
               <div className={styles.stepHead}>
-                <span className={clsx('group-[:nth-child(n)]/checkout-open:bg-accent group-[:nth-child(n)]/checkout-open:text-accent-ink', !(s.state === 'done') && 'inline-flex w-6.5 h-6.5 shrink-0 items-center justify-center rounded-full bg-soft text-ink text-[13px] font-bold [&::before]:[content:counter(step)]', s.state === 'done' && styles.numberDone)} aria-hidden="true" />
+                <span className={clsx(styles.numberBase, !(s.state === 'done') && 'inline-flex w-6.5 h-6.5 shrink-0 items-center justify-center rounded-full bg-soft text-ink text-[13px] font-bold [&::before]:[content:counter(step)]', s.state === 'done' && styles.numberDone)} aria-hidden="true" />
                 <h2 className={styles.stepTitle}>{stepTitle(s.id)}</h2>
                 {s.state === 'done' && s.id !== 'review' ? (
                   <button type="button" className={styles.change} aria-label={t('shop.checkout.changeStep', { step: stepTitle(s.id) })} onClick={() => c.edit(s.id)}>
