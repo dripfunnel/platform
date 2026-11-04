@@ -517,7 +517,8 @@ could at worst *display* something wrong, never *charge* it.
 ### 3.4 The validator (`./guard`)
 
 Run on every change, before the change becomes the draft (§6.2), and again on the whole theme
-at publish. It is an **allowlist**: what isn't listed is refused. `validateChange(files, context)`
+at publish. It is an **allowlist**: what isn't listed is refused. `validateTheme(files, context)`
+(every rule below, the class rules of "Classes" included; `validateChange` is the same without them, #1239)
 takes the whole theme as it would be after the change, plus any other path the change writes, and
 the store's languages, content and post paths and brand fields from the platform, so it needs no
 network. Each problem names the file, the line, a rule id and a plain-words message for the repair
