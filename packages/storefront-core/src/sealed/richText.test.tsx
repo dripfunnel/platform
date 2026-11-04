@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { RichText, textOfRichText } from './richText'
+import { textOfRichText } from '../platform/text/richText'
+import { RichText } from './richText'
 
+const RichTextHtml = (description: string) => renderToStaticMarkup(<RichText html={description} />)
 const html = (description: string, className?: string) => renderToStaticMarkup(<RichText html={description} className={className} />)
 
 describe('RichText (#1216)', () => {
@@ -69,5 +71,16 @@ describe('textOfRichText (#1216)', () => {
   it('reads plain text as it is', () => {
     expect(textOfRichText('Soft cotton.\n\nHand wash.')).toBe('Soft cotton. Hand wash.')
     expect(textOfRichText('')).toBe('')
+  })
+})
+
+// apps/api's catalog/richText.test.ts checks the same file against what the engine stores: the two readers must agree.
+const corpus = JSON.parse(readFileSync(new URL('../../../../apps/api/src/engine/modules/catalog/richText.corpus.json', import.meta.url), 'utf8')) as { name: string; input: string; html: string }[]
+
+describe('RichText and the engine’s sanitiser read the same corpus alike (#1216)', () => {
+  it.each(corpus)('$name', ({ input, html }) => {
+    const drawn = html.replaceAll('<br>', '<br/>').replace(/<a href="([^"]*)">/g, '<a href="$1" rel="noopener nofollow">')
+    expect(RichTextHtml(input)).toBe(drawn === '' ? '' : `<div>${drawn}</div>`)
+    expect(RichTextHtml(html)).toBe(drawn === '' ? '' : `<div>${drawn}</div>`)
   })
 })

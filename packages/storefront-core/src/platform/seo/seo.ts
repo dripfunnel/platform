@@ -1,4 +1,4 @@
-import { textOfRichText } from '../../sealed/richText'
+import { textOfRichText } from '../text/richText'
 import { toDecimal, type Money } from '../../pricing/money'
 
 // Metadata every page gets from core, which a theme can't remove (storefront ARCHITECTURE §8):

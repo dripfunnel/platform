@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { sanitiseDescription as clean } from './richText'
+
+// The same file runs through storefront-core's RichText (sealed/richText.test.tsx), so the two readers cannot drift apart.
+const corpus = JSON.parse(readFileSync(new URL('./richText.corpus.json', import.meta.url), 'utf8')) as { name: string; input: string; html: string }[]
 
 describe('sanitiseDescription (#1216)', () => {
   it('keeps the allowed formatting', () => {
@@ -90,5 +94,12 @@ describe('sanitiseDescription (#1216)', () => {
   it('does not hang on a long run of open angle brackets or an unclosed tag', () => {
     expect(clean('<'.repeat(50_000))).toBe(`<p>${'&lt;'.repeat(50_000)}</p>`)
     expect(clean(`<p>${'<b '.repeat(20_000)}`)).toBe(`<p>${'&lt;b '.repeat(20_000).trim()}</p>`)
+  })
+})
+
+describe('the shared corpus (#1216)', () => {
+  it.each(corpus)('$name', ({ input, html }) => {
+    expect(clean(input)).toBe(html)
+    expect(clean(html)).toBe(html)
   })
 })

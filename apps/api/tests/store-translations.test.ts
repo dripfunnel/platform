@@ -117,6 +117,12 @@ describe('a product’s translations', () => {
     expect(status(english.rows, 'product', 'slug')).toEqual([['linen-kurta', 'linen-kurta-indian-cut', 'translated']])
   })
 
+  it('sanitises a translated description like the main one', async () => {
+    const dirty = '<p onclick="x()">Hola <b>mundo</b></p><script>x()</script><a href="javascript:x()">Care</a>'
+    expect(status((await translate('owner', kurta, 'en-IN', { description: dirty })).rows, 'product', 'description')).toEqual([['<p>Soft linen, made in Jaipur.</p>', '<p>Hola <strong>mundo</strong></p><p>Care</p>', 'translated']])
+    expect(status((await translate('owner', kurta, 'en-IN', { description: '' })).rows, 'product', 'description')).toEqual([['<p>Soft linen, made in Jaipur.</p>', null, 'missing']])
+  })
+
   it('keeps each web address unique within its language, and only a well-formed one', async () => {
     const other = await create('owner', kurtaInput('Cotton kurta'))
     expect((await translate('owner', other, 'en-IN', { name: 'Linen kurta, Indian cut' })).code).toBe('DUPLICATE_SLUG')
@@ -180,6 +186,8 @@ describe('shared names, collections and filters', () => {
       gql(`mutation C($e: String!, $id: ID!, $input: TranslationTextInput!) { saveCatalogueTranslation(entity: $e, id: $id, language: "en-IN", input: $input) { ${rowFields} } }`, who, { e: entity, id, input })
     const saved = (await save('collection', collection?.id ?? '', { name: 'Summer wear', description: 'Light clothes' })).data?.['saveCatalogueTranslation'] as Row[]
     expect(saved.map((r) => [r.field, r.text, r.status])).toEqual([['name', 'Summer wear', 'translated'], ['slug', 'summer-wear', 'translated'], ['description', 'Light clothes', 'translated']])
+    const typed = (await save('collection', collection?.id ?? '', { description: ' <b>Light</b> clothes ' })).data?.['saveCatalogueTranslation'] as Row[]
+    expect(typed.find((r) => r.field === 'description')?.text).toBe('<b>Light</b> clothes')
     expect(((await save('filter', filter?.id ?? '', { name: 'Material', description: 'ignored' })).data?.['saveCatalogueTranslation'] as Row[]).map((r) => [r.field, r.text])).toEqual([['name', 'Material']])
     expect((await save('collection', collection?.id ?? '', { name: 'Summer' }, 'supplier')).code).toBe('FORBIDDEN')
     expect((await save('menu', collection?.id ?? '', { name: 'x' })).code).toBe('INVALID_INPUT')

@@ -104,6 +104,8 @@ beforeAll(async () => {
       { choices: ['M'], sku: 'KU-M', prices: [inr('129950')] },
     ],
   })
+  // A description saved before it became rich text is plain; the export still guards a formula in it.
+  await db.sql`update product set description = '=cotton, handloomed' where id = ${kurta}`
   await create('owner', { name: 'Hidden lamp', visible: false, options: [], versions: [{ choices: [], sku: 'LAMP', prices: [inr('5000')] }] })
   await create('supplier', { name: 'Supplier mug', options: [], versions: [{ choices: [], sku: 'MUG', prices: [inr('20000')] }] })
   await create('otherSupplier', { name: 'Other bowl', options: [], versions: [{ choices: [], sku: 'BOWL', prices: [inr('30000')] }] })
@@ -132,7 +134,7 @@ describe('product exports', () => {
     const done = await job('owner', id ?? '')
     const lines = (done?.csv ?? '').split('\n')
     expect(lines[0]).toBe('handle,name,description,type,visible,option1 name,option1 value,option2 name,option2 value,option3 name,option3 value,sku,barcode,price,compare at price,cost,weight grams,stock,name:hi-IN,description:hi-IN,price:USD')
-    expect(lines).toContain(`kurta,Kurta,"<p>=cotton, handloomed</p>",physical,yes,Size,S,,,,,KU-S,,1299.50,1499.00,600.00,300,7,कुर्ता,,15.99`)
+    expect(lines).toContain(`kurta,Kurta,"'=cotton, handloomed",physical,yes,Size,S,,,,,KU-S,,1299.50,1499.00,600.00,300,7,कुर्ता,,15.99`)
     expect(lines).toContain('kurta,,,,,,M,,,,,KU-M,,1299.50,,,,0,,,')
     // The merchant side's file holds its suppliers' products, never another store's.
     expect(done?.csv).toContain('MUG')

@@ -12,7 +12,7 @@ import { useStorefront } from '../platform/store/context'
 import { stockSchema, type Badge, type Stock } from '../pricing/brand'
 import { moneySchema, type Money } from '../pricing/money'
 import type { LegalNotice } from '../sealed/components'
-import { textOfRichText } from '../sealed/richText'
+import { textOfRichText } from '../platform/text/richText'
 import { badgesSchema, cardsSchema, moneyFields, productPath, summaryFields, type ProductCard } from './summary'
 
 // A product page (ARCHITECTURE §2.1 `products`; DESIGN §6): which versions exist and can be bought, the chosen version's
