@@ -10,8 +10,9 @@ export interface ShopCache {
   put: (key: Request, response: Response) => Promise<void>
 }
 
-/** The catalogue's root fields; anything else (a cart, an account, later) is never cached. */
-const cacheable = new Set(['store', 'menu', 'collections', 'collection', 'products', 'search', 'product', 'contentPages', 'contentPage', 'blogPosts', 'blogPost'])
+/** The catalogue's root fields; anything else (a cart, an account, later) is never cached. An offer switched on or off
+ *  follows within 5 minutes, and core hides one past its end at once (#1242). */
+const cacheable = new Set(['store', 'menu', 'collections', 'collection', 'products', 'search', 'product', 'contentPages', 'contentPage', 'blogPosts', 'blogPost', 'offers'])
 const shopCacheSeconds = 300
 // Only the data centre's copy is kept: a browser or a cache in front can't see the version move, nor the headers the key reads.
 const servedControl = 'private, no-store'

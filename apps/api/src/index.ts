@@ -106,6 +106,7 @@ import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPassword
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { deleteExpiredSignups } from '#db/scoped/signup'
+import { rankBestSellers } from '#db/scoped/productRank'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
 import { releaseUnpaidOrders, type PaymentWiring } from '#engine/modules/checkout/index'
@@ -1093,6 +1094,13 @@ const refreshRates: CronJob = async (sql) => {
   })
 }
 
+// The storefront's best sellers (BEST_SELLING) and the studio's summary read this ranking (DATA-MODEL §7.3).
+const rankProducts: CronJob = async (sql) => {
+  await withSystemScope(sql, (tx) => rankBestSellers(tx, new Date())).catch((error: unknown) => {
+    logEvent({ event: 'product_rank_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 const purgeExpiredExports: CronJob = async (sql) => {
   const purged = await withSystemScope(sql, async (tx) => {
     const at = new Date()
@@ -1179,7 +1187,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
-  '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
+  '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],
 }
 
