@@ -1,0 +1,7 @@
+.card {
+  padding: 16px;
+}
+
+.badge {
+  --tw-content: 'Only 2 left';
+}

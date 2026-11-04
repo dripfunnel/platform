@@ -1,0 +1,5 @@
+{
+  "rule": "css/url-not-media",
+  "file": "src/theme/styles/theme.css",
+  "line": 2
+}

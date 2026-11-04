@@ -1,4 +1,4 @@
-import { contentPath, cssPath } from '../files.js'
+import { contentPath, cssPath, themeCssPath } from '../files.js'
 import type { Codemod } from './notes.js'
 
 // The upgrade bot's edits to a store's theme (storefront ARCHITECTURE §7.1), run by the sandbox on the live commit:
@@ -86,14 +86,25 @@ const mergeWords = (baseline: Words, own: Words | null): Words =>
 
 const declaration = /(--[A-Za-z0-9_-]+)(\s*:\s*)([^;{}]+)(;)/g
 
+const isStyles = (path: string) => cssPath.test(path) || path === themeCssPath
+
 /** The store's design tokens: each CSS custom property its styles declare, the first declaration winning. */
 const tokensOf = (theme: ThemeFiles): Map<string, string> => {
   const tokens = new Map<string, string>()
   for (const [path, text] of theme) {
-    if (!cssPath.test(path)) continue
+    if (!isStyles(path)) continue
     for (const m of text.matchAll(declaration)) if (m[1] && m[3] && !tokens.has(m[1])) tokens.set(m[1], m[3].trim())
   }
   return tokens
+}
+
+// A Tailwind token is namespaced (--color-ink, --font-heading); a store from before #1239 names it --ink or --heading-font.
+const namespaces = ['color', 'font', 'radius', 'shadow', 'text', 'spacing']
+const ownValue = (tokens: ReadonlyMap<string, string>, name: string): string | undefined => {
+  if (tokens.has(name)) return tokens.get(name)
+  const [, space, rest] = /^--([a-z]+)-(.+)$/.exec(name) ?? []
+  if (!space || !rest || !namespaces.includes(space)) return undefined
+  return tokens.get(`--${rest}`) ?? tokens.get(`--${rest}-${space}`)
 }
 
 /**
@@ -111,7 +122,10 @@ export const baselineWithOwn = (baseline: ThemeFiles, own: ThemeFiles): Map<stri
   const files = new Map<string, string>()
   for (const [path, text] of baseline) {
     if (contentPath.test(path)) continue
-    files.set(path, cssPath.test(path) ? text.replace(declaration, (whole, name: string, colon: string, _value: string, end: string) => (tokens.has(name) ? `${name}${colon}${tokens.get(name) ?? ''}${end}` : whole)) : text)
+    files.set(path, isStyles(path) ? text.replace(declaration, (whole, name: string, colon: string, _value: string, end: string) => {
+      const value = ownValue(tokens, name)
+      return value === undefined ? whole : `${name}${colon}${value}${end}`
+    }) : text)
   }
   const names = new Set([...baseline.keys()].flatMap((p) => contentPath.exec(p)?.[2] ?? []))
   for (const language of languages) {

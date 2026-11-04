@@ -4,6 +4,7 @@ import { interactiveFolder } from './files.js'
 import { jsxProblems } from './jsx.js'
 import { coreThemeModule, inTheme, isOpen, lineOf, literalStrings, parts, themeProgram } from './program.js'
 import { problem, type GuardContext, type Problem, type RuleId } from './rules.js'
+import { clsxNames, inClassPosition } from './tailwind.js'
 import { isAddress, looksLikeWords, showsWrittenText } from './text.js'
 
 /** A `t('file.key')` call, matched against the content files. */
@@ -81,6 +82,8 @@ type Walk = {
   quiet: Set<ts.Node>
   /** Whether each type met so far holds t, kept for the whole program since the checker is shared. */
   holds: Map<ts.Type, boolean>
+  /** The file's clsx names when the class rules judge what reaches a class (ARCHITECTURE §3.4 "Classes"); null otherwise. */
+  classes: ReadonlySet<string> | null
   report: (node: ts.Node, rule: RuleId, message: string) => void
 }
 
@@ -349,6 +352,7 @@ const checkText = (w: Walk, node: ts.StringLiteralLike | ts.TemplateLiteralToken
   if (ts.isJsxText(node)) return
   if (isAddress(node.text)) w.report(node, 'code/url-in-code', "A theme writes no address in its code: links go through core's <Link>, images and video through <Image> and <Video>.")
   if (ts.isJsxAttribute(node.parent) || ts.isJsxExpression(node.parent) || !looksLikeWords(node.text) || isName(node)) return
+  if (w.classes && inClassPosition(node, w.classes)) return
   if (!ts.isStringLiteralLike(node) || !isChoice(w, node)) w.report(node, 'code/text-in-string', "Words shoppers see belong in content/{language}/*.json, shown through t('file.key').")
 }
 
@@ -452,7 +456,7 @@ const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
 }
 
 /** The code rules of ARCHITECTURE §3.4 over every .tsx file, and the content keys the theme's t() calls ask for. */
-export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true): { problems: Problem[]; keys: KeyUse[] } => {
+export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true, classes = false): { problems: Problem[]; keys: KeyUse[] } => {
   const problems: Problem[] = []
   const keys: KeyUse[] = []
   if (code.size === 0) return { problems, keys }
@@ -472,7 +476,7 @@ export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<
     if (sf.referencedFiles.length + sf.typeReferenceDirectives.length + sf.libReferenceDirectives.length > 0) {
       problems.push(problem(file, 1, 'code/declaration-not-allowed', 'A theme may not use /// <reference> directives; it gets its types from its imports.'))
     }
-    const w: Walk = { file, interactive: file.startsWith(interactiveFolder), checker, program, copied, keys, quiet: new Set(), holds, report }
+    const w: Walk = { file, interactive: file.startsWith(interactiveFolder), checker, program, copied, keys, quiet: new Set(), holds, classes: classes ? clsxNames(sf) : null, report }
     try {
       checkDirectives(w, sf)
       for (const statement of sf.statements) visit(w, statement, files)
