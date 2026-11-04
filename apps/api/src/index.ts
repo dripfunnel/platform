@@ -29,6 +29,7 @@ import { handleStaffSession, isStaffSessionPath } from '#apis/store/staffSession
 import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
 import { handleAppAssets, isAppAssetsPath } from '#apis/store/appAssets'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
+import { handleStudioLive, isStudioLivePath, studioLiveRequest } from '#apis/store/studioLive'
 import { handleAiGateway, isAiGatewayPath } from '#apis/store/aiGateway'
 import { createAiOAuth, type AiOAuth } from '#saas/aiOAuth/index'
 import { createOAuthProviders } from '#integrations/ai/index'
@@ -141,7 +142,7 @@ import { stockImages } from '#integrations/stockImages/combine'
 import { openverseImages } from '#integrations/stockImages/openverse'
 import { pexelsImages } from '#integrations/stockImages/pexels'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
-import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
+import { frameClosed, liveUpgrade, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
 import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, storefrontRepoPushKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
@@ -637,13 +638,15 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
       const ip = request.headers.get('cf-connecting-ip')
       if (!ip || !(await limiter.limit({ key: `api-key:${ip}` })).success) return tooManyRequests(60)
     }
-    const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
+    const live = isStudioLivePath(url.pathname)
+    const standing = await resolveStoreStanding(sql, live ? studioLiveRequest(request) : request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
       preview: await previewFor(config), siteRepos: async () => { const app = await githubFor(config); return app ? storeRepos(app.session(), config.GITHUB_STORE_ORG) : null }, studio: studioFor(env), design: designFor(config, env, sql, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
+    if (live) return handleStudioLive(request, context, { open: studioLiveFor(env) })
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isAppAssetsPath(url.pathname)) return handleAppAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
@@ -844,6 +847,7 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
       status: async (storeId) => await stub.status(storeId),
       useTemplate: async (storeId, input) => await stub.useTemplate(storeId, input),
       change: async (storeId, input, model) => await stub.change(storeId, input, model),
+      progress: async (storeId, run, event) => await stub.progress(storeId, run, event),
       cancel: async (storeId) => await stub.cancel(storeId),
       undo: async (storeId, input) => await stub.undo(storeId, input),
       texts: async (storeId, input) => await stub.texts(storeId, input),
@@ -853,6 +857,13 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
       goBack: async (storeId, input) => await stub.goBack(storeId, input),
     }
   }
+}
+
+// The studio's live socket (AI-STUDIO §4 "Live progress"), handed to the store the session's TenantContext names.
+const studioLiveFor = (env: Env): ((context: TenantContext, input: { sessionHash: string; after: number }) => Promise<Response>) | null => {
+  const namespace = env.STUDIO_SESSION as DurableObjectNamespace<StudioSessionObject> | undefined
+  if (!namespace) return null
+  return (context, input) => studioOf(namespace, context).fetch(liveUpgrade(context.storeId, input))
 }
 
 // The studio frame on a preview host (storefront AI-STUDIO §3 step 6): the host's store's Durable Object, or nothing.

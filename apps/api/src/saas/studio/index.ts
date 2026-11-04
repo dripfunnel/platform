@@ -5,5 +5,6 @@ export { baselineTemplate, StudioCancelled, StudioQueued, StudioRunner, StudioUn
 export { closeEndedSockets, dressFrameResponse, frameClosed, frameOpening, serveFrame, studioFrameOf, studioStoreHeader, type FrameServer, type FrameSocket } from './frame'
 export { endStudioSession, hashStudioSession, liveStudioSession, liveStudioSessionHash, openStudioSession, renewStudio, studioAccess, studioRenewEveryMs, studioSessionMs, studioSessionPattern, type OpenedStudioSession, type StudioAccess } from './sessions'
 export { studioForJob, studioOf } from './stub'
+export { liveHub, liveSender, liveSteps, liveTag, liveUpgrade, liveUpgradeOf, type LiveEvent, type LiveMessage, type LiveSocket, type LiveStep } from './live'
 export { templateChange } from './template'
 export { preparedAnswer, studioAnswer, type Prepared, type StudioAnswer, type StudioApi, type StudioState } from './api'

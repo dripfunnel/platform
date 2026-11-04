@@ -6,6 +6,7 @@ import { isNewerVersion } from '#core/semver'
 import { baseDraftOnBuild, insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
+import type { LiveEvent } from './live'
 import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
 import { pageTexts, withText } from './texts'
 import { templateChange } from './template'
@@ -90,7 +91,7 @@ const migrationRequest = (ask: Pick<MigrationAsk, 'to' | 'failing' | 'notes'>): 
 export const baselineTemplate = 'baseline'
 
 /** A merchant's request on its plan or own key, or the platform's own repair of a publish (`userId` null, SAAS §9.1). */
-export type ChangeRequest = { request: string; userId: string | null; billedTo: 'plan' | 'own_key' | 'platform'; model: DesignModel }
+export type ChangeRequest = { request: string; userId: string | null; billedTo: 'plan' | 'own_key' | 'platform'; model: DesignModel; progress?: (event: LiveEvent) => void }
 
 const routesSchema = z.object({ custom: z.record(z.string(), z.string()).optional() })
 
@@ -516,11 +517,19 @@ export class StudioRunner {
     stopping.catch(() => undefined)
     const run = { stop, stopped: false, sandboxed: false }
     this.running = run
+    const progress = input.progress ?? (() => undefined)
+    let summarised = false
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
+        progress(attempt === 0 ? { type: 'step', step: 'asking' } : { type: 'step', step: 'repairing', attempt, of: maxRepairs })
         const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous }), stopping])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
+        if (proposal.summary?.reply && !summarised) {
+          summarised = true
+          progress({ type: 'text', text: proposal.summary.reply })
+        }
+        progress({ type: 'step', step: 'checking' })
         const startedAt = this.deps.now().getTime()
         run.sandboxed = true
         const made: Attempt = { proposal, ms: 0, result: null }
@@ -560,7 +569,9 @@ export class StudioRunner {
     }
     let previewRef: string | null
     try {
+      if (saved) progress({ type: 'step', step: 'saving' })
       previewRef = saved ? await this.save(saved, last, input.userId, after) : null
+      if (previewRef) progress({ type: 'step', step: 'updating' })
     } catch (error) {
       // A pass that couldn't be saved changed nothing the merchant can see, but its asks were still spent.
       await this.record(input, attempts, 'failed')

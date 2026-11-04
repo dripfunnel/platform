@@ -6,7 +6,7 @@ import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveHub, liveStudioSession, liveStudioSessionHash, liveTag, liveUpgradeOf, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type LiveEvent, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -60,6 +60,7 @@ export const studioSessionClass = (connect: Connect) =>
     private lastActive = Date.now()
     private db: (<T>(work: (sql: postgres.Sql) => Promise<T>) => Promise<T>) | null = null
     private opening: Promise<StudioState> | null = null
+    private hub = liveHub(this.ctx.storage, () => this.ctx.getWebSockets(liveTag), () => Date.now())
 
     /** The object is named by its store's id; it refuses any call for another store, whoever made it. */
     private async runnerFor(storeId: string): Promise<StudioRunner> {
@@ -143,9 +144,16 @@ export const studioSessionClass = (connect: Connect) =>
     }
 
     /** One change, after the ones before it (AI-STUDIO §4); `model` is the Worker's, called back over RPC. */
-    async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel): Promise<StudioAnswer> {
+    async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key'; run: string }, model: DesignModel): Promise<StudioAnswer> {
       const runner = await this.active(storeId)
-      return studioAnswer(() => runner.change({ ...input, model }))
+      const { run, ...request } = input
+      return studioAnswer(() => runner.change({ ...request, model, progress: (event) => void this.hub.publish(run, event) }))
+    }
+
+    /** The Worker's events of a run: its first step, a chat's words and the outcome (AI-STUDIO §4 "Live progress"). */
+    async progress(storeId: string, run: string, event: LiveEvent): Promise<void> {
+      await this.runnerFor(storeId)
+      await this.hub.publish(run, event)
     }
 
     /** Stop: reaches the running change without waiting in its turn. */
@@ -233,6 +241,8 @@ export const studioSessionClass = (connect: Connect) =>
 
     /** The studio frame's files and its hot-reload WebSocket (AI-STUDIO §3 step 6), each after the session check. */
     override async fetch(request: Request): Promise<Response> {
+      const live = liveUpgradeOf(request)
+      if (live) return this.live(live)
       // The API names the host's store; runnerFor refuses it unless it is this object's own.
       const storeId = request.headers.get(studioStoreHeader)
       const runner = storeId ? await this.runnerFor(storeId).catch(() => null) : null
@@ -255,6 +265,18 @@ export const studioSessionClass = (connect: Connect) =>
           return new Response(null, { status: 101, webSocket: pair[0] })
         },
       })
+    }
+
+    /** The studio's live socket, checked by the Store API; tagged with its studio session so the sweep closes it with the frame's. */
+    private async live(input: { storeId: string; sessionHash: string; after: number }): Promise<Response> {
+      if (!(await this.runnerFor(input.storeId).catch(() => null))) return frameClosed()
+      const pair = new WebSocketPair()
+      await this.hub.connect(() => {
+        this.ctx.acceptWebSocket(pair[1], [input.sessionHash, liveTag])
+        return pair[1]
+      }, input.after)
+      if ((await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(Date.now() + tickMs)
+      return new Response(null, { status: 101, webSocket: pair[0] })
     }
 
     override async alarm(): Promise<void> {
@@ -305,6 +327,6 @@ export const studioSessionClass = (connect: Connect) =>
     /** The frame's hot reload (AI-STUDIO §4 step 5) to every open frame of this store. */
     private announce(bundle: ClientBundle): void {
       const notice = JSON.stringify({ type: 'bundle', id: bundle.id, entry: bundle.entry })
-      for (const socket of this.ctx.getWebSockets()) socket.send(notice)
+      for (const socket of this.ctx.getWebSockets()) if (!this.ctx.getTags(socket).includes(liveTag)) socket.send(notice)
     }
   }
