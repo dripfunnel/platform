@@ -51,21 +51,25 @@ export type WishlistPage = {
 }
 
 const pendingKey = 'df.wishlist.pending'
+const pendingVersionKey = 'df.wishlist.pending.version'
 
 /** The product to add once sign-in is done; kept for this visit's tab only, so a later visit never adds it. */
 const pending = {
-  keep: (productId: string) => {
+  keep: (productId: string, versionId: string | null) => {
     try {
       globalThis.sessionStorage?.setItem(pendingKey, productId)
+      if (versionId) globalThis.sessionStorage?.setItem(pendingVersionKey, versionId)
     } catch {
       // Storage is off: the shopper signs in and taps the heart again.
     }
   },
-  take: (): string | null => {
+  take: (): { productId: string; versionId: string | null } | null => {
     try {
-      const found = globalThis.sessionStorage?.getItem(pendingKey) ?? null
-      if (found) globalThis.sessionStorage?.removeItem(pendingKey)
-      return found
+      const productId = globalThis.sessionStorage?.getItem(pendingKey) ?? null
+      const versionId = globalThis.sessionStorage?.getItem(pendingVersionKey) ?? null
+      globalThis.sessionStorage?.removeItem(pendingKey)
+      globalThis.sessionStorage?.removeItem(pendingVersionKey)
+      return productId ? { productId, versionId } : null
     } catch {
       return null
     }
@@ -74,7 +78,7 @@ const pending = {
 
 const chosenKey = 'df.wishlist.chosen'
 
-/** The version chosen for each product, kept on this device only: the wishlist itself stores products, not options. */
+/** The version chosen for each product, kept on this device only and forgotten at sign-out: the wishlist itself stores products, not options. */
 const chosen = {
   all: (): Record<string, string> => {
     try {
@@ -82,6 +86,13 @@ const chosen = {
       return z.record(z.string(), z.string()).parse(found)
     } catch {
       return {}
+    }
+  },
+  clear: () => {
+    try {
+      globalThis.localStorage?.removeItem(chosenKey)
+    } catch {
+      // Storage is off: nothing was kept.
     }
   },
   set: (productId: string, versionId: string | null) => {
@@ -145,7 +156,10 @@ export const useWishlist = ({ cards = false }: { cards?: boolean } = {}): Wishli
 
   useEffect(() => {
     const asked = (latest.current += 1)
-    if (!signedIn) return setLoaded({ ...empty, status: 'signedOut' })
+    if (!signedIn) {
+      chosen.clear()
+      return setLoaded({ ...empty, status: 'signedOut' })
+    }
     const load = async (): Promise<Loaded> => {
       if (!cards) {
         const answer = await client.query(idsQuery, idsSchema)
@@ -160,7 +174,10 @@ export const useWishlist = ({ cards = false }: { cards?: boolean } = {}): Wishli
       (e: unknown) => {
         if (asked !== latest.current) return
         // The session ended while the page was open: forget it, so the shopper reads as signed out.
-        if (codeOf(e) === 'SIGNED_OUT') keepShopperToken('session', null)
+        if (codeOf(e) === 'SIGNED_OUT') {
+          keepShopperToken('session', null)
+          chosen.clear()
+        }
         setLoaded({ ...empty, status: codeOf(e) === 'SIGNED_OUT' ? 'signedOut' : 'error', code: codeOf(e) })
       },
     )
@@ -181,7 +198,10 @@ export const useWishlist = ({ cards = false }: { cards?: boolean } = {}): Wishli
         return true
       } catch (e) {
         const code = codeOf(e)
-        if (code === 'SIGNED_OUT') keepShopperToken('session', null)
+        if (code === 'SIGNED_OUT') {
+          keepShopperToken('session', null)
+          chosen.clear()
+        }
         setError(code)
         return false
       } finally {
@@ -196,20 +216,18 @@ export const useWishlist = ({ cards = false }: { cards?: boolean } = {}): Wishli
   useEffect(() => {
     if (!signedIn || adopted.current || loaded.status !== 'ready') return
     adopted.current = true
-    const productId = pending.take()
-    if (productId && !loaded.ids.has(productId)) void change(addMutation, productId, true)
+    const back = pending.take()
+    if (back && !loaded.ids.has(back.productId)) void change(addMutation, back.productId, true).then((added) => added && back.versionId && chosen.set(back.productId, back.versionId))
   }, [signedIn, loaded, change])
 
   const toggle = async (productId: string, versionId: string | null = null) => {
     if (mode !== 'live') return setError('NOT_IN_PREVIEW')
     if (!signedIn) {
-      if (versionId) chosen.set(productId, versionId)
-      pending.keep(productId)
+      pending.keep(productId, versionId)
       return navigate(`/sign-in/?next=${encodeURIComponent(path)}`)
     }
     const has = loaded.ids.has(productId)
-    chosen.set(productId, has ? null : versionId)
-    await change(has ? removeMutation : addMutation, productId, !has)
+    if (await change(has ? removeMutation : addMutation, productId, !has)) chosen.set(productId, has ? null : versionId)
   }
 
   return {

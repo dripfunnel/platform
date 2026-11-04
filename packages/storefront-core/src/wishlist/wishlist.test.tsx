@@ -115,6 +115,41 @@ describe('useWishlist (the heart)', () => {
     expect([shown().error, shown().has('p-1')]).toEqual(['LIMIT', false])
   })
 
+  it('keeps the chosen option only once the add went through', async () => {
+    signedIn()
+    holding([], 'LIMIT')
+    await show()
+    await act(async () => shown().toggle('p-1', 'ver-1'))
+    expect(localStorage.getItem('df.wishlist.chosen')).toBeNull()
+  })
+
+  it('keeps an option already saved when the page opens with none chosen', async () => {
+    signedIn()
+    localStorage.setItem('df.wishlist.chosen', JSON.stringify({ 'p-2': 'ver-2' }))
+    holding(['p-2'])
+    await show()
+    expect(JSON.parse(localStorage.getItem('df.wishlist.chosen') ?? '{}')).toEqual({ 'p-2': 'ver-2' })
+  })
+
+  it('forgets the saved options once the shopper is signed out', async () => {
+    localStorage.setItem('df.wishlist.chosen', JSON.stringify({ 'p-2': 'ver-2' }))
+    holding([])
+    await show()
+    expect(localStorage.getItem('df.wishlist.chosen')).toBeNull()
+  })
+
+  it('saves the option chosen before sign-in once the add after sign-in went through', async () => {
+    at('/products/kurta/')
+    holding([])
+    await show()
+    await act(async () => shown().toggle('p-3', 'ver-3'))
+    expect(localStorage.getItem('df.wishlist.chosen')).toBeNull()
+    cleanup()
+    signedIn()
+    await show()
+    expect(JSON.parse(localStorage.getItem('df.wishlist.chosen') ?? '{}')).toEqual({ 'p-3': 'ver-3' })
+  })
+
   it('adds the product remembered at sign-in once, and only if it is not there already', async () => {
     signedIn()
     sessionStorage.setItem('df.wishlist.pending', 'p-3')

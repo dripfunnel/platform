@@ -14,7 +14,7 @@ export const WishlistHeart = ({ productId, name, versionId }: { productId: strin
   const on = wishlist.has(productId)
   const { chose } = wishlist
   useEffect(() => {
-    if (on) chose(productId, versionId)
+    if (on && versionId) chose(productId, versionId)
   }, [on, chose, productId, versionId])
   return (
     <>
