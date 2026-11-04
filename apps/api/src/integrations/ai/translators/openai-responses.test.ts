@@ -50,7 +50,7 @@ describe('openai-responses response', () => {
   const usage = { input_tokens: 8, output_tokens: 2, input_tokens_details: { cached_tokens: 5 } }
   const message = (text: string) => ({ type: 'message', content: [{ type: 'output_text', text }] })
   it('parses text and cached usage', () => {
-    expect(response.parse({ model: 'gpt-x', status: 'completed', output: [message('he'), message('llo')], usage })).toEqual({ text: 'hello', toolCalls: [], finish: 'stop', usage: { tokensIn: 8, tokensOut: 2, cachedTokensIn: 5 }, model: 'gpt-x' })
+    expect(response.parse({ model: 'gpt-x', status: 'completed', output: [message('he'), message('llo')], usage })).toEqual({ text: 'hello', toolCalls: [], finish: 'stop', usage: { tokensIn: 8, tokensOut: 2, cachedTokensIn: 5, cacheWriteTokensIn: 0 }, model: 'gpt-x' })
   })
   it('parses function calls and incomplete and refusal outcomes', () => {
     expect(response.parse({ model: 'm', status: 'completed', output: [{ type: 'function_call', call_id: 'c', name: 'f', arguments: '{"a":1}' }] })).toMatchObject({ toolCalls: [{ id: 'c', name: 'f', arguments: '{"a":1}' }], finish: 'tool_use' })
@@ -74,7 +74,7 @@ describe('openai-responses stream', () => {
     expect(run(stream, [{ type: 'response.created' }, delta('he'), delta('llo'), completed])).toEqual([
       { kind: 'text', text: 'he' },
       { kind: 'text', text: 'llo' },
-      { kind: 'usage', usage: { tokensIn: 8, tokensOut: 2, cachedTokensIn: 1 } },
+      { kind: 'usage', usage: { tokensIn: 8, tokensOut: 2, cachedTokensIn: 1, cacheWriteTokensIn: 0 } },
       { kind: 'end', finish: 'stop', model: 'gpt-x' },
     ])
   })

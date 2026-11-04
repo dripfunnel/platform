@@ -58,7 +58,7 @@ describe('openai-chat request', () => {
 describe('openai-chat response', () => {
   const completion = (message: object, finish_reason: string | null = 'stop') => ({ model: 'gpt-x', choices: [{ message, finish_reason }], usage: { prompt_tokens: 9, completion_tokens: 3, prompt_tokens_details: { cached_tokens: 4 } } })
   it('parses text, finish and cached usage', () => {
-    expect(response.parse(completion({ content: 'hello' }))).toEqual({ text: 'hello', toolCalls: [], finish: 'stop', usage: { tokensIn: 9, tokensOut: 3, cachedTokensIn: 4 }, model: 'gpt-x' })
+    expect(response.parse(completion({ content: 'hello' }))).toEqual({ text: 'hello', toolCalls: [], finish: 'stop', usage: { tokensIn: 9, tokensOut: 3, cachedTokensIn: 4, cacheWriteTokensIn: 0 }, model: 'gpt-x' })
   })
   it('parses tool calls and maps finish reasons', () => {
     const parsed = response.parse(completion({ content: null, tool_calls: [{ id: 'c', type: 'function', function: { name: 'f', arguments: '{"a":1}' } }] }, 'tool_calls'))
@@ -83,7 +83,7 @@ describe('openai-chat stream', () => {
     expect(events).toEqual([
       { kind: 'text', text: 'he' },
       { kind: 'text', text: 'llo' },
-      { kind: 'usage', usage: { tokensIn: 9, tokensOut: 3, cachedTokensIn: 2 } },
+      { kind: 'usage', usage: { tokensIn: 9, tokensOut: 3, cachedTokensIn: 2, cacheWriteTokensIn: 0 } },
       { kind: 'end', finish: 'stop', model: 'gpt-x' },
     ])
   })
