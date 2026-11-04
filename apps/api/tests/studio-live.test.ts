@@ -191,3 +191,20 @@ describe('the StudioSession’s live sockets (#1237)', () => {
     expect(current.alarm()).toBeNull()
   })
 })
+
+describe('the StudioSession’s kept summary (#1242)', () => {
+  it('keeps its own store’s summary and refuses both calls for any other store id', async () => {
+    current = objectState()
+    const object = objectOn(current)
+    const kept = { builtAt: 1, text: '{"name":"Store A1"}' }
+    await object.keepSummary(t.storeA1, kept)
+    expect(await object.summary(t.storeA1)).toEqual(kept)
+    await expect(object.summary(t.storeB1)).rejects.toThrow(/another store/)
+    await expect(object.keepSummary(t.storeB1, { builtAt: 2, text: '{"name":"Store B1"}' })).rejects.toThrow(/another store/)
+    expect(await object.summary(t.storeA1)).toEqual(kept)
+    // An object first named by another store holds that store's only, and never reads A1's.
+    const other = objectOn(objectState())
+    expect(await other.summary(t.storeB1)).toBeNull()
+    await expect(other.summary(t.storeA1)).rejects.toThrow(/another store/)
+  })
+})

@@ -7,4 +7,4 @@ export { endStudioSession, hashStudioSession, liveStudioSession, liveStudioSessi
 export { studioForJob, studioOf } from './stub'
 export { isLiveSocket, liveHub, liveSender, liveSteps, liveTag, liveTags, liveUpgrade, liveUpgradeOf, type LiveEvent, type LiveMessage, type LiveSocket, type LiveStep } from './live'
 export { templateChange } from './template'
-export { preparedAnswer, studioAnswer, type Prepared, type StudioAnswer, type StudioApi, type StudioState } from './api'
+export { preparedAnswer, studioAnswer, type KeptSummary, type Prepared, type StudioAnswer, type StudioApi, type StudioState } from './api'
