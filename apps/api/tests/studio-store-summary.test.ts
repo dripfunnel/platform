@@ -73,9 +73,12 @@ beforeAll(async () => {
   ids['photo'] = await photo(t.storeA1, 'linen-shirt', 10)
   ids['bphoto'] = await photo(t.storeB1, 'b-saree', 10)
 
-  // Pune: 5 orders (named); Nashik: 4 (left out). Store B's Delhi sells more than any of A's.
-  for (let i = 0; i < 5; i += 1) await order(t.storeA1, 'linen-shirt', 2, i % 2 ? 'pune' : ' Pune ', i % 2 ? arjun : priya)
-  for (let i = 0; i < 4; i += 1) await order(t.storeA1, 'cotton-kurta', 1, 'Nashik', arjun)
+  // Pune: 5 shoppers (named); Nashik: 4 shoppers, and Thane 5 orders from one shopper (both left out). Store B's Delhi
+  // sells more than any of A's.
+  const someone = (i: number) => (i === 0 ? priya : i === 1 ? arjun : { name: `Shopper ${i}`, email: `shopper${i}@example.com`, phone: `+91981110010${i}`, street: `${i} Park Street` })
+  for (let i = 0; i < 5; i += 1) await order(t.storeA1, 'linen-shirt', 2, i % 2 ? 'pune' : ' Pune ', someone(i))
+  for (let i = 0; i < 4; i += 1) await order(t.storeA1, 'cotton-kurta', 1, 'Nashik', someone(i))
+  for (let i = 0; i < 5; i += 1) await order(t.storeA1, 'cotton-kurta', 1, 'Thane', priya)
   for (let i = 0; i < 6; i += 1) await order(t.storeB1, 'b-saree', 10, 'Delhi', { name: 'Store B buyer', email: 'b@example.com', phone: '+919811100009', street: 'B street' })
   await withSystemScope(db.sql, (tx) => rankBestSellers(tx, now))
 
@@ -103,14 +106,14 @@ describe('the store summary', () => {
     expect(s.brand).toMatchObject({ tagline: 'Linen for warm days', voice: 'warm', colours: ['#224466'] })
     expect(s.bestSellers).toEqual([
       { name: 'Linen shirt', slug: 'linen-shirt', price: 'INR 1499.00', unitsSold: 10 },
-      { name: 'Cotton kurta', slug: 'cotton-kurta', price: 'INR 999.00', unitsSold: 4 },
+      { name: 'Cotton kurta', slug: 'cotton-kurta', price: 'INR 999.00', unitsSold: 9 },
     ])
     expect(s.topCollections).toEqual([{ name: 'Summer', slug: 'summer', unitsSold: 10 }])
     expect(s.offers).toEqual([{ name: 'Free delivery this week', endsAt: null, appliesTo: 'shipping' }])
     expect(s.newest.map((p) => p.slug)).toEqual(['silk-scarf', 'cotton-kurta', 'linen-shirt'])
   })
 
-  it('names a city only with at least 5 orders behind it: 5 in Pune, 4 in Nashik', async () => {
+  it('names a city only with at least 5 shoppers’ orders behind it: 5 in Pune; 4 in Nashik and one repeat shopper in Thane left out', async () => {
     expect((await summaryA()).topCities).toEqual([{ city: 'Pune', orders: 5 }])
   })
 

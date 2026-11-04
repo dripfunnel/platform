@@ -1010,7 +1010,7 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
     methods, the brand (tagline, description, voice; colours only as a hint), how many products and collections, the
     first 30 collections (name, slug, products, whether it has an image), the 10 best sellers and 5 top collections by
     units sold over 90 days (the hourly `product_rank`, DATA-MODEL §7.3), the 5 top cities by orders, **a city only
-    with at least 5 orders behind it**, the automatic offers on now (name, end, what they apply to; never a code), and
+    with orders from at least 5 shoppers behind it**, so one repeat shopper never names their own, the automatic offers on now (name, end, what they apply to; never a code), and
     the 8 newest products, each product with its lowest price. **Never** a customer's name, phone, email or address, a
     single order or a discount code. It is one statement on the merchant side in the store's scope, built when the
     studio opens and kept in the store's `StudioSession` Durable Object's storage (`summary`, `keepSummary`), since the

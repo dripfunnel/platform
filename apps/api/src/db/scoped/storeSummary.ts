@@ -6,7 +6,7 @@ import { goneThrough } from './storeOrders'
 // store's scope, one statement each. Never a customer, a single order, an address or a code (SAAS §9.2).
 
 export const summaryDays = 90
-/** A city is named only with this many orders behind it. */
+/** A city is named only with this many shoppers' orders behind it, so one repeat shopper never names their own. */
 export const minCityOrders = 5
 export const summaryLimits = { collections: 30, bestSellers: 10, topCollections: 5, cities: 5, offers: 20, newest: 8 } as const
 export const maxLookupProducts = 24
@@ -76,7 +76,8 @@ export const selectStoreSummary = async (tx: ScopedSql, storeId: string, now: Da
         from "order" o
         where o.store_id = s.id and o.state = 'placed' and o.placed_at >= ${since} and o.placed_at <= ${now} and ${goneThrough(tx)}
           and nullif(btrim(o.shipping_address ->> 'city'), '') is not null
-        group by 1 having count(*) >= ${minCityOrders} order by 2 desc, 1 limit ${l.cities}) y), '[]'::json) as cities,
+        group by 1 having count(distinct coalesce(o.customer_id::text, lower(o.email), o.id::text)) >= ${minCityOrders}
+        order by 2 desc, 1 limit ${l.cities}) y), '[]'::json) as cities,
       coalesce((select json_agg(json_build_object('name', p.name, 'ends_at', p.ends_at, 'operation', p.operation) order by p.ends_at nulls last, p.created_at, p.id) from (
         select p.name, p.ends_at, p.created_at, p.id, (select x.operation from promotion_action x where x.promotion_id = p.id order by x.position limit 1) as operation
         from promotion p where ${publicOffer(tx, tx`s.id`, now)} order by p.ends_at nulls last, p.created_at, p.id limit ${l.offers}) p), '[]'::json) as offers,

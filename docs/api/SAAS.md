@@ -866,7 +866,7 @@ on #470), metered in `ai_run` (decided 2026-10-05 on #337)~~ **It knows its own 
 #1242): everything of the store but personal data, as a summary in every prompt and read-only lookups (the full
 catalogue with photos, best sellers, offers), each one query for the acting store, the summary kept beside the studio
 and rebuilt after 10 minutes (storefront ARCHITECTURE §6.2). No customer's name, phone, email or address, no single order
-and no discount code reaches the model; a city appears only with at least 5 orders. Themes show best sellers and offers
+and no discount code reaches the model; a city appears only with orders from at least 5 shoppers. Themes show best sellers and offers
 live through core (`useProducts({ sort: 'best-selling' })`, `useOffers()`), never written into theme code.
 
 ### 9.3 The AI gateway (#950)
