@@ -3,7 +3,7 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StorefrontMeters, StorefrontOverview } from '../../api/storefront'
-import type { DesignMessage, PublishRun, StudioSession } from '../../api/studio'
+import type { DesignMessage, LiveEvent, PublishRun, StudioSession } from '../../api/studio'
 import { fill, messages } from '../../messages'
 import type { StorefrontApi } from './storefrontApi'
 import { StudioView } from './StudioView'
@@ -20,8 +20,19 @@ const overview: StorefrontOverview = { status: 'unpublished_changes', template: 
 const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: '2026-10-12T08:00:00Z', ...more })
 const chat = [line('m3', 'ai', 'I warmed it up.', { changed: ['Colours'], canUndo: true }), line('m2', 'user', 'Make it warmer'), line('m1', 'note', 'template:linen')]
 
+/** The live socket as the studio sees it: `send` delivers an event; it is down until `up` says otherwise (#1237). */
+const socket: { send: (e: LiveEvent) => void; up: (up: boolean) => void } = { send: () => undefined, up: () => undefined }
+let seq = 0
+type Unnumbered = { [K in LiveEvent['type']]: Omit<Extract<LiveEvent, { type: K }>, 'seq' | 'run'> }[LiveEvent['type']]
+const send = (run: string, e: Unnumbered) => act(() => socket.send({ ...e, seq: (seq += 1), run } as LiveEvent))
+
 const fakeApi = () =>
   ({
+    openStudioLive: vi.fn((_session: string, onEvent: (e: LiveEvent) => void, onUp: (up: boolean) => void) => {
+      socket.send = onEvent
+      socket.up = onUp
+      return { close: vi.fn() }
+    }),
     loadStudioSession: vi.fn().mockResolvedValue(ready),
     renewStudioSession: vi.fn().mockResolvedValue(undefined),
     loadDesignChat: vi.fn().mockResolvedValue({ messages: chat, next: null }),
@@ -783,5 +794,62 @@ describe('the studio’s AI line and preview links', () => {
     })
     await settle()
     expect(screen.queryByRole('button', { name: pv.open })).toBeNull()
+  })
+})
+
+describe('the live feed (#1237)', () => {
+  it('shows each step of a change as it arrives, ticks the ones before, and the AI’s summary, in place of "Checking your change…"', async () => {
+    await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>(() => undefined)) })
+    expect(api.openStudioLive).toHaveBeenCalledWith(ready.session, expect.any(Function), expect.any(Function))
+    fireEvent.click(screen.getByRole('button', { name: firstSuggestion }))
+    await settle()
+    expect(screen.getByText(words.sandbox.checking)).toBeTruthy()
+    await send('r1', { type: 'step', step: 'reading' })
+    await send('r1', { type: 'step', step: 'asking' })
+    await send('r1', { type: 'text', text: 'I’m adding a reviews section.' })
+    await send('r1', { type: 'step', step: 'checking' })
+    await send('r1', { type: 'step', step: 'repairing', attempt: 1, of: 3 })
+    expect(screen.queryByText(words.sandbox.checking)).toBeNull()
+    const steps = screen.getAllByRole('listitem').filter((li) => li.classList.contains('df-studio-step'))
+    expect(steps.map((li) => li.textContent)).toEqual([words.live.steps.reading, words.live.steps.asking, words.live.steps.checking, fill(words.live.steps.repairing, { attempt: '1', of: '3' })])
+    expect(steps.map((li) => li.getAttribute('aria-current'))).toEqual([null, null, null, 'step'])
+    expect(screen.getByText('I’m adding a reviews section.')).toBeTruthy()
+    // The feed sits in the chat's polite live region.
+    expect(steps[0]?.closest('[aria-live="polite"]')).not.toBeNull()
+  })
+
+  it('streams a chat answer word by word, announced once as "Writing an answer…"', async () => {
+    await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>(() => undefined)) })
+    await send('r2', { type: 'step', step: 'asking' })
+    expect(screen.getByText(words.live.steps.asking)).toBeTruthy()
+    await send('r2', { type: 'text', text: 'Linen looks ' })
+    await send('r2', { type: 'text', text: 'best in calm tones' })
+    expect(document.querySelector('.df-studio-stream')?.textContent).toBe('Linen looks best in calm tones')
+    expect(screen.getByText(words.live.answering).getAttribute('role')).toBe('status')
+    expect(screen.queryByText(words.live.steps.asking)).toBeNull()
+  })
+
+  it('follows another tab’s change and reads the chat once it ends; an ended run leaves no feed', async () => {
+    await show()
+    const reads = api.loadDesignChat.mock.calls.length
+    await send('r3', { type: 'step', step: 'reading' })
+    expect(screen.getByText(words.live.steps.reading)).toBeTruthy()
+    await send('r3', { type: 'done', outcome: 'changed', messageId: 'm9' })
+    await settle()
+    expect(screen.queryByText(words.live.steps.reading)).toBeNull()
+    expect(api.loadDesignChat.mock.calls.length).toBe(reads + 1)
+    expect(api.loadOverview).toHaveBeenCalled()
+  })
+
+  it('works as before when the socket can’t connect: "Checking your change…" until the answer', async () => {
+    let answer: (outcome: string) => void = () => undefined
+    await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>((resolve) => (answer = resolve))) })
+    act(() => socket.up(false))
+    fireEvent.click(screen.getByRole('button', { name: firstSuggestion }))
+    await settle()
+    expect(screen.getByText(words.sandbox.checking)).toBeTruthy()
+    await act(async () => answer('changed'))
+    await settle()
+    expect(screen.queryByText(words.sandbox.checking)).toBeNull()
   })
 })

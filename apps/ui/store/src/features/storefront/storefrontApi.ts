@@ -6,8 +6,8 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import type { StorefrontDomains, StorefrontMeters, StorefrontVersion } from '../../api/storefront'
 import { postAsset } from '../../api/productEditor'
 import { deleteLibraryAsset, loadLibrary, renameLibraryAsset } from '../../api/assetLibrary'
-import { askDesign, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
-import type { DesignMessage, PublishRun } from '../../api/studio'
+import { askDesign, cancelDesign, importDesignImage, openStudioLive, loadStockAvailable, searchStockImages, useStockImage, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
+import type { DesignMessage, LiveEvent, PublishRun } from '../../api/studio'
 import { sampleContent } from './contentSample'
 import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
 
@@ -31,6 +31,7 @@ export interface StorefrontApi {
   loadPoweredBy: typeof loadPoweredBy
   loadStudioSession: typeof loadStudioSession
   renewStudioSession: typeof renewStudioSession
+  openStudioLive: typeof openStudioLive
   loadDesignChat: typeof loadDesignChat
   askDesign: typeof askDesign
   loadLibrary: typeof loadLibrary
@@ -65,7 +66,7 @@ export interface StorefrontApi {
   saveContentTranslation: typeof saveContentTranslation
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, openStudioLive, loadDesignChat, askDesign, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -136,6 +137,22 @@ export const sampleApi = (state: StorefrontState): StorefrontApi => {
 const sampleSession = { session: 'sampleStudioSession0000', models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'], frameUrl: 'https://kesari-threads.webpreview.store/__studio/sampleStudioSession0000/', access: 'change' as const, expiresAt: '2026-10-12T09:05:00Z' }
 const sessionStates: Partial<Record<StorefrontState, { state: 'starting' | 'queued' | 'busy'; place: number | null }>> = { opening: { state: 'starting', place: null }, queued: { state: 'queued', place: 1 }, finishing: { state: 'busy', place: null } }
 
+/** `working` is a change on its second check after a repair; `chatStreaming` a chat answer halfway (#1237). */
+const sampleLive: Partial<Record<StorefrontState, LiveEvent[]>> = {
+  working: [
+    { seq: 1, run: 'sample-run', type: 'step', step: 'reading' },
+    { seq: 2, run: 'sample-run', type: 'step', step: 'asking' },
+    { seq: 3, run: 'sample-run', type: 'text', text: 'I’m adding a reviews section under your products.' },
+    { seq: 4, run: 'sample-run', type: 'step', step: 'checking' },
+    { seq: 5, run: 'sample-run', type: 'step', step: 'repairing', attempt: 1, of: 3 },
+    { seq: 6, run: 'sample-run', type: 'step', step: 'checking' },
+  ],
+  chatStreaming: [
+    { seq: 1, run: 'sample-chat', type: 'step', step: 'asking' },
+    { seq: 2, run: 'sample-chat', type: 'text', text: 'Linen looks best in a calm, airy shop: soft natural tones like oat, sand and stone, plenty of white space, and large photos that show the weave up close. For your home page, I’d' },
+  ],
+}
+
 /** The studio's sample: a short conversation, and every change accepted at once. */
 const sampleStudio = (state: StorefrontState) => {
   const at = '2026-10-12T08:15:00Z'
@@ -149,6 +166,11 @@ const sampleStudio = (state: StorefrontState) => {
   return {
     loadStudioSession: () => (state === 'ended' ? Promise.reject(new ApiError('SESSION_ENDED', 'Ended.')) : Promise.resolve({ ...sampleSession, ...(sessionStates[state] ?? { state: 'ready' as const, place: null }) })),
     renewStudioSession: () => Promise.resolve(),
+    openStudioLive: (_session: string, onEvent: (event: LiveEvent) => void, onUp: (up: boolean) => void) => {
+      onUp(true)
+      for (const event of sampleLive[state] ?? []) onEvent(event)
+      return { close: () => undefined }
+    },
     loadDesignChat: () => Promise.resolve({ messages: chat, next: null }),
     askDesign: (input: { text: string; imageAssetId: string | null; sampleUrl: string | null }) => {
       n += 2
