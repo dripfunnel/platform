@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useCart, type GiftRecipient } from './cart'
 
 // Add to cart and Buy now (storefront ARCHITECTURE §3.2 "add-to-cart that uses useCart"): the theme words and styles them;
@@ -21,10 +21,28 @@ type Props = {
   describedBy?: string | undefined
 }
 
+/** Disabled until the engine answers, so pressing again doesn't add the version twice. */
+const useOnePress = (onDone: Props['onDone']) => {
+  const [busy, setBusy] = useState(false)
+  const pressed = useRef(false)
+  const press = (act: () => Promise<boolean>) => {
+    if (pressed.current) return
+    pressed.current = true
+    setBusy(true)
+    void act().then((worked) => {
+      pressed.current = false
+      setBusy(false)
+      onDone?.(worked)
+    })
+  }
+  return [press, busy] as const
+}
+
 export const AddToCart = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props) => {
   const cart = useCart()
+  const [press, busy] = useOnePress(onDone)
   return (
-    <button type="button" className={className} data-df-action="add-to-cart" aria-describedby={describedBy} disabled={disabled || versionId === null} onClick={() => (versionId ? void cart.add(versionId, quantity, gift ?? undefined).then((worked) => onDone?.(worked)) : undefined)}>
+    <button type="button" className={className} data-df-action="add-to-cart" aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={() => (versionId ? press(() => cart.add(versionId, quantity, gift ?? undefined)) : undefined)}>
       {children}
     </button>
   )
@@ -33,8 +51,9 @@ export const AddToCart = ({ versionId, quantity = 1, disabled = false, className
 /** Adds the version, then opens checkout. */
 export const BuyNow = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props) => {
   const cart = useCart()
+  const [press, busy] = useOnePress(onDone)
   return (
-    <button type="button" className={className} data-df-action="buy-now" aria-describedby={describedBy} disabled={disabled || versionId === null} onClick={() => (versionId ? void cart.buyNow(versionId, quantity, gift ?? undefined).then((worked) => onDone?.(worked)) : undefined)}>
+    <button type="button" className={className} data-df-action="buy-now" aria-describedby={describedBy} disabled={disabled || busy || versionId === null} onClick={() => (versionId ? press(() => cart.buyNow(versionId, quantity, gift ?? undefined)) : undefined)}>
       {children}
     </button>
   )

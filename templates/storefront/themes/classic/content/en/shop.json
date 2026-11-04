@@ -73,7 +73,7 @@
     "buyNow": "Buy now",
     "added": "Added to your cart.",
     "addFailed": "We couldn't add that. Try again.",
-    "viewCart": "View cart",
+    "goToCart": "Go to cart",
     "download": "A download: {times, plural, one {# download} other {# downloads}} within {days, plural, one {# day} other {# days}} of paying.",
     "downloadPlain": "A download, ready once you've paid.",
     "service": "A service: we'll be in touch to arrange it.",
