@@ -223,4 +223,6 @@ export const registerProducts = ({ builder, pageInfo, image, money: MoneyType }:
     }),
     product: t.field({ type: Product, nullable: true, args: { slug: t.arg.string({ required: true }) }, extensions: { access }, resolve: (_, args, ctx) => catalogOf(ctx).product(args.slug) }),
   }))
+
+  return { Summary }
 }

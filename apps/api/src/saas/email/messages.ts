@@ -275,6 +275,8 @@ export const en = {
     greeting: (name: string | null) => (name ? `Hi ${name},` : 'Hi,'),
     line: (quantity: number, item: string, amount: string | null) => (amount ? `${quantity} × ${item}: ${amount}` : `${quantity} × ${item}`),
     code: (code: string, percent: number) => `Use ${code} for ${percent}% off your cart. It works once, for 48 hours, and is added for you when you go back.`,
+    wishlistTitle: 'Still on your wishlist',
+    wishlistLine: (item: string, amount: string | null) => (amount ? `${item}: from ${amount}` : item),
     action: 'Return to your cart',
     why: (host: string) => `You’re getting this because you started checkout at ${host}.`,
     unsubscribe: (url: string) => `Unsubscribe: ${url}`,

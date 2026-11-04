@@ -18,8 +18,10 @@ import {
 import { suppressedAmong } from '#db/scoped/emailSuppression'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
+import { selectWishlistBesideCart } from '#db/scoped/wishlist'
 import { cartLinesNow, type CartLineNow } from '#engine/modules/cart/index'
 import { issueReminderCode, localTimeIn } from '#engine/modules/promotions/index'
+import { reminderWishlistItems, wishlistItemsNow } from './wishlist'
 import { idleMs, mayEmail, mayWhatsApp, quietWaitMs, reminderWindowMs, skipReasonOf, weeklyCapMs } from './rules'
 
 // The engine's side of abandoned carts (FIRST-RELEASE §9), run from the cron and the outbox in system scope: a cart left in
@@ -136,7 +138,12 @@ export const decideReminder = async ({ sql, now, suppressionKey, whatsappReady }
     const message = { reminderId: r.id, currency: r.cart.currency, lines: shown }
     // A WhatsApp row carries its email too, which it falls back to if it can't go after all (deliverers/whatsapp.ts).
     if (channel === 'whatsapp') await insertOutbox(tx, { kind: 'whatsapp', idempotencyKey: `cart-reminder:${r.id}`, payload: { ...message }, partnerId: r.partner_id, storeId: r.store_id })
-    else await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', ...message }, partnerId: r.partner_id, storeId: r.store_id })
+    else {
+      // Under the cart's lines, for a signed-in shopper: what they wished for that is in stock and not already in the cart.
+      const wished = r.cart.customer_id ? await selectWishlistBesideCart(tx, r.store_id, r.cart.customer_id, r.cart.id) : []
+      const wishlist = (await wishlistItemsNow({ sql, now }, { storeId: r.store_id, partnerId: r.partner_id, language: c.language, currency: c.currency, marketId: c.market_id, features: c.features }, wished, reminderWishlistItems)).map((w) => ({ name: w.name, amount: w.price?.amount.toString() ?? null }))
+      await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', ...message, wishlist }, partnerId: r.partner_id, storeId: r.store_id })
+    }
     return { kind: 'queued', channel }
   })
 }

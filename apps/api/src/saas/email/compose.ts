@@ -117,6 +117,7 @@ const payloads = {
     reminderId: id,
     currency: z.string().regex(/^[A-Z]{3}$/),
     lines: z.array(z.object({ name: z.string().max(400), quantity: z.number().int().min(1).max(999), amount: z.string().regex(/^\d{1,18}$/).nullable() })).max(100),
+    wishlist: z.array(z.object({ name: z.string().max(400), amount: z.string().regex(/^\d{1,18}$/).nullable() })).max(4).default([]),
   }),
 } as const
 export type Template = keyof typeof payloads
@@ -593,6 +594,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const paragraphs = [
         words.body,
         ...p.lines.map((l) => w.line(l.quantity, l.name, money(l.amount))),
+        ...(p.wishlist.length > 0 ? [w.wishlistTitle, ...p.wishlist.map((i) => w.wishlistLine(i.name, money(i.amount)))] : []),
         ...(r.code && r.code_percent ? [w.code(r.code, r.code_percent)] : []),
       ]
       const note = [w.why(host), w.unsubscribe(`https://${host}/unsubscribe/${token}`), ...(address.length > 0 ? [`${r.store_name}, ${address.join(', ')}`] : [])].join(' ')

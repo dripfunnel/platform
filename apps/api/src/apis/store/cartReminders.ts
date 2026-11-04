@@ -11,6 +11,7 @@ import {
   type AbandonedCartView,
   type CartsRefusal,
   type CartsResult,
+  type WishlistItemNow,
   type RemindersRefusal,
   type RemindersResult,
   type ReminderSettingsView,
@@ -175,6 +176,15 @@ export const registerCartReminders = (builder: StoreBuilder) => {
       outOfStock: t.exposeBoolean('outOfStock'),
     }),
   })
+  const Wished = builder.objectRef<WishlistItemNow>('AbandonedCartWishlistItem').implement({
+    fields: (t) => ({
+      productId: t.exposeID('productId'),
+      name: t.exposeString('name'),
+      slug: t.exposeString('slug'),
+      // The cheapest version's price in the cart's currency.
+      price: t.field({ type: MoneyType, nullable: true, resolve: (w) => (w.price ? { amount: w.price.amount.toString(), currency: w.price.currency } : null) }),
+    }),
+  })
   const Reminder = builder.objectRef<CartReminderRow>('CartReminder').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -197,6 +207,8 @@ export const registerCartReminders = (builder: StoreBuilder) => {
       // As it would be bought now: the price here and stock today.
       lines: t.field({ type: [Line], resolve: (d) => d.items }),
       reminders: t.field({ type: [Reminder], resolve: (d) => d.reminders }),
+      // The signed-in shopper's wishlist: what is in stock and visible, minus what is in the cart; empty for a guest cart.
+      wishlist: t.field({ type: [Wished], resolve: (d) => d.wishlist }),
     }),
   })
   const Summary = builder.objectRef<CartSummaryRow & { days: number }>('CartSummary').implement({
