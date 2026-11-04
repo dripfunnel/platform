@@ -160,4 +160,12 @@ describe('the model registry', () => {
     const o = capabilityOf('openai', 'gpt-5')
     expect(a && o && costOf(a, 1_000_000, 1_000_000)).not.toBe(a && o && costOf(o, 1_000_000, 1_000_000))
   })
+
+  it('prices cached input at its own read and write rates, in whole cents rounded up once (#1238)', () => {
+    const opus = capabilityOf('anthropic', 'claude-opus-5-5')
+    if (!opus) throw new Error('opus missing')
+    // 1M in, of it 600k read from the cache and 100k written: 300k × 400 + 600k × 20 + 100k × 500 + 10k × 2000, per million.
+    expect(costOf(opus, 1_000_000, 10_000, { read: 600_000, write: 100_000 })).toBe(Math.ceil((300_000 * 400 + 600_000 * 20 + 100_000 * 500 + 10_000 * 2000) / 1_000_000))
+    expect(costOf(opus, 1_000_000, 10_000, { read: 600_000, write: 100_000 })).toBeLessThan(costOf(opus, 1_000_000, 10_000))
+  })
 })

@@ -1,13 +1,21 @@
-import type { FileChange, GateProblem } from '#integrations/sandbox/index'
+import type { GateProblem } from '#integrations/sandbox/index'
 
 // The designer's model, as the studio's change loop sees it (storefront AI-STUDIO §4 step 2): the Worker calls it with
 // the partner's or merchant's key, which never reaches the Durable Object's storage or the container.
 
+/** One exact search-and-replace in a file: `search` must appear exactly once in it (ARCHITECTURE §6.2). */
+export type TextEdit = { search: string; replace: string }
+
+/** The model's answer for one file: edits to a file the theme has, a whole new file, or a file to delete. */
+export type FileEdit = { path: string; edits: TextEdit[] } | { path: string; content: string } | { path: string; delete: true }
+
 export type Proposal = {
-  files: FileChange[]
+  files: FileEdit[]
   model: string
   tokensIn: number
   tokensOut: number
+  /** The part of tokensIn read from the provider's prompt cache. */
+  tokensCached?: number
   /** Minor units of costCurrency (DATA-MODEL §7.1). */
   costAmount: number
   costCurrency: string
@@ -20,10 +28,10 @@ export type ProposalSummary = { reply: string; changed: string[]; page: string |
 export type ProposalInput = {
   request: string
   theme: { path: string; content: string }[]
-  /** The gate's exact problems with the previous answer; empty on the first ask (ARCHITECTURE §6.2). */
+  /** The exact problems with the previous answer (its edits or the gate); empty on the first ask (ARCHITECTURE §6.2). */
   problems: GateProblem[]
-  /** The files of that previous answer, so a repair edits them rather than rewriting blind. */
-  previous?: { path: string; content: string }[]
+  /** That previous answer's files as it sent them, so a repair corrects them rather than rewriting blind. */
+  previous?: FileEdit[]
 }
 
 export interface DesignModel {
