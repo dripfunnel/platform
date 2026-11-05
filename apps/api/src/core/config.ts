@@ -13,6 +13,8 @@ const configSchema = z.object({
   EDGE_ZONE: z.string().min(1).default('dripfunnel.ai'),
   // Purges the edge Worker's cached host lookups by tag on CF_SAAS_ZONE_ID (storefront LIVE-SHOP.md §5 step 1); absent, they expire in 60 seconds.
   CF_CACHE_PURGE_TOKEN: z.string().min(1).optional(),
+  // Lets the queue and cron hand a sweep to this Worker's own placed fetch handler (api/README.md §5, #1301); absent, they sweep in place.
+  RELAY_KEY: z.string().min(32, 'RELAY_KEY must be at least 32 characters').optional(),
   // Every store's preview is `{key}.<it>` (storefront PREVIEW.md §8): its own registrable domain, never a console's.
   SHOP_DOMAIN: z.string().regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'SHOP_DOMAIN must be a domain such as my-store.one').optional(),
   // Seals the preview link's token (storefront PREVIEW.md §5 step 1): 32 bytes in base64. Absent, "Open preview" answers NOT_CONNECTED.

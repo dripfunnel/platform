@@ -476,3 +476,44 @@ describe('the cron', () => {
     expect(await failures('*/7 * * * *')).toEqual({ events: ['cron_unknown'], threw: false })
   })
 })
+
+describe('the placed relay hand-off (#1301)', () => {
+  const key = 'k'.repeat(40)
+  const selfFetcher = () => {
+    const calls: Request[] = []
+    return { calls, fetcher: { fetch: async (input: RequestInfo | URL, init?: RequestInit) => (calls.push(new Request(input, init)), new Response(null, { status: 204 })) } }
+  }
+
+  it('answers 404 on every host without the right key, or to anything but POST', async () => {
+    const keyed = { ...env, RELAY_KEY: key }
+    for (const host of ['admin.dripfunnel.ai', 'platform.dripfunnel.ai', 'hooks.dripfunnel.ai', 'shop.example']) {
+      for (const init of [{ method: 'POST' }, { method: 'POST', headers: { 'x-relay-key': 'wrong' } }, { method: 'GET', headers: { 'x-relay-key': key } }]) {
+        const response = await worker.fetch(new Request(`https://${host}/__relay`, init) as never, keyed as never, ctx)
+        expect(response.status).toBe(404)
+      }
+    }
+    const unset = await worker.fetch(new Request('https://admin.dripfunnel.ai/__relay', { method: 'POST', headers: { 'x-relay-key': key } }) as never, env as never, ctx)
+    expect(unset.status).toBe(404)
+  })
+
+  it('hands the sweep for a wake to SELF with the key, and acks the batch', async () => {
+    const { calls, fetcher } = selfFetcher()
+    const acked: string[] = []
+    await worker.queue({ messages: [], ackAll: () => void acked.push('all') } as never, { ...unreachable, SELF: fetcher, RELAY_KEY: key } as never)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.method).toBe('POST')
+    expect(new URL(calls[0]?.url ?? '').pathname).toBe('/__relay')
+    expect(calls[0]?.headers.get('x-relay-key')).toBe(key)
+    expect(acked).toEqual(['all'])
+  })
+
+  it('sweeps in place, never calling SELF, when SELF or the key is missing', async () => {
+    const { calls, fetcher } = selfFetcher()
+    for (const extra of [{ SELF: fetcher }, { RELAY_KEY: key }]) {
+      const acked: string[] = []
+      await worker.queue({ messages: [], ackAll: () => void acked.push('all') } as never, { ...env, HYPERDRIVE: undefined, HYPERDRIVE_REQUIRED: undefined, ...extra } as never)
+      expect(acked).toEqual(['all'])
+    }
+    expect(calls).toHaveLength(0)
+  })
+})
