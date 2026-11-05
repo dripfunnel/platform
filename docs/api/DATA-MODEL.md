@@ -1820,8 +1820,8 @@ wishlist_reminder   (id, store_id, customer_id, step_id NULL, sent_by_user_id NU
                     -- (customer_id, step_id, saved_at) where step_id is not null queues each step
                     -- once per time they last saved, so saving again starts the sequence over.
                     -- step_id null is one sent by hand (sent_by_user_id). saved_at is the wishlist's
-                    -- newest save the reminder was for; link_token_hash is the unsubscribe and
-                    -- "See your wishlist" link's token (only the hash is stored). The merchant side (store scope,
+                    -- newest save the reminder was for; link_token_hash is the unsubscribe link's
+                    -- token (only the hash is stored; "See your wishlist" carries none). The merchant side (store scope,
                     -- no seller) reads all three and saves the flow and steps; only the system role queues,
                     -- sends and writes reminders, and the unsubscribe link finds one by its token hash.
 ```
