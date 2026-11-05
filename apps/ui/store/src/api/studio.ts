@@ -33,7 +33,8 @@ export const studioActivity = async (): Promise<void> => {
 const text = z.string().nullable()
 const messageSchema = z.object({
   id: z.string(),
-  role: z.enum(['user', 'ai', 'note', 'error']),
+  // #1243's questions and plan read as the AI's words until the studio draws them (part 2), so the chat never fails on them.
+  role: z.enum(['user', 'ai', 'note', 'error', 'questions', 'plan']),
   text: z.string(),
   changed: z.array(z.string()),
   imageAssetId: text,
