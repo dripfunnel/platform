@@ -39,12 +39,12 @@ const formOf = (s: ReminderSettings): Form => ({
  * Each step's problem, as the API would refuse it: later than the one before, and a subject for an email (#321). A step
  * locked below the plan's automatic is drawn without its fields, so it is sent back as read and never blocks a save.
  */
-const stepErrors = (steps: readonly ReminderStep[], automatic: boolean): (string | null)[] =>
+export const stepErrors = (steps: readonly { enabled: boolean; delayMinutes: number; subject: string; body: string; channel?: string }[], automatic: boolean): (string | null)[] =>
   steps.map((x, i) => {
     if (!x.enabled || (!automatic && i > 0)) return null
     const before = steps.slice(0, i).filter((y, j) => y.enabled && (automatic || j === 0)).pop()
     if (before && x.delayMinutes <= before.delayMinutes) return words.errors.later
-    if (x.channel === 'email' && !x.subject.trim()) return words.errors.subject
+    if ((x.channel ?? 'email') === 'email' && !x.subject.trim()) return words.errors.subject
     if (x.subject.trim().length > reminderText.subject || x.body.trim().length > reminderText.body) return fill(words.errors.long, { subject: String(reminderText.subject), body: String(reminderText.body) })
     return null
   })

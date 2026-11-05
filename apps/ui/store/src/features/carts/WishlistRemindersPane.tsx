@@ -8,6 +8,7 @@ import { fill, messages } from '../../messages'
 import '../common/switch.css'
 import { cartRefusal } from './cartActions'
 import type { CartAccess } from './cartView'
+import { stepErrors } from './RemindersPane'
 
 // The Wishlists Reminders tab (FIRST-RELEASE §9): up to three emails after a shopper last saved, who gets them, and a preview.
 
@@ -31,17 +32,6 @@ const formOf = (s: WishlistReminderSettings): Form => ({
   weeklyCap: s.weeklyCap,
   steps: [...s.steps].sort((a, b) => a.position - b.position).map((x) => ({ ...x })),
 })
-
-/** Each step's problem as the API would refuse it; a step locked below the plan's automatic is sent back as read and never blocks a save. */
-const stepErrors = (steps: readonly WishlistReminderStep[], automatic: boolean): (string | null)[] =>
-  steps.map((x, i) => {
-    if (!x.enabled || (!automatic && i > 0)) return null
-    const before = steps.slice(0, i).filter((y, j) => y.enabled && (automatic || j === 0)).pop()
-    if (before && x.delayMinutes <= before.delayMinutes) return shared.errors.later
-    if (!x.subject.trim()) return shared.errors.subject
-    if (x.subject.trim().length > reminderText.subject || x.body.trim().length > reminderText.body) return fill(shared.errors.long, { subject: String(reminderText.subject), body: String(reminderText.body) })
-    return null
-  })
 
 export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { access: CartAccess; forced: 'loading' | 'error' | null; sample: WishlistReminderSettings | null; storeName: string }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })

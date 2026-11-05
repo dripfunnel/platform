@@ -57,9 +57,9 @@ const owner: Acting = { store: { id: 's1', name: 'Kesari Threads' }, role: 'owne
 const staff: Acting = { ...owner, role: 'staff', permissions: ['carts.read'] }
 const supplier: Acting = { ...owner, role: 'supplier-member', tier: 'vendor-orders-fulfil', seller: { id: 'v1', name: 'Northwind' }, permissions: ['orders.read'] }
 
-const show = async (acting: Acting, entry = '/carts?pane=wishlists') => {
+const show = async (acting: Acting, entry = '/carts?pane=wishlists', readOnly = false) => {
   const root = createRootRoute({ component: Outlet })
-  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly: false }, me: { id: 'u1', name: 'Farhan Ali', email: 'farhan@kesari.in', acting } }), component: Outlet })
+  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly }, me: { id: 'u1', name: 'Farhan Ali', email: 'farhan@kesari.in', acting } }), component: Outlet })
   const list = createRoute({ getParentRoute: () => app, path: '/carts', validateSearch: z.looseObject({ status: z.enum(['open', 'recovered', 'lost']).optional(), pane: z.enum(['reminders', 'wishlists', 'wishlist-reminders']).optional() }), component: CartsPage })
   const one = createRoute({ getParentRoute: () => app, path: '/carts/wishlist/$customerId', component: WishlistShopperPage })
   const customers = createRoute({ getParentRoute: () => app, path: '/customers', validateSearch: z.looseObject({}), component: () => null })
@@ -368,5 +368,24 @@ describe('reminding one shopper', () => {
     cleanup()
     await show(staff, '/carts/wishlist/c1')
     for (const name of [w.act.send, w.act.stop, w.act.resume]) expect(screen.queryByRole('button', { name })).toBeNull()
+  })
+})
+
+describe('a read-only support session', () => {
+  it('can open the list and a shopper’s page but is offered no send, stop or resume, and cannot change the reminders', async () => {
+    await show(owner, '/carts?pane=wishlists', true)
+    expect(screen.getByText(words.notes.readOnly)).toBeTruthy()
+    fireEvent.click(within(screen.getByRole('link', { name: 'Asha Rao' }).closest('[role="row"]') as HTMLElement).getByRole('button', { name: words.row.actions }))
+    expect(screen.getByRole('link', { name: new RegExp(w.menu.view) })).toBeTruthy()
+    for (const name of [words.menu.send, words.menu.stop, words.menu.resume]) expect(screen.queryByRole('button', { name: new RegExp(name) })).toBeNull()
+    cleanup()
+    await show(owner, '/carts/wishlist/c1', true)
+    expect(screen.getByRole('heading', { level: 1, name: 'Asha Rao' })).toBeTruthy()
+    for (const name of [w.act.send, w.act.stop, w.act.resume]) expect(screen.queryByRole('button', { name })).toBeNull()
+    cleanup()
+    await show(owner, '/carts?pane=wishlist-reminders', true)
+    expect((screen.getByRole('switch', { name: w.reminders.auto }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getAllByLabelText(words.reminders.subject)[0] as HTMLInputElement).readOnly).toBe(true)
+    expect(screen.queryByRole('button', { name: words.reminders.save })).toBeNull()
   })
 })
