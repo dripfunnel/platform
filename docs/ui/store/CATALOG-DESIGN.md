@@ -883,7 +883,7 @@ with validation before any write, partial-failure reports, and translation and c
 - K11. Multi-currency: import and export manual-currency prices as extra columns
   (`price:USD`). Automatic currencies are never imported.
 - K12. Shopify's files (decided 2026-11-02 on #1178). Every product in the Products CSV comes in
-  with its name, description (HTML read as text), price, compare-at price, cost, SKU, barcode,
+  with its name, description (HTML kept as the sanitised subset of C2), price, compare-at price, cost, SKU, barcode,
   weight (Shopify writes grams as `0.0`), options and versions, photos in Shopify's `Image Position`
   order, SEO title and description, and status (`active` shown, `draft` and `archived` hidden).
   Shopify columns we don't keep (Vendor, Tags, Product Category, Type) are left out.

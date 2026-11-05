@@ -175,11 +175,11 @@ describe('the lookups', () => {
   })
 
   it('give a product’s description as its words, never cut inside a tag (#1216)', async () => {
-    await db.sql`update product set description = ${`<p>Soft <strong>linen</strong>, made by hand.</p><ul><li>Hand wash</li></ul>${'<p>x</p>'.repeat(40)}`} where id = ${ids[`linen-shirt@${t.storeA1}`] ?? ''}`
+    await db.sql`update product set description = ${`<p>Soft &amp; <strong>linen</strong>, made by hand.</p><ul><li>Hand wash &lt;cold&gt;</li></ul>${'<p>x</p>'.repeat(40)}`} where id = ${ids[`linen-shirt@${t.storeA1}`] ?? ''}`
     const found = JSON.parse((await lookupsFor(await summaryA()).run('find_products', { sort: 'best-selling', limit: 24 }))?.content ?? '[]') as { slug: string; description: string }[]
     const text = found.find((p) => p.slug === 'linen-shirt')?.description ?? ''
-    expect(text.startsWith('Soft linen, made by hand. Hand wash')).toBe(true)
-    expect(text).not.toMatch(/[<>]/)
+    expect(text.startsWith('Soft & linen, made by hand. Hand wash <cold>')).toBe(true)
+    expect(text).not.toMatch(/<\/?(p|strong|ul|li)>|&amp;|&lt;/)
     expect(text.length).toBeLessThanOrEqual(200)
   })
 

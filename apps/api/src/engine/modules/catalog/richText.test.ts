@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { sanitiseDescription as clean } from './richText'
 
-// The same file runs through storefront-core's RichText (sealed/richText.test.tsx), so the two readers cannot drift apart.
-const corpus = JSON.parse(readFileSync(new URL('./richText.corpus.json', import.meta.url), 'utf8')) as { name: string; input: string; html: string }[]
+// storefront-core's products/richText.test.tsx runs the same file through RichText, so the two readers cannot drift apart.
+const corpus = JSON.parse(readFileSync(new URL('../../../../../../packages/storefront-core/src/products/richText.corpus.json', import.meta.url), 'utf8')) as { name: string; input: string; html: string }[]
 
 describe('sanitiseDescription (#1216)', () => {
   it('keeps the allowed formatting', () => {
