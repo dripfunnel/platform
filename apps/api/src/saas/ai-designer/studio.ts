@@ -22,7 +22,7 @@ import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
 import { chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
-import { answersOf, flowOf, isClaimable, maxPlanChanges, pageRequests, planReply, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
+import { answersOf, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
@@ -526,22 +526,25 @@ export const createStudioService = (deps: StudioDeps) => {
       if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
       const open = await openPlan(messageId)
       if (!open) return { ok: false, reason: 'PLAN_GONE' }
+      if ((open.flow.failedBuilds ?? 0) >= maxFailedBuilds) return { ok: false, reason: 'PLAN_BUILDS_USED' }
       const ready = await providerFor(model)
       if (!ready.ok) return ready
       const { row, flow } = open
+      // Open again after a build that built nothing; one that asked the model counts against `maxFailedBuilds`.
+      const tried = { ...reopened(flow), failedBuilds: (flow.failedBuilds ?? 0) + 1 }
       const building: PlanFlow = { ...flow, state: 'building', claimedAt: now().toISOString() }
       if (!(await withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, flow, building)))) return { ok: false, reason: 'PLAN_GONE' }
       // Nothing built yet: the plan goes back to open, to build again.
       // The claim is renewed before every ask of the model, so a long build never lets it lapse (`claimMs`) while it runs.
       let held = building
-      const giveBack = () => withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, held, reopened(flow)))
+      const giveBack = (to: PlanFlow) => withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, held, to))
       live.step('reading')
       let designer: ReturnType<typeof designModel>
       try {
         const known = await currentSummary()
         designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, null, known), null, () => undefined, undefined, known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset }))
       } catch (error) {
-        await giveBack().catch(() => undefined)
+        await giveBack(reopened(flow)).catch(() => undefined)
         throw error
       }
       let modelFailure: unknown = null
@@ -568,7 +571,7 @@ export const createStudioService = (deps: StudioDeps) => {
         answer = sofar?.pages.some((p) => p.outcome === 'changed') ? sofar : { outcome: 'failed' }
       }
       if (answer.outcome !== 'built') {
-        await giveBack()
+        await giveBack(tried)
         if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
         if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
         return { ok: true, value: { outcome: 'failed', message: await failedMessage(modelFailure) } }
@@ -581,7 +584,7 @@ export const createStudioService = (deps: StudioDeps) => {
       const message = await recordAfter(sql, storeId, async (tx) => {
         // A claim another request took (this one stalled past `claimMs`) records no second build; a build that built no page
         // leaves the plan open, to build again inside the same unit.
-        if (!(await moveFlow(tx, storeId, row.id, held, changed.length > 0 ? { ...held, state: 'built' } : reopened(flow)))) return 'lost' as const
+        if (!(await moveFlow(tx, storeId, row.id, held, changed.length > 0 ? { ...held, state: 'built' } : tried))) return 'lost' as const
         const reply = built.pages.flatMap((p) => (p.reply ? [p.reply] : [])).join('\n').slice(0, 4000)
         const id =
           outcome === 'changed' || outcome === 'unchanged'

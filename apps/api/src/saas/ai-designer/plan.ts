@@ -10,6 +10,8 @@ export const maxQuestions = 3
 export const maxPlanPages = 6
 /** "Changes asked in words" to one plan, inside its one prompt unit; past it a new request takes its own. */
 export const maxPlanChanges = 3
+/** Builds of one plan that built no page (each asked the model), inside its one prompt unit; past it a new request takes its own. */
+export const maxFailedBuilds = 2
 /** A claimed flow whose request ended without moving it on (a closed tab, a Worker stopped) opens again after this: past a build's 20-minute wait. */
 export const claimMs = 25 * 60_000
 const maxAnswer = 200
@@ -39,7 +41,7 @@ const answers = z.array(z.strictObject({ question: words(160), answer: z.string(
 /** design_message.detail of each kind; `state` moves on in one statement (moveFlow), so a flow is answered or built once. */
 export const flowSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('questions'), state: z.enum(['open', 'answered', 'skipped']), request, questions: z.array(questionSchema).max(maxQuestions), answers, claimedAt }),
-  z.strictObject({ kind: z.literal('plan'), state: z.enum(['open', 'replaced', 'building', 'built']), request, answers, plan: planSchema, changes: z.number().int().min(0).max(maxPlanChanges), claimedAt }),
+  z.strictObject({ kind: z.literal('plan'), state: z.enum(['open', 'replaced', 'building', 'built']), request, answers, plan: planSchema, changes: z.number().int().min(0).max(maxPlanChanges), failedBuilds: z.number().int().min(0).max(maxFailedBuilds).optional(), claimedAt }),
   z.strictObject({ kind: z.literal('build'), pages: z.array(z.strictObject({ page: pageKey, title: words(60), outcome: z.enum(['changed', 'unchanged', 'refused', 'failed', 'left']) })).max(maxPlanPages), stopped: z.boolean() }),
 ])
 export type Flow = z.infer<typeof flowSchema>

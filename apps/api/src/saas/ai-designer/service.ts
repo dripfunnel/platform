@@ -49,6 +49,7 @@ export type DesignRefusal =
         | 'NOT_LATEST'
         | 'PLAN_GONE'
         | 'PLAN_CHANGES_USED'
+        | 'PLAN_BUILDS_USED'
         | 'NOTHING_TO_DISCARD'
         | 'NOTHING_TO_PUBLISH'
         | 'NOT_BISECTED'
