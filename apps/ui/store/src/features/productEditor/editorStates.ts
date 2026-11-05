@@ -64,7 +64,7 @@ const shirt: EditorProduct | null =
         id: 'p-mara',
         revision: 4,
         name: 'Mara Linen Shirt',
-        description: 'Soft washed linen with a relaxed fit. Pre-washed, so it won’t shrink.',
+        description: '<p>Soft washed linen with a relaxed fit. <strong>Pre-washed</strong>, so it won’t shrink.</p><ul><li>100% European linen</li><li>Machine wash cold</li></ul><p>Read the <a href="https://example.com/care">care guide</a>.</p>',
         productType: 'physical',
         visible: true,
         approval: null,

@@ -3,7 +3,9 @@ import { useEffect, useId, useState } from 'react'
 import { loadProductTranslation, saveProductTranslation, type ProductTranslationInput, type TranslationRow } from '../../api/translations'
 import { fill, messages } from '../../messages'
 import { languageName } from '../common/languageName'
+import { plainTextOf } from '../common/richDescription'
 import { Card } from './EditorCards'
+import { RichTextField } from './RichTextField'
 
 const words = messages.editor.translate
 
@@ -36,12 +38,18 @@ const Row = ({ row, typed, onType, disabled, language, main }: { row: Translatio
   const label = row.entity === 'product' ? words.fields[row.field] : row.main
   return (
     <div className={`df-editor-field df-editor-translation df-editor-translation--${row.status}`}>
-      <label htmlFor={id}>
-        {label} <span className="df-editor-hint-inline">· {row.status === 'changed' ? fill(words.status.changed, { language: main }) : words.status[row.status]}</span>
-      </label>
-      {row.entity === 'product' && <span className="df-editor-hint">{fill(words.mainText, { language: main, text: row.main || words.empty })}</span>}
       {long ? (
-        <textarea id={id} rows={3} maxLength={20_000} placeholder={fill(words.placeholder, { language })} value={typed} readOnly={disabled} onChange={(e) => onType(e.target.value)} />
+        <span id={id} className="df-editor-label">
+          {label} <span className="df-editor-hint-inline">· {row.status === 'changed' ? fill(words.status.changed, { language: main }) : words.status[row.status]}</span>
+        </span>
+      ) : (
+        <label htmlFor={id}>
+          {label} <span className="df-editor-hint-inline">· {row.status === 'changed' ? fill(words.status.changed, { language: main }) : words.status[row.status]}</span>
+        </label>
+      )}
+      {row.entity === 'product' && <span className="df-editor-hint">{fill(words.mainText, { language: main, text: (long ? plainTextOf(row.main) : row.main) || words.empty })}</span>}
+      {long ? (
+        <RichTextField value={typed} readOnly={disabled} labelledBy={id} placeholder={fill(words.placeholder, { language })} onChange={onType} />
       ) : (
         <input id={id} maxLength={row.field === 'slug' ? 120 : 255} placeholder={fill(words.placeholder, { language })} value={typed} readOnly={disabled} onChange={(e) => onType(e.target.value)} />
       )}
