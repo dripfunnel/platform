@@ -305,22 +305,25 @@ export const HeroCarousel = () => {
 
 /** The worked scroll reveal (checked against the validator and the typecheck): sent with every change, since motion is the default. */
 export const revealExample = `
-A complete example that passes every check. Wrap each below-the-fold section in Reveal; it needs no content keys.
+A complete example that passes every check. Wrap each below-the-fold section in Reveal; it needs no content keys. It hides
+a section only once scripts have run, so the server's page and a page with scripts off show everything.
 Place it with import { Reveal } from '../components/interactive/Reveal' and <Reveal>...</Reveal> around a section's content.
 --- src/theme/components/interactive/Reveal.tsx
 'use client'
 
 import { clsx } from 'clsx'
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useInView, useReducedMotion } from '@dripfunnel/storefront-core/theme'
 
 export const Reveal = ({ children }: { children: ReactNode }) => {
   const ref = useRef<HTMLDivElement>(null)
   const reduce = useReducedMotion()
   const seen = useInView(ref, { once: true })
-  const shown = reduce || seen
+  const [armed, setArmed] = useState(false)
+  useEffect(() => setArmed(true), [])
+  const hidden = armed && !reduce && !seen
   return (
-    <div ref={ref} className={clsx('[transition:opacity_600ms,transform_600ms]', shown ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
+    <div ref={ref} className={clsx('[transition:opacity_600ms,transform_600ms]', hidden ? 'translate-y-4 opacity-0' : 'translate-y-0 opacity-100')}>
       {children}
     </div>
   )

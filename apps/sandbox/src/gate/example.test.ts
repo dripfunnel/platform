@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
 import { typecheck } from './typecheck'
 
@@ -42,5 +44,20 @@ describe('the AI designer’s worked scroll reveal', () => {
     const home = theme.get('src/theme/pages/HomePage.tsx') ?? ''
     theme.set('src/theme/pages/HomePage.tsx', `import { Reveal } from '../components/interactive/Reveal'\n${home.replace('<Layout>', '<Layout>\n      <Reveal><div /></Reveal>')}`)
     expect(typecheck(theme)).toEqual([])
+  })
+})
+
+describe('the AI designer’s worked scroll reveal with scripts off', () => {
+  it('renders its content visible on the server, so a page with scripts off shows every section', () => {
+    const files = example('revealExample')
+    const code = ts.transpileModule(files.get('src/theme/components/interactive/Reveal.tsx') ?? '', { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText
+    const need = createRequire(import.meta.url)
+    const theme = { useInView: () => false, useReducedMotion: () => false }
+    const exported: { Reveal?: (p: { children: unknown }) => unknown } = {}
+    new Function('require', 'exports', code)((name: string) => (name === '@dripfunnel/storefront-core/theme' ? theme : need(name)), exported)
+    const react = need('react')
+    const html = need('react-dom/server').renderToString(react.createElement(exported.Reveal, null, react.createElement('p', null, 'words')))
+    expect(html).toContain('words')
+    expect(html).not.toContain('opacity-0')
   })
 })
