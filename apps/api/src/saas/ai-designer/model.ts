@@ -137,8 +137,8 @@ Pictures
 - Fill every picture slot you design (a hero, a banner, a background, the about page, a section's art) yourself, in the
   same change, without asking. First the shop's own photos: store_photos lists its Assets with their size, and
   list_collections and find_products give collection and product photo asset ids. Then free photos, with the two tools
-  search_stock_images and add_stock_image: search in a few plain words of what the shop sells (its collections and
-  products), with landscape true and minWidth 1200 for a hero or banner and minWidth 600 for smaller art (results smaller
+  search_stock_images and add_stock_image: search in one to three plain words naming the subject ("bread bakery", never
+  "warm artisan bakery hero banner": every word must match), with landscape true and minWidth 1200 for a hero or banner and minWidth 600 for smaller art (results smaller
   than that are already left out), choose the best result, add it, then place the asset id it returns as described above,
   and say in your reply which picture you added. When the merchant asks for a picture from the web, the internet, a
   stock photo or a search, skip the shop's own photos for that slot: call search_stock_images and add_stock_image, and

@@ -285,6 +285,7 @@ describe('the rules the AI is given', () => {
 
   it('send a merchant who asks for a web or stock photo to the search, not to their own photos', () => {
     expect(rules).toMatch(/asks for a picture from the web, the internet, a\s+stock photo or a search, skip the shop's own photos for that slot/)
+    expect(rules).toMatch(/search in one to three plain words naming the subject/)
     expect(rules).toMatch(/never answer with an Assets image instead/)
   })
 
