@@ -533,6 +533,22 @@ describe('a supplier’s import', () => {
     expect((await confirm('owner', id)).job).toMatchObject({ state: 'done', created: 5 })
     expect(await asked()).toBe(before + 1)
   })
+  it('still asks for the collections to be recomputed when a chunk fails after its products committed', async () => {
+    const asked = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'collections.recompute' and store_id = ${t.storeA1}`)[0]?.n ?? 0
+    const { id } = await upload('owner', 'handle,name,price,sku\nlost-a,Lost A,10,LOST-A\nlost-b,Lost B,10,LOST-B\n')
+    await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id })
+    const [row] = await db.sql<{ id: string; payload: Parameters<typeof catalogImportDeps>[1] }[]>`
+      update outbox set delivered_at = now() where kind = 'import.catalog' and payload->>'jobId' = ${id} and payload->>'phase' = 'run' and delivered_at is null returning id, payload`
+    if (!row) throw new Error('no run queued')
+    const deps = catalogImportDeps(db.sql, row.payload, { id: row.id }, () => now)
+    const before = await asked()
+    // Both products commit; the chunk's last transaction, which queues the recompute, is lost.
+    const failing = { ...deps, queue: async () => Promise.reject(new Error('lost the database')) }
+    await expect(runImportChunk(failing, id, 6_000)).rejects.toThrow('lost the database')
+    expect(await asked()).toBe(before)
+    await runImportChunk(deps, id, 6_000)
+    expect(await asked()).toBe(before + 1)
+  })
   it('needs the plan for a spreadsheet import', async () => {
     await db.sql`delete from plan_entitlement where key = 'import_spreadsheet' and plan_id = (select plan_id from store where id = ${t.storeA1})`
     expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner')).code).toBe('PLAN_LIMIT')

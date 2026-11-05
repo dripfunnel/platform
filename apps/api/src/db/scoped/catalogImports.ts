@@ -194,7 +194,6 @@ export const addImportProblems = async (tx: ScopedSql, id: string, problems: unk
   await tx`update catalog_import set problems = problems || ${JSON.stringify(problems)}::text::jsonb where id = ${id} and state = 'running'`
 }
 
-/** A product's live versions in their order, as the save just wrote them. */
 /** The importer's seat in the store now: its role, and for a supplier its tier and whether the company is active. */
 export const selectImporterSeat = async (
   tx: ScopedSql,

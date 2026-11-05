@@ -606,7 +606,6 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
   const chunk = plan.products.slice(job.done, job.done + chunkProducts)
   const owners = new Map((await withScope(d.sql, d.context, (tx) => selectOwnSkus(tx, storeId, sellerId, chunk.flatMap(skusOf)))).map((r) => [r.sku, r.product_id]))
   let at = job.done
-  let changed = false
   while (at < plan.products.length && at - job.done < chunkProducts && Date.now() - started < budgetMs) {
     const done = at + 1
     const p = plan.products[at]
@@ -625,7 +624,6 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
       await saveImportProgress(tx, jobId, { ...none, [kind]: 1, done, photos: photos.length, problems })
     }
     const outcome = await importOne(d, job, p, owners, alongside)
-    if (outcome.kind === 'created' || outcome.kind === 'updated') changed = true
     if (outcome.kind === 'failed' || outcome.kind === 'skipped') {
       const problems: ImportProblem[] = outcome.kind === 'failed' ? [{ line, column: null, code: outcome.code }] : []
       await withScope(d.sql, d.context, (tx) => saveImportProgress(tx, jobId, { ...none, [outcome.kind]: 1, done, problems }))
@@ -633,7 +631,8 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
     }
   }
   await withScope(d.sql, d.context, async (tx) => {
-    if (changed) await d.queue(tx, collectionsRecomputeKind, crypto.randomUUID(), { storeId })
+    // From the persisted counts, not this attempt's work: products an earlier attempt committed still need their collections.
+    if (job.created + job.updated > 0 || at > job.done) await d.queue(tx, collectionsRecomputeKind, `${jobId}:recompute:${at}`, { storeId })
     if (payload && at < plan.products.length) await d.queue(tx, catalogImportKind, `${jobId}:run:${at}`, { ...payload, phase: 'run' })
     else await finishIfDone(tx, storeId, jobId, d.now())
   })

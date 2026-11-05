@@ -96,10 +96,10 @@ export const catalogImportDeliverer = (sql: postgres.Sql, shop: ShopConnect | nu
   },
 })
 
-/** A photo is fetched from a public address only (publicFetch.ts) and stored as the importer's own file. */
-/** Each photo waits on its own fetch, so a sweep takes this many at once (the pool of connections is 5). */
+/** Each photo waits on its own fetch. One short of the pool's 5 connections (db/client.ts), so the claim and the serial lane still get one. */
 const photosAtOnce = 4
 
+/** A photo is fetched from a public address only (publicFetch.ts) and stored as the importer's own file. */
 export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | null, lookup: DnsLookup, now: () => Date = () => new Date(), fetchImpl?: typeof fetch): Deliverer => ({
   concurrency: photosAtOnce,
   deliver: async (effect) => {
