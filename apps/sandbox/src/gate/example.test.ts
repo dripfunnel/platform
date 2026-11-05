@@ -13,8 +13,8 @@ const source = readFileSync(fileURLToPath(new URL('../../../api/src/saas/ai-desi
 
 const walk = (dir: string, rel = ''): string[] => readdirSync(join(dir, rel)).flatMap((n) => (statSync(join(dir, rel, n)).isDirectory() ? walk(dir, `${rel}${n}/`) : [`${rel}${n}`]))
 
-const example = (): Map<string, string> => {
-  const body = /export const carouselExample = `([\s\S]*?)`\n/.exec(source)?.[1] ?? ''
+const example = (name = 'carouselExample'): Map<string, string> => {
+  const body = new RegExp('export const ' + name + ' = `([\\s\\S]*?)`\\n').exec(source)?.[1] ?? ''
   const parts = body.split(/^--- (\S+).*$/m)
   const files = new Map<string, string>()
   for (let i = 1; i < parts.length; i += 2) files.set(parts[i] ?? '', `${(parts[i + 1] ?? '').trim()}\n`)
@@ -29,6 +29,18 @@ describe('the AI designer’s worked carousel', () => {
     for (const [path, content] of files) if (!path.includes('{language}')) theme.set(path, content)
     const home = theme.get('src/theme/pages/HomePage.tsx') ?? ''
     theme.set('src/theme/pages/HomePage.tsx', `import { HeroCarousel } from '../components/interactive/HeroCarousel'\n${home.replace('<Layout>', '<Layout>\n      <HeroCarousel />')}`)
+    expect(typecheck(theme)).toEqual([])
+  })
+})
+
+describe('the AI designer’s worked scroll reveal', () => {
+  it('typechecks beside the baseline theme, wrapping a page’s section', () => {
+    const theme = new Map(walk(baseline).filter((p) => p !== 'template.json').map((p) => [p, readFileSync(join(baseline, p), 'utf8')]))
+    const files = example('revealExample')
+    expect([...files.keys()]).toEqual(['src/theme/components/interactive/Reveal.tsx'])
+    for (const [path, content] of files) theme.set(path, content)
+    const home = theme.get('src/theme/pages/HomePage.tsx') ?? ''
+    theme.set('src/theme/pages/HomePage.tsx', `import { Reveal } from '../components/interactive/Reveal'\n${home.replace('<Layout>', '<Layout>\n      <Reveal><div /></Reveal>')}`)
     expect(typecheck(theme)).toEqual([])
   })
 })
