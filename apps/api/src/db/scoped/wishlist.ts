@@ -136,6 +136,7 @@ export const countWishlistShoppers = async (tx: ScopedSql, storeId: string): Pro
 export interface WishlistShopperDetailRow extends WishlistShopperRow {
   language: string
   currency: string
+  features: Record<string, boolean>
   product_ids: string[]
 }
 
@@ -149,6 +150,7 @@ export const selectWishlistShopper = async (tx: ScopedSql, storeId: string, cust
         cu.wishlist_reminders_stopped_at as stopped_at, cu.wishlist_reminders_stopped_note as stopped_note,
         (select coalesce(u.name, u.email) from "user" u where u.id = cu.wishlist_reminders_stopped_by_user_id) as stopped_by,
         (select s.main_language from store s where s.id = w.store_id) as language, (select s.pricing_currency from store s where s.id = w.store_id) as currency,
+        coalesce((select json_object_agg(sf.key, sf.enabled) from store_feature sf where sf.store_id = w.store_id), '{}'::json) as features,
         coalesce((select json_agg(x.product_id) from (select w2.product_id from wishlist_item w2 where w2.store_id = w.store_id and w2.customer_id = cu.id order by w2.created_at desc, w2.product_id limit ${maxWishlist}) x), '[]'::json) as product_ids
       from wishlist_item w join customer cu on cu.id = w.customer_id and cu.store_id = w.store_id and cu.status <> 'deleted'
       where w.store_id = ${storeId} and w.customer_id = ${customerId}

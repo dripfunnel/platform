@@ -8,6 +8,7 @@ import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCa
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { lockWishlistShopperToRemind } from '#db/scoped/wishlistReminders'
 import { markAbandonedCarts, queueDueReminders, queueDueWishlistReminders } from '#engine/modules/cartReminders/index'
 import type { OutgoingEmail, SesApi } from '#integrations/ses/index'
 import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
@@ -512,5 +513,15 @@ describe('wishlist reminders on the Store API: the sequence, and one shopper’s
     expect((await merchant('{ wishlistShopperCounts { waiting } }', 'supplier')).code).toBe('FORBIDDEN')
     expect((await merchant('{ wishlistSummary { shoppers } }', 'supplier')).code).toBe('FORBIDDEN')
     expect((await merchant(`mutation { resumeWishlistReminders(customerId: "${customerId}") }`, 'owner')).data?.['resumeWishlistReminders']).toBe(true)
+  })
+
+  it('counts a shopper’s reminders for the wishlist as it stands now, so a new save starts a new count', async () => {
+    const counted = () => withSystemScope(db.sql, async (tx) => (await lockWishlistShopperToRemind(tx, store, customerId))?.queued)
+    await db.sql`delete from wishlist_reminder where customer_id = ${customerId}`
+    expect(await counted()).toBe(0)
+    await db.sql`insert into wishlist_reminder (store_id, customer_id, state, saved_at, sent_at) values (${store}, ${customerId}, 'sent', '2000-01-01', now())`
+    expect(await counted()).toBe(0)
+    await db.sql`insert into wishlist_reminder (store_id, customer_id, state, saved_at, sent_at) select ${store}, ${customerId}, 'sent', date_trunc('milliseconds', max(created_at)), now() from wishlist_item where customer_id = ${customerId}`
+    expect(await counted()).toBe(1)
   })
 })
