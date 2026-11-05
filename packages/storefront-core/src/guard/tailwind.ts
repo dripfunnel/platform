@@ -6,6 +6,7 @@ import { compile, __unstable__loadDesignSystem } from 'tailwindcss'
 import ts from 'typescript'
 import { checkClassCss, checkCss } from './css.js'
 import { codePath, isThemePath, themeCssPath } from './files.js'
+import { reducedMotionCss } from './reducedMotion.js'
 import { problem, type GuardContext, type Problem, type RuleId } from './rules.js'
 
 // Themes are styled with Tailwind v4 classes, each checked against ARCHITECTURE §3.4 "Classes" (#1239). Core pins one
@@ -167,17 +168,17 @@ export const checkClasses = async (files: ReadonlyMap<string, string>, context: 
 const noStore: GuardContext = { locales: ['en'], usedPaths: [], mediaIds: [], brand: { name: '-', tagline: null, email: null, phone: null, address: [], socialLinks: [] } }
 
 /**
- * The theme's Tailwind stylesheet: the classes its code writes, built by core's pinned Tailwind, each checked again.
- * Null for a theme that writes none and has no theme.css, such as a store on CSS Modules alone, whose bundle stays as it was.
+ * The theme's stylesheet: core's reduced-motion rule, then the classes its code writes, built by core's pinned Tailwind and
+ * each checked again. A theme that writes none and has no theme.css, such as a store on CSS Modules alone, gets the rule alone.
  */
-export const themeStylesheet = async (files: ReadonlyMap<string, string>): Promise<{ ok: true; css: string | null } | { ok: false; problems: Problem[] }> => {
+export const themeStylesheet = async (files: ReadonlyMap<string, string>): Promise<{ ok: true; css: string } | { ok: false; problems: Problem[] }> => {
   const refused = await checkClasses(files, noStore, false)
   if (refused.length > 0) return { ok: false, problems: refused }
   const { classes, themeCss } = await judged(files, noStore)
-  if (classes.length === 0 && !files.has(themeCssPath)) return { ok: true, css: null }
+  if (classes.length === 0 && !files.has(themeCssPath)) return { ok: true, css: reducedMotionCss }
   const compiler = await compile(entry(themeCss), { base: '/', loadStylesheet })
   // Tailwind's licence banner names its site, and nothing in a store's CSS names an address.
-  return { ok: true, css: compiler.build(classes).replace(/^\/\*![^*]*\*\/\s*/, '') }
+  return { ok: true, css: `${reducedMotionCss}${compiler.build(classes).replace(/^\/\*![^*]*\*\/\s*/, '')}` }
 }
 
 /** The theme's code and theme.css in the repo at `root`, as they are on disk: what Tailwind builds classes from. */

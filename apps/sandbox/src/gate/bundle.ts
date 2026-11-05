@@ -35,7 +35,7 @@ export type Content = Record<string, Record<string, string>>
 
 const tailwindModule = 'df:tailwind'
 
-const entrySource = (routesJson: string, content: Content, tailwind: boolean): string => {
+const entrySource = (routesJson: string, content: Content): string => {
   const routes = routesSchema.parse(JSON.parse(routesJson))
   const pages = [...new Set([...Object.values(routes.routes), ...Object.values(routes.custom ?? {})])]
   const local = new Map(pages.map((page, i) => [page, `p${i}`]))
@@ -43,7 +43,7 @@ const entrySource = (routesJson: string, content: Content, tailwind: boolean): s
   const ref = (page: string) => local.get(page) ?? 'undefined'
   return [
     // First, so a CSS Module's rule wins over a Tailwind class of the same weight, as Tailwind's layers make it anyway.
-    ...(tailwind ? [`import '${tailwindModule}'`] : []),
+    `import '${tailwindModule}'`,
     `import { boot } from 'df:boot'`,
     ...pages.map((page) => `import { ${exportOf(page)} as ${ref(page)} } from './src/theme/pages/${page}.tsx'`),
     `export const theme = { routes: { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} },`,
@@ -69,14 +69,14 @@ export const mediaUrlPlugin = (origin: string | null = null): Plugin => ({
   },
 })
 
-const runtimePlugin = (entry: string, tailwind: string | null): Plugin => ({
+const runtimePlugin = (entry: string, stylesheet: string): Plugin => ({
   name: 'df-runtime',
   setup(b) {
     b.onResolve({ filter: /^df:entry$/ }, () => ({ path: entryName, namespace: 'df' }))
     b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: entry, loader: 'ts', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
-    // The theme's Tailwind classes, built by core (guard's themeStylesheet), go through the same CSS step as its modules.
+    // Core's reduced-motion rule and the theme's Tailwind classes (guard's themeStylesheet) go through the same CSS step as its modules.
     b.onResolve({ filter: /^df:tailwind$/ }, () => ({ path: 'tailwind.css', namespace: 'df-tailwind' }))
-    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: tailwind ?? '', loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
+    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: stylesheet, loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
     b.onResolve({ filter: /^df:boot$/ }, () => ({ path: `./core/${bootModule}`, external: true }))
     b.onResolve({ filter: /^[^./]/ }, (args) => {
       const file = runtimeModules[args.path]
@@ -123,7 +123,7 @@ export const bundle = async (repo: string, out: string, mediaOrigin: string | nu
   if (!tailwind.ok) return { ok: false, problems: tailwind.problems.map((p) => ({ step: 'bundle', ...p })) }
   let source: string
   try {
-    source = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo), tailwind.css !== null)
+    source = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo))
   } catch {
     return { ok: false, problems: [{ step: 'bundle', file: 'routes.json', line: null, rule: 'bundle/routes', message: "routes.json or content/** can't be read." }] }
   }

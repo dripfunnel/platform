@@ -1,6 +1,7 @@
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
 import { themeStylesheet, validateChange, validateTheme, type GuardContext, type ThemeFile } from './index'
+import { reducedMotionCss } from './reducedMotion'
 
 vi.setConfig({ testTimeout: 30_000 })
 
@@ -62,16 +63,21 @@ describe('the class rules (ARCHITECTURE §3.4 "Classes")', () => {
 })
 
 describe('themeStylesheet: the CSS a bundle carries', () => {
-  it('is null for a store on CSS Modules alone, so its bundle stays as it was', async () => {
+  it('is core’s reduced-motion rule alone for a store on CSS Modules alone, with no Tailwind in it', async () => {
     expect(validateChange(baseline, context).problems).toEqual([])
     expect((await validateTheme(baseline, context)).problems).toEqual([])
-    expect(await themeStylesheet(asMap(baseline))).toEqual({ ok: true, css: null })
+    expect(await themeStylesheet(asMap(baseline))).toEqual({ ok: true, css: reducedMotionCss })
+  })
+
+  it('starts with core’s reduced-motion rule, so its layer comes before Tailwind’s', async () => {
+    const built = await themeStylesheet(asMap([...tailwind, ...baseline]))
+    expect(built.ok && built.css.startsWith(`${reducedMotionCss}@layer`)).toBe(true)
   })
 
   it('holds the classes the code writes and the tokens they use, with no reset and no address', async () => {
     const built = await themeStylesheet(asMap([...tailwind, ...baseline]))
     if (!built.ok) throw new Error(JSON.stringify(built.problems))
-    const css = built.css ?? ''
+    const css = built.css
     expect(css).toContain('--color-ink: #1d1b18;')
     expect(css).toContain('.rounded-card {')
     expect(css).toContain('@keyframes rise')
