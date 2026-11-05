@@ -10,6 +10,9 @@ export interface StockPhoto {
   user: string
   pageUrl: string
   tags: string
+  /** The downloaded file's size in pixels, where the source says it, so the AI can skip one too small for its slot (#1244). */
+  width?: number
+  height?: number
 }
 
 export interface StockImages {

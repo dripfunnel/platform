@@ -34,6 +34,10 @@ describe('openverse', () => {
     expect(seen[0]?.url).toContain('license=cc0%2Cpdm')
     expect(found?.photos[0]).toEqual({ id, source: 'openverse', thumb: `https://api.openverse.org/v1/images/${id}/thumb/`, user: 'Bo', pageUrl: 'https://flickr.com/1', tags: 'Red linen cloth' })
   })
+  it('gives the downloaded thumbnail’s size, the original scaled to 600 px wide, so a slot wider than it skips the photo', async () => {
+    const found = await openverseImages({ fetchImpl: serve(() => json({ result_count: 2, results: [{ id, width: 3000, height: 2000 }, { id, width: 400, height: 500 }, { id }] })).fetchImpl }).search('linen', 1)
+    expect(found?.photos.map((p) => [p.width, p.height])).toEqual([[600, 400], [400, 500], [undefined, undefined]])
+  })
   it('downloads only a uuid', async () => {
     const images = openverseImages()
     expect(await images.download(id)).toBe(`https://api.openverse.org/v1/images/${id}/thumb/`)
@@ -49,6 +53,11 @@ describe('commons', () => {
     expect(found?.photos).toHaveLength(1)
     expect(found?.photos[0]).toMatchObject({ id: '9', source: 'commons', user: 'Bo', tags: expect.stringContaining('Red linen') })
     expect(JSON.stringify(seen[0]?.headers)).toContain('User-Agent')
+  })
+  it('gives the 1280 px thumbnail’s own size, the file the Worker downloads', async () => {
+    const sized = { query: { pages: { a: { ...page('CC0'), imageinfo: [{ ...page('CC0').imageinfo[0], thumbwidth: 1280, thumbheight: 853 }] } } } }
+    const found = await commonsImages({ fetchImpl: serve(() => json(sized)).fetchImpl }).search('linen', 1)
+    expect(found?.photos[0]).toMatchObject({ width: 1280, height: 853 })
   })
   it('returns results in the search ranking and the search’s total hits', async () => {
     const ranked = { query: { searchinfo: { totalhits: 500 }, pages: { 1: { ...page('CC0'), pageid: 1, index: 2 }, 2: { ...page('CC0'), pageid: 2, index: 1 } } } }

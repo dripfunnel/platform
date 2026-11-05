@@ -1,0 +1,7 @@
+.hero {
+  background-image: url(m_hero01);
+}
+
+.card {
+  display: grid;
+}

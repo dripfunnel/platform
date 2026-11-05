@@ -1,0 +1,7 @@
+.tile {
+  --art: url(m_hero01);
+}
+
+.picture {
+  background-image: var(--art);
+}

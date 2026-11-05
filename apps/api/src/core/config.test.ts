@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { parseConfig } from './config'
+import { aiPhotoSourcesOf, parseConfig } from './config'
 
 const key43 = `${'A'.repeat(43)}=`
 const hosts = { ADMIN_HOST: 'admin.dripfunnel.ai', PLATFORM_HOST: 'platform.dripfunnel.ai', HOOKS_HOST: 'hooks.dripfunnel.ai' }
@@ -18,6 +18,14 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pexels,foo' })).toThrow()
     expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'openverse, commons,' }).AI_PHOTO_SOURCES).toEqual(['openverse', 'commons'])
     expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: '' }).AI_PHOTO_SOURCES).toBeUndefined()
+  })
+
+  it('gives the AI Openverse and Commons unless AI_PHOTOS is 0, and never Pexels or Pixabay even when named (#1244)', () => {
+    expect(aiPhotoSourcesOf(parseConfig(hosts))).toEqual(['openverse', 'commons'])
+    expect(aiPhotoSourcesOf(parseConfig({ ...hosts, AI_PHOTOS: '1', AI_PHOTO_SOURCES: 'pexels,openverse,commons' }))).toEqual(['openverse', 'commons'])
+    expect(aiPhotoSourcesOf(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pixabay,commons' }))).toEqual(['commons'])
+    expect(aiPhotoSourcesOf(parseConfig({ ...hosts, AI_PHOTOS: '0' }))).toEqual([])
+    expect(() => parseConfig({ ...hosts, AI_PHOTOS: 'yes' })).toThrow()
   })
 
   it('refuses the email, SMS, push and DNS stand-ins anywhere but on localhost', () => {

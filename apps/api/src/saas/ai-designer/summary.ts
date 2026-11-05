@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import { toMajor } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
+import { selectLibrary } from '#db/scoped/catalog'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { maxLookupCollections, maxLookupProducts, selectLookupCollections, selectLookupPhotos, selectLookupProducts, selectStoreSummary, summaryLimits, type LookupSort, type SummaryProductRow } from '#db/scoped/storeSummary'
 import type { AiImage } from '#integrations/ai/index'
@@ -98,14 +99,19 @@ export const keepNew = async (studio: Pick<StudioApi, 'keepSummary'>, storeId: s
   return summary
 }
 
-export const lookupNames = ['list_collections', 'find_products', 'product_photos', 'best_sellers', 'active_offers'] as const
+export const lookupNames = ['store_photos', 'list_collections', 'find_products', 'product_photos', 'best_sellers', 'active_offers'] as const
 export type LookupName = (typeof lookupNames)[number]
 export type LookupAnswer = { content: string; images: AiImage[] }
 
 /** The model's read-only questions about its own store (AI-STUDIO §4): the Worker answers each, never the model. */
 export interface StoreLookups {
   run: (name: LookupName, args: Record<string, unknown>) => Promise<LookupAnswer | null>
+  /** The Assets ids `store_photos` handed out, which the theme may then place (and so make visible to shoppers, #1244). */
+  listed?: ReadonlySet<string>
 }
+
+/** The most of the store's own pictures `store_photos` lists. */
+export const maxStorePhotos = 24
 
 const sorts: readonly LookupSort[] = ['best-selling', 'newest', 'price-low', 'price-high', 'name']
 const slugPattern = /^[\p{L}\p{N}][\p{L}\p{N}_-]{0,119}$/u
@@ -130,6 +136,7 @@ export const storeLookups = (deps: {
 }): StoreLookups => {
   const { sql, context, summary, readAsset } = deps
   const { storeId } = context
+  const listed = new Set<string>()
   const inScope = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, context, work)
   const products = async (collection: string | null, sort: LookupSort, limit: number) =>
     (await inScope((tx) => selectLookupProducts(tx, storeId, { collection, sort, limit }))).map((p) => ({
@@ -151,6 +158,11 @@ export const storeLookups = (deps: {
 
   const run = async (name: LookupName, args: Record<string, unknown>): Promise<LookupAnswer | null> => {
     switch (name) {
+      case 'store_photos': {
+        const own = await inScope((tx) => selectLibrary(tx, storeId, { limit: maxStorePhotos, before: null, kind: 'image', search: null }))
+        for (const a of own) listed.add(a.id)
+        return answer(own.map((a) => ({ assetId: a.id, name: a.name, width: a.width, height: a.height })))
+      }
       case 'list_collections':
         // The summary holds every collection unless the store has more than it keeps.
         if (summary.collections.length >= summary.collectionCount) return answer(summary.collections)
@@ -175,5 +187,5 @@ export const storeLookups = (deps: {
       }
     }
   }
-  return { run }
+  return { run, listed }
 }
