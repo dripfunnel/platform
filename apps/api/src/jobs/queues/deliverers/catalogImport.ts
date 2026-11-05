@@ -28,12 +28,12 @@ import { queueSideEffect } from '#saas/outbox/index'
 import { defaultRelayOptions, type Deliverer, type Effect } from '../outbox-relay'
 
 // `import.catalog` and `import.photos` (CATALOG K; FIRST-RELEASE §13): a catalogue import's check, its run a chunk at
-// a time, and its photos one at a time, each in the importer's own scope and inside the relay's timeout.
+// a time, and its photos one at a time, each in the importer's own scope and within its delivery's limit (api/README.md §5).
 
-/** A chunk stops taking products after this, well inside its delivery's own limit below, leaving room to save its progress. */
-const chunkBudgetMs = 45_000
 /** Longer than the relay's 10 s: queue consumers run away from the database's region (#1300, #1301). */
 const chunkTimeoutMs = 60_000
+/** A chunk stops taking products this long before its limit, leaving room to save its progress. */
+const chunkBudgetMs = chunkTimeoutMs - 15_000
 const maxPhotoBytes = 20 * 1024 * 1024
 
 // A fetch names the page it reads (null for the first), so delivering it twice adds that page once.
