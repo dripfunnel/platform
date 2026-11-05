@@ -525,6 +525,14 @@ describe('a supplier’s import', () => {
     const before = (await db.sql<{ n: number }[]>`select count(*)::int as n from catalog_import`)[0]?.n ?? 0
     expect(await withSystemScope(db.sql, (tx) => deleteExpiredImports(tx, new Date(Date.now() + 3 * 86_400_000)))).toBe(before)
   })
+  it('asks for the collections to be recomputed once for a chunk, not once a product', async () => {
+    const asked = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'collections.recompute' and store_id = ${t.storeA1}`)[0]?.n ?? 0
+    const before = await asked()
+    const rows = Array.from({ length: 5 }, (_, i) => `once-${i},Once ${i},10,ONCE-${i}`)
+    const { id } = await upload('owner', `handle,name,price,sku\n${rows.join('\n')}\n`)
+    expect((await confirm('owner', id)).job).toMatchObject({ state: 'done', created: 5 })
+    expect(await asked()).toBe(before + 1)
+  })
   it('needs the plan for a spreadsheet import', async () => {
     await db.sql`delete from plan_entitlement where key = 'import_spreadsheet' and plan_id = (select plan_id from store where id = ${t.storeA1})`
     expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner')).code).toBe('PLAN_LIMIT')

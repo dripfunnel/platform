@@ -977,7 +977,8 @@ const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise
           upgrade: env.CORE_UPGRADE && env.STUDIO_SESSION ? env.CORE_UPGRADE : null,
         }
       : null
-  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishing))
+  const wake = env.OUTBOX_WAKE
+  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishing), wake ? { ...defaultRelayOptions, onBudgetSpent: () => wake.send({ at: Date.now() }).then(() => undefined, (error: unknown) => logEvent({ event: 'outbox_wake_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })) } : defaultRelayOptions)
   for (const [outcome, count] of Object.entries(counts)) {
     if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
   }

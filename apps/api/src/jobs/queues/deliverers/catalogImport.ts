@@ -6,7 +6,6 @@ import {
   attachImportPhoto,
   catalogJobPayload,
   checkImport,
-  collectionsRecomputeKind,
   createAssetService,
   createCatalogService,
   createTranslationService,
@@ -22,6 +21,7 @@ import {
 } from '#engine/modules/catalog/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { fetchPublic } from '#integrations/http/publicFetch'
+import { insertOutboxMany } from '#db/scoped/outbox'
 import { activityLog } from '#saas/activity/index'
 import { allowanceFor } from '#saas/entitlements/index'
 import { queueSideEffect } from '#saas/outbox/index'
@@ -41,6 +41,8 @@ const photoPayload = catalogJobPayload.extend(importPhotoPayload.shape).strict()
 /** The run's catalogue, translations and outbox, in the importer's own scope. */
 export const catalogImportDeps = (sql: postgres.Sql, p: CatalogJobPayload, effect: Pick<Effect, 'id'>, now: () => Date): ImportJobDeps => {
   const context = jobContextOf(p)
+  // Read once for the delivery: its chunk's products are all held to the plan as it was when the chunk began.
+  let allowance: Promise<number> | undefined
   const actor = { id: p.caller.kind === 'support' ? p.caller.partnerUserId : p.caller.userId, partnerId: p.partnerId }
   const facts = { requestId: effect.id, ip: null, userAgent: null }
   const catalog = createCatalogService({
@@ -50,8 +52,9 @@ export const catalogImportDeps = (sql: postgres.Sql, p: CatalogJobPayload, effec
     activity: activityLog,
     facts,
     now,
-    productAllowance: () => allowanceFor(sql, context, 'products', now()),
-    recompute: (tx) => queueSideEffect(tx, { kind: collectionsRecomputeKind, idempotencyKey: crypto.randomUUID(), payload: { storeId: p.storeId }, partnerId: p.partnerId, storeId: p.storeId }),
+    productAllowance: () => (allowance ??= allowanceFor(sql, context, 'products', now())),
+    // The run asks once at the end of each chunk (runImportChunk), not once a product.
+    recompute: async () => {},
   })
   const translations = createTranslationService({ sql, context, actor, activity: activityLog, facts, now })
   return {
@@ -64,6 +67,7 @@ export const catalogImportDeps = (sql: postgres.Sql, p: CatalogJobPayload, effec
     catalog,
     saveTranslationIn: translations.saveProductTranslationIn,
     queue: (tx, kind, key, payload) => queueSideEffect(tx, { kind, idempotencyKey: key, payload, partnerId: p.partnerId, storeId: p.storeId }),
+    queueMany: (tx, kind, effects) => insertOutboxMany(tx, effects.map((e) => ({ kind, idempotencyKey: e.key, payload: e.payload, partnerId: p.partnerId, storeId: p.storeId }))),
   }
 }
 
@@ -93,7 +97,11 @@ export const catalogImportDeliverer = (sql: postgres.Sql, shop: ShopConnect | nu
 })
 
 /** A photo is fetched from a public address only (publicFetch.ts) and stored as the importer's own file. */
+/** Each photo waits on its own fetch, so a sweep takes this many at once (the pool of connections is 5). */
+const photosAtOnce = 4
+
 export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | null, lookup: DnsLookup, now: () => Date = () => new Date(), fetchImpl?: typeof fetch): Deliverer => ({
+  concurrency: photosAtOnce,
   deliver: async (effect) => {
     const parsed = photoPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('import.photos: bad payload')

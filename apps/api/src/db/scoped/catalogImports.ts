@@ -126,12 +126,15 @@ export const saveImportProgress = async (
   `
 }
 
-export const saveImportPhotos = async (tx: ScopedSql, id: string, problems: unknown[]): Promise<void> => {
-  await tx`
-    update catalog_import set photos_pending = greatest(photos_pending - 1, 0), problems = problems || ${JSON.stringify(problems)}::text::jsonb
-    where id = ${id} and state = 'running'
-  `
-}
+/** The row as the count left it, held until the transaction ends; null when the run is no longer running. */
+export const saveImportPhotos = async (tx: ScopedSql, id: string, problems: unknown[]): Promise<CatalogImportRow | null> =>
+  (
+    await tx<CatalogImportRow[]>`
+      update catalog_import set photos_pending = greatest(photos_pending - 1, 0), problems = problems || ${JSON.stringify(problems)}::text::jsonb
+      where id = ${id} and state = 'running'
+      returning *
+    `
+  )[0] ?? null
 
 export const finishImport = async (tx: ScopedSql, id: string, f: { problemsCsv: string | null; at: Date; expiresAt: Date }): Promise<void> => {
   await tx`
@@ -192,9 +195,6 @@ export const addImportProblems = async (tx: ScopedSql, id: string, problems: unk
 }
 
 /** A product's live versions in their order, as the save just wrote them. */
-export const selectVersionIdsInOrder = async (tx: ScopedSql, productId: string): Promise<string[]> =>
-  (await tx<{ id: string }[]>`select id from product_version where product_id = ${productId} and deleted_at is null order by position, id`).map((r) => r.id)
-
 /** The importer's seat in the store now: its role, and for a supplier its tier and whether the company is active. */
 export const selectImporterSeat = async (
   tx: ScopedSql,

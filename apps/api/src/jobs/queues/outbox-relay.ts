@@ -19,6 +19,8 @@ export interface Deliverer {
   deliver: (effect: Effect, signal: AbortSignal) => Promise<void>
   /** What of the payload stays once the row is delivered or given up, written with that outcome. */
   redact?: (payload: unknown) => Record<string, unknown>
+  /** How many rows of this kind one sweep may deliver at once; absent, one at a time. */
+  concurrency?: number
 }
 
 export type Deliverers = Readonly<Record<string, Deliverer>>
@@ -33,6 +35,8 @@ export interface RelayOptions {
   batch: number
   /** How long one sweep keeps claiming rows that come due, on `now` (relayBudgetMs). */
   budgetMs: number
+  /** Called when a sweep stopped on `budgetMs` and not for want of rows, so the rest need not wait for the cron. */
+  onBudgetSpent?: () => Promise<void>
 }
 
 /** How long one sweep keeps claiming rows that come due. It is checked between batches, so a batch (each call capped by `timeoutMs`) can run past it; a sweep the Worker cuts short leaves its rows leased until `leaseMs`. */
@@ -137,14 +141,33 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   if (kinds.length === 0) return counts
   const deadline = opts.now().getTime() + opts.budgetMs
   const attempted = new Set<string>()
+  const deliver = async (row: OutboxRow, deliverer: Deliverer) => {
+    counts[await settle(sql, row, deliverer, opts)] += 1
+  }
   while (opts.now().getTime() < deadline) {
     const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, [...attempted]))
-    if (rows.length === 0) break
+    if (rows.length === 0) return counts
+    const lanes = new Map<string, OutboxRow[]>()
+    const serial: OutboxRow[] = []
     for (const row of rows) {
       attempted.add(row.id)
       const deliverer = deliverers[row.kind]
-      if (deliverer) counts[await settle(sql, row, deliverer, opts)] += 1
+      if (!deliverer) continue
+      if ((deliverer.concurrency ?? 1) > 1) lanes.set(row.kind, [...(lanes.get(row.kind) ?? []), row])
+      else serial.push(row)
     }
+    // The one-at-a-time rows and each wide kind run side by side, so a slow wide kind never holds the rest.
+    const takeFrom = async (list: OutboxRow[]) => {
+      for (let row = list.shift(); row; row = list.shift()) {
+        const deliverer = deliverers[row.kind]
+        if (deliverer) await deliver(row, deliverer)
+      }
+    }
+    await Promise.all([
+      takeFrom(serial),
+      ...[...lanes].flatMap(([kind, list]) => Array.from({ length: Math.min(deliverers[kind]?.concurrency ?? 1, list.length) }, () => takeFrom(list))),
+    ])
   }
+  await opts.onBudgetSpent?.()
   return counts
 }
