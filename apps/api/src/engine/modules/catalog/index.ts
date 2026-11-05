@@ -228,26 +228,14 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     })
     const keptOptionIds = new Set(options.filter((o) => o.kept).map((o) => o.id))
     const keptValueIds = new Set(options.flatMap((o) => o.values.filter((v) => v.kept).map((v) => v.id)))
-    // Removed options and values go first, so a name reused in the same save never meets its old row.
-    if (existing) {
-      await deleteOptions(tx, existing.options.filter((o) => !keptOptionIds.has(o.id)).map((o) => o.id))
-      await deleteOptionValues(tx, existing.options.filter((o) => keptOptionIds.has(o.id)).flatMap((o) => o.values.filter((v) => !keptValueIds.has(v.id)).map((v) => v.id)))
-    }
     const write = (o: OptionWrite) => ({ id: o.id, name: o.name, position: o.position })
     const value = (v: ValueWrite) => ({ id: v.id, optionId: v.optionId, name: v.name, position: v.position })
-    await updateOptions(tx, options.filter((o) => o.kept).map(write))
-    await insertOptions(tx, storeId, productId, options.filter((o) => !o.kept).map(write))
     const values = options.flatMap((o) => o.values)
-    await updateOptionValues(tx, values.filter((v) => v.kept).map(value))
-    await insertOptionValues(tx, storeId, values.filter((v) => !v.kept).map(value))
-
     const before = existing?.versions.map((v) => v.id) ?? []
     const versions = clean.versions.map((v, position) => {
       const kept = known(before, v.id)
       return { id: kept ?? crypto.randomUUID(), kept: kept !== null, fields: versionFieldsOf(v, position), clean: v }
     })
-    await updateVersions(tx, versions.filter((v) => v.kept).map((v) => ({ id: v.id, ...v.fields })), at)
-    await insertVersions(tx, storeId, productId, versions.filter((v) => !v.kept).map((v) => ({ id: v.id, ...v.fields })))
     const ids = versions.map((v) => v.id)
     const choices = versions.flatMap((v) =>
       v.clean.choices.map((choice, i) => {
@@ -256,9 +244,26 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
         return { versionId: v.id, optionId: option?.id ?? '', valueId: chosen?.id ?? '' }
       }),
     )
-    await setVersionChoices(tx, storeId, ids, choices)
-    await setVersionPrices(tx, storeId, ids, versions.flatMap((v) => v.clean.prices.map((p) => ({ versionId: v.id, ...p }))), sellerId === null ? null : await selectPricingCurrency(tx))
-    await softDeleteVersions(tx, before.filter((id) => !ids.includes(id)), at)
+    const onlyCurrency = sellerId === null ? null : await selectPricingCurrency(tx)
+    // One flight: the statements run in this order on the connection, and the ids are ours, so none waits on another's answer.
+    // Removed options and values go first, so a name reused in the same save never meets its old row.
+    await Promise.all([
+      ...(existing
+        ? [
+            deleteOptions(tx, existing.options.filter((o) => !keptOptionIds.has(o.id)).map((o) => o.id)),
+            deleteOptionValues(tx, existing.options.filter((o) => keptOptionIds.has(o.id)).flatMap((o) => o.values.filter((v) => !keptValueIds.has(v.id)).map((v) => v.id))),
+          ]
+        : []),
+      updateOptions(tx, options.filter((o) => o.kept).map(write)),
+      insertOptions(tx, storeId, productId, options.filter((o) => !o.kept).map(write)),
+      updateOptionValues(tx, values.filter((v) => v.kept).map(value)),
+      insertOptionValues(tx, storeId, values.filter((v) => !v.kept).map(value)),
+      updateVersions(tx, versions.filter((v) => v.kept).map((v) => ({ id: v.id, ...v.fields })), at),
+      insertVersions(tx, storeId, productId, versions.filter((v) => !v.kept).map((v) => ({ id: v.id, ...v.fields }))),
+      setVersionChoices(tx, storeId, ids, choices),
+      setVersionPrices(tx, storeId, ids, versions.flatMap((v) => v.clean.prices.map((p) => ({ versionId: v.id, ...p }))), onlyCurrency),
+      softDeleteVersions(tx, before.filter((id) => !ids.includes(id)), at),
+    ])
     if (clean.photos !== null) {
       await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ids[p.version] ?? null) })))
     }
@@ -280,6 +285,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
     if (clean.sizeChartId !== undefined) await setProductSizeChart(tx, storeId, productId, clean.sizeChartId)
     await recompute(tx)
+    return ids
   }
 
   const run = async (work: (tx: ScopedSql) => Promise<SaveResult>): Promise<SaveResult> => {
@@ -325,21 +331,22 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
    * A Stock-only supplier's proposal waits for the merchant whatever the switch says (decided on #337; 0050's guard).
    * `alongside` runs in the save's own transaction, so what it writes commits with the product or not at all (an import's progress).
    */
-  const create = async (input: ProductInput, proposal = false, alongside?: (tx: ScopedSql, productId: string) => Promise<void>): Promise<SaveResult> => {
+  const create = async (input: ProductInput, proposal = false, alongside?: (tx: ScopedSql, productId: string, versionIds: readonly string[]) => Promise<void>): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
       const product = await clean(tx, input)
-      await lockCatalogue(tx, storeId)
-      const wanted = (await countStoreProducts(tx)) + 1
+      // Sent together, in this order: the count is read under the lock.
+      const [, counted] = await Promise.all([lockCatalogue(tx, storeId), countStoreProducts(tx)])
+      const wanted = counted + 1
       if (wanted > allowance) throw new Refused({ reason: 'PLAN_LIMIT', wanted })
       // A supplier's product is created visible, or hidden and pending while the store requires approval: 0050's guard decides.
       const visibility = sellerId !== null || product.visible !== false ? 'visible' : 'hidden'
       const made = await insertProduct(tx, { storeId, sellerId, createdBy: actor.id, fields: { ...fieldsOf(product, visibility), slug: sellerId !== null ? supplierSlug(product.slug) : product.slug } })
-      await writeChildren(tx, made.id, product, null)
+      const versionIds = await writeChildren(tx, made.id, product, null)
       await activity.record(tx, entry(proposal ? approvalAudit.proposed : catalogAudit.created, { id: made.id, label: product.name }))
       await queueStoreEvent(tx, storeId, 'product.updated', { object: 'product', id: made.id }, crypto.randomUUID(), now())
       const pending = sellerId !== null && (proposal || (await approvalRequired(tx)))
-      await alongside?.(tx, made.id)
+      await alongside?.(tx, made.id, versionIds)
       return { ok: true, id: made.id, slug: made.slug, revision: 1, approval: pending ? 'pending' : null, reviewed: [] }
     })
   }
@@ -361,7 +368,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
 
   const propose = (input: ProductInput) => (sellerId === null ? Promise.reject(new Error('catalogue: only a supplier proposes')) : create(input, true))
 
-  const update = (id: string, revision: number, input: ProductInput, alongside?: (tx: ScopedSql, productId: string) => Promise<void>): Promise<SaveResult> =>
+  const update = (id: string, revision: number, input: ProductInput, alongside?: (tx: ScopedSql, productId: string, versionIds: readonly string[]) => Promise<void>): Promise<SaveResult> =>
     run(async (tx) => {
       const existing = await selectProduct(tx, storeId, id)
       if (!existing) throw new Refused({ reason: 'NOT_FOUND' })
@@ -374,11 +381,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const slug = !product.slugGiven || product.slug === existing.slug ? existing.slug : sellerId !== null ? supplierSlug(product.slug) : product.slug
       const done = await updateProduct(tx, { storeId, id, revision, fields: { ...fieldsOf(product, visibility), slug }, visibilityChange: sellerId === null && visibility !== existing.visibility }, now())
       if (!done) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
-      await writeChildren(tx, id, product, existing)
+      const versionIds = await writeChildren(tx, id, product, existing)
       await activity.record(tx, entry(catalogAudit.updated, { id, label: product.name }))
       await queueStoreEvent(tx, storeId, 'product.updated', { object: 'product', id }, crypto.randomUUID(), now())
       const review = await reviewAfterSave(tx, id, product, existing)
-      await alongside?.(tx, id)
+      await alongside?.(tx, id, versionIds)
       return { ok: true, id, slug: done.slug, revision: revision + 1, ...review }
     })
 
