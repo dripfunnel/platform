@@ -403,6 +403,18 @@ describe('the plan and its build (#1243)', () => {
     script.answers = []
   })
 
+  it('leaves the plan open to build again when its first page is refused, inside the same unit', async () => {
+    const plan = await toPlan()
+    const used = await usage(t.storeA1)
+    script.answers = [reply([refusedPage]), reply([refusedPage]), reply([refusedPage]), reply([refusedPage])]
+    const refused = value(await build(plan.id), 'buildDesignPlan')
+    expect(refused).toMatchObject({ outcome: 'refused', message: { role: 'error', text: 'change_refused' } })
+    expect((await db.sql<{ state: string; claimed: string | null }[]>`select detail->>'state' as state, detail->>'claimedAt' as claimed from design_message where id = ${plan.id}`)[0]).toEqual({ state: 'open', claimed: null })
+    script.answers = [reply([lead('Second try: home.')]), reply([lead('Second try: product.')]), reply([lead('Second try: about.')])]
+    expect(value(await build(plan.id), 'buildDesignPlan').outcome).toBe('changed')
+    expect(await usage(t.storeA1)).toBe(used)
+  })
+
   it('refuses the Manager, and another store’s Owner, every flow write', async () => {
     const plan = await toPlan()
     expect((await w.gql('manager', 'mutation B($id: ID!) { buildDesignPlan(messageId: $id) { outcome } }', { id: plan.id })).code).toBe('FORBIDDEN')
