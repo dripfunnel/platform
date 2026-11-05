@@ -7,9 +7,10 @@ import type { StorefrontBrand, StorefrontDomains, StorefrontOverview, Storefront
 // waiting and failed (an own domain on its way or refused by DNS), free (a plan without an own domain), contentEmpty (no
 // posts); the studio's:
 // studio (ready), opening, queued, finishing (another tab's change), ended (the session refused), working (a change's live
-// steps) and chatStreaming (a chat answer as it streams); a publish checking,
+// steps) and chatStreaming (a chat answer as it streams); questions, plan, building and built (#1243: a vague request's
+// quick questions, its plan, its build page by page, and the build's entry); a publish checking,
 // refused (with a change to publish before) or rolled back.
-export const studioHarnessStates = ['studio', 'opening', 'queued', 'finishing', 'ended', 'working', 'chatStreaming', 'pubChecking', 'pubRefused', 'rolledBack'] as const
+export const studioHarnessStates = ['studio', 'opening', 'queued', 'finishing', 'ended', 'working', 'chatStreaming', 'questions', 'plan', 'building', 'built', 'pubChecking', 'pubRefused', 'rolledBack'] as const
 export const storefrontStates = ['loading', 'error', 'denied', 'brand', 'gallery', 'creating', 'list', 'oldBuild', 'rolledBackLive', 'draft', 'manager', 'readOnly', 'noSite', 'waiting', 'failed', 'free', 'contentEmpty', ...studioHarnessStates] as const
 export type StorefrontState = (typeof storefrontStates)[number]
 export const isStudioState = (state: string | null): boolean => studioHarnessStates.some((s) => s === state)

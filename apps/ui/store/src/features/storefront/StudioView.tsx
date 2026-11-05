@@ -267,7 +267,10 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     return true
   }
   // An accepted change reaches the frame by its own hot reload, so the frame's address never changes here (AI-STUDIO §4 step 5).
-  const send = (request: ChatRequest) => perform(() => api.askDesign({ ...request, page: shownPath, device: shownDevice }), askRefusal)
+  const send = ({ planId, ...request }: ChatRequest) => perform(() => (planId ? api.changeDesignPlan(planId, request.text, request.model) : api.askDesign({ ...request, page: shownPath, device: shownDevice })), askRefusal)
+  // #1243: a vague request's questions and plan; the build follows on the live feed page by page.
+  const answer = (message: DesignMessage, answers: string[], skip: boolean, model: string | null) => void perform(() => api.answerDesignQuestions(message.id, answers, skip, model), askRefusal)
+  const buildPlan = (message: DesignMessage, model: string | null) => void perform(() => api.buildDesignPlan(message.id, model), askRefusal)
   const stop = () => void api.cancelDesign().catch(() => undefined)
   const undo = (message: DesignMessage) => void perform(() => api.undoDesignChange(message.id), askRefusal)
   const discard = () => {
@@ -469,6 +472,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             onUndo={undo}
             onSend={send}
             onStop={stop}
+            onAnswer={answer}
+            onBuild={buildPlan}
             notice={notice}
             models={models}
             aiLine={!usage ? null : usage.ownKey ? words.usageOwn : usage.aiPromptsAllowed === null ? null : fill(words.usageLine, { left: formatCount(Math.max(0, usage.aiPromptsAllowed - usage.aiPromptsUsed)) })}
