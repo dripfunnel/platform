@@ -190,13 +190,14 @@ export const loadPublishRun = async (id: string): Promise<PublishRun | null> =>
 
 // Live progress (storefront AI-STUDIO §4 "Live progress", #1237): the one socket next to GraphQL, one-way, to the store's
 // studio; it never starts or changes anything, so askDesign and cancelDesign stay the only writes.
-export const liveSteps = ['reading', 'asking', 'planning', 'checking', 'repairing', 'saving', 'updating'] as const
+export const liveSteps = ['reading', 'asking', 'planning', 'checking', 'repairing', 'editing', 'saving', 'updating'] as const
 export type LiveStep = (typeof liveSteps)[number]
 
 const liveBase = { seq: z.number().int().positive(), run: z.string() }
 const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ ...liveBase, type: z.literal('step'), step: z.enum(liveSteps), attempt: z.number().int().optional(), of: z.number().int().optional() }),
   z.object({ ...liveBase, type: z.literal('text'), text: z.string() }),
+  z.object({ ...liveBase, type: z.literal('thought'), text: z.string() }),
   z.object({ ...liveBase, type: z.literal('page'), index: z.number().int().positive(), of: z.number().int().positive(), page: z.string(), titles: z.array(z.string()) }),
   z.object({ ...liveBase, type: z.literal('done'), outcome: z.string(), messageId: text }),
   z.object({ ...liveBase, type: z.literal('error'), code: z.string() }),

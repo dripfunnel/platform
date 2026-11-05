@@ -8,6 +8,8 @@ export interface LiveRun {
   chat: boolean
   steps: { step: LiveStep; attempt: number | null; of: number | null }[]
   text: string
+  /** The model's own sentence on what it understood and will change. */
+  thought: string
   /** A plan's build (#1243): the page being built, of how many, and every page's title; its steps are that page's. */
   page: { index: number; of: number; titles: string[] } | null
 }
@@ -15,13 +17,15 @@ export interface LiveRun {
 const applied = (runs: readonly LiveRun[], e: LiveEvent): LiveRun[] => {
   const others = runs.filter((r) => r.run !== e.run)
   if (e.type === 'done' || e.type === 'error') return others
-  const found = runs.find((r) => r.run === e.run) ?? { run: e.run, chat: e.type === 'step' && e.step === 'asking', steps: [], text: '', page: null }
+  const found = runs.find((r) => r.run === e.run) ?? { run: e.run, chat: e.type === 'step' && e.step === 'asking', steps: [], text: '', thought: '', page: null }
   const next =
     e.type === 'step'
       ? { ...found, steps: [...found.steps, { step: e.step, attempt: e.attempt ?? null, of: e.of ?? null }] }
       : e.type === 'page'
-        ? { ...found, steps: [], text: '', page: { index: e.index, of: e.of, titles: e.titles } }
-        : { ...found, text: found.text + e.text }
+        ? { ...found, steps: [], text: '', thought: '', page: { index: e.index, of: e.of, titles: e.titles } }
+        : e.type === 'thought'
+          ? { ...found, thought: e.text }
+          : { ...found, text: found.text + e.text }
   return [...others, next]
 }
 

@@ -1,9 +1,26 @@
+import { useEffect, useState } from 'react'
 import { fill, formatCount, messages } from '../../messages'
 import type { LiveRun } from './useStudioLive'
 
 const words = messages.storefront.studio.live
 
 const stepLabel = (s: LiveRun['steps'][number]): string => (s.step === 'repairing' ? fill(words.steps.repairing, { attempt: String(s.attempt ?? 1), of: String(s.of ?? 3) }) : words.steps[s.step])
+
+const cookingEveryMs = 3000
+
+/** A friendly line that changes every few seconds while the AI works, so a long wait never looks stuck. */
+const Cooking = () => {
+  const [at, setAt] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setAt((was) => was + 1), cookingEveryMs)
+    return () => clearInterval(timer)
+  }, [])
+  return (
+    <p className="df-studio-cooking" aria-hidden="true">
+      {words.cooking[at % words.cooking.length]}
+    </p>
+  )
+}
 
 /**
  * The live feed (PortalStorefront › studio `?state=working`, `?state=chat-streaming` and `?state=building`): a change's
@@ -42,6 +59,7 @@ export const StudioFeed = ({ run }: { run: LiveRun }) => {
           </ol>
         </>
       )}
+      {run.thought && <p className="df-studio-thought">{run.thought}</p>}
       <ol className="df-studio-feed">
         {run.steps.map((s, i) => {
           const current = s === last
@@ -60,6 +78,7 @@ export const StudioFeed = ({ run }: { run: LiveRun }) => {
           )
         })}
       </ol>
+      {(last?.step === 'asking' || last?.step === 'editing') && <Cooking />}
       {run.text && <p className="df-studio-summary">{run.text}</p>}
     </>
   )

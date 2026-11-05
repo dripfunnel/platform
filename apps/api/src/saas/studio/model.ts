@@ -36,6 +36,8 @@ export type ProposalInput = {
   previous?: FileEdit[]
   /** Each file of the answer as soon as the model has written it whole, for the pre-check (#1240); its result is never awaited. */
   onFile?: (file: FileEdit) => void | Promise<void>
+  /** The model's one sentence on what it understood and will change, as soon as it is whole. */
+  onIntro?: (text: string) => void
 }
 
 export interface DesignModel {

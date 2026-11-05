@@ -2,8 +2,11 @@
 // soon as the item is whole, so the runner can pre-check a file while the model writes the next. The answer read whole
 // (readAnswer) still decides; this only looks ahead, and text before the object is skipped as jsonOf skips it.
 
-/** Feeds `onItem` each whole item of the top-level `key` array, parsed; call the result with each piece of text. */
-export const streamedItems = (key: string, onItem: (item: unknown) => void): ((text: string) => void) => {
+/**
+ * Feeds `onItem` each whole item of the top-level `key` array, parsed, and `onValue` each top-level string value (with its
+ * key) once whole; call the result with each piece of text.
+ */
+export const streamedItems = (key: string, onItem: (item: unknown) => void, onValue?: (key: string, value: string) => void): ((text: string) => void) => {
   let buffer = ''
   let scanned = 0
   let depth = 0
@@ -34,6 +37,7 @@ export const streamedItems = (key: string, onItem: (item: unknown) => void): ((t
             } catch {
               lastString = null
             }
+            if (valueOf !== null && lastString !== null) onValue?.(valueOf, lastString)
           }
         }
         continue

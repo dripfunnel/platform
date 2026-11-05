@@ -742,13 +742,13 @@ through. Your site stays live."), as is a support session.
 - **Built on #319 (part 4)**: the studio, full screen over the portal (a modal dialog, so the header and menu are
   inert): the top bar (← Storefront, template and store, address, status, the page picker, Desktop · Tablet · Phone as
   a select below 1180 px, Discard), Chat and Preview tabs on a phone, the sandbox's states, the chat (words, an uploaded
-  or pasted image, a website address, suggestions, what changed, Undo this change, notes, the error line) and Edit
+  or pasted image, a website address, what changed, Undo this change, notes, the error line) and Edit
   text; Open studio and Continue in studio on the Overview, and the gallery opening the studio after a pick. *Decided
   there:* the Manager gets no studio, as the prototype draws (the Overview shows them the draft notice); the session is
   renewed every 2 minutes (storefront AI-STUDIO §9); "You're next — about N seconds" counts 20 seconds per studio ahead
   *(proposed)*; "Checking your change…" covers the whole request, which answers once checked and repaired; the page
   picker is a select grouped Shop, Policies, Content pages and Pages the AI made, its product page the product changed
-  last; the four suggestions are the prototype's, since the API proposes none; the AI signs as "{partner} AI"; Edit text
+  last; no suggestion chips (removed on #1279); the AI signs as "{partner} AI"; Edit text
   saves only the languages changed and never leaves the main one empty. Publish and its gate are part 5's; the AI
   tokens line comes in part 6.
 - **Built on #319 (part 5)**: Publish in the studio's top bar ("Publish site" before the first), its question, the

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { closeEndedSockets } from './frame'
-import { isLiveSocket, liveHub, liveKeepMs, liveMaxText, liveSender, liveTags, liveUpgrade, liveUpgradeOf, type LiveEvent, type LiveMessage, type LiveStorage } from './live'
+import { firstOnly, isLiveSocket, liveHub, liveKeepMs, liveMaxText, liveSender, liveTags, liveUpgrade, liveUpgradeOf, type LiveEvent, type LiveMessage, type LiveStorage } from './live'
 
 const memory = (): LiveStorage & { writes: number } => {
   const values = new Map<string, unknown>()
@@ -156,5 +156,16 @@ describe('a live socket’s tags', () => {
     expect(closed).toEqual(['live ended'])
     expect(isLiveSocket(liveTags('open'))).toBe(true)
     expect(isLiveSocket(['open'])).toBe(false)
+  })
+})
+
+describe('a run’s one "making your changes" step', () => {
+  it('is sent the first time only, however many repairs ask for it', () => {
+    const sent: string[] = []
+    const editing = firstOnly(() => void sent.push('editing'))
+    editing()
+    editing()
+    editing()
+    expect(sent).toEqual(['editing'])
   })
 })

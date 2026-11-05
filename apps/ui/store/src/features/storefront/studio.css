@@ -428,36 +428,6 @@
   margin: 0;
 }
 
-.df-studio-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.df-studio-chips button {
-  min-height: 32px;
-  padding: 6px 12px;
-  border: 1px solid var(--df-color-border);
-  border-radius: 999px;
-  background: var(--df-color-surface);
-  color: var(--df-color-text-strong);
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 0.12s,
-    border-color 0.12s;
-}
-
-.df-studio-chips button:hover {
-  border-color: var(--df-color-field-border);
-  background: var(--df-color-hover);
-}
-
 .df-studio-box {
   display: flex;
   flex-direction: column;
@@ -1091,6 +1061,9 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  max-height: min(320px, 45vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .df-studio-stock-grid li {
@@ -1193,6 +1166,19 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.df-studio-cooking {
+  margin: 6px 0 0;
+  color: var(--df-color-text-muted);
+  font-size: 13px;
+}
+
+.df-studio-thought {
+  margin: 4px 0 8px;
+  color: var(--df-color-text-strong);
+  font-size: 14px;
+  font-style: italic;
 }
 
 .df-studio-summary,

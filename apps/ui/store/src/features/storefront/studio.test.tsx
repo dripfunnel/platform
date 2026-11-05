@@ -12,7 +12,6 @@ import { StudioView } from './StudioView'
 
 const words = messages.storefront.studio
 const c = words.chat
-const [firstSuggestion = '', secondSuggestion = ''] = c.suggestions
 const origin = 'https://k7f3q9f2xa.webpreview.store'
 const frameUrl = `${origin}/__studio/abcdefghijklmnopqrstuv/`
 const ready: StudioSession = { state: 'ready', place: null, session: 'abcdefghijklmnopqrstuv', models: [], frameUrl, access: 'change', expiresAt: '2026-10-12T09:00:00Z' }
@@ -24,6 +23,11 @@ const chat = [line('m3', 'ai', 'I warmed it up.', { changed: ['Colours'], canUnd
 const socket: { send: (e: LiveEvent) => void; up: (up: boolean) => void } = { send: () => undefined, up: () => undefined }
 let seq = 0
 type Unnumbered = { [K in LiveEvent['type']]: Omit<Extract<LiveEvent, { type: K }>, 'seq' | 'run'> }[LiveEvent['type']]
+const typeAndSend = (text: string) => {
+  const box = screen.getByRole('textbox', { name: words.chat.prompt })
+  fireEvent.change(box, { target: { value: text } })
+  fireEvent.keyDown(box, { key: 'Enter' })
+}
 const send = (run: string, e: Unnumbered) => act(() => socket.send({ ...e, seq: (seq += 1), run } as LiveEvent))
 
 const fakeApi = () =>
@@ -203,10 +207,9 @@ describe('the sandbox’s states', () => {
   it('says "Checking your change…" while a change is checked, one at a time', async () => {
     let answer: (outcome: string) => void = () => undefined
     await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>((resolve) => (answer = resolve))) })
-    fireEvent.click(screen.getByRole('button', { name: firstSuggestion }))
+    typeAndSend('make it warmer')
     await settle()
     expect(screen.getByText(words.sandbox.checking)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: secondSuggestion })).toBeNull()
     await act(async () => answer('changed'))
     await settle()
     expect(screen.queryByText(words.sandbox.checking)).toBeNull()
@@ -432,6 +435,19 @@ describe('the chat', () => {
     expect(api.askDesign).toHaveBeenCalledWith(expect.objectContaining({ imageAssetId: 'a-own' }))
   })
 
+  it('loads the next page of the store’s assets when the grid is scrolled to its end', async () => {
+    const asset = (id: string, name: string) => ({ id, kind: 'image', mime: 'image/png', bytes: 1000, width: 10, height: 10, name, uses: 0, createdAt: '2026-10-29T10:00:00Z' })
+    await show({ loadLibrary: vi.fn().mockResolvedValueOnce({ assets: [asset('a1', 'First')], next: 'c2' }).mockResolvedValueOnce({ assets: [asset('a2', 'Second')], next: null }) })
+    fireEvent.click(screen.getByRole('button', { name: c.assets }))
+    await settle()
+    const grid = document.querySelector('.df-studio-stock-grid') as HTMLElement
+    for (const [key, value] of [['scrollHeight', 500], ['clientHeight', 300], ['scrollTop', 200]] as const) Object.defineProperty(grid, key, { value, configurable: true })
+    fireEvent.scroll(grid)
+    await settle()
+    expect(api.loadLibrary).toHaveBeenLastCalledWith({ after: 'c2', kind: 'image', search: '' })
+    expect(screen.getByRole('button', { name: fill(c.assetsUse, { name: 'Second' }) })).toBeTruthy()
+  })
+
   it('shows the picked image as a thumbnail in its chip at once, and the same file once it is uploaded', async () => {
     vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:picked', revokeObjectURL: () => undefined }))
     await show()
@@ -567,7 +583,7 @@ describe('the studio on a phone', () => {
     expect(document.activeElement).toBe(screen.getByRole('tab', { name: words.panes.preview }))
     fireEvent.click(screen.getByRole('tab', { name: words.panes.chat }))
     expect(frame()).toBe(before)
-    fireEvent.click(screen.getByRole('button', { name: firstSuggestion }))
+    typeAndSend('make it warmer')
     await settle()
     expect(api.askDesign).toHaveBeenCalledWith(expect.objectContaining({ device: 'phone' }))
   })
@@ -816,7 +832,7 @@ describe('the live feed (#1237)', () => {
   it('shows each step of a change as it arrives, ticks the ones before, and the AI’s summary, in place of "Checking your change…"', async () => {
     await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>(() => undefined)) })
     expect(api.openStudioLive).toHaveBeenCalledWith(ready.session, expect.any(Function), expect.any(Function))
-    fireEvent.click(screen.getByRole('button', { name: firstSuggestion }))
+    typeAndSend('make it warmer')
     await settle()
     expect(screen.getByText(words.sandbox.checking)).toBeTruthy()
     await send('r1', { type: 'step', step: 'reading' })
@@ -831,6 +847,49 @@ describe('the live feed (#1237)', () => {
     expect(screen.getByText('I’m adding a reviews section.')).toBeTruthy()
     // The feed sits in the chat's polite live region.
     expect(steps[0]?.closest('[aria-live="polite"]')).not.toBeNull()
+  })
+
+  it('shows the AI’s own sentence above the steps, and one plain "making your changes" step, never a file name', async () => {
+    await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>(() => undefined)) })
+    await send('r5', { type: 'step', step: 'reading' })
+    await send('r5', { type: 'step', step: 'asking' })
+    await send('r5', { type: 'thought', text: 'I’ll make the hero warmer.' })
+    await send('r5', { type: 'step', step: 'editing' })
+    expect(screen.getByText('I’ll make the hero warmer.')).toBeTruthy()
+    expect(screen.getByText(words.live.steps.editing)).toBeTruthy()
+  })
+
+  it('shows the merchant’s words in the chat at once and clears the box', async () => {
+    await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>(() => undefined)) })
+    const box = screen.getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: 'make it warmer' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await settle()
+    expect(box.value).toBe('')
+    expect(screen.getByText('make it warmer').closest('.df-studio-user')).not.toBeNull()
+  })
+
+  it('shows the sent words once, not twice, while the change runs', async () => {
+    await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>(() => undefined)) })
+    typeAndSend('make it warmer')
+    await settle()
+    expect(screen.getAllByText('make it warmer').length).toBe(1)
+  })
+
+  it('keeps a friendly line changing while the AI works, so the wait never looks stuck', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>(() => undefined)) })
+      await send('r6', { type: 'step', step: 'asking' })
+      const line = () => document.querySelector('.df-studio-cooking')?.textContent
+      expect(line()).toBe(words.live.cooking[0])
+      await act(async () => {
+        vi.advanceTimersByTime(3000)
+      })
+      expect(line()).toBe(words.live.cooking[1])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('streams a chat answer word by word, announced once as "Writing an answer…"', async () => {
@@ -860,7 +919,7 @@ describe('the live feed (#1237)', () => {
     let answer: (outcome: string) => void = () => undefined
     await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>((resolve) => (answer = resolve))) })
     act(() => socket.up(false))
-    fireEvent.click(screen.getByRole('button', { name: firstSuggestion }))
+    typeAndSend('make it warmer')
     await settle()
     expect(screen.getByText(words.sandbox.checking)).toBeTruthy()
     await act(async () => answer('changed'))
@@ -890,8 +949,6 @@ describe('a vague request’s questions, plan and build (#1243)', () => {
     expect((lead.getByRole('radio', { name: 'Silk sarees, your best seller' }) as HTMLInputElement).checked).toBe(true)
     fireEvent.click(lead.getByRole('radio', { name: 'New arrivals' }))
     fireEvent.change(screen.getByRole('textbox', { name: fill(q.otherFor, { question: 'What feeling?' }) }), { target: { value: 'Quiet luxury' } })
-    // While questions are open, the suggestions make way for them.
-    expect(screen.queryByRole('button', { name: firstSuggestion })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: q.answer }))
     await settle()
     expect(api.answerDesignQuestions).toHaveBeenCalledWith('m5', ['New arrivals', 'Quiet luxury'], false, null)
