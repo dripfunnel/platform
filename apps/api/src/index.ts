@@ -2,6 +2,7 @@ import { deliveryOfferDeliverer } from '#jobs/queues/deliverers/deliveryOffer'
 import { sweepDispatch, offerKind, etaKind } from '#engine/modules/ownDelivery/index'
 import type postgres from 'postgres'
 import { WorkerEntrypoint } from 'cloudflare:workers'
+import { sameSecret } from '#core/secrets'
 import { ZodError } from 'zod'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
@@ -215,6 +216,8 @@ interface Env extends Record<string, unknown> {
   IMAGES?: ImagesBinding | undefined
   // Wakes the outbox relay after a request (api/README.md §5); unbound, cron delivers.
   OUTBOX_WAKE?: Queue<OutboxWake> | undefined
+  // This Worker itself, so a sweep runs in its placed fetch handler (api/README.md §5, #1301); unbound, sweeps run where they're called.
+  SELF?: Fetcher | undefined
   // SAAS §5 steps 4–8 and the bucket its templates and previews are in; unbound, a store's first template choice waits in the outbox.
   CREATE_STOREFRONT?: Workflow<CreateStorefrontParams | UndoStorefrontParams> | undefined
   STOREFRONT_SITES?: R2Bucket | undefined
@@ -918,12 +921,19 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, reached:
   return { response: await handleShop(request, url, config, env, ctx), area }
 }
 
+/** The configuration, or null when it doesn't parse: a background caller can't answer a request with the error. */
+const configOf = (env: Env): Config | null => {
+  try {
+    return parseConfig(env)
+  } catch {
+    return null
+  }
+}
+
 // The relay needs a database and a configuration; without either there is nothing to deliver.
 const relayWith = async (env: Env, work: (sql: postgres.Sql, config: Config) => Promise<void>): Promise<void> => {
-  let config
-  try {
-    config = parseConfig(env)
-  } catch {
+  const config = configOf(env)
+  if (!config) {
     logEvent({ event: 'relay_skipped', api: 'system', code: 'config_invalid' })
     return
   }
@@ -989,6 +999,30 @@ const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise
 }
 const sweepOutbox = (env: Env): Promise<void> => relayWith(env, (sql, config) => relayOutbox(sql, config, env))
 
+const relayPath = '/__relay'
+
+/** Hands the sweep to the placed fetch handler through SELF; false when SELF or RELAY_KEY is missing, so the caller sweeps in place. */
+const handOffSweep = async (env: Env, config: Config): Promise<boolean> => {
+  if (!env.SELF || !config.RELAY_KEY) return false
+  const response = await env.SELF.fetch(`https://relay.internal${relayPath}`, { method: 'POST', headers: { 'x-relay-key': config.RELAY_KEY } })
+  if (!response.ok) throw new Error(`relay hand-off answered ${response.status}`)
+  return true
+}
+
+// Every host answers 404 unless the request carries RELAY_KEY: only the queue and cron's hand-off can run a sweep here.
+const relayEndpoint = async (request: Request, env: Env): Promise<Response> => {
+  const config = configOf(env)
+  const key = request.headers.get('x-relay-key')
+  if (request.method !== 'POST' || !config?.RELAY_KEY || !key || !(await sameSecret(key, config.RELAY_KEY))) return new Response(null, { status: 404 })
+  await sweepOutbox(env)
+  return new Response(null, { status: 204 })
+}
+
+const sweepOrHandOff = async (env: Env): Promise<void> => {
+  const config = configOf(env)
+  if (!config || !(await handOffSweep(env, config))) await sweepOutbox(env)
+}
+
 // The cron's jobs (api/README.md §5.1). Each catches and logs its own failure, so one never stops the rest of its group.
 const sweepDeliveries: CronJob = async (sql) => {
   await sweepDispatch(sql, activityLog, new Date()).catch((error: unknown) => {
@@ -996,6 +1030,10 @@ const sweepDeliveries: CronJob = async (sql) => {
   })
 }
 type CronJob = (sql: postgres.Sql, config: Config, env: Env) => Promise<void>
+
+const relayOrHandOff: CronJob = async (sql, config, env) => {
+  if (!(await handOffSweep(env, config))) await relayOutbox(sql, config, env)
+}
 const purgeBatch = 500
 const runsPerHour = 60
 const runsPerDay = 1440
@@ -1214,7 +1252,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
+  '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOrHandOff, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, queueWishlistReminders, autoPublish],
   '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],
@@ -1307,7 +1345,7 @@ export const StudioSession = studioSessionClass(getClient)
 export const StudioCapacity = studioCapacityClass()
 
 export default {
-  fetch: (request, env, ctx) => serve(request, env, ctx, 'public'),
+  fetch: (request, env, ctx) => (new URL(request.url).pathname === relayPath ? relayEndpoint(request, env) : serve(request, env, ctx, 'public')),
 
   // Each of wrangler.jsonc's crons runs its own group; the every-minute one is the backstop for any wake that never arrives.
   async scheduled(controller, env) {
@@ -1316,7 +1354,7 @@ export default {
 
   // One wake per mutating request (wakeOutbox): a batch of them is one sweep.
   async queue(batch, env) {
-    await sweepOutbox(env)
+    await sweepOrHandOff(env)
     batch.ackAll()
   },
 } satisfies ExportedHandler<Env>
