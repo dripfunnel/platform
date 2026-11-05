@@ -177,7 +177,7 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   const outlasting = ['createApiKey', 'installApp', 'rotateApiKey', 'saveWebhook']
   const aiAccount = ['beginStoreAiOauth', 'connectStoreAiAccount', 'finishStoreAiOauth', 'removeStoreAiAccount', 'setStoreAiFallback', 'setStoreAiSwitch']
   // The storefront's design, studio and preview links were declared before #1012.
-  const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioSession', 'undoDesignChange']
+  const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioActivity', 'studioSession', 'undoDesignChange']
 
   it('declares the user’s sign-in and sessions, money details, the store’s AI account, the store switch and the storefront’s design', () => {
     expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, ...aiAccount, ...outlasting, 'switchStore', ...storefront].sort())
@@ -212,6 +212,7 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
       `mutation { rotateApiKey(id: "${seats.owner}") { __typename } }`,
       `mutation { saveWebhook(url: "https://hooks.example/x", events: ["order.created"]) { id } }`,
       `mutation { installApp(appId: "${seats.owner}", scopes: ["catalog.read"]) }`,
+      'mutation { studioActivity }',
       `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
       `mutation { removeMember(membershipId: "${seats.owner}") }`,
       `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,

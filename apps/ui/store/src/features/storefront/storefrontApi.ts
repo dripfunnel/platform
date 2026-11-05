@@ -6,7 +6,7 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import type { StorefrontDomains, StorefrontMeters, StorefrontVersion } from '../../api/storefront'
 import { postAsset } from '../../api/productEditor'
 import { deleteLibraryAsset, loadLibrary, renameLibraryAsset } from '../../api/assetLibrary'
-import { askDesign, cancelDesign, importDesignImage, openStudioLive, loadStockAvailable, searchStockImages, useStockImage, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
+import { askDesign, cancelDesign, importDesignImage, openStudioLive, loadStockAvailable, searchStockImages, useStockImage, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, studioActivity, undoDesignChange } from '../../api/studio'
 import type { DesignMessage, LiveEvent, PublishRun } from '../../api/studio'
 import { sampleContent } from './contentSample'
 import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
@@ -31,6 +31,7 @@ export interface StorefrontApi {
   loadPoweredBy: typeof loadPoweredBy
   loadStudioSession: typeof loadStudioSession
   renewStudioSession: typeof renewStudioSession
+  studioActivity: typeof studioActivity
   openStudioLive: typeof openStudioLive
   loadDesignChat: typeof loadDesignChat
   askDesign: typeof askDesign
@@ -66,7 +67,7 @@ export interface StorefrontApi {
   saveContentTranslation: typeof saveContentTranslation
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, openStudioLive, loadDesignChat, askDesign, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, studioActivity, openStudioLive, loadDesignChat, askDesign, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -166,6 +167,7 @@ const sampleStudio = (state: StorefrontState) => {
   return {
     loadStudioSession: () => (state === 'ended' ? Promise.reject(new ApiError('SESSION_ENDED', 'Ended.')) : Promise.resolve({ ...sampleSession, ...(sessionStates[state] ?? { state: 'ready' as const, place: null }) })),
     renewStudioSession: () => Promise.resolve(),
+    studioActivity: () => Promise.resolve(),
     openStudioLive: (_session: string, onEvent: (event: LiveEvent) => void, onUp: (up: boolean) => void) => {
       onUp(true)
       for (const event of sampleLive[state] ?? []) onEvent(event)

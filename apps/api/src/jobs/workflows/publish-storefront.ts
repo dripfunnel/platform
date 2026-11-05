@@ -7,6 +7,7 @@ import { localEdgeProbe } from '#integrations/local/edgeProbe'
 import { anthropicProvider, localAiProvider } from '#integrations/ai/index'
 import { designModel, repairBrief } from '#saas/ai-designer/index'
 import { lookupLiveHost, pushToRepo, runPublish, sameWorkflow, type PublishParams, type RepoFile } from '#saas/storefronts/index'
+import { studioForJob } from '#saas/studio/index'
 import type { StudioSessionObject } from '#jobs/durable/studio'
 import { shopCatalogueRecorder } from '#apis/shop/record'
 
@@ -78,7 +79,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       wait,
       push: (input: { storeId: string; buildId: string; version: number; files: RepoFile[] }) =>
         pushToRepo({ sql, repos, now: () => new Date() }, { storeId: input.storeId, key: `publish:${input.buildId}`, reason: { kind: 'publish', version: input.version, buildId: input.buildId }, files: input.files }),
-      ...(studio && provider ? { repair: (storeId: string, failing: string[], key: string) => studio.get(studio.idFromName(storeId)).repair(storeId, { failing, key }, designModel(provider, repairBrief)) } : {}),
+      ...(studio && provider ? { repair: (storeId: string, failing: string[], key: string) => studioForJob(studio, storeId).repair(storeId, { failing, key }, designModel(provider, repairBrief)) } : {}),
     }
     return await runPublish(deps, event.payload, {
       do: (name, work, long) => step.do(name, long ? checksConfig : stepConfig, work),

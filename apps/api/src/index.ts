@@ -143,7 +143,7 @@ import { stockImages } from '#integrations/stockImages/combine'
 import { openverseImages } from '#integrations/stockImages/openverse'
 import { pexelsImages } from '#integrations/stockImages/pexels'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
-import { frameClosed, liveUpgrade, studioOf, type StudioApi } from '#saas/studio/index'
+import { frameClosed, liveUpgrade, studioForJob, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
 import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, storefrontRepoPushKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
@@ -846,6 +846,8 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
     const stub = studioOf(namespace, context)
     return {
       status: async (storeId) => await stub.status(storeId),
+      activity: async (storeId) => await stub.activity(storeId),
+      saved: async (storeId) => await stub.saved(storeId),
       useTemplate: async (storeId, input) => await stub.useTemplate(storeId, input),
       change: async (storeId, input, model) => await stub.change(storeId, input, model),
       progress: async (storeId, run, event) => await stub.progress(storeId, run, event),
@@ -878,7 +880,7 @@ const studioFrame = async (request: Request, config: Config, env: Env, ctx: Exec
       sql,
       previewDomain: config.SHOP_DOMAIN ?? null,
       studioFor: (storeId) => {
-        const stub = namespace.get(namespace.idFromName(storeId))
+        const stub = studioForJob(namespace, storeId)
         return { check: (forStore, session) => stub.check(forStore, session), fetch: (r) => stub.fetch(r) }
       },
       shop: (r) => handleShop(r, new URL(r.url), config, env, ctx),

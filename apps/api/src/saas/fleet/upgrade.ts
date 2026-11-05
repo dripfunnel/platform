@@ -43,8 +43,8 @@ export interface UpgradeSteps {
   sleep: (name: string, ms: number) => Promise<void>
 }
 
-// The studio idles out after 10 minutes (AI-STUDIO §7), a build takes minutes; these bound the waits in between.
-export const upgradeWaits = { studioMs: 10 * 60_000, studioTries: 12, storeMs: 5 * 60_000, storeTries: 72, buildMs: 5 * 60_000, buildTries: 48, checksTries: 6 } as const
+// An open studio stops after 5 idle minutes and at 3 hours at most (AI-STUDIO §7), a build takes minutes; these bound the waits.
+export const upgradeWaits = { studioMs: 5 * 60_000, studioTries: 40, storeMs: 5 * 60_000, storeTries: 72, buildMs: 5 * 60_000, buildTries: 48, checksTries: 6 } as const
 
 type Claim = { from: string; to: string; template: string; sourceBuildId: string; major: boolean; security: boolean }
 type Outcome = { state: string; error: string | null; runId: string | null }

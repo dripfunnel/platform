@@ -50,6 +50,8 @@ jobs:
           # The tip, not the release's commit: a newer push must never be overwritten by older templates.
           ref: dev
       - uses: ./.github/actions/setup
+      # The theme bundle reads core's built guard (apps/sandbox/src/gate/bundle.ts), which setup doesn't build.
+      - run: pnpm --filter @dripfunnel/storefront-core build
       # The dev release publishes only `<version>-dev.<run>` (release.yml), so name the highest of those. A push can
       # land while a newer release still runs; the `workflow_run` trigger then corrects it.
       - id: core
@@ -82,4 +84,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      - run: pnpm --filter @dripfunnel/storefront-core build
       - run: pnpm --filter ./apps/api exec tsx scripts/local/seed-templates.ts --remote --released --core "$CORE_VERSION"

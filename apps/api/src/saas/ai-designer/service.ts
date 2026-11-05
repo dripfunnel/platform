@@ -188,8 +188,9 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
-    // The template the draft already uses changes nothing, so nothing is recorded as chosen.
-    if (answer.outcome === 'changed') await recordAfter(sql, storeId, (tx) => record(tx, true))
+    // The template the draft already uses changes nothing, so nothing is recorded as chosen; the status read waits for the save.
+    // A save that gave up still answers the choice: it is applied and kept in the studio (AI-STUDIO §7).
+    if (answer.outcome === 'changed') await Promise.all([recordAfter(sql, storeId, (tx) => record(tx, true)), studio.saved(storeId)])
     return { ok: true, value: (await overview()).status }
   }
 

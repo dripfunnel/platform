@@ -76,7 +76,7 @@ const objectOn = (state: State): Session => {
   return new StudioSession(state.ctx as unknown as DurableObjectState, env())
 }
 /** The private parts the runtime drives: the runner, the last activity and the frame's hot reload. */
-const inside = (o: Session) => o as unknown as { runner: unknown; lastActive: number; announce: (b: ClientBundle) => void }
+const inside = (o: Session) => o as unknown as { runner: unknown; lastActive: number; lastWake: number; startOpening: (storeId: string) => Promise<unknown>; announce: (b: ClientBundle) => void }
 
 let owner: { userId: string; context: TenantContext }
 const studioSession = async () => {
@@ -125,6 +125,23 @@ afterAll(async () => {
 })
 
 let current: State
+
+describe('the StudioSession’s wake (#1241)', () => {
+  it('acts on one studioActivity in 30 seconds while nothing is loaded, whatever a client sends', async () => {
+    current = objectState()
+    const object = objectOn(current)
+    const opened = vi.spyOn(inside(object), 'startOpening').mockResolvedValue({ state: 'starting' })
+    await object.activity(t.storeA1)
+    await object.activity(t.storeA1)
+    expect(opened).toHaveBeenCalledTimes(1)
+    inside(object).lastWake -= 30_000
+    await object.activity(t.storeA1)
+    expect(opened).toHaveBeenCalledTimes(2)
+    // Another store's call never reaches this object's container.
+    await expect(object.activity(t.storeB1)).rejects.toThrow(/another store/)
+    expect(opened).toHaveBeenCalledTimes(2)
+  })
+})
 
 describe('the StudioSession’s live sockets (#1237)', () => {
   it('accepts an upgrade as a hibernating socket tagged with its session, and nothing else is one', async () => {
