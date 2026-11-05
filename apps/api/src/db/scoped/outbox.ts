@@ -109,6 +109,15 @@ export const markAttemptFailed = async (
   `
 }
 
+/** Rows a sweep claimed at `claimedAt` and then didn't reach: due again at once, the claim not counted as an attempt. */
+export const releaseClaims = async (tx: ScopedSql, ids: readonly string[], claimedAt: Date): Promise<void> => {
+  if (ids.length === 0) return
+  await tx`
+    update outbox set attempts = greatest(attempts - 1, 0), claimed_at = null
+    where id = any(${pgArray(ids)}::uuid[]) and claimed_at = ${claimedAt} and delivered_at is null
+  `
+}
+
 /** A row that can't go yet: back in the queue at `nextAttemptAt`, this claim not counted as an attempt. */
 export const markPostponed = async (tx: ScopedSql, id: string, outcome: { error: string; nextAttemptAt: Date }): Promise<void> => {
   await tx`

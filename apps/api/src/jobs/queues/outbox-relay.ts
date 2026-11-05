@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import type { OutboxRow } from '#db/schema/outbox'
 import { withSystemScope } from '#db/scoped/index'
-import { claimDue, markAttemptFailed, markDelivered, markPostponed, redactOutboxPayload } from '#db/scoped/outbox'
+import { claimDue, markAttemptFailed, markDelivered, markPostponed, redactOutboxPayload, releaseClaims } from '#db/scoped/outbox'
 import { NotYet } from '#saas/outbox/index'
 
 export interface Effect {
@@ -142,14 +142,18 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   const deadline = opts.now().getTime() + opts.budgetMs
   const attempted = new Set<string>()
   while (opts.now().getTime() < deadline) {
-    const claimed = opts.now().getTime()
-    const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, [...attempted]))
+    const claimedAt = opts.now()
+    const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, claimedAt, opts.batch, opts.leaseMs, [...attempted]))
     if (rows.length === 0) return counts
-    for (const row of rows) {
+    for (const [i, row] of rows.entries()) {
       const deliverer = deliverers[row.kind]
       if (!deliverer) continue
-      // A row whose delivery could outlast its lease is left for another sweep to claim once the lease ends, never run twice.
-      if (opts.now().getTime() - claimed + (deliverer.timeoutMs ?? opts.timeoutMs) > opts.leaseMs) return counts
+      // A delivery that could outlast its lease could also run twice: hand back the rest and wake a fresh sweep for them.
+      if (opts.now().getTime() - claimedAt.getTime() + (deliverer.timeoutMs ?? opts.timeoutMs) > opts.leaseMs) {
+        await withSystemScope(sql, (tx) => releaseClaims(tx, rows.slice(i).map((r) => r.id), claimedAt))
+        await opts.onBudgetSpent?.()
+        return counts
+      }
       attempted.add(row.id)
       counts[await settle(sql, row, deliverer, opts)] += 1
     }

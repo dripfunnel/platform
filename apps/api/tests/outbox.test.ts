@@ -130,19 +130,23 @@ describe('a side effect follows its transaction', () => {
     expect(patient?.delivered_at).not.toBeNull()
     expect(impatient).toMatchObject({ delivered_at: null, last_error: 'timeout' })
   })
-  it('never starts a delivery that could outlast its lease, leaving the row for a later claim', async () => {
+  it('never starts a delivery that could outlast its lease: hands the rest back, due at once, and wakes a sweep for them', async () => {
     for (let n = 0; n < 3; n++) await queued(staff, 'lease-test', `l-${n}`)
     await catchUp(db.sql)
     const ticks = { at: clock }
     const run: string[] = []
+    let woken = 0
     const long: Deliverers = { 'lease-test': { timeoutMs: 2_000, deliver: async (effect) => {
       run.push(effect.id)
       ticks.at += 2_000
     } } }
-    await sweep(db.sql, long, { ...options, now: () => new Date(ticks.at), leaseMs: 5_000 })
+    await sweep(db.sql, long, { ...options, now: () => new Date(ticks.at), leaseMs: 5_000, onBudgetSpent: async () => void (woken += 1) })
     expect(run).toHaveLength(2)
-    const [waiting] = await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'lease-test' and delivered_at is null and claimed_at is not null`
-    expect(waiting?.n).toBe(1)
+    expect(woken).toBe(1)
+    const [left] = await db.sql<{ claimed_at: Date | null; attempts: number }[]>`select claimed_at, attempts from outbox where kind = 'lease-test' and delivered_at is null`
+    expect(left).toMatchObject({ claimed_at: null, attempts: 0 })
+    await sweep(db.sql, long, { ...options, now: () => new Date(ticks.at), leaseMs: 5_000 })
+    expect(run).toHaveLength(3)
   })
   it('says so when a sweep stopped on its budget and not for want of rows', async () => {
     await queued(staff, 'budget-test', 'b-0')
