@@ -96,14 +96,49 @@ export const skipReasonOf = (f: DecisionFacts): SkipReason | null => {
 
 const text = (max: number) => z.string().transform((s) => s.trim()).pipe(z.string().max(max))
 
+/** The fields a cart and a wishlist reminder step share, so a new delay or limit applies to both. */
+export const stepFields = {
+  position: z.number().int().min(1).max(reminderSteps),
+  enabled: z.boolean(),
+  delayMinutes: z.number().int().refine((d) => (reminderDelays as readonly number[]).includes(d)),
+  subject: text(120),
+  body: text(500),
+}
+
+/** One of each step, each enabled one later than the one before, and a subject on each email (a step with no channel is an email). */
+export const checkSteps = (steps: readonly { position: number; enabled: boolean; delayMinutes: number; subject: string; channel?: string }[], ctx: z.RefinementCtx): void => {
+  if (new Set(steps.map((x) => x.position)).size !== reminderSteps) ctx.addIssue({ code: 'custom', message: 'one of each step' })
+  const on = [...steps].sort((a, b) => a.position - b.position).filter((x) => x.enabled)
+  // "Must go later than the reminder before it."
+  if (on.some((x, i) => i > 0 && x.delayMinutes <= (on[i - 1]?.delayMinutes ?? 0))) ctx.addIssue({ code: 'custom', message: 'later than the one before' })
+  // "Add a subject line."
+  if (steps.some((x) => (x.channel ?? 'email') === 'email' && x.enabled && x.subject === '')) ctx.addIssue({ code: 'custom', message: 'a subject' })
+}
+
+/**
+ * The `cart_reminders` level a save needs beyond what the store already has on: 1 to switch sending on, 2 for a step that needs every
+ * reminder; null when the plan allows it. A save may keep what the store has, never add what its plan doesn't allow.
+ */
+export const saveNeeds = <S extends { position: number; enabled: boolean }, C extends { position: number }>(
+  index: number,
+  input: { enabled: boolean; steps: readonly S[] },
+  current: { revision: number | null; enabled: boolean; steps: readonly C[] },
+  needsAll: (step: S) => boolean,
+  same: (was: C, step: S) => boolean,
+): number | null => {
+  const kept = (step: S) => {
+    const was = current.revision === null ? undefined : current.steps.find((x) => x.position === step.position)
+    return was !== undefined && same(was, step)
+  }
+  if (input.enabled && !(current.revision !== null && current.enabled) && index < 1) return 1
+  if (index < 2 && input.steps.some((x) => needsAll(x) && !kept(x))) return 2
+  return null
+}
+
 export const stepSchema = z
   .object({
-    position: z.number().int().min(1).max(reminderSteps),
-    enabled: z.boolean(),
-    delayMinutes: z.number().int().refine((d) => (reminderDelays as readonly number[]).includes(d)),
+    ...stepFields,
     channel: z.enum(['email', 'whatsapp']),
-    subject: text(120),
-    body: text(500),
     discountPercent: z.number().int().refine((p) => (reminderPercents as readonly number[]).includes(p)).nullable(),
   })
   .strict()
@@ -118,15 +153,7 @@ export const settingsSchema = z
     steps: z.array(stepSchema).length(reminderSteps),
   })
   .strict()
-  .superRefine((s, ctx) => {
-    const positions = s.steps.map((x) => x.position)
-    if (new Set(positions).size !== reminderSteps) ctx.addIssue({ code: 'custom', message: 'one of each step' })
-    const on = [...s.steps].sort((a, b) => a.position - b.position).filter((x) => x.enabled)
-    // "Must go later than the reminder before it."
-    if (on.some((x, i) => i > 0 && x.delayMinutes <= (on[i - 1]?.delayMinutes ?? 0))) ctx.addIssue({ code: 'custom', message: 'later than the one before' })
-    // "Add a subject line."
-    if (s.steps.some((x) => x.channel === 'email' && x.enabled && x.subject === '')) ctx.addIssue({ code: 'custom', message: 'a subject' })
-  })
+  .superRefine((s, ctx) => checkSteps(s.steps, ctx))
 
 export type ReminderSettingsInput = z.input<typeof settingsSchema>
 export type ReminderSettingsValue = z.output<typeof settingsSchema>

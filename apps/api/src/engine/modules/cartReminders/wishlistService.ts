@@ -14,7 +14,7 @@ import {
   type WishlistStepRow,
 } from '#db/scoped/wishlistReminders'
 import { defaultWishlistSteps, wishlistRemindKind, wishlistSettingsSchema } from './wishlistJobs'
-import { levelOf, type ReminderLevel } from './rules'
+import { levelOf, saveNeeds, type ReminderLevel } from './rules'
 
 // The Wishlists tab's Reminders (FIRST-RELEASE §9): the store's sequence, read by every merchant role and saved by Owner and
 // Manager, and "Send reminder now", "Stop" and "Resume" for one shopper, in the caller's own store scope. The plan's
@@ -109,12 +109,8 @@ export const createWishlistRemindersService = ({ sql, context, actor, activity, 
     if (!current) return { ok: false, reason: 'NOT_FOUND' }
     if (current.revision !== revision) return { ok: false, reason: 'STALE_REVISION' }
     const index = await level()
-    const kept = (step: (typeof s.steps)[number]) => {
-      const was = current.revision === null ? null : current.steps.find((x) => x.position === step.position)
-      return was !== null && was !== undefined && was.enabled === step.enabled
-    }
-    if (s.enabled && !(current.revision !== null && current.enabled) && index < 1) return { ok: false, reason: 'PLAN_LIMIT', needs: 1 }
-    if (index < 2 && s.steps.some((x) => x.position > 1 && x.enabled && !kept(x))) return { ok: false, reason: 'PLAN_LIMIT', needs: 2 }
+    const needs = saveNeeds(index, s, current, (x) => x.position > 1 && x.enabled, (was, step) => was.enabled === step.enabled)
+    if (needs !== null) return { ok: false, reason: 'PLAN_LIMIT', needs }
     const result = await withScope(sql, context, async (tx) => {
       const written = await saveWishlistFlow(tx, storeId, { enabled: s.enabled, skipOutOfStock: s.skipOutOfStock, quietHours: s.quietHours, weeklyCap: s.weeklyCap }, revision, now())
       if (!written) return 'STALE_REVISION' as const

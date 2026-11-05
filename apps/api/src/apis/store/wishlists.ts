@@ -1,4 +1,3 @@
-import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
 import { wishlistTabs, type WishlistShopperRow, type WishlistSummaryRow, type WishlistTab } from '#db/scoped/wishlist'
 import type { WishlistReminderRow } from '#db/scoped/wishlistReminders'
@@ -7,15 +6,15 @@ import {
   createWishlistsService,
   wishlistRemindersAudit,
   type WishlistItemNow,
-  type WishlistRemindersRefusal,
   type WishlistRemindersResult,
   type WishlistSettingsView,
   type WishlistShopperDetail,
   type WishlistStepView,
 } from '#engine/modules/cartReminders/index'
-import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
+import { allowanceFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
+import { answered } from './cartReminders'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 import { assetUrl } from './products'
@@ -32,14 +31,6 @@ export const registerWishlists = (builder: StoreBuilder) => {
     return createWishlistsService({ sql: ctx.sql, context: actingCaller(ctx).context, now: ctx.now })
   }
 
-  const words: Record<WishlistRemindersRefusal | 'PLAN_LIMIT', string> = {
-    CANT_REMIND: 'This shopper can’t be reminded: their reminders are stopped, they have no email, or their wishlist is empty.',
-    INVALID_INPUT: 'Something here isn’t valid.',
-    NOT_FOUND: 'That isn’t here.',
-    READ_ONLY: 'A read-only support session can’t change this store.',
-    STALE_REVISION: 'Someone else saved your reminders. Reload to see their changes.',
-    PLAN_LIMIT: 'Your plan doesn’t include this.',
-  }
   const reminders = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const sql = ctx.sql
@@ -54,14 +45,8 @@ export const registerWishlists = (builder: StoreBuilder) => {
       now: ctx.now,
     })
   }
-  const answered = async <T>(ctx: StoreContext, result: WishlistRemindersResult<T>): Promise<T> => {
-    if (result.ok) return result.value
-    if (result.reason === 'PLAN_LIMIT' && ctx.sql) {
-      const limit = await planLimitFor(ctx.sql, actingCaller(ctx).context, { key: 'cart_reminders', total: result.needs }, ctx.now())
-      throw new GraphQLError(words.PLAN_LIMIT, { extensions: { code: 'PLAN_LIMIT', key: 'cart_reminders', limit: limit?.limit ?? 0, unlockedBy: limit?.unlockedBy ?? null } })
-    }
-    throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
-  }
+  const cantRemind = 'This shopper can’t be reminded: their reminders are stopped, they have no email, or their wishlist is empty.'
+  const answer = <T>(ctx: StoreContext, result: WishlistRemindersResult<T>) => answered(ctx, result, cantRemind)
 
   const Shopper = builder.objectRef<WishlistShopperRow>('WishlistShopper').implement({
     fields: (t) => ({
@@ -191,17 +176,17 @@ export const registerWishlists = (builder: StoreBuilder) => {
     remindWishlistNow: t.id({
       args: { customerId: t.arg.id({ required: true }) },
       extensions: { access: write(wishlistRemindersAudit.sent) },
-      resolve: async (_, args, ctx) => answered(ctx, await reminders(ctx).remindNow(String(args.customerId))),
+      resolve: async (_, args, ctx) => answer(ctx, await reminders(ctx).remindNow(String(args.customerId))),
     }),
     stopWishlistReminders: t.boolean({
       args: { customerId: t.arg.id({ required: true }), note: t.arg.string() },
       extensions: { access: write(wishlistRemindersAudit.stopped) },
-      resolve: async (_, args, ctx) => answered(ctx, await reminders(ctx).stop(String(args.customerId), args.note ?? null)),
+      resolve: async (_, args, ctx) => answer(ctx, await reminders(ctx).stop(String(args.customerId), args.note ?? null)),
     }),
     resumeWishlistReminders: t.boolean({
       args: { customerId: t.arg.id({ required: true }) },
       extensions: { access: write(wishlistRemindersAudit.resumed) },
-      resolve: async (_, args, ctx) => answered(ctx, await reminders(ctx).resume(String(args.customerId))),
+      resolve: async (_, args, ctx) => answer(ctx, await reminders(ctx).resume(String(args.customerId))),
     }),
     // The whole tab at the revision it was read at (null before the first save); answers the new revision.
     saveWishlistReminderSettings: t.int({
@@ -210,7 +195,7 @@ export const registerWishlists = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx) => {
         const i = args.input
         const input = { enabled: i.enabled, skipOutOfStock: i.skipOutOfStock, quietHours: i.quietHours, weeklyCap: i.weeklyCap, steps: i.steps.map((x) => ({ position: x.position, enabled: x.enabled, delayMinutes: x.delayMinutes, subject: x.subject, body: x.body })) }
-        return answered(ctx, await reminders(ctx).save(input, args.revision ?? null))
+        return answer(ctx, await reminders(ctx).save(input, args.revision ?? null))
       },
     }),
   }))
