@@ -1,0 +1,7 @@
+@theme {
+  --color-ink: #1d1b18;
+}
+
+.card {
+  color: var(--color-ink);
+}

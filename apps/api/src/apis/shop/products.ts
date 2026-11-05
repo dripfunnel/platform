@@ -14,7 +14,7 @@ type StoryModule = Record<string, unknown> & { id: string; kind: string }
 type Block = ShopProductExtrasRow['blocks'][number]
 type ModuleSource = { module: StoryModule; page: ShopProductPage }
 
-const sorts: Record<string, ShopSort> = { NEWEST: 'newest', PRICE_LOW: 'price_low', PRICE_HIGH: 'price_high', NAME: 'name', COLLECTION: 'collection' }
+const sorts: Record<string, ShopSort> = { NEWEST: 'newest', PRICE_LOW: 'price_low', PRICE_HIGH: 'price_high', NAME: 'name', COLLECTION: 'collection', BEST_SELLING: 'best_selling' }
 const field = (m: StoryModule, key: string): unknown => (key in m ? m[key] : null)
 
 const refused = (reason: string) => {

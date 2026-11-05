@@ -7,6 +7,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { AccessTarget } from '#auth/assignment'
 import { partnerScopedRoles, type StaffPermission } from '#auth/permissions'
 import type { StaffMember } from '#auth/staff'
+import { staffMayActAs } from '#auth/storeStaff'
 import { parseHostname } from '#core/hostname'
 import type { StaffContext } from '#core/tenancy'
 import type { BuildState, CustomDomainRow, HostStatus, StoreRow, StoreStatus } from '#db/schema/saas'
@@ -324,12 +325,12 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     }
   }
 
-  // ACCESS.md §8.1: Super admin and Support, an active user, a partner that is open.
+  // ACCESS.md §8.1: Super admin and Support, a seat staff may act as, a partner that is open.
   const impersonateFor = (person: StorePerson, partnerState: string): ActionPermission => {
     const role = may('impersonate')
     if (!role.allowed) return role
     if (partnerState === 'closed') return { allowed: false, reason: 'PARTNER_CLOSED' }
-    if (person.status !== 'active' || person.user_status !== 'active') return { allowed: false, reason: 'TARGET_NOT_ACTIVE' }
+    if (!staffMayActAs({ role: person.role_key, membershipStatus: person.status, userStatus: person.user_status })) return { allowed: false, reason: 'TARGET_NOT_ACTIVE' }
     return { allowed: true }
   }
 

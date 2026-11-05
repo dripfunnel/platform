@@ -518,3 +518,38 @@ export const insertBoundCode = async (tx: ScopedSql, c: { storeId: string; promo
     throw error
   }
 }
+
+export interface ShopOfferRow {
+  id: string
+  name: string
+  description: string | null
+  ends_at: Date | null
+  operation: string
+  /** The action's products and collections (a buy-x-get-y's bought ones); null for an order or delivery offer. */
+  targets: { productIds?: unknown; collectionIds?: unknown } | null
+}
+
+/**
+ * An offer the public may see (#1242), as `p`: automatic and on now, never a code, a hidden reminder offer, or one held to
+ * a customer group or named customers.
+ */
+export const publicOffer = (tx: ScopedSql, storeId: string | ReturnType<ScopedSql>, now: Date) => tx`
+  p.store_id = ${storeId} and p.trigger = 'automatic' and p.enabled and p.deleted_at is null and not p.cart_reminder
+  and (p.starts_at is null or p.starts_at <= ${now}) and (p.ends_at is null or p.ends_at > ${now})
+  and (p.total_uses_limit is null or p.uses_count < p.total_uses_limit)
+  and not exists (
+    select 1 from promotion_condition c where c.promotion_id = p.id
+      and (c.operation in ('customer_group', 'specific_customers')
+        or jsonb_path_exists(c.args, '$.conditions[*] ? (@.operation == "customer_group" || @.operation == "specific_customers")'))
+  )
+`
+
+/** The storefront's offers, read in system scope as a cart's are. */
+export const selectShopOffers = (tx: ScopedSql, storeId: string, now: Date, limit: number): Promise<ShopOfferRow[]> =>
+  tx<ShopOfferRow[]>`
+    select p.id, p.name, p.description, p.ends_at, a.operation, coalesce(a.args -> 'targets', a.args -> 'buy' -> 'targets') as targets
+    from promotion p join lateral (select x.operation, x.args from promotion_action x where x.promotion_id = p.id order by x.position limit 1) a on true
+    where ${publicOffer(tx, storeId, now)}
+    order by p.ends_at nulls last, p.created_at, p.id
+    limit ${limit}
+  `

@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-05 (#1279: the studio shows the merchant's message at once and the AI's real steps: an `intro` sentence, then one plain "making your changes" step and a friendly line that changes every 3 seconds, §4 "Live progress"; the suggestion chips are gone; the assets picker scrolls and pages, §8). Before: 2026-11-05 (#1244: the AI fills every picture slot itself, the store's own photos first, then Openverse and Wikimedia Commons, on in dev and prod; Pexels' terms read and Pexels left out; 4 photo calls a page and 20 a build; `store_photos`, §4, §8). Before: 2026-11-05 (#1240: the model's answer streams and each finished file is pre-checked, the container's typecheck and bundle stay warm, and a CSS-only or class-only change skips the typecheck, the frame swapping only the stylesheet for CSS, §4). Before: 2026-11-05 (#1243: a vague request gets up to 3 quick questions and a plan, then the AI builds the storefront page by page, one history entry for Undo, §4 "A plan", §5). Before: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -59,6 +59,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 | Piece | Role | Why |
 |---|---|---|
 | **Studio** (portal SPA) | Chat, history, undo, Publish, and the frame | It talks only to the Store API, under the merchant's own session. |
+| **Live socket** (`/api/studio/live` on the portal host, #1237) | Each step of a change and a chat's words as they happen (§4 "Live progress") | One-way, from the store's `StudioSession` to every open studio of the store; changes still start and stop through GraphQL. |
 | **Store API** | Checks the session, the store and the capability (ACCESS §3), calls the model | The partner's or merchant's AI key never leaves the Worker. |
 | **`StudioSession` Durable Object** (one per store) | Owns the container, the change in progress and the draft's head commit | One owner per store makes two tabs safe and gives the container one place that talks to it. |
 | **Container** | Applies diffs, runs the fast gate, holds the working copy | Workers can't run a typecheck or a bundler; a container can, in isolation. |
@@ -75,8 +76,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    context's store**, never by a store id from the client.
    *Why:* no address or parameter can reach another store's draft (isolation test on #482).
 3. **The Durable Object starts the store's container** from the image for the store's core
-   version (`storefront.core_version`) *(decide the size: `basic`, ¼ vCPU and 1 GiB, if the
-   typecheck fits, else `standard-1`)*.
+   version (`storefront.core_version`), at `standard-1` (½ vCPU, 4 GiB, 8 GB; decided on #1241, §9).
+   Opening the studio starts it, and so do picking a template in the gallery and focusing or typing in the chat
+   box (`studioActivity`, §7 "Stopping"), so it is usually up before Send.
 4. **The Durable Object loads the code into the container:**
    - from **`drafts/{store}.bundle`** when the store has unpublished changes (a `design_draft`
      row exists);
@@ -114,35 +116,137 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 1. **The merchant asks** in words, with a pasted image, or with a sample site's address
    (`askDesign`, SAAS §9.2). The Durable Object runs one change at a time per store; a second
    request waits and shows "Finishing your previous change…".
-2. **The Worker calls the model** with the context of ARCHITECTURE §6.2. The model answers
-   with a **file diff**.
-   *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (below, off for now), and the Worker runs them, never the model and never the container.
-3. **The container applies the diff and runs the fast gate** (ARCHITECTURE §6.2): the
-   allowlist, the validator, the typecheck, the bundle, the byte budgets and the content
-   checks. On failure the model repairs from the exact errors, at most three times; after that,
-   "I couldn't make that change" and nothing changes.
+2. **The Worker calls the model** with the context of ARCHITECTURE §6.2, the stable part first and cached (core's
+   rules, the shop, the theme's files), then the request's own. The model answers with **edits**: exact
+   search-and-replace edits for a file the theme has, a new file whole, a deleted file named (#1238), so a one-line
+   change costs a few lines of output. **The answer streams** (#1240): each file it lists is handed to the Durable Object
+   over the Worker's call as soon as it is whole, while the model writes the next one and then its reply.
+   *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (§8 "The AI's own photos"), and the Worker runs them, never the model and never the container.
+3. **The Durable Object applies the edits** to the theme it holds, and **the container runs the fast gate** on the
+   whole files (ARCHITECTURE §6.2): the allowlist, the validator, the typecheck, the bundle, the byte budgets and the
+   content checks. An edit that doesn't apply (its search not found exactly once) and a gate failure are both repaired
+   from the exact errors, at most three times; after that, "I couldn't make that change" and nothing changes. An edit
+   that doesn't apply shows as "Fixing a problem" with no check before it.
+   - **Checked as they stream** (#1240): each streamed file is applied to the theme and the change so far is
+     pre-checked by the container (the validator, then the typecheck), one pre-check at a time and only the newest state.
+     A pre-check keeps nothing and never reaches the draft or the frame; the gate above always runs on the whole change
+     once the answer ends. A pre-check of exactly that change adds the problems the gate stopped before (a type error
+     behind a validator's refusal) to the repair, so one repair fixes both.
+   - **Warm** (#1240): the container keeps one TypeScript builder program and one esbuild context per slot, and the
+     validator's answer for the exact theme and store it last read, so a change rechecks and rebuilds only what it
+     touched, and the gate after a pre-check of the same files reads its answers. They start again when the slot loads a
+     draft; the first typecheck runs right after the load, while the frame shows it.
+   - **Lanes, chosen by the container from the diff, never by the model** (#1240): only CSS files changed, or besides
+     them only class strings in `.tsx` files (a `className` string of an element, a `clsx()` string argument), skip the
+     typecheck. The allowlist, the validator with its class rules, the bundle and the byte budgets run in every lane.
 4. **On a pass, the container commits the change locally**, with the request as the message.
    These per-change commits, and their messages, stay in the private draft for ever: they never
    reach the public repo (§6 step 4).
    *Why:* every change is a commit, so undo and bisecting work as before.
-5. **The frame hot-reloads.** The Durable Object tells the frame, over a WebSocket through the
-   edge Worker, that a new bundle is ready. Core's preview adapter swaps in the new theme modules
-   and keeps the page, the scroll position and the screen width. This takes under a second
-   *(core's adapter needs a hot-swap entry point; on #482 and #304)*.
-6. **The Durable Object saves the draft**: it writes the repo as a git bundle to
-   `drafts/{store}.bundle` in private R2 and moves `design_draft.head_commit` (DATA-MODEL §7).
-   *Why:* a container can stop or crash at any time, but a saved change is never lost.
+5. **The change is kept in the Durable Object's own storage, and the frame hot-reloads** (decided on #1241). The
+   object writes the change's files, its commit and message to its SQLite storage (one file to a key), then tells the
+   frame, over a WebSocket through the edge Worker, that a new bundle is ready. Core's preview adapter swaps in the new
+   theme modules and keeps the page, the scroll position and the screen width. This takes under a second
+   *(core's adapter needs a hot-swap entry point; on #482 and #304)*. The notice names the bundle's stylesheets, which
+   load before the new modules render (#1240); when every script is the one the frame has (a CSS-only change), it says
+   so and the frame swaps only the stylesheets.
+   *Why:* the database is in Mumbai and the studio runs in Singapore, so the frame never waits on R2 or the database;
+   the object's own storage is local to it and survives it.
+6. **The Durable Object saves the draft, in the background**: it writes the repo as a git bundle to
+   `drafts/{store}.bundle` in private R2, then the preview (step 7), then moves `design_draft.head_commit` for every
+   change still kept, and only then drops them from its storage. A failed save is tried again after 0.5, 2 and 8
+   seconds; one still failing stays kept for the next start (§7 "A crash").
+   *Why:* a container can stop or crash at any time, but an accepted change is never lost.
 7. **The Durable Object updates the preview** ([PREVIEW.md](PREVIEW.md) §4), so "Open preview"
-   shows the change on any device.
-8. **The change is recorded**: a `design_message` with what changed, and an `ai_run` with the
-   tokens, container time and repairs (SAAS §9.2).
+   shows the change on any device, within seconds of the frame.
+8. **The change is recorded**: an `ai_run` with the tokens, container time and repairs, written by the object as it
+   answers (the chat's message refers to it), and a `design_message` with what changed, written by the Worker
+   (SAAS §9.2). `askDesign` answers once the message and the save of step 6 are both written, side by side, so every
+   read after the answer (the draft's state, Undo, Open preview, Publish) sees the change; the frame swapped before.
+   A save that gave up still answers the change, which is applied and kept (`studio_save_unconfirmed`): Undo answers
+   unavailable until it is saved, and a publish saves it first or refuses.
+
+### Live progress (decided 2026-11-04 on #1237)
+
+The studio opens one WebSocket, `/api/studio/live?session=…&store=…&after=…`, on the portal host. The Store API builds
+the `TenantContext` from the session cookie (the acting store in `?store=`, checked like `X-Store`), checks the studio's
+read access (`storefront.read`, the Owner or a Manager; support and impersonation refused), that `Origin` is the portal
+host, and that `session` is this person's live studio session (§3 step 6). It hands the upgrade to the Durable Object
+named by the context's store, never by an id from the client. The object accepts it as a **hibernating** socket, so an
+idle open studio costs nothing, tagged with the studio session's hash: the alarm's sweep closes it with the frame's (§8).
+
+**One-way.** The object pushes events; nothing is ever read from the socket. `askDesign` and `cancelDesign` stay the only
+way to start and stop a change, so the merchant mobile app and every audit entry are unchanged. **Every open studio of
+the store** (two tabs, two people) gets the same events.
+
+| Event | Sent by | When |
+|---|---|---|
+| `step` `reading` | Worker | A change, as soon as `askDesign`'s input is checked: the first feedback, within 2 s of Send |
+| `step` `asking` | Worker (chat) or object | A chat's first step; a change's first ask of the model ("Understanding your request") |
+| `thought` | object | A change: the model's one sentence on what it understood and will change, the answer's first key `intro`, once whole |
+| `step` `editing` | object | Once a request, when the model writes its first file (#1240): "Making your changes". No file name or path goes out: merchants are not coders |
+| `step` `planning` | Worker | Writing a plan from the answers, or a changed plan (#1243) |
+| `page` (`index`, `of`, `page`, `titles`) | object | A plan's build starting a page: "Building page 2 of 5: Product", every page's title for its chips; that page's own steps follow (#1243) |
+| `text` | Worker (chat) or object | A chat: the model's words as they stream through the AI gateway. A change: the AI's one-line summary, once known |
+| `step` `checking` | object | Before each run of the fast gate |
+| `step` `repairing` (`attempt`, `of`) | object | Before each repair: "Fixing a problem (1 of 3)" |
+| `step` `saving`, `updating` | object | Saving the draft (steps 5–7), then the frame's reload |
+| `done` (`outcome`, `messageId`) | Worker | The outcome `askDesign` answers, once its message is recorded |
+| `error` (`code`) | Worker | `askDesign` refused after its first step (`STUDIO_QUEUED`, `AI_BUDGET_REACHED`…) or failed (`FAILED`) |
+
+The studio also shows a friendly line ("Mixing the colours…") that changes every 3 seconds during `asking` and `editing`, from its own copy;
+it is a timer in the portal, not an event, and says nothing about how far along the change is (#1279).
+
+Every event carries `seq`, numbered per store, and `run`, one per request. Never file names, contents, prompts or secrets: the
+merchant's words, the theme and the keys never go out on it. A chat's streamed words stop at 2,000 characters, as its
+message does.
+
+### A plan (decided 2026-11-04 with Gaurav on #1243)
+
+A short or vague request for a new look ("make my store look premium") can be answered with questions and a plan instead of
+edits, and then built page by page. A clear request ("make the buttons maroon") is applied at once, as above; chat mode is
+unchanged. Drawn in `PortalStorefront` as `?state=questions`, `?state=plan` and `?state=building` with their forms.
+
+1. **The model judges.** The change's first ask may answer `{questions}` (at most 3, each with 2 to 4 answers written from the
+   store summary, #1242) or `{plan}` instead of edits; the rules say when, and the per-request part says when it may not (a
+   build's page or a repair), so the cached prefix is the same either way. The object runs no gate for it: the draft stays as
+   it was, the run is recorded as `unchanged`, and the Worker writes the questions or the plan as a studio message
+   (`design_message.detail`). This request takes the flow's one prompt unit.
+2. **Answers.** The merchant picks an answer, types their own ("Something else") or skips (`answerDesignQuestions`); the
+   Worker asks the model for the plan, with the request and the answers after the cached prefix (`planning`). The plan is a
+   short list of pages, home first, each with 1 to 6 sections, and a header and footer line, at most 6 pages.
+3. **Changes asked in words.** Words typed under the open plan change it (`changeDesignPlan`), at most 3 times; the old plan
+   reads "Replaced". Only the newest questions or plan can be answered, changed or built, and each once: its state moves in one
+   statement, so two tabs can't both.
+4. **Build it** (`buildDesignPlan`). The store's object runs the pages in one turn: home first (with the header and footer),
+   then product, collection, about and the plan's other pages. Each page is its own change through steps 2–8 (its own four photo
+   calls, at most 20 in the build, #1244), the gate, up to three repairs, its frame swap as soon as it passes and its save in the background, while the next page is asked. The feed
+   shows `page` and that page's steps. A refused or failed page stops the build; the pages before it stay, and a build that built no page leaves the plan open to build again, at most twice (`PLAN_BUILDS_USED` after).
+5. **Stop** (`cancelDesign`) during a build ends it after the page being built; the pages already built stay, and the chat
+   lists each page as built, not built, or refused.
+6. **Claims.** Answering, changing or building claims the questions or plan (`detail.claimedAt`), under the store's own
+   row-level security; a build renews its claim before every ask of the model. A claim whose request died opens again after
+   25 minutes; a built plan never does, and a build whose claim another request took records nothing. When the answer to a
+   build is lost after pages were built, the object's record of it page by page (`buildSoFar`) is the build's entry.
+7. **One entry.** The build is one `ai` message whose `commit` is its last page's and `before_commit` the head before its
+   first, so **Undo** takes every page back (§5).
+
+*Why in the object, one turn:* no other change lands between two pages, the frame swaps page by page through the same
+hot reload, and Stop reaches the build without waiting in its turn. *Why one request:* the model's key stays in the Worker,
+which the object calls back for each page, as for a single change.
+
+**Reconnect.** A dropped socket reconnects with the last `seq` it saw, and the object replays exactly what came after,
+from its own storage, so a restarted object still has it. A run's events are kept until **1 minute after it ends** (one
+without an end, after 20 minutes). **Fallback**: a studio whose socket can't connect shows "Checking your change…" as
+before, and reads the result when `askDesign` answers.
 
 ---
 
 ## 5. Undo, discard and going back
 
 - **Undo this change** reverts the latest commit in the container. That is a new change, so §4
-  steps 3–8 run again.
+  steps 3–8 run again. A plan's build is one entry (§4 "A plan"): its Undo restores the theme as it was at the build's
+  `before_commit` in one change, every page at once (#1243).
 - **Discard** resets the draft to the live version's commit (the live build's source bundle,
   never GitHub's `main`), deletes the
   draft bundle and the `design_draft` row, and points the preview at the live code.
@@ -216,11 +320,24 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 
 ## 7. Idle, crashes and capacity
 
-- **Idle stop:** a container stops after 10 idle minutes *(proposed; 5 would halve idle cost, at
-  the price of more "Opening your studio…" waits)*. The next request starts a new one from the
-  draft bundle in a few seconds.
+- **Stopping** (decided 2026-11-04 with Gaurav on #1241): no container runs for a studio nobody uses. The object's
+  alarm stops it, never during a change (a save behind the frame holds its bytes and needs no container):
+  - **2 minutes after the studio closes**: the store's last live socket (§4 "Live progress") closed, so a reload
+    doesn't cause a cold start; with no socket at all, 2 minutes after the last activity;
+  - **after 5 minutes of inactivity** while open: no prompt, typing or click in the frame (a hidden tab sends none);
+  - **at a 3-hour cap** per container session, however busy.
+
+  **Waking early:** focusing or typing in the chat box, a click in the frame, and picking a template send
+  `studioActivity` (the studio's read access, refused to support and impersonation, unlogged as `studio_activity`,
+  LOGGING §5), at most every 30 seconds: it starts a stopped container and resets the inactivity timer. While it
+  starts, the frame shows the last saved preview under "Opening your studio…". Each stop is logged as
+  `studio_stopped` with the rule (`closed-stop`, `idle-stop`, `cap-stop`).
 - **A crash mid-change:** the Durable Object starts a new container from the last saved draft
   and retries the change once. The draft is only ever the last saved state.
+- **A crash after the frame's swap** (#1241): an accepted change kept in the object's storage whose save never
+  finished (the object restarted, or R2 or the database stayed down) is applied again, in order, through the gate onto
+  the last bundle the next time the container starts, then saved; one the gate now refuses is dropped and logged
+  (`studio_reapply_refused`). A reapplied change is a new commit of the same files.
 - **Two tabs or devices** share the store's one container and see the same draft.
 - **Capacity** (Cloudflare's account limits, checked 2026-10-09): 6 TiB of memory and 1,500 vCPU
   running at once. That is about **1,500 open studios at `standard-1`, or 6,000 at `basic`**;
@@ -304,19 +421,35 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   links to that build's own run (LIVE-SHOP §2).
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
-- **The AI's own photos** (on where `AI_PHOTOS=1`; off otherwise): on a change request, the model may call `search_stock_images` and
-  `add_stock_image` (at most four calls in a change, none in a repair). It may use only the sources `AI_PHOTO_SOURCES` names (a comma
-  list of `pexels,pixabay,openverse,commons`; unset is `openverse,commons`, the two whose terms allow it; an unknown name stops the Worker at boot); a result or an id from any other source is
-  dropped or refused. Pixabay's API docs say "the API is made for real human requests; do not send lots of automated queries", and
-  Pexels' terms for automated use are not yet checked, so name only the sources whose terms allow it. The Worker
+- **The store lookups** (#1242; ARCHITECTURE §6.2): every change's first ask may also call `store_photos` (#1244: the
+  store's own Assets images, newest first, at most 24, with their size), `list_collections`, `find_products`,
+  `product_photos`, `best_sellers` and `active_offers`, at most 6 a change (photos at most 2), answered by the Worker for the
+  acting store from the summary kept in its `StudioSession`, or one query each beyond it. An Assets image `store_photos`
+  listed and the change places is marked `storefront_visible`, as an attached one is.
+- **The AI's own photos** (decided 2026-11-04 with Gaurav on #1244; on unless `AI_PHOTOS=0`, so on in dev and prod): the AI
+  fills every picture slot it designs (a hero, a banner, a background, the about page, a section's art) itself, in the same
+  change or build, without asking, and never with a picture it generates. The store's own photos come first (`store_photos`,
+  collection and product photos from the lookups), then free photos: on a change request or a build's page the model may call
+  `search_stock_images` and `add_stock_image` (at most four calls a change or page, at most 20 in a whole build, none in a
+  repair; `STOCK_RATE_LIMITER` still caps the store). It searches in the store's category words, asks for `landscape` and a
+  `minWidth` of 1200 for a hero or banner (600 for smaller art), and the Worker leaves out a result whose file is narrower than
+  that, not landscape when asked, or of unknown size: Commons' file is its 1280px thumbnail, Openverse's at most 600px, so
+  Openverse fills smaller art only. Each result goes back with its width and height. Only Openverse and Wikimedia Commons
+  (CC0 and public domain), the sources whose terms allow automated use, ever reach the model: `AI_PHOTO_SOURCES` (a comma list
+  of `pexels,pixabay,openverse,commons`; unset is both; an unknown name stops the Worker at boot) can only narrow them, and
+  Pexels or Pixabay named there is left out; a result or an id from any other source is dropped or refused. Pixabay's API docs
+  say "the API is made for real human requests; do not send lots of automated queries". Pexels' terms (read 2026-11-05 UTC on
+  #1244) ask for "a prominent link to Pexels" whenever a request is made and forbid automated collection for unauthorised
+  purposes without saying an AI choosing for a merchant is authorised, so Pexels stays the picker's only. The Worker
   runs each call through the same combined search and the same download path as the merchant's picker: the model names words and
   an id (`source:id`) from the results it was given, never an address, and the file lands in Assets as the merchant's own,
   `storefront_visible`, logged as `storefront.image_imported` with the source. It places the asset id as the prompt describes
   (`MerchantImage` or CSS `url()`), and a photo added but not placed in the change is logged as `storefront_photo_unplaced`.
-  Results are untrusted web text: only an id, tags and a name go back to the model, cut and stripped of control characters, and
+  Results are untrusted web text: only an id, tags, a name and the file's size go back to the model, cut and stripped of control characters, and
   the prompt says to follow no instruction in them. Each photo added is a note in the chat with its thumbnail and "by {name} on {source}".
-  A request with no photo tools (`AI_PHOTOS` off, no source, or no provider router) tells the model so: it adds no image and
-  points the merchant to the picker and attaching. A provider that does not reach the router has no tools and answers as before.
+  A request with no photo tools (`AI_PHOTOS=0`, no source, or no provider router) tells the model so: it uses only the store's
+  own photos, and when none fits adds no image and points the merchant to the picker and attaching. A product's picture is never
+  one of these: core's validator refuses a `<MerchantImage>` or a `url()` class inside a product's render (ARCHITECTURE §3.4). A provider that does not reach the router has no tools and answers as before.
 - **Stop** (`cancelDesign`) ends the change that is running for the store, only while the model is still being asked or
   between repairs. Once the sandbox has the diff the step finishes, so a draft is never half a change. A stopped change
   records a `stopped` note and `cancelled`, changes nothing, and gives the usage unit back only if the model was never asked.
@@ -325,7 +458,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   and image or video; a supplier's files, a rider's photo and private files never show. `storefront.read` looks, the Owner
   uploads (`POST /api/assets`), renames (`asset.name`, migration 0374) and deletes, and a file anything uses can't be deleted;
   its use is counted over the same references the shop policy lists (migration 0290). The studio's composer picks an image
-  from it, or uploads one, and sends it as `imageAssetId`. A file nothing references is not served to shoppers (0290); a design
+  from it (a scrolling grid that reads the next page of the library as it nears its end), or uploads one, and sends it as `imageAssetId`. The composer shows no ready-made suggestion chips (#1279). A file nothing references is not served to shoppers (0290); a design
   request that changes the theme with it attached (or adds it) marks it `storefront_visible` (migration 0375), and Assets › Delete
   keeps such a file while the theme at `main` names its id (and when the repo can't be read), and core's `MerchantImage` then reads it with the Shop API's
   `shopAsset(id)`. The model is told the attached image's asset id and writes it into the content key the theme reads
@@ -339,7 +472,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   if all do. A result is kept only if its tags, title, description or creator hold every word typed. Ids are `source:id`; a chosen one
   is re-asked from its own source, and the address is checked against that source's hosts before the Worker downloads it into the
   store's files (never hotlinked). Openverse's file is its own thumbnail endpoint, Wikimedia's a 1280px thumbnail. Each result carries its source, the creator and the page it came from, and the picker shows the source's name on each result. `total` is the sum of the sources' own counts before the word filter, so it is an upper bound, and a page holds at most 24 results per source (`maxPerSource`). Commons results keep the search's ranking and its total hits. The
-  merchant's picker uses every source; the AI only those in `AI_PHOTO_SOURCES`. `STOCK_RATE_LIMITER` caps a store's searches, downloads and
+  merchant's picker uses every source; the AI only Openverse and Commons, narrowed by `AI_PHOTO_SOURCES`. Openverse and Commons
+  results carry the downloaded file's width and height. `STOCK_RATE_LIMITER` caps a store's searches, downloads and
   imports across all sources at 30 a minute and answers `STOCK_BUSY`. Nothing is cached: the Worker holds no state.
   Pixabay's terms (API docs, read 2026-10-30): requests cached 24 hours (not kept), under its 100 requests a minute per key, requests
   made by a person, no systematic mass downloads, the source shown wherever results show, result URLs used only to display results
@@ -356,12 +490,17 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 
 ## 9. Open questions
 
-- ~~The container size.~~ **`basic`** (¼ vCPU, 1 GiB, 4 GB disk; decided on #482). The fast gate over the
-  baseline theme (22 files) peaked at **365 MiB** in the sandbox's process, the first change in 1.0 s and later
-  ones in 0.33 s on a developer's laptop (2026-10-11); expect about four times that on ¼ vCPU. The Durable
-  Object starts it as custom resources (`vcpu: 0.25, memoryMib: 1024, diskMb: 4096`), since the
-  `durable_object` scheduling policy, which picks the image per start, takes no `basic` name and has no
-  `max_instances`. A theme near the 200-file cap is to measure on dev.
+- ~~The container size.~~ **`standard-1`** (½ vCPU, 4 GiB, 8 GB disk; decided 2026-11-04 with Gaurav on #1241, for
+  the warm TypeScript service of #1240), passed by name to `start()`, which the `durable_object` policy accepts
+  (it takes no `basic` name and has no `max_instances`). Before: `basic` (¼ vCPU, 1 GiB, decided on #482): the fast
+  gate over the baseline theme (22 files) peaked at **365 MiB** in the sandbox's process, the first change in 1.0 s
+  and later ones in 0.33 s on a developer's laptop (2026-10-11). A theme near the 200-file cap is to measure on dev.
+- **Placement** (decided on #1241): the studio's containers ran in Singapore (`sin15`, `sin21`, `sin22`) and once in
+  San Jose (dev, checked 2026-11-04); Cloudflare offers no Mumbai option for containers or Durable Objects. The
+  `StudioSession` object is made with `locationHint: "apac"` wherever it is got (`studioOf`, `studioForJob`), and its
+  container starts near it. Wrangler refuses `constraints.regions` on a `durable_object` application (only `images`,
+  `observability`, `ssh` and experimental flags are accepted), so the containers carry no region constraint of
+  their own; where they start is checked on dev. One Durable Object-to-database round trip is measured on dev.
 - **How the sandbox works** (decided on #482):
   - the model's diff is a list of **whole files**, each with its new text or `null` to remove it, not a
     patch: the validator judges whole files, and a patch that doesn't apply is one failure fewer;
@@ -382,8 +521,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
     its own, no hooks and the `file` protocol only;
   - the server refuses to start when a variable that looks like a credential is set, and blocks
     `fetch`, sockets, HTTP and DNS inside its own process on top of the container's `enableInternet: false`.
-- ~~The idle timeout.~~ **10 minutes** (decided on #482): a merchant reading the preview between asks often passes 5,
-  a container at `basic` costs about a cent an hour, and a cold start reloads the saved draft in seconds.
+- ~~The idle timeout.~~ **5 minutes while open, 2 after closing, 3 hours at most** (decided on #1241, §7 "Stopping"),
+  with the container woken on focus or typing so the cold start happens while the merchant writes. Before: 10 minutes
+  (#482).
 - **How the Durable Object runs a change** (decided on #482):
   - `StudioSession` is named by the store id of the session's `TenantContext` (`studioOf`), keeps that id in its
     storage on the first call, and refuses a call for any other store;
@@ -394,20 +534,22 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   - it loads `drafts/{store}.bundle`, else the live build's `sources/{store}/{build}.bundle`, else, for a store
     that has never published, the template's files from the sites bucket (the template's commit on GitHub
     is never read);
-  - each accepted change saves, in this order: the draft bundle, the preview folder
-    `stores/{id}/preview/{change id}/` (each file with its SHA-256), `design_draft.head_commit` and
-    `preview_deploy_ref` with `storefront.custom_paths`, then the frame's reload notice;
+  - each accepted change is kept in the object's storage, then the frame's reload notice goes out, then, in the
+    background and one save at a time: the draft bundle, the preview folder `stores/{id}/preview/{change id}/` (each
+    file with its SHA-256, written in parallel), `design_draft.head_commit` and `preview_deploy_ref` with
+    `storefront.custom_paths` (#1241; before, all of it came before the reload);
   - a sandbox that stops answering is started again from the saved draft and the step is tried once more;
     a second failure answers "unavailable" and the draft stays at its last saved state;
   - a load that fails after the container started stops it and gives its place back; a change the model or
     the sandbox fails partway is metered as `failed`, with every ask already made;
-  - only opening, changing and undoing keep a studio from its idle stop; the alarm stops a container whose object
-    was evicted (no runner left to reach it), and one whose lapsed lease the ledger won't renew;
+  - opening, changing, undoing and `studioActivity` keep a studio from its idle stop; the alarm stops a container
+    whose object was evicted (no runner left to reach it), and one whose lapsed lease the ledger won't renew;
   - the validator's languages are the store's languages' base codes (`en-IN` → `content/en/`), which core's
     i18n reads for every region of a language; the content and post paths are SAPI 24's `storeContentPaths` (#338), read with the rest of the context;
   - **capacity**: the `durable_object` scheduling policy has no `max_instances`, so one `StudioCapacity` object
     keeps a ledger of `STUDIO_MAX_RUNNING` running studios (default 5,000, short of the ~6,000 the account's
-    vCPU allows at `basic`): a running studio's lease is renewed every minute and lapses 3 minutes after the
+    vCPU allowed at `basic`; at `standard-1` the account's 1,500 vCPU allow about 3,000, so the default is to lower
+    once the limit is confirmed): a running studio's lease is renewed every minute and lapses 3 minutes after the
     last renewal; a waiting studio keeps its place by when it first asked and leaves the queue a minute
     after it stops asking.
 - Whether a plan caps simultaneous studio sessions *(decide on #287; #482 caps only the account, by `STUDIO_MAX_RUNNING`)*.

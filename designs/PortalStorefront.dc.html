@@ -12,7 +12,10 @@
 <style>
 @keyframes df-spin{to{transform:rotate(360deg);}}
 .df-spin{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid #D7D3CD;border-top-color:#0A2A4A;animation:df-spin 0.9s linear infinite;}
-@media (prefers-reduced-motion: reduce){.df-spin{animation:none;}}
+@keyframes df-caret{50%{opacity:0;}}
+.df-feed-spin{animation:df-spin 0.9s linear infinite;}
+.df-feed-caret{animation:df-caret 1s steps(1) infinite;}
+@media (prefers-reduced-motion: reduce){.df-spin,.df-feed-spin,.df-feed-caret{animation:none;}}
 [data-edit-text="1"] :is(h1,h2,h3,p,span,li):hover{outline:2px dashed #00519F;outline-offset:2px;cursor:text;}
 </style>
 </helmet>
@@ -70,6 +73,42 @@
                 <sc-if value="{{ m.undone }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">Undone — the preview is back to how it was.</span></sc-if>
               </div>
             </sc-if>
+            <!-- #1243: a vague request gets up to 3 quick-pick questions, each prefilled from the store's own data. -->
+            <sc-if value="{{ m.isQuestions }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:10px;max-width:94%;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span>
+                <span style="font-size:14px;color:#14181F;">{{ m.text }}</span>
+                <sc-for list="{{ m.qs }}" as="q" hint-placeholder-count="3">
+                  <div role="radiogroup" aria-label="{{ q.q }}" style="display:flex;flex-direction:column;gap:8px;border:1px solid #E8E2DC;border-radius:10px;padding:10px 12px;background:#FFFFFF;">
+                    <span style="font-size:13px;font-weight:600;color:#14181F;">{{ q.q }}</span>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ q.opts }}" as="o" hint-placeholder-count="3"><button role="radio" aria-checked="{{ o.on }}" disabled="{{ m.qsDone }}" onClick="{{ o.onClick }}" style="min-height:32px;padding:4px 12px;border:1px solid {{ o.bd }};border-radius:16px;background:{{ o.bg }};color:{{ o.fg }};font-size:13px;text-align:left;cursor:pointer;">{{ o.t }}</button></sc-for></div>
+                    <input aria-label="{{ q.otherLabel }}" placeholder="Something else" value="{{ q.other }}" onChange="{{ q.onOther }}" disabled="{{ m.qsDone }}" style="height:34px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;color:#14181F;background:#FFFFFF;">
+                  </div>
+                </sc-for>
+                <sc-if value="{{ m.qsOpen }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;"><button onClick="{{ m.answer }}" disabled="{{ locked }}" style="height:36px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Make the plan</button><button onClick="{{ m.skip }}" disabled="{{ locked }}" style="min-height:28px;padding:0;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Skip questions</button></div></sc-if>
+                <sc-if value="{{ m.qsDone }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">{{ m.qsDoneText }}</span></sc-if>
+              </div>
+            </sc-if>
+            <!-- #1243: the plan, page by page, with Build it; changes to it are asked in words in the composer. -->
+            <sc-if value="{{ m.isPlan }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:10px;max-width:94%;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span>
+                <span style="font-size:14px;color:#14181F;">{{ m.text }}</span>
+                <ol style="margin:0;padding:10px 12px;list-style:none;border:1px solid #E8E2DC;border-radius:10px;background:#FFFFFF;display:flex;flex-direction:column;gap:8px;"><sc-for list="{{ m.lines }}" as="pl" hint-placeholder-count="4"><li style="font-size:13px;color:#434A55;line-height:1.45;"><strong style="color:#14181F;">{{ pl.page }}</strong> · {{ pl.what }}</li></sc-for></ol>
+                <sc-if value="{{ m.planOpen }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;"><button onClick="{{ m.build }}" disabled="{{ locked }}" style="height:36px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Build it</button><span style="font-size:12px;color:#5A6472;">Or tell me below what to change in the plan.</span></div></sc-if>
+                <sc-if value="{{ m.planDone }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">{{ m.planDoneText }}</span></sc-if>
+              </div>
+            </sc-if>
+            <!-- #1243: the build's one history entry: every page it built, and one Undo for all of them. -->
+            <sc-if value="{{ m.isBuilt }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:8px;max-width:94%;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span>
+                <span style="font-size:14px;color:#14181F;">{{ m.text }}</span>
+                <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;"><sc-for list="{{ m.pages }}" as="bp" hint-placeholder-count="3"><li style="display:flex;align-items:center;gap:8px;font-size:13px;color:{{ bp.fg }};"><span aria-hidden="true" style="flex:none;width:16px;height:16px;border-radius:50%;background:{{ bp.dot }};border:1px solid {{ bp.ring }};"></span><span>{{ bp.t }}</span></li></sc-for></ul>
+                <sc-if value="{{ m.canUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ m.undo }}" style="align-self:flex-start;height:28px;padding:0;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Undo the whole build</button></sc-if>
+                <sc-if value="{{ m.undone }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">Undone — every page is back to how it was before the build.</span></sc-if>
+              </div>
+            </sc-if>
             <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5A6472;"><span style="flex:1;height:1px;background:#E8E2DC;"></span><span>{{ m.text }}</span><span style="flex:1;height:1px;background:#E8E2DC;"></span></div></sc-if>
             <sc-if value="{{ m.isErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:13px;color:#A1261B;background:#FDECEC;border:1px solid #F3C7C2;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;"><span>{{ m.text }}</span><sc-if value="{{ m.canRetry }}" hint-placeholder-val="{{ false }}"><button onClick="{{ m.retry }}" style="min-height:28px;padding:0;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;">Try again</button></sc-if></div></sc-if>
             <sc-if value="{{ m.isRefused }}" hint-placeholder-val="{{ false }}">
@@ -81,10 +120,10 @@
               </div>
             </sc-if>
           </sc-for>
-          <sc-if value="{{ busyLine }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span><span style="font-size:14px;color:#434A55;">{{ busyText }}</span><sc-if value="{{ busyReopen }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.reopen }}" style="align-self:flex-start;margin-top:4px;height:36px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Reopen</button></sc-if></div></sc-if>
+          <sc-if value="{{ busyLine }}" hint-placeholder-val="{{ false }}"><div role="status" aria-live="polite" style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span><sc-if value="{{ hasBuild }}" hint-placeholder-val="{{ false }}"><strong style="font-size:14px;color:#14181F;">{{ buildHead }}</strong><ol aria-label="Pages in this build" style="list-style:none;margin:2px 0 6px;padding:0;display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ buildPages }}" as="bq" hint-placeholder-count="4"><li style="height:24px;padding:0 9px;border-radius:12px;border:1px solid {{ bq.bd }};background:{{ bq.bg }};color:{{ bq.fg }};font-size:12px;display:flex;align-items:center;gap:5px;"><span>{{ bq.t }}</span><span class="df-visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">{{ bq.sr }}</span></li></sc-for></ol></sc-if><sc-if value="{{ notFeed }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;color:#434A55;">{{ busyText }}</span></sc-if><sc-if value="{{ hasFeed }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ hasThought }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-style:italic;color:#14181F;margin:4px 0 8px;">{{ feedThought }}</span></sc-if><ol style="list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;"><sc-for list="{{ feedSteps }}" as="fs" hint-placeholder-count="3"><li style="display:flex;align-items:center;gap:8px;font-size:14px;color:{{ fs.fg }};font-weight:{{ fs.fw }};"><sc-if value="{{ fs.done }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex:none;"><circle cx="8" cy="8" r="7" fill="#EEF7F2" stroke="#CBE6D6"></circle><path d="M5 8.2l2 2 4-4.4" fill="none" stroke="#1D6B47" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if><sc-if value="{{ fs.active }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex:none;box-sizing:border-box;width:16px;height:16px;border:2px solid #E8E2DC;border-top-color:#EC844F;border-radius:50%;" class="df-feed-spin"></span></sc-if><span>{{ fs.t }}</span></li></sc-for></ol><span aria-hidden="true" style="font-size:13px;color:#5A6472;margin-top:6px;">{{ cookingLine }}</span><sc-if value="{{ hasFeedSummary }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#14181F;margin-top:4px;">{{ feedSummary }}</span></sc-if></sc-if><sc-if value="{{ isStreaming }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#14181F;white-space:pre-wrap;">{{ streamText }}<span aria-hidden="true" style="display:inline-block;width:7px;height:15px;margin-left:2px;vertical-align:-2px;background:#EC844F;border-radius:1px;" class="df-feed-caret"></span></span></sc-if><sc-if value="{{ busyReopen }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.reopen }}" style="align-self:flex-start;margin-top:4px;height:36px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Reopen</button></sc-if></div></sc-if>
         </div>
         <div style="flex:none;border-top:1px solid #E8E2DC;padding:12px;display:flex;flex-direction:column;gap:8px;">
-          <sc-if value="{{ showSugs }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ sugs }}" as="sg" hint-placeholder-count="3"><button onClick="{{ sg.onClick }}" style="min-height:30px;padding:4px 10px;border:1px solid #D7D3CD;border-radius:15px;background:#FFFFFF;color:#434A55;font-size:12px;cursor:pointer;text-align:left;" style-hover="background:#F7F2ED;">{{ sg.t }}</button></sc-for></div></sc-if>
+          
           <div style="border:1px solid #D7D3CD;border-radius:10px;display:flex;flex-direction:column;background:#FFFFFF;">
             <sc-if value="{{ hasAtt }}" hint-placeholder-val="{{ false }}">
               <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0;">
@@ -468,6 +507,18 @@ class Component extends DCLogic {
     const img = text != null ? null : s.attImg; const site = text != null ? '' : s.attSite;
     if ((!msg && !img && !site) || s.phase || s.sbx !== 'ready') return;
     if (!app.needAI()) return;
+    // #1243: words typed under an open plan change the plan; they take no new AI request.
+    const open = (sf.chat || [])[(sf.chat || []).length - 1];
+    if (open && open.role === 'plan' && !open.done && !s.chatMode && text == null && msg) {
+      const id = Date.now();
+      app.set('storefront', x => ({ ...x, chat: [...x.chat, { id, role: 'user', text: msg, at: id }] }));
+      this.setState({ phase: 'working', prompt: '', feed: { steps: ['Writing your plan'], summary: '' } }); clearTimeout(this._ph);
+      this._ph = setTimeout(() => {
+        app.set('storefront', x => ({ ...x, chat: [...x.chat, { id: id + 1, role: 'plan', text: 'I changed the plan:', lines: [...open.lines.slice(0, -1), { page: 'Lookbook', what: 'a page of large photos from your collections' }, open.lines[open.lines.length - 1]], at: Date.now() }] }));
+        this.setState({ phase: '', feed: null });
+      }, 1200);
+      return;
+    }
     const before = sf.draft || sf.site; const uid = Date.now();
     const earlier = (sf.chat || []).filter(m => m.role === 'user' && m.text).slice(-4).map(m => '- ' + m.text).join('\n');
     app.set('storefront', x => ({ ...x, prompts: (x.prompts || 0) + 1, chat: [...(x.chat || []), { id: uid, role: 'user', text: msg, img, site, at: uid }] }));
@@ -611,6 +662,8 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
   }
 
   stopAsk() {
+    // #1243: Stop during a build ends it after the page being built; the pages already built stay.
+    if (this.state.phase === 'building' && this.state.build) { this.setState({ build: { ...this.state.build, stopping: true } }); return; }
     clearTimeout(this._ph); this._stopped = true;
     const app = this.props.app; const uid = Date.now();
     app.set('storefront', x => ({ ...x, chat: [...x.chat, { id: uid, role: 'note', text: 'You stopped this change — nothing on your site changed.' }] }));
@@ -623,6 +676,59 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
     this.setState({ attImg: { name: u.hostname, hue: 30 }, urlOpen: false, urlIn: '', urlErr: '' });
   }
 
+  // #1243: the quick-pick questions, prefilled from the shop's own data; a shop with no products gets no "lead with" question.
+  planQs(app, empty) {
+    const ps = this.prods(app); const ls = this.langs(); const top = ps[0] ? ps[0].name : '';
+    const qs = [{ q: 'What feeling should the store have?', opts: ['Calm and premium', 'Warm and handmade', 'Bold and modern'] }];
+    if (!empty && ps.length) qs.push({ q: 'What should the home page lead with?', opts: [top + ' — your best seller', 'Your newest arrivals', 'Your collections'] });
+    qs.push(ls.length > 1 ? { q: 'Which language should shoppers see first?', opts: ls.slice(0, 3).map(l => l.name + (l.main ? ' (your main language)' : '')) } : { q: 'Who is it mostly for?', opts: ['Gift buyers', 'Regular customers', 'First-time visitors'] });
+    return qs.map(x => ({ ...x, pick: 0, other: '' }));
+  }
+  planLines(app, empty) {
+    const ps = this.prods(app); const top = ps[0] ? ps[0].name : 'your products';
+    return empty ? [{ page: 'Home', what: 'calm hero with your name and tagline, your newest products as you add them, a short story about the shop' }, { page: 'Product page', what: 'large gallery, clear price and Add to cart' }, { page: 'About', what: 'your story and how you make things' }, { page: 'Header and footer', what: 'logo and menu; shipping and contact' }]
+      : [{ page: 'Home', what: 'hero with ' + top + ' (your best seller), 3 collection tiles, testimonials' }, { page: 'Product page', what: 'large gallery with zoom, care notes' }, { page: 'Collection page', what: 'roomy grid, 3 per row on desktop' }, { page: 'About', what: 'your story, the people behind the shop' }, { page: 'Header and footer', what: 'logo and menu; shipping and contact' }];
+  }
+  buildState(lines, at) {
+    const pages = lines.filter(l => l.page !== 'Header and footer').map(l => l.page);
+    return { pages, at, of: pages.length, stopping: false };
+  }
+  builtText(b, built, mode) {
+    return mode === 'done' ? `I built all ${b.of} pages. Each one passed the checks and is in the preview.` : mode === 'stopped' ? `You stopped the build after page ${built} of ${b.of}. The pages I built stay; the rest are as they were.` : `Page ${built + 1} of ${b.of} (${b.pages[built]}) didn’t pass the checks, so I stopped. The pages before it stay.`;
+  }
+  builtPages(b, built, mode) { return b.pages.map((t, n) => ({ t, state: n < built ? 'built' : n === built && mode === 'refused' ? 'refused' : 'left' })); }
+  pickQ(i, q, o) { const app = this.props.app; app.set('storefront', x => ({ ...x, chat: x.chat.map((c, k) => k === i ? { ...c, qs: c.qs.map((y, n) => n === q ? { ...y, pick: o, other: '' } : y) } : c) })); }
+  otherQ(i, q, v) { const app = this.props.app; app.set('storefront', x => ({ ...x, chat: x.chat.map((c, k) => k === i ? { ...c, qs: c.qs.map((y, n) => n === q ? { ...y, other: v, pick: v.trim() ? -1 : (y.pick < 0 ? 0 : y.pick) } : y) } : c) })); }
+  answerQs(i, skip) {
+    const app = this.props.app; if (this.state.phase) return; const empty = !!(app.data('storefront').chat[i] || {}).empty;
+    app.set('storefront', x => ({ ...x, chat: x.chat.map((c, k) => k === i ? { ...c, done: true, skipped: skip } : c) }));
+    this.setState({ phase: 'working', feed: { steps: ['Writing your plan'], summary: '' } }); clearTimeout(this._ph);
+    this._ph = setTimeout(() => {
+      app.set('storefront', x => ({ ...x, chat: [...x.chat, { id: Date.now(), role: 'plan', text: skip ? 'You skipped the questions, so I chose from your shop’s own data. Here’s my plan:' : 'Here’s my plan for your store:', lines: this.planLines(app, empty), at: Date.now() }] }));
+      this.setState({ phase: '', feed: null });
+    }, 1200);
+  }
+  // Each page is its own checked change: it swaps into the frame as it passes, while the next one is built.
+  buildPlan(i) {
+    const app = this.props.app; const sf = app.data('storefront'); const m = sf.chat[i]; if (!m || this.state.phase) return;
+    this._build = { before: sf.draft || sf.site };
+    app.set('storefront', x => ({ ...x, chat: x.chat.map((c, k) => k === i ? { ...c, done: true } : c) }));
+    this.stepBuild(this.buildState(m.lines, 1));
+  }
+  stepBuild(b) {
+    clearTimeout(this._ph);
+    this.setState({ phase: 'building', build: b, feed: { steps: ['Understanding your request', 'Making your changes', 'Checking your change'], summary: '' } });
+    this._ph = setTimeout(() => {
+      const cur = this.state.build; if (!cur) return;
+      if (cur.stopping || cur.at >= cur.of) { this.endBuild(cur.at, cur.at >= cur.of ? 'done' : 'stopped'); return; }
+      this.stepBuild({ ...cur, at: cur.at + 1 });
+    }, 1600);
+  }
+  endBuild(built, mode) {
+    const app = this.props.app; const b = this.state.build; clearTimeout(this._ph);
+    app.set('storefront', x => { const w = x.draft || x.site; return { ...x, draft: { ...w, theme: { ...w.theme, bg: '#F6F1EA', accent: '#5B2A86', accentText: '#FFFFFF' } }, chat: [...x.chat, { id: Date.now(), role: 'built', text: this.builtText(b, built, mode), pages: this.builtPages(b, built, mode), before: this._build ? this._build.before : w, at: Date.now() }] }; });
+    this.setState({ phase: '', build: null, feed: null });
+  }
   // ?state= and the Storefront control open one state of the studio or the publish gate (design.md §2).
   takeState() {
     const app = this.props.app; if (!app || !this.state.lib) return;
@@ -639,10 +745,43 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       { id: now + 1, role: 'user', text: 'Make the colours warmer and give the home page an autumn headline', at: now },
       { id: now + 2, role: 'ai', text: 'I warmed up the background and buttons and gave the home page an autumn headline.', changed: ['Colours', 'Hero headline'], before: live, at: now }];
     let draft = warm; let studio = true; let after = null; const extra = { rolledBack: null };
-    const st = { sbx: 'ready', phase: '', pub: 0, queueSecs: 20, pageMenu: false, prevMenu: false, editMode: false, edit: null, attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '', prompt: '', page: 'home', pane: 'chat', changed: [], tab: 'design' };
+    const st = { sbx: 'ready', phase: '', feed: null, build: null, stream: '', pub: 0, queueSecs: 20, pageMenu: false, prevMenu: false, editMode: false, edit: null, attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '', prompt: '', page: 'home', pane: 'chat', changed: [], tab: 'design' };
     if (k === 'opening' || k === 'queued' || k === 'ended') st.sbx = k;
     else if (k === 'finishing') st.phase = 'finishing';
     else if (k === 'checking') { chat = [...chat, { id: now + 3, role: 'user', text: 'Add a customer reviews section', at: now }]; st.phase = 'checking'; }
+    // #1237: the live feed over the studio's socket; each step ticks as the next arrives, the last one spins.
+    else if (k === 'working') {
+      chat = [...chat, { id: now + 3, role: 'user', text: 'Add a customer reviews section', at: now }]; st.phase = 'working';
+      st.feed = { steps: ['Reading your theme', 'Understanding your request', 'Making your changes', 'Checking your change', 'Fixing a problem (1 of 3)', 'Checking your change'], summary: 'I’m adding a reviews section under your products.' };
+    } else if (k === 'chat-streaming') {
+      chat = [...chat, { id: now + 3, role: 'user', text: 'What would suit a linen shop?', at: now }]; st.phase = 'streaming'; st.chatMode = true;
+      st.stream = 'Linen looks best in a calm, airy shop: soft natural tones like oat, sand and stone, plenty of white space, and large photos that show the weave up close. For your home page, I’d';
+    }
+    // #1243: a vague request's questions, its plan and the page-by-page build, each with its empty, loading and error forms.
+    else if (k.startsWith('questions') || k.startsWith('plan') || k.startsWith('build') || k === 'built') {
+      const vague = { id: now + 3, role: 'user', text: 'Make my store look premium', at: now }; const empty = k === 'questions-empty';
+      const qsMsg = { id: now + 4, role: 'questions', text: empty ? 'A couple of quick questions first. Your shop has no products yet, so I’ll leave room for them.' : 'A few quick questions so I build the right thing. Pick one, type your own, or skip them.', qs: this.planQs(app, empty), empty, at: now };
+      const planMsg = (skip) => ({ id: now + 5, role: 'plan', text: skip ? 'You skipped the questions, so I chose from your shop’s own data. Here’s my plan:' : 'Here’s my plan for your store:', lines: this.planLines(app, false), at: now });
+      chat = [...chat, vague];
+      if (k === 'questions-loading') { st.phase = 'working'; st.feed = { steps: ['Reading your theme', 'Understanding your request'], summary: '' }; }
+      else if (k === 'questions-error') chat = [...chat, { id: now + 4, role: 'err', text: 'I couldn’t prepare questions for that — nothing on your site changed. Try again, or say it a different way.' }];
+      else if (k === 'questions' || k === 'questions-empty') chat = [...chat, qsMsg];
+      else {
+        chat = [...chat, { ...qsMsg, done: true, skipped: k === 'plan-empty' }];
+        if (k === 'plan-loading') { st.phase = 'working'; st.feed = { steps: ['Writing your plan'], summary: '' }; }
+        else if (k === 'plan-error') chat = [...chat, { id: now + 5, role: 'err', text: 'I couldn’t write a plan — nothing on your site changed. Try again.' }];
+        else if (k === 'plan' || k === 'plan-empty') chat = [...chat, planMsg(k === 'plan-empty')];
+        else {
+          const p = { ...planMsg(false), done: true }; chat = [...chat, p]; this._build = { before: warm };
+          const b = this.buildState(p.lines, k === 'building-loading' ? 1 : 2);
+          if (k === 'building' || k === 'building-loading') { st.phase = 'building'; st.build = b; st.feed = { steps: k === 'building-loading' ? ['Understanding your request'] : ['Understanding your request', 'Making your changes', 'Checking your change'], summary: k === 'building-loading' ? '' : 'I’m giving the product page a large gallery with zoom.' }; }
+          else {
+            const mode = k === 'building-error' ? 'refused' : k === 'building-stopped' ? 'stopped' : 'done'; const built = mode === 'done' ? b.of : 2;
+            chat = [...chat, { id: now + 6, role: 'built', text: this.builtText(b, built, mode), pages: this.builtPages(b, built, mode), before: warm, at: now }];
+          }
+        }
+      }
+    }
     else if (k === 'attach') {
       chat = [...chat, { id: now + 3, role: 'user', text: 'Use the colours from this photo and a layout like this site', img: { name: 'shop-window.jpg', hue: 24 }, site: 'https://www.example.com/', at: now },
         { id: now + 4, role: 'ai', text: 'I took the clay and sand tones from your photo and the roomy two-column layout from example.com. Your products and prices stay as they are.', changed: ['Colours', 'Layout'], before: warm, at: now }];
@@ -711,25 +850,19 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
     this._msgN = chat.length + (s.phase ? 1 : 0) + (studioOn ? 1000 : 0);
 
     let undoIdx = -1;
-    for (let k = chat.length - 1; k >= 0; k--) { const m = chat[k]; if (m.pubMark || (m.role === 'note' && !m.soft)) break; if (m.role === 'ai' && m.before && !m.undone) { undoIdx = k; break; } if (m.role === 'ai' && m.undone) break; }
+    for (let k = chat.length - 1; k >= 0; k--) { const m = chat[k]; if (m.pubMark || (m.role === 'note' && !m.soft)) break; if ((m.role === 'ai' || m.role === 'built') && m.before && !m.undone) { undoIdx = k; break; } if ((m.role === 'ai' || m.role === 'built') && m.undone) break; }
     const locked = !!s.phase || s.sbx !== 'ready';
     const tile = h => `linear-gradient(135deg,hsl(${h},35%,80%),hsl(${h},30%,62%))`;
     const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } };
-    const msgs = chat.map((m, i) => ({ text: m.text, hasText: !!m.text, isUser: m.role === 'user', isAi: m.role === 'ai', isNote: m.role === 'note', isErr: m.role === 'err', canRetry: m.role === 'err' && i === chat.length - 1 && !locked, retry: () => { const q = chat.slice(0, i).reverse().find(x => x.role === 'user'); if (q) this.ask(q.text); }, changed: (m.changed || []).map(t => ({ t })), hasChanged: !!(m.changed && m.changed.length) && !m.undone, canUndo: i === undoIdx && !locked, undone: !!m.undone, undo: () => this.undo(i),
+    const msgs = chat.map((m, i) => ({ text: m.text, hasText: !!m.text, isUser: m.role === 'user', isAi: m.role === 'ai', isNote: m.role === 'note',
+      isQuestions: m.role === 'questions', qsOpen: m.role === 'questions' && !m.done, qsDone: m.role === 'questions' && !!m.done, qsDoneText: m.skipped ? 'You skipped these questions.' : 'Answered.', answer: () => this.answerQs(i, false), skip: () => this.answerQs(i, true),
+      qs: (m.qs || []).map((q, n) => ({ q: q.q, other: q.other, otherLabel: 'Something else: ' + q.q, onOther: e => this.otherQ(i, n, e.target.value), opts: q.opts.map((t, o) => { const on = q.pick === o; return { t, on, bg: on ? '#0A2A4A' : '#FFFFFF', fg: on ? '#FFFFFF' : '#434A55', bd: on ? '#0A2A4A' : '#D7D3CD', onClick: () => this.pickQ(i, n, o) }; }) })),
+      isPlan: m.role === 'plan', lines: m.lines || [], planOpen: m.role === 'plan' && !m.done && i === chat.length - 1, planDone: m.role === 'plan' && (!!m.done || i !== chat.length - 1), planDoneText: m.done ? 'Building this plan.' : 'Replaced by the plan below.', build: () => this.buildPlan(i),
+      isBuilt: m.role === 'built', pages: (m.pages || []).map(p => ({ t: p.t + (p.state === 'built' ? ' — built' : p.state === 'refused' ? ' — didn’t pass the checks' : ' — not built'), fg: p.state === 'built' ? '#14181F' : '#5A6472', dot: p.state === 'built' ? '#1D6B47' : p.state === 'refused' ? '#A1261B' : '#FFFFFF', ring: p.state === 'built' ? '#1D6B47' : p.state === 'refused' ? '#A1261B' : '#D7D3CD' })), isErr: m.role === 'err', canRetry: m.role === 'err' && i === chat.length - 1 && !locked, retry: () => { const q = chat.slice(0, i).reverse().find(x => x.role === 'user'); if (q) this.ask(q.text); }, changed: (m.changed || []).map(t => ({ t })), hasChanged: !!(m.changed && m.changed.length) && !m.undone, canUndo: i === undoIdx && !locked, undone: !!m.undone, undo: () => this.undo(i),
       hasSrc: !!(m.img && m.img.src), noSrc: !!(m.img && !m.img.src), imgSrc: m.img && m.img.src || '', imgBg: tile(m.img && m.img.hue || 30), imgAlt: m.img ? 'Image you added: ' + m.img.name : '', hasSite: !!m.site, site: m.site || '', siteHost: m.site ? hostOf(m.site) : '',
       isRefused: m.role === 'refused', title: m.title || '', culprit: m.culprit || '', hasCulprit: !!m.culprit, canPartial: !!m.partialSite && !m.done && !s.pub, partial: () => this.publishBefore(i) }));
 
     const ws = work || {}; const secTypes = (ws.sections || []).map(x => x.type);
-    const sugPool = [
-      ws.tpl === 'blank' && 'We sell handmade ceramics — make it earthy and calm',
-      !secTypes.includes('testimonial') && 'Add a customer reviews section',
-      ws.announce && !ws.announce.on && 'Add an announcement bar about free delivery',
-      'Make the colours warmer',
-      'Use a more elegant font for headings',
-      (ws.sections || []).some(x => x.type === 'products' && x.cols === 4) && 'Show 3 products per row',
-      'Rewrite the About page in a friendlier tone',
-      'Move the product grid to the top'
-    ].filter(Boolean).slice(0, 4);
 
     const dev = phone ? 'phone' : s.device;
     const prev = phone ? { w: '100%', bd: '0', r: '0', pad: '0', shadow: 'none', bar: false }
@@ -819,13 +952,17 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
         fields: [main, ...ls.filter(l => l !== main)].map(l => { const v = s.edit.vals[l.code] || ''; return { label: l === main ? l.name + ' · main language' : l.name, v, note: l !== main && !v.trim() ? 'Not translated yet. Shoppers see your ' + main.name + ' text instead.' : '',
           on: e => this.setState({ edit: { ...s.edit, err: '', vals: { ...s.edit.vals, [l.code]: e.target.value } } }) }; }) }; })() : { fields: [] },
       sbxOn: s.sbx !== 'ready', sbx: s.sbx === 'ended' ? { text: 'Your studio session ended. Reopen the studio to keep designing.', spin: false, ended: true } : { text: s.sbx === 'queued' ? `You’re next — about ${s.queueSecs} seconds` : 'Opening your studio…', spin: true, ended: false },
-      locked, hasAtt: !!(s.attImg || s.attSite), promptHint: s.chatMode ? 'Ask a question — e.g. “What would suit a linen shop?”' : 'Describe a change — e.g. “Make it feel warmer and add a reviews section”', modeChange: !s.chatMode, modeChat: s.chatMode, modeChangeBd: s.chatMode ? '#D7D3CD' : '#0A2A4A', modeChatBd: s.chatMode ? '#0A2A4A' : '#D7D3CD', modeChangeBg: s.chatMode ? '#FFFFFF' : '#F7F2ED', modeChatBg: s.chatMode ? '#F7F2ED' : '#FFFFFF', siteOpen: s.siteOpen, siteIn: s.siteIn, siteErr: s.siteErr, assetsOpen: s.assetsOpen, assetPics: ['Hero photo','Linen close-up','Studio','Banner','Lookbook 1','Lookbook 2'].map((name, i) => ({ name, bg: tile(30 + i * 40), pick: () => this.setState({ attImg: { name, hue: 30 + i * 40 }, assetsOpen: false }) })), stockOpen: s.stockOpen, stockQ: s.stockQ, stockRan: s.stockRan, stockPics: [0,1,2,3,4,5].map(i => ({ user: 'a Pixabay contributor', bg: tile(30 + i * 40), pick: () => this.stockPick(i) })), urlOpen: s.urlOpen, urlIn: s.urlIn, urlErr: s.urlErr,
+      locked, hasAtt: !!(s.attImg || s.attSite), promptHint: chat.length && chat[chat.length - 1].role === 'plan' && !chat[chat.length - 1].done && !s.chatMode ? 'Tell me what to change in the plan — e.g. “Add a lookbook page”' : s.chatMode ? 'Ask a question — e.g. “What would suit a linen shop?”' : 'Describe a change — e.g. “Make it feel warmer and add a reviews section”', modeChange: !s.chatMode, modeChat: s.chatMode, modeChangeBd: s.chatMode ? '#D7D3CD' : '#0A2A4A', modeChatBd: s.chatMode ? '#0A2A4A' : '#D7D3CD', modeChangeBg: s.chatMode ? '#FFFFFF' : '#F7F2ED', modeChatBg: s.chatMode ? '#F7F2ED' : '#FFFFFF', siteOpen: s.siteOpen, siteIn: s.siteIn, siteErr: s.siteErr, assetsOpen: s.assetsOpen, assetPics: ['Hero photo','Linen close-up','Studio','Banner','Lookbook 1','Lookbook 2'].map((name, i) => ({ name, bg: tile(30 + i * 40), pick: () => this.setState({ attImg: { name, hue: 30 + i * 40 }, assetsOpen: false }) })), stockOpen: s.stockOpen, stockQ: s.stockQ, stockRan: s.stockRan, stockPics: [0,1,2,3,4,5].map(i => ({ user: 'a Pixabay contributor', bg: tile(30 + i * 40), pick: () => this.stockPick(i) })), urlOpen: s.urlOpen, urlIn: s.urlIn, urlErr: s.urlErr,
       att: { hasImg: !!s.attImg, hasSrc: !!(s.attImg && s.attImg.src), noSrc: !!(s.attImg && !s.attImg.src), imgSrc: s.attImg && s.attImg.src || '', imgBg: tile(s.attImg && s.attImg.hue || 30), imgName: s.attImg ? s.attImg.name : '', imgAlt: s.attImg ? 'Image you added: ' + s.attImg.name : '', hasSite: !!s.attSite, site: s.attSite, siteHost: s.attSite ? hostOf(s.attSite) : '' },
       devOpts: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ k, l })),
       devTabs: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, ...seg(s.device === k), onClick: () => this.setState({ device: k }) })),
       paneTabs: [['chat', 'Chat'], ['preview', 'Preview']].map(([k, l]) => ({ label: l, bd: s.pane === k ? '#0A2A4A' : 'transparent', fg: s.pane === k ? '#0A2A4A' : '#5A6472', onClick: () => this.setState({ pane: k }) })),
       showChat: !phone || s.pane === 'chat', showPreview: !phone || s.pane === 'preview', chatW: phone ? '100%' : (s.w && s.w < 1100 ? '320px' : '380px'),
-      msgs, prompt: s.prompt, showSugs: !locked && sugPool.length > 0, sugs: sugPool.map(t => ({ t, onClick: () => this.ask(t) })),
+      msgs, prompt: s.prompt,
+      hasFeed: !!s.feed && (s.phase === 'working' || s.phase === 'building'),
+      hasBuild: s.phase === 'building' && !!s.build, buildHead: s.build ? (s.build.stopping ? `Stopping after page ${s.build.at} of ${s.build.of}: ${s.build.pages[s.build.at - 1]}` : `Building page ${s.build.at} of ${s.build.of}: ${s.build.pages[s.build.at - 1]}`) : '',
+      buildPages: s.build ? s.build.pages.map((t, n) => { const done = n < s.build.at - 1; const now = n === s.build.at - 1; return { t, sr: done ? 'built' : now ? 'building now' : 'next', bg: done ? '#EEF7F2' : now ? '#FFF6E5' : '#FFFFFF', fg: done ? '#1D6B47' : now ? '#7A4B00' : '#5A6472', bd: done ? '#CBE6D6' : now ? '#F2D9A6' : '#E8E2DC' }; }) : [], feedSteps: (s.feed ? s.feed.steps : []).map((t, i, all) => ({ t, done: i < all.length - 1, active: i === all.length - 1, fw: i === all.length - 1 ? '600' : '400', fg: i === all.length - 1 ? '#14181F' : '#434A55' })), hasThought: !!(s.feed && s.feed.thought), feedThought: s.feed ? (s.feed.thought || '') : '', cookingLine: ['Looking at your shop…', 'Mixing the colours…', 'Arranging things nicely…', 'Polishing the details…', 'Picking the right words…', 'Finding the perfect pictures…', 'Making it feel like you…', 'Almost there…'][Math.floor(Date.now() / 3000) % 8], hasFeedSummary: !!(s.feed && s.feed.summary), feedSummary: s.feed ? s.feed.summary : '',
+      isStreaming: s.phase === 'streaming', streamText: s.stream, notFeed: !(s.feed && (s.phase === 'working' || s.phase === 'building')) && s.phase !== 'streaming',
       busyLine: !!s.phase || (phone && s.sbx !== 'ready'), busyReopen: phone && !s.phase && s.sbx === 'ended',
       busyText: { working: 'Working on it — the preview updates as soon as it’s ready.', checking: 'Checking your change…', finishing: 'Finishing your previous change…' }[s.phase] || (s.sbx === 'ended' ? 'Your studio session ended. Reopen the studio to keep designing.' : s.sbx === 'queued' ? `You’re next — about ${s.queueSecs} seconds` : 'Opening your studio…'),
       isWorking: !!s.phase, notWorking: !s.phase, sendLabel: s.phase ? 'Working…' : 'Send', sendBg: locked || !(s.prompt.trim() || s.attImg || s.attSite) ? '#F3D3BF' : '#EC844F',

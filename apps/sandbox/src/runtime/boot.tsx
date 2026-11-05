@@ -122,6 +122,7 @@ export const boot = (pages: ThemePages): void => {
     origin: location.origin,
     load: async (url) => ((await import(url)) as { theme: ThemePages }).theme,
     apply: (pages) => render(pages),
+    shown: document.querySelector<HTMLScriptElement>('script[type="module"]')?.src ?? '',
     scroll: { read: () => [scrollX, scrollY], restore: (x, y) => scrollTo(x, y) },
   })
 }

@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import { useStorefront, type Order } from '@dripfunnel/storefront-core/theme'
-import styles from '../styles/order.module.css'
+import { order as styles } from './styles/order'
 
 /** Where an order stands, as the order page and the account's list both show it. */
 export const OrderPill = ({ order, className }: { order: Pick<Order, 'cancelled' | 'payment' | 'method'>; className?: string }) => {

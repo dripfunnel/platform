@@ -5,8 +5,8 @@ import { AddToCart, Link, navigate, useStorefront, useWishlist, type WishlistIte
 import { Notice } from '../Notice'
 import { ProductCard } from '../ProductCard'
 import { Retry } from './Retry'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/account.module.css'
+import { shop } from '../styles/shop'
+import { account as styles } from '../styles/account'
 
 const here = '/account/wishlist/'
 

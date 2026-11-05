@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { clsx } from 'clsx'
 import { Checkbox, Form, Link, PhoneField, SubmitButton, TextField, useSignIn, useStorefront, type FieldProblem, type SignInChannel } from '@dripfunnel/storefront-core/theme'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/account.module.css'
+import { shop } from '../styles/shop'
+import { account as styles } from '../styles/account'
 
 type Purpose = 'signIn' | 'register' | 'reset'
 
@@ -59,10 +59,10 @@ export const SignInView = ({ purpose }: { purpose: Purpose }) => {
       {purpose === 'register' ? <p className={styles.lead}>{t('pages.register.lead')}</p> : purpose === 'reset' && !s.sent ? <p className={styles.lead}>{t('shop.account.resetLead')}</p> : null}
       {tabs && !s.sent ? (
         <div className={styles.tabs} role="group" aria-label={t('shop.account.how')}>
-          <button type="button" className={clsx(styles.tab, channel === 'email' && styles.tabOn)} aria-pressed={channel === 'email'} onClick={() => setChannel('email')}>
+          <button type="button" className={clsx(styles.tabBase, !(channel === 'email') && 'bg-transparent text-ink-soft', channel === 'email' && styles.tabOn)} aria-pressed={channel === 'email'} onClick={() => setChannel('email')}>
             {t('shop.checkout.email')}
           </button>
-          <button type="button" className={clsx(styles.tab, channel === 'phone' && styles.tabOn)} aria-pressed={channel === 'phone'} onClick={() => setChannel('phone')}>
+          <button type="button" className={clsx(styles.tabBase, !(channel === 'phone') && 'bg-transparent text-ink-soft', channel === 'phone' && styles.tabOn)} aria-pressed={channel === 'phone'} onClick={() => setChannel('phone')}>
             {t('shop.checkout.phone')}
           </button>
         </div>

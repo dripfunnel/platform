@@ -26,7 +26,7 @@ const [warm = ''] = b.voices
 
 const api = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadSeo: vi.fn(), saveSeo: vi.fn(), loadDomains: vi.fn(), connectDomain: vi.fn(), checkDomain: vi.fn(), makeDomainPrimary: vi.fn(), removeDomain: vi.fn(), loadShareImages: vi.fn(), loadOverview: vi.fn(), loadTemplates: vi.fn(), chooseTemplate: vi.fn(), discardDraft: vi.fn(), loadPoweredBy: vi.fn(), loadMeters: vi.fn(), publishNow: vi.fn(), loadHistory: vi.fn(), goBackToVersion: vi.fn(), previewLink: vi.fn(), endPreviewLinks: vi.fn() }))
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
-const studio = vi.hoisted(() => ({ loadStudioSession: vi.fn(), renewStudioSession: vi.fn(), loadDesignChat: vi.fn(), askDesign: vi.fn(), undoDesignChange: vi.fn(), loadDesignText: vi.fn(), saveDesignText: vi.fn(), loadStudioPages: vi.fn(), loadStudioLanguages: vi.fn(), loadPublishRun: vi.fn(), publishDesign: vi.fn(), publishBefore: vi.fn() }))
+const studio = vi.hoisted(() => ({ loadStudioSession: vi.fn(), renewStudioSession: vi.fn(), studioActivity: vi.fn(async () => undefined), loadDesignChat: vi.fn(), askDesign: vi.fn(), undoDesignChange: vi.fn(), loadDesignText: vi.fn(), saveDesignText: vi.fn(), loadStudioPages: vi.fn(), loadStudioLanguages: vi.fn(), loadPublishRun: vi.fn(), publishDesign: vi.fn(), publishBefore: vi.fn() }))
 vi.mock('../../api/studio', async (actual) => ({ ...(await actual<typeof import('../../api/studio')>()), ...studio }))
 const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn() }))
 vi.mock('../../api/content', async (actual) => ({ ...(await actual<typeof import('../../api/content')>()), ...content }))
@@ -525,6 +525,9 @@ describe('the template gallery', () => {
   })
 
   it('asks to keep the words when the template changes, and marks the current look', async () => {
+    // Past the 30 s of any earlier test's wake, so the two picks below are judged alone.
+    const later = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 3_600_000)
+    studio.studioActivity.mockClear()
     api.chooseTemplate.mockResolvedValue('unpublished_changes')
     await show()
     fireEvent.click(screen.getByRole('button', { name: o.changeTemplate }))
@@ -543,6 +546,9 @@ describe('the template gallery', () => {
     await settle()
     expect(api.chooseTemplate).toHaveBeenCalledWith('bloom', false)
     expect(screen.getByRole('dialog', { name: words.studio.label })).toBeTruthy()
+    // Each pick wakes the studio (AI-STUDIO §7), at most once in 30 s.
+    expect(studio.studioActivity).toHaveBeenCalledTimes(1)
+    later.mockRestore()
   })
 
   it('keeps the words when asked to', async () => {

@@ -7606,6 +7606,34 @@
       },
       "frameTitle": "Your draft site",
       "resize": "Resize the chat. Drag, or use the arrow keys.",
+      "live": {
+        "steps": {
+          "reading": "Reading your theme",
+          "asking": "Understanding your request",
+          "planning": "Writing your plan",
+          "checking": "Checking your change",
+          "repairing": "Fixing a problem ({attempt} of {of})",
+          "editing": "Making your changes",
+          "saving": "Saving",
+          "updating": "Updating the page"
+        },
+        "answering": "Writing an answer…",
+        "cooking": [
+          "Looking at your shop…",
+          "Mixing the colours…",
+          "Arranging things nicely…",
+          "Polishing the details…",
+          "Picking the right words…",
+          "Finding the perfect pictures…",
+          "Making it feel like you…",
+          "Almost there…"
+        ],
+        "building": "Building page {index} of {of}: {title}",
+        "buildPages": "Pages in this build",
+        "pageDone": "{title}, built",
+        "pageNow": "{title}, building now",
+        "pageNext": "{title}, next"
+      },
       "sandbox": {
         "opening": "Opening your studio…",
         "queued": "You’re next — about {seconds} seconds",
@@ -7668,17 +7696,39 @@
         "modeChange": "Change",
         "modeChat": "Chat",
         "placeholderChat": "Ask a question — e.g. “What would suit a linen shop?”",
+        "placeholderPlan": "Tell me what to change in the plan — e.g. “Add a lookbook page”",
+        "questions": {
+          "intro": "A few quick questions so I build the right thing. Pick one, type your own, or skip them.",
+          "other": "Something else",
+          "otherFor": "Something else: {question}",
+          "answer": "Make the plan",
+          "skip": "Skip questions",
+          "answered": "Answered.",
+          "skipped": "You skipped these questions."
+        },
+        "plan": {
+          "intro": "Here’s my plan for your store:",
+          "header": "Header",
+          "footer": "Footer",
+          "build": "Build it",
+          "hint": "Or tell me below what to change in the plan.",
+          "building": "Building this plan.",
+          "replaced": "Replaced by the plan below.",
+          "built": "Built — see the pages below."
+        },
+        "build": {
+          "done": "I built all {count} pages. Each one passed the checks and is in the preview.",
+          "stopped": "You stopped the build after page {built} of {count}. The pages I built stay; the rest are as they were.",
+          "refused": "Page {at} of {count} ({title}) didn’t pass the checks, so I stopped. The pages before it stay.",
+          "failed": "Page {at} of {count} ({title}) couldn’t be built, so I stopped. The pages before it stay.",
+          "outcomes": { "changed": "{title} — built", "unchanged": "{title} — nothing to change", "refused": "{title} — didn’t pass the checks", "failed": "{title} — couldn’t be built", "left": "{title} — not built" },
+          "undo": "Undo the whole build",
+          "undone": "Undone — every page is back to how it was before the build."
+        },
         "undo": "Undo this change",
         "undone": "Undone — the preview is back to how it was.",
         "earlier": "Show earlier messages",
         "empty": "Tell me what to change and I’ll update the preview. Nothing goes live until you publish.",
-        "suggestionsLabel": "Suggestions",
-        "suggestions": [
-          "Make the colours warmer",
-          "Add a customer reviews section",
-          "Use a more elegant font for headings",
-          "Rewrite the About page in a friendlier tone"
-        ],
         "notes": {
           "template": "Switched to {name}",
           "scratch": "Started from scratch",
@@ -7690,6 +7740,7 @@
           "discarded": "Changes discarded"
         },
         "error": "I couldn’t make that change — nothing on your site changed. Try again, or say it a different way.",
+        "planError": "I couldn’t write a plan — nothing on your site changed. Try again.",
         "errorReasons": {
           "RATE_LIMITED": "The AI service is busy right now — nothing on your site changed. Wait a minute and try again.",
           "PROVIDER_UNAVAILABLE": "The AI service isn’t answering — nothing on your site changed. Try again in a few minutes.",
@@ -7710,6 +7761,9 @@
           "STUDIO_QUEUED": "The studio is waiting for room. Try again in a moment.",
           "STUDIO_UNAVAILABLE": "The studio couldn’t start. Try again in a minute.",
           "NOT_LATEST": "Only your latest change can be undone.",
+          "PLAN_GONE": "Those questions or that plan were answered or replaced. Use the newest one.",
+          "PLAN_CHANGES_USED": "This plan can’t be changed again. Build it, or ask for a new design.",
+          "PLAN_BUILDS_USED": "This plan couldn’t be built twice. Ask for a new design.",
           "READ_ONLY": "Your store is view-only until the payment goes through.",
           "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
           "FORBIDDEN": "Only the store owner can change the storefront.",

@@ -1,4 +1,5 @@
 import ts from 'typescript'
+import { animationAdvice, motionProperties } from './animation.js'
 import { importedFrom, inTheme, isOpen, literalStrings, parts } from './program.js'
 import type { RuleId } from './rules.js'
 import { isVisible, showsWrittenText } from './text.js'
@@ -35,12 +36,12 @@ const attributes = new Set([
 const textAttributes = new Set(['alt', 'title', 'label', 'placeholder', 'aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'aria-placeholder', 'caption', 'heading', 'description', 'text', 'children'])
 const loadingHints = new Set(['loading', 'fetchPriority', 'fetchpriority', 'priority'])
 
-// motion's props; what they animate is checked against ARCHITECTURE §3.4 "CSS": transform, opacity and filter only.
+// motion's props; what they animate is held to ARCHITECTURE §3.4 "CSS", the same names a theme's CSS may animate.
 const animationProps = new Set(['initial', 'animate', 'exit', 'whileHover', 'whileTap', 'whileFocus', 'whileInView', 'whileDrag', 'variants', 'style'])
 const motionProps = new Set([...animationProps, 'transition', 'viewport', 'layout', 'layoutId', 'drag', 'dragConstraints', 'dragElastic', 'dragMomentum', 'onAnimationStart', 'onAnimationComplete', 'onDragStart', 'onDrag', 'onDragEnd'])
-const transformKeys = ['x', 'y', 'z', 'scale', 'scaleX', 'scaleY', 'rotate', 'rotateX', 'rotateY', 'rotateZ', 'skew', 'skewX', 'skewY', 'translateX', 'translateY', 'translateZ', 'transform', 'opacity']
-const animatable = new Set([...transformKeys, 'filter', 'transition', 'transitionEnd'])
-const styleKeys = new Set(transformKeys)
+/** What motion's `animate` (the prop, or the function on a theme's own element) may name. */
+export const animatable: ReadonlySet<string> = new Set([...motionProperties, 'transition', 'transitionEnd'])
+const styleKeys = motionProperties
 const constraintKeys = new Set(['top', 'left', 'right', 'bottom'])
 
 const textMessage = "Words shoppers see or hear come from content/{language}/*.json through t('file.key'), never from the code."
@@ -103,7 +104,8 @@ const writesWords = (checker: ts.TypeChecker, attr: ts.JsxAttribute, strings: st
   return !declared || literalStrings(checker.getNonNullableType(declared)) === undefined
 }
 
-const animated = (checker: ts.TypeChecker, at: ts.Node, type: ts.Type, keys: ReadonlySet<string>, nested: boolean): string[] =>
+/** The names an animation's value holds that `keys` doesn't list; with `nested`, the names inside each of its variants. */
+export const animated = (checker: ts.TypeChecker, at: ts.Node, type: ts.Type, keys: ReadonlySet<string>, nested: boolean): string[] =>
   parts(checker.getNonNullableType(type)).flatMap((t) => {
     if (t.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.BooleanLike)) return []
     if (isOpen(t) || t.getCallSignatures().length > 0) return ['a value worked out at run time']
@@ -136,7 +138,7 @@ const attributeProblems = (checker: ts.TypeChecker, kind: Kind, tag: string, att
   if (name === 'type' && (tag !== 'button' || strings?.length !== 1 || strings[0] !== 'button')) found.push({ node: attr, rule: 'jsx/attribute-not-allowed', message: 'A theme button is always type="button"; forms come from core.' })
   if (kind === 'motion' && animationProps.has(name) && value) {
     const bad = animated(checker, value, checker.getTypeAtLocation(value), name === 'style' ? styleKeys : animatable, name === 'variants')
-    if (bad.length) found.push({ node: attr, rule: 'jsx/animated-property', message: `Animate only transform, opacity and filter (x, y, scale, rotate, opacity, filter), not ${[...new Set(bad)].join(', ')}.` })
+    if (bad.length) found.push({ node: attr, rule: 'jsx/animated-property', message: `With motion, ${animationAdvice([...new Set(bad)])}.` })
   }
   if (name === 'dragConstraints' && (!value || !boundsOnly(checker.getTypeAtLocation(value)))) {
     found.push({ node: attr, rule: 'jsx/attribute-not-allowed', message: 'dragConstraints takes { top, left, right, bottom } in pixels, never a ref to another element.' })

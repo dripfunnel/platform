@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, StoreLogo, useStorefront } from '@dripfunnel/storefront-core/theme'
-import layout from '../styles/layout.module.css'
-import styles from '../styles/checkout.module.css'
+import { layout } from './styles/layout'
+import { checkout as styles } from './styles/checkout'
 
 /** Checkout's own frame (D1): the shop's logo or name, "Secure checkout" and the way back to the cart, without the menu. */
 export const CheckoutLayout = ({ children }: { children: ReactNode }) => {

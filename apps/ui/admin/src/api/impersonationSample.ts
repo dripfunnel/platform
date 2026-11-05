@@ -173,7 +173,12 @@ export const createImpersonationServer = (options: ImpersonationServerOptions = 
     const open = sessions.find((session) => session.outcome === 'open' && session.targetId === target.id && session.staff.id === staffOf(caller).id)
     return {
       ...target,
-      impersonate: impersonatePermission(caller, target.status, target.memberships.every((membership) => partnerClosed(membership.partner.id))),
+      impersonate: impersonatePermission(
+        caller,
+        target.status,
+        target.memberships.every((membership) => partnerClosed(membership.partner.id)),
+        target.memberships.some((membership) => membership.level === 'store' && membership.role === 'owner'),
+      ),
       openSession: open?.id ?? null,
     }
   }
@@ -345,7 +350,7 @@ export const createImpersonationServer = (options: ImpersonationServerOptions = 
     const target = targetById(targetId)
     const membership = target?.memberships.find((candidate) => candidate.id === membershipId)
     if (!target || !membership) return refused('NOT_FOUND')
-    const permission = impersonatePermission(caller, target.status, partnerClosed(membership.partner.id))
+    const permission = impersonatePermission(caller, target.status, partnerClosed(membership.partner.id), membership.level === 'store' && membership.role === 'owner')
     if (!permission.allowed) return refused(permission.reason)
     if (openOf(caller, 'impersonation')) return refused('IMPERSONATION_ALREADY_OPEN')
     const created = seed({ id: `imp-${++serial}`, kind: 'impersonation', staff: staffOf(caller), targetId, membership, reason: reason.trim(), ticket, startedAt: now(), expiresAt: now() + impersonationMs, outcome: 'open' })

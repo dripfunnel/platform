@@ -118,6 +118,33 @@ describe('a side effect follows its transaction', () => {
     const [left] = await db.sql<{ n: string }[]>`select count(*)::text as n from outbox where kind = 'dispatch-chain-test' and delivered_at is null`
     expect(Number(left?.n)).toBe(1)
   })
+  it('delivers a kind that asks for concurrency several rows at once, never more than it asks', async () => {
+    for (let n = 0; n < 6; n++) await queued(staff, 'concurrent-test', `c-${n}`)
+    let inFlight = 0
+    let peak = 0
+    const wide: Deliverers = { 'concurrent-test': { concurrency: 3, deliver: async () => {
+      inFlight += 1
+      peak = Math.max(peak, inFlight)
+      await new Promise((r) => setTimeout(r, 20))
+      inFlight -= 1
+    } } }
+    expect((await sweep(db.sql, wide, options)).delivered).toBe(6)
+    expect(peak).toBe(3)
+  })
+  it('says so when a sweep stopped on its budget and not for want of rows', async () => {
+    await queued(staff, 'budget-test', 'b-0')
+    let spent = 0
+    const slow: Deliverers = { 'budget-test': { deliver: async () => {
+      await withSystemScope(db.sql, (tx) => queueSideEffect(tx, { kind: 'budget-test', idempotencyKey: `b-${spent + 1}`, payload: {}, partnerId: null, storeId: null }))
+      await catchUp(db.sql)
+    } } }
+    const ticks = { at: clock }
+    await sweep(db.sql, slow, { ...options, now: () => new Date((ticks.at += 10_000)), budgetMs: 25_000, onBudgetSpent: async () => void (spent += 1) })
+    expect(spent).toBe(1)
+    await db.sql`update outbox set delivered_at = now() where kind = 'budget-test' and delivered_at is null`
+    await sweep(db.sql, slow, { ...options, onBudgetSpent: async () => void (spent += 1) })
+    expect(spent).toBe(1)
+  })
   it('a rolled-back transaction queues nothing, so nothing is delivered', async () => {
     await expect(
       withScope(db.sql, staff, async (tx) => {

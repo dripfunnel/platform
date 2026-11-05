@@ -14,7 +14,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+Last updated: 2026-11-05 (#1241: the preview is written in the background after the frame's swap, §4). Before: 2026-10-31 (#1011: the preview stays client-rendered while the live site prerenders its catalogue). Before: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
 replacing the preview key, §1, §2, §8; built on #744, store-proxy and dev included). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
@@ -88,13 +88,14 @@ The domain is the live shops' too ([LIVE-SHOP.md](LIVE-SHOP.md) §6): these step
 
 1. The change passes the fast gate in the store's container, and the gate's bundle is the
    preview.
-2. The store's `StudioSession` Durable Object reads the bundle's files out of the container and
-   writes them to `stores/{id}/preview/{change id}/`.
+2. The store's `StudioSession` Durable Object reads the bundle's files out of the container and, after the frame
+   has swapped and in the background (AI-STUDIO §4 steps 5–7, #1241), writes them to
+   `stores/{id}/preview/{change id}/`, in parallel, once the draft bundle is written.
    *Why:* the container has no credential and no network (ARCHITECTURE §6.1); the Durable Object
    makes every outside call.
 3. The Durable Object moves `design_draft.preview_deploy_ref` to the new folder.
-4. The next request to the preview link gets the new version, about 1–2 seconds after the gate
-   (our estimate). **The preview's lookup is never cached** (§5 step 4).
+4. The next request to the preview link gets the new version, within 10 seconds of the frame (decided on #1241; a
+   save that fails is tried again after 0.5, 2 and 8 seconds). **The preview's lookup is never cached** (§5 step 4).
    *Why:* the Cache API is per data centre, so a cached pointer could show an old draft for a
    while elsewhere. Preview traffic is only the merchant's team, so asking the API every time
    costs nothing that matters.

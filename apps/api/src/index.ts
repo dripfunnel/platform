@@ -29,6 +29,7 @@ import { handleStaffSession, isStaffSessionPath } from '#apis/store/staffSession
 import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
 import { handleAppAssets, isAppAssetsPath } from '#apis/store/appAssets'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
+import { handleStudioLive, isStudioLivePath, studioLiveRequest } from '#apis/store/studioLive'
 import { handleAiGateway, isAiGatewayPath } from '#apis/store/aiGateway'
 import { createAiOAuth, type AiOAuth } from '#saas/aiOAuth/index'
 import { createOAuthProviders } from '#integrations/ai/index'
@@ -55,7 +56,7 @@ import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
-import { aiPhotoSourcesDefault, isLocalhost, parseConfig, type Config } from '#core/config'
+import { aiPhotoSourcesOf, isLocalhost, parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
@@ -106,6 +107,7 @@ import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPassword
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { deleteExpiredSignups } from '#db/scoped/signup'
+import { rankBestSellers } from '#db/scoped/productRank'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
 import { releaseUnpaidOrders, type PaymentWiring } from '#engine/modules/checkout/index'
@@ -141,7 +143,7 @@ import { stockImages } from '#integrations/stockImages/combine'
 import { openverseImages } from '#integrations/stockImages/openverse'
 import { pexelsImages } from '#integrations/stockImages/pexels'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
-import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
+import { frameClosed, liveUpgrade, studioForJob, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
 import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, storefrontRepoPushKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
@@ -637,13 +639,15 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
       const ip = request.headers.get('cf-connecting-ip')
       if (!ip || !(await limiter.limit({ key: `api-key:${ip}` })).success) return tooManyRequests(60)
     }
-    const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
+    const live = isStudioLivePath(url.pathname)
+    const standing = await resolveStoreStanding(sql, live ? studioLiveRequest(request) : request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, aiOauth: aiOauthFor(sql, secrets, config), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
       preview: await previewFor(config), siteRepos: async () => { const app = await githubFor(config); return app ? storeRepos(app.session(), config.GITHUB_STORE_ORG) : null }, studio: studioFor(env), design: designFor(config, env, sql, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
+    if (live) return handleStudioLive(request, context, { open: studioLiveFor(env) })
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isAppAssetsPath(url.pathname)) return handleAppAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
@@ -818,7 +822,7 @@ const designFor = (config: Config, env: Env, sql: postgres.Sql, secrets: SecretB
     ai: (billedTo, context, model) => (config.AI_LOCAL === '1' ? localAiProvider() : designerAiFor(accounts(context), billedTo, model)),
     models: (billedTo, context) => (config.AI_LOCAL === '1' ? [] : designerModelsFor(accounts(context), billedTo)),
     screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
-    aiPhotos: config.AI_PHOTOS === '1' ? (config.AI_PHOTO_SOURCES ?? aiPhotoSourcesDefault) : [],
+    aiPhotos: aiPhotoSourcesOf(config),
     stock: stockImages({
       ...(config.PIXABAY_API_KEY ? { pixabay: pixabayImages({ key: config.PIXABAY_API_KEY }) } : {}),
       ...(config.PEXELS_API_KEY ? { pexels: pexelsImages({ key: config.PEXELS_API_KEY }) } : {}),
@@ -842,17 +846,31 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
     const stub = studioOf(namespace, context)
     return {
       status: async (storeId) => await stub.status(storeId),
+      activity: async (storeId) => await stub.activity(storeId),
+      saved: async (storeId) => await stub.saved(storeId),
       useTemplate: async (storeId, input) => await stub.useTemplate(storeId, input),
       change: async (storeId, input, model) => await stub.change(storeId, input, model),
+      progress: async (storeId, run, event) => await stub.progress(storeId, run, event),
       cancel: async (storeId) => await stub.cancel(storeId),
       undo: async (storeId, input) => await stub.undo(storeId, input),
+      build: async (storeId, input, model) => await stub.build(storeId, input, model),
+      buildSoFar: async (storeId, run) => await stub.buildSoFar(storeId, run),
       texts: async (storeId, input) => await stub.texts(storeId, input),
       editText: async (storeId, input) => await stub.editText(storeId, input),
       discard: async (storeId) => await stub.discard(storeId),
       prepare: async (storeId, input) => await stub.prepare(storeId, input),
       goBack: async (storeId, input) => await stub.goBack(storeId, input),
+      summary: async (storeId) => await stub.summary(storeId),
+      keepSummary: async (storeId, kept) => await stub.keepSummary(storeId, kept),
     }
   }
+}
+
+// The studio's live socket (AI-STUDIO §4 "Live progress"), handed to the store the session's TenantContext names.
+const studioLiveFor = (env: Env): ((context: TenantContext, input: { sessionHash: string; after: number }) => Promise<Response>) | null => {
+  const namespace = env.STUDIO_SESSION as DurableObjectNamespace<StudioSessionObject> | undefined
+  if (!namespace) return null
+  return (context, input) => studioOf(namespace, context).fetch(liveUpgrade(context.storeId, input))
 }
 
 // The studio frame on a preview host (storefront AI-STUDIO §3 step 6): the host's store's Durable Object, or nothing.
@@ -864,7 +882,7 @@ const studioFrame = async (request: Request, config: Config, env: Env, ctx: Exec
       sql,
       previewDomain: config.SHOP_DOMAIN ?? null,
       studioFor: (storeId) => {
-        const stub = namespace.get(namespace.idFromName(storeId))
+        const stub = studioForJob(namespace, storeId)
         return { check: (forStore, session) => stub.check(forStore, session), fetch: (r) => stub.fetch(r) }
       },
       shop: (r) => handleShop(r, new URL(r.url), config, env, ctx),
@@ -961,7 +979,8 @@ const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise
           upgrade: env.CORE_UPGRADE && env.STUDIO_SESSION ? env.CORE_UPGRADE : null,
         }
       : null
-  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishing))
+  const wake = env.OUTBOX_WAKE
+  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishing), wake ? { ...defaultRelayOptions, onBudgetSpent: () => wake.send({ at: Date.now() }).then(() => undefined, (error: unknown) => logEvent({ event: 'outbox_wake_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })) } : defaultRelayOptions)
   for (const [outcome, count] of Object.entries(counts)) {
     if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
   }
@@ -1093,6 +1112,13 @@ const refreshRates: CronJob = async (sql) => {
   })
 }
 
+// The storefront's best sellers (BEST_SELLING) and the studio's summary read this ranking (DATA-MODEL §7.3).
+const rankProducts: CronJob = async (sql) => {
+  await withSystemScope(sql, (tx) => rankBestSellers(tx, new Date())).catch((error: unknown) => {
+    logEvent({ event: 'product_rank_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 const purgeExpiredExports: CronJob = async (sql) => {
   const purged = await withSystemScope(sql, async (tx) => {
     const at = new Date()
@@ -1179,7 +1205,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
-  '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
+  '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],
 }
 

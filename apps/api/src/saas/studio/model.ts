@@ -1,18 +1,28 @@
-import type { FileChange, GateProblem } from '#integrations/sandbox/index'
+import type { GateProblem } from '#integrations/sandbox/index'
 
 // The designer's model, as the studio's change loop sees it (storefront AI-STUDIO §4 step 2): the Worker calls it with
 // the partner's or merchant's key, which never reaches the Durable Object's storage or the container.
 
+/** One exact search-and-replace in a file: `search` must appear exactly once in it (ARCHITECTURE §6.2). */
+export type TextEdit = { search: string; replace: string }
+
+/** The model's answer for one file: edits to a file the theme has, a whole new file, or a file to delete. */
+export type FileEdit = { path: string; edits: TextEdit[] } | { path: string; content: string } | { path: string; delete: true }
+
 export type Proposal = {
-  files: FileChange[]
+  files: FileEdit[]
   model: string
   tokensIn: number
   tokensOut: number
+  /** The part of tokensIn read from the provider's prompt cache. */
+  tokensCached?: number
   /** Minor units of costCurrency (DATA-MODEL §7.1). */
   costAmount: number
   costCurrency: string
   /** What changed in plain words and the page to show (FIRST-RELEASE §14); null when the answer had no usable shape. */
   summary?: ProposalSummary | null
+  /** The model asked questions or wrote a plan instead of edits (#1243): no gate runs, and the Worker holds what it asked. */
+  asked?: boolean
 }
 
 export type ProposalSummary = { reply: string; changed: string[]; page: string | null }
@@ -20,10 +30,14 @@ export type ProposalSummary = { reply: string; changed: string[]; page: string |
 export type ProposalInput = {
   request: string
   theme: { path: string; content: string }[]
-  /** The gate's exact problems with the previous answer; empty on the first ask (ARCHITECTURE §6.2). */
+  /** The exact problems with the previous answer (its edits or the gate); empty on the first ask (ARCHITECTURE §6.2). */
   problems: GateProblem[]
-  /** The files of that previous answer, so a repair edits them rather than rewriting blind. */
-  previous?: { path: string; content: string }[]
+  /** That previous answer's files as it sent them, so a repair corrects them rather than rewriting blind. */
+  previous?: FileEdit[]
+  /** Each file of the answer as soon as the model has written it whole, for the pre-check (#1240); its result is never awaited. */
+  onFile?: (file: FileEdit) => void | Promise<void>
+  /** The model's one sentence on what it understood and will change, as soon as it is whole. */
+  onIntro?: (text: string) => void
 }
 
 export interface DesignModel {

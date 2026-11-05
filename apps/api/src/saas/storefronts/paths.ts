@@ -5,6 +5,7 @@ const folders = `(?:${name}/){0,4}`
 const themePaths = [
   new RegExp(`^src/theme/(?:pages|components)/${folders}${name}\\.tsx$`),
   new RegExp(`^src/theme/styles/${folders}${name}\\.module\\.css$`),
+  /^src\/theme\/styles\/theme\.css$/,
   /^content\/[a-z]{2,3}(?:-[A-Z]{2})?\/[A-Za-z0-9][A-Za-z0-9_-]{0,63}\.json$/,
   /^routes\.json$/,
 ]

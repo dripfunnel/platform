@@ -173,7 +173,7 @@ export const selectShopMarket = async (tx: ScopedSql, storeId: string, marketId:
     `
   )[0] ?? null
 
-export type ShopSort = 'newest' | 'price_low' | 'price_high' | 'name' | 'collection'
+export type ShopSort = 'newest' | 'price_low' | 'price_high' | 'name' | 'collection' | 'best_selling'
 
 export interface ShopProductQuery {
   language: string
@@ -216,6 +216,9 @@ const shopSortOf = (tx: ScopedSql, sort: ShopSort, q: ShopProductQuery) => {
       return { key: tx`(select cp.position from collection_product cp where cp.collection_id = ${q.collectionId} and cp.product_id = p.id)`, type: 'int', descending: false }
     case 'newest':
       return { key: tx`p.created_at`, type: 'timestamptz', descending: true }
+    // The hourly ranking's position (migration 0383), never its units; a product that hasn't sold comes after every one that has.
+    case 'best_selling':
+      return { key: tx`coalesce((select r.position from product_rank r where r.store_id = p.store_id and r.product_id = p.id), 2147483647)`, type: 'int', descending: false }
   }
 }
 
@@ -433,3 +436,19 @@ export const selectShopProductExtras = async (tx: ScopedSql, productId: string, 
       from product p where p.id = ${productId}
     `
   )[0] ?? null
+
+export interface ShopTargetRow {
+  kind: 'product' | 'collection'
+  id: string
+  slug: string
+}
+
+/** The web addresses, in the shopper's language, of the products and collections among these ids that shoppers can see. */
+export const selectShopTargetSlugs = (tx: ScopedSql, storeId: string, language: string, productIds: readonly string[], collectionIds: readonly string[]): Promise<ShopTargetRow[]> =>
+  tx<ShopTargetRow[]>`
+    select 'product' as kind, p.id, ${translated(tx, 'product', tx`p.id`, 'slug', tx`p.slug`, language)} as slug from product p
+    where p.store_id = ${storeId} and p.id = any (${pgArray(productIds)}::uuid[])
+    union all
+    select 'collection' as kind, c.id, ${translated(tx, 'collection', tx`c.id`, 'slug', tx`c.slug`, language)} as slug from collection c
+    where c.store_id = ${storeId} and c.id = any (${pgArray(collectionIds)}::uuid[])
+  `

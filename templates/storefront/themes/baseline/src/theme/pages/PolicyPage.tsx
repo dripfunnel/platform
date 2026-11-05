@@ -1,6 +1,6 @@
 import { Link, useLocation, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
-import styles from '../styles/shop.module.css'
+import { shop as styles } from '../components/styles/shop'
 
 const kinds = ['terms', 'privacy', 'shipping', 'returns', 'legal'] as const
 type Kind = (typeof kinds)[number]

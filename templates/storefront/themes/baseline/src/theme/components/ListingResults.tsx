@@ -3,7 +3,7 @@ import { FilterPanel, ListingBar, LoadMore } from './interactive/Filters'
 import { Retry } from './interactive/Retry'
 import { Notice } from './Notice'
 import { GridPlaceholder, ProductGrid } from './ProductCard'
-import styles from '../styles/shop.module.css'
+import { shop as styles } from './styles/shop'
 
 /** A collection's or a search's products: filters, sort, the grid and its states, and "Load more". */
 export const ListingResults = ({ listing }: { listing: Listing }) => {

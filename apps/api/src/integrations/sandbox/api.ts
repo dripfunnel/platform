@@ -23,10 +23,13 @@ export type GuardContext = {
 
 const problemSchema = z.object({ step: z.enum(['validator', 'typecheck', 'bundle', 'budget']), file: z.string().nullable(), line: z.number().int().nullable(), rule: z.string().max(100), message: z.string().max(2000) })
 const bundleSchema = z.object({ id: z.string().regex(/^[0-9a-f]{16}$/), entry: z.string(), files: z.array(z.object({ path: z.string(), bytes: z.number().int() })) })
+// A sandbox image older than #1240 names no lane or swap, and its frame reloads the modules as before.
+const laneSchema = z.enum(['css', 'class', 'full'])
 const changeSchema = z.discriminatedUnion('ok', [
-  z.object({ ok: z.literal(true), changed: z.boolean(), commit: z.string().regex(/^[0-9a-f]{40}$/), bundle: bundleSchema }),
+  z.object({ ok: z.literal(true), changed: z.boolean(), commit: z.string().regex(/^[0-9a-f]{40}$/), bundle: bundleSchema, lane: laneSchema.optional(), swap: z.enum(['stylesheet', 'modules']).optional() }),
   z.object({ ok: z.literal(false), problems: z.array(problemSchema).max(500) }),
 ])
+const precheckedSchema = z.object({ lane: laneSchema, problems: z.array(problemSchema).max(500) })
 const loadedSchema = z.object({ head: z.string().regex(/^[0-9a-f]{40}$/), bundle: bundleSchema.nullable(), problems: z.array(problemSchema).max(500) })
 const themeSchema = z.object({ head: z.string().regex(/^[0-9a-f]{40}$/), files: z.array(z.object({ path: z.string(), content: z.string() })).max(2000) })
 const upgradedSchema = z.object({
@@ -41,6 +44,7 @@ export type ClientBundle = z.infer<typeof bundleSchema>
 export type ChangeResult = z.infer<typeof changeSchema>
 export type Loaded = z.infer<typeof loadedSchema>
 export type PreviewFiles = z.infer<typeof previewSchema>
+type Prechecked = z.infer<typeof precheckedSchema>
 export type Upgraded = z.infer<typeof upgradedSchema>
 /** The upgrade bot's request (storefront ARCHITECTURE §7.1): codemods from `from` to `to`, or the baseline theme's files. */
 export type UpgradeRequest = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null }
@@ -48,7 +52,7 @@ export type UpgradeRequest = { from: string; to: string; message: string; baseli
 /** How a request reaches the container: `ctx.container.getTcpPort(port).fetch` on Cloudflare, plain fetch locally. */
 export type SandboxFetch = (request: Request) => Promise<Response>
 
-// The gate's typecheck and bundle take seconds on ¼ vCPU (AI-STUDIO §9); a call past this is a container in trouble.
+// The gate's typecheck and bundle take seconds on ½ vCPU (AI-STUDIO §9); a call past this is a container in trouble.
 const timeoutMs = 120_000
 
 export const sandboxClient = (send: SandboxFetch, slot: string) => {
@@ -79,6 +83,8 @@ export const sandboxClient = (send: SandboxFetch, slot: string) => {
     /** The theme at the head, or at `at`, an earlier commit of the draft. */
     theme: async (at: string | null = null) => json(await call('GET', at ? `theme?at=${at}` : 'theme'), themeSchema),
     change: async (files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'changes', JSON.stringify({ files, message, context })), changeSchema),
+    /** The change so far, checked while the model still writes it (#1240): the validator and the warm typecheck, nothing kept. */
+    precheck: async (files: readonly FileChange[], context: GuardContext): Promise<Prechecked> => json(await call('POST', 'precheck', JSON.stringify({ files, context })), precheckedSchema),
     undo: async (commit: string, message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'undo', JSON.stringify({ commit, message, context })), changeSchema),
     upgrade: async (request: UpgradeRequest): Promise<Upgraded> => json(await call('POST', 'upgrade', JSON.stringify(request)), upgradedSchema),
     /** AI-STUDIO §6 step 2: the draft onto the upgrade's commit, whose bundle goes first. */

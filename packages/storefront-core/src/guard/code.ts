@@ -1,9 +1,12 @@
 import ts from 'typescript'
+import { animationAdvice } from './animation.js'
 import { brandCopied } from './brand.js'
 import { interactiveFolder } from './files.js'
-import { jsxProblems } from './jsx.js'
+import { animatable, animated, jsxProblems } from './jsx.js'
 import { coreThemeModule, inTheme, isOpen, lineOf, literalStrings, parts, themeProgram } from './program.js'
 import { problem, type GuardContext, type Problem, type RuleId } from './rules.js'
+import { clsxNames, inClassPosition } from './tailwind.js'
+import { productImageProblems, urlClassesOf } from './productImage.js'
 import { isAddress, looksLikeWords, showsWrittenText } from './text.js'
 
 /** A `t('file.key')` call, matched against the content files. */
@@ -11,8 +14,12 @@ export type KeyUse = { file: string; line: number; key: string }
 
 type Library = { names: ReadonlySet<string> | 'any'; defaultImport: boolean; interactiveOnly: boolean }
 
-// motion's components and hooks that act only on their own element; `animate` and `useAnimate` take selectors.
-const motion: Library = { names: new Set(['AnimatePresence', 'LazyMotion', 'MotionConfig', 'domAnimation', 'domMax', 'm', 'motion', 'useMotionValue', 'useReducedMotion', 'useSpring', 'useTransform']), defaultImport: false, interactiveOnly: true }
+// motion's components and hooks that act only on their own element; `animate` only as checked below (#1245).
+const motion: Library = {
+  names: new Set(['AnimatePresence', 'LazyMotion', 'MotionConfig', 'animate', 'domAnimation', 'domMax', 'm', 'motion', 'stagger', 'useAnimate', 'useMotionValue', 'useReducedMotion', 'useScroll', 'useSpring', 'useTransform']),
+  defaultImport: false,
+  interactiveOnly: true,
+}
 
 // The import allowlist of ARCHITECTURE §3.4; React's names that render raw elements or load code are left out.
 const libraries = new Map<string, Library>([
@@ -81,6 +88,8 @@ type Walk = {
   quiet: Set<ts.Node>
   /** Whether each type met so far holds t, kept for the whole program since the checker is shared. */
   holds: Map<ts.Type, boolean>
+  /** The file's clsx names when the class rules judge what reaches a class (ARCHITECTURE §3.4 "Classes"); null otherwise. */
+  classes: ReadonlySet<string> | null
   report: (node: ts.Node, rule: RuleId, message: string) => void
 }
 
@@ -213,11 +222,73 @@ const passesOnLibrary = (w: Walk, specifier: ts.ExportSpecifier): boolean => {
 // motion's element factories: `motion.a` held in a name would render an element the JSX rules never see.
 const motionFactories = new Set(['motion', 'm'])
 
-const isMotionFactory = (w: Walk, id: ts.Identifier): boolean => {
-  const decl = w.checker.getSymbolAtLocation(id)?.declarations?.[0]
-  if (!decl || !ts.isImportSpecifier(decl)) return false
+const declarationOf = (w: Walk, id: ts.Identifier): ts.Declaration | undefined => {
+  const p = id.parent
+  const symbol = ts.isShorthandPropertyAssignment(p) && p.name === id ? w.checker.getShorthandAssignmentValueSymbol(p) : w.checker.getSymbolAtLocation(id)
+  return symbol?.declarations?.[0]
+}
+
+/** The name a theme imported from motion under `id`, if it did. */
+const motionImport = (w: Walk, id: ts.Identifier): string | undefined => {
+  const decl = declarationOf(w, id)
+  if (!decl || !ts.isImportSpecifier(decl)) return undefined
   const from = decl.parent.parent.parent.moduleSpecifier
-  return ts.isStringLiteral(from) && (from.text === 'motion' || from.text === 'motion/react') && motionFactories.has((decl.propertyName ?? decl.name).text)
+  return ts.isStringLiteral(from) && (from.text === 'motion' || from.text === 'motion/react') ? (decl.propertyName ?? decl.name).text : undefined
+}
+
+const isMotionFactory = (w: Walk, id: ts.Identifier): boolean => motionFactories.has(motionImport(w, id) ?? '')
+
+const callsMotion = (w: Walk, node: ts.Node | undefined, name?: string): boolean => {
+  if (node === undefined || !ts.isCallExpression(node) || !ts.isIdentifier(node.expression)) return false
+  const imported = motionImport(w, node.expression)
+  return name === undefined ? imported !== undefined : imported === name
+}
+
+/** The variable a name, or a name taken apart from a value (`const [scope, animate] = …`), was declared by. */
+const declaredBy = (decl: ts.Declaration | undefined): ts.VariableDeclaration | undefined => {
+  let at: ts.Node | undefined = decl
+  while (at && (ts.isBindingElement(at) || ts.isArrayBindingPattern(at) || ts.isObjectBindingPattern(at))) at = at.parent
+  return at && ts.isVariableDeclaration(at) ? at : undefined
+}
+
+/** motion's `animate`, or the one `const [scope, animate] = useAnimate()` hands out. */
+const isAnimate = (w: Walk, id: ts.Identifier): boolean => {
+  if (motionImport(w, id) === 'animate') return true
+  const decl = declarationOf(w, id)
+  return decl !== undefined && ts.isBindingElement(decl) && ts.isArrayBindingPattern(decl.parent) && decl.parent.elements.indexOf(decl) === 1 && callsMotion(w, declaredBy(decl)?.initializer, 'useAnimate')
+}
+
+/** A value motion's own hooks made, such as a motion value or useAnimate's scope; typed any where motion's types are absent. */
+const madeByMotion = (w: Walk, expr: ts.Expression): boolean => {
+  let root: ts.Expression = expr
+  while (ts.isPropertyAccessExpression(root) || ts.isNonNullExpression(root) || ts.isParenthesizedExpression(root)) root = root.expression
+  return ts.isIdentifier(root) && callsMotion(w, declaredBy(declarationOf(w, root))?.initializer)
+}
+
+const animateTarget = "animate takes this component's own element (a ref's current, or useAnimate's scope.current) or a motion value; never a selector, a list or a value typed any, which could reach the rest of the page."
+
+/** animate(target, keyframes): never a selector string, so no animation reaches past the theme's own elements (#1245). */
+const checkAnimate = (w: Walk, call: ts.CallExpression) => {
+  const [target, keyframes] = call.arguments
+  if (!target || ts.isSpreadElement(target)) return w.report(call, 'code/animate-target', animateTarget)
+  const type = w.checker.getTypeAtLocation(target)
+  const all = parts(w.checker.getNonNullableType(type))
+  const selector = all.some((t) => (t.flags & ts.TypeFlags.StringLike) !== 0)
+  const list = all.some((t) => w.checker.isArrayType(t) || w.checker.isTupleType(t))
+  if (selector || list || (isOpen(type) && !madeByMotion(w, target))) return w.report(target, 'code/animate-target', animateTarget)
+  if (!keyframes || ts.isSpreadElement(keyframes)) return
+  const frames = w.checker.getTypeAtLocation(keyframes)
+  const isObject = parts(frames).every((t) => (t.flags & ts.TypeFlags.Object) !== 0 && !w.checker.isArrayType(t) && !w.checker.isTupleType(t) && t.getCallSignatures().length === 0)
+  const bad = isObject ? animated(w.checker, keyframes, frames, animatable, false) : []
+  if (bad.length > 0) w.report(keyframes, 'jsx/animated-property', `With motion, ${animationAdvice([...new Set(bad)])}.`)
+}
+
+/** useAnimate's answer is taken apart where it's made, so every call of its animate is checked. */
+const checkUseAnimate = (w: Walk, call: ts.CallExpression) => {
+  const holder = call.parent
+  const pattern = ts.isVariableDeclaration(holder) && holder.initializer === call ? holder.name : undefined
+  const fine = pattern !== undefined && ts.isArrayBindingPattern(pattern) && pattern.elements.length <= 2 && pattern.elements.every((e) => ts.isOmittedExpression(e) || (!e.dotDotDotToken && ts.isIdentifier(e.name)))
+  if (!fine) w.report(call, 'code/animate-target', 'Take useAnimate apart where it is called, as const [scope, animate] = useAnimate(), so each animate call can be checked.')
 }
 
 /** `motion` as the object of a tag written out, as in <motion.div> and </motion.div>. */
@@ -242,6 +313,7 @@ const checkIdentifier = (w: Walk, id: ts.Identifier) => {
   if (!isGlobal(w, id)) {
     if (kindOfValue(w, w.checker.getTypeAtLocation(id)) === 'browser') w.report(id, 'code/browser-global', browserMessage(id.text))
     if (isMotionFactory(w, id) && !isWrittenTag(id)) w.report(id, 'jsx/element-not-allowed', "Use motion's elements written out as tags, such as <motion.div>, so each one is checked; never hold one in a name or make one with create().")
+    if (isAnimate(w, id) && !(ts.isCallExpression(id.parent) && id.parent.expression === id)) w.report(id, 'code/animate-target', 'Call animate where it is named, as animate(ref.current, { opacity: 1 }); held in a name or passed on, what it animates would go unchecked.')
     return
   }
   const called = ts.isCallExpression(id.parent) && id.parent.expression === id
@@ -292,6 +364,8 @@ const losesElement = (w: Walk, expr: ts.Expression): boolean => {
   const kind = kindOfValue(w, w.checker.getTypeAtLocation(expr))
   if (kind !== 'dom' && kind !== 'style') return false
   const p = expr.parent
+  // animate's own target rule judges its first argument, with or without motion's types where the validator runs.
+  if (ts.isCallExpression(p) && p.arguments[0] === expr && ts.isIdentifier(p.expression) && isAnimate(w, p.expression)) return false
   const target = isAssertion(p) ? w.checker.getTypeAtLocation(p) : (w.checker.getContextualType(expr) ?? undefined)
   return target !== undefined && kindOfValue(w, target) !== kind
 }
@@ -309,6 +383,8 @@ const checkCall = (w: Walk, call: ts.CallExpression) => {
       w.report(call, 'code/dom-walking', `${callee.name.text} takes a custom property written out, such as '--progress'; other properties are styled in a CSS Module.`)
     }
   }
+  if (ts.isIdentifier(callee) && isAnimate(w, callee)) checkAnimate(w, call)
+  if (ts.isIdentifier(callee) && motionImport(w, callee) === 'useAnimate') checkUseAnimate(w, call)
   if (ts.isIdentifier(callee) && timers.has(callee.text) && isGlobal(w, callee)) {
     const first = call.arguments[0]
     if (!first || w.checker.getSignaturesOfType(w.checker.getTypeAtLocation(first), ts.SignatureKind.Call).length === 0) w.report(call, 'code/string-timer', `${callee.text} takes a function, never a string of code.`)
@@ -349,6 +425,7 @@ const checkText = (w: Walk, node: ts.StringLiteralLike | ts.TemplateLiteralToken
   if (ts.isJsxText(node)) return
   if (isAddress(node.text)) w.report(node, 'code/url-in-code', "A theme writes no address in its code: links go through core's <Link>, images and video through <Image> and <Video>.")
   if (ts.isJsxAttribute(node.parent) || ts.isJsxExpression(node.parent) || !looksLikeWords(node.text) || isName(node)) return
+  if (w.classes && inClassPosition(node, w.classes)) return
   if (!ts.isStringLiteralLike(node) || !isChoice(w, node)) w.report(node, 'code/text-in-string', "Words shoppers see belong in content/{language}/*.json, shown through t('file.key').")
 }
 
@@ -452,13 +529,14 @@ const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
 }
 
 /** The code rules of ARCHITECTURE §3.4 over every .tsx file, and the content keys the theme's t() calls ask for. */
-export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true): { problems: Problem[]; keys: KeyUse[] } => {
+export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true, classes = false, styles: ReadonlyMap<string, string> = new Map()): { problems: Problem[]; keys: KeyUse[] } => {
   const problems: Problem[] = []
   const keys: KeyUse[] = []
   if (code.size === 0) return { problems, keys }
   const { checker, program, sourceFile } = themeProgram(code)
   const copied = storeData ? brandCopied(context.brand) : () => undefined
   const holds = new Map<ts.Type, boolean>()
+  const urlClasses = urlClassesOf(styles)
   for (const file of code.keys()) {
     const sf = sourceFile(file)
     if (!sf) continue
@@ -472,10 +550,11 @@ export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<
     if (sf.referencedFiles.length + sf.typeReferenceDirectives.length + sf.libReferenceDirectives.length > 0) {
       problems.push(problem(file, 1, 'code/declaration-not-allowed', 'A theme may not use /// <reference> directives; it gets its types from its imports.'))
     }
-    const w: Walk = { file, interactive: file.startsWith(interactiveFolder), checker, program, copied, keys, quiet: new Set(), holds, report }
+    const w: Walk = { file, interactive: file.startsWith(interactiveFolder), checker, program, copied, keys, quiet: new Set(), holds, classes: classes ? clsxNames(sf) : null, report }
     try {
       checkDirectives(w, sf)
       for (const statement of sf.statements) visit(w, statement, files)
+      for (const found of productImageProblems(checker, sf, urlClasses)) report(found.node, found.rule, found.message)
     } catch (error) {
       if (!(error instanceof RangeError)) throw error
       problems.push(problem(file, 1, 'code/unreadable', "This file can't be read: it nests too deeply."))

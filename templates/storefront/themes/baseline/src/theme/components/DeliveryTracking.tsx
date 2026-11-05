@@ -1,7 +1,7 @@
 import { clsx } from 'clsx'
 import { Link, type OrderTracking } from '@dripfunnel/storefront-core/theme'
-import shop from '../styles/shop.module.css'
-import styles from '../styles/order.module.css'
+import { shop } from './styles/shop'
+import { order as styles } from './styles/order'
 
 /**
  * An own-delivery order's delivery on its page (api/DELIVERY.md §7): the steps, and while a rider has the order the rider and
@@ -15,7 +15,7 @@ export const DeliveryTracking = ({ tracking }: { tracking: OrderTracking }) => (
     </p>
     <ol className={styles.steps} aria-label={tracking.stepsLabel}>
       {tracking.steps.map((s) => (
-        <li key={s.state} className={clsx(styles.step, s.progress === 'done' && styles.stepDone, s.progress === 'current' && styles.stepCurrent, s.state === 'failed' && styles.stepBad)} aria-current={s.progress === 'current' ? 'step' : undefined}>
+        <li key={s.state} className={clsx(styles.stepBase, !(s.progress === 'done' || s.progress === 'current' || s.state === 'failed') && '[&::before]:border-line', !(s.progress === 'done' || s.state === 'failed') && '[&::before]:bg-surface', !(s.progress === 'done') && '[&::after]:bg-line', s.progress === 'done' && styles.stepDoneBase, s.progress === 'done' && !(s.state === 'failed') && '[&::before]:border-accent [&::before]:bg-accent', s.progress === 'current' && styles.stepCurrentBase, s.progress === 'current' && !(s.state === 'failed') && '[&::before]:border-accent', s.state === 'failed' && styles.stepBad)} aria-current={s.progress === 'current' ? 'step' : undefined}>
           {s.progress === 'done' && s.state !== 'failed' && s.state !== 'cancelled' ? <span className={styles.tick} aria-hidden="true" /> : null}
           <span className={styles.hidden}>{s.progressLabel}</span>
           <span className={styles.stepLabel}>{s.label}</span>

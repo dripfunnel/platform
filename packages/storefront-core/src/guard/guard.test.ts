@@ -1,6 +1,6 @@
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
-import { maxFileBytes, maxFiles, maxThemeBytes, ruleIds, validateChange, type GuardContext, type Problem, type RuleId, type ThemeFile } from './index'
+import { maxFileBytes, maxFiles, maxThemeBytes, ruleIds, validateChange, validateTheme, type GuardContext, type Problem, type RuleId, type ThemeFile } from './index'
 
 // The first case builds the TypeScript program with the DOM's types, which takes over 10 s on CI's runners.
 vi.setConfig({ testTimeout: 30_000 })
@@ -46,15 +46,16 @@ const corpus: Case[] = ts.sys.getDirectories(`${fixtures}refused`).map((name) =>
 
 const at = (p: Problem) => ({ file: p.file, line: p.line, rule: p.rule })
 
-describe('validateChange: the baseline theme', () => {
-  it('passes with no problem', () => {
+describe('validateTheme: the baseline theme', () => {
+  it('passes with no problem', async () => {
     expect(validateChange(baseline, context)).toEqual({ ok: true, problems: [] })
+    expect(await validateTheme(baseline, context)).toEqual({ ok: true, problems: [] })
   })
 })
 
-describe('validateChange: the refused corpus, one case per rule (fixtures/refused)', () => {
-  it.each(corpus)('$name is refused whole, by $rule at $file:$line', ({ files, remove, rule, file, line, also = [] }) => {
-    const result = validateChange(changed(files, remove), context)
+describe('validateTheme: the refused corpus, one case per rule (fixtures/refused)', () => {
+  it.each(corpus)('$name is refused whole, by $rule at $file:$line', async ({ files, remove, rule, file, line, also = [] }) => {
+    const result = await validateTheme(changed(files, remove), context)
     expect(result.ok).toBe(false)
     expect(result.problems.map(at)).toContainEqual({ file, line, rule })
     expect(new Set(result.problems.map((p) => p.rule))).toEqual(new Set([rule, ...also]))
@@ -64,9 +65,9 @@ describe('validateChange: the refused corpus, one case per rule (fixtures/refuse
 
 const accepted = ts.sys.getDirectories(`${fixtures}allowed`).map((name) => ({ name, files: readTree(`${fixtures}allowed/${name}`) }))
 
-describe('validateChange: the accepted corpus, honest code each rule must let through (fixtures/allowed)', () => {
-  it.each(accepted)('$name passes', ({ files }) => {
-    expect(validateChange(changed(files), context).problems).toEqual([])
+describe('validateTheme: the accepted corpus, honest code each rule must let through (fixtures/allowed)', () => {
+  it.each(accepted)('$name passes', async ({ files }) => {
+    expect((await validateTheme(changed(files), context)).problems).toEqual([])
   })
 })
 

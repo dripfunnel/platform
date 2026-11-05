@@ -10,10 +10,20 @@ const result = z.object({
   creator: z.string().nullish(),
   foreign_landing_url: z.string().nullish(),
   tags: z.array(z.object({ name: z.string() })).nullish(),
+  width: z.number().int().positive().nullish(),
+  height: z.number().int().positive().nullish(),
 })
 const found = z.object({ result_count: z.number().int(), results: z.array(result) })
 
 const api = 'https://api.openverse.org/v1/images/'
+/** The thumbnail endpoint's widest file; the original's size scaled to it is what the Worker downloads. */
+const thumbWidth = 600
+
+const sizeOf = (width: number | null | undefined, height: number | null | undefined) => {
+  if (!width || !height) return {}
+  const scale = Math.min(1, thumbWidth / width)
+  return { width: Math.round(width * scale), height: Math.round(height * scale) }
+}
 
 export const isOpenverseUrl = (raw: string): boolean => {
   try {
@@ -41,6 +51,7 @@ export const openverseImages = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetc
           user: r.creator ?? '',
           pageUrl: r.foreign_landing_url ?? 'https://openverse.org/',
           tags: [r.title ?? '', ...(r.tags ?? []).map((t) => t.name)].join(' '),
+          ...sizeOf(r.width, r.height),
         })),
       }
     } catch {

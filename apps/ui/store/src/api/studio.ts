@@ -1,11 +1,13 @@
 import { z } from 'zod'
 import { allPages } from './allPages'
 import { createApiClient, typedQuery } from '@dripfunnel/shared/graphql'
-import { actingHeaders } from '../acting'
+import { actingHeaders, actingStore } from '../acting'
 import { query } from './client'
 
 // A change waits on the model, up to 180 s a try (SAAS §9.3); the 15 s default would show a failure while it still runs.
 const slowQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 200_000 }))
+// A plan's build is up to six such changes one after another (#1243); the live feed shows each page meanwhile.
+const buildQuery = typedQuery(createApiClient({ headers: actingHeaders, timeoutMs: 6 * 200_000 }))
 
 // The AI studio (PortalStorefront › studio; FIRST-RELEASE §14, §19 "Built on #318 (part 2)"; storefront AI-STUDIO §3–§5):
 // `storefront.read` reads, `publish` (the Owner) changes.
@@ -25,10 +27,20 @@ export const renewStudioSession = async (session: string): Promise<void> => {
   await query('mutation R($s: String!) { renewStudioSession(session: $s) }', z.object({ renewStudioSession: z.string() }), { s: session })
 }
 
+/** Focus or typing in the studio: wakes the store's sandbox if it stopped, and puts off its idle stop (AI-STUDIO §7). */
+export const studioActivity = async (): Promise<void> => {
+  await query('mutation { studioActivity }', z.object({ studioActivity: z.boolean() }), {})
+}
+
 const text = z.string().nullable()
+// #1243: a vague request's questions, its plan, and a build's pages (storefront AI-STUDIO §4 "A plan").
+export const flowStates = ['open', 'answered', 'skipped', 'replaced', 'building', 'built'] as const
+export const buildOutcomes = ['changed', 'unchanged', 'refused', 'failed', 'left'] as const
+const planSchema = z.object({ header: text, footer: text, pages: z.array(z.object({ page: z.string(), title: z.string(), sections: z.array(z.string()) })) })
+export type DesignPlan = z.infer<typeof planSchema>
 const messageSchema = z.object({
   id: z.string(),
-  role: z.enum(['user', 'ai', 'note', 'error']),
+  role: z.enum(['user', 'ai', 'note', 'error', 'questions', 'plan']),
   text: z.string(),
   changed: z.array(z.string()),
   imageAssetId: text,
@@ -36,9 +48,14 @@ const messageSchema = z.object({
   canUndo: z.boolean(),
   undone: z.boolean(),
   createdAt: z.string(),
+  questions: z.array(z.object({ text: z.string(), options: z.array(z.string()) })),
+  answers: z.array(text),
+  plan: planSchema.nullable(),
+  flowState: z.enum(flowStates).nullable(),
+  build: z.object({ pages: z.array(z.object({ page: z.string(), title: z.string(), outcome: z.enum(buildOutcomes) })), stopped: z.boolean() }).nullable(),
 })
 export type DesignMessage = z.infer<typeof messageSchema>
-const messageFields = 'id role text changed imageAssetId sampleUrl canUndo undone createdAt'
+const messageFields = 'id role text changed imageAssetId sampleUrl canUndo undone createdAt questions { text options } answers plan { header footer pages { page title sections } } flowState build { pages { page title outcome } stopped }'
 
 /** Newest first, 50 at a time. */
 export const loadDesignChat = async (after: string | null): Promise<{ messages: DesignMessage[]; next: string | null }> =>
@@ -68,6 +85,20 @@ export const askDesign = async (input: DesignRequest): Promise<string> =>
       { text: input.text, image: input.imageAssetId, sample: input.sampleUrl, model: input.model, page: input.page, device: input.device, mode: input.mode ?? 'change' },
     )
   ).askDesign.outcome
+
+const outcomeOf = z.object({ outcome: z.string() })
+
+/** "Make the plan" with the answers in the questions' order (an option, words of their own, or ""), or Skip questions. */
+export const answerDesignQuestions = async (messageId: string, answers: readonly string[], skip: boolean, model: string | null): Promise<string> =>
+  (await slowQuery('mutation Q($id: ID!, $a: [String!]!, $s: Boolean, $m: String) { answerDesignQuestions(messageId: $id, answers: $a, skip: $s, model: $m) { outcome } }', z.object({ answerDesignQuestions: outcomeOf }), { id: messageId, a: answers, s: skip, m: model })).answerDesignQuestions.outcome
+
+/** A change to the open plan, asked in words; it takes no new AI request. */
+export const changeDesignPlan = async (messageId: string, words: string, model: string | null): Promise<string> =>
+  (await slowQuery('mutation C($id: ID!, $t: String!, $m: String) { changeDesignPlan(messageId: $id, text: $t, model: $m) { outcome } }', z.object({ changeDesignPlan: outcomeOf }), { id: messageId, t: words, m: model })).changeDesignPlan.outcome
+
+/** Build it: every planned page, home first; cancelDesign ends it after the page being built. */
+export const buildDesignPlan = async (messageId: string, model: string | null): Promise<string> =>
+  (await buildQuery('mutation B($id: ID!, $m: String) { buildDesignPlan(messageId: $id, model: $m) { outcome } }', z.object({ buildDesignPlan: outcomeOf }), { id: messageId, m: model })).buildDesignPlan.outcome
 
 /** The platform fetches a public https image into the store's own files; resolves its asset id (AI-STUDIO §8). */
 export const importDesignImage = async (url: string): Promise<string> =>
@@ -156,3 +187,82 @@ export const publishBefore = async (messageId: string): Promise<string> =>
 /** Null for a publish that isn't this store's. */
 export const loadPublishRun = async (id: string): Promise<PublishRun | null> =>
   (await query('query P($id: ID!) { publishRun(id: $id) { id step version repairAttempts checks { name passed words } bisectMessageId } }', z.object({ publishRun: runSchema.nullable() }), { id })).publishRun
+
+// Live progress (storefront AI-STUDIO §4 "Live progress", #1237): the one socket next to GraphQL, one-way, to the store's
+// studio; it never starts or changes anything, so askDesign and cancelDesign stay the only writes.
+export const liveSteps = ['reading', 'asking', 'planning', 'checking', 'repairing', 'editing', 'saving', 'updating'] as const
+export type LiveStep = (typeof liveSteps)[number]
+
+const liveBase = { seq: z.number().int().positive(), run: z.string() }
+const liveEventSchema = z.discriminatedUnion('type', [
+  z.object({ ...liveBase, type: z.literal('step'), step: z.enum(liveSteps), attempt: z.number().int().optional(), of: z.number().int().optional() }),
+  z.object({ ...liveBase, type: z.literal('text'), text: z.string() }),
+  z.object({ ...liveBase, type: z.literal('thought'), text: z.string() }),
+  z.object({ ...liveBase, type: z.literal('page'), index: z.number().int().positive(), of: z.number().int().positive(), page: z.string(), titles: z.array(z.string()) }),
+  z.object({ ...liveBase, type: z.literal('done'), outcome: z.string(), messageId: text }),
+  z.object({ ...liveBase, type: z.literal('error'), code: z.string() }),
+])
+export type LiveEvent = z.infer<typeof liveEventSchema>
+
+export interface StudioLive {
+  close: () => void
+}
+
+/** A dropped socket tries again after these waits, the last one repeating. */
+export const liveRetryMs = [1_000, 2_000, 5_000, 10_000] as const
+
+/**
+ * Opens the studio's live socket for `session`; a dropped one reconnects with the last event seen, so only the missed
+ * ones come again. `onUp` says whether it is connected: without it the studio shows "Checking your change…" as before.
+ */
+export const openStudioLive = (session: string, onEvent: (event: LiveEvent) => void, onUp: (up: boolean) => void, connect: (url: string) => WebSocket = (url) => new WebSocket(url)): StudioLive => {
+  let last = 0
+  let tries = 0
+  let closed = false
+  let socket: WebSocket | null = null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const address = () => {
+    const url = new URL('/api/studio/live', window.location.href)
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    url.searchParams.set('session', session)
+    url.searchParams.set('after', String(last))
+    const store = actingStore()?.storeId
+    if (store) url.searchParams.set('store', store)
+    return url.toString()
+  }
+  const open = () => {
+    if (closed) return
+    const s = connect(address())
+    socket = s
+    s.onopen = () => {
+      tries = 0
+      onUp(true)
+    }
+    s.onmessage = (message: MessageEvent) => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(String(message.data))
+      } catch {
+        return
+      }
+      const event = liveEventSchema.safeParse(parsed)
+      if (!event.success || event.data.seq <= last) return
+      last = event.data.seq
+      onEvent(event.data)
+    }
+    s.onclose = () => {
+      if (socket !== s || closed) return
+      onUp(false)
+      timer = setTimeout(open, liveRetryMs[Math.min(tries, liveRetryMs.length - 1)])
+      tries += 1
+    }
+  }
+  open()
+  return {
+    close: () => {
+      closed = true
+      clearTimeout(timer)
+      socket?.close()
+    },
+  }
+}

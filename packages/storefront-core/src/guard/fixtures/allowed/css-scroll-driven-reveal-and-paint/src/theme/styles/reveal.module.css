@@ -1,0 +1,59 @@
+.reveal {
+  animation: reveal linear both;
+  animation-timeline: view();
+  animation-range: entry 0% cover 40%;
+}
+
+.parallax {
+  animation: drift linear both;
+  animation-timeline: scroll(root block);
+}
+
+.strip {
+  view-timeline: --strip block;
+  scroll-timeline: --rail inline;
+}
+
+.card {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, clip-path 0.3s ease, text-shadow 0.2s;
+}
+
+.card:hover {
+  background-color: #f4efe8;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+  clip-path: inset(0 round 12px);
+}
+
+.line {
+  stroke-dasharray: 120;
+  animation: draw 1s ease-out both;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes drift {
+  to {
+    transform: translateY(-20%);
+    background-position: 50% 80%;
+    background-size: 120%;
+    mask-position: 0 100%;
+    mask-size: 200%;
+  }
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: 120;
+    fill: transparent;
+  }
+}

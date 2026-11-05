@@ -10,15 +10,17 @@ const folders = `(?:${name}/){0,4}`
 
 export const codePath = new RegExp(`^src/theme/(?:pages|components)/${folders}${name}\\.tsx$`)
 export const cssPath = new RegExp(`^src/theme/styles/${folders}${name}\\.module\\.css$`)
+/** The theme's Tailwind entry: its tokens as `@theme` values and its keyframes (ARCHITECTURE §3.4 "Classes"). */
+export const themeCssPath = 'src/theme/styles/theme.css'
 export const contentPath = /^content\/([a-z]{2,3}(?:-[A-Z]{2})?)\/([A-Za-z0-9][A-Za-z0-9_-]{0,63})\.json$/
 export const routesPath = 'routes.json'
 export const interactiveFolder = 'src/theme/components/interactive/'
 
 /** A path a theme may write (ARCHITECTURE §3.4 "Files"). */
-export const isThemePath = (path: string) => codePath.test(path) || cssPath.test(path) || contentPath.test(path) || path === routesPath
+export const isThemePath = (path: string) => codePath.test(path) || cssPath.test(path) || path === themeCssPath || contentPath.test(path) || path === routesPath
 
 const allowedMessage =
-  'A theme may write only src/theme/pages/**/*.tsx, src/theme/components/**/*.tsx, src/theme/styles/**/*.module.css, content/{language}/*.json and routes.json.'
+  'A theme may write only src/theme/pages/**/*.tsx, src/theme/components/**/*.tsx, src/theme/styles/**/*.module.css, src/theme/styles/theme.css, content/{language}/*.json and routes.json.'
 
 const lockedMessage = (path: string) =>
   path.startsWith('.github/') ? `${path} is the locked build workflow, which only the platform writes. ${allowedMessage}` : `${path} is outside the theme. ${allowedMessage}`

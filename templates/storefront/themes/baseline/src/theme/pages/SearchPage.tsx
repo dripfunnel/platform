@@ -2,7 +2,7 @@ import { Link, SearchField, useCollections, useSearch, useStorefront } from '@dr
 import { Layout } from '../components/Layout'
 import { ListingResults } from '../components/ListingResults'
 import { Notice } from '../components/Notice'
-import styles from '../styles/shop.module.css'
+import { shop as styles } from '../components/styles/shop'
 
 export const SearchPage = () => {
   const { t } = useStorefront()

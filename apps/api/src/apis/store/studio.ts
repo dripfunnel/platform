@@ -1,4 +1,4 @@
-import { createStudioService, designAudit, type AskAnswer, type StudioSessionView, type TextEntry } from '#saas/ai-designer/index'
+import { createStudioService, designAudit, flowOf, type AskAnswer, type DesignQuestion, type PlanFlow, type StudioSessionView, type TextEntry } from '#saas/ai-designer/index'
 import type { MessageRow } from '#db/scoped/design'
 import type { StockPhoto } from '#integrations/stockImages/pixabay'
 import { decodeCursor, encodeCursor } from '#core/cursor'
@@ -39,7 +39,8 @@ const studioFor = (ctx: StoreContext) => {
   })
 }
 
-const read = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none', blockedFor: ['support', 'impersonation'] } as const
+/** The studio's read access: its queries and its live socket (studioLive.ts). */
+export const studioRead = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none', blockedFor: ['support', 'impersonation'] } as const
 const chatPage = 50
 
 export const registerStudio = (builder: StoreBuilder) => {
@@ -59,6 +60,21 @@ export const registerStudio = (builder: StoreBuilder) => {
       expiresAt: t.string({ resolve: (s) => s.expiresAt.toISOString() }),
     }),
   })
+  const Question = builder.objectRef<DesignQuestion>('DesignQuestion').implement({
+    fields: (t) => ({ text: t.exposeString('text'), options: t.exposeStringList('options') }),
+  })
+  const PlanPage = builder.objectRef<PlanFlow['plan']['pages'][number]>('DesignPlanPage').implement({
+    fields: (t) => ({ page: t.exposeString('page'), title: t.exposeString('title'), sections: t.exposeStringList('sections') }),
+  })
+  const Plan = builder.objectRef<PlanFlow['plan']>('DesignPlan').implement({
+    fields: (t) => ({ header: t.exposeString('header', { nullable: true }), footer: t.exposeString('footer', { nullable: true }), pages: t.field({ type: [PlanPage], resolve: (p) => p.pages }) }),
+  })
+  const BuildPageRef = builder.objectRef<{ page: string; title: string; outcome: string }>('DesignBuildPage').implement({
+    fields: (t) => ({ page: t.exposeString('page'), title: t.exposeString('title'), outcome: t.exposeString('outcome') }),
+  })
+  const Build = builder.objectRef<{ pages: { page: string; title: string; outcome: string }[]; stopped: boolean }>('DesignBuild').implement({
+    fields: (t) => ({ pages: t.field({ type: [BuildPageRef], resolve: (b) => b.pages }), stopped: t.exposeBoolean('stopped') }),
+  })
   const Message = builder.objectRef<MessageRow>('DesignMessage').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -74,6 +90,14 @@ export const registerStudio = (builder: StoreBuilder) => {
       canUndo: t.boolean({ resolve: (m) => m.role === 'ai' && m.commit !== null && !m.undone }),
       undone: t.exposeBoolean('undone'),
       createdAt: t.string({ resolve: (m) => m.created_at.toISOString() }),
+      // #1243: a questions message's questions, the answers given (in order, null for none), and a plan's pages.
+      questions: t.field({ type: [Question], resolve: (m) => { const f = flowOf(m.detail); return f?.kind === 'questions' ? f.questions : [] } }),
+      answers: t.stringList({ nullable: { list: true, items: true }, resolve: (m) => { const f = flowOf(m.detail); return f?.kind === 'questions' ? f.answers.map((a) => a.answer) : [] } }),
+      plan: t.field({ type: Plan, nullable: true, resolve: (m) => { const f = flowOf(m.detail); return f?.kind === 'plan' ? f.plan : null } }),
+      // A questions message's or a plan's: open (to answer or build), answered, skipped, replaced, building or built.
+      flowState: t.string({ nullable: true, resolve: (m) => { const f = flowOf(m.detail); return f && f.kind !== 'build' ? f.state : null } }),
+      // A build's pages, each changed, unchanged, refused, failed or left (Stop, or a page before it refused).
+      build: t.field({ type: Build, nullable: true, resolve: (m) => { const f = flowOf(m.detail); return f?.kind === 'build' ? f : null } }),
     }),
   })
   const Chat = builder.objectRef<{ messages: MessageRow[]; next: string | null }>('DesignChat').implement({
@@ -85,7 +109,8 @@ export const registerStudio = (builder: StoreBuilder) => {
   })
   const Answer = builder.objectRef<AskAnswer>('DesignAnswer').implement({
     fields: (t) => ({
-      // changed, unchanged (asked for nothing the theme holds, or declined), refused (failed the checks) or failed.
+      // changed, unchanged (asked for nothing the theme holds, or declined), refused (failed the checks), failed, cancelled,
+      // or asked: the AI answered a vague request with questions or a plan, the message (#1243).
       outcome: t.exposeString('outcome'),
       message: t.field({ type: Message, resolve: (a) => a.message }),
     }),
@@ -101,13 +126,13 @@ export const registerStudio = (builder: StoreBuilder) => {
     studioSession: t.field({
       type: Session,
       args: { session: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: studioRead },
       resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).session(args.session ?? null)),
     }),
     designChat: t.field({
       type: Chat,
       args: { after: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: studioRead },
       resolve: async (_, args, ctx: StoreContext) => {
         const cursor = args.after ? decodeCursor(args.after) : null
         const before = cursor ? { at: cursor.occurredAt, id: cursor.id } : null
@@ -118,7 +143,7 @@ export const registerStudio = (builder: StoreBuilder) => {
       },
     }),
     stockImagesAvailable: t.boolean({
-      extensions: { access: read },
+      extensions: { access: studioRead },
       resolve: async (_, __, ctx: StoreContext) => ctx.design?.stock != null,
     }),
     searchStockImages: t.field({
@@ -130,7 +155,7 @@ export const registerStudio = (builder: StoreBuilder) => {
     designText: t.field({
       type: [Text],
       args: { page: t.arg.string({ required: true }), locale: t.arg.string({ required: true }) },
-      extensions: { access: read },
+      extensions: { access: studioRead },
       resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).texts(args.page, args.locale)),
     }),
   }))
@@ -144,6 +169,27 @@ export const registerStudio = (builder: StoreBuilder) => {
         const device = args.device === 'phone' || args.device === 'tablet' ? args.device : 'desktop'
         return answered(await studioFor(ctx).ask({ text: args.text, model: args.model ?? null, imageAssetId: args.imageAssetId ?? null, sampleUrl: args.sampleUrl ?? null, page: args.page, device, mode: args.mode === 'chat' ? 'chat' : 'change' }))
       },
+    }),
+    // #1243: "Make the plan" with the answers in the questions' order (an option, words of their own, or ""), or skip.
+    answerDesignQuestions: t.field({
+      type: Answer,
+      args: { messageId: t.arg.id({ required: true }), answers: t.arg.stringList({ required: true }), skip: t.arg.boolean(), model: t.arg.string() },
+      extensions: { access: designWrite(designAudit.questionsAnswered) },
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).answerQuestions(String(args.messageId), args.answers, args.skip ?? false, args.model ?? null)),
+    }),
+    // A change to the open plan, asked in words; part of the same request, at most three times.
+    changeDesignPlan: t.field({
+      type: Answer,
+      args: { messageId: t.arg.id({ required: true }), text: t.arg.string({ required: true }), model: t.arg.string() },
+      extensions: { access: designWrite(designAudit.planChanged) },
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).changePlan(String(args.messageId), args.text, args.model ?? null)),
+    }),
+    // Build it: every planned page, home first, each through the checks; cancelDesign stops it after the current page.
+    buildDesignPlan: t.field({
+      type: Answer,
+      args: { messageId: t.arg.id({ required: true }), model: t.arg.string() },
+      extensions: { access: designWrite(designAudit.planBuilt) },
+      resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).buildPlan(String(args.messageId), args.model ?? null)),
     }),
     cancelDesign: t.boolean({
       extensions: { access: designWrite(designAudit.designStopped) },
@@ -173,6 +219,11 @@ export const registerStudio = (builder: StoreBuilder) => {
     discardDraft: t.boolean({
       extensions: { access: designWrite(designAudit.discarded) },
       resolve: async (_, __, ctx: StoreContext) => answered(await studioFor(ctx).discard()),
+    }),
+    // Focus or typing in the studio, at most every 30 s: wakes a stopped container and puts off its idle stop (AI-STUDIO §7).
+    studioActivity: t.boolean({
+      extensions: { access: { ...studioRead, unlogged: 'studio_activity' } },
+      resolve: async (_, __, ctx: StoreContext) => answered(await studioFor(ctx).wake()),
     }),
     // Re-checks the seat each time (every 2 minutes from the portal); a refusal ends the session (AI-STUDIO §8).
     // Open to any signed-in person, so a seat lost since still reaches here and the session ends rather than lingering.

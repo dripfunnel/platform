@@ -6,9 +6,10 @@ import type { SessionPermission, TargetStatus } from './impersonation'
 export const impersonators: readonly StaffRole[] = ['staff-super-admin', 'staff-support']
 export const setupStarters: readonly StaffRole[] = ['staff-super-admin', 'staff-partner-manager']
 
-export const impersonatePermission = (caller: StaffRole, status: TargetStatus, partnerClosed: boolean): SessionPermission => {
+// `storeOwner`: a store's Owner may be acted as while their invitation is open (ACCESS.md §8.1).
+export const impersonatePermission = (caller: StaffRole, status: TargetStatus, partnerClosed: boolean, storeOwner: boolean): SessionPermission => {
   if (!impersonators.includes(caller)) return { allowed: false, reason: 'STAFF_ROLE_NOT_ALLOWED' }
   if (partnerClosed) return { allowed: false, reason: 'PARTNER_CLOSED' }
-  if (status !== 'active') return { allowed: false, reason: 'TARGET_NOT_ACTIVE' }
+  if (status !== 'active' && !(status === 'invited' && storeOwner)) return { allowed: false, reason: 'TARGET_NOT_ACTIVE' }
   return { allowed: true }
 }

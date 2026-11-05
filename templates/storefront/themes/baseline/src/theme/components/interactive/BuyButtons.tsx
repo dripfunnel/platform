@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { AddToCart, BuyNow, Link, TextField, useStorefront, type GiftRecipient, type ProductPage } from '@dripfunnel/storefront-core/theme'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/product.module.css'
+import { shop } from '../styles/shop'
+import { product as styles } from '../styles/product'
 import { WishlistHeart } from './WishlistHeart'
 
 const emailLike = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

@@ -1,7 +1,7 @@
 'use client'
 
 import { useStorefront, type ProductPage } from '@dripfunnel/storefront-core/theme'
-import styles from '../../styles/product.module.css'
+import { product as styles } from '../styles/product'
 
 /** Each option's values as buttons; a value sold out with the other choices looks unavailable but can still be chosen. */
 export const Options = ({ page }: { page: ProductPage }) => {

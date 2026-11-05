@@ -1,5 +1,5 @@
 import { Image, Link, Price, useStorefront, type ProductCard as Card } from '@dripfunnel/storefront-core/theme'
-import styles from '../styles/shop.module.css'
+import { shop as styles } from './styles/shop'
 
 export const ProductCard = ({ product }: { product: Card }) => {
   const { store, locale, t } = useStorefront()

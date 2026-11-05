@@ -1,6 +1,7 @@
 import type { GoBackActor, GoBackResult } from '../storefronts/index'
+import type { LiveEvent } from './live'
 import type { DesignModel } from './model'
-import { StudioCancelled, StudioQueued, StudioUnavailable, type ChangeOutcome } from './runner'
+import { StudioCancelled, StudioQueued, StudioUnavailable, type BuildOutcome, type BuildPage, type ChangeOutcome } from './runner'
 
 // What the Store API asks of a store's StudioSession (storefront AI-STUDIO §2–§5), always named by the TenantContext's
 // store (`studioOf`). The Durable Object implements it over RPC; tests drive a StudioRunner through the same shape.
@@ -11,7 +12,7 @@ export type StudioState = { state: 'starting' } | { state: 'queued'; place: numb
 /** A change's outcome, or why the sandbox couldn't take it; RPC keeps no error class, so both travel as values. */
 export type StudioAnswer = ChangeOutcome | { outcome: 'queued'; place: number } | { outcome: 'unavailable' } | { outcome: 'cancelled' }
 
-export const studioAnswer = async <T extends ChangeOutcome | { outcome: 'missing' }>(work: () => Promise<T>): Promise<T | StudioAnswer> => {
+export const studioAnswer = async <T extends ChangeOutcome | BuildOutcome | { outcome: 'missing' }>(work: () => Promise<T>): Promise<T | StudioAnswer> => {
   try {
     return await work()
   } catch (error) {
@@ -24,12 +25,23 @@ export const studioAnswer = async <T extends ChangeOutcome | { outcome: 'missing
 
 export interface StudioApi {
   status: (storeId: string) => Promise<StudioState>
+  /** Focus or typing in the studio (AI-STUDIO §7 "Stopping"): starts a stopped container and puts off the idle stop. */
+  activity: (storeId: string) => Promise<void>
+  /** Every accepted change's save, which the frame doesn't wait for (§4 step 6): false while one is only kept after its retries. */
+  saved: (storeId: string) => Promise<boolean>
   useTemplate: (storeId: string, input: { template: string; keep: boolean; userId: string }) => Promise<StudioAnswer>
-  /** One AI change (AI-STUDIO §4); `model` is the Worker's, called back over RPC, so no key reaches the object. */
-  change: (storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel) => Promise<StudioAnswer>
+  /** One AI change (AI-STUDIO §4); `model` is the Worker's, called back over RPC, so no key reaches the object. Its steps go out as `run`'s. */
+  change: (storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key'; run: string }, model: DesignModel) => Promise<StudioAnswer>
+  /** One of the Worker's own events of `run` to the store's open studios (AI-STUDIO §4 "Live progress"). */
+  progress: (storeId: string, run: string, event: LiveEvent) => Promise<void>
   /** Stops the change running for the store; false when none is (AI-STUDIO §4). */
   cancel: (storeId: string) => Promise<boolean>
-  undo: (storeId: string, input: { commit: string; userId: string }) => Promise<StudioAnswer>
+  /** A plan's build, page by page in one turn (#1243); Stop (`cancel`) ends it after the page being built. */
+  build: (storeId: string, input: { pages: BuildPage[]; userId: string; billedTo: 'plan' | 'own_key'; parentRunId: string | null; run: string }, model: DesignModel) => Promise<BuildOutcome | StudioAnswer>
+  /** The build `run` as it last stood, kept by the object page by page, for an answer lost mid-build; null when none was kept. */
+  buildSoFar: (storeId: string, run: string) => Promise<BuildOutcome | null>
+  /** `before` takes a whole build back in one change (#1243). */
+  undo: (storeId: string, input: { commit: string; userId: string; before?: string | null }) => Promise<StudioAnswer>
   /** The page's words in one language, or null while the sandbox can't load. */
   texts: (storeId: string, input: { page: string; locale: string }) => Promise<{ key: string; text: string }[] | null>
   editText: (storeId: string, input: { locale: string; key: string; text: string; userId: string }) => Promise<StudioAnswer | { outcome: 'missing' }>
@@ -39,7 +51,12 @@ export interface StudioApi {
   prepare: (storeId: string, input: { commit: string | null }) => Promise<Prepared>
   /** Go back (AI-STUDIO §5): the pointer moves in the studio's turn, and the draft is reset to the version only when it did. */
   goBack: (storeId: string, input: { versionId: string; by: string; actor: GoBackActor }) => Promise<GoBackResult>
+  /** The AI's store summary kept beside the studio (storefront ARCHITECTURE §6.2): its JSON and when it was built, or null. */
+  summary: (storeId: string) => Promise<KeptSummary | null>
+  keepSummary: (storeId: string, kept: KeptSummary) => Promise<void>
 }
+
+export type KeptSummary = { builtAt: number; text: string }
 
 /** `taken` is the live commit a design publish took into the draft first (#1211); `refused` is the gate refusing it. */
 export type Prepared =

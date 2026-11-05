@@ -1,7 +1,7 @@
 import { useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
 import { PageIntro } from '../components/PageIntro'
-import styles from '../styles/page.module.css'
+import { page as styles } from '../components/styles/page'
 
 export const ContactPage = () => {
   const { store, t } = useStorefront()

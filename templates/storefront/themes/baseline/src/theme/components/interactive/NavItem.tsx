@@ -1,8 +1,9 @@
 'use client'
 
+import { clsx } from 'clsx'
 import { useRef, useState } from 'react'
 import { Link, useStorefront, type MenuItem } from '@dripfunnel/storefront-core/theme'
-import styles from '../../styles/layout.module.css'
+import { layout as styles } from '../styles/layout'
 
 export const NavItem = ({ item }: { item: MenuItem }) => {
   const { t } = useStorefront()
@@ -53,7 +54,7 @@ export const NavItem = ({ item }: { item: MenuItem }) => {
               <path d="M6 9l6 6 6-6" />
             </svg>
           </button>
-          <div className={open ? `${styles.subnav} ${styles.subnavOpen}` : styles.subnav}>
+          <div className={open ? clsx(styles.subnavBase, styles.subnavOpen) : styles.subnav}>
             {item.children.map((child) => (
               <Link key={child.id} href={child.href} className={styles.subLink}>
                 {child.label}

@@ -177,7 +177,7 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   const outlasting = ['createApiKey', 'installApp', 'rotateApiKey', 'saveWebhook']
   const aiAccount = ['beginStoreAiOauth', 'connectStoreAiAccount', 'finishStoreAiOauth', 'removeStoreAiAccount', 'setStoreAiFallback', 'setStoreAiSwitch']
   // The storefront's design, studio and preview links were declared before #1012.
-  const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioSession', 'undoDesignChange']
+  const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioActivity', 'studioSession', 'undoDesignChange']
 
   it('declares the user’s sign-in and sessions, money details, the store’s AI account, the store switch and the storefront’s design', () => {
     expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, ...aiAccount, ...outlasting, 'switchStore', ...storefront].sort())
@@ -212,6 +212,7 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
       `mutation { rotateApiKey(id: "${seats.owner}") { __typename } }`,
       `mutation { saveWebhook(url: "https://hooks.example/x", events: ["order.created"]) { id } }`,
       `mutation { installApp(appId: "${seats.owner}", scopes: ["catalog.read"]) }`,
+      'mutation { studioActivity }',
       `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
       `mutation { removeMember(membershipId: "${seats.owner}") }`,
       `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,
@@ -277,6 +278,27 @@ describe('ending', () => {
     expect((await contextFor({ staff })).standing.kind).toBe('signed-out')
     expect((await currentOf(staff)).session).toMatchObject({ state: 'ended', endedBy: 'targetGone' })
     expect(await entries(id)).toContainEqual(expect.objectContaining({ action: 'impersonation.ended', actor_kind: 'job', reason: 'target_gone' }))
+  })
+
+  it('acts as an Owner whose invitation is still open, and still ends an invited Manager’s (§8.1)', async () => {
+    await db.sql`update membership set status = 'invited' where id in (${seats.owner}, ${seats.manager})`
+    await db.sql`update "user" set status = 'invited' where id = ${people.owner}`
+    try {
+      await started('owner', 'tok-invited-owner')
+      const owner = await enter('tok-invited-owner')
+      expect((await currentOf(owner)).session).toMatchObject({ state: 'open', endedBy: null, actingAs: { name: 'Olivia Owner', role: 'owner' } })
+      expect((await gql<{ me: { name: string; acting: { store: { id: string } } } }>(`{ me { name acting { store { id } } } }`, { staff: owner })).data?.me).toMatchObject({ name: 'Olivia Owner', acting: { store: { id: t.storeA1 } } })
+      // The Owner accepting changes nothing for the session.
+      await db.sql`update membership set status = 'active' where id = ${seats.owner}`
+      await db.sql`update "user" set status = 'active' where id = ${people.owner}`
+      expect((await currentOf(owner)).session).toMatchObject({ state: 'open' })
+      // The exchange itself ends it, so the link opens nothing.
+      const manager = await started('manager', 'tok-invited-manager', maya)
+      expect(await enter('tok-invited-manager')).toBe('')
+      expect(await entries(manager)).toContainEqual(expect.objectContaining({ action: 'impersonation.ended', actor_kind: 'job', reason: 'target_gone' }))
+    } finally {
+      await db.sql`update "user" set status = 'active' where id = ${people.owner}`
+    }
   })
 
   it('reads as expired once its time is up', async () => {

@@ -1,13 +1,16 @@
 import { useEffect, useId, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react'
 import type { LibraryAsset } from '../../api/assetLibrary'
 import type { DesignMessage, StockPhoto } from '../../api/studio'
-import { fill, messages } from '../../messages'
+import { fill, formatCount, formatList, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { askRefusal, noteText, sampleAddress } from './studioRules'
+import { StudioFeed } from './StudioFeed'
+import type { LiveRun } from './useStudioLive'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.studio.chat
 const errorText = (code: string): string => {
+  if (code === 'plan_failed') return words.planError
   const reason = code.startsWith('change_failed:') ? code.slice('change_failed:'.length) : ''
   return Object.hasOwn(words.errorReasons, reason) ? words.errorReasons[reason as keyof typeof words.errorReasons] : words.error
 }
@@ -35,6 +38,8 @@ export interface ChatRequest {
   /** The model picked in the composer; null where there is no choice. */
   model: string | null
   mode: 'change' | 'chat'
+  /** The open plan these words change (#1243), instead of a new request. */
+  planId: string | null
 }
 
 export interface StudioChatProps {
@@ -49,6 +54,8 @@ export interface StudioChatProps {
   canEdit: boolean
   /** "Checking your change…" and the sandbox's states, shown as the AI's line. */
   busyLine: string | null
+  /** The store's change or answer in progress, from the live socket; it takes the busy line's place. */
+  live: LiveRun | null
   error: string | null
   api: StorefrontApi
   onEarlier: () => void
@@ -63,6 +70,12 @@ export interface StudioChatProps {
   aiLine: string | null
   /** What the store's AI account can run, the default first; empty hides the picker. */
   models: readonly string[]
+  /** Focus or typing in the composer, so a stopped sandbox starts before Send (AI-STUDIO §7). */
+  onActivity: () => void
+  /** "Make the plan" or "Skip questions" on the open questions (#1243). */
+  onAnswer: (message: DesignMessage, answers: string[], skip: boolean, model: string | null) => void
+  /** Build it, on the open plan. */
+  onBuild: (message: DesignMessage, model: string | null) => void
 }
 
 interface Attached {
@@ -72,9 +85,11 @@ interface Attached {
   preview?: string
 }
 
-/** "Design with AI" (PortalStorefront › studio): the conversation, suggestions and the composer with an image and a website. */
-export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, error, api, onEarlier, onUndo, onStop, onSend, notice, aiLine, models }: StudioChatProps) => {
+/** "Design with AI" (PortalStorefront › studio): the conversation and the composer with an image and a website. */
+export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, live, error, api, onEarlier, onUndo, onStop, onSend, notice, aiLine, models, onActivity, onAnswer, onBuild }: StudioChatProps) => {
   const [prompt, setPrompt] = useState('')
+  // The merchant's words, shown at once until the saved message joins the chat.
+  const [sending, setSending] = useState<{ text: string; at: number } | null>(null)
   const [image, setImage] = useState<Attached | null>(null)
   const [site, setSite] = useState<string | null>(null)
   const [siteOpen, setSiteOpen] = useState(false)
@@ -82,6 +97,8 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
   const [siteErr, setSiteErr] = useState<string | null>(null)
   const [assetsOpen, setAssetsOpen] = useState(false)
   const [assetList, setAssetList] = useState<'loading' | 'failed' | LibraryAsset[]>('loading')
+  const [assetNext, setAssetNext] = useState<string | null>(null)
+  const assetMore = useRef(false)
   const [stockOn, setStockOn] = useState(false)
   const [stockOpen, setStockOpen] = useState(false)
   const [stockIn, setStockIn] = useState('')
@@ -96,6 +113,9 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
   const siteId = useId()
   const uploads = useRef(0)
   const undoable = [...chat].reverse().find((m) => m.role === 'ai' && m.canUndo)?.id ?? null
+  // Only the newest questions or plan can be answered or built; words typed under an open plan change it.
+  const flow = [...chat].reverse().find((m) => m.role === 'questions' || m.role === 'plan')
+  const openFlow = flow?.flowState === 'open' ? flow : null
 
   useEffect(() => {
     const url = image?.preview
@@ -132,7 +152,23 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
     setUrlOpen(false)
     setSiteOpen(false)
     setAssetList('loading')
-    api.loadLibrary({ after: null, kind: 'image', search: '' }).then((page) => setAssetList(page.assets), () => setAssetList('failed'))
+    setAssetNext(null)
+    api.loadLibrary({ after: null, kind: 'image', search: '' }).then(
+      (page) => (setAssetList(page.assets), setAssetNext(page.next)),
+      () => setAssetList('failed'),
+    )
+  }
+  // The next page of the library, once the grid is scrolled near its end.
+  const moreAssets = (grid: HTMLElement) => {
+    if (!assetNext || assetMore.current || grid.scrollTop + grid.clientHeight < grid.scrollHeight - 80) return
+    assetMore.current = true
+    api.loadLibrary({ after: assetNext, kind: 'image', search: '' }).then(
+      (page) => {
+        setAssetList((was) => (Array.isArray(was) ? [...was, ...page.assets] : was))
+        setAssetNext(page.next)
+      },
+      () => setAssetNext(null),
+    ).finally(() => (assetMore.current = false))
   }
   const pickAsset = (a: LibraryAsset) => {
     uploads.current += 1
@@ -194,19 +230,32 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
   const ready = !locked && (image === null || image.assetId !== null) && (prompt.trim() !== '' || image !== null || site !== null)
   const send = (text: string, withAttached: boolean) => {
     if (locked) return
-    const request: ChatRequest = { text: text || words.attachedOnly, imageAssetId: withAttached ? (image?.assetId ?? null) : null, sampleUrl: withAttached ? site : null, model, mode: chatMode ? 'chat' : 'change' }
+    const attached = withAttached && (image !== null || site !== null)
+    const planId = openFlow?.role === 'plan' && !chatMode && !attached && text !== '' ? openFlow.id : null
+    const request: ChatRequest = { text: text || words.attachedOnly, imageAssetId: withAttached ? (image?.assetId ?? null) : null, sampleUrl: withAttached ? site : null, model, mode: chatMode ? 'chat' : 'change', planId }
     setLast(request)
-    void onSend(request).then((taken) => {
-      if (!taken || !withAttached) return
+    setSending({ text, at: chat.length })
+    if (withAttached) {
       setPrompt('')
       setImage(null)
       setSite(null)
+    }
+    void onSend(request).then((taken) => {
+      setSending(null)
+      if (taken || !withAttached) return
+      setPrompt(text)
+      setImage(image)
+      setSite(site)
     })
   }
   const retry = () => {
     if (!last || locked) return
-    void onSend(last)
+    setSending({ text: last.text, at: chat.length })
+    void onSend(last).finally(() => setSending(null))
   }
+  // A flow's step leaves nothing to resend: its questions or plan stay open to press again.
+  const answer = (m: DesignMessage, answers: string[], skip: boolean) => (setLast(null), onAnswer(m, answers, skip, model))
+  const build = (m: DesignMessage) => (setLast(null), onBuild(m, model))
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== 'Enter' || event.shiftKey) return
     event.preventDefault()
@@ -247,10 +296,30 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
         )}
         {chatRead === 'ready' && chat.length === 0 && <li className="df-studio-ai">{words.empty}</li>}
         {chat.map((m) => (
-          <ChatLine key={m.id} message={m} assistant={assistant} templateName={templateName} canUndo={canEdit && !locked && m.id === undoable} onUndo={() => onUndo(m)} onRetry={canEdit && !locked && last && m.id === chat[chat.length - 1]?.id ? retry : null} />
+          <ChatLine
+            key={m.id}
+            message={m}
+            assistant={assistant}
+            templateName={templateName}
+            canUndo={canEdit && !locked && m.id === undoable}
+            onUndo={() => onUndo(m)}
+            onRetry={canEdit && !locked && last && m.id === chat[chat.length - 1]?.id ? retry : null}
+            flow={canEdit && !locked && m.id === openFlow?.id ? { answer: (answers, skip) => answer(m, answers, skip), build: () => build(m) } : null}
+          />
         ))}
+        {sending && sending.at === chat.length && (
+          <li className="df-studio-user">
+            <p>{sending.text}</p>
+          </li>
+        )}
         {notice}
-        {busyLine && (
+        {live && (
+          <li className="df-studio-ai">
+            <span className="df-sf-eyebrow">{assistant}</span>
+            <StudioFeed run={live} />
+          </li>
+        )}
+        {!live && busyLine && (
           <li className="df-studio-ai">
             <span className="df-sf-eyebrow">{assistant}</span>
             <span className="df-studio-dots" aria-hidden="true">
@@ -264,17 +333,6 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
       </ol>
       {canEdit && (
         <div className="df-studio-compose">
-          {!locked && (
-            <ul className="df-studio-chips" aria-label={words.suggestionsLabel}>
-              {words.suggestions.map((s) => (
-                <li key={s}>
-                  <button type="button" onClick={() => send(s, false)}>
-                    {s}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
           <div className="df-studio-box">
             {(image || site) && (
               <div className="df-studio-attached">
@@ -308,7 +366,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
                 {assetList === 'failed' && <p role="alert">{words.assetsFailed}</p>}
                 {Array.isArray(assetList) && assetList.length === 0 && <p role="status">{words.assetsEmpty}</p>}
                 {Array.isArray(assetList) && assetList.length > 0 && (
-                  <ul className="df-studio-stock-grid">
+                  <ul className="df-studio-stock-grid" onScroll={(e) => moreAssets(e.currentTarget)}>
                     {assetList.map((a) => (
                       <li key={a.id}>
                         <button type="button" aria-label={fill(words.assetsUse, { name: a.name ?? words.imageName })} title={a.name ?? undefined} onClick={() => pickAsset(a)}>
@@ -353,7 +411,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
               </div>
             )}
             {urlOpen && <AddressRow id={`${siteId}-image`} label={words.imageUrlLabel} value={urlIn} error={urlErr} onChange={(v) => (setUrlIn(v), setUrlErr(null))} onAdd={addImageUrl} onCancel={() => (setUrlOpen(false), setUrlErr(null))} />}
-            <textarea aria-label={words.prompt} rows={3} placeholder={chatMode ? words.placeholderChat : words.placeholder} value={prompt} readOnly={locked} onChange={(e) => setPrompt(e.target.value)} onKeyDown={onKey} onPaste={onPaste} />
+            <textarea aria-label={words.prompt} rows={3} placeholder={chatMode ? words.placeholderChat : openFlow?.role === 'plan' ? words.placeholderPlan : words.placeholder} value={prompt} readOnly={locked} onFocus={onActivity} onChange={(e) => (setPrompt(e.target.value), onActivity())} onKeyDown={onKey} onPaste={onPaste} />
             <div className="df-studio-actions">
               <div className="df-studio-tools">
               <input ref={fileRef} type="file" accept={imageTypes.join(',')} hidden tabIndex={-1} onChange={(e) => (take(e.target.files?.[0]), (e.target.value = ''))} />
@@ -453,7 +511,125 @@ const RemoveIcon = () => (
   </svg>
 )
 
-const ChatLine = ({ message: m, assistant, templateName, canUndo, onUndo, onRetry }: { message: DesignMessage; assistant: string; templateName: (key: string) => string; canUndo: boolean; onUndo: () => void; onRetry: (() => void) | null }) => {
+type FlowActions = { answer: (answers: string[], skip: boolean) => void; build: () => void }
+
+const qw = words.questions
+const pw = words.plan
+const bw = words.build
+
+/** The quick-pick questions (PortalStorefront `?state=questions`): each a radio group of the AI's answers and words of one's own. */
+const QuestionsCard = ({ message: m, assistant, actions }: { message: DesignMessage; assistant: string; actions: FlowActions | null }) => {
+  const id = useId()
+  const given = (i: number) => m.answers[i] ?? null
+  const [picked, setPicked] = useState(() => m.questions.map((q, i) => (q.options.includes(given(i) ?? '') ? (given(i) ?? '') : m.flowState === 'open' ? (q.options[0] ?? '') : '')))
+  const [own, setOwn] = useState(() => m.questions.map((q, i) => (given(i) !== null && !q.options.includes(given(i) ?? '') ? (given(i) ?? '') : '')))
+  const set = (list: string[], i: number, value: string) => list.map((v, n) => (n === i ? value : v))
+  const answers = m.questions.map((_, i) => (own[i]?.trim() ? own[i].trim() : (picked[i] ?? '')))
+  return (
+    <li className="df-studio-ai df-studio-flow">
+      <span className="df-sf-eyebrow">{assistant}</span>
+      <span>{m.text || qw.intro}</span>
+      {m.questions.map((q, i) => (
+        <fieldset key={i} className="df-studio-question" disabled={!actions}>
+          <legend>{q.text}</legend>
+          <div className="df-studio-picks">
+            {q.options.map((o) => (
+              <label key={o} className="df-studio-pick">
+                <input type="radio" name={`${id}-${i}`} value={o} checked={!own[i]?.trim() && picked[i] === o} onChange={() => (setPicked(set(picked, i, o)), setOwn(set(own, i, '')))} />
+                <span>{o}</span>
+              </label>
+            ))}
+          </div>
+          <input type="text" className="df-studio-other" aria-label={fill(qw.otherFor, { question: q.text })} placeholder={qw.other} maxLength={200} value={own[i] ?? ''} onChange={(e) => setOwn(set(own, i, e.target.value))} />
+        </fieldset>
+      ))}
+      {actions ? (
+        <div className="df-studio-flow-actions">
+          <button type="button" className="df-button df-button--primary" onClick={() => actions.answer(answers, false)}>
+            {qw.answer}
+          </button>
+          <button type="button" className="df-sf-link df-sf-link--underline" onClick={() => actions.answer([], true)}>
+            {qw.skip}
+          </button>
+        </div>
+      ) : (
+        m.flowState !== 'open' && <span className="df-sf-lede">{m.flowState === 'skipped' ? qw.skipped : qw.answered}</span>
+      )}
+    </li>
+  )
+}
+
+/** The plan (PortalStorefront `?state=plan`): its pages and their sections, the header and footer, and Build it. */
+const PlanCard = ({ message: m, assistant, actions }: { message: DesignMessage; assistant: string; actions: FlowActions | null }) => (
+  <li className="df-studio-ai df-studio-flow">
+    <span className="df-sf-eyebrow">{assistant}</span>
+    <span>{m.text || pw.intro}</span>
+    {m.plan && (
+      <ol className="df-studio-plan">
+        {m.plan.pages.map((p) => (
+          <li key={p.page}>
+            <strong>{p.title}</strong> <span>{formatList(p.sections)}</span>
+          </li>
+        ))}
+        {m.plan.header && (
+          <li>
+            <strong>{pw.header}</strong> <span>{m.plan.header}</span>
+          </li>
+        )}
+        {m.plan.footer && (
+          <li>
+            <strong>{pw.footer}</strong> <span>{m.plan.footer}</span>
+          </li>
+        )}
+      </ol>
+    )}
+    {actions ? (
+      <div className="df-studio-flow-actions df-studio-flow-actions--stacked">
+        <button type="button" className="df-button df-button--primary" onClick={actions.build}>
+          {pw.build}
+        </button>
+        <span className="df-sf-lede">{pw.hint}</span>
+      </div>
+    ) : (
+      m.flowState !== 'open' && <span className="df-sf-lede">{m.flowState === 'replaced' ? pw.replaced : m.flowState === 'built' ? pw.built : pw.building}</span>
+    )}
+  </li>
+)
+
+/** A build's one entry (PortalStorefront `?state=built`): what happened, each page's outcome, and one Undo for all. */
+const buildSummary = (build: NonNullable<DesignMessage['build']>): string => {
+  const count = formatCount(build.pages.length)
+  const built = build.pages.filter((p) => p.outcome === 'changed' || p.outcome === 'unchanged').length
+  const stuck = build.pages.findIndex((p) => p.outcome === 'refused' || p.outcome === 'failed')
+  const page = build.pages[stuck]
+  if (page) return fill(page.outcome === 'refused' ? bw.refused : bw.failed, { at: formatCount(stuck + 1), count, title: page.title })
+  if (build.stopped) return fill(bw.stopped, { built: formatCount(built), count })
+  return fill(bw.done, { count })
+}
+
+const ChatLine = ({ message: m, assistant, templateName, canUndo, onUndo, onRetry, flow }: { message: DesignMessage; assistant: string; templateName: (key: string) => string; canUndo: boolean; onUndo: () => void; onRetry: (() => void) | null; flow: FlowActions | null }) => {
+  if (m.role === 'questions') return <QuestionsCard message={m} assistant={assistant} actions={flow} />
+  if (m.role === 'plan') return <PlanCard message={m} assistant={assistant} actions={flow} />
+  if (m.build && m.role === 'ai')
+    return (
+      <li className="df-studio-ai">
+        <span className="df-sf-eyebrow">{assistant}</span>
+        <span>{buildSummary(m.build)}</span>
+        <ul className="df-studio-build-list">
+          {m.build.pages.map((p) => (
+            <li key={p.page} className={`df-studio-build-item df-studio-build-item--${p.outcome}`}>
+              {fill(bw.outcomes[p.outcome], { title: p.title })}
+            </li>
+          ))}
+        </ul>
+        {canUndo && (
+          <button type="button" className="df-sf-link df-sf-link--underline" onClick={onUndo}>
+            {bw.undo}
+          </button>
+        )}
+        {m.undone && <span className="df-sf-lede">{bw.undone}</span>}
+      </li>
+    )
   if (m.role === 'user')
     return (
       <li className="df-studio-user">

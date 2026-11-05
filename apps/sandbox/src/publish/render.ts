@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 import type { ComponentType } from 'react'
 import { build, type Plugin } from 'esbuild'
 import type { AnsweredPage, RecordedAnswer, ShopStoreSettings, ThemeRoute } from '@dripfunnel/storefront-core'
-import { mediaUrlPlugin, readContent, routesSchema, runtimeModules } from '../gate/bundle'
+import { readThemeStyling, themeStylesheet } from '@dripfunnel/storefront-core/guard'
+import { mediaUrlPlugin, readContent, routesSchema, runtimeModules, stylesheetModule, stylesheetPlugin } from '../gate/bundle'
 
 // The static build's renderer (storefront ARCHITECTURE §4.2 "Live"): the theme's pages bundled for Node with the same
 // core and libraries the client bundle loads, then rendered to HTML once per page from the frozen snapshot.
@@ -45,6 +46,8 @@ const entrySource = (routesJson: string, content: unknown): string => {
   const pages = [...new Set([...Object.values(routes.routes), ...Object.values(routes.custom ?? {})])]
   const ref = (page: string) => `p${pages.indexOf(page)}`
   return [
+    // The client bundle's CSS, in the same place, so both builds give each CSS Module class the same minified name.
+    `import '${stylesheetModule}'`,
     `import { renderToString } from 'react-dom/server'`,
     `import { jsx } from 'react/jsx-runtime'`,
     `import { answeredRender, createI18n, createShopClient, PrefilledProvider, StorefrontProvider } from '@dripfunnel/storefront-core'`,
@@ -65,6 +68,8 @@ export const serverTheme = async (repo: string, work: string): Promise<ServerThe
   await rm(work, { recursive: true, force: true })
   await mkdir(work, { recursive: true })
   const source = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo))
+  const stylesheet = await themeStylesheet(readThemeStyling(repo))
+  if (!stylesheet.ok) throw new Error("The theme's classes break the theme rules.")
   const outfile = join(work, 'server.cjs')
   await build({
     absWorkingDir: repo,
@@ -81,6 +86,7 @@ export const serverTheme = async (repo: string, work: string): Promise<ServerThe
     logLevel: 'silent',
     plugins: [
       mediaUrlPlugin(),
+      stylesheetPlugin(() => stylesheet.css),
       resolveOwn(),
       { name: 'df-server-entry', setup: (b) => void b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: source, loader: 'js', resolveDir: repo })) },
     ],

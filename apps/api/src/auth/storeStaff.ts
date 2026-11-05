@@ -37,6 +37,10 @@ export const staffAttributed = (log: ActivityLog, seat: StaffSeat): ActivityLog 
   return { record: (tx, entry) => log.record(tx, attribute(entry)), recordAll: (tx, entries) => log.recordAll(tx, entries.map(attribute)) }
 }
 
+/** ACCESS.md §8.1: an active seat, or the Owner's while their invitation is open, so staff can set a store up first. */
+export const staffMayActAs = (seat: { role: string; membershipStatus: string; userStatus: string }): boolean =>
+  seat.membershipStatus === 'active' ? seat.userStatus === 'active' : seat.role === 'owner' && seat.membershipStatus === 'invited' && (seat.userStatus === 'active' || seat.userStatus === 'invited')
+
 export type StoreStaffEnd = 'portal' | 'target_gone' | 'partner_closed'
 
 /** `impersonation.ended` from the store side: by the staff member, or by the job when its user, store or partner went. */
@@ -59,7 +63,7 @@ export const storeStaffEnded = (row: StoreStaffRow, facts: RequestFacts, why: St
 const goneReason = (row: StoreStaffRow): StoreStaffEnd | null => {
   if (row.partner_state === 'closed') return 'partner_closed'
   if (row.store_status === 'closed') return 'target_gone'
-  if (row.user_status !== 'active' || row.membership_status !== 'active' || (row.seller_id !== null && row.seller_status !== 'active')) return 'target_gone'
+  if (!staffMayActAs({ role: row.role_key, membershipStatus: row.membership_status, userStatus: row.user_status }) || (row.seller_id !== null && row.seller_status !== 'active')) return 'target_gone'
   return null
 }
 
