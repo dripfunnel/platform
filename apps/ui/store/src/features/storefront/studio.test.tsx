@@ -1022,3 +1022,12 @@ describe('a vague request’s questions, plan and build (#1243)', () => {
     for (const radio of screen.getAllByRole('radio')) expect(radio.closest('fieldset')?.disabled).toBe(true)
   })
 })
+
+describe('a vague request’s messages before the studio draws them (#1243)', () => {
+  it('reads questions and a plan as the AI’s words, so the chat still loads', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('m6', 'plan', 'Here is my plan.'), line('m5', 'questions', 'A few quick questions.'), ...chat], next: null }) })
+    expect(screen.getByText('A few quick questions.')).toBeTruthy()
+    expect(screen.getByText('Here is my plan.')).toBeTruthy()
+    expect(screen.queryByText(c.loadFailed)).toBeNull()
+  })
+})
