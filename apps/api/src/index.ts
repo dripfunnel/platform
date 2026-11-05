@@ -921,7 +921,6 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, reached:
   return { response: await handleShop(request, url, config, env, ctx), area }
 }
 
-// The relay needs a database and a configuration; without either there is nothing to deliver.
 /** The configuration, or null when it doesn't parse: a background caller can't answer a request with the error. */
 const configOf = (env: Env): Config | null => {
   try {
@@ -931,6 +930,7 @@ const configOf = (env: Env): Config | null => {
   }
 }
 
+// The relay needs a database and a configuration; without either there is nothing to deliver.
 const relayWith = async (env: Env, work: (sql: postgres.Sql, config: Config) => Promise<void>): Promise<void> => {
   const config = configOf(env)
   if (!config) {
