@@ -13,7 +13,7 @@ import {
 import { selectReminderConsent } from '#db/scoped/cartReminders'
 import { localTimeIn } from '#engine/modules/promotions/index'
 import type { DecideDeps, ReminderJobDeps } from './jobs'
-import { mayEmail, quietWaitMs, reminderDelays, reminderSteps, reminderWindowMs, weeklyCapMs } from './rules'
+import { checkSteps, mayEmail, quietWaitMs, reminderSteps, reminderWindowMs, stepFields, weeklyCapMs } from './rules'
 import { wishlistItemsNow } from './wishlist'
 
 // The engine's side of wishlist reminders (FIRST-RELEASE §9), run from the cron and the outbox in system scope: each step that
@@ -25,17 +25,7 @@ export const wishlistRemindKind = 'wishlist.remind'
 /** Most products the email lists. */
 export const wishlistReminderItems = 10
 
-const text = (max: number) => z.string().transform((s) => s.trim()).pipe(z.string().max(max))
-
-export const wishlistStepSchema = z
-  .object({
-    position: z.number().int().min(1).max(reminderSteps),
-    enabled: z.boolean(),
-    delayMinutes: z.number().int().refine((d) => (reminderDelays as readonly number[]).includes(d)),
-    subject: text(120),
-    body: text(500),
-  })
-  .strict()
+export const wishlistStepSchema = z.object(stepFields).strict()
 
 export const wishlistSettingsSchema = z
   .object({
@@ -46,12 +36,7 @@ export const wishlistSettingsSchema = z
     steps: z.array(wishlistStepSchema).length(reminderSteps),
   })
   .strict()
-  .superRefine((s, ctx) => {
-    if (new Set(s.steps.map((x) => x.position)).size !== reminderSteps) ctx.addIssue({ code: 'custom', message: 'one of each step' })
-    const on = [...s.steps].sort((a, b) => a.position - b.position).filter((x) => x.enabled)
-    if (on.some((x, i) => i > 0 && x.delayMinutes <= (on[i - 1]?.delayMinutes ?? 0))) ctx.addIssue({ code: 'custom', message: 'later than the one before' })
-    if (s.steps.some((x) => x.enabled && x.subject === '')) ctx.addIssue({ code: 'custom', message: 'a subject' })
-  })
+  .superRefine((s, ctx) => checkSteps(s.steps, ctx))
 export type WishlistSettingsInput = z.input<typeof wishlistSettingsSchema>
 export type WishlistSettingsValue = z.output<typeof wishlistSettingsSchema>
 

@@ -9,7 +9,7 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { lockWishlistShopperToRemind } from '#db/scoped/wishlistReminders'
-import { markAbandonedCarts, queueDueReminders, queueDueWishlistReminders } from '#engine/modules/cartReminders/index'
+import { markAbandonedCarts, queueDueReminders, queueDueWishlistReminders, wishlistSkipReasonOf } from '#engine/modules/cartReminders/index'
 import type { OutgoingEmail, SesApi } from '#integrations/ses/index'
 import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
 import { wishlistRemindDeliverer } from '#jobs/queues/deliverers/wishlistRemind'
@@ -397,7 +397,7 @@ describe('wishlist reminders: queued, decided and sent by the engine', () => {
     expect(await queue()).toBe(0)
   })
 
-  it('sends nothing for a store that has not turned it on, or on a plan that is you-send only', async () => {
+  it('sends nothing for a store that has not turned it on', async () => {
     await db.sql`update customer set wishlist_reminders_stopped_at = null where id = ${customerId}`
     await db.sql`delete from wishlist_reminder where customer_id = ${customerId}`
     await db.sql`update wishlist_reminder_flow set enabled = false where store_id = ${store}`
@@ -523,5 +523,139 @@ describe('wishlist reminders on the Store API: the sequence, and one shopper’s
     expect(await counted()).toBe(0)
     await db.sql`insert into wishlist_reminder (store_id, customer_id, state, saved_at, sent_at) select ${store}, ${customerId}, 'sent', date_trunc('milliseconds', max(created_at)), now() from wishlist_item where customer_id = ${customerId}`
     expect(await counted()).toBe(1)
+  })
+
+  describe('what the plan, the rules and a new save decide', () => {
+    const planIds: Record<number, string> = {}
+    const setLevel = async (level: number) => {
+      if (!planIds[level]) {
+        const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${t.partnerA}, ${`Level ${level}`}, 'live') returning id`
+        await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${t.partnerA}, 1, 'cart_reminders', ${level})`
+        planIds[level] = plan?.id ?? ''
+      }
+      await db.sql`update store_subscription set plan_id = ${planIds[level] ?? ''}, plan_version = 1 where store_id = ${store}`
+      await db.sql`update store set plan_id = ${planIds[level] ?? ''} where id = ${store}`
+    }
+    const queue = () => queueDueWishlistReminders({ sql: db.sql, now: () => new Date() }, 200)
+    const remindersOf = () => db.sql<{ state: string; skip_reason: string | null; position: number | null }[]>`
+      select r.state, r.skip_reason, st.position from wishlist_reminder r left join wishlist_reminder_step st on st.id = r.step_id where r.customer_id = ${customerId} order by r.queued_at, r.id`
+    const age = (minutes: number) => db.sql`update wishlist_item set created_at = now() - make_interval(mins => ${minutes}) where customer_id = ${customerId}`
+    const flow = async (over: { weekly_cap?: boolean; quiet_hours?: boolean; enabled?: boolean } = {}) => {
+      await db.sql`delete from wishlist_reminder where store_id = ${store}`
+      await db.sql`delete from wishlist_reminder_step where store_id = ${store}`
+      await db.sql`delete from wishlist_reminder_flow where store_id = ${store}`
+      await db.sql`insert into wishlist_reminder_flow (store_id, enabled, quiet_hours, weekly_cap) values (${store}, ${over.enabled ?? true}, ${over.quiet_hours ?? false}, ${over.weekly_cap ?? false})`
+      await db.sql`insert into wishlist_reminder_step (store_id, position, enabled, delay_minutes, subject, body) values
+        (${store}, 1, true, 60, 'First', 'One.'), (${store}, 2, true, 1440, 'Second', 'Two.'), (${store}, 3, false, 4320, 'Third', 'Three.')`
+      await db.sql`update customer set email = 'plan@example.com', consent_state = 'not_asked', wishlist_reminders_stopped_at = null where id = ${customerId}`
+    }
+    const flush = async () => {
+      for (let i = 0; i < 3; i++) await relay()
+    }
+
+    it('sends on its own only what the plan allows: step 2 needs automatic, and none at all below one reminder', async () => {
+      await setLevel(1)
+      await flow()
+      await age(3000)
+      await queue()
+      await flush()
+      expect((await remindersOf()).map((x) => [x.position, x.state])).toEqual([[1, 'sent']])
+      await queue()
+      await flush()
+      expect((await remindersOf()).map((x) => [x.position, x.state])).toEqual([[1, 'sent']])
+      await setLevel(0)
+      await flow()
+      await age(3000)
+      expect(await queue()).toBe(0)
+      await setLevel(2)
+    })
+
+    it('lets a plan below automatic remind a shopper by hand once for the wishlist as it stands, and again after a new save', async () => {
+      await setLevel(1)
+      await flow()
+      const now = () => merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner')
+      expect(typeof (await now()).data?.['remindWishlistNow']).toBe('string')
+      expect((await now()).code).toBe('PLAN_LIMIT')
+      await db.sql`update wishlist_item set created_at = now() where customer_id = ${customerId}`
+      expect(typeof (await now()).data?.['remindWishlistNow']).toBe('string')
+      await flush()
+      await setLevel(2)
+    })
+
+    it('gates saving the sequence by the plan: switching sending on needs one reminder, a step past the first needs automatic', async () => {
+      await setLevel(2)
+      await flow({ enabled: false })
+      await db.sql`update wishlist_reminder_step set enabled = false where store_id = ${store} and position = 2`
+      const read = async () => (await settingsOf('owner'))?.revision ?? null
+      const steps = (third: boolean) => [
+        { position: 1, enabled: true, delayMinutes: 60, subject: 'First', body: 'One.' },
+        { position: 2, enabled: true, delayMinutes: 1440, subject: 'Second', body: 'Two.' },
+        { position: 3, enabled: third, delayMinutes: 4320, subject: 'Third', body: 'Three.' },
+      ]
+      await setLevel(0)
+      expect((await save(await read(), input({ enabled: true }, steps(false)))).code).toBe('PLAN_LIMIT')
+      await setLevel(1)
+      expect((await save(await read(), input({ enabled: true }, steps(false)))).code).toBe('PLAN_LIMIT')
+      expect((await save(await read(), input({ enabled: true }, steps(false).map((x) => (x.position === 2 ? { ...x, enabled: false } : x))))).data?.['saveWishlistReminderSettings']).toEqual(expect.any(Number))
+      await setLevel(2)
+      expect((await save(await read(), input({ enabled: true }, steps(true)))).data?.['saveWishlistReminderSettings']).toEqual(expect.any(Number))
+    })
+
+    it('holds an automatic reminder in quiet hours, but not one sent by hand', async () => {
+      await setLevel(2)
+      await flow({ quiet_hours: true })
+      const [original] = await db.sql<{ time_zone: string }[]>`select time_zone from store where id = ${store}`
+      const offset = (2 - new Date().getUTCHours() + 24) % 24
+      const hours = offset > 14 ? offset - 24 : offset
+      const zone = hours === 0 ? 'Etc/GMT' : `Etc/GMT${hours > 0 ? '-' : '+'}${Math.abs(hours)}`
+      await db.sql`update store set time_zone = ${zone} where id = ${store}`
+      try {
+        await age(3000)
+        await queue()
+        await flush()
+        expect((await remindersOf()).map((x) => [x.position, x.state])).toEqual([[2, 'queued']])
+        const before = sent.filter((e) => e.to.includes('plan@example.com')).length
+        expect(typeof (await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner')).data?.['remindWishlistNow']).toBe('string')
+        await flush()
+        expect(sent.filter((e) => e.to.includes('plan@example.com'))).toHaveLength(before + 1)
+      } finally {
+        await db.sql`update store set time_zone = ${original?.time_zone ?? 'UTC'} where id = ${store}`
+      }
+    })
+
+    it('skips a step for the weekly cap but not one sent by hand, and starts the sequence over after a new save', async () => {
+      await setLevel(2)
+      await flow({ weekly_cap: true })
+      await db.sql`insert into wishlist_reminder (store_id, customer_id, state, saved_at, queued_at, sent_at) values (${store}, ${customerId}, 'sent', '2000-01-01', now() - interval '1 day', now() - interval '1 day')`
+      await age(3000)
+      await queue()
+      await flush()
+      expect((await remindersOf()).filter((x) => x.position === 2).map((x) => [x.state, x.skip_reason])).toEqual([['skipped', 'weekly_cap']])
+      const before = sent.filter((e) => e.to.includes('plan@example.com')).length
+      expect(typeof (await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner')).data?.['remindWishlistNow']).toBe('string')
+      await flush()
+      expect(sent.filter((e) => e.to.includes('plan@example.com'))).toHaveLength(before + 1)
+      await db.sql`update wishlist_item set created_at = now() - interval '2 days' where customer_id = ${customerId}`
+      await queue()
+      expect((await remindersOf()).filter((x) => x.position === 2)).toHaveLength(2)
+    })
+
+    it('decides on the rules a step is skipped for: everything out of stock, and a hand reminder is never held by the cap', () => {
+      const facts = { byHand: false, storeSending: true, flowEnabled: true, levelAllows: true, stepEnabled: true, stopped: false, contact: 'a@b.c', mayContact: true, suppressed: false, empty: false, skipOutOfStock: true, allOutOfStock: false, weeklyCap: true, remindedRecently: false }
+      expect(wishlistSkipReasonOf(facts)).toBeNull()
+      expect(wishlistSkipReasonOf({ ...facts, allOutOfStock: true })).toBe('out_of_stock')
+      expect(wishlistSkipReasonOf({ ...facts, allOutOfStock: true, skipOutOfStock: false })).toBeNull()
+      expect(wishlistSkipReasonOf({ ...facts, remindedRecently: true })).toBe('weekly_cap')
+      expect(wishlistSkipReasonOf({ ...facts, remindedRecently: true, byHand: true })).toBeNull()
+      expect(wishlistSkipReasonOf({ ...facts, levelAllows: false })).toBe('paused')
+      expect(wishlistSkipReasonOf({ ...facts, empty: true })).toBe('empty')
+    })
+
+    it('keeps stopping and resuming to the store’s own shoppers: another store’s owner finds nothing and changes nothing', async () => {
+      await flow()
+      expect((await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}") }`, 'surat')).code).toBe('NOT_FOUND')
+      expect((await merchant(`mutation { resumeWishlistReminders(customerId: "${customerId}") }`, 'surat')).code).toBe('NOT_FOUND')
+      expect((await db.sql<{ stopped: boolean }[]>`select wishlist_reminders_stopped_at is not null as stopped from customer where id = ${customerId}`)[0]?.stopped).toBe(false)
+    })
   })
 })
