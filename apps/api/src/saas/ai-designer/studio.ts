@@ -548,7 +548,7 @@ export const createStudioService = (deps: StudioDeps) => {
       live.step('reading')
       // The photos every page added (at most `maxBuildToolCalls` calls in the build), credited once it is recorded.
       const added: AddedPhoto[] = []
-      let lookups: ReturnType<typeof storeLookups> | null = null
+      let lookups: ReturnType<typeof storeLookups> | null
       let designer: ReturnType<typeof designModel>
       try {
         const known = await currentSummary()

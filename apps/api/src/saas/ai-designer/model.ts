@@ -497,37 +497,37 @@ export const designModel = (
   // Shared by every ask of this model: one change's, or every page of a build's (`maxBuildToolCalls`).
   const photos = { left: maxBuildToolCalls }
   return {
-  propose: async (input) => {
-    const images = [brief.image, brief.screenshot].filter((i) => i !== null)
-    const context = contextOf(brief, input.theme)
-    const text = requestText(brief, input, tools !== null, input.previous ?? [])
-    // A repair goes the same way as the first ask, so it reads the same cached prefix; its tool calls are refused.
-    const looping = (tools !== null || lookups !== null) && provider.converse !== undefined
-    const opening: CanonicalMessage = { role: 'user', content: [...context.map((part) => ({ type: 'text' as const, text: part, cache: true })), ...images.map((i) => ({ type: 'image' as const, mediaType: i.mediaType, base64: i.base64 })), { type: 'text' as const, text }] }
-    const onFile = input.onFile
-    // Each file whole as it streams, for the runner's pre-check; never waited on, and a failed hand-off loses only that.
-    const streaming = onFile
-      ? () =>
-          streamedItems('files', (item) => {
-            const file = fileSchema.safeParse(item)
-            if (file.success) void Promise.resolve(file.data).then(onFile).catch(() => undefined)
-          })
-      : null
-    const answer = looping
-      ? await converse(provider, tools, photos, lookups, opening, input.problems.length > 0, onAdded, signal, streaming)
-      : await provider.complete({ system: rules, context, text, images, ...(streaming ? { onText: streaming() } : {}) })
-    const read = readAnswer(answer.text)
-    const cost = { model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, tokensCached: answer.tokensCached ?? 0, costAmount: answer.costAmount, costCurrency: answer.costCurrency }
-    // Questions or a plan stand for a merchant's own first ask only; anywhere else they are no usable answer.
-    const asked = !read && brief.mayAsk && input.problems.length === 0 ? readAsk(answer.text) : null
-    if (asked) {
-      const { reply, ...ask } = asked
-      return { files: [], summary: { reply, changed: [], page: null }, asked: true, ask, ...cost }
-    }
-    // An answer in no usable shape changes nothing; the reply says so (FIRST-RELEASE §14's error).
-    if (!read) return { files: [], summary: null, ...cost }
-    return { files: read.files, summary: { reply: read.reply, changed: read.changed, page: read.page }, ...cost }
-  },
+    propose: async (input) => {
+      const images = [brief.image, brief.screenshot].filter((i) => i !== null)
+      const context = contextOf(brief, input.theme)
+      const text = requestText(brief, input, tools !== null, input.previous ?? [])
+      // A repair goes the same way as the first ask, so it reads the same cached prefix; its tool calls are refused.
+      const looping = (tools !== null || lookups !== null) && provider.converse !== undefined
+      const opening: CanonicalMessage = { role: 'user', content: [...context.map((part) => ({ type: 'text' as const, text: part, cache: true })), ...images.map((i) => ({ type: 'image' as const, mediaType: i.mediaType, base64: i.base64 })), { type: 'text' as const, text }] }
+      const onFile = input.onFile
+      // Each file whole as it streams, for the runner's pre-check; never waited on, and a failed hand-off loses only that.
+      const streaming = onFile
+        ? () =>
+            streamedItems('files', (item) => {
+              const file = fileSchema.safeParse(item)
+              if (file.success) void Promise.resolve(file.data).then(onFile).catch(() => undefined)
+            })
+        : null
+      const answer = looping
+        ? await converse(provider, tools, photos, lookups, opening, input.problems.length > 0, onAdded, signal, streaming)
+        : await provider.complete({ system: rules, context, text, images, ...(streaming ? { onText: streaming() } : {}) })
+      const read = readAnswer(answer.text)
+      const cost = { model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, tokensCached: answer.tokensCached ?? 0, costAmount: answer.costAmount, costCurrency: answer.costCurrency }
+      // Questions or a plan stand for a merchant's own first ask only; anywhere else they are no usable answer.
+      const asked = !read && brief.mayAsk && input.problems.length === 0 ? readAsk(answer.text) : null
+      if (asked) {
+        const { reply, ...ask } = asked
+        return { files: [], summary: { reply, changed: [], page: null }, asked: true, ask, ...cost }
+      }
+      // An answer in no usable shape changes nothing; the reply says so (FIRST-RELEASE §14's error).
+      if (!read) return { files: [], summary: null, ...cost }
+      return { files: read.files, summary: { reply: read.reply, changed: read.changed, page: read.page }, ...cost }
+    },
   }
 }
 
