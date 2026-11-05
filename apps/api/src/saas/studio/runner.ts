@@ -1,12 +1,17 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
+import { failureCode, logEvent } from '#core/log'
 import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { isNewerVersion } from '#core/semver'
 import { baseDraftOnBuild, insertAiRun, moveDraft, rebaseDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome, type StudioDraftRow } from '#db/scoped/studio'
-import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
+import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type PreviewFiles, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
-import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
+import { changedFiles, type KeptChange, type KeptChanges } from './kept'
+import type { LiveEvent } from './live'
+import { maxRepairs, type DesignModel, type FileEdit, type Proposal, type ProposalSummary } from './model'
+import { applyEdits } from './patches'
+import { StreamedChecks, withPrechecked } from './streamed'
 import { pageTexts, withText } from './texts'
 import { templateChange } from './template'
 
@@ -36,8 +41,13 @@ export interface StudioDeps {
   capacity: StudioCapacity
   now: () => Date
   newId: () => string
-  /** Each new client bundle, for the frame's hot reload (AI-STUDIO §4 step 5). */
-  onBundle: (bundle: ClientBundle) => void
+  /** Each new client bundle, for the frame's hot reload (AI-STUDIO §4 step 5); `stylesheet` when no script changed. */
+  onBundle: (bundle: ClientBundle, swap?: 'stylesheet' | 'modules') => void
+  /** Accepted changes in the object's own storage until their save is written (kept.ts). */
+  kept: KeptChanges
+  /** Work that outlives the call, as the save after the frame's swap: the Durable Object's waitUntil. */
+  background: (work: Promise<unknown>) => void
+  sleep: (ms: number) => Promise<void>
 }
 
 export class StudioQueued extends Error {
@@ -58,7 +68,7 @@ export class StudioUnavailable extends Error {
 }
 
 export type ChangeOutcome =
-  | { outcome: 'changed'; commit: string; previewRef: string; repairs: number; runId: string | null; summary?: ProposalSummary | null }
+  | { outcome: 'changed'; commit: string; before: string; previewRef: string; repairs: number; runId: string | null; summary?: ProposalSummary | null }
   | { outcome: 'unchanged'; commit: string; repairs: number; runId: string | null; summary?: ProposalSummary | null }
   | { outcome: 'refused'; problems: GateProblem[]; repairs: number; runId: string | null }
 
@@ -90,7 +100,15 @@ const migrationRequest = (ask: Pick<MigrationAsk, 'to' | 'failing' | 'notes'>): 
 export const baselineTemplate = 'baseline'
 
 /** A merchant's request on its plan or own key, or the platform's own repair of a publish (`userId` null, SAAS §9.1). */
-export type ChangeRequest = { request: string; userId: string | null; billedTo: 'plan' | 'own_key' | 'platform'; model: DesignModel }
+export type ChangeRequest = { request: string; userId: string | null; billedTo: 'plan' | 'own_key' | 'platform'; model: DesignModel; progress?: (event: LiveEvent) => void; parentRunId?: string | null }
+
+/** One page of a build (#1243): its route, its title in the plan's words, and the change asked for it. */
+export type BuildPage = { page: string; title: string; request: string }
+/** `kept` gets the build as it stands before and after each page (the page in progress as failed), for an answer lost on the way. */
+export type BuildRequest = Omit<ChangeRequest, 'request'> & { pages: readonly BuildPage[]; kept?: (sofar: BuildOutcome) => Promise<void> }
+export type BuiltPage = { page: string; title: string; outcome: 'changed' | 'unchanged' | 'refused' | 'failed' | 'left'; commit: string | null; reply: string | null }
+/** `before` is the head the build started from, `commit` its last page's; Undo restores `before` in one change. */
+export type BuildOutcome = { outcome: 'built'; before: string; commit: string | null; previewRef: string | null; pages: BuiltPage[]; stopped: boolean }
 
 const routesSchema = z.object({ custom: z.record(z.string(), z.string()).optional() })
 
@@ -112,6 +130,12 @@ const contentTypes: Record<string, string> = { html: 'text/html; charset=utf-8',
 /** One ask of the model and what the gate said; `result` is null when the sandbox failed before it could say. */
 type Attempt = { proposal: Proposal; ms: number; result: ChangeResult | null }
 
+/** What an accepted change leaves to save: the repo as a git bundle and the gate's bundle for the preview. */
+type Collected = { bundle: ArrayBuffer; preview: PreviewFiles }
+
+/** A save that fails is tried again after each of these, then left kept for the next start (AI-STUDIO §7). */
+const saveRetryMs = [500, 2_000, 8_000]
+
 export class StudioRunner {
   private host: SandboxHost | null = null
   private client: SandboxClient | null = null
@@ -120,6 +144,13 @@ export class StudioRunner {
   private waiting = 0
   /** The running change's stop; null between changes. A stop reaches only a change whose sandbox step isn't running; `cancel` answers false once it is. */
   private running: { stop: () => void; stopped: boolean; sandboxed: boolean } | null = null
+  /** The build in progress: Stop ends it after the page being built (#1243); null outside one. */
+  private building: { stopping: boolean } | null = null
+  /** The saves still writing, one after another, off the change's own wait (AI-STUDIO §4 step 6). */
+  private saving: Promise<void> = Promise.resolve()
+  /** The newest change handed to a save. */
+  private lastKept = 0
+  private startedAt: number | null = null
 
   constructor(private readonly deps: StudioDeps) {}
 
@@ -132,6 +163,32 @@ export class StudioRunner {
     return this.client !== null && (this.host?.running() ?? false)
   }
 
+  /** When this session's container started, for the 3-hour cap (alarm.ts); null while none runs. */
+  get runningSince(): number | null {
+    return this.startedAt
+  }
+
+  /** Once every change accepted so far has had its save: true when all are in R2 and design_draft, false when one is still only kept. */
+  async saved(): Promise<boolean> {
+    const through = this.lastKept
+    await this.saving
+    return !(await this.deps.kept.list()).some((k) => k.seq <= through)
+  }
+
+  /**
+   * Before the draft is read for a publish: the saves finish, and a change still only kept after its save gave up is
+   * saved again from the loaded sandbox, else nothing is published without it.
+   */
+  private async settle(): Promise<void> {
+    await this.saving
+    if ((await this.deps.kept.list()).length === 0) return
+    // A fresh load reapplies the kept changes and saves them; a loaded sandbox already holds them.
+    const { client } = await this.ensureLoaded()
+    await this.saving
+    const last = (await this.deps.kept.list()).at(-1)
+    if (last && !(await this.persist(last.seq, await this.collect(client)))) throw new StudioUnavailable('The draft could not be saved.')
+  }
+
   /** Starts the store's sandbox from its saved draft, or says where it stands in the queue. */
   open(): Promise<ClientBundle | null> {
     return this.inTurn(async () => (await this.ensureLoaded()).bundle)
@@ -139,6 +196,10 @@ export class StudioRunner {
 
   /** Not in the turn, or it would wait behind the change it stops; false when nothing is running. */
   cancel(): boolean {
+    if (this.building) {
+      this.building.stopping = true
+      return true
+    }
     if (!this.running || this.running.sandboxed) return false
     this.running.stopped = true
     this.running.stop()
@@ -149,9 +210,70 @@ export class StudioRunner {
     return this.inTurn(() => this.runChange(input))
   }
 
-  /** "Undo this change" (AI-STUDIO §5): a new change, through the same gate, saved and previewed the same way. */
-  undo(commit: string, userId: string): Promise<ChangeOutcome> {
-    return this.inTurn(() => this.commitStep((client, context) => client.undo(commit, `Undo ${commit.slice(0, 12)}`, context), userId))
+  /**
+   * "Undo this change" (AI-STUDIO §5): a new change, through the same gate, saved and previewed the same way. A build's
+   * Undo names `before`, the head it started from, and its every page goes back in that one change (#1243).
+   */
+  undo(commit: string, userId: string, before: string | null = null): Promise<ChangeOutcome> {
+    if (!before) return this.inTurn(() => this.commitStep((client, context, message) => client.undo(commit, message, context), `Undo ${commit.slice(0, 12)}`, userId))
+    return this.inTurn(() =>
+      this.commitStep(
+        async (client, context, message) => {
+          const [now, then] = await Promise.all([client.theme(), client.theme(before)])
+          return client.change(changedFiles(new Map(now.files.map((f) => [f.path, f.content])), new Map(then.files.map((f) => [f.path, f.content]))), message, context)
+        },
+        `Undo the build since ${before.slice(0, 12)}`,
+        userId,
+      ),
+    )
+  }
+
+  /**
+   * A plan's build (AI-STUDIO §4 "A plan", #1243): each page its own change through the gate, in one turn, so its frame
+   * swaps as it passes while the next is asked; a refused or failed page stops it with the pages before it kept.
+   */
+  build(input: BuildRequest): Promise<BuildOutcome> {
+    return this.inTurn(async () => {
+      const { head: before } = await this.draftNow()
+      const progress = input.progress ?? (() => undefined)
+      const titles = input.pages.map((p) => p.title)
+      const run = { stopping: false }
+      this.building = run
+      const pages: BuiltPage[] = []
+      let last: { commit: string; previewRef: string } | null = null
+      let stopped = false
+      const left = (from: number): BuiltPage[] => input.pages.slice(from).map((p) => ({ page: p.page, title: p.title, outcome: 'left', commit: null, reply: null }))
+      const keep = (current: BuiltPage | null) =>
+        input.kept?.({ outcome: 'built', before, commit: last?.commit ?? null, previewRef: last?.previewRef ?? null, pages: [...pages, ...(current ? [current] : []), ...left(pages.length + (current ? 1 : 0))], stopped })
+      try {
+        for (const [i, page] of input.pages.entries()) {
+          if (i > 0 && run.stopping) {
+            stopped = true
+            break
+          }
+          progress({ type: 'page', index: i + 1, of: input.pages.length, page: page.page, titles })
+          if (i > 0) await keep({ page: page.page, title: page.title, outcome: 'failed', commit: null, reply: null })
+          let made: ChangeOutcome
+          try {
+            made = await this.runChange({ ...input, request: page.request })
+          } catch (error) {
+            // Nothing built yet: the request answers as a single change's failure would (queued, unavailable, failed).
+            if (i === 0) throw error
+            pages.push({ page: page.page, title: page.title, outcome: 'failed', commit: null, reply: null })
+            break
+          }
+          const reply = made.outcome === 'refused' ? null : (made.summary?.reply ?? null)
+          pages.push({ page: page.page, title: page.title, outcome: made.outcome, commit: made.outcome === 'refused' ? null : made.commit, reply })
+          if (made.outcome === 'changed') last = { commit: made.commit, previewRef: made.previewRef }
+          await keep(null)
+          if (made.outcome === 'refused') break
+        }
+      } finally {
+        this.building = null
+      }
+      pages.push(...left(pages.length))
+      return { outcome: 'built' as const, before, commit: last?.commit ?? null, previewRef: last?.previewRef ?? null, pages, stopped }
+    })
   }
 
   /** "Change template" (SAAS §9.2): the template's theme as one change to the draft, through the same gate; nothing is pushed. */
@@ -161,7 +283,7 @@ export class StudioRunner {
       if (!this.start) throw new StudioUnavailable('Nothing is loaded to change.')
       const { theme } = await templateFiles(this.deps.sites, this.start.coreVersion, template)
       const files = templateChange(await this.themeNow(), theme, (await this.guardContext()).locales, keep)
-      return this.commitStep((client, context) => client.change(files, `Use the ${template} template`, context), userId, template)
+      return this.commitStep((client, context, message) => client.change(files, message, context), `Use the ${template} template`, userId, template)
     })
   }
 
@@ -175,7 +297,7 @@ export class StudioRunner {
     return this.inTurn(async () => {
       const file = withText(await this.themeNow(), locale, key, text)
       if (!file) return { outcome: 'missing' as const }
-      return this.commitStep((client, context) => client.change([file], `Edit text ${locale} ${key}`, context), userId)
+      return this.commitStep((client, context, message) => client.change([file], message, context), `Edit text ${locale} ${key}`, userId)
     })
   }
 
@@ -185,7 +307,9 @@ export class StudioRunner {
    */
   reset(forget: () => Promise<boolean>): Promise<boolean> {
     return this.inTurn(async () => {
+      await this.saving
       if (!(await forget())) return false
+      await this.deps.kept.drop(Number.MAX_SAFE_INTEGER)
       await this.deps.drafts.delete(draftBundle(this.deps.storeId))
       await this.unload()
       return true
@@ -199,6 +323,7 @@ export class StudioRunner {
   prepare(commit: string | null): Promise<{ outcome: 'ready'; commit: string; template: string; coreVersion: string; taken: string | null } | { outcome: 'nothing' } | { outcome: 'refused'; problems: number }> {
     return this.inTurn(async () => {
       const { storeId } = this.deps
+      await this.settle()
       const row = await this.system((tx) => selectStudioStart(tx, storeId))
       if (!row?.head_commit) return { outcome: 'nothing' as const }
       const { client } = await this.ensureLoaded()
@@ -213,6 +338,7 @@ export class StudioRunner {
       // #1211: a design publish first takes what went live after the draft started, so it never overwrites a push to main.
       const taken = commit === null ? await this.takeLive(row) : null
       if (taken?.outcome === 'refused') return { outcome: 'refused' as const, problems: taken.problems.length }
+      await this.settle()
       const target = commit ?? (await this.system((tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
       if (!target) return { outcome: 'nothing' as const }
       await this.keepTheme(client, target)
@@ -228,7 +354,7 @@ export class StudioRunner {
     // A live build's source is kept while it is live (cleanup.ts); without it nothing can be compared, so nothing is published over it.
     if (!source) return { outcome: 'refused', problems: [{ step: 'validator', file: null, line: null, rule: 'take/missing-onto', message: 'The live build’s source is missing.' }], repairs: 0, runId: null }
     const onto = { commit: live, bundle: await source.arrayBuffer() }
-    const taken = await this.commitStep((client, context) => client.takeLive(from, onto, context), null)
+    const taken = await this.commitStep((client, context) => client.takeLive(from, onto, context), 'Take what went live', null)
     if (taken.outcome !== 'refused') await this.system((tx) => baseDraftOnBuild(tx, this.deps.storeId, build))
     return taken
   }
@@ -315,12 +441,20 @@ export class StudioRunner {
         const context = await this.guardContext()
         const theme = new Map((await client.theme()).files.map((f) => [f.path, f.content]))
         let problems: GateProblem[] = []
+        let previous: FileEdit[] = []
         for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
-          const proposal = await ask.model.propose({ request, theme: [...theme].map(([path, content]) => ({ path, content })), problems })
+          const proposal = await ask.model.propose({ request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous })
           const startedAt = this.deps.now().getTime()
           const made: Attempt = { proposal, ms: 0, result: null }
           attempts.push(made)
-          made.result = await client.change(proposal.files, `Migrate to storefront-core ${ask.to}`, context)
+          previous = proposal.files
+          const applied = applyEdits(theme, proposal.files)
+          if (!applied.ok) {
+            made.result = { ok: false, problems: applied.problems }
+            problems = applied.problems
+            continue
+          }
+          made.result = await client.change(applied.changes, `Migrate to storefront-core ${ask.to}`, context)
           made.ms = this.deps.now().getTime() - startedAt
           if (!made.result.ok) {
             problems = made.result.problems
@@ -328,7 +462,7 @@ export class StudioRunner {
           }
           // The push once live carries the upgrade's files and the agent's, each file as it ends up.
           const changed = new Map(filesSchema.parse(JSON.parse(new TextDecoder().decode(await files.arrayBuffer()))).files.map((f) => [f.path, f.content]))
-          for (const f of proposal.files) changed.set(f.path, f.content)
+          for (const f of applied.changes) changed.set(f.path, f.content)
           await this.deps.drafts.put(upgradeBundle(storeId, made.result.commit), await client.exportBundle())
           await this.deps.drafts.put(upgradeFiles(storeId, made.result.commit), new TextEncoder().encode(JSON.stringify({ files: [...changed].map(([path, content]) => ({ path, content })) })).buffer)
           await this.recordMigration(input, attempts, 'changed')
@@ -354,6 +488,7 @@ export class StudioRunner {
     return this.inTurn(async (): Promise<PublishReady> => {
       const { storeId } = this.deps
       const { client } = await this.ensureLoaded()
+      await this.settle()
       const start = this.start
       const row = await this.system((tx) => selectStudioStart(tx, storeId))
       const head = (await client.theme()).head
@@ -389,6 +524,8 @@ export class StudioRunner {
           await this.deps.drafts.put(draftBundle(storeId), await next.exportBundle())
           const rebased = result
           await this.system((tx) => rebaseDraft(tx, { storeId, head: rebased.commit, coreVersion: version, at: this.deps.now() }))
+          // The rebased bundle holds every change kept before it.
+          await this.deps.kept.drop(Number.MAX_SAFE_INTEGER)
           this.host = host
           this.client = next
           this.start = { template: start.template, coreVersion: version }
@@ -422,6 +559,7 @@ export class StudioRunner {
     this.client = null
     this.host = null
     this.start = null
+    this.startedAt = null
     if (host) await host.stop()
     await this.deps.capacity.release()
   }
@@ -442,6 +580,8 @@ export class StudioRunner {
   private async ensureLoaded(): Promise<{ client: SandboxClient; bundle: ClientBundle | null }> {
     if (this.client && this.host?.running()) return { client: this.client, bundle: null }
     const { storeId } = this.deps
+    // A save still writing finishes first, so the load reads what it wrote rather than reapplying it.
+    await this.saving
     const row = await this.system((tx) => selectStudioStart(tx, storeId))
     const template = row?.template ?? row?.own_template ?? row?.storefront_template ?? null
     // AI-STUDIO §3 step 4: the draft only while its row exists.
@@ -456,6 +596,7 @@ export class StudioRunner {
       throw error
     })
     let loaded: Loaded
+    let reapplied: { bundle: ClientBundle; template: string } | null = null
     const client = sandboxClient(host.send, storeId)
     try {
       await host.start()
@@ -467,6 +608,8 @@ export class StudioRunner {
             const { skeleton, theme } = await templateFiles(this.deps.sites, coreVersion, template)
             return client.loadFiles([...skeleton, ...theme], `Start from the ${template} template`)
           })()
+      const kept = await this.deps.kept.list()
+      if (kept.length > 0) reapplied = await this.reapply(client, kept)
     } catch (error) {
       // A container this object can't use must not keep running, nor hold a place the next studio needs.
       await host.stop().catch(() => undefined)
@@ -475,9 +618,33 @@ export class StudioRunner {
     }
     this.host = host
     this.client = client
-    this.start = { template, coreVersion }
-    if (loaded.bundle) this.deps.onBundle(loaded.bundle)
-    return { client, bundle: loaded.bundle }
+    this.start = { template: reapplied?.template ?? template, coreVersion }
+    this.startedAt ??= this.deps.now().getTime()
+    const bundle = reapplied?.bundle ?? loaded.bundle
+    if (bundle) this.deps.onBundle(bundle)
+    return { client, bundle }
+  }
+
+  /**
+   * AI-STUDIO §7 "A crash": changes accepted before the object stopped and never saved are applied again, in order,
+   * through the gate onto the bundle loaded, then saved; one the gate now refuses is dropped and logged.
+   */
+  private async reapply(client: SandboxClient, kept: readonly KeptChange[]): Promise<{ bundle: ClientBundle; template: string } | null> {
+    const context = await this.guardContext()
+    let last: { seq: number; bundle: ClientBundle; template: string } | null = null
+    for (const k of kept) {
+      const result = await client.change(k.files, k.message, context)
+      if (!result.ok) {
+        logEvent({ event: 'studio_reapply_refused', api: 'store', storeId: this.deps.storeId, code: result.problems[0]?.rule ?? 'refused' })
+        await this.deps.kept.remove(k.seq)
+        continue
+      }
+      if (result.commit !== k.commit) await this.deps.kept.recommit(k.seq, result.commit)
+      last = { seq: k.seq, bundle: result.bundle, template: k.template }
+    }
+    if (!last) return null
+    this.later(last.seq, await this.collect(client))
+    return last
   }
 
   /**
@@ -504,11 +671,12 @@ export class StudioRunner {
 
   private async runChange(input: ChangeRequest): Promise<ChangeOutcome> {
     const context = await this.guardContext()
-    const theme = await this.themeNow()
+    const { head: before, theme } = await this.draftNow()
     const attempts: Attempt[] = []
     let problems: GateProblem[] = []
-    let previous: { path: string; content: string }[] = []
-    let saved: Awaited<ReturnType<StudioRunner['collect']>> | null = null
+    let previous: FileEdit[] = []
+    let after: Map<string, string> = theme
+    let saved: Collected | null = null
     let stop: () => void = () => undefined
     const stopping = new Promise<never>((_, reject) => {
       stop = () => reject(new StudioCancelled('studio: stopped'))
@@ -516,17 +684,42 @@ export class StudioRunner {
     stopping.catch(() => undefined)
     const run = { stop, stopped: false, sandboxed: false }
     this.running = run
+    const progress = input.progress ?? (() => undefined)
+    let summarised = false
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
-        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous }), stopping])
+        progress(attempt === 0 ? { type: 'step', step: 'asking' } : { type: 'step', step: 'repairing', attempt, of: maxRepairs })
+        const streamed = new StreamedChecks(theme, async (changes) => {
+          if (!this.client) return []
+          return (await this.client.precheck(changes, context)).problems
+        })
+        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous, onFile: streamed.add }), stopping])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
-        const startedAt = this.deps.now().getTime()
-        run.sandboxed = true
+        if (proposal.summary?.reply && !summarised) {
+          summarised = true
+          progress({ type: 'text', text: proposal.summary.reply })
+        }
         const made: Attempt = { proposal, ms: 0, result: null }
         attempts.push(made)
+        // Questions or a plan (#1243): nothing to gate, and the draft stays as it is.
+        if (proposal.asked && attempt === 0) {
+          const runId = await this.record(input, attempts, 'unchanged')
+          return { outcome: 'unchanged', commit: before, repairs: 0, runId, summary: proposal.summary ?? null }
+        }
+        previous = proposal.files
+        // Edits that don't apply are a repair like a gate failure, with no sandbox run (ARCHITECTURE §6.2).
+        const applied = applyEdits(theme, proposal.files)
+        if (!applied.ok) {
+          made.result = { ok: false, problems: applied.problems }
+          problems = applied.problems
+          continue
+        }
+        progress({ type: 'step', step: 'checking' })
+        const startedAt = this.deps.now().getTime()
+        run.sandboxed = true
         const done = await this.recovering(async (client) => {
-          const result = await client.change(proposal.files, input.request, context)
+          const result = await client.change(applied.changes, input.request, context)
           return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
         }).finally(() => {
           made.ms = this.deps.now().getTime() - startedAt
@@ -534,10 +727,11 @@ export class StudioRunner {
         made.result = done.result
         if (done.result.ok) {
           saved = done.saved
+          after = applied.after
           break
         }
-        problems = done.result.problems
-        previous = proposal.files.flatMap((f) => (f.content === null ? [] : [{ path: f.path, content: f.content }]))
+        // The pre-check of this very change may name what the refusing step stopped before (#1240).
+        problems = withPrechecked(done.result.problems, await streamed.problemsFor(applied.changes))
         run.sandboxed = false
       }
     } catch (error) {
@@ -553,14 +747,11 @@ export class StudioRunner {
       const runId = await this.record(input, attempts, 'refused')
       return { outcome: 'refused', problems, repairs, runId }
     }
-    const after = new Map(theme)
-    for (const f of attempts.at(-1)?.proposal.files ?? []) {
-      if (f.content === null) after.delete(f.path)
-      else after.set(f.path, f.content)
-    }
     let previewRef: string | null
     try {
-      previewRef = saved ? await this.save(saved, last, input.userId, after) : null
+      if (saved) progress({ type: 'step', step: 'saving' })
+      previewRef = saved ? await this.save(saved, last, { message: input.request, userId: input.userId, before: theme, after }) : null
+      if (previewRef) progress({ type: 'step', step: 'updating' })
     } catch (error) {
       // A pass that couldn't be saved changed nothing the merchant can see, but its asks were still spent.
       await this.record(input, attempts, 'failed')
@@ -568,47 +759,93 @@ export class StudioRunner {
     }
     const runId = await this.record(input, attempts, previewRef ? 'changed' : 'unchanged')
     const summary = attempts.at(-1)?.proposal.summary ?? null
-    return previewRef ? { outcome: 'changed', commit: last.commit, previewRef, repairs, runId, summary } : { outcome: 'unchanged', commit: last.commit, repairs, runId, summary }
+    return previewRef ? { outcome: 'changed', commit: last.commit, before, previewRef, repairs, runId, summary } : { outcome: 'unchanged', commit: last.commit, repairs, runId, summary }
   }
 
   /** One step of the sandbox without the model (undo, a template, edited words): saved and previewed when it changed something. */
-  private async commitStep(step: (client: SandboxClient, context: GuardContext) => Promise<ChangeResult>, userId: string | null, template?: string): Promise<ChangeOutcome> {
+  private async commitStep(step: (client: SandboxClient, context: GuardContext, message: string) => Promise<ChangeResult>, message: string, userId: string | null, template?: string): Promise<ChangeOutcome> {
     const context = await this.guardContext()
+    const { head: before, theme } = await this.draftNow()
     const done = await this.recovering(async (client) => {
-      const result = await step(client, context)
+      const result = await step(client, context, message)
       return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
     })
     const { result } = done
     if (!result.ok) return { outcome: 'refused', problems: result.problems, repairs: 0, runId: null }
     if (!done.saved) return { outcome: 'unchanged', commit: result.commit, repairs: 0, runId: null }
-    const previewRef = await this.save(done.saved, result, userId, await this.themeNow(), template)
-    return { outcome: 'changed', commit: result.commit, previewRef, repairs: 0, runId: null }
+    const previewRef = await this.save(done.saved, result, { message, userId, before: theme, after: await this.themeNow() }, template)
+    return { outcome: 'changed', commit: result.commit, before, previewRef, repairs: 0, runId: null }
   }
 
-  /** What an accepted change leaves to save: the repo as a git bundle and the gate's bundle for the preview. */
-  private async collect(client: SandboxClient) {
+  private async collect(client: SandboxClient): Promise<Collected> {
     return { bundle: await client.exportBundle(), preview: await client.previewFiles() }
   }
 
-  /** AI-STUDIO §4 steps 5–7: the draft bundle, then the preview folder, then the pointers, then the frame's reload. */
-  private async save(saved: Awaited<ReturnType<StudioRunner['collect']>>, result: Extract<ChangeResult, { ok: true }>, userId: string | null, theme: ReadonlyMap<string, string>, template?: string): Promise<string> {
+  /**
+   * AI-STUDIO §4 steps 5–6 (#1241): the change goes into the object's own storage, the frame reloads at once, and the
+   * draft bundle, preview folder and design_draft row follow in the background, so no R2 or database write is waited on.
+   */
+  private async save(saved: Collected, result: Extract<ChangeResult, { ok: true }>, change: { message: string; userId: string | null; before: ReadonlyMap<string, string>; after: ReadonlyMap<string, string> }, template?: string): Promise<string> {
     if (!this.start) throw new StudioUnavailable('Nothing is loaded to save.')
-    // The new template is the object's only once its draft is saved, so a failed save leaves the old one in force.
+    // The new template is the object's only once its change is kept, so a failed keep leaves the old one in force.
     const start = template ? { ...this.start, template } : this.start
-    const { storeId } = this.deps
-    await this.deps.drafts.put(draftBundle(storeId), saved.bundle)
-    const ref = this.deps.newId()
-    const folder = previewFolder(storeId, ref)
-    for (const f of saved.preview.files) {
-      const type = contentTypes[f.path.split('.').at(-1) ?? '']
-      await this.deps.sites.put(`${folder}${f.path}`, decode(f.base64), { sha256: f.sha256, ...(type ? { httpMetadata: { contentType: type } } : {}) })
-    }
-    await this.system((tx) =>
-      moveDraft(tx, { storeId, head: result.commit, template: start.template, coreVersion: start.coreVersion, previewRef: ref, userId, at: this.deps.now(), customPaths: customPaths(theme) }),
-    )
+    const previewRef = this.deps.newId()
+    const seq = await this.deps.kept.add({
+      commit: result.commit,
+      message: change.message,
+      userId: change.userId,
+      template: start.template,
+      coreVersion: start.coreVersion,
+      customPaths: customPaths(change.after),
+      previewRef,
+      files: changedFiles(change.before, change.after),
+    })
     this.start = start
-    this.deps.onBundle(result.bundle)
-    return ref
+    this.deps.onBundle(result.bundle, result.swap)
+    this.later(seq, saved)
+    return previewRef
+  }
+
+  private later(seq: number, saved: Collected): void {
+    this.lastKept = Math.max(this.lastKept, seq)
+    const work = this.saving.then(async () => void (await this.persist(seq, saved)))
+    this.saving = work
+    this.deps.background(work)
+  }
+
+  /**
+   * The save behind the frame (AI-STUDIO §4 steps 6–7): the draft bundle, then the preview folder, then design_draft for
+   * every change still kept up to `seq` (the bundle holds them all), then they leave storage. Retried; false once it gave up.
+   */
+  private async persist(seq: number, saved: Collected): Promise<boolean> {
+    const { storeId } = this.deps
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const kept = (await this.deps.kept.list()).filter((k) => k.seq <= seq)
+        const own = kept.find((k) => k.seq === seq)
+        if (!own) return true
+        await this.deps.drafts.put(draftBundle(storeId), saved.bundle)
+        const folder = previewFolder(storeId, own.previewRef)
+        await Promise.all(
+          saved.preview.files.map((f) => {
+            const type = contentTypes[f.path.split('.').at(-1) ?? '']
+            return this.deps.sites.put(`${folder}${f.path}`, decode(f.base64), { sha256: f.sha256, ...(type ? { httpMetadata: { contentType: type } } : {}) })
+          }),
+        )
+        await this.system(async (tx) => {
+          for (const k of kept) await moveDraft(tx, { storeId, head: k.commit, template: k.template, coreVersion: k.coreVersion, previewRef: k.previewRef, userId: k.userId, at: this.deps.now(), customPaths: k.customPaths })
+        })
+        await this.deps.kept.drop(seq)
+        return true
+      } catch (error) {
+        const wait = saveRetryMs[attempt]
+        if (wait === undefined) {
+          logEvent({ event: 'studio_save_failed', api: 'store', storeId, code: failureCode(error) })
+          return false
+        }
+        await this.deps.sleep(wait)
+      }
+    }
   }
 
   /** SAAS §9.2 metering: the merchant's ask on its plan or key, each repair on the platform, every one with its sandbox time. */
@@ -618,7 +855,7 @@ export class StudioRunner {
     const base = { storeId: this.deps.storeId, requestedBy: input.userId, prompt: input.request.slice(0, 4000) }
     const run = (a: Attempt) => ({ model: a.proposal.model, tokensIn: a.proposal.tokensIn, tokensOut: a.proposal.tokensOut, costAmount: a.proposal.costAmount, costCurrency: a.proposal.costCurrency, sandboxMs: Math.max(0, a.ms) })
     return this.system(async (tx) => {
-      const id = await insertAiRun(tx, { ...base, ...run(first), kind: 'design', billedTo: input.billedTo, repairAttempts: repairs.length, parentRunId: null, outcome })
+      const id = await insertAiRun(tx, { ...base, ...run(first), kind: 'design', billedTo: input.billedTo, repairAttempts: repairs.length, parentRunId: input.parentRunId ?? null, outcome })
       for (const r of repairs) await insertAiRun(tx, { ...base, ...run(r), kind: 'repair', billedTo: 'platform', repairAttempts: 0, parentRunId: id, outcome: r.result === null ? 'failed' : r.result.ok ? outcome : 'refused' })
       return id
     })
@@ -637,9 +874,13 @@ export class StudioRunner {
     })
   }
 
-  private async themeNow(): Promise<Map<string, string>> {
+  private async draftNow(): Promise<{ head: string; theme: Map<string, string> }> {
     const theme = await this.recovering((client) => client.theme())
-    return new Map(theme.files.map((f) => [f.path, f.content]))
+    return { head: theme.head, theme: new Map(theme.files.map((f) => [f.path, f.content])) }
+  }
+
+  private async themeNow(): Promise<Map<string, string>> {
+    return (await this.draftNow()).theme
   }
 
   private async guardContext(): Promise<GuardContext> {

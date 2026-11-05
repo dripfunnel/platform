@@ -11,7 +11,14 @@ import { hashSessionId } from '#auth/session'
 import { activityLog } from '#saas/activity/index'
 import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { draftBundle, previewFolder, sourceBundle } from '#saas/storefronts/index'
-import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
+import { hashStudioSession, liveHub, StudioRunner, type DraftsBucket, type FileEdit, type LiveMessage } from '#saas/studio/index'
+import { graphql, type GraphQLSchema } from 'graphql'
+import { storeSchema } from '#apis/store/schema'
+import { handleStudioLive, studioLiveRequest } from '#apis/store/studioLive'
+import { resolveStoreStanding } from '#auth/storeCaller'
+import { createUserSession, storeCookieName } from '#auth/storeSession'
+import { withSystemScope } from '#db/scoped/index'
+import { studioStorage } from './support/kept'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
@@ -69,6 +76,7 @@ const runnerOf = (storeId: string): StudioRunner => {
     now: () => new Date(),
     newId: () => crypto.randomUUID(),
     onBundle: () => undefined,
+    ...studioStorage(),
   })
   runners.set(storeId, runner)
   return runner
@@ -77,7 +85,7 @@ const local = localStudio(() => db.sql, runnerOf)
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
 const script: { answers: string[]; sent: string[]; lastTurn: string; turns: { id: string; name: string; arguments: string }[][] } = { answers: [], sent: [], lastTurn: '', turns: [] }
-const reply = (files: { path: string; content: string | null }[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
+const reply = (files: FileEdit[], words = 'I made the lead warmer.') => JSON.stringify({ files, reply: words, changed: ['Hero lead'], page: 'home' })
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => {
     script.sent.push(call.text)
@@ -87,17 +95,25 @@ const provider: AiProvider = {
     }
     if (providerFails) throw providerFails
     const text = script.answers.shift() ?? reply([])
+    for (const piece of text.match(/.{1,6}/gs) ?? []) call.onText?.(piece)
     return { text, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
   converse: async (call) => {
-    script.sent.push('converse')
-    const next = script.turns.shift()
-    if (next) return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
+    // A conversation's first turn is recorded like a plain call, with the tools it was offered (#1242: every change has the store lookups).
+    const first = call.messages[0]?.content.flatMap((p) => (p.type === 'text' ? [p.text] : [])).join('\n\n') ?? ''
+    if (call.messages.length === 1) script.sent.push(`[tools: ${call.tools.map((t) => t.name).join(' ')}] ${first}`)
+    // The model can call only the tools it was offered.
+    const next = script.turns[0]
+    if (next && next.every((c) => call.tools.some((t) => t.name === c.name))) {
+      script.turns.shift()
+      return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
+    }
     script.lastTurn = JSON.stringify(call.messages.filter((m) => m.role === 'tool'))
     if (hold) {
       held?.()
       await hold
     }
+    if (providerFails) throw providerFails
     const text = script.answers.shift() ?? reply([])
     return { text, toolCalls: [], wantsTools: false, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
@@ -207,18 +223,17 @@ describe('asking for a change', () => {
     expect(await usage(t.storeA1)).toBe(2)
   })
 
-  it('shows each repair the files of the attempt before it, and the first ask none', async () => {
+  it('shows each repair the answer of the attempt before it, and the first ask none', async () => {
     const second = { path: 'src/theme/pages/AboutPage.tsx', content: "export const AboutPage = () => { fetch('/y'); return null }\n" }
-    const deletion = { path: 'src/theme/components/Gone.tsx', content: null }
+    const deletion = { path: 'src/theme/components/Gone.tsx', delete: true as const }
     script.answers = [reply([refusedPage, deletion]), reply([second]), reply([lead('Third time.')])]
     expect((await ask('owner', 'Three attempts')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
     const [first, repair, again] = script.sent.slice(-3)
-    const marker = "Your last answer's files, which failed:"
+    const marker = "Your last answer's files, which failed and were not kept:"
     expect(first).not.toContain(marker)
-    expect(repair).toContain(`${marker}\n--- ${refusedPage.path}\n${refusedPage.content}`)
-    expect(repair).not.toContain(deletion.path)
-    expect(again).toContain(`${marker}\n--- ${second.path}\n${second.content}`)
-    expect(again).not.toContain(`${marker}\n--- ${refusedPage.path}`)
+    expect(repair).toContain(`${marker}\n${JSON.stringify([refusedPage, deletion])}`)
+    expect(again).toContain(`${marker}\n${JSON.stringify([second])}`)
+    expect(again).not.toContain(JSON.stringify(refusedPage))
   })
 
   it('refuses a change still failing after three repairs and leaves the draft as it was', async () => {
@@ -236,6 +251,8 @@ describe('asking for a change', () => {
   })
 
   it('runs two requests for one store one after the other', async () => {
+    // Both must be taken: the tests before this one spend the plan's six AI requests.
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
     script.answers = [reply([lead('First of two.')]), reply([lead('Second of two.')])]
     const [one, two] = await Promise.all([ask('owner', 'First'), ask('owner', 'Second')])
     expect([one.data?.['askDesign'], two.data?.['askDesign']]).toEqual([expect.objectContaining({ outcome: 'changed' }), expect.objectContaining({ outcome: 'changed' })])
@@ -349,7 +366,7 @@ describe('asking for a change', () => {
     script.answers = [reply([])]
     try {
       expect((await ask('owner', 'A linen hero')).code).toBeUndefined()
-      expect(script.sent.slice(sent)).toEqual([expect.not.stringContaining('converse')])
+      expect(script.sent.slice(sent)).toEqual([expect.not.stringContaining('search_stock_images')])
       expect(script.turns).toHaveLength(1)
     } finally {
       script.turns = []
@@ -503,6 +520,10 @@ describe('asking for a change', () => {
       if (!source.startsWith('query { library')) expect([source, (await w.gql('manager', source)).code]).toEqual([source, 'FORBIDDEN'])
     }
     expect((await db.sql`select 1 from asset where id = ${id} and name is null`).length).toBe(1)
+    // The studio's wake is the studio's own read access, refused to support like the rest (#1241).
+    const woken = local.calls.length
+    expect((await w.support(cookie, t.partnerA, 'mutation { studioActivity }')).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect(local.calls.length).toBe(woken)
     expect(await assets()).toBe(rows)
     expect(stored.length).toBe(putsBefore)
     expect((await w.gql('bOwner', `mutation { renameLibraryAsset(id: "${id}", name: "x") }`)).code).toBe('NOT_FOUND')
@@ -722,6 +743,15 @@ describe('the studio session', () => {
     expect(local.calls.every((c) => c.storeId === c.contextStore)).toBe(true)
   })
 
+  it('wakes only the caller’s own store’s studio: the Owner’s and a Manager’s, never Staff’s or a supplier’s (#1241)', async () => {
+    const before = local.calls.length
+    for (const who of ['owner', 'manager', 'bOwner'] as const) expect((await w.gql(who, 'mutation { studioActivity }')).data?.['studioActivity'], who).toBe(true)
+    for (const who of ['staff', 'supplier'] as const) expect((await w.gql(who, 'mutation { studioActivity }')).code).toBe('FORBIDDEN')
+    const reached = local.calls.slice(before)
+    expect(reached.map((c) => c.storeId)).toEqual([t.storeA1, t.storeA1, t.storeB1])
+    expect(reached.every((c) => c.storeId === c.contextStore)).toBe(true)
+  })
+
   it('renews only while the seat holds: a removed user’s renewal is refused and the session ends; signing out ends it at once', async () => {
     await db.sql`delete from studio_session where user_id = ${w.people.manager}`
     const session = ((await w.gql('manager', '{ studioSession { session } }')).data?.['studioSession'] as { session: string }).session
@@ -751,5 +781,158 @@ describe('choosing the model', () => {
     expect((await ask('owner', 'Keep it as it is', { model: 'gpt-5' })).code).toBe('INVALID_INPUT')
     expect(await usage(t.storeA1)).toBe(before)
     expect((await w.gql('owner', 'query { studioSession { models } }')).data?.['studioSession']).toMatchObject({ models: ['claude-opus-5-5', 'claude-haiku-5-5'] })
+  })
+})
+
+describe('the live progress socket (#1237)', () => {
+  const runOf = (storeId: string) => {
+    const mine = local.live.filter((e) => e.storeId === storeId)
+    const run = mine.at(-1)?.run
+    return mine.filter((e) => e.run === run).map((e) => e.event)
+  }
+  const named = (events: ReturnType<typeof runOf>) => events.map((e) => (e.type === 'step' ? (e.step === 'repairing' ? `repairing ${e.attempt} of ${e.of}` : e.step) : e.type))
+
+  it('sends every step of a change in order, each repair included, and leaves askDesign’s answer as it was', async () => {
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    script.answers = [reply([refusedPage]), reply([lead('Live, on the second try.')])]
+    const asked = await ask('owner', 'A change shown as it happens')
+    expect(asked).toMatchObject({ code: undefined, data: { askDesign: { outcome: 'changed', message: { role: 'ai', text: 'I made the lead warmer.', changed: ['Hero lead'], page: 'home', canUndo: true } } } })
+    const events = runOf(t.storeA1)
+    expect(named(events)).toEqual(['reading', 'asking', 'text', 'checking', 'repairing 1 of 3', 'checking', 'saving', 'updating', 'done'])
+    expect(events.find((e) => e.type === 'text')).toEqual({ type: 'text', text: 'I made the lead warmer.' })
+    const message = (asked.data?.['askDesign'] as { message: { id: string } }).message
+    expect(events.at(-1)).toEqual({ type: 'done', outcome: 'changed', messageId: message.id })
+    // Never the request's words or a file's contents.
+    expect(JSON.stringify(events)).not.toContain('shown as it happens')
+    expect(JSON.stringify(events)).not.toContain('fetch(')
+  })
+
+  it('shows an edit that does not apply as a repair, with no check of it (#1238)', async () => {
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    script.answers = [reply([{ path: 'content/en/pages.json', edits: [{ search: 'not in the file', replace: 'x' }] }]), reply([lead('Applied on the repair.')])]
+    expect((await ask('owner', 'An edit that misses')).data?.['askDesign']).toMatchObject({ outcome: 'changed' })
+    expect(named(runOf(t.storeA1))).toEqual(['reading', 'asking', 'text', 'repairing 1 of 3', 'checking', 'saving', 'updating', 'done'])
+    expect(script.sent.at(-1)).toContain('patch/not-found')
+  })
+
+  it('streams a chat answer word by word, then the outcome; a refusal before the first step sends nothing', async () => {
+    script.answers = ['Linen reads best in calm, natural tones.']
+    const chat = await w.gql('owner', 'mutation { askDesign(text: "What suits linen?", page: "home", device: "desktop", mode: "chat") { outcome message { id text } } }')
+    expect(chat.data?.['askDesign']).toMatchObject({ outcome: 'unchanged', message: { text: 'Linen reads best in calm, natural tones.' } })
+    const events = runOf(t.storeA1)
+    expect(events[0]).toEqual({ type: 'step', step: 'asking' })
+    expect(events.filter((e) => e.type === 'text').map((e) => (e.type === 'text' ? e.text : '')).join('')).toBe('Linen reads best in calm, natural tones.')
+    expect(events.at(-1)).toMatchObject({ type: 'done', outcome: 'unchanged' })
+    const before = local.live.length
+    expect((await ask('owner', 'x'.repeat(2001))).code).toBe('INVALID_INPUT')
+    expect(local.live.length).toBe(before)
+  })
+
+  /** The Worker's hand-off, to one feed per store as each store's Durable Object holds its own. */
+  const hubs = new Map<string, ReturnType<typeof liveHub>>()
+  const sockets = new Map<string, { got: LiveMessage[]; send: (m: string) => void }[]>()
+  const hubOf = (storeId: string) => {
+    const found = hubs.get(storeId)
+    if (found) return found
+    const open: { got: LiveMessage[]; send: (m: string) => void }[] = []
+    sockets.set(storeId, open)
+    const memory = new Map<string, unknown>()
+    const hub = liveHub({ get: async <T,>(k: string) => memory.get(k) as T | undefined, put: async (k, v) => void memory.set(k, v) }, () => open, () => Date.now())
+    hubs.set(storeId, hub)
+    return hub
+  }
+  const open = async (context: { storeId: string }, input: { sessionHash: string; after: number }) => {
+    const socket = { got: [] as LiveMessage[], send: (m: string) => void socket.got.push(JSON.parse(m) as LiveMessage) }
+    await hubOf(context.storeId).connect(() => (sockets.get(context.storeId)?.push(socket), socket), input.after)
+    return new Response(input.sessionHash, { status: 200 })
+  }
+  const upgrade = (session: string, origin = 'https://store.example', extra: Record<string, string> = {}) =>
+    new Request(`https://store.example/api/studio/live?session=${session}&after=0`, { headers: { upgrade: 'websocket', origin, ...extra } })
+  const sessionOf = async (who: Who) => ((await w.gql(who, '{ studioSession { session } }')).data?.['studioSession'] as { session: string }).session
+  const connect = async (who: Who, request: (session: string) => Request) => {
+    const ctx = { ...(await w.context(who)), host: 'store.example' }
+    return handleStudioLive(request(await sessionOf(who)), ctx, { open })
+  }
+
+  it('hands an Owner’s socket to its own store’s feed only: store A’s socket never gets store B’s events', async () => {
+    expect((await connect('owner', (s) => upgrade(s))).status).toBe(200)
+    expect((await connect('owner', (s) => upgrade(s))).status).toBe(200)
+    expect((await connect('bOwner', (s) => upgrade(s))).status).toBe(200)
+    await hubOf(t.storeA1).publish('run-a', { type: 'step', step: 'reading' })
+    await hubOf(t.storeB1).publish('run-b', { type: 'step', step: 'asking' })
+    const [one, two] = sockets.get(t.storeA1) ?? []
+    expect(one?.got.map((m) => m.run)).toEqual(['run-a'])
+    expect(two?.got).toEqual(one?.got)
+    expect(sockets.get(t.storeB1)?.flatMap((s) => s.got.map((m) => m.run))).toEqual(['run-b'])
+  })
+
+  it('refuses another origin, no session, someone else’s studio session, Staff, and a partner’s support session', async () => {
+    const owners = await sessionOf('owner')
+    const opened = sockets.get(t.storeA1)?.length ?? 0
+    expect((await connect('owner', (s) => upgrade(s, 'https://evil.example'))).status).toBe(403)
+    expect((await connect('owner', (s) => new Request(`https://store.example/api/studio/live?session=${s}`, { headers: { upgrade: 'websocket' } }))).status).toBe(403)
+    expect((await connect('owner', (s) => new Request(`https://store.example/api/studio/live?session=${s}`, { headers: { origin: 'https://store.example' } }))).status).toBe(426)
+    const signedOut = { ...(await w.context('owner')), standing: { kind: 'signed-out' as const }, host: 'store.example' }
+    expect((await handleStudioLive(upgrade(owners), signedOut, { open })).status).toBe(401)
+    expect((await handleStudioLive(upgrade(owners), { ...(await w.context('a2Owner')), host: 'store.example' }, { open })).status).toBe(403)
+    const staff = { ...(await w.context('staff')), host: 'store.example' }
+    expect((await handleStudioLive(upgrade(owners), staff, { open })).status).toBe(403)
+    const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'live-support@partner-a.example', 'Lia', 'partner-support', 'active') returning id`
+    const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${w.people.manager}`
+    // The Manager's seat: the Owner's already has the support session opened above.
+    const at = new Date()
+    await db.sql`
+      insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
+      values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-live')}, ${new Date(at.getTime() + 5 * 60_000)}, 'read')`
+    const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => at }, 'tok-live')
+    const support = { ...(await w.supportContext(entered?.cookie ?? '', t.partnerA)), host: 'store.example' }
+    expect(support.standing.kind).toBe('acting')
+    expect((await handleStudioLive(upgrade(owners), support, { open })).status).toBe(403)
+    expect(sockets.get(t.storeA1)?.length ?? 0).toBe(opened)
+  })
+})
+
+describe('the live socket’s checks at the handler (#1237)', () => {
+  const opened: { storeId: string; after: number }[] = []
+  const open = async (context: { storeId: string }, input: { sessionHash: string; after: number }) => {
+    opened.push({ storeId: context.storeId, after: input.after })
+    return new Response(null, { status: 200 })
+  }
+  /** As the Worker builds it: the cookie, and the acting store from `?store=` (index.ts handleStore). */
+  const contextFor = async (cookie: string, query: string) => {
+    const request = new Request(`https://store.example/api/studio/live?${query}`, { headers: { cookie: `${storeCookieName}=${cookie}`, origin: 'https://store.example', upgrade: 'websocket' } })
+    const standing = await resolveStoreStanding(db.sql, studioLiveRequest(request), t.partnerA, new Date(), activityLog, { requestId: 'r', ip: null, userAgent: null })
+    return { request, ctx: { ...(await w.context('owner')), standing, host: 'store.example' } }
+  }
+  const sessionFor = async (userId: string) => withSystemScope(db.sql, (tx) => createUserSession(tx, { id: userId, partnerId: t.partnerA }, new Date()))
+  const studioSessionOf = async (cookie: string) => {
+    const { ctx } = await contextFor(cookie, `store=${t.storeA1}`)
+    const result = await graphql({ schema: storeSchema as GraphQLSchema, source: '{ studioSession { session access } }', contextValue: ctx })
+    return result.data?.['studioSession'] as { session: string; access: string }
+  }
+
+  it('takes the acting store from ?store=, checked against the session’s seats: a store the person isn’t in is refused', async () => {
+    const cookie = await sessionFor(w.people.owner)
+    const { session } = await studioSessionOf(cookie)
+    const own = await contextFor(cookie, `store=${t.storeA1}&session=${session}&after=4`)
+    expect((await handleStudioLive(own.request, own.ctx, { open })).status).toBe(200)
+    expect(opened.at(-1)).toEqual({ storeId: t.storeA1, after: 4 })
+    const other = await contextFor(cookie, `store=${t.storeB1}&session=${session}`)
+    expect(other.ctx.standing.kind).toBe('crossing')
+    expect((await handleStudioLive(other.request, other.ctx, { open })).status).toBe(403)
+    const bad = await contextFor(cookie, `store=${t.storeA1}&session=${session}&after=-1`)
+    expect((await handleStudioLive(bad.request, bad.ctx, { open })).status).toBe(400)
+  })
+
+  it('opens for a Manager, who sees the studio read-only, and refuses a studio session that has ended', async () => {
+    await db.sql`update membership set status = 'active' where user_id = ${w.people.manager}`
+    const cookie = await sessionFor(w.people.manager)
+    const { session, access } = await studioSessionOf(cookie)
+    expect(access).toBe('view')
+    const manager = await contextFor(cookie, `store=${t.storeA1}&session=${session}`)
+    expect((await handleStudioLive(manager.request, manager.ctx, { open })).status).toBe(200)
+    await db.sql`update studio_session set expires_at = '2000-01-01T00:00:00Z' where id_hash = ${await hashStudioSession(session)}`
+    const ended = await contextFor(cookie, `store=${t.storeA1}&session=${session}`)
+    expect((await handleStudioLive(ended.request, ended.ctx, { open })).status).toBe(403)
   })
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import styles from '../../styles/menu.module.css'
+import { menu as styles } from '../styles/menu'
 
 export const Menu = ({ label, children }: { label: string; children: ReactNode }) => {
   const [open, setOpen] = useState(false)

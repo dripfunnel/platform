@@ -208,9 +208,14 @@ export const useListing = ({ collection = null, search = null }: ListingInput, r
   }
 }
 
-/** A few products outside a listing page, such as a home page's newest: no filters, and nothing in the address. */
-export const useProducts = ({ sort = 'newest', first = 8 }: { sort?: Exclude<SortKey, 'featured'>; first?: number } = {}) => {
+/** `useProducts`' orders: a listing's, and `best-selling`, units sold over the last 90 days as the platform ranks them hourly. */
+export type ProductsSort = Exclude<SortKey, 'featured'> | 'best-selling'
+
+const productsSorts: Record<ProductsSort, string> = { ...apiSorts, 'best-selling': 'BEST_SELLING' }
+
+/** A few products outside a listing page, such as a home page's newest or best sellers: no filters, and nothing in the address. */
+export const useProducts = ({ sort = 'newest', first = 8 }: { sort?: ProductsSort; first?: number } = {}) => {
   const count = Math.min(Math.max(Math.floor(first), 1), pageSize)
-  const list = useShopData(JSON.stringify(['products', sort, count]), (client) => loadPage(client, { sort: apiSorts[sort], first: count }))
+  const list = useShopData(JSON.stringify(['products', sort, count]), (client) => loadPage(client, { sort: productsSorts[sort], first: count }))
   return { status: list.status, retry: list.retry, products: list.data?.items ?? [] }
 }

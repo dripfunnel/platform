@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import styles from '../styles/shop.module.css'
+import { shop as styles } from './styles/shop'
 
 /** An empty, missing or failed state: its heading (the page's h1 when `main`), a line, and what the shopper can do next. */
 export const Notice = ({ title, lead, main = false, children }: { title: string; lead: string; main?: boolean; children?: ReactNode }) => (

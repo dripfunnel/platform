@@ -18,6 +18,11 @@ describe('anthropic-messages request', () => {
       messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
     })
   })
+  it('marks the cached system and text parts with cache_control, and nothing else (#1238)', () => {
+    const body = translate({ ...base, system: 'rules', cacheSystem: true, messages: [{ role: 'user', content: [{ type: 'text', text: 'theme', cache: true }, { type: 'text', text: 'ask' }] }] })
+    expect(body.system).toEqual([{ type: 'text', text: 'rules', cache_control: { type: 'ephemeral' } }])
+    expect(body.messages[0]?.content).toEqual([{ type: 'text', text: 'theme', cache_control: { type: 'ephemeral' } }, { type: 'text', text: 'ask' }])
+  })
   it('clamps temperature to 1 and 0', () => {
     expect(translate({ ...base, temperature: 1.7 }).temperature).toBe(1)
     expect(translate({ ...base, temperature: -1 }).temperature).toBe(0)
@@ -82,7 +87,7 @@ describe('anthropic-messages request', () => {
 describe('anthropic-messages response', () => {
   const message = { type: 'message', model: 'claude-x', stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 4, cache_creation_input_tokens: 2 } }
   it('parses text, finish and usage with cached tokens', () => {
-    expect(response.parse({ ...message, content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] })).toEqual({ text: 'ab', toolCalls: [], finish: 'stop', usage: { tokensIn: 16, tokensOut: 5, cachedTokensIn: 4 }, model: 'claude-x' })
+    expect(response.parse({ ...message, content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] })).toEqual({ text: 'ab', toolCalls: [], finish: 'stop', usage: { tokensIn: 16, tokensOut: 5, cachedTokensIn: 4, cacheWriteTokensIn: 2 }, model: 'claude-x' })
   })
   it('parses tool calls', () => {
     const parsed = response.parse({ ...message, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 't1', name: 'f', input: { a: 1 } }] })
@@ -110,7 +115,7 @@ describe('anthropic-messages stream', () => {
     expect(events).toEqual([
       { kind: 'text', text: 'he' },
       { kind: 'text', text: 'llo' },
-      { kind: 'usage', usage: { tokensIn: 13, tokensOut: 7, cachedTokensIn: 3 } },
+      { kind: 'usage', usage: { tokensIn: 13, tokensOut: 7, cachedTokensIn: 3, cacheWriteTokensIn: 0 } },
       { kind: 'end', finish: 'stop', model: 'claude-x' },
     ])
   })

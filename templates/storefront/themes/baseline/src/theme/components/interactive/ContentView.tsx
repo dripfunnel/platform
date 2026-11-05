@@ -4,8 +4,8 @@ import { Link, useContentPage, useStorefront } from '@dripfunnel/storefront-core
 import { Notice } from '../Notice'
 import { ContentBlocks } from './ContentBlocks'
 import { Retry } from './Retry'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/content.module.css'
+import { shop } from '../styles/shop'
+import { content as styles } from '../styles/content'
 
 /** A content page (FAQ, lookbook, the merchant's own), as D1's FAQ page lays one out: its title, then its blocks. */
 export const ContentView = () => {

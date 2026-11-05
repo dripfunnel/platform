@@ -21,6 +21,7 @@ const changeSchema = z.strictObject({
   message: z.string().min(1).max(2000),
   context: z.unknown(),
 })
+const precheckSchema = z.strictObject({ files: changeSchema.shape.files, context: z.unknown() })
 const semver = z.string().regex(/^\d+\.\d+\.\d+(-dev\.\d+)?$/)
 // Core only moves forward; the baseline may be written on the version the store is already on.
 const upgradeSchema = z
@@ -35,7 +36,7 @@ const rebaseSchema = z.strictObject({ onto: z.string().regex(/^[0-9a-f]{40}$/), 
 const takeSchema = z.strictObject({ from: z.string().regex(/^[0-9a-f]{40}$/), onto: z.string().regex(/^[0-9a-f]{40}$/), context: z.unknown() })
 const undoSchema = z.strictObject({ commit: z.string().regex(/^[0-9a-f]{40}$/), message: z.string().min(1).max(2000), context: z.unknown() })
 
-// validateChange parses the context with core's own schema before anything reads it (guard/rules.ts).
+// validateTheme parses the context with core's own schema before anything reads it (guard/rules.ts).
 const asContext = (value: unknown) => value as GuardContext
 
 const frameOrigins = (req: IncomingMessage): { mediaOrigin: string; portalOrigin: string } | null => {
@@ -107,6 +108,9 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
     return run
   }
 
+  // Queued after a load's answer, so the frame isn't kept waiting while the first change's typecheck warms (#1240).
+  const prime = (slot: string) => void inTurn(slot, () => workspace(slot).prime()).catch(() => undefined)
+
   const handle = async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://sandbox')
     if (url.pathname === '/health') return send(res, 200, { ok: true })
@@ -121,10 +125,16 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
         const bytes = await read(req, maxBundle)
         const at = url.searchParams.get('at')
         if (at !== null && !/^[0-9a-f]{40}$/.test(at)) throw new HttpError(400, 'Name a commit by its full id.')
-        return send(res, 200, await inTurn(slot, () => ws().loadBundle(bytes, at)))
+        send(res, 200, await inTurn(slot, () => ws().loadBundle(bytes, at)))
+        return prime(slot)
       }
       const body = await json(req, loadFilesSchema)
-      return send(res, 200, await inTurn(slot, () => ws().loadFiles(body.files, body.message)))
+      send(res, 200, await inTurn(slot, () => ws().loadFiles(body.files, body.message)))
+      return prime(slot)
+    }
+    if (method === 'POST' && op === 'precheck') {
+      const body = await json(req, precheckSchema)
+      return send(res, 200, await inTurn(slot, () => ws().precheck(body.files, asContext(body.context))))
     }
     if (method === 'POST' && op === 'changes') {
       const body = await json(req, changeSchema)

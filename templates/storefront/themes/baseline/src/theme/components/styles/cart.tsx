@@ -1,0 +1,31 @@
+import { clsx } from 'clsx'
+
+// The cart styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+export const cart = {
+  actions: clsx('mt-auto flex flex-wrap items-center justify-between gap-y-2.5 gap-x-2.5'),
+  alert: clsx('py-3 px-3.5 m-0 border border-line rounded-card bg-soft text-ink'),
+  cart: clsx('grid gap-y-5 gap-x-5 items-start min-[900px]:grid-cols-[minmax(0,1fr)_400px] min-[900px]:gap-y-8 min-[900px]:gap-x-8'),
+  checkout: clsx('self-stretch disabled:opacity-[0.55] disabled:cursor-default'),
+  chip: clsx('pt-0 pr-1 pb-0 pl-3 inline-flex items-center gap-y-2 gap-x-2 rounded-button bg-tint text-[14px] font-semibold'),
+  code: clsx('grid grid-cols-[1fr_auto] gap-y-2 gap-x-2 [&_label]:col-[1_/_-1] [&_label]:text-[14px] [&_label]:font-semibold [&_input]:py-0 [&_input]:px-3.5 [&_input]:border [&_input]:border-line [&_input]:min-h-12 [&_input]:box-border [&_input]:rounded-[calc(var(--radius-card)_-_4px)] [&_input]:bg-surface [&_input]:text-ink [&_input]:[font-family:inherit] [&_input]:[font-size:inherit] [&_input]:[font-weight:inherit] [&_input]:[font-style:inherit] [&_input]:[line-height:inherit] [&_button]:py-0 [&_button]:px-5 [&_button]:border [&_button]:border-line [&_button]:min-h-12 [&_button]:rounded-button [&_button]:bg-surface [&_button]:text-ink [&_button]:[font-family:inherit] [&_button]:[font-size:inherit] [&_button]:[font-style:inherit] [&_button]:[line-height:inherit] [&_button]:font-semibold [&_button]:cursor-pointer [&_p]:m-0 [&_p]:col-[1_/_-1] [&_p]:text-ink-soft [&_p]:text-[14px]'),
+  codes: clsx('p-0 m-0 flex flex-wrap gap-y-2 gap-x-2 list-none'),
+  icon: clsx('w-4 h-4 [fill:none] [stroke:currentcolor] [stroke-linecap:round] [stroke-width:2]'),
+  info: clsx('flex min-w-0 flex-col gap-y-1.5 gap-x-1.5'),
+  line: clsx('p-3.5 border border-line grid grid-cols-[88px_1fr] gap-y-3.5 gap-x-3.5 rounded-card bg-surface'),
+  lines: clsx('p-0 m-0 grid gap-y-3.5 gap-x-3.5 list-none'),
+  name: clsx('m-0 text-ink font-semibold wrap-anywhere no-underline'),
+  noPhoto: clsx('w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] [background:var(--picture-alt)]'),
+  pending: clsx('opacity-[0.7] [transition:opacity_0.2s]'),
+  photo: clsx('w-22 h-27.5 rounded-[calc(var(--radius-card)_-_4px)] object-cover'),
+  price: clsx('shrink-0 text-end'),
+  problem: clsx('m-0 text-danger text-[14px]'),
+  quantity: clsx('min-w-6 text-center [font-variant-numeric:tabular-nums]'),
+  remove: clsx('py-0 px-1 border-0 border-current min-h-11 bg-transparent text-ink [font-family:inherit] [font-weight:inherit] [font-style:inherit] [line-height:inherit] text-[14px] underline underline-offset-[3px] cursor-pointer'),
+  side: clsx('p-5 border border-line flex flex-col gap-y-4 gap-x-4 rounded-card bg-surface min-[900px]:sticky min-[900px]:top-24'),
+  sideTitle: clsx('m-0 font-heading text-[22px] font-[var(--heading-weight)]'),
+  step: clsx('border-0 border-current inline-flex w-11 h-11 items-center justify-center rounded-button bg-transparent text-ink cursor-pointer disabled:opacity-[0.4] disabled:cursor-default'),
+  stepper: clsx('border border-line inline-flex items-center rounded-button'),
+  summary: clsx('[--df-sealed-size:15px] [--df-sealed-saving:var(--color-accent)]'),
+  top: clsx('flex justify-between gap-y-3 gap-x-3'),
+  version: clsx('m-0 text-muted text-[14px]'),
+}

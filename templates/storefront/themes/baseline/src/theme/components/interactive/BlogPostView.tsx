@@ -4,8 +4,8 @@ import { Image, Link, useBlogPost, useStorefront } from '@dripfunnel/storefront-
 import { Notice } from '../Notice'
 import { ContentBlocks } from './ContentBlocks'
 import { Retry } from './Retry'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/content.module.css'
+import { shop } from '../styles/shop'
+import { content as styles } from '../styles/content'
 
 /** A post, as D1's Journal post: back to the journal, its date and author, title, cover, blocks and tags. */
 export const BlogPostView = () => {

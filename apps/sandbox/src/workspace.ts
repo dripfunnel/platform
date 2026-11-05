@@ -2,17 +2,25 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, normalize } from 'node:path'
 import { applyCodemods, baselineWithOwn, changesBetween, notesBetween, pinCore, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
-import { bundle, runtimeFolder, type ClientBundle } from './gate/bundle'
-import { build, validate, type GateProblem } from './gate/index'
+import { runtimeFolder, type ClientBundle } from './gate/bundle'
+import { WarmGate, type GateProblem, type Lane } from './gate/index'
+import { laneOf } from './gate/lanes'
 import { gitIn, type Git } from './git'
 import { isRepoPath, isThemePath } from './paths'
 
 /** One file the model's diff writes, or removes when `content` is null (storefront AI-STUDIO §4 step 2). */
 export type FileChange = { path: string; content: string | null }
 
+/** How the frame takes a new bundle: the stylesheet alone when every script is the one it has (AI-STUDIO §4 step 5). */
+export type Swap = 'stylesheet' | 'modules'
+
+/** `typechecked`: the theme files the warm typecheck checked again, null when the lane skipped it (#1240). */
 export type ChangeResult =
-  | { ok: true; changed: boolean; commit: string; bundle: ClientBundle }
+  | { ok: true; changed: boolean; commit: string; bundle: ClientBundle; lane?: Lane; swap?: Swap; typechecked?: string[] | null }
   | { ok: false; problems: GateProblem[] }
+
+/** A pre-check of the change so far, while the model is still writing it: nothing is written or kept but the warm state. */
+export type Prechecked = { lane: Lane; problems: GateProblem[] }
 
 export type Loaded = { head: string; bundle: ClientBundle | null; problems: GateProblem[] }
 
@@ -31,6 +39,17 @@ export class NotLoaded extends Error {
 const branch = 'main'
 const refused = (rule: string, message: string): ChangeResult => ({ ok: false, problems: [{ step: 'validator', file: null, line: null, rule, message }] })
 
+const withChange = (theme: ReadonlyMap<string, string>, files: readonly FileChange[]): Map<string, string> => {
+  const next = new Map(theme)
+  for (const f of files) {
+    if (f.content === null) next.delete(f.path)
+    else next.set(f.path, f.content)
+  }
+  return next
+}
+
+const scripts = (b: ClientBundle) => b.files.filter((f) => f.path.endsWith('.js')).map((f) => f.path).sort().join('\n')
+
 /** One store's working copy and its current client bundle; the server keeps one per slot. */
 export class Workspace {
   private readonly repo: string
@@ -38,11 +57,13 @@ export class Workspace {
   private readonly git: Git
   private current: ClientBundle | null = null
   private loaded = false
+  private gate: WarmGate
 
   constructor(private readonly dir: string) {
     this.repo = join(dir, 'repo')
     this.client = join(dir, 'client')
     this.git = gitIn(this.repo, dir)
+    this.gate = new WarmGate(this.repo, join(this.client, 'next'))
   }
 
   /**
@@ -91,14 +112,27 @@ export class Workspace {
     return new Map(await Promise.all(paths.map(async (p) => [p, await this.git(['show', `${commit}:${p}`])] as const)))
   }
 
+  /** The validator, then the typecheck unless the lane skips it, on the theme with `files`; nothing is written. */
+  async precheck(files: readonly FileChange[], context: GuardContext): Promise<Prechecked> {
+    const before = await this.theme()
+    const theme = withChange(before, files)
+    const lane = laneOf(before, files)
+    const problems = await this.gate.validate(theme, context)
+    return { lane, problems: lane === 'full' ? [...problems, ...this.gate.typecheck(theme).problems] : problems }
+  }
+
+  /** Checks the loaded theme once, so the first change's typecheck is already warm. */
+  async prime(): Promise<void> {
+    if (this.loaded) this.gate.typecheck(await this.theme())
+  }
+
   /** Applies a change and runs the fast gate; on a pass it is a local commit, on a failure nothing changed at all. */
   async change(files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> {
-    const theme = await this.theme()
-    for (const f of files) {
-      if (f.content === null) theme.delete(f.path)
-      else theme.set(f.path, f.content)
-    }
-    const refused = validate([...theme].map(([path, content]) => ({ path, content })), context)
+    const before = await this.theme()
+    const theme = withChange(before, files)
+    // The sandbox chooses the lane from the diff, never the model (ARCHITECTURE §6.2).
+    const lane = laneOf(before, files)
+    const refused = await this.gate.validate(theme, context)
     if (refused.length > 0) return { ok: false, problems: refused }
     // The validator accepted every path, so each is one of §3.4's; checked again before it touches the disk.
     if (!files.every((f) => isThemePath(f.path))) throw new Error('A validated path is outside the theme.')
@@ -107,17 +141,18 @@ export class Workspace {
       else await this.write(f.path, f.content)
     }
     const next = join(this.client, 'next')
-    const gated = await build(theme, this.repo, next)
+    const gated = await this.gate.build(theme, lane)
     if (!gated.ok) {
       await this.discard()
       await rm(next, { recursive: true, force: true })
-      return gated
+      return { ok: false, problems: gated.problems }
     }
     await this.git(['add', '--all'])
     const staged = (await this.git(['diff', '--cached', '--name-only'])).trim()
     if (staged !== '') await this.git(['commit', '--quiet', '--message', message])
+    const swap: Swap = this.current && scripts(this.current) === scripts(gated.bundle) ? 'stylesheet' : 'modules'
     await this.promote(next, gated.bundle)
-    return { ok: true, changed: staged !== '', commit: await this.head(), bundle: gated.bundle }
+    return { ok: true, changed: staged !== '', commit: await this.head(), bundle: gated.bundle, lane, swap, typechecked: gated.checked }
   }
 
   /** "Undo this change" (AI-STUDIO §5): the files `commit` changed, put back as they were before it, through the gate. */
@@ -187,12 +222,12 @@ export class Workspace {
       const next = join(this.client, 'next')
       try {
         const theme = await this.theme()
-        const refused = validate([...theme].map(([path, content]) => ({ path, content })), context)
-        const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await build(theme, this.repo, next)
+        const refused = await this.gate.validate(theme, context)
+        const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await this.gate.build(theme, 'full')
         if (!gated.ok) {
           await this.git(['reset', '--quiet', '--hard', before])
           await rm(next, { recursive: true, force: true })
-          return gated
+          return { ok: false, problems: gated.problems }
         }
         await this.promote(next, gated.bundle)
         return { ok: true, changed: true, commit: await this.head(), bundle: gated.bundle }
@@ -277,7 +312,7 @@ export class Workspace {
 
   private async rebundle(): Promise<ClientBundle> {
     const next = join(this.client, 'next')
-    const bundled = await bundle(this.repo, next)
+    const bundled = await this.gate.bundle()
     if (!bundled.ok) throw new Error('The draft no longer bundles.')
     await this.promote(next, bundled.bundle)
     return bundled.bundle
@@ -286,7 +321,7 @@ export class Workspace {
   private async afterLoad(): Promise<Loaded> {
     this.loaded = true
     const next = join(this.client, 'next')
-    const bundled = await bundle(this.repo, next)
+    const bundled = await this.gate.bundle()
     if (bundled.ok) await this.promote(next, bundled.bundle)
     return { head: await this.head(), bundle: bundled.ok ? bundled.bundle : null, problems: bundled.ok ? [] : bundled.problems }
   }
@@ -314,9 +349,12 @@ export class Workspace {
     await writeFile(file, content)
   }
 
+  /** A new draft gets new warm services: nothing checked for the last one is reused (#1240). */
   private async reset() {
     this.loaded = false
     this.current = null
+    await this.gate.dispose()
+    this.gate = new WarmGate(this.repo, join(this.client, 'next'))
     await rm(this.dir, { recursive: true, force: true })
     await mkdir(this.dir, { recursive: true })
   }

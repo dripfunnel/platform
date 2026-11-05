@@ -1,8 +1,8 @@
 import { Image, Link, MerchantImage, useCollections, useProducts, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
 import { GridPlaceholder, ProductGrid } from '../components/ProductCard'
-import shop from '../styles/shop.module.css'
-import styles from '../styles/home.module.css'
+import { shop } from '../components/styles/shop'
+import { home as styles } from '../components/styles/home'
 
 export const HomePage = () => {
   const { store, t } = useStorefront()

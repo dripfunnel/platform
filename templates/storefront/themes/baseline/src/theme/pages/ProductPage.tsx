@@ -6,8 +6,8 @@ import { Retry } from '../components/interactive/Retry'
 import { Layout } from '../components/Layout'
 import { Notice } from '../components/Notice'
 import { ProductGrid } from '../components/ProductCard'
-import shop from '../styles/shop.module.css'
-import styles from '../styles/product.module.css'
+import { shop } from '../components/styles/shop'
+import { product as styles } from '../components/styles/product'
 
 export const ProductPage = () => {
   const { store, locale, t } = useStorefront()

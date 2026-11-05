@@ -1,0 +1,5 @@
+{
+  "rule": "css/selector-not-scoped",
+  "file": "src/theme/components/Bad.tsx",
+  "line": 6
+}

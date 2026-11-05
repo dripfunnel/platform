@@ -1,6 +1,6 @@
 'use client'
 
-import styles from '../../styles/shop.module.css'
+import { shop as styles } from '../styles/shop'
 
 export const Retry = ({ label, onRetry }: { label: string; onRetry: () => void }) => (
   <button type="button" className={styles.secondary} onClick={onRetry}>

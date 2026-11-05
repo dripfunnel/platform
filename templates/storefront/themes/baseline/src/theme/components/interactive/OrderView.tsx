@@ -6,8 +6,8 @@ import { Notice } from '../Notice'
 import { OrderPill } from '../OrderPill'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/order.module.css'
+import { shop } from '../styles/shop'
+import { order as styles } from '../styles/order'
 
 /**
  * The order's page (`/order/{id}/`), as D1's order confirmation: where it stands, what to do next, and what was charged;

@@ -1,12 +1,13 @@
 import { DurableObject } from 'cloudflare:workers'
 import type postgres from 'postgres'
 import { parseConfig } from '#core/config'
+import { failureCode, logEvent } from '#core/log'
 import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { alarmStep, capacityLedger, keptChanges, nextLookMs, wakeStep, studioClosedMs, studioTickMs, type AlarmState, type BuildOutcome, type BuildPage, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, isLiveSocket, liveHub, liveStudioSession, liveStudioSessionHash, liveTag, liveTags, liveUpgradeOf, sweepsAgain, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type KeptSummary, type LiveEvent, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -16,9 +17,6 @@ export interface StudioEnv extends Record<string, unknown> {
   STOREFRONT_DRAFTS?: R2Bucket | undefined
   STUDIO_CAPACITY?: CapacityNamespace | undefined
 }
-
-/** The alarm looks every minute while a container may run (AI-STUDIO §7). */
-const tickMs = 60 * 1000
 
 /** How long a status poll waits for the open it started: a queue answer comes back at once, a container start doesn't. */
 const statusWaitMs = 1_000
@@ -58,14 +56,23 @@ export const studioSessionClass = (connect: Connect) =>
   class StudioSession extends DurableObject<StudioEnv> implements StudioApi {
     private runner: StudioRunner | null = null
     private lastActive = Date.now()
+    /** When the store's last live socket closed: the studio closed in every tab (AI-STUDIO §7 "Stopping"). */
+    private lastClosed = 0
+    /** The last `studioActivity` acted on: one in 30 s, loaded or not, whatever a client sends. */
+    private lastWake = 0
     private db: (<T>(work: (sql: postgres.Sql) => Promise<T>) => Promise<T>) | null = null
     private opening: Promise<StudioState> | null = null
+    private hub = liveHub(this.ctx.storage, () => this.ctx.getWebSockets(liveTag), () => Date.now())
 
     /** The object is named by its store's id; it refuses any call for another store, whoever made it. */
-    private async runnerFor(storeId: string): Promise<StudioRunner> {
+    private async ownStore(storeId: string): Promise<void> {
       const own = await this.ctx.storage.get<string>('store')
       if (own !== undefined && own !== storeId) throw new Error('studio: a call for another store')
       if (own === undefined) await this.ctx.storage.put('store', storeId)
+    }
+
+    private async runnerFor(storeId: string): Promise<StudioRunner> {
+      await this.ownStore(storeId)
       if (this.runner) return this.runner
       const config = parseConfig(this.env)
       const { STOREFRONT_SITES: sites, STOREFRONT_DRAFTS: drafts, STUDIO_CAPACITY: capacity } = this.env
@@ -90,7 +97,10 @@ export const studioSessionClass = (connect: Connect) =>
         capacity: { acquire: () => ledger.acquire(storeId), release: () => ledger.release(storeId) },
         now: () => new Date(),
         newId: () => crypto.randomUUID(),
-        onBundle: (bundle) => this.announce(bundle),
+        onBundle: (bundle, swap) => this.announce(bundle, swap),
+        kept: keptChanges({ list: (options) => this.ctx.storage.list(options), put: (entries) => this.ctx.storage.put(entries), delete: (keys) => this.ctx.storage.delete(keys) }),
+        background: (work) => this.ctx.waitUntil(work),
+        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
       })
       return this.runner
     }
@@ -103,12 +113,18 @@ export const studioSessionClass = (connect: Connect) =>
       return containerHost(container, image)
     }
 
-    /** Only opening, changing and undoing keep the container from its idle stop; a status poll doesn't (AI-STUDIO §7). */
+    /** Opening, changing, undoing and `studioActivity` keep the container from its idle stop; a status poll doesn't (AI-STUDIO §7). */
     private async active(storeId: string): Promise<StudioRunner> {
       const runner = await this.runnerFor(storeId)
       this.lastActive = Date.now()
-      await this.ctx.storage.setAlarm(Date.now() + tickMs)
+      await this.lookBy(this.lastActive + studioTickMs)
       return runner
+    }
+
+    /** The alarm at `at`, unless one is already set sooner. */
+    private async lookBy(at: number): Promise<void> {
+      const set = await this.ctx.storage.getAlarm()
+      if (set === null || set > at) await this.ctx.storage.setAlarm(at)
     }
 
     /** AI-STUDIO §3: start the store's sandbox from its saved draft, or say its place in the queue. */
@@ -127,14 +143,35 @@ export const studioSessionClass = (connect: Connect) =>
     async status(storeId: string): Promise<StudioState> {
       const runner = await this.runnerFor(storeId)
       if (runner.loaded) return runner.pending > 0 ? { state: 'busy' } : { state: 'ready' }
+      const opening = this.startOpening(storeId)
+      const waited = new Promise<null>((resolve) => setTimeout(() => resolve(null), statusWaitMs))
+      return (await Promise.race([opening, waited])) ?? { state: 'starting' }
+    }
+
+    private startOpening(storeId: string): Promise<StudioState> {
       if (!this.opening) {
         this.opening = this.open(storeId).finally(() => {
           this.opening = null
         })
         this.ctx.waitUntil(this.opening)
       }
-      const waited = new Promise<null>((resolve) => setTimeout(() => resolve(null), statusWaitMs))
-      return (await Promise.race([this.opening, waited])) ?? { state: 'starting' }
+      return this.opening
+    }
+
+    /** Focus or typing in the studio (#1241): a stopped container starts, a running one's idle stop moves on; at most every 30 s. */
+    async activity(storeId: string): Promise<void> {
+      const runner = await this.runnerFor(storeId)
+      const now = Date.now()
+      const step = wakeStep(runner.loaded, now - this.lastWake)
+      if (step === 'skip') return
+      this.lastWake = now
+      if (step === 'open') void this.startOpening(storeId)
+      else await this.active(storeId)
+    }
+
+    /** Every accepted change so far written to R2 and design_draft, for the Store API's reads of the draft. */
+    async saved(storeId: string): Promise<boolean> {
+      return (await this.runnerFor(storeId)).saved()
     }
 
     async useTemplate(storeId: string, input: { template: string; keep: boolean; userId: string }): Promise<StudioAnswer> {
@@ -143,9 +180,21 @@ export const studioSessionClass = (connect: Connect) =>
     }
 
     /** One change, after the ones before it (AI-STUDIO §4); `model` is the Worker's, called back over RPC. */
-    async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel): Promise<StudioAnswer> {
+    async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key'; run: string }, model: DesignModel): Promise<StudioAnswer> {
       const runner = await this.active(storeId)
-      return studioAnswer(() => runner.change({ ...input, model }))
+      const { run, ...request } = input
+      return studioAnswer(() => runner.change({ ...request, model, progress: (event) => void this.publish(storeId, run, event) }))
+    }
+
+    /** The Worker's events of a run: its first step, a chat's words and the outcome (AI-STUDIO §4 "Live progress"). */
+    async progress(storeId: string, run: string, event: LiveEvent): Promise<void> {
+      await this.runnerFor(storeId)
+      await this.publish(storeId, run, event)
+    }
+
+    /** A lost event never fails the change it reports on: the studio still gets askDesign's answer. */
+    private publish(storeId: string, run: string, event: LiveEvent): Promise<unknown> {
+      return this.hub.publish(run, event).catch((error: unknown) => logEvent({ event: 'studio_live_lost', api: 'store', storeId, code: failureCode(error) }))
     }
 
     /** Stop: reaches the running change without waiting in its turn. */
@@ -163,9 +212,25 @@ export const studioSessionClass = (connect: Connect) =>
       return (await this.active(storeId)).prepareToPublish()
     }
 
-    async undo(storeId: string, input: { commit: string; userId: string }): Promise<StudioAnswer> {
+    async undo(storeId: string, input: { commit: string; userId: string; before?: string | null }): Promise<StudioAnswer> {
       const runner = await this.active(storeId)
-      return studioAnswer(() => runner.undo(input.commit, input.userId))
+      return studioAnswer(() => runner.undo(input.commit, input.userId, input.before ?? null))
+    }
+
+    /** A plan's build (#1243): every page's steps go out as `run`'s, beside "Building page N of M". */
+    async build(storeId: string, input: { pages: BuildPage[]; userId: string; billedTo: 'plan' | 'own_key'; parentRunId: string | null; run: string }, model: DesignModel): Promise<BuildOutcome | StudioAnswer> {
+      const runner = await this.active(storeId)
+      const { run, ...request } = input
+      const key = `build:${run}`
+      const answer = await studioAnswer(() => runner.build({ ...request, model, progress: (event) => void this.publish(storeId, run, event), kept: (sofar) => this.ctx.storage.put(key, sofar) }))
+      await this.ctx.storage.delete(key)
+      return answer
+    }
+
+    /** A build's pages so far, for a Worker whose call to `build` broke mid-way (#1243). */
+    async buildSoFar(storeId: string, run: string): Promise<BuildOutcome | null> {
+      await this.ownStore(storeId)
+      return (await this.ctx.storage.get<BuildOutcome>(`build:${run}`)) ?? null
     }
 
     async texts(storeId: string, input: { page: string; locale: string }): Promise<{ key: string; text: string }[] | null> {
@@ -218,6 +283,17 @@ export const studioSessionClass = (connect: Connect) =>
       return commit
     }
 
+    /** The AI's store summary, kept here beside the studio rather than read from the database at every change (#1242). */
+    async summary(storeId: string): Promise<KeptSummary | null> {
+      await this.ownStore(storeId)
+      return (await this.ctx.storage.get<KeptSummary>('summary')) ?? null
+    }
+
+    async keepSummary(storeId: string, kept: KeptSummary): Promise<void> {
+      await this.ownStore(storeId)
+      await this.ctx.storage.put('summary', kept)
+    }
+
     /** "Finishing your previous change…" (AI-STUDIO §4 step 1). */
     async pending(storeId: string): Promise<number> {
       return (await this.runnerFor(storeId)).pending
@@ -233,6 +309,8 @@ export const studioSessionClass = (connect: Connect) =>
 
     /** The studio frame's files and its hot-reload WebSocket (AI-STUDIO §3 step 6), each after the session check. */
     override async fetch(request: Request): Promise<Response> {
+      const live = liveUpgradeOf(request)
+      if (live) return this.live(live)
       // The API names the host's store; runnerFor refuses it unless it is this object's own.
       const storeId = request.headers.get(studioStoreHeader)
       const runner = storeId ? await this.runnerFor(storeId).catch(() => null) : null
@@ -257,25 +335,74 @@ export const studioSessionClass = (connect: Connect) =>
       })
     }
 
+    /** The studio's live socket, checked by the Store API; tagged with its studio session so the sweep closes it with the frame's. */
+    private async live(input: { storeId: string; sessionHash: string; after: number }): Promise<Response> {
+      if (!(await this.runnerFor(input.storeId).catch(() => null))) return frameClosed()
+      const pair = new WebSocketPair()
+      await this.hub.connect(() => {
+        this.ctx.acceptWebSocket(pair[1], liveTags(input.sessionHash))
+        return pair[1]
+      }, input.after)
+      if ((await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(Date.now() + studioTickMs)
+      return new Response(null, { status: 101, webSocket: pair[0] })
+    }
+
+    /** The last studio of the store closing starts the 2 minutes before its container stops (AI-STUDIO §7 "Stopping"). */
+    override async webSocketClose(socket: WebSocket): Promise<void> {
+      await this.socketGone(socket)
+    }
+
+    override async webSocketError(socket: WebSocket): Promise<void> {
+      await this.socketGone(socket)
+    }
+
+    private async socketGone(socket: WebSocket): Promise<void> {
+      if (!isLiveSocket(this.ctx.getTags(socket))) return
+      if (this.ctx.getWebSockets(liveTag).some((s) => s !== socket && s.readyState === WebSocket.OPEN)) return
+      this.lastClosed = Date.now()
+      await this.lookBy(this.lastClosed + studioClosedMs)
+    }
+
     override async alarm(): Promise<void> {
+      try {
+        await this.tick()
+      } finally {
+        if (sweepsAgain(this.ctx.getWebSockets().length, await this.ctx.storage.getAlarm())) await this.ctx.storage.setAlarm(Date.now() + studioTickMs)
+      }
+    }
+
+    private alarmState(): AlarmState {
+      const now = Date.now()
+      const runner = this.runner
+      return {
+        loaded: runner?.loaded ?? false,
+        containerRunning: this.ctx.container?.running ?? false,
+        pending: runner?.pending ?? 0,
+        openStudios: this.ctx.getWebSockets(liveTag).filter((s) => s.readyState === WebSocket.OPEN).length,
+        closedForMs: now - Math.max(this.lastClosed, this.lastActive),
+        idleForMs: now - this.lastActive,
+        runningForMs: now - (runner?.runningSince ?? now),
+      }
+    }
+
+    private async tick(): Promise<void> {
       await this.closeEndedSockets()
       const runner = this.runner
       const storeId = await this.ctx.storage.get<string>('store')
       const capacity = this.env.STUDIO_CAPACITY
       const ledger = capacity ? capacity.get(capacity.idFromName('account')) : null
-      const step = alarmStep({ loaded: runner?.loaded ?? false, containerRunning: this.ctx.container?.running ?? false, pending: runner?.pending ?? 0, idleForMs: Date.now() - this.lastActive })
-      if (step === 'rest') {
-        // Open frames still need their sockets closed when their sessions end.
-        if (this.ctx.getWebSockets().length > 0) await this.ctx.storage.setAlarm(Date.now() + tickMs)
-        return
-      }
+      const state = this.alarmState()
+      const step = alarmStep(state)
+      if (step === 'rest') return
       if (step === 'stop-orphan') {
         await this.ctx.container?.destroy()
         if (storeId && ledger) await ledger.release(storeId)
         return
       }
       if (!runner) return
-      if (step === 'idle-stop') {
+      if (step !== 'renew') {
+        // Seen in the logs beside Cloudflare's container list when checking the stops on dev (#1241).
+        logEvent({ event: 'studio_stopped', api: 'store', storeId: storeId ?? null, code: step })
         await runner.stop()
         return
       }
@@ -285,7 +412,7 @@ export const studioSessionClass = (connect: Connect) =>
         await runner.stop()
         return
       }
-      await this.ctx.storage.setAlarm(Date.now() + tickMs)
+      await this.ctx.storage.setAlarm(Date.now() + nextLookMs(state))
     }
 
     /** A removed user's or signed-out frame stops within a minute of its session ending (AI-STUDIO §8 "Short-lived"). */
@@ -303,8 +430,10 @@ export const studioSessionClass = (connect: Connect) =>
     }
 
     /** The frame's hot reload (AI-STUDIO §4 step 5) to every open frame of this store. */
-    private announce(bundle: ClientBundle): void {
-      const notice = JSON.stringify({ type: 'bundle', id: bundle.id, entry: bundle.entry })
-      for (const socket of this.ctx.getWebSockets()) socket.send(notice)
+    /** Core's BundleNotice: the frame swaps only the stylesheets when no script changed (#1240). */
+    private announce(bundle: ClientBundle, swap?: 'stylesheet' | 'modules'): void {
+      const css = bundle.files.filter((f) => f.path.endsWith('.css')).map((f) => f.path)
+      const notice = JSON.stringify({ type: 'bundle', id: bundle.id, entry: bundle.entry, css, ...(swap === 'stylesheet' ? { only: 'stylesheet' } : {}) })
+      for (const socket of this.ctx.getWebSockets()) if (!isLiveSocket(this.ctx.getTags(socket))) socket.send(notice)
     }
   }

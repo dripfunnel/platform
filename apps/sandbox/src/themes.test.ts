@@ -6,7 +6,7 @@ import { chromium, type Browser, type Page } from 'playwright-core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { coreRoutes, routeAddresses, themeRoutesSchema } from '@dripfunnel/storefront-core'
-import { catalogueSnapshotSchema, validateChange, type CatalogueSnapshot, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { catalogueSnapshotSchema, validateTheme, type CatalogueSnapshot, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { bundle, runtimeFolder } from './gate/bundle'
 import { overBudget, weigh } from './gate/budgets'
 import { buildSite } from './publish/build'
@@ -99,9 +99,9 @@ it('has the starting themes the gallery offers, each in its own folder', () => {
 describe.each(keys)('the %s theme', (key) => {
   const dir = join(themesDir, key)
 
-  it('passes the validator for an Indian and an American store, neither of whose details it repeats', () => {
-    expect(validateChange(themeFiles(key), india).problems).toEqual([])
-    expect(validateChange(themeFiles(key), unitedStates).problems).toEqual([])
+  it('passes the validator for an Indian and an American store, neither of whose details it repeats', async () => {
+    expect((await validateTheme(themeFiles(key), india)).problems).toEqual([])
+    expect((await validateTheme(themeFiles(key), unitedStates)).problems).toEqual([])
   })
 
   it('writes only theme files, and no quote attributed to a person (DESIGN §9)', () => {

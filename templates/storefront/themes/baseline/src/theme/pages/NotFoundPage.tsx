@@ -1,7 +1,7 @@
 import { Link, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
 import { Notice } from '../components/Notice'
-import styles from '../styles/shop.module.css'
+import { shop as styles } from '../components/styles/shop'
 
 export const NotFoundPage = () => {
   const { t } = useStorefront()

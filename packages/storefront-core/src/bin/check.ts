@@ -3,7 +3,7 @@
 import { runCheck } from '../guard/check.js'
 
 try {
-  const { code, lines } = runCheck(process.cwd())
+  const { code, lines } = await runCheck(process.cwd())
   for (const line of lines) console.log(line)
   process.exitCode = code
 } catch (error) {

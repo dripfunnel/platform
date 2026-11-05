@@ -3,8 +3,8 @@
 import { Image, Link, useBlog, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { Retry } from './Retry'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/content.module.css'
+import { shop } from '../styles/shop'
+import { content as styles } from '../styles/content'
 
 /** The blog, as D1's Journal: the newest posts as cards, older ones a page at a time; `?tag=` narrows it. */
 export const BlogView = () => {

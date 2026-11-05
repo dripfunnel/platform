@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { messages } from '../../messages'
@@ -33,7 +33,7 @@ describe('the store chooser while it loads', () => {
   it('has no "Choose a store" heading, and still announces that it is loading', async () => {
     shell.loadMe.mockReturnValue(new Promise(() => undefined))
     await openChooser()
-    expect((await screen.findByRole('status')).textContent).toBe(words.loading)
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe(words.loading))
     expect(screen.queryByRole('heading', { name: words.title })).toBeNull()
   })
 

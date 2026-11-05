@@ -8,7 +8,8 @@ import type { RequestTranslator, ResponseTranslator, StreamTranslatorFactory } f
 // Messages API (docs/api/SAAS.md §9.3). Claude takes temperature up to 1 and the system apart from the turns.
 const maxTemperature = 1
 
-type TextBlock = { type: 'text'; text: string }
+type CacheControl = { type: 'ephemeral' }
+type TextBlock = { type: 'text'; text: string; cache_control?: CacheControl }
 type ContentBlock =
   | TextBlock
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
@@ -18,7 +19,7 @@ type ContentBlock =
 export interface AnthropicMessagesBody {
   model: string
   max_tokens: number
-  system?: string
+  system?: string | TextBlock[]
   messages: { role: 'user' | 'assistant'; content: ContentBlock[] }[]
   temperature?: number
   stop_sequences?: string[]
@@ -26,6 +27,8 @@ export interface AnthropicMessagesBody {
   tool_choice?: { type: 'auto' | 'any' | 'none' } | { type: 'tool'; name: string }
   output_config?: { effort?: 'low' | 'medium' | 'high'; format?: { type: 'json_schema'; schema: Record<string, unknown> } }
 }
+
+const textBlock = (text: string, cache: boolean | undefined): TextBlock => ({ type: 'text', text, ...(cache ? { cache_control: { type: 'ephemeral' as const } } : {}) })
 
 const toolChoiceOf = (choice: CanonicalToolChoice): NonNullable<AnthropicMessagesBody['tool_choice']> =>
   typeof choice === 'object' ? { type: 'tool', name: choice.name } : { type: choice === 'required' ? 'any' : choice }
@@ -46,7 +49,7 @@ export const anthropicMessagesRequest: RequestTranslator<AnthropicMessagesBody> 
         return { role: 'assistant', content: turn.parts.map((part): ContentBlock => (part.type === 'text' ? { type: 'text', text: part.text } : { type: 'tool_use', id: part.id, name: part.name, input: argumentsObject(part.arguments) })) }
       }
       const results = turn.results.map((r): ContentBlock => ({ type: 'tool_result', tool_use_id: r.callId, content: r.content, ...(r.isError ? { is_error: true as const } : {}) }))
-      const content = turn.content.map((part): ContentBlock => (part.type === 'text' ? { type: 'text', text: part.text } : { type: 'image', source: { type: 'base64', media_type: part.mediaType, data: part.base64 } }))
+      const content = turn.content.map((part): ContentBlock => (part.type === 'text' ? textBlock(part.text, part.cache) : { type: 'image', source: { type: 'base64', media_type: part.mediaType, data: part.base64 } }))
       return { role: 'user', content: [...results, ...content] }
     })
     const output = {
@@ -56,7 +59,7 @@ export const anthropicMessagesRequest: RequestTranslator<AnthropicMessagesBody> 
     return {
       model: request.model,
       max_tokens: request.maxTokens,
-      ...(request.system ? { system: request.system } : {}),
+      ...(request.system ? { system: request.cacheSystem ? [textBlock(request.system, true)] : request.system } : {}),
       messages,
       ...(request.temperature !== undefined ? { temperature: clampTemperature(request.temperature, maxTemperature) } : {}),
       ...(request.stop?.length ? { stop_sequences: [...request.stop] } : {}),
@@ -90,7 +93,7 @@ const usageSchema = z.object({ input_tokens: z.number().nullish(), output_tokens
 type AnthropicUsage = z.infer<typeof usageSchema>
 
 /** Cached input counts in `tokensIn` too (cache reads and writes), as the API-key provider meters it (provider.ts). */
-const usageFrom = (usage: AnthropicUsage) => usageOf((usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0), usage.output_tokens, usage.cache_read_input_tokens)
+const usageFrom = (usage: AnthropicUsage) => usageOf((usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0), usage.output_tokens, usage.cache_read_input_tokens, usage.cache_creation_input_tokens)
 
 const messageSchema = z.object({
   type: z.literal('message'),

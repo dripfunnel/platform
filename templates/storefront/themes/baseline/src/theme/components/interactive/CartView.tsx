@@ -5,8 +5,8 @@ import { clsx } from 'clsx'
 import { CodeField, Image, Link, OrderSummary, Price, useCart, useStorefront, type CartLine } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { Retry } from './Retry'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/cart.module.css'
+import { shop } from '../styles/shop'
+import { cart as styles } from '../styles/cart'
 
 const Minus = () => (
   <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -152,12 +152,12 @@ export const CartView = () => {
           {blocked ? (
             <>
               <p className={styles.problem}>{t('shop.cart.blocked')}</p>
-              <button type="button" className={clsx(shop.primary, styles.checkout)} disabled>
+              <button type="button" className={clsx(shop.primaryBase, styles.checkout)} disabled>
                 {t('shop.cart.checkout')}
               </button>
             </>
           ) : (
-            <Link href="/checkout/" className={clsx(shop.primary, styles.checkout)}>
+            <Link href="/checkout/" className={clsx(shop.primaryBase, styles.checkout)}>
               {t('shop.cart.checkout')}
             </Link>
           )}

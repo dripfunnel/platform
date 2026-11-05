@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Image, useStorefront, Video, type Photo, type VideoFile } from '@dripfunnel/storefront-core/theme'
-import styles from '../../styles/product.module.css'
+import { product as styles } from '../styles/product'
 
 /** The chosen picture large, the rest as thumbnails, and the product's video last. */
 export const Gallery = ({ photos, video, name }: { photos: readonly Photo[]; video: VideoFile | null; name: string }) => {

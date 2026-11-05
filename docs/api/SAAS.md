@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-11-05 (#1243: a vague request's questions, plan and page-by-page build, one prompt unit with a run per page, §9.2). Before: 2026-11-05 (#1241: the studio's container stops when unused and wakes on `studioActivity`; a change's save follows the frame's swap, §9.2). Before: 2026-11-05 (#1238: the AI designer answers with edits, and its prompt is cached and priced at the cache rates, §9.2, §9.3). Before: 2026-11-05 (#1242: the AI designer's store summary and lookups, §9.2). Before: 2026-11-05 (#1237: the studio's live progress socket, §9.2). Before: 2026-11-02 (#1008: a new store's Owner is no longer held at enrolment, §5). Before: 2026-11-01 (#1107: portal hosts reach the API's default fetch, so its placement applies, §8). Before: 2026-10-31 (a release starts its own rollout, §10). Before: 2026-10-30 (the studio's `askDesign` mode, `cancelDesign`, `importDesignImage`, stock photos and the AI's photo tools, §9.2). Before: 2026-10-29 (#872: dispatch measurements, §12). Before: 2026-10-24 (#895: the house partner is refused only the fallback origins under `edge.`, not the whole environment zone, §3.5). Before: 2026-10-23 (#890: the house partner may add its `dripfunnel.ai` names, §3.5). Before: 2026-10-22 (own_delivery, riders and own_apps plan settings, §6.1, proposed). Before: 2026-10-21 (#428: two edge targets, store-proxy in prod). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -798,13 +798,24 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
     sandbox, no change; it takes one `ai_prompts` unit like a change and is metered as a `design` run): the Worker asks the model (one of
     `studioSession.models`, the account's models, the default first) with the
     store's theme files, core's theme API and its rules, the page and screen size, the last
-    four requests, the brand and ~12 products (names, prices)
-  → the store's Durable Object runs the diff in the store's container: the fast gate
+    four requests and the store summary (storefront ARCHITECTURE §6.2, #1242: settings, brand, collections, best
+    sellers, top collections and cities, offers on now; never personal data), with read-only lookups it may call
+  → every open studio of the store follows it live over `/api/studio/live` (#1237): each step (reading, asking,
+    checking, each repair, saving, updating), a chat's words as they stream, then the outcome askDesign answers; events
+    only, never the request's words or a file ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4 "Live progress")
+  → a short or vague request for a new look may be answered with up to 3 quick questions, each with 2 to 4 answers from the
+    store summary, or a plan, instead of edits (#1243; AI-STUDIO §4 "A plan"): answerDesignQuestions(messageId, answers,
+    skip?) → the plan (pages home first, their sections, the header and footer); changeDesignPlan(messageId, text) (≤3);
+    buildDesignPlan(messageId) → every page, home first, each its own change through the fast gate below, swapping into the
+    frame as it passes; cancelDesign ends it after the current page; the build is one history entry, so one Undo takes it back
+  → the model answers with edits (#1238: exact search-and-replace edits, new files whole, deletions named); the store's
+    Durable Object applies them to the theme it holds and runs the whole files in the store's container: the fast gate
     (allowlist, validator, typecheck, bundle, byte budgets, content checks)
-      fail → the model repairs from the exact errors (≤3) → else refused: nothing changes
-      and the reply says so
-  → pass → a commit in the store's private draft; the studio frame shows it at once and the
-    preview gets the same bundle ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4)
+      fail, or an edit that doesn't apply → the model repairs from the exact errors (≤3) → else refused: nothing
+      changes and the reply says so
+  → pass → a commit in the store's private draft, kept first in the Durable Object's own storage; the studio frame
+    shows it at once, and the draft bundle, the preview (the same bundle) and design_draft follow in the background;
+    askDesign answers once that save and its message are written ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4, #1241)
   → undo (revert the latest change), discard (back to the live version's commit),
     Open preview (signed link)
   → publishDesign: the publish pipeline (§9.1) builds the draft from private storage → a new
@@ -829,8 +840,10 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 
 **Studio sessions** (storefront ARCHITECTURE §6.1): one Durable Object and one container per
 store with a studio open; one change at a time per store (a second tab waits); a container
-stops after idle minutes and restarts from the last saved draft (private R2,
-[../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §7); when the account's container limit
+stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, and restarts from the last saved draft
+(private R2) with any change kept in the object's storage reapplied ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md)
+§7, #1241); `studioActivity` (the studio's read access, refused to support and impersonation, unlogged) wakes it on
+focus or typing, at most every 30 s; when the account's container limit
 is reached, studios queue and show their place. Container time is recorded per request in
 `ai_run.sandbox_ms`.
 
@@ -849,16 +862,27 @@ at once (a single-page render, no allowance).
 
 **Metering**: every request writes an `ai_run` row: store, requesting user, prompt, model,
 tokens in and out, cost (minor units and currency), container time, repair attempts and their
-cost, outcome (changed, nothing changed, refused, failed). The merchant's meter counts the
-request's own tokens; repairs are recorded as the platform's cost. It is the source for the AI
-meter, usage billing and §12's metrics; build minutes come from `publish_run`.
+cost, outcome (changed, nothing changed, refused, failed). Tokens in count every input token, cached ones too; the
+cost prices each part at its own rate (#1238): input read from the provider's prompt cache at the cache-read price,
+input written to it at the cache-write price (Anthropic's 1.25×), the rest at the input price (`registry.ts`,
+`costOf`). The merchant's meter counts the request's own tokens; repairs are recorded as the platform's cost. It is the source for the AI
+meter, usage billing and §12's metrics; build minutes come from `publish_run`. **A plan is one prompt unit** (#1243): the
+request that asks the questions (or plans at once) takes the month's `ai_prompts` unit and its `ai_run` is the flow's run;
+the plan's call, each changed plan's and each built page's are `design` runs with `parent_run_id` that run, billed like it,
+taking no unit; a page's repairs are `repair` runs under the page's, the platform's. The meter's request count and recent
+requests count only runs with no parent.
 
 ~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284);
 ~~one Store API call, no agent run (2026-10-08 on #470)~~ **Cloudflare Containers**, one per
 store with a studio open (decided 2026-10-08 on #470, "Plan A"); publish builds in the store
 repo's GitHub Actions (decided 2026-10-09). ~~Whether the AI reads the
-store's catalogue~~ **It reads a sample** (about 12 products: names and prices; photos dropped
-on #470), metered in `ai_run` (decided 2026-10-05 on #337).
+store's catalogue~~ ~~**It reads a sample** (about 12 products: names and prices; photos dropped
+on #470), metered in `ai_run` (decided 2026-10-05 on #337)~~ **It knows its own store** (decided 2026-11-04 on
+#1242): everything of the store but personal data, as a summary in every prompt and read-only lookups (the full
+catalogue with photos, best sellers, offers), each one query for the acting store, the summary kept beside the studio
+and rebuilt after 10 minutes (storefront ARCHITECTURE §6.2). No customer's name, phone, email or address, no single order
+and no discount code reaches the model; a city appears only with orders from at least 5 shoppers. Themes show best sellers and offers
+live through core (`useProducts({ sort: 'best-selling' })`, `useOffers()`), never written into theme code.
 
 ### 9.3 The AI gateway (#950)
 
@@ -914,7 +938,15 @@ to the ChatGPT sign-in's endpoint (THIRD-PARTY-ACCESS §2.6).
 - **Errors** are codes only (`INVALID_CREDENTIALS`, `RATE_LIMITED`, `PROVIDER_UNAVAILABLE`, `TIMEOUT`, `CANCELLED`, `BAD_REQUEST`,
   `MODEL_NOT_FOUND`, `CONTENT_REFUSED`) with no upstream text, header or key.
 - **Metering:** each call is an `ai_run` of kind `gateway`: model, provider, tokens, cost in US cents, `billed_to`, the key's
-  id; the prompt column is empty and no answer is kept. The Store API's per-minute and per-month call limits (ACCESS §5.6)
+  id; the prompt column is empty and no answer is kept.
+- **Prompt caching (the studio's path, #1238):** a canonical text part may carry `cache` and a request `cacheSystem`; the
+  Anthropic Messages translator turns each into a `cache_control: { type: 'ephemeral' }` marker (5 minutes) on that block,
+  at most three a request (the rules, the shop, the theme: storefront ARCHITECTURE §6.2), and the OpenAI translators drop
+  them, since OpenAI caches a request's prefix itself. The usage carries `cachedTokensIn` (read) and `cacheWriteTokensIn`
+  (written), both counted in `tokensIn` too, and the cost prices each at the model's `cacheRead` and `cacheWrite` rates in
+  `registry.ts` (Claude Opus 5.5 and Sonnet 5.5 read at the published $0.20 per million; the other Claude models at 0.1× and
+  writes at 1.25× their input price; OpenAI's cached input at its published price, with no write premium). Anything that
+  changes between two asks goes after the last marker, and the tools offered never change within a change. The Store API's per-minute and per-month call limits (ACCESS §5.6)
   apply as to any key.
 - **Differences between the providers.** Both take a system message and turns; `system` may be text or native text blocks, and
   a `role: system` turn is accepted. A request with no `user` turn is refused with `INVALID_INPUT`. Claude moves every system
@@ -1160,8 +1192,8 @@ The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
   after 100, up to 50,000) answered 2026-10-09; apex domains still open (§8).
 - ~~Where the AI agent runs~~ (GitHub Actions, decided 2026-10-05 on #284; **Cloudflare
   Containers**, decided 2026-10-08 on #470; builds moved to store repos' GitHub Actions on
-  2026-10-09); ~~does the AI read the catalogue~~ a sample of about
-  12 products (decided 2026-10-05 on #337).
+  2026-10-09); ~~does the AI read the catalogue~~ ~~a sample of about
+  12 products (decided 2026-10-05 on #337)~~ its own store's summary and lookups, never personal data (#1242, §9.2).
 - The container limits and price at the expected number of open studios, and whether a plan caps
   simultaneous studio sessions *(decide, INF 0 #287 and the sandbox card)*.
 - ~~Staging storefronts per store, or preview builds only?~~ Preview builds only (decided 2026-10-05 on #337).

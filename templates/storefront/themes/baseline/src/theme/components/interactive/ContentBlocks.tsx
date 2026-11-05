@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { Image, useProductCards, useStorefront, type ContentBlock } from '@dripfunnel/storefront-core/theme'
 import { ProductCard } from '../ProductCard'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/content.module.css'
+import { shop } from '../styles/shop'
+import { content as styles } from '../styles/content'
 
 /** A question that opens to its answer, as D1's FAQ draws them. */
 const Question = ({ question, answer }: { question: string; answer: string }) => {

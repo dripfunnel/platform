@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import { maxPageSize, pgArray, type ScopedSql } from './index'
 import { storefrontHostOf } from './publishing'
 
@@ -25,7 +26,7 @@ export const selectOfferedTemplates = (tx: ScopedSql, shopDomain: string | null)
 export const isOfferedTemplate = async (tx: ScopedSql, key: string): Promise<boolean> =>
   (await tx`select 1 from storefront_template where key = ${key} and state = 'offered'`).length > 0
 
-export type MessageRole = 'user' | 'ai' | 'note' | 'error'
+export type MessageRole = 'user' | 'ai' | 'note' | 'error' | 'questions' | 'plan'
 
 export interface NewMessage {
   storeId: string
@@ -38,15 +39,17 @@ export interface NewMessage {
   commit?: string | null
   beforeCommit?: string | null
   aiRunId?: string | null
+  /** A flow's questions, plan or build (#1243), as the studio's schema wrote it. */
+  detail?: unknown
   createdBy: string | null
   at: Date
 }
 
 export const insertDesignMessage = async (tx: ScopedSql, m: NewMessage): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
-    insert into design_message (store_id, role, text, changed, image_asset_id, sample_url, page, commit, before_commit, ai_run_id, created_by, created_at)
+    insert into design_message (store_id, role, text, changed, image_asset_id, sample_url, page, commit, before_commit, ai_run_id, detail, created_by, created_at)
     values (${m.storeId}, ${m.role}, ${m.text}, ${pgArray(m.changed ?? [])}::text[], ${m.imageAssetId ?? null}, ${m.sampleUrl ?? null},
-      ${m.page ?? null}, ${m.commit ?? null}, ${m.beforeCommit ?? null}, ${m.aiRunId ?? null}, ${m.createdBy}, ${m.at})
+      ${m.page ?? null}, ${m.commit ?? null}, ${m.beforeCommit ?? null}, ${m.aiRunId ?? null}, ${m.detail === undefined ? null : tx.json(m.detail as postgres.JSONValue)}, ${m.createdBy}, ${m.at})
     returning id`
   if (!row) throw new Error('design_message: insert returned nothing')
   return row.id
@@ -61,14 +64,19 @@ export interface MessageRow {
   sample_url: string | null
   page: string | null
   commit: string | null
+  before_commit: string | null
   undone: boolean
+  ai_run_id: string | null
+  detail: unknown
   created_at: Date
 }
+
+const messageColumns = (tx: ScopedSql) => tx`id, role, text, to_jsonb(changed) as changed, image_asset_id, sample_url, page, commit, before_commit, undone, ai_run_id, detail, created_at`
 
 /** A page of the chat, newest first, before the cursor's message (keyset on created_at and id). */
 export const selectDesignChat = (tx: ScopedSql, storeId: string, limit: number, before: { at: Date; id: string } | null): Promise<MessageRow[]> =>
   tx<MessageRow[]>`
-    select id, role, text, to_jsonb(changed) as changed, image_asset_id, sample_url, page, commit, undone, created_at
+    select ${messageColumns(tx)}
     from design_message
     where store_id = ${storeId} ${before ? tx`and (created_at, id) < (${before.at}, ${before.id})` : tx``}
     order by created_at desc, id desc limit ${limit}`
@@ -127,50 +135,33 @@ export const selectVersionHistory = (tx: ScopedSql, storeId: string, since: Date
 export const selectRecentRequests = async (tx: ScopedSql, storeId: string, limit: number): Promise<string[]> =>
   (await tx<{ text: string }[]>`select text from design_message where store_id = ${storeId} and role = 'user' order by created_at desc, id desc limit ${limit}`).map((r) => r.text)
 
-export interface SampleProductRow {
-  name: string
-  currency: string | null
-  amount: string | null
-}
-
-/** A sample of the store's visible products with their lowest price in the store's currency: names and prices, no photos. */
-export const selectProductSample = (tx: ScopedSql, storeId: string, limit: number): Promise<SampleProductRow[]> =>
-  tx<SampleProductRow[]>`
-    select p.name, s.pricing_currency as currency,
-      (select min(vp.amount)::text from product_version v join version_price vp on vp.version_id = v.id and vp.currency = s.pricing_currency
-       where v.product_id = p.id) as amount
-    from product p join store s on s.id = p.store_id
-    where p.store_id = ${storeId} and p.visibility = 'visible' and p.deleted_at is null
-    order by p.created_at desc, p.id desc limit ${limit}`
-
-export interface BriefStoreRow {
-  name: string
-  city: string | null
-  primary_colour: string | null
-  secondary_colour: string | null
-  tagline: string | null
-  description: string | null
-  voice: string | null
-}
-
-/** The store and its brand as the model reads them: the colours only as a hint (storefront ARCHITECTURE §6.2). */
-export const selectBriefStore = async (tx: ScopedSql, storeId: string): Promise<BriefStoreRow | null> =>
-  (
-    await tx<BriefStoreRow[]>`
-      select s.name, s.address->>'city' as city, b.primary_colour, b.secondary_colour, b.tagline, coalesce(b.description, s.description) as description, b.voice
-      from store s left join storefront_brand b on b.store_id = s.id where s.id = ${storeId}`
-  )[0] ?? null
-
 export const selectMessage = async (tx: ScopedSql, storeId: string, id: string): Promise<MessageRow | null> =>
-  (await tx<MessageRow[]>`select id, role, text, to_jsonb(changed) as changed, image_asset_id, sample_url, page, commit, undone, created_at from design_message where store_id = ${storeId} and id = ${id}`)[0] ?? null
+  (await tx<MessageRow[]>`select ${messageColumns(tx)} from design_message where store_id = ${storeId} and id = ${id}`)[0] ?? null
 
 /** The store's latest accepted change still in place: the only one "Undo this change" takes back (AI-STUDIO §5). */
 export const selectLatestChange = async (tx: ScopedSql, storeId: string): Promise<MessageRow | null> =>
   (
     await tx<MessageRow[]>`
-      select id, role, text, to_jsonb(changed) as changed, image_asset_id, sample_url, page, commit, undone, created_at from design_message
+      select ${messageColumns(tx)} from design_message
       where store_id = ${storeId} and role = 'ai' and commit is not null and not undone order by created_at desc, id desc limit 1`
   )[0] ?? null
+
+/** The store's newest questions or plan (#1243): only it can be answered, changed or built. */
+export const selectLatestFlow = async (tx: ScopedSql, storeId: string): Promise<MessageRow | null> =>
+  (await tx<MessageRow[]>`select ${messageColumns(tx)} from design_message where store_id = ${storeId} and role in ('questions', 'plan') order by created_at desc, id desc limit 1`)[0] ?? null
+
+/**
+ * Moves a flow's message on from `from` (its state and claim) only, so two tabs can't both answer or build it; false when it
+ * had moved. The merchant's own write under the store's row-level security (migration 0384), or the system's beside the
+ * build's message in one transaction.
+ */
+export const moveFlow = async (tx: ScopedSql, storeId: string, id: string, from: { state: string; claimedAt?: string | null | undefined }, detail: unknown): Promise<boolean> =>
+  (
+    await tx`
+      update design_message set detail = ${tx.json(detail as postgres.JSONValue)}
+      where store_id = ${storeId} and id = ${id} and detail->>'state' = ${from.state} and coalesce(detail->>'claimedAt', '') = ${from.claimedAt ?? ''}
+      returning id`
+  ).length > 0
 
 export const markUndone = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
   await tx`update design_message set undone = true where store_id = ${storeId} and id = ${id}`
@@ -193,7 +184,7 @@ export const selectDesignUsage = async (tx: ScopedSql, storeId: string, month: D
   (
     await tx<DesignUsageRow[]>`
       select
-        (select count(*)::int from ai_run where store_id = ${storeId} and kind = 'design' and billed_to <> 'platform' and created_at >= ${month}) as ai_requests,
+        (select count(*)::int from ai_run where store_id = ${storeId} and kind = 'design' and billed_to <> 'platform' and parent_run_id is null and created_at >= ${month}) as ai_requests,
         (select coalesce(sum(tokens_in + tokens_out), 0)::int from ai_run where store_id = ${storeId} and kind = 'design' and billed_to <> 'platform' and created_at >= ${month}) as ai_tokens,
         coalesce((select used from store_usage where store_id = ${storeId} and key = 'ai_prompts' and period_start = ${month.toISOString().slice(0, 10)}::date), 0) as ai_prompts_used,
         (select coalesce(sum(build_minutes), 0)::int from publish_run where store_id = ${storeId} and attempt_of is null and created_at >= ${month}) as build_minutes,
@@ -212,4 +203,4 @@ export interface RecentRequestRow {
 export const selectRecentRuns = (tx: ScopedSql, storeId: string, limit: number): Promise<RecentRequestRow[]> =>
   tx<RecentRequestRow[]>`
     select id, prompt, outcome, tokens_in + tokens_out as tokens, created_at from ai_run
-    where store_id = ${storeId} and kind = 'design' and billed_to <> 'platform' order by created_at desc, id desc limit ${limit}`
+    where store_id = ${storeId} and kind = 'design' and billed_to <> 'platform' and parent_run_id is null order by created_at desc, id desc limit ${limit}`

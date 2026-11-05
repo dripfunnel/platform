@@ -8,6 +8,7 @@ import type { StoreRole } from '#auth/storePermissions'
 import { draftBundle, previewFolder, sourceBundle, upgradeBundle, upgradeFiles } from '#saas/storefronts/index'
 import { liveStudioSession, openStudioSession, renewStudio, studioOf, StudioRunner, StudioUnavailable, type DesignModel, type DraftsBucket, type Proposal, type StudioDeps } from '#saas/studio/index'
 import { sandboxClient } from '#integrations/sandbox/index'
+import { memoryKept, studioStorage } from './support/kept'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
@@ -112,6 +113,7 @@ const runnerFor = async (storeId: string, overrides: Partial<StudioDeps> = {}) =
     now: () => new Date(),
     newId: () => crypto.randomUUID(),
     onBundle: (b) => void bundles.push(b.id),
+    ...studioStorage(),
     ...overrides,
   })
   return { runner, host, bundles, released }
@@ -153,6 +155,7 @@ describe('one change', () => {
     const changed = await runner.change({ request: 'Make the lead warmer', userId: ownerA.userId, billedTo: 'plan', model })
     expect(changed).toMatchObject({ outcome: 'changed', repairs: 0 })
     if (changed.outcome !== 'changed') return
+    await runner.saved()
     expect(drafts.objects.has(draftBundle(t.storeA1))).toBe(true)
     expect(sites.objects.has(`${previewFolder(t.storeA1, changed.previewRef)}index.html`)).toBe(true)
     expect([...sites.objects.keys()].some((k) => k.startsWith(previewFolder(t.storeA1, changed.previewRef)) && k.includes('assets/core/'))).toBe(false)
@@ -160,8 +163,9 @@ describe('one change', () => {
     expect(bundles.length).toBeGreaterThanOrEqual(2)
 
     const undone = await runner.undo(changed.commit, ownerA.userId)
-    expect(undone).toMatchObject({ outcome: 'changed' })
+    expect(undone).toMatchObject({ outcome: 'changed', before: changed.commit })
     if (undone.outcome !== 'changed') return
+    await runner.saved()
     expect((await draftRow(t.storeA1))?.head_commit).toBe(undone.commit)
     expect(undone.previewRef).not.toBe(changed.previewRef)
     const [run] = await db.sql<{ kind: string; billed_to: string; sandbox_ms: number; outcome: string }[]>`select kind, billed_to, sandbox_ms, outcome from ai_run where store_id = ${t.storeA1}`
@@ -200,6 +204,100 @@ describe('one change', () => {
       { kind: 'design', outcome: 'changed' },
       { kind: 'repair', outcome: 'changed' },
     ])
+  })
+})
+
+describe('an answer of edits (#1238)', () => {
+  const shell = 'src/theme/styles/shell.module.css'
+  const maroon = { path: shell, edits: [{ search: 'color: var(--color-text, #111827);', replace: 'color: var(--color-text, #800000);' }] }
+  it('applies a one-line colour change as one edit, passes the gate and commits the whole file', async () => {
+    const { runner, host } = await runnerFor(t.storeA2)
+    const changed = await runner.change({ request: 'Make the text maroon', userId: ownerA.userId, billedTo: 'plan', model: scripted([[maroon]]).model })
+    expect(changed).toMatchObject({ outcome: 'changed', repairs: 0 })
+    const theme = await sandboxClient(host.send, t.storeA2).theme()
+    const before = template.find((f) => f.path === shell)?.content ?? ''
+    expect(theme.files.find((f) => f.path === shell)?.content).toBe(before.replace('#111827', '#800000'))
+  })
+
+  it('adds a new file whole and deletes a named one', async () => {
+    const { runner } = await runnerFor(t.storeA1)
+    const component = { path: 'src/theme/components/Note.tsx', content: 'export const Note = () => null\n' }
+    const added = await runner.change({ request: 'Add a note component', userId: ownerA.userId, billedTo: 'plan', model: scripted([[component]]).model })
+    expect(added).toMatchObject({ outcome: 'changed', repairs: 0 })
+    const removed = await runner.change({ request: 'Remove the note component', userId: ownerA.userId, billedTo: 'plan', model: scripted([[{ path: component.path, delete: true }]]).model })
+    expect(removed).toMatchObject({ outcome: 'changed', repairs: 0 })
+  })
+
+  it('makes a search text that is missing or appears twice a repair with a readable problem, and takes the repaired answer', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    const seen: { problems: { file: string | null; rule: string; message: string }[]; previous: unknown }[] = []
+    const answers = [[{ path: shell, edits: [{ search: 'color: purple;', replace: 'color: maroon;' }] }], [{ path: shell, edits: [{ search: 'display: flex;', replace: 'display: grid;' }] }], [maroon]]
+    const model: DesignModel = {
+      propose: async (input) => {
+        seen.push({ problems: input.problems, previous: input.previous })
+        return { files: answers[seen.length - 1] ?? [], model: 'test-model', tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD' }
+      },
+    }
+    expect(await runner.change({ request: 'Make the text maroon', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'changed', repairs: 2 })
+    expect(seen[1]?.problems).toEqual([expect.objectContaining({ file: shell, rule: 'patch/not-found', message: expect.stringContaining('"color: purple;"') })])
+    expect(seen[1]?.previous).toEqual(answers[0])
+    expect(seen[2]?.problems.map((p) => p.rule)).toEqual(['patch/not-unique'])
+  })
+
+  it('refuses after three repairs of edits that never apply, with the draft unchanged and each repair metered', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    await runner.open()
+    const before = { drafts: drafts.puts.length, sites: sites.objects.size }
+    const { model, asks } = scripted([[{ path: shell, edits: [{ search: 'not in the file', replace: 'x' }] }]])
+    expect(await runner.change({ request: 'Never applies', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'refused', repairs: 3 })
+    expect(asks).toEqual([{ problems: 0 }, { problems: 1 }, { problems: 1 }, { problems: 1 }])
+    expect({ drafts: drafts.puts.length, sites: sites.objects.size }).toEqual(before)
+    expect(await draftRow(t.storeA2)).toBeNull()
+    const runs = await db.sql<{ kind: string; outcome: string; sandbox_ms: number }[]>`select kind, outcome, sandbox_ms from ai_run where store_id = ${t.storeA2} order by kind`
+    expect(runs.map((r) => [r.kind, r.outcome, r.sandbox_ms])).toEqual([['design', 'refused', 0], ['repair', 'refused', 0], ['repair', 'refused', 0], ['repair', 'refused', 0]])
+  })
+})
+
+describe('checked as they stream, and the fast lanes (#1240)', () => {
+  const shell = 'src/theme/styles/shell.module.css'
+  /** A model that hands each file to `onFile` as it would stream, then answers with them all. */
+  const streaming = (answers: Proposal['files'][]) => {
+    const asks: { rule: string; step: string; file: string | null }[][] = []
+    const model: DesignModel = {
+      propose: async (input) => {
+        asks.push(input.problems)
+        const files = answers[asks.length - 1] ?? []
+        for (const f of files) await input.onFile?.(f)
+        return { files, model: 'test-model', tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD' }
+      },
+    }
+    return { model, asks }
+  }
+
+  it('hands the repair the pre-check’s type errors with the validator’s refusal, which stopped the gate before its typecheck', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    const wrong = { path: 'src/theme/components/Wrong.tsx', content: 'export const wrong: number = false\n' }
+    const { model, asks } = streaming([[wrong, refusedPage], [lead('Warm linen, slowly made.')]])
+    expect(await runner.change({ request: 'Two things at once', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'changed', repairs: 1 })
+    expect(asks[1]?.map((p) => [p.step, p.file])).toEqual(expect.arrayContaining([['validator', refusedPage.path], ['typecheck', wrong.path]]))
+  })
+
+  it('takes a change whose first file failed its pre-check alone: the final gate on the whole change decides', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    const home = template.find((f) => f.path === 'src/theme/pages/HomePage.tsx')?.content ?? ''
+    const page = { path: 'src/theme/pages/HomePage.tsx', content: home.replace("import { Shell } from '../components/Shell'", "import { Shell } from '../components/Shell'\nimport { Note } from '../components/Note'").replace('</Shell>', '<Note />\n    </Shell>') }
+    const note = { path: 'src/theme/components/Note.tsx', content: 'export const Note = () => null\n' }
+    expect(await runner.change({ request: 'Add a note', userId: ownerA.userId, billedTo: 'plan', model: streaming([[page, note]]).model })).toMatchObject({ outcome: 'changed', repairs: 0 })
+  })
+
+  it('swaps only the frame’s stylesheet for a CSS-only change, and its modules for any other', async () => {
+    const swaps: (string | undefined)[] = []
+    const { runner } = await runnerFor(t.storeA2, { onBundle: (_, swap) => void swaps.push(swap) })
+    await runner.open()
+    const css = { path: shell, edits: [{ search: 'color: var(--color-text, #111827);', replace: 'color: var(--color-text, #800000);' }] }
+    expect(await runner.change({ request: 'Maroon text', userId: ownerA.userId, billedTo: 'plan', model: streaming([[css]]).model })).toMatchObject({ outcome: 'changed' })
+    expect(await runner.change({ request: 'Warmer words', userId: ownerA.userId, billedTo: 'plan', model: streaming([[lead('Warm linen.')]]).model })).toMatchObject({ outcome: 'changed' })
+    expect(swaps).toEqual([undefined, 'stylesheet', 'modules'])
   })
 })
 
@@ -256,6 +354,7 @@ describe('one change at a time', () => {
     const [r1, r2] = await Promise.all([one, two])
     expect(r1).toMatchObject({ outcome: 'changed' })
     expect(r2).toMatchObject({ outcome: 'changed' })
+    await a.runner.saved()
     expect((await draftRow(t.storeA1))?.head_commit).toBe(r2.outcome === 'changed' ? r2.commit : '')
   })
 })
@@ -265,6 +364,7 @@ describe('a crash mid-change', () => {
     const { runner, host } = await runnerFor(t.storeA1)
     const saved = await runner.change({ request: 'Saved first', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Saved before the crash.')]]).model })
     expect(saved.outcome).toBe('changed')
+    await runner.saved()
     const savedHead = (await draftRow(t.storeA1))?.head_commit
     const crashing: DesignModel = {
       propose: async () => {
@@ -275,12 +375,14 @@ describe('a crash mid-change', () => {
     const retried = await runner.change({ request: 'Crashes once', userId: ownerA.userId, billedTo: 'plan', model: crashing })
     expect(host.starts()).toBe(2)
     expect(retried).toMatchObject({ outcome: 'changed' })
+    await runner.saved()
     expect((await draftRow(t.storeA1))?.head_commit).not.toBe(savedHead)
   })
 
   it('leaves the draft at the last saved state when the sandbox dies twice', async () => {
     const { runner, host } = await runnerFor(t.storeA1)
     await runner.change({ request: 'Saved first', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('The last saved state.')]]).model })
+    await runner.saved()
     const savedHead = (await draftRow(t.storeA1))?.head_commit
     const savedBundle = drafts.objects.get(draftBundle(t.storeA1))?.bytes
     const dying = scripted([[lead('Never saved.')]]).model
@@ -296,10 +398,74 @@ describe('a crash mid-change', () => {
       now: () => new Date(),
       newId: () => crypto.randomUUID(),
       onBundle: () => undefined,
+      ...studioStorage(),
     })
     await expect(fragile.change({ request: 'Dies twice', userId: ownerA.userId, billedTo: 'plan', model: dying })).rejects.toBeInstanceOf(StudioUnavailable)
     expect((await draftRow(t.storeA1))?.head_commit).toBe(savedHead)
     expect(drafts.objects.get(draftBundle(t.storeA1))?.bytes).toBe(savedBundle)
+  })
+})
+
+describe('saving off the wait (AI-STUDIO §4 steps 5–7, #1241)', () => {
+  it('reloads the frame before R2 or the database is written, and the preview follows', async () => {
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const slow: DraftsBucket = { ...drafts.bucket, put: async (key, value) => (await held, drafts.bucket.put(key, value)) }
+    const { runner, bundles } = await runnerFor(t.storeA1, { drafts: slow })
+    await runner.open()
+    const shown = bundles.length
+    const changed = await runner.change({ request: 'Swap at once', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Shown before it is saved.')]]).model })
+    expect(changed.outcome).toBe('changed')
+    if (changed.outcome !== 'changed') return
+    expect(bundles.length).toBe(shown + 1)
+    expect(drafts.objects.has(draftBundle(t.storeA1))).toBe(false)
+    expect(await draftRow(t.storeA1)).toBeNull()
+    // Metered at once: the chat's message refers to it.
+    expect((await db.sql<{ outcome: string }[]>`select outcome from ai_run where id = ${changed.runId}`)[0]?.outcome).toBe('changed')
+    release()
+    await runner.saved()
+    expect(await draftRow(t.storeA1)).toMatchObject({ head_commit: changed.commit, preview_deploy_ref: changed.previewRef })
+    expect(sites.objects.has(`${previewFolder(t.storeA1, changed.previewRef)}index.html`)).toBe(true)
+  })
+
+  it('says when a save gave up while the object stays up, and saves the change before a publish reads the draft', async () => {
+    let down = true
+    const flaky: DraftsBucket = { ...drafts.bucket, put: async (key, value) => (down ? Promise.reject(new Error('R2 unavailable')) : drafts.bucket.put(key, value)) }
+    const { runner } = await runnerFor(t.storeA1, { drafts: flaky })
+    const changed = await runner.change({ request: 'Saved late', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Saved late.')]]).model })
+    expect(changed.outcome).toBe('changed')
+    expect(await runner.saved()).toBe(false)
+    expect(await draftRow(t.storeA1)).toBeNull()
+    down = false
+    expect(await runner.prepare(null)).toMatchObject({ outcome: 'ready', commit: changed.outcome === 'changed' ? changed.commit : '' })
+    expect(await runner.saved()).toBe(true)
+    expect((await draftRow(t.storeA1))?.head_commit).toBe(changed.outcome === 'changed' ? changed.commit : '')
+  })
+
+  it('loses no change when the object stops after the frame’s swap and before the R2 write: the next start reapplies it', async () => {
+    const kept = memoryKept()
+    const down: DraftsBucket = { ...drafts.bucket, put: async () => Promise.reject(new Error('R2 unavailable')) }
+    const first = await runnerFor(t.storeA1, { drafts: down, ...studioStorage(kept) })
+    const changed = await first.runner.change({ request: 'Kept through a crash', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Kept through a crash.')]]).model })
+    expect(changed.outcome).toBe('changed')
+    await first.runner.saved()
+    expect(await draftRow(t.storeA1)).toBeNull()
+    first.host.kill()
+
+    // A new object over the same storage, as after an eviction: it starts from the last bundle (none) and reapplies.
+    const again = await runnerFor(t.storeA1, studioStorage(kept))
+    await again.runner.open()
+    await again.runner.saved()
+    const row = await draftRow(t.storeA1)
+    expect(row?.changed_by).toBe(ownerA.userId)
+    const bundle = drafts.objects.get(draftBundle(t.storeA1))?.bytes
+    if (!bundle) throw new Error('no draft bundle')
+    const client = sandboxClient(again.host.send, 'check-reapplied')
+    await client.loadBundle(bundle)
+    const theme = await client.theme()
+    expect(theme.head).toBe(row?.head_commit)
+    expect(theme.files.find((f) => f.path === 'content/en/pages.json')?.content).toContain('Kept through a crash.')
+    expect([...kept.data.keys()].filter((k) => k.startsWith('kept:m:'))).toEqual([])
   })
 })
 
@@ -568,8 +734,9 @@ describe('studio sessions (AI-STUDIO §8)', () => {
 
   it('picks the store’s Durable Object from the TenantContext, never from anything the caller sent', () => {
     const named: string[] = []
-    const namespace = { idFromName: (name: string) => (named.push(name), name), get: (id: string) => ({ id }) } as unknown as DurableObjectNamespace
-    expect(studioOf(namespace, contextFor(t.storeA1, t.partnerA, ownerA.userId, ownerA.sessionHash))).toEqual({ id: t.storeA1 })
+    const namespace = { idFromName: (name: string) => (named.push(name), name), get: (id: string, options: unknown) => ({ id, options }) } as unknown as DurableObjectNamespace
+    // Made in Asia Pacific, beside its containers (#1241).
+    expect(studioOf(namespace, contextFor(t.storeA1, t.partnerA, ownerA.userId, ownerA.sessionHash))).toEqual({ id: t.storeA1, options: { locationHint: 'apac' } })
     expect(named).toEqual([t.storeA1])
   })
 })

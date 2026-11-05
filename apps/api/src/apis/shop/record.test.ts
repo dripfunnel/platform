@@ -35,6 +35,7 @@ describe('the recorded catalogue questions', () => {
     // A collection's own answer is its node in the list.
     expect(missing(catalogueQueries.collection, paths(recordedQueries.Collections), (p) => p.replace(/^collection/, 'collections.nodes'))).toEqual([])
     expect(missing(catalogueQueries.menu, paths(recordedQueries.Menu))).toEqual([])
+    expect(missing(catalogueQueries.offers, paths(recordedQueries.Offers))).toEqual([])
   })
 
   it('fit the snapshot core reads at every cap', () => {

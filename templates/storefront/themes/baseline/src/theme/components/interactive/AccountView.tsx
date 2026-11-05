@@ -7,8 +7,8 @@ import { Notice } from '../Notice'
 import { OrderPill } from '../OrderPill'
 import { Retry } from './Retry'
 import { WishlistList } from './WishlistList'
-import shop from '../../styles/shop.module.css'
-import styles from '../../styles/account.module.css'
+import { shop } from '../styles/shop'
+import { account as styles } from '../styles/account'
 
 type Section = 'orders' | 'details' | 'addresses' | 'wishlist'
 
@@ -41,7 +41,7 @@ export const AccountView = ({ section }: { section: Section }) => {
   }
   const first = page.account.name?.split(' ')[0]
   const tab = (href: string, label: string, on: boolean) => (
-    <Link href={href} className={clsx(styles.navItem, on && styles.navOn)} {...(on ? { 'aria-current': 'page' as const } : {})}>
+    <Link href={href} className={clsx(styles.navItemBase, !(on) && 'text-ink-soft', on && styles.navOn)} {...(on ? { 'aria-current': 'page' as const } : {})}>
       {label}
     </Link>
   )

@@ -1,0 +1,48 @@
+import { clsx } from 'clsx'
+
+// The account styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+const navItemBase = clsx('focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px] py-0 px-4 inline-flex min-h-11 items-center rounded-button font-semibold no-underline')
+const tabBase = clsx('border-0 border-current min-h-11 rounded-button [font-family:inherit] [font-size:inherit] [font-style:inherit] [line-height:inherit] font-semibold cursor-pointer focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]')
+
+export const account = {
+  account: clsx('grid gap-y-5 gap-x-5 items-start min-[900px]:grid-cols-[220px_minmax(0,1fr)] min-[900px]:gap-y-8 min-[900px]:gap-x-8'),
+  address: clsx('pb-2.5 border-b border-b-line grid gap-y-1.5 gap-x-1.5'),
+  addressLine: clsx('m-0 wrap-anywhere'),
+  addresses: clsx('p-0 m-0 grid gap-y-2.5 gap-x-2.5 list-none'),
+  alert: clsx('py-3 px-3.5 m-0 border border-line rounded-card bg-soft text-ink'),
+  auth: clsx('pt-8 pr-4 pb-6 pl-4 flex box-border w-[min(100%,440px)] flex-col gap-y-4 gap-x-4 mx-auto'),
+  between: clsx('flex flex-wrap items-center justify-between gap-y-2 gap-x-2'),
+  body: clsx('flex min-w-0 flex-col gap-y-4 gap-x-4'),
+  card: clsx('p-4.5 border border-line flex flex-col gap-y-3.5 gap-x-3.5 rounded-card bg-surface'),
+  cardTitle: clsx('m-0 font-heading text-[22px] font-[var(--heading-weight)]'),
+  check: clsx('inline-flex min-h-6 items-center gap-y-2 gap-x-2 text-[14px] [&_input]:w-4.5 [&_input]:h-4.5 [&_input]:[accent-color:var(--color-accent)]'),
+  facts: clsx('m-0 grid gap-y-2.5 gap-x-2.5 [&_div]:grid [&_div]:gap-y-1 [&_div]:gap-x-1 [&_dt]:text-muted [&_dt]:text-[14px] [&_dd]:m-0 [&_dd]:wrap-anywhere'),
+  field: clsx('grid gap-y-1.5 gap-x-1.5 [&_label]:text-[14px] [&_label]:font-semibold [&_small]:text-muted [&_small]:text-[13px] [&_small[role="alert"]]:text-danger [&_input]:py-0 [&_input]:px-3.5 [&_input]:border [&_input]:border-line [&_input]:min-h-12 [&_input]:box-border [&_input]:rounded-[calc(var(--radius-card)_-_4px)] [&_input]:bg-surface [&_input]:text-ink [&_input]:[font-family:inherit] [&_input]:[font-size:inherit] [&_input]:[font-weight:inherit] [&_input]:[font-style:inherit] [&_input]:[line-height:inherit] [&_select]:py-0 [&_select]:px-3.5 [&_select]:border [&_select]:border-line [&_select]:min-h-12 [&_select]:box-border [&_select]:rounded-[calc(var(--radius-card)_-_4px)] [&_select]:bg-surface [&_select]:text-ink [&_select]:[font-family:inherit] [&_select]:[font-size:inherit] [&_select]:[font-weight:inherit] [&_select]:[font-style:inherit] [&_select]:[line-height:inherit] [&_input[aria-invalid="true"]]:border-danger [&>button]:py-0 [&>button]:px-5 [&>button]:border [&>button]:border-line [&>button]:inline-flex [&>button]:min-h-11 [&>button]:items-center [&>button]:justify-center [&>button]:justify-self-start [&>button]:rounded-button [&>button]:bg-surface [&>button]:text-ink [&>button]:[font-family:inherit] [&>button]:[font-size:inherit] [&>button]:[font-style:inherit] [&>button]:[line-height:inherit] [&>button]:font-semibold [&>button]:cursor-pointer [&_[role="dialog"]_button]:py-0 [&_[role="dialog"]_button]:px-5 [&_[role="dialog"]_button]:border [&_[role="dialog"]_button]:border-line [&_[role="dialog"]_button]:inline-flex [&_[role="dialog"]_button]:min-h-11 [&_[role="dialog"]_button]:items-center [&_[role="dialog"]_button]:justify-center [&_[role="dialog"]_button]:justify-self-start [&_[role="dialog"]_button]:rounded-button [&_[role="dialog"]_button]:bg-surface [&_[role="dialog"]_button]:text-ink [&_[role="dialog"]_button]:[font-family:inherit] [&_[role="dialog"]_button]:[font-size:inherit] [&_[role="dialog"]_button]:[font-style:inherit] [&_[role="dialog"]_button]:[line-height:inherit] [&_[role="dialog"]_button]:font-semibold [&_[role="dialog"]_button]:cursor-pointer [&>button:not([aria-expanded])]:p-0 [&>button:not([aria-expanded])]:border-0 [&>button:not([aria-expanded])]:border-current [&>button:not([aria-expanded])]:min-h-6 [&>button:not([aria-expanded])]:bg-transparent [&>button:not([aria-expanded])]:text-[14px] [&>button:not([aria-expanded])]:font-normal [&>button:not([aria-expanded])]:underline [&>button:not([aria-expanded])]:underline-offset-[3px] [&_button:disabled]:opacity-[0.6] [&_button:disabled]:cursor-default [&_[role="dialog"]]:p-4 [&_[role="dialog"]]:mt-1 [&_[role="dialog"]]:border [&_[role="dialog"]]:border-line [&_[role="dialog"]]:grid [&_[role="dialog"]]:grid-cols-[auto_auto_1fr] [&_[role="dialog"]]:gap-y-3 [&_[role="dialog"]]:gap-x-2.5 [&_[role="dialog"]]:rounded-card [&_[role="dialog"]]:bg-surface [&_[role="dialog"]>:not(button)]:m-0 [&_[role="dialog"]>:not(button)]:col-[1_/_-1] [&_[role="dialog"]>p:first-child]:font-semibold [&_[role="dialog"]>p]:text-muted [&_[role="dialog"]>p]:text-[14px] [&_[role="application"]]:border [&_[role="application"]]:border-line [&_[role="application"]]:overflow-hidden [&_[role="application"]]:rounded-[calc(var(--radius-card)_-_4px)] [&_[role="dialog"]>button:first-of-type]:border-accent [&_[role="dialog"]>button:first-of-type]:bg-accent [&_[role="dialog"]>button:first-of-type]:text-accent-ink [&_button:focus-visible]:[outline:2px_solid_var(--color-focus)] [&_button:focus-visible]:outline-offset-[2px] [&_[role="application"]:focus-visible]:[outline:2px_solid_var(--color-focus)] [&_[role="application"]:focus-visible]:outline-offset-[2px]'),
+  fields: clsx('grid gap-y-3.5 gap-x-3.5'),
+  form: clsx('grid gap-y-3.5 gap-x-3.5'),
+  hello: clsx('flex flex-wrap items-baseline justify-between gap-y-3 gap-x-3'),
+  lead: clsx('m-0 text-ink-soft text-[14px]'),
+  link: clsx('focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px] p-0 border-0 border-current min-h-6 bg-transparent text-ink [font-family:inherit] [font-weight:inherit] [font-style:inherit] [line-height:inherit] text-[14px] underline underline-offset-[3px] cursor-pointer disabled:opacity-[0.55] disabled:cursor-default'),
+  nav: clsx('flex flex-wrap gap-y-2 gap-x-2 min-[900px]:flex-col'),
+  navItem: clsx(navItemBase, 'text-ink-soft'),
+  navItemBase,
+  navOn: clsx('bg-soft text-ink'),
+  note: clsx('m-0 text-ink-soft text-[14px]'),
+  order: clsx('p-4 border border-line flex items-center justify-between gap-y-3 gap-x-3 rounded-card bg-surface text-ink no-underline hover:border-ink-soft focus-visible:[outline:2px_solid_var(--color-focus)] focus-visible:outline-offset-[2px]'),
+  orderFacts: clsx('flex min-w-0 flex-col gap-y-1 gap-x-1'),
+  orderPill: clsx('group-[:nth-child(n)]/account-orders:self-end'),
+  orderState: clsx('flex min-w-0 flex-col shrink-0 items-end gap-y-1.5 gap-x-1.5 text-[14px]'),
+  orders: clsx('group/account-orders p-0 m-0 flex flex-col gap-y-3 gap-x-3 list-none'),
+  phone: clsx('grid grid-cols-[6.5rem_minmax(0,1fr)] gap-y-2 gap-x-2'),
+  pill: clsx('py-0.5 px-2.5 inline-block rounded-button bg-tint text-accent text-[12px] font-semibold'),
+  row: clsx('flex flex-wrap items-center gap-y-3.5 gap-x-3.5'),
+  switch: clsx('pt-4 m-0 border-t border-t-line text-center'),
+  tab: clsx(tabBase, 'bg-transparent text-ink-soft'),
+  tabBase,
+  tabOn: clsx('bg-surface text-ink'),
+  tabs: clsx('p-1 grid grid-cols-[1fr_1fr] gap-y-1 gap-x-1 rounded-button bg-soft'),
+  title: clsx('m-0 font-heading text-[30px] font-[var(--heading-weight)] tracking-[var(--heading-spacing)] [text-transform:var(--heading-case)]'),
+  wishActions: clsx('flex flex-wrap gap-y-2 gap-x-2 [&>a]:flex-[1_1_120px] [&>a]:self-stretch [&>button]:flex-[1_1_120px] [&>button]:self-stretch [&>p]:m-0 [&>p]:basis-[100%]'),
+  wished: clsx('flex flex-col gap-y-3 gap-x-3'),
+  wishlist: clsx('p-0 m-0 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-y-5 gap-x-5 list-none'),
+}
