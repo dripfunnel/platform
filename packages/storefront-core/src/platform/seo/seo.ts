@@ -74,12 +74,13 @@ export const seoFor = (p: SeoInput): Seo => {
       })
   }
   const images = p.product?.images ?? (p.product?.image ? [p.product.image] : [])
+  const productText = textOfRichText(p.product?.description ?? '')
   if (p.product)
     jsonLd.push({
       '@context': context,
       '@type': 'Product',
       name: p.product.name,
-      ...(textOfRichText(p.product.description ?? '') ? { description: textOfRichText(p.product.description ?? '') } : {}),
+      ...(productText ? { description: productText } : {}),
       ...(images.length ? { image: images } : {}),
       offers: {
         '@type': 'Offer',

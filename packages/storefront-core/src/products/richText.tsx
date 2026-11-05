@@ -108,11 +108,7 @@ export type RichTextProps = {
   className?: string | undefined
 }
 
-/**
- * A product's description with its paragraphs, bold and italic text, lists and links (storefront ARCHITECTURE §3.5).
- * A theme places it and styles its elements with its own CSS; only a link to http, https or mailto is kept, and it
- * opens with `rel="noopener nofollow"`. Renders nothing when there is nothing to read.
- */
+/** A product's description as paragraphs, lists and links; nothing when there is nothing to read (storefront ARCHITECTURE §3.4 "Formatted text"). */
 export const RichText = ({ html, className }: RichTextProps) => {
   const body = hasMarkup(html) ? blocks(parse(html)) : plainBlocks(html)
   return body.length > 0 ? createElement('div', { className }, ...body) : null

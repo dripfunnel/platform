@@ -74,8 +74,8 @@ describe('textOfRichText (#1216)', () => {
   })
 })
 
-// apps/api's catalog/richText.test.ts checks the same file against what the engine stores: the two readers must agree.
-const corpus = JSON.parse(readFileSync(new URL('../../../../apps/api/src/engine/modules/catalog/richText.corpus.json', import.meta.url), 'utf8')) as { name: string; input: string; html: string }[]
+// The API's catalog/richText.test.ts runs this file through the engine's sanitiser (#1216), so the two readers must agree.
+const corpus = JSON.parse(readFileSync(new URL('./richText.corpus.json', import.meta.url), 'utf8')) as { name: string; input: string; html: string }[]
 
 describe('RichText and the engine’s sanitiser read the same corpus alike (#1216)', () => {
   it.each(corpus)('$name', ({ input, html }) => {

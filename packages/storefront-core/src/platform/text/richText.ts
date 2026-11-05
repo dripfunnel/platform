@@ -1,5 +1,5 @@
 // A product's description is a small HTML subset the engine stores (#1216, apps/api catalog/richText.ts), read into a tree here.
-// Pure logic: sealed/richText.tsx draws it and platform/seo and products take its text.
+// Pure logic: products/richText.tsx draws it, and platform/seo and products take its text.
 
 const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
 
