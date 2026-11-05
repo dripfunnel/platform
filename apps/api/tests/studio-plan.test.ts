@@ -72,6 +72,8 @@ const runnerOf = (storeId: string): StudioRunner => {
 const local = localStudio(() => db.sql, runnerOf)
 /** The studio's RPC fails before a build starts (a Durable Object fault). */
 let studioFails = false
+/** The studio's answer to a build is lost after it ran (the RPC broke on the way back). */
+let answerLost = false
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
 const script: { answers: string[]; sent: string[] } = { answers: [], sent: [] }
@@ -149,7 +151,15 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   w = await seedStoreWorld(db.sql, t, { now, secrets: null, lookup: { resolve: async () => [] }, studio: (context) => {
       const studio = local.studio(context)
-      return { ...studio, build: (storeId, input, model) => (studioFails ? Promise.reject(new Error('the studio is unreachable')) : studio.build(storeId, input, model)) }
+      return {
+        ...studio,
+        build: async (storeId, input, model) => {
+          if (studioFails) throw new Error('the studio is unreachable')
+          const built = await studio.build(storeId, input, model)
+          if (answerLost) throw new Error('the studio’s answer was lost')
+          return built
+        },
+      }
     }, extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design } })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -348,6 +358,49 @@ describe('the plan and its build (#1243)', () => {
     expect(await withScope(db.sql, as(t.storeB1, t.partnerB, true), (tx) => moveFlow(tx, t.storeB1, theirs.id, { state: 'open' }, claimed)).catch(() => false)).toBe(false)
     expect((await db.sql<{ state: string }[]>`select detail->>'state' as state from design_message where id = ${theirs.id}`)[0]?.state).toBe('open')
     expect(await withScope(db.sql, as(t.storeB1, t.partnerB, false), (tx) => moveFlow(tx, t.storeB1, theirs.id, { state: 'open' }, claimed))).toBe(true)
+  })
+
+  it('records the build as it stood when its answer is lost after pages were built, with its one Undo', async () => {
+    const plan = await toPlan()
+    script.answers = [reply([lead('Lost: home.')]), reply([lead('Lost: product.')]), reply([refusedPage]), reply([refusedPage]), reply([refusedPage]), reply([refusedPage])]
+    answerLost = true
+    try {
+      const done = value(await build(plan.id), 'buildDesignPlan')
+      expect(done).toMatchObject({ outcome: 'changed', message: { role: 'ai', canUndo: true, changed: ['Home', 'Product'] } })
+      expect(done.message.build?.pages.map((p) => p.outcome)).toEqual(['changed', 'changed', 'refused'])
+    } finally {
+      answerLost = false
+    }
+    expect((await db.sql<{ state: string }[]>`select detail->>'state' as state from design_message where id = ${plan.id}`)[0]?.state).toBe('built')
+    expect((await build(plan.id)).code).toBe('PLAN_GONE')
+  })
+
+  it('renews the plan’s claim before each page, and records no build when another request took the claim', async () => {
+    const plan = await toPlan()
+    const claimOf = async () => (await db.sql<{ claimed: string }[]>`select detail->>'claimedAt' as claimed from design_message where id = ${plan.id}`)[0]?.claimed ?? ''
+    let release: () => void = () => undefined
+    const wait = new Promise<void>((resolve) => (release = resolve))
+    let reached: () => void = () => undefined
+    const atPage2 = new Promise<void>((resolve) => (reached = resolve))
+    pause = { at: 'Build page 2 of 3', wait, reached }
+    script.answers = [reply([lead('Taken: home.')]), reply([lead('Taken: product.')]), reply([lead('Taken: about.')])]
+    const builds = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from design_message where store_id = ${t.storeA1} and detail->>'kind' = 'build'`)[0]?.n ?? 0
+    const before = await builds()
+    try {
+      const building = build(plan.id)
+      await atPage2
+      const first = await claimOf()
+      expect(first > new Date(clock - 60_000).toISOString()).toBe(true)
+      // Another request's claim, as a second Build it after a lapse would make.
+      await db.sql`update design_message set detail = detail || ${db.sql.json({ claimedAt: new Date(clock + 3_600_000).toISOString() })} where id = ${plan.id}`
+      release()
+      expect((await building).code).toBe('PLAN_GONE')
+    } finally {
+      release()
+      pause = null
+    }
+    expect(await builds()).toBe(before)
+    script.answers = []
   })
 
   it('refuses the Manager, and another store’s Owner, every flow write', async () => {

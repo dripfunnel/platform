@@ -532,7 +532,9 @@ export const createStudioService = (deps: StudioDeps) => {
       const building: PlanFlow = { ...flow, state: 'building', claimedAt: now().toISOString() }
       if (!(await withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, flow, building)))) return { ok: false, reason: 'PLAN_GONE' }
       // Nothing built yet: the plan goes back to open, to build again.
-      const giveBack = () => withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, building, reopened(flow)))
+      // The claim is renewed before every ask of the model, so a long build never lets it lapse (`claimMs`) while it runs.
+      let held = building
+      const giveBack = () => withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, held, reopened(flow)))
       live.step('reading')
       let designer: ReturnType<typeof designModel>
       try {
@@ -545,6 +547,9 @@ export const createStudioService = (deps: StudioDeps) => {
       let modelFailure: unknown = null
       const pages: DesignModel = {
         propose: async (proposal) => {
+          const renewed = { ...held, claimedAt: now().toISOString() }
+          if (!(await withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, held, renewed)))) throw new Error('studio: the plan’s claim was lost')
+          held = renewed
           try {
             return await designer.propose(proposal)
           } catch (error) {
@@ -558,7 +563,9 @@ export const createStudioService = (deps: StudioDeps) => {
         answer = await studio.build(storeId, { pages: pageRequests(flow), userId: actor.id, billedTo: ready.value.billedTo, parentRunId: row.ai_run_id, run }, pages)
       } catch (error) {
         logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: modelFailure instanceof GatewayError ? `${modelFailure.name}:${modelFailure.code}` : failureCode(modelFailure ?? error) })
-        answer = { outcome: 'failed' }
+        // An answer lost after a page was built still records the build as it stood, so its pages have their one Undo.
+        const sofar = await studio.buildSoFar(storeId, run).catch(() => null)
+        answer = sofar?.pages.some((p) => p.outcome === 'changed') ? sofar : { outcome: 'failed' }
       }
       if (answer.outcome !== 'built') {
         await giveBack()
@@ -572,7 +579,8 @@ export const createStudioService = (deps: StudioDeps) => {
       const outcome: AskAnswer['outcome'] = changed.length > 0 ? 'changed' : built.pages.some((p) => p.outcome === 'refused') ? 'refused' : built.pages.some((p) => p.outcome === 'failed') ? 'failed' : 'unchanged'
       const detail: BuildFlow = { kind: 'build', pages: built.pages.map((p) => ({ page: p.page, title: p.title, outcome: p.outcome })), stopped: built.stopped }
       const message = await recordAfter(sql, storeId, async (tx) => {
-        await moveFlow(tx, storeId, row.id, building, { ...building, state: 'built' })
+        // A claim another request took (this one stalled past `claimMs`) records no second build.
+        if (!(await moveFlow(tx, storeId, row.id, held, { ...held, state: 'built' }))) return 'lost' as const
         const reply = built.pages.flatMap((p) => (p.reply ? [p.reply] : [])).join('\n').slice(0, 4000)
         const id =
           outcome === 'changed' || outcome === 'unchanged'
@@ -582,6 +590,7 @@ export const createStudioService = (deps: StudioDeps) => {
         return selectMessage(tx, storeId, id)
       })
       await saved
+      if (message === 'lost') return { ok: false, reason: 'PLAN_GONE' }
       if (!message) throw new Error('design_message: written and not found')
       return { ok: true, value: { outcome, message } }
     })

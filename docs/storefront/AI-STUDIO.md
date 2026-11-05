@@ -204,7 +204,11 @@ unchanged. Drawn in `PortalStorefront` as `?state=questions`, `?state=plan` and 
    shows `page` and that page's steps. A refused or failed page stops the build; the pages before it stay.
 5. **Stop** (`cancelDesign`) during a build ends it after the page being built; the pages already built stay, and the chat
    lists each page as built, not built, or refused.
-6. **One entry.** The build is one `ai` message whose `commit` is its last page's and `before_commit` the head before its
+6. **Claims.** Answering, changing or building claims the questions or plan (`detail.claimedAt`), under the store's own
+   row-level security; a build renews its claim before every ask of the model. A claim whose request died opens again after
+   25 minutes; a built plan never does, and a build whose claim another request took records nothing. When the answer to a
+   build is lost after pages were built, the object's record of it page by page (`buildSoFar`) is the build's entry.
+7. **One entry.** The build is one `ai` message whose `commit` is its last page's and `before_commit` the head before its
    first, so **Undo** takes every page back (§5).
 
 *Why in the object, one turn:* no other change lands between two pages, the frame swaps page by page through the same
