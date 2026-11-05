@@ -548,8 +548,10 @@ export const createStudioService = (deps: StudioDeps) => {
         throw error
       }
       let modelFailure: unknown = null
+      let modelAsked = false
       const pages: DesignModel = {
         propose: async (proposal) => {
+          modelAsked = true
           const renewed = { ...held, claimedAt: now().toISOString() }
           if (!(await withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, held, renewed)))) throw new Error('studio: the plan’s claim was lost')
           held = renewed
@@ -571,7 +573,8 @@ export const createStudioService = (deps: StudioDeps) => {
         answer = sofar?.pages.some((p) => p.outcome === 'changed') ? sofar : { outcome: 'failed' }
       }
       if (answer.outcome !== 'built') {
-        await giveBack(tried)
+        // Queued, unavailable or failed before the model was asked: nothing spent, so nothing counted.
+        await giveBack(modelAsked ? tried : reopened(flow))
         if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
         if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
         return { ok: true, value: { outcome: 'failed', message: await failedMessage(modelFailure) } }

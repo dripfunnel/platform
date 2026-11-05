@@ -338,12 +338,14 @@ describe('the plan and its build (#1243)', () => {
     script.answers = []
     studioFails = true
     try {
-      expect(value(await build(plan.id), 'buildDesignPlan').outcome).toBe('failed')
+      // The studio never took it and the model was never asked, so three presses use none of the plan's failed builds.
+      for (let n = 0; n < 3; n += 1) expect(value(await build(plan.id), 'buildDesignPlan').outcome).toBe('failed')
     } finally {
       studioFails = false
     }
-    const [row] = await db.sql<{ detail: { state: string; claimedAt: string | null } }[]>`select detail from design_message where id = ${plan.id}`
+    const [row] = await db.sql<{ detail: { state: string; claimedAt: string | null; failedBuilds?: number } }[]>`select detail from design_message where id = ${plan.id}`
     expect(row?.detail).toMatchObject({ state: 'open', claimedAt: null })
+    expect(row?.detail.failedBuilds).toBeUndefined()
   })
 
   it('moves a flow only in its own store’s scope: store A’s context never moves store B’s, nor a supplier’s', async () => {
