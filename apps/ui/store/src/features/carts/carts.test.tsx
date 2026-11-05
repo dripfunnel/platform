@@ -8,6 +8,7 @@ import type { AbandonedCart, CartDetail, CartPage as Page } from '../../api/cart
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
 import { consentNoteOf, eventsOf, itemsText, statusLine, stepText } from './cartView'
+import { moneyText } from '../orders/orderView'
 
 // Abandoned carts driven as the Owner, a Manager, Staff and a supplier would (FIRST-RELEASE §9): the tiles and tabs,
 // search and pages, each cart's actions and their refusals, and one cart's page.
@@ -97,6 +98,7 @@ describe('how a cart is worded', () => {
     const detail: CartDetail = {
       cart: { ...rohan, stoppedAt: null },
       lines: [],
+      wishlist: [],
       reminders: [{ id: 'r1', position: 1, channel: 'whatsapp', state: 'sent', skipReason: null, sentBy: 'Farhan Ali', code: 'BACK-7KQ2', queuedAt: '2026-10-08T13:00:00.000Z', sentAt: '2026-10-08T13:00:00.000Z', clickedAt: '2026-10-08T14:00:00.000Z' }],
     }
     expect(eventsOf(detail, 'IN').map((e) => e.what)).toEqual(['Paid · order KT-2848 with a reminder code', 'Came back to the cart', 'Reminder 1 sent by WhatsApp (by Farhan Ali) · code BACK-7KQ2', 'Left checkout at Payment'])
@@ -293,6 +295,10 @@ describe('one cart’s page', () => {
       { versionId: 'v1', name: 'Silk saree', versionName: 'Red', quantity: 1, lineTotal: { amount: '249900', currency: 'INR' }, available: 2, outOfStock: false },
       { versionId: 'v2', name: 'Dupatta', versionName: null, quantity: 2, lineTotal: { amount: '99800', currency: 'INR' }, available: 0, outOfStock: true },
     ],
+    wishlist: [
+      { productId: 'w1', name: 'Chanderi stole', photoUrl: '/api/assets/a1', price: { amount: '129900', currency: 'INR' } },
+      { productId: 'w2', name: 'Cotton scarf', photoUrl: null, price: { amount: '49900', currency: 'INR' } },
+    ],
     reminders: [],
   }
 
@@ -310,6 +316,28 @@ describe('one cart’s page', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.act.send }))
     await settle()
     expect(api.remindNow).toHaveBeenCalledWith('ab1', null)
+  })
+
+  it('lists what is also on the shopper’s wishlist, read only, for Staff too', async () => {
+    api.loadCart.mockResolvedValue(detail)
+    await show(owner, { entry: '/carts/ab1' })
+    const list = within(screen.getByRole('region', { name: words.page.wishlist }))
+    expect(list.getAllByRole('listitem').map((li) => li.textContent)).toEqual([`Chanderi stole${moneyText({ amount: '129900', currency: 'INR' })}`, `Cotton scarf${moneyText({ amount: '49900', currency: 'INR' })}`])
+    expect([...screen.getByRole('region', { name: words.page.wishlist }).querySelectorAll('img')].map((i) => i.getAttribute('src'))).toEqual(['/api/assets/a1'])
+    cleanup()
+    await show(staff, { entry: '/carts/ab1' })
+    const asStaff = within(screen.getByRole('region', { name: words.page.wishlist }))
+    expect(asStaff.getByText('Chanderi stole')).toBeTruthy()
+    expect(asStaff.queryAllByRole('button')).toHaveLength(0)
+    expect(asStaff.queryAllByRole('link')).toHaveLength(0)
+  })
+
+  it('leaves the wishlist out for a guest cart and for a shopper whose wishlist is empty', async () => {
+    api.loadCart.mockResolvedValue({ ...detail, cart: { ...vikram, customerId: null }, wishlist: [] })
+    await show(owner, { entry: '/carts/ab1' })
+    expect(screen.getByRole('heading', { level: 1, name: 'Vikram Shah' })).toBeTruthy()
+    expect(screen.queryByRole('region', { name: words.page.wishlist })).toBeNull()
+    expect(screen.queryByText(words.page.wishlistNote)).toBeNull()
   })
 
   it('shows loading, never the last cart and its actions, while another cart is read', async () => {
@@ -444,7 +472,7 @@ describe('the Reminders tab', () => {
     const confirm = vi.fn(() => false)
     window.confirm = confirm
     await show(owner, { entry: '/carts?pane=reminders' })
-    fireEvent.click(screen.getByRole('button', { name: words.panes.carts }))
+    fireEvent.click(screen.getByRole('button', { name: words.panes.list }))
     await settle()
     expect(confirm).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: words.panes.reminders }))

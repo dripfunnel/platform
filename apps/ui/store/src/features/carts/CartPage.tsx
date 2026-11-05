@@ -87,7 +87,7 @@ export const CartPage = () => {
   if (view.kind === 'loading') return <div className="df-carts">{crumb}<LoadingState label={words.loadingCart} /></div>
   if (view.kind === 'error') return <div className="df-carts">{crumb}<ErrorState title={words.error.titleCart} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} /></div>
 
-  const { cart, lines } = view.detail
+  const { cart, lines, wishlist } = view.detail
   const now = new Date()
   const gone = lines.filter((l) => l.outOfStock)
   const remind = access.canEdit && canRemind(cart)
@@ -165,6 +165,21 @@ export const CartPage = () => {
             </div>
             <span className="df-carts-sub">{fill(words.page.valueNote, { ship: saysShipping(country) ? words.page.shipping : words.page.delivery })}</span>
           </section>
+          {wishlist.length > 0 && (
+            <section className="df-cart-card" aria-labelledby="df-cart-wishlist">
+              <h2 id="df-cart-wishlist">{words.page.wishlist}</h2>
+              <ul className="df-cart-wishes">
+                {wishlist.map((w) => (
+                  <li key={w.productId}>
+                    {w.photoUrl ? <img className="df-cart-wish-photo" src={w.photoUrl} alt="" loading="lazy" /> : <span className="df-cart-wish-photo df-cart-wish-photo--none" aria-hidden="true" />}
+                    <strong className="df-cart-wish-name">{w.name ?? words.page.item}</strong>
+                    <span>{w.price ? moneyText(w.price) : '—'}</span>
+                  </li>
+                ))}
+              </ul>
+              <span className="df-carts-sub">{words.page.wishlistNote}</span>
+            </section>
+          )}
           <section className="df-cart-card" aria-labelledby="df-cart-events">
             <h2 id="df-cart-events">{words.page.happened}</h2>
             <ol className="df-cart-events">

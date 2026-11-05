@@ -6208,6 +6208,8 @@
       },
       "item": "An item",
       "inCart": "In the cart",
+      "wishlist": "Also on their wishlist",
+      "wishlistNote": "In stock now and not in the cart. Prices are from the cheapest option.",
       "qty": "Qty {count} · {stock}",
       "value": "Cart value",
       "valueNote": "Before {ship} and tax, as the cart would be bought now.",
@@ -6239,8 +6241,178 @@
     },
     "panes": {
       "label": "Abandoned carts",
+      "sub": "Carts view",
       "carts": "Carts",
-      "reminders": "Reminders"
+      "list": "List",
+      "reminders": "Reminders",
+      "wishlists": "Wishlists"
+    },
+    "wishlists": {
+      "lede": "Shoppers who saved products to a wishlist, and the reminders that bring them back.",
+      "head": "Shoppers who saved products but haven’t bought them. Remind them, and see who came back.",
+      "count": {
+        "one": "{count} shopper with a wishlist",
+        "other": "{count} shoppers with a wishlist"
+      },
+      "search": {
+        "label": "Search wishlists",
+        "placeholder": "Search by name, email or product"
+      },
+      "table": {
+        "label": "Wishlists",
+        "shopper": "Shopper",
+        "items": "Saved",
+        "newest": "Newest",
+        "when": "Last saved",
+        "status": "Reminders"
+      },
+      "items": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "empty": {
+        "title": "No wishlists yet",
+        "body": "When a signed-in shopper taps the heart on a product, they appear here."
+      },
+      "noMatch": {
+        "title": "No wishlists match",
+        "body": "Try another name, email or product."
+      },
+      "pages": {
+        "label": "Pages of wishlists"
+      },
+      "page": {
+        "crumbs": "Breadcrumb",
+        "title": "Wishlist",
+        "saved": "{items} · last saved {ago}",
+        "heading": "On their wishlist",
+        "note": "As the shopper sees them now: products that are hidden or not sold here are left out. Prices are from the cheapest option.",
+        "customer": "View customer",
+        "outOfStock": "Out of stock now",
+        "loading": "Loading wishlist",
+        "missing": "This shopper has no wishlist.",
+        "errorTitle": "We couldn’t open this wishlist",
+        "status": "Reminders",
+        "stopped": "Stopped by {name}. No more reminders go out for this wishlist.",
+        "stoppedNote": "Note: {note}",
+        "noEmail": "They have no email, so there is nobody to remind.",
+        "none": "No reminders sent yet.",
+        "history": "History",
+        "step": "Reminder {n}",
+        "byHand": "Sent by {name}",
+        "byHandUnknown": "Sent by hand",
+        "states": {
+          "queued": "On its way",
+          "sent": "Sent",
+          "skipped": "Skipped"
+        },
+        "skips": {
+          "stopped": "Stopped by your team",
+          "paused": "Reminders were off",
+          "no_contact": "No email",
+          "opted_out": "They unsubscribed",
+          "undeliverable": "Their email can’t be reached",
+          "out_of_stock": "Everything was out of stock",
+          "weekly_cap": "Reminded about something else this week",
+          "empty": "Their wishlist was empty",
+          "no_shop_host": "Your shop has no address yet"
+        }
+      },
+      "tiles": {
+        "shoppers": "Wishlists",
+        "products": { "one": "{count} product saved", "other": "{count} products saved" },
+        "sent": "Reminders sent",
+        "reachable": { "one": "{count} shopper reachable", "other": "{count} shoppers reachable" },
+        "reminded": "Shoppers reminded",
+        "pct": "{pct}% of reachable shoppers",
+        "stopped": "Stopped",
+        "stoppedNote": "Reminders stopped by your team",
+        "note": "Reminders: last {days} days."
+      },
+      "tabs": {
+        "label": "Wishlists by reminder",
+        "waiting": "Not contacted",
+        "reminded": "Reminded",
+        "stopped": "Stopped"
+      },
+      "emptyTab": {
+        "waiting": { "title": "Everyone has been reminded", "body": "Shoppers who saved something and haven’t had a reminder wait here." },
+        "reminded": { "title": "No one reminded yet", "body": "Shoppers you remind, or who get your automatic reminders, move here." },
+        "stopped": { "title": "No stopped reminders", "body": "Shoppers whose reminders your team stopped are listed here." }
+      },
+      "pill": {
+        "stopped": "Stopped",
+        "noEmail": "Can’t contact",
+        "reminded": "Reminded",
+        "waiting": "Not contacted"
+      },
+      "menu": {
+        "view": "View wishlist",
+        "viewSub": "Items, shopper and reminders",
+        "stopSub": "For this wishlist only"
+      },
+      "status": {
+        "none": "None sent",
+        "last": "{count} sent · last {ago}",
+        "stopped": "Stopped"
+      },
+      "act": {
+        "send": "Send reminder now",
+        "stop": "Stop reminders",
+        "resume": "Resume reminders",
+        "working": "Working…",
+        "cancel": "Cancel",
+        "sendTitle": "Remind {name} now?",
+        "sendBody": "Sends their wishlist to {email} right away, even in quiet hours.",
+        "sendNext": "The next automatic reminder still goes as planned.",
+        "sendConfirm": "Send reminder",
+        "sent": "Reminder sent to {email}.",
+        "stopTitle": "Stop reminders for {name}?",
+        "stopBody": "No more reminders go out for this wishlist.",
+        "stopped": "Reminders stopped for {name}.",
+        "resumed": "Reminders back on for {name}."
+      },
+      "reminders": {
+        "loading": "Loading your wishlist reminders",
+        "error": "We couldn’t load your wishlist reminders",
+        "auto": "Remind shoppers about their wishlist automatically",
+        "autoOn": "Up to 3 reminders per wishlist, sent on the schedule below.",
+        "autoOne": "One reminder per wishlist, sent on the schedule below. A bigger plan sends up to 3.",
+        "autoOff": "Off — wishlists wait for you to remind them.",
+        "autoYouSend": "On your plan you remind shoppers yourself, one reminder per wishlist. A bigger plan sends them for you.",
+        "step": "Reminder {n}",
+        "stepOn": "Reminder {n} on",
+        "after": "{delay} after they last saved",
+        "delay": "Send after they last saved",
+        "who": "Who gets reminded",
+        "email": "Email only",
+        "messageHelp": "The shopper’s name, the products they saved and a button back to their wishlist are added for you.",
+        "foot": "You’re getting this because you saved products at {store}. Unsubscribe",
+        "lines": "The products they saved, with photos and prices",
+        "cta": "See your wishlist",
+        "rules": {
+          "skipOutOfStock": {
+            "title": "Skip wishlists where everything is out of stock",
+            "body": "If only some products are out, the reminder leaves those out."
+          },
+          "quietHours": {
+            "title": "Quiet hours",
+            "body": "Hold reminders between 9 pm and 8 am in your store’s time. They go out at 8 am."
+          },
+          "weeklyCap": {
+            "title": "Once a week per shopper",
+            "body": "Don’t send the same shopper more than one wishlist reminder in 7 days."
+          },
+          "stop": {
+            "title": "Stop when they unsubscribe",
+            "body": "Shoppers who unsubscribe are never reminded again. Every email has an unsubscribe link. Always on."
+          }
+        },
+        "unsaved": "Unsaved changes to your wishlist reminders",
+        "leave": "Your wishlist reminder changes aren’t saved. Leave without saving?",
+        "saved": "Saved.",
+        "savedTimings": "Saved. Wishlists waiting for a reminder follow the new timings."
+      }
     },
     "reminders": {
       "loading": "Loading your reminders",

@@ -1,7 +1,7 @@
 import { minorOf, moneyText as fieldText } from '@dripfunnel/shared/format'
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
-import { Link, useBlocker } from '@tanstack/react-router'
+import { useBlocker } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadReminderSettings, reminderDelays, reminderPercents, reminderText, saveReminderSettings, sendTestReminder, type ReminderSettings, type ReminderStep } from '../../api/carts'
 import { loadOfferFacts } from '../../api/offers'
@@ -9,6 +9,7 @@ import { fill, messages } from '../../messages'
 import '../common/switch.css'
 import { cartRefusal } from './cartActions'
 import { consentNoteOf, type CartAccess } from './cartView'
+import { AutoCard, FormNotes, RuleChecks, SaveBar, StepHead } from './ReminderParts'
 
 // The Reminders tab (designs/Carts.dc.html, Reminders; FIRST-RELEASE §9): up to three reminders, who gets reminded, a
 // preview of the chosen one and "Send me a test", saved as one at the revision read.
@@ -39,12 +40,12 @@ const formOf = (s: ReminderSettings): Form => ({
  * Each step's problem, as the API would refuse it: later than the one before, and a subject for an email (#321). A step
  * locked below the plan's automatic is drawn without its fields, so it is sent back as read and never blocks a save.
  */
-const stepErrors = (steps: readonly ReminderStep[], automatic: boolean): (string | null)[] =>
+export const stepErrors = (steps: readonly { enabled: boolean; delayMinutes: number; subject: string; body: string; channel?: string }[], automatic: boolean): (string | null)[] =>
   steps.map((x, i) => {
     if (!x.enabled || (!automatic && i > 0)) return null
     const before = steps.slice(0, i).filter((y, j) => y.enabled && (automatic || j === 0)).pop()
     if (before && x.delayMinutes <= before.delayMinutes) return words.errors.later
-    if (x.channel === 'email' && !x.subject.trim()) return words.errors.subject
+    if ((x.channel ?? 'email') === 'email' && !x.subject.trim()) return words.errors.subject
     if (x.subject.trim().length > reminderText.subject || x.body.trim().length > reminderText.body) return fill(words.errors.long, { subject: String(reminderText.subject), body: String(reminderText.body) })
     return null
   })
@@ -147,25 +148,7 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
   return (
     <div className="df-reminders">
       <div className="df-reminders-form">
-        <section className="df-cart-card df-reminders-auto">
-          <span className="df-carts-cell">
-            <strong>{words.auto}</strong>
-            <span className="df-carts-sub">{level === 'youSend' ? words.autoYouSend : form.enabled ? (automatic ? words.autoOn : words.autoOne) : words.autoOff}</span>
-          </span>
-          {level === 'youSend' ? (
-            access.canUpgrade ? (
-              <Link className="df-button" to="/billing">
-                {words.seePlans}
-              </Link>
-            ) : (
-              <span className="df-carts-sub">{words.askOwner}</span>
-            )
-          ) : (
-            <button type="button" role="switch" className="df-switch" aria-checked={form.enabled} aria-label={words.auto} disabled={ro} onClick={() => set({ enabled: !form.enabled })}>
-              <span aria-hidden="true" />
-            </button>
-          )}
-        </section>
+        <AutoCard title={words.auto} summary={level === 'youSend' ? words.autoYouSend : form.enabled ? (automatic ? words.autoOn : words.autoOne) : words.autoOff} level={level} on={form.enabled} readOnly={ro} canUpgrade={access.canUpgrade} seePlans={words.seePlans} askOwner={words.askOwner} onToggle={() => set({ enabled: !form.enabled })} />
 
         {form.steps.map((x, i) => {
           const locked = lockedStep(i)
@@ -176,23 +159,7 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
           const summary = locked ? words.lockedStep : !x.enabled ? words.stepOff : `${i === 0 && (!form.enabled || level === 'youSend') ? words.byHand : fill(words.after, { delay: delayText(x.delayMinutes) })} · ${channelText(x.channel)}${automatic && x.discountPercent ? ` · ${fill(words.percentOff, { percent: String(x.discountPercent) })}` : ''}`
           return (
             <section key={x.position} className="df-cart-card df-reminders-step" data-shown={shown === i || undefined} aria-labelledby={`df-step-${n}`}>
-              <div className="df-reminders-step-head">
-                <span className="df-reminders-n" aria-hidden="true">
-                  {n}
-                </span>
-                <span className="df-carts-cell">
-                  <strong id={`df-step-${n}`}>{fill(words.step, { n })}</strong>
-                  <span className="df-carts-sub">{summary}</span>
-                </span>
-                <button type="button" className="df-button" aria-pressed={shown === i} aria-label={fill(words.previewStep, { n })} onClick={() => setShown(i)}>
-                  {words.preview}
-                </button>
-                {i > 0 && !locked && (
-                  <button type="button" role="switch" className="df-switch" aria-checked={x.enabled} aria-label={fill(words.stepOn, { n })} disabled={ro} onClick={() => setStep(i, { enabled: !x.enabled })}>
-                    <span aria-hidden="true" />
-                  </button>
-                )}
-              </div>
+              <StepHead idPrefix="df-step" n={n} name={fill(words.step, { n })} summary={summary} shown={shown === i} previewLabel={fill(words.previewStep, { n })} previewText={words.preview} switchLabel={fill(words.stepOn, { n })} showSwitch={i > 0 && !locked} on={x.enabled} readOnly={ro} onPreview={() => setShown(i)} onToggle={() => setStep(i, { enabled: !x.enabled })} />
               {!locked && x.enabled && (
                 <div className="df-reminders-fields">
                   <div className="df-reminders-row">
@@ -266,28 +233,7 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
               {words.errors.minimum}
             </span>
           )}
-          {(
-            [
-              ['skipOutOfStock', words.rules.skipOutOfStock],
-              ['quietHours', words.rules.quietHours],
-              ['weeklyCap', words.rules.weeklyCap],
-            ] as const
-          ).map(([key, rule]) => (
-            <label key={key} className="df-reminders-rule">
-              <input type="checkbox" checked={form[key]} disabled={ro} onChange={() => set({ [key]: !form[key] })} />
-              <span className="df-carts-cell">
-                <strong>{rule.title}</strong>
-                <span className="df-carts-sub">{rule.body}</span>
-              </span>
-            </label>
-          ))}
-          <label className="df-reminders-rule">
-            <input type="checkbox" checked disabled />
-            <span className="df-carts-cell">
-              <strong>{words.rules.stop.title}</strong>
-              <span className="df-carts-sub">{words.rules.stop.body}</span>
-            </span>
-          </label>
+          <RuleChecks rules={words.rules} form={form} readOnly={ro} onToggle={(key) => set({ [key]: !form[key] })} />
           <p className="df-carts-note">
             <strong>{consent.title}</strong> {consent.body}
           </p>
@@ -341,41 +287,19 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
         </aside>
       )}
 
-      {stale && (
-        <p className="df-carts-note df-carts-note--warning df-reminders-span" role="alert">
-          <strong>{words.stale}</strong>{' '}
-          <button type="button" className="df-button" onClick={() => {
-              setStale(false)
-              load()
-            }}>
-            {words.reload}
-          </button>
-        </p>
-      )}
-      {problem && <p className="df-carts-note df-carts-note--danger df-reminders-span" role="alert">{problem}</p>}
-      {saved && !dirty && <p className="df-carts-note df-reminders-span" role="status">{saved}</p>}
-      {tested && <p className="df-carts-note df-reminders-span" role="status">{tested}</p>}
+      <FormNotes stale={stale} staleText={words.stale} reloadText={words.reload} problem={problem} saved={dirty ? null : saved} extra={tested} onReload={() => {
+          setStale(false)
+          load()
+        }} />
 
       {dirty && !ro && (
-        <div className="df-reminders-bar">
-          <span>
-            <strong>{words.unsaved}</strong>
-          </span>
-          <span className="df-reminders-bar-actions">
-            <button type="button" className="df-button" disabled={saving} onClick={() => {
-                setForm(JSON.parse(orig) as Form)
-                setProblem(null)
-                setStale(false)
-                setSaved(null)
-                setTested(null)
-              }}>
-              {words.discard}
-            </button>
-            <button type="button" className="df-button df-button--primary" disabled={saving} onClick={save}>
-              {saving ? words.saving : words.save}
-            </button>
-          </span>
-        </div>
+        <SaveBar unsaved={words.unsaved} discard={words.discard} save={words.save} saving={words.saving} busy={saving} onSave={save} onDiscard={() => {
+            setForm(JSON.parse(orig) as Form)
+            setProblem(null)
+            setStale(false)
+            setSaved(null)
+            setTested(null)
+          }} />
       )}
 
       {testing && step && (

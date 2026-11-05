@@ -10,9 +10,11 @@ import { fill, formatCount, formatList, messages, plural } from '../../messages'
 import { tabKeyHandler } from '../common/tabKeys'
 import { moneyText } from '../orders/orderView'
 import { useCartActions } from './cartActions'
-import { cartSample, cartStates, sampleSettings } from './cartStates'
+import { cartSample, cartStates, sampleSettings, sampleWishlists, sampleWishlistSettings } from './cartStates'
 import { agoText, cartAccessOf, canRemind, pillOf, itemsText, statusLine, stepText, senderOf } from './cartView'
 import { RemindersPane } from './RemindersPane'
+import { WishlistRemindersPane } from './WishlistRemindersPane'
+import { WishlistsPane } from './WishlistsPane'
 import './carts.css'
 
 const words = messages.carts
@@ -22,6 +24,8 @@ const pageRoute = getRouteApi('/_app/carts')
 // A page is shown only for the tab, search and page it was read for; anything else shows loading until its own answers.
 type List = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: CartPage; key: string }
 type Paging = { key: string; cursor: { after?: string | null; before?: string | null }; index: number }
+
+const paneOf = (wishlists: boolean, reminders: boolean) => (wishlists ? (reminders ? 'wishlist-reminders' : 'wishlists') : reminders ? 'reminders' : undefined)
 
 const money = (list: readonly { amount: string; currency: string }[]) => (list.length ? formatList(list.map(moneyText)) : '—')
 
@@ -33,9 +37,13 @@ export const CartsPage = () => {
   const forced = useScreenState(cartStates, harnessEnabled)
   const sample = useMemo(() => cartSample(forced), [forced])
   const settingsSample = useMemo(() => sampleSettings(forced), [forced])
+  const wishlistSample = useMemo(() => sampleWishlists(forced), [forced])
+  const wishlistSettingsSample = useMemo(() => sampleWishlistSettings(forced), [forced])
   const access = useMemo(() => cartAccessOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
   const phone = usePhone()
   const tab: CartTab = status ?? 'open'
+  const onWishlists = pane === 'wishlists' || pane === 'wishlist-reminders'
+  const onReminders = pane === 'reminders' || pane === 'wishlist-reminders'
 
   const [search, setSearch] = useState('')
   const [paging, setPaging] = useState<Paging>({ key: tab, cursor: {}, index: 0 })
@@ -158,25 +166,36 @@ export const CartsPage = () => {
       <div className="df-carts-head">
         <div>
           <h1 className="df-page-title">{words.title}</h1>
-          <p className="df-page-lede">{words.lede}</p>
+          <p className="df-page-lede">{onWishlists ? words.wishlists.head : words.lede}</p>
         </div>
         <nav className="df-carts-panes" aria-label={words.panes.label}>
-          {(['carts', 'reminders'] as const).map((p) => (
-            <button key={p} type="button" aria-pressed={(pane ?? 'carts') === p} onClick={() => void navigate({ to: '/carts', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), pane: p === 'reminders' ? 'reminders' : undefined }) })}>
+          {(['carts', 'wishlists'] as const).map((p) => (
+            <button key={p} type="button" aria-pressed={onWishlists === (p === 'wishlists')} onClick={() => void navigate({ to: '/carts', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), pane: paneOf(p === 'wishlists', false) }) })}>
               {words.panes[p]}
             </button>
           ))}
         </nav>
       </div>
+      <nav className="df-carts-panes df-carts-panes--sub" aria-label={words.panes.sub}>
+        {(['list', 'reminders'] as const).map((p) => (
+          <button key={p} type="button" aria-pressed={onReminders === (p === 'reminders')} onClick={() => void navigate({ to: '/carts', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), pane: paneOf(onWishlists, p === 'reminders') }) })}>
+            {words.panes[p]}
+          </button>
+        ))}
+      </nav>
 
       {access.readOnly && <p className="df-carts-note df-carts-note--warning" role="status"><strong>{words.notes.readOnlyTitle}</strong> {words.notes.readOnly}</p>}
       {access.viewOnly && <p className="df-carts-note df-carts-note--info" role="status"><strong>{words.notes.staffTitle}</strong> {words.notes.staff}</p>}
-      {access.canEdit && sending?.level === 'youSend' && <p className="df-carts-note" role="status"><strong>{words.notes.youSendTitle}</strong> {words.notes.youSend}</p>}
-      {access.canEdit && sending && sending.level !== 'youSend' && !sending.enabled && <p className="df-carts-note df-carts-note--warning" role="status"><strong>{words.notes.offTitle}</strong> {words.notes.off}</p>}
+      {access.canEdit && !onWishlists && sending?.level === 'youSend' && <p className="df-carts-note" role="status"><strong>{words.notes.youSendTitle}</strong> {words.notes.youSend}</p>}
+      {access.canEdit && !onWishlists && sending && sending.level !== 'youSend' && !sending.enabled && <p className="df-carts-note df-carts-note--warning" role="status"><strong>{words.notes.offTitle}</strong> {words.notes.off}</p>}
       {failure && <p className="df-carts-note df-carts-note--danger" role="alert">{failure}</p>}
 
       {pane === 'reminders' ? (
         <RemindersPane access={access} forced={forced === 'loading' || forced === 'error' ? forced : null} sample={settingsSample} storeName={acting.store.name} email={me.email} />
+      ) : pane === 'wishlist-reminders' ? (
+        <WishlistRemindersPane access={access} forced={forced === 'loading' || forced === 'error' ? forced : null} sample={wishlistSettingsSample} storeName={acting.store.name} />
+      ) : pane === 'wishlists' ? (
+        <WishlistsPane access={access} forced={forced === 'loading' || forced === 'error' ? forced : null} sample={wishlistSample} state={forced ?? undefined} />
       ) : none ? (
         <section className="df-carts-first" aria-labelledby="df-carts-first">
           <h2 id="df-carts-first">{words.first.title}</h2>
