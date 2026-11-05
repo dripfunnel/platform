@@ -83,6 +83,16 @@ describe('Link', () => {
       expect(assign).not.toHaveBeenCalled()
     })
 
+    it('on a fragment of the page already shown goes through navigate(), so the path stays clean and the browser has nothing to leave', () => {
+      expect(fireEvent.click(link('studio', '/#features'))).toBe(false)
+      expect(assign).not.toHaveBeenCalled()
+    })
+
+    it('on a fragment of another page keeps the frame’s session path, and the fragment', () => {
+      expect(fireEvent.click(link('studio', '/collections/linen/#care'))).toBe(false)
+      expect(assign).toHaveBeenCalledWith(`${base}collections/linen/#care`)
+    })
+
     it('on a link to another host is left to the browser, which opens it in a new tab', () => {
       expect(fireEvent.click(link('studio', 'https://instagram.com/juniper'))).toBe(true)
       expect(assign).not.toHaveBeenCalled()
