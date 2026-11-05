@@ -45,9 +45,13 @@ const gql = async (source: string, who: { session?: string; cart?: string; on?: 
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
-const merchant = async (source: string, who: keyof typeof cookies) => {
+const merchant = async (source: string, who: keyof typeof cookies, as: { support?: 'read' } = {}) => {
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'surat' ? surat : store, ...(who === 'supplier' ? { [supplierHeader]: seller } : {}) }
-  const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const standing =
+    as.support && resolved.kind === 'acting'
+      ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
+      : resolved
   const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -267,11 +271,11 @@ describe('abandonedCart.wishlist and the reminder email', () => {
 })
 
 describe('the Carts screen’s Wishlists tab', () => {
-  const list = (args = 'first: 50') => `{ wishlistShoppers(${args}) { nodes { customerId name email items firstProduct lastSavedAt } pageInfo { hasNextPage endCursor } } wishlistShopperCount }`
+  const list = (args = 'first: 50') => `{ wishlistShoppers(${args}) { nodes { customerId name email items firstProduct lastSavedAt } pageInfo { hasNextPage endCursor } } wishlistSummary { shoppers } }`
   type Listed = { nodes: { customerId: string; items: number; firstProduct: string | null }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
   const listed = async (who: keyof typeof cookies, args?: string) => {
     const r = await merchant(list(args), who)
-    return { code: r.code, page: r.data?.['wishlistShoppers'] as Listed | undefined, count: r.data?.['wishlistShopperCount'] as number | undefined }
+    return { code: r.code, page: r.data?.['wishlistShoppers'] as Listed | undefined, count: (r.data?.['wishlistSummary'] as { shoppers: number } | undefined)?.shoppers }
   }
   let asha = ''
   let second = ''
@@ -497,15 +501,14 @@ describe('wishlist reminders on the Store API: the sequence, and one shopper’s
     expect((await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}") }`, 'owner')).data?.['stopWishlistReminders']).toBe(true)
     expect(await inTab('stopped')).toContain(customerId)
     expect(await inTab('reminded')).not.toContain(customerId)
-    const counts = (await merchant('{ wishlistShopperCounts { waiting reminded stopped } wishlistShopperCount wishlistSummary { days shoppers products reachable remindersSent reminded } }', 'owner')).data as {
+    const counts = (await merchant('{ wishlistShopperCounts { waiting reminded stopped } wishlistSummary { days shoppers products reachable remindersSent reminded } }', 'owner')).data as {
       wishlistShopperCounts: { waiting: number; reminded: number; stopped: number }
-      wishlistShopperCount: number
       wishlistSummary: { days: number; shoppers: number; products: number; reachable: number; remindersSent: number; reminded: number }
     }
     const c = counts.wishlistShopperCounts
-    expect(c.waiting + c.reminded + c.stopped).toBe(counts.wishlistShopperCount)
+    expect(c.waiting + c.reminded + c.stopped).toBe(counts.wishlistSummary.shoppers)
     expect(c.stopped).toBeGreaterThanOrEqual(1)
-    expect(counts.wishlistSummary).toMatchObject({ days: 14, shoppers: counts.wishlistShopperCount })
+    expect(counts.wishlistSummary).toMatchObject({ days: 14 })
     expect(counts.wishlistSummary.remindersSent).toBeGreaterThanOrEqual(1)
     expect(counts.wishlistSummary.reminded).toBeGreaterThanOrEqual(1)
     expect(counts.wishlistSummary.products).toBeGreaterThanOrEqual(counts.wishlistSummary.shoppers)
@@ -649,6 +652,20 @@ describe('wishlist reminders on the Store API: the sequence, and one shopper’s
       expect(wishlistSkipReasonOf({ ...facts, remindedRecently: true, byHand: true })).toBeNull()
       expect(wishlistSkipReasonOf({ ...facts, levelAllows: false })).toBe('paused')
       expect(wishlistSkipReasonOf({ ...facts, empty: true })).toBe('empty')
+    })
+
+    it('refuses all four writes to a read-only support session, which can still read', async () => {
+      await flow()
+      const read = { support: 'read' as const }
+      const revision = (await settingsOf('owner'))?.revision ?? null
+      const codes = [
+        (await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner', read)).code,
+        (await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}") }`, 'owner', read)).code,
+        (await merchant(`mutation { resumeWishlistReminders(customerId: "${customerId}") }`, 'owner', read)).code,
+        (await merchant(`mutation { saveWishlistReminderSettings(${revision === null ? '' : `revision: ${revision}, `}input: { enabled: true, skipOutOfStock: true, quietHours: false, weeklyCap: true, steps: [{ position: 1, enabled: true, delayMinutes: 60, subject: "a", body: "b" }, { position: 2, enabled: false, delayMinutes: 1440, subject: "a", body: "b" }, { position: 3, enabled: false, delayMinutes: 4320, subject: "a", body: "b" }] }) }`, 'owner', read)).code,
+      ]
+      expect(codes).toEqual(['READ_ONLY', 'READ_ONLY', 'READ_ONLY', 'READ_ONLY'])
+      expect((await merchant('{ wishlistReminderSettings { enabled } wishlistSummary { shoppers } }', 'owner', read)).data).toMatchObject({ wishlistReminderSettings: { enabled: true } })
     })
 
     it('keeps stopping and resuming to the store’s own shoppers: another store’s owner finds nothing and changes nothing', async () => {

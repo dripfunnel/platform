@@ -2358,7 +2358,6 @@ type Query {
   webhooks(after: String, before: String, first: Int): WebhookEndpointPage
   wishlistReminderSettings: WishlistReminderSettings
   wishlistShopper(customerId: ID!): WishlistShopperDetail
-  wishlistShopperCount: Int
   wishlistShopperCounts: WishlistShopperCounts
   wishlistShoppers(after: String, before: String, first: Int, search: String, tab: String): WishlistShopperPage
   wishlistSummary(days: Int): WishlistSummary

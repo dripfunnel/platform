@@ -165,7 +165,6 @@ export const registerWishlists = (builder: StoreBuilder) => {
     // How many shoppers each tab holds, and the tiles above them (the last `days`, 14 unless asked).
     wishlistShopperCounts: t.field({ type: Counts, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).counts() }),
     wishlistSummary: t.field({ type: Summary, nullable: true, args: { days: t.arg.int() }, extensions: { access: read }, resolve: (_, args, ctx) => service(ctx).summary(args.days ?? null) }),
-    wishlistShopperCount: t.int({ extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).count() }),
     wishlistShopper: t.field({ type: Detail, nullable: true, args: { customerId: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, args, ctx) => service(ctx).detail(String(args.customerId)) }),
     // The Wishlists tab's reminders: the sequence, and what the plan lets the store send.
     wishlistReminderSettings: t.field({ type: Settings, nullable: true, extensions: { access: read }, resolve: (_, __, ctx) => reminders(ctx).settings() }),

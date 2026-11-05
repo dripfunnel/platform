@@ -4,7 +4,7 @@ import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
 import { selectWishlistReminders, type WishlistReminderRow } from '#db/scoped/wishlistReminders'
-import { countWishlistShoppers, countWishlistTabs, selectWishlistShopper, selectWishlistShoppers, selectWishlistSummary, type WishlistShopperRow, type WishlistSummaryRow, type WishlistTab } from '#db/scoped/wishlist'
+import { countWishlistTabs, selectWishlistShopper, selectWishlistShoppers, selectWishlistSummary, type WishlistShopperRow, type WishlistSummaryRow, type WishlistTab } from '#db/scoped/wishlist'
 import { wishlistItemsNow, type WishlistItemNow } from './wishlist'
 
 // The Carts screen's Wishlists tab (#1215): every merchant role reads which shoppers saved what, in the store's own scope;
@@ -42,8 +42,6 @@ export const createWishlistsService = ({ sql, context, now }: WishlistsDeps) => 
     return { ...row, days: span }
   }
 
-  const count = async (): Promise<number> => (supplier ? 0 : withScope(sql, context, (tx) => countWishlistShoppers(tx, storeId)))
-
   const detail = async (customerId: string): Promise<WishlistShopperDetail | null> => {
     if (supplier || !isUuid(customerId)) return null
     const found = await withScope(sql, context, async (tx) => {
@@ -56,5 +54,5 @@ export const createWishlistsService = ({ sql, context, now }: WishlistsDeps) => 
     return { ...row, products, reminders: found.reminders }
   }
 
-  return { list, count, counts, summary, detail }
+  return { list, counts, summary, detail }
 }

@@ -4,6 +4,8 @@ import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import { localMessageMarker, type LocalMessage } from '#integrations/local/index'
 import { cronDue, wranglerCrons } from './cron'
+import { createRequire } from 'node:module'
+import path from 'node:path'
 
 // `pnpm dev` for the Worker: wrangler dev never fires wrangler.jsonc's crons itself, so the outbox,
 // the domain checks and the clean-ups would never run locally. This starts it with --test-scheduled
@@ -13,7 +15,9 @@ const everyMs = 60_000
 const crons = wranglerCrons()
 const scheduled = (cron: string) => `http://localhost:${port}/__scheduled?cron=${encodeURIComponent(cron)}`
 
-const wrangler = spawn('wrangler', ['dev', '--env', 'local', '--test-scheduled', '--port', String(port), ...process.argv.slice(2)], { stdio: ['inherit', 'pipe', 'inherit'] })
+const wranglerPackage = createRequire(import.meta.url).resolve('wrangler/package.json')
+const wranglerBin = path.join(path.dirname(wranglerPackage), 'bin', 'wrangler.js')
+const wrangler = spawn(process.execPath, [wranglerBin, 'dev', '--env', 'local', '--test-scheduled', '--port', String(port), ...process.argv.slice(2)], { stdio: ['inherit', 'pipe', 'inherit'] })
 
 // What the email, SMS and push stand-ins sent (EMAIL_LOCAL, SMS_LOCAL, PUSH_LOCAL): shown here as a block and kept as a file, gitignored.
 const mailbox = fileURLToPath(new URL('../../.local-mail/', import.meta.url))

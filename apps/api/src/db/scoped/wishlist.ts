@@ -124,15 +124,6 @@ export const selectWishlistSummary = async (tx: ScopedSql, storeId: string, sinc
   return row
 }
 
-/** How many shoppers have a wishlist, by the rule the list uses. */
-export const countWishlistShoppers = async (tx: ScopedSql, storeId: string): Promise<number> =>
-  (
-    await tx<{ n: number }[]>`
-      select count(distinct w.customer_id)::int as n from wishlist_item w join customer cu on cu.id = w.customer_id and cu.store_id = w.store_id and cu.status <> 'deleted'
-      where w.store_id = ${storeId}
-    `
-  )[0]?.n ?? 0
-
 export interface WishlistShopperDetailRow extends WishlistShopperRow {
   language: string
   currency: string
