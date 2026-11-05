@@ -5,6 +5,7 @@ import { jsxProblems } from './jsx.js'
 import { coreThemeModule, inTheme, isOpen, lineOf, literalStrings, parts, themeProgram } from './program.js'
 import { problem, type GuardContext, type Problem, type RuleId } from './rules.js'
 import { clsxNames, inClassPosition } from './tailwind.js'
+import { productImageProblems, urlClassesOf } from './productImage.js'
 import { isAddress, looksLikeWords, showsWrittenText } from './text.js'
 
 /** A `t('file.key')` call, matched against the content files. */
@@ -456,13 +457,14 @@ const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
 }
 
 /** The code rules of ARCHITECTURE §3.4 over every .tsx file, and the content keys the theme's t() calls ask for. */
-export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true, classes = false): { problems: Problem[]; keys: KeyUse[] } => {
+export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<string>, context: GuardContext, storeData = true, classes = false, styles: ReadonlyMap<string, string> = new Map()): { problems: Problem[]; keys: KeyUse[] } => {
   const problems: Problem[] = []
   const keys: KeyUse[] = []
   if (code.size === 0) return { problems, keys }
   const { checker, program, sourceFile } = themeProgram(code)
   const copied = storeData ? brandCopied(context.brand) : () => undefined
   const holds = new Map<ts.Type, boolean>()
+  const urlClasses = urlClassesOf(styles)
   for (const file of code.keys()) {
     const sf = sourceFile(file)
     if (!sf) continue
@@ -480,6 +482,7 @@ export const checkCode = (code: ReadonlyMap<string, string>, files: ReadonlySet<
     try {
       checkDirectives(w, sf)
       for (const statement of sf.statements) visit(w, statement, files)
+      for (const found of productImageProblems(checker, sf, urlClasses)) report(found.node, found.rule, found.message)
     } catch (error) {
       if (!(error instanceof RangeError)) throw error
       problems.push(problem(file, 1, 'code/unreadable', "This file can't be read: it nests too deeply."))
