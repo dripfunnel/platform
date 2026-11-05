@@ -70,7 +70,7 @@ describe('the build’s page plan', () => {
 describe('the catalogue’s pages', () => {
   const catalogue = {
     answers: [
-      { operation: 'Product', variables: { slug: 'linen-shirt' }, data: { product: { name: 'Linen shirt <b>', seoTitle: null, seoDescription: null, description: 'Soft.', inStock: true, price: { amount: '249900', currency: 'INR' }, photos: [{ image: { url: '/shop-api/assets/p1' } }] } } },
+      { operation: 'Product', variables: { slug: 'linen-shirt' }, data: { product: { name: 'Linen shirt <b>', seoTitle: null, seoDescription: null, description: '<p>Soft.</p><ul><li>Cotton</li></ul>', inStock: true, price: { amount: '249900', currency: 'INR' }, photos: [{ image: { url: '/shop-api/assets/p1' } }] } } },
       { operation: 'Collection', variables: { slug: 'summer' }, data: { collection: { name: 'Summer', seoTitle: 'Summer linen', seoDescription: null, description: 'Light.' } } },
     ],
     products: [
@@ -116,11 +116,12 @@ describe('the catalogue’s pages', () => {
     const page = { path: '/products/linen-shirt/v2/', route: 'product', language: 'en', custom: null } as const
     const html = pageDocument(page, snapshot, { body: '', assets: { entry: 'e.js', css: [] }, dir: 'ltr', store: snapshot.store, answers: { '["product","linen-shirt"]': { name: '</script>' } } })
     expect(html).toContain('<title>Linen shirt &lt;b&gt;</title>')
-    expect(html).toContain('<meta name="description" content="Soft.">')
+    expect(html).toContain('<meta name="description" content="Soft. Cotton">')
     expect(html).toContain('<meta property="og:type" content="product">')
     expect(html).toContain('<link rel="canonical" href="https://shop.juniper.example/products/linen-shirt/">')
-    const ld = JSON.parse(/<script type="application\/ld\+json">(.*?)<\/script>/.exec(html)?.[1] ?? '{}') as { offers?: { price?: string } }
+    const ld = JSON.parse(/<script type="application\/ld\+json">(.*?)<\/script>/.exec(html)?.[1] ?? '{}') as { description?: string; offers?: { price?: string } }
     expect(ld.offers?.price).toBe('2499.00')
+    expect(ld.description).toBe('Soft. Cotton')
     const live = /<script type="application\/json" id="df-page">(.*?)<\/script>/.exec(html)?.[1] ?? ''
     expect(live).not.toContain('</script>')
     expect((JSON.parse(live) as { answers: unknown }).answers).toEqual({ '["product","linen-shirt"]': { name: '</script>' } })

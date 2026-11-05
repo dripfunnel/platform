@@ -1,4 +1,4 @@
-import { Breadcrumbs, LegalNotices, Link, Price, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { Breadcrumbs, LegalNotices, Link, Price, RichText, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { BuyButtons } from '../components/interactive/BuyButtons'
 import { Gallery } from '../components/interactive/Gallery'
 import { Options } from '../components/interactive/Options'
@@ -71,10 +71,12 @@ export const ProductPage = () => {
             <LegalNotices notices={product.legal} t={t} className={styles.legal} />
             <div className={styles.sections}>
               {product.description ? (
-                <details className={styles.section} open>
-                  <summary className={styles.summary}>{t('shop.product.details')}</summary>
-                  <p className={styles.body}>{product.description}</p>
-                </details>
+                <section className={styles.section} aria-labelledby="product-description">
+                  <h2 id="product-description" className={styles.sectionTitle}>
+                    {t('shop.product.description')}
+                  </h2>
+                  <RichText html={product.description} className={styles.description} />
+                </section>
               ) : null}
               {specs.length ? (
                 <details className={styles.section}>

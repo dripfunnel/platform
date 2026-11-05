@@ -61,7 +61,7 @@
     "inStock": "In stock",
     "outOfStock": "Sold out",
     "unavailable": "{value}, sold out",
-    "details": "Details",
+    "description": "Description",
     "specs": "Specifications",
     "delivery": "Delivery and returns",
     "warranty": "Warranty",
