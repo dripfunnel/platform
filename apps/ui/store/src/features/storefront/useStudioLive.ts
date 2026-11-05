@@ -8,20 +8,13 @@ export interface LiveRun {
   chat: boolean
   steps: { step: LiveStep; attempt: number | null; of: number | null }[]
   text: string
-  /** A plan's build (#1243): the page being built, of how many, and every page's title; its steps are that page's. */
-  page: { index: number; of: number; titles: string[] } | null
 }
 
 const applied = (runs: readonly LiveRun[], e: LiveEvent): LiveRun[] => {
   const others = runs.filter((r) => r.run !== e.run)
   if (e.type === 'done' || e.type === 'error') return others
-  const found = runs.find((r) => r.run === e.run) ?? { run: e.run, chat: e.type === 'step' && e.step === 'asking', steps: [], text: '', page: null }
-  const next =
-    e.type === 'step'
-      ? { ...found, steps: [...found.steps, { step: e.step, attempt: e.attempt ?? null, of: e.of ?? null }] }
-      : e.type === 'page'
-        ? { ...found, steps: [], text: '', page: { index: e.index, of: e.of, titles: e.titles } }
-        : { ...found, text: found.text + e.text }
+  const found = runs.find((r) => r.run === e.run) ?? { run: e.run, chat: e.type === 'step' && e.step === 'asking', steps: [], text: '' }
+  const next = e.type === 'step' ? { ...found, steps: [...found.steps, { step: e.step, attempt: e.attempt ?? null, of: e.of ?? null }] } : { ...found, text: found.text + e.text }
   return [...others, next]
 }
 

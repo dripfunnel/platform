@@ -6,7 +6,7 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import type { StorefrontDomains, StorefrontMeters, StorefrontVersion } from '../../api/storefront'
 import { postAsset } from '../../api/productEditor'
 import { deleteLibraryAsset, loadLibrary, renameLibraryAsset } from '../../api/assetLibrary'
-import { answerDesignQuestions, askDesign, buildDesignPlan, cancelDesign, changeDesignPlan, importDesignImage, openStudioLive, loadStockAvailable, searchStockImages, useStockImage, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, studioActivity, undoDesignChange } from '../../api/studio'
+import { askDesign, cancelDesign, importDesignImage, openStudioLive, loadStockAvailable, searchStockImages, useStockImage, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, studioActivity, undoDesignChange } from '../../api/studio'
 import type { DesignMessage, LiveEvent, PublishRun } from '../../api/studio'
 import { sampleContent } from './contentSample'
 import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
@@ -35,9 +35,6 @@ export interface StorefrontApi {
   openStudioLive: typeof openStudioLive
   loadDesignChat: typeof loadDesignChat
   askDesign: typeof askDesign
-  answerDesignQuestions: typeof answerDesignQuestions
-  changeDesignPlan: typeof changeDesignPlan
-  buildDesignPlan: typeof buildDesignPlan
   loadLibrary: typeof loadLibrary
   uploadAsset: typeof postAsset
   renameLibraryAsset: typeof renameLibraryAsset
@@ -70,7 +67,7 @@ export interface StorefrontApi {
   saveContentTranslation: typeof saveContentTranslation
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, studioActivity, openStudioLive, loadDesignChat, askDesign, answerDesignQuestions, changeDesignPlan, buildDesignPlan, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, studioActivity, openStudioLive, loadDesignChat, askDesign, loadLibrary, uploadAsset: postAsset, renameLibraryAsset, deleteLibraryAsset, cancelDesign, importDesignImage, loadStockAvailable, searchStockImages, useStockImage, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -151,17 +148,6 @@ const sampleLive: Partial<Record<StorefrontState, LiveEvent[]>> = {
     { seq: 5, run: 'sample-run', type: 'step', step: 'repairing', attempt: 1, of: 3 },
     { seq: 6, run: 'sample-run', type: 'step', step: 'checking' },
   ],
-  // #1243: page 2 of 4 of a plan's build, its own steps under it.
-  building: [
-    { seq: 1, run: 'sample-build', type: 'step', step: 'reading' },
-    { seq: 2, run: 'sample-build', type: 'page', index: 1, of: 4, page: 'home', titles: ['Home', 'Product', 'Collection', 'About'] },
-    { seq: 3, run: 'sample-build', type: 'step', step: 'asking' },
-    { seq: 4, run: 'sample-build', type: 'step', step: 'checking' },
-    { seq: 5, run: 'sample-build', type: 'page', index: 2, of: 4, page: 'product', titles: ['Home', 'Product', 'Collection', 'About'] },
-    { seq: 6, run: 'sample-build', type: 'step', step: 'asking' },
-    { seq: 7, run: 'sample-build', type: 'text', text: 'I’m giving the product page a large gallery with zoom.' },
-    { seq: 8, run: 'sample-build', type: 'step', step: 'checking' },
-  ],
   chatStreaming: [
     { seq: 1, run: 'sample-chat', type: 'step', step: 'asking' },
     { seq: 2, run: 'sample-chat', type: 'text', text: 'Linen looks best in a calm, airy shop: soft natural tones like oat, sand and stone, plenty of white space, and large photos that show the weave up close. For your home page, I’d' },
@@ -171,10 +157,9 @@ const sampleLive: Partial<Record<StorefrontState, LiveEvent[]>> = {
 /** The studio's sample: a short conversation, and every change accepted at once. */
 const sampleStudio = (state: StorefrontState) => {
   const at = '2026-10-12T08:15:00Z'
-  const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: at, questions: [], answers: [], plan: null, flowState: null, build: null, ...more })
+  const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: at, ...more })
   let chat: DesignMessage[] = [
-    ...sampleFlow(state, line),
-    line('m3', 'ai', 'I warmed up the background and buttons and gave the home page an autumn headline.', { changed: ['Colours', 'Hero headline'], canUndo: !isFlowState(state) }),
+    line('m3', 'ai', 'I warmed up the background and buttons and gave the home page an autumn headline.', { changed: ['Colours', 'Hero headline'], canUndo: true }),
     line('m2', 'user', 'Make the colours warmer and give the home page an autumn headline'),
     line('m1', 'note', 'template:classic'),
   ]
@@ -192,19 +177,6 @@ const sampleStudio = (state: StorefrontState) => {
     askDesign: (input: { text: string; imageAssetId: string | null; sampleUrl: string | null }) => {
       n += 2
       chat = [line(`m${n}`, 'ai', 'Done — the preview shows it now.', { changed: ['Layout'], canUndo: true }), line(`m${n - 1}`, 'user', input.text, { imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl }), ...chat.map((m) => ({ ...m, canUndo: false }))]
-      return Promise.resolve('changed')
-    },
-    answerDesignQuestions: (id: string) => {
-      chat = [line(`m${(n += 1)}`, 'plan', 'Here’s my plan for your store:', { plan: samplePlan, flowState: 'open' }), ...chat.map((m) => (m.id === id ? { ...m, flowState: 'answered' as const } : m))]
-      return Promise.resolve('asked')
-    },
-    changeDesignPlan: (id: string, words: string) => {
-      chat = [line(`m${(n += 2)}`, 'plan', 'I changed the plan:', { plan: { ...samplePlan, pages: [...samplePlan.pages, { page: 'lookbook', title: 'Lookbook', sections: ['large photos from your collections'] }] }, flowState: 'open' }), line(`m${n - 1}`, 'user', words), ...chat.map((m) => (m.id === id ? { ...m, flowState: 'replaced' as const } : m))]
-      return Promise.resolve('asked')
-    },
-    buildDesignPlan: (id: string) => {
-      const pages = samplePlan.pages.map((p) => ({ page: p.page, title: p.title, outcome: 'changed' as const }))
-      chat = [line(`m${(n += 1)}`, 'ai', '', { changed: pages.map((p) => p.title), canUndo: true, build: { pages, stopped: false } }), ...chat.map((m) => (m.id === id ? { ...m, flowState: 'built' as const } : { ...m, canUndo: false }))]
       return Promise.resolve('changed')
     },
     importDesignImage: () => Promise.resolve('sample-import-1'),
@@ -228,39 +200,6 @@ const sampleStudio = (state: StorefrontState) => {
     publishBefore: () => Promise.resolve('sample-run'),
     loadPublishRun: (id: string) => Promise.resolve(samplePublish(state, id)),
   }
-}
-
-const samplePlan: NonNullable<DesignMessage['plan']> = {
-  header: 'your logo and a short menu',
-  footer: 'shipping, returns and contact',
-  pages: [
-    { page: 'home', title: 'Home', sections: ['hero with your block-print kurtas', '3 collection tiles', 'what shoppers say'] },
-    { page: 'product', title: 'Product page', sections: ['large gallery with zoom', 'care notes'] },
-    { page: 'collection', title: 'Collection page', sections: ['roomy grid, 3 a row on desktop'] },
-    { page: 'about', title: 'About', sections: ['the workshop in Jaipur'] },
-  ],
-}
-
-const isFlowState = (state: StorefrontState) => state === 'questions' || state === 'plan' || state === 'building' || state === 'built'
-
-/** #1243's states: the questions open, the plan open, the plan building (its pages on the live feed), and the build's entry. */
-const sampleFlow = (state: StorefrontState, line: (id: string, role: DesignMessage['role'], text: string, more?: Partial<DesignMessage>) => DesignMessage): DesignMessage[] => {
-  if (!isFlowState(state)) return []
-  const questions = line('f2', 'questions', 'A few quick questions so I build the right thing. Pick one, type your own, or skip them.', {
-    questions: [
-      { text: 'What feeling should the store have?', options: ['Calm and premium', 'Warm and handmade', 'Bold and modern'] },
-      { text: 'What should the home page lead with?', options: ['Indigo block-print kurta — your best seller', 'Your newest arrivals', 'Your collections'] },
-      { text: 'Which language should shoppers see first?', options: ['English (your main language)', 'हिन्दी'] },
-    ],
-    flowState: state === 'questions' ? 'open' : 'answered',
-    answers: state === 'questions' ? [] : ['Calm and premium', 'Indigo block-print kurta — your best seller', 'English (your main language)'],
-  })
-  const ask = line('f1', 'user', 'Make my store look premium')
-  if (state === 'questions') return [questions, ask]
-  const plan = line('f3', 'plan', 'Here’s my plan for your store:', { plan: samplePlan, flowState: state === 'plan' ? 'open' : state === 'building' ? 'building' : 'built' })
-  if (state !== 'built') return [plan, questions, ask]
-  const pages = samplePlan.pages.map((p) => ({ page: p.page, title: p.title, outcome: 'changed' as const }))
-  return [line('f4', 'ai', '', { changed: pages.map((p) => p.title), canUndo: true, build: { pages, stopped: false } }), plan, questions, ask]
 }
 
 /** pubChecking stays on its checks; pubRefused names a change to publish before; rolledBack went live and was put back. */
