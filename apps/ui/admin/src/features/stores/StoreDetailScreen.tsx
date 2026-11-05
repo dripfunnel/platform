@@ -177,6 +177,7 @@ export const StoreDetailScreen = () => {
         />
       )}
       <Toast message={toast} onDone={clearToast} />
+      {sessions.element}
     </>
   )
 }
