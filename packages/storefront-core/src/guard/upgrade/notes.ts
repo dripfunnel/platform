@@ -34,6 +34,19 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.10.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every shipped theme passes unchanged; no codemod runs.',
+      'A product card shows only the product\'s own photos (#1244): the validator\'s new `jsx/product-image` rule refuses a `<MerchantImage>` inside one product\'s render, so a theme that drew a store picture there must show the product\'s photo instead.',
+      'Themes may use Tailwind v4 classes (#1239), more of motion with core keeping reduced motion itself (#1245), `useWishlist`, `useProducts({ sort: \'best-selling\' })` and `useOffers()`, and `<RichText>` for a product\'s formatted description.',
+      '`AddToCart` and `BuyNow` stay disabled until the engine answers, so a second press no longer adds twice.',
+      'In the studio frame, the hot reload swaps stylesheets too (#1240), and a store link stays under the frame\'s session path (#1296).',
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.9.0',
     kind: 'minor',
     security: false,
