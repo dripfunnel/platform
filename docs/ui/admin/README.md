@@ -20,7 +20,7 @@ Customers, Approvals, Provisioning, Impersonate, Activity log and Staff; the fir
 ships only what [FIRST-RELEASE.md](FIRST-RELEASE.md) §2 lists. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-10-02 (#115, #116: list and detail pieces moved to shared).
+Last updated: 2026-11-05 (#1289: an impersonation lasts 90 minutes). Before: 2026-10-02 (#115, #116: list and detail pieces moved to shared).
 
 | Document | Covers |
 |---|---|
@@ -84,7 +84,7 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
 | Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Customers: full email and phone | ✓ | | ✓ | | | |
-| Impersonate partner and store users (full access, 30 min, extendable once) | ✓ | | ✓ | | | |
+| Impersonate partner and store users (full access, 90 min, extendable once by 30) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
 | Billing: invoices, credits, refunds, dunning | ✓ | view (their assigned partners) | | ✓ | | view |
 | Fleet, builds, domains, integration health | ✓ | view | view | | ✓ | view |

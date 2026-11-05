@@ -12,8 +12,8 @@ import { storeRoleOf } from './storePermissions'
 // White label like the person's cookie; `__Host-` pins it to the portal host.
 export const staffCookieName = '__Host-portal_staff'
 
-// 30 minutes plus the one extension (ACCESS.md §8.1); the server ends it sooner.
-const maxAgeSeconds = 60 * 60
+// 90 minutes plus the one extension of 30 (ACCESS.md §8.1); the server ends it sooner.
+const maxAgeSeconds = 2 * 60 * 60
 
 export const setStaffCookie = (id: string): string => `${staffCookieName}=${id}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}`
 

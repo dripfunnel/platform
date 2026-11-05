@@ -31,7 +31,8 @@ import { sampleStores } from './storesSample'
 type SampleReauth = { ok: true; proof: string } | Extract<Reauth, { ok: false }>
 
 const minuteMs = 60_000
-const impersonationMs = 30 * minuteMs
+const impersonationMs = 90 * minuteMs
+const extensionMs = 30 * minuteMs
 const setupMs = 120 * minuteMs
 const platformHost = 'platform.dripfunnel.ai'
 
@@ -404,7 +405,7 @@ export const createImpersonationServer = (options: ImpersonationServerOptions = 
     if (found.kind === 'setup') return refused('SETUP_SESSION_NOT_EXTENDABLE')
     if (found.staff.id !== staffOf(caller).id) return refused('NOT_SESSION_OWNER')
     if (found.extendedAt !== null) return refused('IMPERSONATION_ALREADY_EXTENDED')
-    sessions = sessions.map((candidate) => (candidate.id === id ? { ...candidate, extendedAt: now(), expiresAt: candidate.expiresAt + impersonationMs } : candidate))
+    sessions = sessions.map((candidate) => (candidate.id === id ? { ...candidate, extendedAt: now(), expiresAt: candidate.expiresAt + extensionMs } : candidate))
     return { ok: true }
   }
 

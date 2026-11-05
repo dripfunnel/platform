@@ -40,7 +40,7 @@ const seat = async (userId: string, role: string, sellerId: string | null = null
 const started = async (who: Who, token: string, staffId = neha) => {
   const [row] = await db.sql<{ id: string }[]>`
     insert into impersonation (staff_user_id, target_kind, target_id, membership_id, partner_id, store_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at)
-    values (${staffId}, 'person', ${people[who]}, ${seats[who]}, ${t.partnerA}, ${t.storeA1}, 'Checking a refund', ${clock}, ${new Date(clock.getTime() + 30 * 60_000)}, ${await hashSessionId(token)}, ${new Date(clock.getTime() + 5 * 60_000)})
+    values (${staffId}, 'person', ${people[who]}, ${seats[who]}, ${t.partnerA}, ${t.storeA1}, 'Checking a refund', ${clock}, ${new Date(clock.getTime() + 90 * 60_000)}, ${await hashSessionId(token)}, ${new Date(clock.getTime() + 5 * 60_000)})
     returning id
   `
   return row?.id ?? ''
@@ -304,7 +304,7 @@ describe('ending', () => {
   it('reads as expired once its time is up', async () => {
     await started('manager', 'tok-time')
     const staff = await enter('tok-time')
-    clock = new Date(clock.getTime() + 31 * 60_000)
+    clock = new Date(clock.getTime() + 91 * 60_000)
     expect((await currentOf(staff)).session).toMatchObject({ state: 'expired', endedBy: 'expiry' })
     expect((await contextFor({ staff })).standing.kind).toBe('signed-out')
   })
