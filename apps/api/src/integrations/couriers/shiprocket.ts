@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { CourierBoughtUnfinished, CourierRejected, CourierUnavailable, type BookedLabel, type CourierHook, type CourierRate, type LabelAddress, type LabelRequest, type Parcel, type PickupBooked, type TrackingEvent, type TrackingStatus } from '#core/couriers'
 import { fromDecimalRounded, toMajor } from '#core/money'
-import { courierCall, fetchLabel, sameSecret } from './request'
+import { sameSecret } from '#core/secrets'
+import { courierCall, fetchLabel } from './request'
 
 // A partner's Shiprocket account (THIRD-PARTY-ACCESS §3.2, §4): a dedicated API user's email and password, exchanged
 // for a token on each quote, since the Worker keeps nothing between requests. Domestic India only.

@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import type { OutboxRow } from '#db/schema/outbox'
 import { withSystemScope } from '#db/scoped/index'
-import { claimDue, markAttemptFailed, markDelivered, markPostponed, redactOutboxPayload } from '#db/scoped/outbox'
+import { claimDue, markAttemptFailed, markDelivered, markPostponed, redactOutboxPayload, releaseClaims } from '#db/scoped/outbox'
 import { NotYet } from '#saas/outbox/index'
 
 export interface Effect {
@@ -19,8 +19,8 @@ export interface Deliverer {
   deliver: (effect: Effect, signal: AbortSignal) => Promise<void>
   /** What of the payload stays once the row is delivered or given up, written with that outcome. */
   redact?: (payload: unknown) => Record<string, unknown>
-  /** How many rows of this kind one sweep may deliver at once; absent, one at a time. */
-  concurrency?: number
+  /** Its own limit on one delivery, for work that takes longer than `RelayOptions.timeoutMs` allows. */
+  timeoutMs?: number
 }
 
 export type Deliverers = Readonly<Record<string, Deliverer>>
@@ -39,7 +39,7 @@ export interface RelayOptions {
   onBudgetSpent?: () => Promise<void>
 }
 
-/** How long one sweep keeps claiming rows that come due. It is checked between batches, so a batch (each call capped by `timeoutMs`) can run past it; a sweep the Worker cuts short leaves its rows leased until `leaseMs`. */
+/** How long one sweep keeps claiming rows that come due. It is checked between batches, so a batch (each call capped by its deliverer's timeout) can run past it, never past its lease; a sweep the Worker cuts short leaves its rows leased until `leaseMs`. */
 export const relayBudgetMs = 20_000
 
 export const defaultRelayOptions: RelayOptions = {
@@ -102,7 +102,7 @@ const effectOf = (row: OutboxRow): Effect => ({
 const settle = async (sql: postgres.Sql, row: OutboxRow, deliverer: Deliverer, opts: RelayOptions): Promise<Outcome> => {
   const now = opts.now()
   try {
-    await withTimeout((signal) => deliverer.deliver(effectOf(row), signal), opts.timeoutMs)
+    await withTimeout((signal) => deliverer.deliver(effectOf(row), signal), deliverer.timeoutMs ?? opts.timeoutMs)
   } catch (error) {
     if (error instanceof NotYet) {
       await withSystemScope(sql, (tx) => markPostponed(tx, row.id, { error: error.code, nextAttemptAt: new Date(now.getTime() + error.retryAfterMs) }))
@@ -141,32 +141,22 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   if (kinds.length === 0) return counts
   const deadline = opts.now().getTime() + opts.budgetMs
   const attempted = new Set<string>()
-  const deliver = async (row: OutboxRow, deliverer: Deliverer) => {
-    counts[await settle(sql, row, deliverer, opts)] += 1
-  }
   while (opts.now().getTime() < deadline) {
-    const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, [...attempted]))
+    const claimedAt = opts.now()
+    const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, claimedAt, opts.batch, opts.leaseMs, [...attempted]))
     if (rows.length === 0) return counts
-    const lanes = new Map<string, OutboxRow[]>()
-    const serial: OutboxRow[] = []
-    for (const row of rows) {
-      attempted.add(row.id)
+    for (const [i, row] of rows.entries()) {
       const deliverer = deliverers[row.kind]
       if (!deliverer) continue
-      if ((deliverer.concurrency ?? 1) > 1) lanes.set(row.kind, [...(lanes.get(row.kind) ?? []), row])
-      else serial.push(row)
-    }
-    // The one-at-a-time rows and each wide kind run side by side, so a slow wide kind never holds the rest.
-    const takeFrom = async (list: OutboxRow[]) => {
-      for (let row = list.shift(); row; row = list.shift()) {
-        const deliverer = deliverers[row.kind]
-        if (deliverer) await deliver(row, deliverer)
+      // A delivery that could outlast its lease could also run twice: hand back the rest and wake a fresh sweep for them.
+      if (opts.now().getTime() - claimedAt.getTime() + (deliverer.timeoutMs ?? opts.timeoutMs) > opts.leaseMs) {
+        await withSystemScope(sql, (tx) => releaseClaims(tx, rows.slice(i).map((r) => r.id), claimedAt))
+        await opts.onBudgetSpent?.()
+        return counts
       }
+      attempted.add(row.id)
+      counts[await settle(sql, row, deliverer, opts)] += 1
     }
-    await Promise.all([
-      takeFrom(serial),
-      ...[...lanes].flatMap(([kind, list]) => Array.from({ length: Math.min(deliverers[kind]?.concurrency ?? 1, list.length) }, () => takeFrom(list))),
-    ])
   }
   await opts.onBudgetSpent?.()
   return counts

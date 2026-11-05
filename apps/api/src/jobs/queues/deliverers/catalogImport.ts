@@ -28,10 +28,12 @@ import { queueSideEffect } from '#saas/outbox/index'
 import { defaultRelayOptions, type Deliverer, type Effect } from '../outbox-relay'
 
 // `import.catalog` and `import.photos` (CATALOG K; FIRST-RELEASE §13): a catalogue import's check, its run a chunk at
-// a time, and its photos one at a time, each in the importer's own scope and inside the relay's timeout.
+// a time, and its photos one at a time, each in the importer's own scope and within its delivery's limit (api/README.md §5).
 
-/** A chunk stops taking products after this, leaving the rest of the relay's 10 seconds to save its progress. */
-const chunkBudgetMs = 6_000
+/** Longer than the relay's 10 s: queue consumers run away from the database's region (#1300, #1301). */
+const chunkTimeoutMs = 60_000
+/** A chunk stops taking products this long before its limit, leaving room to save its progress. */
+const chunkBudgetMs = chunkTimeoutMs - 15_000
 const maxPhotoBytes = 20 * 1024 * 1024
 
 // A fetch names the page it reads (null for the first), so delivering it twice adds that page once.
@@ -82,6 +84,7 @@ const failingLast = async (sql: postgres.Sql, p: CatalogJobPayload, effect: Effe
 
 /** A connected import reads its shop first (`fetch`), a page a delivery, with the store's sealed token. */
 export const catalogImportDeliverer = (sql: postgres.Sql, shop: ShopConnect | null, secrets: SecretBox | null, now: () => Date = () => new Date()): Deliverer => ({
+  timeoutMs: chunkTimeoutMs,
   deliver: async (effect) => {
     const parsed = jobPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('import.catalog: bad payload')
@@ -96,12 +99,8 @@ export const catalogImportDeliverer = (sql: postgres.Sql, shop: ShopConnect | nu
   },
 })
 
-/** Each photo waits on its own fetch. One short of the pool's 5 connections (db/client.ts), so the claim and the serial lane still get one. */
-const photosAtOnce = 4
-
 /** A photo is fetched from a public address only (publicFetch.ts) and stored as the importer's own file. */
 export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | null, lookup: DnsLookup, now: () => Date = () => new Date(), fetchImpl?: typeof fetch): Deliverer => ({
-  concurrency: photosAtOnce,
   deliver: async (effect) => {
     const parsed = photoPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('import.photos: bad payload')
