@@ -271,6 +271,13 @@ export const en = {
     line: (quantity: number, item: string) => `${quantity} × ${item}`,
   },
   // The store's own subject and message come first; these are the parts added for it (Carts' preview).
+  wishlistReminder: {
+    greeting: (name: string | null) => (name ? `Hi ${name},` : 'Hi,'),
+    line: (item: string, amount: string | null) => (amount ? `${item}: from ${amount}` : item),
+    action: 'See your wishlist',
+    why: (host: string) => `You’re getting this because you saved products to your wishlist at ${host}.`,
+    unsubscribe: (url: string) => `Unsubscribe: ${url}`,
+  },
   cartReminder: {
     greeting: (name: string | null) => (name ? `Hi ${name},` : 'Hi,'),
     line: (quantity: number, item: string, amount: string | null) => (amount ? `${quantity} × ${item}: ${amount}` : `${quantity} × ${item}`),

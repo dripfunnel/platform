@@ -12,6 +12,7 @@ import {
   type CartsRefusal,
   type CartsResult,
   type WishlistItemNow,
+  type WishlistRemindersResult,
   type RemindersRefusal,
   type RemindersResult,
   type ReminderSettingsView,
@@ -21,6 +22,7 @@ import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyInputType, moneyType, pageInfoType, type Money, type StoreBuilder } from './builder'
+import { assetUrl } from './products'
 import { storePage } from './refusals'
 
 // Abandoned carts' Reminders tab (FIRST-RELEASE §9, §19; Carts): the merchant side's alone. Owner and Manager save it,
@@ -33,6 +35,16 @@ const words: Record<RemindersRefusal | CartsRefusal, string> = {
   READ_ONLY: 'A read-only support session can’t change this store.',
   STALE_REVISION: 'Someone else saved your reminders. Reload to see their changes.',
   PLAN_LIMIT: 'Your plan doesn’t include this.',
+}
+
+/** Answers a reminders service's result: its value, or the refusal as a GraphQL error (a plan limit names the plan that unlocks it). Shared with the wishlist reminders. */
+export const answered = async <T>(ctx: StoreContext, result: RemindersResult<T> | CartsResult<T> | WishlistRemindersResult<T>, cantRemind?: string): Promise<T> => {
+  if (result.ok) return result.value
+  if (result.reason === 'PLAN_LIMIT' && ctx.sql) {
+    const limit = await planLimitFor(ctx.sql, actingCaller(ctx).context, { key: 'cart_reminders', total: result.needs }, ctx.now())
+    throw new GraphQLError(words.PLAN_LIMIT, { extensions: { code: 'PLAN_LIMIT', key: 'cart_reminders', limit: limit?.limit ?? 0, unlockedBy: limit?.unlockedBy ?? null } })
+  }
+  throw new GraphQLError(result.reason === 'CANT_REMIND' && cantRemind ? cantRemind : words[result.reason], { extensions: { code: result.reason } })
 }
 
 export const registerCartReminders = (builder: StoreBuilder) => {
@@ -67,15 +79,6 @@ export const registerCartReminders = (builder: StoreBuilder) => {
       level: () => allowanceFor(sql, caller.context, 'cart_reminders', ctx.now()),
       now: ctx.now,
     })
-  }
-
-  const answered = async <T>(ctx: StoreContext, result: RemindersResult<T> | CartsResult<T>): Promise<T> => {
-    if (result.ok) return result.value
-    if (result.reason === 'PLAN_LIMIT' && ctx.sql) {
-      const limit = await planLimitFor(ctx.sql, actingCaller(ctx).context, { key: 'cart_reminders', total: result.needs }, ctx.now())
-      throw new GraphQLError(words.PLAN_LIMIT, { extensions: { code: 'PLAN_LIMIT', key: 'cart_reminders', limit: limit?.limit ?? 0, unlockedBy: limit?.unlockedBy ?? null } })
-    }
-    throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
   }
 
   const Step = builder.objectRef<ReminderStepView>('ReminderStep').implement({
@@ -181,6 +184,7 @@ export const registerCartReminders = (builder: StoreBuilder) => {
       productId: t.exposeID('productId'),
       name: t.exposeString('name'),
       slug: t.exposeString('slug'),
+      photoUrl: t.string({ nullable: true, resolve: (w) => (w.photoAssetId ? assetUrl(w.photoAssetId) : null) }),
       // The cheapest version's price in the cart's currency.
       price: t.field({ type: MoneyType, nullable: true, resolve: (w) => (w.price ? { amount: w.price.amount.toString(), currency: w.price.currency } : null) }),
     }),

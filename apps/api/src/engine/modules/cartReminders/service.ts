@@ -4,7 +4,7 @@ import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
 import { saveReminderFlow, saveReminderStep, selectReminderFlow, selectReminderStore, type StepRow } from '#db/scoped/cartReminders'
 import { withScope } from '#db/scoped/index'
-import { defaultSteps, levelOf, settingsSchema, type ReminderLevel, type ReminderStepView } from './rules'
+import { defaultSteps, levelOf, saveNeeds, settingsSchema, type ReminderLevel, type ReminderStepView } from './rules'
 
 // The Reminders tab (FIRST-RELEASE §9): the store's sequence, read by every merchant role and saved by Owner and Manager, in
 // the caller's own store scope. What the plan allows is checked here, at the save (SAAS §6.2), and again at every send.
@@ -88,12 +88,8 @@ export const createCartRemindersService = ({ sql, context, actor, activity, fact
     if (!current) return { ok: false, reason: 'NOT_FOUND' }
     if (current.revision !== revision) return { ok: false, reason: 'STALE_REVISION' }
     const index = await level()
-    const kept = (step: (typeof s.steps)[number]) => {
-      const was = current.revision === null ? null : current.steps.find((x) => x.position === step.position)
-      return was !== null && was !== undefined && was.enabled === step.enabled && was.channel === step.channel && was.discountPercent === step.discountPercent
-    }
-    if (s.enabled && !(current.revision !== null && current.enabled) && index < 1) return { ok: false, reason: 'PLAN_LIMIT', needs: 1 }
-    if (index < 2 && s.steps.some((x) => needsAll(x) && !kept(x))) return { ok: false, reason: 'PLAN_LIMIT', needs: 2 }
+    const needs = saveNeeds(index, s, current, needsAll, (was, step) => was.enabled === step.enabled && was.channel === step.channel && was.discountPercent === step.discountPercent)
+    if (needs !== null) return { ok: false, reason: 'PLAN_LIMIT', needs }
     const minimum = s.minimum ? { amount: BigInt(s.minimum.amount), currency: s.minimum.currency } : null
     const result = await withScope(sql, context, async (tx) => {
       const store = await selectReminderStore(tx, storeId)

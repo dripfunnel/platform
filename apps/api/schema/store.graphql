@@ -51,6 +51,7 @@ type AbandonedCartPage {
 
 type AbandonedCartWishlistItem {
   name: String
+  photoUrl: String
   price: Money
   productId: ID
   slug: String
@@ -1200,6 +1201,7 @@ type Mutation {
   refund(extra: String, lines: [RefundLineInput!]!, note: String, orderId: ID!, override: Boolean, reason: RefundReason!, restock: Boolean, returnId: ID): [ID!]
   regenerateBackupCodes: [String!]
   remindNow(cartId: ID!, discountPercent: Int): ID
+  remindWishlistNow(customerId: ID!): ID
   removeDomain(id: ID!): Boolean
   removeMember(membershipId: ID!): Boolean
   removeRider(id: ID!): Boolean
@@ -1221,6 +1223,7 @@ type Mutation {
   resumeCartReminders(cartId: ID!): Boolean
   resumeOffer(id: ID!): Boolean
   resumeSupplier(id: ID!): Int
+  resumeWishlistReminders(customerId: ID!): Boolean
   revokeApiKey(id: ID!): Boolean
   revokeInvitation(invitationId: ID!): Boolean
   revokeSupplierInvitation(invitationId: ID!): Boolean
@@ -1261,6 +1264,7 @@ type Mutation {
   saveTaxZone(id: ID, input: TaxZoneInput!): ID
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
   saveWebhook(events: [String!]!, id: ID, url: String!): SavedWebhook
+  saveWishlistReminderSettings(input: WishlistReminderSettingsInput!, revision: Int): Int
   sendBackProduct(id: ID!, reason: String!): Boolean
   sendTestReminder(position: Int!): Boolean
   setApproval(on: Boolean!): Boolean
@@ -1290,6 +1294,7 @@ type Mutation {
   startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
   stopCartReminders(cartId: ID!, note: String): Boolean
+  stopWishlistReminders(customerId: ID!, note: String): Boolean
   studioActivity: Boolean
   suspendRider(id: ID!): Rider
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
@@ -2351,6 +2356,11 @@ type Query {
   webhookDeliveries(after: String, before: String, endpointId: ID!, first: Int): WebhookDeliveryPage
   webhookEvents: [String!]
   webhooks(after: String, before: String, first: Int): WebhookEndpointPage
+  wishlistReminderSettings: WishlistReminderSettings
+  wishlistShopper(customerId: ID!): WishlistShopperDetail
+  wishlistShopperCounts: WishlistShopperCounts
+  wishlistShoppers(after: String, before: String, first: Int, search: String, tab: String): WishlistShopperPage
+  wishlistSummary(days: Int): WishlistSummary
 }
 
 type ReferenceRate {
@@ -3702,4 +3712,96 @@ type WebhookEndpoint {
 type WebhookEndpointPage {
   nodes: [WebhookEndpoint!]
   pageInfo: PageInfo
+}
+
+type WishlistReminder {
+  id: ID
+  position: Int
+  queuedAt: String
+  sentAt: String
+  sentBy: String
+  skipReason: String
+  state: String
+}
+
+type WishlistReminderSettings {
+  enabled: Boolean
+  level: String
+  quietHours: Boolean
+  revision: Int
+  skipOutOfStock: Boolean
+  steps: [WishlistReminderStep!]
+  weeklyCap: Boolean
+}
+
+input WishlistReminderSettingsInput {
+  enabled: Boolean!
+  quietHours: Boolean!
+  skipOutOfStock: Boolean!
+  steps: [WishlistReminderStepInput!]!
+  weeklyCap: Boolean!
+}
+
+type WishlistReminderStep {
+  body: String
+  delayMinutes: Int
+  enabled: Boolean
+  position: Int
+  subject: String
+}
+
+input WishlistReminderStepInput {
+  body: String!
+  delayMinutes: Int!
+  enabled: Boolean!
+  position: Int!
+  subject: String!
+}
+
+type WishlistShopper {
+  customerId: ID
+  email: String
+  firstProduct: String
+  items: Int
+  lastSavedAt: String
+  lastSentAt: String
+  name: String
+  remindersSent: Int
+  stoppedAt: String
+  stoppedBy: String
+  stoppedNote: String
+}
+
+type WishlistShopperCounts {
+  reminded: Int
+  stopped: Int
+  waiting: Int
+}
+
+type WishlistShopperDetail {
+  items: [WishlistShopperItem!]
+  reminders: [WishlistReminder!]
+  shopper: WishlistShopper
+}
+
+type WishlistShopperItem {
+  inStock: Boolean
+  name: String
+  photoUrl: String
+  price: Money
+  productId: ID
+}
+
+type WishlistShopperPage {
+  nodes: [WishlistShopper!]
+  pageInfo: PageInfo
+}
+
+type WishlistSummary {
+  days: Int
+  products: Int
+  reachable: Int
+  reminded: Int
+  remindersSent: Int
+  shoppers: Int
 }

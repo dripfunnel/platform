@@ -5,6 +5,7 @@ import type { TenantContext } from '#core/tenancy'
 import { unsubscribeLinkMs } from '#db/scoped/cart'
 import { recordUnsubscribed, restoreFromReminder, selectReminderByToken, selectReminderCustomer } from '#db/scoped/cartReminders'
 import { withSystemScope } from '#db/scoped/index'
+import { selectWishlistReminderByToken } from '#db/scoped/wishlistReminders'
 import { ensureGuestCustomer } from '#db/scoped/storeCustomers'
 
 // A reminder's two links on the storefront (FIRST-RELEASE §19): `cart/r/{token}` opens its cart, `unsubscribe/{token}` stops
@@ -60,7 +61,8 @@ export const unsubscribe = async ({ sql, context, activity, facts, now }: LinkDe
   const hash = await hashSessionId(token)
   return withSystemScope(sql, async (tx): Promise<LinkResult<true>> => {
     const at = now()
-    const found = await selectReminderByToken(tx, context.storeId, hash, at)
+    // A cart reminder's token, or a wishlist reminder's: the same shopper's marketing stops either way.
+    const found = (await selectReminderByToken(tx, context.storeId, hash, at)) ?? (await selectWishlistReminderByToken(tx, context.storeId, hash))
     if (!found || found.sent_at.getTime() <= at.getTime() - unsubscribeLinkMs) return { ok: false, reason: 'LINK_INVALID' }
     let customerId = await selectReminderCustomer(tx, context.storeId, found.customer_id, found.email)
     if (!customerId && found.email) {

@@ -16,8 +16,9 @@ import { downloadUrl } from '#engine/modules/deliveries/index'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { selectBranding } from '#db/scoped/branding'
 import { selectKeyCreatorName } from '#db/scoped/apiKeys'
+import { markWishlistReminderSent, selectWishlistReminderToSend, skipWishlistReminder } from '#db/scoped/wishlistReminders'
 import { markReminderSent, selectReminderFlow, selectReminderToSend, selectSampleItems, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
-import { defaultReminderStep, defaultReminderSteps, mayEmail } from '#engine/modules/cartReminders/index'
+import { defaultReminderStep, defaultReminderSteps, defaultWishlistSteps, mayEmail } from '#engine/modules/cartReminders/index'
 import type { ScopedSql } from '#db/scoped/index'
 import { selectOrderEmail, selectShipmentToTell, type OrderEmailRow } from '#db/scoped/orderUpdates'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
@@ -113,6 +114,11 @@ const payloads = {
   'gift-card': z.object({ giftCardId: id }),
   'order-delivered': z.object({ orderId: id, fulfilmentId: id }),
   'cart-reminder-test': z.object({ storeId: id, position: z.number().int().min(1).max(3), to: email }),
+  'wishlist-reminder': z.object({
+    reminderId: id,
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    items: z.array(z.object({ name: z.string().max(400), amount: z.string().regex(/^\d{1,18}$/).nullable() })).max(20),
+  }),
   'cart-reminder': z.object({
     reminderId: id,
     currency: z.string().regex(/^[A-Z]{3}$/),
@@ -601,6 +607,36 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       // From the store, in its partner's look, as an order email is (SAAS §3.6).
       const brand: Brand = { ...look.brand, name: r.store_name, supportEmail: r.contact_email, supportUrl: null }
       const content: EmailContent = { subject: words.subject || defaultReminderStep.subject, heading: w.greeting(r.name?.trim().split(/\s+/)[0] || null), paragraphs, action: { label: w.action, url: `https://${host}/cart/r/${token}` }, note }
+      return { send: true, accountSecurity: false, to: [r.to], voice: look.voice, brand, content }
+    }
+    case 'wishlist-reminder': {
+      const p = parse(t)
+      const r = await selectWishlistReminderToSend(tx, p.reminderId)
+      // Decided otherwise since it was queued, or sent by an earlier delivery: nothing goes twice.
+      if (!r || r.state !== 'queued') return { send: false, reason: 'link_closed' }
+      if (r.partner_id !== row.partnerId || r.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, r.partner_id)
+      if (!r.to || !look) return { send: false, reason: 'no_recipient' }
+      // Asked again as it goes: a retry can come after the shopper unsubscribed.
+      if (!mayEmail(r.store_country, r.consent)) {
+        await skipWishlistReminder(tx, p.reminderId, 'opted_out')
+        return { send: false, reason: 'no_recipient' }
+      }
+      const host = await selectShopHost(tx, r.store_id, hosts.shopDomain)
+      if (!host) {
+        await skipWishlistReminder(tx, p.reminderId, 'no_shop_host')
+        return { send: false, reason: 'no_recipient' }
+      }
+      // Made as it is sent, so the link never rests in the outbox (ACCESS §6.1); it unsubscribes.
+      const token = newSessionId()
+      if (!(await markWishlistReminderSent(tx, p.reminderId, await hashSessionId(token), now))) return { send: false, reason: 'link_closed' }
+      const w = en.wishlistReminder
+      const money = (amount: string | null) => (amount === null ? null : en.money(r.locale, amount, p.currency))
+      const address = ['street', 'city', 'postal', 'region'].map((k) => r.address[k]?.trim() ?? '').filter((part) => part !== '')
+      const paragraphs = [r.body ?? defaultWishlistSteps[0].body, ...p.items.map((i) => w.line(i.name, money(i.amount)))]
+      const note = [w.why(host), w.unsubscribe(`https://${host}/unsubscribe/${token}`), ...(address.length > 0 ? [`${r.store_name}, ${address.join(', ')}`] : [])].join(' ')
+      const brand: Brand = { ...look.brand, name: r.store_name, supportEmail: r.contact_email, supportUrl: null }
+      const content: EmailContent = { subject: r.subject || defaultWishlistSteps[0].subject, heading: w.greeting(r.name?.trim().split(/\s+/)[0] || null), paragraphs, action: { label: w.action, url: `https://${host}/account/wishlist/` }, note }
       return { send: true, accountSecurity: false, to: [r.to], voice: look.voice, brand, content }
     }
     case 'cart-reminder-test': {
