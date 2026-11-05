@@ -32,7 +32,9 @@ import { decodePage, pageOf, reasonText, staffEntry, type PageRequest } from '#s
 // as, starting, returning to, extending and ending an impersonation, and one list over both
 // kinds. The portal side (the exchange, the caller kinds, the blocked lists) is #243.
 
-export const impersonationMs = 30 * 60 * 1000
+// ACCESS.md §8.1: 90 minutes, extendable once by 30.
+export const impersonationMs = 90 * 60 * 1000
+export const extensionMs = 30 * 60 * 1000
 export const handoffMs = 5 * 60 * 1000
 export const targetPageSize = 25
 export const sessionPageSize = 25
@@ -320,8 +322,8 @@ export const createStaffSessionsService = ({ sql, staff, facts, activity, reauth
   const extendSession = (sessionId: string) =>
     onSession(sessionId, async (tx, s, dto, at): Promise<{ ok: true; expiresAt: Date } | { ok: false; reason: SessionRefusal }> => {
       if (!dto.actions.extend.allowed) return { ok: false, reason: dto.actions.extend.reason }
-      if (!(await extendImpersonation(tx, s.id, impersonationMs, at))) return { ok: false, reason: 'IMPERSONATION_ALREADY_EXTENDED' }
-      const expiresAt = new Date(s.expires_at.getTime() + impersonationMs)
+      if (!(await extendImpersonation(tx, s.id, extensionMs, at))) return { ok: false, reason: 'IMPERSONATION_ALREADY_EXTENDED' }
+      const expiresAt = new Date(s.expires_at.getTime() + extensionMs)
       await activity.record(tx, impersonationEntry(sessionAudit.extendImpersonation, s, { changes: [{ field: 'expires_at', before: s.expires_at.toISOString(), after: expiresAt.toISOString() }] }))
       return { ok: true, expiresAt }
     })

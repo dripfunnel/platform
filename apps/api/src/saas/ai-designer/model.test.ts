@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateTheme, type GuardContext, type ThemeFile } from '@dripfunnel/storefront-core/guard'
-import { carouselExample, designModel, maxBuildToolCalls, maxLookups, maxPhotoLookups, maxToolCalls, rules, type DesignBrief, type DesignTools } from './model'
+import { carouselExample, designModel, revealExample, maxBuildToolCalls, maxLookups, maxPhotoLookups, maxToolCalls, rules, type DesignBrief, type DesignTools } from './model'
 import type { StoreLookups, StoreSummary } from './summary'
 import type { FileEdit } from '#saas/studio/index'
 
@@ -283,6 +283,11 @@ describe('the rules the AI is given', () => {
     expect(rules).toMatch(/every existing key still in it/)
   })
 
+  it('send a merchant who asks for a web or stock photo to the search, not to their own photos', () => {
+    expect(rules).toMatch(/asks for a picture from the web, the internet, a\s+stock photo or a search, skip the shop's own photos for that slot/)
+    expect(rules).toMatch(/never answer with an Assets image instead/)
+  })
+
   it('use the shop’s own data to decide, live through core, never copied into files (#1242)', () => {
     expect(rules).toMatch(/useProducts\(\{ sort: 'best-selling' \}\)/)
     expect(rules).toMatch(/drawn\s+from useOffers\(\) so it goes when the offer ends/)
@@ -304,6 +309,12 @@ describe('the worked carousel', () => {
     await designModel(provider, brief, null).propose({ request, theme: [], problems: [] })
     return seen[0] ?? ''
   }
+
+  it('sends the worked reveal with every change, and the rules make motion the default without false claims', async () => {
+    expect(await system('make the buttons maroon')).toContain(revealExample.trim())
+    expect(rules).toMatch(/Every design you make has quiet motion/)
+    expect(rules).toMatch(/Never claim an effect the code does not have/)
+  })
 
   it.each(['turn the hero into a rotating carousel of three slides', 'add a Slider of reviews', 'make the FAQ tabs'])('goes with "%s"', async (request) => {
     expect(await system(request)).toContain(carouselExample.trim())
@@ -339,6 +350,16 @@ describe('the worked carousel against the validator', () => {
   it('passes with no problem, so the prompt never teaches what the gate refuses', async () => {
     expect(exampleFiles().map((f) => f.path)).toEqual(['src/theme/components/interactive/HeroCarousel.tsx', 'content/en/carousel.json', 'content/hi/carousel.json'])
     expect((await validateTheme([...baseline, ...exampleFiles()], guardContext)).problems).toEqual([])
+  }, validatorMs)
+})
+
+describe('the worked scroll reveal against the validator', () => {
+  it('passes with no problem, so the default motion the prompt teaches is never what the gate refuses', async () => {
+    const files: ThemeFile[] = []
+    const parts = revealExample.split(/^--- (\S+).*$/m)
+    for (let i = 1; i < parts.length; i += 2) files.push({ path: parts[i] ?? '', content: (parts[i + 1] ?? '').trim() + '\n' })
+    expect(files.map((f) => f.path)).toEqual(['src/theme/components/interactive/Reveal.tsx'])
+    expect((await validateTheme([...baseline, ...files], guardContext)).problems).toEqual([])
   }, validatorMs)
 })
 

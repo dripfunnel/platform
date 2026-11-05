@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -1110,7 +1110,7 @@ Admin console: Impersonate → pick a user (and, for a store user, which members
    │  checks: staff role; re-auth; reason
    ▼
 impersonation(staff_user_id, target_kind, target_id, membership_id NULL, reason,
-              started_at, expires_at = +30 min, ended_at)  + activity entry
+              started_at, expires_at = +90 min, ended_at)  + activity entry
    │  one-time handoff token, short-lived, single use
    ▼
 Browser → target's host: the partner console (platform.dripfunnel.ai) or the store's
@@ -1124,7 +1124,7 @@ Browser → target's host: the partner console (platform.dripfunnel.ai) or the s
   partner console) and to the staff member (an unremovable bar with the time left).
 - **Logged**: every entry has the target as `actor` and the staff member as `on_behalf_of`,
   with the impersonation id (LOGGING.md §4). Starting and ending are entries too.
-- **Ends** at 30 minutes, when the staff member ends it, or when the target's account or
+- **Ends** at 90 minutes (decided 2026-11-05 on #1289, replacing 30), when the staff member ends it, or when the target's account or
   membership is suspended or removed. **Extendable once, by 30 minutes** (decided
   2026-09-30), logged as its own entry; beyond that a staff member starts a new session,
   which carries a new reason.
@@ -1141,7 +1141,7 @@ Browser → target's host: the partner console (platform.dripfunnel.ai) or the s
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
   merchants' terms disclose staff impersonation (wording by legal).
-- **Built on #40** (the Admin API half): the `impersonation` row, 30 minutes from start, one
+- **Built on #40** (the Admin API half): the `impersonation` row, 90 minutes from start, one
   extension of 30 set on the row, one open per staff member at the index, the hashed one-time
   handoff (five minutes, a return mints a fresh one and the old stops working), and the
   entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation

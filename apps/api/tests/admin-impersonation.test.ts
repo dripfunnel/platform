@@ -141,11 +141,11 @@ describe('impersonation', () => {
     }
   })
 
-  it('runs 30 minutes, one at a time, opens on its host through a single-use link, and is logged', async () => {
+  it('runs 90 minutes, one at a time, opens on its host through a single-use link, and is logged', async () => {
     const su = as('staff-support')
     const started = (await run<Started>(start, su, { t: ids.partnerUser, m: ids.partnerUser, r: 'Investigating a refund' })).data?.startImpersonation
     expect(started?.ok).toBe(true)
-    expect(new Date(started?.session?.expiresAt ?? '').getTime() - now.getTime()).toBe(30 * 60_000)
+    expect(new Date(started?.session?.expiresAt ?? '').getTime() - now.getTime()).toBe(90 * 60_000)
     expect(new URL(started?.handoff ?? '').host).toBe(platformHost)
     expect(new URL(started?.handoff ?? '').pathname).toBe('/impersonate/enter')
     const token = tokenOf(started?.handoff)
@@ -162,7 +162,7 @@ describe('impersonation', () => {
     expect((await run(sessions, su)).raw).not.toContain(token)
   })
 
-  it('extends exactly once, by its owner, and the row is what refuses the second', async () => {
+  it('extends exactly once, by 30 minutes, by its owner, and the row is what refuses the second', async () => {
     const su = as('staff-support')
     const sa = as('staff-super-admin')
     const [open] = await db.sql<{ id: string; expires_at: Date }[]>`select id, expires_at from impersonation where staff_user_id = ${su.id} and ended_at is null`
