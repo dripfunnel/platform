@@ -1,6 +1,7 @@
 import type { Subscription } from '#core/tenancy'
 import type { KeysetPage } from './activity'
 import type { ScopedSql } from './index'
+import { storeHasAllower } from './supportSessions'
 
 // The store's half of partner support sessions (ACCESS.md §8; #331). The exchange and the support
 // caller run in system scope, since no caller is known until the cookie resolves; the merchant's
@@ -21,8 +22,9 @@ export const spendSupportHandoff = async (tx: ScopedSql, partnerId: string, hand
           select 1 from store s join membership m on m.store_id = s.id join "user" u on u.id = m.user_id
           where s.id = ss.store_id and m.id = ss.membership_id and s.support_access_allowed
             and s.status not in ('cancelled', 'closed')
-            -- auth/storePermissions.ts mayActAsSeat: an active seat, or the Owner's while invited (ACCESS.md §8).
-            and ((m.status = 'active' and u.status = 'active') or (m.role_key = 'owner' and m.status = 'invited' and u.status in ('active', 'invited')))
+            -- auth/storePermissions.ts supportMayActAsSeat: an active seat, or a new store's invited Owner's (ACCESS.md §8).
+            and ((m.status = 'active' and u.status = 'active')
+              or (m.role_key = 'owner' and m.status = 'invited' and u.status in ('active', 'invited') and not ${storeHasAllower(tx)}))
         )
       returning ss.id
     `
@@ -60,6 +62,7 @@ export interface SupportPortalRow {
   write_requested_at: Date | null
   write_request_note: string | null
   write_decided_at: Date | null
+  store_has_allower: boolean
 }
 
 /** The session a support cookie belongs to on this partner's host, open or not, so the portal can say how it ended. */
@@ -71,7 +74,7 @@ export const selectSupportPortalSession = async (tx: ScopedSql, partnerId: strin
         m.id as membership_id, m.status as membership_status, m.role_key, m.seller_id, se.name as seller_name, se.status as seller_status, se.access_level,
         u.id as user_id, u.name as user_name, u.email as user_email, u.status as user_status,
         ss.started_at, ss.expires_at, ss.ended_at, ss.ended_by_partner_user_id, ss.end_reason, ss.access,
-        ss.write_requested_at, ss.write_request_note, ss.write_decided_at
+        ss.write_requested_at, ss.write_request_note, ss.write_decided_at, ${storeHasAllower(tx)} as store_has_allower
       from support_session ss
       join partner p on p.id = ss.partner_id
       join partner_user pu on pu.id = ss.partner_user_id

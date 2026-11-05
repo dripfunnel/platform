@@ -131,6 +131,15 @@ describe('targets', () => {
     await db.sql`update membership set status = 'invited' where id = ${jenna}`
     expect((await targets(priya, 'jenna@harborcoffee')).at(0)?.start).toEqual({ allowed: true, reason: null })
     await db.sql`update membership set status = 'active' where id = ${jenna}`
+    // A second Owner invited to a store whose Owner is active: that Owner gives the Allow, so it's NOT_ACCEPTED.
+    const [second] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${ids.ns}, 'second.owner@harborcoffee.example', 'Sid Second', 'invited') returning id`
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${second?.id ?? ''}, ${store?.id ?? ''}, 'owner', 'invited')`
+    try {
+      expect((await targets(priya, 'second.owner@harborcoffee')).at(0)?.start.reason).toBe('NOT_ACCEPTED')
+    } finally {
+      await db.sql`delete from membership where user_id = ${second?.id ?? ''}`
+      await db.sql`delete from "user" where id = ${second?.id ?? ''}`
+    }
     await db.sql`update membership set status = 'suspended' where id = ${tom}`
     expect((await targets(priya, 'tom@harborcoffee')).at(0)?.start.reason).toBe('SUSPENDED')
     await db.sql`update membership set status = 'active' where id = ${tom}`

@@ -611,8 +611,8 @@ Store and role ("Juniper & Co. · Owner", "Supplier admin for Loomcraft") · Las
 Status (Active · Invited · Suspended) · **Open support session**, or **Return to session** when
 yours is open with that user. Refused with the reason: the role; "{owner} has turned off
 partner support for {store}. Ask them to turn it on in Settings › Support access."; "{user}
-hasn't accepted the invitation yet." (never for a store's Owner, who can be acted as, with
-changes allowed, until they accept: ACCESS.md §8); "{user}'s account is suspended in {store}."; "{store} is
+hasn't accepted the invitation yet." (never for the Owner of a store with no active Owner or
+Manager, who can be acted as, with changes allowed, until they accept: ACCESS.md §8); "{user}'s account is suspended in {store}."; "{store} is
 cancelled."; "{colleague} is signed in as {user} now. Ends in 12 min." Never lists the
 partner's own team, staff or shoppers.
 

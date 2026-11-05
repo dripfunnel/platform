@@ -4,7 +4,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from './activity'
 import { hashSessionId } from './session'
 import { staffAttributed } from './storeStaff'
 import type { StoreCaller, StoreStanding } from './storeCaller'
-import { isInvitedOwnerSeat, mayActAsSeat, storeRoleOf } from './storePermissions'
+import { isNewStoreOwnerSeat, storeRoleOf, supportMayActAsSeat } from './storePermissions'
 
 // A partner support session on the store's portal host (ACCESS.md §8; #331): its own cookie beside
 // any person's, the caller it resolves to, and the attribution of everything done under it.
@@ -42,8 +42,8 @@ export const writeRequestOf = (s: Pick<SupportPortalRow, 'access' | 'write_reque
 
 const seatStatusOf = (row: SupportPortalRow) => ({ role: row.role_key, membershipStatus: row.membership_status, userStatus: row.user_status })
 
-// ACCESS.md §8: writes need an Owner's or Manager's Allow, except on the Owner's seat before they accept, when nobody can give it.
-const accessOf = (row: SupportPortalRow): 'read' | 'write' => (row.access === 'write' || isInvitedOwnerSeat(seatStatusOf(row)) ? 'write' : 'read')
+// ACCESS.md §8: writes need an Owner's or Manager's Allow, except on a new store's invited Owner's seat, when nobody can give it.
+const accessOf = (row: SupportPortalRow): 'read' | 'write' => (row.access === 'write' || isNewStoreOwnerSeat(seatStatusOf(row), row.store_has_allower) ? 'write' : 'read')
 
 export const seatOf = (row: SupportPortalRow): SupportSeat => ({
   sessionId: row.id,
@@ -82,7 +82,7 @@ const goneReason = (row: SupportPortalRow): SupportEnd | null => {
   if (row.store_status === 'cancelled' || row.store_status === 'closed') return 'store_closed'
   // A start raced the switch going Off (0160 ends only what was open then): it ends on first use.
   if (!row.support_access_allowed) return 'support_off'
-  if (!mayActAsSeat(seatStatusOf(row)) || (row.seller_id !== null && row.seller_status !== 'active')) return 'target_gone'
+  if (!supportMayActAsSeat(seatStatusOf(row), row.store_has_allower) || (row.seller_id !== null && row.seller_status !== 'active')) return 'target_gone'
   return null
 }
 

@@ -1040,10 +1040,11 @@ Browser → https://<store's portal host>/support/enter?token=…
   ownership or roles; create API keys or install apps; open a storefront preview link, which names
   the person who opened it (storefront PREVIEW §5, #317); skip a Home checklist step (#719). A support session is not a person, so it
   can't act as one.
-- **A new store whose Owner hasn't accepted** (decided 2026-11-05 on #1293): a session may be opened on
-  the Owner's seat while the invitation is open, and it may **write without an Allow**, since no
-  one can give one yet. The "never" list still applies. Any other invited user is still refused
-  (`NOT_ACCEPTED`). Once the Owner accepts, the session is read-only again at its next request,
+- **A new store whose Owner hasn't accepted** (decided 2026-11-05 on #1293): while the store has no
+  active Owner or Manager, a session may be opened on an invited Owner's seat, and it may **write
+  without an Allow**, since no one can give one yet. The "never" list still applies. Any other
+  invited user, and an invited Owner on a store that has an active Owner or Manager, is still
+  refused (`NOT_ACCEPTED`). Once the Owner accepts, the session is read-only again at its next request,
   and writes need an Allow, as above. The merchant side's banner still shows the stored access.
 - **Staff don't use support sessions**: they impersonate (§8.1).
 - A partner's support session never reaches a store of another partner; the host check (§9

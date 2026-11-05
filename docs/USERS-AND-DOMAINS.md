@@ -133,8 +133,9 @@ partner and merchant.
 - **Sessions are read-only**, **time-limited** (30 minutes, decided 2026-10-05 on #337), and need a
   **reason or ticket number** before they start. They can't change passwords, payment
   methods, payouts or ownership.
-- **A new store** (decided 2026-11-05 on #1293): until its Owner accepts the invitation, support may
-  open a session as the Owner and make changes to set the store up (ACCESS.md §8).
+- **A new store** (decided 2026-11-05 on #1293): until its Owner accepts the invitation, and while it has
+  no active Owner or Manager, support may open a session as the Owner and make changes to set the
+  store up (ACCESS.md §8).
 - **Visible**: while a session is open, the merchant's portal shows a banner to everyone
   signed in to that store: "[Partner] support (Priya) is viewing your store. Read-only. Ends
   in 28 min."

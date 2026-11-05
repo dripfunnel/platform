@@ -271,7 +271,8 @@ describe('write elevation', () => {
 
 describe('a new store whose Owner hasn’t accepted (ACCESS.md §8)', () => {
   it('writes as the invited Owner without an Allow, keeps the "never" list, and is read-only once the Owner accepts', async () => {
-    await db.sql`update membership set status = 'invited' where id = ${seats.owner}`
+    // A new store: its Owner and its one Manager haven't accepted, so nobody can give an Allow.
+    await db.sql`update membership set status = 'invited' where id in (${seats.owner}, ${seats.manager})`
     await db.sql`update "user" set status = 'invited' where id = ${people.owner}`
     try {
       const id = await opened('owner', agents.priya, 'tok-new-store')
@@ -286,6 +287,23 @@ describe('a new store whose Owner hasn’t accepted (ACCESS.md §8)', () => {
       expect((await gql(q.includeTax, { support: cookie }, { i: false })).code).toBe('SUPPORT_READ_ONLY')
     } finally {
       await db.sql`update "user" set status = 'active' where id = ${people.owner}`
+    }
+  })
+
+  it('gives an invited second Owner’s seat nothing while the store has an active Owner: the link opens nothing', async () => {
+    const second = await user(t.partnerA, 'second.owner@a.example', 'Sid Second')
+    const [row] = await db.sql<{ id: string }[]>`insert into membership (user_id, store_id, role_key, status) values (${second}, ${t.storeA1}, 'owner', 'invited') returning id`
+    const membership = row?.id ?? ''
+    try {
+      await db.sql`
+        insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at)
+        values (${t.partnerA}, ${t.storeA1}, ${membership}, ${agents.priya}, 'Setting up', ${clock}, ${new Date(clock.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-second-owner')}, ${new Date(clock.getTime() + 5 * 60_000)})
+      `
+      expect(await enter('tok-second-owner')).toBe('')
+    } finally {
+      await db.sql`delete from support_session where membership_id = ${membership}`
+      await db.sql`delete from membership where id = ${membership}`
+      await db.sql`delete from "user" where id = ${second}`
     }
   })
 
