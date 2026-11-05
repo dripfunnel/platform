@@ -7759,6 +7759,7 @@
           "NOT_LATEST": "Only your latest change can be undone.",
           "PLAN_GONE": "Those questions or that plan were answered or replaced. Use the newest one.",
           "PLAN_CHANGES_USED": "This plan can’t be changed again. Build it, or ask for a new design.",
+          "PLAN_BUILDS_USED": "This plan couldn’t be built twice. Ask for a new design.",
           "READ_ONLY": "Your store is view-only until the payment goes through.",
           "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
           "FORBIDDEN": "Only the store owner can change the storefront.",
