@@ -205,6 +205,11 @@
   font-size: 14px;
 }
 
+.df-carts-row--wish {
+  grid-template-columns: minmax(0, 1.4fr) 110px minmax(0, 1.6fr) 140px minmax(0, 1.6fr) 110px;
+  min-width: 900px;
+}
+
 .df-carts-row:last-child {
   border-bottom: 0;
 }
@@ -372,6 +377,47 @@
   font-size: 14px;
 }
 
+.df-cart-wishes {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-cart-wishes li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-cart-wish-photo {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-small);
+  object-fit: cover;
+}
+
+.df-cart-wish-photo--none {
+  background: var(--df-color-page);
+}
+
+.df-cart-wish-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.df-cart-wishes li > span:last-child {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .df-cart-total {
   display: flex;
   justify-content: space-between;
@@ -450,6 +496,15 @@
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
+}
+
+.df-carts-panes--sub {
+  align-self: flex-start;
+}
+
+.df-carts-panes--sub button {
+  padding: 7px 14px;
+  font-size: 13px;
 }
 
 .df-carts-panes button[aria-pressed='true'] {
