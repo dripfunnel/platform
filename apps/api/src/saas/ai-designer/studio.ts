@@ -22,7 +22,7 @@ import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
 import { chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
-import { answersOf, flowOf, maxPlanChanges, pageRequests, planReply, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
+import { answersOf, flowOf, isClaimable, maxPlanChanges, pageRequests, planReply, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
@@ -420,15 +420,17 @@ export const createStudioService = (deps: StudioDeps) => {
     return provider ? { ok: true, value: { provider, billedTo } } : { ok: false, reason: 'AI_NOT_CONNECTED' }
   }
 
-  /** The store's newest questions or plan, when it is `id` and still open: only that one is answered, changed or built. */
+  /** The store's newest questions or plan, when it is `id` and open (or its claim lapsed): only that one is answered, changed or built. */
   const openQuestions = async (id: string): Promise<{ row: MessageRow; flow: QuestionsFlow } | null> => {
     const open = await latestFlow(id)
-    return open?.flow.kind === 'questions' && open.flow.state === 'open' ? { row: open.row, flow: open.flow } : null
+    return open?.flow.kind === 'questions' && isClaimable(open.flow, now()) ? { row: open.row, flow: open.flow } : null
   }
   const openPlan = async (id: string): Promise<{ row: MessageRow; flow: PlanFlow } | null> => {
     const open = await latestFlow(id)
-    return open?.flow.kind === 'plan' && open.flow.state === 'open' ? { row: open.row, flow: open.flow } : null
+    return open?.flow.kind === 'plan' && isClaimable(open.flow, now()) ? { row: open.row, flow: open.flow } : null
   }
+  /** A flow as it was before a request claimed it: open, its claim cleared, for the next press. */
+  const reopened = <F extends QuestionsFlow | PlanFlow>(flow: F): F => ({ ...flow, state: 'open', claimedAt: null })
   const latestFlow = async (id: string) => {
     if (!isUuid(id)) return null
     const row = await withScope(sql, context, (tx) => selectLatestFlow(tx, storeId))
@@ -451,14 +453,25 @@ export const createStudioService = (deps: StudioDeps) => {
     const { row } = open
     const ready = await providerFor(model)
     if (!ready.ok) return ready
-    // Claimed first, so two tabs can't both answer it; a plan that couldn't be written gives it back.
-    if (!(await withSystemScope(sql, (tx) => moveFlow(tx, storeId, row.id, 'open', open.moved)))) return { ok: false, reason: 'PLAN_GONE' }
+    // Claimed first, so two tabs can't both answer it; a plan that couldn't be written, or a throw, gives it back.
+    const claimed = { ...open.moved, claimedAt: now().toISOString() }
+    if (!(await withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, open.from, claimed)))) return { ok: false, reason: 'PLAN_GONE' }
+    const giveBack = (tx: ScopedSql) => moveFlow(tx, storeId, row.id, claimed, reopened(open.from))
+    try {
+      return await planned(row, giveBack, ask, changes, said, ready.value, live, audit)
+    } catch (error) {
+      await withScope(sql, context, giveBack).catch(() => undefined)
+      throw error
+    }
+  }
+
+  const planned = async (row: MessageRow, giveBack: (tx: ScopedSql) => Promise<boolean>, ask: PlanAsk, changes: number, said: string | null, ready: { provider: AiProvider; billedTo: 'plan' | 'own_key' }, live: Live, audit: ActivityEntry): Promise<DesignResult<AskAnswer>> => {
     live.step('planning')
     const summary = await currentSummary()
     let made: Awaited<ReturnType<typeof planReply>> | null = null
     let failure: unknown = null
     try {
-      made = await planReply(ready.value.provider, { store: await shopOf(summary), summary }, ask)
+      made = await planReply(ready.provider, { store: await shopOf(summary), summary }, ask)
     } catch (error) {
       failure = error
       logEvent({ event: 'storefront_plan_failed', api: 'store', storeId, code: error instanceof GatewayError ? `${error.name}:${error.code}` : failureCode(error) })
@@ -466,17 +479,17 @@ export const createStudioService = (deps: StudioDeps) => {
     const at = now()
     const message = await recordAfter(sql, storeId, async (tx) => {
       if (said !== null) await record(tx, { role: 'user', text: said, at })
-      if (made) await insertAiRun(tx, { storeId, kind: 'design', requestedBy: actor.id, prompt: (said ?? ask.request).slice(0, 4000), model: made.model, tokensIn: made.tokensIn, tokensOut: made.tokensOut, costAmount: made.costAmount, costCurrency: made.costCurrency, billedTo: ready.value.billedTo, sandboxMs: 0, repairAttempts: 0, parentRunId: row.ai_run_id, outcome: made.plan ? 'unchanged' : 'failed' })
-      if (!made?.plan) {
-        await moveFlow(tx, storeId, row.id, open.moved.state, open.from)
-        return null
-      }
+      if (made) await insertAiRun(tx, { storeId, kind: 'design', requestedBy: actor.id, prompt: (said ?? ask.request).slice(0, 4000), model: made.model, tokensIn: made.tokensIn, tokensOut: made.tokensOut, costAmount: made.costAmount, costCurrency: made.costCurrency, billedTo: ready.billedTo, sandboxMs: 0, repairAttempts: 0, parentRunId: row.ai_run_id, outcome: made.plan ? 'unchanged' : 'failed' })
+      if (!made?.plan) return null
       const detail: PlanFlow = { kind: 'plan', state: 'open', request: ask.request, answers: ask.answers, plan: made.plan, changes }
       const id = await record(tx, { role: 'plan', text: made.reply, aiRunId: row.ai_run_id, detail })
       await activity.record(tx, audit)
       return selectMessage(tx, storeId, id)
     })
-    return { ok: true, value: message ? { outcome: 'asked', message } : { outcome: 'failed', message: await failedMessage(failure) } }
+    if (message) return { ok: true, value: { outcome: 'asked', message } }
+    // A plan that couldn't be written leaves the questions or the plan open, to press again.
+    await withScope(sql, context, giveBack)
+    return { ok: true, value: { outcome: 'failed', message: await failedMessage(failure) } }
   }
 
   /** "Make the plan" or "Skip questions" (#1243): `given` in the questions' order, each an option, words of their own or empty. */
@@ -516,10 +529,19 @@ export const createStudioService = (deps: StudioDeps) => {
       const ready = await providerFor(model)
       if (!ready.ok) return ready
       const { row, flow } = open
-      if (!(await withSystemScope(sql, (tx) => moveFlow(tx, storeId, row.id, 'open', { ...flow, state: 'building' })))) return { ok: false, reason: 'PLAN_GONE' }
+      const building: PlanFlow = { ...flow, state: 'building', claimedAt: now().toISOString() }
+      if (!(await withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, flow, building)))) return { ok: false, reason: 'PLAN_GONE' }
+      // Nothing built yet: the plan goes back to open, to build again.
+      const giveBack = () => withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, building, reopened(flow)))
       live.step('reading')
-      const known = await currentSummary()
-      const designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, null, known), null, () => undefined, undefined, known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset }))
+      let designer: ReturnType<typeof designModel>
+      try {
+        const known = await currentSummary()
+        designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, null, known), null, () => undefined, undefined, known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset }))
+      } catch (error) {
+        await giveBack().catch(() => undefined)
+        throw error
+      }
       let modelFailure: unknown = null
       const pages: DesignModel = {
         propose: async (proposal) => {
@@ -539,8 +561,7 @@ export const createStudioService = (deps: StudioDeps) => {
         answer = { outcome: 'failed' }
       }
       if (answer.outcome !== 'built') {
-        // Nothing was built: the plan stays open to build again.
-        await withSystemScope(sql, (tx) => moveFlow(tx, storeId, row.id, 'building', flow))
+        await giveBack()
         if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
         if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
         return { ok: true, value: { outcome: 'failed', message: await failedMessage(modelFailure) } }
@@ -551,7 +572,7 @@ export const createStudioService = (deps: StudioDeps) => {
       const outcome: AskAnswer['outcome'] = changed.length > 0 ? 'changed' : built.pages.some((p) => p.outcome === 'refused') ? 'refused' : built.pages.some((p) => p.outcome === 'failed') ? 'failed' : 'unchanged'
       const detail: BuildFlow = { kind: 'build', pages: built.pages.map((p) => ({ page: p.page, title: p.title, outcome: p.outcome })), stopped: built.stopped }
       const message = await recordAfter(sql, storeId, async (tx) => {
-        await moveFlow(tx, storeId, row.id, 'building', { ...flow, state: 'built' })
+        await moveFlow(tx, storeId, row.id, building, { ...building, state: 'built' })
         const reply = built.pages.flatMap((p) => (p.reply ? [p.reply] : [])).join('\n').slice(0, 4000)
         const id =
           outcome === 'changed' || outcome === 'unchanged'

@@ -2020,7 +2020,10 @@ design_message      (id, store_id, role ('user'|'ai'|'note'|'error'|'questions'|
                     -- Built on #1243 (migration 0384): a vague request's questions and plan are messages of their own,
                     -- detail holding them (at most 16 KB, read with a strict schema), and a build's 'ai' message names
                     -- its pages in detail, commit its last page's and before_commit the commit before its first, so one
-                    -- Undo takes the whole build back; ai_run_id is the flow's first run, the one prompt unit (SAAS §9.2)
+                    -- Undo takes the whole build back; ai_run_id is the flow's first run, the one prompt unit (SAAS §9.2).
+                    -- The merchant side may update only detail of its own store's questions and plan (claiming one to
+                    -- answer or build it, giving it back) under RLS; a claim (detail.claimedAt) whose request died
+                    -- opens again after 25 minutes, a built plan never
 storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_colour NULL,
                      secondary_colour NULL, tagline NULL, description NULL, social jsonb,
                      contact_email NULL, contact_phone NULL, contact_address NULL, voice NULL,

@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
 import { StudioRunner, type DraftsBucket, type FileEdit } from '#saas/studio/index'
+import type { CallerContext } from '#core/tenancy'
+import { moveFlow } from '#db/scoped/design'
+import { withScope } from '#db/scoped/index'
 import { studioStorage } from './support/kept'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -67,6 +70,8 @@ const runnerOf = (storeId: string): StudioRunner => {
   return runner
 }
 const local = localStudio(() => db.sql, runnerOf)
+/** The studio's RPC fails before a build starts (a Durable Object fault). */
+let studioFails = false
 
 /** The model as a script: each call takes the next answer and records what it was sent. */
 const script: { answers: string[]; sent: string[] } = { answers: [], sent: [] }
@@ -142,7 +147,10 @@ const toPlan = async (): Promise<Answer['message']> => {
 beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
-  w = await seedStoreWorld(db.sql, t, { now, secrets: null, lookup: { resolve: async () => [] }, studio: (context) => local.studio(context), extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design } })
+  w = await seedStoreWorld(db.sql, t, { now, secrets: null, lookup: { resolve: async () => [] }, studio: (context) => {
+      const studio = local.studio(context)
+      return { ...studio, build: (storeId, input, model) => (studioFails ? Promise.reject(new Error('the studio is unreachable')) : studio.build(storeId, input, model)) }
+    }, extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design } })
   host = await sandboxProcess()
   sites = fakeSites()
   template = await walk(baselineDir)
@@ -290,6 +298,56 @@ describe('the plan and its build (#1243)', () => {
     expect(done.outcome).toBe('changed')
     expect(done.message.build?.pages.map((p) => p.outcome)).toEqual(['changed', 'refused', 'left'])
     expect(await leadNow()).toBe('Refused build: home.')
+  })
+
+  it('opens again questions or a plan whose request ended without moving them on, once the claim is 25 minutes old', async () => {
+    script.answers = [questions]
+    const asked = value(await ask('owner', 'A premium look'), 'askDesign').message
+    const claim = async (id: string, state: string, minutesAgo: number) => {
+      const claimedAt = new Date(clock - minutesAgo * 60_000).toISOString()
+      await db.sql`update design_message set detail = detail || ${db.sql.json({ state, claimedAt })} where id = ${id}`
+    }
+    await claim(asked.id, 'answered', 1)
+    expect((await answer(asked.id, [], true)).code).toBe('PLAN_GONE')
+    await claim(asked.id, 'answered', 26)
+    script.answers = [planned]
+    const plan = value(await answer(asked.id, [], true), 'answerDesignQuestions').message
+    expect(plan.role).toBe('plan')
+    await claim(plan.id, 'building', 1)
+    expect((await build(plan.id)).code).toBe('PLAN_GONE')
+    await claim(plan.id, 'building', 26)
+    script.answers = [reply([lead('Reopened: home.')]), reply([lead('Reopened: product.')]), reply([lead('Reopened: about.')])]
+    expect(value(await build(plan.id), 'buildDesignPlan').outcome).toBe('changed')
+    // A built plan never opens again, however old its claim.
+    await claim(plan.id, 'built', 60)
+    expect((await build(plan.id)).code).toBe('PLAN_GONE')
+  })
+
+  it('gives a plan back to build again when the build fails before any page', async () => {
+    const plan = await toPlan()
+    script.answers = []
+    studioFails = true
+    try {
+      expect(value(await build(plan.id), 'buildDesignPlan').outcome).toBe('failed')
+    } finally {
+      studioFails = false
+    }
+    const [row] = await db.sql<{ detail: { state: string; claimedAt: string | null } }[]>`select detail from design_message where id = ${plan.id}`
+    expect(row?.detail).toMatchObject({ state: 'open', claimedAt: null })
+  })
+
+  it('moves a flow only in its own store’s scope: store A’s context never moves store B’s, nor a supplier’s', async () => {
+    script.answers = [questions]
+    const theirs = value(await ask('bOwner', 'A new look for B'), 'askDesign').message
+    const [row] = await db.sql<{ detail: Record<string, unknown> }[]>`select detail from design_message where id = ${theirs.id}`
+    const detail = row?.detail ?? {}
+    const as = (storeId: string, partnerId: string, seller: boolean): CallerContext => ({ caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId, storeId, sellerScope: seller ? { kind: 'seller', sellerId: t.sellerA1First } : { kind: 'all' }, subscription: 'active' })
+    const claimed = { ...detail, state: 'answered', claimedAt: new Date(clock).toISOString() }
+    // Even naming store B's id, store A's scope sees no row to move.
+    expect(await withScope(db.sql, as(t.storeA1, t.partnerA, false), (tx) => moveFlow(tx, t.storeB1, theirs.id, { state: 'open' }, claimed))).toBe(false)
+    expect(await withScope(db.sql, as(t.storeB1, t.partnerB, true), (tx) => moveFlow(tx, t.storeB1, theirs.id, { state: 'open' }, claimed)).catch(() => false)).toBe(false)
+    expect((await db.sql<{ state: string }[]>`select detail->>'state' as state from design_message where id = ${theirs.id}`)[0]?.state).toBe('open')
+    expect(await withScope(db.sql, as(t.storeB1, t.partnerB, false), (tx) => moveFlow(tx, t.storeB1, theirs.id, { state: 'open' }, claimed))).toBe(true)
   })
 
   it('refuses the Manager, and another store’s Owner, every flow write', async () => {

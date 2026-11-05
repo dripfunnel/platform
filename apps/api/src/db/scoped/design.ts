@@ -150,9 +150,18 @@ export const selectLatestChange = async (tx: ScopedSql, storeId: string): Promis
 export const selectLatestFlow = async (tx: ScopedSql, storeId: string): Promise<MessageRow | null> =>
   (await tx<MessageRow[]>`select ${messageColumns(tx)} from design_message where store_id = ${storeId} and role in ('questions', 'plan') order by created_at desc, id desc limit 1`)[0] ?? null
 
-/** Moves a flow's message on from `state` only, so two tabs can't both answer or build it; false when it had moved. */
-export const moveFlow = async (tx: ScopedSql, storeId: string, id: string, state: string, detail: unknown): Promise<boolean> =>
-  (await tx`update design_message set detail = ${tx.json(detail as postgres.JSONValue)} where store_id = ${storeId} and id = ${id} and detail->>'state' = ${state} returning id`).length > 0
+/**
+ * Moves a flow's message on from `from` (its state and claim) only, so two tabs can't both answer or build it; false when it
+ * had moved. The merchant's own write under the store's row-level security (migration 0384), or the system's beside the
+ * build's message in one transaction.
+ */
+export const moveFlow = async (tx: ScopedSql, storeId: string, id: string, from: { state: string; claimedAt?: string | null | undefined }, detail: unknown): Promise<boolean> =>
+  (
+    await tx`
+      update design_message set detail = ${tx.json(detail as postgres.JSONValue)}
+      where store_id = ${storeId} and id = ${id} and detail->>'state' = ${from.state} and coalesce(detail->>'claimedAt', '') = ${from.claimedAt ?? ''}
+      returning id`
+  ).length > 0
 
 export const markUndone = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
   await tx`update design_message set undone = true where store_id = ${storeId} and id = ${id}`

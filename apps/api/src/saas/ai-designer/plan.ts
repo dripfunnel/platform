@@ -10,6 +10,8 @@ export const maxQuestions = 3
 export const maxPlanPages = 6
 /** "Changes asked in words" to one plan, inside its one prompt unit; past it a new request takes its own. */
 export const maxPlanChanges = 3
+/** A claimed flow whose request ended without moving it on (a closed tab, a Worker stopped) opens again after this: past a build's 20-minute wait. */
+export const claimMs = 25 * 60_000
 const maxAnswer = 200
 
 const words = (max: number) => z.string().trim().min(1).max(max)
@@ -31,17 +33,29 @@ export const askAnswerSchema = z.union([
 ])
 
 const request = z.string().max(2000)
+/** When a request moved the flow on to work on it; null once given back. */
+const claimedAt = z.iso.datetime().nullable().optional()
 const answers = z.array(z.strictObject({ question: words(160), answer: z.string().max(maxAnswer).nullable() })).max(maxQuestions)
 /** design_message.detail of each kind; `state` moves on in one statement (moveFlow), so a flow is answered or built once. */
 export const flowSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('questions'), state: z.enum(['open', 'answered', 'skipped']), request, questions: z.array(questionSchema).max(maxQuestions), answers }),
-  z.strictObject({ kind: z.literal('plan'), state: z.enum(['open', 'replaced', 'building', 'built']), request, answers, plan: planSchema, changes: z.number().int().min(0).max(maxPlanChanges) }),
+  z.strictObject({ kind: z.literal('questions'), state: z.enum(['open', 'answered', 'skipped']), request, questions: z.array(questionSchema).max(maxQuestions), answers, claimedAt }),
+  z.strictObject({ kind: z.literal('plan'), state: z.enum(['open', 'replaced', 'building', 'built']), request, answers, plan: planSchema, changes: z.number().int().min(0).max(maxPlanChanges), claimedAt }),
   z.strictObject({ kind: z.literal('build'), pages: z.array(z.strictObject({ page: pageKey, title: words(60), outcome: z.enum(['changed', 'unchanged', 'refused', 'failed', 'left']) })).max(maxPlanPages), stopped: z.boolean() }),
 ])
 export type Flow = z.infer<typeof flowSchema>
 export type QuestionsFlow = Extract<Flow, { kind: 'questions' }>
 export type PlanFlow = Extract<Flow, { kind: 'plan' }>
 export type BuildFlow = Extract<Flow, { kind: 'build' }>
+
+/**
+ * Whether the newest questions or plan can be answered, changed or built: open, or claimed by a request that ended without
+ * moving it on over `claimMs` ago. A built plan never opens again.
+ */
+export const isClaimable = (flow: QuestionsFlow | PlanFlow, at: Date): boolean => {
+  if (flow.state === 'open') return true
+  if (flow.state === 'built' || !flow.claimedAt) return false
+  return at.getTime() - Date.parse(flow.claimedAt) > claimMs
+}
 
 export const flowOf = (detail: unknown): Flow | null => {
   const read = flowSchema.safeParse(detail)
