@@ -2,6 +2,7 @@ import { Image } from 'expo-image'
 import { useState, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
+import { plainTextOfDescription } from '@dripfunnel/mobile-shared/text'
 import type { Product, SizeChart, StoryModule } from '../../api/catalogue'
 import { t } from '../../messages'
 import { Sheet } from '../common/ui'
@@ -25,6 +26,23 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Body({ text }: { text: string }) {
   const { colors } = useTheme()
   return <Text style={{ color: colors.textStrong, fontSize: 14, lineHeight: 21 }}>{text}</Text>
+}
+
+/** The description is always open under its own heading (#1272), as on the storefront; the other sections fold. */
+function Description({ words }: { words: string }) {
+  const { colors } = useTheme()
+  return (
+    <View style={[styles.section, { borderColor: colors.border }]}>
+      <View style={styles.sectionHead}>
+        <Text accessibilityRole="header" style={{ color: colors.text, fontWeight: '700', fontSize: 15 }}>
+          {t('product.sections.description')}
+        </Text>
+      </View>
+      <View style={styles.sectionBody}>
+        <Body text={words} />
+      </View>
+    </View>
+  )
 }
 
 function Story({ module }: { module: StoryModule }) {
@@ -80,6 +98,7 @@ function SizeChartTable({ chart }: { chart: SizeChart }) {
 export function ProductSections({ product, versionId }: { product: Product; versionId: string | null }) {
   const { colors } = useTheme()
   const [chartOpen, setChartOpen] = useState(false)
+  const description = product.description ? plainTextOfDescription(product.description) : ''
   const specs = product.specs.filter((spec) => spec.versionId === null || spec.versionId === versionId)
   const delivery = [product.returns, product.warranty ? t('product.warranty', { text: product.warranty }) : null].filter((text): text is string => Boolean(text))
 
@@ -100,11 +119,7 @@ export function ProductSections({ product, versionId }: { product: Product; vers
         </Pressable>
       ) : null}
       <View style={[styles.sections, { borderColor: colors.border }]}>
-        {product.description ? (
-          <Section title={t('product.sections.details')}>
-            <Body text={product.description} />
-          </Section>
-        ) : null}
+        {description ? <Description words={description} /> : null}
         {specs.length > 0 ? (
           <Section title={t('product.sections.specs')}>
             {specs.map((spec) => (
