@@ -7,6 +7,12 @@ describe('a product’s description for the editor (#1216)', () => {
     expect(editorHtmlOf('')).toBe('')
   })
 
+  it('keeps a `<` in text typed before the editor was rich as the character it was, never as a tag', () => {
+    const typed = 'Pack of 2 <5kg, size <XL, a<b c>d'
+    expect(editorHtmlOf(typed)).toBe('<p>Pack of 2 &lt;5kg, size &lt;XL, a&lt;b c&gt;d</p>')
+    expect(plainTextOf(typed)).toBe(typed)
+  })
+
   it('leaves a description with formatting as it is', () => {
     expect(editorHtmlOf('<p>Soft</p><ul><li>One</li></ul>')).toBe('<p>Soft</p><ul><li>One</li></ul>')
   })

@@ -2,13 +2,14 @@
 
 const entities: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' }
 
-const hasMarkup = (text: string): boolean => /<\/?[a-z!]/i.test(text)
+// The engine stores formatted text as blocks, so text that starts any other way was typed before, and its `<` is a character.
+const isStoredHtml = (text: string): boolean => /^\s*<(?:p|ul|ol)>/.test(text)
 
 const escapeText = (text: string): string => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
 
 /** A stored description as the editor opens it: text typed before the editor was rich becomes paragraphs. */
 export const editorHtmlOf = (stored: string): string =>
-  hasMarkup(stored)
+  isStoredHtml(stored)
     ? stored
     : stored
         .replace(/\r\n?/g, '\n')
@@ -23,4 +24,4 @@ export const storedHtmlOf = (html: string): string => html.replace(/<p>(?:<br[^>
 
 /** What a description says without its formatting, for a placeholder. */
 export const plainTextOf = (stored: string): string =>
-  (hasMarkup(stored) ? stored.replace(/<\/(?:p|li)>|<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (e) => entities[e] ?? e) : stored).replace(/\s+/g, ' ').trim()
+  (isStoredHtml(stored) ? stored.replace(/<\/(?:p|li)>|<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (e) => entities[e] ?? e) : stored).replace(/\s+/g, ' ').trim()
