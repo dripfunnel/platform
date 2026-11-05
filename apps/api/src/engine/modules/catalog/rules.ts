@@ -1,6 +1,7 @@
 import { isCurrency, parseMinor } from '#core/money'
 import type { ListingInput } from './listing'
 import { isUuid } from '#core/ids'
+import { sanitiseDescription } from './richText'
 
 // The catalogue's input rules (CATALOG-DESIGN §3 facts 1–5, 15; decided on #337): what a product must
 // be before it is written. Pure, so the API and imports share them.
@@ -307,7 +308,7 @@ export interface InvalidInput {
 /** What `cleanProduct` refused as `INVALID_INPUT`, where it is one of the text and count limits, so a file can name it. */
 export const invalidInputOf = (input: ProductInput): InvalidInput | null => {
   if (text(input.name, textLimits.name) === false) return { field: 'name' }
-  if ((input.description?.trim() ?? '').length > textLimits.description) return { field: 'description' }
+  if (sanitiseDescription(input.description ?? '').length > textLimits.description) return { field: 'description' }
   if (text(input.seoTitle, textLimits.seoTitle) === false) return { field: 'seoTitle' }
   if (text(input.seoDescription, textLimits.seoDescription) === false) return { field: 'seoDescription' }
   for (const [option, o] of input.options.entries()) {
@@ -393,7 +394,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
   const name = text(input.name, textLimits.name)
   if (name === null) return 'NAME_REQUIRED'
   if (name === false) return 'INVALID_INPUT'
-  const description = input.description?.trim() ?? ''
+  const description = sanitiseDescription(input.description ?? '')
   if (description.length > textLimits.description) return 'INVALID_INPUT'
   const productType = (productTypes as readonly string[]).includes(input.productType ?? 'physical') ? ((input.productType ?? 'physical') as ProductType) : null
   if (!productType) return 'INVALID_INPUT'

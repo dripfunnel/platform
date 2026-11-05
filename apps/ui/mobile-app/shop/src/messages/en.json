@@ -198,7 +198,7 @@
     "zoomed": "Zoomed in",
     "warranty": "Warranty: {text}",
     "sections": {
-      "details": "Details",
+      "description": "Description",
       "specs": "Specifications",
       "returns": "Delivery and returns",
       "faqs": "Questions"

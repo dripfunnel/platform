@@ -23,7 +23,7 @@ describe('shopifyRows', () => {
     const plan = planImport(csv, { currency: 'INR', languages: [], manualCurrencies: [], supplier: false }) as ImportPlan
     expect(plan.problems).toEqual([])
     const [tee] = plan.products
-    expect(tee?.input).toMatchObject({ name: 'Tee', description: 'Soft', visible: true, options: [{ name: 'Size' }] })
+    expect(tee?.input).toMatchObject({ name: 'Tee', description: '<p>Soft</p>', visible: true, options: [{ name: 'Size' }] })
     expect(tee?.input.versions.map((v) => [v.sku, v.prices[0]?.amount, v.cost?.amount ?? null])).toEqual([['TEE-S', '49900', '20000'], ['TEE-M', '49900', null]])
     expect(tee?.stock).toEqual([5, 0])
     expect(tee?.photos.map((p) => p.line)).toEqual([2, 3, 4])

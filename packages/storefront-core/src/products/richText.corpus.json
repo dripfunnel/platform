@@ -1,0 +1,102 @@
+[
+  {
+    "name": "plain text with a blank line",
+    "input": "Soft linen.\n\nMade in Jaipur.\nHand finished.",
+    "html": "<p>Soft linen.</p><p>Made in Jaipur.<br>Hand finished.</p>"
+  },
+  {
+    "name": "bold, italic and the b and i aliases",
+    "input": "<p>Soft <b>cotton</b>, <i>linen</i>, <strong>wool</strong> and <em>silk</em></p>",
+    "html": "<p>Soft <strong>cotton</strong>, <em>linen</em>, <strong>wool</strong> and <em>silk</em></p>"
+  },
+  {
+    "name": "a Shopify list with bold labels",
+    "input": "<ul>\n<li><b>Material &amp; Construction:</b> 100% cotton</li>\n<li><b>Care:</b> Machine wash cold</li>\n</ul>\n",
+    "html": "<ul><li><strong>Material &amp; Construction:</strong> 100% cotton</li><li><strong>Care:</strong> Machine wash cold</li></ul>"
+  },
+  {
+    "name": "nested lists and a numbered list",
+    "input": "<ul><li>Top<ul><li>Inner one</li><li>Inner two</li></ul></li><li>Next</li></ul><ol><li>One</li><li>Two</li></ol>",
+    "html": "<ul><li>Top<ul><li>Inner one</li><li>Inner two</li></ul></li><li>Next</li></ul><ol><li>One</li><li>Two</li></ol>"
+  },
+  {
+    "name": "safe links",
+    "input": "<p><a href=\"https://example.com/care?a=1&amp;b=2\">Care</a> <a href='http://example.com'>Plain</a> <a href=mailto:hi@example.com>Mail</a></p>",
+    "html": "<p><a href=\"https://example.com/care?a=1&amp;b=2\">Care</a> <a href=\"http://example.com\">Plain</a> <a href=\"mailto:hi@example.com\">Mail</a></p>"
+  },
+  {
+    "name": "javascript links in every spelling",
+    "input": "<p><a href=\"javascript:alert(1)\">a</a><a href=\"JaVaScRiPt:alert(1)\">b</a><a href=\"java&#9;script:alert(1)\">c</a><a href=\"&#106;avascript:alert(1)\">d</a><a href=\"  javascript:alert(1)\">e</a><a href=\"jav\tascript:alert(1)\">f</a></p>",
+    "html": "<p>abcdef</p>"
+  },
+  {
+    "name": "other schemes and relative links",
+    "input": "<p><a href=\"data:text/html,x\">a</a><a href=\"vbscript:x\">b</a><a href=\"/relative\">c</a><a href=\"//evil.example\">d</a><a href=\"https://\">e</a><a>f</a></p>",
+    "html": "<p>abcdef</p>"
+  },
+  {
+    "name": "scripts, styles, frames and their contents",
+    "input": "<p>Before</p><script>alert(1)</script><style>p{color:red}</style><iframe src=\"https://x.example\">hidden</iframe><p>After</p>",
+    "html": "<p>Before</p><p>After</p>"
+  },
+  {
+    "name": "event attributes and styles",
+    "input": "<p onclick=\"x()\" style=\"color:red\" class=\"big\">Soft</p><p><strong onmouseover=\"x()\">Bold</strong></p>",
+    "html": "<p>Soft</p><p><strong>Bold</strong></p>"
+  },
+  {
+    "name": "unknown block tags keep their text apart",
+    "input": "<div>One</div><div>Two</div><h2>Care</h2><table><tr><td>Cell</td></tr></table>Three",
+    "html": "<p>One</p><p>Two</p><p>Care</p><p>Cell</p><p>Three</p>"
+  },
+  {
+    "name": "images and unknown inline tags",
+    "input": "<p>Look <img src=x onerror=alert(1)> at <span style=\"x\">this</span> <u>underlined</u></p>",
+    "html": "<p>Look at this underlined</p>"
+  },
+  {
+    "name": "an unclosed quote and an unclosed tag",
+    "input": "<p>Soft</p><a href=\"https://example.com>Care</a><p>Rest",
+    "html": "<p>Soft</p><p>Care</p><p>Rest</p>"
+  },
+  {
+    "name": "a stray less-than and entities",
+    "input": "<p>1 &lt; 2 and 3 > 2 &amp; &#169; &#x41; &nbsp;done &bogus; &#0; &#xD800;</p>",
+    "html": "<p>1 &lt; 2 and 3 &gt; 2 &amp; © A done &amp;bogus;</p>"
+  },
+  {
+    "name": "comments and an escaped tag",
+    "input": "<p>One<!-- hidden --></p><p>&lt;script&gt;x()&lt;/script&gt;</p>",
+    "html": "<p>One</p><p>&lt;script&gt;x()&lt;/script&gt;</p>"
+  },
+  {
+    "name": "line breaks and empty elements",
+    "input": "<p>One<br>Two<br/><br></p><p></p><p><strong> </strong></p><ul><li></li></ul>",
+    "html": "<p>One<br>Two</p>"
+  },
+  {
+    "name": "list items outside a list and text between items",
+    "input": "<li>Loose</li><ul>between<li>Item</li>after</ul>",
+    "html": "<p>Loose</p><ul><li>between</li><li>Item</li><li>after</li></ul>"
+  },
+  {
+    "name": "a link inside a link and bold inside bold",
+    "input": "<p><a href=\"https://a.example\">One <a href=\"https://b.example\">Two</a></a> <strong>x <strong>y</strong></strong></p>",
+    "html": "<p><a href=\"https://a.example\">One Two</a> <strong>x y</strong></p>"
+  },
+  {
+    "name": "lists nested past the depth limit",
+    "input": "<ul><li>1<ul><li>2<ul><li>3<ul><li>4<ul><li>5<ul><li>6<ul><li>7<ul><li>8<ul><li>9<ul><li>10</li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul>",
+    "html": "<ul><li>1<ul><li>2<ul><li>3<ul><li>4</li><li>5</li><li>6</li><li>7</li><li>8</li><li>9</li><li>10</li></ul></li></ul></li></ul></li></ul>"
+  },
+  {
+    "name": "mixed case tags and closing tags with no opening",
+    "input": "<P>Upper</P></em></ul><UL><LI>Item</LI></UL>",
+    "html": "<p>Upper</p><ul><li>Item</li></ul>"
+  },
+  {
+    "name": "empty and blank",
+    "input": "   \n  ",
+    "html": ""
+  }
+]

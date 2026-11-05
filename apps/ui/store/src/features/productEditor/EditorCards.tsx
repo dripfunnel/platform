@@ -3,6 +3,7 @@ import { useId, useRef, type ReactNode } from 'react'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { productKinds, type Draft, type DraftProblem, type DraftVersion, type ProductKind } from '../common/productDraft'
+import { RichTextField } from './RichTextField'
 
 const words = messages.editor
 
@@ -166,10 +167,10 @@ export const BasicsCard = ({ draft, update, disabled, problems }: { draft: Draft
         {missing && <Problem id={`${nameId}-p`} text={words.name.missing} />}
       </div>
       <div className="df-editor-field">
-        <label htmlFor={descId}>
+        <span id={descId} className="df-editor-label">
           {words.description.label} <span className="df-editor-hint-inline">{words.description.optional}</span>
-        </label>
-        <textarea id={descId} rows={4} value={draft.description} maxLength={20_000} readOnly={disabled} placeholder={words.description.placeholder} onChange={(event) => update((d) => ({ ...d, description: event.target.value }))} />
+        </span>
+        <RichTextField value={draft.description} readOnly={disabled} labelledBy={descId} placeholder={words.description.placeholder} onChange={(html) => update((d) => ({ ...d, description: html }))} />
       </div>
     </Card>
   )

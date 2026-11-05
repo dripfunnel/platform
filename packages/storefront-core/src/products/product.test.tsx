@@ -69,6 +69,7 @@ const Page = () => {
       <p data-testid="photos">{p.photos.map((ph) => `${ph.alt}${ph.main ? '*' : ''}`).join()}</p>
       <p data-testid="legal">{p.product?.legal.map((l) => `${l.title}=${l.body}`).join('|')}</p>
       <p data-testid="badges">{p.product?.badges.map((b) => b.label).join()}</p>
+      <p data-testid="description">{String(p.product?.description)}</p>
       {p.options.map((o) =>
         o.values.map((v) => (
           <button key={v.id} type="button" onClick={() => p.choose(o.id, v.id)} data-state={`${v.selected ? 'on' : 'off'}-${v.available ? 'ok' : 'gone'}`}>
@@ -96,6 +97,16 @@ describe('useProduct', () => {
     // The head follows in an effect, which a loaded runner can run after the name shows.
     await waitFor(() => expect(document.title).toBe('Organic Cotton Tee'))
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe('A tee for every day.')
+  })
+
+  it.each(['<p></p>', '<p><br></p>', '  ', '<script>x()</script>'])('treats the description %j as none, so no empty section and no empty description in the head (#1216)', async (blank) => {
+    history.replaceState(null, '', '/products/organic-cotton-tee/')
+    shopAnswering(() => answer({ ...tee, description: blank, seoDescription: null }))
+    render(<Provided mode="live"><Page /></Provided>)
+    await screen.findByText('Organic Cotton Tee')
+    expect(screen.getByTestId('description').textContent).toBe('null')
+    await waitFor(() => expect(document.title).toBe('Organic Cotton Tee'))
+    expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content') ?? '').toBe('')
   })
 
   it('keeps a partial choice in the page and gives a complete one its version address', async () => {

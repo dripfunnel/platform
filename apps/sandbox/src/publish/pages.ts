@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { collectionPath, contentAddresses, coreRoutes, jsonLdText, moneySchema, productPath, recordedAnswer, routeAddresses, seoFor, storeHead, type Seo, type SeoInput, type ThemeRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
+import { collectionPath, contentAddresses, coreRoutes, jsonLdText, moneySchema, productPath, recordedAnswer, routeAddresses, seoFor, storeHead, textOfRichText, type Seo, type SeoInput, type ThemeRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { fallbackPath, indexable, isVersionPath, type CatalogueSnapshot, type PageRoute, type SnapshotCatalogue } from '@dripfunnel/storefront-core/guard'
 
 // The live site's pages and the files around them (storefront ARCHITECTURE §4.2, §8; LIVE-SHOP §4 step 6, and §5 step 6
@@ -127,8 +127,9 @@ const itemSeo = (page: PlannedPage, s: CatalogueSnapshot, site: Site, extra: Pag
     const url = `${s.origin}${productPath(slugOf(page.path))}`
     const photos = photosOf(p, s.origin)
     const product = p.price ? { product: { name: p.name, price: p.price, available: p.inStock ?? false, description: p.description, images: photos.map((ph) => ph.url) } } : {}
-    const seo = seoFor({ store: site, url, title: p.seoTitle ?? p.name, description: p.seoDescription ?? p.description, image: photos[0]?.url ?? null, imageAlt: photos[0]?.alt, preview: false, breadcrumbs: [home, { name: p.name, url }], ...extra, ...product })
-    return { seo, title: p.seoTitle ?? p.name, description: p.seoDescription ?? p.description ?? null }
+    const description = p.seoDescription ?? (textOfRichText(p.description ?? '') || null)
+    const seo = seoFor({ store: site, url, title: p.seoTitle ?? p.name, description, image: photos[0]?.url ?? null, imageAlt: photos[0]?.alt, preview: false, breadcrumbs: [home, { name: p.name, url }], ...extra, ...product })
+    return { seo, title: p.seoTitle ?? p.name, description }
   }
   const c = collectionAnswer.safeParse(recordedFor(s, 'Collection', slugOf(page.path))).data?.collection
   if (!c) return null

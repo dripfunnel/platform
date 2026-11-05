@@ -123,3 +123,39 @@ describe('the product page', () => {
     expect(isDisabled(pressableNamed(offline, t('product.offlineAdd')))).toBe(true)
   })
 })
+
+describe('the description on the product page (#1272)', () => {
+  const formatted = '<p>Soft linen.</p><ul><li><strong>Material:</strong> 100% cotton</li><li><strong>Care:</strong> Machine wash cold</li></ul><p>Read the <a href="https://example.com/care">care guide</a>.</p>'
+  const specs = [{ name: 'Weave', value: 'Pure flax', versionId: null }]
+  const headings = (screen: Awaited<ReturnType<typeof render>>) => screen.root.findAll((node) => node.props.accessibilityRole === 'header' && node.props.children === t('product.sections.description'))
+
+  it('shows its words under an open Description heading, with bullets and no tags', async () => {
+    const screen = await render(<ProductScreen slug="tee-p1" />, sells({ description: formatted }))
+    expect(headings(screen).length).toBeGreaterThan(0)
+    expect(hasText(screen, ['Soft linen.', '', '•  Material: 100% cotton', '•  Care: Machine wash cold', '', 'Read the care guide.'].join('\n'))).toBe(true)
+    expect(texts(screen).some((text) => /<\/?[a-z]/i.test(text))).toBe(false)
+  })
+
+  it('has nothing to open or close for it, while the other sections still fold', async () => {
+    const screen = await render(<ProductScreen slug="tee-p1" />, sells({ description: formatted, specs }))
+    expect(() => pressableNamed(screen, t('product.sections.description'))).toThrow()
+    expect(hasText(screen, 'Pure flax')).toBe(false)
+    await press(screen, `${t('product.sections.specs')}+`)
+    expect(hasText(screen, 'Pure flax')).toBe(true)
+    await press(screen, `${t('product.sections.specs')}−`)
+    expect(hasText(screen, 'Pure flax')).toBe(false)
+  })
+
+  it('shows a description typed before the formatting as it is, a < in it left alone', async () => {
+    const typed = 'Fits waists 28 < 32 > 30 inches.\nUse <your size> chart & more.'
+    const screen = await render(<ProductScreen slug="tee-p1" />, sells({ description: typed }))
+    expect(hasText(screen, typed)).toBe(true)
+  })
+
+  it('shows no section for a description with nothing to read', async () => {
+    for (const description of ['', '<p></p>', '<p><br></p>']) {
+      const screen = await render(<ProductScreen slug="tee-p1" />, sells({ description }))
+      expect(headings(screen)).toHaveLength(0)
+    }
+  })
+})

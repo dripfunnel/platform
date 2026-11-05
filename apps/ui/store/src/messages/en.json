@@ -1300,7 +1300,22 @@
     "description": {
       "label": "Description",
       "optional": "(optional)",
-      "placeholder": "What makes it special? What’s it made of? How does it fit?"
+      "placeholder": "What makes it special? What’s it made of? How does it fit?",
+      "toolbar": "Formatting",
+      "tools": {
+        "bold": { "text": "B", "label": "Bold" },
+        "italic": { "text": "I", "label": "Italic" },
+        "bulleted": { "text": "• List", "label": "Bulleted list" },
+        "numbered": { "text": "1. List", "label": "Numbered list" },
+        "link": { "text": "Link", "label": "Add or change a link" }
+      },
+      "linkAddress": "Web address",
+      "linkPlaceholder": "https://",
+      "addLink": "Add link",
+      "removeLink": "Remove link",
+      "cancelLink": "Cancel",
+      "badLink": "Use a web address that starts with https://, or an email address that starts with mailto:",
+      "tooLong": "The description is at its limit of 20,000 characters, counting its formatting, so your last change was not kept. Shorten it to add more."
     },
     "price": {
       "title": "Price",

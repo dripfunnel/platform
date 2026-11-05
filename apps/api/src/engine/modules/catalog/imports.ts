@@ -63,7 +63,7 @@ export const problemWords: Record<ProblemCode, string> = {
   PHOTO_UNAVAILABLE: 'This photo couldn’t be fetched from its address.',
   PHOTO_REFUSED: 'This photo isn’t a JPEG, PNG or WebP of up to 20 MB.',
   NAME_TOO_LONG: `The name is over ${textLimits.name} characters. Shorten it.`,
-  DESCRIPTION_TOO_LONG: `The description is over ${textLimits.description.toLocaleString('en')} characters (as plain text). Shorten it.`,
+  DESCRIPTION_TOO_LONG: `The description is over ${textLimits.description.toLocaleString('en')} characters, counting its formatting. Shorten it.`,
   SEO_TITLE_TOO_LONG: `The SEO title is over ${textLimits.seoTitle} characters. Shorten it.`,
   SEO_DESCRIPTION_TOO_LONG: `The SEO description is over ${textLimits.seoDescription} characters. Shorten it.`,
   OPTION_NAME_INVALID: `An option name is over ${textLimits.optionName} characters. Shorten it.`,

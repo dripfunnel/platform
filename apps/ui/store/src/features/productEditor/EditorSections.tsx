@@ -3,6 +3,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { EditorProduct } from '../../api/productEditor'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
+import { plainTextOf } from '../common/richDescription'
 import { boxOf, gramsOf, priceRange, type Draft, type DraftProblem } from '../common/productDraft'
 import type { Update } from './EditorCards'
 
@@ -102,7 +103,7 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
       {afterTax}
       <Section title={words.sections.seo} summary={fill(words.sections.seoSummary, { title: draft.seoTitle || draft.name || words.sections.seoFilled })} open={!!open['seo']} onToggle={toggle('seo')} problem={false}>
         <Field label={words.sections.seoTitle}>{(id) => <input id={id} maxLength={70} placeholder={draft.name} value={draft.seoTitle} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, seoTitle: e.target.value }))} />}</Field>
-        <Field label={words.sections.seoDescription}>{(id) => <textarea id={id} rows={2} maxLength={160} placeholder={draft.description.slice(0, 160)} value={draft.seoDescription} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, seoDescription: e.target.value }))} />}</Field>
+        <Field label={words.sections.seoDescription}>{(id) => <textarea id={id} rows={2} maxLength={160} placeholder={plainTextOf(draft.description).slice(0, 160)} value={draft.seoDescription} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, seoDescription: e.target.value }))} />}</Field>
       </Section>
       <Section title={words.sections.more} summary={words.sections.moreSummary} open={!!open['more']} onToggle={toggle('more')} problem={false}>
         <div className="df-editor-grid">

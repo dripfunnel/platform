@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -135,7 +135,7 @@ admin counts for both:
 | **Partner manager**, in a setup session | A second approver, who is **not** the staff member who did the setup |
 | **The partner itself**, with no setup session | Two staff approvers — nobody at DripFunnel has looked at it yet |
 | **Resend Owner invitation** | Super admin, Partner manager, Support | | New link, old one stops working |
-| **Impersonate a partner user** | Super admin, Support | A user from the Team tab; reason or ticket; re-authentication | "Full access as Maya in Northstar's console for 30 minutes; Northstar's team sees a banner." (§8) |
+| **Impersonate a partner user** | Super admin, Support | A user from the Team tab; reason or ticket; re-authentication | "Full access as Maya in Northstar's console for 90 minutes; Northstar's team sees a banner." (§8) |
 
 - The house partner has no Pause action.
 - Offboarding, closing and moving stores between partners are **not** in this release.
@@ -195,7 +195,7 @@ store's customers are listed in Customers (§5.4), pre-filtered to this store.
 | **Extend trial** | Super admin | New end date | New trial end date |
 | **Retry provisioning** | Super admin, Support, Engineer on call | A failed or stuck step; offered in the store header and on that step in the Provisioning tab | Runs the failed step again |
 | **Undo and clean up** | Super admin, Engineer on call | A failed signup, from the Provisioning tab; reason; the store code typed | "Removes everything setup made for {store} (store, hostnames, repo) so {owner} can sign up again. This can't be undone." Returns to the Stores list |
-| **Impersonate a user** | Super admin, Support | A user from the Users tab; reason or ticket; re-authentication | "Full access as Priya for 30 minutes; everyone in the store sees a banner." (§8) |
+| **Impersonate a user** | Super admin, Support | A user from the Users tab; reason or ticket; re-authentication | "Full access as Priya for 90 minutes; everyone in the store sees a banner." (§8) |
 | **Resend Owner invitation** | Super admin, Support | | New link, old one stops working |
 | **Add note** | Super admin, Partner manager, Support, Engineer on call | The note, written inline on the Notes tab | None: notes are staff-only |
 
@@ -297,7 +297,7 @@ by cursor, both ways. Never lists staff or shoppers.
 
 **Starting one**: pick the user; for a store user in several stores (or suppliers), pick
 which one; give a reason or ticket; re-authenticate. Confirmation: "You'll be signed in as
-Priya Mehta (Owner, Mehta Textiles) with her full access for 30 minutes. Everyone signed in
+Priya Mehta (Owner, Mehta Textiles) with her full access for 90 minutes. Everyone signed in
 to Mehta Textiles sees a banner. Everything you do is logged as you, acting as Priya." Then
 the target's console or portal opens in a new tab with an unremovable bar and "End now".
 

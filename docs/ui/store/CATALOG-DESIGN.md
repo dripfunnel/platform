@@ -662,7 +662,13 @@ depend on an engine capability whose release is not yet chosen.
 ### C. Add a simple product (no options)
 
 - C1. Required: name, and price (and a photo is strongly encouraged). Everything else defaults.
-- C2. Description: a friendly rich-text editor (bold, lists, links, no raw HTML), with an
+- C2. Description: a friendly rich-text editor (bold, italic, bulleted and numbered lists, links, no raw HTML; toolbar B, I, • List, 1. List, Link), saved as a small HTML subset
+  (`p`, `br`, `strong`, `em`, `ul`, `ol`, `li`, and `a` to http, https or mailto) that the API rebuilds from that list on every
+  save and import, so a script, an event attribute or a `javascript:` link never reaches the shop (*built on #1216*). Text typed
+  before the editor was rich, with no tags, opens as paragraphs and is stored as HTML on its next save. The 20,000-character
+  limit counts the stored HTML. Where a product's description shows: the storefront shows it formatted, through core's
+  `RichText`; the shop app's product page (#1272) and the merchant mobile app's description field (#1273) don't read the HTML
+  yet and show its tags as text until those cards land. A collection's description is plain text everywhere, never HTML. It also has an
   optional "Write it for me" AI suggestion using the partner's or merchant's AI key, metered
   (decided 2026-10-05 on #337).
 - C3. Photos: see part F.
@@ -879,7 +885,7 @@ with validation before any write, partial-failure reports, and translation and c
 - K11. Multi-currency: import and export manual-currency prices as extra columns
   (`price:USD`). Automatic currencies are never imported.
 - K12. Shopify's files (decided 2026-11-02 on #1178). Every product in the Products CSV comes in
-  with its name, description (HTML read as text), price, compare-at price, cost, SKU, barcode,
+  with its name, description (HTML kept as the sanitised subset of C2), price, compare-at price, cost, SKU, barcode,
   weight (Shopify writes grams as `0.0`), options and versions, photos in Shopify's `Image Position`
   order, SEO title and description, and status (`active` shown, `draft` and `archived` hidden).
   Shopify columns we don't keep (Vendor, Tags, Product Category, Type) are left out.

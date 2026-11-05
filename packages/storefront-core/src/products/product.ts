@@ -12,6 +12,7 @@ import { useStorefront } from '../platform/store/context'
 import { stockSchema, type Badge, type Stock } from '../pricing/brand'
 import { moneySchema, type Money } from '../pricing/money'
 import type { LegalNotice } from '../sealed/components'
+import { textOfRichText } from '../platform/text/richText'
 import { badgesSchema, cardsSchema, moneyFields, productPath, summaryFields, type ProductCard } from './summary'
 
 // A product page (ARCHITECTURE §2.1 `products`; DESIGN §6): which versions exist and can be bought, the chosen version's
@@ -134,7 +135,7 @@ const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null 
     id: p.id,
     name: p.name,
     href: productPath(p.slug),
-    description: p.description ?? null,
+    description: p.description && textOfRichText(p.description) !== '' ? p.description : null,
     highlights: p.highlights ?? [],
     badges: p.badges,
     photos: first ? [{ ...asMain(first), versionId: first.versionId }, ...rest] : [],
@@ -216,7 +217,7 @@ export const useProduct = (): ProductPage => {
   const version = product && product.options.every((o) => chosen[o.id]) ? (product.versions.find((v) => matches(v, chosen)) ?? null) : null
   const status = slug === null || (loaded.status === 'ready' && !product) ? 'missing' : loaded.status === 'ready' ? 'ready' : loaded.status === 'error' ? 'error' : 'loading'
   const firstPhoto = product?.photos[0]
-  useHead({ title: product ? (product.seoTitle ?? product.name) : null, description: product ? (product.seoDescription ?? product.description) : null, canonical: product?.href, image: firstPhoto?.url, hidden: status === 'missing' || undefined })
+  useHead({ title: product ? (product.seoTitle ?? product.name) : null, description: product ? (product.seoDescription ?? (product.description === null ? null : textOfRichText(product.description))) : null, canonical: product?.href, image: firstPhoto?.url, hidden: status === 'missing' || undefined })
 
   const options = (product?.options ?? []).map((o) => {
     const others = Object.fromEntries(Object.entries(chosen).filter(([id]) => id !== o.id))

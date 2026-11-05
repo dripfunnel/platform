@@ -284,7 +284,7 @@ describe('ending', () => {
     clock = start
     const s = await impersonate(ids.diego)
     const { cookie } = await enter(s.token)
-    clock = new Date(start.getTime() + 31 * 60_000)
+    clock = new Date(start.getTime() + 91 * 60_000)
     expect(await callerFor(cookie)).toBeNull()
     expect(await current(cookie)).toMatchObject({ state: 'expired', endedBy: 'expiry' })
     clock = start
@@ -390,7 +390,7 @@ describe('the notice', () => {
       kind: 'impersonation',
       staffName: as('staff-support').name.split(' ')[0],
       actingAs: 'Diego Alvarez',
-      endsAt: new Date(start.getTime() + 30 * 60_000).toISOString(),
+      endsAt: new Date(start.getTime() + 90 * 60_000).toISOString(),
     })
     expect((await platformRun<{ staffSessionNotice: unknown }>(notice, staff)).data?.staffSessionNotice).toBeNull()
     // A setup session started after it doesn't hide that someone is acting as one of them.

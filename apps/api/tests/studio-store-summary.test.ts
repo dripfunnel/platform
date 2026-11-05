@@ -174,6 +174,22 @@ describe('the lookups', () => {
     expect(await statements(() => many.run('list_collections', {}))).toBe(1)
   })
 
+  it('give a product’s description as its words, never cut inside a tag (#1216)', async () => {
+    await db.sql`update product set description = ${`<p>Soft &amp; <strong>linen</strong>, made by hand.</p><ul><li>Hand wash &lt;cold&gt;</li></ul>${'<p>x</p>'.repeat(40)}`} where id = ${ids[`linen-shirt@${t.storeA1}`] ?? ''}`
+    const found = JSON.parse((await lookupsFor(await summaryA()).run('find_products', { sort: 'best-selling', limit: 24 }))?.content ?? '[]') as { slug: string; description: string }[]
+    const text = found.find((p) => p.slug === 'linen-shirt')?.description ?? ''
+    expect(text.startsWith('Soft & linen, made by hand. Hand wash <cold>')).toBe(true)
+    expect(text).not.toMatch(/<\/?(p|strong|ul|li)>|&amp;|&lt;/)
+    expect(text.length).toBeLessThanOrEqual(200)
+  })
+
+  it('give a description typed before the editor was rich as it is, its < and & never read as tags or entities (#1216)', async () => {
+    const typed = 'Fits waists 28 < 32 > 30 inches. Use <your size> chart &amp; more.'
+    await db.sql`update product set description = ${typed} where id = ${ids[`cotton-kurta@${t.storeA1}`] ?? ''}`
+    const found = JSON.parse((await lookupsFor(await summaryA()).run('find_products', { sort: 'best-selling', limit: 24 }))?.content ?? '[]') as { slug: string; description: string }[]
+    expect(found.find((p) => p.slug === 'cotton-kurta')?.description).toBe(typed)
+  })
+
   it('find products by collection and sort, with photo asset ids, and never another store’s', async () => {
     const lookups = lookupsFor(await summaryA())
     const found = JSON.parse((await lookups.run('find_products', { sort: 'best-selling', limit: 24 }))?.content ?? '[]') as { slug: string; photoAssetIds: string[]; bestSellerRank: number | null; price: string }[]

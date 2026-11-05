@@ -28,6 +28,7 @@ export { useProduct, type Product, type ProductKind, type ProductOption, type Pr
 export { type ProductCard } from '../products/summary'
 export { useSearch, type Search } from '../search/search'
 export { Breadcrumbs, ConsentBanner, ConsentSettingsButton, LegalNotices, PoweredBy, PreviewBanner, Price, type Crumb, type LegalNotice, type PriceProps } from '../sealed/components'
+export { RichText, type RichTextProps } from '../products/richText'
 export { PaymentElement } from '../sealed/payment'
 export { OrderSummary, type OrderSummaryProps } from '../sealed/summary'
 export { useStorefront, type RenderMode, type Storefront } from '../platform/store/context'

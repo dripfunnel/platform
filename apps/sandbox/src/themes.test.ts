@@ -208,6 +208,55 @@ describe.each(keys)('the %s theme', (key) => {
     }
   })
 
+  it('shows a product’s description formatted under “Description”, always open, with no tags as text (#1216)', async ({ skip }) => {
+    if (!browser) return skip()
+    const out = join(root, `${key}-description`)
+    const built = await bundle(dir, out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+    const origin = 'https://k7f3q9f2xa.webpreview.store'
+    const description =
+      '<ul>\n<li><b>Material &amp; Construction:</b> 100% cotton</li>\n<li><b>Care:</b> Machine wash cold</li>\n</ul><p onclick="window.__clicked = 1">Read the <a href="https://example.com/care">care guide</a> or <a href="javascript:window.__pwned = 1">this</a>.</p><script>window.__pwned = 1</script>'
+    const money = { amount: '129900', currency: 'INR' }
+    const product = { id: 'p1', name: 'Linen shirt', slug: 'linen-shirt', description, highlights: [], inStock: true, price: money, compareAt: null, maxPrice: null, badges: [], photos: [], video: null, options: [], versions: [{ id: 'v1', name: null, choices: [], price: money, compareAt: null, inStock: true, available: 4 }], specs: [], faqs: [], compliance: [], returns: null, warranty: null, seoTitle: null, seoDescription: null, related: [] }
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    await context.route('**/*', async (route) => {
+      const url = new URL(route.request().url())
+      if (url.origin !== origin) return route.abort('blockedbyclient')
+      if (url.pathname === '/shop-api') {
+        const body = route.request().postData() ?? ''
+        const answer = /query Product\(/.test(body) ? { data: { product, store: { marketId: 'm1', markets: [{ id: 'm1', countries: ['IN'] }] } } } : shopFixture(snapshot, [])(body)
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+      }
+      const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+      const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+      if (!file) return route.fulfill({ status: 404 })
+      return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+    })
+    try {
+      const page = await context.newPage()
+      await page.goto(`${origin}/products/linen-shirt/`)
+      await page.getByRole('heading', { name: 'Description' }).waitFor()
+      const seen = await page.evaluate(() => {
+        const heading = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === 'Description')
+        const section = heading?.closest('section')
+        return {
+          inDetails: heading?.closest('details') !== null,
+          detailsHeading: [...document.querySelectorAll('summary')].some((s) => s.textContent?.trim() === 'Details'),
+          labels: [...(section?.querySelectorAll('ul > li > strong') ?? [])].map((e) => e.textContent),
+          text: section?.textContent ?? '',
+          links: [...(section?.querySelectorAll('a') ?? [])].map((a) => [a.getAttribute('href'), a.getAttribute('rel')]),
+          unsafe: section?.querySelectorAll('script, [onclick]').length ?? -1,
+          pwned: '__pwned' in window,
+        }
+      })
+      expect(seen).toMatchObject({ inDetails: false, detailsHeading: false, labels: ['Material & Construction:', 'Care:'], links: [['https://example.com/care', 'noopener nofollow']], unsafe: 0, pwned: false })
+      expect(seen.text).not.toMatch(/<\/?[a-z]/i)
+      expect(seen.text).toContain('100% cotton')
+    } finally {
+      await context.close()
+    }
+  })
+
   it('passes every check of the publish gate against the edge-case catalogue', async ({ skip }) => {
     if (!browser) return skip()
     const out = join(root, `${key}-site`)

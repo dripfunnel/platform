@@ -223,6 +223,49 @@
   cursor: pointer;
 }
 
+.sectionTitle {
+  min-height: 28px;
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.description {
+  max-width: 60ch;
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.description p,
+.description ul,
+.description ol {
+  margin: 0 0 10px;
+}
+
+.description > :last-child {
+  margin-bottom: 0;
+}
+
+.description ul,
+.description ol {
+  padding-left: 20px;
+}
+
+.description li {
+  margin-top: 4px;
+}
+
+.description li:first-child {
+  margin-top: 0;
+}
+
+.description a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .body {
   max-width: 60ch;
   margin: 10px 0 0;
