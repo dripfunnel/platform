@@ -208,7 +208,7 @@ describe.each(keys)('the %s theme', (key) => {
     }
   })
 
-  it.runIf(key !== 'market')('shows a product’s description formatted under “Description”, always open, with no tags as text (#1216)', async ({ skip }) => {
+  it('shows a product’s description formatted under “Description”, always open, with no tags as text (#1216)', async ({ skip }) => {
     if (!browser) return skip()
     const out = join(root, `${key}-description`)
     const built = await bundle(dir, out)
