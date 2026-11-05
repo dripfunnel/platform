@@ -415,6 +415,17 @@ describe('the plan and its build (#1243)', () => {
     expect(await usage(t.storeA1)).toBe(used)
   })
 
+  it('refuses a third build of a plan whose two builds built no page', async () => {
+    const plan = await toPlan()
+    for (let n = 0; n < 2; n += 1) {
+      script.answers = [reply([refusedPage]), reply([refusedPage]), reply([refusedPage]), reply([refusedPage])]
+      expect(value(await build(plan.id), 'buildDesignPlan').outcome).toBe('refused')
+    }
+    const calls = script.sent.length
+    expect((await build(plan.id)).code).toBe('PLAN_BUILDS_USED')
+    expect(script.sent.length).toBe(calls)
+  })
+
   it('refuses the Manager, and another store’s Owner, every flow write', async () => {
     const plan = await toPlan()
     expect((await w.gql('manager', 'mutation B($id: ID!) { buildDesignPlan(messageId: $id) { outcome } }', { id: plan.id })).code).toBe('FORBIDDEN')
