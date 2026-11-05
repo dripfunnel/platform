@@ -2,8 +2,8 @@ import { z } from 'zod'
 import { query } from './client'
 import { moneySchema } from './orders'
 
-// The Carts screen's Wishlists tab (FIRST-RELEASE §9; apps/api/schema/store.graphql, src/apis/store/wishlists.ts): who saved
-// what, read only. Owner, Manager and Staff read it (ACCESS §5.1 `carts.read`).
+// The Wishlists tab, its Reminders and a shopper's page (FIRST-RELEASE §9; apps/api/schema/store.graphql, src/apis/store/wishlists.ts):
+// Owner, Manager and Staff read (ACCESS §5.1 `carts.read`); the reminder actions and settings need `carts.write`.
 
 const shopperSchema = z.object({
   customerId: z.string(),

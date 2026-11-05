@@ -19,7 +19,7 @@ const shellRoute = getRouteApi('/_app')
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'missing' } | { kind: 'ready'; detail: WishlistShopperDetail }
 
-/** One shopper's wishlist (Carts › Wishlists): what they saved, as they could see it now. Read only for every seat. */
+/** One shopper's wishlist (Carts › Wishlists): what they saved, as they could see it now, and their reminders. Staff read; Owner and Manager can also remind, stop and resume. */
 export const WishlistShopperPage = () => {
   const { acting, state } = shellRoute.useLoaderData()
   const { customerId = '' } = useParams({ strict: false })

@@ -23,11 +23,11 @@ export const itemsText = (count: number) => fill(plural(w.items, count), { count
 /** Where a shopper's reminders stand: stopped by the team, none yet, or how many went and when the last did. */
 export const reminderStatus = (s: WishlistShopper, now: Date) => (s.stoppedAt ? w.status.stopped : s.lastSentAt ? fill(w.status.last, { count: formatCount(s.remindersSent), ago: agoText(s.lastSentAt, now) }) : w.status.none)
 
-/** The Wishlists tab (FIRST-RELEASE §9): the shoppers with a wishlist, newest saved first, each opening to what they saved. Read only. */
 /** A shopper's pill, as a cart's: stopped or unreachable, reminded, or still waiting for a reminder. */
 const pillOf = (s: WishlistShopper): { tone: StatusTone; icon: StatusIconName; label: string } =>
   s.stoppedAt ? { tone: 'neutral', icon: 'ban', label: w.pill.stopped } : s.email === null ? { tone: 'neutral', icon: 'cross', label: w.pill.noEmail } : s.remindersSent > 0 ? { tone: 'info', icon: 'clock', label: w.pill.reminded } : { tone: 'warning', icon: 'hour', label: w.pill.waiting }
 
+/** The Wishlists list (FIRST-RELEASE §9): shoppers with a wishlist by reminder tab, newest saved first. Owner and Manager can remind, stop and resume from each row; Staff only read. */
 export const WishlistsPane = ({ access, forced, sample, state }: { access: CartAccess; forced: 'loading' | 'error' | null; sample: WishlistShopper[] | null; state: string | undefined }) => {
   const phone = usePhone()
   const [tab, setTab] = useState<WishlistTab>('waiting')
