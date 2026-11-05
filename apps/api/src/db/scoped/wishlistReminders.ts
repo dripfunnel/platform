@@ -84,7 +84,9 @@ export interface DueWishlistRow {
 export const selectDueWishlistSteps = (tx: ScopedSql, now: Date, windowMs: number, limit: number): Promise<DueWishlistRow[]> =>
   tx<DueWishlistRow[]>`
     with lists as (
-      select w.store_id, w.customer_id, date_trunc('milliseconds', max(w.created_at)) as saved_at from wishlist_item w group by w.store_id, w.customer_id
+      select w.store_id, w.customer_id, date_trunc('milliseconds', max(w.created_at)) as saved_at
+      from wishlist_item w join wishlist_reminder_flow f on f.store_id = w.store_id and f.enabled
+      group by w.store_id, w.customer_id having max(w.created_at) > ${new Date(now.getTime() - windowMs)}
     ), due as (
       select l.store_id, s.partner_id, l.customer_id, st.id as step_id, l.saved_at, l.saved_at + make_interval(mins => st.delay_minutes) as due_at,
         row_number() over (partition by l.customer_id order by st.position desc) as latest
@@ -223,7 +225,8 @@ export const lockWishlistShopperToRemind = async (tx: ScopedSql, storeId: string
       select s.partner_id, c.wishlist_reminders_stopped_at is not null as stopped, c.email as contact,
         (select count(*)::int from wishlist_item w where w.store_id = c.store_id and w.customer_id = c.id) as items,
         (select date_trunc('milliseconds', max(w.created_at)) from wishlist_item w where w.store_id = c.store_id and w.customer_id = c.id) as saved_at,
-        (select count(*)::int from wishlist_reminder r where r.customer_id = c.id and r.state <> 'skipped') as queued
+        (select count(*)::int from wishlist_reminder r where r.customer_id = c.id and r.state <> 'skipped'
+          and r.saved_at = (select date_trunc('milliseconds', max(w.created_at)) from wishlist_item w where w.store_id = c.store_id and w.customer_id = c.id)) as queued
       from customer c join store s on s.id = c.store_id where c.id = ${customerId} and c.store_id = ${storeId}
     `
   )[0] ?? null

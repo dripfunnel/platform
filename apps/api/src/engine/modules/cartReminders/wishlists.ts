@@ -52,7 +52,7 @@ export const createWishlistsService = ({ sql, context, now }: WishlistsDeps) => 
     })
     if (!found) return null
     const { shopper: row } = found
-    const products = await wishlistItemsNow({ sql, now }, { storeId, partnerId: context.partnerId, language: row.language, currency: row.currency, marketId: null, features: {} }, row.product_ids, null, false)
+    const products = await wishlistItemsNow({ sql, now }, { storeId, partnerId: context.partnerId, language: row.language, currency: row.currency, marketId: null, features: row.features }, row.product_ids, null, false)
     return { ...row, products, reminders: found.reminders }
   }
 
