@@ -121,6 +121,26 @@ describe('impersonation', () => {
     expect((await run(start, as('staff-partner-manager'), { t: ids.partnerUser, m: ids.partnerUser, r: 'x' })).code).toBe('FORBIDDEN')
   })
 
+  it('acts as a store Owner whose invitation is open, and refuses any other invited store user (§8.1)', async () => {
+    const su = as('staff-support')
+    const seatOf = async (email: string) => (await db.sql<{ id: string; user_id: string }[]>`select m.id, m.user_id from membership m join "user" u on u.id = m.user_id where u.email = ${email}`)[0] ?? { id: '', user_id: '' }
+    const owner = await seatOf('priya@mehtatextiles.example')
+    const aisha = await seatOf('aisha@mehtatextiles.example')
+    await db.sql`update membership set status = 'invited' where id = ${owner.id}`
+    await db.sql`update "user" set status = 'invited' where id = ${owner.user_id}`
+    try {
+      const listed = (await run<{ impersonationTargets: { items: Target[] } }>(targets, su, { s: 'priya@mehtatextiles.example' })).data?.impersonationTargets.items[0]
+      expect(listed?.impersonate).toEqual({ allowed: true, reason: null })
+      expect((await run<Started>(start, su, { t: aisha.user_id, m: aisha.id, r: 'Setting the store up' })).data?.startImpersonation.reason).toBe('TARGET_NOT_ACTIVE')
+      const started = (await run<Started>(start, su, { t: owner.user_id, m: owner.id, r: 'Setting the store up' })).data?.startImpersonation
+      expect(started?.ok).toBe(true)
+      expect((await run(end, su, { id: started?.session?.id })).data).toMatchObject({ endStaffSession: { ok: true } })
+    } finally {
+      await db.sql`update membership set status = 'active' where id = ${owner.id}`
+      await db.sql`update "user" set status = 'active' where id = ${owner.user_id}`
+    }
+  })
+
   it('runs 30 minutes, one at a time, opens on its host through a single-use link, and is logged', async () => {
     const su = as('staff-support')
     const started = (await run<Started>(start, su, { t: ids.partnerUser, m: ids.partnerUser, r: 'Investigating a refund' })).data?.startImpersonation

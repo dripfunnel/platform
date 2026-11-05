@@ -175,6 +175,21 @@ describe('store(id) (§5.2, §5.3)', () => {
     store: Record<string, unknown> & { actions: Record<string, { allowed: boolean; reason: string | null } | null>; job: { id: string; actions: Record<string, { allowed: boolean; reason: string | null } | null> } | null }
   }
 
+  it('offers Impersonate on an Owner whose invitation is open, and on no other invited user (ACCESS.md §8.1)', async () => {
+    const id = await storeIdOf('Mehta Textiles')
+    const [priya] = await db.sql<{ id: string; user_id: string }[]>`select m.id, m.user_id from membership m join "user" u on u.id = m.user_id where u.name = 'Priya Mehta' and m.store_id = ${id}`
+    await db.sql`update membership set status = 'invited' where id = ${priya?.id ?? ''}`
+    await db.sql`update "user" set status = 'invited' where id = ${priya?.user_id ?? ''}`
+    try {
+      const users = (await run<Detail>(detail, as('staff-support'), { id })).data?.store['users'] as { name: string; impersonate: { allowed: boolean; reason: string | null } }[]
+      expect(users.find((u) => u.name === 'Priya Mehta')?.impersonate).toEqual({ allowed: true, reason: null })
+      expect(users.find((u) => u.name === 'Aisha Khan')?.impersonate).toEqual({ allowed: false, reason: 'TARGET_NOT_ACTIVE' })
+    } finally {
+      await db.sql`update membership set status = 'active' where id = ${priya?.id ?? ''}`
+      await db.sql`update "user" set status = 'active' where id = ${priya?.user_id ?? ''}`
+    }
+  })
+
   it('serves the eight tabs from real rows', async () => {
     const id = await storeIdOf('Mehta Textiles')
     const { data } = await run<Detail>(detail, as('staff-super-admin'), { id })
