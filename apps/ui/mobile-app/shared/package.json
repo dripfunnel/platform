@@ -13,8 +13,7 @@
     "./brand": "./brand/index.ts",
     "./push": "./push/index.ts",
     "./connection": "./connection/index.ts",
-    "./crash": "./crash/index.ts",
-    "./text": "./text/index.ts"
+    "./crash": "./crash/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

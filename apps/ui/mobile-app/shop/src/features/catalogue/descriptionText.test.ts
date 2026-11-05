@@ -1,4 +1,4 @@
-import { hasMarkup, plainTextOfDescription as words } from '.'
+import { hasMarkup, plainTextOfDescription as words } from './descriptionText'
 
 describe('a product description as plain words (#1272)', () => {
   it('separates paragraphs with a blank line and keeps a line break as one', () => {
