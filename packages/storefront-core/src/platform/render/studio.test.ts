@@ -117,6 +117,29 @@ describe('the hot-swap entry point (AI-STUDIO §4 step 5)', () => {
     await vi.waitFor(() => expect(applied).toEqual([`${frame}assets/entry-ONE.js`]))
   })
 
+  it('puts the new stylesheets in before the modules that use them, and swaps only them when no script changed (#1240)', async () => {
+    const socket = fakeSocket()
+    const steps: string[] = []
+    connectHotReload({
+      base: `/__studio/${id}/`,
+      origin: 'https://k7f3q9f2xa.webpreview.store',
+      load: async (url) => (steps.push(`load ${url}`), url),
+      apply: (url) => void steps.push(`apply ${url}`),
+      stylesheets: async (urls) => void steps.push(`css ${urls.join(' ')}`),
+      open: socket.open,
+    })
+    socket.say({ type: 'bundle', id: 'one', entry: 'assets/entry-ONE.js', css: ['assets/entry-A.css'] })
+    await vi.waitFor(() => expect(steps).toHaveLength(3))
+    expect(steps).toEqual([`load ${frame}assets/entry-ONE.js`, `css ${frame}assets/entry-A.css`, `apply ${frame}assets/entry-ONE.js`])
+    socket.say({ type: 'bundle', id: 'two', entry: 'assets/entry-ONE.js', css: ['assets/entry-B.css'], only: 'stylesheet' })
+    await vi.waitFor(() => expect(steps).toHaveLength(4))
+    expect(steps[3]).toBe(`css ${frame}assets/entry-B.css`)
+    socket.say({ type: 'bundle', id: 'three', entry: 'assets/entry-ONE.js', css: ['../escape.css'], only: 'stylesheet' })
+    socket.say({ type: 'bundle', id: 'four', entry: 'assets/entry-ONE.js', only: 'everything' })
+    await new Promise((r) => setTimeout(r, 10))
+    expect(steps).toHaveLength(4)
+  })
+
   it('opens a dropped socket again, waiting longer each time until one opens, and never after it was stopped', () => {
     const socket = fakeSocket()
     const waits: number[] = []

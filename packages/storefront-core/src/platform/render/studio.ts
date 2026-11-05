@@ -39,13 +39,41 @@ export const studioShopEndpoint = (base: string): string => `${base}shop-api`
 /** The page's path inside the frame, as the theme's routes know it: the frame's prefix taken off. */
 export const studioPagePath = (base: string, pathname: string): string => (pathname.startsWith(base) ? `/${pathname.slice(base.length)}` : '/')
 
-/** What the store's Durable Object sends when a change passed the gate: the new bundle's entry, relative to the frame. */
-export type BundleNotice = { type: 'bundle'; id: string; entry: string }
+/**
+ * What the store's Durable Object sends when a change passed the gate: the new bundle's entry and stylesheets, relative
+ * to the frame. `only: 'stylesheet'` says every script is the one the frame has, so only the stylesheets change (#1240).
+ */
+export type BundleNotice = { type: 'bundle'; id: string; entry: string; css?: string[]; only?: 'stylesheet' }
+
+const asset = (ext: 'js' | 'css') => new RegExp(`^assets/[A-Za-z0-9_.-]+\\.${ext}$`)
 
 const isNotice = (value: unknown): value is BundleNotice => {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
-  return v['type'] === 'bundle' && typeof v['id'] === 'string' && typeof v['entry'] === 'string' && /^assets\/[A-Za-z0-9_.-]+\.js$/.test(v['entry'])
+  const css = v['css']
+  const cssOk = css === undefined || (Array.isArray(css) && css.length <= 20 && css.every((c) => typeof c === 'string' && asset('css').test(c)))
+  return v['type'] === 'bundle' && typeof v['id'] === 'string' && typeof v['entry'] === 'string' && asset('js').test(v['entry']) && cssOk && (v['only'] === undefined || v['only'] === 'stylesheet')
+}
+
+/** The page's stylesheets become `urls`: each new one is loaded before the old ones go, so nothing shows unstyled. */
+export const swapStylesheets = async (urls: readonly string[], doc: Document = document): Promise<void> => {
+  const links = [...doc.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')]
+  const kept = new Set(links.filter((l) => urls.includes(l.href)).map((l) => l.href))
+  const added = urls
+    .filter((url) => !kept.has(url))
+    .map((url) => {
+      const link = doc.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = url
+      const loaded = new Promise<void>((resolve) => {
+        link.addEventListener('load', () => resolve(), { once: true })
+        link.addEventListener('error', () => resolve(), { once: true })
+      })
+      doc.head.append(link)
+      return loaded
+    })
+  await Promise.all(added)
+  for (const link of links) if (!urls.includes(link.href)) link.remove()
 }
 
 export type HotReloadOptions<T> = {
@@ -55,6 +83,8 @@ export type HotReloadOptions<T> = {
   load: (entryUrl: string) => Promise<T>
   /** Renders the new theme into the same root, keeping the page and its state. */
   apply: (loaded: T) => void | Promise<void>
+  /** Puts the bundle's stylesheets in the page's place; `swapStylesheets` on the frame's own document by default. */
+  stylesheets?: (urls: readonly string[]) => Promise<void>
   open?: (url: string) => WebSocket
   scroll?: { read: () => [number, number]; restore: (x: number, y: number) => void }
   /** Runs `run` after `ms`; a test's clock in tests. */
@@ -69,11 +99,22 @@ export const reconnectMs = { first: 1_000, most: 30_000 } as const
  * the merchant keeps the page, the scroll and the width. Only the newest notice's bundle is applied, whatever order
  * the loads finish in; a load that fails is tried again on the next notice, and a dropped socket is opened again.
  */
-export const connectHotReload = <T>({ base, origin, load, apply, open = (url) => new WebSocket(url), scroll, wait = (ms, run) => void setTimeout(run, ms) }: HotReloadOptions<T>): (() => void) => {
+export const connectHotReload = <T>({
+  base,
+  origin,
+  load,
+  apply,
+  stylesheets = (urls) => swapStylesheets(urls),
+  open = (url) => new WebSocket(url),
+  scroll,
+  wait = (ms, run) => void setTimeout(run, ms),
+}: HotReloadOptions<T>): (() => void) => {
   const socketUrl = new URL(`${base}__hot`, origin)
   socketUrl.protocol = socketUrl.protocol === 'https:' ? 'wss:' : 'ws:'
   let latest = ''
   let sequence = 0
+  // Stylesheets have their own turn: a stylesheet-only notice changes no script, so it never cancels a load in flight.
+  let styleTurn = 0
   let stopped = false
   let delay: number = reconnectMs.first
   let socket: WebSocket
@@ -88,10 +129,23 @@ export const connectHotReload = <T>({ base, origin, load, apply, open = (url) =>
     if (!isNotice(notice) || notice.id === latest) return
     const id = notice.id
     latest = id
+    const style = (styleTurn += 1)
+    const css = notice.css?.map((c) => new URL(`${base}${c}`, origin).toString())
+    const restyle = async () => {
+      if (css && style === styleTurn) await stylesheets(css)
+    }
+    if (notice.only === 'stylesheet') {
+      void restyle().catch(() => {
+        if (latest === id) latest = ''
+      })
+      return
+    }
     const mine = (sequence += 1)
     void load(new URL(`${base}${notice.entry}`, origin).toString())
       .then(async (loaded) => {
         if (mine !== sequence) return
+        // The new classes' rules are in before the modules that use them render.
+        await restyle()
         const at = scroll?.read()
         await apply(loaded)
         if (at) scroll?.restore(at[0], at[1])
