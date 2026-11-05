@@ -113,7 +113,7 @@ describe('targets', () => {
     expect(await targets(callerOf(ids.bz, ids.bzAgent, 'partner-support'), 'jenna@harborcoffee')).toEqual([])
   })
 
-  it('says why a session can’t start: support off (naming the Owner), not accepted, suspended, cancelled', async () => {
+  it('says why a session can’t start: support off (naming the Owner), not accepted (but never an invited Owner), suspended, cancelled', async () => {
     const priya = callerOf(ids.ns, ids.priya, 'partner-support')
     const [store] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and name = 'Harbor Coffee Co.'`
     await db.sql`update store set support_access_allowed = false where id = ${store?.id ?? ''}`
@@ -126,6 +126,11 @@ describe('targets', () => {
     const tom = await membershipOf('tom@harborcoffee.example')
     await db.sql`update membership set status = 'invited' where id = ${tom}`
     expect((await targets(priya, 'tom@harborcoffee')).at(0)?.start.reason).toBe('NOT_ACCEPTED')
+    // A new store's Owner who hasn't accepted can be acted as, to set the store up (ACCESS.md §8).
+    const jenna = await membershipOf('jenna@harborcoffee.example')
+    await db.sql`update membership set status = 'invited' where id = ${jenna}`
+    expect((await targets(priya, 'jenna@harborcoffee')).at(0)?.start).toEqual({ allowed: true, reason: null })
+    await db.sql`update membership set status = 'active' where id = ${jenna}`
     await db.sql`update membership set status = 'suspended' where id = ${tom}`
     expect((await targets(priya, 'tom@harborcoffee')).at(0)?.start.reason).toBe('SUSPENDED')
     await db.sql`update membership set status = 'active' where id = ${tom}`

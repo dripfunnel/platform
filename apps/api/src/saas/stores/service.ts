@@ -7,7 +7,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { AccessTarget } from '#auth/assignment'
 import { partnerScopedRoles, type StaffPermission } from '#auth/permissions'
 import type { StaffMember } from '#auth/staff'
-import { staffMayActAs } from '#auth/storeStaff'
+import { mayActAsSeat } from '#auth/storePermissions'
 import { parseHostname } from '#core/hostname'
 import type { StaffContext } from '#core/tenancy'
 import type { BuildState, CustomDomainRow, HostStatus, StoreRow, StoreStatus } from '#db/schema/saas'
@@ -330,7 +330,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     const role = may('impersonate')
     if (!role.allowed) return role
     if (partnerState === 'closed') return { allowed: false, reason: 'PARTNER_CLOSED' }
-    if (!staffMayActAs({ role: person.role_key, membershipStatus: person.status, userStatus: person.user_status })) return { allowed: false, reason: 'TARGET_NOT_ACTIVE' }
+    if (!mayActAsSeat({ role: person.role_key, membershipStatus: person.status, userStatus: person.user_status })) return { allowed: false, reason: 'TARGET_NOT_ACTIVE' }
     return { allowed: true }
   }
 

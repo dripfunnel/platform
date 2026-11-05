@@ -269,6 +269,33 @@ describe('write elevation', () => {
   })
 })
 
+describe('a new store whose Owner hasn’t accepted (ACCESS.md §8)', () => {
+  it('writes as the invited Owner without an Allow, keeps the "never" list, and is read-only once the Owner accepts', async () => {
+    await db.sql`update membership set status = 'invited' where id = ${seats.owner}`
+    await db.sql`update "user" set status = 'invited' where id = ${people.owner}`
+    try {
+      const id = await opened('owner', agents.priya, 'tok-new-store')
+      const cookie = await enter('tok-new-store')
+      expect(cookie).not.toBe('')
+      expect((await gql(q.includeTax, { support: cookie }, { i: true })).code).toBeUndefined()
+      expect((await entries(id)).some((e) => e.actor_kind === 'support_session' && !e.action.startsWith('support_session.'))).toBe(true)
+      expect((await gql(`mutation { inviteMember(email: "x@a.example", role: "staff") }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
+      expect((await gql(q.set, { support: cookie }, { a: false })).code).toBe('BLOCKED_FOR_SUPPORT')
+      await db.sql`update membership set status = 'active' where id = ${seats.owner}`
+      await db.sql`update "user" set status = 'active' where id = ${people.owner}`
+      expect((await gql(q.includeTax, { support: cookie }, { i: false })).code).toBe('SUPPORT_READ_ONLY')
+    } finally {
+      await db.sql`update "user" set status = 'active' where id = ${people.owner}`
+    }
+  })
+
+  it('still refuses any other invited seat: the link opens nothing', async () => {
+    await db.sql`update membership set status = 'invited' where id = ${seats.manager}`
+    await opened('manager', agents.sam, 'tok-new-manager')
+    expect(await enter('tok-new-manager')).toBe('')
+  })
+})
+
 describe('the switch and the log', () => {
   it('Off ends every open session at once; the cookie acts as nobody; the log says the store ended it', async () => {
     const id = await opened('owner', agents.priya, 'tok-off')

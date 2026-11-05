@@ -5,6 +5,7 @@ import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { reauthenticatePartner, type ReauthResult } from '#auth/partnerCode'
 import type { SecretBox } from '#auth/secretBox'
 import { hashSessionId, newSessionId } from '#auth/session'
+import { isInvitedOwnerSeat } from '#auth/storePermissions'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import {
   endSupportSession,
@@ -78,7 +79,7 @@ const startRefusal = (t: SupportTargetRow, callerId: string): StartRefusal | nul
   if (t.store_status === 'cancelled' || t.store_status === 'closed') return 'STORE_CANCELLED'
   if (!t.support_access_allowed) return 'SUPPORT_OFF'
   const status = statusOf(t)
-  if (status === 'invited') return 'NOT_ACCEPTED'
+  if (status === 'invited' && !isInvitedOwnerSeat({ role: t.role_key, membershipStatus: t.membership_status, userStatus: t.user_status })) return 'NOT_ACCEPTED'
   if (status === 'suspended') return 'SUSPENDED'
   if (t.open_session_id && t.open_agent_id !== callerId) return 'COLLEAGUE_IN_SESSION'
   return null

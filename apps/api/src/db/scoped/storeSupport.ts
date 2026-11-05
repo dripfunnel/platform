@@ -20,7 +20,9 @@ export const spendSupportHandoff = async (tx: ScopedSql, partnerId: string, hand
         and exists (
           select 1 from store s join membership m on m.store_id = s.id join "user" u on u.id = m.user_id
           where s.id = ss.store_id and m.id = ss.membership_id and s.support_access_allowed
-            and s.status not in ('cancelled', 'closed') and m.status = 'active' and u.status = 'active'
+            and s.status not in ('cancelled', 'closed')
+            -- auth/storePermissions.ts mayActAsSeat: an active seat, or the Owner's while invited (ACCESS.md §8).
+            and ((m.status = 'active' and u.status = 'active') or (m.role_key = 'owner' and m.status = 'invited' and u.status in ('active', 'invited')))
         )
       returning ss.id
     `
