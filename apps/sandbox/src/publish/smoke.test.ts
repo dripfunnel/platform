@@ -86,7 +86,12 @@ describe.skipIf(!chrome)('the checkout smoke test', () => {
   it('fails a theme whose checkout can’t place the order, at every width', async () => {
     if (!browser) throw new Error('no browser')
     const view = (repo: string) => join(repo, 'src/theme/components/interactive/CheckoutView.tsx')
-    const site = await built('no-place-order', (repo) => writeFileSync(view(repo), readFileSync(view(repo), 'utf8').replace("<PlaceOrder checkout={c} className={clsx('", "<PlaceOrder checkout={c} className={clsx('hidden! ")))
+    const site = await built('no-place-order', (repo) => {
+      const before = readFileSync(view(repo), 'utf8')
+      const after = before.replace('<PlaceOrder checkout={c} className={clsx(', "<PlaceOrder checkout={c} className={clsx('hidden!', ")
+      if (after === before) throw new Error('CheckoutView.tsx has no <PlaceOrder checkout={c} className={clsx(…)}> left to hide')
+      writeFileSync(view(repo), after)
+    })
     const problems = smokeProblems(await smokeTest({ browser, site, snapshot }))
     expect(problems).toHaveLength(3)
     expect(problems[0]).toMatch(/^The test purchase at 390 px didn't complete: /)
