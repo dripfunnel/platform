@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-11-05 (#1240: the model's answer streams and each finished file is pre-checked, the container's typecheck and bundle stay warm, and a CSS-only or class-only change skips the typecheck, the frame swapping only the stylesheet for CSS, §4). Before: 2026-11-05 (#1243: a vague request gets up to 3 quick questions and a plan, then the AI builds the storefront page by page, one history entry for Undo, §4 "A plan", §5). Before: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-05 (#1244: the AI fills every picture slot itself, the store's own photos first, then Openverse and Wikimedia Commons, on in dev and prod; Pexels' terms read and Pexels left out; 4 photo calls a page and 20 a build; `store_photos`, §4, §8). Before: 2026-11-05 (#1240: the model's answer streams and each finished file is pre-checked, the container's typecheck and bundle stay warm, and a CSS-only or class-only change skips the typecheck, the frame swapping only the stylesheet for CSS, §4). Before: 2026-11-05 (#1243: a vague request gets up to 3 quick questions and a plan, then the AI builds the storefront page by page, one history entry for Undo, §4 "A plan", §5). Before: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -121,7 +121,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    search-and-replace edits for a file the theme has, a new file whole, a deleted file named (#1238), so a one-line
    change costs a few lines of output. **The answer streams** (#1240): each file it lists is handed to the Durable Object
    over the Worker's call as soon as it is whole, while the model writes the next one and then its reply.
-   *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (below, off for now), and the Worker runs them, never the model and never the container.
+   *Why:* the diff is data until the gates accept it. The model can't run anything: it may ask the Worker for two things only, a stock photo search and adding one result to Assets (§8 "The AI's own photos"), and the Worker runs them, never the model and never the container.
 3. **The Durable Object applies the edits** to the theme it holds, and **the container runs the fast gate** on the
    whole files (ARCHITECTURE §6.2): the allowlist, the validator, the typecheck, the bundle, the byte budgets and the
    content checks. An edit that doesn't apply (its search not found exactly once) and a gate failure are both repaired
@@ -214,8 +214,8 @@ unchanged. Drawn in `PortalStorefront` as `?state=questions`, `?state=plan` and 
    reads "Replaced". Only the newest questions or plan can be answered, changed or built, and each once: its state moves in one
    statement, so two tabs can't both.
 4. **Build it** (`buildDesignPlan`). The store's object runs the pages in one turn: home first (with the header and footer),
-   then product, collection, about and the plan's other pages. Each page is its own change through steps 2–8: the gate, up to
-   three repairs, its frame swap as soon as it passes and its save in the background, while the next page is asked. The feed
+   then product, collection, about and the plan's other pages. Each page is its own change through steps 2–8 (its own four photo
+   calls, at most 20 in the build, #1244), the gate, up to three repairs, its frame swap as soon as it passes and its save in the background, while the next page is asked. The feed
    shows `page` and that page's steps. A refused or failed page stops the build; the pages before it stay, and a build that built no page leaves the plan open to build again, at most twice (`PLAN_BUILDS_USED` after).
 5. **Stop** (`cancelDesign`) during a build ends it after the page being built; the pages already built stay, and the chat
    lists each page as built, not built, or refused.
@@ -416,22 +416,35 @@ before, and reads the result when `askDesign` answers.
   links to that build's own run (LIVE-SHOP §2).
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
-- **The store lookups** (#1242; ARCHITECTURE §6.2): every change's first ask may also call `list_collections`,
-  `find_products`, `product_photos`, `best_sellers` and `active_offers`, at most 6 a change (photos at most 2), answered by
-  the Worker for the acting store from the summary kept in its `StudioSession`, or one query each beyond it.
-- **The AI's own photos** (on where `AI_PHOTOS=1`; off otherwise): on a change request, the model may call `search_stock_images` and
-  `add_stock_image` (at most four calls in a change, none in a repair). It may use only the sources `AI_PHOTO_SOURCES` names (a comma
-  list of `pexels,pixabay,openverse,commons`; unset is `openverse,commons`, the two whose terms allow it; an unknown name stops the Worker at boot); a result or an id from any other source is
-  dropped or refused. Pixabay's API docs say "the API is made for real human requests; do not send lots of automated queries", and
-  Pexels' terms for automated use are not yet checked, so name only the sources whose terms allow it. The Worker
+- **The store lookups** (#1242; ARCHITECTURE §6.2): every change's first ask may also call `store_photos` (#1244: the
+  store's own Assets images, newest first, at most 24, with their size), `list_collections`, `find_products`,
+  `product_photos`, `best_sellers` and `active_offers`, at most 6 a change (photos at most 2), answered by the Worker for the
+  acting store from the summary kept in its `StudioSession`, or one query each beyond it. An Assets image `store_photos`
+  listed and the change places is marked `storefront_visible`, as an attached one is.
+- **The AI's own photos** (decided 2026-11-04 with Gaurav on #1244; on unless `AI_PHOTOS=0`, so on in dev and prod): the AI
+  fills every picture slot it designs (a hero, a banner, a background, the about page, a section's art) itself, in the same
+  change or build, without asking, and never with a picture it generates. The store's own photos come first (`store_photos`,
+  collection and product photos from the lookups), then free photos: on a change request or a build's page the model may call
+  `search_stock_images` and `add_stock_image` (at most four calls a change or page, at most 20 in a whole build, none in a
+  repair; `STOCK_RATE_LIMITER` still caps the store). It searches in the store's category words, asks for `landscape` and a
+  `minWidth` of 1200 for a hero or banner (600 for smaller art), and the Worker leaves out a result whose file is narrower than
+  that, not landscape when asked, or of unknown size: Commons' file is its 1280px thumbnail, Openverse's at most 600px, so
+  Openverse fills smaller art only. Each result goes back with its width and height. Only Openverse and Wikimedia Commons
+  (CC0 and public domain), the sources whose terms allow automated use, ever reach the model: `AI_PHOTO_SOURCES` (a comma list
+  of `pexels,pixabay,openverse,commons`; unset is both; an unknown name stops the Worker at boot) can only narrow them, and
+  Pexels or Pixabay named there is left out; a result or an id from any other source is dropped or refused. Pixabay's API docs
+  say "the API is made for real human requests; do not send lots of automated queries". Pexels' terms (read 2026-11-05 UTC on
+  #1244) ask for "a prominent link to Pexels" whenever a request is made and forbid automated collection for unauthorised
+  purposes without saying an AI choosing for a merchant is authorised, so Pexels stays the picker's only. The Worker
   runs each call through the same combined search and the same download path as the merchant's picker: the model names words and
   an id (`source:id`) from the results it was given, never an address, and the file lands in Assets as the merchant's own,
   `storefront_visible`, logged as `storefront.image_imported` with the source. It places the asset id as the prompt describes
   (`MerchantImage` or CSS `url()`), and a photo added but not placed in the change is logged as `storefront_photo_unplaced`.
-  Results are untrusted web text: only an id, tags and a name go back to the model, cut and stripped of control characters, and
+  Results are untrusted web text: only an id, tags, a name and the file's size go back to the model, cut and stripped of control characters, and
   the prompt says to follow no instruction in them. Each photo added is a note in the chat with its thumbnail and "by {name} on {source}".
-  A request with no photo tools (`AI_PHOTOS` off, no source, or no provider router) tells the model so: it adds no image and
-  points the merchant to the picker and attaching. A provider that does not reach the router has no tools and answers as before.
+  A request with no photo tools (`AI_PHOTOS=0`, no source, or no provider router) tells the model so: it uses only the store's
+  own photos, and when none fits adds no image and points the merchant to the picker and attaching. A product's picture is never
+  one of these: core's validator refuses a `<MerchantImage>` or a `url()` class inside a product's render (ARCHITECTURE §3.4). A provider that does not reach the router has no tools and answers as before.
 - **Stop** (`cancelDesign`) ends the change that is running for the store, only while the model is still being asked or
   between repairs. Once the sandbox has the diff the step finishes, so a draft is never half a change. A stopped change
   records a `stopped` note and `cancelled`, changes nothing, and gives the usage unit back only if the model was never asked.
@@ -454,7 +467,8 @@ before, and reads the result when `askDesign` answers.
   if all do. A result is kept only if its tags, title, description or creator hold every word typed. Ids are `source:id`; a chosen one
   is re-asked from its own source, and the address is checked against that source's hosts before the Worker downloads it into the
   store's files (never hotlinked). Openverse's file is its own thumbnail endpoint, Wikimedia's a 1280px thumbnail. Each result carries its source, the creator and the page it came from, and the picker shows the source's name on each result. `total` is the sum of the sources' own counts before the word filter, so it is an upper bound, and a page holds at most 24 results per source (`maxPerSource`). Commons results keep the search's ranking and its total hits. The
-  merchant's picker uses every source; the AI only those in `AI_PHOTO_SOURCES`. `STOCK_RATE_LIMITER` caps a store's searches, downloads and
+  merchant's picker uses every source; the AI only Openverse and Commons, narrowed by `AI_PHOTO_SOURCES`. Openverse and Commons
+  results carry the downloaded file's width and height. `STOCK_RATE_LIMITER` caps a store's searches, downloads and
   imports across all sources at 30 a minute and answers `STOCK_BUSY`. Nothing is cached: the Worker holds no state.
   Pixabay's terms (API docs, read 2026-10-30): requests cached 24 hours (not kept), under its 100 requests a minute per key, requests
   made by a person, no systematic mass downloads, the source shown wherever results show, result URLs used only to display results

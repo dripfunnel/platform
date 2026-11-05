@@ -3,6 +3,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
+import type { DnsLookup } from '#integrations/dns/doh'
+import type { StockImages } from '#integrations/stockImages/pixabay'
+import type { AssetStore } from '#engine/modules/catalog/index'
 import { StudioRunner, type DraftsBucket, type FileEdit } from '#saas/studio/index'
 import type { CallerContext } from '#core/tenancy'
 import { moveFlow } from '#db/scoped/design'
@@ -75,8 +78,9 @@ let studioFails = false
 /** The studio's answer to a build is lost after it ran (the RPC broke on the way back). */
 let answerLost = false
 
-/** The model as a script: each call takes the next answer and records what it was sent. */
-const script: { answers: string[]; sent: string[] } = { answers: [], sent: [] }
+type ToolCall = { id: string; name: string; arguments: string }
+/** The model as a script: each call takes the next answer (or makes it from the tool results so far) and records what it was sent. */
+const script: { answers: (string | ((tools: string) => string))[]; sent: string[]; turns: ToolCall[][]; lastTurn: string } = { answers: [], sent: [], turns: [], lastTurn: '' }
 /** When set, a call whose text contains `at` waits on `wait`, so a test can press Stop mid-build. */
 let pause: { at: string; wait: Promise<void>; reached: () => void } | null = null
 const answerFor = async (text: string) => {
@@ -85,16 +89,24 @@ const answerFor = async (text: string) => {
     pause.reached()
     await pause.wait
   }
-  return script.answers.shift() ?? JSON.stringify({ files: [], reply: 'Nothing to change.', changed: [], page: 'home' })
+  const next = script.answers.shift()
+  return typeof next === 'function' ? next(script.lastTurn) : (next ?? JSON.stringify({ files: [], reply: 'Nothing to change.', changed: [], page: 'home' }))
 }
 const provider: AiProvider = {
   complete: async (call): Promise<AiAnswer> => ({ text: await answerFor([...(call.context ?? []), call.text].join('\n\n')), model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }),
   converse: async (call) => {
+    // The model calls only the tools it was offered.
+    const next = script.turns[0]
+    if (next && next.every((c) => call.tools.some((t) => t.name === c.name))) {
+      script.turns.shift()
+      return { text: '', toolCalls: next, wantsTools: true, model: 'fake-model', tokensIn: 1, tokensOut: 1, costAmount: 0, costCurrency: 'USD' }
+    }
+    script.lastTurn = JSON.stringify(call.messages.filter((m) => m.role === 'tool'))
     const first = call.messages[0]?.content.flatMap((p) => (p.type === 'text' ? [p.text] : [])).join('\n\n') ?? ''
     return { text: await answerFor(first), toolCalls: [], wantsTools: false, model: 'fake-model', tokensIn: 1000, tokensOut: 200, costAmount: 1, costCurrency: 'USD' }
   },
 }
-const design = {
+const design: { ai: () => AiProvider; models: () => string[]; screenshots: null; readAsset: null; stock: StockImages | null; aiPhotos: readonly string[] } = {
   ai: () => provider,
   models: () => [],
   screenshots: null,
@@ -102,6 +114,11 @@ const design = {
   stock: null,
   aiPhotos: [],
 }
+const stored: string[] = []
+const bucket: AssetStore = { put: async (key) => void stored.push(key), get: async () => null }
+const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))
+const dns: Record<string, string[]> = {}
+const lookup: DnsLookup = { resolve: async (name, type) => dns[`${name} ${type}`] ?? [] }
 
 const enPages = () => template.find((f) => f.path === 'content/en/pages.json')?.content ?? ''
 const lead = (words: string) => ({ path: 'content/en/pages.json', content: enPages().replace(/"lead": "[^"]*"/, `"lead": "${words}"`) })
@@ -149,7 +166,7 @@ const toPlan = async (): Promise<Answer['message']> => {
 beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
-  w = await seedStoreWorld(db.sql, t, { now, secrets: null, lookup: { resolve: async () => [] }, studio: (context) => {
+  w = await seedStoreWorld(db.sql, t, { now, secrets: null, lookup, studio: (context) => {
       const studio = local.studio(context)
       return {
         ...studio,
@@ -160,7 +177,7 @@ beforeAll(async () => {
           return built
         },
       }
-    }, extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design } })
+    }, extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design, files: bucket, allowStock: async () => true } })
   host = await sandboxProcess()
   sites = fakeSites()
   template = await walk(baselineDir)
@@ -433,5 +450,62 @@ describe('the plan and its build (#1243)', () => {
     expect((await w.gql('manager', 'mutation B($id: ID!) { buildDesignPlan(messageId: $id) { outcome } }', { id: plan.id })).code).toBe('FORBIDDEN')
     expect((await w.gql('bOwner', 'mutation B($id: ID!) { buildDesignPlan(messageId: $id) { outcome } }', { id: plan.id })).code).toBe('PLAN_GONE')
     expect((await w.gql('bOwner', 'mutation C($id: ID!) { changeDesignPlan(messageId: $id, text: "x") { outcome } }', { id: plan.id })).code).toBe('PLAN_GONE')
+  })
+})
+
+describe('a build’s pictures (#1244)', () => {
+  const call = (id: string, name: string, args: object): ToolCall => ({ id, name, arguments: JSON.stringify(args) })
+  const asset = async (storeId: string, name: string) =>
+    (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, width, height, checksum, name) values (${storeId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, 2400, 1200, ${'0'.repeat(64)}, ${name}) returning id`)[0]?.id ?? ''
+  const assetsOf = async (storeId: string) => (await db.sql<{ n: number }[]>`select count(*)::int as n from asset where store_id = ${storeId}`)[0]?.n ?? 0
+
+  it('fills the hero from the store’s own photos, then a free photo from the AI’s sources only, credited in the chat and kept in this store’s Assets alone', async () => {
+    const ownA = await asset(t.storeA1, 'Silk hero')
+    const ownB = await asset(t.storeB1, 'Velvet hero')
+    const [a0, b0] = [await assetsOf(t.storeA1), await assetsOf(t.storeB1)]
+    design.aiPhotos = ['commons']
+    design.stock = {
+      search: async () => ({
+        total: 2,
+        photos: [
+          { id: 'commons:9', source: 'commons', thumb: 'https://upload.wikimedia.org/t.png', user: 'Ana', pageUrl: 'https://commons.wikimedia.org/wiki/File:Silk.png', tags: 'silk sarees', width: 1280, height: 853 },
+          { id: 'pexels:5', source: 'pexels', thumb: 'https://images.pexels.com/t.jpg', user: 'Bo', pageUrl: 'https://pexels.com/p/5', tags: 'silk sarees', width: 1880, height: 1253 },
+        ],
+      }),
+      download: async (id) => (id === 'commons:9' ? 'https://upload.wikimedia.org/get/9.png' : null),
+    }
+    dns['upload.wikimedia.org A'] = ['93.184.216.34']
+    vi.stubGlobal('fetch', async () => new Response(png, { headers: { 'content-type': 'image/png' } }))
+    try {
+      const plan = await toPlan()
+      script.turns = [[call('1', 'store_photos', {})], [call('2', 'search_stock_images', { query: 'silk sarees', landscape: true, minWidth: 1200 })], [call('3', 'add_stock_image', { id: 'commons:9' })]]
+      let seen = ''
+      let added = ''
+      const home = (tools: string) => {
+        seen = tools
+        added = /asset id is ([0-9a-f-]{36})/.exec(tools)?.[1] ?? ''
+        return reply([lead(`Silk ${ownA} and ${added}`)], 'I built the home page.')
+      }
+      script.answers = [home, reply([lead('Product, built.')]), reply([lead('About, built.')])]
+      const built = value(await build(plan.id), 'buildDesignPlan')
+      expect(built.outcome).toBe('changed')
+      // Own photos first, this store's only; then only the AI's sources reach the model.
+      expect(seen).toContain(ownA)
+      expect(seen).not.toContain(ownB)
+      expect(seen).toContain('commons:9')
+      expect(seen).not.toContain('pexels:5')
+      expect(added).not.toBe('')
+      expect(await assetsOf(t.storeA1)).toBe(a0 + 1)
+      expect(await assetsOf(t.storeB1)).toBe(b0)
+      const notes = await db.sql<{ store_id: string; image_asset_id: string | null }[]>`select store_id, image_asset_id from design_message where role = 'note' and text = 'photo:commons:Ana'`
+      expect(notes).toEqual([{ store_id: t.storeA1, image_asset_id: added }])
+      const visible = await db.sql<{ id: string; storefront_visible: boolean }[]>`select id, storefront_visible from asset where id in (${ownA}, ${ownB}, ${added})`
+      expect(Object.fromEntries(visible.map((a) => [a.id, a.storefront_visible]))).toEqual({ [ownA]: true, [ownB]: false, [added]: true })
+    } finally {
+      script.turns = []
+      vi.unstubAllGlobals()
+      design.aiPhotos = []
+      design.stock = null
+    }
   })
 })

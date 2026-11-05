@@ -34,6 +34,7 @@ export const ruleIds = [
   'jsx/loading-hint',
   'jsx/core-marker',
   'jsx/animated-property',
+  'jsx/product-image',
   'css/unreadable',
   'css/selector-not-scoped',
   'css/global',

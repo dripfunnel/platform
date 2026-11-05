@@ -6,6 +6,8 @@ import type { StockImages } from './pixabay'
 
 const info = z.object({
   thumburl: z.string(),
+  thumbwidth: z.number().int().positive().optional(),
+  thumbheight: z.number().int().positive().optional(),
   descriptionurl: z.string(),
   extmetadata: z.object({ LicenseShortName: z.object({ value: z.string() }).optional(), Artist: z.object({ value: z.string() }).optional(), ImageDescription: z.object({ value: z.string() }).optional() }).optional(),
 })
@@ -55,6 +57,7 @@ export const commonsImages = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch 
         user: text(file.extmetadata?.Artist?.value),
         pageUrl: file.descriptionurl,
         tags: `${p.title.replace(/^File:/, '').replace(/\.[a-z]+$/i, '')} ${text(file.extmetadata?.ImageDescription?.value)}`,
+        ...(file.thumbwidth && file.thumbheight ? { width: file.thumbwidth, height: file.thumbheight } : {}),
       }))
       return { total: got.query?.searchinfo?.totalhits ?? photos.length, photos }
     },

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-/** The stock photo sources (`integrations/stockImages`), and the ones the AI uses when `AI_PHOTO_SOURCES` is unset: those whose terms allow it. */
+/** The stock photo sources (`integrations/stockImages`), and the only ones the AI may use: those whose terms allow automated use (#1244). */
 export const photoSources = ['pexels', 'pixabay', 'openverse', 'commons'] as const
 export const aiPhotoSourcesDefault: readonly string[] = ['openverse', 'commons']
 
@@ -104,9 +104,9 @@ const configSchema = z.object({
   AI_PROVIDER_KEY: z.string().regex(/^sk-ant-[A-Za-z0-9_-]{20,}$/, 'AI_PROVIDER_KEY must be an Anthropic API key').optional(),
   // Claude and ChatGPT sign-in (THIRD-PARTY-ACCESS §2.6): off unless 1, so it can be switched off without a deploy of code.
   AI_SIGN_IN: z.literal('1').optional(),
-  /** 1 lets the studio's AI search and add photos itself, from `AI_PHOTO_SOURCES`; unset leaves it to the merchant's picker. */
-  AI_PHOTOS: z.literal('1').optional(),
-  /** With AI_PHOTOS, the sources the AI may use, comma separated; unset or empty is `aiPhotoSourcesDefault`. Pixabay only when named: read its terms first. */
+  /** The studio's AI searches and adds photos itself, from `AI_PHOTO_SOURCES`; unset is on (#1244), `0` leaves it to the merchant's picker. */
+  AI_PHOTOS: z.enum(['1', '0']).optional(),
+  /** The sources the AI may use, comma separated, narrowed to `aiPhotoSourcesDefault`; unset or empty is all of those. */
   AI_PHOTO_SOURCES: z.string().transform((v) => v.split(',').map((n) => n.trim()).filter(Boolean)).pipe(z.array(z.enum(photoSources))).transform((l) => (l.length ? l : undefined)).optional(),
   // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
   AI_LOCAL: z.literal('1').optional(),
@@ -162,3 +162,7 @@ export const isDevOrLocal = (config: Pick<Config, 'HOOKS_HOST'>): boolean => con
 export type Config = z.infer<typeof configSchema>
 
 export const parseConfig = (env: Record<string, unknown>): Config => checkedConfig.parse(env)
+
+/** What the AI may search and add photos from (AI-STUDIO §8): none when `AI_PHOTOS` is `0`, and never a source outside `aiPhotoSourcesDefault`. */
+export const aiPhotoSourcesOf = (config: Pick<Config, 'AI_PHOTOS' | 'AI_PHOTO_SOURCES'>): readonly string[] =>
+  config.AI_PHOTOS === '0' ? [] : (config.AI_PHOTO_SOURCES ?? aiPhotoSourcesDefault).filter((name) => aiPhotoSourcesDefault.includes(name))

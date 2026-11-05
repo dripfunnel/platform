@@ -20,7 +20,7 @@ import { isStockUrl } from '#integrations/stockImages/combine'
 import type { StockImages, StockPhoto } from '#integrations/stockImages/pixabay'
 import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
-import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
+import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type FileEdit, type StudioState } from '#saas/studio/index'
 import { chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
 import { answersOf, flowOf, isClaimable, maxFailedBuilds, maxPlanChanges, pageRequests, planReply, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
@@ -192,6 +192,42 @@ export const createStudioService = (deps: StudioDeps) => {
     return { ok: true, value: stored.asset.id }
   }
 
+  type AddedPhoto = { assetId: string; user: string; source: string }
+
+  /** The AI's own photo tools for one request or build (AI-STUDIO §8): only `aiPhotos`' sources, and only a result it was shown. */
+  const photoTools = (added: AddedPhoto[]): DesignTools | null => {
+    if (!deps.aiPhotos?.length || !deps.stock || !deps.assets || !deps.lookup) return null
+    const seen = new Map<string, string>()
+    return {
+      search: async (words) => {
+        if (!(await stockAllowed())) return null
+        const found = (await deps.stock?.search(words, 1))?.photos.filter((p) => deps.aiPhotos?.includes(p.source))
+        return found?.map((p) => (seen.set(p.id, p.user), { id: p.id, tags: p.tags, user: p.user, ...(p.width && p.height ? { width: p.width, height: p.height } : {}) })) ?? null
+      },
+      add: async (id) => {
+        if (!seen.has(id) || !deps.aiPhotos?.includes(id.split(':')[0] ?? '') || !(await stockAllowed())) return null
+        const found = await deps.stock?.download(id)
+        if (!found || !isStockUrl(found)) return null
+        const stored = await importImage(found, id.split(':')[0] ?? null)
+        if (!stored.ok) return null
+        const record = { assetId: stored.value, user: seen.get(id) ?? '', source: id.split(':')[0] ?? '' }
+        added.push(record)
+        return record
+      },
+    }
+  }
+
+  /** The store's own files a changed theme now names become visible to shoppers; a photo the AI added and didn't place is logged. */
+  const placePhotos = async (proposed: string, own: Iterable<string>, added: readonly AddedPhoto[]) => {
+    const used = [...new Set([...own, ...added.map((a) => a.assetId)])].filter((id) => proposed.includes(id))
+    await withScope(sql, context, async (tx) => {
+      for (const id of used) await makeVisible(tx, storeId, id)
+    })
+    for (const photo of added) if (!proposed.includes(photo.assetId)) logEvent({ event: 'storefront_photo_unplaced', api: 'store', storeId, code: photo.source })
+  }
+
+  const textOf = (files: readonly FileEdit[]) => files.map((f) => ('content' in f ? f.content : 'edits' in f ? f.edits.map((e) => e.replace).join('\n') : '')).join('\n')
+
   const summaryOf = () => buildStoreSummary(sql, context, now())
   const summaryFailed = (error: unknown): null => {
     logEvent({ event: 'studio_summary_failed', api: 'store', storeId, code: failureCode(error) })
@@ -298,34 +334,11 @@ export const createStudioService = (deps: StudioDeps) => {
     const asked = now()
     if (input.mode === 'chat') return chat_(input, text, provider, billedTo, image?.value ?? null, shot?.value ?? null, asked, live)
     // The photos the model added this request, each in Assets and credited in the chat once the change is recorded.
-    const added: { assetId: string; user: string; source: string }[] = []
-    const tools: DesignTools | null =
-      deps.aiPhotos?.length && deps.stock && deps.assets && deps.lookup
-        ? {
-            search: async (words) => (!(await stockAllowed()) ? null : (await deps.stock?.search(words, 1))?.photos.filter((p) => deps.aiPhotos?.includes(p.source)).map((p) => ({ id: p.id, tags: p.tags, user: p.user })) ?? null),
-            add: async (id) => {
-              if (!seen.has(id) || !deps.aiPhotos?.includes(id.split(':')[0] ?? '') || !(await stockAllowed())) return null
-              const found = await deps.stock?.download(id)
-              if (!found || !isStockUrl(found)) return null
-              const stored = await importImage(found, id.split(':')[0] ?? null)
-              if (!stored.ok) return null
-              const record = { assetId: stored.value, user: seen.get(id) ?? '', source: id.split(':')[0] ?? '' }
-              added.push(record)
-              return record
-            },
-          }
-        : null
-    const seen = new Map<string, string>()
+    const added: AddedPhoto[] = []
     const stopLoop = new AbortController()
     const known = await currentSummary()
-    const designer = designModel(
-      provider,
-      await briefOf(input, image?.value ?? null, shot?.value ?? null, known, true),
-      tools && { ...tools, search: async (words) => (await tools.search(words))?.map((p) => (seen.set(p.id, p.user), p)) ?? null },
-      () => undefined,
-      stopLoop.signal,
-      known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset }),
-    )
+    const lookups = known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset })
+    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? null, known, true), photoTools(added), () => undefined, stopLoop.signal, lookups)
     let modelAsked = false
     let modelFailure: unknown = null
     let proposed = ''
@@ -336,7 +349,7 @@ export const createStudioService = (deps: StudioDeps) => {
         try {
           const made = await designer.propose(proposal)
           if (made.ask) askedBack = made.ask
-          proposed = made.files.map((f) => ('content' in f ? f.content : 'edits' in f ? f.edits.map((e) => e.replace).join('\n') : '')).join('\n')
+          proposed = textOf(made.files)
           return made
         } catch (error) {
           modelFailure = error
@@ -373,13 +386,7 @@ export const createStudioService = (deps: StudioDeps) => {
       if (!stopped) throw new Error('design_message: written and not found')
       return { ok: true, value: { outcome: 'cancelled', message: stopped } }
     }
-    if (answer.outcome === 'changed') {
-      const used = [...(input.imageAssetId ? [input.imageAssetId] : []), ...added.map((a) => a.assetId)].filter((id) => proposed.includes(id))
-      await withScope(sql, context, async (tx) => {
-        for (const id of used) await makeVisible(tx, storeId, id)
-      })
-      for (const photo of added) if (!proposed.includes(photo.assetId)) logEvent({ event: 'storefront_photo_unplaced', api: 'store', storeId, code: photo.source })
-    }
+    if (answer.outcome === 'changed') await placePhotos(proposed, [...(input.imageAssetId ? [input.imageAssetId] : []), ...(lookups?.listed ?? [])], added)
     const summary = 'summary' in answer ? answer.summary : null
     if (askedBack && answer.outcome === 'unchanged' && summary) return { ok: true, value: { outcome: 'asked', message: await recordAsked(input, text, asked, askedBack, summary.reply, answer.runId) } }
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
@@ -539,16 +546,22 @@ export const createStudioService = (deps: StudioDeps) => {
       let held = building
       const giveBack = (to: PlanFlow) => withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, held, to))
       live.step('reading')
+      // The photos every page added (at most `maxBuildToolCalls` calls in the build), credited once it is recorded.
+      const added: AddedPhoto[] = []
+      let lookups: ReturnType<typeof storeLookups> | null
       let designer: ReturnType<typeof designModel>
       try {
         const known = await currentSummary()
-        designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, null, known), null, () => undefined, undefined, known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset }))
+        lookups = known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset })
+        designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, null, known), photoTools(added), () => undefined, undefined, lookups)
       } catch (error) {
         await giveBack(reopened(flow)).catch(() => undefined)
         throw error
       }
       let modelFailure: unknown = null
       let modelAsked = false
+      // Every page's answer, so a photo any page names counts as placed.
+      let proposed = ''
       const pages: DesignModel = {
         propose: async (proposal) => {
           modelAsked = true
@@ -556,7 +569,9 @@ export const createStudioService = (deps: StudioDeps) => {
           if (!(await withScope(sql, context, (tx) => moveFlow(tx, storeId, row.id, held, renewed)))) throw new Error('studio: the plan’s claim was lost')
           held = renewed
           try {
-            return await designer.propose(proposal)
+            const made = await designer.propose(proposal)
+            proposed += `\n${textOf(made.files)}`
+            return made
           } catch (error) {
             modelFailure = error
             throw error
@@ -581,6 +596,7 @@ export const createStudioService = (deps: StudioDeps) => {
       }
       const built = answer
       const changed = built.pages.filter((p) => p.outcome === 'changed')
+      if (changed.length > 0) await placePhotos(proposed, lookups?.listed ?? [], added)
       const saved = savedBeside(changed.length > 0 ? 'changed' : 'unchanged')
       const outcome: AskAnswer['outcome'] = changed.length > 0 ? 'changed' : built.pages.some((p) => p.outcome === 'refused') ? 'refused' : built.pages.some((p) => p.outcome === 'failed') ? 'failed' : 'unchanged'
       const detail: BuildFlow = { kind: 'build', pages: built.pages.map((p) => ({ page: p.page, title: p.title, outcome: p.outcome })), stopped: built.stopped }
@@ -588,6 +604,7 @@ export const createStudioService = (deps: StudioDeps) => {
         // A claim another request took (this one stalled past `claimMs`) records no second build; a build that built no page
         // leaves the plan open, to build again inside the same unit.
         if (!(await moveFlow(tx, storeId, row.id, held, changed.length > 0 ? { ...held, state: 'built' } : tried))) return 'lost' as const
+        for (const photo of added) await record(tx, { role: 'note', text: designNotes.photoAdded(photo.user, photo.source), imageAssetId: photo.assetId })
         const reply = built.pages.flatMap((p) => (p.reply ? [p.reply] : [])).join('\n').slice(0, 4000)
         const id =
           outcome === 'changed' || outcome === 'unchanged'
