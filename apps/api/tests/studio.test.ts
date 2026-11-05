@@ -258,6 +258,49 @@ describe('an answer of edits (#1238)', () => {
   })
 })
 
+describe('checked as they stream, and the fast lanes (#1240)', () => {
+  const shell = 'src/theme/styles/shell.module.css'
+  /** A model that hands each file to `onFile` as it would stream, then answers with them all. */
+  const streaming = (answers: Proposal['files'][]) => {
+    const asks: { rule: string; step: string; file: string | null }[][] = []
+    const model: DesignModel = {
+      propose: async (input) => {
+        asks.push(input.problems)
+        const files = answers[asks.length - 1] ?? []
+        for (const f of files) await input.onFile?.(f)
+        return { files, model: 'test-model', tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD' }
+      },
+    }
+    return { model, asks }
+  }
+
+  it('hands the repair the pre-check’s type errors with the validator’s refusal, which stopped the gate before its typecheck', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    const wrong = { path: 'src/theme/components/Wrong.tsx', content: 'export const wrong: number = false\n' }
+    const { model, asks } = streaming([[wrong, refusedPage], [lead('Warm linen, slowly made.')]])
+    expect(await runner.change({ request: 'Two things at once', userId: ownerA.userId, billedTo: 'plan', model })).toMatchObject({ outcome: 'changed', repairs: 1 })
+    expect(asks[1]?.map((p) => [p.step, p.file])).toEqual(expect.arrayContaining([['validator', refusedPage.path], ['typecheck', wrong.path]]))
+  })
+
+  it('takes a change whose first file failed its pre-check alone: the final gate on the whole change decides', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    const home = template.find((f) => f.path === 'src/theme/pages/HomePage.tsx')?.content ?? ''
+    const page = { path: 'src/theme/pages/HomePage.tsx', content: home.replace("import { Shell } from '../components/Shell'", "import { Shell } from '../components/Shell'\nimport { Note } from '../components/Note'").replace('</Shell>', '<Note />\n    </Shell>') }
+    const note = { path: 'src/theme/components/Note.tsx', content: 'export const Note = () => null\n' }
+    expect(await runner.change({ request: 'Add a note', userId: ownerA.userId, billedTo: 'plan', model: streaming([[page, note]]).model })).toMatchObject({ outcome: 'changed', repairs: 0 })
+  })
+
+  it('swaps only the frame’s stylesheet for a CSS-only change, and its modules for any other', async () => {
+    const swaps: (string | undefined)[] = []
+    const { runner } = await runnerFor(t.storeA2, { onBundle: (_, swap) => void swaps.push(swap) })
+    await runner.open()
+    const css = { path: shell, edits: [{ search: 'color: var(--color-text, #111827);', replace: 'color: var(--color-text, #800000);' }] }
+    expect(await runner.change({ request: 'Maroon text', userId: ownerA.userId, billedTo: 'plan', model: streaming([[css]]).model })).toMatchObject({ outcome: 'changed' })
+    expect(await runner.change({ request: 'Warmer words', userId: ownerA.userId, billedTo: 'plan', model: streaming([[lead('Warm linen.')]]).model })).toMatchObject({ outcome: 'changed' })
+    expect(swaps).toEqual([undefined, 'stylesheet', 'modules'])
+  })
+})
+
 describe('a model that fails partway', () => {
   it('meters the asks already made as failed, and changes nothing', async () => {
     const { runner } = await runnerFor(t.storeA2)

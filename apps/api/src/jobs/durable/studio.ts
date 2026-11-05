@@ -97,7 +97,7 @@ export const studioSessionClass = (connect: Connect) =>
         capacity: { acquire: () => ledger.acquire(storeId), release: () => ledger.release(storeId) },
         now: () => new Date(),
         newId: () => crypto.randomUUID(),
-        onBundle: (bundle) => this.announce(bundle),
+        onBundle: (bundle, swap) => this.announce(bundle, swap),
         kept: keptChanges({ list: (options) => this.ctx.storage.list(options), put: (entries) => this.ctx.storage.put(entries), delete: (keys) => this.ctx.storage.delete(keys) }),
         background: (work) => this.ctx.waitUntil(work),
         sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -430,8 +430,10 @@ export const studioSessionClass = (connect: Connect) =>
     }
 
     /** The frame's hot reload (AI-STUDIO §4 step 5) to every open frame of this store. */
-    private announce(bundle: ClientBundle): void {
-      const notice = JSON.stringify({ type: 'bundle', id: bundle.id, entry: bundle.entry })
+    /** Core's BundleNotice: the frame swaps only the stylesheets when no script changed (#1240). */
+    private announce(bundle: ClientBundle, swap?: 'stylesheet' | 'modules'): void {
+      const css = bundle.files.filter((f) => f.path.endsWith('.css')).map((f) => f.path)
+      const notice = JSON.stringify({ type: 'bundle', id: bundle.id, entry: bundle.entry, css, ...(swap === 'stylesheet' ? { only: 'stylesheet' } : {}) })
       for (const socket of this.ctx.getWebSockets()) if (!isLiveSocket(this.ctx.getTags(socket))) socket.send(notice)
     }
   }

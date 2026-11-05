@@ -401,3 +401,40 @@ describe('questions and a plan for a vague request (#1243)', () => {
     expect(rules).toContain('at most 3 questions')
   })
 })
+
+describe('the answer’s files as they stream (#1240)', () => {
+  const files: FileEdit[] = [
+    { path: 'src/theme/styles/theme.css', edits: [{ search: '#111', replace: '#222' }] },
+    { path: 'src/theme/pages/HomePage.tsx', content: 'export const HomePage = () => <main />\n' },
+  ]
+  const answer = JSON.stringify({ files, reply: 'Done.', changed: ['Colour'], page: 'home' })
+  const pieces = (text: string, onText?: (text: string) => void) => {
+    for (let at = 0; at < text.length; at += 9) onText?.(text.slice(at, at + 9))
+  }
+
+  it('hands each file to the runner as the one call streams, and still answers with the whole reply', async () => {
+    const provider: AiProvider = { complete: async (c) => (pieces(answer, c.onText), { text: answer, ...spent }) }
+    const streamed: FileEdit[] = []
+    const proposal = await designModel(provider, brief).propose({ request: 'darker ink', theme: [], problems: [], onFile: (f) => void streamed.push(f) })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(streamed).toEqual(files)
+    expect(proposal.files).toEqual(files)
+  })
+
+  it('reads each turn of a tool loop afresh, so the answering turn’s files come through', async () => {
+    const turns: AiTurn[] = [{ ...turn([call('1', 'search_stock_images', { query: 'linen' })]), text: 'Let me look for a {photo' }, { ...turn([]), text: answer }]
+    const provider: AiProvider = {
+      complete: async () => ({ text: answer, ...spent }),
+      converse: async (c) => {
+        const next = turns.shift() ?? turn([])
+        pieces(next.text, c.onText)
+        return next
+      },
+    }
+    const tools: DesignTools = { search: async () => [], add: async () => null }
+    const streamed: FileEdit[] = []
+    await designModel(provider, brief, tools).propose({ request: 'a linen hero', theme: [], problems: [], onFile: (f) => void streamed.push(f) })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(streamed).toEqual(files)
+  })
+})

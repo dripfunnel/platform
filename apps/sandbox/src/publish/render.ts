@@ -86,7 +86,7 @@ export const serverTheme = async (repo: string, work: string): Promise<ServerThe
     logLevel: 'silent',
     plugins: [
       mediaUrlPlugin(),
-      stylesheetPlugin(stylesheet.css),
+      stylesheetPlugin(() => stylesheet.css),
       resolveOwn(),
       { name: 'df-server-entry', setup: (b) => void b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: source, loader: 'js', resolveDir: repo })) },
     ],
