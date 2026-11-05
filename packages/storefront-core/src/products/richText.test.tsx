@@ -54,7 +54,10 @@ describe('RichText (#1216)', () => {
 
   it('does not stop on a long run of open tags', () => {
     expect(html(`<p>${'<b '.repeat(20_000)}`).length).toBeGreaterThan(0)
-    expect(html('<ul>'.repeat(5_000)).length).toBeGreaterThanOrEqual(0)
+    expect(html('<ul>'.repeat(5_000))).toBe('')
+    const deep = html('<ul><li>'.repeat(5_000) + 'deep')
+    expect((deep.match(/<ul>/g) ?? []).length).toBeLessThanOrEqual(8)
+    expect(deep).toContain('deep')
   })
 
   it('never inserts markup as it is', () => {
