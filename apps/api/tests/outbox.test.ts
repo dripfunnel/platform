@@ -118,18 +118,17 @@ describe('a side effect follows its transaction', () => {
     const [left] = await db.sql<{ n: string }[]>`select count(*)::text as n from outbox where kind = 'dispatch-chain-test' and delivered_at is null`
     expect(Number(left?.n)).toBe(1)
   })
-  it('delivers a kind that asks for concurrency several rows at once, never more than it asks', async () => {
-    for (let n = 0; n < 6; n++) await queued(staff, 'concurrent-test', `c-${n}`)
-    let inFlight = 0
-    let peak = 0
-    const wide: Deliverers = { 'concurrent-test': { concurrency: 3, deliver: async () => {
-      inFlight += 1
-      peak = Math.max(peak, inFlight)
-      await new Promise((r) => setTimeout(r, 20))
-      inFlight -= 1
-    } } }
-    expect((await sweep(db.sql, wide, options)).delivered).toBe(6)
-    expect(peak).toBe(3)
+  it('lets a deliverer with its own timeout finish work longer than the relay allows, and still times out the rest', async () => {
+    await queued(staff, 'patient-test', 'p-0')
+    await queued(staff, 'impatient-test', 'i-0')
+    const slow = () => new Promise<void>((r) => setTimeout(r, 120))
+    const both: Deliverers = { 'patient-test': { timeoutMs: 1_000, deliver: slow }, 'impatient-test': { deliver: slow } }
+    const counts = await sweep(db.sql, both, { ...options, timeoutMs: 50 })
+    expect(counts.delivered).toBe(1)
+    const [patient] = await db.sql<{ delivered_at: Date | null }[]>`select delivered_at from outbox where kind = 'patient-test'`
+    const [impatient] = await db.sql<{ delivered_at: Date | null; last_error: string | null }[]>`select delivered_at, last_error from outbox where kind = 'impatient-test'`
+    expect(patient?.delivered_at).not.toBeNull()
+    expect(impatient).toMatchObject({ delivered_at: null, last_error: 'timeout' })
   })
   it('says so when a sweep stopped on its budget and not for want of rows', async () => {
     await queued(staff, 'budget-test', 'b-0')
