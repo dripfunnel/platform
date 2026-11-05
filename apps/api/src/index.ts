@@ -922,11 +922,18 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, reached:
 }
 
 // The relay needs a database and a configuration; without either there is nothing to deliver.
-const relayWith = async (env: Env, work: (sql: postgres.Sql, config: Config) => Promise<void>): Promise<void> => {
-  let config
+/** The configuration, or null when it doesn't parse: a background caller can't answer a request with the error. */
+const configOf = (env: Env): Config | null => {
   try {
-    config = parseConfig(env)
+    return parseConfig(env)
   } catch {
+    return null
+  }
+}
+
+const relayWith = async (env: Env, work: (sql: postgres.Sql, config: Config) => Promise<void>): Promise<void> => {
+  const config = configOf(env)
+  if (!config) {
     logEvent({ event: 'relay_skipped', api: 'system', code: 'config_invalid' })
     return
   }
@@ -1004,13 +1011,7 @@ const handOffSweep = async (env: Env, config: Config): Promise<boolean> => {
 
 // Every host answers 404 unless the request carries RELAY_KEY: only the queue and cron's hand-off can run a sweep here.
 const relayEndpoint = async (request: Request, env: Env): Promise<Response> => {
-  const config = (() => {
-    try {
-      return parseConfig(env)
-    } catch {
-      return null
-    }
-  })()
+  const config = configOf(env)
   const key = request.headers.get('x-relay-key')
   if (request.method !== 'POST' || !config?.RELAY_KEY || !key || !(await sameSecret(key, config.RELAY_KEY))) return new Response(null, { status: 404 })
   await sweepOutbox(env)
@@ -1018,13 +1019,8 @@ const relayEndpoint = async (request: Request, env: Env): Promise<Response> => {
 }
 
 const sweepOrHandOff = async (env: Env): Promise<void> => {
-  let config
-  try {
-    config = parseConfig(env)
-  } catch {
-    return sweepOutbox(env)
-  }
-  if (!(await handOffSweep(env, config))) await sweepOutbox(env)
+  const config = configOf(env)
+  if (!config || !(await handOffSweep(env, config))) await sweepOutbox(env)
 }
 
 // The cron's jobs (api/README.md §5.1). Each catches and logs its own failure, so one never stops the rest of its group.

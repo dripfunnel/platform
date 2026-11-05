@@ -479,10 +479,25 @@ describe('the cron', () => {
 
 describe('the placed relay hand-off (#1301)', () => {
   const key = 'k'.repeat(40)
-  const selfFetcher = () => {
+  const selfFetcher = (status = 204) => {
     const calls: Request[] = []
-    return { calls, fetcher: { fetch: async (input: RequestInfo | URL, init?: RequestInit) => (calls.push(new Request(input, init)), new Response(null, { status: 204 })) } }
+    return { calls, fetcher: { fetch: async (input: RequestInfo | URL, init?: RequestInit) => (calls.push(new Request(input, init)), new Response(null, { status })) } }
   }
+  const logged = async (work: () => Promise<unknown>) => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    let threw = false
+    try {
+      await work()
+    } catch {
+      threw = true
+    } finally {
+      console.log = log
+    }
+    return { events: lines.map((l) => (JSON.parse(l) as { event: string; code?: string })), threw }
+  }
+  const noDatabase = { ...env, HYPERDRIVE: undefined, HYPERDRIVE_REQUIRED: undefined }
 
   it('answers 404 on every host without the right key, or to anything but POST', async () => {
     const keyed = { ...env, RELAY_KEY: key }
@@ -496,6 +511,15 @@ describe('the placed relay hand-off (#1301)', () => {
     expect(unset.status).toBe(404)
   })
 
+  it('runs a sweep and answers 204 to a POST with the right key', async () => {
+    let status = 0
+    const { events } = await logged(async () => {
+      status = (await worker.fetch(new Request('https://relay.internal/__relay', { method: 'POST', headers: { 'x-relay-key': key } }) as never, { ...noDatabase, RELAY_KEY: key } as never, ctx)).status
+    })
+    expect(status).toBe(204)
+    expect(events).toContainEqual(expect.objectContaining({ event: 'relay_skipped', code: 'db_unconfigured' }))
+  })
+
   it('hands the sweep for a wake to SELF with the key, and acks the batch', async () => {
     const { calls, fetcher } = selfFetcher()
     const acked: string[] = []
@@ -507,13 +531,38 @@ describe('the placed relay hand-off (#1301)', () => {
     expect(acked).toEqual(['all'])
   })
 
+  it('leaves the batch unacked when SELF answers with an error, so the queue redelivers it', async () => {
+    const { fetcher } = selfFetcher(500)
+    const acked: string[] = []
+    // No database, so sweeping in place would succeed: only the failed hand-off can throw.
+    const { threw } = await logged(() => worker.queue({ messages: [], ackAll: () => void acked.push('all') } as never, { ...noDatabase, SELF: fetcher, RELAY_KEY: key } as never))
+    expect(threw).toBe(true)
+    expect(acked).toEqual([])
+  })
+
   it('sweeps in place, never calling SELF, when SELF or the key is missing', async () => {
     const { calls, fetcher } = selfFetcher()
     for (const extra of [{ SELF: fetcher }, { RELAY_KEY: key }]) {
       const acked: string[] = []
-      await worker.queue({ messages: [], ackAll: () => void acked.push('all') } as never, { ...env, HYPERDRIVE: undefined, HYPERDRIVE_REQUIRED: undefined, ...extra } as never)
+      const { events } = await logged(() => worker.queue({ messages: [], ackAll: () => void acked.push('all') } as never, { ...noDatabase, ...extra } as never))
+      expect(events).toContainEqual(expect.objectContaining({ event: 'relay_skipped', code: 'db_unconfigured' }))
       expect(acked).toEqual(['all'])
     }
     expect(calls).toHaveLength(0)
+  })
+
+  it('hands the sweep of the every-minute cron to SELF instead of sweeping in place', async () => {
+    const { calls, fetcher } = selfFetcher()
+    // Against an unreachable database, sweeping in place would throw; handed off, the run completes.
+    const { threw } = await logged(() => worker.scheduled({ cron: '* * * * *' } as never, { ...unreachable, SELF: fetcher, RELAY_KEY: key } as never))
+    expect(calls).toHaveLength(1)
+    expect(threw).toBe(false)
+  })
+
+  it('fails the cron run when SELF answers with an error', async () => {
+    const { calls, fetcher } = selfFetcher(500)
+    const { threw } = await logged(() => worker.scheduled({ cron: '* * * * *' } as never, { ...unreachable, SELF: fetcher, RELAY_KEY: key } as never))
+    expect(calls).toHaveLength(1)
+    expect(threw).toBe(true)
   })
 })
