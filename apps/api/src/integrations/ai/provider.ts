@@ -18,7 +18,7 @@ export interface AiCall {
   context?: readonly string[]
   text: string
   images: readonly AiImage[]
-  /** Each piece of the answer's text as it streams through the router (studio chat mode, AI-STUDIO §4); the answer still comes whole. */
+  /** Each piece of the answer's text as it streams (chat mode's words, a change's pre-check; AI-STUDIO §4); the answer still comes whole. */
   onText?: (text: string) => void
 }
 
@@ -44,7 +44,8 @@ export interface AiTurn extends AiAnswer {
 export interface AiProvider {
   complete: (call: AiCall) => Promise<AiAnswer>
   /** Only a provider that reaches the router carries tools; without it the designer makes its one call and no more. */
-  converse?: (call: { system: string; cacheSystem?: boolean; messages: readonly CanonicalMessage[]; tools: readonly CanonicalTool[]; toolChoice?: 'auto' | 'none'; signal?: AbortSignal }) => Promise<AiTurn>
+  /** `onText`: each piece of the turn's text as it streams (the studio's pre-check, #1240); the turn still comes whole. */
+  converse?: (call: { system: string; cacheSystem?: boolean; messages: readonly CanonicalMessage[]; tools: readonly CanonicalTool[]; toolChoice?: 'auto' | 'none'; signal?: AbortSignal; onText?: (text: string) => void }) => Promise<AiTurn>
 }
 
 /** The model refused, or answered nothing usable: the change is refused and nothing changes. */
@@ -105,14 +106,14 @@ export const anthropicProvider = (apiKey: string, model: string = designerModel)
   return {
     complete: async (call) => {
       try {
-        const message = await client.messages
-          .stream({
-            model,
-            max_tokens: capabilityOf('anthropic', model)?.maxOutputTokens ?? 64_000,
-            output_config: { effort: 'high' },
-            ...messagesOf(call),
-          })
-          .finalMessage()
+        const stream = client.messages.stream({
+          model,
+          max_tokens: capabilityOf('anthropic', model)?.maxOutputTokens ?? 64_000,
+          output_config: { effort: 'high' },
+          ...messagesOf(call),
+        })
+        if (call.onText) stream.on('text', call.onText)
+        const message = await stream.finalMessage()
         if (message.stop_reason === 'refusal') throw new AiDeclined('the model declined')
         const text = message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('')
         const { tokensIn, tokensOut, cache } = sdkUsage(message.usage)
@@ -149,7 +150,7 @@ export const routedDesignerProvider = (router: Router, model: string, options: {
     try {
       const routed = await router.stream(request, call.signal)
       options.onRouted?.(routed)
-      const answer = await collectStream(routed.value)
+      const answer = await collectStream(call.onText ? tapText(routed.value, call.onText) : routed.value)
       const wantsTools = answer.finish === 'tool_use' && answer.toolCalls.length > 0
       if (!wantsTools && answer.finish !== 'stop') throw new AiDeclined(answer.finish === 'refusal' ? 'the model declined' : 'the answer was cut short')
       const { route } = routed
@@ -191,11 +192,13 @@ export const anthropicOAuthDesignerProvider = (authToken: string, model: string 
   return {
     complete: async (call) => {
       try {
-        const message = await client.messages.stream({
+        const stream = client.messages.stream({
           model,
           max_tokens: capabilityOf('anthropic', model)?.maxOutputTokens ?? 64_000,
           ...messagesOf(call),
-        }).finalMessage()
+        })
+        if (call.onText) stream.on('text', call.onText)
+        const message = await stream.finalMessage()
         if (message.stop_reason === 'refusal') throw new AiDeclined('the model declined')
         const text = message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
         const { tokensIn, tokensOut, cache } = sdkUsage(message.usage)

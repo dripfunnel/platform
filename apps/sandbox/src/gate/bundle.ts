@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { build, type Message, type Plugin } from 'esbuild'
+import { dirname, join } from 'node:path'
+import { build, context, type BuildContext, type BuildOptions, type Message, type Metafile, type OutputFile, type Plugin } from 'esbuild'
 import { z } from 'zod'
 import { readThemeStyling, themeStylesheet } from '@dripfunnel/storefront-core/guard'
 import type { GateProblem } from './problems'
@@ -69,14 +69,17 @@ export const mediaUrlPlugin = (origin: string | null = null): Plugin => ({
   },
 })
 
-const runtimePlugin = (entry: string, tailwind: string | null): Plugin => ({
+/** What the generated entry and the Tailwind stylesheet hold for the next build; a warm context reads it at each one. */
+type Generated = { entry: string; tailwind: string | null }
+
+const runtimePlugin = (generated: Generated): Plugin => ({
   name: 'df-runtime',
   setup(b) {
     b.onResolve({ filter: /^df:entry$/ }, () => ({ path: entryName, namespace: 'df' }))
-    b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: entry, loader: 'ts', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
+    b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: generated.entry, loader: 'ts', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
     // The theme's Tailwind classes, built by core (guard's themeStylesheet), go through the same CSS step as its modules.
     b.onResolve({ filter: /^df:tailwind$/ }, () => ({ path: 'tailwind.css', namespace: 'df-tailwind' }))
-    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: tailwind ?? '', loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
+    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: generated.tailwind ?? '', loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
     b.onResolve({ filter: /^df:boot$/ }, () => ({ path: `./core/${bootModule}`, external: true }))
     b.onResolve({ filter: /^[^./]/ }, (args) => {
       const file = runtimeModules[args.path]
@@ -115,19 +118,11 @@ const html = (entry: string, css: readonly string[]) =>
     '',
   ].join('\n')
 
-/** Bundles the working copy at `repo` into `out` (replaced whole); the paths in the result are relative to `out`. */
-export const bundle = async (repo: string, out: string, mediaOrigin: string | null = null): Promise<{ ok: true; bundle: ClientBundle } | { ok: false; problems: GateProblem[] }> => {
-  await rm(out, { recursive: true, force: true })
-  await mkdir(out, { recursive: true })
-  const tailwind = await themeStylesheet(readThemeStyling(repo))
-  if (!tailwind.ok) return { ok: false, problems: tailwind.problems.map((p) => ({ step: 'bundle', ...p })) }
-  let source: string
-  try {
-    source = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo), tailwind.css !== null)
-  } catch {
-    return { ok: false, problems: [{ step: 'bundle', file: 'routes.json', line: null, rule: 'bundle/routes', message: "routes.json or content/** can't be read." }] }
-  }
-  const result = await build({
+type Bundled = { ok: true; bundle: ClientBundle } | { ok: false; problems: GateProblem[] }
+type Built = { errors: Message[]; metafile?: Metafile | undefined; outputFiles?: OutputFile[] | undefined }
+
+const optionsFor = (repo: string, out: string, mediaOrigin: string | null, generated: Generated) =>
+  ({
     absWorkingDir: repo,
     entryPoints: [entryName],
     bundle: true,
@@ -142,11 +137,30 @@ export const bundle = async (repo: string, out: string, mediaOrigin: string | nu
     chunkNames: 'chunk-[hash]',
     assetNames: 'asset-[hash]',
     metafile: true,
-    write: true,
+    // Written here, not by esbuild: `out` starts empty each time, and a warm rebuild may skip a file it already wrote.
+    write: false,
     logLevel: 'silent',
-    plugins: [mediaUrlPlugin(mediaOrigin), runtimePlugin(source, tailwind.css)],
-  }).catch((error: { errors?: Message[] }) => ({ errors: error.errors ?? [{ text: String(error) } as Message], metafile: undefined }))
+    plugins: [mediaUrlPlugin(mediaOrigin), runtimePlugin(generated)],
+  }) satisfies BuildOptions
+
+/** The working copy at `repo` into `out` (replaced whole) by `run`: a one-off build, or a warm context's rebuild. */
+const bundleWith = async (repo: string, out: string, generated: Generated, run: () => Promise<Built>): Promise<Bundled> => {
+  await rm(out, { recursive: true, force: true })
+  await mkdir(out, { recursive: true })
+  const tailwind = await themeStylesheet(readThemeStyling(repo))
+  if (!tailwind.ok) return { ok: false, problems: tailwind.problems.map((p) => ({ step: 'bundle', ...p })) }
+  try {
+    generated.entry = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo), tailwind.css !== null)
+  } catch {
+    return { ok: false, problems: [{ step: 'bundle', file: 'routes.json', line: null, rule: 'bundle/routes', message: "routes.json or content/** can't be read." }] }
+  }
+  generated.tailwind = tailwind.css
+  const result = await run().catch((error: { errors?: Message[] }): Built => ({ errors: error.errors ?? [{ text: String(error) } as Message] }))
   if (result.errors.length > 0 || !result.metafile) return { ok: false, problems: result.errors.map(problemOf) }
+  for (const file of result.outputFiles ?? []) {
+    await mkdir(dirname(file.path), { recursive: true })
+    await writeFile(file.path, file.contents)
+  }
 
   const outputs = Object.entries(result.metafile.outputs).map(([path, o]) => ({ path: path.slice(path.indexOf('assets/')), bytes: o.bytes, entry: o.entryPoint !== undefined }))
   const entry = outputs.find((o) => o.entry && o.path.endsWith('.js'))
@@ -156,4 +170,39 @@ export const bundle = async (repo: string, out: string, mediaOrigin: string | nu
   const files = [{ path: 'index.html', bytes: Buffer.byteLength(page) }, ...outputs.map(({ path, bytes }) => ({ path, bytes }))]
   const id = createHash('sha256').update(files.map((f) => f.path).sort().join('\n')).digest('hex').slice(0, 16)
   return { ok: true, bundle: { id, entry: entry.path, files } }
+}
+
+/** Bundles the working copy at `repo` into `out` (replaced whole); the paths in the result are relative to `out`. */
+export const bundle = (repo: string, out: string, mediaOrigin: string | null = null): Promise<Bundled> => {
+  const generated: Generated = { entry: '', tailwind: null }
+  return bundleWith(repo, out, generated, () => build(optionsFor(repo, out, mediaOrigin, generated)))
+}
+
+/** One slot's bundle with its esbuild context kept between changes (#1240), so a rebuild reparses only what changed. */
+export class WarmBundle {
+  private readonly generated: Generated = { entry: '', tailwind: null }
+  private context: BuildContext<ReturnType<typeof optionsFor>> | null = null
+  /** How many esbuild contexts this bundle has made: one for as long as the slot keeps its draft. */
+  contexts = 0
+
+  constructor(
+    private readonly repo: string,
+    private readonly out: string,
+  ) {}
+
+  run(): Promise<Bundled> {
+    return bundleWith(this.repo, this.out, this.generated, async () => {
+      if (!this.context) {
+        this.context = await context(optionsFor(this.repo, this.out, null, this.generated))
+        this.contexts += 1
+      }
+      return this.context.rebuild()
+    })
+  }
+
+  async dispose(): Promise<void> {
+    const open = this.context
+    this.context = null
+    await open?.dispose()
+  }
 }

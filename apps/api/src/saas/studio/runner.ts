@@ -11,6 +11,7 @@ import { changedFiles, type KeptChange, type KeptChanges } from './kept'
 import type { LiveEvent } from './live'
 import { maxRepairs, type DesignModel, type FileEdit, type Proposal, type ProposalSummary } from './model'
 import { applyEdits } from './patches'
+import { StreamedChecks, withPrechecked } from './streamed'
 import { pageTexts, withText } from './texts'
 import { templateChange } from './template'
 
@@ -40,8 +41,8 @@ export interface StudioDeps {
   capacity: StudioCapacity
   now: () => Date
   newId: () => string
-  /** Each new client bundle, for the frame's hot reload (AI-STUDIO §4 step 5). */
-  onBundle: (bundle: ClientBundle) => void
+  /** Each new client bundle, for the frame's hot reload (AI-STUDIO §4 step 5); `stylesheet` when no script changed. */
+  onBundle: (bundle: ClientBundle, swap?: 'stylesheet' | 'modules') => void
   /** Accepted changes in the object's own storage until their save is written (kept.ts). */
   kept: KeptChanges
   /** Work that outlives the call, as the save after the frame's swap: the Durable Object's waitUntil. */
@@ -689,7 +690,11 @@ export class StudioRunner {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         progress(attempt === 0 ? { type: 'step', step: 'asking' } : { type: 'step', step: 'repairing', attempt, of: maxRepairs })
-        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous }), stopping])
+        const streamed = new StreamedChecks(theme, async (changes) => {
+          if (!this.client) return []
+          return (await this.client.precheck(changes, context)).problems
+        })
+        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous, onFile: streamed.add }), stopping])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         if (proposal.summary?.reply && !summarised) {
           summarised = true
@@ -725,7 +730,8 @@ export class StudioRunner {
           after = applied.after
           break
         }
-        problems = done.result.problems
+        // The pre-check of this very change may name what the refusing step stopped before (#1240).
+        problems = withPrechecked(done.result.problems, await streamed.problemsFor(applied.changes))
         run.sandboxed = false
       }
     } catch (error) {
@@ -795,7 +801,7 @@ export class StudioRunner {
       files: changedFiles(change.before, change.after),
     })
     this.start = start
-    this.deps.onBundle(result.bundle)
+    this.deps.onBundle(result.bundle, result.swap)
     this.later(seq, saved)
     return previewRef
   }
