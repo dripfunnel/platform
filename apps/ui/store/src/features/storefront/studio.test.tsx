@@ -956,4 +956,69 @@ describe('a vague request’s questions, plan and build (#1243)', () => {
     await settle()
     expect(api.undoDesignChange).toHaveBeenCalledWith('m7')
   })
+
+  it('says which page stopped a build: refused, or couldn’t be built', async () => {
+    const pages = (outcome: 'refused' | 'failed') => [
+      { page: 'home', title: 'Home', outcome: 'changed' as const },
+      { page: 'product', title: 'Product', outcome },
+      { page: 'about', title: 'About', outcome: 'left' as const },
+    ]
+    for (const outcome of ['refused', 'failed'] as const) {
+      await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('m8', 'ai', '', { canUndo: true, build: { stopped: false, pages: pages(outcome) } }), vague], next: null }) })
+      expect(screen.getByText(fill(c.build[outcome], { at: '2', count: '3', title: 'Product' }))).toBeTruthy()
+      expect(screen.getByText(fill(c.build.outcomes[outcome], { title: 'Product' }))).toBeTruthy()
+      cleanup()
+    }
+  })
+
+  it('sends words under an open plan as a new request when an image is attached, or in Chat mode', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [planned, vague, ...chat], next: null }) })
+    fireEvent.change(document.querySelector('input[type=file]') as HTMLInputElement, { target: { files: [new File(['x'], 'mood.png', { type: 'image/png' })] } })
+    await settle()
+    fireEvent.change(prompt(), { target: { value: 'Use this photo' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenLastCalledWith(expect.objectContaining({ text: 'Use this photo', imageAssetId: 'a-photo', mode: 'change' }))
+    fireEvent.click(screen.getByRole('button', { name: c.modeChat }))
+    fireEvent.change(prompt(), { target: { value: 'Is this plan good?' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenLastCalledWith(expect.objectContaining({ text: 'Is this plan good?', mode: 'chat' }))
+    expect(api.changeDesignPlan).not.toHaveBeenCalled()
+  })
+
+  it('words a plan that couldn’t be written, with no Try again: the questions stay open to answer again', async () => {
+    const failed = line('m9', 'error', 'plan_failed')
+    const reads = vi.fn().mockResolvedValueOnce({ messages: [asking, vague, ...chat], next: null }).mockResolvedValue({ messages: [failed, asking, vague, ...chat], next: null })
+    await show({ loadDesignChat: reads, answerDesignQuestions: vi.fn().mockResolvedValue('failed') })
+    fireEvent.click(screen.getByRole('button', { name: q.answer }))
+    await settle()
+    expect(screen.getByText(c.planError)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: c.retry })).toBeNull()
+    expect(screen.getByRole('button', { name: q.answer })).toBeTruthy()
+    expect(api.askDesign).not.toHaveBeenCalled()
+  })
+
+  it('says why a plan can’t be answered or changed again', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [asking, vague, ...chat], next: null }), answerDesignQuestions: vi.fn().mockRejectedValue(new ApiError('PLAN_GONE', 'Gone.')) })
+    fireEvent.click(screen.getByRole('button', { name: q.answer }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(c.refused.PLAN_GONE)
+    cleanup()
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [planned, vague, ...chat], next: null }), changeDesignPlan: vi.fn().mockRejectedValue(new ApiError('PLAN_CHANGES_USED', 'Used.')) })
+    fireEvent.change(prompt(), { target: { value: 'Once more' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(c.refused.PLAN_CHANGES_USED)
+    expect(prompt().value).toBe('Once more')
+  })
+
+  it('shows open questions and an open plan read-only while the studio is locked', async () => {
+    await show({ loadStudioSession: vi.fn().mockResolvedValue({ ...ready, state: 'busy' }), loadDesignChat: vi.fn().mockResolvedValue({ messages: [planned, asking, vague], next: null }) })
+    expect(screen.getByText('Here is my plan.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: q.answer })).toBeNull()
+    expect(screen.queryByRole('button', { name: q.skip })).toBeNull()
+    expect(screen.queryByRole('button', { name: c.plan.build })).toBeNull()
+    for (const radio of screen.getAllByRole('radio')) expect(radio.closest('fieldset')?.disabled).toBe(true)
+  })
 })
