@@ -21,6 +21,7 @@ import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyInputType, moneyType, pageInfoType, type Money, type StoreBuilder } from './builder'
+import { assetUrl } from './products'
 import { storePage } from './refusals'
 
 // Abandoned carts' Reminders tab (FIRST-RELEASE §9, §19; Carts): the merchant side's alone. Owner and Manager save it,
@@ -181,6 +182,7 @@ export const registerCartReminders = (builder: StoreBuilder) => {
       productId: t.exposeID('productId'),
       name: t.exposeString('name'),
       slug: t.exposeString('slug'),
+      photoUrl: t.string({ nullable: true, resolve: (w) => (w.photoAssetId ? assetUrl(w.photoAssetId) : null) }),
       // The cheapest version's price in the cart's currency.
       price: t.field({ type: MoneyType, nullable: true, resolve: (w) => (w.price ? { amount: w.price.amount.toString(), currency: w.price.currency } : null) }),
     }),

@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-11-05 (#1243: `design_message` questions and plan roles and `detail`, migration 0384, §7.8). Before: 2026-11-04 (#1242: `product_rank`, migration 0383, §7.3, §7.11). Before: 2026-11-04 (#1213: `wishlist_item`, migration 0382, §7.6). Before: 2026-11-04 (#1211: `design_draft.base_version_id` is set and read, §7). Before: 2026-11-03 (#1178: `catalog_import.inventory` and `warehouse_map`, migration 0379, §7). Before: 2026-11-03 (#1186: a sign-in links guest orders to the customer, `customer` notes). Before: 2026-11-02 (#1008: 2-factor optional for everyone, §4). Before: 2026-10-31 (#1056: archiving ends the subscription through `partner_end_subscription()`, migration 0378, §2.4, §5.3). Before: 2026-10-31 (#1061: the role and settings in one statement, §5.1, §5.3). Before: 2026-10-29 (#874: rider export and erasure, `erase_rider_labels()`, §3.6, §5.3). Before: 2026-10-28 (#852: `store_delivery_app`, migration 0371, §3.8). Before: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
+Last updated: 2026-11-05 (#1215: wishlist reminders, migration 0385, §7.6). Before: 2026-11-05 (#1243: `design_message` questions and plan roles and `detail`, migration 0384, §7.8). Before: 2026-11-04 (#1242: `product_rank`, migration 0383, §7.3, §7.11). Before: 2026-11-04 (#1213: `wishlist_item`, migration 0382, §7.6). Before: 2026-11-04 (#1211: `design_draft.base_version_id` is set and read, §7). Before: 2026-11-03 (#1178: `catalog_import.inventory` and `warehouse_map`, migration 0379, §7). Before: 2026-11-03 (#1186: a sign-in links guest orders to the customer, `customer` notes). Before: 2026-11-02 (#1008: 2-factor optional for everyone, §4). Before: 2026-10-31 (#1056: archiving ends the subscription through `partner_end_subscription()`, migration 0378, §2.4, §5.3). Before: 2026-10-31 (#1061: the role and settings in one statement, §5.1, §5.3). Before: 2026-10-29 (#874: rider export and erasure, `erase_rider_labels()`, §3.6, §5.3). Before: 2026-10-28 (#852: `store_delivery_app`, migration 0371, §3.8). Before: 2026-10-28 (#868: `store_app_assets`, the store's apps' icon, splash and listing text, migration 0369, §3.7). Before: 2026-10-27 (#858: what `app_shop` reads of a delivery, its rider, position and the rider's photo, migration 0367, §7.12). Before: 2026-10-26 (#843: `fulfilment.kind` `local`, `stock_movement` by a `rider`, the delivery's area, fee, failed note
 and step key (0365), what `app_rider` reads of a delivery's warehouse, lines and customer, §7.6, §7.12). Before: 2026-10-26 (#842: dispatch, offer rounds and positions; the merchant role's column grants on delivery and offers, no request role reads the handover code). Before: 2026-10-26 (#841: own delivery's settings and checkout option built (0363): the `store_shipping` and `warehouse` columns, `"order".delivery_warehouse_id` and `shipping_option` `own_delivery`, `shop_delivering_warehouse()`, §5.3, §7.2, §7.6, §7.11, §7.12). Before: 2026-10-26 (#840: `push_device` built (0362), the rider's own phones as `app_rider` and the merchant deleting its riders' with suspension and removal, §3.6, §5.3). Before: 2026-10-24 (#897: `storefront_changed()` and `storefront_store_changed()` listed in the `app_definer` row, §5.3). Before: 2026-10-23 (#839: the `app_rider` role and the activity log's `rider` actor and `delivery` API (0360), §3.6, §5.3). Before: 2026-10-23 (#838: `rider`, `rider_session` and `rider_code` built (0359), §3.6). Before: 2026-10-22 (riders §3.6 and own delivery §7.12, proposed: api/DELIVERY.md). Before: 2026-10-22 (#815: `warehouse.latitude` and `longitude` (0358), §7.4). Before: 2026-10-21 (#814: `customer_address.latitude` and `longitude` (0357), cleared when the address is deleted, or when a merchant's edit changes the place). Before: 2026-10-15 (#744, #745: `store.slug` built (0354) with its backfill; `partner_domain`'s shops kind retired (0355); `storefront.preview_key` kept until #746, §2.1, §7.8). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
@@ -1802,6 +1802,28 @@ wishlist_item       (store_id, customer_id, product_id, created_at)   PRIMARY KE
                     -- app.customer_id); the merchant side (app_request, store scope, no seller) only
                     -- reads, for an abandoned cart's page; a supplier and a support session write
                     -- nothing. Index (store_id, customer_id, created_at desc) lists a shopper's
+                    -- wishlist newest first.
+customer            -- Built on #1215 (0385): wishlist_reminders_stopped_at, _by_user_id and _note, the
+                    -- team's "Stop reminders" for one shopper's wishlist (the note is free text kept
+                    -- here, never in the activity log). A shopper's own unsubscribe is
+                    -- consent_state, shared with cart reminders.
+wishlist_reminder_flow (store_id PK, enabled boolean, skip_out_of_stock boolean, quiet_hours boolean,
+                    weekly_cap boolean, updated_at, revision integer)
+wishlist_reminder_step (id, store_id, position 1-3, enabled boolean, delay_minutes 30-10080,
+                    subject <= 120, body <= 500)   UNIQUE (store_id, position)
+wishlist_reminder   (id, store_id, customer_id, step_id NULL, sent_by_user_id NULL,
+                    state queued|sent|skipped, skip_reason NULL, saved_at, link_token_hash NULL,
+                    queued_at, sent_at NULL)
+                    -- Built on #1215 (0385): the Wishlists tab's reminders, email only, with the
+                    -- same plan entitlement as cart reminders (cart_reminders). A step is due once
+                    -- the shopper's newest saved product has sat for its delay; UNIQUE
+                    -- (customer_id, step_id, saved_at) where step_id is not null queues each step
+                    -- once per time they last saved, so saving again starts the sequence over.
+                    -- step_id null is one sent by hand (sent_by_user_id). saved_at is the wishlist's
+                    -- newest save the reminder was for; link_token_hash is the unsubscribe and
+                    -- "See your wishlist" link's token (only the hash is stored). The merchant side (store scope,
+                    -- no seller) reads all three and saves the flow and steps; only the system role queues,
+                    -- sends and writes reminders, and the unsubscribe link finds one by its token hash.
 ```
 
 Order events (placed, paid, shipped, return started, refunded, "sent to warehouse by
@@ -2426,7 +2448,7 @@ decide which columns and which tables each caller kind may select at all**. `app
   `customer_group`, `customer_group_member`, `story_block` (inside the store for writes; its
   shop read branch is above), `access_request`, `webhook_endpoint`, `webhook_delivery`,
   `external_connection`, `api_key`, `app_grant`, `invitation` (§3.3), `cart_reminder`,
-  `cart_reminder_flow`, `cart_reminder_step`, `store_ai_account`, `store_billing_details`, `product_rank` (its shop
+  `cart_reminder_flow`, `cart_reminder_step`, `wishlist_reminder`, `wishlist_reminder_flow`, `wishlist_reminder_step`, `store_ai_account`, `store_billing_details`, `product_rank` (its shop
   branch reads the position only, §7.3),
   `licence_key` (merchant side only: `insert` and a count, never `select` on `key`; its **shop
   branch** is the keys its own order took, through `order_line`'s; #323), `order_download` (shop

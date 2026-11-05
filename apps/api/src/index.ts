@@ -87,7 +87,8 @@ import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectio
 import { ratesRefreshDeliverer, ratesRefreshKind } from '#jobs/queues/deliverers/ratesRefresh'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
-import { cartRemindKind, markAbandonedCarts, queueDueReminders } from '#engine/modules/cartReminders/index'
+import { wishlistRemindDeliverer } from '#jobs/queues/deliverers/wishlistRemind'
+import { cartRemindKind, markAbandonedCarts, queueDueReminders, queueDueWishlistReminders, wishlistRemindKind } from '#engine/modules/cartReminders/index'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
@@ -313,6 +314,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, shopDomain: config.SHOP_DOMAIN ?? null, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
     ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
+    ...(ses ? { [wishlistRemindKind]: wishlistRemindDeliverer(sql, ses.suppressionKey) } : {}),
     ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     ...(push ? { [pushKind]: pushDeliverer(sql, push), [pushReceiptsKind]: pushReceiptsDeliverer(sql, push) } : {}),
@@ -1105,6 +1107,15 @@ const queueReminders: CronJob = async (sql) => {
   if (reminded > 0) logEvent({ event: 'cart_reminders_queued', api: 'system', code: 'due', count: reminded })
 }
 
+// Each wishlist reminder step now due is queued once (FIRST-RELEASE §9).
+const queueWishlistReminders: CronJob = async (sql) => {
+  const reminded = await queueDueWishlistReminders({ sql, now: () => new Date() }, 200).catch((error: unknown) => {
+    logEvent({ event: 'wishlist_reminders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (reminded > 0) logEvent({ event: 'wishlist_reminders_queued', api: 'system', code: 'due', count: reminded })
+}
+
 const refreshRates: CronJob = async (sql) => {
   await queueRatesRefresh(sql, new Date()).catch((error: unknown) => {
     logEvent({ event: 'rates_refresh_queue_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
@@ -1203,7 +1214,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [sweepDeliveries, expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
-  '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
+  '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, queueWishlistReminders, autoPublish],
   '0 * * * *': [refreshRates, rankProducts, purgeExpiredExports, purgeShopperSignIns, purgeRiderCodes, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],
 }

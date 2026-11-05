@@ -232,7 +232,7 @@ runs hourly or less often.
 | Cron | Jobs |
 |---|---|
 | `* * * * *` | the dispatch sweep (searching deliveries past their offer time to `unassigned`, stale rider positions deleted and those riders offline; api/DELIVERY.md §3), expired SMS, due core rollouts advanced, then the outbox relay (the backstop for any wake that never arrived), then due posts published |
-| `*/5 * * * *` | due domain checks, stuck exports and imports failed, unpaid orders released, ended trials, overdue stores suspended, abandoned carts marked, due cart reminders queued |
+| `*/5 * * * *` | due domain checks, stuck exports and imports failed, unpaid orders released, ended trials, overdue stores suspended, abandoned carts marked, due cart reminders and wishlist reminders queued |
 | `0 * * * *` | exchange-rate refresh, every store's best-seller ranking (`product_rank`, DATA-MODEL §7.3), expired exports and imports deleted with stale and abandoned Shopify connections, shopper sign-in codes and sessions purged, unfinished sign-ups purged |
 | `0 3 * * *` (UTC) | expired carts purged, webhook delivery log past a month purged, the storefront buckets cleaned (old builds, preview folders a publish made old, stores closed 90 days; storefront LIVE-SHOP.md §4 step 11, #317), the real-user vitals regression rule (storefront ARCHITECTURE §9, #484) |
 
