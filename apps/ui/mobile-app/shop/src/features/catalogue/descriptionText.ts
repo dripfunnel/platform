@@ -15,27 +15,61 @@ export const hasMarkup = (stored: string): boolean => /^\s*<(?:p|ul|ol)>/.test(s
 const dropWithContent = new Set(['script', 'style', 'template', 'noscript', 'iframe', 'object', 'embed', 'textarea', 'title'])
 /** Deep enough for any list a person writes, and what keeps a hostile one from growing the text. */
 const maxIndent = 4
-const tag = /<!--[\s\S]*?-->|<(\/?)([a-z][a-z0-9]*)\b[^>]*>/gi
+const tagStart = /<(\/?)([a-z][a-z0-9]*)\b/iy
 
 export const plainTextOfDescription = (stored: string): string => {
   if (!hasMarkup(stored)) return stored
   const lists: { ordered: boolean; count: number }[] = []
-  let out = ''
-  // Looks only at the end of the text, so a long description is not scanned again for every tag.
-  const breakTo = (lines: number) => {
-    let end = out.length
-    while (end > 0 && (out[end - 1] === ' ' || out[end - 1] === '\t')) end -= 1
-    out = out.slice(0, end)
-    if (out === '') return
-    let have = 0
-    while (have < lines && out[end - 1 - have] === '\n') have += 1
-    if (have < lines) out += '\n'.repeat(lines - have)
+  // The text is kept in parts and only its last few characters are ever read: reading the end of one long string each time is quadratic.
+  const parts: string[] = []
+  const add = (text: string) => {
+    if (text !== '') parts.push(text)
   }
-  tag.lastIndex = 0
+  const breakTo = (lines: number) => {
+    while (parts.length > 0) {
+      const last = parts[parts.length - 1] ?? ''
+      const trimmed = last.replace(/[ \t]+$/, '')
+      if (trimmed === '') parts.pop()
+      else {
+        parts[parts.length - 1] = trimmed
+        break
+      }
+    }
+    if (parts.length === 0) return
+    let have = 0
+    for (let i = parts.length - 1; i >= 0 && have < lines; i -= 1) {
+      const part = parts[i] ?? ''
+      let j = part.length - 1
+      while (j >= 0 && part[j] === '\n' && have < lines) {
+        have += 1
+        j -= 1
+      }
+      if (j >= 0) break
+    }
+    if (have < lines) add('\n'.repeat(lines - have))
+  }
+  // A search that finds no end ends the scan: nothing after it could have one either, so the work stays linear.
   let at = 0
-  for (let m = tag.exec(stored); m !== null; m = tag.exec(stored)) {
-    out += decode(stored.slice(at, m.index).replace(/\s+/g, ' '))
-    at = tag.lastIndex
+  while (at < stored.length) {
+    const lt = stored.indexOf('<', at)
+    if (lt === -1) break
+    add(decode(stored.slice(at, lt).replace(/\s+/g, ' ')))
+    at = lt
+    if (stored.startsWith('<!--', lt)) {
+      const close = stored.indexOf('-->', lt + 4)
+      at = close === -1 ? stored.length : close + 3
+      continue
+    }
+    tagStart.lastIndex = lt
+    const m = tagStart.exec(stored)
+    if (!m) {
+      add('<')
+      at = lt + 1
+      continue
+    }
+    const gt = stored.indexOf('>', lt + m[0].length)
+    if (gt === -1) break
+    at = gt + 1
     const [, closing, rawName] = m
     const name = rawName?.toLowerCase() ?? ''
     if (!closing && dropWithContent.has(name)) {
@@ -43,10 +77,9 @@ export const plainTextOfDescription = (stored: string): string => {
       stop.lastIndex = at
       const found = stop.exec(stored)
       at = found ? found.index + found[0].length : stored.length
-      tag.lastIndex = at
       continue
     }
-    if (name === 'br') out += '\n'
+    if (name === 'br') add('\n')
     else if (name === 'p') breakTo(2)
     else if (name === 'ul' || name === 'ol') {
       if (closing) lists.pop()
@@ -57,10 +90,10 @@ export const plainTextOfDescription = (stored: string): string => {
       if (!closing) {
         const list = lists.at(-1)
         if (list) list.count += 1
-        out += `${'  '.repeat(Math.min(Math.max(lists.length - 1, 0), maxIndent))}${list?.ordered ? `${list.count}.  ` : '•  '}`
+        add(`${'  '.repeat(Math.min(Math.max(lists.length - 1, 0), maxIndent))}${list?.ordered ? `${list.count}.  ` : '•  '}`)
       }
     }
   }
-  out += decode(stored.slice(at).replace(/\s+/g, ' '))
-  return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+  add(decode(stored.slice(at).replace(/\s+/g, ' ')))
+  return parts.join('').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
 }

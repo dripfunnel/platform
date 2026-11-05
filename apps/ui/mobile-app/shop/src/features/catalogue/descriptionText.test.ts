@@ -49,6 +49,20 @@ describe('a product description as plain words (#1272)', () => {
     expect(Date.now() - started).toBeLessThan(1_000)
   })
 
+  it('stays quick on unclosed comments, unclosed tags and stray < signs, thousands of them', () => {
+    for (const unit of ['<!--', '<a ', '<', '<p ', '<ul><li ', '<script ']) {
+      const started = Date.now()
+      const text = words(`<p>${unit.repeat(40_000)}`)
+      expect(text.length).toBeLessThan(400_000)
+      expect(Date.now() - started).toBeLessThan(1_000)
+    }
+  })
+
+  it('keeps what follows an unclosed tag as text, and drops what follows an unclosed comment', () => {
+    expect(words('<p>One</p><p>Two <a href="x')).toBe('One\n\nTwo <a href="x')
+    expect(words('<p>One</p><!-- never closed <p>Two</p>')).toBe('One')
+  })
+
   it('says whether a description was stored as formatted text', () => {
     expect(hasMarkup('<p>Soft</p>')).toBe(true)
     expect(hasMarkup('  <ul><li>One</li></ul>')).toBe(true)
