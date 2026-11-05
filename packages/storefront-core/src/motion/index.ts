@@ -37,9 +37,8 @@ export function useSpring<T extends string | number>(source: MotionValue<T> | T,
   const settings = JSON.stringify(options)
   useInsertionEffect(() => {
     if (!still) return attachSpring(value, source, options)
-    if (!isMotionValue(source)) return undefined
-    value.set(source.get())
-    return source.on('change', (v) => value.set(v))
+    value.set(isMotionValue(source) ? source.get() : source)
+    return isMotionValue(source) ? source.on('change', (v) => value.set(v)) : undefined
     // The options are compared by their JSON, as motion's own useSpring does.
   }, [value, source, still, settings])
   return value

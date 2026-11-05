@@ -82,6 +82,21 @@ describe("core's motion under reduced motion", () => {
     expect(made.spring?.get()).toBe(40)
   })
 
+  it('lets useSpring follow a plain number at once as it changes', async () => {
+    await prefer(true)
+    const made: { spring?: MotionValue<number> } = {}
+    const Toggle = ({ open }: { open: boolean }) => {
+      made.spring = core.useSpring(open ? 1 : 0, { stiffness: 50 })
+      return null
+    }
+    const { rerender } = render(<Toggle open={false} />)
+    expect(made.spring?.get()).toBe(0)
+    rerender(<Toggle open />)
+    expect(made.spring?.get()).toBe(1)
+    rerender(<Toggle open={false} />)
+    expect(made.spring?.get()).toBe(0)
+  })
+
   it('springs as motion does once the shopper allows motion', async () => {
     await prefer(false)
     const source = core.motionValue(0)
