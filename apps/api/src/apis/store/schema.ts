@@ -31,6 +31,7 @@ import { registerReports } from './reports'
 import { registerReportExports } from './reportExports'
 import { registerOffers } from './offers'
 import { registerCartReminders } from './cartReminders'
+import { registerWishlists } from './wishlists'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
@@ -88,6 +89,7 @@ registerDispatch(builder)
 registerCustomers(builder)
 registerOffers(builder)
 registerCartReminders(builder)
+registerWishlists(builder)
 registerHome(builder)
 registerReports(builder)
 registerReportExports(builder)

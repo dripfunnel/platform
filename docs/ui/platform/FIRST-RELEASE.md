@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -611,7 +611,8 @@ Store and role ("Juniper & Co. · Owner", "Supplier admin for Loomcraft") · Las
 Status (Active · Invited · Suspended) · **Open support session**, or **Return to session** when
 yours is open with that user. Refused with the reason: the role; "{owner} has turned off
 partner support for {store}. Ask them to turn it on in Settings › Support access."; "{user}
-hasn't accepted the invitation yet."; "{user}'s account is suspended in {store}."; "{store} is
+hasn't accepted the invitation yet." (never for the Owner of a store with no active Owner or
+Manager, who can be acted as, with changes allowed, until they accept: ACCESS.md §8); "{user}'s account is suspended in {store}."; "{store} is
 cancelled."; "{colleague} is signed in as {user} now. Ends in 12 min." Never lists the
 partner's own team, staff or shoppers.
 

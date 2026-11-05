@@ -45,6 +45,14 @@ export const useLocation = (): Address => {
   return useMemo(() => parse(href), [href])
 }
 
+const safeDecode = (id: string): string => {
+  try {
+    return decodeURIComponent(id)
+  } catch {
+    return id
+  }
+}
+
 /**
  * Goes to a path on this store. The same page with another query (a filter, the sort, a page) changes in place, kept in
  * history; another page loads whole, since each live page is its own file (ARCHITECTURE §4.2), unless `inPlace` says
@@ -52,12 +60,15 @@ export const useLocation = (): Address => {
  */
 export const navigate = (href: string, { replace = false, inPlace = false }: { replace?: boolean; inPlace?: boolean } = {}) => {
   if (!href.startsWith('/') || href.startsWith('//') || href.includes('\\')) return
-  const next = parse(href)
+  const hashAt = href.indexOf('#')
+  const hash = hashAt === -1 ? '' : href.slice(hashAt)
+  const next = parse(hashAt === -1 ? href : href.slice(0, hashAt))
   const search = next.query.toString()
-  const target = `${base ? `${base}${next.path.slice(1)}` : next.path}${search ? `?${search}` : ''}`
+  const target = `${base ? `${base}${next.path.slice(1)}` : next.path}${search ? `?${search}` : ''}${hash}`
   const page = (pathname: string) => (pathname.endsWith('/') ? pathname : `${pathname}/`)
   if (!inPlace && page(new URL(target, location.origin).pathname) !== page(location.pathname)) return location.assign(target)
   if (replace) history.replaceState(history.state, '', target)
   else history.pushState(null, '', target)
   dispatchEvent(new Event(navigated))
+  if (hash) document.getElementById(safeDecode(hash.slice(1)))?.scrollIntoView()
 }

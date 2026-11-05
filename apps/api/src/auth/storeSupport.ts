@@ -4,7 +4,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from './activity'
 import { hashSessionId } from './session'
 import { staffAttributed } from './storeStaff'
 import type { StoreCaller, StoreStanding } from './storeCaller'
-import { storeRoleOf } from './storePermissions'
+import { isNewStoreOwnerSeat, storeRoleOf, supportMayActAsSeat } from './storePermissions'
 
 // A partner support session on the store's portal host (ACCESS.md §8; #331): its own cookie beside
 // any person's, the caller it resolves to, and the attribution of everything done under it.
@@ -40,12 +40,17 @@ export const writeRequestOf = (s: Pick<SupportPortalRow, 'access' | 'write_reque
     ? null
     : { note: s.write_request_note ?? '', requestedAt: s.write_requested_at, state: s.write_decided_at === null ? 'pending' : s.access === 'write' ? 'allowed' : 'denied' }
 
+const seatStatusOf = (row: SupportPortalRow) => ({ role: row.role_key, membershipStatus: row.membership_status, userStatus: row.user_status })
+
+// ACCESS.md §8: writes need an Owner's or Manager's Allow, except on a new store's invited Owner's seat, when nobody can give it.
+const accessOf = (row: SupportPortalRow): 'read' | 'write' => (row.access === 'write' || isNewStoreOwnerSeat(seatStatusOf(row), row.store_has_allower) ? 'write' : 'read')
+
 export const seatOf = (row: SupportPortalRow): SupportSeat => ({
   sessionId: row.id,
   agent: { id: row.partner_user_id, name: row.agent_name },
   partnerName: row.partner_name,
   actingAs: row.user_name,
-  access: row.access,
+  access: accessOf(row),
   expiresAt: row.expires_at,
   writeRequest: writeRequestOf(row),
 })
@@ -77,7 +82,7 @@ const goneReason = (row: SupportPortalRow): SupportEnd | null => {
   if (row.store_status === 'cancelled' || row.store_status === 'closed') return 'store_closed'
   // A start raced the switch going Off (0160 ends only what was open then): it ends on first use.
   if (!row.support_access_allowed) return 'support_off'
-  if (row.user_status !== 'active' || row.membership_status !== 'active' || (row.seller_id !== null && row.seller_status !== 'active')) return 'target_gone'
+  if (!supportMayActAsSeat(seatStatusOf(row), row.store_has_allower) || (row.seller_id !== null && row.seller_status !== 'active')) return 'target_gone'
   return null
 }
 
@@ -120,7 +125,7 @@ export const resolveSupportCaller = async (tx: ScopedSql, partnerId: string, coo
     plan: row.plan_id && row.plan_name ? { id: row.plan_id, name: row.plan_name } : null,
     support,
     context: {
-      caller: { kind: 'support', supportSessionId: row.id, partnerUserId: row.partner_user_id, access: row.access },
+      caller: { kind: 'support', supportSessionId: row.id, partnerUserId: row.partner_user_id, access: support.access },
       partnerId,
       storeId: row.store_id,
       sellerScope: row.seller_id ? { kind: 'seller', sellerId: row.seller_id } : { kind: 'all' },

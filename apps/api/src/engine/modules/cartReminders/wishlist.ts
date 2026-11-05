@@ -12,6 +12,9 @@ export interface WishlistItemNow {
   productId: string
   name: string
   slug: string
+  /** The product's first photo; null when it has none. */
+  photoAssetId: string | null
+  inStock: boolean
   /** The cheapest version's price in the cart's currency; null when none is priced there. */
   price: Money | null
 }
@@ -25,12 +28,13 @@ export const wishlistItemsNow = async (
   cart: { storeId: string; partnerId: string; language: string; currency: string; marketId: string | null; features: Partial<Record<FeatureKey, boolean>> },
   productIds: readonly string[],
   limit: number | null,
+  inStockOnly = true,
 ): Promise<WishlistItemNow[]> => {
   if (productIds.length === 0) return []
   const context: TenantContext = { caller: { kind: 'shopper', customerId: null, orderTokenHash: null }, partnerId: cart.partnerId, storeId: cart.storeId, sellerScope: { kind: 'all' }, subscription: 'active' }
   const products = await createStorefrontCatalog({ sql: deps.sql, context, language: cart.language, currency: cart.currency, marketId: cart.marketId, features: { ...defaultFeatures, ...cart.features }, now: deps.now }).productsByIds(productIds)
   return products
-    .filter((p) => p.inStock)
+    .filter((p) => p.inStock || !inStockOnly)
     .slice(0, limit ?? undefined)
-    .map((p) => ({ productId: p.id, name: p.name, slug: p.slug, price: p.price }))
+    .map((p) => ({ productId: p.id, name: p.name, slug: p.slug, photoAssetId: p.photos[0]?.assetId ?? null, inStock: p.inStock, price: p.price }))
 }

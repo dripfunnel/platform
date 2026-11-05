@@ -29,7 +29,22 @@ describe('useLocation and navigate', () => {
     await vi.waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/search/|q=linen'))
   })
 
-  it('loads another page whole, and goes nowhere off the store', () => {
+  it('keeps a fragment out of the path, in the address, and scrolls to it on the same page', () => {
+    history.replaceState(null, '', '/')
+    const target = document.body.appendChild(document.createElement('section'))
+    target.id = 'features'
+    const scroll = vi.fn()
+    target.scrollIntoView = scroll
+    render(<Provided><Where /></Provided>)
+    act(() => navigate('/#features'))
+    expect(location.hash).toBe('#features')
+    expect(screen.getByTestId('where').textContent).toBe('/|')
+    expect(scroll).toHaveBeenCalledTimes(1)
+    expect(() => navigate('/#%')).not.toThrow()
+    target.remove()
+  })
+
+  it('loads another page whole with its fragment, and goes nowhere off the store', () => {
     const assign = vi.spyOn(location, 'assign').mockImplementation(() => undefined)
     navigate('/cart/')
     expect(assign).toHaveBeenCalledWith('/cart/')

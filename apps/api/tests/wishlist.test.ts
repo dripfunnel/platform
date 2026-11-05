@@ -8,9 +8,11 @@ import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCa
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { markAbandonedCarts, queueDueReminders } from '#engine/modules/cartReminders/index'
+import { lockWishlistShopperToRemind } from '#db/scoped/wishlistReminders'
+import { markAbandonedCarts, queueDueReminders, queueDueWishlistReminders, wishlistSkipReasonOf } from '#engine/modules/cartReminders/index'
 import type { OutgoingEmail, SesApi } from '#integrations/ses/index'
 import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
+import { wishlistRemindDeliverer } from '#jobs/queues/deliverers/wishlistRemind'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -39,13 +41,17 @@ const gql = async (source: string, who: { session?: string; cart?: string; on?: 
   const headers: Record<string, string> = { ...(who.session ? { 'x-shop-session': who.session } : {}), ...(who.cart ? { 'x-shop-cart': who.cart } : {}) }
   const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers }), on, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts, allowAttempt: async () => true, allowNewCart: async () => true, sessionToken: who.session ?? null, codeCheck: '0', now: () => new Date() }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts, allowAttempt: async () => true, allowNewCart: async () => true, allowCodeAttempt: async () => true, sessionToken: who.session ?? null, codeCheck: '0', now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
-const merchant = async (source: string, who: keyof typeof cookies) => {
+const merchant = async (source: string, who: keyof typeof cookies, as: { support?: 'read' } = {}) => {
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'surat' ? surat : store, ...(who === 'supplier' ? { [supplierHeader]: seller } : {}) }
-  const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const standing =
+    as.support && resolved.kind === 'acting'
+      ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
+      : resolved
   const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -74,7 +80,7 @@ const relay = async () => {
   const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
   const at = row?.now ?? new Date()
   const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test', shopDomain: 'shop.example' }
-  await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, null), email: emailDeliverer(db.sql, ses, { hosts, senderDomain: 'mail.dripfunnel.test', suppressionKey }) }, { ...defaultRelayOptions, now: () => at })
+  await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, null), 'wishlist.remind': wishlistRemindDeliverer(db.sql, suppressionKey), email: emailDeliverer(db.sql, ses, { hosts, senderDomain: 'mail.dripfunnel.test', suppressionKey }) }, { ...defaultRelayOptions, now: () => at })
 }
 const remind = async () => {
   await markAbandonedCarts({ sql: db.sql, now: () => new Date() }, 100)
@@ -204,10 +210,10 @@ describe('abandonedCart.wishlist and the reminder email', () => {
   let session = ''
   let cart = ''
   let guest = ''
-  const query = (id: string) => `{ abandonedCart(id: "${id}") { wishlist { productId name slug price { amount currency } } } }`
+  const query = (id: string) => `{ abandonedCart(id: "${id}") { wishlist { productId name slug photoUrl price { amount currency } } } }`
   const wishlistOf = async (id: string, who: keyof typeof cookies) => {
     const r = await merchant(query(id), who)
-    return { code: r.code, items: (r.data?.['abandonedCart'] as { wishlist: { name: string; price: { amount: string } | null }[] } | null)?.wishlist ?? null }
+    return { code: r.code, items: (r.data?.['abandonedCart'] as { wishlist: { name: string; photoUrl: string | null; price: { amount: string } | null }[] } | null)?.wishlist ?? null }
   }
 
   it('lists what the account wished for that is in stock and visible, minus the cart, newest first', async () => {
@@ -224,6 +230,13 @@ describe('abandonedCart.wishlist and the reminder email', () => {
     const seen = await wishlistOf(cart, 'owner')
     expect(seen.items?.map((i) => i.name)).toEqual(['Lehenga', 'Dupatta', 'Stole', 'Shawl', 'Scarf'])
     expect(seen.items?.[4]?.price).toEqual({ amount: '20000', currency: 'INR' })
+  })
+
+  it('gives each item its first photo as a merchant URL, and null when it has none', async () => {
+    const file = (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${store}, ${`stores/${store}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    await db.sql`insert into product_photo (product_id, store_id, asset_id, position) values (${products['Lehenga']?.product ?? ''}, ${store}, ${file}, 0)`
+    const seen = await wishlistOf(cart, 'owner')
+    expect(seen.items?.map((i) => [i.name, i.photoUrl])).toEqual([['Lehenga', `/api/assets/${file}`], ['Dupatta', null], ['Stole', null], ['Shawl', null], ['Scarf', null]])
   })
 
   it('is empty for a guest cart, and Staff read it, a supplier and another store’s owner are refused', async () => {
@@ -254,5 +267,412 @@ describe('abandonedCart.wishlist and the reminder email', () => {
     const mail = sent.find((e) => e.to.includes('bare@example.com'))
     expect(mail?.text).toContain('Kurta')
     expect(mail?.text).not.toContain('wishlist')
+  })
+})
+
+describe('the Carts screen’s Wishlists tab', () => {
+  const list = (args = 'first: 50') => `{ wishlistShoppers(${args}) { nodes { customerId name email items firstProduct lastSavedAt } pageInfo { hasNextPage endCursor } } wishlistSummary { shoppers } }`
+  type Listed = { nodes: { customerId: string; items: number; firstProduct: string | null }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+  const listed = async (who: keyof typeof cookies, args?: string) => {
+    const r = await merchant(list(args), who)
+    return { code: r.code, page: r.data?.['wishlistShoppers'] as Listed | undefined, count: (r.data?.['wishlistSummary'] as { shoppers: number } | undefined)?.shoppers }
+  }
+  let asha = ''
+  let second = ''
+  const ids = (page: Listed | undefined) => page?.nodes.map((n) => n.customerId) ?? []
+
+  it('lists the shoppers with a wishlist, the newest saved first, with how many and the newest product', async () => {
+    asha = await customerOf('+919845044444')
+    const other = await signIn('+919845066666')
+    second = await customerOf('+919845066666')
+    expect((await wish('Kurta', other)).data?.['addToWishlist']).toBe(true)
+    const seen = await listed('owner')
+    expect(seen.count).toBe(seen.page?.nodes.length)
+    expect(seen.page?.nodes[0]).toMatchObject({ customerId: second, items: 1, firstProduct: 'Kurta' })
+    expect(seen.page?.nodes.find((n) => n.customerId === asha)).toMatchObject({ items: 8, firstProduct: 'Hidden' })
+    expect(ids(seen.page).indexOf(second)).toBeLessThan(ids(seen.page).indexOf(asha))
+  })
+
+  it('finds a shopper by name, email or a product on their wishlist', async () => {
+    expect(ids((await listed('owner', 'first: 10, search: "lehenga"')).page)).toEqual([asha])
+    expect(ids((await listed('owner', 'first: 10, search: "dupatta"')).page)).toEqual([asha])
+    expect(ids((await listed('owner', 'first: 10, search: "nothing like this"')).page)).toEqual([])
+  })
+
+  it('pages by keyset, each shopper once, in the list’s order', async () => {
+    const all = ids((await listed('owner')).page)
+    const walked: string[] = []
+    let after = ''
+    for (let guard = 0; guard < 20; guard++) {
+      const one = await listed('owner', after ? `first: 1, after: "${after}"` : 'first: 1')
+      walked.push(...ids(one.page))
+      if (!one.page?.pageInfo.hasNextPage) break
+      after = one.page.pageInfo.endCursor ?? ''
+    }
+    expect(all.length).toBeGreaterThan(2)
+    expect(walked).toEqual(all)
+  })
+
+  it('opens a shopper’s wishlist: what they can see now, newest first, sold out ones marked, with price and photo', async () => {
+    const r = await merchant(`{ wishlistShopper(customerId: "${asha}") { shopper { name items } items { name inStock photoUrl price { amount currency } } } }`, 'owner')
+    const d = r.data?.['wishlistShopper'] as { shopper: { items: number }; items: { name: string; inStock: boolean; photoUrl: string | null; price: { amount: string } | null }[] }
+    expect(d.items.map((i) => [i.name, i.inStock])).toEqual([['Sold out', false], ['Lehenga', true], ['Dupatta', true], ['Stole', true], ['Shawl', true], ['Scarf', true], ['Kurta', true]])
+    expect(d.items[1]?.photoUrl).toMatch(/^\/api\/assets\//)
+    expect(d.items[1]?.price?.amount).toBe('90000')
+    expect(d.shopper.items).toBe(8)
+  })
+
+  it('is read by Staff, refused to a supplier, and shows another store nothing of this one', async () => {
+    expect(ids((await listed('staff')).page)).toEqual(ids((await listed('owner')).page))
+    expect((await listed('supplier')).code).toBe('FORBIDDEN')
+    const away = await listed('surat')
+    expect(ids(away.page)).not.toContain(asha)
+    expect(away.count).toBe(1)
+    const detail = await merchant(`{ wishlistShopper(customerId: "${asha}") { shopper { name } } }`, 'surat')
+    expect(detail.data?.['wishlistShopper']).toBeNull()
+  })
+
+  it('leaves out an erased account', async () => {
+    await db.sql`update customer set status = 'deleted' where id = ${second}`
+    expect(ids((await listed('owner')).page)).not.toContain(second)
+    expect((await merchant(`{ wishlistShopper(customerId: "${second}") { shopper { name } } }`, 'owner')).data?.['wishlistShopper']).toBeNull()
+  })
+})
+
+describe('wishlist reminders: queued, decided and sent by the engine', () => {
+  const email = 'reminded@example.com'
+  let shopper = ''
+  let customerId = ''
+  const queue = () => queueDueWishlistReminders({ sql: db.sql, now: () => new Date() }, 200)
+  const remindersOf = () => db.sql<{ state: string; skip_reason: string | null; position: number | null }[]>`
+    select r.state, r.skip_reason, st.position from wishlist_reminder r left join wishlist_reminder_step st on st.id = r.step_id where r.customer_id = ${customerId} order by r.queued_at, st.position`
+  const age = (minutes: number) => db.sql`update wishlist_item set created_at = now() - make_interval(mins => ${minutes}) where customer_id = ${customerId}`
+  const mail = () => sent.filter((e) => e.to.includes(email))
+
+  it('sends the first step once the list has sat for its delay: what can be bought now, with an unsubscribe link', async () => {
+    shopper = await signIn('+919845077777')
+    customerId = await customerOf('+919845077777')
+    await db.sql`update customer set email = ${email}, name = 'Reena Das' where id = ${customerId}`
+    for (const name of ['Kurta', 'Shawl', 'Sold out']) expect((await wish(name, shopper)).data?.['addToWishlist']).toBe(true)
+    await db.sql`delete from wishlist_reminder_step where store_id = ${store}`
+    await db.sql`delete from wishlist_reminder_flow where store_id = ${store}`
+    await db.sql`insert into wishlist_reminder_flow (store_id, enabled, quiet_hours, weekly_cap) values (${store}, true, false, true)`
+    await db.sql`insert into wishlist_reminder_step (store_id, position, enabled, delay_minutes, subject, body) values
+      (${store}, 1, true, 60, 'Still thinking?', 'You saved these.'), (${store}, 2, true, 1440, 'Your wishlist is waiting', 'Take another look.'), (${store}, 3, false, 4320, 'Last look', 'Still here.')`
+    await queue()
+    expect(await remindersOf()).toHaveLength(0)
+    await age(120)
+    expect(await queue()).toBeGreaterThanOrEqual(1)
+    expect(await remindersOf()).toHaveLength(1)
+    expect(await queue()).toBe(0)
+    for (let i = 0; i < 3; i++) await relay()
+    expect((await remindersOf()).map((x) => [x.position, x.state])).toEqual([[1, 'sent']])
+    const text = mail()[0]?.text ?? ''
+    expect(mail()[0]?.subject).toBe('Still thinking?')
+    expect(text).toContain('You saved these.')
+    expect(text).toContain('Kurta')
+    expect(text).toContain('Shawl')
+    expect(text).not.toContain('Sold out')
+    expect(text).toMatch(/unsubscribe\/[0-9a-f]{64}/i)
+  })
+
+  it('goes on to the next step by its own delay, and not before', async () => {
+    await queue()
+    expect(await remindersOf()).toHaveLength(1)
+    await age(1500)
+    await queue()
+    for (let i = 0; i < 3; i++) await relay()
+    expect((await remindersOf()).map((x) => [x.position, x.state, x.skip_reason])).toEqual([[1, 'sent', null], [2, 'skipped', 'weekly_cap']])
+    expect(mail()).toHaveLength(1)
+  })
+
+  it('stops for good when the shopper unsubscribes from the link, and for a shopper the team stopped', async () => {
+    const token = /unsubscribe\/([0-9a-f]{64})/i.exec(mail()[0]?.text ?? '')?.[1] ?? ''
+    expect((await gql(`mutation { unsubscribe(token: "${token}") }`)).data?.['unsubscribe']).toBe(true)
+    expect((await db.sql<{ consent_state: string }[]>`select consent_state from customer where id = ${customerId}`)[0]?.consent_state).toBe('stopped')
+    await db.sql`delete from wishlist_reminder where customer_id = ${customerId}`
+    await db.sql`update wishlist_reminder_flow set weekly_cap = false where store_id = ${store}`
+    await queue()
+    for (let i = 0; i < 3; i++) await relay()
+    expect((await remindersOf()).every((x) => x.state === 'skipped' && x.skip_reason === 'opted_out')).toBe(true)
+    expect(mail()).toHaveLength(1)
+    await db.sql`delete from wishlist_reminder where customer_id = ${customerId}`
+    await db.sql`update customer set consent_state = 'not_asked', wishlist_reminders_stopped_at = now() where id = ${customerId}`
+    expect(await queue()).toBe(0)
+  })
+
+  it('sends nothing for a store that has not turned it on', async () => {
+    await db.sql`update customer set wishlist_reminders_stopped_at = null where id = ${customerId}`
+    await db.sql`delete from wishlist_reminder where customer_id = ${customerId}`
+    await db.sql`update wishlist_reminder_flow set enabled = false where store_id = ${store}`
+    await queue()
+    for (let i = 0; i < 3; i++) await relay()
+    expect(mail()).toHaveLength(1)
+    expect((await remindersOf()).every((x) => x.state !== 'sent')).toBe(true)
+  })
+})
+
+describe('wishlist reminders on the Store API: the sequence, and one shopper’s actions', () => {
+  const settingsQuery = '{ wishlistReminderSettings { enabled skipOutOfStock quietHours weeklyCap revision level steps { position enabled delayMinutes subject body } } }'
+  type Settings = { enabled: boolean; revision: number | null; level: string; quietHours: boolean; steps: { position: number; enabled: boolean; delayMinutes: number; subject: string }[] }
+  const settingsOf = async (who: keyof typeof cookies) => (await merchant(settingsQuery, who)).data?.['wishlistReminderSettings'] as Settings | null
+  const input = (over: Record<string, unknown> = {}, steps = [{ position: 1, enabled: true, delayMinutes: 240, subject: 'Hello again', body: 'Your saved things.' }, { position: 2, enabled: true, delayMinutes: 2880, subject: 'Still here', body: 'Take a look.' }, { position: 3, enabled: false, delayMinutes: 4320, subject: 'Last look', body: 'Still saved.' }]) => ({
+    enabled: true,
+    skipOutOfStock: true,
+    quietHours: false,
+    weeklyCap: true,
+    steps,
+    ...over,
+  })
+  const save = (revision: number | null, value: object, who: keyof typeof cookies = 'owner') => {
+    const literal = (v: unknown): string => (Array.isArray(v) ? `[${v.map(literal).join(', ')}]` : v !== null && typeof v === 'object' ? `{ ${Object.entries(v).map(([k, x]) => `${k}: ${literal(x)}`).join(', ')} }` : JSON.stringify(v))
+    return merchant(`mutation { saveWishlistReminderSettings(${revision === null ? '' : `revision: ${revision}, `}input: ${literal(value)}) }`, who)
+  }
+  let customerId = ''
+  const detail = async (who: keyof typeof cookies = 'owner') => {
+    const r = await merchant(`{ wishlistShopper(customerId: "${customerId}") { shopper { remindersSent stoppedAt stoppedBy stoppedNote } reminders { position state skipReason sentBy } } }`, who)
+    return r.data?.['wishlistShopper'] as { shopper: { remindersSent: number; stoppedAt: string | null; stoppedBy: string | null; stoppedNote: string | null }; reminders: { position: number | null; state: string; skipReason: string | null; sentBy: string | null }[] } | null
+  }
+
+  it('reads the sequence with the plan’s level, and saves it at the revision read, once for each', async () => {
+    const before = await settingsOf('owner')
+    expect(before).toMatchObject({ enabled: false, level: 'automatic', revision: 1 })
+    expect((await save(before?.revision ?? null, input())).data?.['saveWishlistReminderSettings']).toBe(2)
+    const after = await settingsOf('owner')
+    expect([after?.enabled, after?.revision, after?.steps.map((x) => [x.position, x.delayMinutes, x.subject])]).toEqual([true, 2, [[1, 240, 'Hello again'], [2, 2880, 'Still here'], [3, 4320, 'Last look']]])
+    expect((await save(1, input())).code).toBe('STALE_REVISION')
+    expect((await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'wishlist_reminders.saved' and store_id = ${store}`)[0]?.n).toBe(1)
+  })
+
+  it('refuses what is not valid, a step that goes no later than the one before, and a store whose plan has none', async () => {
+    expect((await save(2, input({}, [{ position: 1, enabled: true, delayMinutes: 125, subject: 'x', body: '' }, { position: 2, enabled: false, delayMinutes: 1440, subject: '', body: '' }, { position: 3, enabled: false, delayMinutes: 4320, subject: '', body: '' }]))).code).toBe('INVALID_INPUT')
+    expect((await save(2, input({}, [{ position: 1, enabled: true, delayMinutes: 1440, subject: 'x', body: '' }, { position: 2, enabled: true, delayMinutes: 1440, subject: 'y', body: '' }, { position: 3, enabled: false, delayMinutes: 4320, subject: '', body: '' }]))).code).toBe('INVALID_INPUT')
+    expect((await save(2, input({}, [{ position: 1, enabled: true, delayMinutes: 60, subject: '', body: '' }, { position: 2, enabled: false, delayMinutes: 1440, subject: '', body: '' }, { position: 3, enabled: false, delayMinutes: 4320, subject: '', body: '' }]))).code).toBe('INVALID_INPUT')
+    const bare = await settingsOf('surat')
+    expect(bare).toMatchObject({ enabled: false, revision: null, level: 'youSend' })
+    expect((await save(null, input(), 'surat')).code).toBe('PLAN_LIMIT')
+  })
+
+  it('is read by Staff and refused to write; a supplier meets nothing', async () => {
+    expect((await settingsOf('staff'))?.revision).toBe(2)
+    expect((await save(2, input(), 'staff')).code).toBe('FORBIDDEN')
+    expect((await merchant(settingsQuery, 'supplier')).code).toBe('FORBIDDEN')
+  })
+
+  it('sends a reminder now to one shopper, who then shows it, and stops and resumes theirs with a note', async () => {
+    customerId = await customerOf('+919845077777')
+    await db.sql`update customer set email = 'reminded@example.com', consent_state = 'not_asked', wishlist_reminders_stopped_at = null where id = ${customerId}`
+    await db.sql`delete from wishlist_reminder where customer_id = ${customerId}`
+    const mailBefore = sent.filter((e) => e.to.includes('reminded@example.com')).length
+    const now = await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner')
+    expect(typeof now.data?.['remindWishlistNow']).toBe('string')
+    for (let i = 0; i < 3; i++) await relay()
+    expect(sent.filter((e) => e.to.includes('reminded@example.com'))).toHaveLength(mailBefore + 1)
+    const shown = await detail()
+    expect(shown?.shopper.remindersSent).toBe(1)
+    expect(shown?.reminders.map((x) => [x.position, x.state, x.sentBy])).toEqual([[null, 'sent', expect.any(String)]])
+    expect(await audits('wishlist.reminder_sent', customerId)).toBe(1)
+
+    expect((await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}", note: "She called") }`, 'owner')).data?.['stopWishlistReminders']).toBe(true)
+    expect((await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}") }`, 'owner')).data?.['stopWishlistReminders']).toBe(true)
+    expect(await audits('wishlist.reminders_stopped', customerId)).toBe(1)
+    const stopped = await detail()
+    expect(stopped?.shopper).toMatchObject({ stoppedBy: expect.any(String), stoppedNote: 'She called' })
+    expect((await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner')).code).toBe('CANT_REMIND')
+    expect((await merchant(`mutation { resumeWishlistReminders(customerId: "${customerId}") }`, 'owner')).data?.['resumeWishlistReminders']).toBe(true)
+    expect((await detail())?.shopper.stoppedAt).toBeNull()
+    expect(await audits('wishlist.reminders_resumed', customerId)).toBe(1)
+  })
+
+  it('refuses a note that is too long, Staff, a supplier, and another store’s owner', async () => {
+    expect((await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}", note: "${'x'.repeat(201)}") }`, 'owner')).code).toBe('INVALID_INPUT')
+    for (const who of ['staff', 'supplier'] as const) {
+      expect((await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, who)).code).toBe('FORBIDDEN')
+      expect((await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}") }`, who)).code).toBe('FORBIDDEN')
+    }
+    expect((await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'surat')).code).toBe('NOT_FOUND')
+    expect(await detail('surat')).toBeNull()
+  })
+
+  it('sorts shoppers into Not contacted, Reminded and Stopped, counts each, and sums the last 14 days', async () => {
+    const inTab = async (tab: string) => ((await merchant(`{ wishlistShoppers(tab: "${tab}", first: 50) { nodes { customerId } } }`, 'owner')).data?.['wishlistShoppers'] as { nodes: { customerId: string }[] }).nodes.map((n) => n.customerId)
+    expect(await inTab('reminded')).toContain(customerId)
+    expect(await inTab('waiting')).not.toContain(customerId)
+    expect((await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}") }`, 'owner')).data?.['stopWishlistReminders']).toBe(true)
+    expect(await inTab('stopped')).toContain(customerId)
+    expect(await inTab('reminded')).not.toContain(customerId)
+    const counts = (await merchant('{ wishlistShopperCounts { waiting reminded stopped } wishlistSummary { days shoppers products reachable remindersSent reminded } }', 'owner')).data as {
+      wishlistShopperCounts: { waiting: number; reminded: number; stopped: number }
+      wishlistSummary: { days: number; shoppers: number; products: number; reachable: number; remindersSent: number; reminded: number }
+    }
+    const c = counts.wishlistShopperCounts
+    expect(c.waiting + c.reminded + c.stopped).toBe(counts.wishlistSummary.shoppers)
+    expect(c.stopped).toBeGreaterThanOrEqual(1)
+    expect(counts.wishlistSummary).toMatchObject({ days: 14 })
+    expect(counts.wishlistSummary.remindersSent).toBeGreaterThanOrEqual(1)
+    expect(counts.wishlistSummary.reminded).toBeGreaterThanOrEqual(1)
+    expect(counts.wishlistSummary.products).toBeGreaterThanOrEqual(counts.wishlistSummary.shoppers)
+    expect((await merchant('{ wishlistSummary(days: 1) { days } }', 'staff')).data).toMatchObject({ wishlistSummary: { days: 1 } })
+    expect((await merchant('{ wishlistShopperCounts { waiting } }', 'supplier')).code).toBe('FORBIDDEN')
+    expect((await merchant('{ wishlistSummary { shoppers } }', 'supplier')).code).toBe('FORBIDDEN')
+    expect((await merchant(`mutation { resumeWishlistReminders(customerId: "${customerId}") }`, 'owner')).data?.['resumeWishlistReminders']).toBe(true)
+  })
+
+  it('counts a shopper’s reminders for the wishlist as it stands now, so a new save starts a new count', async () => {
+    const counted = () => withSystemScope(db.sql, async (tx) => (await lockWishlistShopperToRemind(tx, store, customerId))?.queued)
+    await db.sql`delete from wishlist_reminder where customer_id = ${customerId}`
+    expect(await counted()).toBe(0)
+    await db.sql`insert into wishlist_reminder (store_id, customer_id, state, saved_at, sent_at) values (${store}, ${customerId}, 'sent', '2000-01-01', now())`
+    expect(await counted()).toBe(0)
+    await db.sql`insert into wishlist_reminder (store_id, customer_id, state, saved_at, sent_at) select ${store}, ${customerId}, 'sent', date_trunc('milliseconds', max(created_at)), now() from wishlist_item where customer_id = ${customerId}`
+    expect(await counted()).toBe(1)
+  })
+
+  describe('what the plan, the rules and a new save decide', () => {
+    const planIds: Record<number, string> = {}
+    const setLevel = async (level: number) => {
+      if (!planIds[level]) {
+        const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${t.partnerA}, ${`Level ${level}`}, 'live') returning id`
+        await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${t.partnerA}, 1, 'cart_reminders', ${level})`
+        planIds[level] = plan?.id ?? ''
+      }
+      await db.sql`update store_subscription set plan_id = ${planIds[level] ?? ''}, plan_version = 1 where store_id = ${store}`
+      await db.sql`update store set plan_id = ${planIds[level] ?? ''} where id = ${store}`
+    }
+    const queue = () => queueDueWishlistReminders({ sql: db.sql, now: () => new Date() }, 200)
+    const remindersOf = () => db.sql<{ state: string; skip_reason: string | null; position: number | null }[]>`
+      select r.state, r.skip_reason, st.position from wishlist_reminder r left join wishlist_reminder_step st on st.id = r.step_id where r.customer_id = ${customerId} order by r.queued_at, r.id`
+    const age = (minutes: number) => db.sql`update wishlist_item set created_at = now() - make_interval(mins => ${minutes}) where customer_id = ${customerId}`
+    const flow = async (over: { weekly_cap?: boolean; quiet_hours?: boolean; enabled?: boolean } = {}) => {
+      await db.sql`delete from wishlist_reminder where store_id = ${store}`
+      await db.sql`delete from wishlist_reminder_step where store_id = ${store}`
+      await db.sql`delete from wishlist_reminder_flow where store_id = ${store}`
+      await db.sql`insert into wishlist_reminder_flow (store_id, enabled, quiet_hours, weekly_cap) values (${store}, ${over.enabled ?? true}, ${over.quiet_hours ?? false}, ${over.weekly_cap ?? false})`
+      await db.sql`insert into wishlist_reminder_step (store_id, position, enabled, delay_minutes, subject, body) values
+        (${store}, 1, true, 60, 'First', 'One.'), (${store}, 2, true, 1440, 'Second', 'Two.'), (${store}, 3, false, 4320, 'Third', 'Three.')`
+      await db.sql`update customer set email = 'plan@example.com', consent_state = 'not_asked', wishlist_reminders_stopped_at = null where id = ${customerId}`
+    }
+    const flush = async () => {
+      for (let i = 0; i < 3; i++) await relay()
+    }
+
+    it('sends on its own only what the plan allows: step 2 needs automatic, and none at all below one reminder', async () => {
+      await setLevel(1)
+      await flow()
+      await age(3000)
+      await queue()
+      await flush()
+      expect((await remindersOf()).map((x) => [x.position, x.state])).toEqual([[1, 'sent']])
+      await queue()
+      await flush()
+      expect((await remindersOf()).map((x) => [x.position, x.state])).toEqual([[1, 'sent']])
+      await setLevel(0)
+      await flow()
+      await age(3000)
+      expect(await queue()).toBe(0)
+      await setLevel(2)
+    })
+
+    it('lets a plan below automatic remind a shopper by hand once for the wishlist as it stands, and again after a new save', async () => {
+      await setLevel(1)
+      await flow()
+      const now = () => merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner')
+      expect(typeof (await now()).data?.['remindWishlistNow']).toBe('string')
+      expect((await now()).code).toBe('PLAN_LIMIT')
+      await db.sql`update wishlist_item set created_at = now() where customer_id = ${customerId}`
+      expect(typeof (await now()).data?.['remindWishlistNow']).toBe('string')
+      await flush()
+      await setLevel(2)
+    })
+
+    it('gates saving the sequence by the plan: switching sending on needs one reminder, a step past the first needs automatic', async () => {
+      await setLevel(2)
+      await flow({ enabled: false })
+      await db.sql`update wishlist_reminder_step set enabled = false where store_id = ${store} and position = 2`
+      const read = async () => (await settingsOf('owner'))?.revision ?? null
+      const steps = (third: boolean) => [
+        { position: 1, enabled: true, delayMinutes: 60, subject: 'First', body: 'One.' },
+        { position: 2, enabled: true, delayMinutes: 1440, subject: 'Second', body: 'Two.' },
+        { position: 3, enabled: third, delayMinutes: 4320, subject: 'Third', body: 'Three.' },
+      ]
+      await setLevel(0)
+      expect((await save(await read(), input({ enabled: true }, steps(false)))).code).toBe('PLAN_LIMIT')
+      await setLevel(1)
+      expect((await save(await read(), input({ enabled: true }, steps(false)))).code).toBe('PLAN_LIMIT')
+      expect((await save(await read(), input({ enabled: true }, steps(false).map((x) => (x.position === 2 ? { ...x, enabled: false } : x))))).data?.['saveWishlistReminderSettings']).toEqual(expect.any(Number))
+      await setLevel(2)
+      expect((await save(await read(), input({ enabled: true }, steps(true)))).data?.['saveWishlistReminderSettings']).toEqual(expect.any(Number))
+    })
+
+    it('holds an automatic reminder in quiet hours, but not one sent by hand', async () => {
+      await setLevel(2)
+      await flow({ quiet_hours: true })
+      const [original] = await db.sql<{ time_zone: string }[]>`select time_zone from store where id = ${store}`
+      const offset = (2 - new Date().getUTCHours() + 24) % 24
+      const hours = offset > 14 ? offset - 24 : offset
+      const zone = hours === 0 ? 'Etc/GMT' : `Etc/GMT${hours > 0 ? '-' : '+'}${Math.abs(hours)}`
+      await db.sql`update store set time_zone = ${zone} where id = ${store}`
+      try {
+        await age(3000)
+        await queue()
+        await flush()
+        expect((await remindersOf()).map((x) => [x.position, x.state])).toEqual([[2, 'queued']])
+        const before = sent.filter((e) => e.to.includes('plan@example.com')).length
+        expect(typeof (await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner')).data?.['remindWishlistNow']).toBe('string')
+        await flush()
+        expect(sent.filter((e) => e.to.includes('plan@example.com'))).toHaveLength(before + 1)
+      } finally {
+        await db.sql`update store set time_zone = ${original?.time_zone ?? 'UTC'} where id = ${store}`
+      }
+    })
+
+    it('skips a step for the weekly cap but not one sent by hand, and starts the sequence over after a new save', async () => {
+      await setLevel(2)
+      await flow({ weekly_cap: true })
+      await db.sql`insert into wishlist_reminder (store_id, customer_id, state, saved_at, queued_at, sent_at) values (${store}, ${customerId}, 'sent', '2000-01-01', now() - interval '1 day', now() - interval '1 day')`
+      await age(3000)
+      await queue()
+      await flush()
+      expect((await remindersOf()).filter((x) => x.position === 2).map((x) => [x.state, x.skip_reason])).toEqual([['skipped', 'weekly_cap']])
+      const before = sent.filter((e) => e.to.includes('plan@example.com')).length
+      expect(typeof (await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner')).data?.['remindWishlistNow']).toBe('string')
+      await flush()
+      expect(sent.filter((e) => e.to.includes('plan@example.com'))).toHaveLength(before + 1)
+      await db.sql`update wishlist_item set created_at = now() - interval '2 days' where customer_id = ${customerId}`
+      await queue()
+      expect((await remindersOf()).filter((x) => x.position === 2)).toHaveLength(2)
+    })
+
+    it('decides on the rules a step is skipped for: everything out of stock, and a hand reminder is never held by the cap', () => {
+      const facts = { byHand: false, storeSending: true, flowEnabled: true, levelAllows: true, stepEnabled: true, stopped: false, contact: 'a@b.c', mayContact: true, suppressed: false, empty: false, skipOutOfStock: true, allOutOfStock: false, weeklyCap: true, remindedRecently: false }
+      expect(wishlistSkipReasonOf(facts)).toBeNull()
+      expect(wishlistSkipReasonOf({ ...facts, allOutOfStock: true })).toBe('out_of_stock')
+      expect(wishlistSkipReasonOf({ ...facts, allOutOfStock: true, skipOutOfStock: false })).toBeNull()
+      expect(wishlistSkipReasonOf({ ...facts, remindedRecently: true })).toBe('weekly_cap')
+      expect(wishlistSkipReasonOf({ ...facts, remindedRecently: true, byHand: true })).toBeNull()
+      expect(wishlistSkipReasonOf({ ...facts, levelAllows: false })).toBe('paused')
+      expect(wishlistSkipReasonOf({ ...facts, empty: true })).toBe('empty')
+    })
+
+    it('refuses all four writes to a read-only support session, which can still read', async () => {
+      await flow()
+      const read = { support: 'read' as const }
+      const revision = (await settingsOf('owner'))?.revision ?? null
+      const codes = [
+        (await merchant(`mutation { remindWishlistNow(customerId: "${customerId}") }`, 'owner', read)).code,
+        (await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}") }`, 'owner', read)).code,
+        (await merchant(`mutation { resumeWishlistReminders(customerId: "${customerId}") }`, 'owner', read)).code,
+        (await merchant(`mutation { saveWishlistReminderSettings(${revision === null ? '' : `revision: ${revision}, `}input: { enabled: true, skipOutOfStock: true, quietHours: false, weeklyCap: true, steps: [{ position: 1, enabled: true, delayMinutes: 60, subject: "a", body: "b" }, { position: 2, enabled: false, delayMinutes: 1440, subject: "a", body: "b" }, { position: 3, enabled: false, delayMinutes: 4320, subject: "a", body: "b" }] }) }`, 'owner', read)).code,
+      ]
+      expect(codes).toEqual(['READ_ONLY', 'READ_ONLY', 'READ_ONLY', 'READ_ONLY'])
+      expect((await merchant('{ wishlistReminderSettings { enabled } wishlistSummary { shoppers } }', 'owner', read)).data).toMatchObject({ wishlistReminderSettings: { enabled: true } })
+    })
+
+    it('keeps stopping and resuming to the store’s own shoppers: another store’s owner finds nothing and changes nothing', async () => {
+      await flow()
+      expect((await merchant(`mutation { stopWishlistReminders(customerId: "${customerId}") }`, 'surat')).code).toBe('NOT_FOUND')
+      expect((await merchant(`mutation { resumeWishlistReminders(customerId: "${customerId}") }`, 'surat')).code).toBe('NOT_FOUND')
+      expect((await db.sql<{ stopped: boolean }[]>`select wishlist_reminders_stopped_at is not null as stopped from customer where id = ${customerId}`)[0]?.stopped).toBe(false)
+    })
   })
 })
