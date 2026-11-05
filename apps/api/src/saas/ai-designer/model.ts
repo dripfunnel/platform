@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { AiImage, AiProvider, CanonicalMessage, CanonicalTool } from '#integrations/ai/index'
-import type { DesignModel, FileEdit, Proposal, ProposalInput } from '#saas/studio/index'
+import type { FileEdit, Proposal, ProposalInput } from '#saas/studio/index'
 import { askAnswerSchema, maxQuestions, type DesignAsk } from './plan'
 import { lookupNames, type LookupName, type StoreLookups, type StoreSummary } from './summary'
 

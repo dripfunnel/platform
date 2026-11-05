@@ -18,7 +18,7 @@ on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The stu
 Assets, `MerchantImage` in core 0.3.0 with the baseline hero's `home.hero.image`, the CSS `url(<asset id>)` resolver, and the
 AI's own photo search and add. Each is described in §4 below; none had a card before the work, so the card records them.
 
-Last updated: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-11-05 (#1243: a vague request gets up to 3 quick questions and a plan, then the AI builds the storefront page by page, one history entry for Undo, §4 "A plan", §5). Before: 2026-11-05 (#1241: the container stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, wakes on typing, runs at `standard-1` from an object made in Asia Pacific; an accepted change is kept in the object's storage and the frame swaps before R2 and the database are written, §3, §4, §7, §9). Before: 2026-11-05 (#1238: the model answers with edits applied by the Durable Object; its stable context is cached, §4). Before: 2026-11-05 (#1237: live progress over one WebSocket, §2 and §4). Before: 2026-11-04 (#1211: a design Publish takes what went live after the draft started, §6 step 2). Before: 2026-10-31 (the photo search over Pexels, Pixabay, Openverse and Wikimedia Commons; the AI's photos behind `AI_PHOTOS` and `AI_PHOTO_SOURCES`, §8). Before: 2026-10-30 (chat mode, Stop, Assets, free photos, the AI's own photos and `MerchantImage`, §4). Before: 2026-10-18 (#790: the studio's dev image is the newest dev tag, written into `env.dev` at deploy, §1). Before: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -168,6 +168,8 @@ the store** (two tabs, two people) gets the same events.
 |---|---|---|
 | `step` `reading` | Worker | A change, as soon as `askDesign`'s input is checked: the first feedback, within 2 s of Send |
 | `step` `asking` | Worker (chat) or object | A chat's first step; a change's first ask of the model |
+| `step` `planning` | Worker | Writing a plan from the answers, or a changed plan (#1243) |
+| `page` (`index`, `of`, `page`, `titles`) | object | A plan's build starting a page: "Building page 2 of 5: Product", every page's title for its chips; that page's own steps follow (#1243) |
 | `text` | Worker (chat) or object | A chat: the model's words as they stream through the AI gateway. A change: the AI's one-line summary, once known |
 | `step` `checking` | object | Before each run of the fast gate |
 | `step` `repairing` (`attempt`, `of`) | object | Before each repair: "Fixing a problem (1 of 3)" |
@@ -179,6 +181,36 @@ Every event carries `seq`, numbered per store, and `run`, one per request. Never
 merchant's words, the theme and the keys never go out on it. A chat's streamed words stop at 2,000 characters, as its
 message does.
 
+### A plan (decided 2026-11-04 with Gaurav on #1243)
+
+A short or vague request for a new look ("make my store look premium") can be answered with questions and a plan instead of
+edits, and then built page by page. A clear request ("make the buttons maroon") is applied at once, as above; chat mode is
+unchanged. Drawn in `PortalStorefront` as `?state=questions`, `?state=plan` and `?state=building` with their forms.
+
+1. **The model judges.** The change's first ask may answer `{questions}` (at most 3, each with 2 to 4 answers written from the
+   store summary, #1242) or `{plan}` instead of edits; the rules say when, and the per-request part says when it may not (a
+   build's page or a repair), so the cached prefix is the same either way. The object runs no gate for it: the draft stays as
+   it was, the run is recorded as `unchanged`, and the Worker writes the questions or the plan as a studio message
+   (`design_message.detail`). This request takes the flow's one prompt unit.
+2. **Answers.** The merchant picks an answer, types their own ("Something else") or skips (`answerDesignQuestions`); the
+   Worker asks the model for the plan, with the request and the answers after the cached prefix (`planning`). The plan is a
+   short list of pages, home first, each with 1 to 6 sections, and a header and footer line, at most 6 pages.
+3. **Changes asked in words.** Words typed under the open plan change it (`changeDesignPlan`), at most 3 times; the old plan
+   reads "Replaced". Only the newest questions or plan can be answered, changed or built, and each once: its state moves in one
+   statement, so two tabs can't both.
+4. **Build it** (`buildDesignPlan`). The store's object runs the pages in one turn: home first (with the header and footer),
+   then product, collection, about and the plan's other pages. Each page is its own change through steps 2–8: the gate, up to
+   three repairs, its frame swap as soon as it passes and its save in the background, while the next page is asked. The feed
+   shows `page` and that page's steps. A refused or failed page stops the build; the pages before it stay.
+5. **Stop** (`cancelDesign`) during a build ends it after the page being built; the pages already built stay, and the chat
+   lists each page as built, not built, or refused.
+6. **One entry.** The build is one `ai` message whose `commit` is its last page's and `before_commit` the head before its
+   first, so **Undo** takes every page back (§5).
+
+*Why in the object, one turn:* no other change lands between two pages, the frame swaps page by page through the same
+hot reload, and Stop reaches the build without waiting in its turn. *Why one request:* the model's key stays in the Worker,
+which the object calls back for each page, as for a single change.
+
 **Reconnect.** A dropped socket reconnects with the last `seq` it saw, and the object replays exactly what came after,
 from its own storage, so a restarted object still has it. A run's events are kept until **1 minute after it ends** (one
 without an end, after 20 minutes). **Fallback**: a studio whose socket can't connect shows "Checking your change…" as
@@ -189,7 +221,8 @@ before, and reads the result when `askDesign` answers.
 ## 5. Undo, discard and going back
 
 - **Undo this change** reverts the latest commit in the container. That is a new change, so §4
-  steps 3–8 run again.
+  steps 3–8 run again. A plan's build is one entry (§4 "A plan"): its Undo restores the theme as it was at the build's
+  `before_commit` in one change, every page at once (#1243).
 - **Discard** resets the draft to the live version's commit (the live build's source bundle,
   never GitHub's `main`), deletes the
   draft bundle and the `design_draft` row, and points the preview at the live code.
