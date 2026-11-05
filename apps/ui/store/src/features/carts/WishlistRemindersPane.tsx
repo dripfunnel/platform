@@ -1,13 +1,13 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ErrorState, LoadingState } from '@dripfunnel/shared/ui'
-import { Link, useBlocker } from '@tanstack/react-router'
+import { useBlocker } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { reminderDelays, reminderText } from '../../api/carts'
 import { loadWishlistReminderSettings, saveWishlistReminderSettings, type WishlistReminderSettings, type WishlistReminderStep } from '../../api/wishlists'
 import { fill, messages } from '../../messages'
-import '../common/switch.css'
 import { cartRefusal } from './cartActions'
 import type { CartAccess } from './cartView'
+import { AutoCard, FormNotes, RuleChecks, SaveBar, StepHead } from './ReminderParts'
 import { stepErrors } from './RemindersPane'
 
 // The Wishlists Reminders tab (FIRST-RELEASE §9): up to three emails after a shopper last saved, who gets them, and a preview.
@@ -111,25 +111,7 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
   return (
     <div className="df-reminders">
       <div className="df-reminders-form">
-        <section className="df-cart-card df-reminders-auto">
-          <span className="df-carts-cell">
-            <strong>{words.auto}</strong>
-            <span className="df-carts-sub">{level === 'youSend' ? words.autoYouSend : form.enabled ? (automatic ? words.autoOn : words.autoOne) : words.autoOff}</span>
-          </span>
-          {level === 'youSend' ? (
-            access.canUpgrade ? (
-              <Link className="df-button" to="/billing">
-                {shared.seePlans}
-              </Link>
-            ) : (
-              <span className="df-carts-sub">{shared.askOwner}</span>
-            )
-          ) : (
-            <button type="button" role="switch" className="df-switch" aria-checked={form.enabled} aria-label={words.auto} disabled={ro} onClick={() => set({ enabled: !form.enabled })}>
-              <span aria-hidden="true" />
-            </button>
-          )}
-        </section>
+        <AutoCard title={words.auto} summary={level === 'youSend' ? words.autoYouSend : form.enabled ? (automatic ? words.autoOn : words.autoOne) : words.autoOff} level={level} on={form.enabled} readOnly={ro} canUpgrade={access.canUpgrade} seePlans={shared.seePlans} askOwner={shared.askOwner} onToggle={() => set({ enabled: !form.enabled })} />
 
         {form.steps.map((x, i) => {
           const locked = lockedStep(i)
@@ -140,23 +122,7 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
           const summary = locked ? shared.lockedStep : !x.enabled ? shared.stepOff : i === 0 && (!form.enabled || level === 'youSend') ? shared.byHand : fill(words.after, { delay: delayText(x.delayMinutes) })
           return (
             <section key={x.position} className="df-cart-card df-reminders-step" data-shown={shown === i || undefined} aria-labelledby={`df-wstep-${n}`}>
-              <div className="df-reminders-step-head">
-                <span className="df-reminders-n" aria-hidden="true">
-                  {n}
-                </span>
-                <span className="df-carts-cell">
-                  <strong id={`df-wstep-${n}`}>{fill(words.step, { n })}</strong>
-                  <span className="df-carts-sub">{summary}</span>
-                </span>
-                <button type="button" className="df-button" aria-pressed={shown === i} aria-label={fill(shared.previewStep, { n })} onClick={() => setShown(i)}>
-                  {shared.preview}
-                </button>
-                {i > 0 && !locked && (
-                  <button type="button" role="switch" className="df-switch" aria-checked={x.enabled} aria-label={fill(words.stepOn, { n })} disabled={ro} onClick={() => setStep(i, { enabled: !x.enabled })}>
-                    <span aria-hidden="true" />
-                  </button>
-                )}
-              </div>
+              <StepHead idPrefix="df-wstep" n={n} name={fill(words.step, { n })} summary={summary} shown={shown === i} previewLabel={fill(shared.previewStep, { n })} previewText={shared.preview} switchLabel={fill(words.stepOn, { n })} showSwitch={i > 0 && !locked} on={x.enabled} readOnly={ro} onPreview={() => setShown(i)} onToggle={() => setStep(i, { enabled: !x.enabled })} />
               {!locked && x.enabled && (
                 <div className="df-reminders-fields">
                   <div className="df-reminders-row">
@@ -193,28 +159,7 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
 
         <section className="df-cart-card" aria-labelledby="df-wreminders-who">
           <h2 id="df-wreminders-who">{words.who}</h2>
-          {(
-            [
-              ['skipOutOfStock', words.rules.skipOutOfStock],
-              ['quietHours', words.rules.quietHours],
-              ['weeklyCap', words.rules.weeklyCap],
-            ] as const
-          ).map(([key, rule]) => (
-            <label key={key} className="df-reminders-rule">
-              <input type="checkbox" checked={form[key]} disabled={ro} onChange={() => set({ [key]: !form[key] })} />
-              <span className="df-carts-cell">
-                <strong>{rule.title}</strong>
-                <span className="df-carts-sub">{rule.body}</span>
-              </span>
-            </label>
-          ))}
-          <label className="df-reminders-rule">
-            <input type="checkbox" checked disabled />
-            <span className="df-carts-cell">
-              <strong>{words.rules.stop.title}</strong>
-              <span className="df-carts-sub">{words.rules.stop.body}</span>
-            </span>
-          </label>
+          <RuleChecks rules={words.rules} form={form} readOnly={ro} onToggle={(key) => set({ [key]: !form[key] })} />
         </section>
       </div>
 
@@ -240,39 +185,18 @@ export const WishlistRemindersPane = ({ access, forced, sample, storeName }: { a
         </aside>
       )}
 
-      {stale && (
-        <p className="df-carts-note df-carts-note--warning df-reminders-span" role="alert">
-          <strong>{shared.stale}</strong>{' '}
-          <button type="button" className="df-button" onClick={() => {
-              setStale(false)
-              load()
-            }}>
-            {shared.reload}
-          </button>
-        </p>
-      )}
-      {problem && <p className="df-carts-note df-carts-note--danger df-reminders-span" role="alert">{problem}</p>}
-      {saved && !dirty && <p className="df-carts-note df-reminders-span" role="status">{saved}</p>}
+      <FormNotes stale={stale} staleText={shared.stale} reloadText={shared.reload} problem={problem} saved={dirty ? null : saved} onReload={() => {
+          setStale(false)
+          load()
+        }} />
 
       {dirty && !ro && (
-        <div className="df-reminders-bar">
-          <span>
-            <strong>{words.unsaved}</strong>
-          </span>
-          <span className="df-reminders-bar-actions">
-            <button type="button" className="df-button" disabled={saving} onClick={() => {
-                setForm(JSON.parse(orig) as Form)
-                setProblem(null)
-                setStale(false)
-                setSaved(null)
-              }}>
-              {shared.discard}
-            </button>
-            <button type="button" className="df-button df-button--primary" disabled={saving} onClick={save}>
-              {saving ? shared.saving : shared.save}
-            </button>
-          </span>
-        </div>
+        <SaveBar unsaved={words.unsaved} discard={shared.discard} save={shared.save} saving={shared.saving} busy={saving} onSave={save} onDiscard={() => {
+            setForm(JSON.parse(orig) as Form)
+            setProblem(null)
+            setStale(false)
+            setSaved(null)
+          }} />
       )}
     </div>
   )
