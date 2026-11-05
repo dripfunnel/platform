@@ -1,0 +1,50 @@
+import { clsx } from 'clsx'
+
+// The order styles' Tailwind classes, by the names the theme's markup uses (storefront ARCHITECTURE §3.4 "Classes").
+const stepBase = clsx("pt-0 pr-0 pb-3.5 pl-7 relative flex flex-col gap-y-0.5 gap-x-0.5 [&::before]:border-[2px] [&::before]:absolute [&::before]:top-1 [&::before]:left-0 [&::before]:w-3.5 [&::before]:h-3.5 [&::before]:rounded-[50%] [&::before]:[content:''] [&::after]:absolute [&::after]:top-5.5 [&::after]:-bottom-0.5 [&::after]:left-1.75 [&::after]:w-0.5 [&::after]:[content:''] last:pb-0 [&:last-child::after]:hidden")
+const stepDoneBase = clsx('group/order-stepDone [&::after]:bg-accent')
+const stepCurrentBase = clsx('group/order-stepCurrent [&::before]:[box-shadow:inset_0_0_0_3px_var(--color-surface),inset_0_0_0_7px_var(--color-accent)]')
+
+export const order = {
+  actions: clsx('flex flex-wrap gap-y-2.5 gap-x-2.5'),
+  back: clsx('self-start text-ink-soft text-[14px]'),
+  card: clsx('p-4.5 border border-line flex flex-col gap-y-3 gap-x-3 rounded-card bg-surface'),
+  cardTitle: clsx('m-0 font-heading text-[20px] font-[var(--heading-weight)]'),
+  code: clsx('p-3.5 border border-line flex flex-col gap-y-1.5 gap-x-1.5 rounded-card bg-soft'),
+  codeDigits: clsx('m-0 text-[32px] [font-variant-numeric:tabular-nums] font-bold tracking-[0.3em]'),
+  codeTitle: clsx('m-0 text-[15px]'),
+  facts: clsx('m-0 grid gap-y-2.5 gap-x-2.5 [&_div]:grid [&_div]:grid-cols-[120px_1fr] [&_div]:gap-y-3 [&_div]:gap-x-3 [&_dt]:text-muted [&_dt]:text-[14px] [&_dd]:m-0 [&_dd]:wrap-anywhere'),
+  head: clsx('flex flex-col gap-y-2 gap-x-2'),
+  hidden: clsx('absolute overflow-hidden w-px h-px [clip-path:inset(50%)] whitespace-nowrap'),
+  info: clsx('py-3 px-3.5 m-0 border border-line flex flex-wrap items-center gap-y-3 gap-x-3 rounded-card bg-soft text-ink'),
+  instructions: clsx('m-0 text-[14px] wrap-anywhere whitespace-pre-line'),
+  item: clsx('flex flex-wrap items-center gap-y-2 gap-x-3.5'),
+  key: clsx("font-[ui-monospace,'SFMono-Regular',Menlo,monospace] wrap-anywhere"),
+  lead: clsx('m-0 text-ink-soft'),
+  list: clsx('p-0 m-0 grid gap-y-3 gap-x-3 list-none'),
+  main: clsx('flex min-w-0 flex-col gap-y-4.5 gap-x-4.5'),
+  note: clsx('m-0 text-ink-soft text-[14px]'),
+  order: clsx('grid gap-y-5 gap-x-5 items-start min-[900px]:grid-cols-[minmax(0,1fr)_400px] min-[900px]:gap-y-8 min-[900px]:gap-x-8'),
+  pill: clsx('py-1 px-3 self-start rounded-button text-[13px] font-semibold'),
+  pillBad: clsx('bg-soft text-danger'),
+  pillGood: clsx('bg-tint text-accent'),
+  pillInfo: clsx('bg-soft text-ink-soft'),
+  pillWarn: clsx('bg-soft text-danger'),
+  rider: clsx('mt-1.5 flex flex-wrap items-center justify-between gap-y-3 gap-x-3'),
+  riderName: clsx('m-0 flex flex-col gap-y-0.5 gap-x-0.5'),
+  side: clsx('p-5 border border-line flex flex-col gap-y-3.5 gap-x-3.5 rounded-card bg-surface min-[900px]:sticky min-[900px]:top-24'),
+  sideTitle: clsx('m-0 font-heading text-[20px] font-[var(--heading-weight)]'),
+  step: clsx(stepBase, '[&::before]:border-line [&::before]:bg-surface [&::after]:bg-line'),
+  stepBase,
+  stepBad: clsx('[&::before]:border-danger [&::before]:bg-danger'),
+  stepCurrent: clsx(stepCurrentBase, '[&::before]:border-accent'),
+  stepCurrentBase,
+  stepDone: clsx(stepDoneBase, '[&::before]:border-accent [&::before]:bg-accent'),
+  stepDoneBase,
+  stepLabel: clsx('text-ink-soft group-[:nth-child(n)]/order-stepDone:text-ink group-[:nth-child(n)]/order-stepCurrent:text-ink group-[:nth-child(n)]/order-stepCurrent:font-bold'),
+  steps: clsx('p-0 m-0 flex flex-col list-none'),
+  summary: clsx('[--df-sealed-size:15px] [--df-sealed-saving:var(--color-accent)]'),
+  tick: clsx('border-t-0 border-r-[2px] border-b-[2px] border-l-0 border-surface absolute top-1.5 left-1.25 w-1 h-2 [transform:rotate(45deg)]'),
+  title: clsx('m-0 font-heading text-[32px] font-[var(--heading-weight)] tracking-[var(--heading-spacing)] [text-transform:var(--heading-case)]'),
+  trackStatus: clsx('m-0'),
+}
