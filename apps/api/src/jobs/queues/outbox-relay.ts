@@ -39,7 +39,7 @@ export interface RelayOptions {
   onBudgetSpent?: () => Promise<void>
 }
 
-/** How long one sweep keeps claiming rows that come due. It is checked between batches, so a batch (each call capped by `timeoutMs`) can run past it; a sweep the Worker cuts short leaves its rows leased until `leaseMs`. */
+/** How long one sweep keeps claiming rows that come due. It is checked between batches, so a batch (each call capped by its deliverer's timeout) can run past it, never past its lease; a sweep the Worker cuts short leaves its rows leased until `leaseMs`. */
 export const relayBudgetMs = 20_000
 
 export const defaultRelayOptions: RelayOptions = {
@@ -142,12 +142,16 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   const deadline = opts.now().getTime() + opts.budgetMs
   const attempted = new Set<string>()
   while (opts.now().getTime() < deadline) {
+    const claimed = opts.now().getTime()
     const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, [...attempted]))
     if (rows.length === 0) return counts
     for (const row of rows) {
-      attempted.add(row.id)
       const deliverer = deliverers[row.kind]
-      if (deliverer) counts[await settle(sql, row, deliverer, opts)] += 1
+      if (!deliverer) continue
+      // A row whose delivery could outlast its lease is left for another sweep to claim once the lease ends, never run twice.
+      if (opts.now().getTime() - claimed + (deliverer.timeoutMs ?? opts.timeoutMs) > opts.leaseMs) return counts
+      attempted.add(row.id)
+      counts[await settle(sql, row, deliverer, opts)] += 1
     }
   }
   await opts.onBudgetSpent?.()
