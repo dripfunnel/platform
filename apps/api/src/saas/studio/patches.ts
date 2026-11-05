@@ -32,7 +32,7 @@ export const applyEdits = (theme: ReadonlyMap<string, string>, files: readonly F
         continue
       }
       for (const [n, edit] of file.edits.entries()) {
-        const text = content
+        const text: string = content
         const found = edit.search === '' ? [] : positions(text, edit.search)
         const [at] = found
         if (found.length === 1 && at !== undefined) {
