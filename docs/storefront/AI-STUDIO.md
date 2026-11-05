@@ -381,7 +381,8 @@ before, and reads the result when `askDesign` answers.
   halo, so one of the two shows at 3:1 on any theme's background) and a click posts `df-studio:text` instead of acting: core's `t()` remembers each string of the theme's own content it renders
   with its key (`content/en/home.json`'s `hero.title` is `home:hero.title`), and the click's element, or its nearest
   ancestor with words of its own, is looked up there; identical words resolve to the first key shown. Live and preview
-  pages carry no portal and connect nothing.
+  pages carry no portal and connect nothing. In the frame, core's `Link` sends a click on a store path through `navigate()`, which keeps
+  the session's prefix; a plain anchor would leave it for the preview host, which answers 403 without the cookie.
 - **The studio-session id** (§3 step 6) is a bearer credential in the frame's path, so it is
   held to these rules:
   - **Bound** to one store, one user and the portal session that opened the studio. It is

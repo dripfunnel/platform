@@ -1,7 +1,8 @@
 'use client'
 
-import type { ReactNode, Ref } from 'react'
+import type { MouseEvent, ReactNode, Ref } from 'react'
 import { useStorefront } from '../store/context'
+import { navigate } from './router'
 
 /** A path on this store, an http(s) address, or `tel:` and a dialable number; never `javascript:`, `data:`, `//host`, or a backslash or control character a browser would read as `/` or drop. */
 const safe = (href: string): boolean =>
@@ -18,8 +19,17 @@ export const Link = ({ href, className, children, ref }: { href: string; classNa
   const { mode } = useStorefront()
   if (!safe(href)) return <span className={className}>{children}</span>
   const away = mode === 'studio' && elsewhere(href)
+  // A plain anchor would leave the frame's `/__studio/{session}/` path; navigate() keeps it (AI-STUDIO §8).
+  const stay =
+    mode === 'studio' && href.startsWith('/')
+      ? (event: MouseEvent<HTMLAnchorElement>) => {
+          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+          event.preventDefault()
+          navigate(href)
+        }
+      : undefined
   return (
-    <a ref={ref} href={href} className={className} {...(away ? { target: '_blank', rel: 'noreferrer noopener' } : {})}>
+    <a ref={ref} href={href} className={className} onClick={stay} {...(away ? { target: '_blank', rel: 'noreferrer noopener' } : {})}>
       {children}
     </a>
   )

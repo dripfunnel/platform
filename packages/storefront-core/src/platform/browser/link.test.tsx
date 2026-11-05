@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createShopClient } from '../api/client'
 import { StorefrontProvider, type RenderMode } from '../store/context'
 import { completeStore } from '../store/store'
 import { Link } from './link'
+import { setRouterBase } from './router'
 
 afterEach(cleanup)
 
@@ -50,6 +51,22 @@ describe('Link', () => {
     expect(link('studio', '/collections/linen').getAttribute('target')).toBeNull()
     cleanup()
     expect(link('live', 'https://instagram.com/juniper').getAttribute('target')).toBeNull()
+  })
+
+  it('in the studio frame keeps a click on a store link under the frame’s session path, and leaves a modified click to the browser', () => {
+    const base = '/__studio/abcdefghijklmnopqrstuv/'
+    setRouterBase(base)
+    history.replaceState(null, '', base)
+    const a = link('studio', '/collections/linen/')
+    expect(fireEvent.click(a, { button: 0, ctrlKey: true })).toBe(true)
+    history.replaceState(null, '', base)
+    cleanup()
+    const assign = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign, origin: window.location.origin, pathname: base } as unknown as Location)
+    expect(fireEvent.click(link('studio', '/collections/linen/'))).toBe(false)
+    expect(assign).toHaveBeenCalledWith(`${base}collections/linen/`)
+    vi.restoreAllMocks()
+    setRouterBase(null)
   })
 
   it('takes tel: and a dialable number, and no other tel: address', () => {
