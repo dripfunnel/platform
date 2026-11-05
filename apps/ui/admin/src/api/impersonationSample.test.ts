@@ -85,7 +85,7 @@ describe('the staff-session sample, as the Admin API will answer', () => {
     expect(server.extend(id, 'staff-support')).toEqual({ ok: true })
     expect(server.extend(id, 'staff-support')).toEqual({ ok: false, reason: 'IMPERSONATION_ALREADY_EXTENDED' })
     const extended = server.session(id, 'staff-support')
-    expect(extended.kind === 'found' && Date.parse(extended.session.expiresAt) - Date.parse(extended.session.startedAt)).toBe(60 * 60_000)
+    expect(extended.kind === 'found' && Date.parse(extended.session.expiresAt) - Date.parse(extended.session.startedAt)).toBe(120 * 60_000)
     expect(server.extend('su-open1', 'staff-super-admin')).toEqual({ ok: false, reason: 'SETUP_SESSION_NOT_EXTENDABLE' })
   })
 
@@ -99,7 +99,7 @@ describe('the staff-session sample, as the Admin API will answer', () => {
 
   it('expires a session at its end, and then refuses to return to it', () => {
     const { server, advance } = setup()
-    advance(30)
+    advance(90)
     const lookup = server.session('imp-open1', 'staff-support')
     expect(lookup.kind === 'found' && lookup.session.outcome).toBe('expired')
     expect(server.returnTo('imp-open1', 'staff-support')).toEqual({ ok: false, reason: 'SESSION_EXPIRED' })

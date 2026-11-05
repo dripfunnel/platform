@@ -1974,7 +1974,7 @@
   "impersonate": {
     "level": "Platform · Every partner",
     "title": "Impersonate",
-    "sub": "Sign in as a partner’s or store’s user to see what they see and fix things for them. 30 minutes, logged as you acting as them.",
+    "sub": "Sign in as a partner’s or store’s user to see what they see and fix things for them. 90 minutes, logged as you acting as them.",
     "tabsLabel": "Impersonate sections",
     "tabs": {
       "users": "Users",
@@ -2264,7 +2264,7 @@
       "ticket": "Ticket link (optional)",
       "ticketPlaceholder": "https://support.dripfunnel.ai/t/…",
       "ticketError": "Use a link that starts with https://.",
-      "confirm": "You’ll be signed in as {name} ({role}, {where}) with {first}’s access for 30 minutes. You can’t change {first}’s password, 2-factor, sign-in methods, payment or payout details, or the {owner}’s ownership. Everyone signed in to {place} will see that Support is signed in as {first}. Everything you do is logged as {me} acting as {first}.",
+      "confirm": "You’ll be signed in as {name} ({role}, {where}) with {first}’s access for 90 minutes. You can’t change {first}’s password, 2-factor, sign-in methods, payment or payout details, or the {owner}’s ownership. Everyone signed in to {place} will see that Support is signed in as {first}. Everything you do is logged as {me} acting as {first}.",
       "owners": {
         "partner": "partner",
         "store": "store"
