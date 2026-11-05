@@ -36,6 +36,7 @@ const fileSchema = z.union([
 ])
 
 const answerSchema = z.strictObject({
+  intro: z.string().max(300).optional(),
   files: z.array(fileSchema).max(200),
   reply: z.string().max(2000),
   changed: z.array(z.string().max(80)).max(5),
@@ -222,7 +223,7 @@ Requests
   make pages slow or break a rule, change nothing and offer an alternative in words.
 - From a sample site take layout, spacing, colour and mood, never its logo, photos or words. Brand colours are a hint.
 Answer with only one JSON object and nothing else:
-{"files":[{"path":"a file the theme has","edits":[{"search":"exact text in it now, found once","replace":"its new text"}]},
+{"intro":"one short first-person sentence, written first: what you understood and will change","files":[{"path":"a file the theme has","edits":[{"search":"exact text in it now, found once","replace":"its new text"}]},
 {"path":"a new file","content":"the whole file"},{"path":"a file to delete","delete":true}],"reply":"one or two short
 first-person sentences in plain words saying what you changed","changed":["2 to 5 short labels"],"page":"the page to
 show, or null"}`
@@ -504,15 +505,22 @@ export const designModel = (
       // A repair goes the same way as the first ask, so it reads the same cached prefix; its tool calls are refused.
       const looping = (tools !== null || lookups !== null) && provider.converse !== undefined
       const opening: CanonicalMessage = { role: 'user', content: [...context.map((part) => ({ type: 'text' as const, text: part, cache: true })), ...images.map((i) => ({ type: 'image' as const, mediaType: i.mediaType, base64: i.base64 })), { type: 'text' as const, text }] }
-      const onFile = input.onFile
-      // Each file whole as it streams, for the runner's pre-check; never waited on, and a failed hand-off loses only that.
-      const streaming = onFile
-        ? () =>
-            streamedItems('files', (item) => {
-              const file = fileSchema.safeParse(item)
-              if (file.success) void Promise.resolve(file.data).then(onFile).catch(() => undefined)
-            })
-        : null
+      const { onFile, onIntro } = input
+      // Each file whole as it streams, for the runner's pre-check, and the intro sentence; never waited on, and a failed hand-off loses only that.
+      const streaming =
+        onFile || onIntro
+          ? () =>
+              streamedItems(
+                'files',
+                (item) => {
+                  const file = fileSchema.safeParse(item)
+                  if (file.success && onFile) void Promise.resolve(file.data).then(onFile).catch(() => undefined)
+                },
+                (key, value) => {
+                  if (key === 'intro') onIntro?.(value.slice(0, 300))
+                },
+              )
+          : null
       const answer = looping
         ? await converse(provider, tools, photos, lookups, opening, input.problems.length > 0, onAdded, signal, streaming)
         : await provider.complete({ system: rules, context, text, images, ...(streaming ? { onText: streaming() } : {}) })

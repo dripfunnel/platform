@@ -3,13 +3,15 @@ import { studioStoreHeader } from './frame'
 // The studio's live progress (storefront AI-STUDIO §4 "Live progress", #1237): one-way events from the store's
 // StudioSession to every open studio of the store, over hibernating WebSockets, numbered so a reconnect replays what it missed.
 
-export const liveSteps = ['reading', 'asking', 'planning', 'checking', 'repairing', 'saving', 'updating'] as const
+export const liveSteps = ['reading', 'asking', 'planning', 'checking', 'repairing', 'editing', 'saving', 'updating'] as const
 export type LiveStep = (typeof liveSteps)[number]
 
 /** Never file contents, prompts or secrets: steps, the AI's own words, and the outcome askDesign answers. */
 export type LiveEvent =
   | { type: 'step'; step: LiveStep; attempt?: number; of?: number }
   | { type: 'text'; text: string }
+  /** The model's own sentence on what it understood and will change, before its edits. */
+  | { type: 'thought'; text: string }
   /** A build's page starting (#1243): "Building page 2 of 5: Product", with every page's title for the chips. */
   | { type: 'page'; index: number; of: number; page: string; titles: string[] }
   | { type: 'done'; outcome: string; messageId: string | null }

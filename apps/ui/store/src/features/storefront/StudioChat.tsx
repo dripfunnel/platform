@@ -85,9 +85,11 @@ interface Attached {
   preview?: string
 }
 
-/** "Design with AI" (PortalStorefront › studio): the conversation, suggestions and the composer with an image and a website. */
+/** "Design with AI" (PortalStorefront › studio): the conversation and the composer with an image and a website. */
 export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, live, error, api, onEarlier, onUndo, onStop, onSend, notice, aiLine, models, onActivity, onAnswer, onBuild }: StudioChatProps) => {
   const [prompt, setPrompt] = useState('')
+  // The merchant's words, shown at once; the saved message takes their place when the change ends.
+  const [sending, setSending] = useState<string | null>(null)
   const [image, setImage] = useState<Attached | null>(null)
   const [site, setSite] = useState<string | null>(null)
   const [siteOpen, setSiteOpen] = useState(false)
@@ -95,6 +97,8 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
   const [siteErr, setSiteErr] = useState<string | null>(null)
   const [assetsOpen, setAssetsOpen] = useState(false)
   const [assetList, setAssetList] = useState<'loading' | 'failed' | LibraryAsset[]>('loading')
+  const [assetNext, setAssetNext] = useState<string | null>(null)
+  const assetMore = useRef(false)
   const [stockOn, setStockOn] = useState(false)
   const [stockOpen, setStockOpen] = useState(false)
   const [stockIn, setStockIn] = useState('')
@@ -148,7 +152,23 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
     setUrlOpen(false)
     setSiteOpen(false)
     setAssetList('loading')
-    api.loadLibrary({ after: null, kind: 'image', search: '' }).then((page) => setAssetList(page.assets), () => setAssetList('failed'))
+    setAssetNext(null)
+    api.loadLibrary({ after: null, kind: 'image', search: '' }).then(
+      (page) => (setAssetList(page.assets), setAssetNext(page.next)),
+      () => setAssetList('failed'),
+    )
+  }
+  // The next page of the library, once the grid is scrolled near its end.
+  const moreAssets = (grid: HTMLElement) => {
+    if (!assetNext || assetMore.current || grid.scrollTop + grid.clientHeight < grid.scrollHeight - 80) return
+    assetMore.current = true
+    api.loadLibrary({ after: assetNext, kind: 'image', search: '' }).then(
+      (page) => {
+        setAssetList((was) => (Array.isArray(was) ? [...was, ...page.assets] : was))
+        setAssetNext(page.next)
+      },
+      () => setAssetNext(null),
+    ).finally(() => (assetMore.current = false))
   }
   const pickAsset = (a: LibraryAsset) => {
     uploads.current += 1
@@ -214,11 +234,18 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
     const planId = openFlow?.role === 'plan' && !chatMode && !attached && text !== '' ? openFlow.id : null
     const request: ChatRequest = { text: text || words.attachedOnly, imageAssetId: withAttached ? (image?.assetId ?? null) : null, sampleUrl: withAttached ? site : null, model, mode: chatMode ? 'chat' : 'change', planId }
     setLast(request)
-    void onSend(request).then((taken) => {
-      if (!taken || !withAttached) return
+    setSending(text)
+    if (withAttached) {
       setPrompt('')
       setImage(null)
       setSite(null)
+    }
+    void onSend(request).then((taken) => {
+      setSending(null)
+      if (taken || !withAttached) return
+      setPrompt(text)
+      setImage(image)
+      setSite(site)
     })
   }
   const retry = () => {
@@ -279,6 +306,11 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
             flow={canEdit && !locked && m.id === openFlow?.id ? { answer: (answers, skip) => answer(m, answers, skip), build: () => build(m) } : null}
           />
         ))}
+        {sending && (
+          <li className="df-studio-user">
+            <p>{sending}</p>
+          </li>
+        )}
         {notice}
         {live && (
           <li className="df-studio-ai">
@@ -300,17 +332,6 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
       </ol>
       {canEdit && (
         <div className="df-studio-compose">
-          {!locked && !openFlow && (
-            <ul className="df-studio-chips" aria-label={words.suggestionsLabel}>
-              {words.suggestions.map((s) => (
-                <li key={s}>
-                  <button type="button" onClick={() => send(s, false)}>
-                    {s}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
           <div className="df-studio-box">
             {(image || site) && (
               <div className="df-studio-attached">
@@ -344,7 +365,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
                 {assetList === 'failed' && <p role="alert">{words.assetsFailed}</p>}
                 {Array.isArray(assetList) && assetList.length === 0 && <p role="status">{words.assetsEmpty}</p>}
                 {Array.isArray(assetList) && assetList.length > 0 && (
-                  <ul className="df-studio-stock-grid">
+                  <ul className="df-studio-stock-grid" onScroll={(e) => moreAssets(e.currentTarget)}>
                     {assetList.map((a) => (
                       <li key={a.id}>
                         <button type="button" aria-label={fill(words.assetsUse, { name: a.name ?? words.imageName })} title={a.name ?? undefined} onClick={() => pickAsset(a)}>

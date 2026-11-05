@@ -7609,14 +7609,25 @@
       "live": {
         "steps": {
           "reading": "Reading your theme",
-          "asking": "Asking the AI",
+          "asking": "Understanding your request",
           "planning": "Writing your plan",
           "checking": "Checking your change",
           "repairing": "Fixing a problem ({attempt} of {of})",
+          "editing": "Making your changes",
           "saving": "Saving",
           "updating": "Updating the page"
         },
         "answering": "Writing an answer…",
+        "cooking": [
+          "Looking at your shop…",
+          "Mixing the colours…",
+          "Arranging things nicely…",
+          "Polishing the details…",
+          "Picking the right words…",
+          "Finding the perfect pictures…",
+          "Making it feel like you…",
+          "Almost there…"
+        ],
         "building": "Building page {index} of {of}: {title}",
         "buildPages": "Pages in this build",
         "pageDone": "{title}, built",
@@ -7718,13 +7729,6 @@
         "undone": "Undone — the preview is back to how it was.",
         "earlier": "Show earlier messages",
         "empty": "Tell me what to change and I’ll update the preview. Nothing goes live until you publish.",
-        "suggestionsLabel": "Suggestions",
-        "suggestions": [
-          "Make the colours warmer",
-          "Add a customer reviews section",
-          "Use a more elegant font for headings",
-          "Rewrite the About page in a friendlier tone"
-        ],
         "notes": {
           "template": "Switched to {name}",
           "scratch": "Started from scratch",

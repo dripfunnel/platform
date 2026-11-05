@@ -690,11 +690,12 @@ export class StudioRunner {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         progress(attempt === 0 ? { type: 'step', step: 'asking' } : { type: 'step', step: 'repairing', attempt, of: maxRepairs })
+        let editing = false
         const streamed = new StreamedChecks(theme, async (changes) => {
           if (!this.client) return []
           return (await this.client.precheck(changes, context)).problems
         })
-        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous, onFile: streamed.add }), stopping])
+        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous, onFile: (file) => (editing || ((editing = true), progress({ type: 'step', step: 'editing' })), streamed.add(file)), onIntro: (text) => progress({ type: 'thought', text }) }), stopping])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         if (proposal.summary?.reply && !summarised) {
           summarised = true

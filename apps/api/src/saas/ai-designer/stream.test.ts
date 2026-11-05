@@ -32,3 +32,16 @@ describe('the answer’s files as they stream (#1240)', () => {
     expect(feed(cut, 10)).toEqual([])
   })
 })
+
+describe('the answer’s intro as it streams', () => {
+  it('hands over a top-level string value whole, however the text is cut, and never a nested one', () => {
+    const text = JSON.stringify({ intro: 'I will warm the colours.', files: [{ path: 'a', content: 'x' }], reply: 'Done.', other: { intro: 'nested' } })
+    for (const size of [1, 4, 9, text.length]) {
+      const seen: [string, string][] = []
+      const push = streamedItems('files', () => undefined, (key, value) => void seen.push([key, value]))
+      for (let at = 0; at < text.length; at += size) push(text.slice(at, at + size))
+      expect(seen).toContainEqual(['intro', 'I will warm the colours.'])
+      expect(seen).not.toContainEqual(['intro', 'nested'])
+    }
+  })
+})
