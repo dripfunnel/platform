@@ -576,6 +576,7 @@ describe('the migration agent and a draft’s rebase onto an upgrade (#485)', ()
     const upgrade = await upgradeOfLive()
     const { runner } = await runnerFor(t.storeA2)
     expect((await runner.change({ request: 'A later change', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Kept words.')]]).model })).outcome).toBe('changed')
+    expect(await runner.saved()).toBe(true)
     const head = (await draftRow(t.storeA2))?.head_commit
     await runner.stop()
     const [run] = await db.sql<{ id: string }[]>`

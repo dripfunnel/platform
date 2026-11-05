@@ -167,10 +167,11 @@ describe('the StudioSession’s live sockets (#1237)', () => {
     current.ctx.acceptWebSocket(frame, [hash])
     const live = current.open[0]?.socket
     await object.progress(t.storeA1, 'run-1', { type: 'step', step: 'reading' })
-    inside(object).announce({ id: 'b1', entry: 'assets/b1.js' } as ClientBundle)
+    const bundle: ClientBundle = { id: '00000000000000b1', entry: 'assets/b1.js', files: [{ path: 'index.html', bytes: 1 }, { path: 'assets/b1.js', bytes: 1 }, { path: 'assets/b1.css', bytes: 1 }] }
+    inside(object).announce(bundle)
     expect(live?.events.map((e) => e.seq)).toEqual([1])
     expect(live?.sent.some((m) => m.includes('"bundle"'))).toBe(false)
-    expect(frame.sent).toEqual([JSON.stringify({ type: 'bundle', id: 'b1', entry: 'assets/b1.js' })])
+    expect(frame.sent).toEqual([JSON.stringify({ type: 'bundle', id: bundle.id, entry: 'assets/b1.js', css: ['assets/b1.css'] })])
   })
 
   it('replays exactly the missed events to a reconnect after the object was evicted and started again', async () => {
