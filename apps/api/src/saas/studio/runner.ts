@@ -8,7 +8,7 @@ import { baseDraftOnBuild, insertAiRun, moveDraft, rebaseDraft, restartDraft, se
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type PreviewFiles, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import { changedFiles, type KeptChange, type KeptChanges } from './kept'
-import type { LiveEvent } from './live'
+import { firstOnly, type LiveEvent } from './live'
 import { maxRepairs, type DesignModel, type FileEdit, type Proposal, type ProposalSummary } from './model'
 import { applyEdits } from './patches'
 import { StreamedChecks, withPrechecked } from './streamed'
@@ -686,16 +686,16 @@ export class StudioRunner {
     this.running = run
     const progress = input.progress ?? (() => undefined)
     let summarised = false
+    const editing = firstOnly(() => progress({ type: 'step', step: 'editing' }))
     try {
       for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         progress(attempt === 0 ? { type: 'step', step: 'asking' } : { type: 'step', step: 'repairing', attempt, of: maxRepairs })
-        let editing = false
         const streamed = new StreamedChecks(theme, async (changes) => {
           if (!this.client) return []
           return (await this.client.precheck(changes, context)).problems
         })
-        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous, onFile: (file) => (editing || ((editing = true), progress({ type: 'step', step: 'editing' })), streamed.add(file)), onIntro: (text) => progress({ type: 'thought', text }) }), stopping])
+        const proposal = await Promise.race([input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems, previous, onFile: (file) => (editing(), streamed.add(file)), onIntro: (text) => progress({ type: 'thought', text }) }), stopping])
         if (run.stopped) throw new StudioCancelled('studio: stopped')
         if (proposal.summary?.reply && !summarised) {
           summarised = true

@@ -35,6 +35,12 @@ const fileSchema = z.union([
   z.strictObject({ path: filePath, delete: z.literal(true) }),
 ])
 
+/** The streamed intro goes to the merchant's screen before the answer is validated: plain words only, never a path or code. */
+export const plainIntro = (text: string): string | null => {
+  const intro = text.trim().slice(0, 300)
+  return intro === '' || /[\\/`{}<>_]|\.[a-z]{2,5}\b/i.test(intro) ? null : intro
+}
+
 const answerSchema = z.strictObject({
   intro: z.string().max(300).optional(),
   files: z.array(fileSchema).max(200),
@@ -517,7 +523,8 @@ export const designModel = (
                   if (file.success && onFile) void Promise.resolve(file.data).then(onFile).catch(() => undefined)
                 },
                 (key, value) => {
-                  if (key === 'intro') onIntro?.(value.slice(0, 300))
+                  const intro = key === 'intro' ? plainIntro(value) : null
+                  if (intro) onIntro?.(intro)
                 },
               )
           : null

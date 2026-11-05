@@ -869,6 +869,13 @@ describe('the live feed (#1237)', () => {
     expect(screen.getByText('make it warmer').closest('.df-studio-user')).not.toBeNull()
   })
 
+  it('shows the sent words once, not twice, while the change runs', async () => {
+    await show({ askDesign: vi.fn().mockReturnValue(new Promise<string>(() => undefined)) })
+    typeAndSend('make it warmer')
+    await settle()
+    expect(screen.getAllByText('make it warmer').length).toBe(1)
+  })
+
   it('keeps a friendly line changing while the AI works, so the wait never looks stuck', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     try {

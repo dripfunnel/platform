@@ -17,6 +17,16 @@ export type LiveEvent =
   | { type: 'done'; outcome: string; messageId: string | null }
   | { type: 'error'; code: string }
 
+/** `send` the first time only: a run's one "making your changes" step, however many repairs follow. */
+export const firstOnly = (send: () => void): (() => void) => {
+  let sent = false
+  return () => {
+    if (sent) return
+    sent = true
+    send()
+  }
+}
+
 export type LiveMessage = LiveEvent & { seq: number; run: string }
 
 /** A change's events are kept this long after it ends (the card's reconnect window). */

@@ -453,6 +453,20 @@ describe('the answer’s files as they stream (#1240)', () => {
     expect(proposal.files).toEqual(files)
   })
 
+  it('hands over the model’s intro as it streams, only in plain words, never a path or code', async () => {
+    const make = (intro: string) => JSON.stringify({ intro, files, reply: 'Done.', changed: ['Colour'], page: 'home' })
+    const heard = async (intro: string) => {
+      const text = make(intro)
+      const provider: AiProvider = { complete: async (c) => (pieces(text, c.onText), { text, ...spent }) }
+      const said: string[] = []
+      await designModel(provider, brief).propose({ request: 'darker ink', theme: [], problems: [], onIntro: (t) => void said.push(t) })
+      return said
+    }
+    expect(await heard('I will make the ink darker.')).toEqual(['I will make the ink darker.'])
+    expect(await heard('I will edit src/theme/pages/HomePage.tsx')).toEqual([])
+    expect(await heard('Change `hero` in sections/hero.liquid')).toEqual([])
+  })
+
   it('reads each turn of a tool loop afresh, so the answering turn’s files come through', async () => {
     const turns: AiTurn[] = [{ ...turn([call('1', 'search_stock_images', { query: 'linen' })]), text: 'Let me look for a {photo' }, { ...turn([]), text: answer }]
     const provider: AiProvider = {

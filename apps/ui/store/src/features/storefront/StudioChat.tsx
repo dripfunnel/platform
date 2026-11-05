@@ -88,8 +88,8 @@ interface Attached {
 /** "Design with AI" (PortalStorefront › studio): the conversation and the composer with an image and a website. */
 export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, live, error, api, onEarlier, onUndo, onStop, onSend, notice, aiLine, models, onActivity, onAnswer, onBuild }: StudioChatProps) => {
   const [prompt, setPrompt] = useState('')
-  // The merchant's words, shown at once; the saved message takes their place when the change ends.
-  const [sending, setSending] = useState<string | null>(null)
+  // The merchant's words, shown at once until the saved message joins the chat.
+  const [sending, setSending] = useState<{ text: string; at: number } | null>(null)
   const [image, setImage] = useState<Attached | null>(null)
   const [site, setSite] = useState<string | null>(null)
   const [siteOpen, setSiteOpen] = useState(false)
@@ -234,7 +234,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
     const planId = openFlow?.role === 'plan' && !chatMode && !attached && text !== '' ? openFlow.id : null
     const request: ChatRequest = { text: text || words.attachedOnly, imageAssetId: withAttached ? (image?.assetId ?? null) : null, sampleUrl: withAttached ? site : null, model, mode: chatMode ? 'chat' : 'change', planId }
     setLast(request)
-    setSending(text)
+    setSending({ text, at: chat.length })
     if (withAttached) {
       setPrompt('')
       setImage(null)
@@ -250,7 +250,8 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
   }
   const retry = () => {
     if (!last || locked) return
-    void onSend(last)
+    setSending({ text: last.text, at: chat.length })
+    void onSend(last).finally(() => setSending(null))
   }
   // A flow's step leaves nothing to resend: its questions or plan stay open to press again.
   const answer = (m: DesignMessage, answers: string[], skip: boolean) => (setLast(null), onAnswer(m, answers, skip, model))
@@ -306,9 +307,9 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
             flow={canEdit && !locked && m.id === openFlow?.id ? { answer: (answers, skip) => answer(m, answers, skip), build: () => build(m) } : null}
           />
         ))}
-        {sending && (
+        {sending && sending.at === chat.length && (
           <li className="df-studio-user">
-            <p>{sending}</p>
+            <p>{sending.text}</p>
           </li>
         )}
         {notice}
