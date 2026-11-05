@@ -3,7 +3,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { deleteDraft } from '#db/scoped/studio'
 import type postgres from 'postgres'
 import { goBack, type GoBackResult } from '#saas/storefronts/index'
-import { preparedAnswer, StudioQueued, StudioUnavailable, studioAnswer, type KeptSummary, type LiveEvent, type StudioApi, type StudioRunner, type StudioState } from '#saas/studio/index'
+import { preparedAnswer, type BuildOutcome, StudioQueued, StudioUnavailable, studioAnswer, type KeptSummary, type LiveEvent, type StudioApi, type StudioRunner, type StudioState } from '#saas/studio/index'
 
 // The StudioSession's RPC shape (jobs/durable/studio.ts) over StudioRunners in this process, one per store, named by the
 // TenantContext's store as `studioOf` names the Durable Object. `calls` records which store each call reached, `live` each
@@ -12,6 +12,7 @@ import { preparedAnswer, StudioQueued, StudioUnavailable, studioAnswer, type Kep
 export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string) => StudioRunner) => {
   const calls: { contextStore: string; storeId: string }[] = []
   const kept = new Map<string, KeptSummary>()
+  const builds = new Map<string, BuildOutcome>()
   const live: { storeId: string; run: string; event: LiveEvent }[] = []
   const studio = (context: TenantContext): StudioApi => {
     const runner = (storeId: string) => {
@@ -54,7 +55,16 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
       cancel: async (storeId) => runner(storeId).cancel(),
       undo: async (storeId, input) => {
         const r = runner(storeId)
-        return studioAnswer(() => r.undo(input.commit, input.userId))
+        return studioAnswer(() => r.undo(input.commit, input.userId, input.before ?? null))
+      },
+      build: async (storeId, input, model) => {
+        const r = runner(storeId)
+        const { run, ...request } = input
+        return studioAnswer(() => r.build({ ...request, model, progress: (event) => void live.push({ storeId, run, event }), kept: async (sofar) => void builds.set(run, sofar) }))
+      },
+      buildSoFar: async (storeId, run) => {
+        runner(storeId)
+        return builds.get(run) ?? null
       },
       texts: async (storeId, input) => runner(storeId).texts(input.page, input.locale),
       editText: async (storeId, input) => {

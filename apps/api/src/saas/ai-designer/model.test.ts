@@ -361,3 +361,43 @@ describe('the rules the prompt states against the validator', () => {
     expect((await validateTheme([...baseline, rule], guardContext)).problems.map((p) => p.rule)).toEqual(['css/theme-entry'])
   }, validatorMs)
 })
+
+describe('questions and a plan for a vague request (#1243)', () => {
+  const asked = JSON.stringify({ questions: [{ text: 'What should the home page lead with?', options: ['Silk sarees, your best seller', 'New arrivals'] }], reply: 'A few quick questions first.' })
+  const planned = JSON.stringify({ plan: { header: 'logo and menu', footer: 'shipping and contact', pages: [{ page: 'home', title: 'Home', sections: ['hero with silk sarees'] }] }, reply: 'Here is my plan.' })
+  const ask = async (text: string, mayAsk: boolean, problems: { file: string; message: string }[] = []) => {
+    const sent: string[] = []
+    const provider: AiProvider = { complete: async (c) => (sent.push(c.text), { text, ...spent }) }
+    const p = await designModel(provider, { ...brief, mayAsk }, null).propose({ request: 'make my store look premium', theme: [], problems: problems as never })
+    return { p, sent }
+  }
+
+  it('takes questions or a plan from a merchant’s own first ask, with no files, and marks it asked', async () => {
+    const q = await ask(asked, true)
+    expect(q.p).toMatchObject({ files: [], asked: true, summary: { reply: 'A few quick questions first.', changed: [], page: null }, ask: { questions: [{ text: 'What should the home page lead with?' }] } })
+    expect(q.sent[0]).not.toContain('never with questions or a plan')
+    expect((await ask(planned, true)).p).toMatchObject({ asked: true, ask: { plan: { pages: [{ page: 'home' }] } } })
+  })
+
+  it('reads questions as no usable answer on a build’s page or a repair, and tells the model it may not ask', async () => {
+    for (const r of [await ask(asked, false), await ask(asked, true, [{ file: 'a.tsx', message: 'x' }])]) {
+      expect(r.p.summary).toBeNull()
+      expect(r.p.asked).toBeUndefined()
+      expect(r.sent[0]).toContain('never with questions or a plan')
+    }
+  })
+
+  it('refuses more than three questions, or a question with one answer or five', async () => {
+    const q = (n: number, options: number) => JSON.stringify({ questions: Array.from({ length: n }, (_, i) => ({ text: `Q${i}`, options: Array.from({ length: options }, (_, o) => `A${o}`) })), reply: 'x' })
+    expect((await ask(q(3, 4), true)).p.asked).toBe(true)
+    for (const text of [q(4, 2), q(1, 1), q(1, 5)]) expect((await ask(text, true)).p.summary).toBeNull()
+  })
+
+  it('keeps the cached prefix: the same rules and context whether the request may ask or not', async () => {
+    const seen: { system: string; context: readonly string[] | undefined }[] = []
+    const provider: AiProvider = { complete: async (c) => (seen.push({ system: c.system, context: c.context }), { text: final, ...spent }) }
+    for (const mayAsk of [true, false]) await designModel(provider, { ...brief, mayAsk }, null).propose({ request: 'x', theme: [{ path: 'a.json', content: '{}' }], problems: [] })
+    expect(seen[0]).toEqual(seen[1])
+    expect(rules).toContain('at most 3 questions')
+  })
+})

@@ -17,7 +17,7 @@ const origin = 'https://k7f3q9f2xa.webpreview.store'
 const frameUrl = `${origin}/__studio/abcdefghijklmnopqrstuv/`
 const ready: StudioSession = { state: 'ready', place: null, session: 'abcdefghijklmnopqrstuv', models: [], frameUrl, access: 'change', expiresAt: '2026-10-12T09:00:00Z' }
 const overview: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }, draft: { template: 'linen', changedAt: null, previewReady: true }, lastPublish: null }
-const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: '2026-10-12T08:00:00Z', ...more })
+const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: '2026-10-12T08:00:00Z', questions: [], answers: [], plan: null, flowState: null, build: null, ...more })
 const chat = [line('m3', 'ai', 'I warmed it up.', { changed: ['Colours'], canUndo: true }), line('m2', 'user', 'Make it warmer'), line('m1', 'note', 'template:linen')]
 
 /** The live socket as the studio sees it: `send` delivers an event; it is down until `up` says otherwise (#1237). */
@@ -38,6 +38,9 @@ const fakeApi = () =>
     studioActivity: vi.fn().mockResolvedValue(undefined),
     loadDesignChat: vi.fn().mockResolvedValue({ messages: chat, next: null }),
     askDesign: vi.fn().mockResolvedValue('changed'),
+    answerDesignQuestions: vi.fn().mockResolvedValue('asked'),
+    changeDesignPlan: vi.fn().mockResolvedValue('asked'),
+    buildDesignPlan: vi.fn().mockResolvedValue('changed'),
     importDesignImage: vi.fn().mockResolvedValue('a-web'),
     cancelDesign: vi.fn().mockResolvedValue(true),
     loadLibrary: vi.fn().mockResolvedValue({ assets: [{ id: 'a-own', kind: 'image', mime: 'image/png', bytes: 1000, width: 10, height: 10, name: 'Hero photo', uses: 0, createdAt: '2026-10-29T10:00:00Z' }], next: null }),
@@ -863,5 +866,168 @@ describe('the live feed (#1237)', () => {
     await act(async () => answer('changed'))
     await settle()
     expect(screen.queryByText(words.sandbox.checking)).toBeNull()
+  })
+})
+
+describe('a vague request’s questions, plan and build (#1243)', () => {
+  const q = c.questions
+  const plan = { header: 'logo and menu', footer: 'shipping and contact', pages: [{ page: 'home', title: 'Home', sections: ['hero with silk sarees', '3 tiles'] }, { page: 'product', title: 'Product', sections: ['large gallery'] }] }
+  const asking = line('m5', 'questions', '', {
+    flowState: 'open',
+    questions: [
+      { text: 'What should the home page lead with?', options: ['Silk sarees, your best seller', 'New arrivals'] },
+      { text: 'What feeling?', options: ['Calm', 'Bold'] },
+    ],
+  })
+  const vague = line('m4', 'user', 'Make my store look premium')
+  const planned = line('m6', 'plan', 'Here is my plan.', { plan, flowState: 'open' })
+
+  it('shows each question as a radio group of the AI’s answers, the first picked, with words of one’s own; Make the plan sends them', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [asking, vague, ...chat], next: null }), answerDesignQuestions: vi.fn().mockResolvedValue('asked') })
+    const groups = screen.getAllByRole('group').filter((g) => g.classList.contains('df-studio-question'))
+    expect(groups).toHaveLength(2)
+    const lead = within(groups[0] as HTMLElement)
+    expect((lead.getByRole('radio', { name: 'Silk sarees, your best seller' }) as HTMLInputElement).checked).toBe(true)
+    fireEvent.click(lead.getByRole('radio', { name: 'New arrivals' }))
+    fireEvent.change(screen.getByRole('textbox', { name: fill(q.otherFor, { question: 'What feeling?' }) }), { target: { value: 'Quiet luxury' } })
+    // While questions are open, the suggestions make way for them.
+    expect(screen.queryByRole('button', { name: firstSuggestion })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: q.answer }))
+    await settle()
+    expect(api.answerDesignQuestions).toHaveBeenCalledWith('m5', ['New arrivals', 'Quiet luxury'], false, null)
+  })
+
+  it('skips the questions, and shows answered ones read-only', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [asking, vague, ...chat], next: null }), answerDesignQuestions: vi.fn().mockResolvedValue('asked') })
+    fireEvent.click(screen.getByRole('button', { name: q.skip }))
+    await settle()
+    expect(api.answerDesignQuestions).toHaveBeenCalledWith('m5', [], true, null)
+    cleanup()
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [{ ...asking, flowState: 'answered', answers: ['New arrivals', 'My own'] }, vague], next: null }) })
+    expect(screen.queryByRole('button', { name: q.answer })).toBeNull()
+    expect(screen.getByText(q.answered)).toBeTruthy()
+    expect((screen.getByRole('radio', { name: 'New arrivals' }) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByRole('textbox', { name: fill(q.otherFor, { question: 'What feeling?' }) }) as HTMLInputElement).value).toBe('My own')
+  })
+
+  it('lists the plan’s pages with Build it, and sends words typed under it as a change to the plan', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [planned, vague, ...chat], next: null }), buildDesignPlan: vi.fn().mockResolvedValue('changed'), changeDesignPlan: vi.fn().mockResolvedValue('asked') })
+    expect([...document.querySelectorAll('.df-studio-plan li')].map((li) => li.textContent)).toEqual(['Home hero with silk sarees and 3 tiles', 'Product large gallery', `${c.plan.header} logo and menu`, `${c.plan.footer} shipping and contact`])
+    const box = screen.getByRole('textbox', { name: c.prompt })
+    expect(box.getAttribute('placeholder')).toBe(c.placeholderPlan)
+    fireEvent.change(box, { target: { value: 'Add a lookbook page' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.changeDesignPlan).toHaveBeenCalledWith('m6', 'Add a lookbook page', null)
+    expect(api.askDesign).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: c.plan.build }))
+    await settle()
+    expect(api.buildDesignPlan).toHaveBeenCalledWith('m6', null)
+  })
+
+  it('shows "Building page 2 of 4: Product" over the pages and that page’s own steps; Stop asks the studio to stop', async () => {
+    await show({ buildDesignPlan: vi.fn().mockReturnValue(new Promise<string>(() => undefined)), loadDesignChat: vi.fn().mockResolvedValue({ messages: [planned, vague, ...chat], next: null }) })
+    fireEvent.click(screen.getByRole('button', { name: c.plan.build }))
+    await settle()
+    const titles = ['Home', 'Product', 'Collection', 'About']
+    await send('b1', { type: 'page', index: 1, of: 4, page: 'home', titles })
+    await send('b1', { type: 'step', step: 'checking' })
+    await send('b1', { type: 'page', index: 2, of: 4, page: 'product', titles })
+    await send('b1', { type: 'step', step: 'asking' })
+    expect(screen.getByText(fill(words.live.building, { index: '2', of: '4', title: 'Product' }))).toBeTruthy()
+    expect(screen.getByText(fill(words.live.pageDone, { title: 'Home' }))).toBeTruthy()
+    expect(screen.getByText(fill(words.live.pageNow, { title: 'Product' }))).toBeTruthy()
+    const steps = screen.getAllByRole('listitem').filter((li) => li.classList.contains('df-studio-step'))
+    expect(steps.map((li) => li.textContent)).toEqual([words.live.steps.asking])
+    fireEvent.click(screen.getByRole('button', { name: c.stop }))
+    await settle()
+    expect(api.cancelDesign).toHaveBeenCalled()
+  })
+
+  it('shows a build as one entry listing each page, with one Undo for all of it', async () => {
+    const built = line('m7', 'ai', '', { canUndo: true, changed: ['Home', 'Product'], build: { stopped: true, pages: [{ page: 'home', title: 'Home', outcome: 'changed' }, { page: 'product', title: 'Product', outcome: 'changed' }, { page: 'about', title: 'About', outcome: 'left' }] } })
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [built, { ...planned, flowState: 'built' }, vague], next: null }) })
+    expect(screen.getByText(fill(c.build.stopped, { built: '2', count: '3' }))).toBeTruthy()
+    expect(screen.getByText(fill(c.build.outcomes.left, { title: 'About' }))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: c.plan.build })).toBeNull()
+    expect(screen.getByText(c.plan.built)).toBeTruthy()
+    expect(screen.queryByText(c.plan.building)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: c.build.undo }))
+    await settle()
+    expect(api.undoDesignChange).toHaveBeenCalledWith('m7')
+  })
+
+  it('says which page stopped a build: refused, or couldn’t be built', async () => {
+    const pages = (outcome: 'refused' | 'failed') => [
+      { page: 'home', title: 'Home', outcome: 'changed' as const },
+      { page: 'product', title: 'Product', outcome },
+      { page: 'about', title: 'About', outcome: 'left' as const },
+    ]
+    for (const outcome of ['refused', 'failed'] as const) {
+      await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('m8', 'ai', '', { canUndo: true, build: { stopped: false, pages: pages(outcome) } }), vague], next: null }) })
+      expect(screen.getByText(fill(c.build[outcome], { at: '2', count: '3', title: 'Product' }))).toBeTruthy()
+      expect(screen.getByText(fill(c.build.outcomes[outcome], { title: 'Product' }))).toBeTruthy()
+      cleanup()
+    }
+  })
+
+  it('sends words under an open plan as a new request when an image is attached, or in Chat mode', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [planned, vague, ...chat], next: null }) })
+    fireEvent.change(document.querySelector('input[type=file]') as HTMLInputElement, { target: { files: [new File(['x'], 'mood.png', { type: 'image/png' })] } })
+    await settle()
+    fireEvent.change(prompt(), { target: { value: 'Use this photo' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenLastCalledWith(expect.objectContaining({ text: 'Use this photo', imageAssetId: 'a-photo', mode: 'change' }))
+    fireEvent.click(screen.getByRole('button', { name: c.modeChat }))
+    fireEvent.change(prompt(), { target: { value: 'Is this plan good?' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenLastCalledWith(expect.objectContaining({ text: 'Is this plan good?', mode: 'chat' }))
+    expect(api.changeDesignPlan).not.toHaveBeenCalled()
+  })
+
+  it('words a plan that couldn’t be written, with no Try again: the questions stay open to answer again', async () => {
+    const failed = line('m9', 'error', 'plan_failed')
+    const reads = vi.fn().mockResolvedValueOnce({ messages: [asking, vague, ...chat], next: null }).mockResolvedValue({ messages: [failed, asking, vague, ...chat], next: null })
+    await show({ loadDesignChat: reads, answerDesignQuestions: vi.fn().mockResolvedValue('failed') })
+    fireEvent.click(screen.getByRole('button', { name: q.answer }))
+    await settle()
+    expect(screen.getByText(c.planError)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: c.retry })).toBeNull()
+    expect(screen.getByRole('button', { name: q.answer })).toBeTruthy()
+    expect(api.askDesign).not.toHaveBeenCalled()
+  })
+
+  it('says why a plan can’t be answered or changed again', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [asking, vague, ...chat], next: null }), answerDesignQuestions: vi.fn().mockRejectedValue(new ApiError('PLAN_GONE', 'Gone.')) })
+    fireEvent.click(screen.getByRole('button', { name: q.answer }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(c.refused.PLAN_GONE)
+    cleanup()
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [planned, vague, ...chat], next: null }), changeDesignPlan: vi.fn().mockRejectedValue(new ApiError('PLAN_CHANGES_USED', 'Used.')) })
+    fireEvent.change(prompt(), { target: { value: 'Once more' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(c.refused.PLAN_CHANGES_USED)
+    expect(prompt().value).toBe('Once more')
+  })
+
+  it('shows open questions and an open plan read-only while the studio is locked', async () => {
+    await show({ loadStudioSession: vi.fn().mockResolvedValue({ ...ready, state: 'busy' }), loadDesignChat: vi.fn().mockResolvedValue({ messages: [planned, asking, vague], next: null }) })
+    expect(screen.getByText('Here is my plan.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: q.answer })).toBeNull()
+    expect(screen.queryByRole('button', { name: q.skip })).toBeNull()
+    expect(screen.queryByRole('button', { name: c.plan.build })).toBeNull()
+    for (const radio of screen.getAllByRole('radio')) expect(radio.closest('fieldset')?.disabled).toBe(true)
+  })
+})
+
+describe('a vague request’s messages before the studio draws them (#1243)', () => {
+  it('reads questions and a plan as the AI’s words, so the chat still loads', async () => {
+    await show({ loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('m6', 'plan', 'Here is my plan.'), line('m5', 'questions', 'A few quick questions.'), ...chat], next: null }) })
+    expect(screen.getByText('A few quick questions.')).toBeTruthy()
+    expect(screen.getByText('Here is my plan.')).toBeTruthy()
+    expect(screen.queryByText(c.loadFailed)).toBeNull()
   })
 })

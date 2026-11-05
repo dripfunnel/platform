@@ -21,6 +21,8 @@ export type Proposal = {
   costCurrency: string
   /** What changed in plain words and the page to show (FIRST-RELEASE §14); null when the answer had no usable shape. */
   summary?: ProposalSummary | null
+  /** The model asked questions or wrote a plan instead of edits (#1243): no gate runs, and the Worker holds what it asked. */
+  asked?: boolean
 }
 
 export type ProposalSummary = { reply: string; changed: string[]; page: string | null }
