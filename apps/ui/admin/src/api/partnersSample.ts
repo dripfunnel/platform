@@ -421,7 +421,7 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
     const partner = find(id)
     if (!partner) return null
     const closed = partner.state === 'closed'
-    const impersonate = Object.fromEntries(partner.team.map((user) => [user.id, impersonatePermission(caller, user.status, closed)]))
+    const impersonate = Object.fromEntries(partner.team.map((user) => [user.id, impersonatePermission(caller, user.status, closed, false)]))
     return { ...partner, ...rowOf(partner), impersonate, actions: permissionsFor(partner, caller), contract: contracts[partner.id] ?? null, contractAction: closed ? null : onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY') }
   }
 

@@ -4,6 +4,7 @@ import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { partnerScopedRoles, roleHas } from '#auth/permissions'
 import { hashSessionId, newSessionId } from '#auth/session'
 import type { StaffMember } from '#auth/staff'
+import { staffMayActAs } from '#auth/storeStaff'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import {
   endImpersonation,
@@ -114,7 +115,8 @@ export const createStaffSessionsService = ({ sql, staff, facts, activity, reauth
   }
 
   const targetOf = (t: TargetRow, mine: Map<string, string>) => {
-    const reason = refusalFor({ active: t.status === 'active', partnerState: t.partner_state, supplier: t.kind === 'supplierUser' })
+    const seat = t.memberships.some((m) => m.status !== undefined && staffMayActAs({ role: m.role, membershipStatus: m.status, userStatus: t.status }))
+    const reason = refusalFor({ active: t.status === 'active' || seat, partnerState: t.partner_state, supplier: t.kind === 'supplierUser' })
     return {
       id: t.id,
       name: t.name,
@@ -231,7 +233,7 @@ export const createStaffSessionsService = ({ sql, staff, facts, activity, reauth
 
   type Started = { ok: true; session: SessionDto; handoff: string } | { ok: false; reason: SessionRefusal; sessionId?: string | undefined }
 
-  /** ACCESS.md §8.1: the role, re-authentication, a reason, an active target in an open partner, one at a time. */
+  /** ACCESS.md §8.1: the role, re-authentication, a reason, a target staff may act as in an open partner, one at a time. */
   const startImpersonation = async (targetId: string, membershipId: string, reason: string | null, ticket: string | null): Promise<Started> => {
     if (!mayImpersonate) return { ok: false, reason: 'STAFF_ROLE_NOT_ALLOWED' }
     if (!id.safeParse(targetId).success || !id.safeParse(membershipId).success) return { ok: false, reason: 'NOT_FOUND' }
@@ -243,7 +245,8 @@ export const createStaffSessionsService = ({ sql, staff, facts, activity, reauth
     return withScope(sql, context, async (tx): Promise<Started> => {
       const t = await selectMembershipTarget(tx, membershipId)
       if (!t || t.target_id !== targetId) return { ok: false, reason: 'NOT_FOUND' }
-      const refusal = refusalFor({ active: t.active, partnerState: t.partner_state, supplier: t.seller_id !== null })
+      const active = t.membership_status === null ? t.user_status === 'active' : staffMayActAs({ role: t.role, membershipStatus: t.membership_status, userStatus: t.user_status })
+      const refusal = refusalFor({ active, partnerState: t.partner_state, supplier: t.seller_id !== null })
       if (refusal) return { ok: false, reason: refusal }
       const at = now()
       await expireStaleImpersonations(tx, staff.id, at)

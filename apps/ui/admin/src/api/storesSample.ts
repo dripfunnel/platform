@@ -517,7 +517,7 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
       ...rest,
       setup: rowOf(store).setup,
       job: setup.jobId && state !== 'done' ? { id: setup.jobId, actions: jobPermissionsFor(state, caller) } : null,
-      impersonate: Object.fromEntries(rest.users.map((user) => [user.id, impersonatePermission(caller, user.status, partnerClosed(rest.partner.id))])),
+      impersonate: Object.fromEntries(rest.users.map((user) => [user.id, impersonatePermission(caller, user.status, partnerClosed(rest.partner.id), user.role === 'owner')])),
       actions: storePermissionsFor({ ...rest, setup, before }, caller),
     }
   }

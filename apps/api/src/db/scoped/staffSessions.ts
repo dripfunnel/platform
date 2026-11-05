@@ -16,6 +16,8 @@ export interface TargetMembership {
   storeName?: string
   role: string
   supplier?: string | null
+  /** A store seat's own status, for who may be acted as (ACCESS.md §8.1); never sent to the console. */
+  status?: string
 }
 
 export interface TargetRow {
@@ -54,7 +56,7 @@ const targets = (tx: ScopedSql) => tx`
       case when exists (select 1 from membership m where m.user_id = u.id and m.seller_id is null) then 'storeUser' else 'supplierUser' end,
       u.status, u.last_sign_in_at, date_trunc('milliseconds', u.created_at), u.partner_id, p.state,
       coalesce((
-        select json_agg(json_build_object('id', m.id, 'level', 'store', 'partnerId', p.id, 'partnerName', p.name, 'storeId', s.id, 'storeName', s.name, 'role', m.role_key, 'supplier', sl.name) order by s.name)
+        select json_agg(json_build_object('id', m.id, 'level', 'store', 'partnerId', p.id, 'partnerName', p.name, 'storeId', s.id, 'storeName', s.name, 'role', m.role_key, 'supplier', sl.name, 'status', m.status) order by s.name)
         from membership m join store s on s.id = m.store_id left join seller sl on sl.id = m.seller_id where m.user_id = u.id
       ), '[]'::json)
     from "user" u join partner p on p.id = u.partner_id
@@ -94,8 +96,9 @@ export interface MembershipTarget {
   partner_id: string
   partner_state: string
   store_id: string | null
-  /** The person and, for a store user, the membership, both active. */
-  active: boolean
+  user_status: string
+  /** A store user's membership; null for a partner user. */
+  membership_status: string | null
 }
 
 /** Who a membership id names: a partner user (their id is the partner-level membership) or a store membership. */
@@ -103,10 +106,10 @@ export const selectMembershipTarget = async (tx: ScopedSql, membershipId: string
   (
     await tx<MembershipTarget[]>`
       select 'partner_user' as target_kind, u.id as target_id, null::uuid as membership_id, u.name, u.email, u.role_key as role, null::uuid as seller_id,
-        u.partner_id, p.state as partner_state, null::uuid as store_id, u.status = 'active' as active
+        u.partner_id, p.state as partner_state, null::uuid as store_id, u.status as user_status, null as membership_status
       from partner_user u join partner p on p.id = u.partner_id where u.id = ${membershipId} and u.status <> 'removed'
       union all
-      select 'person', u.id, m.id, u.name, u.email, m.role_key, m.seller_id, s.partner_id, p.state, m.store_id, u.status = 'active' and m.status = 'active'
+      select 'person', u.id, m.id, u.name, u.email, m.role_key, m.seller_id, s.partner_id, p.state, m.store_id, u.status, m.status
       from membership m join "user" u on u.id = m.user_id join store s on s.id = m.store_id join partner p on p.id = s.partner_id
       where m.id = ${membershipId} and u.status <> 'deleted'
     `

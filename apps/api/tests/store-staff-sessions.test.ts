@@ -280,6 +280,27 @@ describe('ending', () => {
     expect(await entries(id)).toContainEqual(expect.objectContaining({ action: 'impersonation.ended', actor_kind: 'job', reason: 'target_gone' }))
   })
 
+  it('acts as an Owner whose invitation is still open, and still ends an invited Manager’s (§8.1)', async () => {
+    await db.sql`update membership set status = 'invited' where id in (${seats.owner}, ${seats.manager})`
+    await db.sql`update "user" set status = 'invited' where id = ${people.owner}`
+    try {
+      await started('owner', 'tok-invited-owner')
+      const owner = await enter('tok-invited-owner')
+      expect((await currentOf(owner)).session).toMatchObject({ state: 'open', endedBy: null, actingAs: { name: 'Olivia Owner', role: 'owner' } })
+      expect((await gql<{ me: { name: string; acting: { store: { id: string } } } }>(`{ me { name acting { store { id } } } }`, { staff: owner })).data?.me).toMatchObject({ name: 'Olivia Owner', acting: { store: { id: t.storeA1 } } })
+      // The Owner accepting changes nothing for the session.
+      await db.sql`update membership set status = 'active' where id = ${seats.owner}`
+      await db.sql`update "user" set status = 'active' where id = ${people.owner}`
+      expect((await currentOf(owner)).session).toMatchObject({ state: 'open' })
+      // The exchange itself ends it, so the link opens nothing.
+      const manager = await started('manager', 'tok-invited-manager', maya)
+      expect(await enter('tok-invited-manager')).toBe('')
+      expect(await entries(manager)).toContainEqual(expect.objectContaining({ action: 'impersonation.ended', actor_kind: 'job', reason: 'target_gone' }))
+    } finally {
+      await db.sql`update "user" set status = 'active' where id = ${people.owner}`
+    }
+  })
+
   it('reads as expired once its time is up', async () => {
     await started('manager', 'tok-time')
     const staff = await enter('tok-time')
