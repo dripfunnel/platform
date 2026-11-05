@@ -3,7 +3,7 @@
 How the DripFunnel platform prototypes in this project are built, so a new
 screen can be added without re-reading 10,000 lines of source.
 
-Last updated: 2026-11-05 (#1243: a vague studio request's quick questions, its plan and the page-by-page build, `?state=questions`, `?state=plan`, `?state=building` and their forms). Before: 2026-11-05 (#1237: the studio's live step feed and streamed chat answer, `?state=working` and `?state=chat-streaming`). Before: 2026-11-01 (#1129: no brand colours, and the Journal tab reads Blog, on the web portal). Before: 2026-10-31 (#1078: Storefront's Pages tab removed). Before: 2026-10-23 (#854: the shop app's prototype). Before: 2026-10-23 (#837: the delivery app and own delivery). Earlier: 2026-10-15 (#744: the preview address in the Open preview toast).
+Last updated: 2026-11-05 (#1272: the shop app's product description is an always-open Description, not a folding Details). Before: 2026-11-05 (#1243: a vague studio request's quick questions, its plan and the page-by-page build, `?state=questions`, `?state=plan`, `?state=building` and their forms). Before: 2026-11-05 (#1237: the studio's live step feed and streamed chat answer, `?state=working` and `?state=chat-streaming`). Before: 2026-11-01 (#1129: no brand colours, and the Journal tab reads Blog, on the web portal). Before: 2026-10-31 (#1078: Storefront's Pages tab removed). Before: 2026-10-23 (#854: the shop app's prototype). Before: 2026-10-23 (#837: the delivery app and own delivery). Earlier: 2026-10-15 (#744: the preview address in the Open preview toast).
 
 ---
 
@@ -176,7 +176,7 @@ Screens and their states, in the Screen and State controls (every state also ope
 | Home | collections, products, announcement · loading · load error · offline · empty shop |
 | Collection | filters open · sort open · a filter on · nothing matches · loading · error · offline |
 | Search | before typing · suggestions · results · no results · loading · offline |
-| Product | version chosen · nothing chosen · video · version sold out · low stock · sold out · size chart · added to cart · loading · error · offline |
+| Product | version chosen · nothing chosen · video · version sold out · low stock · sold out · size chart · added to cart · loading · error · offline; the description is an always-open **Description** (plain words, #1272), the other sections fold |
 | Cart | lines and the automatic offer · code applied · code refused · out of stock since added · empty · loading · error · offline |
 | Sign in, register, reset | email and password · wrong password · mobile number · mobile code · wrong code · register · check your email · reset (ask, sent, new password) |
 | Account | signed out · signed in · details · addresses with pins · add an address with a pin · delete account (confirm, after) · loading · error |
