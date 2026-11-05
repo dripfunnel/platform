@@ -99,7 +99,15 @@ const migrationRequest = (ask: Pick<MigrationAsk, 'to' | 'failing' | 'notes'>): 
 export const baselineTemplate = 'baseline'
 
 /** A merchant's request on its plan or own key, or the platform's own repair of a publish (`userId` null, SAAS §9.1). */
-export type ChangeRequest = { request: string; userId: string | null; billedTo: 'plan' | 'own_key' | 'platform'; model: DesignModel; progress?: (event: LiveEvent) => void }
+export type ChangeRequest = { request: string; userId: string | null; billedTo: 'plan' | 'own_key' | 'platform'; model: DesignModel; progress?: (event: LiveEvent) => void; parentRunId?: string | null }
+
+/** One page of a build (#1243): its route, its title in the plan's words, and the change asked for it. */
+export type BuildPage = { page: string; title: string; request: string }
+/** `kept` gets the build as it stands before and after each page (the page in progress as failed), for an answer lost on the way. */
+export type BuildRequest = Omit<ChangeRequest, 'request'> & { pages: readonly BuildPage[]; kept?: (sofar: BuildOutcome) => Promise<void> }
+export type BuiltPage = { page: string; title: string; outcome: 'changed' | 'unchanged' | 'refused' | 'failed' | 'left'; commit: string | null; reply: string | null }
+/** `before` is the head the build started from, `commit` its last page's; Undo restores `before` in one change. */
+export type BuildOutcome = { outcome: 'built'; before: string; commit: string | null; previewRef: string | null; pages: BuiltPage[]; stopped: boolean }
 
 const routesSchema = z.object({ custom: z.record(z.string(), z.string()).optional() })
 
@@ -135,6 +143,8 @@ export class StudioRunner {
   private waiting = 0
   /** The running change's stop; null between changes. A stop reaches only a change whose sandbox step isn't running; `cancel` answers false once it is. */
   private running: { stop: () => void; stopped: boolean; sandboxed: boolean } | null = null
+  /** The build in progress: Stop ends it after the page being built (#1243); null outside one. */
+  private building: { stopping: boolean } | null = null
   /** The saves still writing, one after another, off the change's own wait (AI-STUDIO §4 step 6). */
   private saving: Promise<void> = Promise.resolve()
   /** The newest change handed to a save. */
@@ -185,6 +195,10 @@ export class StudioRunner {
 
   /** Not in the turn, or it would wait behind the change it stops; false when nothing is running. */
   cancel(): boolean {
+    if (this.building) {
+      this.building.stopping = true
+      return true
+    }
     if (!this.running || this.running.sandboxed) return false
     this.running.stopped = true
     this.running.stop()
@@ -195,9 +209,70 @@ export class StudioRunner {
     return this.inTurn(() => this.runChange(input))
   }
 
-  /** "Undo this change" (AI-STUDIO §5): a new change, through the same gate, saved and previewed the same way. */
-  undo(commit: string, userId: string): Promise<ChangeOutcome> {
-    return this.inTurn(() => this.commitStep((client, context, message) => client.undo(commit, message, context), `Undo ${commit.slice(0, 12)}`, userId))
+  /**
+   * "Undo this change" (AI-STUDIO §5): a new change, through the same gate, saved and previewed the same way. A build's
+   * Undo names `before`, the head it started from, and its every page goes back in that one change (#1243).
+   */
+  undo(commit: string, userId: string, before: string | null = null): Promise<ChangeOutcome> {
+    if (!before) return this.inTurn(() => this.commitStep((client, context, message) => client.undo(commit, message, context), `Undo ${commit.slice(0, 12)}`, userId))
+    return this.inTurn(() =>
+      this.commitStep(
+        async (client, context, message) => {
+          const [now, then] = await Promise.all([client.theme(), client.theme(before)])
+          return client.change(changedFiles(new Map(now.files.map((f) => [f.path, f.content])), new Map(then.files.map((f) => [f.path, f.content]))), message, context)
+        },
+        `Undo the build since ${before.slice(0, 12)}`,
+        userId,
+      ),
+    )
+  }
+
+  /**
+   * A plan's build (AI-STUDIO §4 "A plan", #1243): each page its own change through the gate, in one turn, so its frame
+   * swaps as it passes while the next is asked; a refused or failed page stops it with the pages before it kept.
+   */
+  build(input: BuildRequest): Promise<BuildOutcome> {
+    return this.inTurn(async () => {
+      const { head: before } = await this.draftNow()
+      const progress = input.progress ?? (() => undefined)
+      const titles = input.pages.map((p) => p.title)
+      const run = { stopping: false }
+      this.building = run
+      const pages: BuiltPage[] = []
+      let last: { commit: string; previewRef: string } | null = null
+      let stopped = false
+      const left = (from: number): BuiltPage[] => input.pages.slice(from).map((p) => ({ page: p.page, title: p.title, outcome: 'left', commit: null, reply: null }))
+      const keep = (current: BuiltPage | null) =>
+        input.kept?.({ outcome: 'built', before, commit: last?.commit ?? null, previewRef: last?.previewRef ?? null, pages: [...pages, ...(current ? [current] : []), ...left(pages.length + (current ? 1 : 0))], stopped })
+      try {
+        for (const [i, page] of input.pages.entries()) {
+          if (i > 0 && run.stopping) {
+            stopped = true
+            break
+          }
+          progress({ type: 'page', index: i + 1, of: input.pages.length, page: page.page, titles })
+          if (i > 0) await keep({ page: page.page, title: page.title, outcome: 'failed', commit: null, reply: null })
+          let made: ChangeOutcome
+          try {
+            made = await this.runChange({ ...input, request: page.request })
+          } catch (error) {
+            // Nothing built yet: the request answers as a single change's failure would (queued, unavailable, failed).
+            if (i === 0) throw error
+            pages.push({ page: page.page, title: page.title, outcome: 'failed', commit: null, reply: null })
+            break
+          }
+          const reply = made.outcome === 'refused' ? null : (made.summary?.reply ?? null)
+          pages.push({ page: page.page, title: page.title, outcome: made.outcome, commit: made.outcome === 'refused' ? null : made.commit, reply })
+          if (made.outcome === 'changed') last = { commit: made.commit, previewRef: made.previewRef }
+          await keep(null)
+          if (made.outcome === 'refused') break
+        }
+      } finally {
+        this.building = null
+      }
+      pages.push(...left(pages.length))
+      return { outcome: 'built' as const, before, commit: last?.commit ?? null, previewRef: last?.previewRef ?? null, pages, stopped }
+    })
   }
 
   /** "Change template" (SAAS §9.2): the template's theme as one change to the draft, through the same gate; nothing is pushed. */
@@ -622,6 +697,11 @@ export class StudioRunner {
         }
         const made: Attempt = { proposal, ms: 0, result: null }
         attempts.push(made)
+        // Questions or a plan (#1243): nothing to gate, and the draft stays as it is.
+        if (proposal.asked && attempt === 0) {
+          const runId = await this.record(input, attempts, 'unchanged')
+          return { outcome: 'unchanged', commit: before, repairs: 0, runId, summary: proposal.summary ?? null }
+        }
         previous = proposal.files
         // Edits that don't apply are a repair like a gate failure, with no sandbox run (ARCHITECTURE §6.2).
         const applied = applyEdits(theme, proposal.files)
@@ -769,7 +849,7 @@ export class StudioRunner {
     const base = { storeId: this.deps.storeId, requestedBy: input.userId, prompt: input.request.slice(0, 4000) }
     const run = (a: Attempt) => ({ model: a.proposal.model, tokensIn: a.proposal.tokensIn, tokensOut: a.proposal.tokensOut, costAmount: a.proposal.costAmount, costCurrency: a.proposal.costCurrency, sandboxMs: Math.max(0, a.ms) })
     return this.system(async (tx) => {
-      const id = await insertAiRun(tx, { ...base, ...run(first), kind: 'design', billedTo: input.billedTo, repairAttempts: repairs.length, parentRunId: null, outcome })
+      const id = await insertAiRun(tx, { ...base, ...run(first), kind: 'design', billedTo: input.billedTo, repairAttempts: repairs.length, parentRunId: input.parentRunId ?? null, outcome })
       for (const r of repairs) await insertAiRun(tx, { ...base, ...run(r), kind: 'repair', billedTo: 'platform', repairAttempts: 0, parentRunId: id, outcome: r.result === null ? 'failed' : r.result.ok ? outcome : 'refused' })
       return id
     })

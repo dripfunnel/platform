@@ -697,22 +697,55 @@ type DesignAnswer {
   outcome: String
 }
 
+type DesignBuild {
+  pages: [DesignBuildPage!]
+  stopped: Boolean
+}
+
+type DesignBuildPage {
+  outcome: String
+  page: String
+  title: String
+}
+
 type DesignChat {
   messages: [DesignMessage!]
   next: String
 }
 
 type DesignMessage {
+  answers: [String]
+  build: DesignBuild
   canUndo: Boolean
   changed: [String!]
   createdAt: String
+  flowState: String
   id: ID
   imageAssetId: ID
   page: String
+  plan: DesignPlan
+  questions: [DesignQuestion!]
   role: String
   sampleUrl: String
   text: String
   undone: Boolean
+}
+
+type DesignPlan {
+  footer: String
+  header: String
+  pages: [DesignPlanPage!]
+}
+
+type DesignPlanPage {
+  page: String
+  sections: [String!]
+  title: String
+}
+
+type DesignQuestion {
+  options: [String!]
+  text: String
 }
 
 type DesignText {
@@ -1074,16 +1107,19 @@ type Mutation {
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
+  answerDesignQuestions(answers: [String!]!, messageId: ID!, model: String, skip: Boolean): DesignAnswer
   approveProduct(id: ID!): Boolean
   askDesign(device: String!, imageAssetId: ID, mode: String, model: String, page: String!, sampleUrl: String, text: String!): DesignAnswer
   assignDelivery(deliveryId: ID!, riderId: ID!): Boolean
   beginStoreAiOauth(provider: String!): String
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
+  buildDesignPlan(messageId: ID!, model: String): DesignAnswer
   cancelDelivery(deliveryId: ID!): Boolean
   cancelDesign: Boolean
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   cancelStore: BillingSubscription
+  changeDesignPlan(messageId: ID!, model: String, text: String!): DesignAnswer
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription

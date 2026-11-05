@@ -7,7 +7,7 @@ import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, sandboxImageFor, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
-import { alarmStep, capacityLedger, keptChanges, nextLookMs, wakeStep, studioClosedMs, studioTickMs, type AlarmState, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, isLiveSocket, liveHub, liveStudioSession, liveStudioSessionHash, liveTag, liveTags, liveUpgradeOf, sweepsAgain, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type KeptSummary, type LiveEvent, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { alarmStep, capacityLedger, keptChanges, nextLookMs, wakeStep, studioClosedMs, studioTickMs, type AlarmState, type BuildOutcome, type BuildPage, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, isLiveSocket, liveHub, liveStudioSession, liveStudioSessionHash, liveTag, liveTags, liveUpgradeOf, sweepsAgain, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type KeptSummary, type LiveEvent, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -212,9 +212,25 @@ export const studioSessionClass = (connect: Connect) =>
       return (await this.active(storeId)).prepareToPublish()
     }
 
-    async undo(storeId: string, input: { commit: string; userId: string }): Promise<StudioAnswer> {
+    async undo(storeId: string, input: { commit: string; userId: string; before?: string | null }): Promise<StudioAnswer> {
       const runner = await this.active(storeId)
-      return studioAnswer(() => runner.undo(input.commit, input.userId))
+      return studioAnswer(() => runner.undo(input.commit, input.userId, input.before ?? null))
+    }
+
+    /** A plan's build (#1243): every page's steps go out as `run`'s, beside "Building page N of M". */
+    async build(storeId: string, input: { pages: BuildPage[]; userId: string; billedTo: 'plan' | 'own_key'; parentRunId: string | null; run: string }, model: DesignModel): Promise<BuildOutcome | StudioAnswer> {
+      const runner = await this.active(storeId)
+      const { run, ...request } = input
+      const key = `build:${run}`
+      const answer = await studioAnswer(() => runner.build({ ...request, model, progress: (event) => void this.publish(storeId, run, event), kept: (sofar) => this.ctx.storage.put(key, sofar) }))
+      await this.ctx.storage.delete(key)
+      return answer
+    }
+
+    /** A build's pages so far, for a Worker whose call to `build` broke mid-way (#1243). */
+    async buildSoFar(storeId: string, run: string): Promise<BuildOutcome | null> {
+      await this.ownStore(storeId)
+      return (await this.ctx.storage.get<BuildOutcome>(`build:${run}`)) ?? null
     }
 
     async texts(storeId: string, input: { page: string; locale: string }): Promise<{ key: string; text: string }[] | null> {
