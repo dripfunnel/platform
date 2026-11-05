@@ -38,6 +38,8 @@ export interface StudioApi {
   cancel: (storeId: string) => Promise<boolean>
   /** A plan's build, page by page in one turn (#1243); Stop (`cancel`) ends it after the page being built. */
   build: (storeId: string, input: { pages: BuildPage[]; userId: string; billedTo: 'plan' | 'own_key'; parentRunId: string | null; run: string }, model: DesignModel) => Promise<BuildOutcome | StudioAnswer>
+  /** The build `run` as it last stood, kept by the object page by page, for an answer lost mid-build; null when none was kept. */
+  buildSoFar: (storeId: string, run: string) => Promise<BuildOutcome | null>
   /** `before` takes a whole build back in one change (#1243). */
   undo: (storeId: string, input: { commit: string; userId: string; before?: string | null }) => Promise<StudioAnswer>
   /** The page's words in one language, or null while the sandbox can't load. */

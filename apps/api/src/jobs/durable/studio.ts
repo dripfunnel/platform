@@ -221,7 +221,16 @@ export const studioSessionClass = (connect: Connect) =>
     async build(storeId: string, input: { pages: BuildPage[]; userId: string; billedTo: 'plan' | 'own_key'; parentRunId: string | null; run: string }, model: DesignModel): Promise<BuildOutcome | StudioAnswer> {
       const runner = await this.active(storeId)
       const { run, ...request } = input
-      return studioAnswer(() => runner.build({ ...request, model, progress: (event) => void this.publish(storeId, run, event) }))
+      const key = `build:${run}`
+      const answer = await studioAnswer(() => runner.build({ ...request, model, progress: (event) => void this.publish(storeId, run, event), kept: (sofar) => this.ctx.storage.put(key, sofar) }))
+      await this.ctx.storage.delete(key)
+      return answer
+    }
+
+    /** A build's pages so far, for a Worker whose call to `build` broke mid-way (#1243). */
+    async buildSoFar(storeId: string, run: string): Promise<BuildOutcome | null> {
+      await this.ownStore(storeId)
+      return (await this.ctx.storage.get<BuildOutcome>(`build:${run}`)) ?? null
     }
 
     async texts(storeId: string, input: { page: string; locale: string }): Promise<{ key: string; text: string }[] | null> {

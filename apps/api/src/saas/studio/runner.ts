@@ -103,7 +103,8 @@ export type ChangeRequest = { request: string; userId: string | null; billedTo: 
 
 /** One page of a build (#1243): its route, its title in the plan's words, and the change asked for it. */
 export type BuildPage = { page: string; title: string; request: string }
-export type BuildRequest = Omit<ChangeRequest, 'request'> & { pages: readonly BuildPage[] }
+/** `kept` gets the build as it stands before and after each page (the page in progress as failed), for an answer lost on the way. */
+export type BuildRequest = Omit<ChangeRequest, 'request'> & { pages: readonly BuildPage[]; kept?: (sofar: BuildOutcome) => Promise<void> }
 export type BuiltPage = { page: string; title: string; outcome: 'changed' | 'unchanged' | 'refused' | 'failed' | 'left'; commit: string | null; reply: string | null }
 /** `before` is the head the build started from, `commit` its last page's; Undo restores `before` in one change. */
 export type BuildOutcome = { outcome: 'built'; before: string; commit: string | null; previewRef: string | null; pages: BuiltPage[]; stopped: boolean }
@@ -240,6 +241,9 @@ export class StudioRunner {
       const pages: BuiltPage[] = []
       let last: { commit: string; previewRef: string } | null = null
       let stopped = false
+      const left = (from: number): BuiltPage[] => input.pages.slice(from).map((p) => ({ page: p.page, title: p.title, outcome: 'left', commit: null, reply: null }))
+      const keep = (current: BuiltPage | null) =>
+        input.kept?.({ outcome: 'built', before, commit: last?.commit ?? null, previewRef: last?.previewRef ?? null, pages: [...pages, ...(current ? [current] : []), ...left(pages.length + (current ? 1 : 0))], stopped })
       try {
         for (const [i, page] of input.pages.entries()) {
           if (i > 0 && run.stopping) {
@@ -247,6 +251,7 @@ export class StudioRunner {
             break
           }
           progress({ type: 'page', index: i + 1, of: input.pages.length, page: page.page, titles })
+          if (i > 0) await keep({ page: page.page, title: page.title, outcome: 'failed', commit: null, reply: null })
           let made: ChangeOutcome
           try {
             made = await this.runChange({ ...input, request: page.request })
@@ -259,12 +264,13 @@ export class StudioRunner {
           const reply = made.outcome === 'refused' ? null : (made.summary?.reply ?? null)
           pages.push({ page: page.page, title: page.title, outcome: made.outcome, commit: made.outcome === 'refused' ? null : made.commit, reply })
           if (made.outcome === 'changed') last = { commit: made.commit, previewRef: made.previewRef }
+          await keep(null)
           if (made.outcome === 'refused') break
         }
       } finally {
         this.building = null
       }
-      for (const page of input.pages.slice(pages.length)) pages.push({ page: page.page, title: page.title, outcome: 'left', commit: null, reply: null })
+      pages.push(...left(pages.length))
       return { outcome: 'built' as const, before, commit: last?.commit ?? null, previewRef: last?.previewRef ?? null, pages, stopped }
     })
   }
