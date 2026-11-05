@@ -33,7 +33,17 @@ export const routesSchema = z.object({ routes: z.record(z.string().regex(/^[A-Za
 /** Each language's words, flattened to the `file.key` names `t()` takes (ARCHITECTURE §3.4 "t()"). */
 export type Content = Record<string, Record<string, string>>
 
-const tailwindModule = 'df:tailwind'
+/** The theme's stylesheet from guard's themeStylesheet: core's reduced-motion rule, then its Tailwind classes. */
+export const stylesheetModule = 'df:tailwind'
+
+// The client and the server builds both carry it, since the minified CSS Module names depend on all the CSS (#1245).
+export const stylesheetPlugin = (stylesheet: string): Plugin => ({
+  name: 'df-stylesheet',
+  setup(b) {
+    b.onResolve({ filter: /^df:tailwind$/ }, () => ({ path: 'tailwind.css', namespace: 'df-tailwind' }))
+    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: stylesheet, loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
+  },
+})
 
 const entrySource = (routesJson: string, content: Content): string => {
   const routes = routesSchema.parse(JSON.parse(routesJson))
@@ -43,7 +53,7 @@ const entrySource = (routesJson: string, content: Content): string => {
   const ref = (page: string) => local.get(page) ?? 'undefined'
   return [
     // First, so a CSS Module's rule wins over a Tailwind class of the same weight, as Tailwind's layers make it anyway.
-    `import '${tailwindModule}'`,
+    `import '${stylesheetModule}'`,
     `import { boot } from 'df:boot'`,
     ...pages.map((page) => `import { ${exportOf(page)} as ${ref(page)} } from './src/theme/pages/${page}.tsx'`),
     `export const theme = { routes: { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} },`,
@@ -69,14 +79,11 @@ export const mediaUrlPlugin = (origin: string | null = null): Plugin => ({
   },
 })
 
-const runtimePlugin = (entry: string, stylesheet: string): Plugin => ({
+const runtimePlugin = (entry: string): Plugin => ({
   name: 'df-runtime',
   setup(b) {
     b.onResolve({ filter: /^df:entry$/ }, () => ({ path: entryName, namespace: 'df' }))
     b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: entry, loader: 'ts', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
-    // Core's reduced-motion rule and the theme's Tailwind classes (guard's themeStylesheet) go through the same CSS step as its modules.
-    b.onResolve({ filter: /^df:tailwind$/ }, () => ({ path: 'tailwind.css', namespace: 'df-tailwind' }))
-    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: stylesheet, loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
     b.onResolve({ filter: /^df:boot$/ }, () => ({ path: `./core/${bootModule}`, external: true }))
     b.onResolve({ filter: /^[^./]/ }, (args) => {
       const file = runtimeModules[args.path]
@@ -144,7 +151,7 @@ export const bundle = async (repo: string, out: string, mediaOrigin: string | nu
     metafile: true,
     write: true,
     logLevel: 'silent',
-    plugins: [mediaUrlPlugin(mediaOrigin), runtimePlugin(source, tailwind.css)],
+    plugins: [mediaUrlPlugin(mediaOrigin), stylesheetPlugin(tailwind.css), runtimePlugin(source)],
   }).catch((error: { errors?: Message[] }) => ({ errors: error.errors ?? [{ text: String(error) } as Message], metafile: undefined }))
   if (result.errors.length > 0 || !result.metafile) return { ok: false, problems: result.errors.map(problemOf) }
 

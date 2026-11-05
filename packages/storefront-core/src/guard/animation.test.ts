@@ -86,20 +86,22 @@ describe('motion in a theme', () => {
     expect(await problems(own)).toEqual([])
   })
 
+  // Each case alone, refused by exactly its rule at the line it's written on (the island's body starts at line 8).
   it.each([
-    ["  void (<motion.div animate={{ height: 200 }} />)", 'jsx/animated-property'],
-    ["  const top = useMotionValue(0)\n  void (<motion.div style={{ top }} />)", 'jsx/animated-property'],
-    ['  const press = () => { if (own.current) void animate(own.current, { marginTop: 8 }) }\n  void press', 'jsx/animated-property'],
-    ["  void animate('.card', { opacity: 0 })", 'code/animate-target'],
-    ["  const [scope, run] = useAnimate()\n  void scope\n  void run('li', { opacity: 1 })", 'code/animate-target'],
-    ['  const go = animate\n  void go', 'code/animate-target'],
-    ['  const pair = useAnimate()\n  void pair', 'code/animate-target'],
-    ["  void animate(JSON.parse('null'), { opacity: 0 })", 'code/animate-target'],
-    ['  const press = () => { if (own.current) void animate([own.current], { opacity: 0 }) }\n  void press', 'code/animate-target'],
-  ])('refuses %s with %s', async (body, rule) => {
+    ['a layout property in the animate prop', '  void (<motion.div animate={{ height: 200 }} />)', 8, 'jsx/animated-property'],
+    ['a layout property in motion’s style', '  const top = useMotionValue(0)\n  void (<motion.div style={{ top }} />)', 9, 'jsx/animated-property'],
+    ['a layout property in animate()’s keyframes', '  const press = () => { if (own.current) void animate(own.current, { marginTop: 8 }) }\n  void press', 8, 'jsx/animated-property'],
+    ['animate with a selector string', "  void animate('.card', { opacity: 0 })", 8, 'code/animate-target'],
+    ['useAnimate’s animate with a selector string', "  const [scope, run] = useAnimate()\n  void scope\n  void run('li', { opacity: 1 })", 10, 'code/animate-target'],
+    ['animate held in another name', '  const go = animate\n  void go', 8, 'code/animate-target'],
+    ['animate passed on', '  void [animate]', 8, 'code/animate-target'],
+    ['useAnimate kept whole', '  const pair = useAnimate()\n  void pair', 8, 'code/animate-target'],
+    ['animate on a value typed any that motion didn’t make', "  void animate(JSON.parse('null'), { opacity: 0 })", 8, 'code/animate-target'],
+    ['animate on a list', '  const press = () => { if (own.current) void animate([own.current], { opacity: 0 }) }\n  void press', 8, 'code/animate-target'],
+  ])('refuses %s', async (_case, body, line, rule) => {
     const found = await problems(island(body))
-    expect(found.map((p) => p.rule)).toContain(rule)
-    expect(found.every((p) => p.file === 'src/theme/components/interactive/Motion.tsx' && (p.line ?? 0) >= 8)).toBe(true)
+    expect(at(found)).toContainEqual({ file: 'src/theme/components/interactive/Motion.tsx', line, rule })
+    expect(new Set(found.map((p) => p.rule))).toEqual(new Set([rule]))
   })
 
   it('names the layout property motion may not animate', async () => {

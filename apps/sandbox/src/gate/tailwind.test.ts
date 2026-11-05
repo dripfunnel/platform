@@ -41,7 +41,7 @@ describe('Tailwind in the fast gate’s bundle', () => {
     expect(built.ok, JSON.stringify(built.ok ? null : built.problems)).toBe(true)
     const css = cssOf(out)
     expect(css).not.toMatch(/@layer (?:theme|utilities)|--spacing/)
-    expect(css).toMatch(/@layer df-reduced-motion\{@media \(prefers-reduced-motion:reduce\)/)
+    expect(css).toMatch(/^@layer df-reduced-motion\{@media ?\(prefers-reduced-motion: ?reduce\)/)
   })
 
   it('builds the classes a theme writes with its tokens, within the byte budgets', async () => {
