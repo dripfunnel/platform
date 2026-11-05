@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createShopClient } from '../api/client'
 import { StorefrontProvider, type RenderMode } from '../store/context'
 import { completeStore } from '../store/store'
@@ -53,20 +53,54 @@ describe('Link', () => {
     expect(link('live', 'https://instagram.com/juniper').getAttribute('target')).toBeNull()
   })
 
-  it('in the studio frame keeps a click on a store link under the frame’s session path, and leaves a modified click to the browser', () => {
+  describe('a click in the studio frame', () => {
     const base = '/__studio/abcdefghijklmnopqrstuv/'
-    setRouterBase(base)
-    history.replaceState(null, '', base)
-    const a = link('studio', '/collections/linen/')
-    expect(fireEvent.click(a, { button: 0, ctrlKey: true })).toBe(true)
-    history.replaceState(null, '', base)
-    cleanup()
     const assign = vi.fn()
-    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign, origin: window.location.origin, pathname: base } as unknown as Location)
-    expect(fireEvent.click(link('studio', '/collections/linen/'))).toBe(false)
-    expect(assign).toHaveBeenCalledWith(`${base}collections/linen/`)
-    vi.restoreAllMocks()
-    setRouterBase(null)
+    beforeEach(() => {
+      assign.mockClear()
+      setRouterBase(base)
+      history.replaceState(null, '', base)
+      vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign, origin: window.location.origin, pathname: base } as unknown as Location)
+    })
+    afterEach(() => {
+      vi.restoreAllMocks()
+      setRouterBase(null)
+    })
+
+    it('on a store link keeps the frame’s session path, and the browser is not left to follow it', () => {
+      expect(fireEvent.click(link('studio', '/collections/linen/'))).toBe(false)
+      expect(assign).toHaveBeenCalledWith(`${base}collections/linen/`)
+    })
+
+    it.each([
+      ['ctrl', { button: 0, ctrlKey: true }],
+      ['meta', { button: 0, metaKey: true }],
+      ['shift', { button: 0, shiftKey: true }],
+      ['alt', { button: 0, altKey: true }],
+      ['middle button', { button: 1 }],
+    ])('with %s is left to the browser', (_name, init) => {
+      expect(fireEvent.click(link('studio', '/collections/linen/'), init)).toBe(true)
+      expect(assign).not.toHaveBeenCalled()
+    })
+
+    it('on a link to another host is left to the browser, which opens it in a new tab', () => {
+      expect(fireEvent.click(link('studio', 'https://instagram.com/juniper'))).toBe(true)
+      expect(assign).not.toHaveBeenCalled()
+    })
+  })
+
+  it('on a live or preview page is left to the browser', () => {
+    const assign = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign } as unknown as Location)
+    try {
+      for (const mode of ['live', 'preview'] as const) {
+        expect(fireEvent.click(link(mode, '/collections/linen/'))).toBe(true)
+        cleanup()
+      }
+      expect(assign).not.toHaveBeenCalled()
+    } finally {
+      vi.restoreAllMocks()
+    }
   })
 
   it('takes tel: and a dialable number, and no other tel: address', () => {
