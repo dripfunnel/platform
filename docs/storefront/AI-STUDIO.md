@@ -201,7 +201,7 @@ unchanged. Drawn in `PortalStorefront` as `?state=questions`, `?state=plan` and 
 4. **Build it** (`buildDesignPlan`). The store's object runs the pages in one turn: home first (with the header and footer),
    then product, collection, about and the plan's other pages. Each page is its own change through steps 2–8: the gate, up to
    three repairs, its frame swap as soon as it passes and its save in the background, while the next page is asked. The feed
-   shows `page` and that page's steps. A refused or failed page stops the build; the pages before it stay.
+   shows `page` and that page's steps. A refused or failed page stops the build; the pages before it stay, and a build that built no page leaves the plan open to build again.
 5. **Stop** (`cancelDesign`) during a build ends it after the page being built; the pages already built stay, and the chat
    lists each page as built, not built, or refused.
 6. **Claims.** Answering, changing or building claims the questions or plan (`detail.claimedAt`), under the store's own

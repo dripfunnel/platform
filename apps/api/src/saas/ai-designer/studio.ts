@@ -579,8 +579,9 @@ export const createStudioService = (deps: StudioDeps) => {
       const outcome: AskAnswer['outcome'] = changed.length > 0 ? 'changed' : built.pages.some((p) => p.outcome === 'refused') ? 'refused' : built.pages.some((p) => p.outcome === 'failed') ? 'failed' : 'unchanged'
       const detail: BuildFlow = { kind: 'build', pages: built.pages.map((p) => ({ page: p.page, title: p.title, outcome: p.outcome })), stopped: built.stopped }
       const message = await recordAfter(sql, storeId, async (tx) => {
-        // A claim another request took (this one stalled past `claimMs`) records no second build.
-        if (!(await moveFlow(tx, storeId, row.id, held, { ...held, state: 'built' }))) return 'lost' as const
+        // A claim another request took (this one stalled past `claimMs`) records no second build; a build that built no page
+        // leaves the plan open, to build again inside the same unit.
+        if (!(await moveFlow(tx, storeId, row.id, held, changed.length > 0 ? { ...held, state: 'built' } : reopened(flow)))) return 'lost' as const
         const reply = built.pages.flatMap((p) => (p.reply ? [p.reply] : [])).join('\n').slice(0, 4000)
         const id =
           outcome === 'changed' || outcome === 'unchanged'
