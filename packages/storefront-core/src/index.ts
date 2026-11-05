@@ -14,6 +14,8 @@ export { catalogues, en, type Catalogue, type MessageKey } from './platform/i18n
 export { fontNames, fonts, fontStack, type Font } from './platform/media/fonts'
 export { badgeSchema, ratingSchema, stockSchema, type Badge, type Rating, type Stock } from './pricing/brand'
 export { formatMoney, moneySchema, toDecimal, type Money } from './pricing/money'
+export { RichText, type RichTextProps } from './products/richText'
+export { textOfRichText } from './platform/text/richText'
 export { Breadcrumbs, ConsentBanner, ConsentSettingsButton, openConsentSettings, LegalNotices, PoweredBy, PreviewBanner, Price, type Crumb, type LegalNotice, type PriceProps } from './sealed/components'
 export { OrderSummary, type OrderSummaryProps } from './sealed/summary'
 export { PaymentElement } from './sealed/payment'

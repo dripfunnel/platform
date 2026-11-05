@@ -1,3 +1,4 @@
+import { textOfRichText } from '../text/richText'
 import { toDecimal, type Money } from '../../pricing/money'
 
 // Metadata every page gets from core, which a theme can't remove (storefront ARCHITECTURE §8):
@@ -73,12 +74,13 @@ export const seoFor = (p: SeoInput): Seo => {
       })
   }
   const images = p.product?.images ?? (p.product?.image ? [p.product.image] : [])
+  const productText = textOfRichText(p.product?.description ?? '')
   if (p.product)
     jsonLd.push({
       '@context': context,
       '@type': 'Product',
       name: p.product.name,
-      ...(p.product.description ? { description: p.product.description } : {}),
+      ...(productText ? { description: productText } : {}),
       ...(images.length ? { image: images } : {}),
       offers: {
         '@type': 'Offer',
