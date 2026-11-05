@@ -569,7 +569,7 @@ const PlanCard = ({ message: m, assistant, actions }: { message: DesignMessage; 
         <span className="df-sf-lede">{pw.hint}</span>
       </div>
     ) : (
-      m.flowState !== 'open' && <span className="df-sf-lede">{m.flowState === 'replaced' ? pw.replaced : pw.building}</span>
+      m.flowState !== 'open' && <span className="df-sf-lede">{m.flowState === 'replaced' ? pw.replaced : m.flowState === 'built' ? pw.built : pw.building}</span>
     )}
   </li>
 )

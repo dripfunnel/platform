@@ -7702,7 +7702,8 @@
           "build": "Build it",
           "hint": "Or tell me below what to change in the plan.",
           "building": "Building this plan.",
-          "replaced": "Replaced by the plan below."
+          "replaced": "Replaced by the plan below.",
+          "built": "Built — see the pages below."
         },
         "build": {
           "done": "I built all {count} pages. Each one passed the checks and is in the preview.",
@@ -7756,8 +7757,8 @@
           "STUDIO_QUEUED": "The studio is waiting for room. Try again in a moment.",
           "STUDIO_UNAVAILABLE": "The studio couldn’t start. Try again in a minute.",
           "NOT_LATEST": "Only your latest change can be undone.",
-        "PLAN_GONE": "Those questions or that plan were answered or replaced. Use the newest one.",
-        "PLAN_CHANGES_USED": "This plan can’t be changed again. Build it, or ask for a new design.",
+          "PLAN_GONE": "Those questions or that plan were answered or replaced. Use the newest one.",
+          "PLAN_CHANGES_USED": "This plan can’t be changed again. Build it, or ask for a new design.",
           "READ_ONLY": "Your store is view-only until the payment goes through.",
           "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
           "FORBIDDEN": "Only the store owner can change the storefront.",

@@ -950,6 +950,8 @@ describe('a vague request’s questions, plan and build (#1243)', () => {
     expect(screen.getByText(fill(c.build.stopped, { built: '2', count: '3' }))).toBeTruthy()
     expect(screen.getByText(fill(c.build.outcomes.left, { title: 'About' }))).toBeTruthy()
     expect(screen.queryByRole('button', { name: c.plan.build })).toBeNull()
+    expect(screen.getByText(c.plan.built)).toBeTruthy()
+    expect(screen.queryByText(c.plan.building)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: c.build.undo }))
     await settle()
     expect(api.undoDesignChange).toHaveBeenCalledWith('m7')
