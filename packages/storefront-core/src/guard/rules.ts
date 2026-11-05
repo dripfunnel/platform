@@ -12,6 +12,7 @@ export const ruleIds = [
   'code/unreadable',
   'code/import-not-allowed',
   'code/motion-outside-interactive',
+  'code/animate-target',
   'code/dynamic-import',
   'code/script-url',
   'code/browser-global',

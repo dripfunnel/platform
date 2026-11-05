@@ -1,0 +1,9 @@
+@theme {
+  --animate-open: open 0.3s ease-out;
+}
+
+@keyframes open {
+  from {
+    height: 0;
+  }
+}

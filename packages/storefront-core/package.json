@@ -10,6 +10,7 @@
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
     "./theme": { "types": "./dist/theme/index.d.ts", "default": "./dist/theme/index.js" },
+    "./motion": { "types": "./dist/motion/index.d.ts", "default": "./dist/motion/index.js" },
     "./guard": { "types": "./dist/guard/index.d.ts", "default": "./dist/guard/index.js" },
     "./testing": { "types": "./dist/testing/index.d.ts", "default": "./dist/testing/index.js" },
     "./postcss": { "types": "./dist/postcss/index.d.ts", "default": "./dist/postcss/index.js" },
@@ -24,8 +25,10 @@
     "test": "vitest run"
   },
   "peerDependencies": {
+    "motion": "^14.1.0",
     "react": "^19.3.0"
   },
+  "peerDependenciesMeta": { "motion": { "optional": true } },
   "dependencies": {
     "@eslint/js": "^10.0.1",
     "@stripe/stripe-js": "^10.0.0",
@@ -43,6 +46,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "happy-dom": "^20.14.5",
+    "motion": "^14.1.0",
     "playwright-core": "~1.63.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

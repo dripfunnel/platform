@@ -33,9 +33,19 @@ export const routesSchema = z.object({ routes: z.record(z.string().regex(/^[A-Za
 /** Each language's words, flattened to the `file.key` names `t()` takes (ARCHITECTURE §3.4 "t()"). */
 export type Content = Record<string, Record<string, string>>
 
-const tailwindModule = 'df:tailwind'
+/** The theme's stylesheet from guard's themeStylesheet: core's reduced-motion rule, then its Tailwind classes. */
+export const stylesheetModule = 'df:tailwind'
 
-const entrySource = (routesJson: string, content: Content, tailwind: boolean): string => {
+// The client and the server builds both carry it, since the minified CSS Module names depend on all the CSS (#1245).
+export const stylesheetPlugin = (stylesheet: () => string): Plugin => ({
+  name: 'df-stylesheet',
+  setup(b) {
+    b.onResolve({ filter: /^df:tailwind$/ }, () => ({ path: 'tailwind.css', namespace: 'df-tailwind' }))
+    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: stylesheet(), loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
+  },
+})
+
+const entrySource = (routesJson: string, content: Content): string => {
   const routes = routesSchema.parse(JSON.parse(routesJson))
   const pages = [...new Set([...Object.values(routes.routes), ...Object.values(routes.custom ?? {})])]
   const local = new Map(pages.map((page, i) => [page, `p${i}`]))
@@ -43,7 +53,7 @@ const entrySource = (routesJson: string, content: Content, tailwind: boolean): s
   const ref = (page: string) => local.get(page) ?? 'undefined'
   return [
     // First, so a CSS Module's rule wins over a Tailwind class of the same weight, as Tailwind's layers make it anyway.
-    ...(tailwind ? [`import '${tailwindModule}'`] : []),
+    `import '${stylesheetModule}'`,
     `import { boot } from 'df:boot'`,
     ...pages.map((page) => `import { ${exportOf(page)} as ${ref(page)} } from './src/theme/pages/${page}.tsx'`),
     `export const theme = { routes: { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} },`,
@@ -69,17 +79,14 @@ export const mediaUrlPlugin = (origin: string | null = null): Plugin => ({
   },
 })
 
-/** What the generated entry and the Tailwind stylesheet hold for the next build; a warm context reads it at each one. */
-type Generated = { entry: string; tailwind: string | null }
+/** What the generated entry and the theme's stylesheet hold for the next build; a warm context reads them at each one. */
+type Generated = { entry: string; stylesheet: string }
 
 const runtimePlugin = (generated: Generated): Plugin => ({
   name: 'df-runtime',
   setup(b) {
     b.onResolve({ filter: /^df:entry$/ }, () => ({ path: entryName, namespace: 'df' }))
     b.onLoad({ filter: /.*/, namespace: 'df' }, () => ({ contents: generated.entry, loader: 'ts', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
-    // The theme's Tailwind classes, built by core (guard's themeStylesheet), go through the same CSS step as its modules.
-    b.onResolve({ filter: /^df:tailwind$/ }, () => ({ path: 'tailwind.css', namespace: 'df-tailwind' }))
-    b.onLoad({ filter: /.*/, namespace: 'df-tailwind' }, () => ({ contents: generated.tailwind ?? '', loader: 'css', resolveDir: b.initialOptions.absWorkingDir ?? '.' }))
     b.onResolve({ filter: /^df:boot$/ }, () => ({ path: `./core/${bootModule}`, external: true }))
     b.onResolve({ filter: /^[^./]/ }, (args) => {
       const file = runtimeModules[args.path]
@@ -140,7 +147,7 @@ const optionsFor = (repo: string, out: string, mediaOrigin: string | null, gener
     // Written here, not by esbuild: `out` starts empty each time, and a warm rebuild may skip a file it already wrote.
     write: false,
     logLevel: 'silent',
-    plugins: [mediaUrlPlugin(mediaOrigin), runtimePlugin(generated)],
+    plugins: [mediaUrlPlugin(mediaOrigin), stylesheetPlugin(() => generated.stylesheet), runtimePlugin(generated)],
   }) satisfies BuildOptions
 
 /** The working copy at `repo` into `out` (replaced whole) by `run`: a one-off build, or a warm context's rebuild. */
@@ -150,11 +157,11 @@ const bundleWith = async (repo: string, out: string, generated: Generated, run: 
   const tailwind = await themeStylesheet(readThemeStyling(repo))
   if (!tailwind.ok) return { ok: false, problems: tailwind.problems.map((p) => ({ step: 'bundle', ...p })) }
   try {
-    generated.entry = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo), tailwind.css !== null)
+    generated.entry = entrySource(await readFile(join(repo, 'routes.json'), 'utf8'), await readContent(repo))
   } catch {
     return { ok: false, problems: [{ step: 'bundle', file: 'routes.json', line: null, rule: 'bundle/routes', message: "routes.json or content/** can't be read." }] }
   }
-  generated.tailwind = tailwind.css
+  generated.stylesheet = tailwind.css
   const result = await run().catch((error: { errors?: Message[] }): Built => ({ errors: error.errors ?? [{ text: String(error) } as Message] }))
   if (result.errors.length > 0 || !result.metafile) return { ok: false, problems: result.errors.map(problemOf) }
   for (const file of result.outputFiles ?? []) {
@@ -174,13 +181,13 @@ const bundleWith = async (repo: string, out: string, generated: Generated, run: 
 
 /** Bundles the working copy at `repo` into `out` (replaced whole); the paths in the result are relative to `out`. */
 export const bundle = (repo: string, out: string, mediaOrigin: string | null = null): Promise<Bundled> => {
-  const generated: Generated = { entry: '', tailwind: null }
+  const generated: Generated = { entry: '', stylesheet: '' }
   return bundleWith(repo, out, generated, () => build(optionsFor(repo, out, mediaOrigin, generated)))
 }
 
 /** One slot's bundle with its esbuild context kept between changes (#1240), so a rebuild reparses only what changed. */
 export class WarmBundle {
-  private readonly generated: Generated = { entry: '', tailwind: null }
+  private readonly generated: Generated = { entry: '', stylesheet: '' }
   private context: BuildContext<ReturnType<typeof optionsFor>> | null = null
   /** How many esbuild contexts this bundle has made: one for as long as the slot keeps its draft. */
   contexts = 0
