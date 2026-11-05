@@ -85,6 +85,8 @@ export type HotReloadOptions<T> = {
   apply: (loaded: T) => void | Promise<void>
   /** Puts the bundle's stylesheets in the page's place; `swapStylesheets` on the frame's own document by default. */
   stylesheets?: (urls: readonly string[]) => Promise<void>
+  /** The entry module the page runs now: a stylesheet-only notice for another entry reloads the modules too. */
+  shown?: string
   open?: (url: string) => WebSocket
   scroll?: { read: () => [number, number]; restore: (x: number, y: number) => void }
   /** Runs `run` after `ms`; a test's clock in tests. */
@@ -105,6 +107,7 @@ export const connectHotReload = <T>({
   load,
   apply,
   stylesheets = (urls) => swapStylesheets(urls),
+  shown = '',
   open = (url) => new WebSocket(url),
   scroll,
   wait = (ms, run) => void setTimeout(run, ms),
@@ -112,6 +115,7 @@ export const connectHotReload = <T>({
   const socketUrl = new URL(`${base}__hot`, origin)
   socketUrl.protocol = socketUrl.protocol === 'https:' ? 'wss:' : 'ws:'
   let latest = ''
+  let running = shown
   let sequence = 0
   // Stylesheets have their own turn: a stylesheet-only notice changes no script, so it never cancels a load in flight.
   let styleTurn = 0
@@ -134,20 +138,23 @@ export const connectHotReload = <T>({
     const restyle = async () => {
       if (css && style === styleTurn) await stylesheets(css)
     }
-    if (notice.only === 'stylesheet') {
+    const entry = new URL(`${base}${notice.entry}`, origin).toString()
+    // A frame that missed a notice runs older scripts than the one this stylesheet goes with.
+    if (notice.only === 'stylesheet' && entry === running) {
       void restyle().catch(() => {
         if (latest === id) latest = ''
       })
       return
     }
     const mine = (sequence += 1)
-    void load(new URL(`${base}${notice.entry}`, origin).toString())
+    void load(entry)
       .then(async (loaded) => {
         if (mine !== sequence) return
         // The new classes' rules are in before the modules that use them render.
         await restyle()
         const at = scroll?.read()
         await apply(loaded)
+        running = entry
         if (at) scroll?.restore(at[0], at[1])
       })
       .catch(() => {

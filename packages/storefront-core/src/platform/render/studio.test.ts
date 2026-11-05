@@ -138,6 +138,10 @@ describe('the hot-swap entry point (AI-STUDIO §4 step 5)', () => {
     socket.say({ type: 'bundle', id: 'four', entry: 'assets/entry-ONE.js', only: 'everything' })
     await new Promise((r) => setTimeout(r, 10))
     expect(steps).toHaveLength(4)
+    // A frame that missed the notice of entry TWO loads it with the stylesheet, rather than styling the old scripts.
+    socket.say({ type: 'bundle', id: 'five', entry: 'assets/entry-TWO.js', css: ['assets/entry-C.css'], only: 'stylesheet' })
+    await vi.waitFor(() => expect(steps).toHaveLength(7))
+    expect(steps.slice(4)).toEqual([`load ${frame}assets/entry-TWO.js`, `css ${frame}assets/entry-C.css`, `apply ${frame}assets/entry-TWO.js`])
   })
 
   it('opens a dropped socket again, waiting longer each time until one opens, and never after it was stopped', () => {
