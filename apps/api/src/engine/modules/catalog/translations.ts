@@ -21,6 +21,7 @@ import {
   type TranslationWrite,
 } from '#db/scoped/translations'
 import { approvalAudit } from './approval'
+import { sanitiseDescription } from './richText'
 import { slugFrom, supplierSlug } from './rules'
 
 export type { SharedNameRow, TranslationRow } from '#db/scoped/translations'
@@ -120,7 +121,7 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
       if (value === undefined) return
       const row = main(field)
       if (!row) return
-      const typed = (value ?? '').trim()
+      const typed = field === 'description' && entity === 'product' ? sanitiseDescription(value ?? '') : (value ?? '').trim()
       // A supplier's new address gets its random suffix, as its main one does; one it keeps stays as it is.
       const text = field === 'slug' && sellerId !== null && typed !== '' && typed !== row.text ? supplierSlug(typed) : typed
       if (text.length > limits[field]) throw new Refused('INVALID_INPUT')

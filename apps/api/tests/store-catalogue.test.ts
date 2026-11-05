@@ -442,6 +442,16 @@ describe('photos, video and files', () => {
     ])
   })
 
+  it('stores a description with only the formatting it allows, and an empty editor as no description (#1216)', async () => {
+    const dirty = '<p onclick="steal()">Soft <b>cotton</b></p><script>alert(1)</script><ul><li><a href="javascript:alert(1)">Wash</a> cold</li></ul>'
+    const { saved } = await create('owner', simple('Rich product', { description: dirty }))
+    expect(await db.sql`select description from product where id = ${saved?.id ?? ''}`).toEqual([{ description: '<p>Soft <strong>cotton</strong></p><ul><li>Wash cold</li></ul>' }])
+    const emptied = await create('owner', simple('Emptied editor', { description: '<p></p>' }))
+    expect(await db.sql`select description from product where id = ${emptied.saved?.id ?? ''}`).toEqual([{ description: '' }])
+    const nodes = (await gql('{ products(filter: "missing_info") { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }
+    expect(nodes.nodes.some((n) => n.id === emptied.saved?.id)).toBe(true)
+  })
+
   it('counts and lists a product with no photo or no description as missing info', async () => {
     const { saved } = await create('owner', simple('Bare product'))
     const nodes = (await gql('{ products(filter: "missing_info") { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }
