@@ -34,6 +34,8 @@ export type ProposalInput = {
   problems: GateProblem[]
   /** That previous answer's files as it sent them, so a repair corrects them rather than rewriting blind. */
   previous?: FileEdit[]
+  /** Each file of the answer as soon as the model has written it whole, for the pre-check (#1240); its result is never awaited. */
+  onFile?: (file: FileEdit) => void | Promise<void>
 }
 
 export interface DesignModel {

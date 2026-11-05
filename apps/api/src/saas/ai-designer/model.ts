@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { AiImage, AiProvider, CanonicalMessage, CanonicalTool } from '#integrations/ai/index'
 import type { FileEdit, Proposal, ProposalInput } from '#saas/studio/index'
 import { askAnswerSchema, maxQuestions, type DesignAsk } from './plan'
+import { streamedItems } from './stream'
 import { lookupNames, type LookupName, type StoreLookups, type StoreSummary } from './summary'
 
 // The Worker's side of one change (storefront ARCHITECTURE §6.2; AI-STUDIO §4 step 2): the model gets the theme, the
@@ -388,6 +389,7 @@ const converse = async (
   repair: boolean,
   onAdded: (a: { assetId: string; user: string }) => void,
   signal?: AbortSignal,
+  streaming: (() => (text: string) => void) | null = null,
 ): Promise<{ text: string } & Spent> => {
   const messages: CanonicalMessage[] = [opening]
   const spent: Spent = { tokensIn: 0, tokensOut: 0, tokensCached: 0, costAmount: 0, costCurrency: 'USD', model: '' }
@@ -400,7 +402,9 @@ const converse = async (
   let calls = 0
   for (;;) {
     signal?.throwIfAborted()
-    const turn = await provider.converse?.({ system: rules, cacheSystem: true, messages, tools: offered, toolChoice: calls >= maxCalls ? 'none' : 'auto', ...(signal ? { signal } : {}) })
+    // Each turn's text is read afresh: only the turn that answers holds the files.
+    const onText = streaming?.()
+    const turn = await provider.converse?.({ system: rules, cacheSystem: true, messages, tools: offered, toolChoice: calls >= maxCalls ? 'none' : 'auto', ...(signal ? { signal } : {}), ...(onText ? { onText } : {}) })
     if (!turn) throw new Error('designModel: no converse')
     spent.tokensIn += turn.tokensIn
     spent.tokensOut += turn.tokensOut
@@ -470,7 +474,18 @@ export const designModel = (
     // A repair goes the same way as the first ask, so it reads the same cached prefix; its tool calls are refused.
     const looping = (tools !== null || lookups !== null) && provider.converse !== undefined
     const opening: CanonicalMessage = { role: 'user', content: [...context.map((part) => ({ type: 'text' as const, text: part, cache: true })), ...images.map((i) => ({ type: 'image' as const, mediaType: i.mediaType, base64: i.base64 })), { type: 'text' as const, text }] }
-    const answer = looping ? await converse(provider, tools, lookups, opening, input.problems.length > 0, onAdded, signal) : await provider.complete({ system: rules, context, text, images })
+    const onFile = input.onFile
+    // Each file whole as it streams, for the runner's pre-check; never waited on, and a failed hand-off loses only that.
+    const streaming = onFile
+      ? () =>
+          streamedItems('files', (item) => {
+            const file = fileSchema.safeParse(item)
+            if (file.success) void Promise.resolve(file.data).then(onFile).catch(() => undefined)
+          })
+      : null
+    const answer = looping
+      ? await converse(provider, tools, lookups, opening, input.problems.length > 0, onAdded, signal, streaming)
+      : await provider.complete({ system: rules, context, text, images, ...(streaming ? { onText: streaming() } : {}) })
     const read = readAnswer(answer.text)
     const cost = { model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, tokensCached: answer.tokensCached ?? 0, costAmount: answer.costAmount, costCurrency: answer.costCurrency }
     // Questions or a plan stand for a merchant's own first ask only; anywhere else they are no usable answer.

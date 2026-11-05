@@ -51,7 +51,7 @@ const isNotice = (value: unknown): value is BundleNotice => {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
   const css = v['css']
-  const cssOk = css === undefined || (Array.isArray(css) && css.length <= 20 && css.every((c) => typeof c === 'string' && asset('css').test(c)))
+  const cssOk = css === undefined || (Array.isArray(css) && css.length <= 500 && css.every((c) => typeof c === 'string' && asset('css').test(c)))
   return v['type'] === 'bundle' && typeof v['id'] === 'string' && typeof v['entry'] === 'string' && asset('js').test(v['entry']) && cssOk && (v['only'] === undefined || v['only'] === 'stylesheet')
 }
 
