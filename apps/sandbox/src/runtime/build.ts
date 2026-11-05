@@ -20,7 +20,8 @@ const sources: Readonly<Record<string, () => string>> = {
   'jsx-runtime': () => reexport('react/jsx-runtime'),
   theme: () => "export * from '@dripfunnel/storefront-core/theme'\n",
   clsx: () => "export * from 'clsx'\n",
-  motion: () => "export * from 'motion/react'\n",
+  // motion with the shopper's reduced motion kept by core (storefront ARCHITECTURE §3.4; #1245).
+  motion: () => "export * from '@dripfunnel/storefront-core/motion'\n",
 }
 
 const virtual: Plugin = {

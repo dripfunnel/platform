@@ -35,11 +35,13 @@ beforeAll(() => {
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 
 describe('Tailwind in the fast gate’s bundle', () => {
-  it('leaves a store on CSS Modules alone exactly as it was: no Tailwind stylesheet in its bundle', async () => {
+  it('gives a store on CSS Modules alone no Tailwind stylesheet, only core’s reduced-motion rule (#1245)', async () => {
     const out = join(root, 'modules-out')
     const built = await bundle(theme('modules'), out)
     expect(built.ok, JSON.stringify(built.ok ? null : built.problems)).toBe(true)
-    expect(cssOf(out)).not.toMatch(/@layer|--spacing/)
+    const css = cssOf(out)
+    expect(css).not.toMatch(/@layer (?:theme|utilities)|--spacing/)
+    expect(css).toMatch(/^@layer df-reduced-motion\{@media ?\(prefers-reduced-motion: ?reduce\)/)
   })
 
   it('builds the classes a theme writes with its tokens, within the byte budgets', async () => {

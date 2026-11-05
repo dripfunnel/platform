@@ -1,4 +1,5 @@
 import { find, ident, parse, walk, type CssNode, type Declaration, type Selector, type WalkContext } from 'css-tree'
+import { animatedProperties as animated, animationAdvice } from './animation.js'
 import { mediaIdPattern, problem, type GuardContext, type Problem, type RuleId } from './rules.js'
 
 /** The highest z-index a theme may use, so core's own layers stay above it (ARCHITECTURE §3.4 "CSS"). */
@@ -16,10 +17,8 @@ const atRules: Record<Kind['kind'], ReadonlySet<string>> = {
   // `@property` only for Tailwind's own `--tw-*` names, checked below.
   class: new Set(['media', 'supports', 'container', 'property']),
 }
-// Compositor and paint-only properties: none moves layout, so none costs CLS (ARCHITECTURE §3.4 "CSS", §9).
-const animated = new Set(['transform', 'opacity', 'filter', 'color', 'background', 'background-color', 'border-color', 'outline-color', 'text-decoration-color', 'fill', 'stroke', 'box-shadow'])
-// Tailwind's transition classes also name transform's longhands and its gradient stops, which it registers as colours.
-const classAnimated = new Set([...animated, 'translate', 'scale', 'rotate', '--tw-gradient-from', '--tw-gradient-via', '--tw-gradient-to'])
+// Tailwind's transition classes also name its gradient stops, which it registers as colours.
+const classAnimated = new Set([...animated, '--tw-gradient-from', '--tw-gradient-via', '--tw-gradient-to'])
 const keyframeProperties = new Set([...animated, 'animation-timing-function'])
 const transitionWords = new Set(['ease', 'linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'start', 'end', 'jump-start', 'jump-end', 'jump-none', 'jump-both', 'normal', 'allow-discrete', 'auto', 'none'])
 // Properties that put words on the page (ARCHITECTURE §3.4 "No text in code"); Tailwind's content classes write --tw-content.
@@ -31,6 +30,8 @@ const functions = new Set([
   ...['translate', 'translatex', 'translatey', 'translatez', 'translate3d', 'scale', 'scalex', 'scaley', 'scale3d', 'rotate', 'rotatex', 'rotatey', 'rotatez'],
   ...['skew', 'skewx', 'skewy', 'matrix', 'perspective', 'inset', 'circle', 'ellipse', 'polygon', 'cubic-bezier', 'steps', 'linear'],
   ...['blur', 'brightness', 'contrast', 'drop-shadow', 'grayscale', 'hue-rotate', 'invert', 'opacity', 'saturate', 'sepia'],
+  // Scroll-driven animation's timelines (#1245).
+  ...['scroll', 'view'],
 ])
 const pseudoClasses = new Set([
   ...['hover', 'focus', 'focus-visible', 'focus-within', 'active', 'disabled', 'enabled', 'checked', 'open', 'empty', 'target', 'not', 'is', 'where', 'has'],
@@ -83,14 +84,14 @@ const isTailwindContent = (decl: Declaration) => {
 
 const declarationProblem = (decl: Declaration, inKeyframes: boolean, siblings: readonly CssNode[], kind: Kind): [RuleId, string] | undefined => {
   const property = unprefixed(plain(decl.property))
-  if (inKeyframes && !keyframeProperties.has(property)) return ['css/animated-property', `Keyframes may animate only transform, opacity, filter and colours (not ${property}, which moves layout).`]
+  if (inKeyframes && !keyframeProperties.has(property)) return ['css/animated-property', `Keyframes may ${animationAdvice([property])}.`]
   const namesProperty = siblings.some((d) => d.type === 'Declaration' && ['transition', 'transition-property'].includes(unprefixed(plain(d.property))))
   const allowed = kind.kind === 'class' ? classAnimated : animated
   const bad =
     property === 'transition' || property === 'transition-property' || property === 'will-change'
       ? transitioned(decl, property === 'transition').filter((p) => !allowed.has(p))
       : property === 'transition-duration' && !namesProperty ? ['all'] : []
-  if (bad.length > 0) return ['css/animated-property', `Transitions may animate only transform, opacity, filter and colours (not ${bad.join(', ')}, which moves layout); name them in transition-property.`]
+  if (bad.length > 0) return ['css/animated-property', `Transitions may ${animationAdvice(bad)}; name each in transition-property.`]
   if (property === 'z-index') {
     const only = decl.value.type === 'Value' && decl.value.children.size === 1 ? decl.value.children.first : null
     const fine = only?.type === 'Identifier' ? plain(only.name) === 'auto' : only?.type === 'Number' && /^-?\d+$/.test(only.value) && Number(only.value) <= maxThemeZIndex
