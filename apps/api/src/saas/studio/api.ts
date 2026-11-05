@@ -1,7 +1,7 @@
 import type { GoBackActor, GoBackResult } from '../storefronts/index'
 import type { LiveEvent } from './live'
 import type { DesignModel } from './model'
-import { StudioCancelled, StudioQueued, StudioUnavailable, type ChangeOutcome } from './runner'
+import { StudioCancelled, StudioQueued, StudioUnavailable, type BuildOutcome, type BuildPage, type ChangeOutcome } from './runner'
 
 // What the Store API asks of a store's StudioSession (storefront AI-STUDIO §2–§5), always named by the TenantContext's
 // store (`studioOf`). The Durable Object implements it over RPC; tests drive a StudioRunner through the same shape.
@@ -12,7 +12,7 @@ export type StudioState = { state: 'starting' } | { state: 'queued'; place: numb
 /** A change's outcome, or why the sandbox couldn't take it; RPC keeps no error class, so both travel as values. */
 export type StudioAnswer = ChangeOutcome | { outcome: 'queued'; place: number } | { outcome: 'unavailable' } | { outcome: 'cancelled' }
 
-export const studioAnswer = async <T extends ChangeOutcome | { outcome: 'missing' }>(work: () => Promise<T>): Promise<T | StudioAnswer> => {
+export const studioAnswer = async <T extends ChangeOutcome | BuildOutcome | { outcome: 'missing' }>(work: () => Promise<T>): Promise<T | StudioAnswer> => {
   try {
     return await work()
   } catch (error) {
@@ -36,7 +36,10 @@ export interface StudioApi {
   progress: (storeId: string, run: string, event: LiveEvent) => Promise<void>
   /** Stops the change running for the store; false when none is (AI-STUDIO §4). */
   cancel: (storeId: string) => Promise<boolean>
-  undo: (storeId: string, input: { commit: string; userId: string }) => Promise<StudioAnswer>
+  /** A plan's build, page by page in one turn (#1243); Stop (`cancel`) ends it after the page being built. */
+  build: (storeId: string, input: { pages: BuildPage[]; userId: string; billedTo: 'plan' | 'own_key'; parentRunId: string | null; run: string }, model: DesignModel) => Promise<BuildOutcome | StudioAnswer>
+  /** `before` takes a whole build back in one change (#1243). */
+  undo: (storeId: string, input: { commit: string; userId: string; before?: string | null }) => Promise<StudioAnswer>
   /** The page's words in one language, or null while the sandbox can't load. */
   texts: (storeId: string, input: { page: string; locale: string }) => Promise<{ key: string; text: string }[] | null>
   editText: (storeId: string, input: { locale: string; key: string; text: string; userId: string }) => Promise<StudioAnswer | { outcome: 'missing' }>

@@ -29,6 +29,8 @@ const words: Record<DesignRefusal['reason'], string> = {
   AI_NOT_CONNECTED: 'Add your AI key to design with AI.',
   SESSION_ENDED: 'Your studio session ended. Reopen the studio to keep designing.',
   NOT_LATEST: 'Only your latest change can be undone.',
+  PLAN_GONE: 'Those questions or that plan were answered or replaced. Answer the newest one.',
+  PLAN_CHANGES_USED: 'This plan can’t be changed again. Build it, or ask for a new design.',
   NOTHING_TO_DISCARD: 'There are no unpublished changes to discard.',
   NOTHING_TO_PUBLISH: 'There are no changes to publish.',
   NOT_BISECTED: 'That change isn’t the one a refused publish named.',

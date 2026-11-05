@@ -47,6 +47,8 @@ export type DesignRefusal =
         | 'AI_NOT_CONNECTED'
         | 'SESSION_ENDED'
         | 'NOT_LATEST'
+        | 'PLAN_GONE'
+        | 'PLAN_CHANGES_USED'
         | 'NOTHING_TO_DISCARD'
         | 'NOTHING_TO_PUBLISH'
         | 'NOT_BISECTED'

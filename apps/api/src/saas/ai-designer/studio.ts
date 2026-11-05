@@ -3,7 +3,7 @@ import type { StoreRole } from '#auth/storePermissions'
 import { isUuid } from '#core/ids'
 import { logEvent, failureCode } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
-import { insertDesignMessage, markUndone, selectDesignChat, selectLatestChange, selectMessage, selectRecentRequests, type MessageRow } from '#db/scoped/design'
+import { insertDesignMessage, markUndone, moveFlow, selectDesignChat, selectLatestChange, selectLatestFlow, selectMessage, selectRecentRequests, type MessageRow } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
 import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
@@ -22,6 +22,7 @@ import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { liveSender, openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
 import { chatReply, designModel, type DesignTools, type DesignBrief, type Device } from './model'
+import { answersOf, flowOf, maxPlanChanges, pageRequests, planReply, type BuildFlow, type DesignAsk, type PlanAsk, type PlanFlow, type QuestionsFlow } from './plan'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { buildStoreSummary, freshSummary, keepNew, storeLookups, type StoreSummary } from './summary'
 import { designAudit, designErrors, designNotes, type DesignFailureReason } from './words'
@@ -61,7 +62,8 @@ const reasonOf = (error: unknown): DesignFailureReason | null => {
   return error.code === 'INVALID_CREDENTIALS' ? 'CREDENTIALS_REJECTED' : error.code === 'CANCELLED' ? null : 'BAD_REQUEST'
 }
 
-export type AskAnswer = { outcome: 'changed' | 'unchanged' | 'refused' | 'failed' | 'cancelled'; message: MessageRow }
+/** `asked`: the AI answered a vague request with questions or a plan (#1243), and the message is that. */
+export type AskAnswer = { outcome: 'changed' | 'unchanged' | 'refused' | 'failed' | 'cancelled' | 'asked'; message: MessageRow }
 export type StudioSessionView = StudioState & { session: string; models: readonly string[]; frameUrl: string; access: 'change' | 'view'; expiresAt: Date }
 export type TextEntry = { key: string; text: string }
 
@@ -203,18 +205,23 @@ export const createStudioService = (deps: StudioDeps) => {
     return freshSummary(studio, storeId, now(), summaryOf).catch(summaryFailed)
   }
 
-  const briefOf = async (input: AskInput, image: AiImage | null, screenshot: AiImage | null, summary: StoreSummary | null): Promise<DesignBrief> => {
+  const shopOf = async (summary: StoreSummary | null): Promise<DesignBrief['store']> => {
     const guard = await withSystemScope(sql, (sys) => selectGuardContext(sys, storeId))
+    return { name: summary?.name ?? '', languages: guard ? guardContextFor(guard, []).locales : [] }
+  }
+
+  const briefOf = async (input: Pick<AskInput, 'page' | 'device' | 'imageAssetId'>, image: AiImage | null, screenshot: AiImage | null, summary: StoreSummary | null, mayAsk = false): Promise<DesignBrief> => {
     const recent = await withScope(sql, context, (tx) => selectRecentRequests(tx, storeId, recentRequests))
     return {
       page: input.page,
       device: input.device,
       recent: recent.reverse(),
-      store: { name: summary?.name ?? '', languages: guard ? guardContextFor(guard, []).locales : [] },
+      store: await shopOf(summary),
       summary,
       image,
       imageAssetId: image ? input.imageAssetId : null,
       screenshot,
+      mayAsk,
     }
   }
 
@@ -251,7 +258,10 @@ export const createStudioService = (deps: StudioDeps) => {
    * `askDesign` (SAAS §9.2): budget, then the model through the store's studio (fast gate, up to three repairs), then the
    * chat and the activity entry, which says only that a request was made and its outcome (LOGGING §4.1).
    */
-  const ask = async (input: AskInput): Promise<DesignResult<AskAnswer>> => {
+  const ask = (input: AskInput): Promise<DesignResult<AskAnswer>> => followed((run, live) => askIn(input, run, live))
+
+  /** One request's work, its steps sent to the store's open studios as `run` (AI-STUDIO §4 "Live progress"). */
+  const followed = async (work: (run: string, live: Live) => Promise<DesignResult<AskAnswer>>): Promise<DesignResult<AskAnswer>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     const run = crypto.randomUUID()
     const live = liveSender(
@@ -260,7 +270,7 @@ export const createStudioService = (deps: StudioDeps) => {
     )
     let answer: DesignResult<AskAnswer>
     try {
-      answer = await askIn(input, run, live)
+      answer = await work(run, live)
     } catch (error) {
       await live.end({ type: 'error', code: 'FAILED' })
       throw error
@@ -310,7 +320,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const known = await currentSummary()
     const designer = designModel(
       provider,
-      await briefOf(input, image?.value ?? null, shot?.value ?? null, known),
+      await briefOf(input, image?.value ?? null, shot?.value ?? null, known, true),
       tools && { ...tools, search: async (words) => (await tools.search(words))?.map((p) => (seen.set(p.id, p.user), p)) ?? null },
       () => undefined,
       stopLoop.signal,
@@ -319,11 +329,13 @@ export const createStudioService = (deps: StudioDeps) => {
     let modelAsked = false
     let modelFailure: unknown = null
     let proposed = ''
+    let askedBack: DesignAsk | null = null
     const model: DesignModel = {
       propose: async (proposal) => {
         modelAsked = true
         try {
           const made = await designer.propose(proposal)
+          if (made.ask) askedBack = made.ask
           proposed = made.files.map((f) => ('content' in f ? f.content : 'edits' in f ? f.edits.map((e) => e.replace).join('\n') : '')).join('\n')
           return made
         } catch (error) {
@@ -369,6 +381,7 @@ export const createStudioService = (deps: StudioDeps) => {
       for (const photo of added) if (!proposed.includes(photo.assetId)) logEvent({ event: 'storefront_photo_unplaced', api: 'store', storeId, code: photo.source })
     }
     const summary = 'summary' in answer ? answer.summary : null
+    if (askedBack && answer.outcome === 'unchanged' && summary) return { ok: true, value: { outcome: 'asked', message: await recordAsked(input, text, asked, askedBack, summary.reply, answer.runId) } }
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
     const message = await recordAfter(sql, storeId, async (tx) => {
       await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
@@ -385,6 +398,172 @@ export const createStudioService = (deps: StudioDeps) => {
     if (!message) throw new Error('design_message: written and not found')
     return { ok: true, value: { outcome, message } }
   }
+
+  /** A vague request's questions or plan (#1243): its message holds them, and its run is the flow's one prompt unit. */
+  const recordAsked = async (input: AskInput, text: string, at: Date, ask: DesignAsk, reply: string, runId: string | null): Promise<MessageRow> => {
+    const detail: QuestionsFlow | PlanFlow = 'questions' in ask ? { kind: 'questions', state: 'open', request: text, questions: ask.questions, answers: [] } : { kind: 'plan', state: 'open', request: text, answers: [], plan: ask.plan, changes: 0 }
+    const message = await recordAfter(sql, storeId, async (tx) => {
+      await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at })
+      const id = await record(tx, { role: detail.kind, text: reply, aiRunId: runId, detail })
+      await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: detail.kind }]))
+      return selectMessage(tx, storeId, id)
+    })
+    if (!message) throw new Error('design_message: written and not found')
+    return message
+  }
+
+  /** The model for a flow's next step: the merchant's own pick from the account's list, as askDesign takes it. */
+  const providerFor = async (model: string | null): Promise<DesignResult<{ provider: AiProvider; billedTo: 'plan' | 'own_key' }>> => {
+    const billedTo = await billing()
+    if (model !== null && !(await deps.models(billedTo, context)).includes(model)) return { ok: false, reason: 'INVALID_INPUT' }
+    const provider = await deps.ai(billedTo, context, model)
+    return provider ? { ok: true, value: { provider, billedTo } } : { ok: false, reason: 'AI_NOT_CONNECTED' }
+  }
+
+  /** The store's newest questions or plan, when it is `id` and still open: only that one is answered, changed or built. */
+  const openQuestions = async (id: string): Promise<{ row: MessageRow; flow: QuestionsFlow } | null> => {
+    const open = await latestFlow(id)
+    return open?.flow.kind === 'questions' && open.flow.state === 'open' ? { row: open.row, flow: open.flow } : null
+  }
+  const openPlan = async (id: string): Promise<{ row: MessageRow; flow: PlanFlow } | null> => {
+    const open = await latestFlow(id)
+    return open?.flow.kind === 'plan' && open.flow.state === 'open' ? { row: open.row, flow: open.flow } : null
+  }
+  const latestFlow = async (id: string) => {
+    if (!isUuid(id)) return null
+    const row = await withScope(sql, context, (tx) => selectLatestFlow(tx, storeId))
+    const flow = row?.id === id ? flowOf(row.detail) : null
+    return row && flow ? { row, flow } : null
+  }
+
+  const failedMessage = async (failure: unknown): Promise<MessageRow> => {
+    const reason = reasonOf(failure)
+    const message = await recordAfter(sql, storeId, async (tx) => selectMessage(tx, storeId, await record(tx, { role: 'error', text: reason ? designErrors.failedFor(reason) : designErrors.planFailed })))
+    if (!message) throw new Error('design_message: written and not found')
+    return message
+  }
+
+  /**
+   * The plan from a flow's request, its answers and, when changing one, the plan so far and the merchant's words. It takes
+   * no prompt unit: the whole flow is its first request's (SAAS §9.2), and its run sits under that one's.
+   */
+  const plan = async (open: { row: MessageRow; from: PlanFlow | QuestionsFlow; moved: PlanFlow | QuestionsFlow }, ask: PlanAsk, changes: number, said: string | null, model: string | null, live: Live, audit: ActivityEntry): Promise<DesignResult<AskAnswer>> => {
+    const { row } = open
+    const ready = await providerFor(model)
+    if (!ready.ok) return ready
+    // Claimed first, so two tabs can't both answer it; a plan that couldn't be written gives it back.
+    if (!(await withSystemScope(sql, (tx) => moveFlow(tx, storeId, row.id, 'open', open.moved)))) return { ok: false, reason: 'PLAN_GONE' }
+    live.step('planning')
+    const summary = await currentSummary()
+    let made: Awaited<ReturnType<typeof planReply>> | null = null
+    let failure: unknown = null
+    try {
+      made = await planReply(ready.value.provider, { store: await shopOf(summary), summary }, ask)
+    } catch (error) {
+      failure = error
+      logEvent({ event: 'storefront_plan_failed', api: 'store', storeId, code: error instanceof GatewayError ? `${error.name}:${error.code}` : failureCode(error) })
+    }
+    const at = now()
+    const message = await recordAfter(sql, storeId, async (tx) => {
+      if (said !== null) await record(tx, { role: 'user', text: said, at })
+      if (made) await insertAiRun(tx, { storeId, kind: 'design', requestedBy: actor.id, prompt: (said ?? ask.request).slice(0, 4000), model: made.model, tokensIn: made.tokensIn, tokensOut: made.tokensOut, costAmount: made.costAmount, costCurrency: made.costCurrency, billedTo: ready.value.billedTo, sandboxMs: 0, repairAttempts: 0, parentRunId: row.ai_run_id, outcome: made.plan ? 'unchanged' : 'failed' })
+      if (!made?.plan) {
+        await moveFlow(tx, storeId, row.id, open.moved.state, open.from)
+        return null
+      }
+      const detail: PlanFlow = { kind: 'plan', state: 'open', request: ask.request, answers: ask.answers, plan: made.plan, changes }
+      const id = await record(tx, { role: 'plan', text: made.reply, aiRunId: row.ai_run_id, detail })
+      await activity.record(tx, audit)
+      return selectMessage(tx, storeId, id)
+    })
+    return { ok: true, value: message ? { outcome: 'asked', message } : { outcome: 'failed', message: await failedMessage(failure) } }
+  }
+
+  /** "Make the plan" or "Skip questions" (#1243): `given` in the questions' order, each an option, words of their own or empty. */
+  const answerQuestions = (messageId: string, given: readonly string[], skip: boolean, model: string | null): Promise<DesignResult<AskAnswer>> =>
+    followed(async (_run, live) => {
+      const open = await openQuestions(messageId)
+      if (!open) return { ok: false, reason: 'PLAN_GONE' }
+      const answers = answersOf(open.flow.questions, skip ? [] : given)
+      if (!answers) return { ok: false, reason: 'INVALID_INPUT' }
+      const moved: QuestionsFlow = { ...open.flow, state: skip ? 'skipped' : 'answered', answers }
+      const count = answers.filter((a) => a.answer !== null).length
+      const audit = entry(designAudit.questionsAnswered, [{ field: 'answers', before: null, after: skip ? 'skipped' : String(count) }])
+      return plan({ row: open.row, from: open.flow, moved }, { request: open.flow.request, answers, previous: null, change: null }, 0, null, model, live, audit)
+    })
+
+  /** A change to the plan asked in words (#1243), at most three a plan, inside the same prompt unit. */
+  const changePlan = (messageId: string, words: string, model: string | null): Promise<DesignResult<AskAnswer>> =>
+    followed(async (_run, live) => {
+      const said = words.trim()
+      if (said.length === 0 || said.length > maxRequest) return { ok: false, reason: 'INVALID_INPUT' }
+      const open = await openPlan(messageId)
+      if (!open) return { ok: false, reason: 'PLAN_GONE' }
+      if (open.flow.changes >= maxPlanChanges) return { ok: false, reason: 'PLAN_CHANGES_USED' }
+      const audit = entry(designAudit.planChanged, [{ field: 'changes', before: String(open.flow.changes), after: String(open.flow.changes + 1) }])
+      return plan({ row: open.row, from: open.flow, moved: { ...open.flow, state: 'replaced' } }, { request: open.flow.request, answers: open.flow.answers, previous: open.flow.plan, change: said }, open.flow.changes + 1, said, model, live, audit)
+    })
+
+  /**
+   * **Build it** (#1243): every planned page, home first, each its own change through the gate in the store's studio; the
+   * build is one message, so one Undo takes it all back. Stop (`cancelDesign`) ends it after the page being built.
+   */
+  const buildPlan = (messageId: string, model: string | null): Promise<DesignResult<AskAnswer>> =>
+    followed(async (run, live) => {
+      if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+      const open = await openPlan(messageId)
+      if (!open) return { ok: false, reason: 'PLAN_GONE' }
+      const ready = await providerFor(model)
+      if (!ready.ok) return ready
+      const { row, flow } = open
+      if (!(await withSystemScope(sql, (tx) => moveFlow(tx, storeId, row.id, 'open', { ...flow, state: 'building' })))) return { ok: false, reason: 'PLAN_GONE' }
+      live.step('reading')
+      const known = await currentSummary()
+      const designer = designModel(ready.value.provider, await briefOf({ page: 'home', device: 'desktop', imageAssetId: null }, null, null, known), null, () => undefined, undefined, known && storeLookups({ sql, context, summary: known, readAsset: deps.readAsset }))
+      let modelFailure: unknown = null
+      const pages: DesignModel = {
+        propose: async (proposal) => {
+          try {
+            return await designer.propose(proposal)
+          } catch (error) {
+            modelFailure = error
+            throw error
+          }
+        },
+      }
+      let answer: Awaited<ReturnType<NonNullable<typeof studio>['build']>> | { outcome: 'failed' }
+      try {
+        answer = await studio.build(storeId, { pages: pageRequests(flow), userId: actor.id, billedTo: ready.value.billedTo, parentRunId: row.ai_run_id, run }, pages)
+      } catch (error) {
+        logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: modelFailure instanceof GatewayError ? `${modelFailure.name}:${modelFailure.code}` : failureCode(modelFailure ?? error) })
+        answer = { outcome: 'failed' }
+      }
+      if (answer.outcome !== 'built') {
+        // Nothing was built: the plan stays open to build again.
+        await withSystemScope(sql, (tx) => moveFlow(tx, storeId, row.id, 'building', flow))
+        if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
+        if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
+        return { ok: true, value: { outcome: 'failed', message: await failedMessage(modelFailure) } }
+      }
+      const built = answer
+      const changed = built.pages.filter((p) => p.outcome === 'changed')
+      const saved = savedBeside(changed.length > 0 ? 'changed' : 'unchanged')
+      const outcome: AskAnswer['outcome'] = changed.length > 0 ? 'changed' : built.pages.some((p) => p.outcome === 'refused') ? 'refused' : built.pages.some((p) => p.outcome === 'failed') ? 'failed' : 'unchanged'
+      const detail: BuildFlow = { kind: 'build', pages: built.pages.map((p) => ({ page: p.page, title: p.title, outcome: p.outcome })), stopped: built.stopped }
+      const message = await recordAfter(sql, storeId, async (tx) => {
+        await moveFlow(tx, storeId, row.id, 'building', { ...flow, state: 'built' })
+        const reply = built.pages.flatMap((p) => (p.reply ? [p.reply] : [])).join('\n').slice(0, 4000)
+        const id =
+          outcome === 'changed' || outcome === 'unchanged'
+            ? await record(tx, { role: 'ai', text: reply, changed: changed.map((p) => p.title).slice(0, 5), page: changed[0]?.page ?? 'home', commit: built.commit, beforeCommit: changed.length > 0 ? built.before : null, aiRunId: row.ai_run_id, detail })
+            : await record(tx, { role: 'error', text: outcome === 'refused' ? designErrors.refused : designErrors.failedFor(reasonOf(modelFailure)), aiRunId: row.ai_run_id, detail })
+        await activity.record(tx, entry(designAudit.planBuilt, [{ field: 'outcome', before: null, after: outcome }, { field: 'pages', before: String(built.pages.length), after: String(changed.length) }], built.stopped ? 'stopped' : null))
+        return selectMessage(tx, storeId, id)
+      })
+      await saved
+      if (!message) throw new Error('design_message: written and not found')
+      return { ok: true, value: { outcome, message } }
+    })
 
   /** `searchStockImages`: every source's results for words the merchant typed; page 1 to 20. */
   const stockSearch = async (query: string, page: number): Promise<DesignResult<{ photos: StockPhoto[]; total: number }>> => {
@@ -424,7 +603,9 @@ export const createStudioService = (deps: StudioDeps) => {
     const latest = await withScope(sql, context, (tx) => selectLatestChange(tx, storeId))
     const head = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     if (!latest || latest.id !== messageId || !latest.commit || latest.commit !== head) return { ok: false, reason: 'NOT_LATEST' }
-    const answer = await studio.undo(storeId, { commit: latest.commit, userId: actor.id })
+    // A build's one entry takes every page back in one change (#1243).
+    const build = flowOf(latest.detail)?.kind === 'build' ? latest.before_commit : null
+    const answer = await studio.undo(storeId, { commit: latest.commit, userId: actor.id, before: build })
     const saved = savedBeside(answer.outcome)
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
@@ -486,5 +667,5 @@ export const createStudioService = (deps: StudioDeps) => {
     return offered.includes(language) ? (language.split('-')[0] ?? null) : null
   }
 
-  return { session, renew, wake, chat, ask, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
+  return { session, renew, wake, chat, ask, answerQuestions, changePlan, buildPlan, cancel, stockSearch, stockUse, importImage, undo, discard, texts, saveText }
 }

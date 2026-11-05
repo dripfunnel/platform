@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { AiImage, AiProvider, CanonicalMessage, CanonicalTool } from '#integrations/ai/index'
 import type { DesignModel, FileEdit, Proposal, ProposalInput } from '#saas/studio/index'
+import { askAnswerSchema, maxQuestions, type DesignAsk } from './plan'
 import { lookupNames, type LookupName, type StoreLookups, type StoreSummary } from './summary'
 
 // The Worker's side of one change (storefront ARCHITECTURE §6.2; AI-STUDIO §4 step 2): the model gets the theme, the
@@ -22,6 +23,8 @@ export interface DesignBrief {
   /** The attached image's asset id, for placing it with core's MerchantImage. */
   imageAssetId?: string | null
   screenshot: AiImage | null
+  /** A merchant's own change request may be answered with questions or a plan (#1243); a page of a build or a repair never is. */
+  mayAsk?: boolean
 }
 
 const filePath = z.string().min(1).max(512)
@@ -192,6 +195,17 @@ The shop's own data
   from useOffers() so it goes when the offer ends. Never write a product, price, rating, collection, offer, discount,
   sales figure or city into code or content: core's hooks show them live.
 
+Questions and a plan
+- When a request is short or vague and asks for a new look for the whole shop ("make my store look premium", "a fresh
+  design"), and facts you need are missing (the mood, what the home page leads with, the language shoppers read first),
+  change no file yet: answer {"questions":[{"text":"the question","options":["2 to 4 short answers"]}],"reply":"one short
+  sentence"} with at most ${maxQuestions} questions. Write each answer from the shop's own data (its best sellers, collections,
+  languages, brand), the one you would choose first. When nothing is missing, answer with a plan instead:
+  {"plan":{"header":"one line","footer":"one line","pages":[{"page":"home","title":"Home","sections":["hero with ..."]}]},
+  "reply":"one short sentence"}, home first, at most 6 pages of 1 to 6 sections each.
+- A clear request ("make the buttons maroon", "add a reviews section") is never asked about: change it at once. When the
+  request says you may not ask, always answer with files.
+
 Requests
 - If asked to change prices, stock, products, shipping or checkout, change no file and say that is done in Products or
   Settings. If asked to change or replace the logo or favicon, draw the header's logo as above, never an attached picture
@@ -270,6 +284,8 @@ const contextOf = (brief: DesignBrief, theme: ProposalInput['theme']): string[] 
   `The theme now:\n${[...theme].sort((a, b) => (a.path < b.path ? -1 : 1)).map((f) => `--- ${f.path}\n${f.content}`).join('\n')}`,
 ]
 
+const noAsking = 'This request is a step of an agreed plan or a repair: answer with files, never with questions or a plan.'
+
 const noPhotoTools = 'You have no photo tools in this request. If the merchant asks for a picture and attached none, add no image, and say they can attach one or pick a free photo in the chat box.'
 
 /** The part of an ask after the cached prefix: everything that changes from one request, or one repair, to the next. */
@@ -277,6 +293,7 @@ const requestText = (brief: DesignBrief, input: ProposalInput, photoTools: boole
   [
     wantsExample(input.request) ? carouselExample.trim() : '',
     photoTools ? '' : noPhotoTools,
+    brief.mayAsk && input.problems.length === 0 ? '' : noAsking,
     `The merchant is looking at the ${brief.page} page on ${brief.device}.`,
     brief.recent.length > 0 ? `Earlier requests:\n${brief.recent.map((r) => `- ${r}`).join('\n')}` : '',
     brief.image ? `The first image is one the merchant attached${brief.imageAssetId ? `; its asset id is ${brief.imageAssetId}` : ''}.` : '',
@@ -293,17 +310,27 @@ const requestText = (brief: DesignBrief, input: ProposalInput, photoTools: boole
 /** A publish's repair asks from the failing checks alone, with no merchant's context (ARCHITECTURE §4.2 step 4). */
 export const repairBrief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: '', languages: [] }, summary: null, image: null, screenshot: null }
 
-/** The JSON object in the model's text, if it is one in the shape asked for. */
-export const readAnswer = (text: string): z.infer<typeof answerSchema> | null => {
+const jsonOf = (text: string): unknown => {
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
   if (start < 0 || end <= start) return null
   try {
-    const parsed = answerSchema.safeParse(JSON.parse(text.slice(start, end + 1)))
-    return parsed.success ? parsed.data : null
+    return JSON.parse(text.slice(start, end + 1))
   } catch {
     return null
   }
+}
+
+/** The JSON object in the model's text, if it is one in the shape asked for. */
+export const readAnswer = (text: string): z.infer<typeof answerSchema> | null => {
+  const parsed = answerSchema.safeParse(jsonOf(text))
+  return parsed.success ? parsed.data : null
+}
+
+/** Questions or a plan instead of edits (#1243), if the text is one of those shapes. */
+export const readAsk = (text: string): (DesignAsk & { reply: string }) | null => {
+  const parsed = askAnswerSchema.safeParse(jsonOf(text))
+  return parsed.success ? parsed.data : null
 }
 
 /** The studio's model for one request: each ask (and each repair) is one call with the same brief. */
@@ -435,8 +462,8 @@ export const designModel = (
   onAdded: (a: { assetId: string; user: string }) => void = () => undefined,
   signal?: AbortSignal,
   lookups: StoreLookups | null = null,
-): DesignModel => ({
-  propose: async (input): Promise<Proposal> => {
+): { propose: (input: ProposalInput) => Promise<Proposal & { ask?: DesignAsk }> } => ({
+  propose: async (input) => {
     const images = [brief.image, brief.screenshot].filter((i) => i !== null)
     const context = contextOf(brief, input.theme)
     const text = requestText(brief, input, tools !== null, input.previous ?? [])
@@ -446,6 +473,12 @@ export const designModel = (
     const answer = looping ? await converse(provider, tools, lookups, opening, input.problems.length > 0, onAdded, signal) : await provider.complete({ system: rules, context, text, images })
     const read = readAnswer(answer.text)
     const cost = { model: answer.model, tokensIn: answer.tokensIn, tokensOut: answer.tokensOut, tokensCached: answer.tokensCached ?? 0, costAmount: answer.costAmount, costCurrency: answer.costCurrency }
+    // Questions or a plan stand for a merchant's own first ask only; anywhere else they are no usable answer.
+    const asked = !read && brief.mayAsk && input.problems.length === 0 ? readAsk(answer.text) : null
+    if (asked) {
+      const { reply, ...ask } = asked
+      return { files: [], summary: { reply, changed: [], page: null }, asked: true, ask, ...cost }
+    }
     // An answer in no usable shape changes nothing; the reply says so (FIRST-RELEASE §14's error).
     if (!read) return { files: [], summary: null, ...cost }
     return { files: read.files, summary: { reply: read.reply, changed: read.changed, page: read.page }, ...cost }

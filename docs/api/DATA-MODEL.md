@@ -2006,9 +2006,9 @@ design_version      (id, store_id, number, commit, template, core_version, label
                     -- that built it, which is the build's folder (replacing deploy_ref and publish_run_id);
                     -- clean-up never deletes a build a version names, so it is never null.
                     -- design_draft.base_version_id is built with it
-design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, changed text[],
+design_message      (id, store_id, role ('user'|'ai'|'note'|'error'|'questions'|'plan'), text, changed text[],
                      image_asset_id NULL, sample_url NULL, page NULL, commit NULL, before_commit NULL,
-                     undone boolean, ai_run_id NULL, created_by NULL, created_at)
+                     undone boolean, ai_run_id NULL, detail jsonb NULL, created_by NULL, created_at)
                     -- the studio's chat (PortalStorefront); changed is the plain-words list
                     -- of what changed; commit is the change's commit and before_commit what
                     -- "Undo this change" restores; image_asset_id a pasted image (the store's
@@ -2017,6 +2017,10 @@ design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, chan
                     -- Built on #318 (migrations 0332, the notes, and 0333) with page (the page the reply shows); a note's or
                     -- an error's text is a code the portal words, never stored words (`template:{key}`);
                     -- the studio writes it in system scope, the merchant side reads its own
+                    -- Built on #1243 (migration 0384): a vague request's questions and plan are messages of their own,
+                    -- detail holding them (at most 16 KB, read with a strict schema), and a build's 'ai' message names
+                    -- its pages in detail, commit its last page's and before_commit the commit before its first, so one
+                    -- Undo takes the whole build back; ai_run_id is the flow's first run, the one prompt unit (SAAS §9.2)
 storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_colour NULL,
                      secondary_colour NULL, tagline NULL, description NULL, social jsonb,
                      contact_email NULL, contact_phone NULL, contact_address NULL, voice NULL,

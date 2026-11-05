@@ -54,7 +54,12 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
       cancel: async (storeId) => runner(storeId).cancel(),
       undo: async (storeId, input) => {
         const r = runner(storeId)
-        return studioAnswer(() => r.undo(input.commit, input.userId))
+        return studioAnswer(() => r.undo(input.commit, input.userId, input.before ?? null))
+      },
+      build: async (storeId, input, model) => {
+        const r = runner(storeId)
+        const { run, ...request } = input
+        return studioAnswer(() => r.build({ ...request, model, progress: (event) => void live.push({ storeId, run, event }) }))
       },
       texts: async (storeId, input) => runner(storeId).texts(input.page, input.locale),
       editText: async (storeId, input) => {

@@ -853,6 +853,7 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
       progress: async (storeId, run, event) => await stub.progress(storeId, run, event),
       cancel: async (storeId) => await stub.cancel(storeId),
       undo: async (storeId, input) => await stub.undo(storeId, input),
+      build: async (storeId, input, model) => await stub.build(storeId, input, model),
       texts: async (storeId, input) => await stub.texts(storeId, input),
       editText: async (storeId, input) => await stub.editText(storeId, input),
       discard: async (storeId) => await stub.discard(storeId),

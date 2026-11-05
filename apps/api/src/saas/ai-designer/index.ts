@@ -2,4 +2,5 @@ export { createDesignerService, type DesignerDeps, type DesignerService, type De
 export { createStudioService, type AskAnswer, type AskInput, type StudioDeps, type StudioSessionView, type TextEntry } from './studio'
 export { createPublishingService, type CatalogueView, type UsageView } from './publishing'
 export { designModel, readAnswer, repairBrief, type DesignBrief, type Device } from './model'
+export { flowOf, type DesignQuestion, type DesignPlan, type PlanFlow } from './plan'
 export { designAudit, designErrors, designNotes } from './words'
