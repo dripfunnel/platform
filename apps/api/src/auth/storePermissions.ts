@@ -112,6 +112,27 @@ export const isMerchantRole = (value: string): value is MerchantRole => (merchan
 export const isSupplierRole = (value: string): value is SupplierRole => (supplierRoles as readonly string[]).includes(value)
 export const isSupplierTier = (value: string): value is SupplierTier => (supplierTiers as readonly string[]).includes(value)
 
+export interface SeatStatus {
+  role: string
+  membershipStatus: string
+  userStatus: string
+}
+
+/** The Owner's seat while their invitation is open, which staff may act as to set the store up (ACCESS.md §8.1). */
+export const isInvitedOwnerSeat = (seat: SeatStatus): boolean =>
+  seat.role === 'owner' && seat.membershipStatus === 'invited' && (seat.userStatus === 'active' || seat.userStatus === 'invited')
+
+const isActiveSeat = (seat: SeatStatus): boolean => seat.membershipStatus === 'active' && seat.userStatus === 'active'
+
+/** Whether staff may act as this seat: an active one, or an invited Owner's (ACCESS.md §8.1). */
+export const mayActAsSeat = (seat: SeatStatus): boolean => isActiveSeat(seat) || isInvitedOwnerSeat(seat)
+
+/** ACCESS.md §8: support acts as an invited Owner, writing without an Allow, only while no active Owner or Manager could give one. */
+export const isNewStoreOwnerSeat = (seat: SeatStatus, storeHasAllower: boolean): boolean => !storeHasAllower && isInvitedOwnerSeat(seat)
+
+/** Whether a partner's support session may act as this seat: an active one, or a new store's invited Owner's. */
+export const supportMayActAsSeat = (seat: SeatStatus, storeHasAllower: boolean): boolean => isActiveSeat(seat) || isNewStoreOwnerSeat(seat, storeHasAllower)
+
 /** A seat's role from its membership row; null for a key nobody can read (a data fault, never a guess). */
 export const storeRoleOf = (row: { role_key: string; seller_id: string | null; access_level: string | null }): StoreRole | null => {
   if (row.seller_id === null) return isMerchantRole(row.role_key) ? { side: 'merchant', role: row.role_key } : null

@@ -23,7 +23,15 @@ export interface SupportTargetRow {
   open_agent_name: string | null
   open_expires_at: Date | null
   store_owner: string | null
+  /** An active Owner or Manager who could give an Allow (ACCESS.md §8). */
+  store_has_allower: boolean
 }
+
+/** Whether store `s` has an active Owner or Manager, who could give a support session an Allow (ACCESS.md §8). */
+export const storeHasAllower = (tx: ScopedSql) => tx`exists (
+  select 1 from membership am join "user" au on au.id = am.user_id
+  where am.store_id = s.id and am.seller_id is null and am.role_key in ('owner', 'manager') and am.status = 'active' and au.status = 'active'
+)`
 
 // membership keeps microseconds; the cursor carries milliseconds, so both sides are cut to them.
 const memberKey = (tx: ScopedSql) => tx`date_trunc('milliseconds', m.created_at)`
@@ -36,7 +44,7 @@ export const selectSupportTargets = async (tx: ScopedSql, partnerId: string, sea
     select m.id as membership_id, u.id as user_id, u.name, u.email, u.status as user_status, m.status as membership_status,
       m.role_key, s.id as store_id, s.name as store_name, s.status as store_status, s.support_access_allowed,
       sl.name as seller_name, u.last_sign_in_at, ${memberKey(tx)} as created_at,
-      o.id as open_session_id, o.partner_user_id as open_agent_id, a.name as open_agent_name, o.expires_at as open_expires_at, own.name as store_owner
+      o.id as open_session_id, o.partner_user_id as open_agent_id, a.name as open_agent_name, o.expires_at as open_expires_at, own.name as store_owner, ${storeHasAllower(tx)} as store_has_allower
     from membership m
     join "user" u on u.id = m.user_id
     join store s on s.id = m.store_id
@@ -63,7 +71,7 @@ export const selectSupportTarget = async (tx: ScopedSql, partnerId: string, memb
       select m.id as membership_id, u.id as user_id, u.name, u.email, u.status as user_status, m.status as membership_status,
         m.role_key, s.id as store_id, s.name as store_name, s.status as store_status, s.support_access_allowed,
         sl.name as seller_name, u.last_sign_in_at, m.created_at,
-        o.id as open_session_id, o.partner_user_id as open_agent_id, a.name as open_agent_name, o.expires_at as open_expires_at, own.name as store_owner
+        o.id as open_session_id, o.partner_user_id as open_agent_id, a.name as open_agent_name, o.expires_at as open_expires_at, own.name as store_owner, ${storeHasAllower(tx)} as store_has_allower
       from membership m
       join "user" u on u.id = m.user_id
       join store s on s.id = m.store_id
