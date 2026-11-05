@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import { maxPageSize, pgArray, type ScopedSql } from './index'
 import { storefrontHostOf } from './publishing'
 
@@ -48,7 +49,7 @@ export const insertDesignMessage = async (tx: ScopedSql, m: NewMessage): Promise
   const [row] = await tx<{ id: string }[]>`
     insert into design_message (store_id, role, text, changed, image_asset_id, sample_url, page, commit, before_commit, ai_run_id, detail, created_by, created_at)
     values (${m.storeId}, ${m.role}, ${m.text}, ${pgArray(m.changed ?? [])}::text[], ${m.imageAssetId ?? null}, ${m.sampleUrl ?? null},
-      ${m.page ?? null}, ${m.commit ?? null}, ${m.beforeCommit ?? null}, ${m.aiRunId ?? null}, ${m.detail === undefined ? null : JSON.stringify(m.detail)}::jsonb, ${m.createdBy}, ${m.at})
+      ${m.page ?? null}, ${m.commit ?? null}, ${m.beforeCommit ?? null}, ${m.aiRunId ?? null}, ${m.detail === undefined ? null : tx.json(m.detail as postgres.JSONValue)}, ${m.createdBy}, ${m.at})
     returning id`
   if (!row) throw new Error('design_message: insert returned nothing')
   return row.id
@@ -151,7 +152,7 @@ export const selectLatestFlow = async (tx: ScopedSql, storeId: string): Promise<
 
 /** Moves a flow's message on from `state` only, so two tabs can't both answer or build it; false when it had moved. */
 export const moveFlow = async (tx: ScopedSql, storeId: string, id: string, state: string, detail: unknown): Promise<boolean> =>
-  (await tx`update design_message set detail = ${JSON.stringify(detail)}::jsonb where store_id = ${storeId} and id = ${id} and detail->>'state' = ${state} returning id`).length > 0
+  (await tx`update design_message set detail = ${tx.json(detail as postgres.JSONValue)} where store_id = ${storeId} and id = ${id} and detail->>'state' = ${state} returning id`).length > 0
 
 export const markUndone = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
   await tx`update design_message set undone = true where store_id = ${storeId} and id = ${id}`
