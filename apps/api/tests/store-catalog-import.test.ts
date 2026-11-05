@@ -178,7 +178,7 @@ describe('a spreadsheet import', () => {
     const asked = await gql('mutation { requestCatalogExport(kind: products) }', 'owner')
     await relay()
     const exported = (await gql('query J($id: ID!) { catalogExport(id: $id) { csv } }', 'owner', { id: asked.data?.['requestCatalogExport'] })).data?.['catalogExport'] as { csv: string }
-    const edited = exported.csv.replace('Kurta,Handloomed', 'Kurta,Handloomed in Bengal').replace(/1299\.50/g, '1199.00')
+    const edited = exported.csv.replace('Kurta,<p>Handloomed</p>', 'Kurta,<p>Handloomed in Bengal</p>').replace(/1299\.50/g, '1199.00')
     const skipped = await upload('owner', edited)
     expect(skipped.job).toMatchObject({ ready: 2, matched: 2 })
     expect((await confirm('owner', skipped.id, 'skip')).job).toMatchObject({ state: 'done', skipped: 2, updated: 0 })
@@ -186,7 +186,7 @@ describe('a spreadsheet import', () => {
     expect((await confirm('owner', updated.id, 'update')).job).toMatchObject({ state: 'done', updated: 2, created: 0 })
     const kurtas = await productBySku('KU-S')
     expect(kurtas).toHaveLength(1)
-    expect(await db.sql`select description, slug from product where id = ${kurtas[0]?.id ?? ''}`).toEqual([{ description: 'Handloomed in Bengal', slug: 'kurta' }])
+    expect(await db.sql`select description, slug from product where id = ${kurtas[0]?.id ?? ''}`).toEqual([{ description: '<p>Handloomed in Bengal</p>', slug: 'kurta' }])
     expect(await db.sql`select amount::text as amount from version_price vp join product_version v on v.id = vp.version_id where v.sku = 'KU-M' and vp.currency = 'INR'`).toEqual([{ amount: '119900' }])
     // The hand price the file still carried, and the version kept its stock and history.
     expect(await db.sql`select amount::text as amount from version_price vp join product_version v on v.id = vp.version_id where v.sku = 'KU-S' and vp.currency = 'USD'`).toEqual([{ amount: '1599' }])
@@ -202,7 +202,7 @@ describe('a spreadsheet import', () => {
     expect(await db.sql`select name, length_mm, width_mm, height_mm, hs_code, customs_description, track_stock, continue_selling, cost_amount::text as cost, weight_grams, barcode from product_version where sku = 'KU-S' and deleted_at is null`).toEqual([
       { name: 'Small', length_mm: 300, width_mm: 200, height_mm: 20, hs_code: '621142', customs_description: 'Cotton kurta', track_stock: false, continue_selling: true, cost: '55000', weight_grams: 280, barcode: '036000291452' },
     ])
-    expect(await db.sql`select seo_title, description from product where id = ${ku?.id ?? ''}`).toEqual([{ seo_title: 'Kurta, handloomed', description: 'Handloomed in Bengal' }])
+    expect(await db.sql`select seo_title, description from product where id = ${ku?.id ?? ''}`).toEqual([{ seo_title: 'Kurta, handloomed', description: '<p>Handloomed in Bengal</p>' }])
     expect(await db.sql`select amount::text as amount from version_price vp join product_version v on v.id = vp.version_id where v.sku = 'KU-S' and vp.currency = 'INR'`).toEqual([{ amount: '139900' }])
   })
 
@@ -221,7 +221,7 @@ describe('a spreadsheet import', () => {
     const done = (await confirm('owner', id)).job
     expect(done).toMatchObject({ state: 'done', created: 1 })
     const [tee] = await productBySku('TEE-S')
-    expect(await db.sql`select description from product where id = ${tee?.id ?? ''}`).toEqual([{ description: 'Soft & light' }])
+    expect(await db.sql`select description from product where id = ${tee?.id ?? ''}`).toEqual([{ description: '<p>Soft &amp; light</p>' }])
     expect(await db.sql`select position, alt from product_photo where product_id = ${tee?.id ?? ''}`).toEqual([{ position: 0, alt: 'Front' }])
     expect(done?.problems.map((p) => [p.line, p.code])).toEqual([[3, 'PHOTO_UNAVAILABLE'], [4, 'PHOTO_UNAVAILABLE']])
     // The private address was refused before any request went to it.
@@ -337,7 +337,7 @@ describe('a Shopify CSV import (#1178)', () => {
     expect((await confirm('owner', id)).job).toMatchObject({ state: 'done', created: 2 })
     expect(await stockOf('Ribbed tee')).toEqual([{ warehouse: 'Main location', on_hand: 5 }, { warehouse: 'Main location', on_hand: 2 }])
     const [tee] = await db.sql<{ id: string; description: string; visibility: string }[]>`select id, description, visibility from product where name = 'Ribbed tee' and store_id = ${t.storeA1}`
-    expect(tee).toMatchObject({ description: 'Soft & light' })
+    expect(tee).toMatchObject({ description: '<p>Soft &amp; light</p>' })
     expect(await db.sql`select v.sku, v.barcode, v.weight_grams from product_version v where v.product_id = ${tee?.id ?? ''} order by v.position`).toEqual([
       { sku: 'TEE-S-R', barcode: '4006381333931', weight_grams: 180 },
       { sku: 'TEE-M-R', barcode: null, weight_grams: 190 },

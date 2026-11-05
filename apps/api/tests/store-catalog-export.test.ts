@@ -104,6 +104,8 @@ beforeAll(async () => {
       { choices: ['M'], sku: 'KU-M', prices: [inr('129950')] },
     ],
   })
+  // A description saved before it became rich text is plain; the export still guards a formula in it.
+  await db.sql`update product set description = '=cotton, handloomed' where id = ${kurta}`
   await create('owner', { name: 'Hidden lamp', visible: false, options: [], versions: [{ choices: [], sku: 'LAMP', prices: [inr('5000')] }] })
   await create('supplier', { name: 'Supplier mug', options: [], versions: [{ choices: [], sku: 'MUG', prices: [inr('20000')] }] })
   await create('otherSupplier', { name: 'Other bowl', options: [], versions: [{ choices: [], sku: 'BOWL', prices: [inr('30000')] }] })
