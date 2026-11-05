@@ -103,7 +103,7 @@ export interface LookupProductRow {
   rank: number | null
 }
 
-/** Products of a collection or the whole catalogue in a sort, at most 24: names, prices and photo asset ids. */
+/** Products of a collection or the whole catalogue in a sort, at most 24: names, prices and photo asset ids. A description is stored as HTML (#1216), so it goes out as its words. */
 export const selectLookupProducts = (tx: ScopedSql, storeId: string, q: { collection: string | null; sort: LookupSort; limit: number }): Promise<LookupProductRow[]> => {
   const order = {
     'best-selling': tx`p.rank nulls last, p.created_at desc, p.id`,
@@ -114,7 +114,7 @@ export const selectLookupProducts = (tx: ScopedSql, storeId: string, q: { collec
   }[q.sort]
   return tx<LookupProductRow[]>`
     select p.name, p.slug, p.amount, p.currency, p.description, p.photos, p.collections, p.rank from (
-      select p.id, p.created_at, p.name, p.slug, s.pricing_currency::text as currency, left(p.description, 200) as description, ${lowest(tx)} as amount,
+      select p.id, p.created_at, p.name, p.slug, s.pricing_currency::text as currency, left(btrim(regexp_replace(regexp_replace(regexp_replace(p.description, '</?(p|ul|ol|li|br)[^>]*>', ' ', 'gi'), '<[^>]*>', '', 'g'), '[[:space:]]+', ' ', 'g')), 200) as description, ${lowest(tx)} as amount,
         (select r.position from product_rank r where r.store_id = p.store_id and r.product_id = p.id) as rank,
         coalesce((select json_agg(f.asset_id order by f.position) from (select ph.asset_id, ph.position from product_photo ph where ph.product_id = p.id order by ph.position limit ${maxLookupPhotos}) f), '[]'::json) as photos,
         coalesce((select json_agg(k.name order by k.created_at) from (select c.name, c.created_at from collection_product cp join collection c on c.id = cp.collection_id and ${visible(tx, 'c')}
