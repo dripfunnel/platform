@@ -135,7 +135,7 @@ const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null 
     id: p.id,
     name: p.name,
     href: productPath(p.slug),
-    description: p.description ?? null,
+    description: p.description && textOfRichText(p.description) !== '' ? p.description : null,
     highlights: p.highlights ?? [],
     badges: p.badges,
     photos: first ? [{ ...asMain(first), versionId: first.versionId }, ...rest] : [],

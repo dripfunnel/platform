@@ -79,7 +79,7 @@ export const seoFor = (p: SeoInput): Seo => {
       '@context': context,
       '@type': 'Product',
       name: p.product.name,
-      ...(p.product.description ? { description: textOfRichText(p.product.description) } : {}),
+      ...(textOfRichText(p.product.description ?? '') ? { description: textOfRichText(p.product.description ?? '') } : {}),
       ...(images.length ? { image: images } : {}),
       offers: {
         '@type': 'Offer',

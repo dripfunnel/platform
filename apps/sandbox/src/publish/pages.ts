@@ -127,7 +127,7 @@ const itemSeo = (page: PlannedPage, s: CatalogueSnapshot, site: Site, extra: Pag
     const url = `${s.origin}${productPath(slugOf(page.path))}`
     const photos = photosOf(p, s.origin)
     const product = p.price ? { product: { name: p.name, price: p.price, available: p.inStock ?? false, description: p.description, images: photos.map((ph) => ph.url) } } : {}
-    const description = p.seoDescription ?? (p.description ? textOfRichText(p.description) : null)
+    const description = p.seoDescription ?? (textOfRichText(p.description ?? '') || null)
     const seo = seoFor({ store: site, url, title: p.seoTitle ?? p.name, description, image: photos[0]?.url ?? null, imageAlt: photos[0]?.alt, preview: false, breadcrumbs: [home, { name: p.name, url }], ...extra, ...product })
     return { seo, title: p.seoTitle ?? p.name, description }
   }
