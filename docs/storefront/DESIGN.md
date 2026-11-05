@@ -9,7 +9,7 @@ shoppers (theme code written by the AI, fenced by walls, rendered with core); th
 same theme with different colours. The AI has full freedom over the look and the front-end
 behaviour; the core package and the engine guarantee the commerce.
 
-Last updated: 2026-11-04 (#1239: a store's tokens are Tailwind `@theme` values, §5). Before: 2026-11-04 (#1212: Classic first, five templates deleted, §2 step 2). Before: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
+Last updated: 2026-11-05 (#1239: a store's tokens are Tailwind `@theme` values, §5). Before: 2026-11-04 (#1212: Classic first, five templates deleted, §2 step 2). Before: 2026-11-03 (the Classic template, §2 step 2). Before: 2026-11-01 (the brand colours are no longer asked; the look is changed in the studio). Before: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
 
 ---
 
