@@ -132,6 +132,7 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
   const latest = useRef(onChange)
   latest.current = onChange
   const shown = useRef(value)
+  const caret = useRef(1)
   const [refused, setRefused] = useState(false)
   const editor = useEditor({
     extensions,
@@ -140,14 +141,16 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
     editorProps: { attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-labelledby': labelledBy, 'aria-placeholder': placeholder, 'aria-readonly': String(readOnly), class: 'df-rich-content' } },
     onUpdate: ({ editor: e }) => {
       const html = storedHtmlOf(e.getHTML())
-      // Refused like a textarea's maxLength: the edit that would pass the limit is taken back, and said so.
+      // Refused like a textarea's maxLength: back to the last accepted text, not an undo step that may hold more.
       if (html.length > limit) {
-        e.commands.undo()
+        e.commands.setContent(editorHtmlOf(shown.current), { emitUpdate: false })
+        e.commands.setTextSelection(Math.min(caret.current, e.state.doc.content.size))
         setRefused(true)
         return
       }
       setRefused(false)
       shown.current = html
+      caret.current = e.state.selection.from
       latest.current(html)
     },
   })
@@ -157,6 +160,7 @@ export const RichTextField = ({ value, onChange, readOnly, labelledBy, placehold
   useEffect(() => {
     if (value === shown.current) return
     shown.current = value
+    caret.current = 1
     editor.commands.setContent(editorHtmlOf(value), { emitUpdate: false })
   }, [editor, value])
   const empty = useEditorState({ editor, selector: ({ editor: e }) => e.isEmpty })

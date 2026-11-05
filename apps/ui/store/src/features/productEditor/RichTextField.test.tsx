@@ -148,6 +148,25 @@ describe('the description editor (#1216)', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
+  it('keeps every edit accepted before the one that crosses the limit, even typed in the same moment (#1216)', () => {
+    const onChange = vi.fn()
+    render(<Field initial={`<p>${'a'.repeat(19_992)}</p>`} onChange={onChange} />)
+    run((e) => e.chain().focus('end').insertContent('b').run())
+    run((e) => e.chain().focus('end').insertContent('c').run())
+    expect(onChange).toHaveBeenLastCalledWith(`<p>${'a'.repeat(19_992)}b</p>`)
+    expect(content().textContent?.endsWith('ab')).toBe(true)
+    expect(content().textContent).not.toContain('c')
+    expect(screen.getByRole('alert').textContent).toBe(words.tooLong)
+  })
+
+  it('takes back an over-limit change that has no undo history, so the editor never shows unsaved text', () => {
+    const onChange = vi.fn()
+    render(<Field initial="<p>Short</p>" onChange={onChange} />)
+    run((e) => e.chain().setMeta('addToHistory', false).insertContentAt(e.state.doc.content.size - 1, 'x'.repeat(20_050)).run())
+    expect(content().textContent).toBe('Short')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('shows the saved text again when the changes are discarded', () => {
     render(<Field initial="<p>Saved</p>" onChange={() => {}} />)
     run((e) => e.chain().focus('end').insertContent(' and more').run())
