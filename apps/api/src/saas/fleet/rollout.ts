@@ -2,11 +2,11 @@ import type postgres from 'postgres'
 import type { ActivityEntry } from '#auth/activity'
 import { logEvent } from '#core/log'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { countRunning, enrolStores, markReverted, phaseCounts, selectRolloutsToTick, selectToRevert, setPendingUpgrade, setRolloutState, startStores, type RolloutRow } from '#db/scoped/coreRollouts'
+import { countRunning, enrolStores, markReverted, phaseCounts, selectRolloutsToTick, selectStaleUpgradeIds, selectStoreUpgrade, selectToRevert, setPendingUpgrade, setRolloutState, startStores, type RolloutRow } from '#db/scoped/coreRollouts'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { rollBackLive } from '#saas/storefronts/index'
-import { storefrontUpgradeKind } from './upgrade'
+import { pinStoreUpgrade, storefrontUpgradeKind, upgradeDeadlineMs } from './upgrade'
 import { canaryStores, wavePercents } from './waves'
 
 // The rollout's tick (SAAS §10), every minute from the cron: canaries first, then waves of a growing share of the fleet,
@@ -58,6 +58,10 @@ const advance = async (tx: ScopedSql, rollout: RolloutRow, actionsJobs: number, 
   if (!rollout.enrolled_at) {
     const enrolled = await enrolStores(tx, rollout, canaryStores, at)
     logEvent({ event: 'core_rollout_enrolled', api: 'system', code: rollout.version, count: enrolled })
+  }
+  for (const id of await selectStaleUpgradeIds(tx, rollout.id, new Date(at.getTime() - upgradeDeadlineMs))) {
+    const row = await selectStoreUpgrade(tx, id)
+    if (row?.state === 'running') await pinStoreUpgrade(tx, row, 'upgrade_stuck', at)
   }
   const upTo = rollout.state === 'canary' ? 0 : rollout.percent
   const free = rolloutCapacity(actionsJobs, rollout.security) - (await countRunning(tx))

@@ -2425,6 +2425,9 @@
       "build_timed_out": "The build timed out",
       "upgrade_failed": "The upgrade failed",
       "moved_on": "Moved on since, left as it is",
+      "studio_busy": "The studio stayed open",
+      "upgrade_stuck": "The upgrade stopped answering",
+      "upgrade_crashed": "The upgrade failed with an error",
       "other": "Code: {code}"
     },
     "actions": {

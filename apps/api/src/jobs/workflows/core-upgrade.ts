@@ -1,7 +1,7 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers'
 import type postgres from 'postgres'
 import { parseConfig } from '#core/config'
-import { runStoreUpgrade, type UpgradeParams } from '#saas/fleet/index'
+import { pinCrashedUpgrade, runStoreUpgrade, type UpgradeParams } from '#saas/fleet/index'
 import { studioForJob } from '#saas/studio/index'
 import type { StudioSessionObject } from '../durable/studio'
 
@@ -30,10 +30,16 @@ export const coreUpgradeWorkflow = (connect: Connect) =>
           const answer = await studioForJob(studios, storeId).prepareUpgrade(storeId, ask)
           return answer.outcome === 'busy' ? ('busy' as const) : { commit: answer.commit, notes: answer.notes }
         }
-        return await runStoreUpgrade({ sql, drafts, prepare, now: () => new Date() }, event.payload, {
-          do: (name, work) => step.do(name, stepConfig, work),
-          sleep: (name, ms) => step.sleep(name, ms),
-        })
+        try {
+          return await runStoreUpgrade({ sql, drafts, prepare, now: () => new Date() }, event.payload, {
+            do: (name, work) => step.do(name, stepConfig, work),
+            sleep: (name, ms) => step.sleep(name, ms),
+          })
+        } catch (error) {
+          // A step that failed past its retries pins the store at once, so the rollout moves on (SAAS §10).
+          await step.do('crashed', stepConfig, () => pinCrashedUpgrade({ sql, now: () => new Date() }, event.payload))
+          throw error
+        }
       } finally {
         await sql.end()
       }

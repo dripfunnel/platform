@@ -228,3 +228,7 @@ export const selectRolloutStores = (
 /** Paused rollouts: while one is, no release can start its own (SAAS §10). */
 export const countPausedRollouts = async (tx: ScopedSql): Promise<number> =>
   (await tx<{ n: number }[]>`select count(*)::int as n from core_rollout where state = 'paused'`)[0]?.n ?? 0
+
+/** One rollout's upgrades still running since before `startedBefore`: their Workflow was lost (SAAS §10). */
+export const selectStaleUpgradeIds = async (tx: ScopedSql, rolloutId: string, startedBefore: Date): Promise<string[]> =>
+  (await tx<{ id: string }[]>`select id from core_rollout_store where rollout_id = ${rolloutId} and state = 'running' and started_at < ${startedBefore}`).map((r) => r.id)
