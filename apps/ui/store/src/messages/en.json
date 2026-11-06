@@ -453,6 +453,7 @@
         "enterBody": "Ask the owner or a manager to give you a code from their banner. It lets you make changes for the rest of this session.",
         "codeLabel": "Code",
         "codeHint": "Type the 6 digits they read to you.",
+        "codePlaceholder": "123456",
         "enterGo": "Make changes",
         "cancel": "Cancel",
         "codeWrong": "That code didn’t work. Ask the store for a new one.",

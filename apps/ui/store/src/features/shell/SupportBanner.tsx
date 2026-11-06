@@ -1,5 +1,5 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
-import { ConfirmDialog, Strip, Toast, usePolling } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, Strip, Toast, useNow, usePolling } from '@dripfunnel/shared/ui'
 import { useState } from 'react'
 import { loadSupportBanner, type StoreState } from '../../api/shell'
 import { answerSupportWrite, issueSupportWriteCode, redeemSupportWriteCode, requestSupportWrite } from '../../api/support'
@@ -36,6 +36,8 @@ export const SupportBanner = ({ support: loaded, now, inSupport, canDecide, mana
   const [given, setGiven] = useState<{ code: string; expiresAt: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  // The shell ticks once a minute; a code on screen counts down by the second and goes when it expires.
+  const tick = useNow(given ? 1000 : 60_000)
   if (!support) return null
 
   const name = support.agentFirstName
@@ -105,12 +107,13 @@ export const SupportBanner = ({ support: loaded, now, inSupport, canDecide, mana
     setError(words.endFailed)
   }
 
-  const live = given && !writes && secondsUntil(given.expiresAt, now) > 0 ? given : null
+  const clock = new Date(Math.max(tick, now.getTime()))
+  const live = given && !writes && secondsUntil(given.expiresAt, clock) > 0 ? given : null
   const body = (() => {
     if (writes) return support.allowedBy ? fill(words.writeBy, { by: support.allowedBy, time }) : fill(words.writeBody, { time })
     if (inSupport) return pending ? fill(words.asked, { time }) : request?.state === 'denied' ? fill(words.refused, { time }) : fill(words.body, { time })
     if (pending) return `${fill(words.asks, { name, note: request.note, time })}${canDecide ? '' : ` ${words.asksOthers}`}`
-    return live ? fill(words.given, { name, code: live.code, time: formatWait(secondsUntil(live.expiresAt, now)) }) : fill(words.body, { time })
+    return live ? fill(words.given, { name, code: live.code, time: formatWait(secondsUntil(live.expiresAt, clock)) }) : fill(words.body, { time })
   })()
   const actions = (() => {
     if (!sessionId) return []
@@ -190,7 +193,7 @@ export const SupportBanner = ({ support: loaded, now, inSupport, canDecide, mana
             title={words.enterTitle}
             target={fill(words.enterTarget, { store: storeName })}
             consequence={words.enterBody}
-            input={{ label: words.codeLabel, type: 'text', initial: '', placeholder: '123456', error: (v) => (/^\d{6}$/.test(v.trim()) ? null : words.codeHint) }}
+            input={{ label: words.codeLabel, type: 'text', initial: '', placeholder: words.codePlaceholder, error: (v) => (/^\d{6}$/.test(v.trim()) ? null : words.codeHint) }}
             confirmLabel={words.enterGo}
             cancelLabel={words.cancel}
             error={error}
