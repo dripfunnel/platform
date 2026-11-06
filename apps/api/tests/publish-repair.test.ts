@@ -286,7 +286,9 @@ describe('a catalogue publish that fails the gate', () => {
     const runId = await withSystemScope(db.sql, (tx) => startPublish(tx, { storeId: t.storeA1, kind: 'manual', commit: commit(701), template: 'linen', coreVersion: '1.0.0', usesAllowance: true, startedBy: { kind: 'system', id: null }, at: new Date() })).then((r) => (r.ok ? r.runId : ''))
     const liveId = await live(t.storeA1)
     await drafts.put(`sources/${t.storeA1}/${liveId ?? ''}.bundle`, new TextEncoder().encode('live').buffer, { sha256: await hex('live') })
-    expect(await runPublish(deps(async () => (asked += 1, commit(702))), { runId, storeId: t.storeA1 }, workflow(new Set([commit(701)])))).toBe('failed')
+    // A catalogue publish builds the live build's code (claimStep, LIVE-SHOP §7), so that is the commit the gate refuses.
+    const liveCommit = (await buildOf(liveId ?? ''))?.commit ?? ''
+    expect(await runPublish(deps(async () => (asked += 1, commit(702))), { runId, storeId: t.storeA1 }, workflow(new Set([commit(701), liveCommit])))).toBe('failed')
     expect(await root(runId)).toMatchObject({ state: 'failed', error: 'gate_failed', repair_attempts: 0, bisect_commit: null })
     expect(await attemptsOf(runId)).toHaveLength(0)
     expect(asked).toBe(0)
