@@ -317,6 +317,23 @@ describe('a write code (ACCESS.md §8)', () => {
     expect(await db.sql`select 1 from outbox where idempotency_key like ${`%support-write-allowed:${id}%`}`).toHaveLength(0)
   })
 
+  it('stops working once its issuer is no longer an active Owner or Manager of the store', async () => {
+    const id = await opened('owner', agents.priya, 'tok-code-demoted')
+    const cookie = await enter('tok-code-demoted')
+    const given = await issue('manager', id)
+    await db.sql`update membership set role_key = 'staff' where id = ${seats.manager}`
+    try {
+      expect((await gql(q.redeem, { support: cookie }, { c: given?.code ?? '' })).code).toBe('CODE_INVALID')
+      expect((await db.sql<{ access: string }[]>`select access from support_session where id = ${id}`)[0]?.access).toBe('read')
+      expect(await db.sql`select 1 from outbox where idempotency_key like ${`%support-write-allowed:${id}%`}`).toHaveLength(0)
+    } finally {
+      await db.sql`update membership set role_key = 'manager' where id = ${seats.manager}`
+    }
+    const again = await issue('manager', id)
+    await db.sql`update membership set status = 'suspended' where id = ${seats.manager}`
+    expect((await gql(q.redeem, { support: cookie }, { c: again?.code ?? '' })).code).toBe('CODE_INVALID')
+  })
+
   it('works only while the session is open and support is on', async () => {
     const id = await opened('owner', agents.priya, 'tok-code-off')
     const cookie = await enter('tok-code-off')

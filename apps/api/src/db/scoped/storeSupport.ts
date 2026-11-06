@@ -136,22 +136,24 @@ export type WriteCodeOutcome = { kind: 'allowed'; byManager: boolean } | { kind:
 
 /**
  * The agent's code, in system scope by the cookie's session (0386). A match allows writes as an Allow
- * would, by the person who issued it; a miss counts, and the last allowed miss voids the code.
+ * would, by the person who issued it, only while they still may (an active Owner or Manager here);
+ * a miss counts, and the last allowed miss voids the code.
  */
 export const redeemSupportWriteCode = async (tx: ScopedSql, sessionId: string, codeHash: string, maxAttempts: number, now: Date): Promise<WriteCodeOutcome> => {
-  const [row] = await tx<{ open: boolean; access: string; live: boolean; matches: boolean; attempts: number; by_manager: boolean }[]>`
+  const [row] = await tx<{ open: boolean; access: string; live: boolean; matches: boolean; attempts: number; issuer_role: string | null }[]>`
     select ss.ended_at is null and ss.expires_at > ${now} and s.support_access_allowed and s.status not in ('cancelled', 'closed') as open,
       ss.access, ss.write_code_hash is not null and ss.write_code_expires_at > ${now} as live,
       ss.write_code_hash is not distinct from ${codeHash} as matches, ss.write_code_attempts as attempts,
-      exists (select 1 from membership m where m.store_id = ss.store_id and m.user_id = ss.write_code_issued_by_user_id
-        and m.seller_id is null and m.role_key = 'manager') as by_manager
+      (select m.role_key from membership m join "user" u on u.id = m.user_id
+        where m.store_id = ss.store_id and m.user_id = ss.write_code_issued_by_user_id and m.seller_id is null
+          and m.role_key in ('owner', 'manager') and m.status = 'active' and u.status = 'active') as issuer_role
     from support_session ss join store s on s.id = ss.store_id
     where ss.id = ${sessionId}
     for update of ss
   `
   if (!row?.open) return { kind: 'closed' }
   if (row.access === 'write') return { kind: 'already' }
-  if (!row.live || row.attempts >= maxAttempts) return { kind: 'none' }
+  if (!row.live || row.issuer_role === null || row.attempts >= maxAttempts) return { kind: 'none' }
   if (!row.matches) {
     const voided = row.attempts + 1 >= maxAttempts
     await tx`
@@ -168,7 +170,7 @@ export const redeemSupportWriteCode = async (tx: ScopedSql, sessionId: string, c
       write_code_hash = null, write_code_expires_at = null, write_code_issued_by_user_id = null, write_code_attempts = 0
     where id = ${sessionId}
   `
-  return { kind: 'allowed', byManager: row.by_manager }
+  return { kind: 'allowed', byManager: row.issuer_role === 'manager' }
 }
 
 export const selectSupportAllowed = async (tx: ScopedSql, storeId: string): Promise<boolean> =>

@@ -303,7 +303,6 @@ export const currentSupportSession = (deps: PortalDeps, cookie: string): Promise
     return row && portalSupportDto(row, deps.now())
   })
 
-/** The bar's "End now": ended by the agent, logged as the session; false when none was open to end. */
 /** The agent's one extension from its banner (ACCESS.md §8): the new end, or null when it can't be extended. */
 export const extendSupportSessionFromPortal = (deps: PortalDeps, cookie: string, id: string, byMs: number): Promise<Date | null> =>
   withSystemScope(deps.sql, async (tx) => {
@@ -315,6 +314,7 @@ export const extendSupportSessionFromPortal = (deps: PortalDeps, cookie: string,
     return expiresAt
   })
 
+/** The bar's "End now": ended by the agent, logged as the session; false when none was open to end. */
 export const endSupportSessionFromPortal = (deps: PortalDeps, cookie: string, id: string): Promise<boolean> =>
   withSystemScope(deps.sql, async (tx) => {
     const row = await readPortal(tx, deps, cookie)

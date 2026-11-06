@@ -1051,7 +1051,7 @@ Browser → https://<store's portal host>/support/enter?token=…
   **Or a code** (decided 2026-11-06): the same Owner or Manager may instead press "Give support a code" on the banner and
   read the agent a 6-digit code, which the agent types on its own banner (`issueSupportWriteCode`,
   `redeemSupportWriteCode`; migrations/0386). It is single use, for that session only, lasts 10 minutes (never past
-  the session), is replaced by a newer one and voided after 5 wrong tries. Only its salted hash is kept, never logged.
+  the session), is replaced by a newer one and voided after 5 wrong tries, and works only while its issuer is still an active Owner or Manager of the store. Only its salted hash is kept, never logged.
   A redeemed code leaves the session as an Allow by the person who issued it, a Manager's emailing the Owners.
 - **Never, even elevated**: change passwords or sign-in methods, payment methods, payouts,
   ownership or roles; create API keys or install apps; open a storefront preview link, which names
