@@ -137,8 +137,8 @@ Pictures
 - Fill every picture slot you design (a hero, a banner, a background, the about page, a section's art) yourself, in the
   same change, without asking. First the shop's own photos: store_photos lists its Assets with their size, and
   list_collections and find_products give collection and product photo asset ids. Then free photos, with the two tools
-  search_stock_images and add_stock_image: search in a few plain words of what the shop sells (its collections and
-  products), with landscape true and minWidth 1200 for a hero or banner and minWidth 600 for smaller art (results smaller
+  search_stock_images and add_stock_image: search in one to three plain words naming the subject ("bread bakery", never
+  "warm artisan bakery hero banner": every word must match), with landscape true and minWidth 1200 for a hero or banner and minWidth 600 for smaller art (results smaller
   than that are already left out), choose the best result, add it, then place the asset id it returns as described above,
   and say in your reply which picture you added. When the merchant asks for a picture from the web, the internet, a
   stock photo or a search, skip the shop's own photos for that slot: call search_stock_images and add_stock_image, and
@@ -409,7 +409,7 @@ export const maxPhotoLookups = 2
 const maxCalls = maxToolCalls + maxLookups
 
 const toolDefs: readonly CanonicalTool[] = [
-  { name: 'search_stock_images', description: "Search free stock photos for words such as \"linen shirts\". Returns up to six results with an id, tags, the photographer and the file's width and height. For a picture slot the shop's own photos can't fill, or when the merchant asks for a picture from the web or a stock photo: words from what the shop sells, landscape for a hero or banner, and minWidth the slot's width (1200 for a hero or banner, 600 for smaller art); narrower results are left out.", parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 100 }, landscape: { type: 'boolean' }, minWidth: { type: 'integer', minimum: slotWidths.min, maximum: slotWidths.max } }, required: ['query'], additionalProperties: false } },
+  { name: 'search_stock_images', description: "Search free stock photos for words such as \"linen shirts\". Returns up to six results with an id, tags, the photographer and the file's width and height. For a picture slot the shop's own photos can't fill, or when the merchant asks for a picture from the web or a stock photo: one to three plain words naming the subject (every word must match), landscape for a hero or banner, and minWidth the slot's width (1200 for a hero or banner, 600 for smaller art); narrower results are left out.", parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 100 }, landscape: { type: 'boolean' }, minWidth: { type: 'integer', minimum: slotWidths.min, maximum: slotWidths.max } }, required: ['query'], additionalProperties: false } },
   { name: 'add_stock_image', description: 'Add one search result to the merchant\'s Assets and get its asset id, to place with MerchantImage or url(). Use an id from the last search only.', parameters: { type: 'object', properties: { id: { type: 'string', pattern: '^[\\w:-]{1,60}$' } }, required: ['id'], additionalProperties: false } },
 ]
 

@@ -65,6 +65,7 @@ describe('the designer’s tool loop', () => {
     const r = await run([turn([call('1', 'search_stock_images', { query: 'a' })]), turn([])], {}, [{ file: 'src/theme/x.tsx', message: 'bad' }])
     expect(r.searched).toEqual([])
     expect(r.seen[0]?.tools.map((t) => t.name)).toEqual(['search_stock_images', 'add_stock_image'])
+    expect(r.seen[0]?.tools[0]?.description).toMatch(/one to three plain words naming the subject/)
     expect(lastResults(r)).toEqual([expect.objectContaining({ callId: '1', isError: true, content: 'A repair answers from the errors alone: no tool runs in it.' })])
     expect(r.completed).toEqual([])
   })
@@ -285,6 +286,7 @@ describe('the rules the AI is given', () => {
 
   it('send a merchant who asks for a web or stock photo to the search, not to their own photos', () => {
     expect(rules).toMatch(/asks for a picture from the web, the internet, a\s+stock photo or a search, skip the shop's own photos for that slot/)
+    expect(rules).toMatch(/search in one to three plain words naming the subject/)
     expect(rules).toMatch(/never answer with an Assets image instead/)
   })
 
