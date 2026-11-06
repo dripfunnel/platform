@@ -196,3 +196,39 @@ export const countStoresByState = (tx: ScopedSql, rolloutIds: readonly string[])
     select rollout_id, state, count(*)::int as n from core_rollout_store
     where rollout_id = any(${pgArray(rolloutIds)}::uuid[]) group by rollout_id, state order by rollout_id, state`
 
+
+export interface RolloutStoreRow {
+  store_id: string
+  store_name: string
+  store_code: string
+  partner_name: string
+  position: number
+  from_version: string
+  state: StoreUpgradeState
+  error: string | null
+  started_at: Date | null
+  finished_at: Date | null
+}
+
+/** One rollout's stores, canaries first, then by position and id; `gate` stays out (DATA-MODEL §7.11). */
+export const selectRolloutStores = (
+  tx: ScopedSql,
+  q: { rolloutId: string; state: StoreUpgradeState | null; after: { position: number; id: string } | null; before: { position: number; id: string } | null; limit: number },
+): Promise<RolloutStoreRow[]> =>
+  tx<RolloutStoreRow[]>`
+    select r.store_id, s.name as store_name, s.code as store_code, p.name as partner_name, r.position, r.from_version, r.state, r.error,
+      r.started_at, r.finished_at
+    from core_rollout_store r join store s on s.id = r.store_id join partner p on p.id = s.partner_id
+    where r.rollout_id = ${q.rolloutId}
+      ${q.state ? tx`and r.state = ${q.state}` : tx``}
+      ${q.after ? tx`and (r.position, r.store_id) > (${q.after.position}, ${q.after.id})` : tx``}
+      ${q.before ? tx`and (r.position, r.store_id) < (${q.before.position}, ${q.before.id})` : tx``}
+    order by ${q.before && !q.after ? tx`r.position desc, r.store_id desc` : tx`r.position, r.store_id`} limit ${q.limit + 1}`
+
+/** Paused rollouts: while one is, no release can start its own (SAAS §10). */
+export const countPausedRollouts = async (tx: ScopedSql): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from core_rollout where state = 'paused'`)[0]?.n ?? 0
+
+/** One rollout's upgrades still running since before `startedBefore`: their Workflow was lost (SAAS §10). */
+export const selectStaleUpgradeIds = async (tx: ScopedSql, rolloutId: string, startedBefore: Date): Promise<string[]> =>
+  (await tx<{ id: string }[]>`select id from core_rollout_store where rollout_id = ${rolloutId} and state = 'running' and started_at < ${startedBefore}`).map((r) => r.id)

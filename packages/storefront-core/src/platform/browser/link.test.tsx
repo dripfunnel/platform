@@ -3,7 +3,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Breadcrumbs } from '../../sealed/components'
+import { rootOf } from '../../sealed/element'
 import { createShopClient } from '../api/client'
+import { createI18n } from '../i18n/i18n'
 import { StorefrontProvider, type RenderMode } from '../store/context'
 import { completeStore } from '../store/store'
 import { Link } from './link'
@@ -18,6 +21,14 @@ const provided = (mode: RenderMode, href: string) => (
     <Link href={href}>Go</Link>
   </StorefrontProvider>
 )
+
+// Sealed components render in a closed shadow root only core holds.
+const crumb = (label: string): HTMLAnchorElement => {
+  const host = document.querySelector('df-sealed')
+  const found = [...(host ? (rootOf(host)?.querySelectorAll('a') ?? []) : [])].find((a) => a.textContent === label)
+  if (!found) throw new Error(`No crumb ${label}`)
+  return found
+}
 
 const link = (mode: RenderMode, href: string) => {
   render(provided(mode, href))
@@ -93,6 +104,17 @@ describe('Link', () => {
       expect(assign).toHaveBeenCalledWith(`${base}collections/linen/#care`)
     })
 
+    it('on a sealed breadcrumb keeps the frame’s session path too', () => {
+      render(
+        <StorefrontProvider value={{ client: createShopClient(), store, locale: 'en-US', mode: 'studio', poweredBy: null }}>
+          <Breadcrumbs crumbs={[{ label: 'Home', href: '/' }, { label: 'Linen', href: '/collections/linen/' }, { label: 'Shirt', href: '/products/shirt/' }]} t={createI18n('en').t} />
+        </StorefrontProvider>,
+      )
+      expect(fireEvent.click(crumb('Linen'))).toBe(false)
+      expect(assign).toHaveBeenCalledWith(`${base}collections/linen/`)
+      expect(fireEvent.click(crumb('Linen'), { metaKey: true })).toBe(true)
+    })
+
     it('on a link to another host is left to the browser, which opens it in a new tab', () => {
       expect(fireEvent.click(link('studio', 'https://instagram.com/juniper'))).toBe(true)
       expect(assign).not.toHaveBeenCalled()
@@ -111,6 +133,20 @@ describe('Link', () => {
     } finally {
       vi.restoreAllMocks()
     }
+  })
+
+  it('leaves a breadcrumb outside the studio, or with no provider, to the browser', () => {
+    const crumbs = [{ label: 'Home', href: '/' }, { label: 'Shirt', href: '/products/shirt/' }]
+    const t = createI18n('en').t
+    render(<Breadcrumbs crumbs={crumbs} t={t} />)
+    expect(fireEvent.click(crumb('Home'))).toBe(true)
+    cleanup()
+    render(
+      <StorefrontProvider value={{ client: createShopClient(), store, locale: 'en-US', mode: 'live', poweredBy: null }}>
+        <Breadcrumbs crumbs={crumbs} t={t} />
+      </StorefrontProvider>,
+    )
+    expect(fireEvent.click(crumb('Home'))).toBe(true)
   })
 
   it('takes tel: and a dialable number, and no other tel: address', () => {

@@ -19,6 +19,7 @@ import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppImpersonateRouteImport } from './routes/_app/impersonate'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppProvisioningRouteImport } from './routes/_app/provisioning'
+import { Route as AppRolloutsRouteImport } from './routes/_app/rollouts'
 import { Route as AppStaffRouteImport } from './routes/_app/staff'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
@@ -27,6 +28,7 @@ import { Route as AppCustomersCustomerIdRouteImport } from './routes/_app/custom
 import { Route as AppImpersonateSessionsRouteImport } from './routes/_app/impersonate_.sessions'
 import { Route as AppPartnersPartnerIdRouteImport } from './routes/_app/partners_.$partnerId'
 import { Route as AppPartnersNewRouteImport } from './routes/_app/partners_.new'
+import { Route as AppRolloutsRolloutIdRouteImport } from './routes/_app/rollouts_.$rolloutId'
 import { Route as AppStoresStoreIdRouteImport } from './routes/_app/stores_.$storeId'
 import { Route as AppImpersonateSessionsSessionIdRouteImport } from './routes/_app/impersonate_.sessions_.$sessionId'
 
@@ -78,6 +80,11 @@ const AppProvisioningRoute = AppProvisioningRouteImport.update({
   path: '/provisioning',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRolloutsRoute = AppRolloutsRouteImport.update({
+  id: '/rollouts',
+  path: '/rollouts',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStaffRoute = AppStaffRouteImport.update({
   id: '/staff',
   path: '/staff',
@@ -118,6 +125,11 @@ const AppPartnersNewRoute = AppPartnersNewRouteImport.update({
   path: '/partners/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRolloutsRolloutIdRoute = AppRolloutsRolloutIdRouteImport.update({
+  id: '/rollouts_/$rolloutId',
+  path: '/rollouts/$rolloutId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
   id: '/stores_/$storeId',
   path: '/stores/$storeId',
@@ -139,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/impersonate': typeof AppImpersonateRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
+  '/rollouts': typeof AppRolloutsRoute
   '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
@@ -147,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/impersonate/sessions': typeof AppImpersonateSessionsRoute
   '/partners/$partnerId': typeof AppPartnersPartnerIdRoute
   '/partners/new': typeof AppPartnersNewRoute
+  '/rollouts/$rolloutId': typeof AppRolloutsRolloutIdRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
   '/impersonate/sessions/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
@@ -159,6 +173,7 @@ export interface FileRoutesByTo {
   '/impersonate': typeof AppImpersonateRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
+  '/rollouts': typeof AppRolloutsRoute
   '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
@@ -167,6 +182,7 @@ export interface FileRoutesByTo {
   '/impersonate/sessions': typeof AppImpersonateSessionsRoute
   '/partners/$partnerId': typeof AppPartnersPartnerIdRoute
   '/partners/new': typeof AppPartnersNewRoute
+  '/rollouts/$rolloutId': typeof AppRolloutsRolloutIdRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
   '/impersonate/sessions/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
@@ -181,6 +197,7 @@ export interface FileRoutesById {
   '/_app/impersonate': typeof AppImpersonateRoute
   '/_app/partners': typeof AppPartnersRoute
   '/_app/provisioning': typeof AppProvisioningRoute
+  '/_app/rollouts': typeof AppRolloutsRoute
   '/_app/staff': typeof AppStaffRoute
   '/_app/states': typeof AppStatesRoute
   '/_app/stores': typeof AppStoresRoute
@@ -190,6 +207,7 @@ export interface FileRoutesById {
   '/_app/impersonate_/sessions': typeof AppImpersonateSessionsRoute
   '/_app/partners_/$partnerId': typeof AppPartnersPartnerIdRoute
   '/_app/partners_/new': typeof AppPartnersNewRoute
+  '/_app/rollouts_/$rolloutId': typeof AppRolloutsRolloutIdRoute
   '/_app/stores_/$storeId': typeof AppStoresStoreIdRoute
   '/_app/impersonate_/sessions_/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
@@ -204,6 +222,7 @@ export interface FileRouteTypes {
     | '/impersonate'
     | '/partners'
     | '/provisioning'
+    | '/rollouts'
     | '/staff'
     | '/states'
     | '/stores'
@@ -212,6 +231,7 @@ export interface FileRouteTypes {
     | '/impersonate/sessions'
     | '/partners/$partnerId'
     | '/partners/new'
+    | '/rollouts/$rolloutId'
     | '/stores/$storeId'
     | '/impersonate/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
@@ -224,6 +244,7 @@ export interface FileRouteTypes {
     | '/impersonate'
     | '/partners'
     | '/provisioning'
+    | '/rollouts'
     | '/staff'
     | '/states'
     | '/stores'
@@ -232,6 +253,7 @@ export interface FileRouteTypes {
     | '/impersonate/sessions'
     | '/partners/$partnerId'
     | '/partners/new'
+    | '/rollouts/$rolloutId'
     | '/stores/$storeId'
     | '/impersonate/sessions/$sessionId'
   id:
@@ -245,6 +267,7 @@ export interface FileRouteTypes {
     | '/_app/impersonate'
     | '/_app/partners'
     | '/_app/provisioning'
+    | '/_app/rollouts'
     | '/_app/staff'
     | '/_app/states'
     | '/_app/stores'
@@ -254,6 +277,7 @@ export interface FileRouteTypes {
     | '/_app/impersonate_/sessions'
     | '/_app/partners_/$partnerId'
     | '/_app/partners_/new'
+    | '/_app/rollouts_/$rolloutId'
     | '/_app/stores_/$storeId'
     | '/_app/impersonate_/sessions_/$sessionId'
   fileRoutesById: FileRoutesById
@@ -335,6 +359,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProvisioningRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/rollouts': {
+      id: '/_app/rollouts'
+      path: '/rollouts'
+      fullPath: '/rollouts'
+      preLoaderRoute: typeof AppRolloutsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/staff': {
       id: '/_app/staff'
       path: '/staff'
@@ -391,6 +422,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPartnersNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/rollouts_/$rolloutId': {
+      id: '/_app/rollouts_/$rolloutId'
+      path: '/rollouts/$rolloutId'
+      fullPath: '/rollouts/$rolloutId'
+      preLoaderRoute: typeof AppRolloutsRolloutIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/stores_/$storeId': {
       id: '/_app/stores_/$storeId'
       path: '/stores/$storeId'
@@ -416,6 +454,7 @@ interface AppRouteChildren {
   AppImpersonateRoute: typeof AppImpersonateRoute
   AppPartnersRoute: typeof AppPartnersRoute
   AppProvisioningRoute: typeof AppProvisioningRoute
+  AppRolloutsRoute: typeof AppRolloutsRoute
   AppStaffRoute: typeof AppStaffRoute
   AppStatesRoute: typeof AppStatesRoute
   AppStoresRoute: typeof AppStoresRoute
@@ -424,6 +463,7 @@ interface AppRouteChildren {
   AppImpersonateSessionsRoute: typeof AppImpersonateSessionsRoute
   AppPartnersPartnerIdRoute: typeof AppPartnersPartnerIdRoute
   AppPartnersNewRoute: typeof AppPartnersNewRoute
+  AppRolloutsRolloutIdRoute: typeof AppRolloutsRolloutIdRoute
   AppStoresStoreIdRoute: typeof AppStoresStoreIdRoute
   AppImpersonateSessionsSessionIdRoute: typeof AppImpersonateSessionsSessionIdRoute
 }
@@ -436,6 +476,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppImpersonateRoute: AppImpersonateRoute,
   AppPartnersRoute: AppPartnersRoute,
   AppProvisioningRoute: AppProvisioningRoute,
+  AppRolloutsRoute: AppRolloutsRoute,
   AppStaffRoute: AppStaffRoute,
   AppStatesRoute: AppStatesRoute,
   AppStoresRoute: AppStoresRoute,
@@ -444,6 +485,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppImpersonateSessionsRoute: AppImpersonateSessionsRoute,
   AppPartnersPartnerIdRoute: AppPartnersPartnerIdRoute,
   AppPartnersNewRoute: AppPartnersNewRoute,
+  AppRolloutsRolloutIdRoute: AppRolloutsRolloutIdRoute,
   AppStoresStoreIdRoute: AppStoresStoreIdRoute,
   AppImpersonateSessionsSessionIdRoute: AppImpersonateSessionsSessionIdRoute,
 }

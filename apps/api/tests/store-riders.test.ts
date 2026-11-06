@@ -245,7 +245,8 @@ describe('the rows (DATA-MODEL §3.6)', () => {
 
   it('gives a supplier, a shopper, a partner and staff no rider row', async () => {
     await expect(as('app_supplier', 'store', (tx) => tx`select id from rider`, t.sellerA1First)).rejects.toThrow(/permission denied/)
-    await expect(as('app_shop', 'shop', (tx) => tx`select id from rider`)).rejects.toThrow(/permission denied/)
+    // A shopper reads only the rider on their own order's delivery (0367); delivery-tracking.test.ts checks another shopper's.
+    await expect(as('app_shop', 'shop', (tx) => tx`select id from rider`)).resolves.toEqual([])
     await expect(as('app_partner', 'partner', (tx) => tx`select id from rider`)).rejects.toThrow(/permission denied/)
     await expect(as('app_platform', 'platform', (tx) => tx`select id from rider`)).rejects.toThrow(/permission denied/)
   })

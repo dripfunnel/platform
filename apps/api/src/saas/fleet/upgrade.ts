@@ -46,6 +46,11 @@ export interface UpgradeSteps {
 // An open studio stops after 5 idle minutes and at 3 hours at most (AI-STUDIO §7), a build takes minutes; these bound the waits.
 export const upgradeWaits = { studioMs: 5 * 60_000, studioTries: 40, storeMs: 5 * 60_000, storeTries: 72, buildMs: 5 * 60_000, buildTries: 48, checksTries: 6 } as const
 
+// The longest a live upgrade can run: two prepares (its own and a security fix's baseline) and three builds (first,
+// repaired, baseline), plus an hour for step retries. A store running past it was lost, and the tick pins it.
+export const upgradeDeadlineMs =
+  2 * upgradeWaits.studioTries * upgradeWaits.studioMs + 3 * (upgradeWaits.storeTries * upgradeWaits.storeMs + upgradeWaits.buildTries * upgradeWaits.buildMs) + 60 * 60_000
+
 type Claim = { from: string; to: string; template: string; sourceBuildId: string; major: boolean; security: boolean }
 type Outcome = { state: string; error: string | null; runId: string | null }
 
@@ -138,11 +143,29 @@ const buildCommit = async (deps: UpgradeDeps, steps: UpgradeSteps, p: UpgradePar
   return { state: 'deploying', error: 'build_timed_out', runId: id }
 }
 
-const pinned = (deps: UpgradeDeps, p: UpgradeParams, version: string, error: string) =>
-  finish(deps, p, 'pinned', error, async (tx, row) => {
-    await setCorePinned(tx, row.store_id, error)
-    await activityLog.record(tx, systemEntry(row, 'storefront.core_pinned', version, error))
-    logEvent({ event: 'core_upgrade_pinned', api: 'system', partnerId: row.partner_id, storeId: row.store_id, code: error })
+/** A store left on its own core, with why: the upgrade's row ended, the storefront pinned, the partner told (SAAS §10). */
+export const pinStoreUpgrade = async (tx: ScopedSql, row: StoreUpgradeRow, error: string, at: Date): Promise<void> => {
+  await finishStoreUpgrade(tx, row.id, { state: 'pinned', error, at })
+  await setCorePinned(tx, row.store_id, error)
+  await activityLog.record(tx, systemEntry(row, 'storefront.core_pinned', row.version, error))
+  logEvent({ event: 'core_upgrade_pinned', api: 'system', partnerId: row.partner_id, storeId: row.store_id, code: error })
+}
+
+const pinned = (deps: UpgradeDeps, p: UpgradeParams, error: string) =>
+  withSystemScope(deps.sql, async (tx) => {
+    const row = await selectStoreUpgrade(tx, p.upgradeId)
+    if (!row || row.state !== 'running') return 'stopped'
+    await pinStoreUpgrade(tx, row, error, deps.now())
+    return 'pinned'
+  })
+
+/** A Workflow that failed past its retries pins its store at once, so the rollout moves on (SAAS §10). */
+export const pinCrashedUpgrade = (deps: Pick<UpgradeDeps, 'sql' | 'now'>, p: UpgradeParams): Promise<string> =>
+  withSystemScope(deps.sql, async (tx) => {
+    const row = await selectStoreUpgrade(tx, p.upgradeId)
+    if (!row || row.store_id !== p.storeId || row.state !== 'running') return 'stopped'
+    await pinStoreUpgrade(tx, row, 'upgrade_crashed', deps.now())
+    return 'pinned'
   })
 
 /** Live on the new core: the commit reaches the repo's main through the push API, retried by the outbox (LIVE-SHOP §8). */
@@ -194,7 +217,7 @@ export const runStoreUpgrade = async (deps: UpgradeDeps, p: UpgradeParams, steps
   const c = JSON.parse(claimed) as Claim
   if (c.from === c.to) return steps.do('already', () => finish(deps, p, 'live', null))
   const prepared = await prepareCommit(deps, steps, p, c, false, 'prepare')
-  if (!prepared) return steps.do('pin', () => pinned(deps, p, c.to, 'studio_busy'))
+  if (!prepared) return steps.do('pin', () => pinned(deps, p, 'studio_busy'))
   let commit = prepared.commit
   let outcome = await buildCommit(deps, steps, p, c, commit, { baseline: false }, 'build')
   const reason = outcome.error ?? 'upgrade_failed'
@@ -216,7 +239,7 @@ export const runStoreUpgrade = async (deps: UpgradeDeps, p: UpgradeParams, steps
   if (outcome.state === 'live') return steps.do('live', () => wentLive(deps, p, c, done, migrated ? 'migrated' : 'live'))
   if (outcome.state === 'checked') return steps.do('passed', () => passed(deps, p, c, done, migrated ? 'migrated' : 'passed'))
   // A build still deciding keeps its commit, in case its checks keep it live.
-  if (outcome.state === 'deploying') return steps.do('pin', () => pinned(deps, p, c.to, reason))
+  if (outcome.state === 'deploying') return steps.do('pin', () => pinned(deps, p, reason))
   await steps.do('forget', () => forget(deps, p.storeId, done).then(() => 'forgotten'))
   if (c.security) {
     const baseline = await prepareCommit(deps, steps, p, c, true, 'baseline')
@@ -226,5 +249,5 @@ export const runStoreUpgrade = async (deps: UpgradeDeps, p: UpgradeParams, steps
       if (served.state === 'live') return steps.do('baseline', () => servedBaseline(deps, p, c, reason))
     }
   }
-  return steps.do('pin', () => pinned(deps, p, c.to, reason))
+  return steps.do('pin', () => pinned(deps, p, reason))
 }

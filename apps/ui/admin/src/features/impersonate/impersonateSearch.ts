@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { membershipRoles, sessionDates, sessionKinds, targetKinds, targetStatuses } from '../../api/impersonation'
-import { idParam, optionalParam } from '@dripfunnel/shared/search'
+import { cursorParam, idParam, optionalParam } from '@dripfunnel/shared/search'
 
 // Impersonate's filters. The search term is never one of them (FIRST-RELEASE.md §8).
 export const usersSearch = {
@@ -9,8 +9,8 @@ export const usersSearch = {
   store: idParam,
   role: optionalParam(z.enum(membershipRoles)),
   status: optionalParam(z.enum(targetStatuses)),
-  after: idParam,
-  before: idParam,
+  after: cursorParam,
+  before: cursorParam,
 }
 
 export const sessionsSearch = {
@@ -19,6 +19,6 @@ export const sessionsSearch = {
   partner: idParam,
   store: idParam,
   date: optionalParam(z.enum(sessionDates)),
-  after: idParam,
-  before: idParam,
+  after: cursorParam,
+  before: cursorParam,
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { activityResults, actorKinds, datePresets } from '../../api/activity'
 import { actionCodes, activityLevels } from '../../api/activityActions'
-import { idParam, optionalParam } from '@dripfunnel/shared/search'
+import { cursorParam, idParam, optionalParam } from '@dripfunnel/shared/search'
 
 // What an IP filter may hold, so the field never sends what the URL would drop.
 export const ipPattern = /^[0-9A-Fa-f.:]{1,45}$/
@@ -15,8 +15,8 @@ export const activityTabSearch = {
   date: optionalParam(z.enum(datePresets)),
   from: utcDay,
   to: utcDay,
-  after: idParam,
-  before: idParam,
+  after: cursorParam,
+  before: cursorParam,
 }
 
 // A view's filter is its search without the page it is on.

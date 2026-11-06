@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-11-06 (#1312: Rollouts, §2, §11, §11a, §12). Before: 2026-11-05 (#1289: an impersonation lasts 90 minutes, §8). Before: 2026-10-28 (#852: the Delivery app tab on a store, §5.2). Before: 2026-10-27 (#935: the store's repository name on the Storefront tab). Before: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -43,6 +43,7 @@ and store states).
 | 4 | **Customers** (§5.4) | Everyone | none | decided |
 | 5 | **Approvals** | Super admin, Partner manager | partners awaiting approval | decided 2026-09-30 |
 | 6 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | decided 2026-09-30 |
+| 6a | **Rollouts** (§11a) | Super admin, Engineer on call | paused rollouts | decided on #1312 |
 | 7 | **Impersonate** | Super admin, Support | sessions open now | decided |
 | 8 | **Activity log** | Everyone | none | decided 2026-09-30 |
 | 9 | **Staff** | Super admin | none | decided 2026-09-30 |
@@ -397,7 +398,7 @@ From CONSOLE-DESIGN §6, deliberately left out; each stays specified there:
 | H | Billing: partner invoices, merchant billing, dunning, refunds, payouts |
 | I3 | Change plan, move a store between partners, transfer ownership (closing a store is built as Archive, §5.3, #1056) |
 | D (Offboarding, Closed) | Offboarding and closing a partner |
-| L | Fleet: core versions, rollouts, publishing |
+| L | Fleet: core versions and drift (L1, beyond each rollout's pinned stores), the ops queue (L3), templates (L4), publishing (L5), studio capacity (L6). Rollouts (L2) are built, §11a |
 | M | A separate Domains menu (domains are tabs on partner and store pages) |
 | N, B2, B3 | Usage, costs, revenue |
 | Q | Announcements and incident banners |
@@ -405,6 +406,23 @@ From CONSOLE-DESIGN §6, deliberately left out; each stays specified there:
 | S | Data export and personal-data requests |
 
 ---
+
+## 11a. Rollouts
+
+Brought in from part L on #1312, after a paused rollout went unseen for four days and held back every release behind it
+(SAAS §10: one rollout at a time). Super admin and Engineer on call only (`fleet.read`, `fleet.manage`, ACCESS §5.4).
+There is no prototype screen; it follows the Provisioning list and the store page.
+
+- **List**: every rollout, newest first: version (and "Security fix"), state (Canaries, Waves at n%, Paused, Done,
+  Rolled back), stores by state, started and finished. While one is **paused**, a warning at the top says no new
+  release can roll out until it is resumed or rolled back, and links to it. **Start a rollout** asks for the version,
+  upgrade or security fix, and a reason; refused with `ROLLOUT_ACTIVE`, it names and links the rollout in the way.
+- **Detail**: the reason, started, finished and stores by state; then the stores, filterable by state, each with its
+  group (canary or wave), the version it started from, its state and why it ended there (a known code in words, any
+  other shown as the code). The gate's report is never shown. **Pause** (canaries or waves), **Resume** (paused) and
+  **Roll back** (canaries, waves, paused or done) each take a reason; Roll back restates that every store live on the
+  version goes back to the build it had before.
+- **Badge**: paused rollouts, on Rollouts.
 
 ## 12. What the Admin API needs for this release
 
@@ -421,7 +439,8 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` (up to 8 matches), `activityPerson(ref)` (memberships and the same-email count), `activityExport(id)` (the job's state and file). Built on #38: §9's filters including `imp`, `su`, `ip`, `customer` and `level` (an API's entries, or every security or system one), each indexed (0028); every entry names its partner and store; the timeline follows a person's own entries and those done in their name, across every store and partner; the finder never shows a shopper's email, matching a shopper by name or exact email only | `exportActivity(filter)`. Built on #38: Super admin and Engineer on call (`EXPORTERS_ONLY` otherwise), an `export_job` of kind `staff_activity` built after commit through the shared query, LOGGING §6's columns with no address, `tooLarge` past 100,000 entries, logged as `activity.exported` with its filter. The file is inline until an R2 bucket is bound (THIRD-PARTY-ACCESS §2.1), readable for an hour |
 | Staff | `staff(after, before)`. Built on #39: Super admin only (`staff.manage`); each member's role, last sign-in, `twoFactor` (on, off, notSignedIn), an open invitation's dates, and the actions with §10's refusals; `soleSuperAdmin` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite`. Built on #39: throttled like partner invitations (`RATE_LIMITED`), each logged with what changed; accepting is the link's SSO sign-in (ACCESS §6.3) |
 | Header | `search(query)` (partners and stores by name, domain, code or owner email, at most ten of each, within the caller's assignment; two characters or more; built on #35), `me` | |
-| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions (setup sessions on #35, impersonations on #40) | |
+| Rollouts | `coreRollouts(after)`, `coreRollout(id)`, `coreRolloutStores(id, state, after, before)` (built on #1312: each store's group, from version, state and error code, never the gate's report; `fleet.read`) | `startCoreRollout`, `pauseCoreRollout`, `resumeCoreRollout`, `rollBackCoreRollout` (#485; `fleet.manage`, each with a reason) |
+| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions (setup sessions on #35, impersonations on #40), paused rollouts (`pausedRollouts`, null without `fleet.read`, #1312) | |
 
 Approvals has no query of its own: it is `partners` with `{state: awaiting}`, oldest submitted
 first, and each row carries when it was submitted, its go-live checks, who set it up and which

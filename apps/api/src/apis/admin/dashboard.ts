@@ -98,6 +98,7 @@ const NavBadges = builder.objectRef<NavBadgesDto>('NavBadges').implement({
     partnersAwaitingApproval: t.exposeInt('partnersAwaitingApproval'),
     provisioningAttention: t.exposeInt('provisioningAttention'),
     openSessions: t.exposeInt('openSessions', { nullable: true }),
+    pausedRollouts: t.exposeInt('pausedRollouts', { nullable: true }),
   }),
 })
 

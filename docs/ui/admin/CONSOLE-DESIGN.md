@@ -29,7 +29,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > the partner console shows instead: nothing, or a counterpart scoped to that partner's own
 > merchants, with Admin-only controls left out.
 >
-> Last updated: 2026-10-15 (#744, #745: every store's free addresses on `my-store.one`; no shop wildcard, built). Before: 2026-10-11 (#518: no preview address in either console). Before: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
+> Last updated: 2026-11-06 (#1312: L2 Rollouts built). Before: 2026-10-15 (#744, #745: every store's free addresses on `my-store.one`; no shop wildcard, built). Before: 2026-10-11 (#518: no preview address in either console). Before: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
 
 ---
 
@@ -558,7 +558,8 @@ rollouts and no build internals. First release:
   their theme couldn't take), each with the reason.
 - L2. **Rollouts** of a `@dripfunnel/storefront-core` upgrade: canary group, then percentages,
   with pause and roll back; per-store gate result (passed, migrated by the agent, pinned,
-  baseline) (§3 fact 9).
+  baseline) (§3 fact 9). **Built on #1312** ([FIRST-RELEASE.md](FIRST-RELEASE.md) §11a), with start and resume, each
+  store's error code, and a badge and a warning while a rollout is paused.
 - L3. **The ops queue**: publishes refused after repair and bisect, automatic rollbacks and
   the check that caused them, changes the AI couldn't repair, sealed-component violations
   reported by live sites; each with the store, the commit and the gate's report, and a

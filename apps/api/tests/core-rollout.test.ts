@@ -6,7 +6,7 @@ import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
 import { withSystemScope } from '#db/scoped/index'
 import { recordCoreRelease } from '#db/scoped/coreReleases'
-import { advanceRollouts, createFleetService, rolloutCapacity } from '#saas/fleet/index'
+import { advanceRollouts, createFleetService, pinCrashedUpgrade, rolloutCapacity, upgradeDeadlineMs } from '#saas/fleet/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -139,11 +139,89 @@ describe('the Admin API’s reads and a late roll back', () => {
   })
 })
 
+describe('coreRolloutStores (CONSOLE-DESIGN L2, #1312)', () => {
+  type Row = { storeId: string; storeName: string; partnerName: string; canary: boolean; fromVersion: string; state: string; error: string | null }
+  type Answer = { coreRolloutStores: { items: Row[]; pageInfo: { hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null; startCursor: string | null } } | null }
+  const q = `query($id: ID!, $first: Int, $after: String, $before: String, $state: CoreRolloutStoreState) {
+    coreRolloutStores(id: $id, first: $first, after: $after, before: $before, state: $state) {
+      items { storeId storeName partnerName canary fromVersion state error } pageInfo { hasNextPage hasPreviousPage endCursor startCursor } } }`
+
+  it('lists a rollout’s stores in position order, pages by cursor both ways, filters by state, and never answers the gate', async () => {
+    const id = (await run<{ startCoreRollout: Rollout }>(start('1.1.0'), 'staff-engineer')).data?.startCoreRollout.id ?? ''
+    await tick()
+    const enrolled = await storesOf(id)
+    expect(enrolled.length).toBe(3)
+    await db.sql`update core_rollout_store set state = 'pinned', error = 'gate_failed', gate = ${db.sql.json({ secret: 'never shown' })} where rollout_id = ${id} and store_id = ${enrolled[0]?.store_id ?? ''}`
+
+    const all = (await run<Answer>(q, 'staff-engineer', { id })).data?.coreRolloutStores
+    expect(all?.items.map((r) => r.storeId)).toEqual(enrolled.map((r) => r.store_id))
+    expect(all?.items[0]).toMatchObject({ fromVersion: '1.0.0', state: 'pinned', error: 'gate_failed' })
+    expect(all?.items[0]?.storeName).toBeTruthy()
+    expect(all?.items[0]?.partnerName).toBeTruthy()
+
+    const first = (await run<Answer>(q, 'staff-engineer', { id, first: 2 })).data?.coreRolloutStores
+    expect(first?.items).toHaveLength(2)
+    expect(first?.pageInfo).toMatchObject({ hasNextPage: true, hasPreviousPage: false })
+    const second = (await run<Answer>(q, 'staff-engineer', { id, first: 2, after: first?.pageInfo.endCursor })).data?.coreRolloutStores
+    expect(second?.items.map((r) => r.storeId)).toEqual([enrolled[2]?.store_id])
+    expect(second?.pageInfo).toMatchObject({ hasNextPage: false, hasPreviousPage: true })
+    const back = (await run<Answer>(q, 'staff-engineer', { id, first: 2, before: second?.pageInfo.startCursor })).data?.coreRolloutStores
+    expect(back?.items.map((r) => r.storeId)).toEqual(first?.items.map((r) => r.storeId))
+
+    const pinned = (await run<Answer>(q, 'staff-super-admin', { id, state: 'pinned' })).data?.coreRolloutStores
+    expect(pinned?.items.map((r) => r.storeId)).toEqual([enrolled[0]?.store_id])
+
+    const raw = await run(`query($id: ID!) { coreRolloutStores(id: $id) { items { gate } } }`, 'staff-engineer', { id }).catch((e: unknown) => e)
+    expect(String(raw)).toMatch(/Cannot query field "gate"/)
+  })
+
+  it('refuses a role without fleet.read, and answers null for an unknown rollout or a bad cursor', async () => {
+    const id = (await run<{ startCoreRollout: Rollout }>(start('1.1.0'), 'staff-engineer')).data?.startCoreRollout.id ?? ''
+    expect((await run(q, 'staff-support', { id })).code).toBe('FORBIDDEN')
+    expect((await run(q, 'staff-read-only', { id })).code).toBe('FORBIDDEN')
+    expect((await run<Answer>(q, 'staff-engineer', { id: '00000000-0000-4000-8000-000000000000' })).data?.coreRolloutStores).toBeNull()
+    expect((await run<Answer>(q, 'staff-engineer', { id: 'not-a-uuid' })).data?.coreRolloutStores).toBeNull()
+    expect((await run<Answer>(q, 'staff-engineer', { id, after: 'bad' })).data?.coreRolloutStores).toBeNull()
+  })
+})
+
 describe('the tick', () => {
   const begin = async (version: string, security = false) => {
     const started = await run<{ startCoreRollout: Rollout }>(start(version, security), 'staff-engineer')
     return started.data?.startCoreRollout.id ?? ''
   }
+
+  it('pins an upgrade whose Workflow was lost once it outlives the longest wait, so a canary pauses the rollout', async () => {
+    const id = await begin('1.1.0')
+    await tick()
+    const [lost, ...rest] = await storesOf(id)
+    await db.sql`update core_rollout_store set state = 'live', finished_at = now() where rollout_id = ${id} and store_id <> ${lost?.store_id ?? ''}`
+    await db.sql`update core_rollout_store set state = 'running', started_at = ${new Date(Date.now() - upgradeDeadlineMs + 60_000)} where rollout_id = ${id} and store_id = ${lost?.store_id ?? ''}`
+    await tick()
+    expect((await storesOf(id)).find((s) => s.store_id === lost?.store_id)?.state).toBe('running')
+    expect((await rolloutRow(id))?.state).toBe('canary')
+    await db.sql`update core_rollout_store set started_at = ${new Date(Date.now() - upgradeDeadlineMs - 60_000)} where rollout_id = ${id} and store_id = ${lost?.store_id ?? ''}`
+    await tick()
+    expect((await storesOf(id)).find((s) => s.store_id === lost?.store_id)).toMatchObject({ state: 'pinned', error: 'upgrade_stuck' })
+    expect(rest.length).toBe(2)
+    expect(await rolloutRow(id)).toMatchObject({ state: 'paused', paused_state: 'canary' })
+    const [pin] = await db.sql<{ core_pinned_reason: string | null }[]>`select core_pinned_reason from storefront where store_id = ${lost?.store_id ?? ''}`
+    expect(pin?.core_pinned_reason).toBe('upgrade_stuck')
+    await db.sql`update storefront set core_pinned_reason = null`
+  })
+
+  it('pins the store of a Workflow that failed past its retries, once, and leaves an ended one alone', async () => {
+    const id = await begin('1.1.0')
+    await tick()
+    const [row] = await db.sql<{ id: string; store_id: string }[]>`select id, store_id from core_rollout_store where rollout_id = ${id} and state = 'running' limit 1`
+    const params = { upgradeId: row?.id ?? '', storeId: row?.store_id ?? '', rolloutId: id }
+    const deps = { sql: db.sql, now: () => new Date() }
+    expect(await pinCrashedUpgrade(deps, params)).toBe('pinned')
+    expect((await storesOf(id)).find((s) => s.store_id === row?.store_id)).toMatchObject({ state: 'pinned', error: 'upgrade_crashed' })
+    expect(await pinCrashedUpgrade(deps, params)).toBe('stopped')
+    expect(await pinCrashedUpgrade(deps, { ...params, storeId: t.storeB1 === params.storeId ? t.storeA1 : t.storeB1 })).toBe('stopped')
+    await db.sql`update storefront set core_pinned_reason = null`
+  })
 
   it('sizes what runs at once to the Actions jobs: half for an upgrade, all of them for a security fix', () => {
     expect(rolloutCapacity(20, false)).toBe(10)

@@ -150,7 +150,7 @@ describe('dashboard(partnerId) (§3)', () => {
       expect(selects()).toBe(8)
       statements.length = 0
       await service.navBadges()
-      expect(selects()).toBe(3)
+      expect(selects()).toBe(4)
       statements.length = 0
       await service.search('Goods')
       expect(selects()).toBe(2)
@@ -170,6 +170,29 @@ describe('navBadges (§2)', () => {
     await db.sql`insert into partner_setup_session (staff_user_id, partner_id, reason, started_at, expires_at) values (${sa.id}, ${kl?.id ?? ''}, 'open now', ${now}, ${new Date(now.getTime() + 3600_000)})`
     expect((await run<{ navBadges: Record<string, number> }>(q, as('staff-partner-manager'))).data?.navBadges).toEqual({ partnersAwaitingApproval: 1, provisioningAttention: 0, openSessions: 1 })
     expect((await run<{ navBadges: Record<string, number> }>(q, as('staff-support'))).data?.navBadges).toEqual({ partnersAwaitingApproval: 1, provisioningAttention: 2, openSessions: 1 })
+  })
+})
+
+describe('navBadges.pausedRollouts (CONSOLE-DESIGN L2, #1312)', () => {
+  const q = `{ navBadges { pausedRollouts } }`
+  type Badges = { navBadges: { pausedRollouts: number | null } }
+
+  it('counts paused rollouts for fleet.read, and is null for every other role', async () => {
+    expect((await run<Badges>(q, as('staff-engineer'))).data?.navBadges.pausedRollouts).toBe(0)
+    await db.sql`insert into core_release (version, kind, sandbox_image) values ('9.9.9', 'patch', ${`registry.cloudflare.com/acct/sandbox@sha256:${'a'.repeat(64)}`}) on conflict do nothing`
+    const [r] = await db.sql<{ id: string }[]>`
+      insert into core_rollout (version, security, reason, started_at, state, paused_state) values ('9.9.9', false, 'test', ${now}, 'paused', 'canary') returning id`
+    try {
+      expect((await run<Badges>(q, as('staff-engineer'))).data?.navBadges.pausedRollouts).toBe(1)
+      expect((await run<Badges>(q, as('staff-super-admin'))).data?.navBadges.pausedRollouts).toBe(1)
+      for (const role of ['staff-partner-manager', 'staff-support', 'staff-read-only'] as const) {
+        expect((await run<Badges>(q, as(role))).data?.navBadges.pausedRollouts).toBeNull()
+      }
+      await db.sql`update core_rollout set state = 'done', paused_state = null, finished_at = ${now} where id = ${r?.id ?? ''}`
+      expect((await run<Badges>(q, as('staff-engineer'))).data?.navBadges.pausedRollouts).toBe(0)
+    } finally {
+      await db.sql`delete from core_rollout where id = ${r?.id ?? ''}`
+    }
   })
 })
 
