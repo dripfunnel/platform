@@ -33,9 +33,10 @@ const goLive = async (runId: string) =>
   withSystemScope(db.sql, async (tx) => {
     const run = await selectRun(tx, runId)
     if (!run) throw new Error('no run')
-    await startRun(tx, run, new Date())
+    // The test's clock, so a press counts in the month the screen reads.
+    await startRun(tx, run, now())
     await tx`update publish_run set state = 'deploying', switched_at = now() where id = ${runId}`
-    await confirmLive(tx, run, new Date())
+    await confirmLive(tx, run, now())
   })
 const claim = async (runId: string) =>
   withSystemScope(db.sql, async (tx) => {
@@ -106,7 +107,7 @@ describe('Publish now', () => {
     await withSystemScope(db.sql, async (tx) => {
       await tx`update publish_run set state = 'deploying', switched_at = now() where id = ${runId}`
       const run = await selectRun(tx, runId)
-      if (run) await confirmLive(tx, run, new Date())
+      if (run) await confirmLive(tx, run, now())
     })
     expect((await catalogue('owner'))?.catalogue).toMatchObject({ waiting: true, pressesLeft: 0 })
     expect((await press()).code).toBe('NO_PRESSES_LEFT')
@@ -122,7 +123,7 @@ describe('Publish now', () => {
     const before = await usage(t.storeA1, 'publish_now')
     await withSystemScope(db.sql, async (tx) => {
       const run = await selectRun(tx, attempt?.id ?? '')
-      if (run) await confirmLive(tx, run, new Date())
+      if (run) await confirmLive(tx, run, now())
     })
     expect(await usage(t.storeA1, 'publish_now')).toBe(before + 1)
   })

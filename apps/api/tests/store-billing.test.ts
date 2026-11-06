@@ -695,6 +695,8 @@ describe('closing the store (SAAS §4.2)', () => {
     expect(await storeRow(t.storeA1)).toMatchObject({ status: 'cancelled' })
     expect(await entries(t.storeA1, 'store.cancelled')).toContainEqual({ actor_kind: 'person', reason: null })
     expect(await db.sql`select 1 from outbox where store_id = ${t.storeA1} and payload->>'template' = 'store-cancelled'`).toHaveLength(1)
+    // Selling is decided by the database's clock, not the test's, as at the period's end below.
+    await db.sql`update store_subscription set cancel_at = ${new Date(Date.now() + day)} where store_id = ${t.storeA1}`
     expect(await shopAvailable(t.storeA1)).toBe(true)
     expect((await close('owner')).code).toBe('CANCELLED')
     expect((await change('owner', plans.business, 'NOW')).code).toBe('CANCELLED')

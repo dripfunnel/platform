@@ -291,7 +291,7 @@ describe('saving', () => {
     expect((await run<Outcome>(update, callerOf(ids.ns, 'partner-owner'), { id: ids.growth, input, applyTo: 'renewal' })).data?.updatePlan).toMatchObject({ ok: true })
     const scheduled = await db.sql<{ next_plan_version: number; change_at: Date }[]>`select next_plan_version, change_at from store_subscription where plan_id = ${ids.growth} and status <> 'cancelled' and next_plan_id = ${ids.growth}`
     expect(scheduled.length).toBeGreaterThan(0)
-    expect(scheduled.every((s) => s.next_plan_version === 3 && s.change_at.getTime() >= Date.now() + 30 * 86_400_000 - 60_000)).toBe(true)
+    expect(scheduled.every((s) => s.next_plan_version === 3 && s.change_at.getTime() >= now.getTime() + 30 * 86_400_000)).toBe(true)
     expect(await db.sql`select next_plan_id from store_subscription where store_id = ${kept?.store_id ?? ''}`).toEqual([{ next_plan_id: ids.starter }])
     const [emails] = await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where payload->>'template' = 'plan-change-at-renewal' and payload->>'planId' = ${ids.growth}`
     expect(emails?.n).toBe(scheduled.length)
