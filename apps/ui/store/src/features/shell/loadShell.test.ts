@@ -5,9 +5,10 @@ import { actingStore, rememberActing } from '../../acting'
 import type { PageOf } from '../../api/allPages'
 import type { Acting, Me, StoreChoice } from '../../api/shell'
 
-const api = vi.hoisted(() => ({ readShell: vi.fn(), shellSample: vi.fn() }))
+const api = vi.hoisted(() => ({ readShell: vi.fn(), shellSample: vi.fn(), holdsSupportSession: vi.fn(async () => false) }))
 
 vi.mock('../../api/shell', async (actual) => ({ ...(await actual<typeof import('../../api/shell')>()), readShell: api.readShell }))
+vi.mock('../../api/supportSession', () => ({ holdsSupportSession: api.holdsSupportSession }))
 vi.mock('../../api/sample', async (actual) => ({ ...(await actual<typeof import('../../api/sample')>()), shellSample: api.shellSample }))
 
 const { loadShell } = await import('./loadShell')
@@ -35,7 +36,7 @@ const outcome = async () => {
   try {
     return { data: await loadShell({}, '/orders?status=open') }
   } catch (error) {
-    if (isRedirect(error)) return { to: error.options.to, search: error.options.search }
+    if (isRedirect(error)) return error.options.href ? { href: error.options.href } : { to: error.options.to, search: error.options.search }
     return { error }
   }
 }
@@ -61,6 +62,12 @@ describe('loadShell', () => {
   it('sends someone signed out to sign-in, coming back to the same page, whatever the other fields answer', async () => {
     answer({}, { myStores: 'UNAUTHENTICATED', storeState: 'UNAUTHENTICATED', navBadges: 'UNAUTHENTICATED' })
     expect(await outcome()).toEqual({ to: '/sign-in', search: { next: '/orders?status=open' } })
+  })
+
+  it('sends an agent whose support session is over back to the partner console, not the store’s sign-in', async () => {
+    api.holdsSupportSession.mockResolvedValueOnce(true)
+    answer({}, { myStores: 'UNAUTHENTICATED', storeState: 'UNAUTHENTICATED', navBadges: 'UNAUTHENTICATED' })
+    expect(await outcome()).toEqual({ href: 'http://localhost:5174' })
   })
 
   it('forgets a remembered store the person no longer holds and asks again, ignoring the store’s refused reads', async () => {

@@ -373,6 +373,7 @@ type Mutation {
   exportActivity(filter: PartnerActivityFilterInput): ActivityExportResult
   exportReport(filter: ReportFilterInput, tab: String!): ReportExportResult
   exportStores(filter: StoreFilterInput): StoresExportResult
+  extendSupportSession(id: ID!): SupportSessionExtend
   extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
   finishPartnerAiOauth(response: String!): PartnerAiKeyResult
   inviteTeamMember(email: String!, name: String!, role: String!): TeamResult
@@ -1312,6 +1313,8 @@ type SupportSession {
   endedBy: String
   endedByName: String
   expiresAt: String
+  extend: SupportVerdict
+  extendedAt: String
   id: ID
   reason: String
   return: SupportVerdict
@@ -1320,6 +1323,12 @@ type SupportSession {
   ticket: String
   user: SupportSessionUser
   you: Boolean
+}
+
+type SupportSessionExtend {
+  expiresAt: String
+  ok: Boolean
+  reason: String
 }
 
 type SupportSessionLink {

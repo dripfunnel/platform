@@ -1,4 +1,5 @@
 import { merchantRoles, merchantRolePermissions } from '#auth/storePermissions'
+import { supportExtensionMs, supportSessionMs } from '#saas/support/index'
 import { dispatchNotice, dispatchRecipients } from '#db/scoped/dispatch'
 import { z } from 'zod'
 import { mintInvitationToken, mintResetToken } from '#auth/partnerTokens'
@@ -478,7 +479,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       if (t === 'support-session-started') {
         const w = en.supportStarted
-        const paragraphs = [w.body(session.agent_name, session.partner_name, m.store.name, session.user_name), w.reason(session.reason), ...(session.ticket ? [w.ticket(session.ticket)] : []), w.control]
+        const paragraphs = [w.body(session.agent_name, session.partner_name, m.store.name, session.user_name, supportSessionMs / 60_000, supportExtensionMs / 60_000), w.reason(session.reason), ...(session.ticket ? [w.ticket(session.ticket)] : []), w.control]
         return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(session.partner_name, m.store.name), heading: w.heading, paragraphs } }
       }
       const w = en.supportWriteAllowed

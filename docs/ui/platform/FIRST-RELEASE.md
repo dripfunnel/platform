@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -584,12 +584,12 @@ shell's facts); the four parts are #201's queries, read in one request, each lis
 
 ## 12. Support
 
-"Sign in as one of your merchants' users to fix things with them. 30 minutes, logged as you
+"Sign in as one of your merchants' users to fix things with them. 90 minutes, extendable once by 30, logged as you
 acting as them." **Owner, Admin and Support**; absent for Finance and Read-only. Two tabs:
 **Users** and **Sessions · N open now**. (USERS-AND-DOMAINS §4.1, ACCESS §8, CONSOLE-DESIGN J.)
 
-**The rules, shown at the top of Users**: 30 minutes, no extension ("Start a new session if
-you need more time."); merchant consent ("Only for stores that have partner support turned
+**The rules, shown at the top of Users**: 90 minutes ("Extend it once by 30 minutes if you need
+more. After that, start a new session.", #1328); merchant consent ("Only for stores that have partner support turned
 on."); everyone sees it ("A banner in the store: 'Northstar support (Priya) is signed in as
 Jenna. Ends in 28 min.'"); logged as you ("Every action shows as 'Priya as Jenna' in your log
 and the merchant's."); some things stay theirs ("Passwords, 2-factor, payment details and
@@ -619,8 +619,8 @@ partner's own team, staff or shoppers.
 ### 12.2 Starting a session
 
 From Users or a store's Support tab (§6.3). **Step 1 · Why**: reason (required), ticket link
-(optional). **Step 2 · Confirm**: "You'll act as {user} ({role}, {store}) for 30 minutes
-[read-only until {owner} allows changes]. You can't change {user}'s password, 2-factor, payment
+(optional). **Step 2 · Confirm**: "You'll act as {user} ({role}, {store}) for 90 minutes
+(you can extend once by 30) [read-only until {owner} allows changes]. You can't change {user}'s password, 2-factor, payment
 details or the store's ownership. Everyone signed in to {store} sees '{partner} support ({me})
 is signed in as {user}.' Everything you do is logged as {me} as {user}, in your log and
 {store}'s." Reason and ticket restated, then **your 2-factor code** (re-authentication, ACCESS
@@ -629,8 +629,8 @@ open session… You can have one session at a time." with **End it and continue*
 portal opens in a **new tab** on the partner's portal host (FIRST-RELEASE admin §8's rule, same
 here), with the unremovable bar: "You are signed in as {user} ({role}) · {partner} support
 session by {me} · Ends in 28 min" and **End now**; at five minutes the bar turns red with a
-countdown and "No extension. Start a new session if you need more time."; expiry shows "Your
-30 minutes as {user} are up." with **Back to the partner console**.
+countdown; the agent may **Extend 30 min** once (#1328), here on its open session in Sessions and
+on its banner in the store portal; expiry shows "Your time as {user} is up." with **Back to the partner console**.
 
 ### 12.3 Sessions
 
@@ -1122,7 +1122,9 @@ api/README.md §2.1); a partner id in a request is not authority.
   names (`storeOwner`, `colleague` with minutes left) and `mySessionId` for **Return to session**.
 - `reauthenticate(code)`: the caller's 2-factor code buys one proof, valid 5 minutes and spent
   by the start it allows; a wrong code counts toward sign-in's five-code lock.
-- `startSupportSession(membershipId, reason, ticket, proof)`: 30 minutes, one open session per
+- `extendSupportSession(id)` (#1328): the caller's own open session, once, by 30 minutes;
+  `SUPPORT_SESSION_ALREADY_EXTENDED` after that; each session's `extend` verdict says whether it may.
+- `startSupportSession(membershipId, reason, ticket, proof)`: 90 minutes, one open session per
   partner user and one agent per merchant user (`SUPPORT_SESSION_ALREADY_OPEN` carries the open
   session's id for **End it and continue**), `PORTAL_NOT_LIVE` until the partner's portal host is
   live, `REAUTH_REQUIRED` for a missing or spent proof. It answers the link to

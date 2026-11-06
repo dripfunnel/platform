@@ -2,10 +2,11 @@ import { Strip, useNow } from '@dripfunnel/shared/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
 import type { Brand } from '../../api/brand'
 import type { Acting, StoreState } from '../../api/shell'
-import { fill, formatCount, formatWait, messages, plural } from '../../messages'
+import { fill, formatCount, messages, plural } from '../../messages'
 import type { Seat } from '../../nav'
 import { useOnline } from '../common/online'
 import { isRunning, useImportRun } from '../imports/importRun'
+import { SupportBanner } from './SupportBanner'
 import { trialDaysLeft } from './trial'
 
 const words = messages.shell.banners
@@ -18,7 +19,7 @@ const Said = ({ title, body }: { title: string; body: string }) => (
 
 // The shell's banners (FIRST-RELEASE.md §3.3) in the prototype's order and words. A supplier never
 // sees plan, trial or billing state (§19): the API sends it none.
-export const StoreBanners = ({ seat, acting, state, brand }: { seat: Seat; acting: Acting; state: StoreState | null; brand: Brand | null }) => {
+export const StoreBanners = ({ seat, acting, state, brand, inSupport = false }: { seat: Seat; acting: Acting; state: StoreState | null; brand: Brand | null; inSupport?: boolean }) => {
   const online = useOnline()
   const now = new Date(useNow(60_000))
   const owner = seat.side === 'merchant' && seat.role === 'owner'
@@ -60,12 +61,14 @@ export const StoreBanners = ({ seat, acting, state, brand }: { seat: Seat; actin
         </Strip>
       )}
       {state?.support && (
-        <Strip tone="warning">
-          <Said
-            title={fill(words.support.title, { partner: state.support.partnerName, name: state.support.agentFirstName })}
-            body={fill(words.support.body, { time: formatWait(Math.max(0, Math.round((new Date(state.support.endsAt).getTime() - now.getTime()) / 1000))) })}
-          />
-        </Strip>
+        <SupportBanner
+          support={state.support}
+          now={now}
+          inSupport={inSupport}
+          canDecide={seat.side === 'merchant' && (seat.role === 'owner' || seat.role === 'manager')}
+          manager={seat.side === 'merchant' && seat.role === 'manager'}
+          storeName={acting.store.name}
+        />
       )}
       {importing && (
         <Strip tone="info" action={<Link className="df-strip-button" to="/products/import">{messages.imports.banner.view}</Link>}>

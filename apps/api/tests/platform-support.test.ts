@@ -57,6 +57,7 @@ const q = {
   start: `mutation($m: ID!, $r: String!, $t: String, $p: String!) { startSupportSession(membershipId: $m, reason: $r, ticket: $t, proof: $p) { ok reason sessionId expiresAt link } }`,
   back: `mutation($id: ID!) { returnToSupportSession(id: $id) { ok reason link } }`,
   end: `mutation($id: ID!) { endSupportSession(id: $id) { ok reason } }`,
+  extend: `mutation($id: ID!) { extendSupportSession(id: $id) { ok reason expiresAt } }`,
   sessions: `query($open: Boolean!) { supportSessions(open: $open, first: 25) { items { id you agent { name } user { name } endedBy endedByName end { allowed reason } return { allowed reason } } } }`,
   mine: `{ mySupportSession { id expiresAt } }`,
 }
@@ -222,12 +223,12 @@ describe('re-authentication', () => {
 })
 
 describe('sessions', () => {
-  it('opens one session at a time for 30 minutes on the portal host, logged in the partner’s and the store’s log, emailing the Owners', async () => {
+  it('opens one session at a time for 90 minutes on the portal host, logged in the partner’s and the store’s log, emailing the Owners', async () => {
     const priya = callerOf(ids.ns, ids.priya, 'partner-support')
     const jenna = await membershipOf('jenna@harborcoffee.example')
     const opened = await openOn(priya, jenna)
     expect(opened?.ok).toBe(true)
-    expect(new Date(opened?.expiresAt ?? '').getTime() - clock.getTime()).toBe(30 * 60_000)
+    expect(new Date(opened?.expiresAt ?? '').getTime() - clock.getTime()).toBe(90 * 60_000)
     expect(new URL(opened?.link ?? '').host).toBe(ids.portal)
     const second = (await run<Started>(q.start, priya, { m: await membershipOf('tom@harborcoffee.example'), r: 'Another', p: await proofOf(priya) })).data?.startSupportSession
     expect(second).toMatchObject({ ok: false, reason: 'SUPPORT_SESSION_ALREADY_OPEN', sessionId: opened?.sessionId })
@@ -249,12 +250,20 @@ describe('sessions', () => {
     const sam = callerOf(ids.ns, ids.sam, 'partner-support')
     const row = (await targets(sam, 'jenna@harborcoffee')).at(0)
     expect(row?.start.reason).toBe('COLLEAGUE_IN_SESSION')
-    expect(row?.colleague).toEqual({ name: 'priya.support', minutesLeft: 30 })
+    expect(row?.colleague).toEqual({ name: 'priya.support', minutesLeft: 90 })
     expect((await openOn(sam, jenna))?.reason).toBe('COLLEAGUE_IN_SESSION')
     expect((await targets(priya, 'jenna@harborcoffee')).at(0)?.mySessionId).toBe(opened?.sessionId)
 
-    // No extension: past 30 minutes it is history, and a new session needs a new reason and code.
-    clock = new Date(new Date(opened?.expiresAt ?? '').getTime() + 1000)
+    // ACCESS.md §8: the agent alone extends it, once, by 30 minutes; past that it is history.
+    type Extend = { extendSupportSession: { ok: boolean; reason: string | null; expiresAt: string | null } }
+    expect((await run<Extend>(q.extend, sam, { id: opened?.sessionId })).data?.extendSupportSession).toMatchObject({ ok: false, reason: 'NOT_SESSION_OWNER' })
+    const extended = (await run<Extend>(q.extend, priya, { id: opened?.sessionId })).data?.extendSupportSession
+    expect(extended?.ok).toBe(true)
+    expect(new Date(extended?.expiresAt ?? '').getTime() - new Date(opened?.expiresAt ?? '').getTime()).toBe(30 * 60_000)
+    expect((await run<Extend>(q.extend, priya, { id: opened?.sessionId })).data?.extendSupportSession).toMatchObject({ ok: false, reason: 'SUPPORT_SESSION_ALREADY_EXTENDED' })
+    expect((await db.sql`select 1 from activity_log where action = 'support_session.extended' and access_ref = ${opened?.sessionId ?? ''}`).length).toBe(1)
+    clock = new Date(new Date(extended?.expiresAt ?? '').getTime() + 1000)
+    expect((await run<Extend>(q.extend, priya, { id: opened?.sessionId })).data?.extendSupportSession).toMatchObject({ ok: false, reason: 'SESSION_EXPIRED' })
     expect((await run<{ mySupportSession: unknown }>(q.mine, priya)).data?.mySupportSession).toBeNull()
     expect((await run<{ returnToSupportSession: { reason: string } }>(q.back, priya, { id: opened?.sessionId })).data?.returnToSupportSession.reason).toBe('SESSION_EXPIRED')
     expect((await openOn(priya, jenna, 'Follow-up'))?.ok).toBe(true)

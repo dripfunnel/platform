@@ -149,8 +149,8 @@ export const en = {
   supportStarted: {
     subject: (partner: string, store: string) => `${partner} support opened ${store}`,
     heading: 'Support is viewing your store',
-    body: (agent: string, partner: string, store: string, user: string) =>
-      `${agent} from ${partner} support opened a read-only support session in ${store}, signed in as ${user}. It ends after 30 minutes, and everything they open is in your Activity log.`,
+    body: (agent: string, partner: string, store: string, user: string, minutes: number, extension: number) =>
+      `${agent} from ${partner} support opened a read-only support session in ${store}, signed in as ${user}. It ends after ${minutes} minutes, or ${extension} more if they extend it once, and everything they open is in your Activity log.`,
     reason: (reason: string) => `Reason: ${reason}`,
     ticket: (ticket: string) => `Ticket: ${ticket}`,
     control: 'To end it, and stop new ones, turn off support access in Settings › Support access.',

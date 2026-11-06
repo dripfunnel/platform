@@ -66,14 +66,26 @@ const stateSchema = z.object({
       trialEndsAt: z.string().nullable(),
       pastDueSince: z.string().nullable(),
       provisioning: z.object({ state: z.string(), step: z.string() }).nullable(),
-      support: z.object({ partnerName: z.string(), agentFirstName: z.string(), endsAt: z.string() }).nullable(),
+      support: z
+        .object({
+          partnerName: z.string(),
+          agentFirstName: z.string(),
+          endsAt: z.string(),
+          sessionId: z.string().nullable(),
+          access: z.enum(['read', 'write']).nullable(),
+          allowedBy: z.string().nullable(),
+          writeRequest: z.object({ note: z.string(), state: z.enum(['pending', 'allowed', 'denied']) }).nullable(),
+          extendable: z.boolean().nullable(),
+        })
+        .nullable(),
     })
     .nullable(),
 })
 
 export type StoreState = NonNullable<z.infer<typeof stateSchema>['storeState']>
 
-const stateFields = 'readOnly status trialEndsAt pastDueSince provisioning { state step } support { partnerName agentFirstName endsAt }'
+const supportFields = 'partnerName agentFirstName endsAt sessionId access allowedBy writeRequest { note state } extendable'
+const stateFields = `readOnly status trialEndsAt pastDueSince provisioning { state step } support { ${supportFields} }`
 
 const badgesSchema = z.object({ navBadges: z.object({ products: z.number().int().nullable(), toShip: z.number().int().nullable() }).nullable() })
 
@@ -114,3 +126,7 @@ export const signOut = (): void => {
   document.body.append(form)
   form.submit()
 }
+
+/** The support banner alone, polled while a session is open so a request or an answer shows (ACCESS §8.3). */
+export const loadSupportBanner = async (): Promise<StoreState['support']> =>
+  (await query(`{ storeState { support { ${supportFields} } } }`, z.object({ storeState: z.object({ support: stateSchema.shape.storeState.unwrap().shape.support }).nullable() }))).storeState?.support ?? null

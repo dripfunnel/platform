@@ -4,15 +4,17 @@ import { factsOf, type ActivityLog } from '#auth/activity'
 import { readCookie } from '#auth/cookie'
 import { setSupportCookie, supportCookieName } from '#auth/storeSupport'
 import { json, readBody } from '#core/http'
-import { currentSupportSession, endSupportSessionFromPortal, exchangeSupportHandoff } from '#saas/storeSupport/index'
+import { supportExtensionMs } from '#saas/support/index'
+import { currentSupportSession, endSupportSessionFromPortal, exchangeSupportHandoff, extendSupportSessionFromPortal } from '#saas/storeSupport/index'
 
 // The agent's side of a support session on the portal host (ACCESS.md §8.3, as #243 built it for
-// staff on the partner console): the handoff exchange, the session the cookie holds, and End now.
+// staff on the partner console): the handoff exchange, the session the cookie holds, Extend and End now.
 
 export const supportSessionPaths = {
   handoff: '/api/auth/support-handoff',
   current: '/api/auth/support-session',
   end: '/api/auth/end-support-session',
+  extend: '/api/auth/extend-support-session',
 } as const
 
 export const isSupportSessionPath = (pathname: string): boolean => (Object.values(supportSessionPaths) as string[]).includes(pathname)
@@ -52,6 +54,14 @@ export const handleSupportSession = async (request: Request, url: URL, deps: Sup
     if (!cookie) return json(200, { ok: true, session: null })
     if (facts.ip === null || !(await deps.allowRead(key))) return rateLimited()
     return json(200, { ok: true, session: await currentSupportSession(portal, cookie) })
+  }
+
+  if (url.pathname === supportSessionPaths.extend) {
+    const asked = await readBody(request, endInput)
+    if (!cookie || !asked) return json(400, { ok: false, code: 'SESSION_NOT_EXTENDED' })
+    if (facts.ip === null || !(await deps.allowRead(key))) return rateLimited()
+    const expiresAt = await extendSupportSessionFromPortal(portal, cookie, asked.id, supportExtensionMs)
+    return expiresAt ? json(200, { ok: true, expiresAt: expiresAt.toISOString() }) : json(400, { ok: false, code: 'SESSION_NOT_EXTENDED' })
   }
 
   const input = await readBody(request, endInput)

@@ -51,7 +51,7 @@ const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
         caller: {
           ...resolved.caller,
           context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } },
-          support: { sessionId: crypto.randomUUID(), agent: { id: crypto.randomUUID(), name: 'Priya' }, partnerName: 'Partner A', actingAs: 'Owner', access: as.support, expiresAt: new Date(Date.now() + 3_600_000), writeRequest: null },
+          support: { sessionId: crypto.randomUUID(), agent: { id: crypto.randomUUID(), name: 'Priya' }, partnerName: 'Partner A', actingAs: 'Owner', access: as.support, expiresAt: new Date(Date.now() + 3_600_000), extendable: true, writeRequest: null },
         },
       }
     : resolved

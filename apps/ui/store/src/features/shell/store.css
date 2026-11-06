@@ -196,3 +196,10 @@
 .df-store-shell .df-menu-button {
   border: 1px solid var(--df-color-side-divider);
 }
+
+/* The support banner's answers side by side: Deny and Allow, or ask and enter a code (prototype). */
+.df-strip-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+}

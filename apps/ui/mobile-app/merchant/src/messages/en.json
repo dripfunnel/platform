@@ -2923,7 +2923,7 @@
       },
       "how": {
         "one": "Support opens one only with a reason or a ticket number, and only while this is on.",
-        "two": "It’s read-only and ends after 30 minutes. Everyone signed in sees a banner while it’s open.",
+        "two": "It’s read-only and ends after 90 minutes, or 30 more if support extends it once. Everyone signed in sees a banner while it’s open.",
         "three": "You’re emailed when one starts. You or a manager can let them make changes for that one session.",
         "four": "Even then they can’t change passwords, payment details, payouts or who works here.",
         "five": "Every page they open and everything they change is in your Activity log, under their name."
