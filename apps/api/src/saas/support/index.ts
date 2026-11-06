@@ -9,6 +9,7 @@ import { isNewStoreOwnerSeat } from '#auth/storePermissions'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import {
   endSupportSession,
+  extendSupportSession,
   expireStaleSupportSessions,
   insertSupportSession,
   lockSupportSession,
@@ -27,9 +28,11 @@ import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
 // Partner support sessions (ACCESS.md §8, ui/platform/FIRST-RELEASE.md §12; card #202): read-only,
-// 30 minutes, one at a time. The merchant's Allow/Deny of writes is the Store API's.
+// one at a time. The merchant's Allow/Deny of writes is the Store API's.
 
-export const supportSessionMs = 30 * 60 * 1000
+// ACCESS.md §8: 90 minutes, extendable once by 30, as staff impersonation (§8.1).
+export const supportSessionMs = 90 * 60 * 1000
+export const supportExtensionMs = 30 * 60 * 1000
 export const handoffMs = 5 * 60 * 1000
 export const supportPageSize = 25
 
@@ -37,12 +40,13 @@ export const supportAudit = {
   startSupportSession: 'support_session.started',
   returnToSupportSession: 'support_session.link_reissued',
   endSupportSession: 'support_session.ended',
+  extendSupportSession: 'support_session.extended',
 } as const
 
 // §12.1's reasons a session can't start, worded by the console from the facts beside them.
 export type StartRefusal = 'STORE_CANCELLED' | 'SUPPORT_OFF' | 'NOT_ACCEPTED' | 'SUSPENDED' | 'COLLEAGUE_IN_SESSION'
 // ACCESS.md §8.3's codes, plus the portal host the session opens on not being live yet.
-export type SessionRefusal = 'NOT_FOUND' | 'REASON_REQUIRED' | 'REAUTH_REQUIRED' | 'SUPPORT_SESSION_ALREADY_OPEN' | 'PORTAL_NOT_LIVE' | 'NOT_SESSION_OWNER' | 'SESSION_ENDED' | 'SESSION_EXPIRED'
+export type SessionRefusal = 'NOT_FOUND' | 'REASON_REQUIRED' | 'REAUTH_REQUIRED' | 'SUPPORT_SESSION_ALREADY_OPEN' | 'PORTAL_NOT_LIVE' | 'NOT_SESSION_OWNER' | 'SESSION_ENDED' | 'SESSION_EXPIRED' | 'SUPPORT_SESSION_ALREADY_EXTENDED'
 
 export interface Verdict {
   allowed: boolean
@@ -136,6 +140,8 @@ export const createPartnerSupportService = ({ sql, caller, user, facts, activity
       // ACCESS.md §8.3: each record says what the caller may do to it.
       end: !open ? closed : mine || mayEndOthers ? allowed : refused('NOT_SESSION_OWNER'),
       return: !open ? closed : mine ? allowed : refused('NOT_SESSION_OWNER'),
+      extendedAt: s.extended_at,
+      extend: !open ? closed : !mine ? refused('NOT_SESSION_OWNER') : s.extended_at ? refused('SUPPORT_SESSION_ALREADY_EXTENDED') : allowed,
     }
   }
   type SessionDto = ReturnType<typeof sessionDto>
@@ -258,6 +264,15 @@ export const createPartnerSupportService = ({ sql, caller, user, facts, activity
       return { ok: true }
     })
 
+  const extendSession = (sessionId: string) =>
+    onSession(sessionId, async (tx, s, dto, at): Promise<{ ok: true; expiresAt: Date } | { ok: false; reason: SessionRefusal }> => {
+      if (!dto.extend.allowed) return { ok: false, reason: dto.extend.reason as SessionRefusal }
+      const expiresAt = await extendSupportSession(tx, s.id, supportExtensionMs, at)
+      if (!expiresAt) return { ok: false, reason: 'SUPPORT_SESSION_ALREADY_EXTENDED' }
+      await activity.record(tx, sessionEntry(supportAudit.extendSupportSession, s))
+      return { ok: true, expiresAt }
+    })
+
   /** Null for a cursor it cannot read. */
   const supportSessions = (open: boolean, page: PageRequest): Promise<{ items: SessionDto[]; pageInfo: PageInfo } | null> => {
     const decoded = decodePage(page, supportPageSize)
@@ -277,7 +292,7 @@ export const createPartnerSupportService = ({ sql, caller, user, facts, activity
       return s ? sessionDto(s, at) : null
     })
 
-  return { supportTargets, reauthenticate, startSupportSession, returnToSupportSession, endSupportSession: endSession, supportSessions, mySupportSession }
+  return { supportTargets, reauthenticate, startSupportSession, returnToSupportSession, endSupportSession: endSession, extendSupportSession: extendSession, supportSessions, mySupportSession }
 }
 
 export type PartnerSupportService = ReturnType<typeof createPartnerSupportService>

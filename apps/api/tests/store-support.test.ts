@@ -90,6 +90,8 @@ const q = {
   allow: `mutation($id: ID!) { allowSupportWrite(sessionId: $id) }`,
   deny: `mutation($id: ID!) { denySupportWrite(sessionId: $id) }`,
   ask: `mutation($n: String!) { requestSupportWrite(note: $n) }`,
+  issue: `mutation($id: ID!) { issueSupportWriteCode(sessionId: $id) { code expiresAt } }`,
+  redeem: `mutation($c: String!) { redeemSupportWriteCode(code: $c) }`,
   taxSetup: `{ taxSetup { pricesIncludeTax } }`,
   includeTax: `mutation($i: Boolean!) { setPricesIncludeTax(included: $i) }`,
 }
@@ -183,7 +185,7 @@ describe('the exchange', () => {
 })
 
 describe('read-only until the store allows writes', () => {
-  it('refuses every mutation a read-only session reaches, except asking for writes', async () => {
+  it('refuses every mutation a read-only session reaches, except asking for writes or typing a code', async () => {
     await opened('owner', agents.priya, 'tok-every')
     const ctx = await contextFor({ support: await enter('tok-every') })
     const mutation = storeSchema.getMutationType()
@@ -197,7 +199,7 @@ describe('read-only until the store allows writes', () => {
       )
       codes.set(field.name, code)
     }
-    expect([...codes].filter(([, code]) => code === 'admitted').map(([name]) => name)).toEqual(['requestSupportWrite'])
+    expect([...codes].filter(([, code]) => code === 'admitted').map(([name]) => name).sort()).toEqual(['redeemSupportWriteCode', 'requestSupportWrite'])
     // FORBIDDEN is a supplier's own field, which the Owner's seat never holds.
     expect([...codes].filter(([, c]) => !['admitted', 'SUPPORT_READ_ONLY', 'BLOCKED_FOR_SUPPORT', 'FORBIDDEN'].includes(c))).toEqual([])
     const fields = mutation?.getFields() ?? {}
@@ -266,6 +268,64 @@ describe('write elevation', () => {
     const current = await currentOf(cookie)
     expect(current.session.writeRequest?.state).toBe('denied')
     expect((await gql(q.ask, { support: cookie }, { n: 'Please, one product' })).data?.['requestSupportWrite']).toBe(true)
+  })
+})
+
+describe('a write code (ACCESS.md §8)', () => {
+  const issue = async (who: Who, id: string) => (await gql<{ issueSupportWriteCode: { code: string; expiresAt: string } }>(q.issue, { person: who }, { id })).data?.issueSupportWriteCode
+  const wrong = (code: string) => String((Number(code) + 1) % 1_000_000).padStart(6, '0')
+
+  it('lets a Manager issue one the agent types to make changes, emails the Owners, and never stores or logs the code', async () => {
+    const id = await opened('owner', agents.priya, 'tok-code')
+    const cookie = await enter('tok-code')
+    expect((await gql(q.issue, { person: 'staff' }, { id })).code).toBe('FORBIDDEN')
+    expect((await gql(q.issue, { person: 'bOwner' }, { id })).code).toBe('NOT_PENDING')
+    expect((await gql(q.issue, { support: cookie }, { id })).code).toBe('BLOCKED_FOR_SUPPORT')
+    const given = await issue('manager', id)
+    expect(given?.code).toMatch(/^\d{6}$/)
+    expect(given?.expiresAt).toBe(new Date(clock.getTime() + 10 * 60_000).toISOString())
+    expect((await gql(q.redeem, { person: 'owner' }, { c: given?.code ?? '' })).code).toBe('FORBIDDEN')
+    expect((await gql(q.redeem, { support: cookie }, { c: given?.code ?? '' })).data?.['redeemSupportWriteCode']).toBe(true)
+    expect((await gql(q.redeem, { support: cookie }, { c: given?.code ?? '' })).code).toBe('ALREADY_ALLOWED')
+    expect((await gql(q.includeTax, { support: cookie }, { i: true })).code).toBeUndefined()
+
+    const banner = (await gql<{ storeState: { support: Record<string, unknown> } }>(q.banner, { person: 'owner' })).data?.storeState.support
+    expect(banner).toMatchObject({ access: 'write', allowedBy: 'Mo Manager' })
+    expect(await db.sql`select 1 from outbox where idempotency_key like ${`%support-write-allowed:${id}%`}`).toHaveLength(1)
+    const [row] = await db.sql<{ write_code_hash: string | null }[]>`select write_code_hash from support_session where id = ${id}`
+    expect(row?.write_code_hash).toBeNull()
+    expect((await entries(id)).map((e) => e.action)).toEqual(expect.arrayContaining(['support_session.write_code_issued', 'support_session.write_code_used']))
+    const logged = await db.sql<{ reason: string | null; changes: unknown }[]>`select reason, changes from activity_log where access_ref = ${id} and action like 'support_session.write_code%'`
+    expect(logged.map((e) => [e.reason, e.changes])).toEqual([[null, []], [null, []]])
+  })
+
+  it('voids a code after five wrong tries, refuses an expired one, and a new code replaces the last', async () => {
+    const id = await opened('owner', agents.priya, 'tok-code-wrong')
+    const cookie = await enter('tok-code-wrong')
+    const first = await issue('owner', id)
+    const second = await issue('owner', id)
+    expect((await gql(q.redeem, { support: cookie }, { c: first?.code === second?.code ? wrong(first?.code ?? '0') : first?.code ?? '' })).code).toBe('CODE_INVALID')
+    expect((await gql(q.redeem, { support: cookie }, { c: 'abc' })).code).toBe('INVALID_INPUT')
+    for (let i = 0; i < 4; i += 1) expect((await gql(q.redeem, { support: cookie }, { c: wrong(second?.code ?? '0') })).code).toBe('CODE_INVALID')
+    expect((await gql(q.redeem, { support: cookie }, { c: second?.code ?? '' })).code).toBe('CODE_INVALID')
+    expect((await gql(q.includeTax, { support: cookie }, { i: true })).code).toBe('SUPPORT_READ_ONLY')
+
+    const late = await issue('owner', id)
+    clock = new Date(clock.getTime() + 11 * 60_000)
+    expect((await gql(q.redeem, { support: cookie }, { c: late?.code ?? '' })).code).toBe('CODE_INVALID')
+    // An Owner's code, like an Owner's Allow, sends no email.
+    expect(await db.sql`select 1 from outbox where idempotency_key like ${`%support-write-allowed:${id}%`}`).toHaveLength(0)
+  })
+
+  it('works only while the session is open and support is on', async () => {
+    const id = await opened('owner', agents.priya, 'tok-code-off')
+    const cookie = await enter('tok-code-off')
+    const given = await issue('owner', id)
+    await gql(q.set, { person: 'owner' }, { a: false })
+    expect((await gql(q.redeem, { support: cookie }, { c: given?.code ?? '' })).data?.['redeemSupportWriteCode']).toBeFalsy()
+    await gql(q.set, { person: 'owner' }, { a: true })
+    expect((await gql(q.issue, { person: 'owner' }, { id })).code).toBe('NOT_PENDING')
+    expect((await db.sql<{ access: string }[]>`select access from support_session where id = ${id}`)[0]?.access).toBe('read')
   })
 })
 
@@ -379,6 +439,22 @@ describe('ends and races', () => {
     await db.sql`update membership set status = 'suspended' where id = ${seats.manager}`
     expect((await gql(q.taxSetup, { support: managerCookie })).code).toBe('UNAUTHENTICATED')
     expect((await entries(gone)).at(-1)).toMatchObject({ action: 'support_session.ended', reason: 'target_gone' })
+  })
+
+  it('Extend in the bar adds 30 minutes once, shows in the banner, and is logged (ACCESS.md §8)', async () => {
+    const id = await opened('owner', agents.priya, 'tok-extend')
+    const cookie = await enter('tok-extend')
+    const [before] = await db.sql<{ expires_at: Date }[]>`select expires_at from support_session where id = ${id}`
+    const own = async () => (await gql<{ storeState: { support: { extendable: boolean | null; endsAt: string } } }>(`{ storeState { support { extendable endsAt } } }`, { support: cookie })).data?.storeState.support
+    expect((await own())?.extendable).toBe(true)
+    expect(await (await portal(hosts.a, supportSessionPaths.extend, { id: crypto.randomUUID() }, cookie)).json()).toEqual({ ok: false, code: 'SESSION_NOT_EXTENDED' })
+    const extended = (await (await portal(hosts.a, supportSessionPaths.extend, { id }, cookie)).json()) as { ok: boolean; expiresAt: string }
+    expect(extended.ok).toBe(true)
+    expect(new Date(extended.expiresAt).getTime() - (before?.expires_at.getTime() ?? 0)).toBe(30 * 60_000)
+    expect(await (await portal(hosts.a, supportSessionPaths.extend, { id }, cookie)).json()).toEqual({ ok: false, code: 'SESSION_NOT_EXTENDED' })
+    expect(await own()).toEqual({ extendable: false, endsAt: extended.expiresAt })
+    expect((await gql<{ storeState: { support: { extendable: boolean | null } } }>(`{ storeState { support { extendable } } }`, { person: 'owner' })).data?.storeState.support.extendable).toBeNull()
+    expect((await entries(id)).map((e) => e.action)).toContain('support_session.extended')
   })
 
   it('End now in the bar ends it as the agent, once', async () => {

@@ -2,15 +2,19 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { hashSessionId, newSessionId } from '#auth/session'
+import { hashSmsCode, maxSmsCodeAttempts, newSmsCode } from '#auth/storeCodes'
 import type { StoreCaller } from '#auth/storeCaller'
 import { resolveSupportCaller, seatOf, supportActor, writeRequestOf, type SupportSeat } from '#auth/storeSupport'
 
 export { writeRequestOf } from '#auth/storeSupport'
 import { pageOf, type Page, type PageWindow } from '#core/paging'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
+import { extendSupportSession } from '#db/scoped/supportSessions'
 import {
   decideSupportWrite,
   endSupportFromPortal,
+  issueSupportWriteCode,
+  redeemSupportWriteCode,
   requestSupportWrite,
   selectStoreSupportSessions,
   selectSupportAllowed,
@@ -30,7 +34,15 @@ export const storeSupportAudit = {
   allowSupportWrite: 'support_session.write_allowed',
   denySupportWrite: 'support_session.write_denied',
   requestSupportWrite: 'support_session.write_requested',
+  issueSupportWriteCode: 'support_session.write_code_issued',
+  redeemSupportWriteCode: 'support_session.write_code_used',
 } as const
+
+/** How long a write code works, within the session's own end (ACCESS.md §8). */
+export const writeCodeMinutes = 10
+
+const writeCodeHash = (sessionId: string, code: string) => hashSmsCode(`support:${sessionId}`, code)
+
 
 /** The Support access log's window (SetAccess: "Last 90 days"). */
 export const supportLogDays = 90
@@ -141,7 +153,20 @@ export const createStoreSupportService = ({ sql, caller, activity, facts, now }:
     })
   }
 
-  return { supportAccess, setSupportAccess, decide }
+  /** A code to read to the agent instead of waiting for their ask; never logged, shown once. */
+  const issueWriteCode = (sessionId: string): Promise<{ ok: true; code: string; expiresAt: Date } | { ok: false; reason: DecideRefusal }> => {
+    if (!z.guid().safeParse(sessionId).success) return Promise.resolve({ ok: false, reason: 'NOT_PENDING' })
+    const code = newSmsCode()
+    return withScope(sql, context, async (tx) => {
+      const at = now()
+      const expiresAt = await issueSupportWriteCode(tx, sessionId, await writeCodeHash(sessionId, code), new Date(at.getTime() + writeCodeMinutes * 60_000), at)
+      if (!expiresAt) return { ok: false, reason: 'NOT_PENDING' }
+      await activity.record(tx, entry(storeSupportAudit.issueSupportWriteCode, sessionTarget(sessionId, caller.store.name), { access: { kind: 'support_session', id: sessionId } }))
+      return { ok: true, code, expiresAt }
+    })
+  }
+
+  return { supportAccess, setSupportAccess, decide, issueWriteCode }
 }
 
 export type StoreSupportService = ReturnType<typeof createStoreSupportService>
@@ -174,6 +199,41 @@ export const askForSupportWrite = (deps: { sql: postgres.Sql; caller: StoreCalle
       visibility: 'partner',
       ...deps.facts,
     })
+    return { ok: true }
+  })
+}
+
+export type WriteCodeRefusal = 'INVALID_INPUT' | 'CODE_INVALID' | 'SESSION_ENDED' | 'ALREADY_ALLOWED'
+
+const codeInput = z.string().trim().regex(/^\d{6}$/)
+
+/** The agent types the code the merchant read out; a miss and a spent or expired code read alike. */
+export const redeemSupportWriteCodeAsAgent = (deps: { sql: postgres.Sql; caller: StoreCaller; seat: SupportSeat; activity: ActivityLog; facts: RequestFacts; now: () => Date }, rawCode: string): Promise<{ ok: true } | { ok: false; reason: WriteCodeRefusal }> => {
+  const code = codeInput.safeParse(rawCode)
+  if (!code.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
+  const { seat, caller } = deps
+  return withSystemScope(deps.sql, async (tx) => {
+    const outcome = await redeemSupportWriteCode(tx, seat.sessionId, await writeCodeHash(seat.sessionId, code.data), maxSmsCodeAttempts, deps.now())
+    if (outcome.kind === 'closed') return { ok: false, reason: 'SESSION_ENDED' }
+    if (outcome.kind === 'already') return { ok: false, reason: 'ALREADY_ALLOWED' }
+    await deps.activity.record(tx, {
+      category: 'support',
+      action: storeSupportAudit.redeemSupportWriteCode,
+      result: outcome.kind === 'allowed' ? 'success' : 'denied',
+      ...supportActor(seat),
+      partnerId: caller.context.partnerId,
+      storeId: caller.store.id,
+      target: { type: 'support_session', id: seat.sessionId, label: caller.store.name },
+      reason: null,
+      api: 'store',
+      visibility: 'partner',
+      ...deps.facts,
+    })
+    if (outcome.kind !== 'allowed') return { ok: false, reason: 'CODE_INVALID' }
+    // A Manager's code emails the Owners as a Manager's Allow does (decided on #337).
+    if (outcome.byManager) {
+      await queueSideEffect(tx, { kind: 'email', idempotencyKey: `support-write-allowed:${seat.sessionId}`, payload: { template: 'support-write-allowed', supportSessionId: seat.sessionId }, partnerId: caller.context.partnerId, storeId: caller.store.id })
+    }
     return { ok: true }
   })
 }
@@ -244,6 +304,17 @@ export const currentSupportSession = (deps: PortalDeps, cookie: string): Promise
   })
 
 /** The bar's "End now": ended by the agent, logged as the session; false when none was open to end. */
+/** The agent's one extension from its banner (ACCESS.md §8): the new end, or null when it can't be extended. */
+export const extendSupportSessionFromPortal = (deps: PortalDeps, cookie: string, id: string, byMs: number): Promise<Date | null> =>
+  withSystemScope(deps.sql, async (tx) => {
+    const row = await readPortal(tx, deps, cookie)
+    if (!row || row.id !== id) return null
+    const expiresAt = await extendSupportSession(tx, row.id, byMs, deps.now())
+    if (!expiresAt) return null
+    await deps.activity.record(tx, { ...enteredEntry(row, deps.facts), action: 'support_session.extended' })
+    return expiresAt
+  })
+
 export const endSupportSessionFromPortal = (deps: PortalDeps, cookie: string, id: string): Promise<boolean> =>
   withSystemScope(deps.sql, async (tx) => {
     const row = await readPortal(tx, deps, cookie)

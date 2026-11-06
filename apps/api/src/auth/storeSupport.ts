@@ -12,8 +12,8 @@ import { isNewStoreOwnerSeat, storeRoleOf, supportMayActAsSeat } from './storePe
 // White label, like the person's cookie; `__Host-` pins it to the portal host.
 export const supportCookieName = '__Host-portal_support'
 
-// A session lasts 30 minutes from its start (ACCESS.md §8); the server ends it sooner.
-const maxAgeSeconds = 30 * 60
+// A session lasts 90 minutes, 2 hours once extended (ACCESS.md §8); the server ends it sooner.
+const maxAgeSeconds = 120 * 60
 
 export const setSupportCookie = (id: string): string => `${supportCookieName}=${id}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}`
 
@@ -25,6 +25,8 @@ export interface SupportSeat {
   actingAs: string
   access: 'read' | 'write'
   expiresAt: Date
+  /** Its one 30-minute extension is still to take (ACCESS.md §8). */
+  extendable: boolean
   writeRequest: WriteRequest | null
 }
 
@@ -52,6 +54,7 @@ export const seatOf = (row: SupportPortalRow): SupportSeat => ({
   actingAs: row.user_name,
   access: accessOf(row),
   expiresAt: row.expires_at,
+  extendable: row.extended_at === null,
   writeRequest: writeRequestOf(row),
 })
 

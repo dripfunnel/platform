@@ -3,6 +3,8 @@ import { redirect } from '@tanstack/react-router'
 import { actingStore, rememberActing } from '../../acting'
 import { isApiError } from '../../api/client'
 import { shellSample } from '../../api/sample'
+import { holdsSupportSession } from '../../api/supportSession'
+import { partnerConsoleUrl } from '../../partnerConsole'
 import { badgesOf, readShell, seatOf, storesFrom, type Acting, type Me, type StoreChoice, type StoreState } from '../../api/shell'
 import type { NavBadgeSource, Seat } from '../../nav'
 
@@ -19,6 +21,8 @@ export interface ShellData {
   stores: StoreChoice[]
   state: StoreState | null
   badges: Record<NavBadgeSource, number>
+  /** The caller is a partner's support session (ACCESS §8.3), not one of the store's people. */
+  inSupport: boolean
 }
 
 const shellFields: readonly string[] = ['me', 'myStores', 'storeState', 'navBadges']
@@ -30,7 +34,7 @@ const shellFields: readonly string[] = ['me', 'myStores', 'storeState', 'navBadg
 export const loadShell = async (search: ShellSearch, here: string): Promise<ShellData> => {
   const sample = shellSample(search)
   const sampleSeat = sample?.me.acting ? seatOf(sample.me.acting) : null
-  if (sample?.me.acting && sampleSeat) return { me: sample.me, acting: sample.me.acting, seat: sampleSeat, stores: sample.stores, state: sample.state, badges: sample.badges }
+  if (sample?.me.acting && sampleSeat) return { me: sample.me, acting: sample.me.acting, seat: sampleSeat, stores: sample.stores, state: sample.state, badges: sample.badges, inSupport: false }
   const { data, errors } = await readShell()
   // A refusal tied to none of the shell's fields (no path) is the whole answer failing: the error screen.
   const stray = errors.find((e) => !shellFields.includes(String(e.path[0])))
@@ -39,7 +43,11 @@ export const loadShell = async (search: ShellSearch, here: string): Promise<Shel
   const meRefused = refused('me')
   if (meRefused) throw meRefused
   const me = data.me
-  if (!me) throw redirect({ to: '/sign-in', search: { next: here } })
+  if (!me) {
+    // An agent whose session ended or ran out goes back to the partner console, not the store's sign-in.
+    if (await holdsSupportSession().catch(() => false)) throw redirect({ href: partnerConsoleUrl, reloadDocument: true })
+    throw redirect({ to: '/sign-in', search: { next: here } })
+  }
   const seat = me.acting ? seatOf(me.acting) : null
   if (!me.acting || !seat) {
     // The remembered store is no longer theirs (removed, suspended): the chooser asks again.
@@ -57,11 +65,11 @@ export const loadShell = async (search: ShellSearch, here: string): Promise<Shel
   const failed = [refused('storeState'), support ? undefined : storesRefused].filter((e): e is ApiError => e !== undefined)
   if (failed.some((e) => isApiError(e, 'FORBIDDEN'))) throw forget()
   if (failed[0]) throw failed[0]
-  if (support) return { me, acting: me.acting, seat, stores: [], state: data.storeState, badges: badgesOf(data.navBadges) }
+  if (support) return { me, acting: me.acting, seat, stores: [], state: data.storeState, badges: badgesOf(data.navBadges), inSupport: true }
   if (!data.myStores) throw new ApiError('EMPTY_RESPONSE', 'The API returned no stores.')
   try {
     const stores = await storesFrom(data.myStores)
-    return { me, acting: me.acting, seat, stores, state: data.storeState, badges: badgesOf(data.navBadges) }
+    return { me, acting: me.acting, seat, stores, state: data.storeState, badges: badgesOf(data.navBadges), inSupport: false }
   } catch (error) {
     if (isApiError(error, 'FORBIDDEN')) throw forget()
     throw error

@@ -59,6 +59,8 @@ const Session = builder.objectRef<SupportSessionDto>('SupportSession').implement
     endedByName: t.exposeString('endedByName', { nullable: true }),
     end: t.field({ type: VerdictType, resolve: (s) => s.end }),
     return: t.field({ type: VerdictType, resolve: (s) => s.return }),
+    extendedAt: t.string({ nullable: true, resolve: (s) => s.extendedAt?.toISOString() ?? null }),
+    extend: t.field({ type: VerdictType, resolve: (s) => s.extend }),
   }),
 })
 
@@ -108,6 +110,14 @@ const Ended = builder.objectRef<{ ok: boolean; reason?: string }>('SupportSessio
   fields: (t) => ({ ok: t.exposeBoolean('ok'), reason: t.string({ nullable: true, resolve: (r) => r.reason ?? null }) }),
 })
 
+const Extended = builder.objectRef<{ ok: boolean; reason?: string; expiresAt?: Date }>('SupportSessionExtend').implement({
+  fields: (t) => ({
+    ok: t.exposeBoolean('ok'),
+    reason: t.string({ nullable: true, resolve: (r) => r.reason ?? null }),
+    expiresAt: t.string({ nullable: true, resolve: (r) => r.expiresAt?.toISOString() ?? null }),
+  }),
+})
+
 // A partner user's own access to a merchant, proved with their own second factor: no staff
 // session uses it (ACCESS.md §8.1, §8.2; staff impersonate the store user instead).
 const support = (audit?: string) => ({
@@ -150,6 +160,12 @@ builder.mutationFields((t) => ({
     args: { id: t.arg.id({ required: true }) },
     extensions: support(supportAudit.returnToSupportSession),
     resolve: (_, { id }, ctx) => service(ctx).returnToSupportSession(String(id)),
+  }),
+  extendSupportSession: t.field({
+    type: Extended,
+    args: { id: t.arg.id({ required: true }) },
+    extensions: support(supportAudit.extendSupportSession),
+    resolve: (_, { id }, ctx) => service(ctx).extendSupportSession(String(id)),
   }),
   endSupportSession: t.field({
     type: Ended,
