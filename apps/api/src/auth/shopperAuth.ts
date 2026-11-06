@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { isE164 } from '#core/sms'
-import { withSystemScope, type ScopedSql } from '#db/scoped/index'
+import { serialise, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   countCodeAttempt,
   countRecentCodes,
@@ -11,9 +11,13 @@ import {
   insertShopper,
   insertShopperSession,
   linkGuestOrders,
+  maxAddresses,
   proveShopper,
+  saveAddress,
+  selectAddresses,
   selectCustomerAuth,
   selectLiveCode,
+  selectProvenOrderAddresses,
   selectShopperBy,
   setCodeHash,
   spendCode,
@@ -63,6 +67,10 @@ export const shopperTarget = (channel: ShopperChannel, raw: string): string | nu
 
 /** An email or number as a limiter key: its digest, so no address leaves for the limiter. */
 const limiterKeyOf = (target: string) => hashSessionId(`shopper-limit:${target}`)
+
+/** Where an address is, whoever it's for: two that match are one saved address. */
+const placeKey = (a: { line1: string; line2: string | null; city: string; postalCode: string | null; country: string }) =>
+  [a.line1, a.line2 ?? '', a.city, a.postalCode ?? '', a.country].map((part) => part.trim().toLowerCase()).join('\n')
 
 // Salted by the code's own row, as a merchant's are (storeCodes.ts).
 export const hashShopperCode = (codeId: string, code: string) => hashSmsCode(`shopper:${codeId}`, code)
@@ -116,7 +124,33 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
   // How many orders, never the email or number they matched (LOGGING §3).
   const linkOrders = async (tx: ScopedSql, customerId: string) => {
     const linked = await linkGuestOrders(tx, storeId, customerId)
-    if (linked > 0) await activity.record(tx, { ...entry('customer.orders_linked', customerId), changes: [{ field: 'orders', before: null, after: String(linked) }] })
+    if (linked.length === 0) return
+    await activity.record(tx, { ...entry('customer.orders_linked', customerId), changes: [{ field: 'orders', before: null, after: String(linked.length) }] })
+    await keepOrderAddresses(tx, customerId, linked)
+  }
+
+  // Only from orders with both the verified email and number, so a stranger's checkout brings no address (ACCESS §2.1).
+  const keepOrderAddresses = async (tx: ScopedSql, customerId: string, orderIds: string[]) => {
+    const proven = await selectProvenOrderAddresses(tx, storeId, customerId, orderIds)
+    if (proven.length === 0) return
+    await serialise(tx, `customer_address:${customerId}`)
+    const saved = await selectAddresses(tx, customerId)
+    const kept = new Set(saved.map((a) => placeKey({ ...a, postalCode: a.postal_code })))
+    const fresh = proven
+      .filter((a) => {
+        const key = placeKey(a)
+        if (kept.has(key)) return false
+        kept.add(key)
+        return true
+      })
+      .slice(0, maxAddresses - saved.length)
+    const hasDefault = saved.some((a) => a.is_default_shipping)
+    const entries: ActivityEntry[] = []
+    for (const [i, address] of fresh.entries()) {
+      const id = await saveAddress(tx, storeId, customerId, null, { ...address, latitude: address.latitude ?? null, longitude: address.longitude ?? null, isDefault: !hasDefault && i === 0 })
+      if (id) entries.push({ ...entry('customer.address_saved', customerId), target: { type: 'customer_address', id, label: 'Address' } })
+    }
+    await activity.recordAll(tx, entries)
   }
 
   const startSession = async (tx: ScopedSql, customerId: string): Promise<string> => {

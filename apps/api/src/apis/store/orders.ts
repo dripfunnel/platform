@@ -598,4 +598,5 @@ export const registerOrders = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx) => answered(await service(ctx).addNote(String(args.orderId).toLowerCase(), args.note)),
     }),
   }))
+  return { Address }
 }

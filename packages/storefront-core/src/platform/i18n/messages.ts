@@ -99,6 +99,7 @@ export const en = {
   'checkout.change': 'Change',
   'checkout.changeStep': 'Change {step}',
   'checkout.continue': 'Continue',
+  'checkout.keepAddress': 'Save this address to my account',
   'checkout.email': 'Email',
   'checkout.phone': 'Mobile number',
   'checkout.standard': 'Standard delivery',

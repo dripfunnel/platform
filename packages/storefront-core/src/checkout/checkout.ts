@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { z } from 'zod'
+import { useAccount } from '../account/account'
 import { cartFields, cartSchema, mayHaveCart, useCartState, type Cart, type CartAddress } from '../cart/cart'
 import { ShopApiError, type ShopClient } from '../platform/api/client'
 import { navigate } from '../platform/browser/router'
 import { useShopData } from '../platform/render/data'
 import { useStorefront, type RenderMode } from '../platform/store/context'
 import { moneySchema, type Money } from '../pricing/money'
-import { addressInput, addressProblems, compact, emailPattern, isPhone, type AddressDraft, type AddressField, type FieldProblem } from './address'
+import { addressInput, addressProblems, compact, emailPattern, isPhone, samePlace, type AddressDraft, type AddressField, type FieldProblem } from './address'
 import { browserSdk, paymentAdapters, type PaySession, type PaymentStart, type Sdk } from './payments'
 
 // The checkout controller (storefront ARCHITECTURE §2.1 `checkout`; DESIGN §6): contact → delivery address → delivery →
@@ -118,7 +119,10 @@ export type CheckoutPage = {
   problems: string[]
   saveContact: (c: { email: string; phone: string }) => Promise<Partial<Record<'email' | 'phone', FieldProblem>>>
   countries: string[]
-  saveAddress: (a: AddressDraft) => Promise<Partial<Record<AddressField, FieldProblem>>>
+  /** With `keep`, a signed-in shopper's account saves it too, unless it holds that place already. */
+  saveAddress: (a: AddressDraft, keep?: boolean) => Promise<Partial<Record<AddressField, FieldProblem>>>
+  /** A signed-in shopper, who may keep the address in their account. */
+  canKeepAddress: boolean
   chooseDelivery: (option: string) => Promise<boolean>
   payments: PaymentChoice[]
   chosen: string | null
@@ -178,6 +182,7 @@ export const useCheckout = (): CheckoutPage => {
   const { client, mode, locale } = useStorefront()
   const { store: carts, snapshot, cart } = useCartState()
   const { store, state } = useCheckoutState()
+  const account = useAccount()
   // Asked alongside the cart, not after it: the store's ways to pay don't depend on the cart.
   const options = useShopData(mayHaveCart() ? 'paymentOptions' : null, (c) => c.query(optionsQuery, optionsSchema))
   const payments = useMemo(() => (options.data?.paymentOptions ?? []).map((o): PaymentChoice => ({ provider: o.provider, kind: o.kind, instructions: o.instructions ?? null, test: o.mode === 'test' })), [options.data])
@@ -204,6 +209,13 @@ export const useCheckout = (): CheckoutPage => {
     })
     // Deps are only the option and whether one is chosen: `send` and `cart` are new each render, so depending on them would re-send every render.
   }, [soleOption, cart?.shippingOption])
+
+  // Not awaited: a refusal (the account's 20 addresses) shows on the account, never holding up checkout.
+  const keepAddress = (a: AddressDraft) => {
+    const saved = account.account?.addresses
+    if (!saved || saved.some((s) => samePlace(s, a))) return
+    return account.saveAddress({ id: null, address: a, isDefault: saved.length === 0 })
+  }
 
   const settle = async (orderId: string) => {
     store.set({ phase: { kind: 'confirming', orderId } })
@@ -234,11 +246,12 @@ export const useCheckout = (): CheckoutPage => {
       return errors
     },
     countries,
-    saveAddress: async (a) => {
+    saveAddress: async (a, keep = false) => {
       const errors = addressProblems(a)
-      if (Object.keys(errors).length === 0) await send(addressMutation, { address: addressInput(a) })
+      if (Object.keys(errors).length === 0 && (await send(addressMutation, { address: addressInput(a) })) && keep) void keepAddress(a)
       return errors
     },
+    canKeepAddress: account.status === 'ready',
     chooseDelivery: (option) => send(deliveryMutation, { option }),
     payments,
     chosen: state.chosen ?? (payments.length === 1 ? (payments[0]?.provider ?? null) : null),

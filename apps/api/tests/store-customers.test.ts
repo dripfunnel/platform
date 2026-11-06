@@ -123,9 +123,9 @@ describe('the customers list', () => {
   })
 
   it('opens a customer with contact, consent, groups and their newest orders', async () => {
-    const found = (await gql(`{ customer(id: "${t.customerA1}") { name emailVerified phoneVerified hasAccount note consent { state source channels } groupIds addresses { city } ordersCount orders { number total { amount currency } } } }`, 'staff')).data?.['customer']
+    const found = (await gql(`{ customer(id: "${t.customerA1}") { name emailVerified phoneVerified hasAccount note consent { state source channels } groupIds addresses { city } lastShipTo { orderNumber address { line1 city } } ordersCount orders { number total { amount currency } } } }`, 'staff')).data?.['customer']
     expect(found).toEqual({
-      name: 'Priya Shah', emailVerified: false, phoneVerified: true, hasAccount: true, note: null, consent: { state: 'not_asked', source: null, channels: [] }, groupIds: [], addresses: [], ordersCount: 2,
+      name: 'Priya Shah', emailVerified: false, phoneVerified: true, hasAccount: true, note: null, consent: { state: 'not_asked', source: null, channels: [] }, groupIds: [], addresses: [], lastShipTo: { orderNumber: 'A-2', address: { line1: '1 Road', city: 'Pune' } }, ordersCount: 2,
       orders: [{ number: 'A-2', total: { amount: '2000', currency: 'USD' } }, { number: 'A-1', total: { amount: '5000', currency: 'INR' } }],
     })
   })
