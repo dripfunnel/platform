@@ -20,6 +20,7 @@ import {
   type AttentionRow,
   type DashboardScope,
 } from '#db/scoped/dashboard'
+import { countPausedRollouts } from '#db/scoped/coreRollouts'
 import { withScope } from '#db/scoped/index'
 import { selectPartnerNames } from '#db/scoped/stores'
 import { stuckAfterMinutes } from '#saas/provisioning/index'
@@ -56,6 +57,7 @@ export interface NavBadgesDto {
   provisioningAttention: number
   /** Null to a role without `setupSessions.read` (FIRST-RELEASE §2). */
   openSessions: number | null
+  pausedRollouts: number | null
 }
 
 export interface SearchDto {
@@ -137,12 +139,13 @@ export const createDashboardService = (deps: DashboardServiceDeps) => {
     const at = now()
     const scope: DashboardScope = { assignedTo }
     return withScope(sql, context, async (tx) => {
-      const [awaiting, setup, sessions] = await Promise.all([
+      const [awaiting, setup, sessions, paused] = await Promise.all([
         countAwaitingPartners(tx, scope),
         countSetupAttention(tx, scope, stuckAfterMinutes, at),
         roleHas(staff.role, 'setupSessions.read') ? countOpenSetupSessions(tx, scope, at) : null,
+        roleHas(staff.role, 'fleet.read') ? countPausedRollouts(tx) : null,
       ])
-      return { partnersAwaitingApproval: awaiting, provisioningAttention: setup, openSessions: sessions }
+      return { partnersAwaitingApproval: awaiting, provisioningAttention: setup, openSessions: sessions, pausedRollouts: paused }
     })
   }
 

@@ -164,9 +164,38 @@ type CoreRolloutPage {
   pageInfo: PageInfo
 }
 
+type CoreRolloutStore {
+  canary: Boolean
+  error: String
+  finishedAt: String
+  fromVersion: String
+  partnerName: String
+  startedAt: String
+  state: String
+  storeCode: String
+  storeId: ID
+  storeName: String
+}
+
 type CoreRolloutStoreCount {
   count: Int
   state: String
+}
+
+type CoreRolloutStorePage {
+  items: [CoreRolloutStore!]
+  pageInfo: PageInfo
+}
+
+enum CoreRolloutStoreState {
+  baseline
+  live
+  migrated
+  passed
+  pending
+  pinned
+  reverted
+  running
 }
 
 input CreatePartnerInput {
@@ -428,6 +457,7 @@ type Mutation {
 type NavBadges {
   openSessions: Int
   partnersAwaitingApproval: Int
+  pausedRollouts: Int
   provisioningAttention: Int
 }
 
@@ -697,6 +727,7 @@ type Query {
   activityPeople(query: String!): [ActivityPersonMatch!]
   activityPerson(person: String!): ActivityPerson
   coreRollout(id: ID!): CoreRollout
+  coreRolloutStores(after: String, before: String, first: Int, id: ID!, state: CoreRolloutStoreState): CoreRolloutStorePage
   coreRollouts(after: String, first: Int): CoreRolloutPage
   customer(id: ID!): Customer
   customers(after: String, before: String, filter: CustomerFilter, first: Int, search: String): CustomerPage

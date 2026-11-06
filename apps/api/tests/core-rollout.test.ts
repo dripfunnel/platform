@@ -139,6 +139,52 @@ describe('the Admin API’s reads and a late roll back', () => {
   })
 })
 
+describe('coreRolloutStores (CONSOLE-DESIGN L2, #1312)', () => {
+  type Row = { storeId: string; storeName: string; partnerName: string; canary: boolean; fromVersion: string; state: string; error: string | null }
+  type Answer = { coreRolloutStores: { items: Row[]; pageInfo: { hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null; startCursor: string | null } } | null }
+  const q = `query($id: ID!, $first: Int, $after: String, $before: String, $state: CoreRolloutStoreState) {
+    coreRolloutStores(id: $id, first: $first, after: $after, before: $before, state: $state) {
+      items { storeId storeName partnerName canary fromVersion state error } pageInfo { hasNextPage hasPreviousPage endCursor startCursor } } }`
+
+  it('lists a rollout’s stores in position order, pages by cursor both ways, filters by state, and never answers the gate', async () => {
+    const id = (await run<{ startCoreRollout: Rollout }>(start('1.1.0'), 'staff-engineer')).data?.startCoreRollout.id ?? ''
+    await tick()
+    const enrolled = await storesOf(id)
+    expect(enrolled.length).toBe(3)
+    await db.sql`update core_rollout_store set state = 'pinned', error = 'gate_failed', gate = ${db.sql.json({ secret: 'never shown' })} where rollout_id = ${id} and store_id = ${enrolled[0]?.store_id ?? ''}`
+
+    const all = (await run<Answer>(q, 'staff-engineer', { id })).data?.coreRolloutStores
+    expect(all?.items.map((r) => r.storeId)).toEqual(enrolled.map((r) => r.store_id))
+    expect(all?.items[0]).toMatchObject({ fromVersion: '1.0.0', state: 'pinned', error: 'gate_failed' })
+    expect(all?.items[0]?.storeName).toBeTruthy()
+    expect(all?.items[0]?.partnerName).toBeTruthy()
+
+    const first = (await run<Answer>(q, 'staff-engineer', { id, first: 2 })).data?.coreRolloutStores
+    expect(first?.items).toHaveLength(2)
+    expect(first?.pageInfo).toMatchObject({ hasNextPage: true, hasPreviousPage: false })
+    const second = (await run<Answer>(q, 'staff-engineer', { id, first: 2, after: first?.pageInfo.endCursor })).data?.coreRolloutStores
+    expect(second?.items.map((r) => r.storeId)).toEqual([enrolled[2]?.store_id])
+    expect(second?.pageInfo).toMatchObject({ hasNextPage: false, hasPreviousPage: true })
+    const back = (await run<Answer>(q, 'staff-engineer', { id, first: 2, before: second?.pageInfo.startCursor })).data?.coreRolloutStores
+    expect(back?.items.map((r) => r.storeId)).toEqual(first?.items.map((r) => r.storeId))
+
+    const pinned = (await run<Answer>(q, 'staff-super-admin', { id, state: 'pinned' })).data?.coreRolloutStores
+    expect(pinned?.items.map((r) => r.storeId)).toEqual([enrolled[0]?.store_id])
+
+    const raw = await run(`query($id: ID!) { coreRolloutStores(id: $id) { items { gate } } }`, 'staff-engineer', { id }).catch((e: unknown) => e)
+    expect(String(raw)).toMatch(/Cannot query field "gate"/)
+  })
+
+  it('refuses a role without fleet.read, and answers null for an unknown rollout or a bad cursor', async () => {
+    const id = (await run<{ startCoreRollout: Rollout }>(start('1.1.0'), 'staff-engineer')).data?.startCoreRollout.id ?? ''
+    expect((await run(q, 'staff-support', { id })).code).toBe('FORBIDDEN')
+    expect((await run(q, 'staff-read-only', { id })).code).toBe('FORBIDDEN')
+    expect((await run<Answer>(q, 'staff-engineer', { id: '00000000-0000-4000-8000-000000000000' })).data?.coreRolloutStores).toBeNull()
+    expect((await run<Answer>(q, 'staff-engineer', { id: 'not-a-uuid' })).data?.coreRolloutStores).toBeNull()
+    expect((await run<Answer>(q, 'staff-engineer', { id, after: 'bad' })).data?.coreRolloutStores).toBeNull()
+  })
+})
+
 describe('the tick', () => {
   const begin = async (version: string, security = false) => {
     const started = await run<{ startCoreRollout: Rollout }>(start(version, security), 'staff-engineer')

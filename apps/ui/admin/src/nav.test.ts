@@ -5,11 +5,11 @@ import { navFor, navRows, type NavRow } from './nav'
 const everyone = ['dashboard', 'partners', 'stores', 'customers']
 
 const menusOf: Record<StaffRole, readonly string[]> = {
-  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'impersonate', 'activity', 'staff'],
+  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'rollouts', 'impersonate', 'activity', 'staff'],
   'staff-partner-manager': [...everyone, 'approvals', 'activity'],
   'staff-support': [...everyone, 'provisioning', 'impersonate', 'activity'],
   'staff-finance': [...everyone, 'activity'],
-  'staff-engineer': [...everyone, 'provisioning', 'activity'],
+  'staff-engineer': [...everyone, 'provisioning', 'rollouts', 'activity'],
   'staff-read-only': [...everyone, 'activity'],
 }
 
@@ -41,6 +41,13 @@ describe('navFor', () => {
     for (const role of staffRoles) {
       const badged = navFor(role).find((row) => row.badge === 'openSessions')?.key
       expect(badged).toBe(role === 'staff-super-admin' || role === 'staff-support' ? 'impersonate' : undefined)
+    }
+  })
+
+  it('counts paused rollouts on Rollouts, for the two fleet roles only (#1312)', () => {
+    for (const role of staffRoles) {
+      const badged = navFor(role).find((row) => row.badge === 'pausedRollouts')?.key
+      expect(badged).toBe(role === 'staff-super-admin' || role === 'staff-engineer' ? 'rollouts' : undefined)
     }
   })
 

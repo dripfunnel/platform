@@ -1,10 +1,11 @@
 import { GraphQLError } from 'graphql'
-import { fleetAudit, type FleetResult, type RolloutView } from '#saas/fleet/admin'
+import type { RolloutStoreRow } from '#db/scoped/coreRollouts'
+import { fleetAudit, storeUpgradeStates, type FleetResult, type RolloutView } from '#saas/fleet/admin'
 import { builder } from './builder'
 import { iso, PageInfoType, signedIn } from './types'
 
-// Core rollouts on the Admin API (SAAS §10, §13): Engineer on call and Super admin read and steer them; CONSOLE-DESIGN
-// part L's screens are their own card.
+// Core rollouts on the Admin API (SAAS §10, §13): Engineer on call and Super admin read and steer them from the
+// console's Rollouts page (CONSOLE-DESIGN L2, #1312).
 
 const StoreCount = builder.objectRef<RolloutView['stores'][number]>('CoreRolloutStoreCount').implement({
   fields: (t) => ({ state: t.exposeString('state'), count: t.exposeInt('n') }),
@@ -28,6 +29,27 @@ const RolloutPage = builder.objectRef<{ items: RolloutView[]; pageInfo: { startC
   fields: (t) => ({ items: t.field({ type: [Rollout], resolve: (p) => p.items }), pageInfo: t.field({ type: PageInfoType, resolve: (p) => p.pageInfo }) }),
 })
 
+const RolloutStore = builder.objectRef<RolloutStoreRow>('CoreRolloutStore').implement({
+  fields: (t) => ({
+    storeId: t.exposeID('store_id'),
+    storeName: t.exposeString('store_name'),
+    storeCode: t.exposeString('store_code'),
+    partnerName: t.exposeString('partner_name'),
+    canary: t.boolean({ resolve: (r) => r.position === 0 }),
+    fromVersion: t.exposeString('from_version'),
+    state: t.exposeString('state'),
+    error: t.exposeString('error', { nullable: true }),
+    startedAt: t.string({ nullable: true, resolve: (r) => iso(r.started_at) }),
+    finishedAt: t.string({ nullable: true, resolve: (r) => iso(r.finished_at) }),
+  }),
+})
+
+const RolloutStorePage = builder.objectRef<{ nodes: RolloutStoreRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('CoreRolloutStorePage').implement({
+  fields: (t) => ({ items: t.field({ type: [RolloutStore], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfoType, resolve: (p) => p.pageInfo }) }),
+})
+
+const StoreUpgradeState = builder.enumType('CoreRolloutStoreState', { values: storeUpgradeStates })
+
 const read = { access: { api: 'admin' as const, scope: 'platform' as const, permission: 'fleet.read' as const, target: 'none' as const } }
 const manage = (audit: string) => ({ access: { api: 'admin' as const, scope: 'platform' as const, permission: 'fleet.manage' as const, target: 'none' as const, audit } })
 
@@ -46,6 +68,13 @@ builder.queryFields((t) => ({
       if (!page) throw new GraphQLError('That page link does not work.', { extensions: { code: 'INVALID_INPUT' } })
       return page
     },
+  }),
+  coreRolloutStores: t.field({
+    type: RolloutStorePage,
+    nullable: true,
+    args: { id: t.arg.id({ required: true }), first: t.arg.int(), after: t.arg.string(), before: t.arg.string(), state: t.arg({ type: StoreUpgradeState }) },
+    extensions: read,
+    resolve: async (_, args, ctx) => signedIn(ctx.fleet ?? null).stores(String(args.id), args, args.state ?? null),
   }),
   coreRollout: t.field({ type: Rollout, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: read, resolve: (_, { id }, ctx) => signedIn(ctx.fleet ?? null).get(String(id)) }),
 }))
