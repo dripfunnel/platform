@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useStayInFrame } from '../platform/browser/link'
 import { readConsent, writeConsent, type ConsentChoice } from '../platform/consent/consent'
 import type { Translate } from '../platform/i18n/i18n'
 import { formatMoney, type Money } from '../pricing/money'
@@ -66,6 +67,13 @@ export const LegalNotices = ({ notices, t, className }: Styled & { notices: read
 
 export type Crumb = { label: string; href: string }
 
+// A crumb clicked in the studio frame stays in it, as core's Link does (AI-STUDIO §8).
+const CrumbLink = ({ crumb }: { crumb: Crumb }) => (
+  <a part="link" href={crumb.href} onClick={useStayInFrame(crumb.href)}>
+    {crumb.label}
+  </a>
+)
+
 /** The trail to this page, its last crumb the page itself (ARCHITECTURE §8). Parts: list, item, link, current. */
 export const Breadcrumbs = ({ crumbs, t, className }: Styled & { crumbs: readonly Crumb[]; t: Translate }) =>
   crumbs.length ? (
@@ -79,9 +87,7 @@ export const Breadcrumbs = ({ crumbs, t, className }: Styled & { crumbs: readonl
                   {c.label}
                 </span>
               ) : (
-                <a part="link" href={c.href}>
-                  {c.label}
-                </a>
+                <CrumbLink crumb={c} />
               )}
             </li>
           ))}
