@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { createdWindows, loadStores, setupStates, storefrontStates, storeStatuses } from '../../api/stores'
-import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
+import { cursorParam, idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
 import { StoresLoading } from '../../features/stores/Stores'
 import { StoresRouteError, StoresScreen } from '../../features/stores/StoresScreen'
 import { unlessPhone } from '../../features/common/usePhone'
@@ -15,8 +15,8 @@ const storesSearch = z.object({
   setup: optionalParam(z.enum(setupStates)),
   created: optionalParam(z.enum(createdWindows)),
   q: searchParam,
-  after: idParam,
-  before: idParam,
+  after: cursorParam,
+  before: cursorParam,
 })
 
 export const Route = createFileRoute('/_app/stores')({

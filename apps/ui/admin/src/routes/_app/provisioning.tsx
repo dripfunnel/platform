@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { jobStates, loadProvisioningJobs } from '../../api/provisioning'
 import { provisioningSteps } from '../../api/provisioningSteps'
 import { callerFor } from '../../features/common/harnessCaller'
-import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
+import { cursorParam, idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
 import { ProvisioningLoading } from '../../features/provisioning/Provisioning'
 import { ProvisioningRouteError, ProvisioningScreen } from '../../features/provisioning/ProvisioningScreen'
 
@@ -13,8 +13,8 @@ const provisioningSearch = z.object({
   status: optionalParam(z.enum(jobStates)),
   step: optionalParam(z.enum(provisioningSteps)),
   q: searchParam,
-  after: idParam,
-  before: idParam,
+  after: cursorParam,
+  before: cursorParam,
 })
 
 export const Route = createFileRoute('/_app/provisioning')({
