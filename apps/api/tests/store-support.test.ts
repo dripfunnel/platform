@@ -12,6 +12,7 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { storeActivityFor, supportCookieName } from '#auth/storeSupport'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
+import { supportSessionMs } from '#saas/support/index'
 import { prepareEmail } from '#saas/email/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -41,7 +42,7 @@ const agent = async (partnerId: string, email: string) =>
   (await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${partnerId}, ${email}, ${email.split('@')[0] ?? 'x'}, 'partner-support', 'active') returning id`)[0]?.id ?? ''
 
 /** A session as #202's start leaves it, with a handoff token the test knows. */
-const opened = async (who: Who, agentId: string, token: string, minutes = 30) => {
+const opened = async (who: Who, agentId: string, token: string, minutes = supportSessionMs / 60_000) => {
   const [row] = await db.sql<{ id: string }[]>`
     insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, ticket, started_at, expires_at, handoff_hash, handoff_expires_at)
     values (${partnerOf(who)}, ${storeOf(who)}, ${seats[who]}, ${agentId}, 'Photos look blurry', 'ZD-4821', ${clock}, ${new Date(clock.getTime() + minutes * 60_000)}, ${await hashSessionId(token)}, ${new Date(clock.getTime() + 5 * 60_000)})
@@ -427,11 +428,13 @@ describe('the switch and the log', () => {
 })
 
 describe('ends and races', () => {
-  it('runs out at 30 minutes with no extension: the cookie, the request and the Allow all stop', async () => {
+  it('runs out at its end unless extended: the cookie, the request and the Allow all stop', async () => {
     const id = await opened('owner', agents.priya, 'tok-expire')
     const cookie = await enter('tok-expire')
     await gql(q.ask, { support: cookie }, { n: 'Change a price' })
-    clock = new Date(clock.getTime() + 31 * 60_000)
+    clock = new Date(clock.getTime() + supportSessionMs - 60_000)
+    expect((await gql(q.taxSetup, { support: cookie })).code).toBeUndefined()
+    clock = new Date(clock.getTime() + 2 * 60_000)
     expect((await gql(q.taxSetup, { support: cookie })).code).toBe('UNAUTHENTICATED')
     expect((await gql(q.allow, { person: 'owner' }, { id })).code).toBe('NOT_PENDING')
     const current = await currentOf(cookie)

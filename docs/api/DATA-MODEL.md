@@ -543,7 +543,7 @@ support_session (id, partner_id, store_id, membership_id, partner_user_id, reaso
                  -- partner support into a store as one of its users (ACCESS.md §8). Partner
                  -- users only: staff never open one, they impersonate (§8.1). Built on #202:
                  -- one open per partner user and one per membership (partial unique indexes),
-                 -- 30 minutes; the partner inserts only its own, on a store allowing support
+                 -- 90 minutes, extendable once by 30 (extended_at, 0387; #1328); the partner inserts only its own, on a store allowing support
                  -- (policy). The handoff as on partner_setup_session. Built on #331 (0160): the
                  -- exchange keeps the support cookie's hash in portal_session_hash (system scope
                  -- only); `access` is 'write' only once a merchant Owner or Manager allowed the
