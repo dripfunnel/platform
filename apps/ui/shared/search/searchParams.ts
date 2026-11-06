@@ -8,3 +8,6 @@ export const optionalParam = <Schema extends z.ZodType>(schema: Schema) => schem
 export const searchParam = optionalParam(z.string().trim().min(1).max(searchMaxLength))
 
 export const idParam = optionalParam(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/))
+
+// A page cursor is base64url of a time or sort value and an id (apps/api core/cursor.ts), longer than an id.
+export const cursorParam = optionalParam(z.string().regex(/^[A-Za-z0-9_-]{1,1024}$/))

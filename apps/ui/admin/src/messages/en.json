@@ -71,7 +71,8 @@
     "badges": {
       "partnersAwaitingApproval": "{count} awaiting approval",
       "provisioningAttention": "{count} failed or stuck",
-      "openSessions": "{count} open now"
+      "openSessions": "{count} open now",
+      "pausedRollouts": "{count} paused: no release can roll out"
     },
     "signedOut": "Your session ended. Sign in again.",
     "loadError": {
@@ -87,6 +88,7 @@
     "customers": "Customers",
     "approvals": "Approvals",
     "provisioning": "Provisioning",
+    "rollouts": "Rollouts",
     "activity": "Activity log",
     "staff": "Staff",
     "impersonate": "Impersonate"
@@ -2319,6 +2321,166 @@
       "title": "Use a larger screen for this",
       "body": "On a phone you can find a store and see its status. Everything else needs a laptop.",
       "action": "Find a store"
+    }
+  },
+  "rollouts": {
+    "level": "Platform · Fleet",
+    "title": "Rollouts",
+    "sub": "storefront-core upgrades across every store: canaries first, then waves.",
+    "loading": "Loading rollouts",
+    "listLabel": "Rollouts",
+    "pagerLabel": "Rollout pages",
+    "storesPagerLabel": "Store pages",
+    "start": "Start a rollout",
+    "pausedBanner": {
+      "title": "A rollout is paused",
+      "body": "{version}, started {time}, is paused. No new release can roll out until it is resumed or rolled back.",
+      "open": "Open {version}"
+    },
+    "columns": {
+      "version": "Version",
+      "state": "State",
+      "progress": "Stores",
+      "started": "Started",
+      "finished": "Finished"
+    },
+    "states": {
+      "canary": "Canaries",
+      "waves": "Waves",
+      "paused": "Paused",
+      "done": "Done",
+      "rolled_back": "Rolled back"
+    },
+    "wavesAt": "Waves at {percent}%",
+    "security": "Security fix",
+    "notFinished": "—",
+    "storeStates": {
+      "pending": "Waiting",
+      "running": "Upgrading",
+      "passed": "Passed the gate",
+      "migrated": "Migrated by the agent",
+      "pinned": "Pinned",
+      "baseline": "On the baseline theme",
+      "live": "Live",
+      "reverted": "Reverted"
+    },
+    "storeCount": "{count} {state}",
+    "noStores": "No stores yet",
+    "empty": {
+      "title": "No rollouts yet",
+      "body": "A promoted release starts its own rollout. You can also start one here."
+    },
+    "error": {
+      "title": "Rollouts didn’t load",
+      "body": "The Admin API didn’t answer. Nothing has changed.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "Rollouts are for the Engineer on call and Super admins",
+      "body": "Ask one of them if a rollout needs attention.",
+      "back": "Back to the dashboard"
+    },
+    "readonly": {
+      "title": "You can look, not change",
+      "body": "Only the Engineer on call and Super admins start, pause, resume or roll back a rollout."
+    },
+    "detail": {
+      "back": "Rollouts",
+      "level": "Rollout",
+      "title": "storefront-core {version}",
+      "reason": "Why it started",
+      "started": "Started",
+      "finished": "Finished",
+      "progress": "Progress",
+      "storesTitle": "Stores",
+      "storesLabel": "Stores in this rollout",
+      "filter": "Show",
+      "allStates": "Every state",
+      "columns": {
+        "store": "Store",
+        "partner": "Partner",
+        "group": "Group",
+        "from": "From",
+        "state": "State",
+        "error": "Why",
+        "finished": "Finished"
+      },
+      "canary": "Canary",
+      "wave": "Wave",
+      "noError": "—",
+      "noStoresTitle": "No stores here",
+      "noStoresBody": "No store in this rollout is in that state.",
+      "notFound": {
+        "title": "That rollout doesn’t exist",
+        "body": "It may have been a mistyped link.",
+        "back": "Back to Rollouts"
+      }
+    },
+    "errors": {
+      "gate_failed": "Failed the gate",
+      "no_live_build": "No live build to upgrade",
+      "store_busy": "A publish was running",
+      "build_timed_out": "The build timed out",
+      "upgrade_failed": "The upgrade failed",
+      "moved_on": "Moved on since, left as it is",
+      "other": "Code: {code}"
+    },
+    "actions": {
+      "pause": "Pause",
+      "resume": "Resume",
+      "rollBack": "Roll back"
+    },
+    "dialogs": {
+      "pause": {
+        "title": "Pause {version}?",
+        "consequence": "No new store starts upgrading. Stores already upgrading finish.",
+        "confirm": "Pause rollout"
+      },
+      "resume": {
+        "title": "Resume {version}?",
+        "consequence": "The rollout goes back to where it stopped and starts upgrading stores again.",
+        "confirm": "Resume rollout"
+      },
+      "rollBack": {
+        "title": "Roll back {version}?",
+        "consequence": "No new store starts, and every store live on {version} goes back to the build it had before.",
+        "confirm": "Roll back rollout"
+      },
+      "start": {
+        "title": "Start a rollout",
+        "target": "Every store live on an older storefront-core",
+        "consequence": "Canaries upgrade first. If one fails the gate, the rollout pauses for you to look.",
+        "confirm": "Start rollout",
+        "version": "Version",
+        "versionPlaceholder": "0.10.0",
+        "versionError": "Type a released version, such as 0.10.0.",
+        "kind": "Kind",
+        "kinds": {
+          "upgrade": "Upgrade",
+          "security": "Security fix: every store must take it"
+        }
+      },
+      "target": "storefront-core {version}",
+      "reason": {
+        "label": "Reason",
+        "hint": "Saved in the activity log with your name."
+      },
+      "cancel": "Cancel"
+    },
+    "done": {
+      "pause": "{version} paused.",
+      "resume": "{version} resumed.",
+      "rollBack": "{version} is rolling back.",
+      "start": "{version} started."
+    },
+    "refusals": {
+      "INVALID_INPUT": "That version or reason won’t do. Check the version is released.",
+      "NOT_FOUND": "That rollout no longer exists.",
+      "ROLLOUT_ACTIVE": "Another rollout is running or paused. Resume or roll it back first.",
+      "ROLLOUT_ACTIVE_NAMED": "{version} is running or paused. Resume or roll it back first.",
+      "WRONG_STATE": "The rollout moved on. Reload to see where it is.",
+      "FORBIDDEN": "Only the Engineer on call and Super admins can change a rollout.",
+      "other": "That didn’t work. Nothing has changed."
     }
   }
 }

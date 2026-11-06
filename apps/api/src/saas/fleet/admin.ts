@@ -1,9 +1,22 @@
 import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StaffMember } from '#auth/staff'
-import type { Keyset } from '#core/cursor'
+import { decodeValueCursor, encodeValueCursor, type Keyset } from '#core/cursor'
 import { isUuid } from '#core/ids'
-import { countStoresByState, insertRollout, phaseCounts, selectReleaseForRollout, selectRollout, selectRollouts, setRolloutState, type RolloutRow, type StoreUpgradeState } from '#db/scoped/coreRollouts'
+import { pageWith, type Page } from '#core/paging'
+import {
+  countStoresByState,
+  insertRollout,
+  phaseCounts,
+  selectReleaseForRollout,
+  selectRollout,
+  selectRolloutStores,
+  selectRollouts,
+  setRolloutState,
+  type RolloutRow,
+  type RolloutStoreRow,
+  type StoreUpgradeState,
+} from '#db/scoped/coreRollouts'
 import { uniqueViolation, withScope, type ScopedSql } from '#db/scoped/index'
 import { coreVersionPattern } from '#saas/storefronts/index'
 import { decodePage, pageOf, reasonText, staffEntry, type PageRequest } from '#saas/staff/index'
@@ -35,6 +48,16 @@ export interface FleetDeps {
 }
 
 const pageSize = 25
+const storePageSize = 50
+const storeSort = 'rollout_position'
+
+export const storeUpgradeStates = ['pending', 'running', 'passed', 'migrated', 'pinned', 'baseline', 'live', 'reverted'] as const satisfies readonly StoreUpgradeState[]
+
+const positionOf = (cursor: string): { position: number; id: string } | null => {
+  const key = decodeValueCursor(cursor, storeSort)
+  const position = key && /^\d{1,3}$/.test(key.value) ? Number(key.value) : null
+  return key && position !== null ? { position, id: key.id } : null
+}
 
 export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDeps) => {
   const asStaff = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, { caller: { kind: 'staff', staffId: staff.id } }, work)
@@ -64,6 +87,20 @@ export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDe
     return asStaff(async (tx) => {
       const row = await selectRollout(tx, id)
       return row ? view(tx, row) : null
+    })
+  }
+
+  /** One rollout's stores and how each ended; null for an unknown rollout or a bad cursor. */
+  const stores = (rawId: string, page: PageRequest, state: StoreUpgradeState | null): Promise<Page<RolloutStoreRow> | null> => {
+    const id = rawId.toLowerCase()
+    const after = page.after ? positionOf(page.after) : null
+    const before = page.before ? positionOf(page.before) : null
+    if (!isUuid(id) || (page.after && !after) || (page.before && !before)) return Promise.resolve(null)
+    const limit = Math.min(Math.max(page.first ?? storePageSize, 1), storePageSize)
+    return asStaff(async (tx) => {
+      if (!(await selectRollout(tx, id))) return null
+      const rows = await selectRolloutStores(tx, { rolloutId: id, state, after, before, limit })
+      return pageWith(rows, { limit, after, before }, (r) => encodeValueCursor({ sort: storeSort, value: String(r.position), id: r.store_id }))
     })
   }
 
@@ -123,7 +160,7 @@ export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDe
   const rollBack = (id: string, reason: string) =>
     change(id, reason, fleetAudit.rolledBack, (r) => (r.state === 'canary' || r.state === 'waves' || r.state === 'paused' || r.state === 'done' ? { state: 'rolled_back', finishedAt: now() } : null))
 
-  return { list, get, start, pause, resume, rollBack }
+  return { list, get, stores, start, pause, resume, rollBack }
 }
 
 export type FleetService = ReturnType<typeof createFleetService>

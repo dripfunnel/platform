@@ -19,9 +19,11 @@ describe('the shell queries', () => {
     await expect(loadMe()).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
   })
 
-  it('counts a withheld openSessions as nothing to badge', async () => {
-    stubApi({ data: { navBadges: { partnersAwaitingApproval: 1, provisioningAttention: 2, openSessions: null } } })
-    expect(await loadNavBadges()).toEqual({ partnersAwaitingApproval: 1, provisioningAttention: 2, openSessions: 0 })
+  it('counts a withheld openSessions or pausedRollouts as nothing to badge', async () => {
+    stubApi({ data: { navBadges: { partnersAwaitingApproval: 1, provisioningAttention: 2, openSessions: null, pausedRollouts: null } } })
+    expect(await loadNavBadges()).toEqual({ partnersAwaitingApproval: 1, provisioningAttention: 2, openSessions: 0, pausedRollouts: 0 })
+    stubApi({ data: { navBadges: { partnersAwaitingApproval: 0, provisioningAttention: 0, openSessions: 0, pausedRollouts: 1 } } })
+    expect((await loadNavBadges()).pausedRollouts).toBe(1)
   })
 
   it('searches partners and stores and reads store statuses in the console vocabulary', async () => {

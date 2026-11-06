@@ -8,7 +8,7 @@ import { navFor } from '../../nav'
 import { navWords } from './navWords'
 import { staffRoles, type StaffRole } from './staffRoles'
 
-const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApproval: 3, provisioningAttention: 2, openSessions: 1 }, path = '/partners') => {
+const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApproval: 3, provisioningAttention: 2, openSessions: 1, pausedRollouts: 1 }, path = '/partners') => {
   const rootRoute = createRootRoute({
     component: () => <SideNav rows={navView(navFor(role), badges, navWords)} variant="bar" label={messages.shell.navLabel} footer={messages.shell.navFooter} />,
   })
@@ -20,6 +20,7 @@ const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApp
 const absentPaths = (role: StaffRole) => [
   ...(role === 'staff-super-admin' || role === 'staff-support' ? [] : ['/impersonate']),
   ...(role === 'staff-super-admin' ? [] : ['/staff']),
+  ...(role === 'staff-super-admin' || role === 'staff-engineer' ? [] : ['/rollouts']),
 ]
 
 describe('SideNav', () => {
@@ -59,6 +60,10 @@ describe('SideNav', () => {
     expect(between(finance, '/partners', '/stores')).toContain('3 awaiting approval')
   })
 
+  it('counts a paused rollout on Rollouts (#1312)', async () => {
+    expect(await render('staff-engineer')).toContain('1 paused: no release can roll out')
+  })
+
   it('counts failed and stuck signups on Provisioning', async () => {
     expect(await render('staff-support')).toContain('2 failed or stuck')
   })
@@ -76,7 +81,7 @@ describe('SideNav', () => {
   })
 
   it('shows no badge when nothing is waiting', async () => {
-    const html = await render('staff-super-admin', { partnersAwaitingApproval: 0, provisioningAttention: 0, openSessions: 0 })
+    const html = await render('staff-super-admin', { partnersAwaitingApproval: 0, provisioningAttention: 0, openSessions: 0, pausedRollouts: 0 })
     expect(html).not.toContain('df-nav-badge')
     for (const badge of Object.values(messages.shell.badges)) expect(html).not.toContain(badge.replace('{count} ', ''))
   })
