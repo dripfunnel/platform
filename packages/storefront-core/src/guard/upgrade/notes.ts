@@ -34,6 +34,16 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = [
   {
+    version: '0.11.0',
+    kind: 'minor',
+    security: false,
+    notes: [
+      'Every change only adds; no theme has to change.',
+      '`useCheckout` can save a signed-in shopper\'s delivery address to their account (#1310): `canKeepAddress` says whether they may, and `saveAddress(address, true)` saves it. A theme that passes nothing keeps today\'s behaviour.',
+    ].join('\n'),
+    codemods: [],
+  },
+  {
     version: '0.10.0',
     kind: 'minor',
     security: false,
