@@ -173,10 +173,11 @@ describe('signing in by email', () => {
 
   describe('guest orders at sign-in', () => {
     /** A guest's placed order; with a cart token, the one it was placed with. */
-    const guest = async (storeId: string, number: string, contact: { email?: string; phone?: string }, cart?: string) =>
+    const guest = async (storeId: string, number: string, contact: { email?: string; phone?: string }, cart?: string, shipTo?: string) =>
       (
-        await db.sql<{ id: string }[]>`insert into "order" (store_id, state, currency, number, placed_at, subtotal_amount, shipping_amount, tax_amount, total_amount, tax_inclusive, email, phone, access_token_hash)
-          values (${storeId}, 'placed', 'INR', ${number}, now(), 99900, 0, 0, 99900, true, ${contact.email ?? null}, ${contact.phone ?? null}, ${cart ? await hashSessionId(cart) : null}) returning id`
+        await db.sql<{ id: string }[]>`insert into "order" (store_id, state, currency, number, placed_at, subtotal_amount, shipping_amount, tax_amount, total_amount, tax_inclusive, email, phone, access_token_hash, shipping_address)
+          values (${storeId}, 'placed', 'INR', ${number}, now(), 99900, 0, 0, 99900, true, ${contact.email ?? null}, ${contact.phone ?? null}, ${cart ? await hashSessionId(cart) : null},
+            ${shipTo ? db.sql.json({ name: 'Ravi', line1: shipTo, line2: null, city: 'Jaipur', region: null, postalCode: '302001', country: 'IN', phone: null }) : null}) returning id`
       )[0]?.id ?? ''
     const opened = async (id: string, who: { session?: string; cart?: string }) =>
       (await gql(`{ order(id: "${id}") { number } }`, who)).data?.['order'] ?? null
@@ -190,6 +191,7 @@ describe('signing in by email', () => {
       await db.sql`delete from payment where order_id in (select id from "order" where number like 'JP-9%')`
       await db.sql`delete from "order" where number like 'JP-9%' or number like 'SU-9%' or (state = 'cart' and email = 'ravi@example.com')`
       await ravisPhone(null, false)
+      await db.sql`delete from customer_address where line1 like '% Guest Lane'`
       await db.sql`delete from customer_session where customer_id in (select id from customer where email = 'kiran@example.com')`
       await db.sql`delete from customer where email = 'kiran@example.com'`
     })
@@ -211,6 +213,18 @@ describe('signing in by email', () => {
       expect(await opened(typed, { cart: 'c'.repeat(64) })).toBeNull()
       const [logged] = await db.sql<{ changes: unknown }[]>`select changes from activity_log where action = 'customer.orders_linked'`
       expect(logged?.changes).toEqual([{ field: 'orders', before: null, after: '2', redacted: false }])
+    })
+
+    it('saves the address of a linked order with both the verified email and number, once, and none from the email alone', async () => {
+      await ravisPhone('+919845099001', true)
+      const both = { email: 'ravi@example.com', phone: '+919845099001' }
+      await guest(stores.india, 'JP-9007', both, undefined, '7 Guest Lane')
+      await guest(stores.india, 'JP-9008', both, undefined, '7 Guest Lane')
+      await guest(stores.india, 'JP-9009', { email: 'ravi@example.com' }, undefined, '9 Guest Lane')
+      await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')
+      expect(await db.sql`select line1, is_default_shipping from customer_address where line1 like '% Guest Lane'`).toEqual([{ line1: '7 Guest Lane', is_default_shipping: true }])
+      const [logged] = await db.sql<{ count: number }[]>`select count(*)::int from activity_log where action = 'customer.address_saved' and target_type = 'customer_address' and target_id in (select id::text from customer_address where line1 like '% Guest Lane')`
+      expect(logged?.count).toBe(1)
     })
 
     it('links them at a sign-in by code too, the one that makes the account', async () => {

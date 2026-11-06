@@ -17,6 +17,7 @@ import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, tenantCaller, type StoreContext } from './access'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
+import type { registerOrders } from './orders'
 import { storePage } from './refusals'
 
 // Customers (FIRST-RELEASE §7, §19; PortalOrders › Customers): the merchant side's, Owner, Manager and Staff alike
@@ -38,7 +39,7 @@ const answered = <T>(result: CustomersResult<T>): T => {
   throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(result.field ? { field: result.field } : {}) } })
 }
 
-export const registerCustomers = (builder: StoreBuilder) => {
+export const registerCustomers = (builder: StoreBuilder, orders: ReturnType<typeof registerOrders>) => {
   const PageInfo = pageInfoType(builder)
   const Money = moneyType(builder)
   const service = (ctx: StoreContext) => {
@@ -106,6 +107,12 @@ export const registerCustomers = (builder: StoreBuilder) => {
       channels: t.exposeStringList('consent_channels'),
     }),
   })
+  const ShipTo = builder.objectRef<NonNullable<CustomerDetailRow['last_ship_to']>>('CustomerShipTo').implement({
+    fields: (t) => ({
+      orderNumber: t.exposeString('orderNumber'),
+      address: t.field({ type: orders.Address, resolve: (s) => s.address }),
+    }),
+  })
   type RecentOrder = CustomerDetailRow['recent_orders'][number]
   const RecentOrderType = builder.objectRef<RecentOrder>('CustomerOrder').implement({
     fields: (t) => ({
@@ -133,6 +140,8 @@ export const registerCustomers = (builder: StoreBuilder) => {
       consent: t.field({ type: ConsentType, resolve: (c) => c }),
       groupIds: t.idList({ resolve: (c) => c.group_ids }),
       addresses: t.field({ type: [AddressType], resolve: (c) => c.addresses }),
+      // The newest order's delivery address; the portal shows it when none is saved (a guest's, say).
+      lastShipTo: t.field({ type: ShipTo, nullable: true, resolve: (c) => c.last_ship_to }),
       city: t.exposeString('city', { nullable: true }),
       ordersCount: t.exposeInt('orders'),
       // The newest 20; the rest are in Orders.

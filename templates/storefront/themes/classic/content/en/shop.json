@@ -140,6 +140,7 @@
     "change": "Change",
     "changeStep": "Change {step}",
     "continue": "Continue",
+    "keepAddress": "Save this address to my account",
     "haveAccount": "Have an account? Sign in for saved addresses, or carry on as a guest.",
     "signIn": "Sign in",
     "email": "Email",

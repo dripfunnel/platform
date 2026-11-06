@@ -71,6 +71,7 @@ const customerSchema = z.object({
   consent: z.object({ state: z.string(), at: z.string().nullable(), source: z.string().nullable(), channels: z.array(z.string()) }),
   groupIds: z.array(z.string()),
   addresses: z.array(addressSchema),
+  lastShipTo: z.object({ orderNumber: z.string(), address: addressSchema.omit({ id: true, isDefault: true }) }).nullable(),
   city: z.string().nullable(),
   ordersCount: z.number().int(),
   orders: z.array(z.object({ id: z.string(), number: z.string(), placedAt: z.string(), state: z.string(), paymentState: z.string(), fulfilmentState: z.string(), total: moneySchema })),
@@ -83,7 +84,8 @@ export const loadCustomer = async (id: string): Promise<Customer | null> =>
     await query(
       `query C($id: ID!) { customer(id: $id) {
         id name email phone phoneVerified tags note consent { state at source channels } groupIds
-        addresses { id name line1 line2 city region postalCode country phone isDefault } city ordersCount
+        addresses { id name line1 line2 city region postalCode country phone isDefault }
+        lastShipTo { orderNumber address { name line1 line2 city region postalCode country phone } } city ordersCount
         orders { id number placedAt state paymentState fulfilmentState total { amount currency } } spent { amount currency }
       } }`,
       z.object({ customer: customerSchema.nullable() }),

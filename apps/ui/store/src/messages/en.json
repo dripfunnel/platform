@@ -4945,6 +4945,7 @@
       "noPhone": "no phone",
       "noEmail": "no email",
       "noAddress": "No address yet",
+      "fromOrder": "{address} (from order {number})",
       "orders": {
         "one": "{count} order",
         "other": "{count} orders"

@@ -8,6 +8,7 @@ import { formatMoney, isZero } from '../pricing/money'
 import { PreviewBanner } from '../sealed/components'
 import { PaymentElement } from '../sealed/payment'
 import { OrderSummary } from '../sealed/summary'
+import { Checkbox } from '../ui/headless/fields'
 import { AddressFields, Choices, Form, PhoneField, SubmitButton, TextField } from '../ui/headless/form'
 import { addressDraft, useCheckout, type CheckoutStepId } from './checkout'
 import type { AddressField, FieldProblem } from './address'
@@ -31,7 +32,8 @@ const css = `
 .df-bc form,.df-bc-fields{display:grid;gap:12px;margin-top:12px}
 .df-bc label{display:grid;gap:4px;font-weight:600;font-size:14px}
 .df-bc input,.df-bc select{min-height:44px;padding:0 12px;border:1px solid #9aa5b1;border-radius:8px;font:inherit;background:#fff;color:inherit}
-.df-bc input[type=radio]{min-height:0;width:18px;height:18px}
+.df-bc input[type=radio],.df-bc input[type=checkbox]{min-height:0;width:18px;height:18px}
+.df-bc-check{display:flex!important;align-items:center;gap:8px;font-weight:400!important}
 .df-bc-phone{display:grid;grid-template-columns:6.5rem minmax(0,1fr);gap:8px}
 .df-bc fieldset{display:grid;gap:8px;border:0;margin:0;padding:0}
 .df-bc legend{font-weight:600;margin-bottom:8px}
@@ -70,6 +72,7 @@ export const BaselineCheckout = () => {
   const [contactErrors, setContactErrors] = useState<Partial<Record<'email' | 'phone', FieldProblem>>>({})
   const [address, setAddress] = useState<ReturnType<typeof addressDraft> | null>(null)
   const [addressErrors, setAddressErrors] = useState<Partial<Record<AddressField, FieldProblem>>>({})
+  const [keepAddress, setKeepAddress] = useState(true)
   const problem = (p: FieldProblem | undefined) => (p === 'required' ? t('address.required') : p === 'invalid' ? t('address.invalid') : null)
 
   const frame = (body: ReactNode) => (
@@ -128,8 +131,13 @@ export const BaselineCheckout = () => {
     if (id === 'address') {
       const draft = address ?? addressDraft(cart.shippingAddress, c.countries[0] ?? '')
       return (
-        <Form onSubmit={() => void c.saveAddress(draft).then(setAddressErrors)}>
+        <Form onSubmit={() => void c.saveAddress(draft, keepAddress).then(setAddressErrors)}>
           <AddressFields value={draft} onChange={setAddress} countries={c.countries} errors={addressErrors} t={t} locale={locale} className="df-bc-fields" phoneClassName="df-bc-phone" />
+          {c.canKeepAddress && (
+            <Checkbox checked={keepAddress} onChange={setKeepAddress} className="df-bc-check">
+              {t('checkout.keepAddress')}
+            </Checkbox>
+          )}
           <SubmitButton disabled={c.busy}>{t('checkout.continue')}</SubmitButton>
         </Form>
       )

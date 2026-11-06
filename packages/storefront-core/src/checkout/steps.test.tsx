@@ -5,6 +5,7 @@ import { cartOf, line, usd } from '../../test/cart'
 import { Provided, shopAnswering } from '../../test/shop'
 import { createShopClient } from '../platform/api/client'
 import { guestShopState, storedShopState } from '../platform/api/tokens'
+import type { RenderMode } from '../platform/store/context'
 import { addressProblems, isPhone } from './address'
 import { addressDraft, useCheckout, type CheckoutPage } from './checkout'
 
@@ -14,10 +15,12 @@ const flat = { id: 'flat', provider: null, service: null, amount: usd(0), before
 const pickup = { ...flat, id: 'pickup', minDays: null, maxDays: null, hours: 'Mon–Fri' }
 
 /** A cart the engine moves through checkout as the Shop API does (FIRST-RELEASE §19): contact, ship, pay. */
-const engine = (extra: Record<string, unknown> = {}) => {
+const engine = (extra: Record<string, unknown> = {}, saved: object[] = []) => {
   const cart: Record<string, unknown> = { ...cartOf([line('v1', 1)]), ...extra }
   const asked = shopAnswering((a) => {
     const v = a.variables
+    if (a.query.startsWith('query Account')) return { data: { account: { id: 'me', addresses: saved }, store: null } }
+    if (a.query.includes('mutation SaveAddress')) return { data: { saveAddress: 'a-1' } }
     if (a.query.includes('setCartContact')) Object.assign(cart, { email: v['email'], phone: v['phone'] })
     else if (a.query.includes('setShippingAddress')) Object.assign(cart, { shippingAddress: { ...(v['address'] as object) }, shippingOptions: [flat, pickup], checkoutStep: 'ship' })
     else if (a.query.includes('setShippingOption')) Object.assign(cart, { shippingOption: v['option'], shipping: usd(0) })
@@ -39,7 +42,7 @@ const Probe = () => {
   page = useCheckout()
   return null
 }
-const mount = (state = storedShopState) => render(<Provided client={createShopClient({ state })}><Probe /></Provided>)
+const mount = (state = storedShopState, mode: RenderMode = 'preview') => render(<Provided mode={mode} client={createShopClient({ state })}><Probe /></Provided>)
 const open = () => page.steps.find((s) => s.state === 'open')?.id
 
 beforeEach(() => localStorage.setItem('df-cart', 'tok'))
@@ -113,6 +116,35 @@ describe('a spaced phone', () => {
     expect(asked.find((a) => a.query.includes('setCartContact'))?.variables).toEqual({ email: 'maya@example.com', phone: '+919064779543' })
     await act(async () => void (await page.saveAddress({ ...addressDraft(us, 'US'), phone: '+91 90647-79543' })))
     expect((asked.find((a) => a.query.includes('setShippingAddress'))?.variables?.['address'] as { phone: string }).phone).toBe('+919064779543')
+  })
+})
+
+describe('keeping the address', () => {
+  const keeps = (asked: { query: string; variables: Record<string, unknown> }[]) => asked.filter((a) => a.query.includes('mutation SaveAddress')).map((a) => a.variables)
+
+  it('saves a signed-in shopper’s address to their account, the default when they have none', async () => {
+    localStorage.setItem('df-session', 'sess')
+    const { asked } = engine()
+    mount(storedShopState, 'live')
+    await act(async () => undefined)
+    expect(page.canKeepAddress).toBe(true)
+    await act(async () => void (await page.saveAddress(addressDraft(us, 'US'), true)))
+    expect(keeps(asked)).toEqual([{ id: null, isDefault: true, address: expect.objectContaining({ line1: '88 Neil Ave', postalCode: '43215' }) }])
+  })
+
+  it('saves nothing the account already holds, nor when unticked or signed out', async () => {
+    localStorage.setItem('df-session', 'sess')
+    const { asked } = engine({}, [{ ...us, id: 'a-0', line1: '88 NEIL AVE', isDefault: true }])
+    mount(storedShopState, 'live')
+    await act(async () => undefined)
+    await act(async () => void (await page.saveAddress(addressDraft(us, 'US'), true)))
+    await act(async () => void (await page.saveAddress({ ...addressDraft(us, 'US'), line1: '1 Main St' }, false)))
+    expect(keeps(asked)).toEqual([])
+    cleanup()
+    localStorage.removeItem('df-session')
+    mount(storedShopState, 'live')
+    await act(async () => undefined)
+    expect(page.canKeepAddress).toBe(false)
   })
 })
 
