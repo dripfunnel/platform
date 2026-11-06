@@ -131,7 +131,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
 
   // Only from orders with both the verified email and number, so a stranger's checkout brings no address (ACCESS §2.1).
   const keepOrderAddresses = async (tx: ScopedSql, customerId: string, orderIds: string[]) => {
-    const proven = await selectProvenOrderAddresses(tx, customerId, orderIds)
+    const proven = await selectProvenOrderAddresses(tx, storeId, customerId, orderIds)
     if (proven.length === 0) return
     await serialise(tx, `customer_address:${customerId}`)
     const saved = await selectAddresses(tx, customerId)

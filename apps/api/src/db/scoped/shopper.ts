@@ -128,11 +128,11 @@ export const linkGuestOrders = async (tx: ScopedSql, storeId: string, customerId
 }
 
 /** Of these orders, the delivery addresses of those with both the account's verified email and number, newest first. */
-export const selectProvenOrderAddresses = async (tx: ScopedSql, customerId: string, orderIds: readonly string[]): Promise<CartAddress[]> =>
+export const selectProvenOrderAddresses = async (tx: ScopedSql, storeId: string, customerId: string, orderIds: readonly string[]): Promise<CartAddress[]> =>
   (
     await tx<{ address: CartAddress }[]>`
-      select o.shipping_address as address from "order" o join customer c on c.id = ${customerId}
-      where o.id = any(${pgArray(orderIds)}::uuid[]) and o.shipping_address is not null
+      select o.shipping_address as address from "order" o join customer c on c.id = ${customerId} and c.store_id = ${storeId}
+      where o.store_id = ${storeId} and o.id = any(${pgArray(orderIds)}::uuid[]) and o.shipping_address is not null
         and c.email_verified_at is not null and o.email = c.email and c.phone_verified_at is not null and o.phone = c.phone
       order by o.placed_at desc
     `

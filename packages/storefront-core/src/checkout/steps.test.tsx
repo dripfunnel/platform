@@ -15,12 +15,12 @@ const flat = { id: 'flat', provider: null, service: null, amount: usd(0), before
 const pickup = { ...flat, id: 'pickup', minDays: null, maxDays: null, hours: 'Mon–Fri' }
 
 /** A cart the engine moves through checkout as the Shop API does (FIRST-RELEASE §19): contact, ship, pay. */
-const engine = (extra: Record<string, unknown> = {}, saved: object[] = []) => {
+const engine = (extra: Record<string, unknown> = {}, account: { saved?: object[]; refuse?: boolean } = {}) => {
   const cart: Record<string, unknown> = { ...cartOf([line('v1', 1)]), ...extra }
   const asked = shopAnswering((a) => {
     const v = a.variables
-    if (a.query.startsWith('query Account')) return { data: { account: { id: 'me', addresses: saved }, store: null } }
-    if (a.query.includes('mutation SaveAddress')) return { data: { saveAddress: 'a-1' } }
+    if (a.query.startsWith('query Account')) return { data: { account: { id: 'me', addresses: account.saved ?? [] }, store: null } }
+    if (a.query.includes('mutation SaveAddress')) return account.refuse ? { errors: [{ message: 'full', extensions: { code: 'TOO_MANY' } }] } : { data: { saveAddress: 'a-1' } }
     if (a.query.includes('setCartContact')) Object.assign(cart, { email: v['email'], phone: v['phone'] })
     else if (a.query.includes('setShippingAddress')) Object.assign(cart, { shippingAddress: { ...(v['address'] as object) }, shippingOptions: [flat, pickup], checkoutStep: 'ship' })
     else if (a.query.includes('setShippingOption')) Object.assign(cart, { shippingOption: v['option'], shipping: usd(0) })
@@ -134,7 +134,7 @@ describe('keeping the address', () => {
 
   it('saves nothing the account already holds, nor when unticked or signed out', async () => {
     localStorage.setItem('df-session', 'sess')
-    const { asked } = engine({}, [{ ...us, id: 'a-0', line1: '88 NEIL AVE', isDefault: true }])
+    const { asked } = engine({}, { saved: [{ ...us, id: 'a-0', line1: '88 NEIL AVE', isDefault: true }] })
     mount(storedShopState, 'live')
     await act(async () => undefined)
     await act(async () => void (await page.saveAddress(addressDraft(us, 'US'), true)))
@@ -145,6 +145,18 @@ describe('keeping the address', () => {
     mount(storedShopState, 'live')
     await act(async () => undefined)
     expect(page.canKeepAddress).toBe(false)
+  })
+
+  it('moves checkout on when the account refuses the address', async () => {
+    localStorage.setItem('df-session', 'sess')
+    const { asked } = engine({ email: 'maya@example.com' }, { refuse: true })
+    mount(storedShopState, 'live')
+    await act(async () => undefined)
+    let errors = {}
+    await act(async () => void (errors = await page.saveAddress(addressDraft(us, 'US'), true)))
+    expect(keeps(asked)).toHaveLength(1)
+    expect(errors).toEqual({})
+    expect([page.open, page.error]).toEqual(['delivery', null])
   })
 })
 

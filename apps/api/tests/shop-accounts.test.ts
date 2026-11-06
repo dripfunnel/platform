@@ -227,6 +227,43 @@ describe('signing in by email', () => {
       expect(logged?.count).toBe(1)
     })
 
+    const ravisId = async () => (await db.sql<{ id: string }[]>`select id from customer where store_id = ${stores.india} and email = 'ravi@example.com'`)[0]?.id ?? ''
+    const keep = async (lines: string[], isDefault = false) => {
+      const id = await ravisId()
+      for (const line1 of lines)
+        await db.sql`insert into customer_address (customer_id, store_id, name, line1, city, postal_code, country, is_default_shipping) values (${id}, ${stores.india}, 'Ravi', ${line1}, 'Jaipur', '302001', 'IN', ${isDefault})`
+    }
+    const signIn = () => gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')
+
+    it('adds no place the account holds, keeps its default, and takes nothing from a number alone or someone else’s number', async () => {
+      await ravisPhone('+919845099001', true)
+      await keep(['1 Guest Lane'], true)
+      const both = { email: 'ravi@example.com', phone: '+919845099001' }
+      await guest(stores.india, 'JP-9010', both, undefined, '1 guest lane')
+      await guest(stores.india, 'JP-9011', both, undefined, '2 Guest Lane')
+      await guest(stores.india, 'JP-9012', { phone: '+919845099001' }, undefined, '3 Guest Lane')
+      await guest(stores.india, 'JP-9013', { email: 'ravi@example.com', phone: '+919845099999' }, undefined, '4 Guest Lane')
+      await signIn()
+      expect(await db.sql`select line1, is_default_shipping from customer_address where line1 like '% Guest Lane' and deleted_at is null order by line1`).toEqual([
+        { line1: '1 Guest Lane', is_default_shipping: true },
+        { line1: '2 Guest Lane', is_default_shipping: false },
+      ])
+    })
+
+    it('stops at the account’s 20 addresses', async () => {
+      await ravisPhone('+919845099001', true)
+      const [held] = await db.sql<{ n: number }[]>`select count(*)::int as n from customer_address where customer_id = ${await ravisId()} and deleted_at is null`
+      await keep(Array.from({ length: 19 - (held?.n ?? 0) }, (_, i) => `${100 + i} Guest Lane`))
+      const both = { email: 'ravi@example.com', phone: '+919845099001' }
+      await guest(stores.india, 'JP-9014', both, undefined, '7 Guest Lane')
+      await guest(stores.india, 'JP-9015', both, undefined, '8 Guest Lane')
+      await signIn()
+      const [after] = await db.sql<{ total: number; added: number }[]>`
+        select count(*)::int as total, count(*) filter (where line1 in ('7 Guest Lane', '8 Guest Lane'))::int as added
+        from customer_address where customer_id = ${await ravisId()} and deleted_at is null`
+      expect(after).toEqual({ total: 20, added: 1 })
+    })
+
     it('links them at a sign-in by code too, the one that makes the account', async () => {
       await guest(stores.india, 'JP-9005', { email: 'kiran@example.com' })
       await gql('mutation { requestSignInCode(channel: EMAIL, to: "kiran@example.com") }')
