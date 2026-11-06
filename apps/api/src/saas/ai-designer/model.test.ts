@@ -65,6 +65,7 @@ describe('the designer’s tool loop', () => {
     const r = await run([turn([call('1', 'search_stock_images', { query: 'a' })]), turn([])], {}, [{ file: 'src/theme/x.tsx', message: 'bad' }])
     expect(r.searched).toEqual([])
     expect(r.seen[0]?.tools.map((t) => t.name)).toEqual(['search_stock_images', 'add_stock_image'])
+    expect(r.seen[0]?.tools[0]?.description).toMatch(/one to three plain words naming the subject/)
     expect(lastResults(r)).toEqual([expect.objectContaining({ callId: '1', isError: true, content: 'A repair answers from the errors alone: no tool runs in it.' })])
     expect(r.completed).toEqual([])
   })
