@@ -592,6 +592,7 @@ type Customer {
   groupIds: [ID!]
   hasAccount: Boolean
   id: ID
+  lastShipTo: CustomerShipTo
   name: String
   note: String
   orders: [CustomerOrder!]
@@ -664,6 +665,11 @@ type CustomerOrder {
 type CustomerPage {
   nodes: [CustomerSummary!]
   pageInfo: PageInfo
+}
+
+type CustomerShipTo {
+  address: OrderAddress
+  orderNumber: String
 }
 
 type CustomerSummary {

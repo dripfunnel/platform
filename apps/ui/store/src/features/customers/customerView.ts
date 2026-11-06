@@ -51,7 +51,15 @@ export const dateText = (iso: string, timeZone: string): string => new Intl.Date
 
 export const defaultAddress = (customer: Customer): CustomerAddress | null => customer.addresses.find((a) => a.isDefault) ?? customer.addresses[0] ?? null
 
-export const addressText = (a: CustomerAddress): string => [a.line1, a.line2, a.city, [a.region, a.postalCode].filter(Boolean).join(' '), a.country].filter((l): l is string => Boolean(l)).join(', ')
+/** The saved default, else the newest order's delivery address, named as that order's. */
+export const addressLineOf = (customer: Customer): string => {
+  const saved = defaultAddress(customer)
+  if (saved) return addressText(saved)
+  const shipTo = customer.lastShipTo
+  return shipTo ? fill(words.fromOrder, { address: addressText(shipTo.address), number: shipTo.orderNumber }) : words.noAddress
+}
+
+const addressText = (a: Omit<CustomerAddress, 'id' | 'isDefault'>): string => [a.line1, a.line2, a.city, [a.region, a.postalCode].filter(Boolean).join(' '), a.country].filter((l): l is string => Boolean(l)).join(', ')
 
 /** The consent box: what they agreed to, since when and where, and what the team may still record. */
 export const consentOf = (customer: Customer, timeZone: string): { text: string; sub: string; yes: boolean } => {
