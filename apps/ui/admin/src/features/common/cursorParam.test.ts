@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { idParam } from '@dripfunnel/shared/search'
-import { cursorParam } from './rolloutSearch'
+import { cursorParam } from './cursorParam'
 
 describe('cursorParam', () => {
   it('keeps a page cursor longer than an id, which idParam would drop', () => {

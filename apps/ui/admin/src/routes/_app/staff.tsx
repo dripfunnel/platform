@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { loadStaff } from '../../api/staff'
 import { callerFor } from '../../features/common/harnessCaller'
-import { cursorParam } from '@dripfunnel/shared/search'
+import { cursorParam } from '../../features/common/cursorParam'
 import { StaffLoading } from '../../features/staff/Staff'
 import { StaffRouteError, StaffScreen } from '../../features/staff/StaffScreen'
 

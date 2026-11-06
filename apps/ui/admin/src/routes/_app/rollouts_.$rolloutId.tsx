@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { optionalParam } from '@dripfunnel/shared/search'
-import { cursorParam } from '../../features/rollouts/rolloutSearch'
+import { cursorParam } from '../../features/common/cursorParam'
 import { loadRollout, storeUpgradeStates } from '../../api/rollouts'
 import { RolloutDetailLoading } from '../../features/rollouts/RolloutDetail'
 import { RolloutDetailRouteError, RolloutDetailScreen } from '../../features/rollouts/RolloutDetailScreen'
