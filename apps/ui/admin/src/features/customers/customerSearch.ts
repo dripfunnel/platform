@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { customerStatuses, customerWindows, signInMethods } from '../../api/customers'
-import { cursorParam, optionalParam } from '@dripfunnel/shared/search'
+import { optionalParam } from '@dripfunnel/shared/search'
+import { cursorParam } from '../common/cursorParam'
 
 // The filters in the URL, on Customers and on a store's Customers tab. The search term is
 // never one of them (decided on #42). `status`, not `state`: ?state= is the designed-states

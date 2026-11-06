@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { activityResults, actorKinds, datePresets } from '../../api/activity'
 import { actionCodes, activityLevels } from '../../api/activityActions'
-import { cursorParam, idParam, optionalParam } from '@dripfunnel/shared/search'
+import { idParam, optionalParam } from '@dripfunnel/shared/search'
+import { cursorParam } from './cursorParam'
 
 // What an IP filter may hold, so the field never sends what the URL would drop.
 export const ipPattern = /^[0-9A-Fa-f.:]{1,45}$/
