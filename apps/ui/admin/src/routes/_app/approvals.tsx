@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { loadApprovals } from '../../api/approvals'
 import { callerFor } from '../../features/common/harnessCaller'
-import { cursorParam } from '@dripfunnel/shared/search'
+import { cursorParam } from '../../features/common/cursorParam'
 import { ApprovalsLoading } from '../../features/approvals/Approvals'
 import { ApprovalsRouteError, ApprovalsScreen } from '../../features/approvals/ApprovalsScreen'
 

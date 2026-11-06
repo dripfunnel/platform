@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { cursorParam } from '../../features/rollouts/rolloutSearch'
+import { cursorParam } from '../../features/common/cursorParam'
 import { loadRollouts } from '../../api/rollouts'
 import { RolloutsLoading } from '../../features/rollouts/Rollouts'
 import { RolloutsRouteError, RolloutsScreen } from '../../features/rollouts/RolloutsScreen'

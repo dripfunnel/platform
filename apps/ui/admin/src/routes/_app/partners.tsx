@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { loadPartners, partnerStates, setupFilters } from '../../api/partners'
-import { cursorParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
+import { optionalParam, searchParam } from '@dripfunnel/shared/search'
+import { cursorParam } from '../../features/common/cursorParam'
 import { PartnersLoading } from '../../features/partners/Partners'
 import { PartnersRouteError, PartnersScreen } from '../../features/partners/PartnersScreen'
 
