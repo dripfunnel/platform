@@ -309,7 +309,7 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
       expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
       // Linked as a sign-in links it, the order is his history; the typed-email use still isn't.
       const [ravi] = await db.sql<{ id: string }[]>`select id from customer where store_id = ${store} and email = 'ravi@example.com'`
-      expect(await withSystemScope(db.sql, (tx) => linkGuestOrders(tx, store, ravi?.id ?? ''))).toBe(1)
+      expect(await withSystemScope(db.sql, (tx) => linkGuestOrders(tx, store, ravi?.id ?? ''))).toHaveLength(1)
       expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'NOT_ELIGIBLE' }])
     } finally {
       session = null

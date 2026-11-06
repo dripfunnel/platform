@@ -92,5 +92,10 @@ export const addressInput = (a: AddressDraft) => ({
   longitude: a.pin?.longitude ?? null,
 })
 
+const placeOf = (a: AddressDraft) => [a.line1, a.line2, a.city, a.postalCode, a.country].map((part) => part.trim().toLowerCase()).join('\n')
+
+/** The same place, whoever it's for and however it's capitalised. */
+export const samePlace = (a: AddressDraft, b: AddressDraft) => placeOf(a) === placeOf(b)
+
 export const emailPattern =/^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export const isPhone = (value: string) => phonePattern.test(compact(value))
