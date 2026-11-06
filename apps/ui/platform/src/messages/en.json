@@ -295,7 +295,7 @@
     },
     "support": {
       "title": "Support",
-      "lede": "Sign in as one of your merchants’ users to fix things with them. 30 minutes, logged as you acting as them."
+      "lede": "Sign in as one of your merchants’ users to fix things with them. 90 minutes, extendable once by 30, logged as you acting as them."
     },
     "activity": {
       "title": "Activity log",
@@ -1465,6 +1465,7 @@
         "store.cancelled": "Cancelled",
         "support_session.started": "Support session started",
         "support_session.ended": "Support session ended",
+        "support_session.extended": "Support session extended",
         "impersonation.started": "DripFunnel support signed in",
         "impersonation.ended": "DripFunnel support signed out"
       },
@@ -2333,6 +2334,7 @@
       "activity.exported": "{actor} exported the activity log",
       "support_session.started": "{actor} started a support session with {target}",
       "support_session.ended": "{actor} ended the support session with {target}",
+      "support_session.extended": "{actor} extended the support session with {target} by 30 minutes",
       "support_session.link_reissued": "{actor} returned to the support session with {target}",
       "setup_session.started": "{actor} started a setup session",
       "setup_session.ended": "{actor} ended the setup session",
@@ -2393,6 +2395,7 @@
       "activity.exported": "Activity log exported",
       "support_session.started": "Support session started",
       "support_session.ended": "Support session ended",
+      "support_session.extended": "Support session extended",
       "support_session.link_reissued": "Support session resumed",
       "setup_session.started": "Setup session started",
       "setup_session.ended": "Setup session ended",
@@ -2718,8 +2721,8 @@
     "rulesLabel": "How support sessions work",
     "rules": [
       {
-        "title": "30 minutes",
-        "body": "No extension. Start a new session if you need more time."
+        "title": "90 minutes",
+        "body": "Extend it once by 30 minutes if you need more. After that, start a new session."
       },
       {
         "title": "Merchant consent",
@@ -2788,7 +2791,8 @@
       "PORTAL_NOT_LIVE": "Your merchant portal’s address isn’t live yet, so there is nowhere to open the session. Check Domains.",
       "NOT_SESSION_OWNER": "Only the person who started this session can return to it. Owners and Admins can end it.",
       "SESSION_ENDED": "That session has already ended.",
-      "SESSION_EXPIRED": "That session ran out."
+      "SESSION_EXPIRED": "That session ran out.",
+      "SUPPORT_SESSION_ALREADY_EXTENDED": "It has already been extended once. Start a new session if you need more time."
     },
     "start": {
       "label": "Support · {name}",
@@ -2814,7 +2818,7 @@
       "ticket": "Ticket link (optional)",
       "ticketHint": "https://…",
       "ticketBad": "A ticket link starts with https://.",
-      "confirm": "You’ll act as {name} ({role}, {store}) for 30 minutes, read-only until {store}’s Owner allows changes. You can’t change {first}’s password, 2-factor, payment details or the store’s ownership. Everyone signed in to {store} sees “{partner} support ({me}) is signed in as {first}.” Everything you do is logged as {me} as {first}, in your log and {store}’s.",
+      "confirm": "You’ll act as {name} ({role}, {store}) for 90 minutes (you can extend once by 30), read-only until {store}’s Owner allows changes. You can’t change {first}’s password, 2-factor, payment details or the store’s ownership. Everyone signed in to {store} sees “{partner} support ({me}) is signed in as {first}.” Everything you do is logged as {me} as {first}, in your log and {store}’s.",
       "reasonLabel": "Reason:",
       "ticketLabel": "Ticket:",
       "noTicket": "No ticket link",
@@ -2858,6 +2862,7 @@
     },
     "returnToTab": "Return to tab",
     "end": "End",
+    "extend": "Extend 30 min",
     "endConfirm": {
       "title": "End {user}’s session?",
       "body": "The banner goes away for everyone signed in to {store}. {agent} goes back to the partner console.",
@@ -2867,6 +2872,7 @@
     "toasts": {
       "started": "Signed in as {name} in a new tab.",
       "popupBlocked": "Your browser blocked the new tab. Allow pop-ups for this site, then use Return to session.",
+      "extended": "{name}’s session now ends in {minutes} min.",
       "ended": "{name}’s session ended.",
       "failed": "That didn’t work. Nothing was changed. Try again."
     }

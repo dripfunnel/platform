@@ -7,7 +7,7 @@ import { z } from 'zod'
 import type { Customer, CustomerGroup, CustomerSummary } from '../../api/customers'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
-import { consentOf, customersAccessOf } from './customerView'
+import { addressLineOf, consentOf, customersAccessOf } from './customerView'
 
 // Customers driven as the team would (FIRST-RELEASE §7): who sees what, and what search, groups, tags, notes, consent,
 // adding, editing and export send.
@@ -54,6 +54,7 @@ const ananya: Customer = {
   consent: { state: 'opted_in', at: '2026-09-27T04:42:00.000Z', source: 'checkout', channels: ['email'] },
   groupIds: ['g1'],
   addresses: [{ id: 'a1', name: 'Ananya Rao', line1: '14 3rd Cross', line2: null, city: 'Bengaluru', region: 'KA', postalCode: '560038', country: 'IN', phone: null, isDefault: true }],
+  lastShipTo: null,
   city: 'Bengaluru',
   ordersCount: 3,
   orders: [{ id: 'o1', number: 'KT-1042', placedAt: '2026-10-10T07:30:00.000Z', state: 'placed', paymentState: 'paid', fulfilmentState: 'unfulfilled', total: { amount: '579600', currency: 'INR' } }],
@@ -109,6 +110,13 @@ describe('what Customers works out', () => {
     expect(consentOf({ ...ananya, consent: { state: 'opted_in', at: '2026-09-27T04:42:00.000Z', source: 'email', channels: ['email', 'sms'] } }, 'UTC').text).toBe(words.detail.consent.opted_in_sms)
     expect(consentOf({ ...ananya, consent: { state: 'stopped', at: '2026-10-01T04:42:00.000Z', source: 'recorded_by_store', channels: [] } }, 'UTC')).toMatchObject({ text: words.detail.consent.stopped, yes: false })
     expect(consentOf({ ...ananya, consent: { state: 'not_asked', at: null, source: 'added_by_hand', channels: [] } }, 'UTC').sub).toBe(words.detail.consent.byHand)
+  })
+
+  it('shows the saved default address, else the newest order’s, else none', () => {
+    const shipTo = { orderNumber: 'KT-1004', address: { name: 'Ananya Rao', line1: '9 MG Road', line2: null, city: 'Pune', region: null, postalCode: '411001', country: 'IN', phone: null } }
+    expect(addressLineOf({ ...ananya, lastShipTo: shipTo })).toBe('14 3rd Cross, Bengaluru, KA 560038, IN')
+    expect(addressLineOf({ ...ananya, addresses: [], lastShipTo: shipTo })).toBe('9 MG Road, Pune, 411001, IN (from order KT-1004)')
+    expect(addressLineOf({ ...ananya, addresses: [], lastShipTo: null })).toBe(words.detail.noAddress)
   })
 })
 

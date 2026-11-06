@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -122,11 +122,15 @@ Rules for the **people** pool:
   the number with a code** at sign-in, never by number alone (decided 2026-10-05 on #337). Every sign-in
   links the store's placed guest orders (never a preview's test order) whose email or number matches one of the account's verified ones,
   however the shopper signed in, and logs `customer.orders_linked`; a linked order then shows under the
-  account's orders and no longer opens with its guest token.
+  account's orders and no longer opens with its guest token. A linked order whose email **and** number both match the
+  account's verified ones also gives the account its delivery address (`auth/shopperAuth.ts`): not one it holds already
+  (same lines, city, postcode and country), the first the default when it has none, up to the 20-address limit, each
+  logged `customer.address_saved`.
 
-  | Decision (2026-11-03, #1186) | Rejected | Why |
+  | Decision | Rejected | Why |
   |---|---|---|
-  | Link by the verified email or number alone, whoever typed it at checkout | Never linking (#320's review); linking only orders whose email was proven by its own code | Shoppers expect their guest orders in their account. Its confirmation already went to that address, and a stranger's order there shows only what the stranger typed |
+  | Link by the verified email or number alone, whoever typed it at checkout (2026-11-03, #1186) | Never linking (#320's review); linking only orders whose email was proven by its own code | Shoppers expect their guest orders in their account. Its confirmation already went to that address, and a stranger's order there shows only what the stranger typed |
+  | Save a linked order's address only when its email and number both match (2026-11-06, #1310) | Every linked order's address; none | A stranger who typed the account's email at checkout would otherwise put their home address in it, which a linked order never shows. A guest who gave no number keeps their orders and adds the address themselves, or ticks "Save this address to my account" at checkout |
 - **The same email or mobile may register in any number of stores**: each store's account is
   separate, with its own password, addresses and orders, and no store can see another's.
 - Codes are hashed, short-lived, attempt-counted and rate-limited per number, per store and
@@ -1011,7 +1015,7 @@ Partner console: store page → "Open support session"
    │          a reason or ticket number
    ▼
 support_session(store_id, partner_user_id, reason, access 'read',
-                started_at, expires_at = +30 min, ended_at)  + audit row
+                started_at, expires_at = +90 min, extended_at, ended_at)  + audit row
    │  one-time handoff token, short-lived, single use
    ▼
 Browser → https://<store's portal host>/support/enter?token=…
@@ -1023,10 +1027,18 @@ Browser → https://<store's portal host>/support/enter?token=…
 
 - **Read-only** by default: the support read set is the Owner's read permissions, minus
   anything credential-shaped (credentials are never readable anyway, §5.5).
-- **Time-limited**: 30 minutes (decided 2026-10-05 on #337), no silent extension; a new session needs
-  a new reason.
+- **Time-limited**: 90 minutes, **extendable once by 30** by its own agent, as staff impersonation (§8.1)
+  (decided 2026-11-06 on #1328, replacing 30 minutes with no extension, #337). The agent extends from the
+  partner console (`extendSupportSession`) or its banner on the portal host
+  (`/api/auth/extend-support-session`), logged `support_session.extended`. Never silently; past that a new
+  session needs a new reason.
+- **Over means back to the console** (#1328): once the agent ends it on its banner, or it ends any other way
+  (a colleague, the store's switch, its time), the agent's portal tab goes back to the partner console,
+  never the store's sign-in page. The portal tells an agent from a signed-out person by the support cookie,
+  which stays after the end (`/api/auth/support-session` still names the session).
 - **Visible**: while it is open, every person signed in to that store sees a banner: "[Partner]
-  support (Priya) is viewing your store. Read-only. Ends in 28 min." The support agent sees an
+  support (Priya) is viewing your store. Read-only. Ends in 28 min." Once writes are allowed it reads "[Partner] support (Priya) can make
+  changes in your store. For this session only, allowed by [name]…" The support agent sees an
   unremovable bar naming the store, their role and the time left (J3). Staff don't use
   support sessions; their impersonation banner says "Support", never "DripFunnel" (§8.1).
 - **Logged**: every session appears in the store's *Support access log* (who, when, why, how
@@ -1036,6 +1048,11 @@ Browser → https://<store's portal host>/support/enter?token=…
   the elevation applies to that one session and is logged. **An Owner or a Manager** may allow it
   (`support.allow_write`, §5.1) (decided 2026-10-05 on #337). It only exists inside a session the Owner's On/Off
   switch let start; a Manager's Allow emails the Owners like a session start does.
+  **Or a code** (decided 2026-11-06): the same Owner or Manager may instead press "Give support a code" on the banner and
+  read the agent a 6-digit code, which the agent types on its own banner (`issueSupportWriteCode`,
+  `redeemSupportWriteCode`; migrations/0386). It is single use, for that session only, lasts 10 minutes (never past
+  the session), is replaced by a newer one and voided after 5 wrong tries, and works only while its issuer is still an active Owner or Manager of the store. Only its salted hash is kept, never logged.
+  A redeemed code leaves the session as an Allow by the person who issued it, a Manager's emailing the Owners.
 - **Never, even elevated**: change passwords or sign-in methods, payment methods, payouts,
   ownership or roles; create API keys or install apps; open a storefront preview link, which names
   the person who opened it (storefront PREVIEW §5, #317); skip a Home checklist step (#719). A support session is not a person, so it
@@ -1045,7 +1062,9 @@ Browser → https://<store's portal host>/support/enter?token=…
   without an Allow**, since no one can give one yet. The "never" list still applies. Any other
   invited user, and an invited Owner on a store that has an active Owner or Manager, is still
   refused (`NOT_ACCEPTED`). Once the Owner accepts, the session is read-only again at its next request,
-  and writes need an Allow, as above. The merchant side's banner still shows the stored access.
+  and writes need an Allow, as above. The merchant side's banner and Support access log say what the session
+  can do the same way (`store_support_sessions` returns the seat's status, migrations/0388; #1328), so Staff
+  see "can make changes" while support writes as the invited Owner.
 - **Staff don't use support sessions**: they impersonate (§8.1).
 - A partner's support session never reaches a store of another partner; the host check (§9
   check 0) and the partner check at opening both refuse it.

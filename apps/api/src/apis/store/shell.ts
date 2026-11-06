@@ -9,7 +9,7 @@ import { selectMyMemberships, selectOpenSupportSession, selectStoreState, type M
 import { selectOpenStoreImpersonation } from '#db/scoped/storeStaff'
 import { selectOpenStoreSupportSession, type StoreSupportRow } from '#db/scoped/storeSupport'
 import { writeRequestOf } from '#saas/storeSupport/index'
-import type { SupportSeat } from '#auth/storeSupport'
+import { supportAccessOf, type SupportSeat } from '#auth/storeSupport'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, readOnlyFor, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
@@ -70,6 +70,8 @@ interface Banner {
   access: string | null
   allowedBy: string | null
   writeRequest: { note: string; requestedAt: string; state: string } | null
+  /** The agent's own banner: its one extension is still to take (ACCESS.md §8). */
+  extendable: boolean | null
 }
 
 /** What the support banner shows (0036): the partner, the agent's first name and when the session ends. */
@@ -81,6 +83,7 @@ const bannerOf = (s: { partner_name: string; agent_name: string; expires_at: Dat
   access: null,
   allowedBy: null,
   writeRequest: null,
+  extendable: null,
 })
 
 /** A support caller's own session, from its seat: no read of the store's other sessions. */
@@ -92,15 +95,16 @@ const ownBannerOf = (seat: SupportSeat): Banner => ({
   access: seat.access,
   allowedBy: null,
   writeRequest: seat.writeRequest && { ...seat.writeRequest, requestedAt: seat.writeRequest.requestedAt.toISOString() },
+  extendable: seat.extendable,
 })
 
-/** The merchant side's banner (0160), with the agent's request for writes to Allow or Deny. */
+/** The merchant side's banner (0160, 0388), with the agent's request for writes to Allow or Deny. */
 const merchantBannerOf = (s: StoreSupportRow): Banner => {
   const asked = writeRequestOf(s)
   return {
     ...bannerOf(s),
     sessionId: s.id,
-    access: s.access,
+    access: supportAccessOf(s),
     allowedBy: s.access === 'write' ? s.write_decided_by_name : null,
     writeRequest: asked && { ...asked, requestedAt: asked.requestedAt.toISOString() },
   }
@@ -210,6 +214,7 @@ export const registerShell = (builder: StoreBuilder) => {
       access: t.exposeString('access', { nullable: true }),
       allowedBy: t.exposeString('allowedBy', { nullable: true }),
       writeRequest: t.field({ type: WriteRequest, nullable: true, resolve: (b) => b.writeRequest }),
+      extendable: t.exposeBoolean('extendable', { nullable: true }),
     }),
   })
   const StateType = builder.objectRef<StateShape>('StoreState').implement({

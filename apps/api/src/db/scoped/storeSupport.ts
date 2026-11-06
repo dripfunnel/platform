@@ -62,6 +62,7 @@ export interface SupportPortalRow {
   write_requested_at: Date | null
   write_request_note: string | null
   write_decided_at: Date | null
+  extended_at: Date | null
   store_has_allower: boolean
 }
 
@@ -74,7 +75,7 @@ export const selectSupportPortalSession = async (tx: ScopedSql, partnerId: strin
         m.id as membership_id, m.status as membership_status, m.role_key, m.seller_id, se.name as seller_name, se.status as seller_status, se.access_level,
         u.id as user_id, u.name as user_name, u.email as user_email, u.status as user_status,
         ss.started_at, ss.expires_at, ss.ended_at, ss.ended_by_partner_user_id, ss.end_reason, ss.access,
-        ss.write_requested_at, ss.write_request_note, ss.write_decided_at, ${storeHasAllower(tx)} as store_has_allower
+        ss.write_requested_at, ss.write_request_note, ss.write_decided_at, ss.extended_at, ${storeHasAllower(tx)} as store_has_allower
       from support_session ss
       join partner p on p.id = ss.partner_id
       join partner_user pu on pu.id = ss.partner_user_id
@@ -127,6 +128,51 @@ export const setStoreSupportAccess = (tx: ScopedSql, allowed: boolean, now: Date
 export const decideSupportWrite = async (tx: ScopedSql, sessionId: string, allow: boolean, now: Date): Promise<EndedSupportRow | null> =>
   (await tx<EndedSupportRow[]>`select session_id, membership_id, partner_user_id from decide_support_write(${sessionId}, ${allow}, ${now})`)[0] ?? null
 
+/** A write code for an open, read-only session on the acting store (0386); its expiry, or null when none could be issued. */
+export const issueSupportWriteCode = async (tx: ScopedSql, sessionId: string, codeHash: string, until: Date, now: Date): Promise<Date | null> =>
+  (await tx<{ expires_at: Date }[]>`select expires_at from issue_support_write_code(${sessionId}, ${codeHash}, ${until}, ${now})`)[0]?.expires_at ?? null
+
+export type WriteCodeOutcome = { kind: 'allowed'; byManager: boolean } | { kind: 'wrong' | 'none' | 'already' | 'closed' }
+
+/**
+ * The agent's code, in system scope by the cookie's session (0386). A match allows writes as an Allow
+ * would, by the person who issued it, only while they still may (an active Owner or Manager here);
+ * a miss counts, and the last allowed miss voids the code.
+ */
+export const redeemSupportWriteCode = async (tx: ScopedSql, sessionId: string, codeHash: string, maxAttempts: number, now: Date): Promise<WriteCodeOutcome> => {
+  const [row] = await tx<{ open: boolean; access: string; live: boolean; matches: boolean; attempts: number; issuer_role: string | null }[]>`
+    select ss.ended_at is null and ss.expires_at > ${now} and s.support_access_allowed and s.status not in ('cancelled', 'closed') as open,
+      ss.access, ss.write_code_hash is not null and ss.write_code_expires_at > ${now} as live,
+      ss.write_code_hash is not distinct from ${codeHash} as matches, ss.write_code_attempts as attempts,
+      (select m.role_key from membership m join "user" u on u.id = m.user_id
+        where m.store_id = ss.store_id and m.user_id = ss.write_code_issued_by_user_id and m.seller_id is null
+          and m.role_key in ('owner', 'manager') and m.status = 'active' and u.status = 'active') as issuer_role
+    from support_session ss join store s on s.id = ss.store_id
+    where ss.id = ${sessionId}
+    for update of ss
+  `
+  if (!row?.open) return { kind: 'closed' }
+  if (row.access === 'write') return { kind: 'already' }
+  if (!row.live || row.issuer_role === null || row.attempts >= maxAttempts) return { kind: 'none' }
+  if (!row.matches) {
+    const voided = row.attempts + 1 >= maxAttempts
+    await tx`
+      update support_session set write_code_attempts = write_code_attempts + 1,
+        write_code_hash = case when ${voided} then null else write_code_hash end,
+        write_code_expires_at = case when ${voided} then null else write_code_expires_at end,
+        write_code_issued_by_user_id = case when ${voided} then null else write_code_issued_by_user_id end
+      where id = ${sessionId}
+    `
+    return { kind: 'wrong' }
+  }
+  await tx`
+    update support_session set access = 'write', write_decided_at = ${now}, write_decided_by_user_id = write_code_issued_by_user_id,
+      write_code_hash = null, write_code_expires_at = null, write_code_issued_by_user_id = null, write_code_attempts = 0
+    where id = ${sessionId}
+  `
+  return { kind: 'allowed', byManager: row.issuer_role === 'manager' }
+}
+
 export const selectSupportAllowed = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
   (await tx<{ support_access_allowed: boolean }[]>`select support_access_allowed from store where id = ${storeId}`)[0]?.support_access_allowed ?? false
 
@@ -152,6 +198,9 @@ export interface StoreSupportRow {
   write_request_note: string | null
   write_decided_at: Date | null
   write_decided_by_name: string | null
+  membership_status: string
+  user_status: string
+  store_has_allower: boolean
 }
 
 /** The acting store's sessions since `since`, newest first by `(started_at, id)`, through 0160's `store_support_sessions`. */

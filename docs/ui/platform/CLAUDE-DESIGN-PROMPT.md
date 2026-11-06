@@ -411,8 +411,8 @@ strip ("Payment status from 17:42; Stripe is slow to respond.") with Refresh now
 "Sign in as one of your merchants' users to fix things with them. 30 minutes, logged as you
 acting as them." Owner, Admin and Support; two tabs, **Users** and **Sessions · N open now**.
 
-**The rules, shown at the top of Users**: 30 minutes, no extension ("Start a new session if
-you need more time."); only for stores that have partner support turned on; everyone in the
+**The rules, shown at the top of Users**: 90 minutes, extendable once by 30 ("Extend it once by 30
+minutes if you need more. After that, start a new session.", #1328); only for stores that have partner support turned on; everyone in the
 store sees it ("Northstar support (Priya) is signed in as Jenna. Ends in 28 min."); logged as
 you ("Every action shows as 'Priya as Jenna' in your log and the merchant's."); passwords,
 2-factor, payment details and ownership can't be changed.

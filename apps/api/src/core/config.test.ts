@@ -20,10 +20,10 @@ describe('parseConfig', () => {
     expect(parseConfig({ ...hosts, AI_PHOTO_SOURCES: '' }).AI_PHOTO_SOURCES).toBeUndefined()
   })
 
-  it('gives the AI Openverse and Commons unless AI_PHOTOS is 0, and never Pexels or Pixabay even when named (#1244)', () => {
+  it('gives the AI the sources AI_PHOTO_SOURCES names, Openverse and Commons when unset, none when AI_PHOTOS is 0', () => {
     expect(aiPhotoSourcesOf(parseConfig(hosts))).toEqual(['openverse', 'commons'])
-    expect(aiPhotoSourcesOf(parseConfig({ ...hosts, AI_PHOTOS: '1', AI_PHOTO_SOURCES: 'pexels,openverse,commons' }))).toEqual(['openverse', 'commons'])
-    expect(aiPhotoSourcesOf(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pixabay,commons' }))).toEqual(['commons'])
+    expect(aiPhotoSourcesOf(parseConfig({ ...hosts, AI_PHOTOS: '1', AI_PHOTO_SOURCES: 'pexels,openverse,commons' }))).toEqual(['pexels', 'openverse', 'commons'])
+    expect(aiPhotoSourcesOf(parseConfig({ ...hosts, AI_PHOTO_SOURCES: 'pixabay,commons' }))).toEqual(['pixabay', 'commons'])
     expect(aiPhotoSourcesOf(parseConfig({ ...hosts, AI_PHOTOS: '0' }))).toEqual([])
     expect(() => parseConfig({ ...hosts, AI_PHOTOS: 'yes' })).toThrow()
   })

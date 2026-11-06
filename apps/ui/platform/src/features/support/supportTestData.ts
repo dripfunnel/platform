@@ -33,5 +33,6 @@ export const session = (over: Partial<SupportSession> = {}): SupportSession => (
   endedByName: null,
   end: { allowed: true },
   return: { allowed: true },
+  extend: { allowed: true },
   ...over,
 })

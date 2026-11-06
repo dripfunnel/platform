@@ -592,6 +592,7 @@ type Customer {
   groupIds: [ID!]
   hasAccount: Boolean
   id: ID
+  lastShipTo: CustomerShipTo
   name: String
   note: String
   orders: [CustomerOrder!]
@@ -664,6 +665,11 @@ type CustomerOrder {
 type CustomerPage {
   nodes: [CustomerSummary!]
   pageInfo: PageInfo
+}
+
+type CustomerShipTo {
+  address: OrderAddress
+  orderNumber: String
 }
 
 type CustomerSummary {
@@ -1182,6 +1188,7 @@ type Mutation {
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
   issueGiftCard(issueKey: ID!, productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
+  issueSupportWriteCode(sessionId: ID!): SupportWriteCode
   keepProducts(ids: [ID!]!): PlanKeep
   makeDomainPrimary(id: ID): Boolean
   markDeliveryDelivered(cashReceived: Boolean, deliveryId: ID!, reason: String!): Boolean
@@ -1198,6 +1205,7 @@ type Mutation {
   publishProductStory(productId: ID!, revision: Int!): ProductStory
   receiveReturn(returnId: ID!): Boolean
   recordMarketingStop(id: ID!): Boolean
+  redeemSupportWriteCode(code: String!): Boolean
   refund(extra: String, lines: [RefundLineInput!]!, note: String, orderId: ID!, override: Boolean, reason: RefundReason!, restock: Boolean, returnId: ID): [ID!]
   regenerateBackupCodes: [String!]
   remindNow(cartId: ID!, discountPercent: Int): ID
@@ -3482,6 +3490,7 @@ type SupportBanner {
   agentFirstName: String
   allowedBy: String
   endsAt: String
+  extendable: Boolean
   partnerName: String
   sessionId: ID
   writeRequest: SupportWriteRequest
@@ -3491,6 +3500,11 @@ type SupportSessionWriteRequest {
   note: String
   requestedAt: String
   state: String
+}
+
+type SupportWriteCode {
+  code: String
+  expiresAt: String
 }
 
 type SupportWriteRequest {

@@ -47,7 +47,7 @@ describe('Support access', () => {
 describe('Users', () => {
   it('shows the rules with the partner and the caller, and each user’s store and role', async () => {
     const text = textOf(await usersTab([target(), target({ membershipId: 'm2', name: 'Ola Berg', type: 'supplier', role: 'supplier-admin', supplier: 'Loomcraft' })]))
-    expect(text).toContain('No extension. Start a new session if you need more time.')
+    expect(text).toContain('Extend it once by 30 minutes if you need more. After that, start a new session.')
     expect(text).toContain('“Northstar support (Priya) is signed in as Jenna. Ends in 28 min.”')
     expect(text).toContain('Juniper & Co. Owner')
     expect(text).toContain('Supplier admin for Loomcraft')
@@ -181,17 +181,19 @@ describe('After each answer', () => {
 describe('Sessions', () => {
   const now = Date.parse('2026-10-04T10:18:00.000Z')
 
-  it('shows the open ones with minutes left, Return to tab on yours and End when allowed', async () => {
-    const theirs = session({ id: 'ss2', you: false, agent: { id: 'p2', name: 'Sam Lee' }, return: { allowed: false, reason: 'NOT_SESSION_OWNER' }, end: { allowed: false, reason: 'NOT_SESSION_OWNER' } })
-    const html = await render(<SessionsTab open={[session(), theirs]} history={[]} openMore={more} onOpenMore={noop} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+  it('shows the open ones with minutes left, Return to tab and Extend on yours and End when allowed', async () => {
+    const theirs = session({ id: 'ss2', you: false, agent: { id: 'p2', name: 'Sam Lee' }, return: { allowed: false, reason: 'NOT_SESSION_OWNER' }, end: { allowed: false, reason: 'NOT_SESSION_OWNER' }, extend: { allowed: false, reason: 'NOT_SESSION_OWNER' } })
+    const html = await render(<SessionsTab open={[session(), theirs]} history={[]} openMore={more} onOpenMore={noop} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onExtend={noop} onMore={noop} />)
     const text = textOf(html)
     expect(text).toContain('12 min left')
     expect(text.match(new RegExp(words.returnToTab, 'g'))).toHaveLength(1)
+    // ACCESS.md §8: only the agent's own session, once.
+    expect(text.match(new RegExp(words.extend, 'g'))).toHaveLength(1)
     expect(text).toContain('Sam Lee')
     expect(text).toContain(words.refusals.NOT_SESSION_OWNER)
     expect(html).toContain('href="https://help.northstar.example/t/48213"')
     expect(text).toContain(words.noHistory)
-    const cut = await render(<SessionsTab open={[session()]} openMore={{ show: true, busy: false, failed: false }} onOpenMore={noop} history={[]} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+    const cut = await render(<SessionsTab open={[session()]} openMore={{ show: true, busy: false, failed: false }} onOpenMore={noop} history={[]} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onExtend={noop} onMore={noop} />)
     expect(textOf(cut)).toContain(words.showMore)
   })
 
@@ -199,7 +201,7 @@ describe('Sessions', () => {
     const ended = session({ id: 'h1', endedAt: '2026-10-04T10:20:00.000Z', endedBy: 'colleague', endedByName: 'Maya Chen', ticket: 'javascript:alert(1)' })
     const expired = session({ id: 'h2', endedAt: '2026-10-04T10:30:00.000Z', endedBy: 'expired' })
     const byStore = session({ id: 'h3', endedAt: '2026-10-04T10:40:00.000Z', endedBy: 'store' })
-    const html = await render(<SessionsTab open={[]} history={[ended, expired, byStore]} openMore={more} onOpenMore={noop} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+    const html = await render(<SessionsTab open={[]} history={[ended, expired, byStore]} openMore={more} onOpenMore={noop} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onExtend={noop} onMore={noop} />)
     const text = textOf(html)
     expect(text).toContain(words.noOpen)
     expect(text).toContain('Ended by Maya Chen')

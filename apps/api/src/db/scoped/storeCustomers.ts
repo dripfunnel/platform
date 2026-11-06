@@ -35,6 +35,7 @@ export interface CustomerDetailRow extends CustomerListRow {
   phone_verified: boolean
   group_ids: string[]
   addresses: (CartAddress & { id: string; isDefault: boolean })[]
+  last_ship_to: { orderNumber: string; address: CartAddress } | null
   recent_orders: { id: string; number: string; placed_at: string; state: string; payment_state: string; fulfilment_state: string; total_amount: string; currency: string }[]
 }
 
@@ -93,6 +94,8 @@ export const selectStoreCustomer = async (tx: ScopedSql, storeId: string, id: st
         coalesce((select json_agg(json_build_object('id', a.id, 'name', a.name, 'line1', a.line1, 'line2', a.line2, 'city', a.city, 'region', a.region,
             'postalCode', a.postal_code, 'country', a.country, 'phone', a.phone, 'isDefault', a.is_default_shipping) order by a.is_default_shipping desc, a.created_at)
           from customer_address a where a.customer_id = c.id and a.deleted_at is null), '[]'::json) as addresses,
+        (select json_build_object('orderNumber', o.number, 'address', o.shipping_address) from "order" o
+          where ${theirOrders(tx)} and o.shipping_address is not null order by o.placed_at desc limit 1) as last_ship_to,
         coalesce((select json_agg(r order by r.placed_at desc) from (
           select o.id, o.number, o.placed_at, o.state, o.payment_state, o.fulfilment_state, o.total_amount::text as total_amount, o.currency
           from "order" o where ${theirOrders(tx)} order by o.placed_at desc limit ${recentOrdersShown}) r), '[]'::json) as recent_orders

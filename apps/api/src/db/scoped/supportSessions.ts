@@ -164,12 +164,13 @@ export interface SupportSessionRow {
   ended_by_name: string | null
   /** Set when the store side ended it (0160): support switched off, its user gone or the store closed. */
   end_reason: string | null
+  extended_at: Date | null
 }
 
 const sessionColumns = (tx: ScopedSql) => tx`
   select ss.id, ss.store_id, s.name as store_name, ss.membership_id, u.id as user_id, u.name as user_name, m.role_key, sl.name as seller_name,
     ss.partner_user_id, a.name as agent_name, ss.reason, ss.ticket, ss.started_at, ss.expires_at, ss.ended_at,
-    ss.ended_by_partner_user_id, e.name as ended_by_name, ss.end_reason
+    ss.ended_by_partner_user_id, e.name as ended_by_name, ss.end_reason, ss.extended_at
   from support_session ss
   join store s on s.id = ss.store_id
   join membership m on m.id = ss.membership_id
@@ -208,6 +209,14 @@ export const selectSupportSessions = async (tx: ScopedSql, partnerId: string, op
 
 export const endSupportSession = async (tx: ScopedSql, id: string, endedBy: string, now: Date): Promise<boolean> =>
   (await tx`update support_session set ended_at = ${now}, ended_by_partner_user_id = ${endedBy}, handoff_hash = null where id = ${id} and ended_at is null`).count > 0
+
+/** The one extension (0387): the open, unextended session only; its new end, or null. */
+export const extendSupportSession = async (tx: ScopedSql, id: string, byMs: number, now: Date): Promise<Date | null> =>
+  (await tx<{ expires_at: Date }[]>`
+    update support_session set extended_at = ${now}, expires_at = expires_at + ${`${byMs / 1000} seconds`}::interval
+    where id = ${id} and extended_at is null and ended_at is null and expires_at > ${now}
+    returning expires_at
+  `)[0]?.expires_at ?? null
 
 /** A fresh link for an open session: the previous one stops working (ACCESS.md §8.3). */
 export const reissueSupportHandoff = async (tx: ScopedSql, id: string, handoffHash: string, handoffExpiresAt: Date): Promise<void> => {
