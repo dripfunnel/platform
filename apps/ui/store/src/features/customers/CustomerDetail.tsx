@@ -4,7 +4,7 @@ import { customerTagLimits, setCustomerGroups, setCustomerNote, setCustomerTags,
 import { harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { merchantStatus, timeText } from '../orders/orderView'
-import { addressText, consentOf, defaultAddress, spentText, type CustomersAccess } from './customerView'
+import { addressLineOf, consentOf, spentText, type CustomersAccess } from './customerView'
 import { EditCustomer } from './EditCustomer'
 
 const words = messages.customers.detail
@@ -30,7 +30,6 @@ export const CustomerDetail = ({ customer, groups, access, timeZone, busy, act, 
   const [note, setNote] = useState(customer.note ?? '')
   useEffect(() => setNote(customer.note ?? ''), [customer.id, customer.note])
   const name = customer.name ?? messages.customers.row.noName
-  const address = defaultAddress(customer)
   const consent = consentOf(customer, timeZone)
   const spent = spentText(customer.spent)
   const ro = !access.canEdit
@@ -59,7 +58,7 @@ export const CustomerDetail = ({ customer, groups, access, timeZone, busy, act, 
       <p className="df-customer-text2">
         {fill(words.contact, { email: customer.email ?? words.noEmail, phone: customer.phone ?? words.noPhone })}
         <br />
-        {address ? addressText(address) : words.noAddress}
+        {addressLineOf(customer)}
       </p>
       <div className="df-customer-facts">
         <span className="df-customer-fact">{fill(plural(words.orders, customer.ordersCount), { count: formatCount(customer.ordersCount) })}</span>

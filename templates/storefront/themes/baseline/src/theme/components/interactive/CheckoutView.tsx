@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { AddressFields, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PhoneField, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, Checkbox, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PhoneField, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useAccount, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
 import { shop } from '../styles/shop'
 import { checkout as styles } from '../styles/checkout'
+import { account as accountStyles } from '../styles/account'
 
 /** The checkout's body: core's steps as cards, each open, done with its Change, or still to come, beside the sealed summary (D1). */
 export const CheckoutView = () => {
@@ -19,6 +20,7 @@ export const CheckoutView = () => {
   const [contactErrors, setContactErrors] = useState<{ email?: string; phone?: string }>({})
   const [address, setAddress] = useState<ReturnType<typeof addressDraft> | null>(null)
   const [addressErrors, setAddressErrors] = useState<Partial<Record<AddressField, FieldProblem>>>({})
+  const [keepAddress, setKeepAddress] = useState(true)
 
   if (c.status === 'loading') {
     return (
@@ -96,8 +98,13 @@ export const CheckoutView = () => {
     if (id === 'address') {
       const draft = address ?? addressDraft(cart.shippingAddress, c.countries[0] ?? '')
       return (
-        <Form className={styles.form} onSubmit={() => void c.saveAddress(draft).then(setAddressErrors)}>
+        <Form className={styles.form} onSubmit={() => void c.saveAddress(draft, keepAddress).then(setAddressErrors)}>
           <AddressFields value={draft} onChange={setAddress} countries={c.countries} errors={addressErrors} t={t} locale={locale} className={styles.fields} fieldClassName={styles.field} phoneClassName={styles.phone} />
+          {c.canKeepAddress && (
+            <Checkbox checked={keepAddress} onChange={setKeepAddress} className={accountStyles.check}>
+              {t('shop.checkout.keepAddress')}
+            </Checkbox>
+          )}
           <SubmitButton className={shop.primary} disabled={c.busy}>
             {t('shop.checkout.continue')}
           </SubmitButton>

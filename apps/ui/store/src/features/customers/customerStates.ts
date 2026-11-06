@@ -38,6 +38,7 @@ const ananya: Customer | null = harness
       consent: { state: 'opted_in', at: '2026-09-27T04:42:00.000Z', source: 'checkout', channels: ['email'] },
       groupIds: ['g1'],
       addresses: [{ id: 'a1', name: 'Ananya Rao', line1: '14, 3rd Cross, Indiranagar', line2: null, city: 'Bengaluru', region: 'Karnataka', postalCode: '560038', country: 'IN', phone: null, isDefault: true }],
+      lastShipTo: null,
       city: 'Bengaluru',
       ordersCount: 3,
       orders: [
@@ -52,7 +53,7 @@ const ananya: Customer | null = harness
 export const sampleCustomer = (row: CustomerSummary, full: Customer | null): Customer =>
   full && full.id === row.id
     ? full
-    : { id: row.id, name: row.name, email: row.email, phone: row.phone, phoneVerified: false, tags: row.tags, note: null, consent: { state: 'not_asked', at: null, source: 'added_by_hand', channels: [] }, groupIds: [], addresses: [], city: row.city, ordersCount: row.orders, orders: [], spent: row.spent }
+    : { id: row.id, name: row.name, email: row.email, phone: row.phone, phoneVerified: false, tags: row.tags, note: null, consent: { state: 'not_asked', at: null, source: 'added_by_hand', channels: [] }, groupIds: [], addresses: [], lastShipTo: null, city: row.city, ordersCount: row.orders, orders: [], spent: row.spent }
 
 export interface CustomerSample {
   rows: CustomerSummary[]
