@@ -42,17 +42,19 @@ export const writeRequestOf = (s: Pick<SupportPortalRow, 'access' | 'write_reque
     ? null
     : { note: s.write_request_note ?? '', requestedAt: s.write_requested_at, state: s.write_decided_at === null ? 'pending' : s.access === 'write' ? 'allowed' : 'denied' }
 
-const seatStatusOf = (row: SupportPortalRow) => ({ role: row.role_key, membershipStatus: row.membership_status, userStatus: row.user_status })
+type SessionSeat = Pick<SupportPortalRow, 'access' | 'role_key' | 'membership_status' | 'user_status' | 'store_has_allower'>
+
+const seatStatusOf = (row: SessionSeat) => ({ role: row.role_key, membershipStatus: row.membership_status, userStatus: row.user_status })
 
 // ACCESS.md §8: writes need an Owner's or Manager's Allow, except on a new store's invited Owner's seat, when nobody can give it.
-const accessOf = (row: SupportPortalRow): 'read' | 'write' => (row.access === 'write' || isNewStoreOwnerSeat(seatStatusOf(row), row.store_has_allower) ? 'write' : 'read')
+export const supportAccessOf = (row: SessionSeat): 'read' | 'write' => (row.access === 'write' || isNewStoreOwnerSeat(seatStatusOf(row), row.store_has_allower) ? 'write' : 'read')
 
 export const seatOf = (row: SupportPortalRow): SupportSeat => ({
   sessionId: row.id,
   agent: { id: row.partner_user_id, name: row.agent_name },
   partnerName: row.partner_name,
   actingAs: row.user_name,
-  access: accessOf(row),
+  access: supportAccessOf(row),
   expiresAt: row.expires_at,
   extendable: row.extended_at === null,
   writeRequest: writeRequestOf(row),

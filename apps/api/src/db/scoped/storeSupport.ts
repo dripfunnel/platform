@@ -198,6 +198,9 @@ export interface StoreSupportRow {
   write_request_note: string | null
   write_decided_at: Date | null
   write_decided_by_name: string | null
+  membership_status: string
+  user_status: string
+  store_has_allower: boolean
 }
 
 /** The acting store's sessions since `since`, newest first by `(started_at, id)`, through 0160's `store_support_sessions`. */

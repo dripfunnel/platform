@@ -9,7 +9,7 @@ import { selectMyMemberships, selectOpenSupportSession, selectStoreState, type M
 import { selectOpenStoreImpersonation } from '#db/scoped/storeStaff'
 import { selectOpenStoreSupportSession, type StoreSupportRow } from '#db/scoped/storeSupport'
 import { writeRequestOf } from '#saas/storeSupport/index'
-import type { SupportSeat } from '#auth/storeSupport'
+import { supportAccessOf, type SupportSeat } from '#auth/storeSupport'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, readOnlyFor, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
@@ -98,13 +98,13 @@ const ownBannerOf = (seat: SupportSeat): Banner => ({
   extendable: seat.extendable,
 })
 
-/** The merchant side's banner (0160), with the agent's request for writes to Allow or Deny. */
+/** The merchant side's banner (0160, 0388), with the agent's request for writes to Allow or Deny. */
 const merchantBannerOf = (s: StoreSupportRow): Banner => {
   const asked = writeRequestOf(s)
   return {
     ...bannerOf(s),
     sessionId: s.id,
-    access: s.access,
+    access: supportAccessOf(s),
     allowedBy: s.access === 'write' ? s.write_decided_by_name : null,
     writeRequest: asked && { ...asked, requestedAt: asked.requestedAt.toISOString() },
   }

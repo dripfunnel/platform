@@ -1062,7 +1062,9 @@ Browser → https://<store's portal host>/support/enter?token=…
   without an Allow**, since no one can give one yet. The "never" list still applies. Any other
   invited user, and an invited Owner on a store that has an active Owner or Manager, is still
   refused (`NOT_ACCEPTED`). Once the Owner accepts, the session is read-only again at its next request,
-  and writes need an Allow, as above. The merchant side's banner still shows the stored access.
+  and writes need an Allow, as above. The merchant side's banner and Support access log say what the session
+  can do the same way (`store_support_sessions` returns the seat's status, migrations/0388; #1328), so Staff
+  see "can make changes" while support writes as the invited Owner.
 - **Staff don't use support sessions**: they impersonate (§8.1).
 - A partner's support session never reaches a store of another partner; the host check (§9
   check 0) and the partner check at opening both refuse it.

@@ -357,11 +357,15 @@ describe('a new store whose Owner hasn’t accepted (ACCESS.md §8)', () => {
       expect(cookie).not.toBe('')
       expect((await gql(q.includeTax, { support: cookie }, { i: true })).code).toBeUndefined()
       expect((await entries(id)).some((e) => e.actor_kind === 'support_session' && !e.action.startsWith('support_session.'))).toBe(true)
+      // The merchant side says so too: Staff see that support can make changes, not "Read-only" (#1328).
+      type Banner = { storeState: { support: { access: string } } }
+      expect((await gql<Banner>(`{ storeState { support { access } } }`, { person: 'staff' })).data?.storeState.support.access).toBe('write')
       expect((await gql(`mutation { inviteMember(email: "x@a.example", role: "staff") }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
       expect((await gql(q.set, { support: cookie }, { a: false })).code).toBe('BLOCKED_FOR_SUPPORT')
       await db.sql`update membership set status = 'active' where id = ${seats.owner}`
       await db.sql`update "user" set status = 'active' where id = ${people.owner}`
       expect((await gql(q.includeTax, { support: cookie }, { i: false })).code).toBe('SUPPORT_READ_ONLY')
+      expect((await gql<Banner>(`{ storeState { support { access } } }`, { person: 'staff' })).data?.storeState.support.access).toBe('read')
     } finally {
       await db.sql`update "user" set status = 'active' where id = ${people.owner}`
     }

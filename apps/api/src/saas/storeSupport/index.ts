@@ -4,7 +4,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { hashSmsCode, maxSmsCodeAttempts, newSmsCode } from '#auth/storeCodes'
 import type { StoreCaller } from '#auth/storeCaller'
-import { resolveSupportCaller, seatOf, supportActor, writeRequestOf, type SupportSeat } from '#auth/storeSupport'
+import { resolveSupportCaller, seatOf, supportAccessOf, supportActor, writeRequestOf, type SupportSeat } from '#auth/storeSupport'
 
 export { writeRequestOf } from '#auth/storeSupport'
 import { pageOf, type Page, type PageWindow } from '#core/paging'
@@ -75,7 +75,7 @@ const sessionDto = (s: StoreSupportRow, now: Date) => ({
   endedAt: s.ended_at ?? (s.expires_at > now ? null : s.expires_at),
   endedBy: endedByOf({ ...s, agent: s.agent_id }, now),
   endedByName: s.end_reason === 'support_off' ? s.ended_by_user_name : s.ended_by_partner_user_id !== null && s.ended_by_partner_user_id !== s.agent_id ? s.ended_by_agent_name : null,
-  access: s.access,
+  access: supportAccessOf(s),
   allowedBy: s.access === 'write' ? s.write_decided_by_name : null,
   writeRequest: writeRequestOf(s),
 })
