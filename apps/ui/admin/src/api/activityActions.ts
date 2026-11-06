@@ -106,6 +106,7 @@ export const activityActions = {
   'store.domain_recheck_requested': { level: 'partner', category: 'write' },
   'stores.exported': { level: 'partner', category: 'write' },
   'support_session.ended': { level: 'partner', category: 'support' },
+  'support_session.extended': { level: 'partner', category: 'support' },
   'support_session.link_reissued': { level: 'partner', category: 'support' },
   'partner.domain_status_changed': { level: 'system', category: 'system' },
   'store.domain_status_changed': { level: 'system', category: 'system' },

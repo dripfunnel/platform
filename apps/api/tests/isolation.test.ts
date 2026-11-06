@@ -816,6 +816,7 @@ describe('the backstop itself', () => {
       'end_partner_user_sessions',
       'end_staff_user_sessions',
       'erase_rider_labels',
+      'issue_support_write_code',
       'latest_job_of',
       'membership_check_parents',
       'merchant_host_taken',

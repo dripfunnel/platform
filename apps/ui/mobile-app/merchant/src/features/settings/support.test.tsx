@@ -86,7 +86,7 @@ describe('Support access', () => {
     const { renderer } = await show(<SettingsTabScreen tab="support" />, support())
 
     expect(hasText(renderer, 'On. Support can open a read-only session when you ask for help.')).toBe(true)
-    expect(hasText(renderer, 'It’s read-only and ends after 30 minutes.')).toBe(true)
+    expect(hasText(renderer, 'It’s read-only and ends after 90 minutes, or 30 more if support extends it once.')).toBe(true)
     expect(hasText(renderer, 'Support access log')).toBe(true)
     expect(hasText(renderer, 'Ravi Kumar')).toBe(true)
     expect(hasText(renderer, 'Northstar support · as Farhan Ali')).toBe(true)

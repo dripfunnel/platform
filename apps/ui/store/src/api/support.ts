@@ -39,3 +39,23 @@ export const loadSupportAccess = async (after: string | null = null): Promise<Su
 /** Answers how many open sessions turning it off ended. */
 export const setSupportAccess = async (allowed: boolean): Promise<number> =>
   (await query('mutation S($a: Boolean!) { setSupportAccess(allowed: $a) { allowed ended } }', z.object({ setSupportAccess: z.object({ allowed: z.boolean(), ended: z.number().int() }) }), { a: allowed })).setSupportAccess.ended
+
+/** A one-time code an Owner or a Manager reads to the agent (ACCESS §8); shown once, never kept here. */
+export const issueSupportWriteCode = async (sessionId: string): Promise<{ code: string; expiresAt: string }> =>
+  (await query('mutation C($id: ID!) { issueSupportWriteCode(sessionId: $id) { code expiresAt } }', z.object({ issueSupportWriteCode: z.object({ code: z.string(), expiresAt: z.string() }) }), { id: sessionId })).issueSupportWriteCode
+
+/** The agent types the store's code to make changes for the rest of the session. */
+export const redeemSupportWriteCode = async (code: string): Promise<void> => {
+  await query('mutation R($c: String!) { redeemSupportWriteCode(code: $c) }', z.object({ redeemSupportWriteCode: z.boolean() }), { c: code })
+}
+
+/** Allow or Deny the agent's open request; an Owner's or a Manager's to answer. */
+export const answerSupportWrite = async (sessionId: string, allow: boolean): Promise<void> => {
+  const field = allow ? 'allowSupportWrite' : 'denySupportWrite'
+  await query(`mutation A($id: ID!) { ${field}(sessionId: $id) }`, z.object({ [field]: z.boolean() }), { id: sessionId })
+}
+
+/** The agent asks the store to let it make changes, saying what for. */
+export const requestSupportWrite = async (note: string): Promise<void> => {
+  await query('mutation Q($n: String!) { requestSupportWrite(note: $n) }', z.object({ requestSupportWrite: z.boolean() }), { n: note })
+}

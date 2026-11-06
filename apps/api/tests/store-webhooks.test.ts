@@ -234,7 +234,8 @@ describe('Delivering', () => {
   it('marks a delivery failed when its signing key can’t be opened, rather than leaving it pending', async () => {
     const { saved } = await save('owner', 'https://hooks.shop.example/nokey', ['product.updated'])
     await product('owner', 'No key')
-    await relay()
+    // One sweep fans the event out and delivers what it made, so the key must be missing from the first.
+    now = new Date(Math.max(now.getTime(), Date.now() + 1000))
     const noKey = { ...deliverers(), [webhookDeliveryKind]: webhookDeliveryDeliverer(db.sql, { lookup: fakeLookup(dns), secrets: null, fetchImpl: endpoint.fetchImpl, now: () => now }) }
     await relayDue(db.sql, noKey, { ...defaultRelayOptions, now: () => now })
     expect((await deliveries('owner', saved?.id ?? '')).list?.[0]).toMatchObject({ status: 'failed', error: 'no_signing_key' })

@@ -3,7 +3,7 @@ import { ConfirmDialog, reserveTab, useNow, useScreenState } from '@dripfunnel/s
 import { getRouteApi, useRouter, type ErrorComponentProps } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { Page } from '../../api/page'
-import { endSupportSession, loadSupportSessions, loadSupportTargets, returnToSupportSession, type SupportSession, type SupportTarget } from '../../api/support'
+import { endSupportSession, extendSupportSession, loadSupportSessions, loadSupportTargets, returnToSupportSession, type SupportSession, type SupportTarget } from '../../api/support'
 import { harnessEnabled } from '../../harness'
 import { usePaged } from '../common/paged'
 import { fill, messages } from '../../messages'
@@ -11,7 +11,7 @@ import { SessionsTab } from './SessionsTab'
 import { Support, SupportError, SupportLoading, SupportRefused } from './Support'
 import { openIn } from './startFlow'
 import { searchState, supportStates } from './supportHarness'
-import { refusalText } from './supportText'
+import { minutesLeft, refusalText } from './supportText'
 import { useStartSupport } from './useStartSupport'
 import { UsersTab } from './UsersTab'
 
@@ -88,6 +88,13 @@ export const SupportScreen = () => {
       .finally(reload)
   }
 
+  const extend = (session: SupportSession) => {
+    extendSupportSession(session.id)
+      .then((result) => setToast(result.ok ? fill(words.toasts.extended, { name: session.user.name, minutes: String(minutesLeft(result.expiresAt, Date.now())) }) : refusalText(result.reason)))
+      .catch(() => setToast(words.toasts.failed))
+      .finally(reload)
+  }
+
   return (
     <>
       <Support tab={tab} openCount={badges.supportOpenSessions}>
@@ -104,7 +111,7 @@ export const SupportScreen = () => {
             onOpen={(target) => start.open(target, mine)}
           />
         )}
-        {tab === 'sessions' && <SessionsTab open={openNow.items} openMore={openNow.more} onOpenMore={openNow.onMore} history={history.items} now={now} more={history.more} returning={returning} onReturn={returnTo} onEnd={setEnding} onMore={history.onMore} />}
+        {tab === 'sessions' && <SessionsTab open={openNow.items} openMore={openNow.more} onOpenMore={openNow.onMore} history={history.items} now={now} more={history.more} returning={returning} onReturn={returnTo} onEnd={setEnding} onExtend={extend} onMore={history.onMore} />}
       </Support>
       {start.element}
       {ending && (

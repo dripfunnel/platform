@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { askForSupportWrite, createStoreSupportService, storeSupportAudit, supportLogPageSize, type StoreSupportSessionDto } from '#saas/storeSupport/index'
+import { askForSupportWrite, createStoreSupportService, redeemSupportWriteCodeAsAgent, storeSupportAudit, supportLogPageSize, type StoreSupportSessionDto } from '#saas/storeSupport/index'
 import { pageWindow } from '#core/paging'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -16,6 +16,8 @@ const messages = {
   ALREADY_ASKED: 'You’ve asked already. The store hasn’t answered yet.',
   ALREADY_ALLOWED: 'The store has already let you make changes.',
   SESSION_ENDED: 'This support session has ended.',
+  CODE_INVALID: 'That code didn’t work. Ask the store for a new one.',
+  INVALID_CODE_INPUT: 'Type the 6-digit code the store read to you.',
   INVALID_CURSOR: 'That page link has expired. Start again.',
 } as const
 
@@ -69,6 +71,10 @@ export const registerSupport = (builder: StoreBuilder) => {
     fields: (t) => ({ allowed: t.exposeBoolean('allowed'), ended: t.exposeInt('ended') }),
   })
 
+  const WriteCode = builder.objectRef<{ code: string; expiresAt: string }>('SupportWriteCode').implement({
+    fields: (t) => ({ code: t.exposeString('code'), expiresAt: t.exposeString('expiresAt') }),
+  })
+
   const settings = { api: 'store', scope: 'store', permission: 'settings', target: 'none' } as const
   const decide = { api: 'store', scope: 'store', permission: 'support.allow_write', target: 'none' } as const
 
@@ -110,6 +116,29 @@ export const registerSupport = (builder: StoreBuilder) => {
       resolve: async (_, { sessionId }, ctx) => {
         const result = await serviceOf(ctx).decide(String(sessionId), false)
         if (!result.ok) throw refused(result.reason, messages[result.reason])
+        return true
+      },
+    }),
+    // Shown once to an Owner or a Manager, to read to the agent; a support session never issues its own.
+    issueSupportWriteCode: t.field({
+      type: WriteCode,
+      args: { sessionId: t.arg.id({ required: true }) },
+      extensions: { access: { ...decide, audit: storeSupportAudit.issueSupportWriteCode, blockedFor: ['support'] } },
+      resolve: async (_, { sessionId }, ctx) => {
+        const result = await serviceOf(ctx).issueWriteCode(String(sessionId))
+        if (!result.ok) throw refused(result.reason, messages[result.reason])
+        return { code: result.code, expiresAt: result.expiresAt.toISOString() }
+      },
+    }),
+    // The agent's own, as requestSupportWrite: a read-only session types the code it was given.
+    redeemSupportWriteCode: t.boolean({
+      args: { code: t.arg.string({ required: true }) },
+      extensions: { access: { api: 'store', scope: 'store-seller', permission: 'catalog.read', target: 'none', audit: storeSupportAudit.redeemSupportWriteCode, supportOwn: true, whileReadOnly: true } },
+      resolve: async (_, { code }, ctx) => {
+        const caller = actingCaller(ctx)
+        if (!ctx.sql || !caller.support) throw forbidden()
+        const result = await redeemSupportWriteCodeAsAgent({ sql: ctx.sql, caller, seat: caller.support, activity: ctx.activity, facts: ctx.facts, now: ctx.now }, code)
+        if (!result.ok) throw refused(result.reason, messages[result.reason === 'INVALID_INPUT' ? 'INVALID_CODE_INPUT' : result.reason])
         return true
       },
     }),

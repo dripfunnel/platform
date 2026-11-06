@@ -95,10 +95,75 @@ describe('the shell’s banners', () => {
     expect(await banners(manager, pastDue)).not.toContain('href="/billing"')
   })
 
+  const session = (over: Partial<NonNullable<StoreState['support']>> = {}) => ({ partnerName: 'Northstar Commerce', agentFirstName: 'Priya', endsAt: new Date(Date.now() + 28 * 60_000).toISOString(), sessionId: 'ss1', access: 'read' as const, allowedBy: null, writeRequest: null, extendable: null, ...over })
+
   it('names the partner’s support on a support session, never DripFunnel', async () => {
-    const html = text(await banners(manager, state({ support: { partnerName: 'Northstar Commerce', agentFirstName: 'Priya', endsAt: new Date(Date.now() + 28 * 60_000).toISOString() } })))
-    expect(html).toContain('Northstar Commerce support (Priya) is viewing your store.')
+    const html = text(await banners(manager, state({ support: session() })))
+    expect(html).toContain('Northstar Commerce support (Priya) is viewing your store. Read-only.')
     expect(html).not.toContain('DripFunnel')
+  })
+
+  it('says support can make changes once allowed, and by whom, never "Read-only" (ACCESS.md §8)', async () => {
+    const allowed = text(await banners(owner, state({ support: session({ access: 'write', allowedBy: 'Mo Manager' }) })))
+    expect(allowed).toContain('Northstar Commerce support (Priya) can make changes in your store. For this session only, allowed by Mo Manager.')
+    expect(allowed).not.toContain('Read-only')
+    expect(allowed).not.toContain('Give support a code')
+    expect(text(await banners(owner, state({ support: session({ access: 'write' }) })))).toContain('can make changes in your store. For this session only. Passwords')
+  })
+
+  it('shows the agent’s ask with Deny and Allow to an Owner or a Manager, and who can answer to Staff (prototype “Asks to make changes”)', async () => {
+    const asked = state({ support: session({ writeRequest: { note: 'Fix the product photos', state: 'pending' } }) })
+    const forOwner = await banners(owner, asked)
+    expect(text(forOwner)).toContain('Read-only. Priya asks to make changes: “Fix the product photos”')
+    expect(forOwner).toContain('>Deny</button>')
+    expect(forOwner).toContain('>Allow</button>')
+    expect(forOwner).not.toContain('>Give support a code</button>')
+    expect(await banners(manager, asked)).toContain('>Allow</button>')
+    const forStaff = await banners({ side: 'merchant', role: 'staff' }, asked)
+    expect(text(forStaff)).toContain('Only the owner or a manager can allow it.')
+    expect(forStaff).not.toContain('>Allow</button>')
+  })
+
+  it('lets the agent ask once, then says it waits, and after a Deny that it may ask again', async () => {
+    const agent = async (s: StoreState) => (await render(<StoreBanners seat={owner} acting={acting} state={s} brand={null} inSupport />)).replace(/&#x27;/g, '’')
+    const fresh = await agent(state({ support: session() }))
+    expect(fresh).toContain('>Ask to make changes</button>')
+    expect(fresh).not.toContain('>Allow</button>')
+    const waiting = await agent(state({ support: session({ writeRequest: { note: 'x', state: 'pending' } }) }))
+    expect(text(waiting)).toContain('You asked to make changes. The store hasn’t answered yet.')
+    expect(waiting).not.toContain('>Ask to make changes</button>')
+    expect(waiting).toContain('>Enter the store’s code</button>')
+    const refused = await agent(state({ support: session({ writeRequest: { note: 'x', state: 'denied' } }) }))
+    expect(text(refused)).toContain('The store didn’t allow changes. You can ask again')
+    expect(refused).toContain('>Ask to make changes</button>')
+  })
+
+  it('gives the agent, and only the agent, End session, also once it can make changes', async () => {
+    const agent = async (s: StoreState) => (await render(<StoreBanners seat={owner} acting={acting} state={s} brand={null} inSupport />)).replace(/&#x27;/g, '’')
+    expect(await agent(state({ support: session() }))).toContain('>End session</button>')
+    const writing = await agent(state({ support: session({ access: 'write' }) }))
+    expect(writing).toContain('>End session</button>')
+    expect(writing).not.toContain('>Enter the store’s code</button>')
+    expect(await banners(owner, state({ support: session() }))).not.toContain('>End session</button>')
+  })
+
+  it('offers the agent Extend 30 min while its one extension is still to take (ACCESS.md §8)', async () => {
+    const agent = async (s: StoreState) => await render(<StoreBanners seat={owner} acting={acting} state={s} brand={null} inSupport />)
+    expect(await agent(state({ support: session({ extendable: true }) }))).toContain('>Extend 30 min</button>')
+    expect(await agent(state({ support: session({ extendable: false }) }))).not.toContain('>Extend 30 min</button>')
+    expect(await banners(owner, state({ support: session({ extendable: null }) }))).not.toContain('>Extend 30 min</button>')
+  })
+
+  it('offers an Owner or a Manager a code to give, not Staff or a supplier, and the agent a place to type it', async () => {
+    const give = '>Give support a code</button>'
+    const enter = '>Enter the store’s code</button>'
+    expect(await banners(owner, state({ support: session() }))).toContain(give)
+    expect(await banners(manager, state({ support: session() }))).toContain(give)
+    expect(await banners({ side: 'merchant', role: 'staff' }, state({ support: session() }))).not.toContain(give)
+    expect(text(await banners(supplier, state({ support: session({ sessionId: null, access: null }) })))).not.toContain('code')
+    const agent = (await render(<StoreBanners seat={owner} acting={acting} state={state({ support: session() })} brand={null} inSupport />)).replace(/&#x27;/g, '’')
+    expect(agent).toContain(enter)
+    expect(agent).not.toContain(give)
   })
 
   it('shows a supplier none of the plan, trial or billing banners', async () => {

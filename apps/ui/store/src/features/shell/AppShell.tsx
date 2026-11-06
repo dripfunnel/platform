@@ -16,7 +16,7 @@ import { trialDaysLeft } from './trial'
 const shellRoute = getRouteApi('/_app')
 
 export const AppShell = () => {
-  const { me, acting, seat, stores, state, badges } = shellRoute.useLoaderData()
+  const { me, acting, seat, stores, state, badges, inSupport } = shellRoute.useLoaderData()
   const [menuOpen, setMenuOpen] = useState(false)
   const now = new Date(useNow(60_000))
   const brand = currentBrand()
@@ -42,7 +42,7 @@ export const AppShell = () => {
         <main id="main" className="df-shell-main" tabIndex={-1}>
           {/* The store's banners head the page column, beside the side bar, as the prototype draws them. */}
           <div className="df-banners">
-            <StoreBanners seat={seat} acting={acting} state={state} brand={brand} />
+            <StoreBanners seat={seat} acting={acting} state={state} brand={brand} inSupport={inSupport} />
           </div>
           <div className="df-shell-content">
             <Outlet />

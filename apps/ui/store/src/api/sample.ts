@@ -41,7 +41,7 @@ const stateFor = (standing: SampleStanding, now: Date): StoreState => ({
   trialEndsAt: standing === 'trial' ? new Date(now.getTime() + 7 * day).toISOString() : standing === 'trial-ending' ? new Date(now.getTime() + day).toISOString() : null,
   pastDueSince: standing === 'pastdue' ? new Date(now.getTime() - 3 * day).toISOString() : null,
   provisioning: standing === 'provisioning' ? { state: 'running', step: 'firstBuild' } : null,
-  support: standing === 'support' ? { partnerName: 'Northstar Commerce', agentFirstName: 'Priya', endsAt: new Date(now.getTime() + 28 * 60_000).toISOString() } : null,
+  support: standing === 'support' ? { partnerName: 'Northstar Commerce', agentFirstName: 'Priya', endsAt: new Date(now.getTime() + 28 * 60_000).toISOString(), sessionId: null, access: 'read', allowedBy: null, writeRequest: null, extendable: null } : null,
 })
 
 /** The sample shell for `?as=`, or null outside the harness or without it. */

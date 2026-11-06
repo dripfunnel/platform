@@ -177,7 +177,35 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   const outlasting = ['createApiKey', 'installApp', 'rotateApiKey', 'saveWebhook']
   const aiAccount = ['beginStoreAiOauth', 'connectStoreAiAccount', 'finishStoreAiOauth', 'removeStoreAiAccount', 'setStoreAiFallback', 'setStoreAiSwitch']
   // The storefront's design, studio and preview links were declared before #1012.
-  const storefront = ['askDesign', 'chooseTemplate', 'designChat', 'designText', 'discardDraft', 'endPreviewLinks', 'goBackToVersion', 'previewLink', 'publishBefore', 'publishDesign', 'publishNow', 'renewStudioSession', 'saveDesignText', 'studioActivity', 'studioSession', 'undoDesignChange']
+  const storefront = [
+    'answerDesignQuestions',
+    'askDesign',
+    'buildDesignPlan',
+    'cancelDesign',
+    'changeDesignPlan',
+    'chooseTemplate',
+    'deleteLibraryAsset',
+    'designChat',
+    'designText',
+    'discardDraft',
+    'endPreviewLinks',
+    'goBackToVersion',
+    'importDesignImage',
+    'libraryAssets',
+    'previewLink',
+    'publishBefore',
+    'publishDesign',
+    'publishNow',
+    'renameLibraryAsset',
+    'renewStudioSession',
+    'saveDesignText',
+    'searchStockImages',
+    'stockImagesAvailable',
+    'studioActivity',
+    'studioSession',
+    'undoDesignChange',
+    'useStockImage',
+  ]
 
   it('declares the user’s sign-in and sessions, money details, the store’s AI account, the store switch and the storefront’s design', () => {
     expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, ...aiAccount, ...outlasting, 'switchStore', ...storefront].sort())

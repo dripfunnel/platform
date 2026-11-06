@@ -17,6 +17,7 @@ export interface SessionsTabProps {
   more: More
   onReturn: (session: SupportSession) => void
   onEnd: (session: SupportSession) => void
+  onExtend: (session: SupportSession) => void
   onMore: () => void
   onOpenMore: () => void
 }
@@ -53,7 +54,7 @@ const endedText = (session: SupportSession): string => {
 }
 
 // §12.3: who is signed in as whom now, with Return to tab (yours) and End; then the history.
-export const SessionsTab = ({ open, openMore, history, now, returning, more, onReturn, onEnd, onMore, onOpenMore }: SessionsTabProps) => (
+export const SessionsTab = ({ open, openMore, history, now, returning, more, onReturn, onEnd, onExtend, onMore, onOpenMore }: SessionsTabProps) => (
   <div className="df-panels">
     <section className="df-panel df-panel--wide" aria-labelledby="support-open">
       <h2 id="support-open">{words.openNow}</h2>
@@ -72,6 +73,11 @@ export const SessionsTab = ({ open, openMore, history, now, returning, more, onR
                   {session.return.allowed && (
                     <button type="button" className="df-button df-button--small" disabled={returning} onClick={() => onReturn(session)}>
                       {words.returnToTab}
+                    </button>
+                  )}
+                  {session.extend.allowed && (
+                    <button type="button" className="df-button df-button--small" onClick={() => onExtend(session)}>
+                      {words.extend}
                     </button>
                   )}
                   <button

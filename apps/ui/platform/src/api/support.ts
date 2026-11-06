@@ -18,6 +18,7 @@ export const sessionRefusals = [
   'NOT_SESSION_OWNER',
   'SESSION_ENDED',
   'SESSION_EXPIRED',
+  'SUPPORT_SESSION_ALREADY_EXTENDED',
 ] as const
 export type SessionRefusal = (typeof sessionRefusals)[number]
 
@@ -70,12 +71,13 @@ const sessionSchema = z.object({
   endedByName: z.string().nullable(),
   end: verdictSchema,
   return: verdictSchema,
+  extend: verdictSchema,
 })
 export type SupportSession = z.infer<typeof sessionSchema>
 
 const verdictFields = '{ allowed reason }'
 const targetFields = `items { membershipId userId name email type store { id name } role supplier lastSignInAt status start ${verdictFields} storeOwner colleague { name minutesLeft } mySessionId } ${pageInfoFields}`
-const oneSession = `id user { name role supplier } store { id name } agent { id name } you reason ticket startedAt expiresAt endedAt endedBy endedByName end ${verdictFields} return ${verdictFields}`
+const oneSession = `id user { name role supplier } store { id name } agent { id name } you reason ticket startedAt expiresAt endedAt endedBy endedByName end ${verdictFields} return ${verdictFields} extend ${verdictFields}`
 const sessionFields = `items { ${oneSession} } ${pageInfoFields}`
 
 // Found by name, email or store (§12.1); never the partner's own team, staff or shoppers.
@@ -152,6 +154,16 @@ export const endSupportSession = async (id: string): Promise<Ended> => {
     { id },
   )
   return r.ok ? { ok: true } : { ok: false, reason: refusalOf(r.reason) }
+}
+
+/** The agent's one 30-minute extension of its own open session (ACCESS.md §8). */
+export const extendSupportSession = async (id: string): Promise<{ ok: true; expiresAt: string } | { ok: false; reason: SupportRefusal }> => {
+  const { extendSupportSession: r } = await query(
+    `mutation Extend($id: ID!) { extendSupportSession(id: $id) { ok reason expiresAt } }`,
+    z.object({ extendSupportSession: z.object({ ok: z.boolean(), reason: z.string().nullable(), expiresAt: z.string().nullable() }) }),
+    { id },
+  )
+  return r.ok && r.expiresAt ? { ok: true, expiresAt: r.expiresAt } : { ok: false, reason: refusalOf(r.reason) }
 }
 
 // The caller's own open session, whichever page of the open list it would fall on.
