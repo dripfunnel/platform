@@ -504,6 +504,34 @@ describe('shoppers’ details (#1340)', () => {
     expect((await gql<Cs>(customersBy, { support: cookie }, { s: 'jenna@shopper.example' })).data?.customers.nodes).toEqual([])
     expect((await gql<Cs>(customersBy, { support: cookie }, { s: '+919800000002' })).data?.customers.nodes).toEqual([])
   })
+
+  it('stay hidden in the activity log, even in an entry that carries them', async () => {
+    await opened('owner', agents.priya, 'tok-log-shopper')
+    const cookie = await enter('tok-log-shopper')
+    expect((await gql(`mutation($id: ID!) { updateCustomer(id: $id, name: "Jenna R. Rao", phone: "+919800000003") }`, { person: 'owner' }, { id: shopper.customer })).code).toBeUndefined()
+    await withSystemScope(db.sql, (tx) =>
+      activityLog.record(tx, {
+        category: 'write', action: 'customer.test_slip', result: 'success', actorKind: 'customer', actorId: shopper.customer, actorLabel: 'Jenna Rao jenna@shopper.example',
+        partnerId: t.partnerA, storeId: t.storeA1, customerId: shopper.customer, target: { type: 'customer_address', id: shopper.customer, label: '12 MG Road, Pune' },
+        changes: [{ field: 'phone', before: '+919800000002', after: '+919800000003' }], reason: 'Ring twice', api: 'shop', visibility: 'store', requestId: null, ip: null, userAgent: null,
+      }),
+    )
+    const log = `{ activityLog(first: 20, filter: { what: "shoppers" }) { items { action actor { label } target { label } changes { before after } reason } } } `
+    const edits = `{ activityLog(first: 20) { items { action changes { field before after } } } }`
+    type L = { activityLog: { items: { action: string }[] } }
+    const own = JSON.stringify((await gql<L>(log, { person: 'owner' })).data?.activityLog.items)
+    expect(own).toMatch(/Jenna Rao jenna@shopper\.example/)
+    const seen = (await gql<L>(log, { support: cookie })).data?.activityLog.items
+    expect(seen?.find((e) => e.action === 'customer.test_slip')).toEqual({ action: 'customer.test_slip', actor: { label: hiddenFromSupport }, target: { label: hiddenFromSupport }, changes: [{ before: hiddenFromSupport, after: hiddenFromSupport }], reason: hiddenFromSupport })
+    const all = JSON.stringify([seen, (await gql<L>(edits, { support: cookie })).data?.activityLog.items])
+    expect(all).toMatch(/customer\.edited/)
+    expect(all).not.toMatch(/Jenna|jenna@|980000000|MG Road|Pune|Ring twice/)
+    const search = `query($s: String) { activityLog(first: 20, filter: { search: $s }) { items { action } } }`
+    for (const s of ['jenna@shopper.example', 'MG Road']) {
+      expect((await gql<L>(search, { person: 'owner' }, { s })).data?.activityLog.items.map((e) => e.action)).toContain('customer.test_slip')
+      expect((await gql<L>(search, { support: cookie }, { s })).data?.activityLog.items).toEqual([])
+    }
+  })
 })
 
 describe('the switch and the log', () => {
