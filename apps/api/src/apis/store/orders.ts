@@ -39,6 +39,7 @@ import { catalogExportKind } from '#engine/modules/catalog/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, tenantCaller, type StoreContext } from './access'
+import { shopperDetail } from './shopperDetails'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -154,14 +155,14 @@ export const registerOrders = (builder: StoreBuilder) => {
   const at = (value: Date | string | null) => (value ? new Date(value).toISOString() : null)
   const Address = builder.objectRef<CartAddress>('OrderAddress').implement({
     fields: (t) => ({
-      name: t.exposeString('name'),
-      line1: t.exposeString('line1'),
-      line2: t.exposeString('line2', { nullable: true }),
-      city: t.exposeString('city'),
+      name: t.string({ resolve: (a, _, ctx) => shopperDetail(ctx, a.name) }),
+      line1: t.string({ resolve: (a, _, ctx) => shopperDetail(ctx, a.line1) }),
+      line2: t.string({ nullable: true, resolve: (a, _, ctx) => shopperDetail(ctx, a.line2) }),
+      city: t.string({ resolve: (a, _, ctx) => shopperDetail(ctx, a.city) }),
       region: t.exposeString('region', { nullable: true }),
-      postalCode: t.exposeString('postalCode', { nullable: true }),
+      postalCode: t.string({ nullable: true, resolve: (a, _, ctx) => shopperDetail(ctx, a.postalCode) }),
       country: t.exposeString('country'),
-      phone: t.exposeString('phone', { nullable: true }),
+      phone: t.string({ nullable: true, resolve: (a, _, ctx) => shopperDetail(ctx, a.phone) }),
     }),
   })
 
@@ -178,8 +179,8 @@ export const registerOrders = (builder: StoreBuilder) => {
       total: t.field({ type: Money, nullable: true, resolve: (o) => money(o.total_amount, o.currency) }),
       // Placed on a preview storefront in the payment providers' test mode: never stock, never to ship.
       test: t.exposeBoolean('test', { nullable: true }),
-      customerName: t.exposeString('customer_name', { nullable: true }),
-      city: t.exposeString('city', { nullable: true }),
+      customerName: t.string({ nullable: true, resolve: (o, _, ctx) => shopperDetail(ctx, o.customer_name) }),
+      city: t.string({ nullable: true, resolve: (o, _, ctx) => shopperDetail(ctx, o.city) }),
       items: t.exposeInt('items'),
       partState: t.exposeString('part_state', { nullable: true }),
       shippingMode: t.exposeString('shipping_mode', { nullable: true }),
@@ -272,7 +273,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       state: t.exposeString('state'),
       reason: t.exposeString('reason'),
       // The store's own words; never a supplier's to read.
-      note: t.exposeString('note', { nullable: true }),
+      note: t.string({ nullable: true, resolve: (r, _, ctx) => shopperDetail(ctx, r.note) }),
       receivedAt: t.string({ nullable: true, resolve: (r) => at(r.received_at) }),
       cancelledAt: t.string({ nullable: true, resolve: (r) => at(r.cancelled_at) }),
       startedAt: t.string({ resolve: (r) => new Date(r.created_at).toISOString() }),
@@ -291,7 +292,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       returnId: t.exposeID('return_id', { nullable: true }),
       amount: t.field({ type: Money, resolve: (r) => ({ amount: r.amount, currency: r.currency }) }),
       reason: t.exposeString('reason'),
-      note: t.exposeString('note', { nullable: true }),
+      note: t.string({ nullable: true, resolve: (r, _, ctx) => shopperDetail(ctx, r.note) }),
       restock: t.exposeBoolean('restock'),
       // pending, done or failed at the provider; null to a supplier.
       paymentState: t.exposeString('payment_state', { nullable: true }),
@@ -307,7 +308,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       actorKind: t.exposeString('actor_kind'),
       actorName: t.exposeString('actor_label', { nullable: true }),
       // A team note's text, or the action's coded reason; never on a supplier's entries.
-      note: t.exposeString('reason', { nullable: true }),
+      note: t.string({ nullable: true, resolve: (e, _, ctx) => (e.action === ordersAudit.noteAdded ? shopperDetail(ctx, e.reason) : e.reason) }),
     }),
   })
   const Adjustment = builder.objectRef<Merchant['adjustments'][number] & { currency: string }>('OrderAdjustment').implement({
@@ -335,7 +336,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       number: t.exposeString('number'),
       state: t.exposeString('state'),
       placedAt: t.string({ resolve: (o) => o.placed_at.toISOString() }),
-      customerName: t.exposeString('customer_name', { nullable: true }),
+      customerName: t.string({ nullable: true, resolve: (o, _, ctx) => shopperDetail(ctx, o.customer_name) }),
       shippingAddress: t.field({ type: Address, nullable: true, resolve: (o) => o.shipping_address }),
       parts: t.field({ type: [Part], resolve: (o) => o.parts.map((p) => ({ ...p, currency: o.currency })) }),
       history: t.field({ type: [Event], resolve: (o) => o.history }),
@@ -347,8 +348,8 @@ export const registerOrders = (builder: StoreBuilder) => {
       paymentMethod: t.string({ nullable: true, resolve: (o) => o.merchant?.payment_method ?? null }),
       test: t.boolean({ nullable: true, resolve: (o) => o.merchant?.test ?? null }),
       customerId: t.id({ nullable: true, resolve: (o) => o.merchant?.customer_id ?? null }),
-      email: t.string({ nullable: true, resolve: (o) => o.merchant?.email ?? null }),
-      phone: t.string({ nullable: true, resolve: (o) => o.merchant?.phone ?? null }),
+      email: t.string({ nullable: true, resolve: (o, _, ctx) => shopperDetail(ctx, o.merchant?.email ?? null) }),
+      phone: t.string({ nullable: true, resolve: (o, _, ctx) => shopperDetail(ctx, o.merchant?.phone ?? null) }),
       billingAddress: t.field({ type: Address, nullable: true, resolve: (o) => o.merchant?.billing_address ?? null }),
       marketId: t.id({ nullable: true, resolve: (o) => o.merchant?.market_id ?? null }),
       marketName: t.string({ nullable: true, resolve: (o) => o.merchant?.market_name ?? null }),
@@ -362,7 +363,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       refunded: t.field({ type: Money, nullable: true, resolve: (o) => money(o.merchant?.refunded_amount ?? null, o.currency) }),
       shippingOption: t.string({ nullable: true, resolve: (o) => o.merchant?.shipping_option ?? null }),
       shippingMethodLabel: t.string({ nullable: true, resolve: (o) => o.merchant?.shipping_method_label ?? null }),
-      shopperNote: t.string({ nullable: true, resolve: (o) => o.merchant?.shopper_note ?? null }),
+      shopperNote: t.string({ nullable: true, resolve: (o, _, ctx) => shopperDetail(ctx, o.merchant?.shopper_note ?? null) }),
       paidAt: t.string({ nullable: true, resolve: (o) => at(o.merchant?.paid_at ?? null) }),
       paymentDueBy: t.string({ nullable: true, resolve: (o) => at(o.merchant?.payment_due_by ?? null) }),
       cancelledAt: t.string({ nullable: true, resolve: (o) => at(o.merchant?.cancelled_at ?? null) }),
@@ -454,8 +455,8 @@ export const registerOrders = (builder: StoreBuilder) => {
         return pageOf(await service(ctx).sales(window), window, (s) => ({ occurredAt: s.placed_at, id: s.id }))
       },
     }),
-    orderExport: t.field({ type: OrderExport, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, { id }, ctx) => exportsOf(ctx).read(String(id)) }),
-    orderExports: t.field({ type: [OrderExport], extensions: { access: read }, resolve: (_, __, ctx) => exportsOf(ctx).recent() }),
+    orderExport: t.field({ type: OrderExport, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: { ...read, blockedFor: ['support'] } }, resolve: (_, { id }, ctx) => exportsOf(ctx).read(String(id)) }),
+    orderExports: t.field({ type: [OrderExport], extensions: { access: { ...read, blockedFor: ['support'] } }, resolve: (_, __, ctx) => exportsOf(ctx).recent() }),
     // The chips' counts (FIRST-RELEASE §19: counts come from their own query); a supplier's are its own parts'.
     orderCounts: t.field({ type: Counts, extensions: { access: { ...read, machine: true } }, resolve: (_, __, ctx) => service(ctx).counts() }),
     order: t.field({
@@ -582,11 +583,10 @@ export const registerOrders = (builder: StoreBuilder) => {
     // A job: the file is read back with orderExport(id). An export is a read, so a read-only store allows it.
     exportOrders: t.id({
       args: { filter: t.arg({ type: Filter }), search: t.arg.string() },
-      extensions: { access: { ...read, whileReadOnly: true, audit: orderExportAudit } },
+      // A support session never takes the shoppers' details away (ACCESS §8).
+      extensions: { access: { ...read, whileReadOnly: true, blockedFor: ['support'], audit: orderExportAudit } },
       resolve: async (_, args, ctx) => {
-        // A read-only support session reads the store's screens, never takes its data away (ACCESS §8).
-        const { caller } = actingCaller(ctx).context
-        if (caller.kind === 'support' && caller.access === 'read') throw forbidden()
+        if (actingCaller(ctx).context.caller.kind === 'support') throw forbidden()
         const result = await exportsOf(ctx).request({ filter: filterOf(args.filter), search: args.search ?? null })
         if (!result.ok) throw new GraphQLError('That filter doesn’t work.', { extensions: { code: result.reason } })
         return result.jobId

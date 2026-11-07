@@ -15,6 +15,7 @@ export const target = (over: Partial<SupportTarget> = {}): SupportTarget => ({
   storeOwner: null,
   colleague: null,
   mySessionId: null,
+  changesWithoutAsking: false,
   ...over,
 })
 

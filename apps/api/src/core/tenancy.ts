@@ -28,6 +28,9 @@ export interface TenantContext {
   subscription: Subscription
 }
 
+/** A support session never finds a shopper by their details (ACCESS.md §8): its search finds nothing. */
+export const supportSearchesShoppers = (context: TenantContext, search: string | null): boolean => context.caller.kind === 'support' && Boolean(search?.trim())
+
 /** A partner user, a staff member impersonating one, or a staff setup session on the Platform API: no store, no seller scope. */
 export interface PartnerContext {
   caller:

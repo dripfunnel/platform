@@ -2729,8 +2729,8 @@
         "body": "Only for stores that have partner support turned on."
       },
       {
-        "title": "Read-only until allowed",
-        "body": "You see what the store’s Owner sees. Changes need the merchant to allow them, for that one session."
+        "title": "Changes, then asking",
+        "body": "Until a store connects its own domain, you can make changes. After that you see what the store’s Owner sees, and changes need the merchant to allow them, for that one session."
       },
       {
         "title": "Everyone sees it",
@@ -2742,7 +2742,7 @@
       },
       {
         "title": "Some things stay theirs",
-        "body": "Passwords, 2-factor, payment details and ownership can’t be changed."
+        "body": "Passwords, 2-factor, payment details, the team and ownership can’t be changed. Shoppers’ names, contact details and addresses stay hidden, and customers can’t be edited."
       }
     ],
     "find": "Find a user",
@@ -2818,7 +2818,8 @@
       "ticket": "Ticket link (optional)",
       "ticketHint": "https://…",
       "ticketBad": "A ticket link starts with https://.",
-      "confirm": "You’ll act as {name} ({role}, {store}) for 90 minutes (you can extend once by 30), read-only until {store}’s Owner allows changes. You can’t change {first}’s password, 2-factor, payment details or the store’s ownership. Everyone signed in to {store} sees “{partner} support ({me}) is signed in as {first}.” Everything you do is logged as {me} as {first}, in your log and {store}’s.",
+      "confirm": "You’ll act as {name} ({role}, {store}) for 90 minutes (you can extend once by 30), read-only until {store}’s Owner allows changes. You can’t change {first}’s password, 2-factor, payment details or the store’s ownership, and shoppers’ details stay hidden. Everyone signed in to {store} sees “{partner} support ({me}) is signed in as {first}.” Everything you do is logged as {me} as {first}, in your log and {store}’s.",
+      "confirmChanges": "You’ll act as {name} ({role}, {store}) for 90 minutes (you can extend once by 30), able to make changes without asking. You can’t change {first}’s password, 2-factor, payment details or the store’s ownership, and shoppers’ details stay hidden. Everyone signed in to {store} sees “{partner} support ({me}) is signed in as {first}.” Everything you do is logged as {me} as {first}, in your log and {store}’s.",
       "reasonLabel": "Reason:",
       "ticketLabel": "Ticket:",
       "noTicket": "No ticket link",

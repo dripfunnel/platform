@@ -225,6 +225,8 @@ describe('a store or a session that may not write', () => {
     const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'priya@partner-a.example', 'Priya', 'partner-support', 'active') returning id`
     const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${w.people.owner}`
     const at = now()
+    // Read-only needs a store whose own domain has connected (ACCESS.md §8, #1340).
+    await db.sql`update store set domain_connected_at = ${at} where id = ${t.storeA1}`
     await db.sql`
       insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
       values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-apps')}, ${new Date(at.getTime() + 5 * 60_000)}, 'read')`

@@ -24,6 +24,7 @@ const row = {
   storeOwner: 'Jenna Park',
   colleague: null,
   mySessionId: null,
+  changesWithoutAsking: false,
 }
 
 describe('support', () => {

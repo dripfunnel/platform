@@ -433,6 +433,8 @@ describe('position and isolation', () => {
     const secret = (made.data?.['createApiKey'] as { secret: string } | undefined)?.secret ?? ''
     const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${tenants.partnerA}, 'dispatch-support@partner-a.example', 'Ravi', 'partner-support', 'active') returning id`
     const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${world.people.owner}`
+    // Read-only needs a store whose own domain has connected (ACCESS.md §8, #1340).
+    await db.sql`update store set domain_connected_at = ${clock} where id = ${tenants.storeA1}`
     await db.sql`insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
       values (${tenants.partnerA}, ${tenants.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${clock}, ${new Date(clock.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-dispatch')}, ${new Date(clock.getTime() + 5 * 60_000)}, 'read')`
     const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: tenants.partnerA, activity: activityLog, facts, now: () => clock }, 'tok-dispatch')

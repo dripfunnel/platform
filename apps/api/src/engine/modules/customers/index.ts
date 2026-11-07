@@ -3,7 +3,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { dialCodeOf, isCountry } from '#core/countries'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
-import type { TenantContext } from '#core/tenancy'
+import { supportSearchesShoppers, type TenantContext } from '#core/tenancy'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectStoreCountry } from '#db/scoped/orders'
 import {
@@ -138,6 +138,7 @@ export const createCustomersService = ({ sql, context, actor, activity, facts, n
   const list = (filter: CustomerFilter, window: PageWindow): Promise<CustomerListRow[]> => {
     if (filter.groupId !== null && !isUuid(filter.groupId)) return Promise.resolve([])
     const search = filter.search?.trim().slice(0, 100) || null
+    if (supportSearchesShoppers(context, search)) return Promise.resolve([])
     return read((tx) => selectStoreCustomers(tx, storeId, { groupId: filter.groupId, search }, window), [])
   }
   const count = (): Promise<number> => read((tx) => countStoreCustomers(tx, storeId), 0)
