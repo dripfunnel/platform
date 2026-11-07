@@ -296,6 +296,15 @@ describe('the rules the AI is given', () => {
     expect(rules).toMatch(/Never write a product, price, rating, collection, offer, discount,\s+sales figure or city into code or content/)
   })
 
+  it('show a named collection live from its slug, matched by meaning, and ask when the shop has no clear match', () => {
+    expect(rules).toMatch(/by meaning, not spelling/)
+    expect(rules).toMatch(/useListing\(\{ collection: 'its-slug' \}\)/)
+    expect(rules).toMatch(/useProducts never filters by\s+collection, so never put its products under a collection's name/)
+    expect(rules).toMatch(/matches none of the shop's collections, or two of them, add no section for it: ask one question/)
+    expect(rules).toMatch(/The one\s+exception is a named collection the shop doesn't clearly have/)
+    expect(rules).toMatch(/The reply says what each section you added shows/)
+  })
+
   it('state what publishing checks: one h1, no aria-hidden over focusable parts, 24 px targets, no overflow', () => {
     expect(rules).toMatch(/Exactly one h1 on a page/)
     expect(rules).toMatch(/Never put aria-hidden on anything that holds a Link or a button/)
