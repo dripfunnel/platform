@@ -486,6 +486,11 @@ export const updateCustomDomainCheck = async (tx: ScopedSql, id: string, check: 
   `
 }
 
+/** The first time a store's own domain connects; never moved or cleared after (ACCESS.md §8, #1340). */
+export const markStoreDomainConnected = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
+  await tx`update store set domain_connected_at = ${at} where id = ${storeId} and domain_connected_at is null`
+}
+
 /** Locks the row for the rest of the transaction, so two staff cannot both suspend or restore at once. */
 export const selectStoreForUpdate = async (tx: ScopedSql, id: string): Promise<StoreRow | null> =>
   (await tx<StoreRow[]>`select * from store where id = ${id} for update`)[0] ?? null

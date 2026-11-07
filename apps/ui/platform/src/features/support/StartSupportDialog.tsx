@@ -248,7 +248,7 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
             }}
           >
             <p>
-              {fill(words.confirm, { name: target.name, first, role: roleText(target), store: target.store.name, partner: firstOf(partner), me: firstOf(me) })}
+              {fill(target.changesWithoutAsking ? words.confirmChanges : words.confirm, { name: target.name, first, role: roleText(target), store: target.store.name, partner: firstOf(partner), me: firstOf(me) })}
             </p>
             <dl className="df-support-summary">
               <div>

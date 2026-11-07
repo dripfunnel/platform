@@ -53,6 +53,7 @@ const targetSchema = z.object({
   storeOwner: z.string().nullable(),
   colleague: z.object({ name: z.string(), minutesLeft: z.number().int() }).nullable(),
   mySessionId: z.string().nullable(),
+  changesWithoutAsking: z.boolean(),
 })
 export type SupportTarget = z.infer<typeof targetSchema>
 
@@ -76,7 +77,7 @@ const sessionSchema = z.object({
 export type SupportSession = z.infer<typeof sessionSchema>
 
 const verdictFields = '{ allowed reason }'
-const targetFields = `items { membershipId userId name email type store { id name } role supplier lastSignInAt status start ${verdictFields} storeOwner colleague { name minutesLeft } mySessionId } ${pageInfoFields}`
+const targetFields = `items { membershipId userId name email type store { id name } role supplier lastSignInAt status start ${verdictFields} storeOwner colleague { name minutesLeft } mySessionId changesWithoutAsking } ${pageInfoFields}`
 const oneSession = `id user { name role supplier } store { id name } agent { id name } you reason ticket startedAt expiresAt endedAt endedBy endedByName end ${verdictFields} return ${verdictFields} extend ${verdictFields}`
 const sessionFields = `items { ${oneSession} } ${pageInfoFields}`
 

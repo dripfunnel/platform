@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
-import type { TenantContext } from '#core/tenancy'
+import { supportSearchesShoppers, type TenantContext } from '#core/tenancy'
 import {
   countAbandonedCarts,
   finalSkips,
@@ -25,6 +25,7 @@ import { cartLinesNow, type CartLineNow } from '#engine/modules/cart/index'
 import { cartRemindKind } from './jobs'
 import { reminderPercents, reminderSteps, reminderWindowMs } from './rules'
 import { wishlistItemsNow, type WishlistItemNow } from './wishlist'
+
 
 // The Carts tab (FIRST-RELEASE §9; Carts): every merchant role reads the store's abandoned carts in its own store scope;
 // Owner and Manager remind, stop and resume (ACCESS §5.1 `carts.write`), written in system scope naming the store.
@@ -98,7 +99,7 @@ export const createCartsService = ({ sql, context, actor, activity, facts, level
   const cartTarget = (id: string) => ({ type: 'cart', id, label: 'Abandoned cart' })
 
   const list = async (tab: CartTab, search: string | null, window: PageWindow): Promise<AbandonedCartView[]> => {
-    if (supplier) return []
+    if (supplier || supportSearchesShoppers(context, search)) return []
     const at = now()
     const rows = await withScope(sql, context, (tx) => selectAbandonedCarts(tx, storeId, { tab, search: search?.trim().slice(0, 100) || null }, window, at, reminderWindowMs))
     return rows.map((r) => ({ ...r, status: statusOf(r, at) }))

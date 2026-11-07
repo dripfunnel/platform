@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts page, §5.4). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-11-08 (#1340: a support session makes changes without an Allow until the store's own domain first connects; shoppers' details are never shown to it; customers and the customer and order exports join the "never" list, §8). Before: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts page, §5.4). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30; a write code beside Allow; the banner says when support can make changes, §8). Before: 2026-11-06 (#1310: a sign-in saves a linked order's delivery address when its email and number both match the account's verified ones, §2.1). Before: 2026-11-05 (#1293: a partner's support session may act as a new store's invited Owner, with writes, §8). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, still extendable once by 30, §8.1). Before: 2026-11-05 (staff may impersonate a store's Owner before the invitation is accepted, §8.1). Before: 2026-11-05 (#1243: `publish` answers the studio's questions and changes and builds its plan, §5.1). Before: 2026-11-03 (#1186: a sign-in links the guest orders with the account's verified email or number, §2.1). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, §1, §2, §4). Before: 2026-11-01 (#1112: the portal's `/support/enter` page, §8.3). Before: 2026-10-31 (#1078: `storefront.read` no longer names a Pages tab, §5.1). Before: 2026-10-28 (#852: `stores.deliveryApp.write`, §5.4). Before: 2026-10-26 (#843: recall and Mark delivered built, §5.1). Before: 2026-10-26 (#842: Ready for pickup, assign, offer again and cancel built; recall and mark delivered still proposed, §5.1). Before: 2026-10-23 (#839: the rider pool signs in and the Rider caller is built, `scope: 'rider'` on the Delivery API, §2, §3, §3.1). Before: 2026-10-23 (#838: `riders.manage` built for the list, invitations, suspension and removal, §5.1). Before: 2026-10-22 (`riders.manage` and the own-delivery actions in §5.1, never a supplier's, §5.2, proposed). Before: 2026-10-22 (riders, a fifth pool, and the rider caller on the Delivery API, §2 and §3, proposed: DELIVERY.md). Before: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -38,7 +38,7 @@ Last updated: 2026-11-06 (#1312: `fleet.read` has the admin console's Rollouts p
 | **The merchant mobile app carries the same server-side session as a bearer token** (decided 2026-10-08 on #490, §4) | The cookie in the app | A native app has no browser to hold the cookie, and sends no `Origin`. The token is the same `user_session` row with the same bounds, kept in the phone's secure storage; no browser ever holds it. |
 | **Invitations create an account with no password** and a hashed, single-use, expiring token | A generated password emailed; a throwaway password | The invitee chooses their own password; nothing usable sits in an inbox. |
 | **Vendor orders are vendor sub-orders** in the order model | A view assembled outside the order model | The engine owns orders now (PLATFORM-PROMPT §3.3); ownership of a sub-order is a row filter, not a hand-written check. |
-| **Support access is its own caller kind**, read-only, consented, time-limited, on the merchant's portal host | "Sign in as" a person | It never acts as a person, so it can't change passwords, payment methods, payouts or ownership, and every action is attributed to the real support agent (USERS-AND-DOMAINS §4.1). |
+| **Support access is its own caller kind**, consented, time-limited, on the merchant's portal host; changes need the merchant's Allow once the store's own domain has connected (§8) | "Sign in as" a person | It never acts as a person, so it can't change passwords, payment methods, payouts or ownership, and every action is attributed to the real support agent (USERS-AND-DOMAINS §4.1). |
 | **Every resolver declares its API, permission and tenant scope**, and a test walks the schema | Review discipline | An unscoped field can't exist (PLATFORM-PROMPT §2 item 17; ARCHITECTURE §1 Pothos decision). |
 | **Audit rows are written in the same transaction as the change**, append-only | Logs; a best-effort async write | A privileged change without its audit row can't commit. |
 | **Postgres row-level security as the backstop** (decided 2026-09-28; policies in [DATA-MODEL.md](DATA-MODEL.md) §5) | Application filtering only | If the scoped layer is bypassed by a bug, the database still refuses other stores', suppliers' and partners' rows (PLATFORM-PROMPT §5.1). |
@@ -170,7 +170,7 @@ and **never** to a `TenantContext`, except through a support session.
 | **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes: capped by its creator's role when created, and by the supplier's current tier on every request if vendor-bound (§5.6) |
 | **App grant** | Store API | The app's grant token | The grant's store | `all`: apps are always store-wide; only API keys may be supplier-bound (decided 2026-10-05 on #337) | The scopes the merchant approved |
 | **Staff impersonation** | Store API or Platform API, on the target's host | Impersonation cookie from a handoff (§8.1) | The target membership's store, or none for a partner user | From the target membership | The target's own permissions |
-| **Support session** | Store API, on the store's portal host | Support cookie from a support handoff (§8) | The one store the session was opened for | `all` | The read-only support set; the write set only after the merchant allows it |
+| **Support session** | Store API, on the store's portal host | Support cookie from a support handoff (§8) | The one store the session was opened for | `all` | The seat's set, never a shopper's details; writes until the store's own domain connects, then only after the merchant allows them (§8) |
 | **Staff setup session** | Platform API, on `platform.dripfunnel.ai` | Setup cookie from a handoff (§8.2) | None: a `PartnerContext` for the one partner, with no partner user | none | The partner Owner's set, minus payment method, payout details and team ownership |
 | **Partner user** | Platform API | Session cookie on `platform.dripfunnel.ai` | None: a `PartnerContext` (partner, user, partner role) | none | Partner role (§5.3) |
 | **Staff** | Admin API | SSO session on `admin.dripfunnel.ai` | None: a `StaffContext` (staff member, staff role) | none | Staff role (§5.4) |
@@ -560,7 +560,7 @@ prototype's permission table and ui/platform/README.md §2; the first release is
 | Create a merchant (Owner invitation) | ✓ | ✓ | | | |
 | Change a merchant's plan, price, limits, entitlements ("Publish now" allowance), trial | ✓ | ✓ | | ✓ *(trial and billing fields only)* | |
 | Suspend and restore a merchant **(confirmed 2026-09-30)** | ✓ | ✓ | | | |
-| Open a read-only **support session** (§8) | ✓ | ✓ | ✓ | | |
+| Open a **support session** (§8) | ✓ | ✓ | ✓ | | |
 | Request write elevation inside a support session | ✓ | ✓ | ✓ | | |
 | Branding, portal host, email sender domain | ✓ | ✓ | | | |
 | Plans and prices offered to merchants | ✓ | ✓ | | ✓ *(prices only)* | |
@@ -1025,8 +1025,20 @@ Browser → https://<store's portal host>/support/enter?token=…
 
 **Rules:**
 
-- **Read-only** by default: the support read set is the Owner's read permissions, minus
-  anything credential-shaped (credentials are never readable anyway, §5.5).
+- **Changes without asking until the store's own domain connects** (decided 2026-11-08 on #1340):
+  while the store has never had a custom domain reach *Connected* (`store.domain_connected_at`, SAAS §8),
+  a session makes changes as soon as it opens, with no Allow or code. The "never" list below still applies.
+  The first connection ends that for good: removing the domain, or it expiring or breaking, doesn't
+  reopen it, and a store on a plan without custom domains stays in it. A session open when the domain
+  connects is read-only from its next request.
+- **Read-only after that** until the merchant allows changes: the support read set is the Owner's read
+  permissions, minus anything credential-shaped (credentials are never readable anyway, §5.5).
+- **Shoppers' details are never shown** (decided 2026-11-08 on #1340), in either period, allowed or not: a
+  shopper's name, email, phone, address (except its region and country) and the free-text notes on
+  customers and orders read `•••••` (`apis/store/shopperDetails.ts`) wherever the Store API returns them:
+  orders, customers, abandoned carts, wishlists, issued gift cards, Home, own delivery, and an order note
+  in the activity log. A support session's search by a shopper's name, email or phone finds nothing; an
+  order number still finds its order. Every order action is open to it whenever it may make changes.
 - **Time-limited**: 90 minutes, **extendable once by 30** by its own agent, as staff impersonation (§8.1)
   (decided 2026-11-06 on #1328, replacing 30 minutes with no extension, #337). The agent extends from the
   partner console (`extendSupportSession`) or its banner on the portal host
@@ -1054,12 +1066,13 @@ Browser → https://<store's portal host>/support/enter?token=…
   the session), is replaced by a newer one and voided after 5 wrong tries, and works only while its issuer is still an active Owner or Manager of the store. Only its salted hash is kept, never logged.
   A redeemed code leaves the session as an Allow by the person who issued it, a Manager's emailing the Owners.
 - **Never, even elevated**: change passwords or sign-in methods, payment methods, payouts,
-  ownership or roles; create API keys or install apps; open a storefront preview link, which names
+  ownership or roles; add, edit or export customers (customer groups share `customers.write`), or export
+  orders (#1340); create API keys or install apps; open a storefront preview link, which names
   the person who opened it (storefront PREVIEW §5, #317); skip a Home checklist step (#719). A support session is not a person, so it
   can't act as one.
 - **A new store whose Owner hasn't accepted** (decided 2026-11-05 on #1293): while the store has no
   active Owner or Manager, a session may be opened on an invited Owner's seat, and it may **write
-  without an Allow**, since no one can give one yet. The "never" list still applies. Any other
+  without an Allow**, since no one can give one yet, even once the store's domain has connected (#1340). The "never" list still applies. Any other
   invited user, and an invited Owner on a store that has an active Owner or Manager, is still
   refused (`NOT_ACCEPTED`). Once the Owner accepts, the session is read-only again at its next request,
   and writes need an Allow, as above. The merchant side's banner and Support access log say what the session
@@ -1104,9 +1117,11 @@ codes still allow a session.
   elevation every mutation refuses with `SUPPORT_READ_ONLY`, except `requestSupportWrite`, its
   own. After it, the "never" list still refuses with `BLOCKED_FOR_SUPPORT`, by permission
   (`invite`, `manage-vendors`, `supplier.team`, `payments.configure`, `billing`,
-  `support.allow_write`, `activity.export`, `store.export`) and by `blockedFor: ['support']` on a field
+  `support.allow_write`, `customers.write`, `customers.export`, `activity.export`, `store.export`) and by `blockedFor: ['support']` on a field
   (`setSupportAccess` and the `supportAccess` log, `createApiKey`, `rotateApiKey`, `installApp`, and `saveWebhook`, which would send
-  the store's events to an address the agent chose).
+  the store's events to an address the agent chose; the customer and order exports, read or requested, #1340).
+  A session's access is `write` while `store.domain_connected_at` is null (#1340), after an Allow or a code, or on a
+  new store's invited Owner's seat (`supportAccessOf`); asking for writes or typing a code then answers `ALREADY_ALLOWED`.
 - **Elevation.** The agent asks with a note (`requestSupportWrite`, one open request at a time,
   again after a Deny). The banner (`storeState.support`) shows it to the merchant side, and an
   Owner or Manager answers with `allowSupportWrite` or `denySupportWrite`. The answer locks the

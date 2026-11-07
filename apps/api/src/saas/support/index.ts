@@ -113,6 +113,7 @@ export const createPartnerSupportService = ({ sql, caller, user, facts, activity
       storeOwner: reason === 'SUPPORT_OFF' ? t.store_owner : null,
       colleague: reason === 'COLLEAGUE_IN_SESSION' && t.open_agent_name && t.open_expires_at ? { name: t.open_agent_name, minutesLeft: minutesLeft(t.open_expires_at, at) } : null,
       mySessionId: t.open_session_id && t.open_agent_id === user.id ? t.open_session_id : null,
+      changesWithoutAsking: !t.store_domain_connected || isNewStoreOwnerSeat({ role: t.role_key, membershipStatus: t.membership_status, userStatus: t.user_status }, t.store_has_allower),
     }
   }
   type TargetDto = ReturnType<typeof targetDto>

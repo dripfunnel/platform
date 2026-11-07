@@ -36,6 +36,7 @@ const Target = builder.objectRef<SupportTargetDto>('SupportTarget').implement({
     storeOwner: t.exposeString('storeOwner', { nullable: true }),
     colleague: t.field({ type: Colleague, nullable: true, resolve: (r) => r.colleague }),
     mySessionId: t.exposeID('mySessionId', { nullable: true }),
+    changesWithoutAsking: t.exposeBoolean('changesWithoutAsking', { description: 'A session on this user starts able to make changes: the store\'s own domain has never connected, or it is a new store\'s invited Owner (ACCESS.md §8).' }),
   }),
 })
 

@@ -61,7 +61,9 @@ export const createOrdersService = ({ sql, context, actor, activity, facts }: Or
 
   const list = (filter: OrderFilter, search: string | null, window: PageWindow): Promise<OrderListRow[]> => {
     const term = search?.trim().slice(0, 100) || null
-    return withScope(sql, context, (tx) => (sellerId ? selectSupplierOrders(tx, filter, term, window) : selectMerchantOrders(tx, storeId, filter, term, window)))
+    // A support session finds an order by its number only, never by the shopper's name (ACCESS.md §8).
+    const byName = context.caller.kind !== 'support'
+    return withScope(sql, context, (tx) => (sellerId ? selectSupplierOrders(tx, filter, term, window) : selectMerchantOrders(tx, storeId, filter, term, window, byName)))
   }
 
   const counts = (): Promise<OrderCounts> => withScope(sql, context, (tx) => (sellerId ? countSupplierOrders(tx) : countMerchantOrders(tx, storeId)))

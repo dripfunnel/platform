@@ -42,12 +42,13 @@ export const writeRequestOf = (s: Pick<SupportPortalRow, 'access' | 'write_reque
     ? null
     : { note: s.write_request_note ?? '', requestedAt: s.write_requested_at, state: s.write_decided_at === null ? 'pending' : s.access === 'write' ? 'allowed' : 'denied' }
 
-type SessionSeat = Pick<SupportPortalRow, 'access' | 'role_key' | 'membership_status' | 'user_status' | 'store_has_allower'>
+type SessionSeat = Pick<SupportPortalRow, 'access' | 'role_key' | 'membership_status' | 'user_status' | 'store_has_allower' | 'store_domain_connected'>
 
-const seatStatusOf = (row: SessionSeat) => ({ role: row.role_key, membershipStatus: row.membership_status, userStatus: row.user_status })
+const seatStatusOf = (row: Pick<SessionSeat, 'role_key' | 'membership_status' | 'user_status'>) => ({ role: row.role_key, membershipStatus: row.membership_status, userStatus: row.user_status })
 
-// ACCESS.md §8: writes need an Owner's or Manager's Allow, except on a new store's invited Owner's seat, when nobody can give it.
-export const supportAccessOf = (row: SessionSeat): 'read' | 'write' => (row.access === 'write' || isNewStoreOwnerSeat(seatStatusOf(row), row.store_has_allower) ? 'write' : 'read')
+// ACCESS.md §8: changes need no Allow until the store's own domain first connects, nor on a new store's invited Owner's seat.
+export const supportAccessOf = (row: SessionSeat): 'read' | 'write' =>
+  row.access === 'write' || !row.store_domain_connected || isNewStoreOwnerSeat(seatStatusOf(row), row.store_has_allower) ? 'write' : 'read'
 
 export const seatOf = (row: SupportPortalRow): SupportSeat => ({
   sessionId: row.id,

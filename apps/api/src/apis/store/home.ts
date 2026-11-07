@@ -3,6 +3,7 @@ import { createHomeService, createSetupSkipService, homeAudit, setupSteps, type 
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyType, type StoreBuilder } from './builder'
+import { shopperDetail } from './shopperDetails'
 
 // Home (FIRST-RELEASE §5, PortalHome): the merchant side's landing screen, refused to suppliers (§19). What a seat
 // may not see is null, decided on the server (engine/modules/reports/home.ts).
@@ -36,7 +37,7 @@ export const registerHome = (builder: StoreBuilder) => {
       state: t.exposeString('state'),
       paymentState: t.exposeString('payment_state', { nullable: true }),
       fulfilmentState: t.exposeString('fulfilment_state', { nullable: true }),
-      customerName: t.exposeString('customer_name', { nullable: true }),
+      customerName: t.string({ nullable: true, resolve: (o, _, ctx) => shopperDetail(ctx, o.customer_name) }),
       items: t.exposeInt('items'),
       total: t.field({ type: Money, nullable: true, resolve: (o) => (o.total_amount === null ? null : { amount: o.total_amount, currency: o.currency }) }),
       test: t.exposeBoolean('test', { nullable: true }),

@@ -1,10 +1,12 @@
 import { GraphQLError } from 'graphql'
 import { catalogExportKind, type CatalogExportDto } from '#engine/modules/catalog/index'
+import { ordersAudit } from '#engine/modules/orders/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { activityAudit, createStoreActivityService, type StoreActivityEntry } from '#saas/storeActivity/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
+import { shopperDetail } from './shopperDetails'
 
 // The store's Activity log (FIRST-RELEASE §15, StoreActivity): read by the Owner and, as Store activity,
 // the Manager (`activity.read`, never the Settings permission); the CSV is the Owner's (`activity.export`).
@@ -61,7 +63,8 @@ export const registerActivity = (builder: StoreBuilder) => {
       customerId: t.exposeString('customerId', { nullable: true }),
       target: t.field({ type: Target, nullable: true, resolve: (e) => e.target }),
       changes: t.field({ type: [ChangeType], resolve: (e) => e.changes }),
-      reason: t.exposeString('reason', { nullable: true }),
+      // An order's team note is kept as its entry's reason (LOGGING §3).
+      reason: t.string({ nullable: true, resolve: (e, _, ctx) => (e.action === ordersAudit.noteAdded ? shopperDetail(ctx, e.reason) : e.reason) }),
     }),
   })
   const Page = builder.objectRef<{ items: StoreActivityEntry[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('StoreActivityPage').implement({

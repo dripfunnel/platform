@@ -5,7 +5,7 @@ Who uses the platform, where each of them signs in, and which hostnames exist. *
 "brand" they mean a **partner**'s white-label identity, and where they say "DF Admin" they
 mean the admin console at `admin.dripfunnel.ai`.
 
-Last updated: 2026-11-06 (#1328: a partner support session lasts 90 minutes, extendable once by 30, §4.1). Before: 2026-11-05 (#1293: support may set up a new store before its Owner accepts, §4.1). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, §4.2). Before: 2026-10-22 (riders, a sixth kind of user, §1, with Gaurav; api/DELIVERY.md). Before: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug}.my-store.one` live,
+Last updated: 2026-11-08 (#1340: support makes changes without asking until the store's own domain connects, and never sees shoppers' details, §4.1). Before: 2026-11-06 (#1328: a partner support session lasts 90 minutes, extendable once by 30, §4.1). Before: 2026-11-05 (#1293: support may set up a new store before its Owner accepts, §4.1). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, §4.2). Before: 2026-10-22 (riders, a sixth kind of user, §1, with Gaurav; api/DELIVERY.md). Before: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug}.my-store.one` live,
 `{slug}-preview.my-store.one` preview; the partner's shop domain retired; built on #744, #745, `SHOP_DOMAIN` replaces `PREVIEW_DOMAIN`). Before: 2026-10-09
 (previews moved to `{key}.webpreview.store`; §5's checks answered).
 
@@ -130,9 +130,14 @@ partner and merchant.
 - **Setting**: in the merchant's portal, *Settings › Support access*: "Allow [partner name]
   support to view my store: On / Off". **On by default**; the Owner can switch it off at any
   time. When it's off, support can only ask the merchant to switch it on.
-- **Sessions are read-only**, **time-limited** (90 minutes, extendable once by 30, decided 2026-11-06 on #1328, replacing 30), and need a
+- **Sessions are time-limited** (90 minutes, extendable once by 30, decided 2026-11-06 on #1328, replacing 30), and need a
   **reason or ticket number** before they start. They can't change passwords, payment
-  methods, payouts or ownership.
+  methods, payouts, the team or ownership, and can't edit or export customers.
+- **Changes until the site is the merchant's own** (decided 2026-11-08 on #1340): until the store's own
+  domain first connects, support makes changes without asking; from then on sessions are **read-only**
+  until the merchant allows changes for that one session (ACCESS.md §8).
+- **Shoppers stay private** (decided 2026-11-08 on #1340): support never sees a shopper's name, contact
+  details, address or notes, in any session.
 - **A new store** (decided 2026-11-05 on #1293): until its Owner accepts the invitation, and while it has
   no active Owner or Manager, support may open a session as the Owner and make changes to set the
   store up (ACCESS.md §8).

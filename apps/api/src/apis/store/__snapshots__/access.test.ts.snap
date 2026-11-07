@@ -2,6 +2,7 @@
 
 exports[`a partner support session (ACCESS.md §8, #331) > lists the writes an elevated session acting as an Owner is still refused 1`] = `
 [
+  "addCustomer",
   "addSupplierPerson",
   "allowSupportWrite",
   "answerDesignQuestions",
@@ -20,6 +21,8 @@ exports[`a partner support session (ACCESS.md §8, #331) > lists the writes an e
   "connectStoreAiAccount",
   "connectStripe",
   "createApiKey",
+  "createGroup",
+  "deleteGroup",
   "deleteLibraryAsset",
   "denySupportWrite",
   "discardDraft",
@@ -27,6 +30,8 @@ exports[`a partner support session (ACCESS.md §8, #331) > lists the writes an e
   "endPreviewLinks",
   "eraseRider",
   "exportActivity",
+  "exportCustomers",
+  "exportOrders",
   "exportRider",
   "exportStoreData",
   "finishStoreAiOauth",
@@ -43,6 +48,7 @@ exports[`a partner support session (ACCESS.md §8, #331) > lists the writes an e
   "publishBefore",
   "publishDesign",
   "publishNow",
+  "recordMarketingStop",
   "regenerateBackupCodes",
   "removeMember",
   "removeRider",
@@ -59,6 +65,9 @@ exports[`a partner support session (ACCESS.md §8, #331) > lists the writes an e
   "saveBillingDetails",
   "saveDesignText",
   "saveWebhook",
+  "setCustomerGroups",
+  "setCustomerNote",
+  "setCustomerTags",
   "setPaymentMethod",
   "setSecondFactor",
   "setStoreAiFallback",
@@ -75,6 +84,8 @@ exports[`a partner support session (ACCESS.md §8, #331) > lists the writes an e
   "switchStore",
   "testStoreAiAccount",
   "undoDesignChange",
+  "updateCustomer",
+  "updateGroup",
   "updateProfile",
   "useStockImage",
 ]

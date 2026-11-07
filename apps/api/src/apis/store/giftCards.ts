@@ -4,6 +4,7 @@ import { createGiftCardService, giftCardsAudit, type GiftCardRefusal, type GiftC
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
+import { shopperDetail } from './shopperDetails'
 import { storePage } from './refusals'
 
 // A gift card product's cards issued, and "Issue a card" for store credit or a goodwill gesture (CatEditor). The merchant
@@ -35,8 +36,8 @@ export const registerGiftCards = (builder: StoreBuilder) => {
       id: t.exposeID('id'),
       // Null until its email has gone (on the day its buyer chose).
       last4: t.exposeString('code_last4', { nullable: true }),
-      recipientName: t.exposeString('recipient_name', { nullable: true }),
-      recipientEmail: t.exposeString('recipient_email'),
+      recipientName: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.recipient_name) }),
+      recipientEmail: t.string({ resolve: (c, _, ctx) => shopperDetail(ctx, c.recipient_email) }),
       amount: t.field({ type: Money, resolve: (c) => ({ amount: c.initial_amount, currency: c.currency }) }),
       balance: t.field({ type: Money, resolve: (c) => ({ amount: c.balance_amount, currency: c.currency }) }),
       sendOn: t.exposeString('send_on', { nullable: true }),
