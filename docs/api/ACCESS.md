@@ -1036,8 +1036,9 @@ Browser → https://<store's portal host>/support/enter?token=…
 - **Shoppers' details are never shown** (decided 2026-11-08 on #1340), in either period, allowed or not: a
   shopper's name, email, phone, address (except its region and country) and the free-text notes on
   customers and orders read `•••••` (`apis/store/shopperDetails.ts`) wherever the Store API returns them:
-  orders, customers, abandoned carts, wishlists, issued gift cards, Home, own delivery, and an order note
-  in the activity log. A support session's search by a shopper's name, email or phone finds nothing; an
+  orders, customers, abandoned carts, wishlists, issued gift cards, Home, own delivery, and in the activity
+  log an order note, a shopper's own label, and the label, changes and reason of an entry about a shopper's
+  record (customer, address, cart, wishlist), though LOGGING.md §4.1 keeps them out already. A support session's search by a shopper's name, email or phone finds nothing; an
   order number still finds its order. Every order action is open to it whenever it may make changes.
 - **Time-limited**: 90 minutes, **extendable once by 30** by its own agent, as staff impersonation (§8.1)
   (decided 2026-11-06 on #1328, replacing 30 minutes with no extension, #337). The agent extends from the
