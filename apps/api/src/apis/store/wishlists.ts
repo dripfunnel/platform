@@ -16,6 +16,7 @@ import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { answered } from './cartReminders'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
+import { shopperDetail } from './shopperDetails'
 import { storePage } from './refusals'
 import { assetUrl } from './products'
 
@@ -51,8 +52,8 @@ export const registerWishlists = (builder: StoreBuilder) => {
   const Shopper = builder.objectRef<WishlistShopperRow>('WishlistShopper').implement({
     fields: (t) => ({
       customerId: t.exposeID('customer_id'),
-      name: t.exposeString('name', { nullable: true }),
-      email: t.exposeString('email', { nullable: true }),
+      name: t.string({ nullable: true, resolve: (s, _, ctx) => shopperDetail(ctx, s.name) }),
+      email: t.string({ nullable: true, resolve: (s, _, ctx) => shopperDetail(ctx, s.email) }),
       items: t.exposeInt('items'),
       lastSavedAt: t.string({ resolve: (s) => new Date(s.last_saved_at).toISOString() }),
       // The newest saved product's name (the list); null in the detail.

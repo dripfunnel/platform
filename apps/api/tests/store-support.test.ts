@@ -10,7 +10,9 @@ import { storeRoleHas, type StorePermission } from '#auth/storePermissions'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { storeActivityFor, supportCookieName } from '#auth/storeSupport'
+import { hiddenFromSupport } from '#apis/store/shopperDetails'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { markStoreDomainConnected } from '#db/scoped/stores'
 import { activityLog } from '#saas/activity/index'
 import { supportSessionMs } from '#saas/support/index'
 import { prepareEmail } from '#saas/email/index'
@@ -130,10 +132,10 @@ afterAll(async () => {
 })
 
 beforeEach(async () => {
-  // Each test starts with no open session, support on, and a fresh clock step.
+  // Each test starts with no open session, support on, the stores' own domains connected (#1340), and a fresh clock step.
   clock = new Date(clock.getTime() + 60 * 60_000)
   await db.sql`update support_session set ended_at = ${clock} where ended_at is null`
-  await db.sql`update store set support_access_allowed = true, status = 'trial'`
+  await db.sql`update store set support_access_allowed = true, status = 'trial', domain_connected_at = ${start}`
   await db.sql`update membership set status = 'active'`
   // Fresh person sessions at the test's clock, inside their idle bound (ACCESS.md §4).
   for (const who of Object.keys(people) as Who[]) cookies[who] = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: people[who], partnerId: partnerOf(who) }, clock))
@@ -393,6 +395,142 @@ describe('a new store whose Owner hasn’t accepted (ACCESS.md §8)', () => {
     await db.sql`update membership set status = 'invited' where id = ${seats.manager}`
     await opened('manager', agents.sam, 'tok-new-manager')
     expect(await enter('tok-new-manager')).toBe('')
+  })
+})
+
+describe('before the store’s own domain connects (#1340)', () => {
+  const unconnected = () => db.sql`update store set domain_connected_at = null where id = ${t.storeA1}`
+
+  it('admits every write but the "never" list, shoppers and their exports included', async () => {
+    await unconnected()
+    await opened('owner', agents.priya, 'tok-setup-every')
+    const ctx = await contextFor({ support: await enter('tok-setup-every') })
+    const codes = new Map<string, string>()
+    for (const field of Object.values(storeSchema.getMutationType()?.getFields() ?? {})) {
+      const access = field.extensions.access
+      if (!access) throw new Error(`${field.name} declares no access`)
+      codes.set(field.name, await storePolicy.authorize(access, ctx, {}, 'mutation', { name: field.name, root: true }).then(() => 'admitted', (error: { extensions?: { code?: string } }) => error.extensions?.code ?? 'error'))
+    }
+    expect([...codes].filter(([, code]) => code === 'SUPPORT_READ_ONLY')).toEqual([])
+    for (const name of ['setPricesIncludeTax', 'cancelOrder', 'refund', 'markOrderPaid', 'addOrderNote']) expect(codes.get(name)).toBe('admitted')
+    for (const name of ['addCustomer', 'updateCustomer', 'setCustomerNote', 'exportCustomers', 'exportOrders', 'inviteMember', 'changePassword', 'setSupportAccess']) expect(codes.get(name)).toBe('BLOCKED_FOR_SUPPORT')
+  })
+
+  it('makes a change without an Allow, says so in the banner, and has nothing to ask for', async () => {
+    await unconnected()
+    const id = await opened('owner', agents.priya, 'tok-setup')
+    const cookie = await enter('tok-setup')
+    expect((await gql(q.includeTax, { support: cookie }, { i: true })).code).toBeUndefined()
+    expect((await entries(id)).some((e) => e.actor_kind === 'support_session' && e.on_behalf_of_id === agents.priya && !e.action.startsWith('support_session.'))).toBe(true)
+    const banner = (await gql<{ storeState: { support: Record<string, unknown> } }>(q.banner, { person: 'staff' })).data?.storeState.support
+    expect(banner).toMatchObject({ sessionId: id, access: 'write', allowedBy: null })
+    expect((await gql(q.ask, { support: cookie }, { n: 'Shipping rates' })).code).toBe('ALREADY_ALLOWED')
+    expect((await gql(`{ orderExports { id } }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await gql(`{ customerExports { id } }`, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
+  })
+
+  it('asks from the next request once the domain connects, and the domain going away doesn’t undo it', async () => {
+    await unconnected()
+    await opened('owner', agents.priya, 'tok-connects')
+    const cookie = await enter('tok-connects')
+    expect((await gql(q.includeTax, { support: cookie }, { i: true })).code).toBeUndefined()
+    await withSystemScope(db.sql, (tx) => markStoreDomainConnected(tx, t.storeA1, clock))
+    expect((await gql(q.includeTax, { support: cookie }, { i: false })).code).toBe('SUPPORT_READ_ONLY')
+    // Connecting again later never moves the first time.
+    await withSystemScope(db.sql, (tx) => markStoreDomainConnected(tx, t.storeA1, new Date(clock.getTime() + 86_400_000)))
+    const [row] = await db.sql<{ domain_connected_at: Date }[]>`select domain_connected_at from store where id = ${t.storeA1}`
+    expect(row?.domain_connected_at.toISOString()).toBe(clock.toISOString())
+    expect((await gql(q.includeTax, { support: cookie }, { i: false })).code).toBe('SUPPORT_READ_ONLY')
+  })
+
+  it('leaves the switch with the store: Off still ends the session', async () => {
+    await unconnected()
+    await opened('owner', agents.priya, 'tok-setup-off')
+    const cookie = await enter('tok-setup-off')
+    await gql(q.set, { person: 'owner' }, { a: false })
+    expect((await gql(q.includeTax, { support: cookie }, { i: true })).code).toBe('UNAUTHENTICATED')
+  })
+})
+
+describe('shoppers’ details (#1340)', () => {
+  const shopper = { customer: '', order: '', number: 'A1-90001' }
+  beforeAll(async () => {
+    shopper.customer = (await db.sql<{ id: string }[]>`insert into customer (store_id, email, phone, name, status, note) values (${t.storeA1}, 'jenna@shopper.example', '+919800000002', 'Jenna Rao', 'active', 'Prefers a call after 6') returning id`)[0]?.id ?? ''
+    await db.sql`insert into customer_address (customer_id, store_id, name, line1, city, region, postal_code, country, phone, is_default_shipping) values (${shopper.customer}, ${t.storeA1}, 'Jenna Rao', '12 MG Road', 'Pune', 'MH', '411001', 'IN', '+919800000002', true)`
+    shopper.order = (await db.sql<{ id: string }[]>`
+      insert into "order" (store_id, customer_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, payment_method, stock_reserved, email, phone, shopper_note, shipping_address)
+      values (${t.storeA1}, ${shopper.customer}, 'placed', 'pending', 'INR', ${shopper.number}, ${start}, 4500, 500, 5000, 'cod', true, 'jenna@shopper.example', '+919800000002', 'Ring twice',
+        ${db.sql.json({ name: 'Jenna Rao', line1: '12 MG Road', line2: null, city: 'Pune', region: 'MH', postalCode: '411001', country: 'IN', phone: '+919800000002' })})
+      returning id`)[0]?.id ?? ''
+  })
+
+  const order = `query($id: ID!) { order(id: $id) { number customerName email phone shopperNote shippingAddress { name line1 city postalCode region country phone } } }`
+  const customer = `query($id: ID!) { customer(id: $id) { name email phone note addresses { name line1 city } lastShipTo { address { line1 } } } }`
+  const ordersBy = `query($s: String) { orders(search: $s) { nodes { number customerName city } } }`
+  const customersBy = `query($s: String) { customers(search: $s) { nodes { name email phone } } }`
+
+  it('are hidden from support, allowed or not, and shown to the store’s own people', async () => {
+    const id = await opened('owner', agents.priya, 'tok-shopper')
+    const cookie = await enter('tok-shopper')
+    type O = { order: Record<string, unknown> & { shippingAddress: Record<string, unknown> } }
+    const own = (await gql<O>(order, { person: 'owner' }, { id: shopper.order })).data?.order
+    expect(own).toMatchObject({ customerName: 'Jenna Rao', email: 'jenna@shopper.example', shopperNote: 'Ring twice', shippingAddress: { line1: '12 MG Road', city: 'Pune' } })
+    for (const allowed of [false, true]) {
+      if (allowed) {
+        await gql(q.ask, { support: cookie }, { n: 'Order question' })
+        await gql(q.allow, { person: 'owner' }, { id })
+      }
+      const seen = (await gql<O>(order, { support: cookie }, { id: shopper.order })).data?.order
+      expect(seen).toMatchObject({ number: shopper.number, customerName: hiddenFromSupport, email: hiddenFromSupport, phone: hiddenFromSupport, shopperNote: hiddenFromSupport })
+      expect(seen?.shippingAddress).toEqual({ name: hiddenFromSupport, line1: hiddenFromSupport, city: hiddenFromSupport, postalCode: hiddenFromSupport, region: 'MH', country: 'IN', phone: hiddenFromSupport })
+      type C = { customer: { name: string; email: string; phone: string; note: string; addresses: { line1: string }[]; lastShipTo: { address: { line1: string } } | null } }
+      const c = (await gql<C>(customer, { support: cookie }, { id: shopper.customer })).data?.customer
+      expect(c).toMatchObject({ name: hiddenFromSupport, email: hiddenFromSupport, phone: hiddenFromSupport, note: hiddenFromSupport, lastShipTo: { address: { line1: hiddenFromSupport } } })
+      expect(c?.addresses.every((a) => a.line1 === hiddenFromSupport)).toBe(true)
+      expect(JSON.stringify(seen) + JSON.stringify(c)).not.toMatch(/Jenna|jenna@|9800000002|MG Road|Pune|411001/)
+    }
+    expect((await gql(`mutation($id: ID!) { setCustomerNote(id: $id, note: "x") }`, { support: cookie }, { id: shopper.customer })).code).toBe('BLOCKED_FOR_SUPPORT')
+  })
+
+  it('are never found by support’s search, while an order number still is', async () => {
+    await opened('owner', agents.priya, 'tok-search')
+    const cookie = await enter('tok-search')
+    type Os = { orders: { nodes: { number: string; customerName: string }[] } }
+    type Cs = { customers: { nodes: unknown[] } }
+    expect((await gql<Os>(ordersBy, { person: 'owner' }, { s: 'Jenna' })).data?.orders.nodes.map((o) => o.number)).toContain(shopper.number)
+    expect((await gql<Os>(ordersBy, { support: cookie }, { s: 'Jenna' })).data?.orders.nodes).toEqual([])
+    expect((await gql<Os>(ordersBy, { support: cookie }, { s: shopper.number })).data?.orders.nodes).toEqual([{ number: shopper.number, customerName: hiddenFromSupport, city: hiddenFromSupport }])
+    expect((await gql<Cs>(customersBy, { person: 'owner' }, { s: 'jenna@shopper.example' })).data?.customers.nodes).toHaveLength(1)
+    expect((await gql<Cs>(customersBy, { support: cookie }, { s: 'jenna@shopper.example' })).data?.customers.nodes).toEqual([])
+    expect((await gql<Cs>(customersBy, { support: cookie }, { s: '+919800000002' })).data?.customers.nodes).toEqual([])
+  })
+
+  it('stay hidden in the activity log, even in an entry that carries them', async () => {
+    await opened('owner', agents.priya, 'tok-log-shopper')
+    const cookie = await enter('tok-log-shopper')
+    expect((await gql(`mutation($id: ID!) { updateCustomer(id: $id, name: "Jenna R. Rao", phone: "+919800000003") }`, { person: 'owner' }, { id: shopper.customer })).code).toBeUndefined()
+    await withSystemScope(db.sql, (tx) =>
+      activityLog.record(tx, {
+        category: 'write', action: 'customer.test_slip', result: 'success', actorKind: 'customer', actorId: shopper.customer, actorLabel: 'Jenna Rao jenna@shopper.example',
+        partnerId: t.partnerA, storeId: t.storeA1, customerId: shopper.customer, target: { type: 'customer_address', id: shopper.customer, label: '12 MG Road, Pune' },
+        changes: [{ field: 'phone', before: '+919800000002', after: '+919800000003' }], reason: 'Ring twice', api: 'shop', visibility: 'store', requestId: null, ip: null, userAgent: null,
+      }),
+    )
+    const log = `{ activityLog(first: 20, filter: { what: "shoppers" }) { items { action actor { label } target { label } changes { before after } reason } } } `
+    const edits = `{ activityLog(first: 20) { items { action changes { field before after } } } }`
+    type L = { activityLog: { items: { action: string }[] } }
+    const own = JSON.stringify((await gql<L>(log, { person: 'owner' })).data?.activityLog.items)
+    expect(own).toMatch(/Jenna Rao jenna@shopper\.example/)
+    const seen = (await gql<L>(log, { support: cookie })).data?.activityLog.items
+    expect(seen?.find((e) => e.action === 'customer.test_slip')).toEqual({ action: 'customer.test_slip', actor: { label: hiddenFromSupport }, target: { label: hiddenFromSupport }, changes: [{ before: hiddenFromSupport, after: hiddenFromSupport }], reason: hiddenFromSupport })
+    const all = JSON.stringify([seen, (await gql<L>(edits, { support: cookie })).data?.activityLog.items])
+    expect(all).toMatch(/customer\.edited/)
+    expect(all).not.toMatch(/Jenna|jenna@|980000000|MG Road|Pune|Ring twice/)
+    const search = `query($s: String) { activityLog(first: 20, filter: { search: $s }) { items { action } } }`
+    for (const s of ['jenna@shopper.example', 'MG Road']) {
+      expect((await gql<L>(search, { person: 'owner' }, { s })).data?.activityLog.items.map((e) => e.action)).toContain('customer.test_slip')
+      expect((await gql<L>(search, { support: cookie }, { s })).data?.activityLog.items).toEqual([])
+    }
   })
 })
 

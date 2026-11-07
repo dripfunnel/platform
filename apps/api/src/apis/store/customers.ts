@@ -18,6 +18,7 @@ import { forbidden } from '../graphql/scope'
 import { actingCaller, tenantCaller, type StoreContext } from './access'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
 import type { registerOrders } from './orders'
+import { shopperDetail } from './shopperDetails'
 import { storePage } from './refusals'
 
 // Customers (FIRST-RELEASE §7, §19; PortalOrders › Customers): the merchant side's, Owner, Manager and Staff alike
@@ -65,13 +66,13 @@ export const registerCustomers = (builder: StoreBuilder, orders: ReturnType<type
   const Summary = builder.objectRef<CustomerListRow>('CustomerSummary').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
-      name: t.exposeString('name', { nullable: true }),
-      email: t.exposeString('email', { nullable: true }),
-      phone: t.exposeString('phone', { nullable: true }),
+      name: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.name) }),
+      email: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.email) }),
+      phone: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.phone) }),
       // A shopper's own account (signed up or proven); an unverified one was added by the team or by a guest order.
       hasAccount: t.boolean({ resolve: (c) => c.status === 'active' }),
       tags: t.exposeStringList('tags'),
-      city: t.exposeString('city', { nullable: true }),
+      city: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.city) }),
       orders: t.exposeInt('orders'),
       // What they've paid, less refunds, a figure a currency.
       spent: t.field({ type: [Money], resolve: (c) => c.spent }),
@@ -85,14 +86,14 @@ export const registerCustomers = (builder: StoreBuilder, orders: ReturnType<type
   const AddressType = builder.objectRef<Address>('CustomerAddress').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
-      name: t.exposeString('name'),
-      line1: t.exposeString('line1'),
-      line2: t.exposeString('line2', { nullable: true }),
-      city: t.exposeString('city'),
+      name: t.string({ resolve: (a, _, ctx) => shopperDetail(ctx, a.name) }),
+      line1: t.string({ resolve: (a, _, ctx) => shopperDetail(ctx, a.line1) }),
+      line2: t.string({ nullable: true, resolve: (a, _, ctx) => shopperDetail(ctx, a.line2) }),
+      city: t.string({ resolve: (a, _, ctx) => shopperDetail(ctx, a.city) }),
       region: t.exposeString('region', { nullable: true }),
-      postalCode: t.exposeString('postalCode', { nullable: true }),
+      postalCode: t.string({ nullable: true, resolve: (a, _, ctx) => shopperDetail(ctx, a.postalCode) }),
       country: t.exposeString('country'),
-      phone: t.exposeString('phone', { nullable: true }),
+      phone: t.string({ nullable: true, resolve: (a, _, ctx) => shopperDetail(ctx, a.phone) }),
       isDefault: t.exposeBoolean('isDefault'),
     }),
   })
@@ -128,21 +129,21 @@ export const registerCustomers = (builder: StoreBuilder, orders: ReturnType<type
   const Customer = builder.objectRef<CustomerDetailRow>('Customer').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
-      name: t.exposeString('name', { nullable: true }),
-      email: t.exposeString('email', { nullable: true }),
-      phone: t.exposeString('phone', { nullable: true }),
+      name: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.name) }),
+      email: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.email) }),
+      phone: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.phone) }),
       emailVerified: t.exposeBoolean('email_verified'),
       phoneVerified: t.exposeBoolean('phone_verified'),
       hasAccount: t.boolean({ resolve: (c) => c.status === 'active' }),
       tags: t.exposeStringList('tags'),
       // Only the team sees it.
-      note: t.exposeString('note', { nullable: true }),
+      note: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.note) }),
       consent: t.field({ type: ConsentType, resolve: (c) => c }),
       groupIds: t.idList({ resolve: (c) => c.group_ids }),
       addresses: t.field({ type: [AddressType], resolve: (c) => c.addresses }),
       // The newest order's delivery address; the portal shows it when none is saved (a guest's, say).
       lastShipTo: t.field({ type: ShipTo, nullable: true, resolve: (c) => c.last_ship_to }),
-      city: t.exposeString('city', { nullable: true }),
+      city: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.city) }),
       ordersCount: t.exposeInt('orders'),
       // The newest 20; the rest are in Orders.
       orders: t.field({ type: [RecentOrderType], resolve: (c) => c.recent_orders }),
@@ -212,10 +213,10 @@ export const registerCustomers = (builder: StoreBuilder, orders: ReturnType<type
       type: CustomerExport,
       nullable: true,
       args: { id: t.arg.id({ required: true }) },
-      extensions: { access: { ...read, permission: 'customers.export' } },
+      extensions: { access: { ...read, permission: 'customers.export', blockedFor: ['support'] } },
       resolve: (_, { id }, ctx) => exportsOf(ctx).read(String(id)),
     }),
-    customerExports: t.field({ type: [CustomerExport], extensions: { access: { ...read, permission: 'customers.export' } }, resolve: (_, __, ctx) => exportsOf(ctx).recent() }),
+    customerExports: t.field({ type: [CustomerExport], extensions: { access: { ...read, permission: 'customers.export', blockedFor: ['support'] } }, resolve: (_, __, ctx) => exportsOf(ctx).recent() }),
   }))
 
   builder.mutationFields((t) => ({
@@ -272,11 +273,10 @@ export const registerCustomers = (builder: StoreBuilder, orders: ReturnType<type
     // A job: the file is read back with customerExport(id). An export is a read, so a read-only store allows it.
     exportCustomers: t.id({
       args: { groupId: t.arg.id(), search: t.arg.string() },
-      extensions: { access: { ...read, permission: 'customers.export', whileReadOnly: true, audit: customerExportAudit } },
+      // A support session never takes the shoppers' details away (ACCESS §8).
+      extensions: { access: { ...read, permission: 'customers.export', whileReadOnly: true, blockedFor: ['support'], audit: customerExportAudit } },
       resolve: async (_, args, ctx) => {
-        // A read-only support session reads the store's screens, never takes its data away (ACCESS §8).
-        const { caller } = actingCaller(ctx).context
-        if (caller.kind === 'support' && caller.access === 'read') throw forbidden()
+        if (actingCaller(ctx).context.caller.kind === 'support') throw forbidden()
         const result = await exportsOf(ctx).request({ groupId: args.groupId ? String(args.groupId).toLowerCase() : null, search: args.search ?? null })
         if (!result.ok) throw new GraphQLError('That filter doesn’t work.', { extensions: { code: result.reason } })
         return result.jobId

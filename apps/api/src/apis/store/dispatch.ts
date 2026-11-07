@@ -5,6 +5,7 @@ import { carryPorts } from '../graphql/carryPorts'
 import { withDispatchCode } from '../graphql/dispatchRefusals'
 import { actingCaller, tenantCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
+import { shopperDetail } from './shopperDetails'
 
 const facts = (ctx: StoreContext) => {
   const caller = tenantCaller(ctx)
@@ -23,7 +24,7 @@ export const orderDeliveryType = (builder: StoreBuilder) => {
     id: t.exposeID('id'), state: t.exposeString('state'),
     rider: t.field({ type: Rider, nullable: true, resolve: (d) => d.rider }),
     steps: t.field({ type: [Step], resolve: (d) => d.steps }),
-    failedReason: t.exposeString('failedReason', { nullable: true }), failedNote: t.exposeString('failedNote', { nullable: true }),
+    failedReason: t.exposeString('failedReason', { nullable: true }), failedNote: t.string({ nullable: true, resolve: (d, _, ctx) => shopperDetail(ctx, d.failedNote) }),
     cashCollectedAt: t.string({ nullable: true, description: 'When the rider said the cash was collected.', resolve: (d) => d.cashCollectedAt?.toISOString() ?? null }),
     codeUnconfirmedAt: t.string({ nullable: true, resolve: (d) => d.codeUnconfirmedAt?.toISOString() ?? null }),
     codeLocked: t.exposeBoolean('codeLocked'),

@@ -1,13 +1,32 @@
 import { GraphQLError } from 'graphql'
 import { catalogExportKind, type CatalogExportDto } from '#engine/modules/catalog/index'
+import { ordersAudit } from '#engine/modules/orders/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { activityAudit, createStoreActivityService, type StoreActivityEntry } from '#saas/storeActivity/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
+import { isSupportCaller, shopperDetail } from './shopperDetails'
 
 // The store's Activity log (FIRST-RELEASE §15, StoreActivity): read by the Owner and, as Store activity,
 // the Manager (`activity.read`, never the Settings permission); the CSV is the Owner's (`activity.export`).
+
+// ACCESS.md §8: what a shopper's record held never reaches support, even if an entry carries it (LOGGING §4.1).
+const shopperRecords = new Set(['customer', 'customer_address', 'cart', 'wishlist'])
+
+const seenBy = (ctx: StoreContext, e: StoreActivityEntry): StoreActivityEntry => {
+  if (!isSupportCaller(ctx)) return e
+  const record = e.target !== null && shopperRecords.has(e.target.type)
+  const hide = <T>(value: T) => (value === null || value === undefined ? value : shopperDetail(ctx, String(value)))
+  return {
+    ...e,
+    actor: e.actor.kind === 'customer' ? { ...e.actor, label: hide(e.actor.label) } : e.actor,
+    target: record && e.target ? { ...e.target, label: hide(e.target.label) } : e.target,
+    changes: record ? e.changes.map((c) => ({ ...c, before: hide(c.before), after: hide(c.after) })) : e.changes,
+    // An order's team note is kept as its entry's reason (LOGGING §3).
+    reason: record || e.action === ordersAudit.noteAdded ? hide(e.reason) : e.reason,
+  }
+}
 
 const invalid = () => new GraphQLError('That filter, person or page link doesn’t work.', { extensions: { code: 'INVALID_INPUT' } })
 
@@ -106,7 +125,10 @@ export const registerActivity = (builder: StoreBuilder) => {
       type: Page,
       args: { filter: t.arg({ type: Filter }), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
       extensions: { access: read },
-      resolve: async (_, { filter, ...page }, ctx) => (await serviceOf(ctx).activityLog(filterOf(filter), page)) ?? Promise.reject(invalid()),
+      resolve: async (_, { filter, ...page }, ctx) => {
+        const found = await serviceOf(ctx).activityLog(filterOf(filter), page)
+        return found ? { ...found, items: found.items.map((e) => seenBy(ctx, e)) } : Promise.reject(invalid())
+      },
     }),
     activityExport: t.field({ type: Export, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: exporting }, resolve: (_, { id }, ctx) => serviceOf(ctx).exportJob(String(id)) }),
   }))

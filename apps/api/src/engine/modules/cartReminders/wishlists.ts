@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
-import type { TenantContext } from '#core/tenancy'
+import { supportSearchesShoppers, type TenantContext } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
 import { selectWishlistReminders, type WishlistReminderRow } from '#db/scoped/wishlistReminders'
 import { countWishlistTabs, selectWishlistShopper, selectWishlistShoppers, selectWishlistSummary, type WishlistShopperRow, type WishlistSummaryRow, type WishlistTab } from '#db/scoped/wishlist'
@@ -28,7 +28,7 @@ export const createWishlistsService = ({ sql, context, now }: WishlistsDeps) => 
   const supplier = context.sellerScope.kind === 'seller'
 
   const list = async (tab: WishlistTab | null, search: string | null, window: PageWindow): Promise<WishlistShopperRow[]> => {
-    if (supplier) return []
+    if (supplier || supportSearchesShoppers(context, search)) return []
     return withScope(sql, context, (tx) => selectWishlistShoppers(tx, storeId, tab, search?.trim().slice(0, 100) || null, window))
   }
 

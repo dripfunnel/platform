@@ -52,7 +52,7 @@ const run = async <T>(source: string, caller: UserCaller, variables: Record<stri
 }
 
 const q = {
-  targets: `query($s: String) { supportTargets(search: $s, first: 25) { items { membershipId name email type store { id name } role supplier status start { allowed reason } storeOwner colleague { name minutesLeft } mySessionId } } }`,
+  targets: `query($s: String) { supportTargets(search: $s, first: 25) { items { membershipId name email type store { id name } role supplier status start { allowed reason } storeOwner colleague { name minutesLeft } mySessionId changesWithoutAsking } } }`,
   reauth: `mutation($c: String!) { reauthenticate(code: $c) { ok reason proof triesLeft lockedMinutes } }`,
   start: `mutation($m: ID!, $r: String!, $t: String, $p: String!) { startSupportSession(membershipId: $m, reason: $r, ticket: $t, proof: $p) { ok reason sessionId expiresAt link } }`,
   back: `mutation($id: ID!) { returnToSupportSession(id: $id) { ok reason link } }`,
@@ -61,7 +61,7 @@ const q = {
   sessions: `query($open: Boolean!) { supportSessions(open: $open, first: 25) { items { id you agent { name } user { name } endedBy endedByName end { allowed reason } return { allowed reason } } } }`,
   mine: `{ mySupportSession { id expiresAt } }`,
 }
-type Target = { membershipId: string; name: string; email: string; type: string; store: { id: string; name: string }; status: string; start: { allowed: boolean; reason: string | null }; storeOwner: string | null; colleague: { name: string; minutesLeft: number } | null; mySessionId: string | null }
+type Target = { membershipId: string; name: string; email: string; type: string; store: { id: string; name: string }; status: string; start: { allowed: boolean; reason: string | null }; storeOwner: string | null; colleague: { name: string; minutesLeft: number } | null; mySessionId: string | null; changesWithoutAsking: boolean }
 type Started = { startSupportSession: { ok: boolean; reason: string | null; sessionId: string | null; expiresAt: string | null; link: string | null } }
 
 const targets = async (caller: UserCaller, search?: string) => (await run<{ supportTargets: { items: Target[] } }>(q.targets, caller, { s: search ?? null })).data?.supportTargets.items ?? []
@@ -148,6 +148,19 @@ describe('targets', () => {
     expect((await targets(priya, 'tom@harborcoffee')).at(0)?.start.reason).toBe('STORE_CANCELLED')
     await db.sql`update store set status = 'trial' where id = ${store?.id ?? ''}`
     expect((await targets(priya, 'tom@harborcoffee')).at(0)?.start).toEqual({ allowed: true, reason: null })
+  })
+
+  it('says whether a session starts able to make changes: until the store’s own domain connects (#1340)', async () => {
+    const priya = callerOf(ids.ns, ids.priya, 'partner-support')
+    const [store] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and name = 'Harbor Coffee Co.'`
+    await db.sql`update store set domain_connected_at = null where id = ${store?.id ?? ''}`
+    expect((await targets(priya, 'tom@harborcoffee')).at(0)?.changesWithoutAsking).toBe(true)
+    await db.sql`update store set domain_connected_at = ${start} where id = ${store?.id ?? ''}`
+    try {
+      expect((await targets(priya, 'tom@harborcoffee')).at(0)?.changesWithoutAsking).toBe(false)
+    } finally {
+      await db.sql`update store set domain_connected_at = null where id = ${store?.id ?? ''}`
+    }
   })
 })
 

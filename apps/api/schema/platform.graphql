@@ -1356,6 +1356,10 @@ type SupportSessionUser {
 }
 
 type SupportTarget {
+  """
+  A session on this user starts able to make changes: the store's own domain has never connected, or it is a new store's invited Owner (ACCESS.md §8).
+  """
+  changesWithoutAsking: Boolean
   colleague: SupportColleague
   email: String
   lastSignInAt: String

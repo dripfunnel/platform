@@ -24,6 +24,7 @@ import { actingCaller, type StoreContext } from './access'
 import { moneyInputType, moneyType, pageInfoType, type Money, type StoreBuilder } from './builder'
 import { assetUrl } from './products'
 import { storePage } from './refusals'
+import { shopperDetail } from './shopperDetails'
 
 // Abandoned carts' Reminders tab (FIRST-RELEASE §9, §19; Carts): the merchant side's alone. Owner and Manager save it,
 // Staff read it (ACCESS §5.1 `carts.read`, `carts.write`); the `store` scope refuses every supplier.
@@ -137,9 +138,9 @@ export const registerCartReminders = (builder: StoreBuilder) => {
   const Cart = builder.objectRef<AbandonedCartView>('AbandonedCart').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
-      name: t.exposeString('name', { nullable: true }),
-      email: t.exposeString('email', { nullable: true }),
-      phone: t.exposeString('phone', { nullable: true }),
+      name: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.name) }),
+      email: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.email) }),
+      phone: t.string({ nullable: true, resolve: (c, _, ctx) => shopperDetail(ctx, c.phone) }),
       customerId: t.exposeID('customer_id', { nullable: true }),
       // What the cart came to when it was left, before delivery and tax.
       value: t.field({ type: MoneyType, nullable: true, resolve: (c) => money(c.amount, c.currency) }),

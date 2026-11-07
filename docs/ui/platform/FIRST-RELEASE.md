@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-11-08 (#1340: changes without asking until a store's own domain connects, shoppers' details hidden, §12). Before: 2026-11-06 (#1328: a support session lasts 90 minutes, extendable once by 30, §12). Before: 2026-11-05 (#1293: support on a new store's invited Owner, §12.1). Before: 2026-10-30 (#811: the help-centre link is what every Help link in the merchant portal opens; empty hides Help, §8.2). Before: 2026-10-23 (#890: the house partner may add a DripFunnel domain, §9.2). Before: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; built on #744, #745). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -593,10 +593,11 @@ more. After that, start a new session.", #1328); merchant consent ("Only for sto
 on."); everyone sees it ("A banner in the store: 'Northstar support (Priya) is signed in as
 Jenna. Ends in 28 min.'"); logged as you ("Every action shows as 'Priya as Jenna' in your log
 and the merchant's."); some things stay theirs ("Passwords, 2-factor, payment details and
-ownership can't be changed.").
+ownership can't be changed."; shoppers' names, contact details and addresses stay hidden, #1340).
 
-**The rule the prototype draws differently** (§17): a partner support session is **read-only**
-(the Owner's read permissions, nothing credential-shaped), and **write access needs the
+**The rule the prototype draws differently** (§17): until a store's own domain first connects, a
+session makes changes without asking (#1340); after that a partner support session is **read-only**
+(the Owner's read permissions, nothing credential-shaped, never a shopper's details), and **write access needs the
 merchant's approval for that one session** — support requests it, the merchant clicks Allow or
 Deny, the elevation is logged (ACCESS §8, decided 2026-09-30 in designs/design.md §8). The
 prototype's "Changes you save are logged as Priya as Jenna" therefore applies only after the
@@ -620,7 +621,8 @@ partner's own team, staff or shoppers.
 
 From Users or a store's Support tab (§6.3). **Step 1 · Why**: reason (required), ticket link
 (optional). **Step 2 · Confirm**: "You'll act as {user} ({role}, {store}) for 90 minutes
-(you can extend once by 30) [read-only until {owner} allows changes]. You can't change {user}'s password, 2-factor, payment
+(you can extend once by 30) [read-only until {owner} allows changes, or "able to make changes without asking" when the
+target's `changesWithoutAsking` says so, #1340]. You can't change {user}'s password, 2-factor, payment
 details or the store's ownership. Everyone signed in to {store} sees '{partner} support ({me})
 is signed in as {user}.' Everything you do is logged as {me} as {user}, in your log and
 {store}'s." Reason and ticket restated, then **your 2-factor code** (re-authentication, ACCESS

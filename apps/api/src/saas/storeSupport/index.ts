@@ -180,6 +180,7 @@ export const askForSupportWrite = (deps: { sql: postgres.Sql; caller: StoreCalle
   const note = noteInput.safeParse(rawNote)
   if (!note.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
   const { seat, caller } = deps
+  if (seat.access === 'write') return Promise.resolve({ ok: false, reason: 'ALREADY_ALLOWED' })
   // System scope: the session's own row, by the id resolved from its cookie, never from input.
   return withSystemScope(deps.sql, async (tx) => {
     const outcome = await requestSupportWrite(tx, seat.sessionId, note.data, deps.now())
@@ -212,6 +213,7 @@ export const redeemSupportWriteCodeAsAgent = (deps: { sql: postgres.Sql; caller:
   const code = codeInput.safeParse(rawCode)
   if (!code.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
   const { seat, caller } = deps
+  if (seat.access === 'write') return Promise.resolve({ ok: false, reason: 'ALREADY_ALLOWED' })
   return withSystemScope(deps.sql, async (tx) => {
     const outcome = await redeemSupportWriteCode(tx, seat.sessionId, await writeCodeHash(seat.sessionId, code.data), maxSmsCodeAttempts, deps.now())
     if (outcome.kind === 'closed') return { ok: false, reason: 'SESSION_ENDED' }

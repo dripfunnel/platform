@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
-import { partnerOfStore, selectCustomDomainById, selectCustomDomainForUpdate, updateCustomDomainCheck } from '#db/scoped/stores'
+import { markStoreDomainConnected, partnerOfStore, selectCustomDomainById, selectCustomDomainForUpdate, updateCustomDomainCheck } from '#db/scoped/stores'
 import type { CloudflareApi } from '#integrations/cloudflare/api'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { activityLog } from '#saas/activity/index'
@@ -41,6 +41,7 @@ export const customDomainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLooku
       const current = await selectCustomDomainForUpdate(tx, domain.id)
       if (!current || current.store_id !== storeId) return
       await updateCustomDomainCheck(tx, domain.id, { status, foundCname: cname.found, ownershipFound: ownership, checkedAt: at })
+      if (status === 'live') await markStoreDomainConnected(tx, storeId, at)
       if (status === current.status) return
       if (status === 'live') await queueHostPurge(tx, { id: domain.id, storeId, partnerId, host: domain.host }, 'live', at)
       await activityLog.record(tx, {

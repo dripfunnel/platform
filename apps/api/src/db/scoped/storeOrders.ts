@@ -99,7 +99,7 @@ const pageTail = (tx: ScopedSql, alias: 'o' | 'v', window: PageWindow) => {
 
 const like = (search: string) => `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
 
-export const selectMerchantOrders = (tx: ScopedSql, storeId: string, filter: OrderFilter, search: string | null, window: PageWindow): Promise<OrderListRow[]> =>
+export const selectMerchantOrders = (tx: ScopedSql, storeId: string, filter: OrderFilter, search: string | null, window: PageWindow, byName = true): Promise<OrderListRow[]> =>
   tx<OrderListRow[]>`
     select o.id, o.number, o.placed_at, o.state, o.payment_state, o.fulfilment_state, o.payment_method, o.total_amount::text as total_amount, o.currency,
       exists (select 1 from payment m where m.order_id = o.id and m.mode = 'test') as test,
@@ -108,7 +108,7 @@ export const selectMerchantOrders = (tx: ScopedSql, storeId: string, filter: Ord
       ${latestDeliveryState(tx)} as delivery_state
     from "order" o
     where o.store_id = ${storeId} and o.state <> 'cart' and ${merchantFilter(tx, filter)}
-      and ${search ? tx`(o.number ilike ${like(search)} or o.shipping_address ->> 'name' ilike ${like(search)})` : tx`true`}
+      and ${search ? tx`(o.number ilike ${like(search)} or (${byName} and o.shipping_address ->> 'name' ilike ${like(search)}))` : tx`true`}
     ${pageTail(tx, 'o', window)}
   `
 
