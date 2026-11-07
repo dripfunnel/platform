@@ -526,6 +526,11 @@ describe('shoppers’ details (#1340)', () => {
     const all = JSON.stringify([seen, (await gql<L>(edits, { support: cookie })).data?.activityLog.items])
     expect(all).toMatch(/customer\.edited/)
     expect(all).not.toMatch(/Jenna|jenna@|980000000|MG Road|Pune|Ring twice/)
+    const search = `query($s: String) { activityLog(first: 20, filter: { search: $s }) { items { action } } }`
+    for (const s of ['jenna@shopper.example', 'MG Road']) {
+      expect((await gql<L>(search, { person: 'owner' }, { s })).data?.activityLog.items.map((e) => e.action)).toContain('customer.test_slip')
+      expect((await gql<L>(search, { support: cookie }, { s })).data?.activityLog.items).toEqual([])
+    }
   })
 })
 

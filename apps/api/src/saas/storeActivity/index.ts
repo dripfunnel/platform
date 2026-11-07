@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StoreCaller } from '#auth/storeCaller'
+import { supportSearchesShoppers } from '#core/tenancy'
 import { activityResults, type ActivityRow } from '#db/schema/activity'
 import { selectActivity, type KeysetPage } from '#db/scoped/activity'
 import { insertCatalogExport, selectCatalogExport, type CatalogExportRow } from '#db/scoped/catalogExports'
@@ -94,6 +95,8 @@ export const createStoreActivityService = ({ sql, caller, activity, facts, now, 
   const activityLog = async (raw: unknown, page: ActivityPageRequest): Promise<{ items: StoreActivityEntry[]; pageInfo: PageInfo } | null> => {
     const parsed = storeActivityFilter.safeParse(raw ?? {})
     if (!parsed.success) return null
+    // ACCESS.md §8: labels can name a shopper, so support's search finds nothing.
+    if (supportSearchesShoppers(context, parsed.data.search ?? null)) return { items: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false } }
     const result = await listActivity(sql, context, logFilterOf(parsed.data), page)
     return result.ok ? { items: result.page.items.map(storeEntryDto), pageInfo: result.page.pageInfo } : null
   }
