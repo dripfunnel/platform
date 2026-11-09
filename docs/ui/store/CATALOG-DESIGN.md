@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
+Last updated: 2026-11-09 (#1367: questions the shopper answers before buying, §2, §3 facts 18 and 49–57, I6a, K13, part U). Before: 2026-11-03 (#1202: Excel and a file currency on Import from a spreadsheet, K12). Before: 2026-11-03 (#1178: Excel files and a file currency on Import from Shopify, K12). Before: 2026-11-02 (#1178: Import from Shopify with its two files, K1, K5, K12). Before: 2026-11-01 (#1117: D12 built as one photo per version). Before: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -118,6 +118,8 @@ indicative until the engine's data model is written.
 | **Options** (e.g. Size, Colour) | Catalogue: option (per product) | "Ways the product comes in different choices." |
 | **Choices** (e.g. S, M, L / Red, Blue) | Catalogue: option choice | "The choices a shopper picks from." |
 | **Versions** (or "each combination") | Catalogue: version | "Each combination a shopper can buy, like Red / M. Each can have its own price, stock and photo." |
+| **Questions** (the section is "Ask the shopper before they buy") | Catalogue: product question and its choices, per product (`product_question`, `product_question_choice`; §3 facts 49–57) | "What you ask the shopper before it goes in the cart, like the name to engrave or the toppings they want. An answer can add to the price: that's an **extra**." Never "modifiers" or "line-item properties". |
+| **Answers** | Cart and orders: a line's answers (`cart_line.answers`, and the snapshot on `order_line`, DATA-MODEL §7.6) | "What the shopper told you. You see it on the order, the packing slip and the invoice." |
 | **Photos** | Assets (R2) linked to product and version, ordered; the first is the main photo | Main photo = the first photo. |
 | **Price** | Money: per-version price, integer minor units with a currency code | In the store's main currency. It includes tax when the store's prices include tax (the norm in the EU, UK, India and Australia) and excludes it when they don't (the norm in the US and Canada). §3 fact 6. |
 | **Tax class**, named with the store's tax label ("GST rate", "VAT rate", "Sales tax category") | Tax: tax class on the version; rate = class × shopper's zone, per store | "Which kind of tax this product gets, e.g. Standard, Reduced, Zero-rated, Exempt." Chosen from a short list and never typed as a percentage. §3 fact 37. |
@@ -292,6 +294,8 @@ main language and offered languages, and translations per language with fallback
     - version names
     - collection name, web address and description
     - filter names and choice names
+    - question text, help text, a text question's example and the names of a question's choices
+      (§3 fact 54; #1367)
 
     Price, stock, SKU, photos, classification code and tax class are the same in every
     language. The UI must make clear which fields change with the language and which do not.
@@ -558,6 +562,78 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     the first release (FIRST-RELEASE §1). Design the "What are you selling?" choice
     (Physical · Digital · Service · Gift card).
 
+### Questions the shopper answers (product customisation)
+
+Decided with Gaurav on 2026-11-09 (#1367). Part U designs the editor;
+[PLATFORM-PROMPT](../../api/PLATFORM-PROMPT.md) §5.4 has how the engine prices and checks
+answers, with its refusal codes; [DATA-MODEL](../../api/DATA-MODEL.md) §7.3 and §7.6 have the
+tables.
+
+49. **Questions are not options.** A merchant adds questions to a product, which the shopper
+    answers before the item goes in the cart; any answer may add to the price (an **extra**).
+    **Versions are what you stock; questions are how you make it** (I6a): picking several,
+    quantities, free allowances and once-per-line fees can't be versions.
+    - **Merchants who don't use it are untouched.** A product with no questions behaves exactly
+      as today: the same Add to cart, cart line and price, and no extra request or engine work.
+      There is no store setting, plan entitlement or feature flag.
+    - Questions are written **per product**, with "Copy questions from another product" (U12).
+      There are no reusable sets.
+50. **Three types.** A **choice list** (a maximum of 1 shows radio buttons; there is no separate
+    "pick one" type), **text**, and a **photo or file upload**.
+51. **Price.** Anything that carries a price (a choice, a text answer, an upload) has:
+    - an **amount**, one of a fixed amount, a percentage of the version's price, or (text only)
+      an amount per character, counting characters as the shopper sees them, spaces inside the
+      text included, leading and trailing spaces not;
+    - **when it applies**: per item (× quantity) or once per cart line;
+    - optionally **a fixed amount per version** (Small ₹30, Large ₹50);
+    - on a choice, optionally **a quantity**: up to N of it, each one charged.
+
+    Fixed amounts are integer minor units in the store's pricing currency and follow
+    currencies and markets the way version prices do (facts 25–26: typed for a manual
+    currency, converted otherwise, then moved by the market's adjustment). Percentages follow
+    the version's price. **Free by default**: anything with no price adds nothing. An extra
+    takes its line's tax class (fact 37). Offers include extras unless the offer's switch says
+    otherwise (OFFERS-DESIGN §3.1).
+52. **First N free.** A choice list may make its first N picks free: the cheapest picks (or
+    units, when a choice has a quantity) are the free ones.
+53. **Rules on answers.**
+    - Every question is **optional by default**, or **required**.
+    - A choice list has a **minimum and maximum** number of picks; a choice's quantity counts
+      towards both.
+    - Text has a **maximum length**, 100 by default and at most 500, counted as in fact 51; it
+      is **single line or paragraph**, with optional example text.
+    - An upload takes **images (JPG, PNG, WebP, HEIC) and/or PDF**, at most 10 MB each, 1 file
+      by default and up to 5.
+54. **When a question shows, and how it reads.**
+    - **Only when a given choice is picked** in another question: one level deep, one
+      condition.
+    - **Only for some versions.**
+    - A hidden question is never required, and its answer is dropped.
+    - A question has optional help text, and a choice an optional photo.
+    - Questions and choices are ordered by dragging, and the shopper sees that order.
+    - Question text, help, a text question's example and choice names are translatable (fact 18).
+55. **Limits and availability.** 10 questions per product and 50 choices per question, with a
+    clear message at each limit; the engine enforces both. Each choice has an on/off
+    **Available** switch, with no stock count: an unavailable choice shows greyed out as "Not
+    available", and the engine refuses it.
+56. **The cart.** The same version with the same answers is **one cart line**; different
+    answers make separate lines. The cart line shows its answers and an **Edit** link that
+    reopens the questions filled in. Answers are **checked on every cart read**: a line whose
+    answers no longer fit (a choice turned off, a required question added) is flagged "Check
+    your choices", and checkout refuses it until it's edited. Refunds and returns work on the
+    line's total as today, extras included.
+57. **Who sees what.**
+    - **Vendors** write questions on their own products like any other product field, under
+      the same approval rule, where everything that sets what a question charges counts as a
+      price (ACCESS §7.2, U15), and see answers and uploads only on their own lines (ACCESS
+      §7.1).
+    - **Text answers and uploads are shopper details**: a partner support session sees them as
+      `•••••`, like an order's free-text note (ACCESS §8). The supplier that makes a line still
+      sees that line's answers, whatever its shipping mode (ACCESS §7.1).
+    - Changing questions is a **product update** in the activity log, with no answers or file
+      contents in the entry (LOGGING §3, §4.1).
+    - Import and export skip questions (K13).
+
 ---
 
 ## 4. Who uses it, and what they see
@@ -755,7 +831,8 @@ depend on an engine capability whose release is not yet chosen.
 - E2. A vendor editing their own product sees "Your store owner can also edit this product."
 - E3. A vendor edits an already-approved product. Settled 2026-10-02 (ACCESS.md §7.2): it goes
   back to waiting for approval, and off the storefront, **only when the name, a price or the
-  photos changed**; every other edit goes live. The save says which: "Your price, title or
+  photos changed**, a question's charge-setting fields counting as a price (U15); every other
+  edit goes live. The save says which: "Your price, title or
   photo change needs approval" or "Saved — live now".
 - E4. Two people edit the same product. The second save sees "Someone else changed this product
   2 minutes ago", with a choice to review or overwrite. The engine must detect the conflict (a
@@ -837,6 +914,12 @@ depend on an engine capability whose release is not yet chosen.
 - I6. The difference between **options** (what the shopper *chooses* when buying) and
   **filters** (what the shopper *browses by*). This is the most confusing concept in the whole
   catalogue. Explain it once, well, wherever either is created.
+- I6a. The difference between **versions** and **questions** (§3 fact 49; #1367), explained
+  beside the options builder (D1) and at the top of part U, in one line and one example:
+  "**Versions are what you stock; questions are how you make it.** A T-shirt in Red / M is a
+  version: you keep it on a shelf and count it. The name printed on its back is a question:
+  you make it once it's ordered." Then, once: "Pick several, choose how many, first ones free,
+  a charge once per order line: those can only be questions."
 - I7. Filters as the basis for automatic collections (links both ways).
 
 ### J. Menus
@@ -922,6 +1005,10 @@ with validation before any write, partial-failure reports, and translation and c
     the Inventory CSV only until the check has read it (`catalog_import.inventory`, migration 0379).
   - Creating warehouses from Shopify locations, importing an inventory file on its own, and other
     platforms' files are not built.
+- K13. **Questions are skipped** (decided 2026-11-09 on #1367): spreadsheets and the Shopify import
+  neither read nor write a product's questions (§3 facts 49–57), and re-importing a product leaves
+  its questions as they are. The template has no question columns, and the export says nothing of
+  them. No card is planned for it.
 
 ### L. Vendors and approval (catalogue side)
 
@@ -1299,6 +1386,115 @@ information (S4)**, which is configuration only.
 - T17. **A store adds a new market in Settings** (e.g. starts selling to the EU): a banner in
   Products says "To sell in the EU, 214 products need 2 more details", with a guided bulk fix
   (set a default responsible person for all, add missing translations of warnings).
+
+### U. Ask the shopper before they buy (product customisation)
+
+Questions on a product (§3 facts 49–57; #1367). **No prototype is drawn** (decided 2026-11-09):
+this part decides layout, states and wording, in the editor's existing look (C, D). Words are
+plain: "question", "choice", "answer", "extra"; never "modifier", "option set" or "line-item
+property". Prices appear only when the merchant asks for one.
+
+- U1. **One collapsed, optional section**, "Ask the shopper before they buy", after "Choices and
+  versions" (D). Closed and empty for every product
+  without questions, with one line under its title: "Ask for a name to engrave, toppings, a photo
+  to print…". With questions, its title says how many ("3 questions"). Opening it adds nothing to
+  the product until a question is saved.
+- U2. **Empty**: I6a's one-line explanation, then **Add a question** offering the three types, each
+  with an example: "Choice list (e.g. Toppings)", "Text (e.g. Name to engrave)", "Photo or file (e.g.
+  Your photo to print)". A Copy link beside it (U12).
+- U3. **Each question is a card** in the section: its text, type, Required or Optional, a one-line
+  summary ("Pick up to 3 · first 1 free", "Up to 100 characters", "1 photo"), a drag handle, and a
+  menu with Edit, Move up, Move down and Delete (keyboard and screen reader users reorder through
+  the menu). Delete confirms with the question's text and says that past orders keep their answers.
+- U4. **Choice list form**: the question, optional help text, then the choices as rows, typed as
+  chips are in D2: each with its name, an optional photo (F's uploader, one photo), the
+  **Available** switch, and "Shoppers can pick more than one of this, up to [N]" (U7). Under the
+  rows, "How many can they pick?": **Pick one** (the default, shown to the shopper as radio
+  buttons) or **Pick up to [N]**, with "at least [M]" shown only for a maximum above 1. The
+  Required switch sets the minimum to 1; a minimum above 1 makes it required. The form refuses a
+  minimum above the maximum, in words ("They must pick at least 4 but can pick only 3").
+- U5. **Text form**: the question, optional help text, **Single line** or **Paragraph**, the
+  maximum length (100 by default, at most 500; "characters as the shopper sees them"), optional
+  example text shown greyed in the empty box ("e.g. Happy birthday, Priya"), and Required.
+- U6. **Photo or file form**: the question, optional help text, what it accepts (**Photos**: JPG,
+  PNG, WebP, HEIC · **PDF** · **Both**), how many files (1 by default, up to 5), the fixed line "Up
+  to 10 MB each", and Required.
+- U7. **A price, only when asked.** Each choice, text question and upload question shows **Free**
+  and an **Add a price** link; nothing about money shows until it's pressed. The price row then
+  asks:
+  - **Amount**: a fixed amount ("+ ₹30"), a percentage of the version's price ("+ 10% of the
+    price"), or, for text only, per character ("₹2 per character, not counting spaces at either
+    end");
+  - **When**: "For each item" (the default: "× quantity" in the summary) or "Once, whatever the
+    quantity";
+  - **Different amount for each version** (fixed amounts on a product with versions): a small table
+    of the versions with an amount each, empty ones using the amount above;
+  - on a choice of a list allowing more than one, "Shoppers can pick up to [N] of this" (each one
+    charged).
+
+  Amounts are typed in major units in the store's pricing currency, formatted for its locale (fact
+  5). Other currencies follow part O: a manual currency gets a box per amount, and one left empty
+  makes that choice or answer **not available in that currency**, shown loudly as "No price in a
+  currency" is (§7); an automatic currency shows the converted amount, read-only. Remove price takes
+  it back to Free.
+- U8. **First [N] free** (a choice list with a price on any choice, and a maximum above 1): "The
+  cheapest [N] picks are free". The summary says it in words: "First 2 toppings free, cheapest
+  first".
+- U9. **Only ask when…**: a link on a question opens "Only ask when [question] is [choice]",
+  listing only the choice lists above it that have no condition of their own (one level deep, one
+  condition, §3 fact 54). A question that others depend on can't take a condition, and says why.
+  Deleting a choice or question that a condition names asks first ("'Engraving text' asks only when
+  'Add engraving' is picked. It will be asked always.") and clears the condition.
+- U10. **Only for some versions** (a product with versions): a checklist of the versions, all ticked
+  by default; the card's summary says "Only for Large, X-Large". Unticking every version is refused.
+  Stored as DATA-MODEL §7.3 has it: all ticked is no `product_question_version` rows (every
+  version, including one made later); unticking any stores a row per ticked version, so a version
+  made later is not ticked and the question isn't asked for it until it is. Ticking all again
+  goes back to no rows.
+- U11. **Order**: drag questions, and choices inside a list, to reorder; the shopper sees that order.
+- U12. **Copy questions from another product**: a link in the section opens a product search
+  (products the person can see that have questions, each with its count), then "Copy 4 questions
+  from 'Birthday cake'? This replaces this product's questions." (or "…this product has none yet").
+  It copies every question, choice, price and condition; an amount or a limit for a version is kept
+  where this product has a version with the same choices, else dropped, and a choice's photo is
+  kept only when both products have the same owner. The answer says what was dropped ("2 amounts
+  for versions this product doesn't have weren't copied"). Copy is offered once the product is
+  saved and has no unsaved changes; otherwise it says "Save your changes first".
+- U13. **Limits** (§3 fact 55): at 10 questions **Add a question** is disabled with "A product can
+  ask up to 10 questions"; at 50 choices the choice row is disabled with "A question can have up to
+  50 choices". The API refuses past both (`QUESTION_LIMIT`, `CHOICE_LIMIT`), and the form shows the
+  same words.
+- U14. **Saving**: the product's own Save saves the section too (C15), and errors land on the field
+  as in C16: "Add at least one choice", "Write the question", "Type a price in INR", "They must pick
+  at least 4 but can pick only 3".
+- U15. **Vendors** see the section on their own products (§3 fact 57) under the approval rule of
+  L1–L5 and E3, with the charge-setting fields of ACCESS §7.2 counting as a price: an extra's price
+  and per-version amounts, a list's free allowance and maximum picks, a choice's maximum quantity, per item or once
+  per line, a per-character question's maximum length, and on a question that charges whether it's
+  required, its minimum picks, its condition and its versions. Changing any of them sends an
+  approved product back, with "Your change to what shoppers pay needs approval"; any other change
+  to its questions goes live. The merchant's review (L3) shows the questions. The merchant editing
+  a vendor's product sees E1's banner. A Stock only vendor sees the section read-only (§4).
+- U16. **Translations** (part N): in a language's tab, question text, help, a text question's
+  example and choice names are translatable; types, limits, prices and conditions are shared and locked, "same in every
+  language".
+- U17. **What the shopper sees** is the storefront's sealed modal and the shop app's sheet
+  ([storefront ARCHITECTURE](../../storefront/ARCHITECTURE.md) §3.5), opened by Add to cart, Buy
+  now and quick add on a product with questions; nothing changes on a product without.
+- U18. **States**, beyond §7's:
+  - **Empty**: U2.
+  - **Loading**: the section's card skeletons while the product loads; a photo uploading on a
+    choice shows its progress (F2).
+  - **Error**: questions that couldn't be loaded show "We couldn't load the questions" with Try
+    again, and the section saves nothing until they load; the rest of the product stays editable.
+  - **Permission denied**: Staff see the section as a read-only summary of each question (§4); a
+    vendor opening another owner's product sees "not found" (§7).
+  - **Read-only** (past due, a read-only support session): every question shown, nothing editable,
+    with §7's banner.
+  - **At a limit**: U13.
+  - **Not available in a currency**: a manual currency missing an amount (U7).
+  - **Changed underneath**: someone else saved the product (E4), or a version a question names was
+    removed; on save, what was typed is kept and the change explained.
 
 ---
 

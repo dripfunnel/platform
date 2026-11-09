@@ -6,7 +6,7 @@ What the merchant mobile app's first release contains. The framework is in
 
 **Status: decided, not built.**
 
-Last updated: 2026-10-09 (#493: no Billing and no in-app purchase in the app).
+Last updated: 2026-11-09 (#1367: product customisation, answers on orders and the question editor, §2). Before: 2026-10-09 (#493: no Billing and no in-app purchase in the app).
 
 ---
 
@@ -33,6 +33,13 @@ Everything in store/FIRST-RELEASE.md §3–§17 is in the app except Billing. Th
   upgrade action.
 - **Close my store**, with "Download my data first", is at the end of **Settings › Store info**,
   for the Owner only (§1).
+- **Product customisation** (specified on #1367, built by #1374; store/FIRST-RELEASE.md §6 and §11):
+  the order screen shows each customised line's answers with each extra's amount, and its
+  uploads open through the Store API's signed link; the product editor has the collapsed "Ask
+  the shopper before they buy" section with every type, rule, price, limit and Copy
+  (CATALOG-DESIGN part U), laid out by [DESIGN.md](DESIGN.md): each question a stacked card,
+  its form full screen, reordered by dragging or with Move up and Move down. A product with no
+  questions looks as today.
 
 ---
 

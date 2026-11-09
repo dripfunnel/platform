@@ -4,7 +4,7 @@ This compares the DF Store merchant portal, as designed in this folder, with **S
 **Wix eCommerce** and the **first DripFunnel platform**, which was built on a third-party
 commerce framework and has since been removed from the workspace.
 
-Last updated: 2026-10-28 (#852: the admin store's Delivery app tab, §4). Before: 2026-10-27 (#846: what an order's Delivery panel draws but the first release doesn't have, §4). Before: 2026-10-23 (#854: what the shop app drawing shows but the first release doesn't have, §5). Before: 2026-10-23 (#837: the delivery app and own-delivery drawings, §4). Earlier: 2026-10-05.
+Last updated: 2026-11-09 (#1367: customising a product is specified, so it leaves §2.2). Before: 2026-10-28 (#852: the admin store's Delivery app tab, §4). Before: 2026-10-27 (#846: what an order's Delivery panel draws but the first release doesn't have, §4). Before: 2026-10-23 (#854: what the shop app drawing shows but the first release doesn't have, §5). Before: 2026-10-23 (#837: the delivery app and own-delivery drawings, §4). Earlier: 2026-10-05.
 
 "Missing" means DF Store has no screen or flow for the feature at all. When something is
 started but not finished, it is in [INCOMPLETE-FEATURES.md](INCOMPLETE-FEATURES.md).
@@ -84,10 +84,13 @@ shows what is needed.
 | Product reviews and ratings | ~ app | ✓ | — | — |
 | Back-in-stock alerts | ~ app | ✓ | — | — |
 | Pre-orders | ~ app | ✓ | — | — (only "Keep selling when out of stock") |
-| Product personalisation (custom text or upload on the product) | ~ app | ✓ | ✓ (custom fields) | — |
 | Express wallets (Apple Pay, Google Pay, Shop Pay) | ✓ | ✓ | ~ (via Stripe) | — (not mentioned) |
 | Local pickup with hours and locations | ✓ | ✓ | — | ~ (pickup hours; no location choice) |
 | Local delivery (radius or postcode, time slots) | ✓ | ✓ | — | — |
+
+Product personalisation (custom text, choices or an upload, each able to add to the price) left this table on
+2026-11-09, as card #1367 says: it is specified in `docs/ui/store/CATALOG-DESIGN.md` part U, and Gaurav decided the
+docs describe its behaviour instead of a prototype.
 
 ### 2.3 Orders and fulfilment
 

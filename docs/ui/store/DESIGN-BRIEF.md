@@ -9,7 +9,7 @@ new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, My profile). Before: 2026-10-22 (six kinds of user). Before: 2026-10-05.
+Last updated: 2026-11-09 (#1367: a vendor sees its own lines' answers to a product's questions in either shipping mode, item 39). Before: 2026-11-02 (#1008: 2-factor optional for everyone, My profile). Before: 2026-10-22 (six kinds of user). Before: 2026-10-05.
 
 Paste §1 to start a design session, then name a flow from §3.
 
@@ -64,8 +64,8 @@ Paste §1 to start a design session, then name a flow from §3.
 >    **Products, stock and their orders** (fulfilling their own order lines). A fourth,
 >    read-only orders tier is defined but not offered. The navigation itself differs
 >    between them. **The merchant also chooses how each supplier ships** (decided
->    2026-10-02): **to your warehouse**, so the supplier sees nothing of the shopper and the
->    store delivers, or **to the shopper**, so the supplier ships its own lines and sees the
+>    2026-10-02): **to your warehouse**, so the supplier sees nothing of the shopper but its
+>    own lines' answers to a product's questions (item 39) and the store delivers, or **to the shopper**, so the supplier ships its own lines and sees the
 >    name and delivery address only (ACCESS.md §7.3).
 > 4. **The merchant can edit a vendor's product, and the vendor sees that edit**:
 >    it is one shared record, not a copy. The interface has to say so on both
@@ -280,6 +280,8 @@ line says who it is for and the thing most likely to be missed.
 39. **What a vendor may see of a customer** (settled 2026-10-02, ACCESS.md §7.3): a vendor
     shipping to the store's warehouse sees **nothing**, not even a name; a vendor shipping to
     the shopper sees the name and delivery address, never email or phone. Design 37 with both.
+    Either one sees its own lines' answers to a product's questions, as it makes the item
+    (decided 2026-11-09 on #1367, ACCESS §7.1).
 40. **Customer list and detail**: merchant only. Designed 2026-10-02: add and edit, groups,
     tags, a team-only note, marketing consent, export.
 41. **Refunds, cancellations and returns**: designed 2026-10-02 (`PortalOrders`; ACCESS.md
