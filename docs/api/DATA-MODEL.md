@@ -1229,8 +1229,9 @@ product_approved_snapshot
                     -- extras (#1367, proposed) everything that sets what a question charges: the
                     -- price columns, product_question_amount rows (per-version ones included),
                     -- free_picks, max_quantity, price_per, on a per-character question
-                    -- max_length, and on a question that charges required, min_picks and
-                    -- shown_if_choice_id, since an extra's price is a price (ACCESS §7.2)
+                    -- max_length, and on a question that charges required, min_picks,
+                    -- shown_if_choice_id and its product_question_version rows, since an
+                    -- extra's price is a price (ACCESS §7.2)
                     -- what the last approval accepted, so a save knows whether it must go
                     -- back to pending (ACCESS §7.2, decided 2026-10-02)
 product_option      (id, product_id, store_id, seller_id NULL, name, position)   -- "Size", "Colour" (fact 3)
