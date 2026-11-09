@@ -281,6 +281,17 @@ describe('suppliers’ questions (ACCESS §7.1–7.2)', () => {
     await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
     const required = pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
     expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: required })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
+    // A priced list's maximum picks: more picks, more to pay. Back too.
+    const toppings = (maxPicks: number) => pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }, { kind: 'CHOICE', label: 'Charms', maxPicks, choices: [{ label: 'Star', price: { mode: 'FIXED', per: 'ITEM', amounts: inr('100') } }] }])
+    await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: toppings(1) })
+    const charms = ((await read(pen.id, 'supplier')).data?.['product'] as { questions: Q[] }).questions[1]
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
+    const raised = pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }, { id: charms?.id, kind: 'CHOICE', label: 'Charms', maxPicks: 3, choices: [{ id: charms?.choices[0]?.id, label: 'Star', maxQuantity: 3, price: { mode: 'FIXED', per: 'ITEM', amounts: inr('100') } }] }])
+    expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: raised })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
+    const back = pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
+    await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: back })
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
     // Widening a priced question to more versions makes more shoppers pay it: back too.
     const limited = (versions: number[]) => pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, versions, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
     await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: limited([0]) })
