@@ -7,7 +7,8 @@ import { manifestName } from './layout'
 export const maxBuildFiles = 5_000
 export const maxFileBytes = 10 * 1024 * 1024
 
-const segment = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$/
+// As long as a catalogue slug may be (migrations/0041_catalogue.sql), so every product's page fits.
+const segment = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,119}$/
 /** Plain relative names: no `..`, no hidden, absolute or empty segment, and never the manifest's own name. */
 export const isSitePath = (path: string): boolean => path.length <= 512 && path !== manifestName && path.split('/').every((s) => segment.test(s) && !s.includes('..'))
 
