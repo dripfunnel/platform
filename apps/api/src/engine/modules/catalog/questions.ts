@@ -308,9 +308,9 @@ type ChargeFacts = { price_mode: string | null; price_bps: number | null; price_
 const priceKeyOf = (p: ChargeFacts | null) =>
   p?.price_mode ? `${p.price_mode}:${p.price_per}:${p.price_bps ?? ''}:${p.multipliers}:${p.amounts.map((a) => `${a.version_id ?? ''}/${a.currency}/${BigInt(a.amount)}`).sort().join(',')}` : ''
 // A list's free allowance and a choice's quantity change what its choices charge, a per-character question's length its own;
-// whether it's required, its minimum and its condition decide who pays it (ACCESS §7.2).
-const questionMultipliers = (q: { kind: string; price_mode: string | null; free_picks: number | null; max_length: number | null; required: boolean; min_picks: number | null; shown_if: string | null }) =>
-  `${q.kind === 'choice' ? `free:${q.free_picks ?? 0}` : q.price_mode === 'per_character' ? `length:${q.max_length ?? 0}` : ''}:req:${q.required}:min:${q.min_picks ?? 0}:if:${q.shown_if ?? ''}`
+// whether it's required, its minimum, its condition and its versions decide who pays it (ACCESS §7.2).
+const questionMultipliers = (q: { kind: string; price_mode: string | null; free_picks: number | null; max_length: number | null; required: boolean; min_picks: number | null; shown_if: string | null; versions: readonly string[] }) =>
+  `${q.kind === 'choice' ? `free:${q.free_picks ?? 0}` : q.price_mode === 'per_character' ? `length:${q.max_length ?? 0}` : ''}:req:${q.required}:min:${q.min_picks ?? 0}:if:${q.shown_if ?? ''}:v:${[...q.versions].sort().join(',')}`
 
 const writeKey = (p: { priceMode: string | null; priceBps: number | null; pricePer: string | null; amounts: readonly { currency: string; amount: string; versionId: string | null }[] }, multipliers: string) =>
   priceKeyOf({ price_mode: p.priceMode, price_bps: p.priceBps, price_per: p.pricePer, amounts: p.amounts.map((a) => ({ currency: a.currency, amount: a.amount, version_id: a.versionId })), multipliers })
@@ -323,13 +323,13 @@ export const extrasPriceChanged = (before: readonly QuestionRow[], after: readon
   const keys = (rows: readonly { id: string; key: string }[]) => new Map(rows.filter((r) => r.key !== '').map((r) => [r.id, r.key]))
   const was = keys(
     before.flatMap((q) => [
-      { id: q.id, key: priceKeyOf({ ...q, multipliers: questionMultipliers({ ...q, shown_if: q.shown_if_choice_id }) }) },
-      ...q.choices.map((c: ChoiceRow) => ({ id: c.id, key: priceKeyOf({ ...c, multipliers: `${questionMultipliers({ ...q, shown_if: q.shown_if_choice_id })}:qty:${c.max_quantity}` }) })),
+      { id: q.id, key: priceKeyOf({ ...q, multipliers: questionMultipliers({ ...q, shown_if: q.shown_if_choice_id, versions: q.version_ids }) }) },
+      ...q.choices.map((c: ChoiceRow) => ({ id: c.id, key: priceKeyOf({ ...c, multipliers: `${questionMultipliers({ ...q, shown_if: q.shown_if_choice_id, versions: q.version_ids })}:qty:${c.max_quantity}` }) })),
     ]),
   )
   const now = keys(
     after.flatMap((q) => {
-      const m = questionMultipliers({ kind: q.kind, price_mode: q.priceMode, free_picks: q.freePicks, max_length: q.maxLength, required: q.required, min_picks: q.minPicks, shown_if: q.shownIfChoiceId })
+      const m = questionMultipliers({ kind: q.kind, price_mode: q.priceMode, free_picks: q.freePicks, max_length: q.maxLength, required: q.required, min_picks: q.minPicks, shown_if: q.shownIfChoiceId, versions: q.versionIds })
       return [{ id: q.id, key: writeKey(q, m) }, ...q.choices.map((c) => ({ id: c.id, key: writeKey(c, `${m}:qty:${c.maxQuantity}`) }))]
     }),
   )
