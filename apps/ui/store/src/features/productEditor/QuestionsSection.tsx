@@ -66,7 +66,7 @@ const PriceEditor = ({ price, set, kind, currency, manual, versions, disabled, l
   return (
     <fieldset className="df-question-price" disabled={disabled}>
       <legend>{label}</legend>
-      <select aria-label={words.amountFixed} value={price.mode} onChange={(e) => set({ ...price, mode: e.target.value as PriceDraft['mode'] })}>
+      <select aria-label={words.priceKind} value={price.mode} onChange={(e) => set({ ...price, mode: e.target.value as PriceDraft['mode'] })}>
         {modes.map(({ m, text }) => (
           <option key={m} value={m}>
             {text}

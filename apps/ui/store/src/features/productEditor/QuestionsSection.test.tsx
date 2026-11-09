@@ -125,6 +125,16 @@ describe('the questions section', () => {
     expect(screen.getByTestId('photos').textContent).toBe('asset-olives,')
   })
 
+  it('names the price’s kind for a screen reader, whichever is chosen', () => {
+    render(<Harness />)
+    open()
+    fireEvent.click(within(screen.getByRole('group', { name: words.add })).getByRole('button', { name: words.addText }))
+    fireEvent.click(screen.getByRole('button', { name: `${words.priceAdd}: ${words.question}` }))
+    const kind = screen.getByRole('combobox', { name: words.priceKind }) as HTMLSelectElement
+    fireEvent.change(kind, { target: { value: 'PER_CHARACTER' } })
+    expect(screen.getByRole('combobox', { name: words.priceKind })).toBe(kind)
+  })
+
   it('offers nothing to change to a seat that can’t edit', () => {
     render(<Harness disabled />)
     open()
