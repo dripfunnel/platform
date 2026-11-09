@@ -1515,7 +1515,9 @@ builds the table must ship:
 - a shopper writes `answers` only on its own cart's lines, never `answers_key`, and a price sent
   anywhere in an answer changes nothing: the engine prices the line;
 - a shopper uploads only to its own cart, reads only its own cart's `shopper_upload` rows and never
-  `r2_key`; another cart's or store's upload id as an answer is `UPLOAD_NOT_FOUND`;
+  `r2_key`; another cart's or store's upload id as an answer is `UPLOAD_NOT_FOUND`, and deleting
+  another cart's or store's upload id (`DELETE /shop-api/uploads/{id}`) deletes nothing and answers
+  `UPLOAD_NOT_FOUND`, by the `delete` branch's own-cart test, not by engine code alone;
 - a supplier reads the answers, and gets a file link, of its own lines only, `to-store` or
   `to-shopper`, never another owner's lines'; `app_supplier` selecting `shopper_upload` is refused
   by the grant;

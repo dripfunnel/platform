@@ -2682,7 +2682,14 @@ decide which columns and which tables each caller kind may select at all**. `app
     o.state = 'cart')`. The subquery runs under `"order"`'s own shop policy (its owner test,
     `customer_id = app.customer_id` or the guest's `access_token_hash =
     current_order_token_hash()`), as `order_line`'s branch does, so it finds only the caller's
-    own cart: a shopper inserts and reads its own cart's files only, never another's.
+    own cart: a shopper inserts and reads its own cart's files only, never another's. A `delete`
+    branch has the same `USING`, so the shopper's own removal (a file in the modal, its line, the
+    whole cart) runs as the shopper under RLS, never in system scope, and another cart's or store's
+    id deletes nothing (`UPLOAD_NOT_FOUND`). The cart's own deletion removes its uploads first
+    (`ON DELETE RESTRICT` stays for every other path). Each deleted row writes an outbox job
+    (`upload.delete`, carrying only `r2_key`) in the same transaction, which deletes the R2 object
+    with retries and backoff, so a failed or interrupted object delete is retried until it succeeds
+    and a rolled-back delete never removes a file.
   - **Supplier's orders**: `order_line_for_supplier` gains `answers` for its own lines, and its
     `line_amount` becomes `unit_amount × quantity + line_extras_amount`. `app_supplier` has no
     grant on `shopper_upload`; the engine mints a supplier's link to a file in system scope after
