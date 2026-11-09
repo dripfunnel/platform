@@ -28,6 +28,11 @@ describe('manifestSchema', () => {
     expect(['../x', 'a/../b', '/abs', '', 'a//b', '.hidden', 'a/.env', 'a\\b', '_manifest.json', 'x'.repeat(513)].some(isSitePath)).toBe(false)
   })
 
+  it('takes a product page whose slug is as long as the catalogue allows, and nothing longer', () => {
+    expect(isSitePath(`products/${'a'.repeat(120)}/index.html`)).toBe(true)
+    expect(isSitePath(`products/${'a'.repeat(121)}/index.html`)).toBe(false)
+  })
+
   it('refuses a path twice, headers on anything but HTML, a header other than the CSP, and unknown fields', () => {
     const ok = { files: [{ ...file('index.html'), headers: { 'content-security-policy': "default-src 'self'" } }] }
     expect(manifestSchema.safeParse(ok).success).toBe(true)
