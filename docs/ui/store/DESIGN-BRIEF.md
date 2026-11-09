@@ -9,7 +9,7 @@ new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, My profile). Before: 2026-10-22 (six kinds of user). Before: 2026-10-05.
+Last updated: 2026-11-10 (#1367: a vendor sees its own lines' answers to a product's questions in either shipping mode, item 39). Before: 2026-11-02 (#1008: 2-factor optional for everyone, My profile). Before: 2026-10-22 (six kinds of user). Before: 2026-10-05.
 
 Paste §1 to start a design session, then name a flow from §3.
 
