@@ -376,12 +376,15 @@ describe('who reads the question rows (DATA-MODEL §7.11)', () => {
     await db.sql`update product_question_choice set photo_asset_id = ${asset?.id ?? ''} where id = ${firstChoice?.id ?? ''}`
     await db.sql`insert into store_language (store_id, language, status) values (${t.storeA1}, 'hi-IN', 'active') on conflict do nothing`
     await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'name', 'hi-IN', 'टॉपिंग', md5('Extra toppings'))`
+    // A question's help translates too, up to its own 500 characters; a choice has a name only.
+    await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'help', 'hi-IN', ${'अ'.repeat(500)}, md5('Pick up to three'))`
+    await expect(db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question_choice', ${firstChoice?.id ?? ''}, 'help', 'hi-IN', 'x', md5('x'))`).rejects.toThrow(/translation_field/)
     const shopperSees = () =>
       withScope(db.sql, shopper(), async (tx) => ({
         photo: (await tx<{ n: number }[]>`select count(*)::int as n from asset where id = ${asset?.id ?? ''}`)[0]?.n ?? 0,
         words: (await tx<{ n: number }[]>`select count(*)::int as n from translation where entity = 'question' and entity_id = ${firstChoice?.question_id ?? ''}`)[0]?.n ?? 0,
       }))
-    expect(await shopperSees()).toEqual({ photo: 1, words: 1 })
+    expect(await shopperSees()).toEqual({ photo: 1, words: 2 })
     const visible = await counts(shopper())
     await db.sql`update product set visibility = 'hidden' where id = ${cake}`
     const hidden = await counts(shopper())
