@@ -391,7 +391,6 @@ export const createCartService = (deps: CartDeps) => {
     return (uploadId: string, questionId: string) => files.get(uploadId) === questionId
   }
 
-  /** Files no line names any more, deleted with their objects' deletion queued in the same transaction (DATA-MODEL §7.6). */
   /**
    * The line's answers checked against its product's questions now, priced for the cart; a product without questions
    * and no answers asks nothing more (#1368). Refused as ANSWERS_INVALID with what is wrong.
