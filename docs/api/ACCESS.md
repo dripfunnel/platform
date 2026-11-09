@@ -896,9 +896,8 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   shipping mode, since it makes the item: through `order_line_for_supplier` and a file link the
   engine mints after checking the line is its own (DATA-MODEL §7.11). Text answers and uploads are
   shopper details (CATALOG-DESIGN fact 57), but they are also what the item is made from, so a
-  `to-store` supplier gets its own lines' answers too: the **one exception to §7.3**, decided on
-  #1367 by the unattended run (the card says vendors see answers on their own lines and names no
-  mode), for Gaurav to confirm. It gets nothing else of the customer: no name, email, phone or address.
+  `to-store` supplier gets its own lines' answers too: the **one exception to §7.3** (decided
+  2026-11-10 by Gaurav on #1367). It gets nothing else of the customer: no name, email, phone or address.
 
 ### 7.2 Approval is a per-store setting
 
@@ -958,7 +957,8 @@ first platform's constructed view.
   customer, not even a name, except its own lines' answers to a product's questions (§7.1); the order shows "For <store>". A **`to-shopper`** part shows
   **name and delivery address, never email or phone**. The merchant's order view says which
   mode each part is in. The isolation matrix includes a supplier switched from `to-store` to
-  `to-shopper` still seeing nothing on the orders placed before the switch.
+  `to-shopper` still seeing nothing of the customer, beyond its own lines' answers, on the orders
+  placed before the switch.
 - **Returns and refunds** (decided 2026-10-02; the prototype's `PortalOrders` decides the
   screens). A **return** is started by the store (`orders.refund`), per line and quantity, with
   a reason; the shopper gets a return label; items come back to the store's default warehouse
@@ -1449,11 +1449,12 @@ builds the table must ship:
   lines, refunds and ledger entries, and seeing nothing of the other's, counts and search
   included (DATA-MODEL §7.1, §7.11);
 - a supplier's view of orders and returns: a `to-store` supplier's search and count by a
-  shopper's email return nothing; a `to-shopper` supplier sees the name and shipping address
+  shopper's email return nothing, and it reads no name, email, phone or address, only its own
+  lines' answers and their file links (§7.1); a `to-shopper` supplier sees the name and shipping address
   of its own parts and no total; `app_supplier` selecting from `"order"` or `"return"`
   directly is refused by the grant, and the views return only the columns DATA-MODEL §7.11
-  lists; a supplier switched `to-store → to-shopper` still sees nothing on orders placed
-  before the switch; a `to-store` supplier never reads the store's onward shipment of its
+  lists; a supplier switched `to-store → to-shopper` still sees nothing of the customer, beyond
+  its own lines' answers, on orders placed before the switch; a `to-store` supplier never reads the store's onward shipment of its
   lines (`fulfilment` with a null owner); `app_supplier` selecting an `*_amount`, tax rate or
   zone column of `order_line` is refused by the grant, and `order_line_for_supplier` returns
   its own lines' unit and line amounts (once-per-line extras included) and answers with the
