@@ -50,7 +50,14 @@ export const parcelOf = (lines: readonly BookingLineRow[], picked: readonly { li
   }
   const valued = items.map(({ line, quantity }) => ({ line, quantity, value: BigInt(line.unit_amount) * BigInt(quantity) + extraOf(line, quantity) }))
   return {
-    items: valued.map(({ line, quantity, value }) => ({ name: line.name, sku: line.sku, quantity, unitAmount: value / BigInt(Math.max(1, quantity)), hsCode: line.hs_code })),
+    // A value that doesn't divide by the units is two entries, a minor unit apart, so the items sum to exactly what was paid.
+    items: valued.flatMap(({ line, quantity, value }) => {
+      const units = BigInt(Math.max(1, quantity))
+      const base = value / units
+      const over = Number(value % units)
+      const entry = (count: number, unitAmount: bigint) => ({ name: line.name, sku: line.sku, quantity: count, unitAmount, hsCode: line.hs_code })
+      return over === 0 ? [entry(quantity, base)] : [entry(over, base + 1n), entry(quantity - over, base)]
+    }),
     weightGrams: items.reduce((sum, { line, quantity }) => sum + (line.weight_grams && line.weight_grams > 0 ? line.weight_grams : defaultWeightGrams) * quantity, 0),
     amount: valued.reduce((sum, { value }) => sum + value, 0n),
   }
