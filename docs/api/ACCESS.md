@@ -1533,7 +1533,8 @@ builds the table must ship:
   owner trigger, run as the supplier, finds no parent it can read (#1367; DATA-MODEL §7.3), and an update or delete of
   another owner's row touches nothing;
 - an `upload.delete` job naming another store's key, or a file a `shopper_upload` row still names,
-  deletes nothing; `app_shop` inserting an outbox row of any other kind is refused;
+  deletes nothing; `app_shop` inserting any outbox row is refused by the grant, a deleted upload's
+  job coming from its row by trigger;
 - a supplier writing a choice, an amount or a version limit under a question it doesn't own gets not
   found, and one it writes under its own question carries that question's owner, whatever it sent;
 - a supplier gets a link only to a file its own line's answers name, of that line's order and store: an upload id
