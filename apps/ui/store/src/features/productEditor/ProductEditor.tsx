@@ -77,6 +77,7 @@ const problemWords = (units: Units, kind: ProductKind): Record<DraftProblem | Ki
   hsCode: words.sections.hsCodeInvalid,
   stock: words.stock.invalid,
   manual: words.refused.INVALID_PRICE,
+  questions: words.refused.INVALID_QUESTION,
   file: words.kinds.download.missing,
   keys: fill(words.kinds.download.keysInvalid, { max: formatCount(maxKeysPerSave), length: formatCount(maxKeyLength) }),
 })
