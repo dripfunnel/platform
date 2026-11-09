@@ -212,7 +212,7 @@ describe('read-only until the store allows writes', () => {
     expect(codes.get('changePassword')).toBe('BLOCKED_FOR_SUPPORT')
     expect(codes.get('inviteMember')).toBe('BLOCKED_FOR_SUPPORT')
     // What #1344 opened still waits for an Allow.
-    for (const name of ['chooseTemplate', 'askDesign', 'publishDesign', 'changePlan', 'setPaymentMethod', 'cancelStore', 'connectStripe', 'connectStoreAiAccount', 'createApiKey', 'installApp', 'saveWebhook']) expect(codes.get(name), name).toBe('SUPPORT_READ_ONLY')
+    for (const name of ['chooseTemplate', 'askDesign', 'publishDesign', 'changePlan', 'setPaymentMethod', 'keepProducts', 'cancelStore', 'connectStripe', 'connectStoreAiAccount', 'createApiKey', 'installApp', 'saveWebhook']) expect(codes.get(name), name).toBe('SUPPORT_READ_ONLY')
   })
 
   it('refuses a real write end to end and the database refuses it too', async () => {

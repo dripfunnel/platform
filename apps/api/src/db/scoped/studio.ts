@@ -163,7 +163,6 @@ export const insertStudioSession = async (
     values (${s.idHash}, ${s.storeId}, ${h.userId}, ${h.userSessionHash}, ${h.impersonationId}, ${h.supportSessionId}, ${s.canChange}, ${s.at}, ${s.expiresAt})`
 }
 
-
 /** How long a portal session may sit idle (ACCESS §4), given by the caller: auth/storeSession owns the numbers. */
 export type PortalIdle = { idleMs: number; rememberIdleMs: number }
 
