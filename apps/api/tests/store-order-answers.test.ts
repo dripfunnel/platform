@@ -8,7 +8,8 @@ import { hashSessionId } from '#auth/session'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { storeActivityFor, supportCookieName } from '#auth/storeSupport'
-import { withSystemScope } from '#db/scoped/index'
+import { withScope, withSystemScope } from '#db/scoped/index'
+import { selectMerchantExportLines } from '#db/scoped/storeOrders'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -129,6 +130,12 @@ describe('an order line’s answers (#1368)', () => {
     const lines = await linesOf('support')
     expect(texts(lines)).toEqual([hiddenFromSupport, hiddenFromSupport, hiddenFromSupport])
     expect(lines?.[0]?.answers[0]?.choices[0]?.label).toBe('Cheese')
+  })
+
+  it('puts the once-per-line extras in the merchant’s order export, as on the order page', async () => {
+    const context = { caller: { kind: 'person' as const, userId: people.owner, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const rows = await withScope(db.sql, context, (tx) => selectMerchantExportLines(tx, t.storeA1, 'all', null, 10))
+    expect(rows.map((r) => r.line_amount)).toEqual(['66100', '66100', '66100'])
   })
 
   it('shows another store nothing', async () => {
