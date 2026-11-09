@@ -116,7 +116,7 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       // Names the line to setCartQuantity and updateCartLineAnswers: two lines of a version differ by their answers.
       id: t.id({ resolve: (l) => l.lineId ?? l.versionId }),
       versionId: t.exposeID('versionId'),
-      answers: t.field({ type: [LineAnswer], resolve: (l) => l.answers.map((a) => answerView(a, l.unitPrice?.currency ?? '')) }),
+      answers: t.field({ type: [LineAnswer], resolve: (l, _, ctx) => l.answers.map((a) => answerView(a, shopOf(ctx).shopper.currency)) }),
       // A gift card's recipient and day; null on every other line.
       gift: t.field({ type: Gift, nullable: true, resolve: (l) => l.gift }),
       quantity: t.exposeInt('quantity'),

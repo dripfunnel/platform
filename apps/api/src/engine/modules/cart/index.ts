@@ -43,6 +43,10 @@ class Refused extends Error {
   }
 }
 
+/** Answers compared whatever order jsonb gave their keys back in. */
+const canonical = (value: unknown): string =>
+  JSON.stringify(value, (_key, x: unknown) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x))
+
 const refusalOf = (error: Refused): { ok: false; reason: CartRefusal; answers?: AnswerProblem[] } => (error.answers ? { ok: false, reason: error.reason, answers: error.answers } : { ok: false, reason: error.reason })
 
 /** The modal's live total (customisationQuote): the line as it would be priced, and what the answers still lack. */
@@ -386,9 +390,9 @@ export const createCartService = (deps: CartDeps) => {
         accept(item)
         const checked = item ? await answersFor(tx, context, item, id, answers) : null
         const stored = checked && checked.stored.length > 0 ? checked.stored : null
-        // A new line is one more; equal answers add to theirs (fact 56), which the database's key finds.
-        const held = stored ? null : (found.lines.find((l) => l.version_id === id && l.answers === null)?.quantity ?? 0)
-        if ((held === 0 || stored) && found.lines.length >= maxCartLines) throw new Refused('TOO_MANY_LINES')
+        // Equal answers add to their line (fact 56), so only a version and answers the cart doesn't hold make a new line.
+        const joins = found.lines.some((l) => l.version_id === id && (stored ? l.answers !== null && canonical(l.answers) === canonical(stored) : l.answers === null))
+        if (!joins && found.lines.length >= maxCartLines) throw new Refused('TOO_MANY_LINES')
         const lineId = gift
           ? await addCartLine(tx, storeId, found.id, id, stored, 1, 1)
           : await addCartLine(tx, storeId, found.id, id, stored, quantity, maxQuantity)

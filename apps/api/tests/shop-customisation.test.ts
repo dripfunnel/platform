@@ -183,6 +183,33 @@ describe('customised lines in the cart', () => {
     expect(after?.answers.map((a) => a.label).sort()).toEqual(['Gift wrap', 'Message', 'Toppings'])
   })
 
+  it('adds equal answers to their line even at the line limit, and refuses a new line there', async () => {
+    const fresh = ((await add(null, ids.small, 1, withWrap('Full cart'))).data?.['addToCart'] as { cartToken: string }).cartToken
+    const cartId = (await gql('{ cart { id } }', fresh)).data?.['cart'] as { id: string }
+    const filler = (await one(db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, 'Filler', 'filler', 'visible') returning id`)).id
+    await db.sql`insert into product_version (store_id, product_id, sku, position, track_stock) select ${storeId}, ${filler}, 'f' || g, g, false from generate_series(1, 99) g`
+    await db.sql`insert into version_price (version_id, store_id, currency, amount) select id, ${storeId}, 'INR', 100 from product_version where product_id = ${filler}`
+    await db.sql`insert into cart_line (order_id, store_id, version_id, quantity) select ${cartId.id}, ${storeId}, id, 1 from product_version where product_id = ${filler}`
+    expect(await cartLines(fresh)).toHaveLength(100)
+    const same = await add(fresh, ids.small, 1, withWrap('Full cart'))
+    expect(same.errors).toBeUndefined()
+    expect(linesOf(same).find((l) => l.versionId === ids.small)?.quantity).toBe(2)
+    expect((await add(fresh, ids.small, 1, withWrap('One too many'))).code).toBe('TOO_MANY_LINES')
+  })
+
+  it('refuses another store’s versions and questions', async () => {
+    const other = (await one(db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status) values (${t.partnerA}, 'Other', 'other-cakes', 'IN', 'INR', 'active') returning id`)).id
+    const otherProduct = (await one(db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${other}, 'Their cake', 'their-cake', 'visible') returning id`)).id
+    const otherVersion = (await one(db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position) values (${other}, ${otherProduct}, 't1', 0) returning id`)).id
+    await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${otherVersion}, ${other}, 'INR', 1000)`
+    const otherQuestion = (await one(db.sql<{ id: string }[]>`insert into product_question (product_id, store_id, kind, label, position, max_length, multiline) values (${otherProduct}, ${other}, 'text', 'Theirs', 1, 10, false) returning id`)).id
+    expect((await gql(`{ product(slug: "their-cake") { questions { id } } }`)).data?.['product']).toBeNull()
+    expect((await gql('query Q($v: ID!) { customisationQuote(versionId: $v, quantity: 1, answers: []) { problems { reason } } }', null, { v: otherVersion })).code).toBe('UNAVAILABLE')
+    const named = await add(null, ids.small, 1, [...withWrap('Mine'), { questionId: otherQuestion, text: 'x' }])
+    expect(named.code).toBe('ANSWERS_INVALID')
+    expect(named.problems).toContainEqual({ questionId: otherQuestion, choiceId: null, reason: 'UNKNOWN' })
+  })
+
   it('keeps another shopper away from this cart’s lines', async () => {
     const tokenOf = async (message: string) => ((await add(null, ids.small, 1, withWrap(message))).data?.['addToCart'] as { cartToken: string }).cartToken
     const [mine, theirs] = [await tokenOf('Mine'), await tokenOf('Theirs')]
