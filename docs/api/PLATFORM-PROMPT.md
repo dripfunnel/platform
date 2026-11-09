@@ -418,8 +418,11 @@ Design each module's responsibilities, tables, public API, events and invariants
   facts 49–57, the tables DATA-MODEL §7.3 and §7.6; names *(proposed)*). A product's questions
   are answered when its version goes in the cart, and the engine prices and checks the answers
   on **every** cart read, the modal's quote and placement alike; a shopper sends ids, text and
-  files, never a price. **A line without answers takes today's path**: no question is loaded,
-  and its price, query and refusals are unchanged.
+  files, never a price. **A product without questions takes today's path**: no question is
+  loaded (the cart already knows whether a product has any), and its price, query and refusals
+  are unchanged. A product with questions is checked even on a line sent or kept with no
+  answers: `addToCart` with them left out is refused `REQUIRED` for a required, shown
+  question, and a line added before such a question existed is flagged `check_answers`.
   - **Which questions count**: those shown for the line, meaning the line's version is among
     the question's versions (none listed is all) and its condition's choice, if any, is picked.
     A hidden question is never required, and its answer is dropped before the line's key is
