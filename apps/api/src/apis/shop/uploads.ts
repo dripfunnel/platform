@@ -62,9 +62,13 @@ export const handleUpload = async (request: Request, ctx: ShopContext, files: Up
   const deny = async () => false
   // Carts cost nothing to make, so the address is bounded as well as the cart (20 and 10 a minute).
   if (!ip || !(await (ctx.allowUploadFromAddress ?? deny)(`upload:${url.hostname}:${ip}`))) return json(429, { errors: [{ message: 'Too many files from here. Wait a minute and try again.', extensions: { code: 'RATE_LIMITED' } }] })
-  const cartKey = request.headers.get('x-shop-cart') ?? ctx.sessionToken ?? `new:${ip}`
-  if (!(await (ctx.allowUploadToCart ?? deny)(`upload-cart:${ctx.shopper.context.storeId}:${cartKey}`))) return json(429, { errors: [{ message: 'Too many files for this cart. Wait a minute and try again.', extensions: { code: 'RATE_LIMITED' } }] })
   const cart = await cartOf(ctx)
+  // Keyed on the cart the request really opens, the account's or the token's; a made-up token shares its address's bucket.
+  const caller = ctx.shopper.context.caller
+  const customerId = caller.kind === 'shopper' ? caller.customerId : null
+  const guestCart = !customerId && caller.kind === 'shopper' && caller.orderTokenHash ? await cart.guestCartId() : null
+  const cartKey = customerId ? `customer:${customerId}` : guestCart ? `cart:${guestCart}` : `new:${ip}`
+  if (!(await (ctx.allowUploadToCart ?? deny)(`upload-cart:${ctx.shopper.context.storeId}:${cartKey}`))) return json(429, { errors: [{ message: 'Too many files for this cart. Wait a minute and try again.', extensions: { code: 'RATE_LIMITED' } }] })
   if (request.method === 'POST' && url.pathname === uploadsPath) {
     if (Number(request.headers.get('content-length') ?? '0') > maxUploadBytes) return refused('FILE_TOO_LARGE')
     // A chunked or understated body is capped as it's read, whatever its header said.

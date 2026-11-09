@@ -13,7 +13,7 @@ import { findGiftCard, giftCardById, type GiftCardView } from '#engine/modules/g
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { insertOutbox } from '#db/scoped/outbox'
 import { selectShopUploadQuestion } from '#db/scoped/questions'
-import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectServableUpload, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
+import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectServableUpload, selectUploadCart, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
 import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
@@ -688,16 +688,17 @@ export const createCartService = (deps: CartDeps) => {
     }
   }
 
-  /** "Remove" on a file in the modal: one of this cart's not yet named by a line; its object's deletion is queued. */
+  /** "Remove" on a file in the modal: one of the shopper's carts', even past its life, not named by a line; its object's deletion is queued. */
   const removeUpload = async (uploadId: string): Promise<CartResult<true>> => {
     const id = uploadId.toLowerCase()
     if (!isUuid(id)) return { ok: false, reason: 'UPLOAD_NOT_FOUND' }
     try {
       return await withScope(sql, deps.context, async (tx) => {
-        const row = await selectCart(tx, storeId, now())
-        if (!row || !(await selectCartUploads(tx, row.id)).some((u) => u.id === id)) throw new Refused('UPLOAD_NOT_FOUND')
-        if (row.lines.some((l) => uploadsIn(l.answers).includes(id))) throw new Refused('UPLOAD_IN_USE')
-        await release(tx, row.id, [id])
+        const held = await selectUploadCart(tx, storeId, id)
+        if (!held) throw new Refused('UPLOAD_NOT_FOUND')
+        await lockCartRow(tx, storeId, held.order_id)
+        if ((await selectUploadCart(tx, storeId, id))?.named !== false) throw new Refused('UPLOAD_IN_USE')
+        await release(tx, held.order_id, [id])
         return { ok: true as const, value: true as const }
       })
     } catch (error) {
@@ -706,5 +707,8 @@ export const createCartService = (deps: CartDeps) => {
     }
   }
 
-  return { cart, add, setQuantity, setLineAnswers, quote, upload, removeUpload, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
+  /** The guest cart the request's token really opens (expired or not), for keying a limit on it; null for a made-up token. */
+  const guestCartId = () => withScope(sql, deps.context, (tx) => selectGuestCartId(tx, storeId))
+
+  return { cart, guestCartId, add, setQuantity, setLineAnswers, quote, upload, removeUpload, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
 }

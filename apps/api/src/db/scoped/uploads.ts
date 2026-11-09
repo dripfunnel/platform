@@ -19,6 +19,15 @@ export const insertShopperUpload = async (tx: ScopedSql, u: { id: string; storeI
 export const selectCartUploads = (tx: ScopedSql, orderId: string): Promise<{ id: string; question_id: string | null; mime: UploadMime }[]> =>
   tx<{ id: string; question_id: string | null; mime: UploadMime }[]>`select id, question_id, mime from shopper_upload where order_id = ${orderId}`
 
+/** The open cart holding this file, expired or not, as the shopper reads it, so its owner can erase it after the cart's life. */
+export const selectUploadCart = async (tx: ScopedSql, storeId: string, id: string): Promise<{ order_id: string; named: boolean } | null> =>
+  (await tx<{ order_id: string; named: boolean }[]>`
+    select u.order_id, exists (select 1 from cart_line l where l.order_id = u.order_id and l.answers is not null
+      and jsonb_path_exists(l.answers, '$[*].uploads[*] ? (@ == $id)', jsonb_build_object('id', u.id::text))) as named
+    from shopper_upload u join "order" o on o.id = u.order_id
+    where u.store_id = ${storeId} and u.id = ${id} and o.state = 'cart'
+  `)[0] ?? null
+
 /**
  * Deletes those of these files no line of the cart names any more, as the shopper (its delete policy holds it to its own
  * cart); answers which went, so the caller queues their objects' deletion in the same transaction.

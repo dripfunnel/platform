@@ -219,6 +219,34 @@ describe('a shopper’s files (#1369)', () => {
     expect((await db.sql`select 1 from shopper_upload where order_id = ${cart.id}`).length).toBeGreaterThan(0)
   })
 
+  it('lets the owner erase a file from its cart after the cart has expired', async () => {
+    const cart = (await gql('{ cart { id } }', token)).data?.['cart'] as { id: string }
+    const [loose] = await db.sql<{ id: string }[]>`
+      select u.id from shopper_upload u where u.order_id = ${cart.id} and not exists (select 1 from cart_line l where l.order_id = u.order_id
+        and l.answers is not null and jsonb_path_exists(l.answers, '$[*].uploads[*] ? (@ == $id)', jsonb_build_object('id', u.id::text))) limit 1`
+    await db.sql`update "order" set cart_expires_at = now() - interval '1 day' where id = ${cart.id}`
+    const gone = await remove(token, loose?.id ?? '')
+    expect(gone).toMatchObject({ status: 200, body: { removed: true } })
+    expect((await db.sql`select 1 from shopper_upload where id = ${loose?.id ?? ''}`).length).toBe(0)
+    // Another cart's holder, or none, still finds nothing.
+    const stranger = await send(null, ids.photo, jpeg())
+    const still = (await db.sql<{ id: string }[]>`select id from shopper_upload where order_id = ${cart.id} limit 1`)[0]?.id ?? ''
+    expect((await remove(stranger.body.cartToken ?? '', still)).status).toBe(404)
+    await db.sql`update "order" set cart_expires_at = now() + interval '1 day' where id = ${cart.id}`
+  })
+
+  it('keys the per-cart limit on the cart the request opens, never on the header as sent', async () => {
+    const keys: string[] = []
+    const sent = async (header: string) =>
+      handleUpload(new Request(`https://${host}/shop-api/uploads/${crypto.randomUUID()}`, { method: 'DELETE', headers: { 'x-shop-cart': header } }), { ...(await contextOf(header)), allowUploadToCart: async (key: string) => (keys.push(key), true) }, files)
+    await sent('a'.repeat(64))
+    await sent('b'.repeat(64))
+    expect(keys).toEqual([`upload-cart:${storeId}:new:203.0.113.20`, `upload-cart:${storeId}:new:203.0.113.20`])
+    const cart = (await gql('{ cart { id } }', token)).data?.['cart'] as { id: string }
+    await sent(token)
+    expect(keys[2]).toBe(`upload-cart:${storeId}:cart:${cart.id}`)
+  })
+
   it('keeps a cart holding files out of the expired-cart sweep', async () => {
     const cart = (await gql('{ cart { id } }', token)).data?.['cart'] as { id: string }
     await db.sql`update "order" set cart_expires_at = now() - interval '1 day' where id = ${cart.id}`
