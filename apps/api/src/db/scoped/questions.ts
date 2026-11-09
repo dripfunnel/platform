@@ -80,15 +80,6 @@ export const selectProductQuestions = async (tx: ScopedSql, productIds: readonly
   return byProduct
 }
 
-/** How many questions each product asks, for lists (CATALOG U12's product search). */
-export const selectQuestionCounts = async (tx: ScopedSql, productIds: readonly string[]): Promise<Map<string, number>> => {
-  if (productIds.length === 0) return new Map()
-  const rows = await tx<{ product_id: string; n: number }[]>`
-    select product_id, count(*)::int as n from product_question where product_id = any (${pgArray(productIds)}::uuid[]) group by product_id
-  `
-  return new Map(rows.map((r) => [r.product_id, r.n]))
-}
-
 /** Whether the store has an undeleted product with questions (OFFERS-DESIGN §3.1's switch). */
 export const storeHasQuestions = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
   (await tx<{ ok: boolean }[]>`

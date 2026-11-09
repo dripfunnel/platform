@@ -44,7 +44,7 @@ import { classesOfStore } from '#db/scoped/tax'
 import { listingRefused, setProductListing, setProductSizeChart } from '#db/scoped/catalogListing'
 import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStructure'
 import { withScope, type ScopedSql } from '#db/scoped/index'
-import { manualCurrencies, questionRefused, selectProductQuestions, selectQuestionCounts, setProductQuestions, storeHasQuestions, touchProduct, type QuestionRow } from '#db/scoped/questions'
+import { manualCurrencies, questionRefused, selectProductQuestions, setProductQuestions, storeHasQuestions, touchProduct, type QuestionRow } from '#db/scoped/questions'
 import { approvalAudit } from './approval'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
 import { cleanQuestions, copiedQuestions, extrasPriceChanged, foreignIds, questionWrites, type CleanQuestion, type QuestionRefusal } from './questions'
@@ -489,7 +489,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
         },
         sizeChartId: options.keepSizeChart ? source.size_chart_id : null,
         // The same questions, versions by place: the copy's are in the source's order (CATALOG E2). None: nothing written.
-        questions: await duplicatedQuestions(tx, id, source.versions.map((x) => x.id), source.seller_id),
+        questions: source.has_questions ? await duplicatedQuestions(tx, id, source.versions.map((x) => x.id), source.seller_id) : null,
       }
       // A supplier's copy stays the supplier's and is created as its products are (ACCESS §7.2).
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })
@@ -543,7 +543,6 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const questions = (productId: string) => inScope(async (tx) => (await selectProductQuestions(tx, [productId])).get(productId) ?? [])
 
   /** How many questions each of these products asks (U12's product search). */
-  const questionCounts = (productIds: readonly string[]) => inScope((tx) => selectQuestionCounts(tx, productIds))
 
   /** Whether any undeleted product of the store asks questions (OFFERS-DESIGN §3.1). */
   const hasCustomisation = () => inScope((tx) => storeHasQuestions(tx, storeId))
@@ -581,5 +580,5 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }).then((result) => (result.ok ? { ...result, dropped } : result))
   }
 
-  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility, setTaxClass, questions, questionCounts, hasCustomisation, copyQuestions }
+  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility, setTaxClass, questions, hasCustomisation, copyQuestions }
 }
