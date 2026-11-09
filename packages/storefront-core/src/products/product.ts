@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import { itemSlug } from '../collections/collections'
 import { navigate, useLocation } from '../platform/browser/router'
@@ -211,12 +211,11 @@ export const useProduct = (): ProductPage => {
   const slug = itemSlug(path, '/products/')
   const versionId = slug ? itemSlug(path, `${productPath(slug)}`) : null
   const loaded = useShopData(slug ? JSON.stringify(['product', slug]) : null, async (client) => client.query(productQuery, answerSchema, { slug }))
-  const product = useMemo(() => {
-    const decoded = loaded.data ? decode(loaded.data, t) : null
-    // Add to cart and Buy now hold only a version id: this is how they know the product asks questions.
-    if (decoded) rememberQuestions({ id: decoded.id, name: decoded.name, versionIds: decoded.versions.map((v) => v.id), questions: decoded.questions })
-    return decoded
-  }, [loaded.data, t])
+  const product = useMemo(() => (loaded.data ? decode(loaded.data, t) : null), [loaded.data, t])
+  // Add to cart and Buy now hold only a version id: this is how they know the product asks questions.
+  useEffect(() => {
+    if (product) rememberQuestions({ id: product.id, name: product.name, versionIds: product.versions.map((v) => v.id), questions: product.questions })
+  }, [product])
   // A partial choice (a colour before a size) lives here; a complete one is the version's own address.
   const [picked, setPicked] = useState<{ productId: string; versionId: string | null; chosen: Record<string, string> } | null>(null)
   const chosen = useMemo(() => {

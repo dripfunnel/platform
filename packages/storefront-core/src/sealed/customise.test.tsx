@@ -332,3 +332,35 @@ describe('the modal’s last rules', () => {
     expect(sealedCss('customise')).toContain('label[part~=button]:has(input:focus-visible)')
   })
 })
+
+describe('leaving the modal', () => {
+  it('takes back the files uploaded in it when the shopper cancels', async () => {
+    rememberQuestions({ id: 'p8', name: 'Poster', versionIds: ['v-c'], questions: [{ ...base, id: 'q-c', kind: 'UPLOAD', label: 'Your photo' }] })
+    shopAnswering(() => quote(1200))
+    class Quick {
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror = null
+      status = 200
+      responseText = JSON.stringify({ id: 'kept-briefly', kind: 'image' })
+      open() {}
+      setRequestHeader() {}
+      send() {
+        this.onload?.()
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', Quick)
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-c">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    const input = modal.getByText('Add a photo').querySelector('input') as HTMLInputElement
+    await act(async () => void fireEvent.change(input, { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } }))
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Cancel' })))
+    const fetched = (globalThis.fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls
+    await waitFor(() => expect(fetched.some(([url, init]) => url === '/shop-api/uploads/kept-briefly' && init.method === 'DELETE')).toBe(true))
+  })
+})
