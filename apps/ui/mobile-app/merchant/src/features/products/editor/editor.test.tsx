@@ -883,3 +883,170 @@ describe('product kinds', () => {
     expect(calledWith(calls, 'productKind(')).toHaveLength(0)
   })
 })
+
+describe('Ask the shopper before they buy', () => {
+  const inr = (amount: string) => ({ currency: 'INR', amount })
+  const storedQuestion = (over: Record<string, unknown> = {}) => ({
+    id: 'q-1',
+    kind: 'TEXT',
+    label: 'Name to engrave',
+    help: null,
+    required: true,
+    minPicks: null,
+    maxPicks: null,
+    freePicks: null,
+    maxLength: 20,
+    multiline: false,
+    example: null,
+    accept: null,
+    maxFiles: null,
+    price: { mode: 'FIXED', per: 'ITEM', percentBps: null, amounts: [inr('3000')], versionAmounts: [] },
+    shownIf: null,
+    versionIds: null,
+    choices: [],
+    ...over,
+  })
+  const toppings = storedQuestion({ id: 'q-2', kind: 'CHOICE', label: 'Toppings', required: false, minPicks: 0, maxPicks: 3, freePicks: 1, maxLength: null, price: null, choices: [{ id: 'c-1', label: 'Olives', photoAssetId: null, available: true, maxQuantity: 2, price: { mode: 'FIXED', per: 'ITEM', percentBps: null, amounts: [inr('4000'), { currency: 'USD', amount: '50' }], versionAmounts: [] } }] })
+  const header = (count: string) => `Ask the shopper before they buy, ${count}`
+  const sentInput = (calls: Call[]) => calledWith(calls, 'mutation Save')[0]?.variables.input as Record<string, unknown>
+  const saved = { id: 'p-1', revision: 5, approval: null, reviewed: [] }
+
+  it('stays closed with its hint on a product without questions, whose save sends nothing about them', async () => {
+    const { renderer, calls } = await open('p-1', { ...base(), 'mutation Save': () => ({ saveProduct: saved }) })
+    expect(hasText(renderer, 'Ask for a name to engrave, toppings, a photo to print…')).toBe(true)
+    expect(hasText(renderer, 'Add a question')).toBe(false)
+    await type(renderer, 'Price', '2599')
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+    expect(sentInput(calls)).not.toHaveProperty('questions')
+  })
+
+  it('adds a text question with a price from the menu, and Save sends it in minor units', async () => {
+    const { renderer, calls } = await open('p-1', { ...base(), 'mutation Save': () => ({ saveProduct: saved }) })
+    await press(pressableNamed(renderer, header('Ask for a name to engrave, toppings, a photo to print…')))
+    await press(pressableNamed(renderer, 'Add a question'))
+    await press(pressableNamed(renderer, 'Text (e.g. Name to engrave)'))
+    await press(pressableNamed(renderer, 'Done'))
+    expect(hasText(renderer, 'Write the question.')).toBe(true)
+    await type(renderer, 'Question', 'Name to engrave')
+    await type(renderer, 'Most characters', '20')
+    await press(pressableNamed(renderer, 'Required'))
+    await press(pressableNamed(renderer, 'Add a price to Name to engrave'))
+    await type(renderer, 'Amount in INR', '30')
+    await press(pressableNamed(renderer, 'Once, whatever the quantity'))
+    await press(pressableNamed(renderer, 'Done'))
+    expect(hasText(renderer, '1 question')).toBe(true)
+    expect(hasText(renderer, 'Up to 20 characters · With a price')).toBe(true)
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+    expect(sentInput(calls).questions).toEqual([{ kind: 'TEXT', label: 'Name to engrave', required: true, maxLength: 20, multiline: false, price: { mode: 'FIXED', per: 'LINE', amounts: [inr('3000')] } }])
+  })
+
+  it('edits, reorders and deletes stored questions, keeping a manual currency’s amount as it came', async () => {
+    const { renderer, calls } = await open('p-1', { ...base({ product: apiProduct({ questions: [storedQuestion(), toppings] }) }), 'mutation Save': () => ({ saveProduct: saved }) })
+    await press(pressableNamed(renderer, header('2 questions')))
+    expect(hasText(renderer, 'Pick up to 3 · first 1 free · 1 choice · With a price')).toBe(true)
+    await press(pressableNamed(renderer, 'More for Toppings'))
+    await press(pressableNamed(renderer, 'Move up'))
+    await press(pressableNamed(renderer, 'Edit Name to engrave'))
+    await type(renderer, 'Question', 'Name on the cake')
+    await press(pressableNamed(renderer, 'Done'))
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+    const questions = sentInput(calls).questions as Record<string, unknown>[]
+    expect(questions.map((q) => q.label)).toEqual(['Toppings', 'Name on the cake'])
+    expect(questions[0]).toMatchObject({ id: 'q-2', minPicks: 0, maxPicks: 3, freePicks: 1, choices: [{ id: 'c-1', label: 'Olives', maxQuantity: 2, price: { amounts: [inr('4000'), { currency: 'USD', amount: '50' }] } }] })
+
+    await press(pressableNamed(renderer, 'More for Toppings'))
+    await press(pressableNamed(renderer, 'Delete question'))
+    expect(hasText(renderer, 'Shoppers won’t be asked it any more. Past orders keep their answers.')).toBe(true)
+    await press(pressablesNamed(renderer, 'Delete question').at(-1) as Parameters<typeof press>[0])
+    await settle()
+    expect(hasText(renderer, '1 question')).toBe(true)
+  })
+
+  it('sends [] once the last question is deleted, so the product asks none', async () => {
+    const { renderer, calls } = await open('p-1', { ...base({ product: apiProduct({ questions: [storedQuestion()] }) }), 'mutation Save': () => ({ saveProduct: saved }) })
+    await press(pressableNamed(renderer, header('1 question')))
+    await press(pressableNamed(renderer, 'More for Name to engrave'))
+    await press(pressableNamed(renderer, 'Delete question'))
+    await press(pressablesNamed(renderer, 'Delete question').at(-1) as Parameters<typeof press>[0])
+    await settle()
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+    expect(sentInput(calls).questions).toEqual([])
+  })
+
+  it('stops adding at 10 questions and says why', async () => {
+    const ten = Array.from({ length: 10 }, (_, i) => storedQuestion({ id: `q-${i}`, label: `Question ${i + 1}` }))
+    const { renderer } = await open('p-1', base({ product: apiProduct({ questions: ten }) }))
+    await press(pressableNamed(renderer, header('10 questions')))
+    expect((pressableNamed(renderer, 'Add a question').props as { disabled: boolean }).disabled).toBe(true)
+    expect(hasText(renderer, 'A product can ask up to 10 questions.')).toBe(true)
+  })
+
+  it('copies questions from another product after saying it replaces these, and says what was dropped', async () => {
+    jest.useFakeTimers()
+    try {
+    const { renderer, calls } = await open('p-1', {
+      ...base({ product: apiProduct({ questions: [storedQuestion()] }) }),
+      WithQuestions: () => ({ products: { nodes: [{ id: 'p-1', name: 'Mara Linen Shirt', questionCount: 1 }, { id: 'p-cake', name: 'Birthday cake', questionCount: 4 }] } }),
+      CopyQuestions: () => ({ copyProductQuestions: { product: { id: 'p-1', revision: 5 }, droppedAmounts: 2, droppedVersionLimits: 0, droppedPhotos: 0 } }),
+    })
+    await press(pressableNamed(renderer, header('1 question')))
+    await press(pressableNamed(renderer, 'Copy questions from another product'))
+    await act(async () => void jest.advanceTimersByTime(400))
+    await settle()
+    expect(pressablesNamed(renderer, 'Mara Linen Shirt, 1 question')).toEqual([])
+    await press(pressableNamed(renderer, 'Birthday cake, 4 questions'))
+    expect(hasText(renderer, 'Copy 4 questions from “Birthday cake”? This replaces this product’s questions.')).toBe(true)
+    await press(pressableNamed(renderer, 'Copy questions'))
+    await settle()
+    expect(calledWith(calls, 'CopyQuestions')[0]?.variables).toEqual({ from: 'p-cake', to: 'p-1', revision: 4 })
+    expect(hasText(renderer, 'Questions copied. 2 amounts for versions this product doesn’t have weren’t copied.')).toBe(true)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('asks to save first before Copy when something is unsaved', async () => {
+    const { renderer, calls } = await open('p-1', base({ product: apiProduct({ questions: [storedQuestion()] }) }))
+    await type(renderer, 'Price', '2599')
+    await press(pressableNamed(renderer, header('1 question')))
+    await press(pressableNamed(renderer, 'Copy questions from another product'))
+    expect(hasText(renderer, 'Save your changes first.')).toBe(true)
+    expect(calledWith(calls, 'WithQuestions')).toHaveLength(0)
+  })
+
+  it('shows Staff and a read-only store every question with nothing to change', async () => {
+    for (const setup of [{ handlers: base({ permissions: ['catalog.read', 'stock.read'], product: apiProduct({ questions: [storedQuestion()] }) }), options: { acting: actingAs('staff') } }, { handlers: base({ product: apiProduct({ questions: [storedQuestion()] }) }), options: { client: fakeClient({ state: { readOnly: true, status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: null } }) } }]) {
+      const { renderer } = await open('p-1', setup.handlers, setup.options)
+      await press(pressableNamed(renderer, header('1 question')))
+      expect(hasText(renderer, 'Name to engrave')).toBe(true)
+      expect(pressablesNamed(renderer, 'Add a question')).toEqual([])
+      expect(pressablesNamed(renderer, 'Copy questions from another product')).toEqual([])
+      await press(pressableNamed(renderer, 'View Name to engrave'))
+      expect(pressablesNamed(renderer, 'Done')).toEqual([])
+      expect(input(renderer, 'Question').props.editable).toBe(false)
+    }
+  })
+
+  it('tells a vendor which changes need approval, and says its change to what shoppers pay went for approval', async () => {
+    const { renderer } = await open(
+      'p-1',
+      {
+        ...base({ permissions: ['catalog.read', 'catalog.write', 'stock.write'], seller: { id: 's-1' }, product: apiProduct({ supplier: { id: 's-1', name: 'Northwind Textiles' }, approval: 'approved', readiness: null, questions: [storedQuestion()] }), approval: true }),
+        'mutation Save': () => ({ saveProduct: { id: 'p-1', revision: 5, approval: 'pending', reviewed: ['price'] } }),
+      },
+      { acting: actingAs('supplier-member', 'vendor-catalogue'), supplier: 's-1' },
+    )
+    await press(pressableNamed(renderer, header('1 question')))
+    expect(hasText(renderer, 'Changing what shoppers pay sends this product for approval')).toBe(true)
+    await press(pressableNamed(renderer, 'Edit Name to engrave'))
+    await type(renderer, 'Amount in INR', '45')
+    await press(pressableNamed(renderer, 'Done'))
+    await press(pressableNamed(renderer, 'Submit for approval'))
+    await settle()
+    expect(hasText(renderer, 'Your change to what shoppers pay needs approval')).toBe(true)
+  })
+})

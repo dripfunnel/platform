@@ -106,6 +106,30 @@ const versionSchema = z.object({
   continueSelling: z.boolean().nullable(),
 })
 
+const amountsSchema = z.array(z.object({ currency: z.string(), amount: z.string() }))
+const extraPriceSchema = z.object({ mode: z.string(), per: z.string(), percentBps: z.number().int().nullable(), amounts: amountsSchema, versionAmounts: z.array(z.object({ versionId: z.string(), amounts: amountsSchema })) })
+export type StoredPrice = z.infer<typeof extraPriceSchema>
+const questionSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  label: z.string(),
+  help: z.string().nullable(),
+  required: z.boolean(),
+  minPicks: z.number().int().nullable(),
+  maxPicks: z.number().int().nullable(),
+  freePicks: z.number().int().nullable(),
+  maxLength: z.number().int().nullable(),
+  multiline: z.boolean().nullable(),
+  example: z.string().nullable(),
+  accept: z.string().nullable(),
+  maxFiles: z.number().int().nullable(),
+  price: extraPriceSchema.nullable(),
+  shownIf: z.object({ questionId: z.string(), choiceId: z.string() }).nullable(),
+  versionIds: z.array(z.string()).nullable(),
+  choices: z.array(z.object({ id: z.string(), label: z.string(), photoAssetId: z.string().nullable(), available: z.boolean(), maxQuantity: z.number().int(), price: extraPriceSchema.nullable() })),
+})
+export type StoredQuestion = z.infer<typeof questionSchema>
+
 const photoSchema = z.object({ id: z.string(), assetId: z.string(), url: z.string(), alt: z.string().nullable(), versionId: z.string().nullable() })
 
 const productSchema = z.object({
@@ -130,6 +154,8 @@ const productSchema = z.object({
   photos: z.array(photoSchema),
   options: z.array(z.object({ id: z.string(), name: z.string(), values: z.array(z.object({ id: z.string(), name: z.string() })) })),
   versions: z.array(versionSchema),
+  // The questions shoppers answer before buying (#1368; CATALOG-DESIGN §6 U).
+  questions: z.array(questionSchema).nullish(),
   // Null for a supplier, which reads no market.
   readiness: z.array(z.object({ marketId: z.string(), marketName: z.string(), ready: z.boolean(), missing: z.array(z.string()) })).nullable(),
 })
@@ -137,10 +163,13 @@ const productSchema = z.object({
 export type EditorProduct = z.infer<typeof productSchema>
 export type EditorVersion = z.infer<typeof versionSchema>
 
+const priceFields = '{ mode per percentBps amounts { currency amount } versionAmounts { versionId amounts { currency amount } } }'
 const productFields = `id revision name description productType visible approval sentBackReason supplier { id name } shared slug category sizeChartId warrantyText returnsText seoTitle seoDescription pricingCurrency
   photos { id assetId url alt versionId }
   options { id name values { id name } }
   versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode customsDescription taxClassId trackStock continueSelling }
+  questions { id kind label help required minPicks maxPicks freePicks maxLength multiline example accept maxFiles versionIds shownIf { questionId choiceId } price ${priceFields}
+    choices { id label photoAssetId available maxQuantity price ${priceFields} } }
   readiness { marketId marketName ready missing }`
 
 /** The product, or null for one that isn't here, or isn't the caller's: the two look the same (ACCESS.md §11). */
@@ -190,6 +219,8 @@ export type ProductInput = {
     continueSelling: boolean | null
   }[]
   photos: { assetId: string; alt?: string; version?: number }[]
+  /** Left out keeps the product's questions; [] removes them (CATALOG-DESIGN U14). */
+  questions?: unknown[]
 }
 
 const savedSchema = z.object({ id: z.string(), revision: z.number().int(), approval: z.string().nullable(), reviewed: z.array(z.string()).nullable() })
@@ -257,3 +288,26 @@ export const uploadPhoto = async (deps: PhotoDeps, file: { uri: string; mimeType
   if (asset.kind !== 'image') throw new ApiError('UNSUPPORTED_TYPE', 'The API kept the file as something other than an image.')
   return asset.id
 }
+
+const copiedSchema = z.object({ product: z.object({ id: z.string(), revision: z.number().int() }), droppedAmounts: z.number().int(), droppedVersionLimits: z.number().int(), droppedPhotos: z.number().int() })
+export type CopiedQuestions = z.infer<typeof copiedSchema>
+
+/** "Copy questions from another product" (CATALOG-DESIGN U12): replaces this product's, at its revision; says what couldn't come. */
+export const copyProductQuestions = async (client: ApiClient, fromProductId: string, toProductId: string, revision: number): Promise<CopiedQuestions> =>
+  (
+    await typedQuery(client)(
+      'mutation CopyQuestions($from: ID!, $to: ID!, $revision: Int!) { copyProductQuestions(fromProductId: $from, toProductId: $to, revision: $revision) { product { id revision } droppedAmounts droppedVersionLimits droppedPhotos } }',
+      z.object({ copyProductQuestions: copiedSchema }),
+      { from: fromProductId, to: toProductId, revision },
+    )
+  ).copyProductQuestions
+
+/** Products the person can see that ask questions, with how many, filtered by the API (U12's search). */
+export const searchProductsWithQuestions = async (client: ApiClient, search: string): Promise<{ id: string; name: string; questionCount: number }[]> =>
+  (
+    await typedQuery(client)(
+      'query WithQuestions($search: String) { products(filter: "with_questions", search: $search, first: 50) { nodes { id name questionCount } } }',
+      z.object({ products: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string(), questionCount: z.number().int() })) }) }),
+      { search: search.trim() || null },
+    )
+  ).products.nodes
