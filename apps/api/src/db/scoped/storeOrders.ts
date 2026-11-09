@@ -357,7 +357,7 @@ export const selectMerchantExportLines = (tx: ScopedSql, storeId: string, filter
   tx<ExportLineRow[]>`
     select o.number, o.placed_at, o.state, o.payment_state, o.fulfilment_state, o.payment_method, null as part_state, p.shipping_mode,
       o.shipping_address ->> 'name' as customer_name, o.email, o.phone, o.shipping_address as address, s.name as supplier_name,
-      l.name, l.version_name, l.sku, l.quantity, l.unit_amount::text as unit_amount, (l.unit_amount * l.quantity)::text as line_amount,
+      l.name, l.version_name, l.sku, l.quantity, l.unit_amount::text as unit_amount, (l.unit_amount * l.quantity + l.line_extras_amount)::text as line_amount,
       l.line_total_amount::text as line_total_amount, o.total_amount::text as total_amount, o.currency
     from "order" o join order_line l on l.order_id = o.id
       join order_part p on p.order_id = o.id and p.seller_id is not distinct from l.seller_id left join seller s on s.id = l.seller_id

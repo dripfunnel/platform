@@ -277,6 +277,15 @@ describe('suppliers’ questions (ACCESS §7.1–7.2)', () => {
     await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: perChar(20) })
     await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
     expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: perChar(200) })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
+    // Making a priced question required makes every shopper pay it: back too. Relabelling it doesn't.
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
+    const required = pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
+    expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: required })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
+    // Widening a priced question to more versions makes more shoppers pay it: back too.
+    const limited = (versions: number[]) => pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', required: true, maxLength: 200, versions, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
+    await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: limited([0]) })
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
+    expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: limited([0, 1]) })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
     await db.sql`update store set vendor_products_require_approval = false where id = ${t.storeA1}`
   })
 
@@ -382,6 +391,9 @@ describe('offers’ customisation switch (OFFERS-DESIGN §3.1)', () => {
     const offer = made.data?.['saveOffer'] as { id: string; revision: number }
     expect(await include(offer.id)).toBe(true)
     expect((await gql(saveOffer, 'owner', { id: offer.id, revision: offer.revision, input: input(false) })).errors).toBeUndefined()
+    expect(await include(offer.id)).toBe(false)
+    // An edit that doesn't send the switch (an older client, an API key) leaves it as it is.
+    expect((await gql(saveOffer, 'owner', { id: offer.id, revision: offer.revision + 1, input: { ...input(), name: 'Ten percent off' } })).errors).toBeUndefined()
     expect(await include(offer.id)).toBe(false)
   })
 })

@@ -1228,8 +1228,10 @@ product_approved_snapshot
                     -- per version_price row at approval, every amount with its currency (§7.1);
                     -- extras (#1367) everything that sets what a question charges: the price
                     -- columns, product_question_amount rows (per-version ones included),
-                    -- free_picks, max_quantity, price_per and, on a per-character question,
-                    -- max_length, since an extra's price is a price (ACCESS §7.2).
+                    -- free_picks, max_quantity, price_per, on a per-character question
+                    -- max_length, and on a question that charges required, min_picks,
+                    -- shown_if_choice_id and its product_question_version rows, since an
+                    -- extra's price is a price (ACCESS §7.2).
                     -- Not built (found on #1368): no migration creates this table; a supplier's
                     -- save compares the stored rows instead (catalog/rules.ts reviewedChanges),
                     -- those charge-setting fields among them (catalog/questions.ts extrasPriceChanged)
@@ -1297,7 +1299,7 @@ product_question    (id, product_id, store_id, seller_id NULL, kind ('choice'|'t
                      price_per ('item'|'line') NULL, shown_if_choice_id NULL)
                     UNIQUE (product_id, position) DEFERRABLE INITIALLY DEFERRED
                     CHECK (position BETWEEN 1 AND 10)                    -- 10 a product (fact 55)
-                    -- CATALOG facts 49–57, #1367 (proposed). label 1–200 characters, help ≤ 500,
+                    -- CATALOG facts 49–57, #1367, built on #1368 (0391). label 1–200 characters, help ≤ 500,
                     -- example ≤ 100. By kind, the other kinds' columns null:
                     -- choice: min_picks 0–max_picks, max_picks 1–99 (DEFAULT 1, "pick one"),
                     --   free_picks 0–max_picks (DEFAULT 0), required = (min_picks >= 1); its price
@@ -1399,7 +1401,7 @@ translation         (store_id, seller_id NULL, entity ('product'|'version'|'coll
                     -- text it translated, so "changed since translated" (N5) is a comparison;
                     -- seller_id is set by a trigger from the entity; language references
                     -- store_language, whose rows a supplier reads (it translates its own products)
-                    -- #1367 (proposed): entity gains question (field name: its text; description:
+                    -- #1367, built on #1368 (0391): entity gains question (field name: its text; description:
                     -- its help) and question_choice (field name), entity_id the row's id
 product_search      (product_id, store_id, language, document tsvector)
                     PRIMARY KEY (product_id, language)

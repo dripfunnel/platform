@@ -357,8 +357,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
 
   /** Amounts in the pricing currency or, for the merchant side, a manual one it sells in (fact 51); a supplier types the pricing one only. */
   const cleanedQuestions = async (tx: ScopedSql, input: NonNullable<ProductInput['questions']>, versionCount: number, pricingCurrency: string): Promise<CleanQuestion[]> => {
-    const manual = sellerId === null ? await manualCurrencies(tx, storeId) : []
-    const cleaned = cleanQuestions(input, { versionCount, pricingCurrency, currencies: new Set([pricingCurrency, ...manual]) })
+    const cleaned = cleanQuestions(input, { versionCount, pricingCurrency, currencies: await typedCurrencies(tx, sellerId) })
     if (!Array.isArray(cleaned)) throw new Refused(cleaned)
     return cleaned
   }
