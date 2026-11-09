@@ -4,6 +4,7 @@ import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { locale, t } from '../../messages'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
 import { SectionCard } from '../common/SectionCard'
+import { LineAnswers } from './LineAnswers'
 import { lineName } from './orderDetail'
 import { moneyText } from './orderView'
 
@@ -29,13 +30,16 @@ export function OrderLines({ order }: { order: Order }) {
       {order.parts.map((part) => (
         <SectionCard key={part.id} title={groupTitle(part)} sub={groupState(order, part)}>
           {part.lines.map((line) => (
-            <View key={line.id} style={styles.line}>
-              <View style={styles.name}>
-                <Text style={[styles.label, { color: colors.text }]}>{lineName(line)}</Text>
-                <Text style={[styles.sub, { color: colors.muted }]}>{lineState(line, part)}</Text>
+            <View key={line.id}>
+              <View style={styles.line}>
+                <View style={styles.name}>
+                  <Text style={[styles.label, { color: colors.text }]}>{lineName(line)}</Text>
+                  <Text style={[styles.sub, { color: colors.muted }]}>{lineState(line, part)}</Text>
+                </View>
+                <Text style={[styles.qty, { color: colors.textStrong }]}>{t('orders.detail.line.quantity', { count: formatNumber(line.quantity, locale) })}</Text>
+                <Text style={[styles.total, { color: colors.text }]}>{moneyText(line.total ?? line.amount)}</Text>
               </View>
-              <Text style={[styles.qty, { color: colors.textStrong }]}>{t('orders.detail.line.quantity', { count: formatNumber(line.quantity, locale) })}</Text>
-              <Text style={[styles.total, { color: colors.text }]}>{moneyText(line.total ?? line.amount)}</Text>
+              <LineAnswers answers={line.answers ?? []} />
             </View>
           ))}
         </SectionCard>

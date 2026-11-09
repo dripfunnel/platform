@@ -11,6 +11,8 @@ jest.setTimeout(120_000)
 const mockPush = jest.fn()
 const mockSession: { client: ApiClient | null } = { client: null }
 
+const mockOpenUrl = jest.fn<Promise<true>, [string]>(async () => true)
+jest.mock('expo-linking', () => ({ ...jest.requireActual('expo-linking'), openURL: (url: string) => mockOpenUrl(url) }))
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: jest.fn(), back: jest.fn() }) }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('@react-native-community/netinfo', () => ({ __esModule: true, default: { addEventListener: () => () => undefined } }))
@@ -211,6 +213,50 @@ describe('an order', () => {
       },
     })
     expect(hasText(refused.renderer, 'You don’t have access to this order')).toBe(true)
+  })
+})
+
+describe('a customised line', () => {
+  const answers = [
+    { question: 'Toppings', kind: 'CHOICE', text: null, per: 'ITEM', amount: money('6000'), choices: [{ label: 'Olives', quantity: 2, free: 1 }, { label: 'Basil', quantity: 1, free: 0 }], files: [] },
+    { question: 'Name to engrave', kind: 'TEXT', text: 'Priya', per: 'LINE', amount: money('3000'), choices: [], files: [] },
+    {
+      question: 'Your photo',
+      kind: 'UPLOAD',
+      text: null,
+      per: null,
+      amount: money('0'),
+      choices: [],
+      files: [
+        { id: 'f1', mime: 'image/jpeg', url: 'https://files.example/f1?sig=a' },
+        { id: 'f2', mime: 'application/pdf', url: 'https://files.example/f2?sig=b' },
+        { id: 'f3', mime: 'image/heic', url: 'https://files.example/f3?sig=c' },
+        { id: 'f4', mime: 'image/png', url: null },
+      ],
+    },
+  ]
+
+  it('shows its answers and extras under it, previews a photo and downloads a PDF or HEIC through the signed link', async () => {
+    const { renderer, calls } = await show(serving({ current: baseOrder({ parts: [ownPart([shirt({ answers }), cushion({ answers: [] })])] }) }, owner))
+    for (const text of ['Toppings', 'Olives × 2 (free), Basil', '+₹60.00 each', 'Name to engrave', 'Priya', '+₹30.00 once', 'Your photo', 'Download PDF 2', 'Download Photo 3', 'Photo 4 (hidden)']) expect(hasText(renderer, text)).toBe(true)
+    expect(asked(calls, 'order(id')[0]?.query).toContain('answers { question kind text per amount { amount currency } choices')
+    await press(pressableNamed(renderer, 'Open Photo 1'))
+    expect(mockOpenUrl).toHaveBeenCalledWith('https://files.example/f1?sig=a')
+    await press(pressableNamed(renderer, 'Download PDF 2'))
+    expect(mockOpenUrl).toHaveBeenLastCalledWith('https://files.example/f2?sig=b')
+  })
+
+  it('says so when a file’s link no longer opens', async () => {
+    mockOpenUrl.mockRejectedValueOnce(new Error('expired'))
+    const { renderer } = await show(serving({ current: baseOrder({ parts: [ownPart([shirt({ answers })])] }) }, owner))
+    await press(pressableNamed(renderer, 'Download PDF 2'))
+    await settle()
+    expect(hasText(renderer, 'We couldn’t open that file. A file’s link lasts 10 minutes: open the order again, then the file.')).toBe(true)
+  })
+
+  it('looks as before for a line without answers', async () => {
+    const { renderer } = await show(serving({ current: baseOrder() }, owner))
+    expect(renderer.root.findAll((node) => node.props.accessibilityLabel === 'The shopper’s answers')).toEqual([])
   })
 })
 

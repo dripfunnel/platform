@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { allPages, pageInfoSchema, typedQuery, type ApiClient } from '@dripfunnel/mobile-shared/graphql'
-import { addressSchema, shipmentSchema } from './order'
+import { addressSchema, answerFields, answerSchema, shipmentSchema } from './order'
 import { moneySchema, type OrderQuery } from './orders'
 
 // A supplier's own screens on the Store API as it is (FIRST-RELEASE (store) §17, ACCESS.md §7; apps/api src/apis/store/orders.ts, supplierTeam.ts): its part of
@@ -13,6 +13,7 @@ const lineSchema = z.object({
   quantity: z.number().int(),
   fulfilledQuantity: z.number().int(),
   sentToStoreQuantity: z.number().int(),
+  answers: z.array(answerSchema).nullish(),
 })
 export type SupplierLine = z.infer<typeof lineSchema>
 
@@ -40,7 +41,7 @@ export type SupplierOrder = z.infer<typeof orderSchema>
 
 const orderFields = `id number state placedAt customerName
   shippingAddress { name line1 line2 city region postalCode country }
-  parts { id shippingMode state lines { id name versionName quantity fulfilledQuantity sentToStoreQuantity } }
+  parts { id shippingMode state lines { id name versionName quantity fulfilledQuantity sentToStoreQuantity ${answerFields(false)} } }
   shipments { id kind supplierId warehouseName courierName trackingNumber trackingUrl shippedAt pickupRequestedAt lines { lineId quantity } }`
 
 /** The supplier's part of the order, or null when it isn't there or isn't this supplier's: the two look the same (ACCESS.md §11). */
