@@ -102,6 +102,15 @@ describe('the Wishlist screen', () => {
     expect(mockPush).toHaveBeenLastCalledWith('/product/tee-p1')
   })
 
+  it('opens a product that asks questions, instead of adding it without answers', async () => {
+    const asking = tee({ options: [], versions: single.versions, questions: [{ id: 'q1', kind: 'TEXT', label: 'Name', required: true }] })
+    const s = shop([summary('p1')], (query) => (query.includes('product(slug') ? productAnswer(asking) : undefined))
+    const screen = await render(<WishlistScreen />, s)
+    await press(screen, t('wishlist.addToCart'))
+    expect(s.requests.some((r) => r.query.includes('addToCart'))).toBe(false)
+    expect(mockPush).toHaveBeenLastCalledWith('/product/tee-p1')
+  })
+
   it('cannot add a sold-out product, and words a refusal by its code', async () => {
     const soldOut = await render(<WishlistScreen />, shop([summary('p1', { inStock: false })]))
     expect(isDisabled(pressableNamed(soldOut, t('wishlist.addToCart')))).toBe(true)

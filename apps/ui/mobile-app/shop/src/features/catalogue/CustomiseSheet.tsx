@@ -126,7 +126,13 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
       asks.current += 1
       const fresh = await quote(client, versionId, quantity, sent)
       setLive(fresh)
-      if (fresh.problems.length > 0) return
+      if (fresh.problems.length > 0) {
+        // A problem no question on screen can show (none named, or no longer asked) is said here, never silently.
+        const shown = new Set(askedFor(product.questions, versionId, answers).map((q) => q.id))
+        const loose = fresh.problems.find((p) => p.questionId === null || !shown.has(p.questionId))
+        if (loose) setError(problemText(loose.reason))
+        return
+      }
       if (intent.kind === 'edit') await intent.save(sent)
       else {
         const token = await addWithAnswers(client, versionId, quantity, sent)

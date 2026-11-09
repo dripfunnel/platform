@@ -12,10 +12,20 @@ jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual(
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: jest.fn(), canGoBack: () => true, replace: jest.fn(), navigate: jest.fn(), push: jest.fn() }), useFocusEffect: () => undefined }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('./Gallery', () => ({ Gallery: () => null }))
-jest.mock('expo-image-picker', () => ({ requestCameraPermissionsAsync: jest.fn(), requestMediaLibraryPermissionsAsync: jest.fn(), launchCameraAsync: jest.fn(), launchImageLibraryAsync: jest.fn() }))
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: jest.fn(),
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  launchCameraAsync: jest.fn(),
+  launchImageLibraryAsync: jest.fn(async () => ({ canceled: false, assets: [{ uri: 'file:///photo.jpg', mimeType: 'image/jpeg', fileName: 'photo.jpg' }] })),
+}))
+let mockOnline = true
+jest.mock('@dripfunnel/mobile-shared/connection', () => ({ ...jest.requireActual('@dripfunnel/mobile-shared/connection'), useOnline: () => mockOnline }))
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }))
 
-beforeEach(() => AsyncStorage.clear())
+beforeEach(() => {
+  mockOnline = true
+  return AsyncStorage.clear()
+})
 
 const inr = (amount: string) => ({ amount, currency: 'INR' })
 const questions = [
@@ -122,3 +132,102 @@ describe('a customised cart line', () => {
     expect(hasText(screen, t('cart.problem.check_answers'))).toBe(true)
   })
 })
+
+describe('the sheet’s rules and states', () => {
+  const rules = [
+    { ...questions[0], required: false, choices: [{ id: 'c-gold', label: 'Gold foil', available: false, maxQuantity: 1, photo: null, price: null }, { id: 'c-yes', label: 'Yes', available: true, maxQuantity: 1, photo: null, price: null }] },
+    questions[1],
+  ]
+  const opened = async (answer: (query: string, variables: Record<string, unknown> | undefined) => unknown) => {
+    const shop = fakeShop(({ query, variables }) => answer(query, variables) ?? productAnswer(tee({ questions: rules })))
+    const screen = await render(<ProductScreen slug="tee-p1" />, shop)
+    await press(screen, 'Sand')
+    await press(screen, 'M')
+    await press(screen, t('product.addToCart'))
+    return { shop, screen }
+  }
+
+  it('greys an unavailable choice and asks a condition’s question only once its choice is picked', async () => {
+    const { screen } = await opened((query) => (query.includes('customisationQuote') ? quote('149900') : undefined))
+    const gold = screen.root.findAll((node) => node.props.accessibilityLabel === 'Gold foil, Not available' && typeof node.props.onPress === 'function')[0]
+    expect(gold?.props.disabled).toBe(true)
+    expect(hasText(screen, 'Note (Required)')).toBe(false)
+    await press(screen, 'Yes')
+    expect(hasText(screen, 'Note (Required)')).toBe(true)
+  })
+
+  it('says a problem no question on screen can show, rather than nothing', async () => {
+    const { screen, shop } = await opened((query) => (query.includes('customisationQuote') ? quote('149900', [{ questionId: null as unknown as string, reason: 'CHOICE_UNAVAILABLE' }]) : undefined))
+    await wait()
+    await pressInSheet(screen, t('customise.add'))
+    expect(hasText(screen, t('customise.problem.CHOICE_UNAVAILABLE'))).toBe(true)
+    expect(shop.requests.some((r) => r.query.includes('addToCart'))).toBe(false)
+  })
+
+  it('says it is offline at Confirm, keeping what was typed', async () => {
+    mockOnline = false
+    const { screen, shop } = await opened((query) => (query.includes('customisationQuote') ? quote('149900') : undefined))
+    await pressInSheet(screen, t('customise.add'))
+    expect(hasText(screen, t('customise.offline'))).toBe(true)
+    expect(shop.requests.some((r) => r.query.includes('addToCart'))).toBe(false)
+  })
+})
+
+describe('the sheet’s uploads', () => {
+  const photoQuestion = [{ id: 'q-photo', kind: 'UPLOAD', label: 'Your photo', help: null, required: false, minPicks: null, maxPicks: null, freePicks: null, maxLength: null, multiline: null, example: null, accept: 'IMAGE', maxFiles: 1, versionIds: null, shownIf: null, price: null, choices: [] }]
+  const realFetch = global.fetch
+  const realXhr = global.XMLHttpRequest
+  afterEach(() => {
+    global.fetch = realFetch
+    global.XMLHttpRequest = realXhr
+  })
+
+  it('uploads a photo from the library with its progress, and takes it back when the sheet is cancelled', async () => {
+    const calls: string[] = []
+    global.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${url}`)
+      return { ok: true, blob: async () => new Blob(['x']), text: async () => '{}' } as unknown as Response
+    }) as unknown as typeof fetch
+    class Fake {
+      upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror = null
+      status = 200
+      responseText = JSON.stringify({ id: 'file-1', kind: 'image', cartToken: 'cart-up' })
+      open(_: string, url: string) {
+        calls.push(`POST ${url}`)
+      }
+      setRequestHeader() {}
+      send() {
+        this.upload.onprogress?.({ lengthComputable: true, loaded: 1, total: 2 })
+        this.onload?.()
+      }
+    }
+    global.XMLHttpRequest = Fake as unknown as typeof XMLHttpRequest
+    const shop = fakeShop(({ query }) => (query.includes('customisationQuote') ? quote('149900') : productAnswer(tee({ questions: photoQuestion }))))
+    const screen = await render(<ProductScreen slug="tee-p1" />, shop)
+    await press(screen, 'Sand')
+    await press(screen, 'M')
+    await press(screen, t('product.addToCart'))
+    await press(screen, t('customise.addPhoto'))
+    await wait()
+    expect(calls).toContain('POST https://acme.my-store.one/shop-api/uploads?question=q-photo')
+    expect(shop.cartTokens).toEqual(['cart-up'])
+    expect(hasText(screen, 'photo.jpg')).toBe(true)
+    await pressInSheet(screen, t('customise.cancel'))
+    expect(calls).toContain('DELETE https://acme.my-store.one/shop-api/uploads/file-1')
+  })
+
+  it('says when Edit can’t read the product’s questions', async () => {
+    const line = cartLine('p1', { id: 'line-9', versionId: 'ver-sand-m', productSlug: 'tee-p1', answers: [{ questionId: 'gone', question: 'Old', kind: 'TEXT', text: 'x', amount: null, choices: [], uploads: [] }] })
+    const shop = fakeShop(({ query }) =>
+      query.includes('product(slug')
+        ? productAnswer(tee({ questions: [] }))
+        : { cart: { email: '', phone: '', needsShipping: true, currency: 'INR', readyToPay: false, problems: [], subtotal: inr('149900'), discount: null, shipping: null, total: inr('149900'), tax: null, codes: [], discounts: [], lines: [line], shippingAddress: null, shippingOption: null, shippingOptions: [] } },
+    )
+    const screen = await render(<CartScreen />, shop)
+    await press(screen, t('customise.edit'))
+    expect(hasText(screen, t('customise.editFailed'))).toBe(true)
+  })
+})
+
