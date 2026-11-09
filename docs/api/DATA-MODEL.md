@@ -1753,7 +1753,8 @@ shopper_upload      (id, store_id, order_id, question_id NULL, r2_key, mime ('im
                     -- Edit that drops a file, emptying the cart) deletes, in the same
                     -- transaction, the files no remaining line names (`releaseCartUploads`), and
                     -- each deleted row queues its object by trigger (§7.11); no other path
-                    -- deletes a cart_line but placement, which keeps the files with the order.
+                    -- deletes a cart_line but placement, which keeps the files with the order,
+                    -- and erasure, which deletes the cart's uploads with it (§7.5).
                     -- Accepted risk (Gaurav, #1367 rule 30): until the clearing card, unordered
                     -- files are kept with no ceiling but the upload limits (10 MB each, 50 a
                     -- cart, 10 a minute a cart, 20 a minute an address), and so is the kept
