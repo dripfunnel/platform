@@ -144,17 +144,19 @@ describe('each store’s own storefront', () => {
     await db.sql`delete from publish_run where store_id = ${t.storeB1}`
   })
 
-  it('refuses the choice to a partner’s support session, even one allowed to make changes', async () => {
+  it('refuses the choice to a partner’s support session until the store allows changes', async () => {
     const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'ravi@partner-a.example', 'Ravi', 'partner-support', 'active') returning id`
     const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${w.people.owner}`
     const at = now()
+    // Once the store's own domain has connected, a support session waits for an Allow (#1340).
+    await db.sql`update store set domain_connected_at = ${at} where id = ${t.storeA1}`
     await db.sql`
-      insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access, write_requested_at, write_decided_at)
-      values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-studio')}, ${new Date(at.getTime() + 5 * 60_000)}, 'write', ${at}, ${at})`
+      insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
+      values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-studio')}, ${new Date(at.getTime() + 5 * 60_000)}, 'read')`
     const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now }, 'tok-studio')
     const cookie = entered?.cookie ?? ''
     expect((await w.support(cookie, t.partnerA, '{ storefront { status } }')).code).toBeUndefined()
-    expect((await w.support(cookie, t.partnerA, 'mutation { chooseTemplate(key: "classic", keepWords: false) }')).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await w.support(cookie, t.partnerA, 'mutation { chooseTemplate(key: "classic", keepWords: false) }')).code).toBe('SUPPORT_READ_ONLY')
   })
 })
 

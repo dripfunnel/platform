@@ -141,8 +141,9 @@ describe('a partner support session (ACCESS.md §8, #331)', () => {
   it('refuses a person’s own fields, and every write until the store allows it', async () => {
     expect((await run('{ whoami }', supportAs('write'))).code).toBe('BLOCKED_FOR_SUPPORT')
     expect((await run('mutation { saveThing }', supportAs('read'))).code).toBe('SUPPORT_READ_ONLY')
-    expect((await run('mutation { payNow }', supportAs('read'))).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await run('mutation { payNow }', supportAs('read'))).code).toBe('SUPPORT_READ_ONLY')
     expect((await run('mutation { saveThing }', supportAs('write'))).data).toEqual({ saveThing: 'saved' })
+    expect((await run('mutation { payNow }', supportAs('write'))).data).toEqual({ payNow: 'paid' })
   })
 
   it('lists the writes an elevated session acting as an Owner is still refused', async () => {

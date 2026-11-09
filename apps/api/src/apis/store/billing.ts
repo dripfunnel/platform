@@ -42,11 +42,9 @@ export const registerBilling = (builder: StoreBuilder) => {
   const Money = moneyType(builder)
   const PageInfo = pageInfoType(builder)
 
-  const service = (ctx: StoreContext, write = false) => {
+  const service = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
-    // The plan and its card are the Owner's own act: never a support session's or an impersonation's (ACCESS §5.1, §8).
-    if (write && caller.context.caller.kind !== 'person') throw forbidden()
     return createStoreBillingService({ sql: ctx.sql, caller, facts: ctx.facts, activity: ctx.activity, stripe: ctx.billing ?? null, now: ctx.now })
   }
 
@@ -212,20 +210,20 @@ export const registerBilling = (builder: StoreBuilder) => {
       args: { planId: t.arg.id({ required: true }), interval: t.arg({ type: Interval, required: true }), when: t.arg({ type: When, required: true }) },
       // While read-only only a trial that ended with no plan may choose one, which the service decides (SAAS §4.2).
       extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.changePlan } },
-      resolve: async (_, args, ctx) => answered(await service(ctx, true).changePlan({ planId: String(args.planId), interval: args.interval, when: args.when })),
+      resolve: async (_, args, ctx) => answered(await service(ctx).changePlan({ planId: String(args.planId), interval: args.interval, when: args.when })),
     }),
     // The token from Stripe's hosted card field (`pm_…`); a card number is refused before anything reads it.
     setPaymentMethod: t.field({
       type: Subscription,
       args: { token: t.arg.string({ required: true }) },
-      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.setPaymentMethod, blockedFor: ['impersonation'] } },
-      resolve: async (_, { token }, ctx) => answered(await service(ctx, true).setPaymentMethod(token)),
+      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.setPaymentMethod } },
+      resolve: async (_, { token }, ctx) => answered(await service(ctx).setPaymentMethod(token)),
     }),
     saveBillingDetails: t.field({
       type: Details,
       args: { input: t.arg({ type: DetailsInput, required: true }) },
       extensions: { access: { ...read, audit: storeBillingAudit.saveBillingDetails } },
-      resolve: async (_, { input }, ctx) => answered(await service(ctx, true).saveBillingDetails(input)),
+      resolve: async (_, { input }, ctx) => answered(await service(ctx).saveBillingDetails(input)),
     }),
   }))
 
@@ -264,8 +262,6 @@ export const registerBilling = (builder: StoreBuilder) => {
   const dataExport = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
-    // Everything the store holds leaves with its Owner only, never through a support session (ACCESS §8).
-    if (caller.context.caller.kind !== 'person') throw forbidden()
     return createStoreDataExport({ sql: ctx.sql, caller, facts: ctx.facts, activity: ctx.activity, now: ctx.now })
   }
 
@@ -279,13 +275,13 @@ export const registerBilling = (builder: StoreBuilder) => {
       type: Keep,
       args: { ids: t.arg.idList({ required: true }) },
       extensions: { access: { ...read, audit: storeBillingAudit.keepProducts } },
-      resolve: async (_, { ids }, ctx) => answered(await service(ctx, true).keepProducts(ids.map(String))),
+      resolve: async (_, { ids }, ctx) => answered(await service(ctx).keepProducts(ids.map(String))),
     }),
     // Close my store: read-only now, the storefront selling until the paid period ends (SAAS §4.2); paying works while read-only.
     cancelStore: t.field({
       type: Subscription,
       extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.cancelStore } },
-      resolve: async (_, __, ctx) => answered(await service(ctx, true).cancelStore()),
+      resolve: async (_, __, ctx) => answered(await service(ctx).cancelStore()),
     }),
     // A job of three parts; taking data away is a read, so a read-only or closing store may (SAAS §4.2 "export only").
     exportStoreData: t.id({

@@ -94,18 +94,18 @@ export const registerPayments = (builder: StoreBuilder) => {
     // Cash on delivery (India) or a bank transfer with the details shoppers pay to; a card provider's keys for a mode.
     connectGateway: t.boolean({
       args: { provider: t.arg.string({ required: true }), bankDetails: t.arg.string(), mode: t.arg({ type: Mode }), keys: t.arg({ type: Keys }) },
-      extensions: { access: { ...configure, audit: paymentSetupAudit.turnedOn, blockedFor: ['impersonation'] } },
+      extensions: { access: { ...configure, audit: paymentSetupAudit.turnedOn } },
       resolve: async (_, args, ctx) =>
         answered(await setup(ctx).connect(args.provider, { bankDetails: args.bankDetails, mode: args.mode === 'TEST' ? 'test' : args.mode === 'LIVE' ? 'live' : null, credentials: args.keys ?? null })),
     }),
     // The address on Stripe to approve DripFunnel's app at; Stripe brings the merchant back with a one-time key.
     connectStripe: t.string({
-      extensions: { access: { ...configure, audit: paymentSetupAudit.connectStarted, blockedFor: ['impersonation'] } },
+      extensions: { access: { ...configure, audit: paymentSetupAudit.connectStarted } },
       resolve: async (_, __, ctx) => answered(await setup(ctx).startStripe()),
     }),
     finishStripeConnect: t.boolean({
       args: { key: t.arg.string({ required: true }) },
-      extensions: { access: { ...configure, audit: paymentSetupAudit.connected, blockedFor: ['impersonation'] } },
+      extensions: { access: { ...configure, audit: paymentSetupAudit.connected } },
       resolve: async (_, args, ctx) => answered(await setup(ctx).finishStripe(args.key)),
     }),
     // Shoppers stop seeing it at checkout; orders already paid aren't affected.

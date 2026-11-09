@@ -214,7 +214,7 @@ describe('who may manage riders (ACCESS §11.1)', () => {
     expect((await row(riderId))?.status).not.toBe('removed')
   })
 
-  it('refuses a partner’s support session, even one allowed to make changes, as the list holds riders’ phones', async () => {
+  it('lets a partner’s support session read riders, and change them once allowed', async () => {
     const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'ravi@partner-a.example', 'Ravi', 'partner-support', 'active') returning id`
     const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${w.people.owner}`
     const at = now()
@@ -223,8 +223,8 @@ describe('who may manage riders (ACCESS §11.1)', () => {
       values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-riders')}, ${new Date(at.getTime() + 5 * 60_000)}, 'write', ${at}, ${at})`
     const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now }, 'tok-riders')
     const cookie = entered?.cookie ?? ''
-    expect((await w.support(cookie, t.partnerA, '{ riders { nodes { phone } } }')).code).toBe('BLOCKED_FOR_SUPPORT')
-    expect((await w.support(cookie, t.partnerA, `mutation { removeRider(id: "${riderId}") }`)).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await w.support(cookie, t.partnerA, '{ riders { nodes { phone } } }')).code).toBeUndefined()
+    expect((await w.support(cookie, t.partnerA, `mutation { suspendRider(id: "${crypto.randomUUID()}") }`)).code).not.toBe('BLOCKED_FOR_SUPPORT')
   })
 
   it('refuses an API key, whatever its scopes', async () => {

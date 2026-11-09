@@ -66,7 +66,7 @@ export const designerFor = (ctx: StoreContext) => {
 }
 
 const read = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none' } as const
-export const designWrite = (audit: string) => ({ api: 'store', scope: 'store', permission: 'publish', target: 'none', audit, blockedFor: ['support', 'impersonation'] }) as const
+export const designWrite = (audit: string) => ({ api: 'store', scope: 'store', permission: 'publish', target: 'none', audit }) as const
 
 export const registerStorefront = (builder: StoreBuilder) => {
   const Template = builder.objectRef<TemplateView>('StorefrontTemplate').implement({

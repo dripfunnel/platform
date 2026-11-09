@@ -97,8 +97,8 @@ export const rateLimited = (retryAfterSeconds: number) => refusal('Too many requ
 export const supportBlocked = () => refusal('Only someone in the store can change this.', accessErrorCode.blockedForSupport)
 export const supportReadOnly = () => refusal('This support session is read-only until the store allows changes.', accessErrorCode.supportReadOnly)
 
-// ACCESS.md §8 "Never", by permission: who works here, payments, billing, its own access, the shoppers, and taking the log away.
-export const supportNeverWrites: readonly StorePermission[] = ['invite', 'manage-vendors', 'supplier.team', 'payments.configure', 'billing', 'support.allow_write', 'customers.write', 'customers.export', 'activity.export', 'store.export']
+// ACCESS.md §8 "Never", by permission: allowing its own writes, and the shoppers. Owner changes are storePeople's.
+export const supportNeverWrites: readonly StorePermission[] = ['support.allow_write', 'customers.write', 'customers.export']
 
 /** What a support session may not do in its seat; `supportOwn` fields are its own, so its read-only state never refuses them. */
 const admitSupport = (access: Access, seat: SupportSeat, permission: StorePermission, operation: string) => {
@@ -153,7 +153,7 @@ export const storePolicy: AccessPolicy<StoreContext> = {
     if (standing.kind === 'acting' && standing.caller.staff && access.blockedFor?.includes('impersonation')) throw blockedIn('impersonation')
     // A support session is not a person: nothing of the account it acts as is its own (ACCESS.md §8).
     if (access.scope === 'session') {
-      if (support) throw supportBlocked()
+      if (support && !access.openToSupport) throw supportBlocked()
       return
     }
     if (standing.kind === 'no-store') throw storeRequired()

@@ -144,41 +144,62 @@ export interface StudioSessionRow {
   can_change: boolean
 }
 
+/** The user a frame acts as and the one session it lives with: a portal sign-in, an impersonation or a support session. */
+export interface StudioHolder {
+  userId: string
+  userSessionHash: string | null
+  impersonationId: string | null
+  supportSessionId: string | null
+}
+
 export const insertStudioSession = async (
   tx: ScopedSql,
-  s: { idHash: string; storeId: string; userId: string; userSessionHash: string; canChange: boolean; at: Date; expiresAt: Date },
+  s: { idHash: string; storeId: string; holder: StudioHolder; canChange: boolean; at: Date; expiresAt: Date },
 ): Promise<void> => {
+  const h = s.holder
   await tx`delete from studio_session where store_id = ${s.storeId} and expires_at <= ${s.at}`
   await tx`
-    insert into studio_session (id_hash, store_id, user_id, user_session_hash, can_change, created_at, expires_at)
-    values (${s.idHash}, ${s.storeId}, ${s.userId}, ${s.userSessionHash}, ${s.canChange}, ${s.at}, ${s.expiresAt})`
+    insert into studio_session (id_hash, store_id, user_id, user_session_hash, impersonation_id, support_session_id, can_change, created_at, expires_at)
+    values (${s.idHash}, ${s.storeId}, ${h.userId}, ${h.userSessionHash}, ${h.impersonationId}, ${h.supportSessionId}, ${s.canChange}, ${s.at}, ${s.expiresAt})`
 }
+
 
 /** How long a portal session may sit idle (ACCESS §4), given by the caller: auth/storeSession owns the numbers. */
 export type PortalIdle = { idleMs: number; rememberIdleMs: number }
 
 /**
  * Live: unexpired, for this store, and its portal session still signed in by readUserSession's own test (AI-STUDIO §8
- * "Bound"): a full session, inside its absolute and idle bounds. The idle window isn't slid here: only the portal does.
+ * "Bound"): a full session, inside its absolute and idle bounds; or its impersonation or support session still open.
+ * The idle window isn't slid here: only the portal does.
  */
 export const selectLiveStudioSession = async (tx: ScopedSql, storeId: string, idHash: string, at: Date, portal: PortalIdle): Promise<StudioSessionRow | null> =>
   (
     await tx<StudioSessionRow[]>`
-      select t.user_id, t.can_change from studio_session t join user_session u on u.id_hash = t.user_session_hash
+      select t.user_id, t.can_change from studio_session t
+        left join user_session u on u.id_hash = t.user_session_hash
+        left join impersonation i on i.id = t.impersonation_id
+        left join support_session s on s.id = t.support_session_id
       where t.id_hash = ${idHash} and t.store_id = ${storeId} and t.expires_at > ${at}
-        and u.stage = 'full' and u.absolute_expires_at > ${at}
-        and u.last_seen_at > ${at}::timestamptz - case when u.remember then ${`${portal.rememberIdleMs} milliseconds`}::interval else ${`${portal.idleMs} milliseconds`}::interval end`
+        and (
+          (u.id_hash is not null and u.stage = 'full' and u.absolute_expires_at > ${at}
+            and u.last_seen_at > ${at}::timestamptz - case when u.remember then ${`${portal.rememberIdleMs} milliseconds`}::interval else ${`${portal.idleMs} milliseconds`}::interval end)
+          or (i.id is not null and i.ended_at is null and i.expires_at > ${at})
+          or (s.id is not null and s.ended_at is null and s.expires_at > ${at})
+        )`
   )[0] ?? null
 
-/** Renewed only for the user and portal session that opened it, with the access the re-check just found. */
+/** Renewed only for the user and session that opened it, with the access the re-check just found. */
 export const renewStudioSession = async (
   tx: ScopedSql,
-  s: { idHash: string; storeId: string; userId: string; userSessionHash: string; canChange: boolean; at: Date; expiresAt: Date },
+  s: { idHash: string; storeId: string; holder: StudioHolder; canChange: boolean; at: Date; expiresAt: Date },
 ): Promise<boolean> =>
   (
     await tx`
       update studio_session set expires_at = ${s.expiresAt}, can_change = ${s.canChange}
-      where id_hash = ${s.idHash} and store_id = ${s.storeId} and user_id = ${s.userId} and user_session_hash = ${s.userSessionHash}
+      where id_hash = ${s.idHash} and store_id = ${s.storeId} and user_id = ${s.holder.userId}
+        and user_session_hash is not distinct from ${s.holder.userSessionHash}::text
+        and impersonation_id is not distinct from ${s.holder.impersonationId}::uuid
+        and support_session_id is not distinct from ${s.holder.supportSessionId}::uuid
         and expires_at > ${s.at}`
   ).count === 1
 

@@ -683,17 +683,45 @@ describe('studio sessions (AI-STUDIO §8)', () => {
   it('lets the Owner change and a Manager view, and opens nothing for staff or a supplier', async () => {
     const now = new Date()
     const ctx = contextFor(t.storeA1, t.partnerA, ownerA.userId, ownerA.sessionHash)
-    expect((await openStudioSession(db.sql, ctx, owner, now))?.access).toBe('change')
-    expect((await openStudioSession(db.sql, ctx, manager, now))?.access).toBe('view')
-    expect(await openStudioSession(db.sql, ctx, staff, now)).toBeNull()
-    expect(await openStudioSession(db.sql, { ...ctx, sellerScope: { kind: 'seller', sellerId: t.sellerA1First } }, supplier, now)).toBeNull()
-    expect(await openStudioSession(db.sql, { ...ctx, caller: { kind: 'support', supportSessionId: 's', partnerUserId: 'p', access: 'read' } }, owner, now)).toBeNull()
+    expect((await openStudioSession(db.sql, ctx, owner, ownerA.userId, now))?.access).toBe('change')
+    expect((await openStudioSession(db.sql, ctx, manager, ownerA.userId, now))?.access).toBe('view')
+    expect(await openStudioSession(db.sql, ctx, staff, ownerA.userId, now)).toBeNull()
+    expect(await openStudioSession(db.sql, { ...ctx, sellerScope: { kind: 'seller', sellerId: t.sellerA1First } }, supplier, ownerA.userId, now)).toBeNull()
+  })
+
+  it('opens for staff impersonating the Owner and a support session (changing once allowed), living only while it is open', async () => {
+    const now = new Date()
+    const until = new Date(now.getTime() + 30 * 60_000)
+    const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${ownerA.userId} and store_id = ${t.storeA1}`
+    const [staffer] = await db.sql<{ id: string }[]>`insert into staff_user (sso_subject, email, name, role_key, status) values (${crypto.randomUUID()}, 'frame.staff@dripfunnel.com', 'Neha', 'staff-support', 'active') returning id`
+    const [imp] = await db.sql<{ id: string }[]>`
+      insert into impersonation (staff_user_id, target_kind, target_id, membership_id, partner_id, store_id, reason, started_at, expires_at)
+      values (${staffer?.id ?? ''}, 'person', ${ownerA.userId}, ${seat?.id ?? ''}, ${t.partnerA}, ${t.storeA1}, 'Setting up', ${now}, ${until}) returning id`
+    const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'frame.support@partner-a.example', 'Ravi', 'partner-support', 'active') returning id`
+    const [help] = await db.sql<{ id: string }[]>`
+      insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access)
+      values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${now}, ${until}, ${'f'.repeat(64)}, ${until}, 'read') returning id`
+    const base = contextFor(t.storeA1, t.partnerA, ownerA.userId, ownerA.sessionHash)
+    const staffCtx: TenantContext = { ...base, caller: { kind: 'impersonation', impersonationId: imp?.id ?? '', staffId: staffer?.id ?? '', userId: ownerA.userId } }
+    const supportCtx = (access: 'read' | 'write'): TenantContext => ({ ...base, caller: { kind: 'support', supportSessionId: help?.id ?? '', partnerUserId: agent?.id ?? '', access } })
+    const byStaff = (await openStudioSession(db.sql, staffCtx, owner, ownerA.userId, now))?.id ?? ''
+    expect(await liveStudioSession(db.sql, t.storeA1, byStaff, now)).toEqual({ userId: ownerA.userId, access: 'change' })
+    const bySupport = await openStudioSession(db.sql, supportCtx('read'), owner, ownerA.userId, now)
+    expect(bySupport?.access).toBe('view')
+    expect(await renewStudio(db.sql, supportCtx('write'), owner, ownerA.userId, bySupport?.id ?? '', now)).not.toBeNull()
+    expect(await liveStudioSession(db.sql, t.storeA1, bySupport?.id ?? '', now)).toEqual({ userId: ownerA.userId, access: 'change' })
+    // Another session's caller can't renew it.
+    expect(await renewStudio(db.sql, staffCtx, owner, ownerA.userId, bySupport?.id ?? '', now)).toBeNull()
+    await db.sql`update impersonation set ended_at = ${now}, end_reason = 'staff' where id = ${imp?.id ?? ''}`
+    await db.sql`update support_session set ended_at = ${now} where id = ${help?.id ?? ''}`
+    expect(await liveStudioSession(db.sql, t.storeA1, byStaff, now)).toBeNull()
+    expect(await liveStudioSession(db.sql, t.storeA1, bySupport?.id ?? '', now)).toBeNull()
   })
 
   it('is bound to its store, kept only as a hash, and ends with its portal session or its time', async () => {
     const now = new Date()
     const user = await seedUser(t.storeA1, t.partnerA, 'owner', 'bound.a1@studio.example')
-    const opened = await openStudioSession(db.sql, contextFor(t.storeA1, t.partnerA, user.userId, user.sessionHash), owner, now)
+    const opened = await openStudioSession(db.sql, contextFor(t.storeA1, t.partnerA, user.userId, user.sessionHash), owner, user.userId, now)
     const id = opened?.id ?? ''
     expect(id).toMatch(/^[A-Za-z0-9_-]{22}$/)
     expect(await db.sql`select 1 from studio_session where id_hash = ${id}`).toHaveLength(0)
@@ -709,7 +737,7 @@ describe('studio sessions (AI-STUDIO §8)', () => {
   it('ends with a portal session that is no longer fully signed in: idle past its bound, or sent back a step', async () => {
     const now = new Date()
     const user = await seedUser(t.storeA1, t.partnerA, 'owner', 'idle.a1@studio.example')
-    const id = (await openStudioSession(db.sql, contextFor(t.storeA1, t.partnerA, user.userId, user.sessionHash), owner, now))?.id ?? ''
+    const id = (await openStudioSession(db.sql, contextFor(t.storeA1, t.partnerA, user.userId, user.sessionHash), owner, user.userId, now))?.id ?? ''
     expect(await liveStudioSession(db.sql, t.storeA1, id, now)).not.toBeNull()
     await db.sql`update user_session set last_seen_at = ${new Date(now.getTime() - 2 * 60 * 60 * 1000 - 1000)} where id_hash = ${user.sessionHash}`
     expect(await liveStudioSession(db.sql, t.storeA1, id, now)).toBeNull()
@@ -721,15 +749,15 @@ describe('studio sessions (AI-STUDIO §8)', () => {
     const now = new Date()
     const user = await seedUser(t.storeA1, t.partnerA, 'owner', 'renew.a1@studio.example')
     const ctx = contextFor(t.storeA1, t.partnerA, user.userId, user.sessionHash)
-    const id = (await openStudioSession(db.sql, ctx, owner, now))?.id ?? ''
+    const id = (await openStudioSession(db.sql, ctx, owner, user.userId, now))?.id ?? ''
     const later = new Date(now.getTime() + 4 * 60 * 1000)
-    expect((await renewStudio(db.sql, ctx, owner, id, later))?.getTime()).toBe(later.getTime() + 5 * 60 * 1000)
-    expect(await renewStudio(db.sql, { ...ctx, caller: { kind: 'person', userId: user.userId, sessionId: ownerA.sessionHash } }, owner, id, later)).toBeNull()
-    expect(await renewStudio(db.sql, { ...ctx, storeId: t.storeA2 }, owner, id, later)).toBeNull()
-    expect(await renewStudio(db.sql, ctx, manager, id, later)).not.toBeNull()
+    expect((await renewStudio(db.sql, ctx, owner, user.userId, id, later))?.getTime()).toBe(later.getTime() + 5 * 60 * 1000)
+    expect(await renewStudio(db.sql, { ...ctx, caller: { kind: 'person', userId: user.userId, sessionId: ownerA.sessionHash } }, owner, user.userId, id, later)).toBeNull()
+    expect(await renewStudio(db.sql, { ...ctx, storeId: t.storeA2 }, owner, user.userId, id, later)).toBeNull()
+    expect(await renewStudio(db.sql, ctx, manager, user.userId, id, later)).not.toBeNull()
     expect(await liveStudioSession(db.sql, t.storeA1, id, later)).toMatchObject({ access: 'view' })
     // A seat taken away gets no renewal, and its session ends at once.
-    expect(await renewStudio(db.sql, ctx, staff, id, later)).toBeNull()
+    expect(await renewStudio(db.sql, ctx, staff, user.userId, id, later)).toBeNull()
     expect(await liveStudioSession(db.sql, t.storeA1, id, later)).toBeNull()
   })
 

@@ -171,49 +171,14 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   }
   const blocked = (kind: 'impersonation') => fields().filter(({ field }) => field.extensions.access?.blockedFor?.includes(kind)).map(({ field }) => field.name).sort()
   const signIn = ['changeEmail', 'changePassword', 'regenerateBackupCodes', 'setSecondFactor', 'signOutOtherSessions']
-  const moneyDetails = ['connectGateway', 'connectStripe', 'finishStripeConnect', 'setPaymentMethod']
-  // The store's own AI account and the Owner's consent to bill it, as the partner console's AI keys (#275).
-  // Credentials and data channels that outlive the session; revoking, removing and uninstalling stay open.
-  const outlasting = ['createApiKey', 'installApp', 'rotateApiKey', 'saveWebhook']
-  const aiAccount = ['beginStoreAiOauth', 'connectStoreAiAccount', 'finishStoreAiOauth', 'removeStoreAiAccount', 'setStoreAiFallback', 'setStoreAiSwitch']
-  // The storefront's design, studio and preview links were declared before #1012.
-  const storefront = [
-    'answerDesignQuestions',
-    'askDesign',
-    'buildDesignPlan',
-    'cancelDesign',
-    'changeDesignPlan',
-    'chooseTemplate',
-    'deleteLibraryAsset',
-    'designChat',
-    'designText',
-    'discardDraft',
-    'endPreviewLinks',
-    'goBackToVersion',
-    'importDesignImage',
-    'libraryAssets',
-    'previewLink',
-    'publishBefore',
-    'publishDesign',
-    'publishNow',
-    'renameLibraryAsset',
-    'renewStudioSession',
-    'saveDesignText',
-    'searchStockImages',
-    'stockImagesAvailable',
-    'studioActivity',
-    'studioSession',
-    'undoDesignChange',
-    'useStockImage',
-  ]
-
-  it('declares the user’s sign-in and sessions, money details, the store’s AI account, the store switch and the storefront’s design', () => {
-    expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, ...aiAccount, ...outlasting, 'switchStore', ...storefront].sort())
+  // Staff set a store up with everything else (ACCESS.md §8.1, #1344).
+  it('declares only the user’s sign-in and sessions and the store switch', () => {
+    expect(blocked('impersonation')).toEqual([...signIn, 'switchStore'].sort())
   })
 
-  it('leaves no mutation on the user’s own account open but their name and theme', () => {
+  it('leaves no mutation on the user’s own account open but their name and theme, and the studio frame’s renewal', () => {
     const open = fields().filter(({ field, mutation }) => mutation && field.extensions.access?.scope === 'session' && !field.extensions.access.blockedFor?.includes('impersonation'))
-    expect(open.map(({ field }) => field.name).sort()).toEqual(['setTheme', 'updateProfile'])
+    expect(open.map(({ field }) => field.name).sort()).toEqual(['renewStudioSession', 'setTheme', 'updateProfile'])
   })
 
   it('refuses every declared field and every Owner change, whatever the role', async () => {
@@ -226,21 +191,6 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
       `mutation { regenerateBackupCodes }`,
       `mutation { signOutOtherSessions }`,
       `mutation { switchStore(storeId: "${t.storeA1}") { membershipId } }`,
-      `mutation { setPaymentMethod(token: "pm_x") { asOf } }`,
-      `mutation { connectGateway(provider: "cod") }`,
-      `mutation { connectStripe }`,
-      `mutation { finishStripeConnect(key: "k") }`,
-      `mutation { connectStoreAiAccount(provider: "anthropic", key: "k") }`,
-      `mutation { beginStoreAiOauth(provider: "anthropic") }`,
-      `mutation { finishStoreAiOauth(response: "r") }`,
-      `mutation { setStoreAiSwitch(on: true) }`,
-      `mutation { setStoreAiFallback(on: true) }`,
-      `mutation { removeStoreAiAccount }`,
-      `mutation { createApiKey(name: "Feed", scopes: ["catalog.read"]) { __typename } }`,
-      `mutation { rotateApiKey(id: "${seats.owner}") { __typename } }`,
-      `mutation { saveWebhook(url: "https://hooks.example/x", events: ["order.created"]) { id } }`,
-      `mutation { installApp(appId: "${seats.owner}", scopes: ["catalog.read"]) }`,
-      'mutation { studioActivity }',
       `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
       `mutation { removeMember(membershipId: "${seats.owner}") }`,
       `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,

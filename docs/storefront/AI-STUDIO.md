@@ -567,8 +567,10 @@ before, and reads the result when `askDesign` answers.
   renewal never closes the frame. The id is 128 random bits (22 base64url characters) kept only as its SHA-256 in
   `studio_session`, which references the portal session: signing out deletes it. A renewal re-checks the caller as
   the Store API resolved them on that request; a seat that lost the studio deletes the session at once. The Owner
-  changes, a Manager views, and staff, suppliers and support sessions get no studio (ACCESS §5.1 `publish`). A studio session
-  is live only while its portal session is fully signed in: `stage = 'full'`, inside both its absolute and idle bounds.
+  changes, a Manager views, and the Staff role and suppliers get no studio (ACCESS §5.1 `publish`). DripFunnel staff
+  impersonating the Owner change; a support session acting as the Owner views, and changes once the store allows it
+  (ACCESS §8, §8.1). A studio session is live only while its portal session is fully signed in: `stage = 'full'`,
+  inside both its absolute and idle bounds; one opened in an impersonation or support session, while that is open.
 - ~~The WebSocket path through the edge Worker.~~ **`/__studio/{session}/__hot`** (decided on #482), on the frame's own
   origin, so the studio CSP's `connect-src 'self'` covers it. How the frame is served (decided on #482):
   - store-proxy sends `{slug}-preview.<SHOP_DOMAIN>/__studio/*` to the API's `StorefrontEdge`; the router gives `/__studio`

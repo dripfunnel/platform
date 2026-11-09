@@ -202,7 +202,7 @@ describe('the export', () => {
 })
 
 describe('a support session (ACCESS.md §8)', () => {
-  it('reads the log as its seat may, and never takes it away, even allowed to make changes', async () => {
+  it('reads the log as its seat may, and exports it once allowed to make changes', async () => {
     const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'ravi@partner-a.example', 'Ravi Kumar', 'partner-support', 'active') returning id`
     const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${people.owner}`
     await db.sql`
@@ -212,6 +212,6 @@ describe('a support session (ACCESS.md §8)', () => {
     const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => now }, 'tok-activity')
     const cookie = entered?.cookie ?? ''
     expect((await gql<Log>(q.log, { support: cookie }, { f: {} })).data?.activityLog.items.length).toBeGreaterThan(0)
-    expect((await gql(q.export, { support: cookie }, { f: {} })).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await gql(q.export, { support: cookie }, { f: {} })).code).toBeUndefined()
   })
 })

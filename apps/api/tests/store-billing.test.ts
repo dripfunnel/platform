@@ -304,13 +304,9 @@ describe('who may see and change billing (ACCESS §5.1 `billing`, §11)', () => 
     expect((await gql(q.subscription, 'otherOwner')).data?.['subscription']).toMatchObject({ plan: { name: 'Other' }, partnerName: 'Partner B' })
   })
 
-  it('never lets a support session or an impersonation change the plan, the card or the details', async () => {
-    for (const as of ['support', 'impersonation'] as const) {
-      expect((await change('owner', plans.business, 'NOW', 'MONTH', as)).code).toBe('FORBIDDEN')
-      expect((await gql(q.card, 'owner', { t: 'pm_card12345' }, as)).code).toBe('FORBIDDEN')
-      expect((await gql(q.save, 'owner', { input: details }, as)).code).toBe('FORBIDDEN')
-    }
-    expect(calls).toEqual([])
+  // Staff and an allowed support session set a store up for its Owner (ACCESS §8, §8.1).
+  it('lets a support session and an impersonation acting as the Owner save the details', async () => {
+    for (const as of ['support', 'impersonation'] as const) expect((await gql(q.save, 'owner', { input: details }, as)).code).toBeUndefined()
   })
 
   it('holds the details and invoices to the store asking at the database: never another store’s, never a supplier’s', async () => {
@@ -682,9 +678,8 @@ describe('closing the store (SAAS §4.2)', () => {
     return found.kind === 'found' ? found.shopper.available : null
   }
 
-  it('is the Owner’s own act', async () => {
+  it('is the Owner’s act, never a Manager’s, Staff’s or a supplier’s', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await close(who)).code).toBe('FORBIDDEN')
-    for (const as of ['support', 'impersonation'] as const) expect((await close('owner', as)).code).toBe('FORBIDDEN')
     expect(await storeRow(t.storeA1)).toMatchObject({ status: 'active' })
   })
 
@@ -719,9 +714,9 @@ describe('the store’s data (`store.export`)', () => {
   const ask = (who: Who, as: 'person' | 'support' | 'impersonation' = 'person') => gql('mutation { exportStoreData }', who, {}, as)
   const parts = (who: Who, id: string) => gql('query E($id: ID!) { storeDataExport(id: $id) { kind state rows csv } }', who, { id })
 
-  it('is the Owner’s alone, never a Manager’s, Staff’s, supplier’s or a support session’s', async () => {
+  it('is the Owner’s, also through staff or an allowed support session, never a Manager’s, Staff’s or supplier’s', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await ask(who)).code).toBe('FORBIDDEN')
-    for (const as of ['support', 'impersonation'] as const) expect((await ask('owner', as)).code).toBe('FORBIDDEN')
+    for (const as of ['support', 'impersonation'] as const) expect((await ask('owner', as)).code).toBeUndefined()
     expect((await parts('manager', crypto.randomUUID())).code).toBe('FORBIDDEN')
   })
 
