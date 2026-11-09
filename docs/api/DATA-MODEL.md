@@ -2705,7 +2705,11 @@ decide which columns and which tables each caller kind may select at all**. `app
     grant on `shopper_upload`; the engine mints a supplier's link to a file in system scope after
     `order_line_for_supplier` shows the line is its own.
   - **Merchant side's files**: `app_request` reads `shopper_upload` without `r2_key`; a file opens
-    only through the engine's short-lived signed link.
+    only through the engine's short-lived signed link. Built on #1369: the link is a bearer for
+    10 minutes (HMAC under its own key, naming the store, the file and its expiry). It closes
+    when its store is suspended, cancelled or closed, but not when the person who was shown it
+    loses access within those minutes, which is accepted for so short a link. The file is
+    served with `no-referrer`, `nosniff` and CSP `default-src 'none'`.
   - **Support**: no policy of its own. The Store API shows a partner support session every text
     answer as `•••••` and no file link (ACCESS §8, `apis/store/shopperDetails.ts`), wherever an
     answer appears (orders, abandoned carts); choice names are the merchant's words and show.

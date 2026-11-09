@@ -27,6 +27,31 @@ const refused = (code: CartRefusal | 'RATE_LIMITED' | 'UNAVAILABLE' | 'METHOD', 
   return json(status, { errors: [{ message, extensions: { code } }] })
 }
 
+/** The body, counted as it streams: past `max` the read stops at once, so an oversize file is never held whole. */
+const readCapped = async (request: Request, max: number): Promise<Uint8Array<ArrayBuffer> | null> => {
+  const reader = request.body?.getReader()
+  if (!reader) return new Uint8Array()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > max) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  const body = new Uint8Array(size)
+  let at = 0
+  for (const chunk of chunks) {
+    body.set(chunk, at)
+    at += chunk.byteLength
+  }
+  return body
+}
+
 /** What a file is, for the storefront's list: the kinds the answer shows (no file name is kept). */
 const kindOf = (mime: string) => (mime === 'application/pdf' ? 'pdf' : 'image')
 
@@ -41,9 +66,10 @@ export const handleUpload = async (request: Request, ctx: ShopContext, files: Up
   if (!(await (ctx.allowUploadToCart ?? deny)(`upload-cart:${ctx.shopper.context.storeId}:${cartKey}`))) return json(429, { errors: [{ message: 'Too many files for this cart. Wait a minute and try again.', extensions: { code: 'RATE_LIMITED' } }] })
   const cart = await cartOf(ctx)
   if (request.method === 'POST' && url.pathname === uploadsPath) {
-    const declared = Number(request.headers.get('content-length') ?? '0')
-    if (declared > maxUploadBytes) return refused('FILE_TOO_LARGE')
-    const body = new Uint8Array(await request.arrayBuffer())
+    if (Number(request.headers.get('content-length') ?? '0') > maxUploadBytes) return refused('FILE_TOO_LARGE')
+    // A chunked or understated body is capped as it's read, whatever its header said.
+    const body = await readCapped(request, maxUploadBytes)
+    if (!body) return refused('FILE_TOO_LARGE')
     const result = await cart.upload(url.searchParams.get('question') ?? '', body, files)
     if (!result.ok) return refused(result.reason)
     return json(200, { id: result.value.id, kind: kindOf(result.value.mime), cartToken: result.value.token })

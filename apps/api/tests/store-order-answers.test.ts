@@ -171,6 +171,11 @@ describe('an order line’s answers (#1368)', () => {
     expect((await serve((file?.url ?? '').replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')))).status).toBe(404)
     expect((await serve((file?.url ?? '').replace(t.storeA1, t.storeB1))).status).toBe(404)
     expect((await open(file?.url ?? '')).status).toBe(404)
+    // A suspended store's links close at once; the link is a bearer only while its store is open.
+    expect(opened.headers.get('referrer-policy')).toBe('no-referrer')
+    await db.sql`update store set status = 'suspended', suspended_at = now(), suspended_reason = 'unpaid', suspended_previous_status = 'active' where id = ${t.storeA1}`
+    expect((await serve(file?.url ?? '')).status).toBe(404)
+    await db.sql`update store set status = 'active', suspended_at = null, suspended_reason = null, suspended_previous_status = null where id = ${t.storeA1}`
     // Support sees the file is there, never a link; a supplier's own line has no file, and the merchant's line isn't its to see.
     expect((await filesOf('support')).map((f) => f.url)).toEqual([null])
     expect(await filesOf('supplier')).toEqual([])

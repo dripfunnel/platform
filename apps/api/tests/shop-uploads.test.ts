@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { handleUpload } from '#apis/shop/uploads'
 import { resolveShopper } from '#auth/shopCaller'
+import type { CallerContext, SellerScope } from '#core/tenancy'
+import { withScope } from '#db/scoped/index'
 import { uploadDeleteDeliverer } from '#jobs/queues/deliverers/uploadDelete'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -180,6 +182,38 @@ describe('a shopper’s files (#1369)', () => {
     addressOk = false
     expect((await send(token, ids.photo, jpeg())).status).toBe(429)
     addressOk = true
+  })
+
+  it('caps a body as it streams, whatever its header says', async () => {
+    const big = new Uint8Array(10 * 1024 * 1024 + 10)
+    big.set([0xff, 0xd8, 0xff], 0)
+    const chunked = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let at = 0; at < big.byteLength; at += 1024 * 1024) controller.enqueue(big.subarray(at, at + 1024 * 1024))
+        controller.close()
+      },
+    })
+    const response = await handleUpload(new Request(`https://${host}/shop-api/uploads?question=${ids.photo}`, { method: 'POST', body: chunked, duplex: 'half', headers: { 'x-shop-cart': token } } as RequestInit), await contextOf(token), files)
+    expect(response.status).toBe(413)
+  })
+
+  it('holds the rows to their store and the shopper to its own cart; no request role reads a key', async () => {
+    const cart = (await gql('{ cart { id } }', token)).data?.['cart'] as { id: string }
+    const other = (await one(db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status) values (${t.partnerA}, 'Other prints', 'other-prints', 'IN', 'INR', 'active') returning id`)).id
+    const person = (storeId: string, sellerScope: SellerScope = { kind: 'all' }): CallerContext => ({ caller: { kind: 'person', userId: crypto.randomUUID(), sessionId: 's' }, partnerId: t.partnerA, storeId, sellerScope, subscription: 'active' })
+    const shopperOf = (storeId: string): CallerContext => ({ caller: { kind: 'shopper', customerId: null }, partnerId: t.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
+    const count = (context: CallerContext) => withScope(db.sql, context, async (tx) => (await tx<{ n: number }[]>`select count(*)::int as n from shopper_upload where order_id = ${cart.id}`)[0]?.n ?? 0)
+    expect(await count(person(storeId))).toBeGreaterThan(0)
+    expect(await count(person(other))).toBe(0)
+    // A shopper with no token holds no cart: it sees none, and deletes none.
+    expect(await count(shopperOf(storeId))).toBe(0)
+    expect(await withScope(db.sql, shopperOf(storeId), async (tx) => (await tx`delete from shopper_upload where order_id = ${cart.id}`).count)).toBe(0)
+    expect(await withScope(db.sql, shopperOf(other), async (tx) => (await tx`delete from shopper_upload where order_id = ${cart.id}`).count)).toBe(0)
+    await expect(withScope(db.sql, shopperOf(other), (tx) => tx`insert into shopper_upload (id, store_id, order_id, r2_key, mime, bytes, checksum) values (${crypto.randomUUID()}, ${other}, ${cart.id}, ${`stores/${other}/shopper-uploads/${cart.id}/${crypto.randomUUID()}`}, 'image/png', 1, ${'f'.repeat(64)})`)).rejects.toThrow()
+    await expect(withScope(db.sql, person(storeId), (tx) => tx`select r2_key from shopper_upload`)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, shopperOf(storeId), (tx) => tx`select r2_key from shopper_upload`)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, person(storeId, { kind: 'seller', sellerId: t.sellerA1First }), (tx) => tx`select id from shopper_upload`)).rejects.toThrow(/permission denied/)
+    expect((await db.sql`select 1 from shopper_upload where order_id = ${cart.id}`).length).toBeGreaterThan(0)
   })
 
   it('keeps a cart holding files out of the expired-cart sweep', async () => {

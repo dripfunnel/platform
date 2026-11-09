@@ -44,8 +44,8 @@
         { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } },
         { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
         { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
-    { "name": "UPLOAD_RATE_LIMITER", "namespace_id": "1008", "simple": { "limit": 10, "period": 60 } },
-    { "name": "UPLOAD_ADDRESS_RATE_LIMITER", "namespace_id": "1009", "simple": { "limit": 20, "period": 60 } },
+        { "name": "UPLOAD_RATE_LIMITER", "namespace_id": "1008", "simple": { "limit": 10, "period": 60 } },
+        { "name": "UPLOAD_ADDRESS_RATE_LIMITER", "namespace_id": "1009", "simple": { "limit": 20, "period": 60 } },
         { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
         { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } },
         { "name": "STOCK_RATE_LIMITER", "namespace_id": "1050", "simple": { "limit": 30, "period": 60 } }
@@ -107,8 +107,8 @@
         { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } },
         { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
         { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
-    { "name": "UPLOAD_RATE_LIMITER", "namespace_id": "1008", "simple": { "limit": 10, "period": 60 } },
-    { "name": "UPLOAD_ADDRESS_RATE_LIMITER", "namespace_id": "1009", "simple": { "limit": 20, "period": 60 } },
+        { "name": "UPLOAD_RATE_LIMITER", "namespace_id": "1008", "simple": { "limit": 10, "period": 60 } },
+        { "name": "UPLOAD_ADDRESS_RATE_LIMITER", "namespace_id": "1009", "simple": { "limit": 20, "period": 60 } },
         { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
         { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } },
         { "name": "STOCK_RATE_LIMITER", "namespace_id": "1050", "simple": { "limit": 30, "period": 60 } }
@@ -170,8 +170,8 @@
         { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } },
         { "name": "OFFER_CODE_RATE_LIMITER", "namespace_id": "1006", "simple": { "limit": 30, "period": 60 } },
         { "name": "DOWNLOAD_RATE_LIMITER", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
-    { "name": "UPLOAD_RATE_LIMITER", "namespace_id": "1008", "simple": { "limit": 10, "period": 60 } },
-    { "name": "UPLOAD_ADDRESS_RATE_LIMITER", "namespace_id": "1009", "simple": { "limit": 20, "period": 60 } },
+        { "name": "UPLOAD_RATE_LIMITER", "namespace_id": "1008", "simple": { "limit": 10, "period": 60 } },
+        { "name": "UPLOAD_ADDRESS_RATE_LIMITER", "namespace_id": "1009", "simple": { "limit": 20, "period": 60 } },
         { "name": "API_RATE_LIMITER", "namespace_id": "1030", "simple": { "limit": 1200, "period": 60 } },
         { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } },
         { "name": "STOCK_RATE_LIMITER", "namespace_id": "1050", "simple": { "limit": 30, "period": 60 } }

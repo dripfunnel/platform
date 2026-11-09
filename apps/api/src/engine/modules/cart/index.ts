@@ -13,7 +13,7 @@ import { findGiftCard, giftCardById, type GiftCardView } from '#engine/modules/g
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { insertOutbox } from '#db/scoped/outbox'
 import { selectShopUploadQuestion } from '#db/scoped/questions'
-import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
+import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectServableUpload, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
 import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
@@ -59,6 +59,9 @@ export const uploadDeleteKind = 'upload.delete'
  * it can see (the merchant side's order, or a supplier's own line through its view, DATA-MODEL §7.11).
  */
 export const shopperFiles = (sql: postgres.Sql, storeId: string, ids: readonly string[]) => withSystemScope(sql, (tx) => selectUploadFiles(tx, storeId, ids))
+
+/** The one file a signed link names, while its store is still open (not suspended, cancelled or closed). */
+export const servableShopperFile = (sql: postgres.Sql, storeId: string, id: string) => withSystemScope(sql, (tx) => selectServableUpload(tx, storeId, id))
 
 /** Codes a cart holds at once (migration 0078). */
 export const maxCartCodes = 5

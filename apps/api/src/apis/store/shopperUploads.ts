@@ -1,6 +1,6 @@
 import type { LinkSigner } from '#auth/signedLink'
 import { isUuid } from '#core/ids'
-import { shopperFiles } from '#engine/modules/cart/index'
+import { servableShopperFile } from '#engine/modules/cart/index'
 import type { AssetStore } from '#engine/modules/catalog/index'
 import type { StoreContext } from './access'
 
@@ -29,7 +29,8 @@ export const handleShopperUpload = async (request: Request, ctx: Pick<StoreConte
   const expires = Number(expiresText)
   if (!ctx.sql || !files || !ctx.uploadLinks || !storeId || !fileId || !signature || !isUuid(storeId) || !isUuid(fileId) || !Number.isInteger(expires)) return closed()
   if (expires * 1000 < ctx.now().getTime() || !(await ctx.uploadLinks.verify(messageOf(storeId, fileId, expires), signature))) return closed()
-  const [file] = await shopperFiles(ctx.sql, storeId, [fileId])
+  // A bearer link for 10 minutes (DATA-MODEL §7.11): it closes with its store, not with the person who was shown it.
+  const file = await servableShopperFile(ctx.sql, storeId, fileId)
   const object = file ? await files.get(file.r2_key) : null
   if (!file || !object) return closed()
   return new Response(object.body, {
@@ -41,6 +42,8 @@ export const handleShopperUpload = async (request: Request, ctx: Pick<StoreConte
       'cache-control': `private, max-age=${uploadLinkSeconds}`,
       'x-content-type-options': 'nosniff',
       'content-security-policy': "default-src 'none'; img-src 'self'",
+      // Never hand the link on as a referrer.
+      'referrer-policy': 'no-referrer',
     },
   })
 }

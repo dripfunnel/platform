@@ -34,6 +34,13 @@ export const releaseCartUploads = async (tx: ScopedSql, orderId: string, ids: re
   return rows.map((r) => r.id)
 }
 
+/** A file a signed link may still open: its store not suspended, cancelled or closed (the link outlives no store; #1369). */
+export const selectServableUpload = async (tx: ScopedSql, storeId: string, id: string): Promise<{ id: string; mime: UploadMime; bytes: number; r2_key: string } | null> =>
+  (await tx<{ id: string; mime: UploadMime; bytes: number; r2_key: string }[]>`
+    select u.id, u.mime, u.bytes, u.r2_key from shopper_upload u join store s on s.id = u.store_id
+    where u.store_id = ${storeId} and u.id = ${id} and s.status in ('trial', 'active', 'past_due')
+  `)[0] ?? null
+
 /** Files of an order's lines, for the merchant side or the line's supplier, read in system scope by the caller's store. */
 export const selectUploadFiles = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<{ id: string; order_id: string; mime: UploadMime; bytes: number; r2_key: string }[]> =>
   ids.length === 0 ? [] : tx<{ id: string; order_id: string; mime: UploadMime; bytes: number; r2_key: string }[]>`
