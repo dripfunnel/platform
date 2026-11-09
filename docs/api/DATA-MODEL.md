@@ -1738,7 +1738,8 @@ shopper_upload      (id, store_id, order_id, question_id NULL, r2_key, mime ('im
                     -- request can reach its files; its holder erases them through the cart
                     -- itself: removing a file in the modal, removing the line or emptying the
                     -- cart deletes the row and its R2 object at once, a shopper's own action,
-                    -- not an automatic one (PLATFORM-PROMPT §5.4). Accepted risk (Gaurav,
+                    -- not an automatic one (PLATFORM-PROMPT §5.4); a file's removal still works
+                    -- once its cart has expired, which the sweep keeps for that reason. Accepted risk (Gaurav,
                     -- #1367 rule 30): until the clearing card, unordered files are kept with no
                     -- ceiling but the upload limits (10 MB each, 50 a cart, 10 a minute a cart,
                     -- 20 a minute an address); the risk is storage, not reach, since no request
