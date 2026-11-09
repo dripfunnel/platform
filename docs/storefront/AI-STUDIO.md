@@ -170,7 +170,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 
 The studio opens one WebSocket, `/api/studio/live?session=…&store=…&after=…`, on the portal host. The Store API builds
 the `TenantContext` from the session cookie (the acting store in `?store=`, checked like `X-Store`), checks the studio's
-read access (`storefront.read`, the Owner or a Manager; support and impersonation refused), that `Origin` is the portal
+read access (`storefront.read`, the Owner or a Manager, also through staff impersonating them or a support session, #1344), that `Origin` is the portal
 host, and that `session` is this person's live studio session (§3 step 6). It hands the upgrade to the Durable Object
 named by the context's store, never by an id from the client. The object accepts it as a **hibernating** socket, so an
 idle open studio costs nothing, tagged with the studio session's hash: the alarm's sweep closes it with the frame's (§8).
@@ -328,7 +328,7 @@ before, and reads the result when `askDesign` answers.
   - **at a 3-hour cap** per container session, however busy.
 
   **Waking early:** focusing or typing in the chat box, a click in the frame, and picking a template send
-  `studioActivity` (the studio's read access, refused to support and impersonation, unlogged as `studio_activity`,
+  `studioActivity` (the studio's read access, open to staff impersonating and a support session that may write (#1344), unlogged as `studio_activity`,
   LOGGING §5), at most every 30 seconds: it starts a stopped container and resets the inactivity timer. While it
   starts, the frame shows the last saved preview under "Opening your studio…". Each stop is logged as
   `studio_stopped` with the rule (`closed-stop`, `idle-stop`, `cap-stop`).

@@ -844,7 +844,7 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 store with a studio open; one change at a time per store (a second tab waits); a container
 stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, and restarts from the last saved draft
 (private R2) with any change kept in the object's storage reapplied ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md)
-§7, #1241); `studioActivity` (the studio's read access, refused to support and impersonation, unlogged) wakes it on
+§7, #1241); `studioActivity` (the studio's read access, open to staff impersonating and a support session that may write (#1344), unlogged) wakes it on
 focus or typing, at most every 30 s; when the account's container limit
 is reached, studios queue and show their place. Container time is recorded per request in
 `ai_run.sandbox_ms`.
