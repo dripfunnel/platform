@@ -790,7 +790,7 @@ their own cards.
   - **States**: a failed quote says "We couldn't work out the total. Try again" with confirm
     disabled; offline, confirm is disabled with the reason; a failed upload keeps the others.
   - **Edit on the cart line**: `useCart()` lines carry `id`, `answers` (each question's label,
-    the choices with their quantities, the text, the files' kinds and names, and what the answer
+    the choices with their quantities, the text, how many files and of which kind (no file name is kept), and what the answer
     adds) and the problem `check_answers`; `useCart().editLine(lineId)` reopens the modal filled
     in, and "Save changes" calls `updateCartLineAnswers`, the quantity unchanged (equal answers
     merge into one line). The theme renders a line's answers from that data and places core's

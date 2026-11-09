@@ -1666,7 +1666,9 @@ view of the two.
                     -- number and placement columns come with placement (SAPI 10, SAPI 11).
                     -- Decided on #308: a cart stores no price at all. Its lines are cart_line
                     -- (order_id, store_id, version_id, quantity 1..999, added_at; PRIMARY KEY
-                    -- (order_id, version_id)) and the engine prices them on every read,
+                    -- (order_id, version_id), which #1367's customisation widens to
+                    -- (order_id, version_id, answers_key) with id and answers, below) and the
+                    -- engine prices them on every read,
                     -- so a shopper's write can never be a price; order_line is written at
                     -- placement only. The guest policies compare access_token_hash with
                     -- current_order_token_hash() directly (a lookup function couldn't see a row
