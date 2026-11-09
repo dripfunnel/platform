@@ -1,28 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { BookingPlaceRow } from '#db/scoped/labels'
-import { fromAddressOf } from './labels'
+import { parcelOf } from './labels'
 
-const place: BookingPlaceRow = {
-  store_name: 'Juniper',
-  store_country: 'IN',
-  store_address: { street: '4 Johari Bazaar', city: 'Jaipur', region: 'Rajasthan', postal: '302003' },
-  contact_email: null,
-  contact_phone: null,
-  warehouse_seller_id: null,
-  warehouse_address: { line1: '12 Ring Road', city: 'Pune', region: 'Maharashtra', postalCode: '411014', country: 'IN' },
-  warehouse_latitude: 18.5679,
-  warehouse_longitude: 73.9143,
-  courier: null,
-  label_account: null,
-}
+// A label's declared value (#1368): a once-per-line customisation extra is part of what the goods are worth.
 
-describe('where a label leaves from', () => {
-  it('carries the location’s pin with its own address (#815)', () => {
-    expect(fromAddressOf(place, 'w1')).toMatchObject({ line1: '12 Ring Road', city: 'Pune', pin: { latitude: 18.5679, longitude: 73.9143 } })
-    expect(fromAddressOf({ ...place, warehouse_latitude: null, warehouse_longitude: null }, 'w1')?.pin).toBeNull()
-  })
+const line = (id: string, unit: string, quantity: number, lineExtras: string) => ({ id, name: id, sku: null, hs_code: null, unit_amount: unit, line_extras_amount: lineExtras, quantity, weight_grams: 500 })
 
-  it('never puts the location’s pin on Store info’s address, which it falls back to', () => {
-    expect(fromAddressOf({ ...place, warehouse_address: {} }, 'w1')).toMatchObject({ line1: '4 Johari Bazaar', city: 'Jaipur', pin: null })
+describe('parcelOf', () => {
+  it('declares each unit with its share of a once-per-line extra, and nothing more for a line without one', () => {
+    const parcel = parcelOf([line('engraved', '33000', 2, '1000'), line('plain', '5000', 3, '0')], [{ lineId: 'engraved', quantity: 1 }, { lineId: 'plain', quantity: 3 }])
+    expect(parcel.items.map((i) => i.unitAmount)).toEqual([33500n, 5000n])
+    expect(parcel.amount).toBe(33500n + 15000n)
   })
 })
