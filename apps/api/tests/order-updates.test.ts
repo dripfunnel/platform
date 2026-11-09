@@ -98,6 +98,24 @@ describe('the order confirmation', () => {
     expect(await texts('JL-1')).toEqual([{ message: 'order.confirmed', to: '+919800000001', brand: 'Jaipur Looms', vars: { order: 'JL-1' } }])
   })
 
+  it('lists a customised line’s answers under it, text escaped and files counted, never attached (#1371)', async () => {
+    const id = await order('JL-7')
+    const answers = [
+      { question: crypto.randomUUID(), label: 'Toppings', main_label: null, kind: 'choice', choices: [{ choice: crypto.randomUUID(), label: 'Cheese', main_label: null, quantity: 2, free: 1, unit: '3000', amount: '3000', per: 'item' }], unit: null, amount: '3000', per: null },
+      { question: crypto.randomUUID(), label: 'Message', main_label: null, kind: 'text', text: '<b>Happy 30</b>', unit: '100', amount: '1100', per: 'line' },
+      { question: crypto.randomUUID(), label: 'Your photos', main_label: null, kind: 'upload', uploads: [crypto.randomUUID(), crypto.randomUUID()], unit: null, amount: '0', per: 'line' },
+    ]
+    await db.sql`update order_line set answers = ${db.sql.json(answers)} where order_id = ${id}`
+    await confirm(id)
+    await relay()
+    const [mail] = mailTo('Your Jaipur Looms order JL-7')
+    expect(mail?.text).toContain('– Toppings: Cheese × 2 (free) (+₹30.00)')
+    expect(mail?.text).toContain('– Message: <b>Happy 30</b> (+₹11.00)')
+    expect(mail?.text).toContain('– Your photos: 2 files')
+    expect(mail?.html).toContain('&lt;b&gt;Happy 30&lt;/b&gt;')
+    expect(mail?.html).not.toContain('<b>Happy 30</b>')
+  })
+
   it('tells a cash-on-delivery shopper what to pay, and sends nothing for a test, cancelled or emailless order', async () => {
     const cod = await order('JL-2', { method: 'cod', phone: null })
     await confirm(cod)

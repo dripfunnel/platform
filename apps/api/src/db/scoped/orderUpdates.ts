@@ -1,5 +1,6 @@
 import type { ScopedSql } from './index'
 import { insertOutbox } from './outbox'
+import type { SnapshotAnswer } from './orders'
 
 // A shopper's order updates (#312; THIRD-PARTY-ACCESS §2.8): the engine queues the event with ids only, and the
 // `order.notify` deliverer reads the order when it runs and queues the email and the text from what it finds.
@@ -61,7 +62,8 @@ export interface OrderEmailRow {
   currency: string
   total_amount: string
   ship_to: { name: string; city: string } | null
-  lines: { name: string; version_name: string | null; quantity: number; amount: string }[]
+  /** `answers`: a customised line's snapshot as placed (#1368, DATA-MODEL §7.6), null on any other. */
+  lines: { name: string; version_name: string | null; quantity: number; amount: string; answers: SnapshotAnswer[] | null }[]
 }
 
 /** What the order email says: every line; or, for a shipment, the lines and units in it. */
@@ -71,7 +73,7 @@ export const selectOrderEmail = async (tx: ScopedSql, orderId: string, fulfilmen
       select o.store_id, s.partner_id, s.name as store_name, s.contact_email, s.main_language as locale, o.number, o.email, o.state, o.payment_method, o.currency,
         o.total_amount::text as total_amount,
         case when o.shipping_address is null then null else json_build_object('name', o.shipping_address ->> 'name', 'city', o.shipping_address ->> 'city') end as ship_to,
-        coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', coalesce(fl.quantity, l.quantity), 'amount', l.line_total_amount::text) order by l.position)
+        coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', coalesce(fl.quantity, l.quantity), 'amount', l.line_total_amount::text, 'answers', l.answers) order by l.position)
           from order_line l left join fulfilment_line fl on fl.order_line_id = l.id and fl.fulfilment_id = ${fulfilmentId}::uuid
           where l.order_id = o.id and (${fulfilmentId}::uuid is null or fl.fulfilment_id is not null)), '[]'::json) as lines
       from "order" o join store s on s.id = o.store_id
