@@ -44,12 +44,15 @@ import { classesOfStore } from '#db/scoped/tax'
 import { listingRefused, setProductListing, setProductSizeChart } from '#db/scoped/catalogListing'
 import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStructure'
 import { withScope, type ScopedSql } from '#db/scoped/index'
+import { manualCurrencies, questionRefused, selectProductQuestions, setProductQuestions, storeHasQuestions, touchProduct, type QuestionRow } from '#db/scoped/questions'
 import { approvalAudit } from './approval'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
+import { cleanQuestions, copiedQuestions, extrasPriceChanged, foreignIds, questionWrites, type CleanQuestion, type QuestionRefusal } from './questions'
 import { cleanProduct, invalidVersionField, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput, type VersionField } from './rules'
 import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
+export { maxChoices, maxQuestions, type QuestionInput, type QuestionRefusal } from './questions'
 export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
 export { createKindService, downloadDays, downloadLimits, kindsAudit, maxKeysPerSave, shortestGiftCardMonths, type KindInput, type KindRefusal, type KindResult, type ProductKindView } from './kinds'
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
@@ -128,6 +131,7 @@ export type SaveRefusal =
   | { reason: 'INVALID_INPUT'; field?: VersionField | undefined }
   | { reason: 'STALE_REVISION'; revision: number }
   | { reason: 'PLAN_LIMIT'; wanted: number }
+  | QuestionRefusal
 
 /** `approval` as the save left it; `reviewed` the fields that sent a supplier's product back for approval (ACCESS §7.2). */
 export type SaveResult =
@@ -179,8 +183,13 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
   position,
 })
 
-/** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
-type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined }
+/** A product as the engine writes it: its own fields, then the listing sections, chart and questions it was given (null keeps them). */
+type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined; questions: CleanQuestion[] | null }
+
+const placeOf = (ids: readonly string[], id: string): number | null => {
+  const at = ids.indexOf(id)
+  return at === -1 ? null : at
+}
 
 class Refused extends Error {
   constructor(readonly refusal: SaveRefusal) {
@@ -211,7 +220,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   })
 
   /** Options, values, versions, their choices and prices, matched by id to what the product has, a few statements in all. */
-  const writeChildren = async (tx: ScopedSql, productId: string, clean: Cleaned, existing: ProductRow | null) => {
+  const writeChildren = async (tx: ScopedSql, productId: string, clean: Cleaned, existing: ProductRow | null): Promise<{ ids: string[]; extrasChanged: boolean }> => {
     const at = now()
     const known = (ids: readonly string[], id: string | null) => {
       if (id !== null && !ids.includes(id)) throw new Refused({ reason: 'INVALID_INPUT' })
@@ -284,8 +293,18 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       await setProductListing(tx, storeId, productId, { ...rest, ...(specs ? { specs: specs.map(({ version, ...spec }) => ({ ...spec, versionId: version === null ? null : (ids[version] ?? null) })) } : {}) })
     }
     if (clean.sizeChartId !== undefined) await setProductSizeChart(tx, storeId, productId, clean.sizeChartId)
+    const extrasChanged = clean.questions === null ? false : await writeQuestions(tx, productId, clean.questions, ids, existing !== null)
     await recompute(tx)
-    return ids
+    return { ids, extrasChanged }
+  }
+
+  /** The product's questions as given, matched by id to what it has; answers whether an extra's price changed (ACCESS §7.2). */
+  const writeQuestions = async (tx: ScopedSql, productId: string, questions: readonly CleanQuestion[], versionIds: readonly string[], existed: boolean): Promise<boolean> => {
+    const before: QuestionRow[] = existed ? ((await selectProductQuestions(tx, [productId])).get(productId) ?? []) : []
+    if (foreignIds(questions, before)) throw new Refused({ reason: 'INVALID_INPUT' })
+    const writes = questionWrites(questions, versionIds, () => crypto.randomUUID())
+    await setProductQuestions(tx, storeId, productId, writes)
+    return extrasPriceChanged(before, writes)
   }
 
   const run = async (work: (tx: ScopedSql) => Promise<SaveResult>): Promise<SaveResult> => {
@@ -295,6 +314,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (error instanceof Refused) return { ok: false, ...error.refusal }
       if (skuTaken(error)) return { ok: false, reason: 'DUPLICATE_SKU' }
       if (fileRefused(error)) return { ok: false, reason: 'FILE_REFUSED' }
+      if (questionRefused(error)) return { ok: false, reason: 'INVALID_INPUT' }
       // product_related_check is the table's own check that a product never relates to itself.
       if (listingRefused(error) || (typeof error === 'object' && error !== null && 'constraint_name' in error && error.constraint_name === 'product_related_check')) return { ok: false, reason: 'LISTING_REFUSED' }
       const clash = nameClash(error)
@@ -303,7 +323,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
   }
 
-  const clean = async (tx: ScopedSql, input: ProductInput): Promise<Cleaned> => {
+  /** `owner` is the product's, so its extras' currencies are its owner's to type whoever saves it (fact 51). */
+  const clean = async (tx: ScopedSql, input: ProductInput, owner: string | null): Promise<Cleaned> => {
     const currency = await selectPricingCurrency(tx)
     if (!currency) throw new Refused({ reason: 'CURRENCY_REQUIRED' })
     const result = cleanProduct(input, currency)
@@ -318,13 +339,33 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     if (classes.length > 0 && (await classesOfStore(tx, storeId, classes)) !== classes.length) throw new Refused({ reason: 'INVALID_INPUT' })
     const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
     if (sizeChartId && !isUuid(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
+    const questions = input.questions ? await cleanedQuestions(tx, input.questions, result.versions.length, currency, owner) : null
     try {
       const listing = input.listing ? cleanListing(input.listing, result.versions.length, 'marketRule' in input.listing) : null
-      return { ...result, listing, sizeChartId }
+      return { ...result, listing, sizeChartId, questions }
     } catch (error) {
       if (error instanceof ListingInvalid) throw new Refused({ reason: 'INVALID_LISTING' })
       throw error
     }
+  }
+
+  /** The currencies an amount on an owner's product may be typed in (fact 51): the pricing one; a merchant product's manual ones too. */
+  const typedCurrencies = async (tx: ScopedSql, owner: string | null): Promise<Set<string>> => {
+    const pricing = await selectPricingCurrency(tx)
+    const manual = owner === null && sellerId === null ? await manualCurrencies(tx, storeId) : []
+    return new Set([...(pricing ? [pricing] : []), ...manual])
+  }
+
+  const duplicatedQuestions = async (tx: ScopedSql, id: string, versionIds: readonly string[], owner: string | null): Promise<CleanQuestion[] | null> => {
+    const rows = (await selectProductQuestions(tx, [id])).get(id) ?? []
+    return rows.length === 0 ? null : copiedQuestions(rows, { versionOf: (v) => placeOf(versionIds, v), samePhotoOwner: true, currencies: await typedCurrencies(tx, owner) }).questions
+  }
+
+  /** Amounts in the pricing currency or, on a merchant product, a manual one it sells in (fact 51); a supplier's product takes the pricing one only. */
+  const cleanedQuestions = async (tx: ScopedSql, input: NonNullable<ProductInput['questions']>, versionCount: number, pricingCurrency: string, owner: string | null): Promise<CleanQuestion[]> => {
+    const cleaned = cleanQuestions(input, { versionCount, pricingCurrency, currencies: await typedCurrencies(tx, owner) })
+    if (!Array.isArray(cleaned)) throw new Refused(cleaned)
+    return cleaned
   }
 
   /**
@@ -334,7 +375,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const create = async (input: ProductInput, proposal = false, alongside?: (tx: ScopedSql, productId: string, versionIds: readonly string[]) => Promise<void>): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
-      const product = await clean(tx, input)
+      const product = await clean(tx, input, sellerId)
       // Sent together, in this order: the count is read under the lock.
       const [, counted] = await Promise.all([lockCatalogue(tx, storeId), countStoreProducts(tx)])
       const wanted = counted + 1
@@ -342,7 +383,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       // A supplier's product is created visible, or hidden and pending while the store requires approval: 0050's guard decides.
       const visibility = sellerId !== null || product.visible !== false ? 'visible' : 'hidden'
       const made = await insertProduct(tx, { storeId, sellerId, createdBy: actor.id, fields: { ...fieldsOf(product, visibility), slug: sellerId !== null ? supplierSlug(product.slug) : product.slug } })
-      const versionIds = await writeChildren(tx, made.id, product, null)
+      const { ids: versionIds } = await writeChildren(tx, made.id, product, null)
       await activity.record(tx, entry(proposal ? approvalAudit.proposed : catalogAudit.created, { id: made.id, label: product.name }))
       await queueStoreEvent(tx, storeId, 'product.updated', { object: 'product', id: made.id }, crypto.randomUUID(), now())
       const pending = sellerId !== null && (proposal || (await approvalRequired(tx)))
@@ -355,14 +396,14 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
    * While approval is on, a supplier's save of an approved product whose name, a price or photo set changed, or of
    * one sent back, puts it back in the queue and off the storefront (ACCESS §7.2, CATALOG E3, L4).
    */
-  const reviewAfterSave = async (tx: ScopedSql, id: string, product: Cleaned, existing: ProductRow): Promise<{ approval: ProductRow['approval_status']; reviewed: ('name' | 'price' | 'photos')[] }> => {
+  const reviewAfterSave = async (tx: ScopedSql, id: string, label: string, changes: ('name' | 'price' | 'photos')[], existing: ProductRow): Promise<{ approval: ProductRow['approval_status']; reviewed: ('name' | 'price' | 'photos')[] }> => {
     if (sellerId === null || existing.approval_status === 'pending') return { approval: existing.approval_status, reviewed: [] }
-    const reviewed = reviewedChanges(existing, product)
+    const reviewed = changes
     // A sent-back product is resubmitted whether or not approval is still on: only the merchant's review ends it.
     const resubmitting = existing.approval_status === 'sent_back'
     if (!resubmitting && (reviewed.length === 0 || !(await approvalRequired(tx)))) return { approval: existing.approval_status, reviewed: [] }
     await submitForApproval(tx, storeId, id, now())
-    await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { id, label: product.name }), reason: reviewed.length > 0 ? reviewed.join(', ') : 'resubmitted' })
+    await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { id, label }), reason: reviewed.length > 0 ? reviewed.join(', ') : 'resubmitted' })
     return { approval: 'pending', reviewed }
   }
 
@@ -373,7 +414,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const existing = await selectProduct(tx, storeId, id)
       if (!existing) throw new Refused({ reason: 'NOT_FOUND' })
       if (existing.revision !== revision) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
-      const product = await clean(tx, input)
+      const product = await clean(tx, input, existing.seller_id)
       const visibility = product.visible === null ? existing.visibility : product.visible ? 'visible' : 'hidden'
       const held = existing.hidden_by === 'plan' || existing.approval_status === 'pending' || existing.approval_status === 'sent_back'
       if (visibility === 'visible' && existing.visibility !== 'visible' && held) throw new Refused({ reason: 'NOT_SHOWABLE' })
@@ -381,10 +422,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const slug = !product.slugGiven || product.slug === existing.slug ? existing.slug : sellerId !== null ? supplierSlug(product.slug) : product.slug
       const done = await updateProduct(tx, { storeId, id, revision, fields: { ...fieldsOf(product, visibility), slug }, visibilityChange: sellerId === null && visibility !== existing.visibility }, now())
       if (!done) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
-      const versionIds = await writeChildren(tx, id, product, existing)
+      const { ids: versionIds, extrasChanged } = await writeChildren(tx, id, product, existing)
       await activity.record(tx, entry(catalogAudit.updated, { id, label: product.name }))
       await queueStoreEvent(tx, storeId, 'product.updated', { object: 'product', id }, crypto.randomUUID(), now())
-      const review = await reviewAfterSave(tx, id, product, existing)
+      const changes = reviewedChanges(existing, product)
+      const review = await reviewAfterSave(tx, id, product.name, extrasChanged && !changes.includes('price') ? [...changes, 'price'] : changes, existing)
       await alongside?.(tx, id, versionIds)
       return { ok: true, id, slug: done.slug, revision: revision + 1, ...review }
     })
@@ -446,6 +488,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           marketRule: source.market_rule,
         },
         sizeChartId: options.keepSizeChart ? source.size_chart_id : null,
+        // The same questions, versions by place: the copy's are in the source's order (CATALOG E2). None: nothing written.
+        questions: source.has_questions ? await duplicatedQuestions(tx, id, source.versions.map((x) => x.id), source.seller_id) : null,
       }
       // A supplier's copy stays the supplier's and is created as its products are (ACCESS §7.2).
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })
@@ -495,5 +539,44 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const get = (id: string) =>
     inScope(async (tx) => ({ currency: await selectPricingCurrency(tx), product: await selectProduct(tx, storeId, id) }))
 
-  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility, setTaxClass }
+  /** A product's questions in order (CATALOG facts 49–57). */
+  const questions = (productId: string) => inScope(async (tx) => (await selectProductQuestions(tx, [productId])).get(productId) ?? [])
+
+  /** Whether any undeleted product of the store asks questions (OFFERS-DESIGN §3.1). */
+  const hasCustomisation = () => inScope((tx) => storeHasQuestions(tx, storeId))
+
+  /** CATALOG U12: both products are ones the caller can see, so a supplier copies only between its own. */
+  const copyQuestions = (fromId: string, toId: string, revision: number): Promise<SaveResult & { dropped?: { amounts: number; versionLimits: number; photos: number } }> => {
+    let dropped = { amounts: 0, versionLimits: 0, photos: 0 }
+    return run(async (tx) => {
+      const [source, target] = await Promise.all([selectProduct(tx, storeId, fromId), selectProduct(tx, storeId, toId)])
+      if (!source || !target || fromId === toId) throw new Refused({ reason: 'NOT_FOUND' })
+      if (target.revision !== revision) throw new Refused({ reason: 'STALE_REVISION', revision: target.revision })
+      const keyOf = (p: ProductRow, versionId: string) => {
+        const v = p.versions.find((x) => x.id === versionId)
+        return v ? p.options.map((o) => `${o.name.toLowerCase()}=${(o.values.find((value) => value.id === v.choices[o.id])?.name ?? '').toLowerCase()}`).join('|') : null
+      }
+      const targetKeys = target.versions.map((v) => keyOf(target, v.id))
+      const copied = copiedQuestions((await selectProductQuestions(tx, [fromId])).get(fromId) ?? [], {
+        versionOf: (v) => {
+          const key = keyOf(source, v)
+          const at = key === null ? -1 : targetKeys.indexOf(key)
+          return at === -1 ? null : at
+        },
+        samePhotoOwner: source.seller_id === target.seller_id,
+        currencies: await typedCurrencies(tx, target.seller_id),
+      })
+      dropped = copied.dropped
+      const done = await touchProduct(tx, storeId, toId, revision, now())
+      if (!done) throw new Refused({ reason: 'STALE_REVISION', revision: target.revision })
+      const extrasChanged = await writeQuestions(tx, toId, copied.questions, target.versions.map((v) => v.id), true)
+      await recompute(tx)
+      await activity.record(tx, entry(catalogAudit.updated, { id: toId, label: target.name }))
+      await queueStoreEvent(tx, storeId, 'product.updated', { object: 'product', id: toId }, crypto.randomUUID(), now())
+      const review = await reviewAfterSave(tx, toId, target.name, extrasChanged ? ['price'] : [], target)
+      return { ok: true, id: toId, slug: done.slug, revision: revision + 1, ...review }
+    }).then((result) => (result.ok ? { ...result, dropped } : result))
+  }
+
+  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility, setTaxClass, questions, hasCustomisation, copyQuestions }
 }

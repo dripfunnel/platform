@@ -503,7 +503,8 @@ const importOne = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProd
     if (merged === 'OPTIONS_DIFFER') return { kind: 'failed', code: merged }
     saved = await d.catalog.update(existingId, product.revision, merged, alongside('updated'))
   } else saved = await d.catalog.create(p.input, false, alongside('created'))
-  if (!saved.ok) return { kind: 'failed', code: saved.reason }
+  // An import never sends questions (rule 34 of #1367), so their refusals can't come back here.
+  if (!saved.ok) return { kind: 'failed', code: saved.reason === 'QUESTION_LIMIT' || saved.reason === 'CHOICE_LIMIT' || saved.reason === 'INVALID_QUESTION' || saved.reason === 'CURRENCY_NOT_SOLD' ? 'INVALID_INPUT' : saved.reason }
   return { kind: existingId ? 'updated' : 'created', id: saved.id }
 }
 

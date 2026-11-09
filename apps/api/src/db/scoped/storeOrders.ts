@@ -1,3 +1,4 @@
+import type { SnapshotAnswer } from './orders'
 import type { PageWindow } from '#core/paging'
 import type { CartAddress } from './cart'
 import type { ScopedSql } from './index'
@@ -171,6 +172,8 @@ export interface OrderLineRow {
   refunded_quantity: number
   /** Handed to the store by a to-store supplier, for the store to ship on. */
   sent_quantity: number
+  /** The answers as placed (#1368, DATA-MODEL §7.6); null on most lines. */
+  answers: SnapshotAnswer[] | null
 }
 
 export interface OrderPartRow {
@@ -235,7 +238,7 @@ export interface OrderDetailRow {
 const merchantLines = (tx: ScopedSql) => tx`
   coalesce((select json_agg(json_build_object('id', l.id, 'seller_id', l.seller_id, 'version_id', l.version_id, 'product_id', l.product_id,
     'name', l.name, 'version_name', l.version_name, 'sku', l.sku, 'quantity', l.quantity, 'unit_amount', l.unit_amount::text,
-    'line_amount', (l.unit_amount * l.quantity)::text, 'discount_amount', l.discount_amount::text, 'tax_amount', l.tax_amount::text,
+    'line_amount', (l.unit_amount * l.quantity + l.line_extras_amount)::text, 'answers', l.answers, 'discount_amount', l.discount_amount::text, 'tax_amount', l.tax_amount::text,
     'line_total_amount', l.line_total_amount::text, 'fulfilled_quantity', l.fulfilled_quantity, 'returned_quantity', l.returned_quantity,
     'refunded_quantity', l.refunded_quantity, 'sent_quantity', (select coalesce(sum(fl.quantity), 0)::int from fulfilment_line fl join fulfilment f on f.id = fl.fulfilment_id where fl.order_line_id = l.id and f.kind = 'sent_to_store')) order by l.position)
   from order_line l where l.order_id = p.order_id and l.seller_id is not distinct from p.seller_id), '[]'::json)`
@@ -272,7 +275,7 @@ export const selectSupplierOrder = async (tx: ScopedSql, orderId: string): Promi
         json_build_array(json_build_object('id', v.part_id, 'seller_id', v.seller_id, 'seller_name', null, 'shipping_mode', v.shipping_mode,
           'state', v.part_state, 'lines', coalesce((select json_agg(json_build_object('id', l.id, 'seller_id', l.seller_id, 'version_id', l.version_id,
             'product_id', l.product_id, 'name', l.name, 'version_name', l.version_name, 'sku', l.sku, 'quantity', l.quantity,
-            'unit_amount', m.unit_amount::text, 'line_amount', m.line_amount::text, 'discount_amount', null, 'tax_amount', null, 'line_total_amount', null,
+            'unit_amount', m.unit_amount::text, 'line_amount', m.line_amount::text, 'answers', m.answers, 'discount_amount', null, 'tax_amount', null, 'line_total_amount', null,
             'fulfilled_quantity', l.fulfilled_quantity, 'returned_quantity', l.returned_quantity, 'refunded_quantity', l.refunded_quantity,
             'sent_quantity', (select coalesce(sum(fl.quantity), 0)::int from fulfilment_line fl join fulfilment f on f.id = fl.fulfilment_id where fl.order_line_id = l.id and f.kind = 'sent_to_store')) order by l.position)
             from order_line l join order_line_for_supplier m on m.id = l.id where l.order_id = v.id), '[]'::json))) as parts,
@@ -354,7 +357,7 @@ export const selectMerchantExportLines = (tx: ScopedSql, storeId: string, filter
   tx<ExportLineRow[]>`
     select o.number, o.placed_at, o.state, o.payment_state, o.fulfilment_state, o.payment_method, null as part_state, p.shipping_mode,
       o.shipping_address ->> 'name' as customer_name, o.email, o.phone, o.shipping_address as address, s.name as supplier_name,
-      l.name, l.version_name, l.sku, l.quantity, l.unit_amount::text as unit_amount, (l.unit_amount * l.quantity)::text as line_amount,
+      l.name, l.version_name, l.sku, l.quantity, l.unit_amount::text as unit_amount, (l.unit_amount * l.quantity + l.line_extras_amount)::text as line_amount,
       l.line_total_amount::text as line_total_amount, o.total_amount::text as total_amount, o.currency
     from "order" o join order_line l on l.order_id = o.id
       join order_part p on p.order_id = o.id and p.seller_id is not distinct from l.seller_id left join seller s on s.id = l.seller_id

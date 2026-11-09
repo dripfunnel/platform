@@ -5,7 +5,7 @@ import { pgArray, uniqueViolation, type ScopedSql } from './index'
 // The catalogue's core (DATA-MODEL §7.3, migration 0041): every read and write runs in the caller's
 // scope, so a supplier reaches its own products only and RLS is the backstop of every query here.
 
-export type ProductFilter = 'all' | 'visible' | 'hidden' | 'pending' | 'sent_back' | 'missing_info' | 'low_stock'
+export type ProductFilter = 'all' | 'visible' | 'hidden' | 'pending' | 'sent_back' | 'missing_info' | 'low_stock' | 'with_questions'
 
 export interface ProductListRow {
   id: string
@@ -18,6 +18,8 @@ export interface ProductListRow {
   seller_name: string | null
   seller_status: string | null
   versions: number
+  /** Its questions (#1368), counted in this statement so a store without any runs no other query. */
+  question_count: number
   /** Minor units in the store's pricing currency, as text: the client reads bigint as a string. */
   min_amount: string | null
   max_amount: string | null
@@ -62,6 +64,9 @@ const filterOf = (tx: ScopedSql, filter: ProductFilter) => {
       return tx`(p.description = '' or not exists (select 1 from product_photo ph where ph.product_id = p.id))`
     case 'low_stock':
       return lowStock(tx, 'p')
+    // Copy questions' product search (CATALOG U12): only products that ask some.
+    case 'with_questions':
+      return tx`exists (select 1 from product_question q where q.product_id = p.id)`
     case 'all':
       return tx`true`
   }
@@ -146,6 +151,7 @@ export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQue
     select p.id, p.name, p.slug, p.visibility, p.approval_status, p.product_type, p.seller_id, s.name as seller_name, s.status as seller_status,
       p.created_at, p.updated_at, page.sort_value::text as sort_key,
       (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null) as versions,
+      (select count(*)::int from product_question q where q.product_id = p.id) as question_count,
       (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null and v.visibility = 'visible') as visible_versions,
       (select min(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
          where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as min_amount,
@@ -229,6 +235,8 @@ export interface VersionRow {
 
 export interface ProductRow {
   id: string
+  /** Whether it asks questions (#1368), so Duplicate reads them only then. */
+  has_questions: boolean
   store_id: string
   seller_id: string | null
   seller_name: string | null
@@ -280,7 +288,8 @@ export interface PhotoRow {
 /** One product with its options, values, live versions and prices, or null when the caller's scope has none. */
 export const selectProduct = async (tx: ScopedSql, storeId: string, productId: string): Promise<ProductRow | null> => {
   const [row] = await tx<ProductRow[]>`
-    select p.id, p.store_id, p.seller_id, s.name as seller_name, s.status as seller_status, p.name, p.slug, p.description,
+    select p.id, exists (select 1 from product_question q where q.product_id = p.id) as has_questions,
+      p.store_id, p.seller_id, s.name as seller_name, s.status as seller_status, p.name, p.slug, p.description,
       p.product_type, p.category, p.visibility, p.approval_status, p.hidden_by, p.sent_back_reason, p.warranty_text, p.returns_text,
       p.seo_title, p.seo_description, p.revision, p.created_at, p.updated_at,
       coalesce((

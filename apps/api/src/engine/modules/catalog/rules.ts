@@ -1,5 +1,6 @@
 import { isCurrency, parseMinor } from '#core/money'
 import type { ListingInput } from './listing'
+import type { QuestionInput } from './questions'
 import { isUuid } from '#core/ids'
 import { sanitiseDescription } from './richText'
 
@@ -127,6 +128,8 @@ export interface ProductInput {
   listing?: ListingInput | null | undefined
   /** Absent keeps the product's chart; null removes it. */
   sizeChartId?: string | null | undefined
+  /** The questions shoppers answer before buying (CATALOG facts 49–57); absent keeps them, `[]` removes them. */
+  questions?: readonly QuestionInput[] | null | undefined
 }
 
 export type CatalogRefusal =

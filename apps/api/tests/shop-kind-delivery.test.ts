@@ -341,3 +341,29 @@ describe('isolation', () => {
     await expect(withScope(db.sql, { caller: { kind: 'staff', staffId: crypto.randomUUID() } }, (tx) => tx`select id from gift_card`)).rejects.toThrow(/permission denied/)
   })
 })
+
+describe('a customised gift card (#1368)', () => {
+  it('is worth its price, never the extras its buyer paid for', async () => {
+    const [cardProduct] = await db.sql<{ product_id: string }[]>`select product_id from product_version where id = ${v.card}`
+    const [question] = await db.sql<{ id: string }[]>`insert into product_question (product_id, store_id, kind, label, position, min_picks, max_picks, free_picks, required)
+      values (${cardProduct?.product_id ?? ''}, ${stores.kesari}, 'choice', 'Gift box', 1, 0, 1, 0, false) returning id`
+    const [box] = await db.sql<{ id: string }[]>`insert into product_question_choice (question_id, product_id, store_id, label, position, price_mode, price_per)
+      values (${question?.id ?? ''}, ${cardProduct?.product_id ?? ''}, ${stores.kesari}, 'Wooden box', 1, 'fixed', 'item') returning id`
+    await db.sql`insert into product_question_amount (store_id, product_id, choice_id, currency, amount) values (${stores.kesari}, ${cardProduct?.product_id ?? ''}, ${box?.id ?? ''}, 'INR', 20000)`
+    const added = await shop(
+      'mutation A($v: ID!, $g: ShopGiftCardInput, $a: [ShopAnswerInput!]) { addToCart(versionId: $v, quantity: 1, gift: $g, answers: $a) { cartToken cart { lines { unitPrice { amount } } } } }',
+      null,
+      { v: v.card, g: meera, a: [{ questionId: question?.id, choices: [{ choiceId: box?.id }] }] },
+    )
+    const change = added.data?.['addToCart'] as { cartToken: string; cart: { lines: { unitPrice: { amount: string } }[] } }
+    expect(change.cart.lines[0]?.unitPrice).toEqual({ amount: '120000' })
+    const token = change.cartToken
+    await shop('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', token)
+    await shop('mutation { checkout { readyToPay } }', token)
+    const placedOrder = (await shop('mutation { placeOrder(provider: "bank_transfer") { orderId } }', token)).data?.['placeOrder'] as { orderId: string }
+    expect(await markPaid(placedOrder.orderId)).toBe(true)
+    const [card] = await db.sql<{ initial_amount: string }[]>`select g.initial_amount::text from gift_card g join order_line l on l.id = g.order_line_id where l.order_id = ${placedOrder.orderId}`
+    expect(card).toEqual({ initial_amount: '100000' })
+    await db.sql`delete from product_question where id = ${question?.id ?? ''}`
+  })
+})

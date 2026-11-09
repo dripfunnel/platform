@@ -14,10 +14,14 @@ export type CodeState = 'APPLIED' | 'NOT_ELIGIBLE' | 'DOESNT_COMBINE' | 'INVALID
 export const deadCodeStates: readonly CodeState[] = ['INVALID', 'EXPIRED', 'USED_UP', 'ALREADY_USED']
 
 export interface CartOfferLine {
+  /** The cart line's id: two lines of a version with different answers are priced apart (#1368). */
+  key: string
   versionId: string
   productId: string
   quantity: number
   amount: bigint
+  /** The customisation extras inside `amount`, which an offer with "Include customisation extras" off never discounts. */
+  extras: bigint
   giftCard: boolean
   onSale: boolean
 }
@@ -55,7 +59,7 @@ const pricingOf = (row: CartOfferRow): PricingOffer | null => {
   const conditions = row.conditions.map((c) => parseCondition({ operation: c.operation, ...c.args }))
   const action = row.action ? parseAction({ operation: row.action.operation, ...row.action.args }) : null
   if (!action || conditions.some((c) => c === null)) return null
-  return { id: row.id, name: row.name, codeId: row.code_id, createdAt: row.created_at, conditions: conditions as Condition[], action, combines: row.combines_with }
+  return { id: row.id, name: row.name, codeId: row.code_id, createdAt: row.created_at, conditions: conditions as Condition[], action, combines: row.combines_with, includeExtras: row.include_customisation }
 }
 
 const firstOrderIn = (conditions: readonly Condition[]) => conditions.some((c) => c.operation === 'first_order' || (c.operation === 'any_of' && c.conditions.some((x) => x.operation === 'first_order')))
@@ -103,10 +107,11 @@ export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Pro
   const pricing = priceOffers({
     currency: input.currency,
     lines: input.lines.map((l) => ({
-      id: l.versionId,
+      id: l.key,
       productId: l.productId,
       quantity: l.quantity,
       amount: l.amount,
+      extras: l.extras,
       collectionIds: targets.get(l.productId)?.collections ?? [],
       filterValueIds: targets.get(l.productId)?.filterValues ?? [],
       giftCard: l.giftCard,

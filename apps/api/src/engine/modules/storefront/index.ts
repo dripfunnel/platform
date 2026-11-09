@@ -33,11 +33,14 @@ import {
 } from '#db/scoped/shop'
 import { missingFor, type StorePricing } from '#engine/modules/markets/index'
 import { selectCartVersions } from '#db/scoped/cart'
+import { selectProductQuestions, selectQuestionWords } from '#db/scoped/questions'
+import { shopQuestionsOf, type ShopQuestion } from './questions'
 import { selectShopOffers } from '#db/scoped/promotions'
 import { productView, type ShopProductView, type ShopVersionView } from './view'
 
 export type { ShopCollectionRow, ShopFacetRow, ShopProductExtrasRow, ShopSort, ShopStoreRow } from '#db/scoped/shop'
 export type { ShopKindView, ShopProductView, ShopVersionView } from './view'
+export type { ShopChoice, ShopExtraPrice, ShopQuestion } from './questions'
 
 // The catalogue a storefront shows (PLATFORM-PROMPT §5.5; FIRST-RELEASE §19 Shop API), read as the shopper: what the
 // merchant has made visible, in the shopper's language, never a supplier's id, a cost or a draft.
@@ -49,6 +52,8 @@ export interface CartItem {
   version: ShopVersionView
   taxClassId: string | null
   soldHere: boolean
+  /** Whether its product asks questions, so a line without answers is checked only then (#1368). */
+  hasQuestions: boolean
 }
 
 export interface StorefrontDeps {
@@ -76,6 +81,8 @@ export interface ShopProductPage {
   related: ShopProductView[]
   /** The A+ comparisons' products by id, loaded once for the whole story. */
   compared: ReadonlyMap<string, ShopProductView>
+  /** What the shopper is asked before buying (#1368); empty for most products. */
+  questions: ShopQuestion[]
 }
 
 const maxRelated = 10
@@ -260,7 +267,8 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       const listed = await selectShopListed(tx, storeId, listing, wanted)
       const views = new Map((await viewsOf(tx, wanted.filter((x) => listed.has(x)), facts)).map((v) => [v.id, v]))
       const related = shown.related.slice(0, maxRelated).flatMap((x) => views.get(x) ?? [])
-      return { product: view, soldHere: sellable && ready, extras: shown, related, compared: views }
+      const asked = (await questionsIn(tx, [id])).get(id) ?? []
+      return { product: view, soldHere: sellable && ready, extras: shown, related, compared: views, questions: asked }
     })
 
   /**
@@ -278,11 +286,23 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       versions.flatMap((v) => {
         const product = views.get(v.product_id)
         const version = product?.versions.find((x) => x.id === v.id)
-        return product && version ? [[v.id, { product, version, taxClassId: v.tax_class_id, soldHere: listed.has(product.id) }] as const] : []
+        return product && version ? [[v.id, { product, version, taxClassId: v.tax_class_id, soldHere: listed.has(product.id), hasQuestions: v.has_questions }] as const] : []
       }),
     )
   }
   const cartItems = (versionIds: readonly string[]): Promise<Map<string, CartItem>> => inScope((tx) => cartItemsIn(tx, versionIds))
+
+  /** These products' questions as the shopper sees them: translated, priced in the cart's currency and market (#1368). */
+  const questionsIn = async (tx: ScopedSql, productIds: readonly string[]): Promise<Map<string, ShopQuestion[]>> => {
+    if (productIds.length === 0) return new Map()
+    const rows = await selectProductQuestions(tx, productIds)
+    const facts = rows.size === 0 ? null : await pricingIn(tx)
+    if (!facts) return new Map()
+    const ids = [...rows.values()].flat().flatMap((q) => [q.id, ...q.choices.map((c) => c.id)])
+    const words = await selectQuestionWords(tx, storeId, ids, language)
+    return new Map([...rows].map(([productId, qs]) => [productId, shopQuestionsOf(qs, words, { currency, market: facts.market, pricing: facts.pricing })]))
+  }
+  const questions = (productIds: readonly string[]) => inScope((tx) => questionsIn(tx, productIds))
 
   /** These products in this order, as a listing would show them here: one a shopper can't see or buy here is left out. */
   const productsByIds = (ids: readonly string[]): Promise<ShopProductView[]> =>
@@ -311,5 +331,5 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
     }))
   }
 
-  return { store, menu, collections, collection, asset, products, facets, product, cartItems, cartItemsIn, productsByIds, offers }
+  return { store, menu, collections, collection, asset, products, facets, product, cartItems, cartItemsIn, productsByIds, offers, questions, questionsIn }
 }

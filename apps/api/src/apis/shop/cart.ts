@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { createCartService, type CartAddress, type CartGift, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView } from '#engine/modules/cart/index'
+import { createCartService, type AnswerInput, type CartAddress, type CartGift, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView, type CustomisationQuote, type PricedAnswer } from '#engine/modules/cart/index'
 import { findGiftCard, type GiftCardView } from '#engine/modules/giftCards/index'
 import type { DeliveryOption } from '#engine/modules/shipping/index'
 import { limitCodeTries, shopOf, stripeTaxOf, type ShopContext } from './access'
@@ -19,11 +19,15 @@ const words: Record<CartRefusal, string> = {
   TOO_MANY_CODES: 'Your cart already holds five codes. Remove one to add another.',
   GIFT_CARD_INVALID: 'That number doesn’t match a gift card. Check it and try again.',
   NOT_IN_PREVIEW: 'Gift cards can’t be used on a preview of the shop.',
+  ANSWERS_INVALID: 'Check your choices: something isn’t answered or can’t be chosen now.',
+  ONE_LINE_PER_VERSION: 'This is already in your cart with other choices. Change them there, or check out first.',
 }
 
 const answered = <T>(result: CartResult<T>): T => {
   if (result.ok) return result.value
-  throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(result.problems ? { problems: result.problems } : {}) } })
+  // `problems`: what stands before payment (NOT_READY) or each answer's problem (ANSWERS_INVALID); never both.
+  const problems = result.answers ?? result.problems
+  throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(problems ? { problems } : {}) } })
 }
 
 /** Gift card numbers tried per store and address, so a script can't walk the space. */
@@ -38,7 +42,51 @@ export const cartOf = async (ctx: ShopContext) => {
   return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, stripeTax: stripeTaxOf(ctx), activity: ctx.activity, facts: ctx.facts, allowNewCart, preview: shopper.preview, now: ctx.now })
 }
 
+/** A line's answers as the cart and the quote show them (FIRST-RELEASE §19 `ShopLineAnswer`). */
+const answerView = (a: PricedAnswer, currency: string) => ({ ...a, amountMoney: { amount: a.amount, currency } })
+
 export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
+  const AnswerChoice = builder.objectRef<PricedAnswer['choices'][number]>('ShopLineAnswerChoice').implement({
+    fields: (t) => ({ choiceId: t.exposeID('choiceId'), label: t.exposeString('label'), quantity: t.exposeInt('quantity'), free: t.exposeInt('free') }),
+  })
+  const UploadRef = builder.objectRef<{ id: string; kind: string }>('ShopLineAnswerUpload').implement({ fields: (t) => ({ id: t.exposeID('id'), kind: t.exposeString('kind') }) })
+  const LineAnswer = builder.objectRef<ReturnType<typeof answerView>>('ShopLineAnswer').implement({
+    fields: (t) => ({
+      questionId: t.exposeID('questionId'),
+      question: t.exposeString('label'),
+      // CHOICE, TEXT or UPLOAD.
+      kind: t.string({ resolve: (a) => a.kind.toUpperCase() }),
+      choices: t.field({ type: [AnswerChoice], resolve: (a) => a.choices }),
+      text: t.exposeString('text', { nullable: true }),
+      uploads: t.field({ type: [UploadRef], resolve: (a) => a.uploads.map((id) => ({ id, kind: 'file' })) }),
+      // What it adds: to each item, or once to the line (`per`, ITEM or LINE; null for a list, whose choices may differ).
+      amount: t.field({ type: Money_, resolve: (a) => a.amountMoney }),
+      per: t.string({ nullable: true, resolve: (a) => a.per?.toUpperCase() ?? null }),
+    }),
+  })
+  const AnswerProblem = builder.objectRef<{ questionId: string; choiceId: string | null; reason: string }>('ShopAnswerProblem').implement({
+    fields: (t) => ({ questionId: t.exposeID('questionId'), choiceId: t.exposeID('choiceId', { nullable: true }), reason: t.exposeString('reason') }),
+  })
+  const Quote = builder.objectRef<CustomisationQuote & { currency: string }>('ShopCustomisationQuote').implement({
+    fields: (t) => ({
+      unitPrice: t.field({ type: Money_, nullable: true, resolve: (q) => q.unitPrice }),
+      lineTotal: t.field({ type: Money_, nullable: true, resolve: (q) => q.lineTotal }),
+      answers: t.field({ type: [LineAnswer], resolve: (q) => q.answers.map((a) => answerView(a, q.currency)) }),
+      // What still stops Add to cart, beside each question; empty when it can go in the cart.
+      problems: t.field({ type: [AnswerProblem], resolve: (q) => q.problems }),
+    }),
+  })
+  const AnswerChoiceInput = builder.inputType('ShopAnswerChoiceInput', { fields: (t) => ({ choiceId: t.id({ required: true }), quantity: t.int() }) })
+  const AnswerInputType = builder.inputType('ShopAnswerInput', {
+    // One of `choices`, `text` or `uploadIds`, as the question's kind asks.
+    fields: (t) => ({ questionId: t.id({ required: true }), choices: t.field({ type: [AnswerChoiceInput] }), text: t.string(), uploadIds: t.idList() }),
+  })
+  type RawAnswer = { questionId: string | number; choices?: readonly { choiceId: string | number; quantity?: number | null | undefined }[] | null | undefined; text?: string | null | undefined; uploadIds?: readonly (string | number)[] | null | undefined }
+  const answersIn = (answers: readonly RawAnswer[] | null | undefined): AnswerInput[] | null => {
+    if (!answers) return null
+    if (answers.length > 10 || answers.some((a) => (a.text?.length ?? 0) > 2000 || (a.choices?.length ?? 0) > 50 || (a.uploadIds?.length ?? 0) > 5)) throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
+    return answers.map((a) => ({ questionId: String(a.questionId), choices: a.choices?.map((c) => ({ choiceId: String(c.choiceId), quantity: c.quantity ?? null })) ?? null, text: a.text ?? null, uploadIds: a.uploadIds?.map(String) ?? null }))
+  }
   const Address = builder.objectRef<CartAddress>('ShopAddressLines').implement({
     fields: (t) => ({
       name: t.exposeString('name'),
@@ -68,7 +116,10 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
   })
   const Line = builder.objectRef<CartLineView>('ShopCartLine').implement({
     fields: (t) => ({
+      // Names the line to setCartQuantity and updateCartLineAnswers: two lines of a version differ by their answers.
+      id: t.id({ resolve: (l) => l.lineId ?? l.versionId }),
       versionId: t.exposeID('versionId'),
+      answers: t.field({ type: [LineAnswer], resolve: (l, _, ctx) => l.answers.map((a) => answerView(a, shopOf(ctx).shopper.currency)) }),
       // A gift card's recipient and day; null on every other line.
       gift: t.field({ type: Gift, nullable: true, resolve: (l) => l.gift }),
       quantity: t.exposeInt('quantity'),
@@ -87,7 +138,7 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       lineTotal: t.field({ type: Money_, nullable: true, resolve: (l) => l.lineTotal }),
       discount: t.field({ type: Money_, nullable: true, resolve: (l) => l.discount }),
       available: t.exposeInt('available', { nullable: true }),
-      // unavailable, not_sold_here, not_priced or short (more than is left); null when it can be bought.
+      // unavailable, not_sold_here, not_priced, short (more than is left) or check_answers (its answers no longer fit); null when it can be bought.
       problem: t.exposeString('problem', { nullable: true }),
     }),
   })
@@ -203,6 +254,16 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
 
   builder.queryFields((t) => ({
     cart: t.field({ type: Cart, nullable: true, extensions: { access: read }, resolve: async (_, __, ctx) => (await cartOf(ctx)).cart() }),
+    // The customisation modal's live total (storefront ARCHITECTURE §3.5): priced by the engine, never cached, writing nothing.
+    customisationQuote: t.field({
+      type: Quote,
+      args: { versionId: t.arg.id({ required: true }), quantity: t.arg.int({ required: true }), answers: t.arg({ type: [AnswerInputType], required: true }) },
+      extensions: { access: read },
+      resolve: async (_, args, ctx) => {
+        const quoted = answered(await (await cartOf(ctx)).quote(String(args.versionId), args.quantity, answersIn(args.answers) ?? []))
+        return { ...quoted, currency: shopOf(ctx).shopper.currency }
+      },
+    }),
     // "Check what's left on a gift card" (Account › Gift cards): the one refusal for any number that opens no card here.
     giftCardBalance: t.field({
       type: Balance,
@@ -223,18 +284,27 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
     addToCart: t.field({
       type: Change,
       // A gift card takes `gift` and a quantity of 1, one card a line; nothing else takes `gift`.
-      args: { versionId: t.arg.id({ required: true }), quantity: t.arg.int({ required: true }), gift: t.arg({ type: GiftInput }) },
+      // `answers`: the product's questions answered (#1368); left out is today's add, refused ANSWERS_INVALID when a required one is missing.
+      args: { versionId: t.arg.id({ required: true }), quantity: t.arg.int({ required: true }), gift: t.arg({ type: GiftInput }), answers: t.arg({ type: [AnswerInputType] }) },
       extensions: { access: write },
       resolve: async (_, args, ctx) => {
         if (args.gift) bounded(args.gift.recipientName, args.gift.recipientEmail, args.gift.message, args.gift.sendOn)
-        return answered(await (await cartOf(ctx)).add(String(args.versionId), args.quantity, args.gift ?? null))
+        return answered(await (await cartOf(ctx)).add(String(args.versionId), args.quantity, args.gift ?? null, answersIn(args.answers)))
       },
     }),
     setCartQuantity: t.field({
       type: Change,
-      args: { versionId: t.arg.id({ required: true }), quantity: t.arg.int({ required: true }) },
+      // `lineId` names a customised line; without it, the version's line without answers.
+      args: { versionId: t.arg.id({ required: true }), quantity: t.arg.int({ required: true }), lineId: t.arg.id() },
       extensions: { access: write },
-      resolve: async (_, args, ctx) => answered(await (await cartOf(ctx)).setQuantity(String(args.versionId), args.quantity)),
+      resolve: async (_, args, ctx) => answered(await (await cartOf(ctx)).setQuantity(String(args.versionId), args.quantity, args.lineId ? String(args.lineId) : null)),
+    }),
+    // Edit on a cart line: its answers replaced, checked as on add; equal answers join their line, quantities summed up to 999.
+    updateCartLineAnswers: t.field({
+      type: Change,
+      args: { lineId: t.arg.id({ required: true }), answers: t.arg({ type: [AnswerInputType], required: true }) },
+      extensions: { access: write },
+      resolve: async (_, args, ctx) => answered(await (await cartOf(ctx)).setLineAnswers(String(args.lineId), answersIn(args.answers) ?? [])),
     }),
     setCartContact: t.field({
       type: Change,

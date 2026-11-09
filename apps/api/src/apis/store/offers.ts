@@ -215,6 +215,8 @@ export const registerOffers = (builder: StoreBuilder) => {
       perCustomerLimit: t.exposeInt('per_customer_limit', { nullable: true }),
       usesCount: t.exposeInt('uses_count'),
       combines: t.field({ type: Combines, resolve: (o) => o.combines_with }),
+      // "Include customisation extras" (OFFERS-DESIGN §3.1): off reads a customised line at its version's price alone.
+      includeCustomisation: t.exposeBoolean('include_customisation'),
       conditions: t.field({ type: [ConditionType], resolve: (o) => o.conditions }),
       action: t.field({ type: ActionType, resolve: (o) => o.action }),
       revision: t.exposeInt('revision'),
@@ -332,6 +334,8 @@ export const registerOffers = (builder: StoreBuilder) => {
       totalUsesLimit: t.int(),
       perCustomerLimit: t.int(),
       combines: t.field({ type: CombinesInput, required: true }),
+      // Left out is on for a new offer and unchanged on an edit.
+      includeCustomisation: t.boolean(),
       conditions: t.field({ type: [ConditionInput], required: true }),
       action: t.field({ type: ActionInput, required: true }),
     }),
@@ -416,6 +420,8 @@ export const registerOffers = (builder: StoreBuilder) => {
           totalUsesLimit: i.totalUsesLimit ?? null,
           perCustomerLimit: i.perCustomerLimit ?? null,
           combines: i.combines,
+          // Left out keeps an offer's switch as it is; a new offer's is on.
+          ...(i.includeCustomisation === null || i.includeCustomisation === undefined ? {} : { includeCustomisation: i.includeCustomisation }),
           conditions: i.conditions.map(conditionIn),
           action: compact({
             ...i.action,

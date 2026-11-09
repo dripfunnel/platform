@@ -9,6 +9,8 @@ export interface PricingLine {
   quantity: number
   /** The line at today's price, before any offer. */
   amount: bigint
+  /** Its customisation extras, inside `amount` (#1368); 0 on a line without. */
+  extras?: bigint
   collectionIds: readonly string[]
   filterValueIds: readonly string[]
   giftCard: boolean
@@ -34,6 +36,8 @@ export interface PricingOffer {
   conditions: readonly Condition[]
   action: Action
   combines: Combines
+  /** "Include customisation extras" (OFFERS-DESIGN §3.1); off reads each line without its extras. Absent is on. */
+  includeExtras?: boolean
 }
 
 export interface PricingInput {
@@ -207,6 +211,14 @@ const sum = (e: Effect) => e.lines.reduce((s, x) => s + x, 0n) + e.shipping
 
 const combine = (a: PricingOffer, b: PricingOffer) => a.combines[classOf(b.action)] && b.combines[classOf(a.action)]
 
+/**
+ * What an offer sees of the cart now: every line as it comes to after the offers taken so far, or, with "Include
+ * customisation extras" off, without its extras, which are always paid in full (OFFERS-DESIGN §3.1).
+ */
+const seenBy = (o: PricingOffer, lines: readonly PricingLine[], state: State): State =>
+  o.includeExtras === false ? { left: state.left.map((x, i) => (x - (lines[i]?.extras ?? 0n) > 0n ? x - (lines[i]?.extras ?? 0n) : 0n)), shippingLeft: state.shippingLeft } : state
+const total = (s: State) => s.left.reduce((sum, x) => sum + x, 0n)
+
 export const priceOffers = (input: PricingInput): PricingResult => {
   const { lines, currency } = input
   const state: State = { left: lines.map((l) => l.amount), shippingLeft: input.shipping }
@@ -214,24 +226,24 @@ export const priceOffers = (input: PricingInput): PricingResult => {
   const taken: PricingOffer[] = []
   const notApplied: PricingResult['notApplied'] = []
   for (const stage of stages) {
-    const subtotal = state.left.reduce((s, x) => s + x, 0n)
-    const facts: Facts = { currency, lines, subtotal, shopper: input.shopper, local: input.local }
+    const factsFor = (o: PricingOffer): Facts => ({ currency, lines, subtotal: total(seenBy(o, lines, state)), shopper: input.shopper, local: input.local })
     const inStage = input.offers.filter((o) => classOf(o.action) === stage)
     const holding = inStage.filter((o) => {
-      const ok = conditionsHold(o.conditions, facts)
+      const ok = conditionsHold(o.conditions, factsFor(o))
       if (!ok) notApplied.push({ offerId: o.id, reason: 'CONDITIONS' })
       return ok
     })
     // Biggest first as each would price alone now, then oldest, then by id: deterministic whatever order they came in.
     const ranked = holding
-      .map((o) => ({ o, alone: sum(effectOf(o.action, lines, state, currency, subtotal)) }))
+      .map((o) => ({ o, alone: sum(effectOf(o.action, lines, seenBy(o, lines, state), currency, total(seenBy(o, lines, state)))) }))
       .sort((a, b) => (a.alone !== b.alone ? (a.alone > b.alone ? -1 : 1) : a.o.createdAt.getTime() - b.o.createdAt.getTime() || a.o.id.localeCompare(b.o.id)))
     for (const { o } of ranked) {
       if (taken.some((a) => !combine(a, o))) {
         notApplied.push({ offerId: o.id, reason: 'DOESNT_COMBINE' })
         continue
       }
-      const effect = effectOf(o.action, lines, state, currency, state.left.reduce((s, x) => s + x, 0n))
+      const seen = seenBy(o, lines, state)
+      const effect = effectOf(o.action, lines, seen, currency, total(seen))
       const amount = sum(effect)
       if (amount === 0n) {
         notApplied.push({ offerId: o.id, reason: 'NOTHING_TO_DISCOUNT' })
