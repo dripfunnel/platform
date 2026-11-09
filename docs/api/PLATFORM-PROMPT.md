@@ -432,7 +432,10 @@ Design each module's responsibilities, tables, public API, events and invariants
        else the general one; typed for a manual currency, else converted from the pricing
        currency at the reference rate with the store's rounding; then moved by the market's
        adjustment, as `P` is (CATALOG facts 25–26). A choice or answer with no amount in a
-       manual currency is **not available** in it. A percentage is `P × bps / 10000`, rounded
+       manual currency is **not available** in it, never priced at 0: the Shop API shows its
+       price with `amount: null`, an answer to it is refused (below), and a required priced
+       text or upload question so keeps the product out of a cart in that currency until the
+       merchant types the amount. A percentage is `P × bps / 10000`, rounded
        per unit by the money module's one rounding rule. Per character is the amount × the
        answer's characters.
     2. A choice picked `n` times counts `n` units, each at its amount.
@@ -453,7 +456,8 @@ Design each module's responsibilities, tables, public API, events and invariants
     (not a question or choice of this product), `WRONG_KIND` (an answer of another type),
     `REQUIRED`, `TOO_FEW_PICKS`, `TOO_MANY_PICKS` (quantities count), `QUANTITY_TOO_HIGH`
     (above a choice's `max_quantity`), `CHOICE_UNAVAILABLE` (switched off, or not available in
-    the cart's currency), `TEXT_TOO_LONG`, `TOO_MANY_FILES` and `UPLOAD_NOT_FOUND` (not a file
+    the cart's currency; for a priced text or upload question with no amount in it, the same
+    reason with no `choiceId`), `TEXT_TOO_LONG`, `TOO_MANY_FILES` and `UPLOAD_NOT_FOUND` (not a file
     of this cart and question). An answer to a hidden question is dropped, never refused. The
     quote answers the same `problems` without refusing, so the modal can show them beside each
     question.
