@@ -1323,8 +1323,8 @@ product_question_choice
                     -- quantity picker, fact 51); price columns as on the question; photo_asset_id
                     -- follows product_photo's ownership rule (Part 2 below)
 product_question_amount
-                    (id, store_id, seller_id NULL, question_id NULL, choice_id NULL, version_id NULL,
-                     currency, amount)
+                    (id, store_id, seller_id NULL, product_id, question_id NULL, choice_id NULL,
+                     version_id NULL, currency, amount)
                     UNIQUE NULLS NOT DISTINCT (question_id, choice_id, version_id, currency)
                     CHECK (num_nonnulls(question_id, choice_id) = 1) CHECK (amount >= 0)
                     -- a fixed or per-character amount in minor units (§7.1): version_id null is
@@ -1334,7 +1334,7 @@ product_question_amount
                     -- read, as version prices are (§7.2 store_currency); version_id is a version
                     -- of the same product (trigger)
 product_question_version
-                    (question_id, version_id, store_id, seller_id NULL)
+                    (question_id, version_id, product_id, store_id, seller_id NULL)
                     PRIMARY KEY (question_id, version_id)
                     -- "only for some versions" (fact 54): no rows is every version
                     -- A choice's, amount's or version limit's seller_id and product_id are copied
@@ -2713,7 +2713,9 @@ decide which columns and which tables each caller kind may select at all**. `app
     (`upload.delete`, carrying only `r2_key`) in the same transaction, which deletes the R2 object
     with retries and backoff, so a failed or interrupted object delete is retried until it succeeds
     and a rolled-back delete never removes a file. `app_shop` may insert an outbox row of that kind
-    only (a restrictive policy). An upload goes on R2 with no transaction open, between finding its
+    only (a restrictive policy), and the job deletes a key only under its row's own store's
+    `shopper-uploads/` prefix and only when no `shopper_upload` row names it any more, so a job can
+    remove nothing but a file whose row is gone. An upload goes on R2 with no transaction open, between finding its
     cart and committing its row; a file whose row doesn't commit is deleted at once, or queued.
   - **Supplier's orders**: `order_line_for_supplier` gains `answers` for its own lines, and its
     `line_amount` becomes `unit_amount × quantity + line_extras_amount`. `app_supplier` has no
