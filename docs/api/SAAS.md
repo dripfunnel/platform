@@ -271,7 +271,7 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
   (CONSOLE-DESIGN §8). Suspended is a person's decision; past due is a billing fact.
 - Every state change writes an audit entry and an outbox event (email to the Owner, cache
   purge of the storefront's degraded rule).
-- **Built on #329, part 2**: `cancelStore` (the Owner's, never a support session's) makes the store
+- **Built on #329, part 2**: `cancelStore` (the Owner's, also through staff impersonating them or a support session allowed to write, ACCESS §8, §8.1, #1344) makes the store
   cancelled and read-only at once. A paid plan ends at its period's end through Stripe's
   `cancel_at_period_end`, and the Shop API keeps selling until `cancel_at`; a trial or a free plan
   ends at once. The Owner gets `store-cancelled`, which says the data is kept 90 days, and

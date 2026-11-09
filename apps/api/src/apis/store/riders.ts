@@ -10,8 +10,8 @@ import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 
-// Settings › Riders (DELIVERY §5, §8; SetRiders): the Owner's (`riders.manage`), and a support session's acting as the Owner (ACCESS §8).
-// The rules are engine/modules/ownDelivery's; this file authorises, calls and words the refusals.
+// Settings › Riders (DELIVERY §5, §8; SetRiders): the Owner's (`riders.manage`), never a support session's, as the
+// list holds riders' phones. The rules are engine/modules/ownDelivery's; this file authorises, calls and words the refusals.
 
 const words: Record<Exclude<RidersResult<unknown>, { ok: true }>['reason'], string> = {
   FORBIDDEN: 'You can’t change riders.',
@@ -107,7 +107,7 @@ export const registerRiders = (builder: StoreBuilder) => {
     }),
   })
 
-  const riders = { api: 'store', scope: 'store', permission: 'riders.manage', target: 'none' } as const
+  const riders = { api: 'store', scope: 'store', permission: 'riders.manage', target: 'none', blockedFor: ['support'] } as const
 
   builder.queryFields((t) => ({
     riders: t.field({
@@ -122,7 +122,7 @@ export const registerRiders = (builder: StoreBuilder) => {
     }),
   }))
 
-  // An export is a read, so a read-only store allows it; both are the Owner's.
+  // An export is a read, so a read-only store allows it; both are the Owner's, never a support session's.
   builder.queryFields((t) => ({
     riderExport: t.field({
       type: RiderExport,

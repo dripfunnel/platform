@@ -619,7 +619,7 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 |---|---|
 | **Super admin** | Everything, including staff management, platform settings and deleting. At least two people; never a shared account. The last Super admin can't be removed or demoted (O2). |
 | **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. Acts **only on the partners a Super admin assigned to them** (below), and sees nothing of the others. |
-| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions, no setup sessions (§8.2). |
+| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes in the admin console, no suspensions, no setup sessions (§8.2); impersonating a store's Owner they act with the Owner's billing (§8.1, #1344). |
 | **Finance** | Billing, invoices, credits, refunds, dunning, revenue reports. No store configuration. |
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
 | **Read-only** | Sees partners, stores, customers (masked) and the activity log; changes nothing. No Provisioning menu and no full contact details (FIRST-RELEASE §2, §5.4; corrected on #14 from "everything Support sees"). |
@@ -1071,9 +1071,9 @@ Browser → https://<store's portal host>/support/enter?token=…
   manage its suppliers and their teams, seats that would outlast the session; allow its own writes or change the
   store's support access; add, edit or export
   customers (customer groups share `customers.write`), or export orders (#1340); export the store's data, whose bundle
-  holds the shoppers, or the activity log. Everything else the seat may do is open, so support can set a store up for
+  holds the shoppers, or the activity log; manage riders, whose list holds their phones (#838). Everything else the seat may do is open, so support can set a store up for
   a merchant: payments and the store's card, billing (closing the store included), the AI account, API keys, apps,
-  webhooks, riders, the storefront with its studio frame and preview links, skipping a Home step (decided 2026-11-09
+  webhooks, the storefront with its studio frame and preview links, skipping a Home step (decided 2026-11-09
   by Kshitij on #1344; before, #317, #719 and #1012 refused preview links, skipping, payments, keys and apps).
 - **A new store whose Owner hasn't accepted** (decided 2026-11-05 on #1293): while the store has no
   active Owner or Manager, a session may be opened on an invited Owner's seat, and it may **write

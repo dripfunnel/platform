@@ -989,8 +989,8 @@ month; bandwidth has no meter yet, so it isn't answered), `planChangeQuote` (wha
 charge, the credit, today's amount, from when, the next price), `changePlan`, `setPaymentMethod`
 (a Stripe `pm_` token only; while past due it also tries the open invoice, and it works while
 read-only), `billingDetails` and `saveBillingDetails` (a GSTIN in India, a VAT number in the EU),
-`invoices` and `downloadInvoice`. The Owner's only (`billing`), never a support session's or an
-impersonation's writes. A partner that bills its merchants itself answers `BILLED_BY_PARTNER`.
+`invoices` and `downloadInvoice`. The Owner's (`billing`), also through staff impersonating them or a support session allowed to write
+(ACCESS §8, §8.1, #1344). A partner that bills its merchants itself answers `BILLED_BY_PARTNER`.
 `buyBandwidth` and `buySetup` wait for a bandwidth meter and the partner's setup offer.
 
 **Part 2**: `planKeep` and `keepProducts(ids)` (Choose what to keep, for products: SAAS §6.2),
