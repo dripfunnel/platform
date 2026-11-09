@@ -485,8 +485,9 @@ Design each module's responsibilities, tables, public API, events and invariants
     img-src 'self'; sandbox` (no script, and an opaque origin, so the file never runs as the
     portal or reads its cookies), `Referrer-Policy: no-referrer`, `Cache-Control: private`. An
     image opens inline; a PDF only downloads (`Content-Disposition: attachment`).
-  - **Order webhooks and the public APIs** gain each line's answers as new, additive fields,
-    through the outbox.
+  - **The public APIs** gain each line's answers as new, additive fields (the Store API's
+    `OrderLine.answers`, the Shop API's `ShopOrderLine.answers`). Order webhooks carry the order's
+    id and number only, as today, so answers come with the order read and no outbox row holds them.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided
