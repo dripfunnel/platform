@@ -44,6 +44,7 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
   const [showProblems, setShowProblems] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [denied, setDenied] = useState<Record<string, MessageKey>>({})
   const uploadedHere = useRef(new Set<string>())
   const dropped = useRef(new Set<string>())
 
@@ -101,11 +102,19 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
     }
     const id = f.id
     setAnswers((list) => list.map((a) => (a.questionId === q.id ? { ...a, uploadIds: (a.uploadIds ?? []).filter((u) => u !== id) } : a)))
-    void removeFile(host, uploadHeaders(), id)
+    // A file already on the saved line stays until Save releases it (#1369), so Cancel leaves the line as it was.
+    if (!uploadedHere.current.delete(id)) return
+    void removeFile(host, uploadHeaders(), id).then((code) => {
+      if (code === null) return
+      // Still on the server and still counted: back on screen so the shopper can try again.
+      uploadedHere.current.add(id)
+      setFiles((all) => ({ ...all, [q.id]: [...(all[q.id] ?? []), { ...f, failed: 'customise.removeFailed' }] }))
+    })
   }
   const pickPhoto = async (q: Question, camera: boolean) => {
     const asked = camera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!asked.granted) return
+    if (!asked.granted) return setDenied((all) => ({ ...all, [q.id]: camera ? 'customise.cameraDenied' : 'customise.photosDenied' }))
+    setDenied((all) => Object.fromEntries(Object.entries(all).filter(([id]) => id !== q.id)))
     const picked = camera ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9 }) : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9 })
     const asset = picked.canceled ? undefined : picked.assets[0]
     if (asset) upload(q, { uri: asset.uri, mime: asset.mimeType ?? 'image/jpeg', name: asset.fileName ?? t('customise.file', { number: (files[q.id] ?? []).length + 1 }) })
@@ -172,6 +181,7 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
         const problem = showProblems ? live?.problems.find((p) => p.questionId === q.id) : undefined
         const a = answerOf(q.id)
         const rows = files[q.id] ?? []
+        const refused = denied[q.id]
         return (
           <View key={q.id} style={styles.question}>
             <Text accessibilityRole="header" style={{ color: colors.heading, fontSize: 16, fontWeight: '700' }}>
@@ -275,6 +285,11 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
                     {q.accept !== 'PDF' ? <Button kind="secondary" label={t('customise.takePhoto')} onPress={() => void pickPhoto(q, true)} /> : null}
                     {q.accept !== 'IMAGE' ? <Button kind="secondary" label={t('customise.addFile')} onPress={() => void pickFile(q)} /> : null}
                   </View>
+                ) : null}
+                {refused ? (
+                  <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 14 }}>
+                    {t(refused)}
+                  </Text>
                 ) : null}
                 {q.price ? <Text style={{ color: colors.muted, fontSize: 13 }}>{extraText(q.price)}</Text> : null}
               </>

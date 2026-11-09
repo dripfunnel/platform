@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as ImagePicker from 'expo-image-picker'
 import { act } from 'react-test-renderer'
 import { t } from '../../messages'
 import { fakeShop, fill, hasText, press, render } from '../../testing/harness'
@@ -228,6 +229,128 @@ describe('the sheet’s uploads', () => {
     const screen = await render(<CartScreen />, shop)
     await press(screen, t('customise.edit'))
     expect(hasText(screen, t('customise.editFailed'))).toBe(true)
+  })
+})
+
+describe('the sheet’s uploads, harder cases', () => {
+  const photoQuestion = [{ id: 'q-photo', kind: 'UPLOAD', label: 'Your photo', help: null, required: false, minPicks: null, maxPicks: null, freePicks: null, maxLength: null, multiline: null, example: null, accept: 'IMAGE', maxFiles: 2, versionIds: null, shownIf: null, price: null, choices: [] }]
+  const realFetch = global.fetch
+  const realXhr = global.XMLHttpRequest
+  afterEach(() => {
+    global.fetch = realFetch
+    global.XMLHttpRequest = realXhr
+  })
+  const fakeNetwork = (status: number, body: unknown, hold = false, deleteRefused = false) => {
+    const calls: string[] = []
+    let finish: () => void = () => undefined
+    global.fetch = jest.fn(async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${url}`)
+      if (init?.method === 'DELETE' && deleteRefused) return { ok: false, text: async () => JSON.stringify({ errors: [{ extensions: { code: 'INTERNAL' } }] }) } as unknown as Response
+      return { ok: true, blob: async () => new Blob(['x']), text: async () => '{}' } as unknown as Response
+    }) as unknown as typeof fetch
+    class Fake {
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror = null
+      status = status
+      responseText = JSON.stringify(body)
+      open() {}
+      setRequestHeader() {}
+      send() {
+        if (hold) finish = () => this.onload?.()
+        else this.onload?.()
+      }
+    }
+    global.XMLHttpRequest = Fake as unknown as typeof XMLHttpRequest
+    return { calls, finish: () => finish() }
+  }
+  const openWith = async (extra: (query: string) => unknown = () => undefined) => {
+    const shop = fakeShop(({ query }) => extra(query) ?? (query.includes('customisationQuote') ? quote('149900') : productAnswer(tee({ questions: photoQuestion }))))
+    const screen = await render(<ProductScreen slug="tee-p1" />, shop)
+    await press(screen, 'Sand')
+    await press(screen, 'M')
+    await press(screen, t('product.addToCart'))
+    return { shop, screen }
+  }
+
+  it('words a refused file by its code', async () => {
+    fakeNetwork(415, { errors: [{ extensions: { code: 'FILE_TYPE' } }] })
+    const { screen } = await openWith()
+    await press(screen, t('customise.addPhoto'))
+    await wait()
+    expect(hasText(screen, t('customise.refused.FILE_TYPE'))).toBe(true)
+  })
+
+  it('never keeps a file removed while it was still uploading, and takes it back', async () => {
+    const net = fakeNetwork(200, { id: 'late', kind: 'image' }, true)
+    const { screen } = await openWith()
+    await press(screen, t('customise.addPhoto'))
+    await wait()
+    await press(screen, t('customise.remove', { name: 'photo.jpg' }))
+    await act(async () => net.finish())
+    await wait()
+    expect(net.calls).toContain('DELETE https://acme.my-store.one/shop-api/uploads/late')
+    expect(hasText(screen, 'photo.jpg')).toBe(false)
+  })
+
+  it('says when photos are off for the app, and uploads nothing', async () => {
+    const net = fakeNetwork(200, { id: 'never', kind: 'image' })
+    jest.mocked(ImagePicker.requestMediaLibraryPermissionsAsync).mockResolvedValueOnce({ granted: false } as Awaited<ReturnType<typeof ImagePicker.requestMediaLibraryPermissionsAsync>>)
+    const { screen } = await openWith()
+    await press(screen, t('customise.addPhoto'))
+    await wait()
+    expect(hasText(screen, t('customise.photosDenied'))).toBe(true)
+    expect(net.calls.some((c) => c.includes('/uploads'))).toBe(false)
+  })
+
+  it('puts a file back, saying so, when deleting it fails, and tries again on the next remove', async () => {
+    const net = fakeNetwork(200, { id: 'kept', kind: 'image' }, false, true)
+    const { screen } = await openWith()
+    await press(screen, t('customise.addPhoto'))
+    await wait()
+    await press(screen, t('customise.remove', { name: 'photo.jpg' }))
+    await wait()
+    expect(hasText(screen, 'photo.jpg')).toBe(true)
+    expect(hasText(screen, t('customise.removeFailed'))).toBe(true)
+    await press(screen, t('customise.remove', { name: 'photo.jpg' }))
+    await wait()
+    expect(net.calls.filter((c) => c === 'DELETE https://acme.my-store.one/shop-api/uploads/kept')).toHaveLength(2)
+  })
+
+  it('keeps Cancel off while the cart takes the answers', async () => {
+    fakeNetwork(200, {})
+    let release: (() => void) | null = null
+    const { screen } = await openWith((query) => (query.includes('addToCart') ? new Promise((resolve) => (release = () => resolve({ addToCart: { cartToken: null } }))) : undefined))
+    await wait()
+    await pressInSheet(screen, t('customise.add'))
+    await wait()
+    const cancels = screen.root.findAll((node) => node.props.label === t('customise.cancel'))
+    expect(cancels[cancels.length - 1]?.props.disabled).toBe(true)
+    expect(release).not.toBeNull()
+    await act(async () => release?.())
+    await wait()
+  })
+})
+
+describe('Edit and a file already on the line', () => {
+  it('leaves a saved file to Save rather than deleting it at once', async () => {
+    const calls: string[] = []
+    const realFetch = global.fetch
+    global.fetch = jest.fn(async (url: string, init?: RequestInit) => (calls.push(`${init?.method ?? 'GET'} ${url}`), { ok: true, text: async () => '{}' } as unknown as Response)) as unknown as typeof fetch
+    const photo = [{ id: 'q-photo', kind: 'UPLOAD', label: 'Your photo', help: null, required: false, minPicks: null, maxPicks: null, freePicks: null, maxLength: null, multiline: null, example: null, accept: 'IMAGE', maxFiles: 1, versionIds: null, shownIf: null, price: null, choices: [] }]
+    const line = cartLine('p1', { id: 'line-f', versionId: 'ver-sand-m', productSlug: 'tee-p1', answers: [{ questionId: 'q-photo', question: 'Your photo', kind: 'UPLOAD', text: null, amount: null, choices: [], uploads: [{ id: 'saved-file' }] }] })
+    const shop = fakeShop(({ query }) =>
+      query.includes('customisationQuote')
+        ? quote('149900')
+        : query.includes('product(slug')
+          ? productAnswer(tee({ questions: photo }))
+          : { cart: { email: '', phone: '', needsShipping: true, currency: 'INR', readyToPay: false, problems: [], subtotal: inr('149900'), discount: null, shipping: null, total: inr('149900'), tax: null, codes: [], discounts: [], lines: [line], shippingAddress: null, shippingOption: null, shippingOptions: [] } },
+    )
+    const screen = await render(<CartScreen />, shop)
+    await press(screen, t('customise.edit'))
+    await press(screen, t('customise.remove', { name: t('customise.file', { number: 1 }) }))
+    expect(calls.some((c) => c.startsWith('DELETE'))).toBe(false)
+    global.fetch = realFetch
   })
 })
 
