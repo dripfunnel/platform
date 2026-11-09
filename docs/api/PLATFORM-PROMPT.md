@@ -469,8 +469,9 @@ Design each module's responsibilities, tables, public API, events and invariants
     `UNKNOWN_QUESTION`, `TOO_MANY_UPLOADS`, `RATE_LIMITED`. Uploading with no cart makes one,
     as `addToCart` does. No file name or content is logged. Retention is DATA-MODEL §7.6's;
     the shopper deletes a file at once (row and R2 object) by removing it in the modal
-    (`DELETE /shop-api/uploads/{id}`, own cart only), removing its line or emptying the cart,
-    so a guest who gave no email can still erase their own uploads.
+    (`DELETE /shop-api/uploads/{id}`, own cart only, under `shopper_upload`'s shop `delete`
+    policy), removing its line or emptying the cart, so a guest who gave no email can still erase
+    their own uploads; the R2 object goes through the outbox (`upload.delete`), retried until done.
   - **Order webhooks and the public APIs** gain each line's answers as new, additive fields,
     through the outbox.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
