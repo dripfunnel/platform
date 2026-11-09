@@ -627,7 +627,8 @@ tables.
       price (ACCESS §7.2, U15), and see answers and uploads only on their own lines (ACCESS
       §7.1).
     - **Text answers and uploads are shopper details**: a partner support session sees them as
-      `•••••`, like an order's free-text note (ACCESS §8).
+      `•••••`, like an order's free-text note (ACCESS §8). The supplier that makes a line still
+      sees that line's answers, whatever its shipping mode (ACCESS §7.1).
     - Changing questions is a **product update** in the activity log, with no answers or file
       contents in the entry (LOGGING §3, §4.1).
     - Import and export skip questions (K13).
