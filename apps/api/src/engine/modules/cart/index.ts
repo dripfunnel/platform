@@ -26,6 +26,7 @@ export type { AddressInput, CheckoutProblem, GiftInput, LineProblem } from './ru
 export type { AnswerInput, AnswerProblem, AnswerReason, PricedAnswer, ExtraChoice, ShopQuestion, StoredAnswer } from './answers'
 export { snapshotOf } from './answers'
 export { cleanAddress, cleanContact } from './rules'
+export { maxUploadBytes } from './uploads'
 export type { CartAddress, CartGift } from '#db/scoped/cart'
 
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
@@ -650,11 +651,11 @@ export const createCartService = (deps: CartDeps) => {
     if (!question) return { ok: false, reason: 'UNKNOWN_QUESTION' }
     if (!accepted(question.accept, mime)) return { ok: false, reason: 'FILE_TYPE' }
     const checksum = await sha256Hex(body)
-    let put: string | null = null
-    const putIn = (context: TenantContext, token: string | null) =>
+    const id = crypto.randomUUID()
+    // The cart first (made if need be), the file on R2 with no transaction open, then its row under the cart's lock.
+    const cartFor = (context: TenantContext, token: string | null) =>
       withScope(sql, context, async (tx) => {
         let found = await selectCart(tx, storeId, now())
-        if (found) await lockCartRow(tx, storeId, found.id)
         if (!found) {
           if (customerId === null && token === null) return null
           const tokenHash = context.caller.kind === 'shopper' ? (context.caller.orderTokenHash ?? null) : null
@@ -663,13 +664,34 @@ export const createCartService = (deps: CartDeps) => {
           if (!found) throw new Refused('NO_CART')
         }
         if ((await selectCartUploads(tx, found.id)).length >= maxCartUploads) throw new Refused('TOO_MANY_UPLOADS')
-        const id = crypto.randomUUID()
-        await insertShopperUpload(tx, { id, storeId, orderId: found.id, questionId: qid, mime, bytes: body.byteLength, checksum })
-        // Put before commit: a refused put rolls the row back, so no row ever names a missing file.
-        put = uploadKey(storeId, found.id, id)
-        await files.put(put, body, { httpMetadata: { contentType: mime } })
-        return { id, mime, token }
+        return found.id
       })
+    const record = (context: TenantContext, cartId: string) =>
+      withScope(sql, context, async (tx) => {
+        await lockCartRow(tx, storeId, cartId)
+        if ((await selectCartUploads(tx, cartId)).length >= maxCartUploads) throw new Refused('TOO_MANY_UPLOADS')
+        await insertShopperUpload(tx, { id, storeId, orderId: cartId, questionId: qid, mime, bytes: body.byteLength, checksum })
+      })
+    // A file whose row never committed: deleted now, or queued when R2 refuses, so none is left behind (rule 30 is about timers).
+    const unput = async (context: TenantContext, key: string) => {
+      const gone = files.delete ? await files.delete(key).then(() => true, () => false) : false
+      if (!gone) {
+        await withScope(sql, context, (tx) => insertOutbox(tx, { kind: uploadDeleteKind, idempotencyKey: id, payload: { key }, partnerId: deps.context.partnerId, storeId })).catch(() => undefined)
+      }
+    }
+    const putIn = async (context: TenantContext, token: string | null) => {
+      const cartId = await cartFor(context, token)
+      if (!cartId) return null
+      const key = uploadKey(storeId, cartId, id)
+      await files.put(key, body, { httpMetadata: { contentType: mime } })
+      try {
+        await record(context, cartId)
+      } catch (error) {
+        await unput(context, key)
+        throw error
+      }
+      return { id, mime, token }
+    }
     try {
       if (customerId === null && !shopper?.orderTokenHash) {
         if (!(await deps.allowNewCart())) return { ok: false, reason: 'RATE_LIMITED' }
@@ -681,8 +703,6 @@ export const createCartService = (deps: CartDeps) => {
       const done = await putIn(deps.context, null)
       return done ? { ok: true, value: done } : { ok: false, reason: 'NO_CART' }
     } catch (error) {
-      // The row rolled back after its file went up (the commit failed): take the file back, best effort.
-      if (put && files.delete) await files.delete(put).catch(() => undefined)
       if (error instanceof Refused) return refusalOf(error)
       throw error
     }

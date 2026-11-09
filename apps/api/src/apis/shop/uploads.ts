@@ -1,5 +1,4 @@
-import type { CartRefusal, UploadStore } from '#engine/modules/cart/index'
-import { maxUploadBytes } from '#engine/modules/cart/uploads'
+import { maxUploadBytes, type CartRefusal, type UploadStore } from '#engine/modules/cart/index'
 import type { ShopContext } from './access'
 import { cartOf } from './cart'
 

@@ -56,3 +56,5 @@ begin
   execute format('alter policy outbox_insert on outbox to %s', roles);
 end
 $$;
+-- Least privilege: the shop role queues a file's deletion and nothing else.
+create policy outbox_shop_kind on outbox as restrictive for insert to app_shop with check (kind = 'upload.delete');
