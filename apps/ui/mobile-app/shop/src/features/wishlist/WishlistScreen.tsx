@@ -28,7 +28,8 @@ function WishlistRow({ item, onRemoved }: { item: ProductCard; onRemoved: () => 
     setAdded(false)
     const done = await action.run(async () => {
       const product = await run(client, productOperation(item.slug))
-      const only = product && product.options.length === 0 && product.versions.length === 1 ? product.versions[0] : null
+      // A product with choices or questions opens its page, where they're asked (#1373).
+      const only = product && product.options.length === 0 && product.versions.length === 1 && product.questions.length === 0 ? product.versions[0] : null
       if (!only) return false
       const cartToken = await addToCart(client, only.id, 1)
       if (cartToken) await saveCartToken(cartToken)

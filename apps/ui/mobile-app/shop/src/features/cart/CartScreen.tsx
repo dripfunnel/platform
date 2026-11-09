@@ -4,7 +4,11 @@ import { useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { formatNumber } from '@dripfunnel/mobile-shared/format'
 import { useTheme } from '@dripfunnel/mobile-shared/theme'
-import { applyCode, removeCode, setQuantity, type Cart, type CartLine, type CodeState } from '../../api/cart'
+import { applyCode, removeCode, setQuantity, updateAnswers, type Cart, type CartLine, type CodeState } from '../../api/cart'
+import { productOperation } from '../../api/catalogue'
+import type { Answer, Question } from '../../api/customisation'
+import { run } from '../../api/operation'
+import { CustomiseSheet } from '../catalogue/CustomiseSheet'
 import { useShop } from '../../api/ShopContext'
 import { locale, t } from '../../messages'
 import { money } from '../catalogue/words'
@@ -27,7 +31,76 @@ export const hasLineProblem = (cart: Cart): boolean => cart.lines.some((line) =>
 
 type Change = (work: () => Promise<{ cart: Cart | null; cartToken: string | null }>) => Promise<void>
 
-function LineRow({ line, busy, change, onOpen }: { line: CartLine; busy: boolean; change: Change; onOpen: (slug: string) => void }) {
+/** A customised line's answers, one per row (#1373): what was picked or typed, files counted, each extra beside it. */
+function LineAnswers({ line }: { line: CartLine }) {
+  const { colors } = useTheme()
+  if (line.answers.length === 0) return null
+  return (
+    <View accessibilityLabel={t('customise.answers')} style={styles.answers}>
+      {line.answers.map((a) => {
+        const value =
+          a.kind === 'CHOICE'
+            ? new Intl.ListFormat(locale, { type: 'conjunction' }).format(a.choices.map((c) => (c.quantity > 1 ? t('customise.choiceCount', { label: c.label, count: c.quantity }) : c.label)))
+            : a.kind === 'TEXT'
+              ? (a.text ?? '')
+              : a.uploadIds.length === 1
+                ? t('customise.oneFile')
+                : t('customise.files', { count: a.uploadIds.length })
+        const extra = a.amount && /[1-9]/.test(a.amount.amount) ? ` ${t('customise.extra', { price: money(a.amount) })}` : ''
+        return (
+          <Text key={a.questionId} style={{ color: colors.muted, fontSize: 13 }}>
+            {`${a.question}: ${value}${extra}`}
+          </Text>
+        )
+      })}
+    </View>
+  )
+}
+
+const answersOf = (line: CartLine): Answer[] =>
+  line.answers.map((a) => ({ questionId: a.questionId, ...(a.kind === 'CHOICE' ? { choices: a.choices.map((c) => ({ choiceId: c.choiceId, quantity: c.quantity })) } : a.kind === 'TEXT' ? { text: a.text ?? '' } : { uploadIds: a.uploadIds }) }))
+
+/** Edit on a customised line, or "Check your choices" on one whose answers no longer fit: the sheet, filled in. */
+function EditAnswers({ line, busy, apply }: { line: CartLine; busy: boolean; apply: (change: { cart: Cart | null; cartToken: string | null }) => Promise<void> }) {
+  const { client } = useShop()
+  const { colors } = useTheme()
+  const [product, setProduct] = useState<{ name: string; questions: Question[] } | null>(null)
+  const [opening, setOpening] = useState(false)
+  const [failed, setFailed] = useState(false)
+  if (!line.lineId || !line.productSlug || (line.answers.length === 0 && line.problem !== 'check_answers')) return null
+  const { lineId, productSlug } = line
+  const open = async () => {
+    setOpening(true)
+    setFailed(false)
+    const read = await run(client, productOperation(productSlug)).catch(() => null)
+    setOpening(false)
+    if (read && read.questions.length > 0) setProduct({ name: read.name, questions: read.questions })
+    else setFailed(true)
+  }
+  return (
+    <>
+      <Button kind="secondary" label={t(line.problem === 'check_answers' ? 'customise.check' : 'customise.edit')} busy={opening} disabled={busy} onPress={() => void open()} />
+      {failed ? (
+        <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 13 }}>
+          {t('customise.editFailed')}
+        </Text>
+      ) : null}
+      {product ? (
+        <CustomiseSheet
+          product={product}
+          versionId={line.versionId}
+          quantity={line.quantity}
+          initial={answersOf(line)}
+          intent={{ kind: 'edit', save: async (answers) => apply(await updateAnswers(client, lineId, answers)) }}
+          onClose={() => setProduct(null)}
+          onDone={() => setProduct(null)}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function LineRow({ line, busy, change, apply, onOpen }: { line: CartLine; busy: boolean; change: Change; apply: (change: { cart: Cart | null; cartToken: string | null }) => Promise<void>; onOpen: (slug: string) => void }) {
   const { client } = useShop()
   const { colors, radii } = useTheme()
   const problem = problemText(line)
@@ -43,12 +116,14 @@ function LineRow({ line, busy, change, onOpen }: { line: CartLine; busy: boolean
           {line.name}
         </Text>
         {line.versionName ? <Text style={{ color: colors.muted, fontSize: 13 }}>{line.versionName}</Text> : null}
+        <LineAnswers line={line} />
         {line.unitPrice ? <Text style={{ color: colors.muted, fontSize: 13 }}>{t('cart.each', { price: money(line.unitPrice) })}</Text> : null}
         {problem ? (
           <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 13, fontWeight: '600' }}>
             {problem}
           </Text>
         ) : null}
+        <EditAnswers line={line} busy={busy} apply={apply} />
         <View style={styles.stepper}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('cart.fewer', { name: line.name })} accessibilityState={{ disabled: busy || line.quantity <= 1 }} disabled={busy || line.quantity <= 1} onPress={() => step(line.quantity - 1)} style={[styles.stepButton, { borderColor: colors.fieldBorder, borderRadius: radii.button }]}>
             <Text style={{ color: colors.text, fontSize: 20 }}>−</Text>
@@ -129,7 +204,7 @@ function Filled({ cart, apply }: { cart: Cart; apply: (change: { cart: Cart | nu
     <>
       <ScrollView contentContainerStyle={styles.body}>
         {cart.lines.map((line) => (
-          <LineRow key={line.versionId} line={line} busy={action.busy || !online} change={change} onOpen={(slug) => router.push(`/product/${slug}`)} />
+          <LineRow key={line.versionId} line={line} busy={action.busy || !online} change={change} apply={apply} onOpen={(slug) => router.push(`/product/${slug}`)} />
         ))}
         {action.error ? (
           <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 14 }}>
@@ -170,6 +245,7 @@ export function CartScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   body: { gap: 16, padding: 16, paddingBottom: 24 },
+  answers: { gap: 2 },
   line: { flexDirection: 'row', gap: 12, paddingBottom: 16, borderBottomWidth: 1, alignItems: 'flex-start' },
   photo: { width: 72, aspectRatio: 4 / 5, overflow: 'hidden' },
   lineBody: { flex: 1, gap: 3 },
