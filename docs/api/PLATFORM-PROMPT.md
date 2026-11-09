@@ -457,6 +457,10 @@ Design each module's responsibilities, tables, public API, events and invariants
     of this cart and question). An answer to a hidden question is dropped, never refused. The
     quote answers the same `problems` without refusing, so the modal can show them beside each
     question.
+  - **One line a version, until the contract migration** (#1368; DATA-MODEL §7.6): different
+    answers for a version the cart already holds are refused `ONE_LINE_PER_VERSION` ("This is
+    already in your cart with other choices") until the next release drops `cart_line`'s old key;
+    then they are a line of their own.
   - **A line that stops fitting** (a choice turned off, a required question added, a maximum
     lowered) is still priced, with the line problem **`check_answers`** ("Check your choices"),
     so checkout refuses it as any line problem (`LINE_PROBLEM`) until the shopper edits it.

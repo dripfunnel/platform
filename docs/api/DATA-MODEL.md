@@ -1699,7 +1699,12 @@ order_line          (id, order_id, store_id, seller_id NULL, version_id, product
                     -- tax_zone_id yet
 cart_line (+ columns) id uuid UNIQUE DEFAULT gen_random_uuid(), answers jsonb NULL,
                      answers_key text NOT NULL DEFAULT ''
-                    PRIMARY KEY (order_id, version_id, answers_key)   -- was (order_id, version_id)
+                    UNIQUE (order_id, version_id, answers_key)        -- the line's key (#1368, 0392)
+                    -- Expand and contract (#1368): 0392 adds that key beside the old PRIMARY KEY
+                    -- (order_id, version_id), which the release before still names in its writes; the
+                    -- next release drops the old key and makes the new one the primary key. Until it
+                    -- does, a version holds one line: other answers for it are refused
+                    -- ONE_LINE_PER_VERSION, and Edit changes a line's answers in place
                     -- product customisation (#1367, proposed; CATALOG facts 49–57): answers is
                     -- [{question, choices: [{choice, quantity}]} | {question, text} | {question,
                     -- uploads: [shopper_upload id]}], ids only and never a price, ordered by

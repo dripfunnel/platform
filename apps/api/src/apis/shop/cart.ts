@@ -26,6 +26,7 @@ const words: Record<CartRefusal, string> = {
   TOO_MANY_UPLOADS: 'Your cart already holds 50 files.',
   UPLOAD_NOT_FOUND: 'That file isn’t in your cart.',
   UPLOAD_IN_USE: 'That file is part of an item in your cart.',
+  ONE_LINE_PER_VERSION: 'This is already in your cart with other choices. Change them there, or check out first.',
 }
 
 const answered = <T>(result: CartResult<T>): T => {

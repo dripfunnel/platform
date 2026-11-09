@@ -42,6 +42,7 @@ export type CartRefusal =
   | 'GIFT_CARD_INVALID'
   | 'NOT_IN_PREVIEW'
   | 'ANSWERS_INVALID'
+  | 'ONE_LINE_PER_VERSION'
   | UploadRefusal
 
 /** A shopper's file refused (PLATFORM-PROMPT §5.4 "Uploads"; #1369). */
@@ -449,6 +450,8 @@ export const createCartService = (deps: CartDeps) => {
         const lineId = gift
           ? await addCartLine(tx, storeId, found.id, id, stored, 1, 1)
           : await addCartLine(tx, storeId, found.id, id, stored, quantity, maxQuantity)
+        // Different answers for a version already in the cart wait for the contract migration (0392's note).
+        if (lineId === 'version_taken') throw new Refused('ONE_LINE_PER_VERSION')
         if (gift) await setCartGift(tx, found.id, lineId, gift)
         await write(tx, found, {})
         const row = await selectCart(tx, storeId, now())
