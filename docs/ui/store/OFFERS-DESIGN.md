@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
+Last updated: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -390,6 +390,16 @@ minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store
   placement refuses `OFFER_CHANGED` and the shopper sees the cart again without it. Placement prices the cart afresh, as
   it does a price change, so an offer turned off before "Pay" is simply not on the order.
 
+**Include customisation extras** (decided 2026-11-09 on #1367; *proposed* names: `promotion.include_customisation`,
+`Offer.includeCustomisation` and `OfferInput.includeCustomisation`, DATA-MODEL §7.7): a switch on each offer, **on by
+default**. On, the offer reads a customised line at its whole price, the extras its answers add included (CATALOG-DESIGN
+§3 fact 51). Off, it reads the line at its version's price alone: what it takes off, its cap, its minimum and its tiers
+are worked on that, and the extras are paid in full (PLATFORM-PROMPT §5.4). A line without answers is the same either
+way. The switch **shows only once the store has a product with questions** (the Store API's `hasCustomisation`), and then
+on the three kinds that take money off goods (D, E, F); a free-shipping offer has none, and counts extras towards its
+minimum. An offer saved with it off keeps it off when the store no longer has questions, where it changes nothing. An
+`OfferInput` without it saves it on, so older callers are unchanged.
+
 ---
 
 ## 4. Who uses it, and what they see
@@ -502,6 +512,9 @@ Items marked `(release: decide)` are engine requirements whose release is open (
 - D5. Warn when some chosen products already have a compare-at price ("12 products are
   already reduced; this takes a further 20% off").
 - D6. Vendor products included: "Includes 14 products from Northwind Textiles" (§3 fact 18).
+- D7. **Include customisation extras** (§3.1; #1367), only once the store has a product with questions: a switch
+  under the amount, on by default, "Take money off the extras shoppers choose too, like engraving or toppings". Off,
+  the summary says "Not on extras: 20% off the product's own price".
 
 ### E. Money off the order
 
@@ -514,6 +527,8 @@ Items marked `(release: decide)` are engine requirements whose release is open (
   `(release: decide)`, and show the fallback (separate offers, whose stacking then depends on
   the combination rules, §3 fact 7).
 - E5. A cap on a percentage ("20% off, up to $30"): `(release: decide)`.
+- E6. **Include customisation extras**, as D7; off, the summary says "Extras don't count towards the order total or the
+  minimum".
 
 ### F. Buy X, get Y
 
@@ -527,6 +542,8 @@ Items marked `(release: decide)` are engine requirements whose release is open (
 - F5. Repeats: does buying 4 give 2 free? *Decide the engine's behaviour* and offer "Limit to
   once per order" if it repeats.
 - F6. Automatic free gift added to the cart: `(release: decide)`.
+- F7. **Include customisation extras**, as D7; off, the item they get is free at its own price and its extras are still
+  paid: "Extras on the free item are still paid".
 
 ### G. Free shipping
 
