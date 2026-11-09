@@ -35,7 +35,9 @@ describe('parcelOf', () => {
   it('declares a whole line at what the shopper paid, extras spread to the minor unit', () => {
     const parcel = parcelOf([bookingLine('engraved', '33000', 3, '1000'), bookingLine('plain', '5000', 3, '0')], [{ lineId: 'engraved', quantity: 3 }, { lineId: 'plain', quantity: 3 }])
     expect(parcel.amount).toBe(33000n * 3n + 1000n + 15000n)
-    expect(parcel.items.map((i) => i.unitAmount)).toEqual([33333n, 5000n])
+    // 100000 over 3 units: one at 33334, two at 33333, so the items sum to the paid value too.
+    expect(parcel.items.map((i) => [i.quantity, i.unitAmount])).toEqual([[1, 33334n], [2, 33333n], [3, 5000n]])
+    expect(parcel.items.reduce((sum, i) => sum + i.unitAmount * BigInt(i.quantity), 0n)).toBe(parcel.amount)
   })
 
   it('declares a partial pick with its units’ share of the extra', () => {
