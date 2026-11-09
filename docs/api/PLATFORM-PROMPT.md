@@ -487,8 +487,9 @@ Design each module's responsibilities, tables, public API, events and invariants
     portal's host (DATA-MODEL §7.11), served with the content type checked at upload, never the
     shopper's, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none';
     img-src 'self'; sandbox` (no script, and an opaque origin, so the file never runs as the
-    portal or reads its cookies), `Referrer-Policy: no-referrer`, `Cache-Control: private`. An
-    image opens inline; a PDF only downloads (`Content-Disposition: attachment`).
+    portal or reads its cookies), `Referrer-Policy: no-referrer`, `Cache-Control: private`. A
+    JPEG, PNG or WebP opens inline; a HEIC photo (which most browsers can't draw) and a PDF only
+    download (`Content-Disposition: attachment`).
   - **The public APIs** gain each line's answers as new, additive fields (the Store API's
     `OrderLine.answers`, the Shop API's `ShopOrderLine.answers`). Order webhooks carry the order's
     id and number only, as today, so answers come with the order read and no outbox row holds them (#1368).
