@@ -26,6 +26,7 @@ const { OrderPage } = await import('./OrderPage')
 const inr = (amount: string) => ({ amount, currency: 'INR' })
 const line = (l: Partial<OrderLine> & Pick<OrderLine, 'id' | 'name'>): OrderLine => ({
   productId: 'p1',
+  answers: null,
   versionName: null,
   sku: null,
   quantity: 1,
