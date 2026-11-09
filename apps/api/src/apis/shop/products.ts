@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
 import type { Page } from '#core/paging'
-import type { ProductRequest, ShopFacetRow, ShopKindView, ShopProductExtrasRow, ShopProductPage, ShopProductView, ShopSort, ShopVersionView } from '#engine/modules/storefront/index'
-import type { ShopContext } from './access'
+import type { ProductRequest, ShopChoice, ShopExtraPrice, ShopFacetRow, ShopKindView, ShopProductExtrasRow, ShopProductPage, ShopProductView, ShopQuestion, ShopSort, ShopVersionView } from '#engine/modules/storefront/index'
+import { shopOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 import { assetUrl, catalogOf, imageOf } from './catalog'
 
@@ -156,9 +156,70 @@ export const registerProducts = ({ builder, pageInfo, image, money: MoneyType }:
     // Null: cards never expire.
     fields: (t) => ({ expiryMonths: t.exposeInt('expiryMonths', { nullable: true }) }),
   })
+  const money = (ctx: ShopContext, amount: bigint | null) => (amount === null ? null : { amount, currency: shopOf(ctx).shopper.currency })
+  const VersionAmount = builder.objectRef<{ versionId: string; amount: bigint | null }>('ShopExtraVersionAmount').implement({
+    fields: (t) => ({ versionId: t.exposeID('versionId'), amount: t.field({ type: MoneyType, nullable: true, resolve: (v, _, ctx) => money(ctx, v.amount) }) }),
+  })
+  const ExtraPrice = builder.objectRef<ShopExtraPrice>('ShopExtraPrice').implement({
+    fields: (t) => ({
+      // FIXED, PERCENT or PER_CHARACTER; ITEM (each one bought) or LINE (once for the line).
+      mode: t.string({ resolve: (p) => p.mode.toUpperCase() }),
+      per: t.string({ resolve: (p) => p.per.toUpperCase() }),
+      percentBps: t.exposeInt('bps', { nullable: true }),
+      // In the cart's currency and market; null where it isn't sold in it (the choice shows as not available).
+      amount: t.field({ type: MoneyType, nullable: true, resolve: (p, _, ctx) => money(ctx, p.amount) }),
+      versionAmounts: t.field({ type: [VersionAmount], resolve: (p) => [...p.byVersion].map(([versionId, amount]) => ({ versionId, amount })) }),
+    }),
+  })
+  const QuestionChoice = builder.objectRef<ShopChoice>('ShopQuestionChoice').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      label: t.exposeString('label'),
+      photo: t.field({ type: image, nullable: true, resolve: (c, _, ctx) => imageOf(ctx, c.photoAssetId) }),
+      available: t.exposeBoolean('available'),
+      maxQuantity: t.exposeInt('maxQuantity'),
+      price: t.field({ type: ExtraPrice, nullable: true, resolve: (c) => c.price }),
+    }),
+  })
+  const QuestionCondition = builder.objectRef<{ questionId: string; choiceId: string }>('ShopQuestionCondition').implement({
+    fields: (t) => ({ questionId: t.exposeID('questionId'), choiceId: t.exposeID('choiceId') }),
+  })
+  const Question = builder.objectRef<ShopQuestion & { all: readonly ShopQuestion[] }>('ShopQuestion').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // CHOICE, TEXT or UPLOAD (CATALOG fact 50).
+      kind: t.string({ resolve: (q) => q.kind.toUpperCase() }),
+      label: t.exposeString('label'),
+      help: t.exposeString('help', { nullable: true }),
+      required: t.exposeBoolean('required'),
+      minPicks: t.exposeInt('minPicks', { nullable: true }),
+      maxPicks: t.exposeInt('maxPicks', { nullable: true }),
+      freePicks: t.exposeInt('freePicks', { nullable: true }),
+      maxLength: t.exposeInt('maxLength', { nullable: true }),
+      multiline: t.exposeBoolean('multiline', { nullable: true }),
+      example: t.exposeString('example', { nullable: true }),
+      accept: t.string({ nullable: true, resolve: (q) => q.accept?.toUpperCase() ?? null }),
+      maxFiles: t.exposeInt('maxFiles', { nullable: true }),
+      price: t.field({ type: ExtraPrice, nullable: true, resolve: (q) => q.price }),
+      shownIf: t.field({
+        type: QuestionCondition,
+        nullable: true,
+        resolve: (q) => {
+          const on = q.shownIfChoiceId ? q.all.find((x) => x.choices.some((c) => c.id === q.shownIfChoiceId)) : undefined
+          return on && q.shownIfChoiceId ? { questionId: on.id, choiceId: q.shownIfChoiceId } : null
+        },
+      }),
+      // Null: every version.
+      versionIds: t.idList({ nullable: true, resolve: (q) => (q.versionIds.length > 0 ? [...q.versionIds] : null) }),
+      choices: t.field({ type: [QuestionChoice], resolve: (q) => q.choices }),
+    }),
+  })
+
   const Product = builder.objectRef<ShopProductPage>('ShopProduct').implement({
     fields: (t) => ({
       id: t.string({ resolve: (p) => p.product.id }),
+      // What the shopper answers before buying (#1368); empty for a product that asks nothing, which adds as before.
+      questions: t.field({ type: [Question], resolve: (p) => p.questions.map((q) => ({ ...q, all: p.questions })) }),
       name: t.string({ resolve: (p) => p.product.name }),
       slug: t.string({ resolve: (p) => p.product.slug }),
       description: t.string({ resolve: (p) => p.product.description }),

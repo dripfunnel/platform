@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import type { PageWindow } from '#core/paging'
 import type { CartGift } from './cart'
 import { handedOut } from './deliveries'
@@ -93,6 +94,11 @@ export interface SnapshotLine {
   reservedWarehouseId: string | null
   /** A gift card's recipient and day, as the cart held them (migration 0171). */
   gift: CartGift | null
+  /** The answers as the shopper gave them, with labels and each extra's amount (DATA-MODEL §7.6); null on most lines. */
+  answers: readonly object[] | null
+  /** The per-item extras inside unitAmount, and the once-per-line extras inside lineTotalAmount. */
+  unitExtrasAmount: bigint
+  lineExtrasAmount: bigint
 }
 
 export interface OrderSnapshot {
@@ -123,10 +129,11 @@ export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnap
     await tx`
       insert into order_line (order_id, store_id, seller_id, version_id, product_id, name, version_name, sku, hs_code, tax_class_id, tax_rate_bps,
         quantity, unit_amount, discount_amount, tax_amount, line_total_amount, weight_grams, reserved_warehouse_id, position,
-        gift_recipient_name, gift_recipient_email, gift_message, gift_send_on)
+        gift_recipient_name, gift_recipient_email, gift_message, gift_send_on, answers, unit_extras_amount, line_extras_amount)
       values (${s.orderId}, ${storeId}, ${l.sellerId}, ${l.versionId}, ${l.productId}, ${l.name}, ${l.versionName}, ${l.sku}, ${l.hsCode}, ${l.taxClassId}, ${l.taxRateBps},
         ${l.quantity}, ${l.unitAmount.toString()}, ${l.discountAmount.toString()}, ${l.taxAmount.toString()}, ${l.lineTotalAmount.toString()}, ${l.weightGrams}, ${l.reservedWarehouseId}, ${position},
-        ${l.gift?.recipientName ?? null}, ${l.gift?.recipientEmail ?? null}, ${l.gift?.message ?? null}, ${l.gift?.sendOn ?? null}::date)
+        ${l.gift?.recipientName ?? null}, ${l.gift?.recipientEmail ?? null}, ${l.gift?.message ?? null}, ${l.gift?.sendOn ?? null}::date,
+        ${l.answers ? tx.json(l.answers as unknown as postgres.JSONValue) : null}, ${l.unitExtrasAmount.toString()}, ${l.lineExtrasAmount.toString()})
     `
   }
   for (const p of s.parts) {
@@ -236,6 +243,20 @@ export const selectLivePaymentAccounts = (tx: ScopedSql, storeId: string): Promi
     where store_id = ${storeId} and status = 'live' and not paused_by_plan order by position, provider
   `
 
+/** An order line's answer as placement snapshotted it (DATA-MODEL §7.6; cart/answers.ts snapshotOf). */
+export interface SnapshotAnswer {
+  question: string
+  label: string
+  main_label: string | null
+  kind: 'choice' | 'text' | 'upload'
+  choices?: { choice: string; label: string; main_label: string | null; quantity: number; free: number; unit: string; amount: string; per: 'item' | 'line' }[]
+  text?: string | null
+  uploads?: string[]
+  unit: string | null
+  amount: string
+  per: 'item' | 'line' | null
+}
+
 export interface ShopOrderRow {
   id: string
   number: string
@@ -257,7 +278,7 @@ export interface ShopOrderRow {
   shipping_option: 'courier' | 'flat' | 'pickup' | 'own_delivery' | null
   placed_at: Date
   payment_due_by: Date | null
-  lines: { name: string; version_name: string | null; quantity: number; unit_amount: string; line_total_amount: string; gift: { recipientName: string; recipientEmail: string; sendOn: string | null } | null }[]
+  lines: { name: string; version_name: string | null; quantity: number; unit_amount: string; line_total_amount: string; gift: { recipientName: string; recipientEmail: string; sendOn: string | null } | null; answers: SnapshotAnswer[] | null }[]
   /** Each paid download's grant, and each key the order took (migration 0171): none before payment. */
   downloads: { id: string; name: string; uses_left: number; expires_at: string }[]
   keys: { name: string; key: string }[]
@@ -273,7 +294,7 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
         o.discount_amount::text as discount_amount, o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.gift_card_amount::text as gift_card_amount, o.tax_inclusive,
         o.shipping_method_label, o.shipping_option, o.placed_at, o.payment_due_by,
         coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', l.quantity,
-          'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text, 'gift', case when l.gift_recipient_email is null then null
+          'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text, 'answers', l.answers, 'gift', case when l.gift_recipient_email is null then null
             else json_build_object('recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'sendOn', l.gift_send_on) end) order by l.position)
           from order_line l where l.order_id = o.id), '[]'::json) as lines,
         coalesce((select json_agg(json_build_object('id', d.id, 'name', l.name, 'uses_left', d.uses_left, 'expires_at', d.expires_at) order by l.position)

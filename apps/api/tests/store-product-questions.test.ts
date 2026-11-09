@@ -4,7 +4,7 @@ import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
-import type { CallerContext } from '#core/tenancy'
+import type { CallerContext, SellerScope } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -133,7 +133,7 @@ describe('questions on a product (#1368)', () => {
 
   it('keeps question and choice ids across a save, so a cart’s answers still name them', async () => {
     const before = (await read(id)).data?.['product'] as { revision: number; questions: Q[] }
-    const kept = before.questions.map((q, qi) => ({
+    const kept: Record<string, unknown>[] = before.questions.map((q, qi) => ({
       ...cake[qi],
       id: q.id,
       ...(q.choices.length > 0 ? { choices: (cake[qi] as { choices: Record<string, unknown>[] }).choices.map((c, ci) => ({ ...c, id: q.choices[ci]?.id })) } : {}),
@@ -247,7 +247,7 @@ describe('suppliers’ questions (ACCESS §7.1–7.2)', () => {
 })
 
 describe('who reads the question rows (DATA-MODEL §7.11)', () => {
-  const caller = (sellerScope: CallerContext['sellerScope'], storeId = t.storeA1, partnerId = t.partnerA): CallerContext => ({
+  const caller = (sellerScope: SellerScope, storeId = t.storeA1, partnerId = t.partnerA): CallerContext => ({
     caller: { kind: 'person', userId: '00000000-0000-4000-8000-0000000000aa', sessionId: 's' },
     partnerId,
     storeId,

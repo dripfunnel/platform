@@ -141,6 +141,22 @@ export const registerCheckout = (shop: ShopBuilder) => {
     }),
   })
   const Key = builder.objectRef<ShopOrderRow['keys'][number]>('ShopOrderLicenceKey').implement({ fields: (t) => ({ name: t.exposeString('name'), key: t.exposeString('key') }) })
+  type Answer = NonNullable<ShopOrderRow['lines'][number]['answers']>[number]
+  const OrderAnswerChoice = builder.objectRef<NonNullable<Answer['choices']>[number]>('ShopOrderAnswerChoice').implement({
+    fields: (t) => ({ choiceId: t.exposeID('choice'), label: t.exposeString('label'), quantity: t.exposeInt('quantity'), free: t.exposeInt('free') }),
+  })
+  const OrderAnswer = builder.objectRef<Answer & { currency: string }>('ShopOrderAnswer').implement({
+    fields: (t) => ({
+      questionId: t.exposeID('question'),
+      question: t.exposeString('label'),
+      kind: t.string({ resolve: (a) => a.kind.toUpperCase() }),
+      choices: t.field({ type: [OrderAnswerChoice], resolve: (a) => a.choices ?? [] }),
+      text: t.string({ nullable: true, resolve: (a) => a.text ?? null }),
+      uploads: t.idList({ resolve: (a) => a.uploads ?? [] }),
+      amount: t.field({ type: money, resolve: (a) => ({ amount: BigInt(a.amount), currency: a.currency }) }),
+      per: t.string({ nullable: true, resolve: (a) => a.per?.toUpperCase() ?? null }),
+    }),
+  })
   const Line = builder.objectRef<ShopOrderRow['lines'][number] & { currency: string }>('ShopOrderLine').implement({
     fields: (t) => ({
       name: t.exposeString('name'),
@@ -149,6 +165,8 @@ export const registerCheckout = (shop: ShopBuilder) => {
       quantity: t.exposeInt('quantity'),
       unitPrice: t.field({ type: money, resolve: (l) => ({ amount: BigInt(l.unit_amount), currency: l.currency }) }),
       lineTotal: t.field({ type: money, resolve: (l) => ({ amount: BigInt(l.line_total_amount), currency: l.currency }) }),
+      // The answers as placed (#1368): what the shopper chose and what each added; empty on most lines.
+      answers: t.field({ type: [OrderAnswer], resolve: (l) => (l.answers ?? []).map((a) => ({ ...a, currency: l.currency })) }),
     }),
   })
   const Discount = builder.objectRef<ShopOrderRow['discounts'][number] & { currency: string }>('ShopOrderDiscount').implement({

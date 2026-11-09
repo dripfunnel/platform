@@ -286,3 +286,18 @@ alter policy translation_shop on translation using (app_setting_text('app.scope'
 -- "Include customisation extras" (OFFERS-DESIGN §3.1): off reads a customised line at its version's price alone.
 alter table promotion add column include_customisation boolean not null default true;
 grant insert (include_customisation), update (include_customisation) on promotion to app_request;
+
+-- A choice's photo is shown to shoppers with its question (a visible product's, by product_question_choice's shop rule).
+alter policy asset_shop on asset using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and (
+  storefront_visible
+  or exists (select 1 from product_photo x where x.asset_id = asset.id)
+  or exists (select 1 from product_video x where x.asset_id = asset.id)
+  or exists (select 1 from product_question_choice x where x.photo_asset_id = asset.id)
+  or exists (select 1 from collection x where x.image_asset_id = asset.id)
+  or exists (select 1 from product_story x where asset.id = any (x.asset_ids))
+  or exists (select 1 from story_block x where asset.id = any (x.asset_ids))
+  or exists (select 1 from store x where x.logo_asset_id = asset.id)
+  or exists (select 1 from storefront_content x where asset.id = any (x.asset_ids))
+  or exists (select 1 from storefront_content_translation x where asset.id = any (x.asset_ids))
+  or exists (select 1 from storefront_brand x where asset.id in (x.logo_asset_id, x.favicon_asset_id))
+  or exists (select 1 from storefront_seo x where x.share_asset_id = asset.id)));

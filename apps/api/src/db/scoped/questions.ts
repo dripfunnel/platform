@@ -226,3 +226,13 @@ export const touchProduct = async (tx: ScopedSql, storeId: string, id: string, r
   (await tx<{ slug: string }[]>`
     update product set updated_at = ${now}, revision = revision + 1 where id = ${id} and store_id = ${storeId} and revision = ${revision} and deleted_at is null returning slug
   `)[0] ?? null
+
+/** The shopper's language's words for these questions and choices, by `${entity}:${id}:${field}` (CATALOG fact 18). */
+export const selectQuestionWords = async (tx: ScopedSql, storeId: string, ids: readonly string[], language: string): Promise<Map<string, string>> => {
+  if (ids.length === 0) return new Map()
+  const rows = await tx<{ entity: string; entity_id: string; field: string; text: string }[]>`
+    select entity, entity_id, field, text from translation
+    where store_id = ${storeId} and language = ${language} and entity in ('question', 'question_choice') and entity_id = any (${pgArray(ids)}::text[])
+  `
+  return new Map(rows.map((r) => [`${r.entity}:${r.entity_id}:${r.field}`, r.text]))
+}

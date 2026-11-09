@@ -1703,6 +1703,7 @@ enum OrderFilter {
 
 type OrderLine {
   amount: Money
+  answers: [OrderLineAnswer!]
   discount: Money
   fulfilledQuantity: Int
   id: ID
@@ -1718,6 +1719,21 @@ type OrderLine {
   unitPrice: Money
   versionId: ID
   versionName: String
+}
+
+type OrderLineAnswer {
+  amount: Money
+  choices: [OrderLineAnswerChoice!]
+  kind: String
+  per: String
+  question: String
+  text: String
+}
+
+type OrderLineAnswerChoice {
+  free: Int
+  label: String
+  quantity: Int
 }
 
 type OrderPage {
