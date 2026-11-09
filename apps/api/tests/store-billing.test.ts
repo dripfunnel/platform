@@ -714,9 +714,10 @@ describe('the store’s data (`store.export`)', () => {
   const ask = (who: Who, as: 'person' | 'support' | 'impersonation' = 'person') => gql('mutation { exportStoreData }', who, {}, as)
   const parts = (who: Who, id: string) => gql('query E($id: ID!) { storeDataExport(id: $id) { kind state rows csv } }', who, { id })
 
-  it('is the Owner’s, also through staff or an allowed support session, never a Manager’s, Staff’s or supplier’s', async () => {
+  it('is the Owner’s, also through staff impersonating them, never a support session’s (its bundle holds the shoppers, ACCESS §8), a Manager’s, Staff’s or supplier’s', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await ask(who)).code).toBe('FORBIDDEN')
-    for (const as of ['support', 'impersonation'] as const) expect((await ask('owner', as)).code).toBeUndefined()
+    expect((await ask('owner', 'support')).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await ask('owner', 'impersonation')).code).toBeUndefined()
     expect((await parts('manager', crypto.randomUUID())).code).toBe('FORBIDDEN')
   })
 

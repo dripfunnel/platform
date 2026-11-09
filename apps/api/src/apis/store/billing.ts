@@ -4,7 +4,7 @@ import type { BillingDetailsRow, StoreInvoiceRow } from '#db/scoped/storeBilling
 import type { CatalogExportDto } from '#engine/modules/catalog/index'
 import { createStoreBillingService, createStoreDataExport, storeBillingAudit, storeDataAudit, type BillingSubscriptionDto, type StoreBillingRefusal, type StoreBillingResult } from '#saas/storeBilling/index'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { actingCaller, supportBlocked, type StoreContext } from './access'
 import { moneyType, pageInfoType, planValueType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -262,6 +262,8 @@ export const registerBilling = (builder: StoreBuilder) => {
   const dataExport = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
+    // The bundle holds the shoppers, which never reach a partner's support agent (ACCESS §8).
+    if (caller.context.caller.kind === 'support') throw supportBlocked()
     return createStoreDataExport({ sql: ctx.sql, caller, facts: ctx.facts, activity: ctx.activity, now: ctx.now })
   }
 

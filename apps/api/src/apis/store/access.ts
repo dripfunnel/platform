@@ -97,8 +97,8 @@ export const rateLimited = (retryAfterSeconds: number) => refusal('Too many requ
 export const supportBlocked = () => refusal('Only someone in the store can change this.', accessErrorCode.blockedForSupport)
 export const supportReadOnly = () => refusal('This support session is read-only until the store allows changes.', accessErrorCode.supportReadOnly)
 
-// ACCESS.md §8 "Never", by permission: allowing its own writes, and the shoppers. Owner changes are storePeople's.
-export const supportNeverWrites: readonly StorePermission[] = ['support.allow_write', 'customers.write', 'customers.export']
+// ACCESS.md §8 "Never", by permission: allowing its own writes, the shoppers, and the store's data and log leaving it.
+export const supportNeverWrites: readonly StorePermission[] = ['support.allow_write', 'customers.write', 'customers.export', 'store.export', 'activity.export']
 
 /** What a support session may not do in its seat; `supportOwn` fields are its own, so its read-only state never refuses them. */
 const admitSupport = (access: Access, seat: SupportSeat, permission: StorePermission, operation: string) => {
