@@ -13,6 +13,7 @@ import { storeSchema } from '#apis/store/schema'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
+import { apiKeyAudit } from '#saas/apiKeys/index'
 
 // Staff impersonating a store user on the store's portal host (ACCESS.md §8.1, §8.3): the exchange,
 // the caller, the blocked list, the notice, and every way a session ends.
@@ -160,6 +161,14 @@ describe('the caller', () => {
     const staff = await enter('tok-write')
     expect((await gql(`mutation { setPricesIncludeTax(included: true) }`, { staff })).code).toBeUndefined()
     expect(await entries(id)).toContainEqual(expect.objectContaining({ actor_kind: 'person', actor_id: people.owner, on_behalf_of_id: neha }))
+  })
+
+  it('makes an API key for the Owner, logged on the staff member’s behalf (#1344)', async () => {
+    const id = await started('owner', 'tok-key')
+    const staff = await enter('tok-key')
+    const made = await gql(`mutation { createApiKey(name: "Set up by support", scopes: ["catalog.read"]) { id } }`, { staff })
+    expect(made.code).toBeUndefined()
+    expect(await entries(id)).toContainEqual(expect.objectContaining({ action: apiKeyAudit.created, actor_kind: 'person', actor_id: people.owner, on_behalf_of_id: neha }))
   })
 })
 
