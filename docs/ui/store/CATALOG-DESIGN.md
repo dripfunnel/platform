@@ -623,7 +623,8 @@ tables.
     line's total as today, extras included.
 57. **Who sees what.**
     - **Vendors** write questions on their own products like any other product field, under
-      the same approval rule, and see answers and uploads only on their own lines (ACCESS
+      the same approval rule, where everything that sets what a question charges counts as a
+      price (ACCESS §7.2, U15), and see answers and uploads only on their own lines (ACCESS
       §7.1).
     - **Text answers and uploads are shopper details**: a partner support session sees them as
       `•••••`, like an order's free-text note (ACCESS §8).
@@ -1464,11 +1465,13 @@ property". Prices appear only when the merchant asks for one.
   as in C16: "Add at least one choice", "Write the question", "Type a price in INR", "They must pick
   at least 4 but can pick only 3".
 - U15. **Vendors** see the section on their own products (§3 fact 57) under the approval rule of
-  L1–L5 and E3, where an extra's price counts as a price (ACCESS §7.2): adding, changing or
-  removing one sends an approved product back, with "Your price change needs approval"; any other
-  change to its questions goes live. The merchant's review (L3) shows the questions. The merchant
-  editing a vendor's product sees E1's banner. A Stock only vendor sees the section
-  read-only (§4).
+  L1–L5 and E3, with the charge-setting fields of ACCESS §7.2 counting as a price: an extra's price
+  and per-version amounts, a list's free allowance and maximum picks, a choice's maximum quantity, per item or once
+  per line, a per-character question's maximum length, and on a question that charges whether it's
+  required, its minimum picks, its condition and its versions. Changing any of them sends an
+  approved product back, with "Your change to what shoppers pay needs approval"; any other change
+  to its questions goes live. The merchant's review (L3) shows the questions. The merchant editing
+  a vendor's product sees E1's banner. A Stock only vendor sees the section read-only (§4).
 - U16. **Translations** (part N): in a language's tab, question text, help and choice names are
   translatable; types, limits, prices and conditions are shared and locked, "same in every
   language".

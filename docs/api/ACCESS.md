@@ -913,7 +913,7 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   next publish. **An extra's price is a price** (decided here on #1367, so a vendor can't add a
   charge the merchant hasn't seen): a change to anything that sets what a question charges
   sends the product back: adding, changing or removing the price of a question or a choice
-  (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance, a choice's
+  (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance and maximum picks, a choice's
   maximum quantity, per item or once per line, and a per-character question's maximum length;
   and, on a question that charges (its own price or a priced choice), making it required, its
   minimum picks, its condition and its versions, which decide which shoppers pay it. Any other
@@ -1525,6 +1525,9 @@ builds the table must ship:
   `r2_key`; another cart's or store's upload id as an answer is `UPLOAD_NOT_FOUND`, and deleting
   another cart's or store's upload id (`DELETE /shop-api/uploads/{id}`) deletes nothing and answers
   `UPLOAD_NOT_FOUND`, by the `delete` branch's own-cart test, not by engine code alone;
+- a supplier writing a question, choice, amount or version row on another owner's product or question is refused: the
+  owner trigger, run as the supplier, finds no parent it can read (#1367; DATA-MODEL §7.3), and an update or delete of
+  another owner's row touches nothing;
 - a supplier reads the answers, and gets a file link, of its own lines only, `to-store` or
   `to-shopper`, never another owner's lines'; `app_supplier` selecting `shopper_upload` is refused
   by the grant;
