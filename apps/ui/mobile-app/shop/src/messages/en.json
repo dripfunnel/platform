@@ -525,7 +525,9 @@
     }
   },
   "permissions": {
-    "location": "Allow {name} to use your location to put the pin on your address."
+    "location": "Allow {name} to use your location to put the pin on your address.",
+    "photos": "Choose a photo from your library for {name} to make your order with.",
+    "camera": "Take a photo for {name} to make your order with."
   },
   "orders": {
     "title": "Orders",

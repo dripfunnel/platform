@@ -246,6 +246,14 @@ export const knownErrorCodes = [
   'CODE_LOCKED',
   'CODE_UNCONFIRMED',
   'CASH_NOT_CONFIRMED',
+  // Product customisation (#1367): answers refused, a version's second set of answers, and the shopper's files.
+  'ANSWERS_INVALID',
+  'ONE_LINE_PER_VERSION',
+  'FILE_TYPE',
+  'TOO_MANY_UPLOADS',
+  'UPLOAD_IN_USE',
+  'UPLOAD_NOT_FOUND',
+  'UNKNOWN_QUESTION',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',
