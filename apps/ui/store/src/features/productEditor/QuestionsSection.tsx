@@ -118,7 +118,7 @@ const PriceEditor = ({ price, set, kind, currency, manual, versions, disabled, l
   )
 }
 
-const ChoiceRow = ({ choice, set, remove, many, currency, manual, versions, disabled, problems, questionKey }: { choice: ChoiceDraft; set: (c: ChoiceDraft) => void; remove: () => void; many: boolean; currency: string; manual: readonly string[]; versions: Props['versions']; disabled: boolean; problems: readonly QuestionProblem[]; questionKey: string }) => {
+const ChoiceRow = ({ choice, set, remove, move, first, last, many, currency, manual, versions, disabled, problems, questionKey }: { choice: ChoiceDraft; set: (c: ChoiceDraft) => void; remove: () => void; move: (by: -1 | 1) => void; first: boolean; last: boolean; many: boolean; currency: string; manual: readonly string[]; versions: Props['versions']; disabled: boolean; problems: readonly QuestionProblem[]; questionKey: string }) => {
   const [uploading, setUploading] = useState(false)
   const own = problems.filter((p) => p.question === questionKey)
   return (
@@ -173,9 +173,17 @@ const ChoiceRow = ({ choice, set, remove, many, currency, manual, versions, disa
       <PriceEditor price={choice.price} set={(price) => set({ ...choice, price })} kind="CHOICE_ROW" currency={currency} manual={manual} versions={versions} disabled={disabled} label={choice.label || words.choice} />
       <Problem problems={own} field="price" choice={choice.key} currency={currency} />
       {!disabled && (
-        <button type="button" className="df-editor-link" aria-label={`${words.removeChoice}: ${choice.label}`} onClick={remove}>
-          {words.removeChoice}
-        </button>
+        <span className="df-question-actions">
+          <button type="button" className="df-editor-link" disabled={first} aria-label={`${words.moveUp}: ${choice.label || words.choice}`} onClick={() => move(-1)}>
+            {words.moveUp}
+          </button>
+          <button type="button" className="df-editor-link" disabled={last} aria-label={`${words.moveDown}: ${choice.label || words.choice}`} onClick={() => move(1)}>
+            {words.moveDown}
+          </button>
+          <button type="button" className="df-editor-link" aria-label={`${words.removeChoice}: ${choice.label}`} onClick={remove}>
+            {words.removeChoice}
+          </button>
+        </span>
       )}
     </li>
   )
@@ -254,6 +262,14 @@ const QuestionCard = ({ q, index, all, setQ, move, remove, props, problems }: { 
                 disabled={disabled}
                 set={(next) => setQ({ ...q, choices: q.choices.map((x, j) => (j === ci ? next : x)) })}
                 remove={() => setQ({ ...q, choices: q.choices.filter((_, j) => j !== ci) })}
+                first={ci === 0}
+                last={ci === q.choices.length - 1}
+                move={(by) => {
+                  const moved = [...q.choices]
+                  const [one] = moved.splice(ci, 1)
+                  if (one) moved.splice(ci + by, 0, one)
+                  setQ({ ...q, choices: moved })
+                }}
               />
             ))}
           </ul>

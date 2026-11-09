@@ -61,6 +61,7 @@ const offerSchema = z.object({
   perCustomerLimit: z.number().int().nullable(),
   usesCount: z.number().int(),
   combines: z.object({ product: z.boolean(), order: z.boolean(), shipping: z.boolean() }),
+  includeCustomisation: z.boolean().nullable().optional(),
   conditions: z.array(conditionSchema),
   action: actionSchema,
   revision: z.number().int(),
@@ -68,7 +69,7 @@ const offerSchema = z.object({
 export type Offer = z.infer<typeof offerSchema>
 export type OfferStatus = Offer['status']
 
-const offerFields = `id name internalName description trigger code status enabled startsAt endsAt totalUsesLimit perCustomerLimit usesCount revision
+const offerFields = `id name internalName description trigger code status enabled startsAt endsAt totalUsesLimit perCustomerLimit usesCount revision includeCustomisation
   combines { product order shipping }
   conditions { ${leafFields} conditions { ${leafFields} } }
   action { operation percent amounts { amount currency } cap { amount currency } ${targetFields} exclude { giftCards onSale }
@@ -240,11 +241,12 @@ export const saveOffer = async (id: string | null, revision: number | null, inpu
 const factsSchema = z.object({
   storeInfo: z.object({ timeZone: z.string(), country: z.string().nullable() }).nullable(),
   storeLocale: z.object({ pricingCurrency: z.string().nullable(), currencies: z.array(z.object({ code: z.string(), status: z.string() })), rates: z.array(z.object({ currency: z.string(), perEuro: z.string() })) }).nullable(),
+  hasCustomisation: z.boolean().nullable(),
 })
 
 /** What the editor needs of the store: its time zone and country, the currencies it sells in, and today's rates. */
 export const loadOfferFacts = async () => {
-  const { storeInfo, storeLocale } = await query('{ storeInfo { timeZone country } storeLocale { pricingCurrency currencies { code status } rates { currency perEuro } } }', factsSchema)
+  const { storeInfo, storeLocale, hasCustomisation } = await query('{ storeInfo { timeZone country } storeLocale { pricingCurrency currencies { code status } rates { currency perEuro } } hasCustomisation }', factsSchema)
   const main = storeLocale?.pricingCurrency
   // A guessed zone would schedule at the wrong moment while naming it as the store's; refuse instead (fact 9).
   if (!main || !storeInfo) throw new Error('The store has no pricing currency or time zone yet.')
@@ -254,6 +256,7 @@ export const loadOfferFacts = async () => {
     main,
     others: (storeLocale?.currencies ?? []).filter((c) => c.status === 'active' && c.code !== main).map((c) => c.code),
     perEuro: Object.fromEntries((storeLocale?.rates ?? []).map((r) => [r.currency, Number(r.perEuro)]).filter(([, n]) => Number(n) > 0)),
+    hasCustomisation: hasCustomisation ?? false,
   }
 }
 

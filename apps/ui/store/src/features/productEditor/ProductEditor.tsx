@@ -12,6 +12,7 @@ import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { editorAccessOf } from '../common/access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
+import { QuestionsSection } from './QuestionsSection'
 import { amountsOf, blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, withAmounts, type Draft, type DraftProblem, type ListingSection, type ProductKind, type Units } from '../common/productDraft'
 import { detailsOf, kindChanged, kindInputOf, kindProblemsOf, keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
 import { amountLabel, DownloadCard, GiftCardCard, ServiceCard } from './KindCards'
@@ -554,6 +555,15 @@ export const ProductEditor = () => {
               )}
           {physical && !made && <StockCard draft={draft} update={update} canStock={access.canStock && !saving} warehouses={view.warehouses} levels={product ? (view.levels.get(product.versions[0]?.id ?? '') ?? []) : []} versionId={product?.versions[0]?.id ?? null} problems={shownProblems} history={history} onHistory={toggleHistory} onAdjust={adjust} names={names} />}
           {draft.kind !== 'gift_card' && <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} photos={{ uploading: versionUploads, onFile: uploadVersionPhoto }} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />}
+          <QuestionsSection
+            draft={draft}
+            update={update}
+            disabled={disabled}
+            currency={currency}
+            manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)}
+            versions={draft.versions.filter((v) => v.choices.length > 0).map((v) => ({ key: versionKey(v.choices), label: v.choices.join(' / ') }))}
+            copy={product && !isNew ? { productId: product.id, revision: product.revision, dirty, onCopied: load } : null}
+          />
           <EditorSections
             draft={draft}
             update={update}

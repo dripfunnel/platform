@@ -1806,7 +1806,7 @@
     "questions": {
       "title": "Ask the shopper before they buy",
       "hint": "Ask for a name to engrave, toppings, a photo to print…",
-      "count": "{count} question|{count} questions",
+      "count": { "one": "{count} question", "other": "{count} questions" },
       "explain": "Versions are what you stock; questions are how you make it. Ask here for anything that changes how it’s made, not what’s on the shelf.",
       "add": "Add a question",
       "addChoice": "Choice list (e.g. Toppings)",
@@ -1887,7 +1887,7 @@
       "summaryOne": "Pick one",
       "summaryFree": "first {n} free, cheapest first",
       "summaryText": "Up to {n} characters",
-      "summaryUpload": "{n} file|{n} files",
+      "summaryUpload": { "one": "{n} file", "other": "{n} files" },
       "copy": "Copy questions from another product",
       "copySave": "Save your changes first",
       "copySearch": "Search products with questions",
@@ -5755,6 +5755,14 @@
       "leaveOut": "Leave out",
       "giftCards": "Gift cards",
       "onSale": "Products already reduced",
+      "extras": {
+        "label": "Include customisation extras",
+        "hint": "Take money off the extras shoppers choose too, like engraving or toppings.",
+        "offProducts": "Not on extras: {off} off the product's own price",
+        "offMoney": "money",
+        "offOrder": "Extras don't count towards the order total or the minimum",
+        "offBxgy": "Extras on the free item are still paid"
+      },
       "tiers": "Give more for bigger orders (steps)",
       "tierOff": "Discount, step {n}",
       "tierOver": "{unit} off orders over",

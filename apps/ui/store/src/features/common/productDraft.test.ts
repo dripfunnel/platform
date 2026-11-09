@@ -217,3 +217,15 @@ describe('a gift card’s amounts', () => {
     expect(problemsOf(named(none, 'Card'), 'INR')).toContain('price')
   })
 })
+
+describe('questions in the save (CATALOG U14)', () => {
+  it('sends none for a product that never had any, and sends them, or [] to remove them, once it has', async () => {
+    const { newQuestion } = await import('./productQuestions')
+    const blank = blankDraft()
+    const plain = { ...blank, name: 'Mug', versions: blank.versions.map((v) => ({ ...v, price: '200' })) }
+    expect(inputOf(plain, 'INR', 'merchant')).not.toHaveProperty('questions')
+    const asking = { ...plain, questions: [{ ...newQuestion('TEXT'), label: 'Name to engrave' }] }
+    expect(inputOf(asking, 'INR', 'merchant').questions).toMatchObject([{ kind: 'TEXT', label: 'Name to engrave' }])
+    expect(inputOf({ ...plain, hadQuestions: true }, 'INR', 'merchant').questions).toEqual([])
+  })
+})
