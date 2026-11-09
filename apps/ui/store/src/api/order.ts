@@ -5,6 +5,18 @@ import { moneySchema } from './orders'
 // An order and what its page does to it (FIRST-RELEASE §6, PortalOrders detail; apps/api/schema/store.graphql,
 // src/apis/store/orders.ts, payments.ts). A supplier reads only its own part, with no money, payment or contact.
 
+// A customised line's answers as placed (#1368; DATA-MODEL §7.6): text reads `•••••` and files have no link for support.
+const answerSchema = z.object({
+  question: z.string(),
+  kind: z.enum(['CHOICE', 'TEXT', 'UPLOAD']),
+  text: z.string().nullable(),
+  per: z.string().nullable(),
+  amount: moneySchema,
+  choices: z.array(z.object({ label: z.string(), quantity: z.number().int(), free: z.number().int() })),
+  files: z.array(z.object({ id: z.string(), mime: z.string(), bytes: z.number().int(), url: z.string().nullable() })),
+})
+export type OrderLineAnswer = z.infer<typeof answerSchema>
+
 const lineSchema = z.object({
   id: z.string(),
   productId: z.string(),
@@ -19,6 +31,7 @@ const lineSchema = z.object({
   returnedQuantity: z.number().int(),
   refundedQuantity: z.number().int(),
   sentToStoreQuantity: z.number().int(),
+  answers: z.array(answerSchema).nullable(),
 })
 export type OrderLine = z.infer<typeof lineSchema>
 
@@ -132,7 +145,8 @@ const quantities = '{ lineId quantity }'
 const money = '{ amount currency }'
 const orderFields = `id number state placedAt customerName
   shippingAddress { name line1 line2 city region postalCode country phone }
-  parts { id supplierId supplierName shippingMode state lines { id productId name versionName sku quantity unitPrice ${money} amount ${money} total ${money} fulfilledQuantity returnedQuantity refundedQuantity sentToStoreQuantity } }
+  parts { id supplierId supplierName shippingMode state lines { id productId name versionName sku quantity unitPrice ${money} amount ${money} total ${money} fulfilledQuantity returnedQuantity refundedQuantity sentToStoreQuantity
+    answers { question kind text per amount ${money} choices { label quantity free } files { id mime bytes url } } } }
   history { id action at actorKind actorName note }
   shipments { id kind supplierId warehouseName courierName trackingNumber trackingUrl shippedAt lines ${quantities} }
   returns { id number state reason startedAt lines ${quantities} }

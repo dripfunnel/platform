@@ -4768,7 +4768,17 @@
         "shipNow": "Ship now",
         "fewer": "Fewer of {name}",
         "more": "More of {name}",
-        "picked": "{picked} / {left}"
+        "picked": "{picked} / {left}",
+        "answers": {
+          "label": "Customisation",
+          "choice": "{label} × {count}",
+          "free": "free",
+          "perLine": "once per line",
+          "photo": "Photo {n}",
+          "pdf": "PDF {n}",
+          "download": "Download {name}",
+          "noLink": "{name} (hidden)"
+        }
       },
       "ship": {
         "title": {

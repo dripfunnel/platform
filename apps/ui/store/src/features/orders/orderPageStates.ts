@@ -16,6 +16,7 @@ const line = (l: Partial<OrderLine> & Pick<OrderLine, 'id' | 'name' | 'quantity'
   const amount = String(Number(each) * l.quantity)
   return {
     productId: `p-${l.id}`,
+    answers: null,
     versionName: null,
     sku: null,
     unitPrice: inr(each),
