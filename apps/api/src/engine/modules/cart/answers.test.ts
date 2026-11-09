@@ -94,6 +94,17 @@ describe('checking answers', () => {
     expect(checkAnswers([unsold], v1, 1n, [{ questionId: id(500), choices: [{ choiceId: id(501) }] }]).problems[0]?.reason).toBe('CHOICE_UNAVAILABLE')
   })
 
+  it('refuses a priced text or upload answer with no amount in this currency, naming no choice, never pricing it at 0', () => {
+    const engraving = question(600, { kind: 'text', minPicks: null, maxPicks: null, freePicks: null, maxLength: 20, multiline: false, price: fixed(null) })
+    const photo = question(700, { kind: 'upload', minPicks: null, maxPicks: null, freePicks: null, accept: 'image', maxFiles: 1, price: fixed(null) })
+    const checked = checkAnswers([engraving, photo], v1, 1n, [{ questionId: id(600), text: 'Asha' }, { questionId: id(700), uploadIds: [id(701)] }], () => true)
+    expect(checked.problems).toEqual([
+      { questionId: id(600), choiceId: null, reason: 'CHOICE_UNAVAILABLE' },
+      { questionId: id(700), choiceId: null, reason: 'CHOICE_UNAVAILABLE' },
+    ])
+    expect([checked.unitExtras, checked.lineExtras]).toEqual([0n, 0n])
+  })
+
   it('refuses an upload that isn’t this cart’s', () => {
     const photo = question(600, { kind: 'upload', minPicks: null, maxPicks: null, freePicks: null, accept: 'image', maxFiles: 1 })
     expect(checkAnswers([photo], v1, 1n, [{ questionId: id(600), uploadIds: [id(601)] }]).problems[0]?.reason).toBe('UPLOAD_NOT_FOUND')
