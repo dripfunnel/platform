@@ -1892,6 +1892,7 @@
       "copySave": "Save your changes first",
       "copySearch": "Search products with questions",
       "copyNone": "No products with questions match.",
+      "priceKind": "How it’s priced",
       "photoFailed": "Couldn’t add that photo. Use a JPG, PNG or WebP image and try again.",
       "versionsChanged": "The versions changed since these were ticked. Tick them again.",
       "copySearching": "Searching…",

@@ -66,7 +66,7 @@ const PriceEditor = ({ price, set, kind, currency, manual, versions, disabled, l
   return (
     <fieldset className="df-question-price" disabled={disabled}>
       <legend>{label}</legend>
-      <select aria-label={words.amountFixed} value={price.mode} onChange={(e) => set({ ...price, mode: e.target.value as PriceDraft['mode'] })}>
+      <select aria-label={words.priceKind} value={price.mode} onChange={(e) => set({ ...price, mode: e.target.value as PriceDraft['mode'] })}>
         {modes.map(({ m, text }) => (
           <option key={m} value={m}>
             {text}
@@ -120,7 +120,7 @@ const PriceEditor = ({ price, set, kind, currency, manual, versions, disabled, l
   )
 }
 
-const ChoiceRow = ({ choice, set, remove, move, first, last, many, currency, manual, versions, disabled, problems, questionKey }: { choice: ChoiceDraft; set: (c: ChoiceDraft) => void; remove: () => void; move: (by: -1 | 1) => void; first: boolean; last: boolean; many: boolean; currency: string; manual: readonly string[]; versions: Props['versions']; disabled: boolean; problems: readonly QuestionProblem[]; questionKey: string }) => {
+const ChoiceRow = ({ choice, set, setPhoto, remove, move, first, last, many, currency, manual, versions, disabled, problems, questionKey }: { choice: ChoiceDraft; set: (c: ChoiceDraft) => void; setPhoto: (assetId: string) => void; remove: () => void; move: (by: -1 | 1) => void; first: boolean; last: boolean; many: boolean; currency: string; manual: readonly string[]; versions: Props['versions']; disabled: boolean; problems: readonly QuestionProblem[]; questionKey: string }) => {
   const [uploading, setUploading] = useState(false)
   const [photoFailed, setPhotoFailed] = useState(false)
   const own = problems.filter((p) => p.question === questionKey)
@@ -168,7 +168,8 @@ const ChoiceRow = ({ choice, set, remove, move, first, last, many, currency, man
                   setPhotoFailed(false)
                   uploadPhoto(file)
                     .then((result) => {
-                      if (result.ok) set({ ...choice, photoAssetId: result.assetId })
+                      // By the choice's key against the latest list, so edits made meanwhile, or a move, are kept (never this render's copy).
+                      if (result.ok) setPhoto(result.assetId)
                       else setPhotoFailed(true)
                     }, () => setPhotoFailed(true))
                     .finally(() => setUploading(false))
@@ -202,7 +203,7 @@ const ChoiceRow = ({ choice, set, remove, move, first, last, many, currency, man
   )
 }
 
-const QuestionCard = ({ q, index, all, setQ, move, remove, props, problems }: { q: QuestionDraft; index: number; all: readonly QuestionDraft[]; setQ: (q: QuestionDraft) => void; move: (by: -1 | 1) => void; remove: () => void; props: Props; problems: readonly QuestionProblem[] }) => {
+const QuestionCard = ({ q, index, all, setQ, patchChoice, move, remove, props, problems }: { q: QuestionDraft; index: number; all: readonly QuestionDraft[]; setQ: (q: QuestionDraft) => void; patchChoice: (choiceKey: string, patch: Partial<ChoiceDraft>) => void; move: (by: -1 | 1) => void; remove: () => void; props: Props; problems: readonly QuestionProblem[] }) => {
   const { disabled, currency, manual, versions } = props
   const [confirming, setConfirming] = useState(false)
   const own = problems.filter((p) => p.question === q.key && p.choice === null)
@@ -226,13 +227,13 @@ const QuestionCard = ({ q, index, all, setQ, move, remove, props, problems }: { 
         <span>{summary}</span>
         {!disabled && (
           <span className="df-question-actions">
-            <button type="button" className="df-editor-link" disabled={index === 0} onClick={() => move(-1)}>
+            <button type="button" className="df-editor-link" disabled={index === 0} aria-label={`${words.moveUp}: ${q.label || words.question}`} onClick={() => move(-1)}>
               {words.moveUp}
             </button>
-            <button type="button" className="df-editor-link" disabled={index === all.length - 1} onClick={() => move(1)}>
+            <button type="button" className="df-editor-link" disabled={index === all.length - 1} aria-label={`${words.moveDown}: ${q.label || words.question}`} onClick={() => move(1)}>
               {words.moveDown}
             </button>
-            <button type="button" className="df-editor-link" onClick={() => setConfirming(true)}>
+            <button type="button" className="df-editor-link" aria-label={`${words.delete}: ${q.label || words.question}`} onClick={() => setConfirming(true)}>
               {words.delete}
             </button>
           </span>
@@ -267,6 +268,7 @@ const QuestionCard = ({ q, index, all, setQ, move, remove, props, problems }: { 
           <ul className="df-question-choices">
             {q.choices.map((c, ci) => (
               <ChoiceRow
+                setPhoto={(photoAssetId) => patchChoice(c.key, { photoAssetId })}
                 key={c.key}
                 choice={c}
                 many={many}
@@ -547,6 +549,7 @@ export const QuestionsSection = (props: Props) => {
             props={props}
             problems={problems}
             setQ={(next) => setQuestions((list) => list.map((x, j) => (j === i ? next : x)))}
+            patchChoice={(choiceKey, patch) => setQuestions((list) => list.map((x) => (x.key === q.key ? { ...x, choices: x.choices.map((c) => (c.key === choiceKey ? { ...c, ...patch } : c)) } : x)))}
             move={(by) =>
               setQuestions((list) => {
                 const moved = [...list]
