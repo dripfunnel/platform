@@ -161,6 +161,9 @@ export function CustomiseSheet({ product, versionId, quantity, initial, intent, 
         const token = await addWithAnswers(client, versionId, quantity, sent)
         if (token) await saveCartToken(token)
       }
+      // A file of a question no longer asked went with no answer: taken back, as no line names it.
+      const kept = new Set(sent.flatMap((a) => a.uploadIds ?? []))
+      for (const id of uploadedHere.current) if (!kept.has(id)) void removeFile(host, uploadHeaders(), id)
       uploadedHere.current.clear()
       onDone()
     } catch (e) {

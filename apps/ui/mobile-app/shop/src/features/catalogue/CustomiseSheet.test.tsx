@@ -310,6 +310,26 @@ describe('the sheet’s uploads, harder cases', () => {
     expect(net.calls).toContain('DELETE https://acme.my-store.one/shop-api/uploads/left')
   })
 
+  it('takes back a file of a question hidden before Confirm, and keeps the ones the line names', async () => {
+    const net = fakeNetwork(200, { id: 'hidden-file', kind: 'image' })
+    const wrap = { id: 'q-wrap', kind: 'CHOICE', label: 'Gift wrap', help: null, required: false, minPicks: 0, maxPicks: 1, freePicks: 0, maxLength: null, multiline: null, example: null, accept: null, maxFiles: null, versionIds: null, shownIf: null, price: null, choices: [{ id: 'c-yes', label: 'Yes', available: true, maxQuantity: 1, photo: null, price: null }] }
+    const card = { ...photoQuestion[0], id: 'q-card', label: 'Card photo', shownIf: { questionId: 'q-wrap', choiceId: 'c-yes' } }
+    const shop = fakeShop(({ query }) => (query.includes('customisationQuote') ? quote('149900') : query.includes('addToCart') ? { addToCart: { cartToken: null } } : productAnswer(tee({ questions: [wrap, card] }))))
+    const screen = await render(<ProductScreen slug="tee-p1" />, shop)
+    await press(screen, 'Sand')
+    await press(screen, 'M')
+    await press(screen, t('product.addToCart'))
+    await press(screen, 'Yes')
+    await press(screen, t('customise.addPhoto'))
+    await wait()
+    await press(screen, t('customise.none'))
+    await wait()
+    await pressInSheet(screen, t('customise.add'))
+    await wait()
+    expect(shop.requests.some((r) => r.query.includes('addToCart'))).toBe(true)
+    expect(net.calls).toContain('DELETE https://acme.my-store.one/shop-api/uploads/hidden-file')
+  })
+
   it('says when photos are off for the app, and uploads nothing', async () => {
     const net = fakeNetwork(200, { id: 'never', kind: 'image' })
     jest.mocked(ImagePicker.requestMediaLibraryPermissionsAsync).mockResolvedValueOnce({ granted: false } as Awaited<ReturnType<typeof ImagePicker.requestMediaLibraryPermissionsAsync>>)
