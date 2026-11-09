@@ -301,6 +301,15 @@ describe('the sheet’s uploads, harder cases', () => {
     expect(hasText(screen, 'photo.jpg')).toBe(false)
   })
 
+  it('takes back its uploads when the screen goes without Cancel', async () => {
+    const net = fakeNetwork(200, { id: 'left', kind: 'image' })
+    const { screen } = await openWith()
+    await press(screen, t('customise.addPhoto'))
+    await wait()
+    await act(async () => screen.unmount())
+    expect(net.calls).toContain('DELETE https://acme.my-store.one/shop-api/uploads/left')
+  })
+
   it('says when photos are off for the app, and uploads nothing', async () => {
     const net = fakeNetwork(200, { id: 'never', kind: 'image' })
     jest.mocked(ImagePicker.requestMediaLibraryPermissionsAsync).mockResolvedValueOnce({ granted: false } as Awaited<ReturnType<typeof ImagePicker.requestMediaLibraryPermissionsAsync>>)
