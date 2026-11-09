@@ -304,12 +304,12 @@ export const copyProductQuestions = async (fromProductId: string, toProductId: s
     )
   ).copyProductQuestions
 
-/** Products the person can see that ask questions, by a search, with how many (U12's product search). */
+/** Products the person can see that ask questions, filtered by the API, by a search, with how many (U12's product search). */
 export const searchProductsWithQuestions = async (search: string): Promise<{ id: string; name: string; questionCount: number }[]> =>
   (
     await query(
-      'query S($search: String) { products(search: $search, first: 50) { nodes { id name questionCount } } }',
+      'query S($search: String) { products(filter: "with_questions", search: $search, first: 50) { nodes { id name questionCount } } }',
       z.object({ products: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string(), questionCount: z.number().int() })) }) }),
       { search: search.trim() || null },
     )
-  ).products.nodes.filter((p) => p.questionCount > 0)
+  ).products.nodes
