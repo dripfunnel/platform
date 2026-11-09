@@ -492,7 +492,7 @@ Design each module's responsibilities, tables, public API, events and invariants
     image opens inline; a PDF only downloads (`Content-Disposition: attachment`).
   - **The public APIs** gain each line's answers as new, additive fields (the Store API's
     `OrderLine.answers`, the Shop API's `ShopOrderLine.answers`). Order webhooks carry the order's
-    id and number only, as today, so the answers come with the order read (#1368).
+    id and number only, as today, so answers come with the order read and no outbox row holds them (#1368).
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided
