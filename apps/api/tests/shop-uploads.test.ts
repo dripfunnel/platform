@@ -165,9 +165,14 @@ describe('a shopper’s files (#1369)', () => {
     expect(queued?.payload.key).toMatch(new RegExp(`^stores/${storeId}/shopper-uploads/[0-9a-f-]{36}/${spare}$`))
     expect(bucket.has(queued?.payload.key ?? '')).toBe(true)
     // A row naming another store can't delete this store's file.
-    await expect(uploadDeleteDeliverer(files).deliver({ payload: queued?.payload, storeId: crypto.randomUUID() } as never, new AbortController().signal)).rejects.toThrow()
+    await expect(uploadDeleteDeliverer(db.sql, files).deliver({ payload: queued?.payload, storeId: crypto.randomUUID() } as never, new AbortController().signal)).rejects.toThrow()
     expect(bucket.has(queued?.payload.key ?? '')).toBe(true)
-    await uploadDeleteDeliverer(files).deliver({ payload: queued?.payload, storeId } as never, new AbortController().signal)
+    // A job naming a file still on record (in use by a line) deletes nothing.
+    const live = (await db.sql<{ order_id: string }[]>`select order_id from shopper_upload where id = ${first}`)[0]?.order_id ?? ''
+    const liveKey = `stores/${storeId}/shopper-uploads/${live}/${first}`
+    await expect(uploadDeleteDeliverer(db.sql, files).deliver({ payload: { key: liveKey }, storeId } as never, new AbortController().signal)).rejects.toThrow()
+    expect(bucket.has(liveKey)).toBe(true)
+    await uploadDeleteDeliverer(db.sql, files).deliver({ payload: queued?.payload, storeId } as never, new AbortController().signal)
     expect(bucket.has(queued?.payload.key ?? '')).toBe(false)
   })
 

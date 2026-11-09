@@ -43,6 +43,10 @@ export const releaseCartUploads = async (tx: ScopedSql, orderId: string, ids: re
   return rows.map((r) => r.id)
 }
 
+/** Whether a row still names this key, in system scope: the deletion job never removes a file still on record. */
+export const uploadKeyInUse = async (tx: ScopedSql, storeId: string, key: string): Promise<boolean> =>
+  (await tx`select 1 from shopper_upload where store_id = ${storeId} and r2_key = ${key} limit 1`).length > 0
+
 /** A file a signed link may still open: its store not suspended, cancelled or closed (the link outlives no store; #1369). */
 export const selectServableUpload = async (tx: ScopedSql, storeId: string, id: string): Promise<{ id: string; mime: UploadMime; bytes: number; r2_key: string } | null> =>
   (await tx<{ id: string; mime: UploadMime; bytes: number; r2_key: string }[]>`
