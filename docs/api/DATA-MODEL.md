@@ -2703,7 +2703,9 @@ decide which columns and which tables each caller kind may select at all**. `app
   - **Supplier's orders**: `order_line_for_supplier` gains `answers` for its own lines, and its
     `line_amount` becomes `unit_amount × quantity + line_extras_amount`. `app_supplier` has no
     grant on `shopper_upload`; the engine mints a supplier's link to a file in system scope after
-    `order_line_for_supplier` shows the line is its own.
+    `order_line_for_supplier` shows the line is its own, and only for an upload id that line's
+    `answers` snapshot names, whose row has that line's store and order: a supplier's own line
+    never opens another order's or another store's file.
   - **Merchant side's files**: `app_request` reads `shopper_upload` without `r2_key`; a file opens
     only through the engine's short-lived signed link.
   - **Support**: no policy of its own. The Store API shows a partner support session every text
