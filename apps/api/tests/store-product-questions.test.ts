@@ -257,17 +257,55 @@ describe('who reads the question rows (DATA-MODEL §7.11)', () => {
   const shopper = (storeId = t.storeA1, partnerId = t.partnerA): CallerContext => ({ caller: { kind: 'shopper', customerId: null }, partnerId, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
   const count = (context: CallerContext) => withScope(db.sql, context, async (tx) => (await tx<{ n: number }[]>`select count(*)::int as n from product_question`)[0]?.n ?? 0)
 
-  it('holds a supplier to its own products’, another store to none, and a shopper to visible products’', async () => {
-    const all = await count(caller({ kind: 'all' }))
-    const supplier = await count(caller({ kind: 'seller', sellerId: t.sellerA1First }))
-    expect(all).toBeGreaterThan(supplier)
-    expect(supplier).toBeGreaterThan(0)
-    expect(await count(caller({ kind: 'seller', sellerId: t.sellerA1Second }))).toBe(0)
-    expect(await count(caller({ kind: 'all' }, t.storeB1, t.partnerB))).toBe(0)
-    const visible = await count(shopper())
-    await db.sql`update product set visibility = 'hidden' where store_id = ${t.storeA1} and name = 'Birthday cake'`
-    expect(await count(shopper())).toBe(visible - 4)
-    expect(await count(shopper(t.storeB1, t.partnerB))).toBe(0)
+  it('holds a supplier to its own products’, another store to none, and a shopper to visible products’, on every question table', async () => {
+    const tables = ['product_question', 'product_question_choice', 'product_question_amount', 'product_question_version'] as const
+    const counts = (context: CallerContext) =>
+      withScope(db.sql, context, async (tx) => Object.fromEntries(await Promise.all(tables.map(async (table) => [table, (await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from ${table}`))[0]?.n ?? 0] as const))))
+    const cake = (await db.sql<{ id: string }[]>`select id from product where store_id = ${t.storeA1} and name = 'Birthday cake' order by created_at limit 1`)[0]?.id ?? ''
+    const cakeRows = Object.fromEntries(await Promise.all(tables.map(async (table) => [table, (await db.sql.unsafe<{ n: number }[]>(`select count(*)::int as n from ${table} where product_id = $1`, [cake]))[0]?.n ?? 0] as const)))
+    expect(cakeRows).toMatchObject({ product_question: 4, product_question_version: 1 })
+    expect(cakeRows['product_question_choice']).toBeGreaterThan(0)
+    expect(cakeRows['product_question_amount']).toBeGreaterThan(0)
+
+    const all = await counts(caller({ kind: 'all' }))
+    const supplier = await counts(caller({ kind: 'seller', sellerId: t.sellerA1First }))
+    expect(all['product_question']).toBeGreaterThan(supplier['product_question'] ?? 0)
+    expect(supplier['product_question']).toBeGreaterThan(0)
+    for (const table of tables) {
+      expect({ table, other: (await counts(caller({ kind: 'seller', sellerId: t.sellerA1Second })))[table] }).toEqual({ table, other: 0 })
+      expect({ table, storeB: (await counts(caller({ kind: 'all' }, t.storeB1, t.partnerB)))[table] }).toEqual({ table, storeB: 0 })
+      expect({ table, shopperB: (await counts(shopper(t.storeB1, t.partnerB)))[table] }).toEqual({ table, shopperB: 0 })
+    }
+
+    // A choice's photo and a question's translation reach a shopper with the product, and leave with it.
+    const [asset] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum)
+      values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.jpg`}, 'image', 'image/jpeg', 10, ${'a'.repeat(64)}) returning id`
+    const firstChoice = (await db.sql<{ id: string; question_id: string }[]>`select id, question_id from product_question_choice where product_id = ${cake} order by position limit 1`)[0]
+    await db.sql`update product_question_choice set photo_asset_id = ${asset?.id ?? ''} where id = ${firstChoice?.id ?? ''}`
+    await db.sql`insert into store_language (store_id, language, status) values (${t.storeA1}, 'hi-IN', 'active') on conflict do nothing`
+    await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'question', ${firstChoice?.question_id ?? ''}, 'name', 'hi-IN', 'टॉपिंग', md5('Extra toppings'))`
+    const shopperSees = () =>
+      withScope(db.sql, shopper(), async (tx) => ({
+        photo: (await tx<{ n: number }[]>`select count(*)::int as n from asset where id = ${asset?.id ?? ''}`)[0]?.n ?? 0,
+        words: (await tx<{ n: number }[]>`select count(*)::int as n from translation where entity = 'question' and entity_id = ${firstChoice?.question_id ?? ''}`)[0]?.n ?? 0,
+      }))
+    expect(await shopperSees()).toEqual({ photo: 1, words: 1 })
+    const visible = await counts(shopper())
+    await db.sql`update product set visibility = 'hidden' where id = ${cake}`
+    const hidden = await counts(shopper())
+    for (const table of tables) expect({ table, gone: (visible[table] ?? 0) - (hidden[table] ?? 0) }).toEqual({ table, gone: cakeRows[table] })
+    expect(await shopperSees()).toEqual({ photo: 0, words: 0 })
+    await db.sql`update product set visibility = 'visible' where id = ${cake}`
+  })
+
+  it('never lets a supplier write into another owner’s questions', async () => {
+    const theirs = (await db.sql<{ id: string }[]>`select q.id from product_question q join product p on p.id = q.product_id where p.seller_id = ${t.sellerA1First} limit 1`)[0]?.id ?? ''
+    const merchants = (await db.sql<{ id: string; product_id: string }[]>`select q.id, q.product_id from product_question q join product p on p.id = q.product_id where p.store_id = ${t.storeA1} and p.seller_id is null limit 1`)[0]
+    const other = caller({ kind: 'seller', sellerId: t.sellerA1Second })
+    await expect(withScope(db.sql, other, (tx) => tx`insert into product_question_choice (question_id, product_id, store_id, label, position) values (${theirs}, ${merchants?.product_id ?? ''}, ${t.storeA1}, 'Sneaky', 9)`)).rejects.toThrow()
+    expect(await withScope(db.sql, other, async (tx) => (await tx`update product_question set label = 'Taken' where id = ${theirs}`).count)).toBe(0)
+    expect(await withScope(db.sql, other, async (tx) => (await tx`delete from product_question where id = ${merchants?.id ?? ''}`).count)).toBe(0)
+    await expect(withScope(db.sql, other, (tx) => tx`insert into product_question (product_id, store_id, kind, label, position, multiline, max_length) values (${merchants?.product_id ?? ''}, ${t.storeA1}, 'text', 'Mine now', 9, false, 10)`)).rejects.toThrow()
   })
 })
 

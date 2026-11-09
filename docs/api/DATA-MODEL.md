@@ -1228,8 +1228,9 @@ product_approved_snapshot
                     -- per version_price row at approval, every amount with its currency (§7.1);
                     -- extras (#1367) the price columns of its questions and choices and their
                     -- product_question_amount rows, since an extra's price is a price (ACCESS §7.2).
-                    -- Not built (#1368): a supplier's save compares the stored rows, an extra's
-                    -- price among them (catalog/questions.ts extrasPriceChanged), as for versions
+                    -- Not built (found on #1368): no migration creates this table; a supplier's
+                    -- save compares the stored rows instead (catalog/rules.ts reviewedChanges), an
+                    -- extra's price among them (catalog/questions.ts extrasPriceChanged)
                     -- what the last approval accepted, so a save knows whether it must go
                     -- back to pending (ACCESS §7.2, decided 2026-10-02)
 product_option      (id, product_id, store_id, seller_id NULL, name, position)   -- "Size", "Colour" (fact 3)
@@ -1665,7 +1666,9 @@ view of the two.
                     -- number and placement columns come with placement (SAPI 10, SAPI 11).
                     -- Decided on #308: a cart stores no price at all. Its lines are cart_line
                     -- (order_id, store_id, version_id, quantity 1..999, added_at; PRIMARY KEY
-                    -- (order_id, version_id)) and the engine prices them on every read,
+                    -- (order_id, version_id), which #1367's customisation widens to
+                    -- (order_id, version_id, answers_key) with id and answers, below) and the
+                    -- engine prices them on every read,
                     -- so a shopper's write can never be a price; order_line is written at
                     -- placement only. The guest policies compare access_token_hash with
                     -- current_order_token_hash() directly (a lookup function couldn't see a row
