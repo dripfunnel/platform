@@ -274,3 +274,61 @@ describe('answers in the order summary at review', () => {
     expect(html).toContain('Your photos: 2 files')
   })
 })
+
+describe('the modal’s last rules', () => {
+  it('clears an optional pick-one answer with None', async () => {
+    rememberQuestions({ id: 'p6', name: 'Card', versionIds: ['v-n'], questions: [{ ...base, id: 'q-n', kind: 'CHOICE', label: 'Envelope', choices: [choice('c-red', 'Red', 0)] }] })
+    const asked = shopAnswering(() => quote(500))
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-n">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    expect(modal.getByRole('radio', { name: 'None' })).toHaveProperty('checked', true)
+    await act(async () => void fireEvent.click(modal.getByRole('radio', { name: /Red/ })))
+    await act(async () => void fireEvent.click(modal.getByRole('radio', { name: 'None' })))
+    await waitFor(() => expect(asked.at(-1)?.variables['answers']).toEqual([]))
+  })
+
+  it('never keeps a file removed while it was still uploading, and takes it back', async () => {
+    rememberQuestions({ id: 'p7', name: 'Print', versionIds: ['v-p'], questions: [{ ...base, id: 'q-p', kind: 'UPLOAD', label: 'Your photo' }] })
+    const asked = shopAnswering(() => quote(900))
+    let finish: () => void = () => undefined
+    class Slow {
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror = null
+      status = 200
+      responseText = JSON.stringify({ id: 'late-file', kind: 'image' })
+      open() {}
+      setRequestHeader() {}
+      send() {
+        finish = () => this.onload?.()
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', Slow)
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-p">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    const input = modal.getByText('Add a photo').querySelector('input') as HTMLInputElement
+    await act(async () => void fireEvent.change(input, { target: { files: [new File(['x'], 'me.jpg', { type: 'image/jpeg' })] } }))
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Remove me.jpg' })))
+    await act(async () => finish())
+    // The file that arrived after its row was removed is deleted at once.
+    const fetched = (globalThis.fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls
+    await waitFor(() => expect(fetched.some(([url, init]) => url === '/shop-api/uploads/late-file' && init.method === 'DELETE')).toBe(true))
+    expect(asked.filter((a) => a.query.includes('customisationQuote')).every((a) => JSON.stringify(a.variables['answers']) === '[]')).toBe(true)
+    expect(modal.queryByText('me.jpg')).toBeNull()
+  })
+
+  it('shows keyboard focus on the file button, whose input is visually hidden', async () => {
+    const { sealedCss } = await import('./styles')
+    expect(sealedCss('customise')).toContain('label[part~=button]:has(input:focus-visible)')
+  })
+})

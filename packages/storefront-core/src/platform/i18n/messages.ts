@@ -162,6 +162,7 @@ export const en = {
   'customise.editTitle': 'Change your choices for {name}',
   'customise.required': 'Required',
   'customise.optional': 'Optional',
+  'customise.none': 'None',
   'customise.pickUpTo': 'Pick up to {count}',
   'customise.pickAtLeast': 'Pick at least {count}',
   'customise.free': '{count, plural, one {The first one is free} other {The first # are free}}',

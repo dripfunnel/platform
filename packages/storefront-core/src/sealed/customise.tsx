@@ -117,6 +117,8 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
     onClose(done)
   }
 
+  // Rows the shopper removed while their file was still going up: its answer is never kept, and the file is taken back.
+  const dropped = useRef(new Set<string>())
   const upload = (q: Question, file: File) => {
     const key = `${q.id}-${Date.now()}-${file.name}`
     const row: FileState = { key, name: file.name, id: null, percent: 0, failed: null }
@@ -124,6 +126,7 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
     const patch = (change: Partial<FileState>) => setFiles((all) => ({ ...all, [q.id]: (all[q.id] ?? []).map((f) => (f.key === key ? { ...f, ...change } : f)) }))
     void uploadAnswerFile(client, q.id, file, (sentShare) => patch({ percent: sentShare })).then((result) => {
       if (!result.ok) return patch({ failed: refusalKeys.includes(result.code) ? `customise.refused.${result.code}` : 'customise.refused.other' })
+      if (dropped.current.has(key)) return void removeAnswerFile(client, result.id)
       patch({ id: result.id, percent: 1 })
       setAnswers((list) => {
         const was = list.find((a) => a.questionId === q.id)?.uploadIds ?? []
@@ -133,7 +136,10 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
   }
   const removeFile = (q: Question, f: FileState) => {
     setFiles((all) => ({ ...all, [q.id]: (all[q.id] ?? []).filter((x) => x.key !== f.key) }))
-    if (!f.id) return
+    if (!f.id) {
+      dropped.current.add(f.key)
+      return
+    }
     const id = f.id
     setAnswers((list) => list.map((a) => (a.questionId === q.id ? { ...a, uploadIds: (a.uploadIds ?? []).filter((u) => u !== id) } : a)))
     // A file no line names yet goes at once; one a line holds stays until that line's answers change (UPLOAD_IN_USE).
@@ -205,6 +211,13 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
                     </p>
                   )}
                 </div>
+                {/* An optional pick-one list offers "None": a radio can't be unticked (fact 53). */}
+                {q.kind === 'CHOICE' && q.maxPicks === 1 && !q.required && q.minPicks === 0 && (
+                  <label part="choice">
+                    <input type="radio" name={q.id} checked={!(a?.choices ?? []).some((x) => x.quantity > 0)} onChange={() => set(q.id, { choices: [] })} />
+                    <span>{t('customise.none')}</span>
+                  </label>
+                )}
                 {q.kind === 'CHOICE' &&
                   q.choices.map((c) => {
                     const picked = a?.choices?.find((x) => x.choiceId === c.id)?.quantity ?? 0
