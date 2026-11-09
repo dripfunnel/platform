@@ -894,11 +894,11 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   vendor writes questions on its own products like any other product field, under §7.2's rule, where
   an extra's price counts as a price, and never on the merchant's or another vendor's. It sees the answers and uploads of **its own lines only**, whatever its
   shipping mode, since it makes the item: through `order_line_for_supplier` and a file link the
-  engine mints after checking the line is its own (DATA-MODEL §7.11). The answers are the item's
-  specification, not the customer's details, so a `to-store` supplier gets them too: it is the one
-  making the engraving or the print. That is the least it needs: the answers and files of its own
-  lines, read through the serializer's customer rule like any other line. A `to-store` part still
-  shows it no name, email, phone or address (§7.3).
+  engine mints after checking the line is its own (DATA-MODEL §7.11). Text answers and uploads are
+  shopper details (CATALOG-DESIGN fact 57), but they are also what the item is made from, so a
+  `to-store` supplier gets its own lines' answers too: the **one exception to §7.3**, decided on
+  #1367 by the unattended run (the card says vendors see answers on their own lines and names no
+  mode), for Gaurav to confirm. It gets nothing else of the customer: no name, email, phone or address.
 
 ### 7.2 Approval is a per-store setting
 
@@ -955,7 +955,7 @@ first platform's constructed view.
   scoped layer filters it.
 - **Customer data**, applied in the serializer and never in the UI (PLATFORM-PROMPT §5.4),
   **by the part's stored mode**: a **`to-store`** part shows the supplier **nothing** of the
-  customer, not even a name (a customised line's answers are the item's specification, §7.1); the order shows "For <store>". A **`to-shopper`** part shows
+  customer, not even a name, except its own lines' answers to a product's questions (§7.1); the order shows "For <store>". A **`to-shopper`** part shows
   **name and delivery address, never email or phone**. The merchant's order view says which
   mode each part is in. The isolation matrix includes a supplier switched from `to-store` to
   `to-shopper` still seeing nothing on the orders placed before the switch.
