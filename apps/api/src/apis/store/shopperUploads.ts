@@ -41,7 +41,7 @@ export const handleShopperUpload = async (request: Request, ctx: Pick<StoreConte
       'content-disposition': file.mime === 'application/pdf' ? `attachment; filename="${fileId}.pdf"` : 'inline',
       'cache-control': `private, max-age=${uploadLinkSeconds}`,
       'x-content-type-options': 'nosniff',
-      'content-security-policy': "default-src 'none'; img-src 'self'",
+      'content-security-policy': "default-src 'none'; img-src 'self'; sandbox",
       // Never hand the link on as a referrer.
       'referrer-policy': 'no-referrer',
     },
