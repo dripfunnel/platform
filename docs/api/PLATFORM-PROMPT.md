@@ -463,10 +463,11 @@ Design each module's responsibilities, tables, public API, events and invariants
   - **Uploads** (`POST /shop-api/uploads?question={id}`, the raw file; built by #1369): the type
     is checked by the file's content, never its name or declared type, against what the
     question accepts; at most 10 MB; only for an upload question of a visible product;
-    rate-limited per cart (`UPLOAD_RATE_LIMITER`, 10 a minute) and per host and address as
-    every Shop API call. Refusals: `FILE_TYPE`,
-    `FILE_TOO_LARGE`, `UNKNOWN_QUESTION`, `RATE_LIMITED`. Uploading with no cart makes one, as
-    `addToCart` does. No file name or content is logged.
+    bounded three ways, since carts cost nothing to make: 10 a minute per cart
+    (`UPLOAD_RATE_LIMITER`), 20 a minute per host and address (`UPLOAD_ADDRESS_RATE_LIMITER`),
+    and at most 50 files a cart (`TOO_MANY_UPLOADS`). Refusals: `FILE_TYPE`, `FILE_TOO_LARGE`,
+    `UNKNOWN_QUESTION`, `TOO_MANY_UPLOADS`, `RATE_LIMITED`. Uploading with no cart makes one,
+    as `addToCart` does. No file name or content is logged. Retention is DATA-MODEL §7.6's.
   - **Order webhooks and the public APIs** gain each line's answers as new, additive fields,
     through the outbox.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),

@@ -1724,7 +1724,11 @@ shopper_upload      (id, store_id, order_id, question_id NULL, r2_key, mime ('im
                     -- RESTRICT, and the expired-cart sweep skips a cart that holds uploads, so
                     -- every file stays reachable through its cart or order (customer_id, or a
                     -- guest's email), which is how export and erasure find it (§7.5); clearing
-                    -- unordered carts' uploads, cart and files together, is a later card.
+                    -- unordered carts' uploads, cart and files together, is a later card. A
+                    -- cart that never had a customer or an email names no one, so no data
+                    -- request can reach its files: they wait for that card, bounded meanwhile
+                    -- by the upload limits (PLATFORM-PROMPT §5.4: 50 a cart, per-cart and
+                    -- per-address rates).
                     -- question_id is ON DELETE SET NULL (a deleted question keeps the file).
                     -- r2_key under the store's prefix, selected by no request role; the merchant
                     -- side and a line's supplier open a file only through a short-lived signed
@@ -2671,8 +2675,12 @@ decide which columns and which tables each caller kind may select at all**. `app
     same rule. On `cart_line` it writes `answers` on its own cart under the cart's policy and
     never `answers_key` (the trigger's); on `order_line` it reads `answers`, `unit_extras_amount`
     and `line_extras_amount` of its own order. `shopper_upload` is **inside the store** with a
-    `shop` branch of `EXISTS (SELECT 1 FROM "order" o WHERE o.id = order_id AND o.state =
-    'cart')`: `insert` and `select` (never `r2_key`) on its own cart's files only.
+    `shop` branch, for `select` (never `r2_key`) and in the `insert`'s `WITH CHECK`, of
+    `store_id = app.store_id AND EXISTS (SELECT 1 FROM "order" o WHERE o.id = order_id AND
+    o.state = 'cart')`. The subquery runs under `"order"`'s own shop policy (its owner test,
+    `customer_id = app.customer_id` or the guest's `access_token_hash =
+    current_order_token_hash()`), as `order_line`'s branch does, so it finds only the caller's
+    own cart: a shopper inserts and reads its own cart's files only, never another's.
   - **Supplier's orders**: `order_line_for_supplier` gains `answers` for its own lines, and its
     `line_amount` becomes `unit_amount × quantity + line_extras_amount`. `app_supplier` has no
     grant on `shopper_upload`; the engine mints a supplier's link to a file in system scope after
