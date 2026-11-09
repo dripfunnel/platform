@@ -367,6 +367,7 @@ export interface CartOfferRow {
   total_uses_limit: number | null
   per_customer_limit: number | null
   combines_with: { product: boolean; order: boolean; shipping: boolean }
+  include_customisation: boolean
   created_at: Date
   deleted: boolean
   conditions: StoredRule[]
@@ -385,7 +386,7 @@ export interface CartOfferRow {
 /** Every automatic offer on now, and the offer behind each code the cart holds, whatever state it is in. */
 export const selectCartOffers = (tx: ScopedSql, storeId: string, codes: readonly string[], now: Date): Promise<CartOfferRow[]> =>
   tx<CartOfferRow[]>`
-    select p.id, p.name, p.trigger, p.enabled, p.starts_at, p.ends_at, p.uses_count, p.total_uses_limit, p.per_customer_limit, p.combines_with, p.created_at,
+    select p.id, p.name, p.trigger, p.enabled, p.starts_at, p.ends_at, p.uses_count, p.total_uses_limit, p.per_customer_limit, p.combines_with, p.include_customisation, p.created_at,
       p.deleted_at is not null as deleted,
       coalesce((select json_agg(json_build_object('operation', r.operation, 'args', r.args) order by r.position) from promotion_condition r where r.promotion_id = p.id), '[]'::json) as conditions,
       (select json_build_object('operation', a.operation, 'args', a.args) from promotion_action a where a.promotion_id = p.id order by a.position limit 1) as action,

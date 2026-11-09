@@ -5,7 +5,7 @@ import type { PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartDeliveryWarehouse, setCartGift, setCartLine, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
+import { addCartLine, insertCart, lockCartRow, selectCart, selectGuestCartId, setCartDeliveryWarehouse, setCartGift, setCartLineAnswers, setCartLineQuantity, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
 import { defaultFeatures, type FeatureKey } from '#db/scoped/catalogListing'
 import { setCartGiftCard } from '#db/scoped/giftCards'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
@@ -15,25 +15,46 @@ import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type Code
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
+import { checkAnswers, inputOf, type AnswerInput, type AnswerProblem, type CheckedAnswers, type PricedAnswer, type ShopQuestion } from './answers'
 import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, cleanGift, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type GiftInput, type PricedLine } from './rules'
 
 export type { AddressInput, CheckoutProblem, GiftInput, LineProblem } from './rules'
+export type { AnswerInput, AnswerProblem, AnswerReason, PricedAnswer, ExtraChoice, ShopQuestion, StoredAnswer } from './answers'
+export { snapshotOf } from './answers'
 export { cleanAddress, cleanContact } from './rules'
 export type { CartAddress, CartGift } from '#db/scoped/cart'
 
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
 // engine prices it on every read, so nothing a storefront sends is ever a price (§5.5). Payment and placement are SAPI 10's.
 
-export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED' | 'TOO_MANY_CODES' | 'GIFT_CARD_INVALID' | 'NOT_IN_PREVIEW'
+export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED' | 'TOO_MANY_CODES' | 'GIFT_CARD_INVALID' | 'NOT_IN_PREVIEW' | 'ANSWERS_INVALID' | 'ONE_LINE_PER_VERSION'
 
 /** Codes a cart holds at once (migration 0078). */
 export const maxCartCodes = 5
-export type CartResult<T> = { ok: true; value: T } | { ok: false; reason: CartRefusal; problems?: CheckoutProblem[] }
+/** `answers`: why ANSWERS_INVALID, each naming the question (and choice) and a reason (PLATFORM-PROMPT §5.4). */
+export type CartResult<T> = { ok: true; value: T } | { ok: false; reason: CartRefusal; problems?: CheckoutProblem[]; answers?: AnswerProblem[] }
 
 class Refused extends Error {
-  constructor(readonly reason: CartRefusal) {
+  constructor(
+    readonly reason: CartRefusal,
+    readonly answers?: AnswerProblem[],
+  ) {
     super(reason)
   }
+}
+
+/** Answers compared whatever order jsonb gave their keys back in. */
+const canonical = (value: unknown): string =>
+  JSON.stringify(value, (_key, x: unknown) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x))
+
+const refusalOf = (error: Refused): { ok: false; reason: CartRefusal; answers?: AnswerProblem[] } => (error.answers ? { ok: false, reason: error.reason, answers: error.answers } : { ok: false, reason: error.reason })
+
+/** The modal's live total (customisationQuote): the line as it would be priced, and what the answers still lack. */
+export interface CustomisationQuote {
+  unitPrice: Money | null
+  lineTotal: Money | null
+  answers: PricedAnswer[]
+  problems: AnswerProblem[]
 }
 
 export interface CartDeps {
@@ -156,7 +177,7 @@ export const createCartService = (deps: CartDeps) => {
     const stripe = taxTo.country === 'US' ? (deps.stripeTax ?? null) : null
     const accountId = stripe ? await stripe.accountId() : null
     if (!stripe || !accountId) {
-      const computed = computeTax(priced.map((l) => ({ id: l.versionId, amount: l.lineTotal.amount, taxClassId: l.item?.taxClassId ?? null })), taxTo, taxSettingOf(setup))
+      const computed = computeTax(priced.map((l) => ({ id: l.lineId ?? l.versionId, amount: l.lineTotal.amount, taxClassId: l.item?.taxClassId ?? null })), taxTo, taxSettingOf(setup))
       return { amount: { amount: computed.total, currency }, inclusive: setup.tax_inclusive, lines: computed.lines }
     }
     const codeOf = (classId: string | null) => (setup.classes.find((c) => c.id === classId) ?? setup.classes.find((c) => c.is_default))?.tax_code ?? null
@@ -166,15 +187,15 @@ export const createCartService = (deps: CartDeps) => {
         currency,
         inclusive: setup.tax_inclusive,
         shipTo: { country: taxTo.country, region: taxTo.region, postal },
-        lines: priced.map((l) => ({ reference: l.versionId, amount: l.lineTotal.amount, taxCode: codeOf(l.item?.taxClassId ?? null) })),
+        lines: priced.map((l) => ({ reference: l.lineId ?? l.versionId, amount: l.lineTotal.amount, taxCode: codeOf(l.item?.taxClassId ?? null) })),
         shipping,
       })
-      const lines = priced.map((l) => ({ line: l, amount: result.lines.find((r) => r.reference === l.versionId)?.amount }))
+      const lines = priced.map((l) => ({ line: l, amount: result.lines.find((r) => r.reference === (l.lineId ?? l.versionId))?.amount }))
       if (lines.some((l) => l.amount === undefined)) return null
       return {
         amount: { amount: result.total, currency },
         inclusive: setup.tax_inclusive,
-        lines: lines.map(({ line, amount = 0n }) => ({ id: line.versionId, rateBps: null, amount, components: amount === 0n ? [] : [{ name: 'Tax' as const, rateBps: null, amount }] })),
+        lines: lines.map(({ line, amount = 0n }) => ({ id: line.lineId ?? line.versionId, rateBps: null, amount, components: amount === 0n ? [] : [{ name: 'Tax' as const, rateBps: null, amount }] })),
       }
     } catch {
       return null
@@ -184,10 +205,19 @@ export const createCartService = (deps: CartDeps) => {
   /** `known`: the lines' items when the caller already looked them up in this request. */
   const view = async (context: TenantContext, row: CartRow, known: ReadonlyMap<string, CartItem> | null = null): Promise<CartView> => {
     const items = known ?? (await catalog(context).cartItems(row.lines.map((l) => l.version_id)))
+    // A product without questions takes today's path; one with questions is checked even on a line with no answers (a required one added later).
+    const asks = (l: CartRow['lines'][number]) => l.answers !== null || (items.get(l.version_id)?.hasQuestions ?? false)
+    const customised = [...new Set(row.lines.flatMap((l) => (asks(l) ? [items.get(l.version_id)?.product.id ?? ''] : [])).filter((x) => x !== ''))]
+    const questions = customised.length > 0 ? await catalog(context).questions(customised) : new Map<string, ShopQuestion[]>()
+    const ofVersion = new Map<string, number>()
+    for (const l of row.lines) ofVersion.set(l.version_id, (ofVersion.get(l.version_id) ?? 0) + l.quantity)
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
-      return { ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }), item, discount: null, gift: l.gift }
+      const checked = asks(l) && item?.version.price ? checkAnswers(questions.get(item.product.id) ?? [], l.version_id, item.version.price.amount, inputOf(l.answers ?? [])) : null
+      // A line with no answers keeps no extras; it only learns it no longer fits.
+      const extras = checked && (l.answers !== null || checked.problems.length > 0) ? { unit: checked.unitExtras, line: checked.lineExtras, invalid: checked.problems.length > 0, answers: checked.priced } : null
+      return { ...priceLine({ lineId: l.id, versionId: l.version_id, quantity: l.quantity, versionQuantity: ofVersion.get(l.version_id) ?? l.quantity, item: facts, extras }), item, discount: null, gift: l.gift }
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
     const priced = lines.filter((l): l is CartLineView & { lineTotal: Money } => l.lineTotal !== null)
@@ -223,11 +253,15 @@ export const createCartService = (deps: CartDeps) => {
       codes: row.promotion_codes,
       customerId: row.customer_id,
       country: address?.country ?? null,
-      lines: priced.flatMap((l) => (l.item ? [{ versionId: l.versionId, productId: l.item.product.id, quantity: l.quantity, amount: l.lineTotal.amount, giftCard: l.item.product.productType === 'gift_card', onSale: l.item.version.compareAt !== null }] : [])),
+      lines: priced.flatMap((l) =>
+        l.item
+          ? [{ key: l.lineId ?? l.versionId, versionId: l.versionId, productId: l.item.product.id, quantity: l.quantity, amount: l.lineTotal.amount, extras: l.unitExtras * BigInt(l.quantity) + l.lineExtras, giftCard: l.item.product.productType === 'gift_card', onSale: l.item.version.compareAt !== null }]
+          : [],
+      ),
       shipping: chosen?.amount.amount ?? null,
       now: now(),
     })
-    for (const l of lines) l.discount = l.lineTotal ? { amount: offers.pricing.lineDiscounts.get(l.versionId) ?? 0n, currency } : null
+    for (const l of lines) l.discount = l.lineTotal ? { amount: offers.pricing.lineDiscounts.get(l.lineId ?? l.versionId) ?? 0n, currency } : null
     // Tax is on what each line and the delivery come to after their offers (OFFERS fact 11).
     const afterOffers = taxable.map((l) => ({ ...l, lineTotal: { amount: l.lineTotal.amount - (l.discount?.amount ?? 0n), currency } }))
     const shippingDue = chosen ? chosen.amount.amount - offers.pricing.shippingDiscount : null
@@ -305,16 +339,30 @@ export const createCartService = (deps: CartDeps) => {
       if (!row) return { ok: false, reason: 'NO_CART' }
       return { ok: true, value: { cart: await view(deps.context, row), token: null } }
     } catch (error) {
-      if (error instanceof Refused) return { ok: false, reason: error.reason }
+      if (error instanceof Refused) return refusalOf(error)
       throw error
     }
+  }
+
+  /**
+   * The line's answers checked against its product's questions now, priced for the cart; a product without questions
+   * and no answers asks nothing more (#1368). Refused as ANSWERS_INVALID with what is wrong.
+   */
+  const answersFor = async (tx: ScopedSql, context: TenantContext, item: CartItem, versionId: string, answers: readonly AnswerInput[] | null): Promise<CheckedAnswers | null> => {
+    if (!item.hasQuestions && (answers?.length ?? 0) === 0) return null
+    if ((answers?.length ?? 0) > 10) throw new Refused('INVALID_INPUT')
+    const questions = (await catalog(context).questionsIn(tx, [item.product.id])).get(item.product.id) ?? []
+    if (!item.version.price) throw new Refused('UNAVAILABLE')
+    const checked = checkAnswers(questions, versionId, item.version.price.amount, answers ?? [])
+    if (checked.problems.length > 0) throw new Refused('ANSWERS_INVALID', checked.problems)
+    return checked
   }
 
   /**
    * "Add to cart": the shopper's cart, or a new one: a signed-in shopper's on its account, a guest's behind a new token
    * handed back once. Only a version shoppers can see is added.
    */
-  const add = async (versionId: string, quantity: number, giftInput: GiftInput | null = null): Promise<CartResult<CartChange>> => {
+  const add = async (versionId: string, quantity: number, giftInput: GiftInput | null = null, answers: readonly AnswerInput[] | null = null): Promise<CartResult<CartChange>> => {
     const id = versionId.toLowerCase()
     if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity) return { ok: false, reason: 'INVALID_INPUT' }
     const gift = giftInput ? cleanGift(giftInput, now()) : null
@@ -342,11 +390,19 @@ export const createCartService = (deps: CartDeps) => {
         }
         const ids = [...new Set([...found.lines.map((l) => l.version_id), id])]
         const items = known && ids.every((v) => known.has(v)) ? known : await catalog(context).cartItemsIn(tx, ids)
-        accept(items.get(id))
-        const held = found.lines.find((l) => l.version_id === id)?.quantity ?? 0
-        if (!held && found.lines.length >= maxCartLines) throw new Refused('TOO_MANY_LINES')
-        await setCartLine(tx, storeId, found.id, id, gift ? 1 : Math.min(held + quantity, maxQuantity))
-        if (gift) await setCartGift(tx, found.id, id, gift)
+        const item = items.get(id)
+        accept(item)
+        const checked = item ? await answersFor(tx, context, item, id, answers) : null
+        const stored = checked && checked.stored.length > 0 ? checked.stored : null
+        // Equal answers add to their line (fact 56), so only a version and answers the cart doesn't hold make a new line.
+        const joins = found.lines.some((l) => l.version_id === id && (stored ? l.answers !== null && canonical(l.answers) === canonical(stored) : l.answers === null))
+        if (!joins && found.lines.length >= maxCartLines) throw new Refused('TOO_MANY_LINES')
+        const lineId = gift
+          ? await addCartLine(tx, storeId, found.id, id, stored, 1, 1)
+          : await addCartLine(tx, storeId, found.id, id, stored, quantity, maxQuantity)
+        // Different answers for a version already in the cart wait for the contract migration (0392's note).
+        if (lineId === 'version_taken') throw new Refused('ONE_LINE_PER_VERSION')
+        if (gift) await setCartGift(tx, found.id, lineId, gift)
         await write(tx, found, {})
         const row = await selectCart(tx, storeId, now())
         if (!row) throw new Refused('NO_CART')
@@ -368,20 +424,47 @@ export const createCartService = (deps: CartDeps) => {
       if (customerId === null && !shopper?.orderTokenHash) return await startGuestCart()
       return (await addIn(deps.context, null, null)) ?? (await startGuestCart())
     } catch (error) {
-      if (error instanceof Refused) return { ok: false, reason: error.reason }
+      if (error instanceof Refused) return refusalOf(error)
       throw error
     }
   }
 
-  /** How many of a version; 0 takes it out. */
-  const setQuantity = (versionId: string, quantity: number) =>
+  /** How many of a line, named by its id, or of a version's line without answers; 0 takes it out. */
+  const setQuantity = (versionId: string, quantity: number, lineId: string | null = null) =>
     change(async (tx, row) => {
       const id = versionId.toLowerCase()
-      const line = row.lines.find((l) => l.version_id === id)
+      const line = lineId ? row.lines.find((l) => l.id === lineId.toLowerCase() && l.version_id === id) : row.lines.find((l) => l.version_id === id && l.answers === null)
       if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 0 || quantity > (line?.gift ? 1 : maxQuantity) || !line) throw new Refused('INVALID_INPUT')
-      await setCartLine(tx, storeId, row.id, id, quantity)
+      await setCartLineQuantity(tx, row.id, line.id, quantity)
       await write(tx, row, {})
     })
+
+  /** Edit (storefront ARCHITECTURE §3.5): the line's answers replaced, checked as on add; equal answers join their line. */
+  const setLineAnswers = (lineId: string, answers: readonly AnswerInput[]) =>
+    change(async (tx, row) => {
+      const line = isUuid(lineId.toLowerCase()) ? row.lines.find((l) => l.id === lineId.toLowerCase()) : undefined
+      if (!line) throw new Refused('INVALID_INPUT')
+      const item = (await catalog(deps.context).cartItemsIn(tx, [line.version_id])).get(line.version_id)
+      if (!item) throw new Refused('UNAVAILABLE')
+      const checked = await answersFor(tx, deps.context, item, line.version_id, answers)
+      await setCartLineAnswers(tx, row.id, line.id, checked && checked.stored.length > 0 ? checked.stored : null, line.gift ? 1 : maxQuantity)
+      await write(tx, row, {})
+    })
+
+  /** The modal's live total: priced as the cart would price the line, writing nothing, never refusing for the answers. */
+  const quote = async (versionId: string, quantity: number, answers: readonly AnswerInput[]): Promise<CartResult<CustomisationQuote>> => {
+    const id = versionId.toLowerCase()
+    if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity || answers.length > 10) return { ok: false, reason: 'INVALID_INPUT' }
+    return withScope(sql, deps.context, async (tx) => {
+      const item = (await catalog(deps.context).cartItemsIn(tx, [id])).get(id)
+      if (!item?.version.price) return { ok: false, reason: 'UNAVAILABLE' }
+      const questions = (await catalog(deps.context).questionsIn(tx, [item.product.id])).get(item.product.id) ?? []
+      const checked = checkAnswers(questions, id, item.version.price.amount, answers)
+      const facts = { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere }
+      const priced = priceLine({ versionId: id, quantity, item: facts, extras: { unit: checked.unitExtras, line: checked.lineExtras, invalid: false, answers: checked.priced } })
+      return { ok: true, value: { unitPrice: priced.unitPrice, lineTotal: priced.lineTotal, answers: checked.priced, problems: checked.problems } }
+    })
+  }
 
   const setContact = (input: { email?: string | null | undefined; phone?: string | null | undefined; note?: string | null | undefined }) =>
     change(async (tx, row) => {
@@ -495,5 +578,5 @@ export const createCartService = (deps: CartDeps) => {
     return after ? { ok: true, value: { cart: await view(deps.context, after), token: null } } : { ok: false, reason: 'NO_CART' }
   }
 
-  return { cart, add, setQuantity, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
+  return { cart, add, setQuantity, setLineAnswers, quote, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
 }

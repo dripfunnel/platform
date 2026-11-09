@@ -203,6 +203,23 @@ export const registerOrders = (builder: StoreBuilder) => {
     }),
   })
 
+  type Answer = NonNullable<OrderLineRow['answers']>[number]
+  const AnswerChoice = builder.objectRef<NonNullable<Answer['choices']>[number]>('OrderLineAnswerChoice').implement({
+    fields: (t) => ({ label: t.exposeString('label'), quantity: t.exposeInt('quantity'), free: t.exposeInt('free') }),
+  })
+  const LineAnswer = builder.objectRef<Answer & { currency: string }>('OrderLineAnswer').implement({
+    fields: (t) => ({
+      // In the store's main language when the shopper saw another (DATA-MODEL §7.6), so a packing slip reads in the merchant's.
+      question: t.string({ resolve: (a) => a.main_label ?? a.label }),
+      // CHOICE, TEXT or UPLOAD.
+      kind: t.string({ resolve: (a) => a.kind.toUpperCase() }),
+      choices: t.field({ type: [AnswerChoice], resolve: (a) => (a.choices ?? []).map((c) => ({ ...c, label: c.main_label ?? c.label })) }),
+      // A shopper's own words: hidden from a partner support session (ACCESS §8, #1340).
+      text: t.string({ nullable: true, resolve: (a, _, ctx) => (a.text === undefined || a.text === null ? null : shopperDetail(ctx, a.text)) }),
+      amount: t.field({ type: Money, resolve: (a) => ({ amount: a.amount, currency: a.currency }) }),
+      per: t.string({ nullable: true, resolve: (a) => a.per?.toUpperCase() ?? null }),
+    }),
+  })
   const Line = builder.objectRef<OrderLineRow & { currency: string }>('OrderLine').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -222,6 +239,8 @@ export const registerOrders = (builder: StoreBuilder) => {
       returnedQuantity: t.exposeInt('returned_quantity'),
       refundedQuantity: t.exposeInt('refunded_quantity'),
       sentToStoreQuantity: t.exposeInt('sent_quantity'),
+      // What the shopper answered before buying (#1368); empty on most lines.
+      answers: t.field({ type: [LineAnswer], resolve: (l) => (l.answers ?? []).map((a) => ({ ...a, currency: l.currency })) }),
     }),
   })
   const Shipment = builder.objectRef<FulfilmentRow>('OrderShipment').implement({
