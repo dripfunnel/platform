@@ -44,17 +44,20 @@ create policy platform_scope on shopper_upload as restrictive for all to app_pla
 create policy system_scope on shopper_upload as restrictive for all to app_system
   using (app_setting_text('app.scope') = 'system') with check (app_setting_text('app.scope') = 'system');
 
--- A shopper's removal queues its file's deletion in the same transaction, held to its own store by outbox_insert.
-grant insert on outbox to app_shop;
-do $$
-declare
-  roles text;
+-- A deleted row queues its own file's deletion in the same transaction, the key taken from the row, never from a caller:
+-- the shop role holds no outbox grant.
+create function shopper_upload_deleted() returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
 begin
-  select string_agg(format('%I', r), ', ') into roles
-  from (select unnest(p.roles::text[]) as r from pg_policies p where p.schemaname = 'public' and p.tablename = 'outbox' and p.policyname = 'outbox_insert'
-        union select 'app_shop') x;
-  execute format('alter policy outbox_insert on outbox to %s', roles);
+  insert into outbox (kind, idempotency_key, payload, partner_id, store_id)
+  select 'upload.delete', 'upload.delete:' || s.partner_id || ':' || old.store_id || ':' || old.id, jsonb_build_object('key', old.r2_key), s.partner_id, old.store_id
+  from store s where s.id = old.store_id
+  on conflict (idempotency_key) do nothing;
+  return null;
 end
 $$;
--- Least privilege: the shop role queues a file's deletion and nothing else.
-create policy outbox_shop_kind on outbox as restrictive for insert to app_shop with check (kind = 'upload.delete');
+alter function shopper_upload_deleted() owner to app_definer;
+create trigger shopper_upload_deleted after delete on shopper_upload for each row execute function shopper_upload_deleted();

@@ -177,6 +177,7 @@ describe('an order line’s answers (#1368)', () => {
     expect(opened.headers.get('x-content-type-options')).toBe('nosniff')
     // A shopper's file never runs as the portal: no script, its own opaque origin.
     expect(opened.headers.get('content-security-policy')).toBe("default-src 'none'; img-src 'self'; sandbox")
+    expect(opened.headers.get('content-disposition')).toBe('inline')
     expect(new Uint8Array(await opened.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]))
     // Expired, tampered, or with no key to check it: closed.
     expect((await serve(file?.url ?? '', new Date(clock.getTime() + 11 * 60_000))).status).toBe(404)

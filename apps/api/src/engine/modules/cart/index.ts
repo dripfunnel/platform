@@ -392,10 +392,9 @@ export const createCartService = (deps: CartDeps) => {
   }
 
   /** Files no line names any more, deleted with their objects' deletion queued in the same transaction (DATA-MODEL §7.6). */
+  // Each deleted row queues its own file's deletion by trigger (migration 0393).
   const release = async (tx: ScopedSql, cartId: string, ids: readonly string[]) => {
-    for (const id of await releaseCartUploads(tx, cartId, ids)) {
-      await insertOutbox(tx, { kind: uploadDeleteKind, idempotencyKey: id, payload: { key: uploadKey(storeId, cartId, id) }, partnerId: deps.context.partnerId, storeId })
-    }
+    await releaseCartUploads(tx, cartId, ids)
   }
 
   /**
@@ -678,7 +677,8 @@ export const createCartService = (deps: CartDeps) => {
     const unput = async (context: TenantContext, key: string) => {
       const gone = files.delete ? await files.delete(key).then(() => true, () => false) : false
       if (!gone) {
-        await withScope(sql, context, (tx) => insertOutbox(tx, { kind: uploadDeleteKind, idempotencyKey: id, payload: { key }, partnerId: deps.context.partnerId, storeId })).catch(() => undefined)
+        // No row was deleted, so no trigger queues it: the job is written in system scope (the shop role has no outbox grant).
+        await withSystemScope(sql, (tx) => insertOutbox(tx, { kind: uploadDeleteKind, idempotencyKey: id, payload: { key }, partnerId: deps.context.partnerId, storeId })).catch(() => undefined)
       }
     }
     const putIn = async (context: TenantContext, token: string | null) => {

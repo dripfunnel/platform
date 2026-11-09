@@ -226,10 +226,10 @@ describe('a shopper’s files (#1369)', () => {
       withScope(db.sql, own, (tx) => { const id = crypto.randomUUID(); return tx`insert into shopper_upload (id, store_id, order_id, question_id, r2_key, mime, bytes, checksum) values (${id}, ${storeId}, ${cart.id}, ${questionId}, ${`stores/${storeId}/shopper-uploads/${cart.id}/${id}`}, 'image/png', 1, ${'f'.repeat(64)})` })
     await expect(row(ids.hiddenQuestion)).rejects.toThrow(/row-level security/)
     await expect(row(null)).rejects.toThrow(/row-level security/)
-    // The shop role queues a file's deletion and nothing else on the outbox.
+    // The shop role writes no outbox row at all: a deleted file's job comes from the row, by trigger.
     const queue = (kind: string) => withScope(db.sql, own, (tx) => insertOutbox(tx, { kind, idempotencyKey: crypto.randomUUID(), payload: { key: 'x' }, partnerId: t.partnerA, storeId }))
-    await expect(queue('email.send')).rejects.toThrow(/row-level security/)
-    await expect(queue('upload.delete')).resolves.not.toThrow()
+    await expect(queue('email.send')).rejects.toThrow(/permission denied/)
+    await expect(queue('upload.delete')).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, person(storeId), (tx) => tx`select r2_key from shopper_upload`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, shopperOf(storeId), (tx) => tx`select r2_key from shopper_upload`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, person(storeId, { kind: 'seller', sellerId: t.sellerA1First }), (tx) => tx`select id from shopper_upload`)).rejects.toThrow(/permission denied/)
