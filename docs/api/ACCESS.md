@@ -914,9 +914,12 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   charge the merchant hasn't seen): a change to anything that sets what a question charges
   sends the product back: adding, changing or removing the price of a question or a choice
   (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance, a choice's
-  maximum quantity, per item or once per line, and a per-character question's maximum length.
-  Any other change to its questions (text, order, conditions, availability, versions) goes
-  live. The engine compares the three against the approved values on save; the
+  maximum quantity, per item or once per line, and a per-character question's maximum length;
+  and, on a question that charges (its own price or a priced choice), making it required, its
+  minimum picks and its condition, which decide whether every shopper pays it. Any other change
+  to its questions (text, order, availability, versions, an unpriced question's rules) goes
+  live. The engine compares the name, prices, photos and those charge-setting fields against
+  the approved values on save; the
   portal says which change needs approval. Accepted with the decision: a vendor can take its
   own product off sale by editing one of those fields, which the Owner sees in the queue and
   the activity log.

@@ -1443,7 +1443,10 @@ property". Prices appear only when the merchant asks for one.
   'Add engraving' is picked. It will be asked always.") and clears the condition.
 - U10. **Only for some versions** (a product with versions): a checklist of the versions, all ticked
   by default; the card's summary says "Only for Large, X-Large". Unticking every version is refused.
-  A version made later is not ticked: the question isn't asked for it until it is.
+  Stored as DATA-MODEL §7.3 has it: all ticked is no `product_question_version` rows (every
+  version, including one made later); unticking any stores a row per ticked version, so a version
+  made later is not ticked and the question isn't asked for it until it is. Ticking all again
+  goes back to no rows.
 - U11. **Order**: drag questions, and choices inside a list, to reorder; the shopper sees that order.
 - U12. **Copy questions from another product**: a link in the section opens a product search
   (products the person can see that have questions, each with its count), then "Copy 4 questions
