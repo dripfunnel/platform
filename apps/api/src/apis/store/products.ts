@@ -88,7 +88,7 @@ interface SummaryView {
 /** Where the portal reads a catalogue file: on its own host, through the caller's scope (assets.ts). */
 export const assetUrl = (assetId: string): string => `/api/assets/${assetId}`
 
-const summaryOf = (r: ProductListRow, currency: string | null, readiness: MarketReadiness[] | null, questionCount = 0): SummaryView => ({
+const summaryOf = (r: ProductListRow, currency: string | null, readiness: MarketReadiness[] | null): SummaryView => ({
   id: r.id,
   name: r.name,
   slug: r.slug,
@@ -108,7 +108,7 @@ const summaryOf = (r: ProductListRow, currency: string | null, readiness: Market
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at.toISOString(),
   readiness,
-  questionCount,
+  questionCount: r.question_count,
 })
 
 /** An extra's price as the editor reads it (FIRST-RELEASE §19): amounts for every version, then each version's own. */
@@ -617,8 +617,7 @@ export const registerProducts = (builder: StoreBuilder) => {
         const page = sortedPageOf(rows, window, sort, byTime, (r) => ({ value: sortValueOf(r, sort), id: r.id }))
         // The page's readiness in one go, the merchant side's alone (a supplier reads no market).
         const readiness = tenantCaller(ctx).seller === null ? await marketsService(ctx).readiness(page.nodes.map((r) => r.id)) : null
-        const questionCounts = await service(ctx).questionCounts(page.nodes.map((r) => r.id))
-        return { nodes: page.nodes.map((r) => summaryOf(r, currency, readiness ? (readiness.get(r.id) ?? []) : null, questionCounts.get(r.id) ?? 0)), pageInfo: page.pageInfo }
+        return { nodes: page.nodes.map((r) => summaryOf(r, currency, readiness ? (readiness.get(r.id) ?? []) : null)), pageInfo: page.pageInfo }
       },
     }),
     // Whether the store has an undeleted product with questions: the offer editor's switch shows only then (OFFERS-DESIGN §3.1).
