@@ -5,3 +5,5 @@ alter table studio_session
   add column impersonation_id uuid references impersonation (id) on delete cascade,
   add column support_session_id uuid references support_session (id) on delete cascade,
   add constraint studio_session_one_holder check (num_nonnulls(user_session_hash, impersonation_id, support_session_id) = 1);
+create index studio_session_impersonation_idx on studio_session (impersonation_id) where impersonation_id is not null;
+create index studio_session_support_session_idx on studio_session (support_session_id) where support_session_id is not null;
