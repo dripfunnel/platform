@@ -548,11 +548,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   /** Whether any undeleted product of the store asks questions (OFFERS-DESIGN §3.1). */
   const hasCustomisation = () => inScope((tx) => storeHasQuestions(tx, storeId))
 
-  /**
-   * "Copy questions from another product" (CATALOG U12): the target's questions become the source's, at the target's
-   * revision, as a save of the target would write them. Both are products the caller can see, so a supplier copies only
-   * between its own. Answers the save and what couldn't come along.
-   */
+  /** CATALOG U12: both products are ones the caller can see, so a supplier copies only between its own. */
   const copyQuestions = (fromId: string, toId: string, revision: number): Promise<SaveResult & { dropped?: { amounts: number; versionLimits: number; photos: number } }> => {
     let dropped = { amounts: 0, versionLimits: 0, photos: 0 }
     return run(async (tx) => {
