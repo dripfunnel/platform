@@ -2082,11 +2082,12 @@ ai_run              (id, store_id, kind ('design'|'repair'|'migration'|'descript
                     -- is the merchant's (§5.3). Built on #482 (migration 0251) with created_at, a check
                     -- that a repair is billed to platform under its parent, and only the merchant's
                     -- read so far: the partner's and staff's metering view comes with its first reader
-studio_session      (id_hash PK, store_id, user_id, user_session_hash, can_change, created_at,
-                     expires_at)
+studio_session      (id_hash PK, store_id, user_id, user_session_hash, impersonation_id,
+                     support_session_id, can_change, created_at, expires_at)
                     -- the studio frame's bearer id (storefront AI-STUDIO §8), kept only as its SHA-256;
-                    -- user_session_hash references user_session on delete cascade, so signing out
-                    -- ends it; live 5 minutes, renewed with an access re-check; system scope only
+                    -- exactly one holder: user_session_hash (signing out ends it, on delete cascade),
+                    -- or the impersonation or support session it was opened in, live while that is open
+                    -- (0390, ACCESS §8.1); live 5 minutes, renewed with an access re-check; system scope only
                     -- (built on #482, migration 0251)
 storefront_redirect (id, store_id, from_path, to_path, language NULL, reason ('renamed'
                      |'removed'|'merged'), created_at)

@@ -76,10 +76,10 @@ export const registerHome = (builder: StoreBuilder) => {
 
   const SetupStepType = builder.enumType('SetupStep', { values: setupSteps })
   builder.mutationFields((t) => ({
-    // Only the Owner (`settings`); a support session never reaches it (#719).
+    // Only the Owner (`settings`), or a support session acting as the Owner once allowed (ACCESS §8).
     skipSetupStep: t.boolean({
       args: { step: t.arg({ type: SetupStepType, required: true }), skipped: t.arg.boolean({ required: true }) },
-      extensions: { access: { api: 'store', scope: 'store', permission: 'settings', target: 'none', audit: homeAudit.setupStepSkipped, blockedFor: ['support'] } },
+      extensions: { access: { api: 'store', scope: 'store', permission: 'settings', target: 'none', audit: homeAudit.setupStepSkipped } },
       resolve: (_, args, ctx: StoreContext) => {
         if (!ctx.sql) throw forbidden()
         const caller = actingCaller(ctx)

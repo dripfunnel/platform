@@ -170,7 +170,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 
 The studio opens one WebSocket, `/api/studio/live?session=…&store=…&after=…`, on the portal host. The Store API builds
 the `TenantContext` from the session cookie (the acting store in `?store=`, checked like `X-Store`), checks the studio's
-read access (`storefront.read`, the Owner or a Manager; support and impersonation refused), that `Origin` is the portal
+read access (`storefront.read`, the Owner or a Manager, also through staff impersonating them or a support session, #1344), that `Origin` is the portal
 host, and that `session` is this person's live studio session (§3 step 6). It hands the upgrade to the Durable Object
 named by the context's store, never by an id from the client. The object accepts it as a **hibernating** socket, so an
 idle open studio costs nothing, tagged with the studio session's hash: the alarm's sweep closes it with the frame's (§8).
@@ -328,7 +328,7 @@ before, and reads the result when `askDesign` answers.
   - **at a 3-hour cap** per container session, however busy.
 
   **Waking early:** focusing or typing in the chat box, a click in the frame, and picking a template send
-  `studioActivity` (the studio's read access, refused to support and impersonation, unlogged as `studio_activity`,
+  `studioActivity` (the studio's read access, open to staff impersonating and a support session that may write (#1344), unlogged as `studio_activity`,
   LOGGING §5), at most every 30 seconds: it starts a stopped container and resets the inactivity timer. While it
   starts, the frame shows the last saved preview under "Opening your studio…". Each stop is logged as
   `studio_stopped` with the rule (`closed-stop`, `idle-stop`, `cap-stop`).
@@ -567,8 +567,10 @@ before, and reads the result when `askDesign` answers.
   renewal never closes the frame. The id is 128 random bits (22 base64url characters) kept only as its SHA-256 in
   `studio_session`, which references the portal session: signing out deletes it. A renewal re-checks the caller as
   the Store API resolved them on that request; a seat that lost the studio deletes the session at once. The Owner
-  changes, a Manager views, and staff, suppliers and support sessions get no studio (ACCESS §5.1 `publish`). A studio session
-  is live only while its portal session is fully signed in: `stage = 'full'`, inside both its absolute and idle bounds.
+  changes, a Manager views, and the Staff role and suppliers get no studio (ACCESS §5.1 `publish`). DripFunnel staff
+  impersonating the Owner change; a support session acting as the Owner views, and changes once the store allows it
+  (ACCESS §8, §8.1). A studio session is live only while its portal session is fully signed in: `stage = 'full'`,
+  inside both its absolute and idle bounds; one opened in an impersonation or support session, while that is open.
 - ~~The WebSocket path through the edge Worker.~~ **`/__studio/{session}/__hot`** (decided on #482), on the frame's own
   origin, so the studio CSP's `connect-src 'self'` covers it. How the frame is served (decided on #482):
   - store-proxy sends `{slug}-preview.<SHOP_DOMAIN>/__studio/*` to the API's `StorefrontEdge`; the router gives `/__studio`

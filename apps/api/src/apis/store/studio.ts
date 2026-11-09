@@ -40,7 +40,7 @@ const studioFor = (ctx: StoreContext) => {
 }
 
 /** The studio's read access: its queries and its live socket (studioLive.ts). */
-export const studioRead = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none', blockedFor: ['support', 'impersonation'] } as const
+export const studioRead = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none' } as const
 const chatPage = 50
 
 export const registerStudio = (builder: StoreBuilder) => {
@@ -149,7 +149,7 @@ export const registerStudio = (builder: StoreBuilder) => {
     searchStockImages: t.field({
       type: [StockPhotoRef],
       args: { query: t.arg.string({ required: true }), page: t.arg.int({ required: true }) },
-      extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none', blockedFor: ['support', 'impersonation'] } },
+      extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none' } },
       resolve: async (_, args, ctx: StoreContext) => answered(await studioFor(ctx).stockSearch(args.query, args.page)).photos,
     }),
     designText: t.field({
@@ -229,7 +229,7 @@ export const registerStudio = (builder: StoreBuilder) => {
     // Open to any signed-in person, so a seat lost since still reaches here and the session ends rather than lingering.
     renewStudioSession: t.string({
       args: { session: t.arg.string({ required: true }) },
-      extensions: { access: { api: 'store', scope: 'session', permission: null, unlogged: 'studio_renewal', whileReadOnly: true, blockedFor: ['support', 'impersonation'] } },
+      extensions: { access: { api: 'store', scope: 'session', permission: null, unlogged: 'studio_renewal', whileReadOnly: true, openToSupport: true } },
       resolve: async (_, args, ctx: StoreContext) => {
         if (!ctx.sql) throw forbidden()
         if (ctx.standing.kind === 'acting') return answered(await studioFor(ctx).renew(args.session)).toISOString()

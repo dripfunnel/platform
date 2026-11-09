@@ -304,13 +304,9 @@ describe('who may see and change billing (ACCESS §5.1 `billing`, §11)', () => 
     expect((await gql(q.subscription, 'otherOwner')).data?.['subscription']).toMatchObject({ plan: { name: 'Other' }, partnerName: 'Partner B' })
   })
 
-  it('never lets a support session or an impersonation change the plan, the card or the details', async () => {
-    for (const as of ['support', 'impersonation'] as const) {
-      expect((await change('owner', plans.business, 'NOW', 'MONTH', as)).code).toBe('FORBIDDEN')
-      expect((await gql(q.card, 'owner', { t: 'pm_card12345' }, as)).code).toBe('FORBIDDEN')
-      expect((await gql(q.save, 'owner', { input: details }, as)).code).toBe('FORBIDDEN')
-    }
-    expect(calls).toEqual([])
+  // Staff and an allowed support session set a store up for its Owner (ACCESS §8, §8.1).
+  it('lets a support session and an impersonation acting as the Owner save the details', async () => {
+    for (const as of ['support', 'impersonation'] as const) expect((await gql(q.save, 'owner', { input: details }, as)).code).toBeUndefined()
   })
 
   it('holds the details and invoices to the store asking at the database: never another store’s, never a supplier’s', async () => {
@@ -351,11 +347,11 @@ describe('the partner’s plans and this month’s usage', () => {
 })
 
 describe('choosing a plan out of the trial', () => {
-  it('needs the card first, takes only Stripe’s token, then starts the first period now', async () => {
+  it('needs the card first (set here by staff impersonating the Owner, #1344), takes only Stripe’s token, then starts the first period now', async () => {
     expect((await change('trialOwner', plans.starter, 'NOW')).code).toBe('NO_CARD')
     expect((await gql(q.card, 'trialOwner', { t: '4242424242424242' })).code).toBe('INVALID_INPUT')
     expect((await gql(q.card, 'trialOwner', { t: 'pm_declined1' })).code).toBe('CARD_REFUSED')
-    const carded = await gql(q.card, 'trialOwner', { t: 'pm_card12345' })
+    const carded = await gql(q.card, 'trialOwner', { t: 'pm_card12345' }, 'impersonation')
     expect((carded.data?.['setPaymentMethod'] as { card: unknown }).card).toEqual({ brand: 'visa', last4: '4242', expires: '2029-12' })
     expect((await gql(q.quote, 'trialOwner', { p: plans.starter, i: 'MONTH', w: 'NOW' })).data?.['planChangeQuote']).toMatchObject({ offered: ['NOW'], today: { amount: '1000', currency: 'USD' } })
     expect((await change('trialOwner', plans.starter, 'PERIOD_END')).code).toBe('AT_PERIOD_END_ONLY')
@@ -381,10 +377,10 @@ describe('choosing a plan out of the trial', () => {
 })
 
 describe('changing a paid plan', () => {
-  it('prorates an upgrade now on Stripe and moves the plan at once', async () => {
+  it('prorates an upgrade now on Stripe and moves the plan at once, also for staff impersonating the Owner (#1344)', async () => {
     // 21 of 30 days left: 6000 × 0.7 = 4200 charged, 3000 × 0.7 = 2100 credited.
     expect((await gql(q.quote, 'owner', { p: plans.business, i: 'MONTH', w: 'NOW' })).data?.['planChangeQuote']).toMatchObject({ offered: ['NOW', 'PERIOD_END'], charge: { amount: '4200' }, credit: { amount: '2100' }, today: { amount: '2100' } })
-    expect((await change('owner', plans.business, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Business' }, price: { amount: '6000' }, scheduled: null })
+    expect((await change('owner', plans.business, 'NOW', 'MONTH', 'impersonation')).data?.['changePlan']).toMatchObject({ plan: { name: 'Business' }, price: { amount: '6000' }, scheduled: null })
     expect(calls).toEqual(['change:6000'])
     expect(await storeRow(t.storeA1)).toMatchObject({ plan_id: plans.business })
   })
@@ -682,14 +678,13 @@ describe('closing the store (SAAS §4.2)', () => {
     return found.kind === 'found' ? found.shopper.available : null
   }
 
-  it('is the Owner’s own act', async () => {
+  it('is the Owner’s act, never a Manager’s, Staff’s or a supplier’s', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await close(who)).code).toBe('FORBIDDEN')
-    for (const as of ['support', 'impersonation'] as const) expect((await close('owner', as)).code).toBe('FORBIDDEN')
     expect(await storeRow(t.storeA1)).toMatchObject({ status: 'active' })
   })
 
   it('ends a paid plan at its period’s end: read-only now, the storefront selling until then, once', async () => {
-    const closed = (await close('owner')).data?.['cancelStore']
+    const closed = (await close('owner', 'impersonation')).data?.['cancelStore']
     expect(closed).toMatchObject({ cancelAt: periodEnd.toISOString() })
     expect(calls).toEqual(['cancel:sub_a1'])
     expect(await storeRow(t.storeA1)).toMatchObject({ status: 'cancelled' })
@@ -719,9 +714,10 @@ describe('the store’s data (`store.export`)', () => {
   const ask = (who: Who, as: 'person' | 'support' | 'impersonation' = 'person') => gql('mutation { exportStoreData }', who, {}, as)
   const parts = (who: Who, id: string) => gql('query E($id: ID!) { storeDataExport(id: $id) { kind state rows csv } }', who, { id })
 
-  it('is the Owner’s alone, never a Manager’s, Staff’s, supplier’s or a support session’s', async () => {
+  it('is the Owner’s, also through staff impersonating them, never a support session’s (its bundle holds the shoppers, ACCESS §8), a Manager’s, Staff’s or supplier’s', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await ask(who)).code).toBe('FORBIDDEN')
-    for (const as of ['support', 'impersonation'] as const) expect((await ask('owner', as)).code).toBe('FORBIDDEN')
+    expect((await ask('owner', 'support')).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await ask('owner', 'impersonation')).code).toBeUndefined()
     expect((await parts('manager', crypto.randomUUID())).code).toBe('FORBIDDEN')
   })
 

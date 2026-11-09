@@ -27,7 +27,7 @@ beforeAll(async () => {
   const hash = 'f'.repeat(64)
   await db.sql`insert into user_session (id_hash, user_id, partner_id, absolute_expires_at) values (${hash}, ${userId}, ${t.partnerA}, now() + interval '1 day')`
   const context: TenantContext = { caller: { kind: 'person', userId, sessionId: hash }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
-  session = (await openStudioSession(db.sql, context, owner, new Date()))?.id ?? ''
+  session = (await openStudioSession(db.sql, context, owner, userId, new Date()))?.id ?? ''
 })
 
 afterAll(async () => {
@@ -141,7 +141,7 @@ describe('the studio frame', () => {
     const hash = 'e'.repeat(64)
     await db.sql`insert into user_session (id_hash, user_id, partner_id, absolute_expires_at) values (${hash}, ${user?.id ?? ''}, ${t.partnerA}, now() + interval '1 day')`
     const context: TenantContext = { caller: { kind: 'person', userId: user?.id ?? '', sessionId: hash }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
-    const ending = (await openStudioSession(db.sql, context, owner, new Date()))?.id ?? ''
+    const ending = (await openStudioSession(db.sql, context, owner, user?.id ?? '', new Date()))?.id ?? ''
     const closed: string[] = []
     const sockets = [
       { tag: await hashStudioSession(session), close: () => void closed.push('live') },

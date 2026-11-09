@@ -15,7 +15,7 @@ import { designWrite } from './storefront'
 const pageSize = 48
 const maxSearch = 100
 const maxName = 120
-const reads = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none', blockedFor: ['support', 'impersonation'] } as const
+const reads = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none' } as const
 
 const assetsFor = (ctx: StoreContext) => {
   if (!ctx.sql || !ctx.files) throw forbidden()

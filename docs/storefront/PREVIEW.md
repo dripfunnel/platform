@@ -124,8 +124,8 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    the store (ACCESS §3) and signs a link: `https://{slug}-preview.my-store.one/__open?t=<token>`.
    The token names the store and the user, is signed with a Worker secret, and expires
    after **7 days** (decided on #317, as proposed).
-   **Built on #317:** the Store API's `openStorefrontPreview`, renamed `previewLink` on #318 (the `publish` capability; refused to support and staff
-   sessions, which act as someone else) answers the link and records `storefront.preview_opened`. The token is sealed with
+   **Built on #317:** the Store API's `openStorefrontPreview`, renamed `previewLink` on #318 (the `publish` capability; refused to a staff setup session, which has no store user;
+   staff impersonating and an elevated support session issue it as the user they act as, ACCESS §8, §8.1, #1344) answers the link and records `storefront.preview_opened`. The token is sealed with
    AES-GCM under `PREVIEW_LINK_KEY`, so its holder can't read who issued it, and carries the store, the user,
    `storefront.preview_epoch` and the expiry.
    *Why:* only the portal can hand out a preview, and every link runs out.

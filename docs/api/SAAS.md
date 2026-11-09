@@ -271,7 +271,7 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
   (CONSOLE-DESIGN §8). Suspended is a person's decision; past due is a billing fact.
 - Every state change writes an audit entry and an outbox event (email to the Owner, cache
   purge of the storefront's degraded rule).
-- **Built on #329, part 2**: `cancelStore` (the Owner's, never a support session's) makes the store
+- **Built on #329, part 2**: `cancelStore` (the Owner's, also through staff impersonating them or a support session allowed to write, ACCESS §8, §8.1, #1344) makes the store
   cancelled and read-only at once. A paid plan ends at its period's end through Stripe's
   `cancel_at_period_end`, and the Shop API keeps selling until `cancel_at`; a trial or a free plan
   ends at once. The Owner gets `store-cancelled`, which says the data is kept 90 days, and
@@ -844,7 +844,7 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 store with a studio open; one change at a time per store (a second tab waits); a container
 stops 2 minutes after the studio closes, after 5 idle minutes and at 3 hours, and restarts from the last saved draft
 (private R2) with any change kept in the object's storage reapplied ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md)
-§7, #1241); `studioActivity` (the studio's read access, refused to support and impersonation, unlogged) wakes it on
+§7, #1241); `studioActivity` (the studio's read access, open to staff impersonating and a support session that may write (#1344), unlogged) wakes it on
 focus or typing, at most every 30 s; when the account's container limit
 is reached, studios queue and show their place. Container time is recorded per request in
 `ai_run.sandbox_ms`.

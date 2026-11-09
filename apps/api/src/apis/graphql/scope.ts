@@ -34,6 +34,8 @@ export interface Access<Args = Record<string, unknown>> {
   whileReadOnly?: boolean
   /** A support session's own field (asking for writes): only a support caller, even a read-only one, reaches it (ACCESS.md §8). */
   supportOwn?: boolean
+  /** A `session` field a support session reaches too: the studio frame's renewal (ACCESS.md §8). */
+  openToSupport?: true
   /** API keys may call it too, within their scopes (ACCESS.md §5.6); every other field refuses them. */
   machine?: true
 }

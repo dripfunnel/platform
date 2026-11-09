@@ -14,8 +14,8 @@ export const registerPreview = (builder: StoreBuilder) => {
   builder.mutationFields((t) => ({
     // The card's `previewLink` (#318), a mutation since it records who opened one.
     previewLink: t.string({
-      // A support session or a staff session acts as someone else, and a link names its issuer (PREVIEW §5 step 4).
-      extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none', audit: previewAudit.opened, blockedFor: ['support', 'impersonation', 'setup'] } },
+      // A staff setup session has no store user to name as the link's issuer (PREVIEW §5 step 4).
+      extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none', audit: previewAudit.opened, blockedFor: ['setup'] } },
       resolve: async (_, __, ctx: StoreContext) => {
         if (!ctx.sql) throw forbidden()
         const caller = actingCaller(ctx)
@@ -45,7 +45,7 @@ export const registerPreview = (builder: StoreBuilder) => {
     }),
     // "End all preview links" (PREVIEW §5 step 4, §8): every link and cookie for the store stops at its next request.
     endPreviewLinks: t.boolean({
-      extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none', audit: previewAudit.linksEnded, blockedFor: ['support', 'impersonation', 'setup'] } },
+      extensions: { access: { api: 'store', scope: 'store', permission: 'publish', target: 'none', audit: previewAudit.linksEnded, blockedFor: ['setup'] } },
       resolve: async (_, __, ctx: StoreContext) => {
         if (!ctx.sql) throw forbidden()
         const caller = actingCaller(ctx)

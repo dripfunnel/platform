@@ -115,8 +115,8 @@ export const createStudioService = (deps: StudioDeps) => {
     if (!studio || !deps.previewDomain || !access) return { ok: false, reason: 'NOT_CONNECTED' }
     const key = await withSystemScope(sql, (tx) => selectPreviewKey(tx, storeId))
     if (!key) return { ok: false, reason: 'NOT_FOUND' }
-    const renewed = existing ? await renewStudio(sql, context, deps.role, existing, now()) : null
-    const opened = existing && renewed ? { id: existing, access, expiresAt: renewed } : await openStudioSession(sql, context, deps.role, now())
+    const renewed = existing ? await renewStudio(sql, context, deps.role, actor.id, existing, now()) : null
+    const opened = existing && renewed ? { id: existing, access, expiresAt: renewed } : await openStudioSession(sql, context, deps.role, actor.id, now())
     if (!opened) return { ok: false, reason: 'NOT_FOUND' }
     // Opening the studio builds the AI's store summary beside it, so the first change reads no catalogue (ARCHITECTURE §6.2).
     const [state] = await Promise.all([studio.status(storeId), existing ? null : keepNew(studio, storeId, now(), summaryOf).catch(summaryFailed)])
@@ -125,7 +125,7 @@ export const createStudioService = (deps: StudioDeps) => {
 
   /** `renewStudioSession`: the seat re-checked; a refused renewal ends the session (AI-STUDIO §3 step 6, §8). */
   const renew = async (id: string): Promise<DesignResult<Date>> => {
-    const until = await renewStudio(sql, context, deps.role, id, now())
+    const until = await renewStudio(sql, context, deps.role, actor.id, id, now())
     return until ? { ok: true, value: until } : { ok: false, reason: 'SESSION_ENDED' }
   }
 
