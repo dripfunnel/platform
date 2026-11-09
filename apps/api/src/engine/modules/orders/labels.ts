@@ -40,10 +40,12 @@ export const parcelOf = (lines: readonly BookingLineRow[], picked: readonly { li
     const l = byId.get(p.lineId)
     return l ? [{ line: l, quantity: p.quantity }] : []
   })
+  // A once-per-line extra (an engraving) is part of what the goods are worth: spread over the line's units (#1368).
+  const perUnit = (line: (typeof lines)[number]) => BigInt(line.unit_amount) + BigInt(line.line_extras_amount) / BigInt(Math.max(1, line.quantity))
   return {
-    items: items.map(({ line, quantity }) => ({ name: line.name, sku: line.sku, quantity, unitAmount: BigInt(line.unit_amount), hsCode: line.hs_code })),
+    items: items.map(({ line, quantity }) => ({ name: line.name, sku: line.sku, quantity, unitAmount: perUnit(line), hsCode: line.hs_code })),
     weightGrams: items.reduce((sum, { line, quantity }) => sum + (line.weight_grams && line.weight_grams > 0 ? line.weight_grams : defaultWeightGrams) * quantity, 0),
-    amount: items.reduce((sum, { line, quantity }) => sum + BigInt(line.unit_amount) * BigInt(quantity), 0n),
+    amount: items.reduce((sum, { line, quantity }) => sum + perUnit(line) * BigInt(quantity), 0n),
   }
 }
 

@@ -34,8 +34,8 @@ export const deliverOrder = async (tx: ScopedSql, activity: ActivityLog, storeId
         lineId: line.id,
         productId: line.product_id,
         currency: order.currency,
-        // The card is worth its price before any offer, as the shopper chose it (decided on #323).
-        amount: BigInt(line.unit_amount),
+        // The card is worth its price before any offer, as the shopper chose it (decided on #323): never its extras (#1368).
+        amount: BigInt(line.unit_amount) - BigInt(line.unit_extras_amount),
         expiryMonths: line.gift_card_expiry_months,
         recipientName: line.gift_recipient_name,
         recipientEmail: line.gift_recipient_email,

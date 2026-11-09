@@ -18,6 +18,8 @@ export interface LineToDeliverRow {
   gift_card_expiry_months: number | null
   quantity: number
   unit_amount: string
+  /** The per-item customisation extras inside unit_amount (#1368). */
+  unit_extras_amount: string
   gift_recipient_name: string | null
   gift_recipient_email: string | null
   gift_message: string | null
@@ -41,7 +43,7 @@ export const selectOrderToDeliver = async (tx: ScopedSql, storeId: string, order
         exists (select 1 from payment m where m.order_id = o.id and m.mode = 'test') as test,
         coalesce((select json_agg(json_build_object('id', l.id, 'product_id', l.product_id, 'product_type', p.product_type, 'download_mode', p.download_mode,
             'download_asset_id', p.download_asset_id, 'download_limit', p.download_limit, 'download_days', p.download_days,
-            'gift_card_expiry_months', p.gift_card_expiry_months, 'quantity', l.quantity, 'unit_amount', l.unit_amount::text,
+            'gift_card_expiry_months', p.gift_card_expiry_months, 'quantity', l.quantity, 'unit_amount', l.unit_amount::text, 'unit_extras_amount', l.unit_extras_amount::text,
             'gift_recipient_name', l.gift_recipient_name, 'gift_recipient_email', l.gift_recipient_email, 'gift_message', l.gift_message, 'gift_send_on', l.gift_send_on)
           order by l.position) from order_line l join product p on p.id = l.product_id where l.order_id = o.id and p.product_type in ('digital', 'gift_card')), '[]'::json) as lines
       from "order" o join store s on s.id = o.store_id

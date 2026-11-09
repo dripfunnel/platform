@@ -30,7 +30,9 @@ const words: Record<CartRefusal, string> = {
 
 const answered = <T>(result: CartResult<T>): T => {
   if (result.ok) return result.value
-  throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(result.problems ? { problems: result.problems } : {}), ...(result.answers ? { problems: result.answers } : {}) } })
+  // `problems`: what stands before payment (NOT_READY) or each answer's problem (ANSWERS_INVALID); never both.
+  const problems = result.answers ?? result.problems
+  throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(problems ? { problems } : {}) } })
 }
 
 /** Gift card numbers tried per store and address, so a script can't walk the space. */
