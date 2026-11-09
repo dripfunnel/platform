@@ -52,7 +52,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
 }
 
 const sorts: readonly ProductSort[] = ['created', 'updated', 'name', 'price_low', 'price_high', 'stock']
-const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info', 'low_stock']
+const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info', 'low_stock', 'with_questions']
 const maxBulk = 100
 
 const ids = (values: readonly (string | number)[]): string[] => {
