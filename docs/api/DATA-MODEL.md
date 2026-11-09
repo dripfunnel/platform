@@ -1747,8 +1747,12 @@ shopper_upload      (id, store_id, order_id, question_id NULL, r2_key, mime ('im
                     -- request can reach its files; its holder erases them through the cart
                     -- itself: removing a file in the modal, removing the line or emptying the
                     -- cart deletes the row and its R2 object at once, a shopper's own action,
-                    -- not an automatic one (PLATFORM-PROMPT §5.4). Bounded meanwhile by the
-                    -- upload limits (50 a cart, per-cart and per-address rates).
+                    -- not an automatic one (PLATFORM-PROMPT §5.4); a file's removal still works
+                    -- once its cart has expired, which the sweep keeps for that reason. Accepted risk (Gaurav,
+                    -- #1367 rule 30): until the clearing card, unordered files are kept with no
+                    -- ceiling but the upload limits (10 MB each, 50 a cart, 10 a minute a cart,
+                    -- 20 a minute an address); the risk is storage, not reach, since no request
+                    -- role can read r2_key and a file opens only on a line that names it.
                     -- question_id is ON DELETE SET NULL (a deleted question keeps the file).
                     -- r2_key under the store's prefix, selected by no request role; the merchant
                     -- side and a line's supplier open a file only through a short-lived signed
@@ -2712,7 +2716,9 @@ decide which columns and which tables each caller kind may select at all**. `app
   - **Supplier's orders**: `order_line_for_supplier` gains `answers` for its own lines, and its
     `line_amount` becomes `unit_amount × quantity + line_extras_amount`. `app_supplier` has no
     grant on `shopper_upload`; the engine mints a supplier's link to a file in system scope after
-    `order_line_for_supplier` shows the line is its own.
+    `order_line_for_supplier` shows the line is its own, and only for an upload id that line's
+    `answers` snapshot names, whose row has that line's store and order: a supplier's own line
+    never opens another order's or another store's file.
   - **Merchant side's files**: `app_request` reads `shopper_upload` without `r2_key`; a file opens
     only through the engine's short-lived signed link. Built on #1369: the link is a bearer for
     10 minutes (HMAC under its own key, naming the store, the file and its expiry). It closes
