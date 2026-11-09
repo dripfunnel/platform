@@ -39,7 +39,9 @@ import { catalogExportKind } from '#engine/modules/catalog/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, tenantCaller, type StoreContext } from './access'
-import { shopperDetail } from './shopperDetails'
+import { isSupportCaller, shopperDetail } from './shopperDetails'
+import { shopperUploadUrl } from './shopperUploads'
+import { shopperFiles } from '#engine/modules/cart/index'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -207,6 +209,15 @@ export const registerOrders = (builder: StoreBuilder) => {
   const AnswerChoice = builder.objectRef<NonNullable<Answer['choices']>[number]>('OrderLineAnswerChoice').implement({
     fields: (t) => ({ label: t.exposeString('label'), quantity: t.exposeInt('quantity'), free: t.exposeInt('free') }),
   })
+  const ShopperFile = builder.objectRef<{ id: string; mime: string; bytes: number; url: string | null }>('OrderLineAnswerFile').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      mime: t.exposeString('mime'),
+      bytes: t.exposeInt('bytes'),
+      // Signed for 10 minutes; null for a partner support session (ACCESS §8, #1340) or where links can't be signed here.
+      url: t.exposeString('url', { nullable: true }),
+    }),
+  })
   const LineAnswer = builder.objectRef<Answer & { currency: string }>('OrderLineAnswer').implement({
     fields: (t) => ({
       // In the store's main language when the shopper saw another (DATA-MODEL §7.6), so a packing slip reads in the merchant's.
@@ -218,6 +229,18 @@ export const registerOrders = (builder: StoreBuilder) => {
       text: t.string({ nullable: true, resolve: (a, _, ctx) => (a.text === undefined || a.text === null ? null : shopperDetail(ctx, a.text)) }),
       amount: t.field({ type: Money, resolve: (a) => ({ amount: a.amount, currency: a.currency }) }),
       per: t.string({ nullable: true, resolve: (a) => a.per?.toUpperCase() ?? null }),
+      // An upload question's files (#1369): the ids come from a line the caller can see, so the read is held to its store.
+      files: t.field({
+        type: [ShopperFile],
+        resolve: async (a, _, ctx) => {
+          const ids = a.uploads ?? []
+          if (ids.length === 0 || !ctx.sql) return []
+          const storeId = actingCaller(ctx).context.storeId
+          const signer = isSupportCaller(ctx) ? null : (ctx.uploadLinks ?? null)
+          const rows = await shopperFiles(ctx.sql, storeId, ids)
+          return Promise.all(rows.map(async (f) => ({ id: f.id, mime: f.mime, bytes: f.bytes, url: signer ? await shopperUploadUrl(signer, storeId, f.id, ctx.now()) : null })))
+        },
+      }),
     }),
   })
   const Line = builder.objectRef<OrderLineRow & { currency: string }>('OrderLine').implement({

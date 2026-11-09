@@ -19,6 +19,8 @@ import { deliverySchema, type DeliveryContext } from '#apis/delivery/schema'
 import { handleRiderAsset, riderAssetsPath } from '#apis/delivery/assets'
 import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
 import { handleDownload, isDownloadPath } from '#apis/shop/downloads'
+import { handleUpload, isUploadPath } from '#apis/shop/uploads'
+import { handleShopperUpload, isShopperUploadPath } from '#apis/store/shopperUploads'
 import { handleVitals, vitalsPath } from '#apis/shop/vitals'
 import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache'
 import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
@@ -147,6 +149,7 @@ import { pexelsImages } from '#integrations/stockImages/pexels'
 import { pixabayImages } from '#integrations/stockImages/pixabay'
 import { frameClosed, liveUpgrade, studioForJob, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
+import { uploadDeleteDeliverer, uploadDeleteKind } from '#jobs/queues/deliverers/uploadDelete'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
 import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, storefrontRepoPushKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
@@ -205,6 +208,8 @@ interface Env extends Record<string, unknown> {
   OFFER_CODE_RATE_LIMITER?: RateLimit | undefined
   // A paid order's download links, per shop host and IP (CATALOG-DESIGN T14); unbound, every download is refused.
   DOWNLOAD_RATE_LIMITER?: RateLimit | undefined
+  UPLOAD_RATE_LIMITER?: RateLimit | undefined
+  UPLOAD_ADDRESS_RATE_LIMITER?: RateLimit | undefined
   // Every request carrying an API key, per address, before the key is looked up (ACCESS.md §9 check 13); unbound, keys answer 500.
   API_RATE_LIMITER?: RateLimit | undefined
   // A store build's calls, per address, before the token is checked (storefront LIVE-SHOP.md §9); unbound, they answer 500.
@@ -314,6 +319,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
+    ...(assets ? { [uploadDeleteKind]: uploadDeleteDeliverer(assets) } : {}),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, shopDomain: config.SHOP_DOMAIN ?? null, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
     ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
@@ -542,6 +548,14 @@ const previewFor = async (config: Config): Promise<{ domain: string; links: Prev
 }
 
 let linkKey: { key: string; signer: Promise<LinkSigner> } | undefined
+let uploadLinkKey: { key: string; signer: Promise<LinkSigner> } | undefined
+/** Signs the links to shoppers' files on orders (#1369), under its own HKDF purpose. */
+const uploadLinksFor = (config: Config): Promise<LinkSigner> | null => {
+  const key = config.CREDENTIALS_KEK
+  if (!key) return null
+  if (uploadLinkKey?.key !== key) uploadLinkKey = { key, signer: linkSigner(key, 'shopper-uploads') }
+  return uploadLinkKey.signer
+}
 
 /** A paid order's download links, signed under CREDENTIALS_KEK (auth/signedLink.ts). */
 const downloadLinksFor = (config: Config): Promise<LinkSigner> | null => {
@@ -644,6 +658,8 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
       const ip = request.headers.get('cf-connecting-ip')
       if (!ip || !(await limiter.limit({ key: `api-key:${ip}` })).success) return tooManyRequests(60)
     }
+    // A shopper's file on an order: the signed link is its own proof (apis/store/shopperUploads.ts).
+    if (isShopperUploadPath(url.pathname)) return handleShopperUpload(request, { sql, now: () => new Date(), uploadLinks: await (uploadLinksFor(config) ?? null) }, env.ASSETS ?? null)
     const live = isStudioLivePath(url.pathname)
     const standing = await resolveStoreStanding(sql, live ? studioLiveRequest(request) : request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
@@ -651,6 +667,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowStock: async (key: string) => (env.STOCK_RATE_LIMITER ? (await env.STOCK_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
+      uploadLinks: await (uploadLinksFor(config) ?? null),
       preview: await previewFor(config), siteRepos: async () => { const app = await githubFor(config); return app ? storeRepos(app.session(), config.GITHUB_STORE_ORG) : null }, studio: studioFor(env), design: designFor(config, env, sql, secrets), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
     if (live) return handleStudioLive(request, context, { open: studioLiveFor(env) })
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
@@ -784,9 +801,10 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname, config.SHOP_DOMAIN ?? null)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), estimates: config.GOOGLE_MAPS_SERVER_KEY !== undefined, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), estimates: config.GOOGLE_MAPS_SERVER_KEY !== undefined, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadToCart: async (key) => (env.UPLOAD_RATE_LIMITER ? (await env.UPLOAD_RATE_LIMITER.limit({ key })).success : false), allowUploadFromAddress: async (key) => (env.UPLOAD_ADDRESS_RATE_LIMITER ? (await env.UPLOAD_ADDRESS_RATE_LIMITER.limit({ key })).success : false), mapFrame: config.GOOGLE_MAPS_BROWSER_KEY ? `https://${config.HOOKS_HOST}${mapFramePath}` : null, now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
+    if (isUploadPath(url.pathname)) return handleUpload(request, context, env.ASSETS ?? null)
     if (url.pathname === vitalsPath) return handleVitals(request, context)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(dataCentreCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))

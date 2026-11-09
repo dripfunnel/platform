@@ -13,7 +13,7 @@ import { findGiftCard, giftCardById, type GiftCardView } from '#engine/modules/g
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { insertOutbox } from '#db/scoped/outbox'
 import { selectShopUploadQuestion } from '#db/scoped/questions'
-import { insertShopperUpload, releaseCartUploads, selectCartUploads, uploadKey, type UploadMime } from '#db/scoped/uploads'
+import { insertShopperUpload, releaseCartUploads, selectCartUploads, selectUploadFiles, uploadKey, type UploadMime } from '#db/scoped/uploads'
 import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
@@ -53,6 +53,12 @@ export interface UploadStore {
 }
 
 export const uploadDeleteKind = 'upload.delete'
+
+/**
+ * An order's files by id, for a signed link: read in system scope, held to the store. The caller names only ids from a line
+ * it can see (the merchant side's order, or a supplier's own line through its view, DATA-MODEL §7.11).
+ */
+export const shopperFiles = (sql: postgres.Sql, storeId: string, ids: readonly string[]) => withSystemScope(sql, (tx) => selectUploadFiles(tx, storeId, ids))
 
 /** Codes a cart holds at once (migration 0078). */
 export const maxCartCodes = 5

@@ -20,6 +20,12 @@ const words: Record<CartRefusal, string> = {
   GIFT_CARD_INVALID: 'That number doesn’t match a gift card. Check it and try again.',
   NOT_IN_PREVIEW: 'Gift cards can’t be used on a preview of the shop.',
   ANSWERS_INVALID: 'Check your choices: something isn’t answered or can’t be chosen now.',
+  FILE_TYPE: 'That file isn’t one this question takes.',
+  FILE_TOO_LARGE: 'That file is over 10 MB.',
+  UNKNOWN_QUESTION: 'That question isn’t here any more.',
+  TOO_MANY_UPLOADS: 'Your cart already holds 50 files.',
+  UPLOAD_NOT_FOUND: 'That file isn’t in your cart.',
+  UPLOAD_IN_USE: 'That file is part of an item in your cart.',
 }
 
 const answered = <T>(result: CartResult<T>): T => {
