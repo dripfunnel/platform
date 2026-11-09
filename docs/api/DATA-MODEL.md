@@ -1605,10 +1605,12 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- promotion_usage.customer_email; refund.note and "return".note;
                     -- fulfilment.tracking_number and tracking_url (a tracking page can
                     -- identify the person); cart_reminder rows' sent subjects; the text
-                    -- answers in the cart_line and order_line answers of those orders and
-                    -- carts (cart_line.answers_key is re-derived from the blanked answers by
-                    -- its trigger, so no hash of the text stays), and their shopper_upload
-                    -- rows and files (#1367; no webhook or outbox row carries answers, PLATFORM-PROMPT §5.4); every
+                    -- answers in the order_line answers of those orders, and their
+                    -- shopper_upload rows and files (#1367). The person's open carts are
+                    -- not blanked but deleted, lines and uploads with them (each file's R2
+                    -- object through `upload.delete`): a cart is no money history, and
+                    -- blanking text answers would collapse two lines' answers_key into
+                    -- one. No webhook or outbox row carries answers (PLATFORM-PROMPT §5.4); every
                     -- order_document asset of those orders (invoices, packing slips, labels
                     -- and return labels all carry the name and address), the rows keeping
                     -- kind, number and date; any export_job or customer_data_request file
