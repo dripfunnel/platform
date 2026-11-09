@@ -205,6 +205,8 @@ export const deleteExpiredCarts = async (tx: ScopedSql, now: Date, limit: number
       delete from "order" where id in (
         select o.id from "order" o where o.state = 'cart' and o.cart_expires_at < ${now}
           and not exists (select 1 from cart_reminder r where r.order_id = o.id and r.sent_at > ${new Date(now.getTime() - unsubscribeLinkMs)})
+          -- A cart holding shoppers' files waits: they're kept with no automatic deletion (rule 30 of #1367, DATA-MODEL §7.6).
+          and not exists (select 1 from shopper_upload u where u.order_id = o.id)
         order by o.cart_expires_at limit ${limit})
     `
   ).count

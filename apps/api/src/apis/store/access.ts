@@ -1,3 +1,4 @@
+import type { LinkSigner } from '#auth/signedLink'
 import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
 import type { PreviewLinks } from '#auth/previewLink'
@@ -71,6 +72,8 @@ export interface StoreContext extends Record<string, unknown> {
   design?: Pick<StudioDeps, 'ai' | 'models' | 'screenshots' | 'readAsset'> & { stock?: StudioDeps['stock']; aiPhotos?: readonly string[] } | null
   /** Where "Pin on map"'s frame is (hooks/mapFrame.ts); null without a Maps key, which hides it. */
   mapFrame?: string | null
+  /** Signs the 10-minute links to shoppers' files on orders (#1369); null where CREDENTIALS_KEK isn't set. */
+  uploadLinks?: LinkSigner | null
   now: () => Date
 }
 

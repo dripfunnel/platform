@@ -1724,6 +1724,7 @@ type OrderLine {
 type OrderLineAnswer {
   amount: Money
   choices: [OrderLineAnswerChoice!]
+  files: [OrderLineAnswerFile!]
   kind: String
   per: String
   question: String
@@ -1734,6 +1735,13 @@ type OrderLineAnswerChoice {
   free: Int
   label: String
   quantity: Int
+}
+
+type OrderLineAnswerFile {
+  bytes: Int
+  id: ID
+  mime: String
+  url: String
 }
 
 type OrderPage {

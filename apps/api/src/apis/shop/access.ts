@@ -39,6 +39,9 @@ export interface ShopContext extends Record<string, unknown> {
   allowDownload?: (key: string) => Promise<boolean>
   /** The new-cart limiter (CART_RATE_LIMITER) by key; the Worker refuses to serve without it. */
   allowNewCart: (key: string) => Promise<boolean>
+  /** Shoppers' files per cart (UPLOAD_RATE_LIMITER) and per host and address (UPLOAD_ADDRESS_RATE_LIMITER); refuse where unbound (#1369). */
+  allowUploadToCart?: (key: string) => Promise<boolean>
+  allowUploadFromAddress?: (key: string) => Promise<boolean>
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key, so codes can't be guessed; refuses every code where it isn't bound. */
   allowCodeAttempt?: (key: string) => Promise<boolean>
   /** Whether a delivery's arrival estimate can be made here (GOOGLE_MAPS_SERVER_KEY is set); without it `etaAt` stays empty. */

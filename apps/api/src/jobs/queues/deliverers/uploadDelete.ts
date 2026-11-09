@@ -1,0 +1,26 @@
+import type postgres from 'postgres'
+import { z } from 'zod'
+import { withSystemScope } from '#db/scoped/index'
+import { uploadKeyInUse } from '#db/scoped/uploads'
+import { GiveUp, type Deliverer } from '../outbox-relay'
+
+export { uploadDeleteKind } from '#engine/modules/cart/index'
+
+// Only a shopper's file's own key (DATA-MODEL §7.6): `stores/{store}/shopper-uploads/{cart}/{file}`.
+const payload = z.object({ key: z.string().regex(/^stores\/[0-9a-f-]{36}\/shopper-uploads\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/) })
+
+/**
+ * `upload.delete`: the R2 object of a file the shopper removed, after the row's delete commits. Retried with the relay's
+ * backoff until R2 answers, so a failed or interrupted delete never leaves the file behind; deleting a missing key succeeds.
+ */
+export const uploadDeleteDeliverer = (sql: postgres.Sql, files: { delete: (key: string) => Promise<unknown> }): Deliverer => ({
+  deliver: async (effect) => {
+    const parsed = payload.safeParse(effect.payload)
+    // The key's store is the row's own: a row queued by one store never deletes another's file.
+    if (!parsed.success || effect.storeId === null || !parsed.data.key.startsWith(`stores/${effect.storeId}/shopper-uploads/`)) throw new GiveUp('bad_payload')
+    const { storeId } = effect
+    // Only a file whose row is gone (removed, or never committed): a job naming a live file deletes nothing.
+    if (await withSystemScope(sql, (tx) => uploadKeyInUse(tx, storeId, parsed.data.key))) throw new GiveUp('file_in_use')
+    await files.delete(parsed.data.key)
+  },
+})
