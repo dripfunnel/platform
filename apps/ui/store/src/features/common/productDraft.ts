@@ -1,4 +1,5 @@
 import { minorOf, moneyText } from '@dripfunnel/shared/format'
+import { questionProblems, questionsDraftOf, questionsInputOf, type QuestionDraft } from './productQuestions'
 import type { EditorProduct, ProductInput } from '../../api/productEditor'
 import type { StockLevel } from '../../api/stock'
 import { blankDetails, type KindDetails } from './kindDetails'
@@ -93,6 +94,9 @@ export interface Draft {
   collectionIds: string[]
   /** A download's, service's or gift card's own card, saved after the product (`saveProductKind`). */
   details: KindDetails
+  /** The questions shoppers answer before buying (CATALOG §6 U); sent only once the product has or had some. */
+  questions: QuestionDraft[]
+  hadQuestions: boolean
 }
 
 /** The listing's sections as the editor edits them (CATALOG S1–S9); a version's own specs are kept as they came. */
@@ -174,6 +178,8 @@ export const blankDraft = (units: Units = 'metric'): Draft => ({
   sizeChartId: null,
   collectionIds: [],
   details: blankDetails(),
+  questions: [],
+  hadQuestions: false,
 })
 
 const isKind = (value: string): value is ProductKind => (productKinds as readonly string[]).includes(value)
@@ -269,6 +275,11 @@ export const draftOf = (product: EditorProduct, currency: string, { units = 'met
     sizeChartId: product.sizeChartId,
     collectionIds: [],
     details: blankDetails(),
+    questions: questionsDraftOf(product.questions, currency, (id) => {
+      const v = product.versions.find((x) => x.id === id)
+      return v ? keyOf(v.choices) : null
+    }),
+    hadQuestions: product.questions.length > 0,
   }
 }
 
@@ -363,7 +374,7 @@ export const newVersionCount = (draft: Draft): number => {
   return combinationsOf(draft.options).filter((c) => !existing.has(keyOf(c))).length
 }
 
-export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'weight' | 'box' | 'hsCode' | 'stock' | 'manual'
+export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'weight' | 'box' | 'hsCode' | 'stock' | 'manual' | 'questions'
 
 /** The API's rule for a classification code (catalog/rules.ts): 6 to 10 digits, or none. */
 const hsCodeOk = (text: string) => text.trim() === '' || /^\d{6,10}$/.test(text.trim())
@@ -379,6 +390,8 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   if (live.some((v, i) => { const at = minorOf(v.compareAt, currency); const p = priced[i]; return at === 'invalid' || (typeof at === 'number' && typeof p === 'number' && at <= p) })) problems.push('compare')
   if (live.some((v) => minorOf(v.cost, currency) === 'invalid')) problems.push('cost')
   if (live.some((v) => Object.entries(v.manualPrices).some(([c, t]) => { const n = minorOf(t, c); return n === 'invalid' || n === 0 }))) problems.push('manual')
+  const liveKeys = draft.versions.filter((v) => !v.removed && v.choices.length > 0).map((v) => keyOf(v.choices))
+  if (questionProblems(draft.questions, currency, liveKeys.length > 1 ? liveKeys : null).length > 0) problems.push('questions')
   const names = draft.options.map((o) => o.name.trim().toLowerCase())
   if (draft.options.length > maxOptions || names.some((n) => n === '') || new Set(names).size !== names.length || draft.options.some((o) => o.values.length === 0)) problems.push('options')
   // Choices changed since the versions were made: "Update versions" first, as the prototype asks.
@@ -452,6 +465,8 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
     seoDescription: draft.seoDescription.trim(),
     options: draft.options.map((o) => ({ ...(o.id ? { id: o.id } : {}), name: o.name.trim(), values: o.values.map((v) => ({ ...(v.id ? { id: v.id } : {}), name: v.name })) })),
     versions,
+    // Left out for a product that never had questions, so its save writes nothing about them (CATALOG U1).
+    ...(draft.hadQuestions || draft.questions.length > 0 ? { questions: questionsInputOf(draft.questions, currency, live.map((v) => keyOf(v.choices))) } : {}),
     // A photo of a version no longer made goes with it.
     photos: draft.photos.flatMap((p) => {
       const at = indexOf(p.versionChoices)

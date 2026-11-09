@@ -1413,3 +1413,83 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* "Ask the shopper before they buy" (CATALOG-DESIGN §6 U): one card a question, its choices and price beneath. */
+.df-questions,
+.df-question-choices {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.df-question-card {
+  display: grid;
+  gap: var(--df-space-2);
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+.df-question-card > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--df-space-2);
+  color: var(--df-color-muted);
+}
+.df-question-card > header strong {
+  color: var(--df-color-text);
+}
+.df-question-card label,
+.df-question-price label {
+  display: grid;
+  gap: var(--df-space-1);
+}
+.df-question-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+  padding-block-end: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+}
+.df-question-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.df-question-actions,
+.df-question-add,
+.df-question-photo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+.df-question-actions {
+  margin-inline-start: auto;
+}
+.df-question-confirm,
+.df-question-copy {
+  display: grid;
+  gap: var(--df-space-2);
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+}
+.df-question-photo img {
+  border-radius: var(--df-radius);
+  object-fit: cover;
+}
+/* The photo's file input is visually hidden: its label shows where keyboard focus is. */
+.df-question-photo label:has(input:focus-visible) {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+  border-radius: var(--df-radius);
+}

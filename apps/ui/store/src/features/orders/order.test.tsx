@@ -26,6 +26,7 @@ const { OrderPage } = await import('./OrderPage')
 const inr = (amount: string) => ({ amount, currency: 'INR' })
 const line = (l: Partial<OrderLine> & Pick<OrderLine, 'id' | 'name'>): OrderLine => ({
   productId: 'p1',
+  answers: null,
   versionName: null,
   sku: null,
   quantity: 1,
@@ -596,5 +597,58 @@ describe('returns and refunds', () => {
     expect((button(words.actions.return) as HTMLButtonElement).disabled).toBe(true)
     expect((button(words.actions.refund) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText(words.staffOnly)).toBeTruthy()
+  })
+
+  it('shows a customised line’s answers with each extra; text as typed, never as HTML; files as thumbnails or downloads', async () => {
+    const answers: NonNullable<OrderLine['answers']> = [
+      { question: 'Toppings', kind: 'CHOICE', text: null, per: 'item', amount: inr('8000'), choices: [{ label: 'Cheese', quantity: 2, free: 1 }, { label: 'Olives', quantity: 1, free: 0 }], files: [] },
+      { question: 'Message on the cake', kind: 'TEXT', text: '<b>Happy 30</b> Asha', per: 'line', amount: inr('1100'), choices: [], files: [] },
+      {
+        question: 'Your photos',
+        kind: 'UPLOAD',
+        text: null,
+        per: 'line',
+        amount: inr('0'),
+        choices: [],
+        files: [
+          { id: 'f1', mime: 'image/png', bytes: 10, url: '/api/shopper-uploads/s1/f1.1.sig' },
+          { id: 'f2', mime: 'image/heic', bytes: 10, url: '/api/shopper-uploads/s1/f2.1.sig' },
+          { id: 'f3', mime: 'application/pdf', bytes: 10, url: '/api/shopper-uploads/s1/f3.1.sig' },
+        ],
+      },
+    ]
+    const customised = { ...placed, parts: [part({ id: 'own', lines: [{ ...shirt, answers }] })] }
+    await show(owner, customised)
+    const list = screen.getByLabelText(words.line.answers.label)
+    expect(within(list).getByText('Cheese × 2 (free), Olives')).toBeTruthy()
+    // Typed by a shopper: shown as text, the tags as characters.
+    expect(within(list).getByText('<b>Happy 30</b> Asha')).toBeTruthy()
+    expect(list.querySelector('b')).toBeNull()
+    expect(within(list).getByText(/once per line/)).toBeTruthy()
+    expect(within(list).getByRole('img', { name: 'Photo 1' })).toBeTruthy()
+    expect(within(list).getByRole('link', { name: 'Download Photo 2' }).getAttribute('href')).toBe('/api/shopper-uploads/s1/f2.1.sig')
+    expect(within(list).getByRole('link', { name: 'Download PDF 3' })).toBeTruthy()
+  })
+
+  it('shows a support session the hidden text and no file link, and a supplier its answers without money', async () => {
+    const answers: NonNullable<OrderLine['answers']> = [
+      { question: 'Name to engrave', kind: 'TEXT', text: '•••••', per: 'item', amount: inr('500'), choices: [], files: [] },
+      { question: 'Your photo', kind: 'UPLOAD', text: null, per: 'line', amount: inr('0'), choices: [], files: [{ id: 'f1', mime: 'image/png', bytes: 10, url: null }] },
+    ]
+    await show(owner, { ...placed, parts: [part({ id: 'own', lines: [{ ...shirt, answers }] })] })
+    const list = screen.getByLabelText(words.line.answers.label)
+    expect(within(list).getByText('•••••')).toBeTruthy()
+    expect(within(list).getByText('Photo 1 (hidden)')).toBeTruthy()
+    expect(within(list).queryByRole('link')).toBeNull()
+    cleanup()
+    await show(supplier, { ...placed, parts: [part({ id: 'nw', supplierId: 'v1', supplierName: 'Northwind Textiles', shippingMode: 'to-store', lines: [{ ...dupatta, answers: answers.slice(0, 1).map((a) => ({ ...a, text: 'Asha' })) }] })] })
+    const own = screen.getByLabelText(words.line.answers.label)
+    expect(within(own).getByText('Asha')).toBeTruthy()
+    expect(within(own).queryByText(/500/)).toBeNull()
+  })
+
+  it('draws a line without answers exactly as before', async () => {
+    await show(owner, placed)
+    expect(screen.queryByLabelText(words.line.answers.label)).toBeNull()
   })
 })

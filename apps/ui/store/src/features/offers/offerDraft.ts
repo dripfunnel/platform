@@ -74,6 +74,8 @@ export interface OfferDraft {
   kept: OfferCondition[]
   /** The offer's description, which this form doesn't draw, saved back as it came. */
   description: string | null
+  /** Whether it takes money off the extras a customised line's answers add (OFFERS §3.1; #1367). */
+  includeCustomisation: boolean
 }
 
 /** What the form needs to know of the store: its time zone, its currencies (the main one first) and their rates. */
@@ -84,6 +86,8 @@ export interface StoreFacts {
   others: string[]
   /** Units of each currency per euro (storeLocale.rates); a currency without one isn't converted. */
   perEuro: Record<string, number>
+  /** The store has a product with questions, so the extras switch shows (OFFERS §3.1). */
+  hasCustomisation: boolean
 }
 
 export const noTargets: OfferTargets = { productIds: [], collectionIds: [], filterValueIds: [] }
@@ -201,6 +205,7 @@ const blank = (type: OfferKind): OfferDraft => ({
   getIds: [],
   getPercent: '100',
   oncePerOrder: false,
+  includeCustomisation: true,
   shipMode: 'free',
   // Most sellers mean a code; buy X get Y and shipping offers mostly apply by themselves (§5 principle 3).
   trigger: type === 'bxgy' || type === 'shipping' ? 'automatic' : 'code',
@@ -331,6 +336,7 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
     perCustomer: offer.perCustomerLimit ? String(offer.perCustomerLimit) : '',
     combines: offer.combines,
     description: offer.description,
+    includeCustomisation: offer.includeCustomisation ?? true,
   }
   const fixed = { kind: 'fixed' as const, amounts: typedOf(a.amounts) }
   const percent = { kind: 'percent' as const, percent: String(a.percent ?? ''), capOn: a.cap.length > 0, cap: mainOf(a.cap, facts), capSaved: a.cap }
@@ -506,7 +512,9 @@ const actionInput = (a: OfferAction): Record<string, unknown> => {
 /** The `OfferInput` Save sends, on or off as the merchant chose (Start now / Schedule / Keep off, #337). */
 export const inputOf = (d: OfferDraft, facts: StoreFacts, enabled: boolean) => {
   const o = offerOf(d, facts)
-  return { ...o, description: d.description, enabled, conditions: o.conditions.map(conditionInput), action: actionInput(o.action) }
+  // A free-shipping offer takes nothing off goods, so it sends no switch (the stored value stays).
+  const extras = d.type === 'shipping' ? {} : { includeCustomisation: d.includeCustomisation }
+  return { ...o, description: d.description, enabled, conditions: o.conditions.map(conditionInput), action: actionInput(o.action), ...extras }
 }
 
 

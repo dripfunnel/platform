@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
+Last updated: 2026-11-09 (#1370: an edit without the switch keeps its stored value, §3.1). Before: 2026-11-09 (#1367: "Include customisation extras", §3.1, D7, E6, F7). Before: 2026-11-03 (#1186: "first order only" counts the guest orders a sign-in linked, §3 fact 8). Before: 2026-10-05.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -397,8 +397,8 @@ default**. On, the offer reads a customised line at its whole price, the extras 
 are worked on that, and the extras are paid in full (PLATFORM-PROMPT §5.4). A line without answers is the same either
 way. The switch **shows only once the store has a product with questions** (the Store API's `hasCustomisation`), and then
 on the three kinds that take money off goods (D, E, F); a free-shipping offer has none, and counts extras towards its
-minimum. An offer saved with it off keeps it off when the store no longer has questions, where it changes nothing. An
-`OfferInput` without it saves it on, so older callers are unchanged.
+minimum. An offer saved with it off keeps it off when the store no longer has questions, where it changes nothing. A new
+offer's `OfferInput` without it saves it on, and an edit without it keeps the stored value, so older callers are unchanged.
 
 ---
 

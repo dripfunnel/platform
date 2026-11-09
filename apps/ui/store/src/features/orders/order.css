@@ -601,3 +601,47 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+/* A customised line's answers (#1371): question, then what was answered, under the line. */
+.df-order-answers {
+  display: grid;
+  gap: var(--df-space-1);
+  margin: var(--df-space-1) 0 var(--df-space-2);
+  padding-inline-start: var(--df-space-3);
+  border-inline-start: 2px solid var(--df-color-border);
+}
+.df-order-answer {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: var(--df-space-2);
+}
+.df-order-answer dt {
+  color: var(--df-color-muted);
+}
+.df-order-answer dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.df-order-answer-files {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+}
+.df-order-answer-thumb img {
+  display: block;
+  border-radius: var(--df-radius);
+  object-fit: cover;
+}
+@media (max-width: 480px) {
+  .df-order-answer {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+.df-order-answer a {
+  color: var(--df-color-link);
+}
+.df-order-answer a:hover {
+  color: var(--df-color-link-hover);
+}

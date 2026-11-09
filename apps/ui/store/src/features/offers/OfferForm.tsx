@@ -216,6 +216,16 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
           </>
         )}
 
+        {d.type !== 'shipping' && (facts.hasCustomisation || !d.includeCustomisation) && (
+          <label className="df-offer-check">
+            <input type="checkbox" checked={d.includeCustomisation} disabled={disabled} onChange={() => set({ includeCustomisation: !d.includeCustomisation })} />
+            <span>
+              {words.extras.label}
+              <span className="df-offers-sub">{words.extras.hint}</span>
+            </span>
+          </label>
+        )}
+
         {d.type === 'products' && (
           <>
             <span id={ids.target} className="df-offer-label">

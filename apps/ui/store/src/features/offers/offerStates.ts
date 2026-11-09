@@ -81,7 +81,7 @@ export interface EditorSample {
 
 export const editorSample = (state: EditorState | null): EditorSample | null => {
   if (!harness || !state || state === 'loading' || state === 'error' || state === 'denied' || state === 'staff') return null
-  const facts: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }
+  const facts: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {}, hasCustomisation: false }
   const lists: FormLists = {
     filters: [{ id: 'f1', name: 'Fabric', position: 0, revision: 1, shopperVisible: true, values: [{ id: 'fv-linen', name: 'Linen', products: 12 }, { id: 'fv-cotton', name: 'Cotton', products: 30 }] }],
     collections: [{ id: 'c1', name: 'Festive edit', kind: 'manual', visible: true, parentId: null, inheritParent: false, match: 'all', imageAssetId: null, rules: [], products: 24, computedAt: null }],

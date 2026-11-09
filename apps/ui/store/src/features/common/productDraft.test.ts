@@ -15,7 +15,7 @@ const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   slug: 'mara-linen-shirt',
   seoTitle: null,
   seoDescription: null,
-  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
+  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, questions: [], 
   photos: [{ id: 'ph1', assetId: 'a1', url: '/api/assets/a1', alt: 'Front', versionId: null }],
   options: [{ id: 'o1', name: 'Size', values: [{ id: 'v-s', name: 'S' }, { id: 'v-m', name: 'M' }] }],
   versions: [
@@ -215,5 +215,17 @@ describe('a gift card’s amounts', () => {
     const none = withAmounts(shirt, [], 'INR', 'Amount', label)
     expect(none.versions).toEqual([expect.objectContaining({ id: 'ver-s', choices: [], price: '' })])
     expect(problemsOf(named(none, 'Card'), 'INR')).toContain('price')
+  })
+})
+
+describe('questions in the save (CATALOG U14)', () => {
+  it('sends none for a product that never had any, and sends them, or [] to remove them, once it has', async () => {
+    const { newQuestion } = await import('./productQuestions')
+    const blank = blankDraft()
+    const plain = { ...blank, name: 'Mug', versions: blank.versions.map((v) => ({ ...v, price: '200' })) }
+    expect(inputOf(plain, 'INR', 'merchant')).not.toHaveProperty('questions')
+    const asking = { ...plain, questions: [{ ...newQuestion('TEXT'), label: 'Name to engrave' }] }
+    expect(inputOf(asking, 'INR', 'merchant').questions).toMatchObject([{ kind: 'TEXT', label: 'Name to engrave' }])
+    expect(inputOf({ ...plain, hadQuestions: true }, 'INR', 'merchant').questions).toEqual([])
   })
 })
