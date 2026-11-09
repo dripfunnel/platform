@@ -1226,9 +1226,11 @@ product_approved_snapshot
                      extras jsonb NULL, approved_at, approved_by)
                     -- prices is [{version_id, currency, amount, compare_at_amount}], one entry
                     -- per version_price row at approval, every amount with its currency (§7.1);
-                    -- extras (#1367, proposed) the price columns of its questions and choices and
-                    -- their product_question_amount rows, since an extra's price is a price
-                    -- (ACCESS §7.2)
+                    -- extras (#1367) the price columns of its questions and choices and their
+                    -- product_question_amount rows, since an extra's price is a price (ACCESS §7.2).
+                    -- Not built (found on #1368): no migration creates this table; a supplier's
+                    -- save compares the stored rows instead (catalog/rules.ts reviewedChanges), an
+                    -- extra's price among them (catalog/questions.ts extrasPriceChanged)
                     -- what the last approval accepted, so a save knows whether it must go
                     -- back to pending (ACCESS §7.2, decided 2026-10-02)
 product_option      (id, product_id, store_id, seller_id NULL, name, position)   -- "Size", "Colour" (fact 3)
