@@ -13,6 +13,7 @@ import { storeSchema } from '#apis/store/schema'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
+import { apiKeyAudit } from '#saas/apiKeys/index'
 
 // Staff impersonating a store user on the store's portal host (ACCESS.md §8.1, §8.3): the exchange,
 // the caller, the blocked list, the notice, and every way a session ends.
@@ -161,6 +162,14 @@ describe('the caller', () => {
     expect((await gql(`mutation { setPricesIncludeTax(included: true) }`, { staff })).code).toBeUndefined()
     expect(await entries(id)).toContainEqual(expect.objectContaining({ actor_kind: 'person', actor_id: people.owner, on_behalf_of_id: neha }))
   })
+
+  it('makes an API key for the Owner, logged on the staff member’s behalf (#1344)', async () => {
+    const id = await started('owner', 'tok-key')
+    const staff = await enter('tok-key')
+    const made = await gql(`mutation { createApiKey(name: "Set up by support", scopes: ["catalog.read"]) { id } }`, { staff })
+    expect(made.code).toBeUndefined()
+    expect(await entries(id)).toContainEqual(expect.objectContaining({ action: apiKeyAudit.created, actor_kind: 'person', actor_id: people.owner, on_behalf_of_id: neha }))
+  })
 })
 
 describe('the blocked list (ACCESS.md §8.1)', () => {
@@ -171,49 +180,16 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
   }
   const blocked = (kind: 'impersonation') => fields().filter(({ field }) => field.extensions.access?.blockedFor?.includes(kind)).map(({ field }) => field.name).sort()
   const signIn = ['changeEmail', 'changePassword', 'regenerateBackupCodes', 'setSecondFactor', 'signOutOtherSessions']
-  const moneyDetails = ['connectGateway', 'connectStripe', 'finishStripeConnect', 'setPaymentMethod']
-  // The store's own AI account and the Owner's consent to bill it, as the partner console's AI keys (#275).
-  // Credentials and data channels that outlive the session; revoking, removing and uninstalling stay open.
-  const outlasting = ['createApiKey', 'installApp', 'rotateApiKey', 'saveWebhook']
-  const aiAccount = ['beginStoreAiOauth', 'connectStoreAiAccount', 'finishStoreAiOauth', 'removeStoreAiAccount', 'setStoreAiFallback', 'setStoreAiSwitch']
-  // The storefront's design, studio and preview links were declared before #1012.
-  const storefront = [
-    'answerDesignQuestions',
-    'askDesign',
-    'buildDesignPlan',
-    'cancelDesign',
-    'changeDesignPlan',
-    'chooseTemplate',
-    'deleteLibraryAsset',
-    'designChat',
-    'designText',
-    'discardDraft',
-    'endPreviewLinks',
-    'goBackToVersion',
-    'importDesignImage',
-    'libraryAssets',
-    'previewLink',
-    'publishBefore',
-    'publishDesign',
-    'publishNow',
-    'renameLibraryAsset',
-    'renewStudioSession',
-    'saveDesignText',
-    'searchStockImages',
-    'stockImagesAvailable',
-    'studioActivity',
-    'studioSession',
-    'undoDesignChange',
-    'useStockImage',
-  ]
-
-  it('declares the user’s sign-in and sessions, money details, the store’s AI account, the store switch and the storefront’s design', () => {
-    expect(blocked('impersonation')).toEqual([...signIn, ...moneyDetails, ...aiAccount, ...outlasting, 'switchStore', ...storefront].sort())
+  // Where the shoppers' money is paid out (USERS-AND-DOMAINS §4.2).
+  const payouts = ['connectGateway', 'connectStripe', 'finishStripeConnect']
+  // Staff set a store up with everything else (ACCESS.md §8.1, #1344).
+  it('declares only the user’s sign-in and sessions, the payment gateways and the store switch', () => {
+    expect(blocked('impersonation')).toEqual([...signIn, ...payouts, 'switchStore'].sort())
   })
 
-  it('leaves no mutation on the user’s own account open but their name and theme', () => {
+  it('leaves no mutation on the user’s own account open but their name and theme, and the studio frame’s renewal', () => {
     const open = fields().filter(({ field, mutation }) => mutation && field.extensions.access?.scope === 'session' && !field.extensions.access.blockedFor?.includes('impersonation'))
-    expect(open.map(({ field }) => field.name).sort()).toEqual(['setTheme', 'updateProfile'])
+    expect(open.map(({ field }) => field.name).sort()).toEqual(['renewStudioSession', 'setTheme', 'updateProfile'])
   })
 
   it('refuses every declared field and every Owner change, whatever the role', async () => {
@@ -226,21 +202,9 @@ describe('the blocked list (ACCESS.md §8.1)', () => {
       `mutation { regenerateBackupCodes }`,
       `mutation { signOutOtherSessions }`,
       `mutation { switchStore(storeId: "${t.storeA1}") { membershipId } }`,
-      `mutation { setPaymentMethod(token: "pm_x") { asOf } }`,
       `mutation { connectGateway(provider: "cod") }`,
       `mutation { connectStripe }`,
       `mutation { finishStripeConnect(key: "k") }`,
-      `mutation { connectStoreAiAccount(provider: "anthropic", key: "k") }`,
-      `mutation { beginStoreAiOauth(provider: "anthropic") }`,
-      `mutation { finishStoreAiOauth(response: "r") }`,
-      `mutation { setStoreAiSwitch(on: true) }`,
-      `mutation { setStoreAiFallback(on: true) }`,
-      `mutation { removeStoreAiAccount }`,
-      `mutation { createApiKey(name: "Feed", scopes: ["catalog.read"]) { __typename } }`,
-      `mutation { rotateApiKey(id: "${seats.owner}") { __typename } }`,
-      `mutation { saveWebhook(url: "https://hooks.example/x", events: ["order.created"]) { id } }`,
-      `mutation { installApp(appId: "${seats.owner}", scopes: ["catalog.read"]) }`,
-      'mutation { studioActivity }',
       `mutation { inviteMember(email: "new-owner@a.example", role: "owner") }`,
       `mutation { removeMember(membershipId: "${seats.owner}") }`,
       `mutation { changeRole(membershipId: "${seats.manager}", role: "owner") }`,

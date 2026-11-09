@@ -5,7 +5,7 @@ Who uses the platform, where each of them signs in, and which hostnames exist. *
 "brand" they mean a **partner**'s white-label identity, and where they say "DF Admin" they
 mean the admin console at `admin.dripfunnel.ai`.
 
-Last updated: 2026-11-08 (#1340: support makes changes without asking until the store's own domain connects, and never sees shoppers' details, §4.1). Before: 2026-11-06 (#1328: a partner support session lasts 90 minutes, extendable once by 30, §4.1). Before: 2026-11-05 (#1293: support may set up a new store before its Owner accepts, §4.1). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, §4.2). Before: 2026-10-22 (riders, a sixth kind of user, §1, with Gaurav; api/DELIVERY.md). Before: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug}.my-store.one` live,
+Last updated: 2026-11-09 (#1344: staff impersonating keep the store's card and billing, never its payment gateways; support once allowed may set the store up, §4.1, §4.2). Before: 2026-11-08 (#1340: support makes changes without asking until the store's own domain connects, and never sees shoppers' details, §4.1). Before: 2026-11-06 (#1328: a partner support session lasts 90 minutes, extendable once by 30, §4.1). Before: 2026-11-05 (#1293: support may set up a new store before its Owner accepts, §4.1). Before: 2026-11-05 (#1289: a staff impersonation lasts 90 minutes, §4.2). Before: 2026-10-22 (riders, a sixth kind of user, §1, with Gaurav; api/DELIVERY.md). Before: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug}.my-store.one` live,
 `{slug}-preview.my-store.one` preview; the partner's shop domain retired; built on #744, #745, `SHOP_DOMAIN` replaces `PREVIEW_DOMAIN`). Before: 2026-10-09
 (previews moved to `{key}.webpreview.store`; §5's checks answered).
 
@@ -131,8 +131,10 @@ partner and merchant.
   support to view my store: On / Off". **On by default**; the Owner can switch it off at any
   time. When it's off, support can only ask the merchant to switch it on.
 - **Sessions are time-limited** (90 minutes, extendable once by 30, decided 2026-11-06 on #1328, replacing 30), and need a
-  **reason or ticket number** before they start. They can't change passwords, payment
-  methods, payouts, the team or ownership, and can't edit or export customers.
+  **reason or ticket number** before they start. They can't change passwords, payouts (the
+  payment gateways), the team or ownership, can't edit or export customers, riders or the store's data, and can't
+  make API keys, apps or webhooks; once allowed they may set the rest of the store up, its own card for its plan
+  included (decided 2026-11-09 on #1344).
 - **Changes until the site is the merchant's own** (decided 2026-11-08 on #1340): until the store's own
   domain first connects, support makes changes without asking; from then on sessions are **read-only**
   until the merchant allows changes for that one session (ACCESS.md §8).
@@ -159,7 +161,7 @@ partner and merchant.
   Staff, supplier users), from the admin console, to see and do exactly what that person can.
   Never as another staff member, never as a shopper.
 - **Full access as the user**: the staff member acts with that person's permissions,
-  including writes, **except** changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner). Those stay blocked even while impersonating, so
+  including writes, **except** changing the user's password, 2-factor or sign-in methods, payout details (in a store, the payment gateways shoppers pay through), or ownership (transferring the store or partner, or changing the Owner). Those stay blocked even while impersonating, so
   the real user can never be locked out and money can never be redirected.
 - **No consent needed**: it works whatever the merchant's Support access setting says. **The
   platform's terms must say so**: partners' and merchants' terms state that DripFunnel

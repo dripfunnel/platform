@@ -257,9 +257,9 @@ describe('skipping an optional setup step', () => {
     await skip('other', 'payments', false)
   })
 
-  it('refuses a Manager, Staff, a supplier and a support session, and changes nothing', async () => {
+  it('refuses a Manager, Staff, a supplier and a read-only support session, and changes nothing', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await skip(who, 'payments', true)).code, who).toBe('FORBIDDEN')
-    expect((await skip('owner', 'payments', true, { support: 'read' })).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await skip('owner', 'payments', true, { support: 'read' })).code).toBe('SUPPORT_READ_ONLY')
     expect(await stored()).toEqual({ [t.storeA1]: [], [t.storeA2]: [], [t.storeB1]: [] })
   })
 

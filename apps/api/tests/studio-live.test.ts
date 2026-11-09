@@ -80,7 +80,7 @@ const inside = (o: Session) => o as unknown as { runner: unknown; lastActive: nu
 
 let owner: { userId: string; context: TenantContext }
 const studioSession = async () => {
-  const opened = await openStudioSession(db.sql, owner.context, { side: 'merchant', role: 'owner' }, new Date())
+  const opened = await openStudioSession(db.sql, owner.context, { side: 'merchant', role: 'owner' }, owner.userId, new Date())
   if (!opened) throw new Error('no studio session')
   return { id: opened.id, hash: await hashStudioSession(opened.id) }
 }

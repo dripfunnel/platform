@@ -4,6 +4,7 @@ import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { previewLinks, previewLinkSeconds, type PreviewLinks } from '#auth/previewLink'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
+import { storeActivityFor } from '#auth/storeSupport'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
@@ -79,6 +80,23 @@ describe('Open preview', () => {
     expect(entries).toHaveLength(1)
     expect(JSON.stringify(entries)).not.toContain(tokenOf(url))
     expect((await openPreview('bOwner')).url).toContain(`https://${keys.b1}-preview.`)
+  })
+
+  it('names the staff member on whose behalf an impersonated Owner opened one (LOGGING.md §4, #1344)', async () => {
+    const [staffer] = await db.sql<{ id: string }[]>`insert into staff_user (sso_subject, email, name, role_key, status) values (${crypto.randomUUID()}, 'preview.staff@dripfunnel.com', 'Neha', 'staff-support', 'active') returning id`
+    const staffId = staffer?.id ?? ''
+    const impersonationId = crypto.randomUUID()
+    const facts = { requestId: 'r', ip: null, userAgent: null }
+    const headers = { cookie: `${storeCookieName}=${cookies.owner}`, [storeHeader]: t.storeA1 }
+    const owner = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, now, activityLog, facts)
+    if (owner.kind !== 'acting') throw new Error('the Owner should act in A1')
+    const staff = { sessionId: impersonationId, staff: { id: staffId, name: 'Neha', email: 'preview.staff@dripfunnel.com' }, expiresAt: now }
+    const standing = { ...owner, caller: { ...owner.caller, staff, context: { ...owner.caller.context, caller: { kind: 'impersonation' as const, impersonationId, staffId, userId: people.owner } } } }
+    const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: storeActivityFor(standing, activityLog), facts, preview: { domain, links }, now: () => now }
+    const result = await graphql({ schema: storeSchema as GraphQLSchema, source: 'mutation { previewLink }', contextValue })
+    expect(result.errors).toBeUndefined()
+    const [entry] = await db.sql<{ actor_id: string; on_behalf_of_id: string }[]>`select actor_id, on_behalf_of_id from activity_log where action = 'storefront.preview_opened' and on_behalf_of_id is not null`
+    expect(entry).toEqual({ actor_id: people.owner, on_behalf_of_id: staffId })
   })
 
   it('refuses a seat that can’t publish, a supplier, and a Worker without the preview’s values', async () => {
