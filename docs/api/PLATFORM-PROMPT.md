@@ -472,6 +472,12 @@ Design each module's responsibilities, tables, public API, events and invariants
     (`DELETE /shop-api/uploads/{id}`, own cart only, under `shopper_upload`'s shop `delete`
     policy), removing its line or emptying the cart, so a guest who gave no email can still erase
     their own uploads; the R2 object goes through the outbox (`upload.delete`), retried until done.
+    **Opening one** (the merchant side, a line's supplier) is by a 10-minute signed link on the
+    portal's host (DATA-MODEL §7.11), served with the content type checked at upload, never the
+    shopper's, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none';
+    img-src 'self'; sandbox` (no script, and an opaque origin, so the file never runs as the
+    portal or reads its cookies), `Referrer-Policy: no-referrer`, `Cache-Control: private`. An
+    image opens inline; a PDF only downloads (`Content-Disposition: attachment`).
   - **Order webhooks and the public APIs** gain each line's answers as new, additive fields,
     through the outbox.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
