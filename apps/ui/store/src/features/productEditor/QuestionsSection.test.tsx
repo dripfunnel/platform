@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { messages } from '../../messages'
@@ -22,6 +22,7 @@ const Harness = ({ disabled = false, start = blankDraft(), copy = null }: { disa
       <QuestionsSection draft={draft} update={(change) => setDraft((d) => change(d))} disabled={disabled} currency="INR" manual={[]} versions={[]} copy={copy} />
       <output data-testid="count">{draft.questions.length}</output>
       <output data-testid="choices">{draft.questions[0]?.choices.map((c) => c.label).join(',')}</output>
+      <output data-testid="photos">{draft.questions[0]?.choices.map((c) => c.photoAssetId ?? '').join(',')}</output>
     </>
   )
 }
@@ -59,12 +60,12 @@ describe('the questions section', () => {
     render(<Harness />)
     open()
     fireEvent.click(within(screen.getByRole('group', { name: words.add })).getByRole('button', { name: words.addText }))
-    fireEvent.click(screen.getByRole('button', { name: words.delete }))
+    fireEvent.click(screen.getByRole('button', { name: `${words.delete}: ${words.question}` }))
     expect(count()).toBe(1)
     const dialog = screen.getByRole('dialog')
     fireEvent.click(within(dialog).getByRole('button', { name: words.keep }))
     expect(count()).toBe(1)
-    fireEvent.click(screen.getByRole('button', { name: words.delete }))
+    fireEvent.click(screen.getByRole('button', { name: `${words.delete}: ${words.question}` }))
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.deleteYes }))
     expect(count()).toBe(0)
   })
@@ -105,6 +106,25 @@ describe('the questions section', () => {
     expect(screen.queryByText(words.photoUploading)).toBeNull()
   })
 
+  it('keeps edits made while a choice’s photo uploads, and puts the photo on that choice even after a move', async () => {
+    let finish: (value: { ok: true; assetId: string }) => void = () => undefined
+    api.uploadPhoto.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
+    render(<Harness />)
+    open()
+    fireEvent.click(within(screen.getByRole('group', { name: words.add })).getByRole('button', { name: words.addChoice }))
+    fireEvent.click(screen.getByRole('button', { name: words.addChoiceRow }))
+    const boxes = screen.getAllByRole('textbox', { name: words.choice })
+    fireEvent.change(boxes[0] as HTMLElement, { target: { value: 'Cheese' } })
+    fireEvent.change(boxes[1] as HTMLElement, { target: { value: 'Olives' } })
+    fireEvent.change(screen.getByLabelText(`${words.photoAdd}: Olives`), { target: { files: [new File(['x'], 'o.png', { type: 'image/png' })] } })
+    // While it uploads: Olives moves up and is renamed.
+    fireEvent.click(screen.getByRole('button', { name: `${words.moveUp}: Olives` }))
+    fireEvent.change(screen.getAllByRole('textbox', { name: words.choice })[0] as HTMLElement, { target: { value: 'Black olives' } })
+    await act(async () => finish({ ok: true, assetId: 'asset-olives' }))
+    expect(screen.getByTestId('choices').textContent).toBe('Black olives,Cheese')
+    expect(screen.getByTestId('photos').textContent).toBe('asset-olives,')
+  })
+
   it('offers nothing to change to a seat that can’t edit', () => {
     render(<Harness disabled />)
     open()
@@ -128,7 +148,7 @@ describe('the questions section', () => {
     const after = screen.getAllByRole('combobox', { name: words.onlyWhen })
     expect(after.map((c) => (c as HTMLSelectElement).value)).toEqual([pick.value])
     expect(screen.getByText(words.onlyWhenTaken)).toBeTruthy()
-    fireEvent.click(screen.getAllByRole('button', { name: words.moveUp })[1] as HTMLElement)
+    fireEvent.click(screen.getAllByRole('button', { name: `${words.moveUp}: ${words.question}` })[1] as HTMLElement)
     expect(screen.getAllByRole('combobox', { name: words.onlyWhen }).map((c) => (c as HTMLSelectElement).value)).toEqual(['', ''])
   })
 })
