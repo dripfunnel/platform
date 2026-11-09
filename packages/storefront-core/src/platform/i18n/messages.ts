@@ -171,6 +171,7 @@ export const en = {
   'customise.extraPercent': '+{percent}%',
   'customise.extraPerCharacter': '{price} a character',
   'customise.characters': '{count} of {max} characters',
+  'customise.charactersWithExtra': '{count} of {max} characters · {extra}',
   'customise.quantity': 'How many {name}',
   'customise.addFile': 'Add a file',
   'customise.addPhoto': 'Add a photo',
