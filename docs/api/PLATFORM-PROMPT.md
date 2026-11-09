@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-11-09 (#1367: product customisation, how the engine prices and checks a line's answers, §5.4). Before: 2026-11-02 (#1008: 2-factor optional for everyone, the people pool). Before: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
+Last updated: 2026-11-09 (#1368: product customisation built, the webhooks' payload unchanged, §5.4). Before: 2026-11-09 (#1367: product customisation, how the engine prices and checks a line's answers, §5.4). Before: 2026-11-02 (#1008: 2-factor optional for everyone, the people pool). Before: 2026-11-01 (#1086: Postgres is on PlanetScale). Before: 2026-10-22 (the rider as a fifth caller, proposed: DELIVERY.md). Before: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -464,6 +464,10 @@ Design each module's responsibilities, tables, public API, events and invariants
     of this cart and question). An answer to a hidden question is dropped, never refused. The
     quote answers the same `problems` without refusing, so the modal can show them beside each
     question.
+  - **One line a version, until the contract migration** (#1368; DATA-MODEL §7.6): different
+    answers for a version the cart already holds are refused `ONE_LINE_PER_VERSION` ("This is
+    already in your cart with other choices") until the next release drops `cart_line`'s old key;
+    then they are a line of their own.
   - **A line that stops fitting** (a choice turned off, a required question added, a maximum
     lowered) is still priced, with the line problem **`check_answers`** ("Check your choices"),
     so checkout refuses it as any line problem (`LINE_PROBLEM`) until the shopper edits it.
@@ -488,7 +492,7 @@ Design each module's responsibilities, tables, public API, events and invariants
     download (`Content-Disposition: attachment`).
   - **The public APIs** gain each line's answers as new, additive fields (the Store API's
     `OrderLine.answers`, the Shop API's `ShopOrderLine.answers`). Order webhooks carry the order's
-    id and number only, as today, so answers come with the order read and no outbox row holds them.
+    id and number only, as today, so answers come with the order read and no outbox row holds them (#1368).
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided

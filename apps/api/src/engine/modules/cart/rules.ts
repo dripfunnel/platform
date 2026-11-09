@@ -4,6 +4,7 @@ import { isE164 } from '#core/sms'
 import type { Money } from '#core/money'
 import { pinSchema } from '#core/pin'
 import type { CartAddress, CartGift } from '#db/scoped/cart'
+import type { PricedAnswer } from './answers'
 
 // The pure rules of a cart (PLATFORM-PROMPT §5.4 Cart and checkout): what an address and a contact must hold, what each
 // line may be bought as, and what stands between the cart and payment.
@@ -85,33 +86,52 @@ export const cleanGift = (input: GiftInput, today: Date): CartGift | null => {
   return { recipientName: name, recipientEmail: contact.email, message, sendOn }
 }
 
-export type LineProblem = 'unavailable' | 'not_sold_here' | 'not_priced' | 'short'
+/** `check_answers`: the line's answers no longer fit its questions (a choice turned off, a required question added; #1368). */
+export type LineProblem = 'unavailable' | 'not_sold_here' | 'not_priced' | 'short' | 'check_answers'
 
 export interface PricedLine {
+  /** The cart line's id; null for a line priced outside a cart (abandoned carts' reminders). */
+  lineId: string | null
   versionId: string
   quantity: number
+  /** The version's price with each per-item extra. */
   unitPrice: Money | null
+  /** unitPrice × quantity, with each once-per-line extra. */
   lineTotal: Money | null
   available: number | null
   problem: LineProblem | null
+  /** Its answered questions, priced; empty on a line without answers. */
+  answers: PricedAnswer[]
+  unitExtras: bigint
+  lineExtras: bigint
 }
 
 export interface LineFacts {
+  lineId?: string | null
   versionId: string
   quantity: number
+  /** How many of this version the whole cart holds, when two lines of it differ by their answers; absent is this line's. */
+  versionQuantity?: number
+  /** The line's answers checked and priced (answers.ts); absent on a line without any. */
+  extras?: { unit: bigint; line: bigint; invalid: boolean; answers: PricedAnswer[] } | null
   /** Null when the shopper can't see the version any more. */
   item: { price: Money | null; available: number | null; inStock: boolean; continueSelling: boolean; soldHere: boolean } | null
 }
 
 /** Each line at today's price, or what stops it being bought: gone, not sold here, unpriced, or more than is left. */
 export const priceLine = (l: LineFacts): PricedLine => {
-  const base = { versionId: l.versionId, quantity: l.quantity, available: l.item?.available ?? null }
+  const unitExtras = l.extras?.unit ?? 0n
+  const lineExtras = l.extras?.line ?? 0n
+  const base = { lineId: l.lineId ?? null, versionId: l.versionId, quantity: l.quantity, available: l.item?.available ?? null, answers: l.extras?.answers ?? [], unitExtras, lineExtras }
   if (!l.item) return { ...base, unitPrice: null, lineTotal: null, problem: 'unavailable' }
   if (!l.item.soldHere) return { ...base, unitPrice: l.item.price, lineTotal: null, problem: 'not_sold_here' }
   if (!l.item.price) return { ...base, unitPrice: null, lineTotal: null, problem: 'not_priced' }
-  const short = l.item.available !== null && !l.item.continueSelling && l.quantity > l.item.available
-  const lineTotal = { amount: l.item.price.amount * BigInt(l.quantity), currency: l.item.price.currency }
-  return { ...base, unitPrice: l.item.price, lineTotal, problem: short ? 'short' : null }
+  // Stock is the version's, so two lines of it (different answers) are short together, not one by one.
+  const short = l.item.available !== null && !l.item.continueSelling && (l.versionQuantity ?? l.quantity) > l.item.available
+  // Per-item extras are part of each unit's price, once-per-line ones are added once (PLATFORM-PROMPT §5.4 step 4).
+  const unitPrice = { amount: l.item.price.amount + unitExtras, currency: l.item.price.currency }
+  const lineTotal = { amount: unitPrice.amount * BigInt(l.quantity) + lineExtras, currency: l.item.price.currency }
+  return { ...base, unitPrice, lineTotal, problem: short ? 'short' : l.extras?.invalid ? 'check_answers' : null }
 }
 
 export type CheckoutProblem = 'EMPTY' | 'LINE_PROBLEM' | 'NO_CONTACT' | 'NO_ADDRESS' | 'NO_SHIPPING' | 'SHIPPING_UNAVAILABLE' | 'TAX_UNAVAILABLE'
