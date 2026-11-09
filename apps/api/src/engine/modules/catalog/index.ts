@@ -323,7 +323,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
   }
 
-  const clean = async (tx: ScopedSql, input: ProductInput): Promise<Cleaned> => {
+  /** `owner` is the product's, so its extras' currencies are its owner's to type whoever saves it (fact 51). */
+  const clean = async (tx: ScopedSql, input: ProductInput, owner: string | null): Promise<Cleaned> => {
     const currency = await selectPricingCurrency(tx)
     if (!currency) throw new Refused({ reason: 'CURRENCY_REQUIRED' })
     const result = cleanProduct(input, currency)
@@ -338,7 +339,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     if (classes.length > 0 && (await classesOfStore(tx, storeId, classes)) !== classes.length) throw new Refused({ reason: 'INVALID_INPUT' })
     const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
     if (sizeChartId && !isUuid(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
-    const questions = input.questions ? await cleanedQuestions(tx, input.questions, result.versions.length, currency) : null
+    const questions = input.questions ? await cleanedQuestions(tx, input.questions, result.versions.length, currency, owner) : null
     try {
       const listing = input.listing ? cleanListing(input.listing, result.versions.length, 'marketRule' in input.listing) : null
       return { ...result, listing, sizeChartId, questions }
@@ -360,9 +361,9 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     return rows.length === 0 ? null : copiedQuestions(rows, { versionOf: (v) => placeOf(versionIds, v), samePhotoOwner: true, currencies: await typedCurrencies(tx, owner) }).questions
   }
 
-  /** Amounts in the pricing currency or, for the merchant side, a manual one it sells in (fact 51); a supplier types the pricing one only. */
-  const cleanedQuestions = async (tx: ScopedSql, input: NonNullable<ProductInput['questions']>, versionCount: number, pricingCurrency: string): Promise<CleanQuestion[]> => {
-    const cleaned = cleanQuestions(input, { versionCount, pricingCurrency, currencies: await typedCurrencies(tx, sellerId) })
+  /** Amounts in the pricing currency or, on a merchant product, a manual one it sells in (fact 51); a supplier's product takes the pricing one only. */
+  const cleanedQuestions = async (tx: ScopedSql, input: NonNullable<ProductInput['questions']>, versionCount: number, pricingCurrency: string, owner: string | null): Promise<CleanQuestion[]> => {
+    const cleaned = cleanQuestions(input, { versionCount, pricingCurrency, currencies: await typedCurrencies(tx, owner) })
     if (!Array.isArray(cleaned)) throw new Refused(cleaned)
     return cleaned
   }
@@ -374,7 +375,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const create = async (input: ProductInput, proposal = false, alongside?: (tx: ScopedSql, productId: string, versionIds: readonly string[]) => Promise<void>): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
-      const product = await clean(tx, input)
+      const product = await clean(tx, input, sellerId)
       // Sent together, in this order: the count is read under the lock.
       const [, counted] = await Promise.all([lockCatalogue(tx, storeId), countStoreProducts(tx)])
       const wanted = counted + 1
@@ -413,7 +414,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const existing = await selectProduct(tx, storeId, id)
       if (!existing) throw new Refused({ reason: 'NOT_FOUND' })
       if (existing.revision !== revision) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
-      const product = await clean(tx, input)
+      const product = await clean(tx, input, existing.seller_id)
       const visibility = product.visible === null ? existing.visibility : product.visible ? 'visible' : 'hidden'
       const held = existing.hidden_by === 'plan' || existing.approval_status === 'pending' || existing.approval_status === 'sent_back'
       if (visibility === 'visible' && existing.visibility !== 'visible' && held) throw new Refused({ reason: 'NOT_SHOWABLE' })
