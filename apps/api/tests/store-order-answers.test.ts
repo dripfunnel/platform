@@ -125,6 +125,16 @@ describe('an order line’s answers (#1368)', () => {
     expect((await linesOf('supplier'))?.[0]?.amount).toEqual({ amount: '66100' })
   })
 
+  it('shows a to-store supplier its own lines’ answers and nothing else of the customer (ACCESS §7.1, §7.3)', async () => {
+    await db.sql`update order_part set shipping_mode = 'to-store' where order_id = ${orderId} and seller_id = ${t.sellerA1Second}`
+    const result = await gql(`{ order(id: "${orderId}") { customerName email phone shippingAddress { name line1 } billingAddress { name } parts { lines { answers { kind text } } } } }`, 'other')
+    expect(result.errors).toBeUndefined()
+    const order = result.data?.['order'] as { customerName: string | null; email: string | null; phone: string | null; shippingAddress: unknown; billingAddress: unknown; parts: { lines: { answers: { kind: string; text: string | null }[] }[] }[] }
+    expect(order.parts.flatMap((p) => p.lines).map((l) => l.answers.find((a) => a.kind === 'TEXT')?.text)).toEqual(['For Bhatia'])
+    expect([order.customerName, order.email, order.phone, order.shippingAddress, order.billingAddress]).toEqual([null, null, null, null, null])
+    await db.sql`update order_part set shipping_mode = 'to-shopper' where order_id = ${orderId} and seller_id = ${t.sellerA1Second}`
+  })
+
   it('hides a shopper’s own words from a partner support session, never the merchant’s choice names', async () => {
     expect(supportCookie).not.toBe('')
     const lines = await linesOf('support')
