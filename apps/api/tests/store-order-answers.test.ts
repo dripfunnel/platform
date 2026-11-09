@@ -179,6 +179,15 @@ describe('an order line’s answers (#1368)', () => {
     // Support sees the file is there, never a link; a supplier's own line has no file, and the merchant's line isn't its to see.
     expect((await filesOf('support')).map((f) => f.url)).toEqual([null])
     expect(await filesOf('supplier')).toEqual([])
+    // Another order's file named in the supplier's own line opens nothing for it.
+    const [elsewhere] = await db.sql<{ id: string }[]>`
+      insert into "order" (store_id, state, payment_state, fulfilment_state, currency, number, placed_at, subtotal_amount, shipping_amount, tax_amount, total_amount, payment_method)
+      values (${t.storeA1}, 'placed', 'pending', 'unfulfilled', 'INR', '1002', ${clock}, 100, 0, 0, 100, 'cod') returning id`
+    const foreign = crypto.randomUUID()
+    await db.sql`insert into shopper_upload (id, store_id, order_id, r2_key, mime, bytes, checksum) values (${foreign}, ${t.storeA1}, ${elsewhere?.id ?? ''}, ${`stores/${t.storeA1}/shopper-uploads/${elsewhere?.id ?? ''}/${foreign}`}, 'image/png', 4, ${'e'.repeat(64)})`
+    await db.sql`update order_line set answers = answers || ${db.sql.json([{ question: '00000000-0000-4000-8000-000000000005', label: 'Photo', main_label: null, kind: 'upload', uploads: [foreign], unit: '0', amount: '0', per: 'line' }])} where order_id = ${orderId} and seller_id = ${t.sellerA1First}`
+    expect(await filesOf('supplier')).toEqual([])
+    expect((await filesOf('owner')).map((f) => f.id)).toEqual([fileId])
   })
 
   it('shows another store nothing', async () => {

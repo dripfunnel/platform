@@ -61,7 +61,7 @@ export const uploadDeleteKind = 'upload.delete'
  * An order's files by id, for a signed link: read in system scope, held to the store. The caller names only ids from a line
  * it can see (the merchant side's order, or a supplier's own line through its view, DATA-MODEL §7.11).
  */
-export const shopperFiles = (sql: postgres.Sql, storeId: string, ids: readonly string[]) => withSystemScope(sql, (tx) => selectUploadFiles(tx, storeId, ids))
+export const shopperFiles = (sql: postgres.Sql, storeId: string, orderId: string, ids: readonly string[]) => withSystemScope(sql, (tx) => selectUploadFiles(tx, storeId, orderId, ids))
 
 /** The one file a signed link names, while its store is still open (not suspended, cancelled or closed). */
 export const servableShopperFile = (sql: postgres.Sql, storeId: string, id: string) => withSystemScope(sql, (tx) => selectServableUpload(tx, storeId, id))

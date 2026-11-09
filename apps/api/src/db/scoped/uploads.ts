@@ -41,8 +41,8 @@ export const selectServableUpload = async (tx: ScopedSql, storeId: string, id: s
     where u.store_id = ${storeId} and u.id = ${id} and s.status in ('trial', 'active', 'past_due')
   `)[0] ?? null
 
-/** Files of an order's lines, for the merchant side or the line's supplier, read in system scope by the caller's store. */
-export const selectUploadFiles = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<{ id: string; order_id: string; mime: UploadMime; bytes: number; r2_key: string }[]> =>
+/** One order's files its lines' answers name, for the merchant side or the line's supplier, in system scope by store and order. */
+export const selectUploadFiles = async (tx: ScopedSql, storeId: string, orderId: string, ids: readonly string[]): Promise<{ id: string; order_id: string; mime: UploadMime; bytes: number; r2_key: string }[]> =>
   ids.length === 0 ? [] : tx<{ id: string; order_id: string; mime: UploadMime; bytes: number; r2_key: string }[]>`
-    select id, order_id, mime, bytes, r2_key from shopper_upload where store_id = ${storeId} and id = any (${pgArray(ids)}::uuid[])
+    select id, order_id, mime, bytes, r2_key from shopper_upload where store_id = ${storeId} and order_id = ${orderId} and id = any (${pgArray(ids)}::uuid[])
   `

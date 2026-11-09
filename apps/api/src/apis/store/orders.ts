@@ -385,7 +385,8 @@ export const registerOrders = (builder: StoreBuilder) => {
         type: [Part],
         resolve: async (o, _, ctx) => {
           const ids = o.parts.flatMap((p) => p.lines.flatMap((l) => (l.answers ?? []).flatMap((a) => a.uploads ?? [])))
-          const rows = ids.length > 0 && ctx.sql ? await shopperFiles(ctx.sql, actingCaller(ctx).context.storeId, [...new Set(ids)]) : []
+          // Only this order's files: an id its lines name from another order or store opens nothing (ACCESS §11.1).
+          const rows = ids.length > 0 && ctx.sql ? await shopperFiles(ctx.sql, actingCaller(ctx).context.storeId, o.id, [...new Set(ids)]) : []
           const files = new Map(rows.map((f) => [f.id, { id: f.id, mime: f.mime, bytes: f.bytes }]))
           return o.parts.map((p) => ({ ...p, currency: o.currency, files }))
         },
