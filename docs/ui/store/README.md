@@ -21,7 +21,7 @@ controls reach the states. `designs/DF Store Pricing.dc.html` says what each pla
 which is what the portal's plan gates and upgrade prompts follow. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, My profile, the settled 2-factor question). Before: 2026-11-01 (#1112: `/support/enter`, §6). Before: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
+Last updated: 2026-11-09 (#1367: a supplier sees its own lines' answers in either shipping mode, the access table's Orders row). Before: 2026-11-02 (#1008: 2-factor optional for everyone, Owners included, My profile, the settled 2-factor question). Before: 2026-11-01 (#1112: `/support/enter`, §6). Before: 2026-11-01 (#1111: the shell's reads in one request). Before: 2026-10-05.
 
 | Document | Covers |
 |---|---|
@@ -83,7 +83,7 @@ authoritative; this table must match it).
 | Area | Owner | Manager | Staff | Vendor · Stock only | Vendor · Products and stock | Vendor · + their orders |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Home | ✓ | ✓ | ✓ | | | |
-| Orders | all | all | all | | | own lines; the shopper's name and address only when the supplier **ships to the shopper**, nothing when it **ships to your warehouse** (ACCESS.md §7.3) |
+| Orders | all | all | all | | | own lines; the shopper's name and address only when the supplier **ships to the shopper**, nothing when it **ships to your warehouse** (ACCESS.md §7.3); either way its own lines' answers to a product's questions and their files (ACCESS.md §7.1, #1367) |
 | Refunds and returns | ✓ | ✓ | | | | own lines, up to their value; the store can override |
 | Mark an order paid (cash on delivery, bank transfer) | ✓ | ✓ | | | | |
 | Customers | all, add and edit | all, add and edit | all, add and edit | | | |
