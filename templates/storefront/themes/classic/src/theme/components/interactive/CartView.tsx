@@ -41,7 +41,7 @@ export const CartView = () => {
                   ? t('shop.cart.codes.alreadyUsed')
                   : t('shop.cart.codes.invalid')
   const problemWords = (line: CartLine) =>
-    line.problem === 'short' && line.available !== null ? t('shop.cart.problems.short', { count: line.available }) : line.problem === 'not_sold_here' ? t('shop.cart.problems.notSoldHere') : line.problem ? t('shop.cart.problems.unavailable') : null
+    line.problem === 'short' && line.available !== null ? t('shop.cart.problems.short', { count: line.available }) : line.problem === 'not_sold_here' ? t('shop.cart.problems.notSoldHere') : line.problem === 'check_answers' ? t('shop.cart.problems.checkAnswers') : line.problem ? t('shop.cart.problems.unavailable') : null
 
   if (page.status === 'loading') {
     return (

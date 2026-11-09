@@ -18,6 +18,9 @@ export const uploadAnswerFile = (client: ShopClient, questionId: string, file: B
     xhr.open('POST', `${client.endpoint}/uploads?question=${encodeURIComponent(questionId)}`)
     for (const [name, value] of Object.entries(client.headers())) xhr.setRequestHeader(name, value)
     xhr.upload.onprogress = (event) => event.lengthComputable && onProgress(event.loaded / event.total)
+    // A stalled upload gives up, as the Shop API client's calls do, so the modal doesn't wait for ever.
+    xhr.timeout = 120_000
+    xhr.ontimeout = () => resolve({ ok: false, code: 'NETWORK' })
     xhr.onerror = () => resolve({ ok: false, code: 'NETWORK' })
     xhr.onload = () => {
       let body: unknown
@@ -37,7 +40,7 @@ export const uploadAnswerFile = (client: ShopClient, questionId: string, file: B
 /** Removes a file the shopper added and no line names yet; null once gone, else the refusal (UPLOAD_IN_USE, …). */
 export const removeAnswerFile = async (client: ShopClient, id: string): Promise<string | null> => {
   try {
-    const response = await fetch(`${client.endpoint}/uploads/${encodeURIComponent(id)}`, { method: 'DELETE', headers: client.headers() })
+    const response = await fetch(`${client.endpoint}/uploads/${encodeURIComponent(id)}`, { method: 'DELETE', headers: client.headers(), signal: AbortSignal.timeout(10_000) })
     if (response.ok) return null
     return codeOf(await response.json().catch(() => null))
   } catch {
