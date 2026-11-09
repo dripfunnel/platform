@@ -913,7 +913,7 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   next publish. **An extra's price is a price** (decided here on #1367, so a vendor can't add a
   charge the merchant hasn't seen): a change to anything that sets what a question charges
   sends the product back: adding, changing or removing the price of a question or a choice
-  (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance, a choice's
+  (CATALOG-DESIGN §3 fact 51), its per-version amounts, a list's free allowance and maximum picks, a choice's
   maximum quantity, per item or once per line, and a per-character question's maximum length;
   and, on a question that charges (its own price or a priced choice), making it required, its
   minimum picks, its condition and its versions, which decide which shoppers pay it. Any other

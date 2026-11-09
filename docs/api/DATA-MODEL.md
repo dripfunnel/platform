@@ -1228,7 +1228,7 @@ product_approved_snapshot
                     -- per version_price row at approval, every amount with its currency (§7.1);
                     -- extras (#1367, proposed) everything that sets what a question charges: the
                     -- price columns, product_question_amount rows (per-version ones included),
-                    -- free_picks, max_quantity, price_per, on a per-character question
+                    -- free_picks, max_picks, max_quantity, price_per, on a per-character question
                     -- max_length, and on a question that charges required, min_picks,
                     -- shown_if_choice_id and its product_question_version rows, since an
                     -- extra's price is a price (ACCESS §7.2)

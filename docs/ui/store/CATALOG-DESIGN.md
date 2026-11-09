@@ -1466,7 +1466,7 @@ property". Prices appear only when the merchant asks for one.
   at least 4 but can pick only 3".
 - U15. **Vendors** see the section on their own products (§3 fact 57) under the approval rule of
   L1–L5 and E3, with the charge-setting fields of ACCESS §7.2 counting as a price: an extra's price
-  and per-version amounts, a list's free allowance, a choice's maximum quantity, per item or once
+  and per-version amounts, a list's free allowance and maximum picks, a choice's maximum quantity, per item or once
   per line, a per-character question's maximum length, and on a question that charges whether it's
   required, its minimum picks, its condition and its versions. Changing any of them sends an
   approved product back, with "Your change to what shoppers pay needs approval"; any other change
