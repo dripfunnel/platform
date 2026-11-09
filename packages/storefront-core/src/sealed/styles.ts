@@ -80,7 +80,7 @@ input[type=number]{font:inherit;width:72px;min-height:44px;padding:0 8px;border:
 [part~=actions]{display:flex!important;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 [part~=files]{display:grid!important;gap:6px;list-style:none;padding:0}
 [part~=primary]{background:var(--df-sealed-accent,currentColor);color:var(--df-sealed-on-accent,#fff);border-color:var(--df-sealed-accent,currentColor)}
-:focus-visible{outline:2px solid var(--df-sealed-focus,currentColor)!important;outline-offset:2px!important}
+:focus-visible,label[part~=button]:has(input:focus-visible){outline:2px solid var(--df-sealed-focus,currentColor)!important;outline-offset:2px!important}
 ${button}`,
 }
 
