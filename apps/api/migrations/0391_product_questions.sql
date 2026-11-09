@@ -231,18 +231,18 @@ begin
 end
 $$;
 
--- A question's text and help, and a choice's name, translate as other listing text does (CATALOG fact 18).
+-- A question's text, help and example, and a choice's name, translate as other listing text does (CATALOG fact 18).
 alter table translation drop constraint translation_entity_check;
 alter table translation add constraint translation_entity_check
   check (entity in ('product', 'version', 'collection', 'filter', 'filter_value', 'option_name', 'choice_name', 'question', 'question_choice'));
 alter table translation drop constraint translation_field_check;
-alter table translation add constraint translation_field_check check (field in ('name', 'slug', 'description', 'help'));
+alter table translation add constraint translation_field_check check (field in ('name', 'slug', 'description', 'help', 'example'));
 alter table translation drop constraint translation_field;
 alter table translation add constraint translation_field check (
   case entity
     when 'product' then field in ('name', 'slug', 'description')
     when 'collection' then field in ('name', 'slug', 'description')
-    when 'question' then field in ('name', 'help')
+    when 'question' then field in ('name', 'help', 'example')
     else field = 'name'
   end
 );
@@ -252,6 +252,7 @@ alter table translation add constraint translation_text check (
     when 'slug' then text ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(text) <= 120
     when 'description' then char_length(text) <= 20000
     when 'help' then char_length(text) between 1 and 500
+    when 'example' then char_length(text) between 1 and 100
     else char_length(text) between 1 and 255
   end
 );
