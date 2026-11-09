@@ -146,7 +146,7 @@ Run the gates before reporting a change as done.
   badges or scarcity claims.
 - Sealed components (price with tax label, payment element, legal and compliance
   notices, consent banner, preview banner, the brand's "Powered by" line, breadcrumbs, the order
-  summary at review, the customisation modal (docs/storefront/ARCHITECTURE.md §3.5, built by #1372)) are placed and styled, never removed, covered or reworded.
+  summary at review) are placed and styled, never removed, covered or reworded.
 - `storefront-core` is the only published package. Every change has a changeset with the
   right bump (major, minor or patch as docs/code/ARCHITECTURE.md §5 defines them), and majors ship upgrade notes (docs/storefront/ARCHITECTURE.md §7).
 - Publishing happens only in the release workflow. Never publish locally; never commit a
