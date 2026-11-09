@@ -28,19 +28,14 @@ export const selectUploadCart = async (tx: ScopedSql, storeId: string, id: strin
     where u.store_id = ${storeId} and u.id = ${id} and o.state = 'cart'
   `)[0] ?? null
 
-/**
- * Deletes those of these files no line of the cart names any more, as the shopper (its delete policy holds it to its own
- * cart); answers which went, so the caller queues their objects' deletion in the same transaction.
- */
-export const releaseCartUploads = async (tx: ScopedSql, orderId: string, ids: readonly string[]): Promise<string[]> => {
-  if (ids.length === 0) return []
-  const rows = await tx<{ id: string }[]>`
+/** Deletes those of these files no line of the cart names any more, as the shopper (its own-cart delete policy); each row's trigger queues its object's deletion (0393). */
+export const releaseCartUploads = async (tx: ScopedSql, orderId: string, ids: readonly string[]): Promise<void> => {
+  if (ids.length === 0) return
+  await tx`
     delete from shopper_upload u where u.order_id = ${orderId} and u.id = any (${pgArray(ids)}::uuid[])
       and not exists (select 1 from cart_line l where l.order_id = u.order_id and l.answers is not null
         and jsonb_path_exists(l.answers, '$[*].uploads[*] ? (@ == $id)', jsonb_build_object('id', u.id::text)))
-    returning u.id
   `
-  return rows.map((r) => r.id)
 }
 
 /** Whether a row still names this key, in system scope: the deletion job never removes a file still on record. */

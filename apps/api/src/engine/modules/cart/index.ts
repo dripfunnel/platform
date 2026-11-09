@@ -392,11 +392,6 @@ export const createCartService = (deps: CartDeps) => {
   }
 
   /** Files no line names any more, deleted with their objects' deletion queued in the same transaction (DATA-MODEL §7.6). */
-  // Each deleted row queues its own file's deletion by trigger (migration 0393).
-  const release = async (tx: ScopedSql, cartId: string, ids: readonly string[]) => {
-    await releaseCartUploads(tx, cartId, ids)
-  }
-
   /**
    * The line's answers checked against its product's questions now, priced for the cart; a product without questions
    * and no answers asks nothing more (#1368). Refused as ANSWERS_INVALID with what is wrong.
@@ -490,7 +485,7 @@ export const createCartService = (deps: CartDeps) => {
       const line = lineId ? row.lines.find((l) => l.id === lineId.toLowerCase() && l.version_id === id) : row.lines.find((l) => l.version_id === id && l.answers === null)
       if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 0 || quantity > (line?.gift ? 1 : maxQuantity) || !line) throw new Refused('INVALID_INPUT')
       await setCartLineQuantity(tx, row.id, line.id, quantity)
-      if (quantity === 0) await release(tx, row.id, uploadsIn(line.answers))
+      if (quantity === 0) await releaseCartUploads(tx, row.id, uploadsIn(line.answers))
       await write(tx, row, {})
     })
 
@@ -505,7 +500,7 @@ export const createCartService = (deps: CartDeps) => {
       await setCartLineAnswers(tx, row.id, line.id, checked && checked.stored.length > 0 ? checked.stored : null, line.gift ? 1 : maxQuantity)
       // A file the new answers no longer name goes, unless another line still does.
       const kept = new Set(uploadsIn(checked?.stored ?? []))
-      await release(tx, row.id, uploadsIn(line.answers).filter((u) => !kept.has(u)))
+      await releaseCartUploads(tx, row.id, uploadsIn(line.answers).filter((u) => !kept.has(u)))
       await write(tx, row, {})
     })
 
@@ -720,7 +715,7 @@ export const createCartService = (deps: CartDeps) => {
         if (!held) throw new Refused('UPLOAD_NOT_FOUND')
         await lockCartRow(tx, storeId, held.order_id)
         if ((await selectUploadCart(tx, storeId, id))?.named !== false) throw new Refused('UPLOAD_IN_USE')
-        await release(tx, held.order_id, [id])
+        await releaseCartUploads(tx, held.order_id, [id])
         return { ok: true as const, value: true as const }
       })
     } catch (error) {
