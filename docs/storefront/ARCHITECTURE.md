@@ -757,50 +757,56 @@ their own cards.
   questions from `useProduct` by version; there is no quick add in core or the shipped themes yet, so a theme's own add from a
   grid is refused `REQUIRED` for a product with a required question. Cart lines show answers with `<LineAnswers>` and
   `<EditAnswers>` ("Check your choices" on a line that no longer fits); the order summary at review lists them.
-  - **When it opens**: `<AddToCart>`, `<BuyNow>` and quick add from a product grid, for a product
-    whose `useProduct().questions` isn't empty; confirming adds the line (`useCart().add` with
-    `answers`), and from Buy now goes on to checkout. A product without questions adds as today,
-    and the modal's code is loaded (`import()`) only when a product has questions, so no other
-    page pays for it in its budget (§9).
+  - **When it opens**: `<AddToCart>` and `<BuyNow>`, for a product whose `useProduct().questions`
+    isn't empty (core remembers them by version, as the buttons hold only a version id); confirming
+    adds the line (`useCart().addWithAnswers`, which answers null once added or the refusal's code),
+    and from Buy now goes on to checkout. A product without questions adds as today, and the modal's
+    code is loaded (`import()`) only when a product has questions, so no other page pays for it in
+    its budget (§9).
   - **The host**: `<df-sealed>` as the others, opened as a modal `<dialog>` (`showModal()`), so it
     sits in the **top layer**, which no `z-index` covers, traps focus, closes on Escape and
     returns focus to the button that opened it. Full width at the bottom on a phone, centred
     from 640 px. Its words are core's, in the shopper's language, around the merchant's own
     question texts; a theme can't reword, hide or reorder anything inside.
-  - **Parts** (`::part`): `dialog`, `header`, `title`, `close`, `question`, `label`, `help`,
-    `required`, `choice`, `choice-photo`, `choice-price`, `unavailable`, `quantity`, `text`,
-    `counter`, `upload`, `file`, `progress`, `problem`, `total`, `confirm`.
+  - **Parts** (`::part`): `dialog`, `form`, `title`, `question`, `label`, `hint`, `rule`,
+    `problem`, `choice`, `photo`, `extra`, `files`, `error`, `total`, `actions`, `button` and
+    `primary` (the confirm button).
   - **Custom properties**: the shared `--df-sealed-font`, `--df-sealed-color`,
     `--df-sealed-muted`, `--df-sealed-surface`, `--df-sealed-radius` and `--df-sealed-size`, plus
-    `--df-customise-accent` (a picked choice and the confirm button) and
-    `--df-customise-backdrop` (the `::backdrop`).
-  - **Minimum size** (`minimumSize`): 280×160 px; the self-check runs each time it opens.
+    `--df-sealed-accent` and `--df-sealed-on-accent` (the confirm button), `--df-sealed-error`
+    (problems and refusals), `--df-sealed-focus` (the focus ring) and `--df-sealed-backdrop`
+    (the `::backdrop`).
+  - **Minimum size** (`minimumSize`): 280×160 px, measured on the open dialog; the self-check runs
+    each time it opens.
   - **What it renders**: the questions in the merchant's order, each with its text, help and
-    "Required"; a choice list as radio buttons when its maximum is 1, else checkboxes with a
-    stepper on a choice that has a quantity, an unavailable choice greyed out with "Not
-    available" and not selectable, and "First 2 free" where a list has an allowance; text as one
-    line or a paragraph, with its example and a "12 / 100" counter; an upload's picker with each
-    file's progress, Retry and Remove (through the Shop API's upload, PLATFORM-PROMPT §5.4). A
-    question appears only while its condition's choice is picked and for the chosen version; a
-    hidden one's answer is dropped. An extra's price shows beside what carries it ("+ ₹30",
-    "+ 10%", "₹2 a character") as the Shop API gives it.
-  - **The total is the engine's**: each change asks the Shop API's `customisationQuote` (after a
-    short pause in typing), and the total and the confirm button ("Add to cart · ₹1,250", "Buy
-    now · ₹1,250") show its answer; while one is pending they say "Updating the total…", and
-    nothing is worked out in the browser. The quote's `problems` show beside their questions;
-    confirm is disabled while any remains, and a refusal on confirm (`ANSWERS_INVALID`) shows its
-    problems the same way.
-  - **States**: a failed quote says "We couldn't work out the total. Try again" with confirm
-    disabled; offline, confirm is disabled with the reason; a failed upload keeps the others.
-  - **Edit on the cart line**: `useCart()` lines carry `id`, `answers` (each question's label,
-    the choices with their quantities, the text, how many files and of which kind (no file name is kept), and what the answer
-    adds) and the problem `check_answers`; `useCart().editLine(lineId)` reopens the modal filled
-    in, and "Save changes" calls `updateCartLineAnswers`, the quantity unchanged (equal answers
-    merge into one line). The theme renders a line's answers from that data and places core's
-    headless `<EditLine line>` (`data-df-action="edit-line"`), which a `check_answers` line
-    labels "Check your choices"; the contract test (§3.2) adds a cart with a customised line,
-    whose answers and Edit must show. The sealed `<OrderSummary>` lists a line's answers under
-    it, in a new part `answers`.
+    "Required" or "Optional"; a choice list as radio buttons when its maximum is 1 (with "None"
+    first when it is optional, as a radio can't be unticked), else checkboxes with a number field
+    on a choice that has a quantity; an unavailable choice, or one whose extra isn't sold in the
+    cart's currency, greyed with "Not available" and not selectable; "Pick up to", "Pick at least"
+    and "The first 2 are free" where they apply; text as one line or a paragraph, with its example
+    and a "12 of 100 characters" counter; an upload's picker with each file's progress and Remove
+    (through the Shop API's upload, PLATFORM-PROMPT §5.4; a refused file says why, and Remove then
+    choosing again is the retry). A question appears only while its condition's choice is picked
+    and for the chosen version; a hidden one's answer is dropped. An extra's price shows beside what
+    carries it ("+$3.00", "+10%", "$0.50 a character") as the Shop API gives it.
+  - **The total is the engine's**: each change asks the Shop API's `customisationQuote` a moment
+    after the last change, the newest answer winning, and the total shows its answer ("Working out
+    the total…" until one comes); nothing is worked out in the browser. Confirm asks a fresh quote
+    of exactly the answers on screen and decides on it: its `problems` show under their questions
+    (announced) and nothing is added; a quote that can't be had, or a refusal, says so plainly
+    ("We couldn't add it. Try again.", "Your cart already has this with other choices. Edit that item
+    in your cart instead."). A file removed while still uploading is never kept, and files the modal
+    uploaded are taken back on Cancel or Escape.
+  - **Edit on the cart line**: `useCart()` lines carry `lineId`, `slug`, `answers` (each question's
+    label, the choices with their quantities, the text, the files' ids and kinds (no file name is
+    kept), and what the answer adds) and the problem `check_answers`. The theme places core's
+    `<LineAnswers line>` (the answers, worded by core) and `<EditAnswers line>`
+    (`data-df-action="edit-answers"`), which reads the product's questions, reopens the modal filled
+    in and saves with `useCart().editAnswers(lineId, answers)` (`updateCartLineAnswers`; equal answers
+    merge into one line); on a `check_answers` line it reads "Check your choices", and if the
+    questions can't be read it says so. The sealed `<OrderSummary>` lists a line's answers under it,
+    one per `version` row. The contract test (§3.2) doesn't yet build a customised line: a card of
+    its own.
 - **CSP**: scripts only from the store's own build, the hosts of the analytics providers
   **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
   consent, and its payment providers' SDKs (§2.1 `checkout`, *added on #481*); `connect-src` only the Shop API, the store's payment providers and those analytics

@@ -112,8 +112,13 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
     return price.mode === 'PER_CHARACTER' ? t('customise.extraPerCharacter', { price: money(price.amount) }) : t('customise.extra', { price: money(price.amount) })
   }
 
+  // Files this session uploaded: kept only when the answers are; Cancel or Escape takes them back, so none is left to count.
+  const uploadedHere = useRef(new Set<string>())
+  const closed = useRef(false)
   const close = (done: boolean) => {
+    closed.current = true
     dialog.current?.close()
+    if (!done) for (const id of uploadedHere.current) void removeAnswerFile(client, id)
     onClose(done)
   }
 
@@ -126,7 +131,9 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
     const patch = (change: Partial<FileState>) => setFiles((all) => ({ ...all, [q.id]: (all[q.id] ?? []).map((f) => (f.key === key ? { ...f, ...change } : f)) }))
     void uploadAnswerFile(client, q.id, file, (sentShare) => patch({ percent: sentShare })).then((result) => {
       if (!result.ok) return patch({ failed: refusalKeys.includes(result.code) ? `customise.refused.${result.code}` : 'customise.refused.other' })
-      if (dropped.current.has(key)) return void removeAnswerFile(client, result.id)
+      // Removed, or the modal closed without saving, while it was going up: never kept, taken back.
+      if (dropped.current.has(key) || closed.current) return void removeAnswerFile(client, result.id)
+      uploadedHere.current.add(result.id)
       patch({ id: result.id, percent: 1 })
       setAnswers((list) => {
         const was = list.find((a) => a.questionId === q.id)?.uploadIds ?? []
@@ -177,7 +184,8 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
         aria-labelledby={titleId}
         onCancel={(event) => {
           event.preventDefault()
-          close(false)
+          // Not while the cart is taking the answers: its files may be the new line's.
+          if (!busy) close(false)
         }}
       >
         <form
@@ -304,7 +312,7 @@ export const CustomiseModal = ({ product, versionId, quantity, initial, intent, 
             </p>
           )}
           <div part="actions">
-            <button type="button" part="button" onClick={() => close(false)}>
+            <button type="button" part="button" disabled={busy} onClick={() => close(false)}>
               {t('customise.cancel')}
             </button>
             <button type="submit" part="button primary" disabled={busy || Object.values(files).some((list) => list.some((f) => !f.id && !f.failed))}>

@@ -332,3 +332,86 @@ describe('the modal’s last rules', () => {
     expect(sealedCss('customise')).toContain('label[part~=button]:has(input:focus-visible)')
   })
 })
+
+describe('leaving the modal', () => {
+  it('takes back the files uploaded in it when the shopper cancels', async () => {
+    rememberQuestions({ id: 'p8', name: 'Poster', versionIds: ['v-c'], questions: [{ ...base, id: 'q-c', kind: 'UPLOAD', label: 'Your photo' }] })
+    shopAnswering(() => quote(1200))
+    class Quick {
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror = null
+      status = 200
+      responseText = JSON.stringify({ id: 'kept-briefly', kind: 'image' })
+      open() {}
+      setRequestHeader() {}
+      send() {
+        this.onload?.()
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', Quick)
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-c">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    const input = modal.getByText('Add a photo').querySelector('input') as HTMLInputElement
+    await act(async () => void fireEvent.change(input, { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } }))
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Cancel' })))
+    const fetched = (globalThis.fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls
+    await waitFor(() => expect(fetched.some(([url, init]) => url === '/shop-api/uploads/kept-briefly' && init.method === 'DELETE')).toBe(true))
+  })
+})
+
+describe('closing while work is in flight', () => {
+  it('takes back a file still uploading when the shopper cancels, and keeps Cancel off while adding', async () => {
+    rememberQuestions({ id: 'p9', name: 'Mat', versionIds: ['v-m'], questions: [{ ...base, id: 'q-m', kind: 'UPLOAD', label: 'Your photo' }] })
+    shopAnswering(() => quote(700))
+    let finish: () => void = () => undefined
+    class Slow {
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror = null
+      status = 200
+      responseText = JSON.stringify({ id: 'after-cancel', kind: 'image' })
+      open() {}
+      setRequestHeader() {}
+      send() {
+        finish = () => this.onload?.()
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', Slow)
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-m">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    const input = modal.getByText('Add a photo').querySelector('input') as HTMLInputElement
+    await act(async () => void fireEvent.change(input, { target: { files: [new File(['x'], 'm.jpg', { type: 'image/jpeg' })] } }))
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Cancel' })))
+    await act(async () => finish())
+    const fetched = (globalThis.fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls
+    await waitFor(() => expect(fetched.some(([url, init]) => url === '/shop-api/uploads/after-cancel' && init.method === 'DELETE')).toBe(true))
+  })
+
+  it('keeps Cancel off while the cart takes the answers', async () => {
+    rememberQuestions({ id: 'p10', name: 'Jug', versionIds: ['v-j'], questions: [{ ...base, id: 'q-j', kind: 'TEXT', label: 'Name' }] })
+    let release: () => void = () => undefined
+    shopAnswering((a) => (a.query.includes('customisationQuote') ? quote(800) : new Promise((resolve) => (release = () => resolve({ data: { addToCart: { cartToken: 't', cart: cartOf([line('v-j', 1)]) } } })))))
+    render(
+      <Provided client={client()}>
+        <AddToCart versionId="v-j">Add</AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    const modal = await waitFor(() => inside())
+    await modal.findByText('$8.00')
+    await act(async () => void fireEvent.click(modal.getByRole('button', { name: 'Add to cart' })))
+    await waitFor(() => expect(modal.getByRole('button', { name: 'Cancel' })).toHaveProperty('disabled', true))
+    await act(async () => release())
+  })
+})

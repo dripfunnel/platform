@@ -61,4 +61,25 @@ describe('answer files', () => {
     expect(await removeAnswerFile(createShopClient(), 'f2')).toBe('UPLOAD_IN_USE')
     expect(asked).toEqual(['DELETE /shop-api/uploads/f1', 'DELETE /shop-api/uploads/f2'])
   })
+
+  it('gives up on a stalled upload instead of waiting for ever', async () => {
+    let timeout = 0
+    class Stalled {
+      upload = { onprogress: null }
+      onload = null
+      onerror = null
+      ontimeout: (() => void) | null = null
+      set timeout(ms: number) {
+        timeout = ms
+      }
+      open() {}
+      setRequestHeader() {}
+      send() {
+        this.ontimeout?.()
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', Stalled)
+    expect(await uploadAnswerFile(createShopClient(), 'q1', new Blob(['x']), () => undefined)).toEqual({ ok: false, code: 'NETWORK' })
+    expect(timeout).toBeGreaterThan(0)
+  })
 })

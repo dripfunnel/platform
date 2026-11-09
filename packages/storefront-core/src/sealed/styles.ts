@@ -59,10 +59,11 @@ ${button}`,
 [part~=field]:empty{display:none}
 [part~=status]{${muted}}
 ${button}`,
-  // The customisation modal (§3.5): a <dialog> in the top layer, full width at the bottom on a phone, centred from 640px.
+  // The customisation modal (§3.5): a <dialog> in the top layer, full width at the bottom on a phone, centred from 640px; its
+  // custom properties are the shared ones plus accent, on-accent, error, focus and backdrop (ARCHITECTURE §3.5).
   customise: `:host{display:contents!important}
 dialog[part~=dialog]{position:fixed!important;inset:auto 0 0 0!important;margin:0!important;width:100%!important;max-width:none!important;max-height:92vh!important;min-width:320px!important;box-sizing:border-box;padding:0;border:0;border-radius:var(--df-sealed-radius,16px) var(--df-sealed-radius,16px) 0 0;background:var(--df-sealed-surface,#fff);color:var(--df-sealed-color,#111);overflow:auto!important}
-dialog[part~=dialog]::backdrop{background:rgba(0,0,0,.45)}
+dialog[part~=dialog]::backdrop{background:var(--df-sealed-backdrop,rgba(0,0,0,.45))}
 @media (min-width:640px){dialog[part~=dialog]{inset:0!important;margin:auto!important;width:min(560px,calc(100% - 32px))!important;border-radius:var(--df-sealed-radius,16px)}}
 [part~=form]{display:grid!important;gap:16px;padding:20px}
 [part~=title]{font-size:max(17px,1.2em)!important;font-weight:700}
