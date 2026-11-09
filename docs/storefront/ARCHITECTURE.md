@@ -753,7 +753,7 @@ their own cards.
     page (`visibilityProblems`, without the layout checks where nothing is laid out, as in jsdom).
 - **The customisation modal** (decided 2026-11-09 on #1367; *proposed*, built by #1372): the
   questions a product asks before it goes in the cart (CATALOG-DESIGN §3 facts 49–57), a sealed
-  component because it is commerce.
+  component because it is commerce. #1372 adds it to AGENTS.md's sealed list when it builds it.
   - **When it opens**: `<AddToCart>`, `<BuyNow>` and quick add from a product grid, for a product
     whose `useProduct().questions` isn't empty; confirming adds the line (`useCart().add` with
     `answers`), and from Buy now goes on to checkout. A product without questions adds as today,
