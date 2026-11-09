@@ -120,13 +120,13 @@ export type Quote = { lineTotal: Price | null; problems: QuoteProblem[] }
 /** The line as it would be priced with these answers (the sheet's live total), writing nothing. */
 export const quote = async (client: ApiClient, versionId: string, quantity: number, answers: readonly Answer[]): Promise<Quote> => {
   const { customisationQuote: q } = decode(
-    z.object({ customisationQuote: z.object({ lineTotal: money, problems: z.array(z.object({ questionId: text, reason: z.string() })).nullable().optional() }).nullable() }),
+    z.object({ customisationQuote: z.object({ lineTotal: money, problems: z.array(z.object({ questionId: text, reason: text })).nullable().optional() }).nullable() }),
     await client.request<unknown>(
       'query($versionId: ID!, $quantity: Int!, $answers: [ShopAnswerInput!]!) { customisationQuote(versionId: $versionId, quantity: $quantity, answers: $answers) { lineTotal { amount currency } problems { questionId reason } } }',
       { versionId, quantity, answers },
     ),
   )
-  return { lineTotal: q?.lineTotal ?? null, problems: (q?.problems ?? []).map((p) => ({ questionId: p.questionId ?? null, reason: p.reason })) }
+  return { lineTotal: q?.lineTotal ?? null, problems: (q?.problems ?? []).map((p) => ({ questionId: p.questionId ?? null, reason: p.reason ?? 'UNKNOWN' })) }
 }
 
 /** Adds the version with its answers; answers a guest's cart token. */

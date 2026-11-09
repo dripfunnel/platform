@@ -165,6 +165,14 @@ describe('the sheet’s rules and states', () => {
     expect(shop.requests.some((r) => r.query.includes('addToCart'))).toBe(false)
   })
 
+  it('words a problem with no reason as a change, instead of failing the quote', async () => {
+    const { screen, shop } = await opened((query) => (query.includes('customisationQuote') ? quote('149900', [{ questionId: null as unknown as string, reason: null as unknown as string }]) : undefined))
+    await wait()
+    await pressInSheet(screen, t('customise.add'))
+    expect(hasText(screen, t('customise.problem.other'))).toBe(true)
+    expect(shop.requests.some((r) => r.query.includes('addToCart'))).toBe(false)
+  })
+
   it('says it is offline at Confirm, keeping what was typed', async () => {
     mockOnline = false
     const { screen, shop } = await opened((query) => (query.includes('customisationQuote') ? quote('149900') : undefined))
