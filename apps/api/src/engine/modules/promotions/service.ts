@@ -232,7 +232,7 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
         }, null)
       : Promise.resolve(null)
 
-  const writeOf = (d: OfferDefinition): OfferWrite => ({
+  const writeOf = (d: OfferDefinition, kept: boolean | null = null): OfferWrite => ({
     name: d.name,
     internalName: d.internalName,
     description: d.description,
@@ -243,7 +243,7 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
     totalUsesLimit: d.totalUsesLimit,
     perCustomerLimit: d.perCustomerLimit,
     combines: d.combines,
-    includeCustomisation: d.includeCustomisation,
+    includeCustomisation: d.includeCustomisation ?? kept ?? true,
   })
   const rulesOf = (d: Pick<OfferDefinition, 'conditions' | 'action'>) => {
     const split = ({ operation, ...args }: Condition | Action) => ({ operation, args: toStored(args as Condition) })
@@ -284,7 +284,7 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
         await statusOfHolder(tx, d.code, before?.id ?? null)
       }
       const offerId = before ? before.id : await insertOffer(tx, storeId, writeOf(d), actor.id)
-      const saved = before ? await updateOffer(tx, before.id, writeOf(d), now()) : 1
+      const saved = before ? await updateOffer(tx, before.id, writeOf(d, before.include_customisation), now()) : 1
       const rules = rulesOf(d)
       await replaceRules(tx, storeId, offerId, rules.conditions, rules.action)
       await setSharedCode(tx, storeId, offerId, d.trigger === 'code' ? d.code : null, now())

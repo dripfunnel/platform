@@ -1228,8 +1228,9 @@ product_approved_snapshot
                     -- per version_price row at approval, every amount with its currency (§7.1);
                     -- extras (#1367) everything that sets what a question charges: the price
                     -- columns, product_question_amount rows (per-version ones included),
-                    -- free_picks, max_quantity, price_per and, on a per-character question,
-                    -- max_length, since an extra's price is a price (ACCESS §7.2).
+                    -- free_picks, max_quantity, price_per, on a per-character question
+                    -- max_length, and on a question that charges required, min_picks and
+                    -- shown_if_choice_id, since an extra's price is a price (ACCESS §7.2).
                     -- Not built (found on #1368): no migration creates this table; a supplier's
                     -- save compares the stored rows instead (catalog/rules.ts reviewedChanges),
                     -- those charge-setting fields among them (catalog/questions.ts extrasPriceChanged)
