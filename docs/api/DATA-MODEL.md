@@ -1751,11 +1751,20 @@ shopper_upload      (id, store_id, order_id, question_id NULL, r2_key, mime ('im
                     -- itself: removing a file in the modal, removing the line or emptying the
                     -- cart deletes the row and its R2 object at once, a shopper's own action,
                     -- not an automatic one (PLATFORM-PROMPT §5.4); a file's removal still works
-                    -- once its cart has expired, which the sweep keeps for that reason. Accepted risk (Gaurav,
-                    -- #1367 rule 30): until the clearing card, unordered files are kept with no
-                    -- ceiling but the upload limits (10 MB each, 50 a cart, 10 a minute a cart,
-                    -- 20 a minute an address); the risk is storage, not reach, since no request
-                    -- role can read r2_key and a file opens only on a line that names it.
+                    -- once its cart has expired, which the sweep keeps for that reason. The
+                    -- mechanism is one: the engine's every removal of a line (quantity 0, an
+                    -- Edit that drops a file, emptying the cart) deletes, in the same
+                    -- transaction, the files no remaining line names (`releaseCartUploads`), and
+                    -- each deleted row queues its object by trigger (§7.11); no other path
+                    -- deletes a cart_line but placement, which keeps the files with the order,
+                    -- and erasure, which deletes the cart's uploads with it (§7.5).
+                    -- Accepted risk (Gaurav, #1367 rule 30): until the clearing card, unordered
+                    -- files are kept with no ceiling but the upload limits (10 MB each, 50 a
+                    -- cart, 10 a minute a cart, 20 a minute an address), and so is the kept
+                    -- cart row with whatever contact and addresses its shopper typed: reachable
+                    -- by export and erasure through that email or phone (§7.5), and naming no
+                    -- one when none was typed. No request role reads r2_key, and a file opens
+                    -- only on a line that names it.
                     -- question_id is ON DELETE SET NULL (a deleted question keeps the file).
                     -- r2_key under the store's prefix, selected by no request role; the merchant
                     -- side and a line's supplier open a file only through a short-lived signed
