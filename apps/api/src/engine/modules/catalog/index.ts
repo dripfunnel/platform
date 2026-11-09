@@ -348,6 +348,13 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
   }
 
+  /** The currencies an amount on an owner's product may be typed in (fact 51): the pricing one; a merchant product's manual ones too. */
+  const typedCurrencies = async (tx: ScopedSql, owner: string | null): Promise<Set<string>> => {
+    const pricing = await selectPricingCurrency(tx)
+    const manual = owner === null && sellerId === null ? await manualCurrencies(tx, storeId) : []
+    return new Set([...(pricing ? [pricing] : []), ...manual])
+  }
+
   /** Amounts in the pricing currency or, for the merchant side, a manual one it sells in (fact 51); a supplier types the pricing one only. */
   const cleanedQuestions = async (tx: ScopedSql, input: NonNullable<ProductInput['questions']>, versionCount: number, pricingCurrency: string): Promise<CleanQuestion[]> => {
     const manual = sellerId === null ? await manualCurrencies(tx, storeId) : []
@@ -477,7 +484,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
         },
         sizeChartId: options.keepSizeChart ? source.size_chart_id : null,
         // The same questions, versions by place: the copy's are in the source's order (CATALOG E2).
-        questions: copiedQuestions((await selectProductQuestions(tx, [id])).get(id) ?? [], { versionOf: (v) => placeOf(source.versions.map((x) => x.id), v), samePhotoOwner: true }).questions,
+        questions: copiedQuestions((await selectProductQuestions(tx, [id])).get(id) ?? [], { versionOf: (v) => placeOf(source.versions.map((x) => x.id), v), samePhotoOwner: true, currencies: await typedCurrencies(tx, source.seller_id) }).questions,
       }
       // A supplier's copy stays the supplier's and is created as its products are (ACCESS §7.2).
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })
@@ -559,6 +566,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           return at === -1 ? null : at
         },
         samePhotoOwner: source.seller_id === target.seller_id,
+        currencies: await typedCurrencies(tx, target.seller_id),
       })
       dropped = copied.dropped
       const done = await touchProduct(tx, storeId, toId, revision, now())

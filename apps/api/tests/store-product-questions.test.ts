@@ -148,8 +148,10 @@ describe('questions on a product (#1368)', () => {
   })
 
   it('leaves the questions as they are when a save sends none, and removes them on []', async () => {
-    const { revision } = (await read(id)).data?.['product'] as { revision: number }
-    const noQuestions: Record<string, unknown> = { ...sized('Birthday cake', []) }
+    const { revision, versions } = (await read(id)).data?.['product'] as { revision: number; versions: { id: string }[] }
+    // The same versions by id, as the editor sends them, so the questions' version amounts and limits still apply.
+    const plain = sized('Birthday cake', [])
+    const noQuestions: Record<string, unknown> = { ...plain, versions: plain.versions.map((v, i) => ({ ...v, id: versions[i]?.id })) }
     delete noQuestions['questions']
     await gql(save, 'owner', { id, revision, input: noQuestions })
     expect(((await read(id)).data?.['product'] as { questions: Q[] }).questions).toHaveLength(4)
@@ -210,6 +212,32 @@ describe('questions on a product (#1368)', () => {
     expect(stale.code).toBe('STALE_REVISION')
   })
 
+  it('duplicates a product with its questions under new ids, conditions and version limits following the copy', async () => {
+    const before = (await read(id)).data?.['product'] as { questions: Q[] }
+    const made = await gql('mutation D($id: ID!) { duplicateProduct(id: $id) { id } }', 'owner', { id })
+    const copyId = (made.data?.['duplicateProduct'] as { id: string }).id
+    const copy = (await read(copyId)).data?.['product'] as { versions: { id: string }[]; questions: Q[] }
+    expect(copy.questions.map((q) => q.label)).toEqual(before.questions.map((q) => q.label))
+    expect(copy.questions.map((q) => q.id).some((x) => before.questions.some((b) => b.id === x))).toBe(false)
+    expect(copy.questions[2]?.shownIf).toEqual({ questionId: copy.questions[1]?.id, choiceId: copy.questions[1]?.choices[0]?.id })
+    expect(copy.questions[3]?.versionIds).toEqual([copy.versions[1]?.id])
+  })
+
+  it('refuses a choice photo that isn’t an image of this store', async () => {
+    const file = async (storeId: string, kind: string, mime: string) =>
+      (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.bin`}, ${kind}, ${mime}, 10, ${'b'.repeat(64)}) returning id`)[0]?.id ?? ''
+    const withPhoto = (photoAssetId: string) => sized('Photo cake', [{ kind: 'CHOICE', label: 'Shape', choices: [{ label: 'Round', photoAssetId }] }])
+    expect((await gql(save, 'owner', { input: withPhoto(await file(t.storeB1, 'image', 'image/jpeg')) })).code).toBe('FILE_REFUSED')
+    expect((await gql(save, 'owner', { input: withPhoto(await file(t.storeA1, 'video', 'video/mp4')) })).code).toBe('FILE_REFUSED')
+    expect((await gql(save, 'owner', { input: withPhoto(await file(t.storeA1, 'image', 'image/jpeg')) })).errors).toBeUndefined()
+  })
+
+  it('copies nothing between stores', async () => {
+    const theirs = await gql(save, 'bOwner', { input: sized('Their cake', []) })
+    const target = theirs.data?.['saveProduct'] as Saved
+    expect((await gql(`mutation C($from: ID!, $to: ID!, $r: Int!) { copyProductQuestions(fromProductId: $from, toProductId: $to, revision: $r) { droppedAmounts } }`, 'bOwner', { from: id, to: target.id, r: target.revision })).code).toBe('NOT_FOUND')
+  })
+
   it('tells the offer editor whether the store asks any questions', async () => {
     expect((await gql('{ hasCustomisation }', 'owner')).data?.['hasCustomisation']).toBe(true)
     expect((await gql('{ hasCustomisation }', 'bOwner')).data?.['hasCustomisation']).toBe(false)
@@ -242,7 +270,35 @@ describe('suppliers’ questions (ACCESS §7.1–7.2)', () => {
     expect(relabel.data?.['saveProduct']).toMatchObject({ approval: 'approved', reviewed: [] })
     const priced = await gql(save, 'supplier', { id: pen.id, revision: revision + 1, input: pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', price: { mode: 'FIXED', per: 'ITEM', amounts: inr('500') } }]) })
     expect(priced.data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
+    // Raising a per-character question's length raises what shoppers can be charged: it goes back too.
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
+    const perChar = (maxLength: number) => pen2([{ id: questions[0]?.id, kind: 'TEXT', label: 'Name on the pen', maxLength, price: { mode: 'PER_CHARACTER', per: 'ITEM', amounts: inr('50') } }])
+    const atRevision = async () => ((await read(pen.id, 'supplier')).data?.['product'] as { revision: number }).revision
+    await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: perChar(20) })
+    await db.sql`update product set approval_status = 'approved' where id = ${pen.id}`
+    expect((await gql(save, 'supplier', { id: pen.id, revision: await atRevision(), input: perChar(200) })).data?.['saveProduct']).toMatchObject({ approval: 'pending', reviewed: ['price'] })
     await db.sql`update store set vendor_products_require_approval = false where id = ${t.storeA1}`
+  })
+
+  it('copies a merchant product’s questions onto a supplier’s without its photos or the currencies the supplier can’t type', async () => {
+    const cake = (await db.sql<{ id: string }[]>`select id from product where store_id = ${t.storeA1} and name = 'Birthday cake' order by created_at limit 1`)[0]?.id ?? ''
+    const pen = (await db.sql<{ id: string; revision: number }[]>`select id, revision from product where store_id = ${t.storeA1} and name = 'Engraved pen'`)[0]
+    const [photo] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum)
+      values (${t.storeA1}, ${`stores/${t.storeA1}/assets/${crypto.randomUUID()}.jpg`}, 'image', 'image/jpeg', 10, ${'c'.repeat(64)}) returning id`
+    await db.sql`update product_question_choice set photo_asset_id = ${photo?.id ?? ''} where id = (select id from product_question_choice where product_id = ${cake} order by position limit 1)`
+    const copied = await gql(
+      `mutation C($from: ID!, $to: ID!, $r: Int!) { copyProductQuestions(fromProductId: $from, toProductId: $to, revision: $r) { droppedAmounts droppedVersionLimits droppedPhotos } }`,
+      'owner',
+      { from: cake, to: pen?.id, r: pen?.revision },
+    )
+    expect(copied.errors).toBeUndefined()
+    // The gift wrap's USD amount (a manual currency) and the choice photo: the pen has both sizes, so nothing else drops.
+    expect(copied.data?.['copyProductQuestions']).toEqual({ droppedAmounts: 1, droppedVersionLimits: 0, droppedPhotos: 1 })
+    // A supplier can't put the merchant's photo, in use on the cake, on its own choice.
+    const { revision, versions } = (await read(pen?.id ?? '', 'supplier')).data?.['product'] as { revision: number; versions: { id: string }[] }
+    const input = sized('Engraved pen', [{ kind: 'CHOICE', label: 'Box', choices: [{ label: 'Gift box', photoAssetId: photo?.id }] }])
+    const borrowed = await gql(save, 'supplier', { id: pen?.id, revision, input: { ...input, versions: input.versions.map((v, i) => ({ ...v, id: versions[i]?.id })) } })
+    expect(borrowed.code).toBe('FILE_REFUSED')
   })
 })
 
