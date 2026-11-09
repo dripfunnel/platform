@@ -334,7 +334,7 @@ export const registerOffers = (builder: StoreBuilder) => {
       totalUsesLimit: t.int(),
       perCustomerLimit: t.int(),
       combines: t.field({ type: CombinesInput, required: true }),
-      // Left out is on.
+      // Left out is on for a new offer and unchanged on an edit.
       includeCustomisation: t.boolean(),
       conditions: t.field({ type: [ConditionInput], required: true }),
       action: t.field({ type: ActionInput, required: true }),
@@ -420,7 +420,8 @@ export const registerOffers = (builder: StoreBuilder) => {
           totalUsesLimit: i.totalUsesLimit ?? null,
           perCustomerLimit: i.perCustomerLimit ?? null,
           combines: i.combines,
-          includeCustomisation: i.includeCustomisation ?? true,
+          // Left out keeps an offer's switch as it is; a new offer's is on.
+          ...(i.includeCustomisation === null || i.includeCustomisation === undefined ? {} : { includeCustomisation: i.includeCustomisation }),
           conditions: i.conditions.map(conditionIn),
           action: compact({
             ...i.action,
