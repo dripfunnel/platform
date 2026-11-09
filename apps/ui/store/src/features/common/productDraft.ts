@@ -390,7 +390,8 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   if (live.some((v, i) => { const at = minorOf(v.compareAt, currency); const p = priced[i]; return at === 'invalid' || (typeof at === 'number' && typeof p === 'number' && at <= p) })) problems.push('compare')
   if (live.some((v) => minorOf(v.cost, currency) === 'invalid')) problems.push('cost')
   if (live.some((v) => Object.entries(v.manualPrices).some(([c, t]) => { const n = minorOf(t, c); return n === 'invalid' || n === 0 }))) problems.push('manual')
-  if (questionProblems(draft.questions, currency).length > 0) problems.push('questions')
+  const liveKeys = draft.versions.filter((v) => !v.removed && v.choices.length > 0).map((v) => keyOf(v.choices))
+  if (questionProblems(draft.questions, currency, liveKeys.length > 1 ? liveKeys : null).length > 0) problems.push('questions')
   const names = draft.options.map((o) => o.name.trim().toLowerCase())
   if (draft.options.length > maxOptions || names.some((n) => n === '') || new Set(names).size !== names.length || draft.options.some((o) => o.values.length === 0)) problems.push('options')
   // Choices changed since the versions were made: "Update versions" first, as the prototype asks.

@@ -6,7 +6,7 @@ import { messages } from '../../messages'
 import { blankDraft, type Draft } from '../common/productDraft'
 import { QuestionsSection } from './QuestionsSection'
 
-const api = vi.hoisted(() => ({ searchProductsWithQuestions: vi.fn(), copyProductQuestions: vi.fn() }))
+const api = vi.hoisted(() => ({ searchProductsWithQuestions: vi.fn(), copyProductQuestions: vi.fn(), uploadPhoto: vi.fn() }))
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...api }))
 
 // "Ask the shopper before they buy" (CATALOG-DESIGN §6 U): collapsed and empty for a product without questions, then
@@ -79,6 +79,30 @@ describe('the questions section', () => {
     fireEvent.change(boxes[1] as HTMLElement, { target: { value: 'Olives' } })
     fireEvent.click(screen.getByRole('button', { name: `${words.moveUp}: Olives` }))
     expect(screen.getByTestId('choices').textContent).toBe('Olives,Cheese')
+  })
+
+  it('clears a condition when the choice it named is removed', () => {
+    render(<Harness />)
+    open()
+    const add = () => within(screen.getByRole('group', { name: words.add }))
+    fireEvent.click(add().getByRole('button', { name: words.addChoice }))
+    fireEvent.click(add().getByRole('button', { name: words.addText }))
+    fireEvent.change(screen.getAllByRole('textbox', { name: words.choice })[0] as HTMLElement, { target: { value: 'Yes' } })
+    const second = screen.getAllByRole('combobox', { name: words.onlyWhen })[1] as HTMLSelectElement
+    fireEvent.change(second, { target: { value: (second.options[1] as HTMLOptionElement).value } })
+    fireEvent.click(screen.getByRole('button', { name: `${words.removeChoice}: Yes` }))
+    expect(screen.getAllByRole('combobox', { name: words.onlyWhen }).map((c) => (c as HTMLSelectElement).value)).toEqual(['', ''])
+  })
+
+  it('says when a choice’s photo can’t be added, and lets the shopper try again', async () => {
+    api.uploadPhoto.mockResolvedValueOnce({ ok: false, reason: 'FILE_TYPE' })
+    render(<Harness />)
+    open()
+    fireEvent.click(within(screen.getByRole('group', { name: words.add })).getByRole('button', { name: words.addChoice }))
+    const input = screen.getByLabelText(new RegExp(`^${words.photoAdd}:`)) as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['x'], 'x.gif', { type: 'image/gif' })] } })
+    expect((await screen.findByText(words.photoFailed)).getAttribute('role')).toBe('alert')
+    expect(screen.queryByText(words.photoUploading)).toBeNull()
   })
 
   it('offers nothing to change to a seat that can’t edit', () => {
